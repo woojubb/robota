@@ -372,29 +372,38 @@ rg "Priority" -g"*.md"
       - [ ] `ScenarioToolRecorder` 클래스 작성: Tool 실행 직전에 `recordToolCall(step)` 호출, 결과/오류/childContext 저장.
       - [ ] `ScenarioToolMock` 클래스 작성: playback 모드에서 step을 sequential/byHash 전략으로 찾아 반환, step 미존재 시 `ScenarioMissingError`.
    3. CLI/README
-      - [ ] `pnpm scenario:record --example=26 --scenario=mandatory-delegation` 스크립트 추가 (환경 변수 세팅 포함).
-      - [ ] `pnpm scenario:play ...`, `pnpm scenario:verify ...` 명령 작성 및 README에 실행 플로우(Recorder→Playback→Guard) 문서화.
-      - [ ] concurrency/ordering 안내: 동일 scenario에 동시 append 금지, timestamp 기반 파일명 규칙 명시.
+      - [x] `pnpm scenario:record`/`pnpm scenario:play` 스크립트 추가 (환경 변수 세팅 포함, args는 `--`로 전달).
+      - [x] `pnpm scenario:verify` 추가 (예제 실행 실패 또는 `[STRICT-POLICY]`/`[EDGE-ORDER-VIOLATION]` 감지 시 verify 금지).
+      - [x] README에 실행 플로우(Recorder→Playback→Guard) 및 사용법 문서화 (`apps/examples/README.md`).
+      - [x] concurrency/ordering 안내: 동일 `scenarioId`에 동시 record/append 금지 (단일 writer lockfile).
+        - 규칙: `ScenarioStore.appendStep()`는 `scenarios/.locks/<scenarioId>.lock`를 `wx`로 획득하지 못하면 즉시 실패(대기/재시도 없음).
+        - stale lock: recorder 프로세스 크래시로 lockfile이 남을 수 있으며, 이 경우 개발자가 lockfile을 수동 삭제 후 재시도한다(자동 우회/폴백 금지).
    4. Guard 통합
       - [ ] Guard 스크립트가 `SCENARIO_RECORD_ID`/`SCENARIO_PLAY_ID`를 감지해 Recorder/Mock를 자동 주입하도록 업데이트.
       - [ ] playback 모드에서 실제 Provider/Tool 호출 감지 시 즉시 실패하도록 감시 로직 추가 (`assertNoRealCalls()`).
       - [ ] scenario step 소비 여부 추적 후, 미사용 step이 남으면 “[SCENARIO-UNUSED] …” 경고를 띄우고 실패 처리.
 
 #### 단계 6.5: 단일 전환 단계 (Decision Gate)
-- [ ] Agent 핸들러: `agent.execution_start`는 상태 전이만 (노드 생성 절대 금지)
-- [ ] 단계 3의 "없을 때만 임시 생성" 하위호환 로직 완전 제거
-- [ ] 팀/툴 발행자: `tool.agent_execution_started` emit 완전 제거
-- [ ] 상수 제거: `packages/team/src/events/constants.ts`
-- [ ] 빌드/가드/검증 (원샷 검증)
+- [x] Agent 핸들러: `agent.execution_start`는 상태 전이만 (노드 생성 절대 금지)
+- [x] 단계 3의 "없을 때만 임시 생성" 하위호환 로직 완전 제거
+  - `ExecutionEventHandler`: `execution.user_message` 연결에서 `WorkflowState` fallback 제거 → 미존재 시 fail-fast
+  - `AgentEventHandler`: `execution.assistant_message_start`에서 `WorkflowState.getLastUserMessage(...)` 제거 → 동일 execution scope의 최신 `user_message`를 scan으로 결정, 미존재 시 fail-fast
+- [x] 팀/툴 발행자: `tool.agent_execution_started` emit/핸들링 완전 제거 (repo 전수 스캔 0건)
+- [x] 상수 제거: `packages/team/src/events/constants.ts` (파일/참조 0건 확인)
+- [x] 빌드/가드/검증 (원샷 검증)
+  - `pnpm --filter @robota-sdk/workflow build` PASS
+  - 예제 26 재검증: nodes=18 / edges=18, verify PASS (`SCENARIO_PLAY_ID=mandatory-delegation`, sequential)
+  - 예제 27 재검증: nodes=15 / edges=14, verify PASS (`SCENARIO_PLAY_ID=continued-conversation`, sequential)
 
 #### 단계 6.6: Fork/Join round2 thinking 연결 교정
-- [ ] `packages/workflow/src/handlers/agent-event-handler.ts`
-  - [ ] `execution.assistant_message_start`에서 연결 소스 결정 규칙 교정
-  - [ ] 동일 `rootExecutionId` 내 최신 thinking 노드 찾기 (Path-Only)
-  - [ ] `tool_result` 중 `parentThinkingNodeId` 일치하면 `analyze` 엣지
-  - [ ] 미발견 시 `user_message → thinking` (processes)
-- [ ] 빌드/가드/검증
-- [ ] round2 연결 검증: `tool_result → thinking_round2 (analyze)`
+- [x] `packages/workflow/src/handlers/agent-event-handler.ts`
+  - [x] `execution.assistant_message_start`에서 연결 소스 결정 규칙 확정 (Path-Only)
+    - 우선: 동일 execution scope의 최신 `tool_result`가 존재하면 `tool_result → thinking (analyze)`
+    - 그 외: 동일 execution scope의 최신 `user_message → thinking (processes)`
+    - 둘 다 없으면 fail-fast (No-Fallback)
+- [x] 빌드/가드/검증
+  - 예제 26/27 verify PASS로 round2 연결 규칙 포함 회귀 검증 완료
+- [x] round2 연결 검증: `tool_result → thinking_round2 (analyze)` (예제 26/27로 재검증)
 
 #### 단계 8: Subscriber Path Map Reader (선택, 우선순위 낮음)
 - [ ] `PathMapReader` 객체 설계 (읽기 전용)
@@ -569,6 +578,24 @@ npx tsx utils/verify-workflow-connections.ts | cat
 
 ## 🎨 Priority 3: Playground Tools DnD
 
+### 현 상태(코드 기준, 2025-12-20)
+- DnD 이벤트 라인(드래그 payload → drop → callback)은 **이미 존재**한다.
+  - `PlaygroundApp.tsx`: tool 카드 drag 시 `dataTransfer`에 `application/robota-tool`로 JSON serialize
+  - `WorkflowVisualization.tsx`: drop 이벤트를 받아 `onToolDrop(agentId, tool)`로 위임
+- 다만 “툴 목록/추가/삭제/오버레이 상태”는 아직 목표 체크리스트(B-2/B-4) 수준으로 정리되지 않았다.
+  - `ToolContainerBlock` 내부에 mock `AVAILABLE_TOOLS`가 존재(실제 `ToolItem`/toolItems 상태 기반 UI 아님)
+  - `PlaygroundContext`에는 `toolItems`/`addedToolsByAgent` 상태가 아직 없다(추가 필요)
+
+### 제안 방향(규칙 정합, 최소 변경)
+- **SDK tool registry/실행 경로를 건드리지 않고**, UI는 **overlay state**로만 “agent에 tool이 추가됨”을 표현한다.
+  - Path-only 워크플로우 그래프(이벤트 기반)는 그대로 유지
+  - UI는 `toolItems`(드래그 가능한 도구 목록) + `addedToolsByAgent`(드롭 결과) 2개 상태만 관리
+
+### 결정(필수)
+- `toolItems`/`addedToolsByAgent`의 상태 위치:
+  1) `PlaygroundApp` 로컬 상태로 시작(단순/빠름)
+  2) `PlaygroundContext` 전역 상태로 시작(구조적/확장성)
+
 ### B-1. 브릿지/레지스트리 보강
 - [ ] `apps/web/src/lib/playground/robota-executor.ts`
   - [ ] executor 에러를 UI 표준 에러로 변환
@@ -701,6 +728,9 @@ npx tsx utils/verify-workflow-connections.ts | cat
 - 2025-12-20: (회귀 검증) Node/Edge timestamp를 내부 단조 증가로 고정(NodeEdgeManager). 예제 26/27 verify PASS 재확인.
   - 예제 26(재검증): **nodes=18 / edges=18**, verify PASS (`SCENARIO_PLAY_ID=mandatory-delegation`)
   - 예제 27(재검증): **nodes=15 / edges=14**, verify PASS (`SCENARIO_PLAY_ID=continued-conversation`)
+- 2025-12-20: (team 정리) docs/README/examples에서 “Team Collaboration” 잔여 제거, 05 스크립트 제거, 07은 `07-agent-templates.ts`로 교체. api-reference(team) stale 문서 삭제.
+- 2025-12-20: (scenario CLI) `pnpm scenario:record/play/verify` 추가, verify는 예제 실패/strict-policy violation 시 즉시 중단. `apps/examples/README.md`에 실행 플로우 문서화.
+- 2025-12-20: (Stage 6.5/6.6) workflow handlers에서 `WorkflowState` fallback 제거 → path-only scan + fail-fast로 고정.
 
 **다음 단계**:
 1. Agent Event Normalization 단계 3, 6.5, 6.6 완료
@@ -718,12 +748,14 @@ npx tsx utils/verify-workflow-connections.ts | cat
 1. **참조 인벤토리 확정 (리스트+담당)**
    - [x] 코드 (Web/Playground): `apps/web/src/lib/playground/robota-executor.ts`, `playground-team-integration.ts`, `apps/web/src/tools/assign-task/index.ts`, team 전용 UI/상태 (playground-team-integration 삭제, robota-executor 팀 분기 제거, web 빌드 OK)
    - [x] 코드 (SDK/패키지) 1차 스캔: `rg "@robota-sdk/team"` 결과 확인 → 실제 남은 제거/정정 대상은 주로 문서/예제/설정(코드 의존은 assignTask 목적만 유지)
-   - [ ] 예제: `apps/examples/05/06/07 team-*`, `26-playground-edge-verification.ts`(및 archive), 기타 team 사용 예제 목록화
-   - [ ] 문서/설정: `docs/**`, `packages/*/docs/**`, README 계열, api-reference(team), 빌드 스크립트, pnpm workspace, tsconfig paths, root/app package.json 의존
+   - [x] 예제: `apps/examples/05/06/07 team-*` 정리
+     - 05: 파일 미존재(legacy script 제거)
+     - 07: `07-team-templates.ts` → `07-agent-templates.ts`로 교체(팀 개념 제거)
+   - [x] 문서/설정: `docs/**`, `packages/*/docs/**`, README 계열, api-reference(team) 정리
    - 스캔 결과(정리 필요 대상):
      - 코드/Web/Playground: 처리 완료
      - 코드/SDK: `packages/workflow/DEVELOPMENT_PLAN.md` 등 의존 언급만 확인(실제 팀 코드 없음)
-     - 예제: 05/06/07/26 및 archive 정리 필요
+    - 예제: 05/07 정리 완료(팀 명칭 제거), 26은 deprecated guard 유지
      - 문서/README: 아래 문서들이 여전히 “team=멀티에이전트/협업”으로 표현되어 있어 assignTask MCP-only로 정정 필요
        - 루트 `README.md` (createTeam import, 팀 자동 위임 설명)
        - `docs/README.md`, `docs/getting-started/README.md`, `docs/guide/README.md`, `docs/guide/core-concepts.md`, `docs/guide/building-agents.md`, `docs/guide/architecture.md`
@@ -768,19 +800,19 @@ npx tsx utils/verify-workflow-connections.ts | cat
       - **Agent 중립 절대 규칙**: Agent/AgentConfig에 assignTask 전용 필드나 특수 Agent 개념을 두지 않는다. `TaskAgent*`, “temporary/specialized agent” 표현 금지. 모든 Agent는 동일한 수명주기/설정 구조를 따른다.
       - RelayAgent는 도입하지 않는다(선택 사항이지만 현재 불필요). 표준 `Robota` + `RelayMcpTool` 조합만 사용한다.
    - 예제:
-     - [ ] team 전용 예제(05/06/07/26 등) 통폐합 → assignTask tool collection 최소 예제로 재작성
+    - [x] team 전용 예제(05/06/07) 통폐합 → assignTask 중심으로 정리
        - 유지/신규:
-         - `assign-task-basic.ts` (신규): listTemplates → getTemplateDetail → assignTask 단일 흐름, 템플릿/모델 상수 주입, LLM 호출 없이 결과 출력만
-         - `assign-task-categorized.ts` (옵션): listTemplateCategories → listTemplates(category) → assignTask 흐름, 카테고리 필터 예시
+        - [x] `assign-task-basic.ts`: listTemplates → getTemplateDetail → assignTask 호출 shape 출력(실행은 하지 않음; no LLM calls)
+        - [x] `assign-task-categorized.ts`: category → templates → detail → assignTask 호출 shape 출력(실행은 하지 않음; no LLM calls)
        - 축소/스텁:
          - 26번: team/ATS/Bridge 제거, assignTask 호출 샘플만 남긴 스텁, 실행 스킵 가드 유지
        - 폐기/대체:
-         - 05/06/07 team 예제 파일 삭제 또는 위 신규 예제로 교체(팀 스트림/Remote 비교 시나리오 폐기)
+        - [x] 05/07 team 예제 제거/대체(팀 스트림/Remote 비교 시나리오 폐기)
        - 공통 원칙:
          - createTeam/Team API 전면 제거, 단일 Robota + assignTask MCP 호출
          - LLM 호출 금지(캐시/가드 주석), 템플릿/모델 상수로 데모
          - 결과는 콘솔 요약만, ownerPath-only/노-폴백 준수
-     - [ ] guard/검증 스크립트에서 team 의존 경로 제거/스킵 규칙 명시
+    - [x] guard/검증 스크립트 강화: 예제 실패 또는 strict-policy violation 시 verify 금지(`apps/examples/utils/verify-scenario.ts`, `run-and-verify-workflow.ts`)
    - SDK/에이전트:
      - [x] team 전용 헬퍼(SubAgentEventRelay 등) 제거 대상 식별, assignTool 경로로 치환 여부 판단
      - [x] `packages/team/src/types.ts`를 assignTask 전용 최소 타입만 남기고 정리: `TaskAgentConfig`/특수 에이전트 관련 타입/주석 삭제, 표준 AgentConfig만 사용

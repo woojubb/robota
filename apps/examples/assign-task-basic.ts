@@ -1,70 +1,96 @@
 /**
  * assign-task-basic.ts
  *
- * Minimal assignTask tool collection demo without @robota-sdk/team.
- * Flow: listTemplates -> getTemplateDetail -> assignTask
+ * Minimal assignTask tool collection demo.
+ * Flow: listTemplates -> getTemplateDetail -> print assignTask call shape
  * Notes:
  * - Uses built-in templates (templates.json in @robota-sdk/team/assign-task).
- * - No live LLM calls; provider/model are provided as constants.
- * - Guard: do not execute network calls in this example. It's a shape demo only.
+ * - No live LLM calls in this example (it does not execute assignTask).
  */
 
-import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
-import { RelayMcpTool } from '@robota-sdk/agents';
-import type { EventService } from '@robota-sdk/agents';
+import { listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
+import type { ToolExecutionData, ToolResult } from '@robota-sdk/agents';
 
-// Minimal no-op event service (ownerPath handled upstream in real use)
-const noopEventService: EventService = {
-    emit: () => undefined
+type TemplateSummary = {
+    id: string;
+    name: string;
+    description?: string;
+    categoryId?: string;
+};
+
+type TemplatesListPayload = {
+    templates: TemplateSummary[];
+};
+
+const isObject = (value: ToolExecutionData): value is Record<string, ToolExecutionData> => {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+};
+
+const isTemplateSummary = (value: ToolExecutionData): value is TemplateSummary => {
+    if (!isObject(value)) return false;
+    const id = value.id;
+    const name = value.name;
+    if (typeof id !== 'string' || id.length === 0) return false;
+    if (typeof name !== 'string' || name.length === 0) return false;
+    const description = value.description;
+    if (description !== undefined && typeof description !== 'string') return false;
+    const categoryId = value.categoryId;
+    if (categoryId !== undefined && typeof categoryId !== 'string') return false;
+    return true;
+};
+
+const extractTemplatesList = (result: ToolResult): TemplatesListPayload => {
+    if (!result.success) {
+        throw new Error(result.error ?? 'listTemplates failed');
+    }
+    const data = result.data;
+    if (!data || !isObject(data)) {
+        throw new Error('listTemplates returned invalid data');
+    }
+    const templatesValue = data.templates;
+    if (!Array.isArray(templatesValue)) {
+        throw new Error('listTemplates returned invalid templates');
+    }
+    const templates: TemplateSummary[] = [];
+    for (const item of templatesValue) {
+        if (!isTemplateSummary(item as ToolExecutionData)) {
+            throw new Error('listTemplates returned invalid template item');
+        }
+        templates.push(item as TemplateSummary);
+    }
+    return { templates };
 };
 
 async function main() {
-    // 1) list templates
     const listResult = await listTemplatesTool.execute({});
-    if (!listResult.success) {
-        console.error('Failed to list templates:', listResult.error);
-        return;
-    }
-    const templates = (listResult.data as any)?.templates ?? [];
+    const { templates } = extractTemplatesList(listResult);
     console.log('Templates:', templates);
 
     // Pick first template for demo
     const selected = templates[0];
     if (!selected) {
-        console.error('No templates available');
-        return;
+        throw new Error('No templates available');
     }
 
-    // 2) get template detail
     const detail = await getTemplateDetailTool.execute({ templateId: selected.id });
     if (!detail.success) {
-        console.error('Failed to get template detail:', detail.error);
-        return;
+        throw new Error(detail.error ?? 'getTemplateDetail failed');
     }
     console.log('Template detail:', detail.data);
 
-    // 3) assignTask via Relay MCP Tool (no LLM run; this only shows shape)
-    const relay = createAssignTaskRelayTool(noopEventService) as RelayMcpTool;
+    // This example intentionally does NOT execute assignTask to avoid network/LLM calls.
+    // Instead, it prints a ready-to-use call shape.
     const jobDescription = 'Summarize the advantages of TypeScript for large codebases.';
-
-    const assignResult = await relay.execute({
+    const assignTaskCall = {
         templateId: selected.id,
         jobDescription,
-        // Override example (kept inline, no network):
-        provider: (detail.data as any)?.provider,
-        model: (detail.data as any)?.model
-    }, {
-        // Minimal execution context shape
-        ownerPath: [{ type: 'tool', id: 'assignTask' }],
-        agentId: 'agent_assign_demo',
-        eventService: noopEventService
-    } as any);
+        // Optional overrides (provider/model/temperature/maxTokens/context)
+    };
 
-    console.log('AssignTask result (shape only, no LLM call expected):', assignResult);
+    console.log('assignTask call shape (not executed):', assignTaskCall);
 }
 
-// Guarded entry (no real network expected)
 main().catch((err) => {
-    console.error('assign-task-basic failed:', err);
+    console.error('assign-task-basic failed:', err instanceof Error ? err.message : String(err));
 });
 

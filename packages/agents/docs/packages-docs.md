@@ -50,11 +50,10 @@ Eight core plugins providing lifecycle hooks and extensibility:
 - **Session Management**: ConversationSession with duplicate prevention + API conversion
 - **Type Safety**: Complete type system with JSDoc, type guards, and factory functions
 
-### 🤝 Team Collaboration System
-- **TeamContainer Integration**: Full agents standard migration with getStats support
-- **Execution Tracking**: Task completion, execution time, and agent creation metrics
-- **Multi-language Examples**: Working team collaboration examples in English and Korean
-- **Test Coverage**: Comprehensive unit tests for team functionality
+### 🧰 assignTask Tool Collection
+- **MCP-style tools**: listTemplateCategories, listTemplates, getTemplateDetail, assignTask
+- **Templates**: Bundled JSON templates shipped with `@robota-sdk/team`
+- **No team creation APIs**: Use Robota agents + tools; relationships come from events (ownerPath-only)
 
 ### 🔌 AI Provider Architecture
 - **Provider-agnostic Interface**: Universal message system across all providers
@@ -135,7 +134,7 @@ See the [examples directory](../../examples/) for comprehensive usage examples i
 - Basic conversations
 - Tool calling
 - Multi-provider setups
-- Team collaboration
+- assignTask tool collection
 - Streaming responses
 - Advanced plugin usage
 

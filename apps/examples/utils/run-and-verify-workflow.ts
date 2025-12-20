@@ -36,15 +36,11 @@ class WorkflowAutomation {
             await this.runGuardedExample26();
 
             // Step 2: Verify workflow connections
-            const verificationResult = await this.verifyConnections();
+            await this.verifyConnections();
 
             // Step 3: Copy to web playground if verification passed
-            if (verificationResult.success) {
-                await this.copyToPlayground();
-                await this.displaySuccessInstructions();
-            } else {
-                await this.displayFailureInstructions();
-            }
+            await this.copyToPlayground();
+            await this.displaySuccessInstructions();
 
         } catch (error) {
             console.error('❌ Automation failed:', error);
@@ -55,49 +51,55 @@ class WorkflowAutomation {
     private async runGuardedExample26(): Promise<void> {
         console.log('📋 Step 1: Running guarded example to generate workflow data...');
 
-        try {
-            const { stdout, stderr } = await execAsync('npx tsx 26-guarded-edge-verification.ts', {
-                cwd: this.examplesDir
-            });
-
-            console.log('✅ Playground example completed successfully');
-
-            // Check if data file was generated
-            const dataFilePath = path.join(this.dataDir, this.targetFileName);
-            if (!fs.existsSync(dataFilePath)) {
-                throw new Error(`Data file not found: ${dataFilePath}`);
-            }
-
-            console.log(`📁 Generated data file: ${dataFilePath}`);
-
-        } catch (error) {
-            console.error('❌ Failed to run playground example:', error);
-            throw error;
+        const scenarioId = process.env.SCENARIO_PLAY_ID;
+        const strategy = process.env.SCENARIO_PLAY_STRATEGY;
+        if (!scenarioId || scenarioId.length === 0) {
+            throw new Error('[GUARD] Missing SCENARIO_PLAY_ID. Refusing to run without scenario playback.');
         }
+        if (!strategy || (strategy !== 'hash' && strategy !== 'sequential')) {
+            throw new Error('[GUARD] Missing/invalid SCENARIO_PLAY_STRATEGY. Use "hash" or "sequential".');
+        }
+
+        const { stdout, stderr } = await execAsync('npx tsx 26-guarded-edge-verification.ts', {
+            cwd: this.examplesDir,
+            env: {
+                ...process.env,
+                SCENARIO_PLAY_ID: scenarioId,
+                SCENARIO_PLAY_STRATEGY: strategy
+            }
+        });
+
+        const combinedOutput = `${stdout}${stderr ? `\n${stderr}` : ''}`;
+        if (/\[STRICT-POLICY\]|\[EDGE-ORDER-VIOLATION\]/.test(combinedOutput)) {
+            throw new Error('[GUARD] Aborting: strict-policy violation detected in example output.');
+        }
+
+        console.log('✅ Guarded example completed successfully');
+
+        // Check if data file was generated
+        const dataFilePath = path.join(this.dataDir, this.targetFileName);
+        if (!fs.existsSync(dataFilePath)) {
+            throw new Error(`Data file not found: ${dataFilePath}`);
+        }
+
+        console.log(`📁 Generated data file: ${dataFilePath}`);
     }
 
-    private async verifyConnections(): Promise<{ success: boolean; output: string }> {
+    private async verifyConnections(): Promise<void> {
         console.log('\n🔍 Step 2: Verifying workflow connections...');
 
-        try {
-            const { stdout, stderr } = await execAsync('npx tsx utils/verify-workflow-connections.ts', {
-                cwd: this.examplesDir
-            });
+        const { stdout, stderr } = await execAsync('npx tsx utils/verify-workflow-connections.ts', {
+            cwd: this.examplesDir
+        });
 
-            const success = !stdout.includes('💥 Workflow validation failed!');
+        const output = `${stdout}${stderr ? `\n${stderr}` : ''}`;
+        const success = !output.includes('💥 Workflow validation failed!');
 
-            if (success) {
-                console.log('✅ Workflow validation passed');
-            } else {
-                console.log('❌ Workflow validation failed');
-            }
-
-            return { success, output: stdout };
-
-        } catch (error) {
-            console.error('❌ Failed to verify connections:', error);
-            return { success: false, output: String(error) };
+        if (!success) {
+            throw new Error('Workflow validation failed. Rules are immutable; fix the source code.');
         }
+
+        console.log('✅ Workflow validation passed');
     }
 
     private async copyToPlayground(): Promise<void> {
@@ -142,21 +144,7 @@ class WorkflowAutomation {
         console.log('• ✅ Success/failure reporting');
     }
 
-    private async displayFailureInstructions(): Promise<void> {
-        console.log('\n❌ FAILURE! Workflow validation failed');
-        console.log('='.repeat(60));
-        console.log('📋 Troubleshooting Steps:');
-        console.log('1. Review the validation errors above');
-        console.log('2. Fix the workflow generation code in:');
-        console.log('   packages/agents/src/services/workflow-event-subscriber.ts');
-        console.log('3. Re-run this automation script:');
-        console.log('   npx tsx utils/run-and-verify-workflow.ts');
-        console.log('');
-        console.log('🔧 Remember:');
-        console.log('• Validation rules are IMMUTABLE');
-        console.log('• Code must comply with rules, not vice versa');
-        console.log('• All 8 rules must pass for playground deployment');
-    }
+    // Failure instructions removed: this script is guard-only and fails fast on invalid workflows.
 }
 
 // Execute automation if run directly

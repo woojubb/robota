@@ -1,8 +1,11 @@
 /**
- * 07-team-templates.ts
- * 
- * Simplified Agent Templates Example
- * Demonstrates using different AI providers and models for specialized tasks
+ * 07-agent-templates.ts
+ *
+ * Agent Templates Example
+ * Demonstrates using different AI providers and models for specialized tasks.
+ *
+ * Note:
+ * - This is NOT a "team" API. It's simply multiple independent Robota instances.
  */
 
 import { Robota } from '@robota-sdk/agents';
@@ -17,7 +20,7 @@ dotenv.config();
 
 async function main() {
     try {
-        console.log('🎯 Agent Templates Example Started...\\n');
+        console.log('🎯 Agent Templates Example Started...\n');
 
         console.log(`
 📋 This demo shows:
@@ -27,7 +30,7 @@ async function main() {
 
 🤖 Agent Templates:
 • Research Agent (Anthropic Claude) - Market analysis specialist
-• Creative Agent (OpenAI GPT-4) - Innovation and ideation specialist
+• Creative Agent (OpenAI GPT-4o-mini) - Innovation and ideation specialist
 • Coordinator Agent (OpenAI GPT-4o-mini) - Results synthesis
         `);
 
@@ -63,11 +66,11 @@ async function main() {
             }
         });
 
-        // Creative Agent Template (OpenAI GPT-4)
+        // Creative Agent Template (OpenAI GPT-4o-mini)
         const creativeProvider = new OpenAIProvider({
             client: openaiClient,
             model: 'gpt-4o-mini',
-            temperature: 0.8  // Higher temperature for creativity
+            temperature: 0.8 // Higher temperature for creativity
         });
 
         const creativeAgent = new Robota({
@@ -85,7 +88,7 @@ async function main() {
         const coordinatorProvider = new OpenAIProvider({
             client: openaiClient,
             model: 'gpt-4o-mini',
-            temperature: 0.4  // Lower temperature for structured coordination
+            temperature: 0.4 // Lower temperature for structured coordination
         });
 
         const coordinatorAgent = new Robota({
@@ -99,20 +102,20 @@ async function main() {
             }
         });
 
-        console.log('\\n' + '='.repeat(60));
+        console.log('\n' + '='.repeat(60));
         console.log('📊 Template-Based Healthcare Product Development');
         console.log('='.repeat(60));
 
         const topic = 'AI-based personalized health monitoring solution';
 
         // Task 1: Market Research (Anthropic Claude)
-        console.log('\\n🔬 Research Agent (Anthropic Claude) - Market Analysis');
+        console.log('\n🔬 Research Agent (Anthropic Claude) - Market Analysis');
         const researchTask = `Analyze the healthcare technology market for ${topic}. Include:
-        1. Current market size and growth trends
-        2. Key competitors and their offerings
-        3. Market opportunities and entry strategies
-        4. Target customer segments
-        Please provide a structured, data-focused analysis.`;
+1. Current market size and growth trends
+2. Key competitors and their offerings
+3. Market opportunities and entry strategies
+4. Target customer segments
+Please provide a structured, data-focused analysis.`;
 
         const startTime1 = Date.now();
         const researchResult = await researchAgent.run(researchTask);
@@ -121,14 +124,14 @@ async function main() {
         console.log('✅ Research Analysis:', researchResult.substring(0, 200) + '...');
         console.log(`⏱️  Duration: ${duration1}ms`);
 
-        // Task 2: Creative Ideation (OpenAI GPT-4)
-        console.log('\\n🎨 Creative Agent (OpenAI GPT-4) - Innovation Ideas');
+        // Task 2: Creative Ideation (OpenAI GPT-4o-mini)
+        console.log('\n🎨 Creative Agent (OpenAI GPT-4o-mini) - Innovation Ideas');
         const creativeTask = `Generate innovative ideas for ${topic}. Focus on:
-        1. Unique value propositions and differentiation
-        2. User experience innovations
-        3. Three specific product concepts with key features
-        4. Implementation approaches
-        Think creatively and propose breakthrough solutions.`;
+1. Unique value propositions and differentiation
+2. User experience innovations
+3. Three specific product concepts with key features
+4. Implementation approaches
+Think creatively and propose breakthrough solutions.`;
 
         const startTime2 = Date.now();
         const creativeResult = await creativeAgent.run(creativeTask);
@@ -138,33 +141,33 @@ async function main() {
         console.log(`⏱️  Duration: ${duration2}ms`);
 
         // Task 3: Synthesis and Coordination (OpenAI GPT-4o-mini)
-        console.log('\\n📋 Coordinator Agent (OpenAI GPT-4o-mini) - Final Synthesis');
+        console.log('\n📋 Coordinator Agent (OpenAI GPT-4o-mini) - Final Synthesis');
         const coordinationTask = `As a project coordinator, please synthesize the following research and creative inputs into a cohesive product development plan:
 
-        MARKET RESEARCH FINDINGS:
-        ${researchResult}
+MARKET RESEARCH FINDINGS:
+${researchResult}
 
-        CREATIVE PRODUCT IDEAS:
-        ${creativeResult}
+CREATIVE PRODUCT IDEAS:
+${creativeResult}
 
-        Create a structured plan that combines both perspectives into:
-        1. Executive summary
-        2. Prioritized product concept
-        3. Go-to-market strategy
-        4. Next steps and timeline
+Create a structured plan that combines both perspectives into:
+1. Executive summary
+2. Prioritized product concept
+3. Go-to-market strategy
+4. Next steps and timeline
 
-        Focus on practical integration and clear recommendations.`;
+Focus on practical integration and clear recommendations.`;
 
         const startTime3 = Date.now();
         const finalResult = await coordinatorAgent.run(coordinationTask);
         const duration3 = Date.now() - startTime3;
 
-        console.log('\\n📄 Final Product Development Plan:');
+        console.log('\n📄 Final Product Development Plan:');
         console.log(finalResult);
-        console.log(`\\n⏱️  Coordination Duration: ${duration3}ms`);
+        console.log(`\n⏱️  Coordination Duration: ${duration3}ms`);
 
         // Performance Summary
-        console.log('\\n' + '='.repeat(60));
+        console.log('\n' + '='.repeat(60));
         console.log('📈 Template Performance Summary');
         console.log('='.repeat(60));
 
@@ -182,12 +185,11 @@ async function main() {
 • Structured workflow with clear handoffs
         `);
 
-        console.log('\\n✅ Agent Templates Example completed successfully!');
-        console.log('🔬 Each agent used optimal AI provider for their specialization');
+        console.log('\n✅ Agent Templates Example completed successfully!');
+        console.log('🔬 Each agent used an optimal AI provider for their specialization');
         console.log('🤝 Coordinated workflow produced comprehensive results');
-
     } catch (error) {
-        console.error('\\n❌ Demo failed:', error);
+        console.error('\n❌ Demo failed:', error);
         process.exit(1);
     }
 }
@@ -196,3 +198,5 @@ main().catch((error) => {
     console.error('❌ Error:', error);
     process.exit(1);
 });
+
+

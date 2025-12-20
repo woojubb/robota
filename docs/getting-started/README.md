@@ -164,12 +164,11 @@ main().catch(console.error);
 - **Error monitoring**: Comprehensive error tracking
 - **Performance insights**: Identify bottlenecks
 
-### 👥 Team Collaboration
-**Why It Matters**: Solve complex problems with AI teamwork
-- **Multi-agent coordination**: Orchestrate multiple agents working together
-- **Role-based assignment**: Assign specific roles to different agents
-- **Task delegation**: Automatically distribute work across team members
-- **Collective intelligence**: Combine strengths of different AI models
+### 🧰 assignTask Tool Collection
+**Why It Matters**: Use MCP-style task assignment tools as part of your agent workflows
+- **Template registry**: List bundled templates and read template details
+- **assignTask tool**: Delegate a task to a template-driven execution flow
+- **No team creation APIs**: Avoid team-specific orchestration; use tools + ownerPath-only event context
 
 ### 🗓️ Future-Proof Architecture
 **Why It Matters**: Your code grows with the SDK
@@ -206,11 +205,10 @@ main().catch(console.error);
 - **Usage analytics**: Track token usage and costs
 - **Error monitoring**: Comprehensive error tracking
 
-### 👥 Team Collaboration
-- **Multi-agent coordination**: Orchestrate multiple agents working together
-- **Role-based assignment**: Assign specific roles to different agents
-- **Task delegation**: Automatically distribute work across team members
-- **Collective intelligence**: Combine strengths of different AI models
+### 🧰 assignTask Tool Collection
+- **Template registry**: List templates and resolve details
+- **Task assignment**: Use `assignTask` when you want a tool-driven delegation flow
+- **OwnerPath-only**: All relationships are derived from `context.ownerPath` (absolute)
 
 ### 🗓️ Future Roadmap
 - **Advanced Planning System**: Sophisticated planning strategies (ReAct, Plan-and-Execute, Reflection, CAMEL)
@@ -405,7 +403,7 @@ Now that you have a basic agent running, explore these advanced features:
 1. **[Core Concepts](../guide/core-concepts.md)** - Understand the architecture
 2. **[Function Calling](../guide/function-calling.md)** - Add custom tools and capabilities
 3. **[Building Agents](../guide/building-agents.md)** - Advanced patterns and best practices
-4. **[Team Collaboration](../examples/team-collaboration.md)** - Multi-agent coordination
+4. **[assignTask Tool Collection](../examples/team-collaboration.md)** - MCP-style task assignment tools
 5. **[Examples](../examples/README.md)** - Real-world usage examples
 
 ## Need Help?
