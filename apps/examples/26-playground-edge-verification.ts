@@ -1,18 +1,18 @@
-import dotenv from 'dotenv';
-
 /**
- * 26-playground-edge-verification (deprecated placeholder)
- * Team-based edge verification removed. No execution is performed.
- * If needed, replace with an assignTask-based minimal graph test.
+ * @deprecated
+ * This example is intentionally DISABLED and MUST NOT be executed again.
+ *
+ * Intent:
+ * - Keep the historical filename for reference only.
+ * - Prevent accidental execution from scripts/CI/manual runs after the refactor.
+ *
+ * Use instead:
+ * - `26-guarded-edge-verification.ts` (refactor validation via scenario playback)
+ * - `27-continued-conversation-edge-verification.ts` (continued-conversation validation)
  */
 
-dotenv.config();
-
-async function main() {
-    console.log('⚠️ Example 26 deprecated after team removal. No execution performed.');
-}
-
-main().catch((err) => {
-    console.error('26-playground-edge-verification placeholder error:', err);
-});
+throw new Error(
+    '[DEPRECATED-EXAMPLE] apps/examples/26-playground-edge-verification.ts is disabled. ' +
+    'Do not run it. Use 26-guarded-edge-verification.ts instead.'
+);
 

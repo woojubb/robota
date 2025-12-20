@@ -26,6 +26,7 @@ export interface ToolExecutionRequest {
     ownerId?: string;
     ownerPath?: OwnerPathSegment[];
     eventService?: EventService;
+    baseEventService?: EventService;
 }
 
 export interface ToolExecutionBatchContext {
@@ -183,7 +184,8 @@ export class ToolExecutionService {
                     ownerId: request.ownerId || request.executionId,
                     ownerPath: request.ownerPath,
                     metadata: request.metadata,
-                    eventService: request.eventService
+                    eventService: request.eventService,
+                    baseEventService: request.baseEventService
                 }).catch(error => ({
                     toolName: request.toolName || 'unknown',
                     result: null,
@@ -218,7 +220,8 @@ export class ToolExecutionService {
                         ownerId: request.ownerId || request.executionId,
                         ownerPath: request.ownerPath,
                         metadata: request.metadata,
-                        eventService: request.eventService
+                        eventService: request.eventService,
+                        baseEventService: request.baseEventService
                     });
                     results.push(result);
 

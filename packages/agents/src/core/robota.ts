@@ -1,5 +1,5 @@
 import { AbstractAgent } from '../abstracts/abstract-agent';
-import { Message, AgentConfig, RunOptions, AgentInterface } from '../interfaces/agent';
+import { Message, AgentConfig, RunOptions, AgentInterface, ExecutionContextInjection } from '../interfaces/agent';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { AbstractModule } from '../abstracts/abstract-module';
 import { ModuleRegistry } from '../managers/module-registry';
@@ -148,6 +148,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
     // Core services
     private executionService!: ExecutionService;
     private eventService: EventService;
+    private agentEventService: EventService;
 
     // State management
     protected override config: AgentConfig;
@@ -222,11 +223,11 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
         this.eventEmitter = this.createEventEmitterInstance();
         this.moduleRegistry = this.createModuleRegistryInstance();
 
-        // Initialize EventService
-        // If parent provided EventService, use it directly
-        // Otherwise, fall back to default no-op EventService
+        // Initialize base EventService (UNBOUND).
+        // The agent must use an owner-bound instance for agent.* events,
+        // while ExecutionService will use owner-bound instances for execution.* and tool.* events.
         this.eventService = config.eventService || DEFAULT_ABSTRACT_EVENT_SERVICE;
-        this.eventService = bindWithOwnerPath(this.eventService, {
+        this.agentEventService = bindWithOwnerPath(this.eventService, {
             ownerType: 'agent',
             ownerId: this.conversationId,
             ownerPath: this.buildOwnerPath(this.config.executionContext),
@@ -359,22 +360,19 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
         };
     }
 
-    private getAgentOwnerContext(): EventContext {
-        return {
+    private emitAgentEvent(eventType: string, data: AgentEventData): void {
+        if (isDefaultEventService(this.agentEventService)) {
+            return;
+        }
+        // Absolute ownerPath: pass the full path explicitly so downstream subscribers can derive `path` deterministically.
+        this.agentEventService.emit<AgentEventData>(eventType, data, {
             ownerType: 'agent',
             ownerId: this.conversationId,
             ownerPath: this.buildOwnerPath(this.config.executionContext)
-        };
+        });
     }
 
-    private emitAgentEvent(eventType: string, data: AgentEventData): void {
-        if (isDefaultEventService(this.eventService)) {
-            return;
-        }
-        this.eventService.emit<AgentEventData>(eventType, data, this.getAgentOwnerContext());
-    }
-
-    private buildOwnerPath(executionContext?: ToolExecutionContext): OwnerPathSegment[] {
+    private buildOwnerPath(executionContext?: ExecutionContextInjection): OwnerPathSegment[] {
         const base = executionContext?.ownerPath?.length
             ? executionContext.ownerPath.map(segment => ({ ...segment }))
             : [];
@@ -521,7 +519,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
 
             // NOW initialize ExecutionService after all managers are set up
             // 🎯 [CONTEXT-INJECTION] Extract execution context from config if available
-            const executionContext = this.config.executionContext as ToolExecutionContext | undefined;
+            const executionContext = this.config.executionContext;
 
             this.executionService = new ExecutionService(
                 this.aiProviders,

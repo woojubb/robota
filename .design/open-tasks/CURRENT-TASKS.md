@@ -86,7 +86,39 @@
      - [ ] 핸들러 측에서 `context.ownerPath`만으로 source ID를 복구할 수 있도록 테스트 케이스 추가
 3. **핸들러 업데이트**
    - [x] 핸들러에서 prefix 기반 분기를 제거하고 `context.ownerPath` 기반 helper로 출처 판별 — 2025-11-30 Tool/Agent handler path-only refactor
-   - [ ] Path-only 검증: Guarded 예제 26/27 실행 후 로그/노드 수 점검
+  - [x] Path-only 검증: Guarded 예제 26/27 실행 후 로그/노드 수 점검
+     - 배경/의도(리팩토링 검증)
+       - 지금까지의 ownerPath-only/DI 리팩토링이 **이론적으로 타당하다면**, Guarded 예제(시나리오 재생 기반)를 “쉽게” 구현/유지할 수 있어야 한다.
+       - 반대로, 예제를 구현하기 어렵거나 이상한 예외/누락 edge가 반복된다면 그것은 “예제 문제”가 아니라 **리팩토링 설계의 누락/모순을 드러내는 신호**로 취급한다.
+       - 따라서 이 단계의 목표는 “예제 구현” 자체가 아니라 **리팩토링 설계를 실제로 검증하고, 개선점/더 나은 방향을 도출**하는 것이다.
+
+     - 결정(단일 경로 / No-Fallback)
+       - 선택: **2) 26은 deprecated로 잠그고, 새로운 guarded 예제로 분리**
+       - `apps/examples/26-playground-edge-verification.ts`는 **실행 즉시 실패**하도록 잠금(재실행 방지).
+       - 검증용 실행 파일:
+         - `apps/examples/26-guarded-edge-verification.ts`
+         - `apps/examples/27-continued-conversation-edge-verification.ts`
+       - 자동화/스크립트는 위 guarded 파일만 호출하도록 고정한다(legacy 26 파일 호출 금지).
+
+     - 실행 방식(Guarded)
+       - 예제 실행은 **scenario playback(offline) 기반**으로만 수행한다.
+       - `SCENARIO_PLAY_ID` 필수, `SCENARIO_PLAY_STRATEGY=sequential` 고정(리팩토링으로 인한 request-hash coupling 방지).
+       - 예제 실패(비정상 exit) 또는 로그에 `[STRICT-POLICY]` / `[EDGE-ORDER-VIOLATION]` 포함 시 **검증 스크립트는 실행하지 않는다**(가드).
+
+     - 산출물/입력 파일(검증 스크립트 불변)
+       - 예제는 `apps/examples/data/real-workflow-data.json`를 생성/갱신한다.
+       - 검증은 `apps/examples/utils/verify-workflow-connections.ts`(골드 스탠다드, 수정 금지)로만 판정한다.
+
+     - 체크리스트(코드/문서)
+       - [x] `apps/examples/26-playground-edge-verification.ts` 실행 방지(즉시 throw) + deprecated 의도 주석 추가
+       - [x] Guarded 예제 파일 분리
+         - [x] `apps/examples/26-guarded-edge-verification.ts` 생성(시나리오 재생 → 워크플로우 데이터 생성)
+         - [x] `apps/examples/27-continued-conversation-edge-verification.ts` 생성(continued conversation 시나리오 기반)
+       - [x] `apps/examples/utils/run-and-verify-workflow.ts`가 guarded 예제만 실행하도록 전환(legacy 26 호출 제거, timeout 제거)
+       - [x] `apps/examples/package.json` 스크립트에서 legacy 26 호출 제거
+      - [x] Guarded 예제 26 실행(가드) + verify 통과
+      - [x] Guarded 예제 27 실행(가드) + verify 통과
+      - [x] 결과 기록(노드/엣지 수, 실패 시 rule 위반 유형) 및 리팩토링 개선점 제안 정리
 4. **문서 & 검증**
    - [ ] `.design/event-system` 문서 업데이트 (prefix 제거, ownerPath 규칙)
    - [ ] CURRENT-TASKS 진행 기록 추가 및 전환 조건 명시
@@ -680,7 +712,7 @@ export class ActionTrackingEventService implements EventService {
 - [ ] 타 모듈의 `execution.*` emit 전역 검사 및 제거
 - [ ] ESLint 룰 추가: "하드코딩된 접두어 사용 금지"
 - [ ] 단위 테스트 작성 (접두어 검증, 에러 케이스)
-- [ ] 통합 테스트: 예제 26 가드 실행 및 검증
+- [x] 통합 테스트: 예제 26 가드 실행 및 검증
 
 #### 참고 코드 위치
 - `packages/agents/src/services/execution-service.ts` (line 142-154): maybeClone 구현
@@ -690,7 +722,7 @@ export class ActionTrackingEventService implements EventService {
 ### A-4. Continued Conversation Path-Only
 - [ ] ExecutionService(user_message) path = [rootId, executionId] 보장
 - [ ] `response(last) → user_message(continues) → thinking(processes)` 시퀀스
-- [ ] 예제 27 재검증
+- [x] 예제 27 재검증
 
 ---
 
@@ -762,7 +794,7 @@ export class ActionTrackingEventService implements EventService {
 - [ ] Agent 노드 생성은 오직 `agent.created`
 - [ ] `agent.execution_start`는 상태 전이만
 - [ ] `tool.agent_execution_started` 완전 제거
-- [ ] 예제 26 가드/검증 통과
+- [x] 예제 26 가드/검증 통과
 - [ ] 하드코딩 문자열 없음 (상수만 사용)
 - [ ] Fork/Join 다중 depth Path-Only 연결
 
@@ -770,7 +802,7 @@ export class ActionTrackingEventService implements EventService {
 - [ ] `groupId`/`branchId`/`responseExecutionId` 제거
 - [ ] WorkflowState 경량화 완료
 - [ ] 이벤트 소유권 ESLint 룰 적용
-- [ ] Continued Conversation 예제 27 통과
+- [x] Continued Conversation 예제 27 통과
 
 ### Tools DnD
 - [ ] 드래그앤드롭 동작 안정적
@@ -805,6 +837,16 @@ export class ActionTrackingEventService implements EventService {
 - 2025-12-20: (정리) `apps/web/src/lib/playground/playground-event-service.ts`는 하드코딩 이벤트 문자열/기본 fallback 로직이 포함되어 규칙 위반 소지가 있었고, 현재 DI 경로에서 미사용이라 제거했다.
 - 2025-12-20: (검증) `apps/web/src/**` 전수 스캔 결과 `ActionTrackingEventService`/Bridge/`PlaygroundEventService`/`new EventService` 잔여 0건. 현재 Playground composition root는 `apps/web/src/contexts/playground-context.tsx`에서 `WorkflowEventSubscriber` + `WorkflowSubscriberEventService`를 생성해 `PlaygroundExecutor`에 주입한다.
 - 2025-12-20: (Priority 0) `SilentEventService` 제거 완료 — `AbstractEventService`가 기본 no-op을 제공하며, 코드베이스에서 `SilentEventService` 정의/파일은 제거된 상태로 확인.
+- 2025-12-20: (검증/리팩토링 검증) Guarded 예제 **26/27 가드 실행 + verify 통과** — ownerPath-only 이론을 실제 그래프 생성으로 검증하며 아래 결함/개선점을 반영해 PASS로 고정.
+  - 예제 26: **nodes=18 / edges=18**, verify PASS
+  - 예제 27: **nodes=15 / edges=14**, verify PASS
+  - 핵심 수정(단일 경로/No-Fallback 유지):
+    - ExecutionService ownerPath를 **absolute(full path)**로 정규화(특히 `thinking`/`response` 세그먼트 포함)하여 `assistant_message_*`/tool fork/join이 path-only로 결정되게 함
+    - ToolExecutionContext에 **`baseEventService`(unbound)**를 추가해 “툴이 agent를 생성하는 경우”에도 owner-bound EventService 레이어 충돌 없이 새 owner로 바인딩 가능하게 함
+    - examples bridge(`WorkflowSubscriberEventService`)에 `flush()`를 추가해 실행 종료 직후 snapshot 저장 시 이벤트 처리 완료를 보장(타이머/리트라이 없이 순차 처리만 await)
+    - workflow handler 보강:
+      - `execution.user_message`에서 nested ownerPath의 **local agent/execution**을 context.ownerPath에서 추출해 lastUserMessage/state 연결을 정확히 유지
+      - `tool.call_response_ready`에서 `delegatedResponseNodeId`(툴 결과에 명시) 제공 시 tool_response의 parent를 tool_call이 아닌 delegated response로 연결해 `tool_call 단일 outgoing` 규칙을 만족
 - 2025-12-20: (Priority 0) `SilentEventService` 잔여 참조 제거 — repo 전수 스캔 결과 참조 0건, 남아있던 문구(`Previously SilentEventService...`) 삭제. `pnpm --filter @robota-sdk/agents build` PASS.
 - 2025-12-20: (Priority 0) Context binder 규약 반영 — `bindWithOwnerPath` 도입(호출부 전환 시작), `createContextBoundInstance`는 ownerType taxonomy를 선지식으로 제한하지 않고(string), `ownerType/ownerId` 필수 + ownerPath 검증/append 단일 규칙으로 고정. `pnpm --filter @robota-sdk/agents build` PASS.
 - 2025-12-20: (Priority 0) Legacy alias 정리 — `@robota-sdk/agents`에서 `ContextualEventService`/`SilentContextualEventService` alias re-export 제거. workflow 문서(`packages/workflow/ARCHITECTURE.md`, `DEVELOPMENT_PLAN.md`)에서도 ActionTracking/Contextual alias 기반 설명을 ownerPath context 기준으로 정리.
@@ -814,6 +856,7 @@ export class ActionTrackingEventService implements EventService {
 - 2025-12-20: (Priority 0 / 1순위) DI-only 마감 — `PlaygroundProvider`에서 EventService 직접 생성 제거(외부 `createEventService` 주입). 사용처는 `apps/web/src/app/playground/page.tsx`로 이동. examples 범위에서 EventService 직접 `new` 0건 확인.
 - 2025-12-20: (Priority 0 / 1순위) 이벤트 상수/하드코딩 정리 — `EXECUTION_EVENTS`/`TOOL_EVENTS`/`AGENT_EVENTS`를 prefix 포함 상수로 고정하고, workflow/web 구독/핸들러에서 문자열 리터럴을 제거해 상수 import로 통일. `@robota-sdk/agents` public export에 `EXECUTION_EVENTS`/`TOOL_EVENTS` 추가로 workflow 빌드 호환성 확보. `pnpm --filter @robota-sdk/agents build` PASS, `pnpm --filter @robota-sdk/workflow build` PASS.
 - 2025-12-20: (검증/정리) `apps/web/src/**`에서 `console.*` 직접 호출 0건 달성 — `WebLogger`(DI-friendly wrapper) 도입 후, hooks/components/api routes/playground sandbox 포함 전수 치환 및 lint/grep 검증 완료.
+- 2025-12-20: (검증/계획) Guarded 예제 경로 재정의 — legacy `26-playground-edge-verification.ts` 실행 방지(즉시 실패), `26-guarded-edge-verification.ts`/`27-continued-conversation-edge-verification.ts`로 분리. 자동화/스크립트도 guarded 파일만 호출하도록 전환.
 
 **다음 단계**:
 1. Agent Event Normalization 단계 3, 6.5, 6.6 완료

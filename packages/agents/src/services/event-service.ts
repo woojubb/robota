@@ -155,12 +155,36 @@ class OwnerBoundEventService extends AbstractEventService {
             throw new Error('[EVENT-SERVICE] Missing sourceType/sourceId for owner-bound emission');
         }
 
-        const mergedOwnerPath = mergeOwnerPathSegments(this.ownerBinding.ownerPath, context?.ownerPath);
+        // ownerPath is a single authoritative value per emission:
+        // - If the caller provides context.ownerPath, it MUST be the full absolute ownerPath
+        //   and MUST end with the bound owner segment (ownerType/ownerId).
+        // - Otherwise, use the ownerBinding.ownerPath of this owner-bound EventService.
+        const boundOwnerType = this.ownerBinding.ownerType;
+        const boundOwnerId = this.ownerBinding.ownerId ?? resolvedSourceId;
+
+        const resolvedOwnerPath: OwnerPathSegment[] = (() => {
+            if (context?.ownerPath?.length) {
+                const provided = context.ownerPath.map(segment => ({ ...segment }));
+                const last = provided[provided.length - 1];
+                if (!last || last.type !== boundOwnerType || last.id !== boundOwnerId) {
+                    throw new Error('[EVENT-SERVICE] Invalid context.ownerPath for owner-bound emission (last segment must match bound ownerType/ownerId)');
+                }
+                return provided;
+            }
+
+            if (this.ownerBinding.ownerPath?.length) {
+                return this.ownerBinding.ownerPath.map(segment => ({ ...segment }));
+            }
+
+            // Strict policy: owner-bound services must have a path; do not fabricate alternative flows.
+            throw new Error('[EVENT-SERVICE] Missing ownerPath for owner-bound emission');
+        })();
+
         const resolvedContext: EventContext = {
-            ownerType: context?.ownerType ?? this.ownerBinding.ownerType,
-            ownerId: context?.ownerId ?? this.ownerBinding.ownerId ?? resolvedSourceId,
-            ownerPath: mergedOwnerPath,
-            sourceId: context?.sourceId ?? resolvedSourceId,
+            ownerType: boundOwnerType,
+            ownerId: boundOwnerId,
+            ownerPath: resolvedOwnerPath,
+            sourceId: resolvedSourceId,
             timestamp
         };
 

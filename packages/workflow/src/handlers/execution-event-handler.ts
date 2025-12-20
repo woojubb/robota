@@ -138,8 +138,29 @@ export class ExecutionEventHandler implements EventHandler {
                                 errors: [`[PATH-ONLY] Invalid path for ${EXECUTION_EVENTS.USER_MESSAGE}: ${JSON.stringify(pathArr)}`]
                             };
                         }
-                        const rootId = String(pathArr[0]);
-                        const execId = String(pathArr[1]);
+                        const ctxOwnerPath = (eventData as any)?.context?.ownerPath as Array<{ type: string; id: string }> | undefined;
+                        const localAgentId = (() => {
+                            if (Array.isArray(ctxOwnerPath)) {
+                                for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
+                                    const seg = ctxOwnerPath[i];
+                                    if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) {
+                                        return seg.id;
+                                    }
+                                }
+                            }
+                            return String(pathArr[0]);
+                        })();
+                        const localExecutionId = (() => {
+                            if (Array.isArray(ctxOwnerPath)) {
+                                for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
+                                    const seg = ctxOwnerPath[i];
+                                    if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) {
+                                        return seg.id;
+                                    }
+                                }
+                            }
+                            return String(pathArr[1]);
+                        })();
                         const userMessageNode = this.createUserMessageNode(eventData);
                         if ((eventData as any).parentId) userMessageNode.parentId = String((eventData as any).parentId);
                         if (eventData.parentExecutionId) {
@@ -170,14 +191,13 @@ export class ExecutionEventHandler implements EventHandler {
                             edgeType = 'continues';
                         } else {
                             // First message in this root/sub-flow: connect to agent
-                            const rootId = String(pathArr[0]);
                             let agentNodeForExec: string | undefined;
                             const nodesAccessor: any[] = allNodes;
-                            agentNodeForExec = nodesAccessor.find(n => n.type === 'agent' && n.data?.sourceId === rootId)?.id;
+                            agentNodeForExec = nodesAccessor.find(n => n.type === 'agent' && n.data?.sourceId === localAgentId)?.id;
 
                             if (!agentNodeForExec) {
                                 // Fallback to WorkflowState if direct scan fails (e.g., agent not yet in allNodes)
-                                agentNodeForExec = WorkflowState.getAgentForRoot(rootId);
+                                agentNodeForExec = WorkflowState.getAgentForRoot(localAgentId);
                             }
                             sourceNodeForConnection = agentNodeForExec;
                             edgeType = 'receives';
@@ -195,8 +215,8 @@ export class ExecutionEventHandler implements EventHandler {
                         }
 
                         // Record last user message for root and exec for thinking linkage
-                        WorkflowState.setLastUserMessage(rootId, userMessageNode.id);
-                        WorkflowState.setLastUserMessage(execId, userMessageNode.id);
+                        WorkflowState.setLastUserMessage(localAgentId, userMessageNode.id);
+                        WorkflowState.setLastUserMessage(localExecutionId, userMessageNode.id);
 
                         break;
                     }

@@ -9,6 +9,8 @@ export interface RelayMcpContext {
     ownerPath: OwnerPathSegment[];
     /** Tool-bound EventService (already bound to tool by caller) */
     eventService: EventService;
+    /** Unbound base EventService (required to bind a new owner for created agent) */
+    baseEventService: EventService;
     /** Generated agent identifier for this relay execution */
     agentId: string;
 }
@@ -46,6 +48,10 @@ export class RelayMcpTool extends AbstractTool<ToolParameters, ToolResult> {
         if (!eventService) {
             throw new ToolExecutionError('RelayMcpTool requires tool-call scoped EventService in ToolExecutionContext', this.schema.name);
         }
+        const baseEventService = context?.baseEventService;
+        if (!baseEventService) {
+            throw new ToolExecutionError('RelayMcpTool requires baseEventService in ToolExecutionContext', this.schema.name);
+        }
 
         const baseOwnerPath = context?.ownerPath;
         if (!baseOwnerPath || baseOwnerPath.length === 0) {
@@ -61,6 +67,7 @@ export class RelayMcpTool extends AbstractTool<ToolParameters, ToolResult> {
         const ctx: RelayMcpContext = {
             ownerPath: agentOwnerPath,
             eventService,
+            baseEventService,
             agentId
         };
 

@@ -71,14 +71,22 @@ export class AgentEventHandler implements EventHandler {
                     const rootId = pathInfo.rootId || String(data.sourceId || '');
 
                     updates.push({ action: 'create', node: agentNode });
+                    // Root agent creation can legitimately have no parent segment.
+                    // In that case, the agent becomes the start node and later events will connect the flow.
                     if (!pathInfo.parentId) {
-                        return {
-                            success: false,
-                            updates: [],
-                            errors: [
-                                `[PATH-ONLY] Missing parent segment for ${AGENT_EVENTS.CREATED}. Path=${pathInfo.segments.join(' -> ')}`
-                            ]
-                        };
+                        this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
+                        if (data.executionId) {
+                            WorkflowState.setAgentForExecution(String(data.executionId), agentNode.id);
+                        }
+                        if (rootId) {
+                            WorkflowState.setAgentForRoot(rootId, agentNode.id);
+                        }
+                        {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const subscriber = (this as any).subscriber as { registerNode?: (k: string, id: string) => void } | undefined;
+                            subscriber?.registerNode?.(`agentFor:${String(data.sourceId)}`, agentNode.id);
+                        }
+                        break;
                     }
 
                     const edge: WorkflowEdge = {
@@ -769,6 +777,9 @@ export class AgentEventHandler implements EventHandler {
 
     private extractPathInfo(eventData: EventData, contextLabel: string): PathInfo {
         const candidatePaths: unknown[] = [
+            // Canonical: EventService.emit(..., context) provides context.ownerPath (OwnerPathSegment[])
+            (eventData as any)?.context?.ownerPath,
+            // Secondary explicit fields: older emitters may provide plain string[] path/ownerPath
             (eventData as any).path,
             (eventData as any).ownerPath,
             (eventData.metadata as any)?.path,
@@ -776,9 +787,33 @@ export class AgentEventHandler implements EventHandler {
             (eventData as any)?.extensions?.robota?.originalEvent?.path
         ];
 
+        const extractIdsFromOwnerPath = (candidate: unknown): string[] | null => {
+            if (!Array.isArray(candidate) || candidate.length === 0) {
+                return null;
+            }
+
+            const first = candidate[0];
+            if (first && typeof first === 'object') {
+                // OwnerPathSegment[] shape: { type: string; id?: string }
+                const ids: string[] = [];
+                for (const seg of candidate as Array<{ id?: unknown }>) {
+                    const id = seg?.id;
+                    if (typeof id !== 'string' || id.length === 0) {
+                        throw new Error(`[PATH-ONLY] Invalid ownerPath (missing segment id) for ${contextLabel}`);
+                    }
+                    ids.push(id);
+                }
+                return ids;
+            }
+
+            // Legacy path shape: string[]
+            const ids = (candidate as unknown[]).map(seg => String(seg)).filter(Boolean);
+            return ids.length > 0 ? ids : null;
+        };
+
         for (const candidate of candidatePaths) {
-            if (Array.isArray(candidate) && candidate.length > 0) {
-                const segments = candidate.map(segment => String(segment));
+            const segments = extractIdsFromOwnerPath(candidate);
+            if (segments && segments.length > 0) {
                 const nodeId = segments[segments.length - 1];
                 const parentId = segments.length > 1 ? segments[segments.length - 2] : undefined;
                 const rootId = segments[0];
