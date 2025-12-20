@@ -55,7 +55,7 @@
              - [x] `unknown` 제거: `Record<string, unknown>`/index signature 제거 후 `ContextData`/`UniversalValue` 기반으로 치환
            - [x] `packages/agents/src/services/execution-service.ts`
              - [x] tool call마다 `ensureToolEventService(...)`로 scoped EventService를 만든 뒤, 해당 인스턴스를 `ToolExecutionContext.eventService`로 주입해 Tool 실행까지 전달
-             - [ ] payload에는 domain data만 유지, 계층/출처 정보는 context(ownerPath)로만 전달
+             - [x] payload에는 domain data만 유지, 계층/출처 정보는 context(ownerPath)로만 전달
             - [x] `packages/agents/src/services/tool-execution-service.ts`
              - [x] `Date.now()`/`Math.random()` 기반 executionId 생성 제거(상위에서 제공된 toolCallId 사용, executionId 미제공 시 fail-fast)
              - [x] `assignTask` 전용 분기/로그 제거(도구 중립)
@@ -70,8 +70,8 @@
             - [x] `console.*` 제거 후 logger DI 사용
 
        - 완료 조건(이 항목만)
-         - [ ] Tool/Playground 코드에서 **EventService 직접 생성 경로가 0**이 된다(DI-only).
-         - [ ] Tool이 agent를 생성하는 경우에도 ownerPath-only로 연결된다(툴 세그먼트 포함 ownerPath를 그대로 이어받고 `{ type: 'agent', id }`만 append).
+         - [x] Tool/Playground 코드에서 **EventService 직접 생성 경로가 0**이 된다(DI-only).
+         - [x] Tool이 agent를 생성하는 경우에도 ownerPath-only로 연결된다(툴 세그먼트 포함 ownerPath를 그대로 이어받고 `{ type: 'agent', id }`만 append).
          - [ ] 이벤트명 하드코딩 금지(소유 모듈 상수만 사용), prefix/ID 파싱/추론/지연 연결/폴백 없음.
      - [x] `SilentEventService` 파일 삭제: `AbstractEventService`가 기본 no-op 구현을 내장하고, 필요 시 `DEFAULT_ABSTRACT_EVENT_SERVICE` 상수로 제공
      - [x] SilentEventService 잔여 참조 0건 확인 및 문서/코드에서 관련 문구 제거 (삭제가 목표, deprecated 문구 금지)
@@ -808,6 +808,11 @@ export class ActionTrackingEventService implements EventService {
 - 2025-12-20: (Priority 0) `SilentEventService` 잔여 참조 제거 — repo 전수 스캔 결과 참조 0건, 남아있던 문구(`Previously SilentEventService...`) 삭제. `pnpm --filter @robota-sdk/agents build` PASS.
 - 2025-12-20: (Priority 0) Context binder 규약 반영 — `bindWithOwnerPath` 도입(호출부 전환 시작), `createContextBoundInstance`는 ownerType taxonomy를 선지식으로 제한하지 않고(string), `ownerType/ownerId` 필수 + ownerPath 검증/append 단일 규칙으로 고정. `pnpm --filter @robota-sdk/agents build` PASS.
 - 2025-12-20: (Priority 0) Legacy alias 정리 — `@robota-sdk/agents`에서 `ContextualEventService`/`SilentContextualEventService` alias re-export 제거. workflow 문서(`packages/workflow/ARCHITECTURE.md`, `DEVELOPMENT_PLAN.md`)에서도 ActionTracking/Contextual alias 기반 설명을 ownerPath context 기준으로 정리.
+- 2025-12-20: (Priority 0) Public API 정리 — `@robota-sdk/agents` public export에서 `ActionTrackingEventService` 제거(루트 export에서 더 이상 노출되지 않음). `pnpm --filter @robota-sdk/agents build` PASS.
+- 2025-12-20: (Priority 0 / 1순위) ExecutionService payload 정리 — execution.start/user_message/assistant/tool-results 관련 이벤트에서 executionId/conversationId 등 계층/출처 필드를 payload/metadata에서 제거하고, EventContext.ownerPath로만 전달하도록 정리.
+- 2025-12-20: (Priority 0 / 1순위) Tool→Agent ownerPath-only 보장 — `Robota.buildOwnerPath()`가 executionContext.ownerPath만을 base로 사용하고 `{ type:'agent', id }`를 append 하도록 고정. `ExecutionService.buildBaseOwnerPath()`도 ownerPath만 복제하도록 고정.
+- 2025-12-20: (Priority 0 / 1순위) DI-only 마감 — `PlaygroundProvider`에서 EventService 직접 생성 제거(외부 `createEventService` 주입). 사용처는 `apps/web/src/app/playground/page.tsx`로 이동. examples 범위에서 EventService 직접 `new` 0건 확인.
+- 2025-12-20: (Priority 0 / 1순위) 이벤트 상수/하드코딩 정리 — `EXECUTION_EVENTS`/`TOOL_EVENTS`/`AGENT_EVENTS`를 prefix 포함 상수로 고정하고, workflow/web 구독/핸들러에서 문자열 리터럴을 제거해 상수 import로 통일. `@robota-sdk/agents` public export에 `EXECUTION_EVENTS`/`TOOL_EVENTS` 추가로 workflow 빌드 호환성 확보. `pnpm --filter @robota-sdk/agents build` PASS, `pnpm --filter @robota-sdk/workflow build` PASS.
 
 **다음 단계**:
 1. Agent Event Normalization 단계 3, 6.5, 6.6 완료

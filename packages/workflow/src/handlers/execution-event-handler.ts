@@ -6,7 +6,7 @@
  */
 
 import type { SimpleLogger } from '@robota-sdk/agents';
-import { SilentLogger } from '@robota-sdk/agents';
+import { SilentLogger, EXECUTION_EVENTS } from '@robota-sdk/agents';
 import type {
     EventHandler,
     EventData,
@@ -27,7 +27,7 @@ import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
 export class ExecutionEventHandler implements EventHandler {
     readonly name = 'ExecutionEventHandler';
     readonly priority = Priority.HIGHEST; // Execution events are fundamental
-    readonly patterns = ['execution.*', 'user.*'];
+    readonly patterns = ['execution.*'];
 
     private logger: SimpleLogger;
 
@@ -58,7 +58,7 @@ export class ExecutionEventHandler implements EventHandler {
             let success = true;
 
             switch (eventType) {
-                case 'execution.tool_results_ready': {
+                case EXECUTION_EVENTS.TOOL_RESULTS_READY: {
                     // Path-only: thinking scope = eventData.path
                     const parentPath = Array.isArray((eventData as any).path) ? (eventData as any).path : [];
                     const thinkingId = String(parentPath[parentPath.length - 1] || '');
@@ -99,101 +99,43 @@ export class ExecutionEventHandler implements EventHandler {
                     }
                     break;
                 }
-                case 'execution.start':
+                case EXECUTION_EVENTS.START:
                     // Do not create execution node here; AgentEventHandler creates agent node instead
                     break;
 
-                case 'execution.complete':
+                case EXECUTION_EVENTS.COMPLETE:
                     // Do not create a node for execution complete (minimal graph)
                     break;
 
-                case 'execution.error':
+                case EXECUTION_EVENTS.ERROR:
                     const executionErrorNode = this.createExecutionErrorNode(eventData);
                     if ((eventData as any).parentId) executionErrorNode.parentId = String((eventData as any).parentId);
                     // [PATH-ONLY] prevId is no longer used; edges are created explicitly
                     updates.push({ action: 'create', node: executionErrorNode });
                     break;
 
-                case 'execution.assistant_message_start':
+                case EXECUTION_EVENTS.ASSISTANT_MESSAGE_START:
                     // AgentEventHandler will create the thinking node; skip assistant_message node
                     // Maintain internal mapping to allow fallbacks if needed
                     break;
 
-                case 'execution.assistant_message_complete':
+                case EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE:
                     // AgentEventHandler will create the response node; skip assistant_message node
                     break;
 
-                case 'execution.tool_results_to_llm':
+                case EXECUTION_EVENTS.TOOL_RESULTS_TO_LLM:
                     // Domain-neutral: delivery event to LLM, no graph mutation required
                     // Treat as successfully handled to avoid strict-policy aborts
                     break;
 
-                case 'user.message':
-                    {
-                        const userMessageNode = this.createUserMessageNode(eventData);
-                        if ((eventData as any).parentId) userMessageNode.parentId = String((eventData as any).parentId);
-                        if (eventData.parentExecutionId) {
-                            userMessageNode.parentId = String(eventData.parentExecutionId);
-                        }
-                        updates.push({ action: 'create', node: userMessageNode });
-                        this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
-                        // Explicit edge: agent → user_message ('receives') with robust lookup
-                        const candidateExecIds = [
-                            String(eventData.executionId || ''),
-                            String(eventData.parentExecutionId || ''),
-                            String(eventData?.metadata?.executionId || '')
-                        ].filter(Boolean);
-                        const candidateRootIds = [
-                            String(eventData.rootExecutionId || ''),
-                            String(eventData?.metadata?.conversationId || ''),
-                            String(eventData.sourceId || '')
-                        ].filter(Boolean);
-                        let agentNodeForExec: string | undefined;
-                        for (const id of candidateExecIds) {
-                            agentNodeForExec = WorkflowState.getAgentForExecution(id);
-                            if (agentNodeForExec) break;
-                        }
-                        if (!agentNodeForExec) {
-                            for (const id of candidateRootIds) {
-                                agentNodeForExec = WorkflowState.getAgentForRoot(id);
-                                if (agentNodeForExec) break;
-                            }
-                        }
-                        if (agentNodeForExec) {
-                            const edge: WorkflowEdge = {
-                                id: EdgeUtils.generateId(agentNodeForExec, userMessageNode.id, 'receives' as any),
-                                source: agentNodeForExec,
-                                target: userMessageNode.id,
-                                type: 'receives' as any,
-                                timestamp: Date.now()
-                            } as any;
-                            updates.push({ action: 'create', edge } as any);
-                        }
-                        // Record last user message under multiple context keys for robust lookup
-                        {
-                            const keys = [
-                                String(eventData.executionId || ''),
-                                String(eventData.parentExecutionId || ''),
-                                String(eventData.rootExecutionId || ''),
-                                String(eventData.sourceId || ''),
-                                String(eventData?.metadata?.executionId || ''),
-                                String(eventData?.metadata?.conversationId || '')
-                            ].filter(Boolean);
-                            for (const key of keys) {
-                                WorkflowState.setLastUserMessage(key, userMessageNode.id);
-                            }
-                        }
-                        break;
-                    }
-
-                case 'execution.user_message':
+                case EXECUTION_EVENTS.USER_MESSAGE:
                     {
                         const pathArr = (eventData as any)?.path as string[] | undefined;
                         if (!Array.isArray(pathArr) || pathArr.length < 2) {
                             return {
                                 success: false,
                                 updates: [],
-                                errors: [`[PATH-ONLY] Invalid path for execution.user_message: ${JSON.stringify(pathArr)}`]
+                                errors: [`[PATH-ONLY] Invalid path for ${EXECUTION_EVENTS.USER_MESSAGE}: ${JSON.stringify(pathArr)}`]
                             };
                         }
                         const rootId = String(pathArr[0]);

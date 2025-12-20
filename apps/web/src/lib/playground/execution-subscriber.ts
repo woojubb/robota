@@ -3,6 +3,7 @@ import type {
     EventData,
     HierarchicalEventData
 } from '@robota-sdk/agents';
+import { EVENT_EMITTER_EVENTS } from '@robota-sdk/agents';
 import type { PlaygroundBlockCollector } from './block-tracking/block-collector';
 import type { RealTimeBlockMessage, RealTimeBlockMetadata } from './block-tracking/types';
 
@@ -46,22 +47,22 @@ export class ExecutionSubscriber {
         if (!this.eventEmitter) return;
 
         // Subscribe to tool execution events
-        this.eventEmitter.on('tool.beforeExecute', this.onToolStart.bind(this));
-        this.eventEmitter.on('tool.afterExecute', this.onToolComplete.bind(this));
-        this.eventEmitter.on('tool.error', this.onToolError.bind(this));
+        this.eventEmitter.on(EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE, this.onToolStart.bind(this));
+        this.eventEmitter.on(EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE, this.onToolComplete.bind(this));
+        this.eventEmitter.on(EVENT_EMITTER_EVENTS.TOOL_ERROR, this.onToolError.bind(this));
 
         // Subscribe to hierarchical events
-        this.eventEmitter.on('execution.hierarchy', (eventData: EventData) => {
+        this.eventEmitter.on(EVENT_EMITTER_EVENTS.EXECUTION_HIERARCHY, (eventData: EventData) => {
             this.onHierarchyUpdate(eventData as HierarchicalEventData);
         });
-        this.eventEmitter.on('execution.realtime', (eventData: EventData) => {
+        this.eventEmitter.on(EVENT_EMITTER_EVENTS.EXECUTION_REALTIME, (eventData: EventData) => {
             this.onRealtimeUpdate(eventData as HierarchicalEventData);
         });
-        this.eventEmitter.on('tool.realtime', this.onToolRealtimeUpdate.bind(this));
+        this.eventEmitter.on(EVENT_EMITTER_EVENTS.TOOL_REALTIME, this.onToolRealtimeUpdate.bind(this));
 
         // Subscribe to execution lifecycle events
-        this.eventEmitter.on('execution.start', this.onExecutionStart.bind(this));
-        this.eventEmitter.on('execution.complete', this.onExecutionComplete.bind(this));
+        this.eventEmitter.on(EVENT_EMITTER_EVENTS.EXECUTION_START, this.onExecutionStart.bind(this));
+        this.eventEmitter.on(EVENT_EMITTER_EVENTS.EXECUTION_COMPLETE, this.onExecutionComplete.bind(this));
     }
 
     /**

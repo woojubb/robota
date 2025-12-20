@@ -24,43 +24,18 @@ import {
 import type { ToolExecutionBatchContext } from './tool-execution-service';
 
 /**
- * 🎯 [EVENT-CONSTANTS] ExecutionService owned events
- * All events emitted by ExecutionService must use these constants
- */
-// 🎯 [EVENT-PREFIX-UNIFICATION] ExecutionService 소유 이벤트 - 모든 이벤트에 execution. 접두어 통일
-/**
- * 🎯 [PREFIX-INJECTION] Execution event constants WITHOUT prefix
- * The EventService with ownerPrefix='execution' will automatically convert:
- *   'start' → 'execution.start'
- *   'complete' → 'execution.complete'
- *   etc.
+ * ExecutionService owned events
+ * All events emitted by ExecutionService must use these constants (no string literals).
  */
 export const EXECUTION_EVENTS = {
-    START: 'start',
-    COMPLETE: 'complete',
-    ERROR: 'error',
-    ASSISTANT_MESSAGE_START: 'assistant_message_start',
-    ASSISTANT_MESSAGE_COMPLETE: 'assistant_message_complete',
-    USER_MESSAGE: 'user_message',
-    TOOL_RESULTS_TO_LLM: 'tool_results_to_llm',
-    TOOL_RESULTS_READY: 'tool_results_ready'
-} as const;
-
-/**
- * 🎯 [EVENT-CONSTANTS] Tool events - Separate ownership
- * Tools are responsible for their own lifecycle events
- * 
- * 🎯 [PREFIX-INJECTION] These constants define only the event name without prefix.
- * The EventService with ownerPrefix='tool' will automatically convert:
- *   'call_start' → 'tool.call_start'
- *   'call_complete' → 'tool.call_complete'
- *   etc.
- */
-export const TOOL_EVENTS = {
-    CALL_START: 'call_start',
-    CALL_COMPLETE: 'call_complete',
-    CALL_ERROR: 'call_error',
-    CALL_RESPONSE_READY: 'call_response_ready'
+    START: 'execution.start',
+    COMPLETE: 'execution.complete',
+    ERROR: 'execution.error',
+    ASSISTANT_MESSAGE_START: 'execution.assistant_message_start',
+    ASSISTANT_MESSAGE_COMPLETE: 'execution.assistant_message_complete',
+    USER_MESSAGE: 'execution.user_message',
+    TOOL_RESULTS_TO_LLM: 'execution.tool_results_to_llm',
+    TOOL_RESULTS_READY: 'execution.tool_results_ready'
 } as const;
 
 // Step 1: ❌ Can't use Error.executionId (not in Error interface)
@@ -222,7 +197,7 @@ export class ExecutionService {
         context?: Partial<ExecutionContext>
     ): Promise<ExecutionResult> {
         // 🎯 [EXECUTION-DEBUG] ExecutionService.execute 호출 확인
-        console.log(`🚀 [EXECUTION-DEBUG] ExecutionService.execute started for agent: ${context?.conversationId}`);
+        // Avoid console usage; use injected logger only.
         const executionId = this.generateExecutionId();
         const startTime = new Date();
         const conversationId = context?.conversationId || executionId;
@@ -254,7 +229,6 @@ export class ExecutionService {
 
         // Emit execution start event
         const rootId = fullContext.conversationId || executionId;
-        console.log(`📢 [EXECUTION-START-EMIT] Emitting execution.start for agent: ${rootId}`);
 
         const aiProviderInfo = provider ? {
             providerName: currentInfo?.provider || 'unknown',
@@ -286,10 +260,8 @@ export class ExecutionService {
                     maxTokens: config.defaultModel.maxTokens
                 } as any,
                 metadata: {
-                    executionId,
                     method: 'execute',
                     inputLength: input.length,
-                    conversationId: fullContext.conversationId,
                     messageCount: messages.length,
                     aiProvider: aiProviderInfo?.providerName || 'unknown',
                     model: aiProviderInfo?.model || 'unknown',
@@ -367,11 +339,9 @@ export class ExecutionService {
                             characterCount: input.length
                         },
                         metadata: {
-                            executionId,
                             messageRole: 'user',
                             inputLength: input.length,
-                            conversationId: fullContext.conversationId,
-                            messageType: 'user_input',
+                            messageType: 'user_message',
                             hasQuestions: input.includes('?'),
                             containsUrgency: /urgent|urgent|급함|긴급|asap/i.test(input),
                             estimatedComplexity: input.length > 200 ? 'high' : input.length > 50 ? 'medium' : 'low'
@@ -472,17 +442,6 @@ export class ExecutionService {
                 // Delegate entire execution to provider
                 const availableTools = this.tools.getTools();
 
-                // 🔍 [TOOL-FLOW] ExecutionService.execute() - Tool schemas from ToolManager
-                console.log('🔍 [TOOL-FLOW] ExecutionService.execute() - Retrieved tool schemas:', {
-                    count: availableTools.length,
-                    schemas: availableTools.map(s => ({
-                        name: s.name,
-                        description: s.description,
-                        hasParameters: !!s.parameters,
-                        parameterKeys: s.parameters?.properties ? Object.keys(s.parameters.properties) : []
-                    }))
-                });
-
                 const chatOptions: ChatOptions = {
                     model: config.defaultModel.model,
                     ...(config.defaultModel.maxTokens !== undefined && { maxTokens: config.defaultModel.maxTokens }),
@@ -490,16 +449,7 @@ export class ExecutionService {
                     ...(availableTools.length > 0 && { tools: availableTools })
                 };
 
-                // 🔍 [TOOL-FLOW] ExecutionService.execute() - Final chatOptions with tools
-                console.log('🔍 [TOOL-FLOW] ExecutionService.execute() - ChatOptions prepared for provider:', {
-                    model: chatOptions.model,
-                    hasTools: !!chatOptions.tools,
-                    toolsCount: chatOptions.tools?.length || 0,
-                    toolNames: chatOptions.tools?.map((t: any) => t.name) || []
-                });
-
                 // Emit assistant message start event for each thinking phase
-                console.log(`🔄 [ROUND-DEBUG] Agent ${rootId} Round ${currentRound} - About to emit assistant_message_start`);
                 this.emitExecution(
                     EXECUTION_EVENTS.ASSISTANT_MESSAGE_START,
                     {
@@ -508,9 +458,7 @@ export class ExecutionService {
                             messageCount: conversationMessages.length
                         },
                         metadata: {
-                            executionId,
                             round: currentRound,
-                            conversationId: fullContext.conversationId,
                             thinkingNodeId
                         }
                     },
@@ -555,15 +503,6 @@ export class ExecutionService {
                     }
                 );
 
-                // Check if we need to execute tools
-                this.logger.debug(`[MAIN-AGENT-DEBUG] Round ${currentRound} for sourceId: ${fullContext.conversationId}`, {
-                    round: currentRound,
-                    conversationId: fullContext.conversationId,
-                    toolCallsFound: assistantResponse.toolCalls?.length || 0,
-                    responseLength: assistantResponse.content?.length || 0,
-                    isMainAgent: !fullContext.conversationId?.includes('copy')
-                });
-
                 this.logger.debug(`[RULE-9-DEBUG] Round ${currentRound} response check: toolCalls=${assistantResponse.toolCalls?.length || 0}`, {
                     round: currentRound,
                     hasToolCalls: !!assistantResponse.toolCalls,
@@ -592,14 +531,6 @@ export class ExecutionService {
                     if (this.executionContext) {
                         this.logger.info(`🔍 [EXECUTION-VERIFICATION] Parent ID: ${this.executionContext.parentExecutionId || 'none'}`);
                         this.logger.info(`🔍 [EXECUTION-VERIFICATION] Execution Level: ${this.executionContext.executionLevel || 'none'}`);
-                    }
-
-                    // 🎯 [CONTEXT-AWARE-CONTROL] Parent context를 고려한 실행 제어
-                    const isSubAgent = this.executionContext && this.executionContext.parentExecutionId;
-                    if (isSubAgent) {
-                        this.logger.info(`🎯 [AGENT-FLOW-CONTROL] Agent ${fullContext.conversationId} is a child agent (parent: ${this.executionContext?.parentExecutionId}) - ending at Round ${currentRound} without tool calls`);
-                    } else {
-                        this.logger.info(`🎯 [AGENT-FLOW-CONTROL] Agent ${fullContext.conversationId} is a root agent - ending at Round ${currentRound} without tool calls`);
                     }
 
                     // 🎯 [EVENT-ORTHODOXY] 이벤트는 정석으로 발생 - 조건부 억제 없음
@@ -673,6 +604,8 @@ export class ExecutionService {
                 const toolRootId = fullContext.conversationId ?? executionId;
                 const rootForTools = toolRootId;
                 const toolOwnerPathBase = this.buildExecutionOwnerContext(rootForTools, executionId).ownerPath;
+                const expectedCountForBatch = assistantResponse.toolCalls.length;
+                const batchId = `${thinkingNodeId}`;
                 const toolRequestsBase = this.toolExecutionService.createExecutionRequestsWithContext(
                     assistantResponse.toolCalls,
                     {
@@ -698,63 +631,7 @@ export class ExecutionService {
                     continueOnError: true
                 };
 
-                // Emit tool_call_start events for each tool with direct parent provision
-                const expectedCountForBatch = assistantResponse.toolCalls.length;
-                const batchId = `${thinkingNodeId}`;
-
-                for (const toolCall of assistantResponse.toolCalls) {
-                    this.emitTool(
-                        TOOL_EVENTS.CALL_START,
-                        {
-                            executionId: toolCall.id,
-                            toolName: toolCall.function?.name,
-                            parameters: JSON.parse(toolCall.function?.arguments || '{}'),
-                            metadata: {
-                                toolCallId: toolCall.id,
-                                executionId,
-                                round: currentRound,
-                                directParentId: thinkingNodeId,
-                                batchId,
-                                expectedCount: expectedCountForBatch
-                            }
-                        },
-                        rootForTools,
-                        executionId,
-                        toolCall.id
-                    );
-                }
-
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
-
-                // (non-streaming) response_ready emit handled below with thinkingNodeId context
-
-                // 🎯 [EVENT-ORDER-FIX] tool.call_complete는 이제 "도구 호출만 완료된 상태"를 의미
-                // tool_call_response 노드는 실제 도구 결과가 준비된 시점에서 생성
-                for (const result of toolSummary.results) {
-                    const delegatedExecId = this.extractDelegatedAgentExecutionId(result);
-                    const payload = {
-                        toolName: result.toolName,
-                        result: {
-                            success: result.success,
-                            data: result.success ? result.result : undefined,
-                            error: result.success ? undefined : (result.error ?? 'Unknown error')
-                        },
-                        metadata: {
-                            executionId: result.executionId,
-                            success: result.success,
-                            round: currentRound,
-                            directParentId: thinkingNodeId
-                        },
-
-                    };
-                    this.emitTool(
-                        TOOL_EVENTS.CALL_RESPONSE_READY,
-                        payload,
-                        rootForTools,
-                        executionId,
-                        result.executionId || delegatedExecId
-                    );
-                }
 
                 toolsExecuted.push(...toolSummary.results.map(r => r.toolName || 'unknown'));
 
@@ -828,9 +705,7 @@ export class ExecutionService {
                             thinkingId: thinkingNodeId
                         },
                         metadata: {
-                            executionId,
                             round: currentRound,
-                            conversationId: fullContext.conversationId,
                             thinkingId: thinkingNodeId
                         }
                     },
@@ -846,10 +721,8 @@ export class ExecutionService {
                             round: currentRound
                         },
                         metadata: {
-                            executionId,
                             toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
-                            round: currentRound,
-                            conversationId: fullContext.conversationId
+                            round: currentRound
                         }
                     },
                     toolResultsRootId,
@@ -916,24 +789,7 @@ export class ExecutionService {
             });
 
             // Emit assistant message complete event
-            const rootId = fullContext.conversationId || executionId;
-            this.logger.debug(`[MAIN-AGENT-DEBUG] Ensuring execution.assistant_message_complete for: ${rootId}`, {
-                rounds: currentRound,
-                responseLength: result.response.length,
-                isMainAgent: !rootId?.includes('copy'),
-                eventServiceAvailable: !isDefaultEventService(this.baseEventService)
-            });
-
-            this.logger.debug(`[RULE-9-DEBUG] Emitting execution.assistant_message_complete event for sourceId: ${rootId}`, {
-                rounds: currentRound,
-                responseLength: result.response.length,
-                eventServiceType: (this.baseEventService as any)?.constructor?.name
-            });
-
-            // 🎯 [DUPLICATE-EMIT-FIX] Remove duplicate assistant_message_complete emission
-            // The round-specific emit (Line 519) already handles assistant completion
-            // This global completion emit was causing duplicate response nodes
-            this.logger.info(`🔧 [DUPLICATE-EMIT-FIX] Skipping duplicate assistant_message_complete emission - already emitted per round`);
+            // execution.assistant_message_complete emission is handled in the main execution loop.
 
             // Emit execution complete event
             const rootIdComplete = fullContext.conversationId || executionId;
@@ -945,13 +801,11 @@ export class ExecutionService {
                         data: result.response.substring(0, 100) + '...'
                     },
                     metadata: {
-                        executionId,
                         method: 'execute',
                         success: true,
                         duration,
                         tokensUsed: result.tokensUsed,
-                        toolsExecuted: result.toolsExecuted,
-                        conversationId: fullContext.conversationId
+                        toolsExecuted: result.toolsExecuted
                     }
                 },
                 rootIdComplete,
@@ -982,11 +836,10 @@ export class ExecutionService {
                 {
                     error: error instanceof Error ? error.message : String(error),
                     metadata: {
-                        executionId,
                         method: 'execute',
                         success: false,
                         duration,
-                        conversationId: fullContext.conversationId
+                        // Identity/hierarchy fields are derived from EventContext.ownerPath.
                     }
                 },
                 fullContext.conversationId || executionId,
@@ -1059,29 +912,10 @@ export class ExecutionService {
             this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools exists:', { exists: !!config.tools });
             this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools.length > 0:', { hasTools: config.tools && config.tools.length > 0 });
 
-            // 🔍 [TOOL-FLOW] ExecutionService.executeStream() - Tool schemas from ToolManager
-            console.log('🔍 [TOOL-FLOW] ExecutionService.executeStream() - Retrieved tool schemas:', {
-                count: toolSchemas.length,
-                schemas: toolSchemas.map(s => ({
-                    name: s.name,
-                    description: s.description,
-                    hasParameters: !!s.parameters,
-                    parameterKeys: s.parameters?.properties ? Object.keys(s.parameters.properties) : []
-                }))
-            });
-
             const chatOptions: ChatOptions = {
                 model: config.defaultModel.model,
                 ...(config.tools && config.tools.length > 0 && { tools: this.tools.getTools() })
             };
-
-            // 🔍 [TOOL-FLOW] ExecutionService.executeStream() - Final chatOptions with tools
-            console.log('🔍 [TOOL-FLOW] ExecutionService.executeStream() - ChatOptions prepared for provider:', {
-                model: chatOptions.model,
-                hasTools: !!chatOptions.tools,
-                toolsCount: chatOptions.tools?.length || 0,
-                toolNames: chatOptions.tools?.map((t: any) => t.name) || []
-            });
 
             this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions has tools:', { hasTools: !!chatOptions.tools });
             this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions.tools length:', { length: chatOptions.tools?.length || 0 });
@@ -1098,7 +932,6 @@ export class ExecutionService {
 
             // Collect streaming chunks and tool calls
             for await (const chunk of stream) {
-                console.log('🔍 [EXECUTION-SERVICE-CHUNK]', JSON.stringify(chunk));
                 if (chunk.content) {
                     fullResponse += chunk.content;
                     yield { chunk: chunk.content, isComplete: false };
@@ -1152,17 +985,13 @@ export class ExecutionService {
 
                 // Execute tools with hierarchical context
                 const streamingRootId = context?.conversationId ?? executionId;
-                const streamingOwnerPathBase = this.buildExecutionOwnerContext(streamingRootId, executionId).ownerPath;
+                // Generate thinking node ID for streaming mode (direct provision)
+                const streamingThinkingNodeId = `thinking_${streamingRootId}_${Date.now()}_${executionId}`;
+                const streamingOwnerPathBase = [...this.buildExecutionOwnerContext(streamingRootId, executionId).ownerPath, { type: 'thinking', id: streamingThinkingNodeId }];
                 const toolRequests = this.toolExecutionService.createExecutionRequestsWithContext(
                     toolCalls,
                     {
-                        ownerPathBase: streamingOwnerPathBase,
-                        metadataFactory: toolCall => ({
-                            conversationId: streamingRootId,
-                            streamMode: true,
-                            directParentId: streamingThinkingNodeId,
-                            toolCallId: toolCall.id
-                        })
+                        ownerPathBase: streamingOwnerPathBase
                     }
                 );
                 const toolContext: ToolExecutionBatchContext = {
@@ -1172,54 +1001,7 @@ export class ExecutionService {
                     continueOnError: true
                 };
 
-                // Generate thinking node ID for streaming mode (direct provision)
-                const streamingThinkingNodeId = `thinking_agent_${Date.now()}_${executionId}`;
-
-                // Emit tool_call_start events for each tool (streaming) with direct parent provision
-                for (const toolCall of toolCalls) {
-                    const eventData = {
-                        toolName: toolCall.function?.name,
-                        parameters: JSON.parse(toolCall.function?.arguments || '{}'),
-                        metadata: {
-                            toolCallId: toolCall.id,
-                            executionId,
-                            streamMode: true,
-                            directParentId: streamingThinkingNodeId
-                        }
-                    };
-                    this.emitTool(
-                        TOOL_EVENTS.CALL_START,
-                        eventData,
-                        streamingRootId,
-                        executionId,
-                        toolCall.id || toolCall.function?.name || 'tool'
-                    );
-                }
-
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
-
-                // Emit tool_call_complete events for each completed tool (streaming)
-                for (const result of toolSummary.results) {
-                    this.emitTool(
-                        TOOL_EVENTS.CALL_COMPLETE,
-                        {
-                            toolName: result.toolName,
-                            result: {
-                                success: result.success,
-                                data: result.success ? result.result : undefined,
-                                error: result.success ? undefined : (result.error ?? 'Unknown error')
-                            },
-                            metadata: {
-                                executionId: result.executionId,
-                                success: result.success,
-                                streamMode: true
-                            }
-                        },
-                        streamingRootId,
-                        executionId,
-                        result.executionId || result.toolName || 'tool'
-                    );
-                }
 
                 // Add tool results to conversation in the order they were called
                 for (const toolCall of toolCalls) {
@@ -1488,11 +1270,10 @@ export class ExecutionService {
     }
 
     private buildBaseOwnerPath(executionContext?: ToolExecutionContext): OwnerPathSegment[] {
-        const segments: OwnerPathSegment[] = [];
-        if (executionContext?.executionPath?.length) {
-            executionContext.executionPath.forEach(id => segments.push({ type: 'execution', id }));
+        if (!executionContext?.ownerPath?.length) {
+            return [];
         }
-        return segments;
+        return executionContext.ownerPath.map(segment => ({ ...segment }));
     }
 
     private buildExecutionOwnerContext(rootId: string, executionId: string): EventContext {

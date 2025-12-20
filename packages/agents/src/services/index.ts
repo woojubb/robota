@@ -1,6 +1,7 @@
 // Services
 export * from './execution-service';
 export { ToolExecutionService } from './tool-execution-service';
+export { TOOL_EVENTS } from './tool-execution-service';
 export type { ToolExecutionRequest, ToolExecutionBatchContext } from './tool-execution-service';
 export { NodeEdgeManager } from './node-edge-manager'; // 🚀 Phase 1: Node/Edge 생성 순서 보장
 export type { WorkflowNodeType } from '../constants/workflow-node-types';

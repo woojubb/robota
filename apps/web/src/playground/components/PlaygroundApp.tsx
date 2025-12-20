@@ -16,6 +16,8 @@ import { Bot, Wrench } from 'lucide-react';
 import type { PlaygroundAgentConfig } from '@/lib/playground/robota-executor';
 import { getPlaygroundToolCatalog } from '@/tools/catalog';
 import { ChatInputPanel } from '@/components/playground/chat-input-panel';
+import type { EventService, SimpleLogger } from '@robota-sdk/agents';
+import type { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 
 function PlaygroundContent(): JSX.Element {
   const { state, setWorkflow } = usePlayground();
@@ -337,9 +339,11 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
   );
 }
 
-export function PlaygroundApp(): JSX.Element {
+export function PlaygroundApp(props: {
+  createEventService: (workflowSubscriber: WorkflowEventSubscriber, logger: SimpleLogger) => EventService;
+}): JSX.Element {
   return (
-    <PlaygroundProvider defaultServerUrl="ws://localhost:3001/ws">
+    <PlaygroundProvider defaultServerUrl="ws://localhost:3001/ws" createEventService={props.createEventService}>
       <PlaygroundContent />
     </PlaygroundProvider>
   );

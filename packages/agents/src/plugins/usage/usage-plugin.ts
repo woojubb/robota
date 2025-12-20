@@ -3,6 +3,7 @@ import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
 import type { TimerId } from '../../utils';
+import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
 import {
     UsageStats,
     AggregatedUsageStats,
@@ -86,9 +87,9 @@ export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginS
             const moduleData = eventData.data;
 
             switch (eventType) {
-                case 'module.initialize.complete':
-                case 'module.execution.complete':
-                case 'module.dispose.complete':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE:
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE:
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE:
                     // Track module usage statistics
                     if (moduleData && 'duration' in moduleData && typeof moduleData.duration === 'number') {
                         await this.recordUsage({
@@ -114,9 +115,9 @@ export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginS
                     }
                     break;
 
-                case 'module.initialize.error':
-                case 'module.execution.error':
-                case 'module.dispose.error':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR:
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR:
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR:
                     // Track module error statistics
                     if (moduleData && 'duration' in moduleData && typeof moduleData.duration === 'number') {
                         await this.recordUsage({

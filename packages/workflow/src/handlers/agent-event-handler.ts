@@ -1,7 +1,7 @@
 // Agent Event Handler - Agent domain events processing
 // Migrated from workflow-event-subscriber.ts
 
-import { SimpleLogger, SilentLogger, AGENT_EVENTS } from '@robota-sdk/agents';
+import { SimpleLogger, SilentLogger, AGENT_EVENTS, EXECUTION_EVENTS } from '@robota-sdk/agents';
 import type {
     EventHandler,
     EventData,
@@ -14,13 +14,6 @@ import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
 import { WorkflowState } from '../services/workflow-state.js';
-
-// 🎯 [EVENT-CONSTANTS] Import execution events from ExecutionService
-const EXECUTION_EVENTS = {
-    START: 'execution.start',
-    ASSISTANT_MESSAGE_START: 'execution.assistant_message_start',
-    ASSISTANT_MESSAGE_COMPLETE: 'execution.assistant_message_complete'
-} as const;
 
 /**
  * Agent Event Handler

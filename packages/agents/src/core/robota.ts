@@ -375,14 +375,10 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
     }
 
     private buildOwnerPath(executionContext?: ToolExecutionContext): OwnerPathSegment[] {
-        const path: OwnerPathSegment[] = [];
-        if (executionContext?.executionPath?.length) {
-            executionContext.executionPath.forEach(id => {
-                path.push({ type: 'execution', id });
-            });
-        }
-        path.push({ type: 'agent', id: this.conversationId });
-        return path;
+        const base = executionContext?.ownerPath?.length
+            ? executionContext.ownerPath.map(segment => ({ ...segment }))
+            : [];
+        return [...base, { type: 'agent', id: this.conversationId }];
     }
 
     /**

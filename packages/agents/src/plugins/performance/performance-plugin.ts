@@ -2,6 +2,7 @@ import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
+import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
 import {
     PerformanceMetrics,
     AggregatedPerformanceStats,
@@ -82,11 +83,11 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
             const moduleData = eventData.data;
 
             switch (eventType) {
-                case 'module.initialize.start':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START:
                     // Start tracking module initialization performance
                     break;
 
-                case 'module.initialize.complete':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_initialization',
@@ -103,7 +104,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
                     }
                     break;
 
-                case 'module.initialize.error':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_initialization',
@@ -121,7 +122,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
                     }
                     break;
 
-                case 'module.execution.complete':
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_execution',
@@ -138,7 +139,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
                     }
                     break;
 
-                case 'module.execution.error':
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_execution',
@@ -156,7 +157,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
                     }
                     break;
 
-                case 'module.dispose.complete':
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_disposal',
@@ -173,7 +174,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
                     }
                     break;
 
-                case 'module.dispose.error':
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_disposal',

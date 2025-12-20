@@ -1,9 +1,20 @@
 import { ToolExecutionResult, ToolResult, ToolExecutionContext, ToolOwnerPathSegment, ToolMetadata } from '../interfaces/tool';
 import type { ToolManagerInterface } from '../interfaces/manager';
 import type { ToolParameters } from '../interfaces/tool';
-import type { EventService, OwnerPathSegment } from '../interfaces/event-service';
+import type { EventService, OwnerPathSegment, ToolEventData } from '../interfaces/event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
+
+/**
+ * ToolExecutionService owned events
+ * All tool lifecycle events must use these constants (no string literals).
+ */
+export const TOOL_EVENTS = {
+    CALL_START: 'tool.call_start',
+    CALL_COMPLETE: 'tool.call_complete',
+    CALL_ERROR: 'tool.call_error',
+    CALL_RESPONSE_READY: 'tool.call_response_ready'
+} as const;
 
 // Add missing types for ExecutionService compatibility
 export interface ToolExecutionRequest {
@@ -58,6 +69,15 @@ export class ToolExecutionService {
                 throw new ValidationError('ToolExecutionService requires executionId (toolCallId) in ToolExecutionContext');
             }
 
+            const eventService = context.eventService;
+            if (eventService) {
+                const startEvent: ToolEventData = {
+                    toolName,
+                    parameters
+                };
+                eventService.emit(TOOL_EVENTS.CALL_START, startEvent);
+            }
+
             // Normalize execution context without duplicating keys from the spread.
             const {
                 toolName: _toolName,
@@ -80,6 +100,15 @@ export class ToolExecutionService {
 
             this.logger.debug(`Tool execution completed: ${toolName}`);
 
+            if (eventService) {
+                const completeEvent: ToolEventData = {
+                    toolName,
+                    result: result as any
+                };
+                eventService.emit(TOOL_EVENTS.CALL_COMPLETE, completeEvent);
+                eventService.emit(TOOL_EVENTS.CALL_RESPONSE_READY, completeEvent);
+            }
+
             return {
                 success: true,
                 result: result,
@@ -90,6 +119,15 @@ export class ToolExecutionService {
             this.logger.error(`Tool execution failed: ${toolName}`);
 
             const toolError = error instanceof Error ? error : new Error(String(error));
+
+            const eventService = context?.eventService;
+            if (eventService && context?.executionId) {
+                const errorEvent: ToolEventData = {
+                    toolName,
+                    error: toolError.message
+                };
+                eventService.emit(TOOL_EVENTS.CALL_ERROR, errorEvent);
+            }
 
             return {
                 success: false,

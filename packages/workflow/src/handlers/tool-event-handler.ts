@@ -20,14 +20,7 @@ import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES, type WorkflowNodeType } from '../constants/workflow-types.js';
 import { WorkflowState } from '../services/workflow-state.js';
 import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
-
-// 🎯 [EVENT-CONSTANTS] Tool events
-const TOOL_EVENTS = {
-    CALL_START: 'tool.call_start',
-    CALL_COMPLETE: 'tool.call_complete',
-    CALL_ERROR: 'tool.call_error',
-    CALL_RESPONSE_READY: 'tool.call_response_ready'
-} as const;
+import { TOOL_EVENTS } from '@robota-sdk/agents';
 
 /**
  * ToolEventHandler - Handles tool call and response events
@@ -102,9 +95,8 @@ export class ToolEventHandler implements EventHandler {
 
                 case TOOL_EVENTS.CALL_RESPONSE_READY: {
                     const pathInfo = this.extractPathInfo(eventData, TOOL_EVENTS.CALL_RESPONSE_READY);
-                    const pathArr = pathInfo.segments;
-                    const pathTail = pathInfo.nodeId; // Usually tool call ID
-                    if (!pathTail) {
+                    const toolCallId = pathInfo.nodeId;
+                    if (!toolCallId) {
                         return {
                             success: false,
                             updates: [],
@@ -112,38 +104,8 @@ export class ToolEventHandler implements EventHandler {
                         };
                     }
 
-                    const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
-
-                    // Try to find response node directly by path.tail
-                    let responseNode = nodesAccessor.find(n => n?.id === pathTail && n?.type === WORKFLOW_NODE_TYPES.RESPONSE);
-
-                    // If path.tail is a tool call ID, find the associated response node
-                    if (!responseNode && pathTail.startsWith('call_')) {
-                        // Find response node that has this tool call as parentExecutionId
-                        responseNode = nodesAccessor.find(n =>
-                            n?.type === WORKFLOW_NODE_TYPES.RESPONSE &&
-                            String((n as any)?.data?.extensions?.robota?.originalEvent?.parentExecutionId || '') === pathTail
-                        );
-
-                        this.logger.debug(`[PATH-TRANSLATION] Tool call ID '${pathTail}' → response node '${responseNode?.id || 'not found'}'`);
-                    }
-
-                    // If response node not found, try tool_call as parent (path-tail call_* case)
-                    let parentForResponseId: string | undefined = responseNode?.id;
-                    if (!parentForResponseId && pathTail.startsWith('call_')) {
-                        const callNode = nodesAccessor.find(n => n?.id === pathTail && n?.type === WORKFLOW_NODE_TYPES.TOOL_CALL);
-                        if (callNode) {
-                            parentForResponseId = callNode.id;
-                        }
-                    }
-
-                    if (!parentForResponseId) {
-                        return {
-                            success: false,
-                            updates: [],
-                            errors: [`[PATH-ONLY] Cannot find agent_response or tool_call for path.tail '${pathTail}'. Expected response node or tool call node in current snapshot.`]
-                        };
-                    }
+                    // Path-only: tool response is always a child of the tool call.
+                    const parentForResponseId: string = toolCallId;
 
                     // Create tool_response node
                     const toolResponseNode = this.createToolResponseNode(eventData, pathInfo);
@@ -310,8 +272,11 @@ export class ToolEventHandler implements EventHandler {
     }
 
     private createToolResponseNode(data: EventData, pathInfo: PathInfo): WorkflowNode {
-        // Prefer tool call id for response node id; keep current naming for compatibility
-        const toolCallId = pathInfo.nodeId || String(data.executionId || data.parentExecutionId || data.sourceId);
+        // Tool response node must be derived from context.ownerPath only (no ID parsing/inference).
+        const toolCallId = pathInfo.nodeId;
+        if (!toolCallId) {
+            throw new Error('[PATH-ONLY] Missing tool call id (path tail) for tool.call_response_ready');
+        }
         const nodeId = `tool_response_call_${toolCallId}`;
 
         const toolName = String(data.parameters?.toolName || data.result?.toolName || 'unknown_tool');
@@ -384,24 +349,17 @@ export class ToolEventHandler implements EventHandler {
     }
 
     private extractPathInfo(eventData: EventData, eventLabel: string): PathInfo {
-        const candidatePaths: unknown[] = [
-            (eventData as any).path,
-            (eventData as any).ownerPath,
-            (eventData.metadata as any)?.path,
-            (eventData as any)?.extensions?.robota?.originalEvent?.ownerPath,
-            (eventData as any)?.extensions?.robota?.originalEvent?.path
-        ];
-
-        for (const candidate of candidatePaths) {
-            if (Array.isArray(candidate) && candidate.length > 0) {
-                const segments = candidate.map(segment => String(segment));
-                const nodeId = segments[segments.length - 1];
-                const parentId = segments.length > 1 ? segments[segments.length - 2] : undefined;
-                return { segments, nodeId, parentId };
-            }
+        const ownerPath = (eventData as any)?.context?.ownerPath as unknown;
+        if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
+            throw new Error(`[PATH-ONLY] Missing context.ownerPath for ${eventLabel}`);
         }
-
-        throw new Error(`[PATH-ONLY] Missing path data for ${eventLabel}`);
+        const segments = ownerPath.map((seg: any) => String(seg?.id ?? ''));
+        if (segments.some(s => !s)) {
+            throw new Error(`[PATH-ONLY] Invalid context.ownerPath (missing segment id) for ${eventLabel}`);
+        }
+        const nodeId = segments[segments.length - 1];
+        const parentId = segments.length > 1 ? segments[segments.length - 2] : undefined;
+        return { segments, nodeId, parentId };
     }
 
     // Path-only: mapping methods removed (use path for relationships)

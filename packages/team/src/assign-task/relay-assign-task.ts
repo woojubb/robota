@@ -1,6 +1,5 @@
-import { Robota, type AgentConfig, type ToolExecutionContext, bindEventServiceOwner, FunctionTool, RelayMcpTool, type EventService } from '@robota-sdk/agents';
-import type { ToolParameters, ToolResult } from '@robota-sdk/agents/src/interfaces/tool';
-import type { ToolSchema } from '@robota-sdk/agents/src/interfaces/provider';
+import { Robota, type AgentConfig, bindWithOwnerPath, FunctionTool, RelayMcpTool, type EventService } from '@robota-sdk/agents';
+import type { ToolParameters, ToolResult, ToolSchema, OwnerPathSegment } from '@robota-sdk/agents';
 import templates from './templates.json';
 
 type TemplateEntry = {
@@ -124,10 +123,18 @@ export function createAssignTaskRelayTool(eventService: EventService): RelayMcpT
                 return { success: false, error: `Template not found: ${templateId}` };
             }
 
-            const agentEventService = bindEventServiceOwner(ctx.eventService, {
+            if (!ctx?.eventService) {
+                throw new Error('[ASSIGN-TASK] Missing context.eventService');
+            }
+            if (!ctx?.agentId) {
+                throw new Error('[ASSIGN-TASK] Missing context.agentId');
+            }
+            const parentOwnerPath: OwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map((s: any) => ({ ...s })) : [];
+            const agentOwnerPath: OwnerPathSegment[] = [...parentOwnerPath, { type: 'agent', id: ctx.agentId }];
+            const agentEventService = bindWithOwnerPath(ctx.eventService, {
                 ownerType: 'agent',
                 ownerId: ctx.agentId,
-                ownerPath: ctx.ownerPath,
+                ownerPath: agentOwnerPath,
                 sourceType: 'agent',
                 sourceId: ctx.agentId
             });
@@ -142,7 +149,8 @@ export function createAssignTaskRelayTool(eventService: EventService): RelayMcpT
                     ...(maxTokens !== undefined ? { maxTokens } : {})
                 },
                 conversationId: ctx.agentId,
-                eventService: agentEventService
+                eventService: agentEventService,
+                executionContext: { ownerPath: agentOwnerPath }
             };
 
             const agent = new Robota(agentConfig);

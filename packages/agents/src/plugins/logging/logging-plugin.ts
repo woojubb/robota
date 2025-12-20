@@ -3,6 +3,7 @@ import { Logger, createLogger } from '../../utils/logger';
 import { SimpleLogger, SilentLogger } from '../../utils/simple-logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
+import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
 
 import {
     LogLevel,
@@ -102,7 +103,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
             const moduleData = eventData.data;
 
             switch (eventType) {
-                case 'module.initialize.start':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START:
                     await this.info('Module initialization started', {
                         moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                         moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
@@ -112,7 +113,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
                     });
                     break;
 
-                case 'module.initialize.complete':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE:
                     await this.info('Module initialization completed', {
                         moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                         moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
@@ -124,7 +125,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
                     });
                     break;
 
-                case 'module.initialize.error':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR:
                     await this.error('Module initialization failed', eventData.error, {
                         moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                         moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
@@ -134,7 +135,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
                     });
                     break;
 
-                case 'module.execution.start':
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START:
                     await this.debug('Module execution started', {
                         moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                         moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
@@ -144,7 +145,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
                     });
                     break;
 
-                case 'module.execution.complete':
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE:
                     await this.debug('Module execution completed', {
                         moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                         moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
@@ -157,7 +158,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
                     });
                     break;
 
-                case 'module.execution.error':
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR:
                     await this.error('Module execution failed', eventData.error, {
                         moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                         moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
@@ -167,7 +168,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
                     });
                     break;
 
-                case 'module.dispose.start':
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START:
                     await this.debug('Module disposal started', {
                         moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                         moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
@@ -177,7 +178,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
                     });
                     break;
 
-                case 'module.dispose.complete':
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE:
                     await this.info('Module disposal completed', {
                         moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                         moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
@@ -189,7 +190,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
                     });
                     break;
 
-                case 'module.dispose.error':
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR:
                     await this.error('Module disposal failed', eventData.error, {
                         moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                         moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
