@@ -182,7 +182,7 @@
   - **Multi-Provider Support**: Dynamic provider switching with type safety
   - **Advanced Function Calling**: Type-safe tool system with Zod validation
   - **Real-time Streaming**: Improved streaming with proper error handling
-  - **Team Collaboration**: Enhanced multi-agent coordination
+  - **Task Delegation**: Improved delegated workflow support
   - **Plugin Architecture**: Comprehensive plugin system with facade pattern
 
   ### Breaking Changes

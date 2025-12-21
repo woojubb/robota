@@ -42,18 +42,6 @@ const endpoints = [
                 description: 'Update user profile',
                 auth: true,
             },
-            {
-                method: 'GET',
-                path: '/api/v1/user/credits',
-                description: 'Get user credit balance and usage',
-                auth: true,
-            },
-            {
-                method: 'GET',
-                path: '/api/v1/user/transactions',
-                description: 'Get credit transaction history',
-                auth: true,
-            }
         ]
     },
     {
@@ -272,7 +260,7 @@ response = requests.get(
                                                             )}
                                                             {endpoint.cost && (
                                                                 <Badge variant="secondary">
-                                                                    {endpoint.cost} credit{endpoint.cost > 1 ? 's' : ''}
+                                                                    {endpoint.cost} unit{endpoint.cost > 1 ? 's' : ''}
                                                                 </Badge>
                                                             )}
                                                         </div>

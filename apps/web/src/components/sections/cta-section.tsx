@@ -55,15 +55,15 @@ export function CTASection() {
                     <div className="grid gap-4 md:grid-cols-3 text-sm text-muted-foreground">
                         <div className="flex items-center justify-center gap-2">
                             <div className="h-2 w-2 rounded-full bg-primary" />
-                            No credit card required
+                            No setup required
                         </div>
                         <div className="flex items-center justify-center gap-2">
                             <div className="h-2 w-2 rounded-full bg-primary" />
-                            Free tier available
+                            Try it instantly
                         </div>
                         <div className="flex items-center justify-center gap-2">
                             <div className="h-2 w-2 rounded-full bg-primary" />
-                            Cancel anytime
+                            Keep iterating fast
                         </div>
                     </div>
                 </div>

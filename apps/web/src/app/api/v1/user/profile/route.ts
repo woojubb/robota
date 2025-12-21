@@ -3,7 +3,6 @@ import { withAuth, createSuccessResponse, createErrorResponse } from '@/lib/auth
 import { db } from '@/lib/firebase/config';
 import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { UserProfile } from '@/types/auth';
-import { UserExtended } from '@/types/user-credit';
 import { userCache, cacheKeys } from '@/lib/cache';
 import { WebLogger } from '@/lib/web-logger';
 
@@ -30,7 +29,6 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
 
         let userDoc;
         let userData = null;
-        let extendedData = null;
 
         try {
             userDoc = await getDoc(doc(db, 'users', uid));
@@ -39,12 +37,6 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
             if (userDoc.exists()) {
                 userData = userDoc.data();
                 WebLogger.debug('Profile API: user data keys', { uid, keys: Object.keys(userData || {}) });
-
-                // Get extended user data
-                WebLogger.debug('Profile API: fetching extended user data', { uid });
-                const extendedDoc = await getDoc(doc(db, 'users_extended', uid));
-                extendedData = extendedDoc.exists() ? extendedDoc.data() : null;
-                WebLogger.debug('Profile API: extended data fetched', { uid, exists: !!extendedData });
             }
         } catch (firestoreError) {
             WebLogger.error('Profile API: Firestore connection error', { uid, error: firestoreError instanceof Error ? firestoreError.message : String(firestoreError) });
@@ -64,12 +56,6 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
                     language: 'ko',
                     notifications: true,
                 },
-                // Extended data defaults
-                subscription_plan: 'free',
-                total_credits: 100,
-                used_credits: 0,
-                subscription_credits: 100,
-                purchased_credits: 0,
             };
 
             // Cache the default profile for a shorter time
@@ -95,12 +81,6 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
                     language: 'ko',
                     notifications: true,
                 },
-                // Extended data defaults
-                subscription_plan: 'free',
-                total_credits: 100,
-                used_credits: 0,
-                subscription_credits: 100,
-                purchased_credits: 0,
             };
 
             WebLogger.debug('Profile API: returning default profile', { uid });
@@ -145,12 +125,6 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
                 language: 'ko',
                 notifications: true,
             },
-            // Extended data
-            subscription_plan: extendedData?.subscription_plan || 'free',
-            total_credits: extendedData?.total_credits || 100,
-            used_credits: extendedData?.used_credits || 0,
-            subscription_credits: extendedData?.subscription_credits || 100,
-            purchased_credits: extendedData?.purchased_credits || 0,
         };
 
         WebLogger.debug('Profile API: profile assembled successfully', { uid });
@@ -176,11 +150,6 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
                 language: 'ko',
                 notifications: true,
             },
-            subscription_plan: 'free',
-            total_credits: 100,
-            used_credits: 0,
-            subscription_credits: 100,
-            purchased_credits: 0,
         };
 
         WebLogger.warn('Profile API: returning fallback profile due to error', { uid });
@@ -219,10 +188,6 @@ export const PUT = withAuth(async (request: NextRequest, { uid }) => {
         const userDoc = await getDoc(doc(db, 'users', uid));
         const userData = userDoc.data();
 
-        // Get extended data
-        const extendedDoc = await getDoc(doc(db, 'users_extended', uid));
-        const extendedData = extendedDoc.exists() ? extendedDoc.data() : null;
-
         const profile = {
             uid,
             email: userData?.email,
@@ -236,12 +201,6 @@ export const PUT = withAuth(async (request: NextRequest, { uid }) => {
                 language: 'ko',
                 notifications: true,
             },
-            // Extended data
-            subscription_plan: extendedData?.subscription_plan || 'free',
-            total_credits: extendedData?.total_credits || 0,
-            used_credits: extendedData?.used_credits || 0,
-            subscription_credits: extendedData?.subscription_credits || 0,
-            purchased_credits: extendedData?.purchased_credits || 0,
         };
 
         // Cache the updated profile
@@ -294,27 +253,6 @@ export const POST = withAuth(async (request: NextRequest, { uid }) => {
         await setDoc(doc(db, 'users', uid), userProfile);
         WebLogger.debug('Profile API POST: basic profile created', { uid });
 
-        // Create extended user record
-        const extendedProfile = {
-            uid,
-            email: email || '',
-            display_name: displayName || '',
-            subscription_plan: 'free',
-            total_credits: 100, // Initial free credits
-            used_credits: 0,
-            subscription_credits: 100,
-            purchased_credits: 0,
-            usage_this_month: 0,
-            last_credit_update: serverTimestamp(),
-            created_at: serverTimestamp(),
-            updated_at: serverTimestamp(),
-            timezone: 'Asia/Seoul', // Default timezone
-            locale: 'ko', // Default locale
-        };
-
-        await setDoc(doc(db, 'users_extended', uid), extendedProfile);
-        WebLogger.debug('Profile API POST: extended profile created', { uid });
-
         const responseData = {
             uid,
             email: email || '',
@@ -328,11 +266,6 @@ export const POST = withAuth(async (request: NextRequest, { uid }) => {
                 language: 'ko',
                 notifications: true,
             },
-            subscription_plan: 'free',
-            total_credits: 100,
-            used_credits: 0,
-            subscription_credits: 100,
-            purchased_credits: 0,
         };
 
         WebLogger.info('Profile API POST: profile creation successful', { uid });

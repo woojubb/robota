@@ -55,6 +55,7 @@ function PlaygroundContent(): JSX.Element {
   const { activeModal, isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<PlaygroundAgentConfig | null>(null);
   const { toast } = useToast();
+  const lastDropByAgentToolRef = useRef<Map<string, number>>(new Map());
 
   // Chat state
   const [chatAgentId, setChatAgentId] = useState<string | null>(null);
@@ -140,6 +141,26 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
   const handleToolDrop = async (agentId: string, tool: PlaygroundToolMeta) => {
     WebLogger.debug('Tool dropped on agent', { agentId, toolId: tool.id, toolName: tool.name });
     try {
+      // Debounce rapid duplicate drop events (same agentId + toolId).
+      // This prevents multiple onDrop triggers from producing repeated toasts or repeated tool injection attempts.
+      const dropKey = `${agentId}:${tool.id}`;
+      const now = Date.now();
+      const lastAt = lastDropByAgentToolRef.current.get(dropKey) ?? 0;
+      if (now - lastAt < 300) {
+        return;
+      }
+      lastDropByAgentToolRef.current.set(dropKey, now);
+
+      const alreadyAdded = Array.isArray(state.addedToolsByAgent?.[agentId]) && state.addedToolsByAgent[agentId].includes(tool.id);
+      if (alreadyAdded) {
+        toast({
+          title: 'Tool already added',
+          description: `${tool.name} is already present on agent ${agentId}.`,
+          variant: 'default',
+        });
+        return;
+      }
+
       const isRegistered = Object.prototype.hasOwnProperty.call(ToolRegistry, tool.id);
 
       // UI-only tools are allowed (overlay only). Registered tools additionally update runtime via executor.

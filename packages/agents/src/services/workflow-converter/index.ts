@@ -11,7 +11,7 @@
  * Follows Robota SDK architecture principles with dependency injection and logging.
  */
 
-import { BaseWorkflowConverter } from '../../abstracts/base-workflow-converter';
+import { AbstractWorkflowConverter as BaseWorkflowConverter } from '../../abstracts/abstract-workflow-converter';
 import type { WorkflowStructure } from '../real-time-workflow-builder';
 import type { WorkflowData } from '../../interfaces/workflow-converter';
 import { NodeTypeMapping, EdgeTypeMapping, WorkflowStatusMapping, EdgeStyleMapping, NodeIconMapping, NodeColorMapping, EdgeColorMapping } from './types';

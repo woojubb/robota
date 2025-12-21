@@ -10,7 +10,7 @@
 
 import { SimpleLogger } from '../utils/simple-logger';
 
-import { GenericConfig, GenericMetadata, ConfigValue, MetadataValue } from './base-types';
+import { GenericConfig, GenericMetadata, ConfigValue, MetadataValue } from './generic-types';
 
 /**
  * Workflow configuration - uses base type for cross-converter compatibility

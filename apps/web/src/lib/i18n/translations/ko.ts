@@ -28,7 +28,6 @@ export const ko = {
         about: '소개',
         docs: '문서',
         playground: '플레이그라운드',
-        pricing: '요금제',
         contact: '문의',
         dashboard: '대시보드',
         profile: '프로필',

@@ -226,7 +226,7 @@
   - **Multi-Provider Support**: Dynamic provider switching with type safety
   - **Advanced Function Calling**: Type-safe tool system with Zod validation
   - **Real-time Streaming**: Improved streaming with proper error handling
-  - **Team Collaboration**: Enhanced multi-agent coordination
+  - **Task Delegation**: Improved delegated workflow support
   - **Plugin Architecture**: Comprehensive plugin system with facade pattern
 
   ### Breaking Changes
@@ -255,7 +255,7 @@
 
 ### Patch Changes
 
-- Add multi-agent team collaboration with intelligent task delegation
+- Add task delegation tooling with assignTask MCP tools
 - Updated dependencies
   - @robota-sdk/core@1.0.4
   - @robota-sdk/tools@1.0.4

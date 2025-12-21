@@ -414,12 +414,6 @@ export class AgentEventHandler implements EventHandler {
     // Agent Event Handling Methods
     // =================================================================
 
-    private createExecutionStartNode(data: any): WorkflowNode {
-        // For execution start events, create agent node
-        const pathInfo = this.extractPathInfo(data, AGENT_EVENTS.EXECUTION_START);
-        return this.createAgentNode(data, pathInfo);
-    }
-
     // =================================================================
     // Node Creation Helper Methods
     // =================================================================
@@ -436,7 +430,8 @@ export class AgentEventHandler implements EventHandler {
             status: 'running',
             timestamp: Date.now(), // Node creation time for ordering
             data: {
-                eventType: EXECUTION_EVENTS.START,
+                // Agent nodes are created only by agent.created (no creation on execution.start).
+                eventType: AGENT_EVENTS.CREATED,
                 sourceId: data.sourceId,
                 sourceType: 'agent',
                 agentNumber: agentNumber,

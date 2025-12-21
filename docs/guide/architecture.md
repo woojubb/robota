@@ -374,7 +374,7 @@ const customTool = createFunctionTool(
 ### Task Assignment Analytics
 - **Workflow Visualization**: Generate flowcharts of agent interactions
 - **Expert Usage Statistics**: Track which templates are used most frequently
-- **Performance Optimization**: Identify bottlenecks in multi-agent workflows
+- **Performance Optimization**: Identify bottlenecks in complex workflows
 - **Cost Distribution**: Analyze costs across different AI providers and models
 
 ## Universal Logging System

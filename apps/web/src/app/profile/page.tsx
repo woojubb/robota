@@ -65,14 +65,6 @@ function ProfilePageContent() {
         setMessage(null);
     };
 
-    const getSubscriptionBadgeColor = (plan?: string) => {
-        switch (plan) {
-            case 'enterprise': return 'bg-purple-100 text-purple-800';
-            case 'pro': return 'bg-blue-100 text-blue-800';
-            default: return 'bg-gray-100 text-gray-800';
-        }
-    };
-
     const formatDate = (date: Date) => {
         return new Intl.DateTimeFormat('ko-KR', {
             year: 'numeric',
@@ -179,11 +171,6 @@ function ProfilePageContent() {
                                 <div>
                                     <h3 className="text-lg font-medium">{userProfile?.displayName}</h3>
                                     <p className="text-sm text-muted-foreground">{userProfile?.email}</p>
-                                    {userProfile?.subscription && (
-                                        <Badge className={`mt-1 ${getSubscriptionBadgeColor(userProfile.subscription.plan)}`}>
-                                            {userProfile.subscription.plan.charAt(0).toUpperCase() + userProfile.subscription.plan.slice(1)} Plan
-                                        </Badge>
-                                    )}
                                 </div>
                             </div>
                         )}
@@ -229,62 +216,6 @@ function ProfilePageContent() {
                     </CardContent>
                 </Card>
 
-                {/* Subscription Information */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Subscription & Billing</CardTitle>
-                        <CardDescription>
-                            Your current subscription status and billing information
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {userProfile?.subscription ? (
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h3 className="font-medium">Current Plan</h3>
-                                        <p className="text-sm text-muted-foreground">
-                                            {userProfile.subscription.plan.charAt(0).toUpperCase() + userProfile.subscription.plan.slice(1)} Plan
-                                        </p>
-                                    </div>
-                                    <Badge className={getSubscriptionBadgeColor(userProfile.subscription.plan)}>
-                                        {userProfile.subscription.status.toUpperCase()}
-                                    </Badge>
-                                </div>
-
-                                {userProfile.subscription.currentPeriodEnd && (
-                                    <div>
-                                        <h4 className="font-medium text-sm">Next Billing Date</h4>
-                                        <p className="text-sm text-muted-foreground">
-                                            {formatDate(userProfile.subscription.currentPeriodEnd)}
-                                        </p>
-                                    </div>
-                                )}
-
-                                <Separator />
-
-                                <div className="flex gap-2">
-                                    <Button variant="outline" size="sm">
-                                        Change Plan
-                                    </Button>
-                                    <Button variant="outline" size="sm">
-                                        Billing History
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center py-8">
-                                <h3 className="font-medium mb-2">No Active Subscription</h3>
-                                <p className="text-sm text-muted-foreground mb-4">
-                                    You are currently on the free plan. Upgrade to unlock more features.
-                                </p>
-                                <Button>
-                                    View Plans
-                                </Button>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
             </div>
         </div>
     );

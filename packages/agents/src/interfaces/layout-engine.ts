@@ -7,7 +7,7 @@
 
 import type { UniversalWorkflowNode, UniversalWorkflowEdge, UniversalLayoutConfig } from '../services/workflow-converter/universal-types';
 import { SimpleLogger } from '../utils/simple-logger';
-import { GenericMetadata } from './base-types';
+import { GenericMetadata } from './generic-types';
 import { WorkflowConfig } from './workflow-converter';
 
 /**

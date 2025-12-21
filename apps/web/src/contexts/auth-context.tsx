@@ -15,7 +15,6 @@ import {
     convertFirebaseUser,
 } from '@/lib/firebase/auth-service';
 import { User, UserProfile, AuthContextType } from '@/types/auth';
-import { UserExtended, UserCreditSummary } from '@/types/user-credit';
 import { useToast } from '@/hooks/use-toast';
 import { trackEvents } from '@/lib/analytics/google-analytics';
 import { apiClient, setAuthRedirectCallback, setToastCallback } from '@/lib/api-client';
@@ -31,8 +30,6 @@ export interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-    const [userExtended, setUserExtended] = useState<UserExtended | null>(null);
-    const [creditSummary, setCreditSummary] = useState<UserCreditSummary | null>(null);
     const [loading, setLoading] = useState(true);
     const [authInitialized, setAuthInitialized] = useState(false);
     const { toast } = useToast();
@@ -74,8 +71,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             // Sign out user
             setUser(null);
             setUserProfile(null);
-            setUserExtended(null);
-            setCreditSummary(null);
             loadedUserRef.current = null;
 
             // Redirect to login with current path as redirect parameter
@@ -156,14 +151,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                             }
 
                             setUserProfile(profileData);
-                            setUserExtended(profileData as any);
                             WebLogger.debug('User profile loaded successfully');
                         } else {
                             WebLogger.error('Profile API failed', { error: profileResponse.error });
                         }
 
-                        // Don't load credit summary on initial load - let components request it when needed
-                        // This reduces unnecessary API calls
+                        // Monetization logic intentionally removed
                     } catch (error) {
                         WebLogger.error('Error loading user data', { error: error instanceof Error ? error.message : String(error) });
                         // Don't show error toast on initial load failures
@@ -175,8 +168,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 WebLogger.debug('User signed out, clearing auth state');
                 setUser(null);
                 setUserProfile(null);
-                setUserExtended(null);
-                setCreditSummary(null);
                 loadedUserRef.current = null;
             }
 
@@ -223,27 +214,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             return () => clearInterval(interval);
         }
     }, [authInitialized]);
-
-    // Load credit summary on demand
-    const loadCreditSummary = async () => {
-        if (!user) return;
-
-        try {
-            const creditsResponse = await apiClient.user.getCredits();
-            if (creditsResponse.success && creditsResponse.data) {
-                setCreditSummary(creditsResponse.data);
-            }
-        } catch (error) {
-            WebLogger.error('Error loading credit summary', { error: error instanceof Error ? error.message : String(error) });
-        }
-    };
-
-    // Load credit summary when userExtended is set
-    useEffect(() => {
-        if (userExtended && !creditSummary) {
-            loadCreditSummary();
-        }
-    }, [userExtended]);
 
     // Authentication methods
     const signIn = async (email: string, password: string): Promise<void> => {
@@ -431,12 +401,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 }
 
                 setUserProfile(profileData);
-                setUserExtended(profileData as any);
-            }
-
-            const creditsResponse = await apiClient.user.getCredits();
-            if (creditsResponse.success && creditsResponse.data) {
-                setCreditSummary(creditsResponse.data);
             }
         } catch (error: any) {
             toast({
@@ -451,8 +415,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const value: AuthContextType = {
         user,
         userProfile,
-        userExtended,
-        creditSummary,
         loading,
         authInitialized,
         signIn,

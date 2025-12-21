@@ -283,14 +283,6 @@ export const apiClient = {
             method: 'PUT',
             body: JSON.stringify(data),
         }),
-        getCredits: () => apiRequest('/user/credits'),
-        getTransactions: (params?: { page?: number; limit?: number }) => {
-            const queryParams = new URLSearchParams();
-            if (params?.page) queryParams.append('page', params.page.toString());
-            if (params?.limit) queryParams.append('limit', params.limit.toString());
-            const query = queryParams.toString();
-            return apiRequest(`/user/transactions${query ? `?${query}` : ''}`);
-        },
     },
 
     // Agent endpoints (moved from separate section)

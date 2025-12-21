@@ -23,9 +23,6 @@ export interface UniversalPosition {
     /** Order within the same level */
     order: number;
 
-    /** Layout group identifier for related nodes */
-    groupId?: string;
-
     /** Layout hints for automatic positioning */
     layoutHints?: {
         /** Preferred horizontal alignment */

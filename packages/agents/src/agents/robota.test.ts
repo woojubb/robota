@@ -4,7 +4,7 @@ import type { AgentConfig } from '../interfaces/agent';
 import { AbstractAgent } from '../abstracts/abstract-agent';
 import type { AgentInterface } from '../interfaces/agent';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
-import { BaseTool } from '../abstracts/base-tool';
+import { AbstractTool as BaseTool } from '../abstracts/abstract-tool';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { ToolSchema, ChatOptions } from '../interfaces/provider';
 import type { ToolParameters, ToolResult } from '../interfaces/tool';

@@ -92,7 +92,6 @@ export class SimpleCache {
 
 // Cache instances for different data types
 export const userCache = new SimpleCache();
-export const creditCache = new SimpleCache();
 export const apiCache = new SimpleCache();
 
 // Default cache instance
@@ -101,10 +100,6 @@ export const cache = new SimpleCache();
 // Cache key generators
 export const cacheKeys = {
     userProfile: (uid: string) => `user:profile:${uid}`,
-    userCredits: (uid: string) => `user:credits:${uid}`,
-    userTransactions: (uid: string, page: number, limit: number) =>
-        `user:transactions:${uid}:${page}:${limit}`,
-    userExtended: (uid: string) => `user:extended:${uid}`,
 };
 
 // Cleanup expired entries every 10 minutes
@@ -112,7 +107,6 @@ if (typeof window !== 'undefined') {
     setInterval(() => {
         cache.cleanup();
         userCache.cleanup();
-        creditCache.cleanup();
         apiCache.cleanup();
     }, 10 * 60 * 1000);
 } 

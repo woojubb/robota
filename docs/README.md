@@ -7,7 +7,7 @@ lang: en-US
 
 # Robota SDK
 
-A powerful TypeScript library for building AI agents with multi-provider support, function calling, tool integration, and multi-agent team collaboration.
+A powerful TypeScript library for building AI agents with multi-provider support, function calling, and tool integration.
 
 ## 🚀 Why Choose Robota SDK?
 
@@ -28,7 +28,7 @@ A powerful TypeScript library for building AI agents with multi-provider support
 ### 🌐 True Multi-Provider Freedom
 - **Provider Agnostic**: Switch between OpenAI, Anthropic, and Google seamlessly
 - **Unified Interface**: Same code works with all providers
-- **Cross-Provider Teams**: Mix different AI models in one team
+- **Cross-Provider Workflows**: Mix different AI models in one workflow
 
 ### 🌍 Universal Platform Support
 - **Cross-Platform**: Works in Node.js, browsers, and WebWorkers

@@ -17,7 +17,7 @@ interface WorkflowNodeUpdate { action: 'create' | 'update' | 'complete' | 'error
 import { EventService } from './event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import { WORKFLOW_NODE_TYPES, WorkflowNodeType } from '../constants/workflow-node-types';
-import type { GenericMetadata } from '../interfaces/base-types';
+import type { GenericMetadata } from '../interfaces/generic-types';
 import type { WorkflowData } from '../interfaces/workflow-converter';
 
 // Universal Workflow Integration
@@ -537,8 +537,8 @@ export class RealTimeWorkflowBuilder {
     /**
      * 특정 분기 가져오기
      */
-    getBranch(branchId: string): WorkflowBranch | undefined {
-        return this.currentWorkflow.branches.find(b => b.id === branchId);
+    getBranch(id: string): WorkflowBranch | undefined {
+        return this.currentWorkflow.branches.find(b => b.id === id);
     }
 
     /**

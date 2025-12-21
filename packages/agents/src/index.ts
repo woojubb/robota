@@ -130,12 +130,12 @@ export type {
 } from './managers/conversation-history-manager';
 
 /**
- * Base AI provider implementation that all AI providers must extend.
+ * Abstract AI provider implementation that all AI providers must extend.
  * Provides common functionality for message conversion, error handling, and execution.
  * 
  * @public
  */
-export { BaseAIProvider } from './abstracts/base-ai-provider';
+export { AbstractAIProvider } from './abstracts/abstract-ai-provider';
 
 /**
  * Executor implementations for local and remote AI provider execution
@@ -143,7 +143,7 @@ export { BaseAIProvider } from './abstracts/base-ai-provider';
  * @public
  */
 export { LocalExecutor, type AIProviderInstance } from './executors/local-executor';
-export { BaseExecutor } from './abstracts/base-executor';
+export { AbstractExecutor } from './abstracts/abstract-executor';
 
 // Export executor interfaces
 export type {
@@ -213,9 +213,9 @@ export { LimitsPlugin, LimitsStrategy, LimitsPluginOptions } from './plugins/lim
 export { EventEmitterPlugin, EventType, EventData, EventListener, EventEmitterPluginOptions, HierarchicalEventData } from './plugins/event-emitter-plugin';
 export { WebhookPlugin, WebhookEventType, WebhookPayload, WebhookEndpoint, WebhookPluginOptions } from './plugins/webhook';
 
-// ===== MAIN AGENT EXPORTS =====
+// ===== CORE AGENT EXPORTS =====
 /**
- * The main Robota agent class.
+ * The Robota agent class.
  * This is the primary entry point for creating AI agents.
  * 
  * @example Basic Usage
@@ -371,17 +371,16 @@ export type {
 } from './interfaces/workflow-validator';
 
 // Abstract Base Classes
-export { BaseWorkflowConverter } from './abstracts/base-workflow-converter';
-export { BaseLayoutEngine } from './abstracts/base-layout-engine';
-export { BaseWorkflowValidator } from './abstracts/base-workflow-validator';
-export { BaseVisualizationGenerator } from './abstracts/base-visualization-generator';
+export { AbstractWorkflowConverter } from './abstracts/abstract-workflow-converter';
+export { AbstractLayoutEngine } from './abstracts/abstract-layout-engine';
+export { AbstractWorkflowValidator } from './abstracts/abstract-workflow-validator';
 export { AbstractVisualizationGenerator } from './abstracts/abstract-visualization-generator';
 
 // Base Visualization Types
 export type {
     BaseVisualizationConfig,
     VisualizationResult
-} from './abstracts/base-visualization-generator';
+} from './abstracts/abstract-visualization-generator';
 
 // Concrete Implementations
 export { WorkflowToUniversalConverter } from './services/workflow-converter';
