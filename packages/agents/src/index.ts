@@ -116,7 +116,7 @@ export type {
  *
  * @public
  */
-export type { TToolParameters, ToolResult, ToolExecutionContext } from './interfaces/tool';
+export type { TToolParameters, TToolResult, TToolExecutionContext } from './interfaces/tool';
 
 /**
  * Universal message format and assistant message used internally by the conversation history manager.
@@ -327,11 +327,10 @@ export type { ToolSchema as FunctionSchema } from './interfaces/provider';
  * @public
  */
 export {
-    EventService,
-    ServiceEventType,
-    ServiceEventData,
-    EventContext,
-    OwnerPathSegment,
+    TServiceEventType,
+    TServiceEventData,
+    IEventContext,
+    IOwnerPathSegment,
     AbstractEventService,
     DEFAULT_ABSTRACT_EVENT_SERVICE,
     isDefaultEventService,
@@ -340,6 +339,7 @@ export {
     DefaultEventService,
     StructuredEventService,
 } from './services/event-service';
+export type { IEventService } from './services/event-service';
 export { RelayMcpTool, type RelayMcpOptions, type RelayMcpContext } from './tools/implementations/relay-mcp-tool';
 
 // ===== EVENT EMITTER (PLUGIN) EXPORTS =====

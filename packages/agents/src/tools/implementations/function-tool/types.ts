@@ -11,7 +11,7 @@
  * NOTE: Tool functionality is now integrated into @robota-sdk/agents package
  */
 
-import type { TToolParameters, ToolExecutionContext, ToolExecutionData, ParameterValidationResult } from '../../../interfaces/tool';
+import type { TToolParameters, TToolExecutionContext, TToolExecutionData, ParameterValidationResult } from '../../../interfaces/tool';
 import type { ToolSchema } from '../../../interfaces/provider';
 
 /**
@@ -44,8 +44,8 @@ export interface ZodSchema {
  */
 export type ToolExecutor = (
     parameters: TToolParameters,
-    context?: ToolExecutionContext
-) => Promise<ToolExecutionData>;
+    context?: TToolExecutionContext
+) => Promise<TToolExecutionData>;
 
 /**
  * Function tool interface
@@ -53,7 +53,7 @@ export type ToolExecutor = (
 export interface IFunctionTool {
     readonly schema: ToolSchema;
     readonly fn: ToolExecutor;
-    execute(parameters: TToolParameters, context?: ToolExecutionContext): Promise<ToolResult>;
+    execute(parameters: TToolParameters, context?: TToolExecutionContext): Promise<TToolResult>;
     validate(parameters: TToolParameters): boolean;
     validateParameters(parameters: TToolParameters): ParameterValidationResult;
 }
@@ -88,9 +88,9 @@ export interface ToolExecutionMetadata {
 /**
  * Tool result with metadata
  */
-export interface ToolResult {
+export interface TToolResult {
     success: boolean;
-    data: ToolExecutionData;
+    data: TToolExecutionData;
     metadata?: ToolExecutionMetadata;
 }
 

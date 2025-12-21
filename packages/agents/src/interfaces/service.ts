@@ -5,7 +5,7 @@
 
 import type { TUniversalMessage } from '../managers/conversation-history-manager';
 import type { ToolSchema, AIProvider } from './provider';
-import type { ToolExecutionData } from './tool';
+import type { TToolExecutionData } from './tool';
 
 /**
  * Reusable type definitions for service layer
@@ -208,17 +208,17 @@ export interface ToolExecutionServiceInterface {
     /**
      * Execute a single tool
      */
-    executeTool(toolName: string, parameters: ToolExecutionParameters): Promise<ToolExecutionData>;
+    executeTool(toolName: string, parameters: ToolExecutionParameters): Promise<TToolExecutionData>;
 
     /**
      * Execute multiple tools in parallel
      */
-    executeToolsParallel(toolCalls: ToolExecutionRequest[]): Promise<ToolExecutionData[]>;
+    executeToolsParallel(toolCalls: ToolExecutionRequest[]): Promise<TToolExecutionData[]>;
 
     /**
      * Execute multiple tools sequentially
      */
-    executeToolsSequential(toolCalls: ToolExecutionRequest[]): Promise<ToolExecutionData[]>;
+    executeToolsSequential(toolCalls: ToolExecutionRequest[]): Promise<TToolExecutionData[]>;
 }
 
 /**

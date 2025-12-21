@@ -32,11 +32,11 @@
  * ```
  */
 
-import type { ToolInterface, ToolResult, ToolExecutionContext, ParameterValidationResult, TToolParameters } from '../interfaces/tool';
+import type { ToolInterface, TToolResult, TToolExecutionContext, ParameterValidationResult, TToolParameters } from '../interfaces/tool';
 import type { ToolSchema } from '../interfaces/provider';
 import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
-import type { EventService } from '../services/event-service';
+import type { IEventService } from '../services/event-service';
 
 /**
  * Options for AbstractTool construction
@@ -57,7 +57,7 @@ export interface AbstractToolOptions {
      * 
      * @since 2.1.0
      */
-    eventService?: EventService;
+    eventService?: IEventService;
 }
 
 /**
@@ -72,7 +72,7 @@ export type AbstractToolParameters = TToolParameters;
 /**
  * Tool execution function type with proper parameter constraints
  */
-export type ToolExecutionFunction<TParams = AbstractToolParameters, TResult = ToolResult> = (
+export type ToolExecutionFunction<TParams = AbstractToolParameters, TResult = TToolResult> = (
     parameters: TParams
 ) => Promise<TResult> | TResult;
 
@@ -82,7 +82,7 @@ export type ToolExecutionFunction<TParams = AbstractToolParameters, TResult = To
  * @template TParams - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)  
  */
-export interface AbstractToolInterface<TParams = AbstractToolParameters, TResult = ToolResult> {
+export interface AbstractToolInterface<TParams = AbstractToolParameters, TResult = TToolResult> {
     name: string;
     description: string;
     parameters: ToolSchema['parameters'];
@@ -95,9 +95,9 @@ export interface AbstractToolInterface<TParams = AbstractToolParameters, TResult
  * @template TParameters - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
-export interface TypeSafeToolInterface<TParameters = AbstractToolParameters, TResult = ToolResult> {
+export interface TypeSafeToolInterface<TParameters = AbstractToolParameters, TResult = TToolResult> {
     readonly schema: ToolSchema;
-    execute(parameters: TParameters, context: ToolExecutionContext): Promise<TResult>;
+    execute(parameters: TParameters, context: TToolExecutionContext): Promise<TResult>;
     validate(parameters: TParameters): boolean;
     validateParameters(parameters: TParameters): ParameterValidationResult;
     getDescription(): string;
@@ -117,7 +117,7 @@ export interface TypeSafeToolInterface<TParameters = AbstractToolParameters, TRe
  * @template TParameters - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
-export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult = ToolResult>
+export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult = TToolResult>
     implements TypeSafeToolInterface<TParameters, TResult> {
 
     abstract readonly schema: ToolSchema;
@@ -131,7 +131,7 @@ export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult
      * EventService for direct event emission (optional)
      * If undefined, tool operates silently without emitting events
      */
-    private eventService: EventService | undefined;
+    private eventService: IEventService | undefined;
 
     /**
      * Constructor with simplified options
@@ -158,14 +158,14 @@ export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult
      * 
      * @param eventService - EventService instance to use for event emission (or undefined for silent operation)
      */
-    setEventService(eventService: EventService | undefined): void {
+    setEventService(eventService: IEventService | undefined): void {
         this.eventService = eventService;
     }
 
     /**
      * Get current EventService (for testing/inspection)
      */
-    protected getEventService(): EventService | undefined {
+    protected getEventService(): IEventService | undefined {
         return this.eventService;
     }
 
@@ -190,7 +190,7 @@ export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult
      * @param context - Optional execution context
      * @returns Promise resolving to tool result
      */
-    async execute(parameters: TParameters, context: ToolExecutionContext): Promise<TResult> {
+    async execute(parameters: TParameters, context: TToolExecutionContext): Promise<TResult> {
         return await this.executeImpl(parameters, context);
     }
 
@@ -202,7 +202,7 @@ export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult
      * @param context - Optional execution context
      * @returns Promise resolving to tool result
      */
-    protected abstract executeImpl(parameters: TParameters, context: ToolExecutionContext): Promise<TResult>;
+    protected abstract executeImpl(parameters: TParameters, context: TToolExecutionContext): Promise<TResult>;
 
     validate(parameters: TParameters): boolean {
         const required = this.schema.parameters.required || [];
@@ -242,5 +242,5 @@ export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult
  * Legacy tool class for backward compatibility
  * @deprecated Use AbstractTool with type parameters instead
  */
-export abstract class LegacyAbstractTool extends AbstractTool<AbstractToolParameters, ToolResult> implements ToolInterface { }
+export abstract class LegacyAbstractTool extends AbstractTool<AbstractToolParameters, TToolResult> implements ToolInterface { }
 

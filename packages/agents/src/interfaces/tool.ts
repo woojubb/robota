@@ -1,11 +1,11 @@
 import type { ToolSchema } from './provider';
-import type { EventService, OwnerPathSegment } from './event-service';
+import type { IEventService, IOwnerPathSegment } from './event-service';
 import type { TContextData, TLoggerData, TToolParameterValue, TToolParameters, TToolResultData, TUniversalValue } from './types';
 
 // Re-export canonical tool parameter types from the shared "types" axis.
 export type { TToolParameterValue, TToolParameters } from './types';
 
-export type ToolContextExtensionValue =
+export type TToolContextExtensionValue =
     | TUniversalValue
     | Date
     | Error
@@ -13,12 +13,12 @@ export type ToolContextExtensionValue =
     | TContextData
     | TToolParameters
     | TToolResultData
-    | ToolMetadata;
+    | TToolMetadata;
 
 /**
  * Tool metadata structure - specific type definition
  */
-export type ToolMetadata = Record<string, string | number | boolean | string[] | number[] | boolean[] | TToolParameters>;
+export type TToolMetadata = Record<string, string | number | boolean | string[] | number[] | boolean[] | TToolParameters>;
 
 /**
  * Tool execution data - domain payload for tool results.
@@ -27,29 +27,29 @@ export type ToolMetadata = Record<string, string | number | boolean | string[] |
  * - This must support structured tool outputs without resorting to `any`.
  * - Prefer `ToolResultData` (derived from the canonical `UniversalValue` axis).
  */
-export type ToolExecutionData = TToolResultData;
+export type TToolExecutionData = TToolResultData;
 
 /**
  * Tool execution result - extended for ToolExecutionData compatibility
  */
-export interface ToolResult {
+export interface TToolResult {
     success: boolean;
-    data?: ToolExecutionData;
+    data?: TToolExecutionData;
     error?: string;
-    metadata?: ToolMetadata;
-    [key: string]: ToolContextExtensionValue | undefined;
+    metadata?: TToolMetadata;
+    [key: string]: TToolContextExtensionValue | undefined;
 }
 
 /**
  * Enhanced tool execution result with additional metadata
  */
-export interface ToolExecutionResult {
+export interface TToolExecutionResult {
     /** Whether execution was successful */
     success: boolean;
     /** Tool name that was executed */
     toolName?: string;
     /** Execution result or data */
-    result?: ToolExecutionData;
+    result?: TToolExecutionData;
     /** Error message if execution failed */
     error?: string;
     /** Execution duration in milliseconds */
@@ -57,7 +57,7 @@ export interface ToolExecutionResult {
     /** Unique execution ID */
     executionId?: string;
     /** Additional metadata */
-    metadata?: ToolMetadata;
+    metadata?: TToolMetadata;
 }
 
 
@@ -67,15 +67,15 @@ export interface ToolExecutionResult {
  * Enhanced with hierarchical execution tracking support
  */
 // Align Tool ownerPath segments with the canonical ownerPath segment type.
-export type ToolOwnerPathSegment = OwnerPathSegment;
+export type TToolOwnerPathSegment = IOwnerPathSegment;
 
-export interface ToolExecutionContext {
+export interface TToolExecutionContext {
     toolName: string;
     parameters: TToolParameters;
     executionId?: string; // Tool execution ID (typically tool call ID)
     userId?: string;
     sessionId?: string;
-    metadata?: ToolMetadata;
+    metadata?: TToolMetadata;
 
     // 🆕 Hierarchical execution tracking fields (all optional for backward compatibility)
 
@@ -108,12 +108,12 @@ export interface ToolExecutionContext {
      * - Avoid ad-hoc top-level fields to keep the contract stable.
      * - Use this map for forward-compatible extra data with constrained value types.
      */
-    extensions?: Record<string, ToolContextExtensionValue>;
+    extensions?: Record<string, TToolContextExtensionValue>;
 
     /** Owner context propagated from EventService */
     ownerType?: string;
     ownerId?: string;
-    ownerPath?: ToolOwnerPathSegment[];
+    ownerPath?: TToolOwnerPathSegment[];
     sourceId?: string;
 
     /**
@@ -121,7 +121,7 @@ export interface ToolExecutionContext {
      * Caller (ExecutionService/ToolExecutionService) is responsible for providing
      * an ownerPath-bound EventService for this tool call.
      */
-    eventService?: EventService;
+    eventService?: IEventService;
 
     /**
      * Unbound base EventService instance.
@@ -132,7 +132,7 @@ export interface ToolExecutionContext {
      * NOTE: Do not wrap an already owner-bound EventService to bind a different owner.
      * Owner-bound instances must not be layered across different owners.
      */
-    baseEventService?: EventService;
+    baseEventService?: IEventService;
 }
 
 /**
@@ -148,8 +148,8 @@ export interface ParameterValidationResult {
 /**
  * Generic tool executor function
  */
-export type ToolExecutor<TParams = TToolParameters, TResult = ToolExecutionData> =
-    (parameters: TParams, context?: ToolExecutionContext) => Promise<TResult>;
+export type ToolExecutor<TParams = TToolParameters, TResult = TToolExecutionData> =
+    (parameters: TParams, context?: TToolExecutionContext) => Promise<TResult>;
 
 /**
  * OpenAPI specification configuration
@@ -214,7 +214,7 @@ export interface ToolInterface {
     /**
      * Execute the tool with given parameters
      */
-    execute(parameters: TToolParameters, context?: ToolExecutionContext): Promise<ToolResult>;
+    execute(parameters: TToolParameters, context?: TToolExecutionContext): Promise<TToolResult>;
 
     /**
      * Validate tool parameters

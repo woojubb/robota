@@ -4,8 +4,8 @@ import type { AbstractTool } from '../abstracts/abstract-tool';
 import type { AbstractModule } from '../abstracts/abstract-module';
 import type { UtilLogLevel } from '../utils/logger';
 import type { TMetadata, TConfigValue } from './types';
-import type { EventService } from '../services/event-service';
-import type { OwnerPathSegment } from '../services/event-service';
+import type { IEventService } from '../services/event-service';
+import type { IOwnerPathSegment } from '../services/event-service';
 import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
 
 export type {
@@ -30,7 +30,7 @@ export type {
  * and requires toolName/parameters; agent creation only needs ownerPath and execution linkage.
  */
 export interface ExecutionContextInjection {
-    ownerPath?: OwnerPathSegment[];
+    ownerPath?: IOwnerPathSegment[];
     parentExecutionId?: string;
     rootExecutionId?: string;
     executionLevel?: number;
@@ -126,7 +126,7 @@ export interface AgentConfig {
     };
 
     // Event tracking
-    eventService?: EventService;
+    eventService?: IEventService;
 
     // 🎯 [CONTEXT-INJECTION] Execution context for hierarchical agent management
     executionContext?: ExecutionContextInjection;

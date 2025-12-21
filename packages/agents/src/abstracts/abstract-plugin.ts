@@ -1,6 +1,6 @@
 import type { RunOptions } from '../interfaces/agent';
 import type { TUniversalMessage } from '../managers/conversation-history-manager';
-import type { TToolParameters, ToolExecutionResult, ToolExecutionContext } from '../interfaces/tool';
+import type { TToolParameters, TToolExecutionResult, TToolExecutionContext } from '../interfaces/tool';
 import type { EventEmitterPlugin, EventType, EventData } from '../plugins/event-emitter-plugin';
 
 /**
@@ -97,7 +97,7 @@ export interface ErrorContext {
     action: string;
     tool?: string;
     parameters?: TToolParameters;
-    result?: ToolExecutionResult;
+    result?: TToolExecutionResult;
     error?: Error;
     // Define specific types for common error context data
     executionId?: string;
@@ -238,12 +238,12 @@ export interface PluginHooks {
     /**
      * Called before tool execution with context
      */
-    beforeToolExecution?(context: BaseExecutionContext, toolData: ToolExecutionContext): Promise<void> | void;
+    beforeToolExecution?(context: BaseExecutionContext, toolData: TToolExecutionContext): Promise<void> | void;
 
     /**
      * Called after tool execution
      */
-    afterToolCall?(toolName: string, parameters: TToolParameters, result: ToolExecutionResult): Promise<void> | void;
+    afterToolCall?(toolName: string, parameters: TToolParameters, result: TToolExecutionResult): Promise<void> | void;
 
     /**
      * Called after tool execution with context
@@ -569,8 +569,8 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
     async beforeConversation?(context: BaseExecutionContext): Promise<void>;
     async afterConversation?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void>;
     async beforeToolCall?(toolName: string, parameters: TToolParameters): Promise<void>;
-    async beforeToolExecution?(context: BaseExecutionContext, toolData: ToolExecutionContext): Promise<void>;
-    async afterToolCall?(toolName: string, parameters: TToolParameters, result: ToolExecutionResult): Promise<void>;
+    async beforeToolExecution?(context: BaseExecutionContext, toolData: TToolExecutionContext): Promise<void>;
+    async afterToolCall?(toolName: string, parameters: TToolParameters, result: TToolExecutionResult): Promise<void>;
     async afterToolExecution?(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void>;
     async beforeProviderCall?(messages: TUniversalMessage[]): Promise<void>;
     async afterProviderCall?(messages: TUniversalMessage[], response: TUniversalMessage): Promise<void>;

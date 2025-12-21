@@ -1,4 +1,4 @@
-import type { EventService, ServiceEventData } from '../services/event-service';
+import type { IEventService, TServiceEventData } from '../services/event-service';
 import { EXECUTION_EVENTS } from '../services/execution-service';
 import { TOOL_EVENTS } from '../services/tool-execution-service';
 import { AGENT_EVENTS } from '../agents/constants';
@@ -13,7 +13,7 @@ const TASK_EVENTS = {
  * Configuration for execution proxy
  */
 export interface ExecutionProxyConfig {
-    eventService: EventService;
+    eventService: IEventService;
     sourceType: 'agent' | 'team' | 'tool';
     sourceId: string;
     enabledEvents?: {
@@ -246,8 +246,8 @@ export class ExecutionProxy<T extends object = object> {
     /**
      * Emit event with standard ServiceEventData format
      */
-    private emitEvent(eventType: string, additionalData: Partial<ServiceEventData>): void {
-        const eventData: ServiceEventData = {
+    private emitEvent(eventType: string, additionalData: Partial<TServiceEventData>): void {
+        const eventData: TServiceEventData = {
             sourceType: this.config.sourceType,
             sourceId: this.config.sourceId,
             timestamp: new Date(),
@@ -283,7 +283,7 @@ export function createExecutionProxy<T extends object>(
  * Usage: @withEventEmission(eventService, 'agent', 'agent-id')
  */
 export function withEventEmission(
-    eventService: EventService,
+    eventService: IEventService,
     sourceType: 'agent' | 'team' | 'tool',
     sourceId: string
 ) {

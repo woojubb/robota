@@ -1,4 +1,4 @@
-import type { FunctionTool as IFunctionTool, ToolResult, ToolExecutionContext, ParameterValidationResult, ToolExecutor, ToolExecutionData, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
+import type { FunctionTool as IFunctionTool, TToolResult, TToolExecutionContext, ParameterValidationResult, ToolExecutor, TToolExecutionData, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
 import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
 import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
@@ -15,7 +15,7 @@ import { zodToJsonSchema } from './function-tool/schema-converter';
  * 
  * @extends AbstractTool<TToolParameters, ToolResult>
  */
-export class FunctionTool extends AbstractTool<TToolParameters, ToolResult> implements IFunctionTool {
+export class FunctionTool extends AbstractTool<TToolParameters, TToolResult> implements IFunctionTool {
     readonly schema: ToolSchema;
     readonly fn: ToolExecutor;
 
@@ -30,7 +30,7 @@ export class FunctionTool extends AbstractTool<TToolParameters, ToolResult> impl
      * Execute the function tool implementation
      * This method is called by the parent's Template Method Pattern
      */
-    protected async executeImpl(parameters: TToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: TToolParameters, context?: TToolExecutionContext): Promise<TToolResult> {
         const toolName = this.schema.name;
 
         try {
@@ -264,7 +264,7 @@ export function createZodFunctionTool(
     };
 
     // Wrap the function with validation and ensure proper parameter handling
-    const wrappedFn: ToolExecutor = async (parameters: TToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
+    const wrappedFn: ToolExecutor = async (parameters: TToolParameters, context?: TToolExecutionContext): Promise<TToolExecutionData> => {
         // Use Zod for runtime validation
         const parseResult = zodSchema.safeParse(parameters);
         if (!parseResult.success) {

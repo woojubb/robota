@@ -1,16 +1,16 @@
-import type { TToolParameters, ToolResult, ToolExecutionContext } from '../../interfaces/tool';
+import type { TToolParameters, TToolResult, TToolExecutionContext } from '../../interfaces/tool';
 import type { ToolSchema } from '../../interfaces/provider';
 import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
-import type { EventService, OwnerPathSegment } from '../../services/event-service';
+import type { IEventService, IOwnerPathSegment } from '../../services/event-service';
 import { ToolExecutionError } from '../../utils/errors';
 
 export interface RelayMcpContext {
     /** OwnerPath including agent segment appended for this relay execution */
-    ownerPath: OwnerPathSegment[];
+    ownerPath: IOwnerPathSegment[];
     /** Tool-bound EventService (already bound to tool by caller) */
-    eventService: EventService;
+    eventService: IEventService;
     /** Unbound base EventService (required to bind a new owner for created agent) */
-    baseEventService: EventService;
+    baseEventService: IEventService;
     /** Generated agent identifier for this relay execution */
     agentId: string;
 }
@@ -22,7 +22,7 @@ export interface RelayMcpOptions extends AbstractToolOptions {
      * Relay executor that performs the actual work (e.g., create Robota agent and run).
      * Must not perform ownerPath inference; receives the augmented agent ownerPath.
      */
-    run: (parameters: TToolParameters, ctx: RelayMcpContext) => Promise<ToolResult>;
+    run: (parameters: TToolParameters, ctx: RelayMcpContext) => Promise<TToolResult>;
 }
 
 /**
@@ -33,7 +33,7 @@ export interface RelayMcpOptions extends AbstractToolOptions {
  * - This tool appends a single agent segment and forwards control to the provided run() callback.
  * - No prefix injection, no ownerPath inference, no fallback/clone/context creation inside.
  */
-export class RelayMcpTool extends AbstractTool<TToolParameters, ToolResult> {
+export class RelayMcpTool extends AbstractTool<TToolParameters, TToolResult> {
     readonly schema: ToolSchema;
     private readonly runImpl: RelayMcpOptions['run'];
 
@@ -43,7 +43,7 @@ export class RelayMcpTool extends AbstractTool<TToolParameters, ToolResult> {
         this.runImpl = options.run;
     }
 
-    protected override async executeImpl(parameters: TToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected override async executeImpl(parameters: TToolParameters, context?: TToolExecutionContext): Promise<TToolResult> {
         const eventService = context?.eventService;
         if (!eventService) {
             throw new ToolExecutionError('RelayMcpTool requires tool-call scoped EventService in ToolExecutionContext', this.schema.name);
@@ -59,7 +59,7 @@ export class RelayMcpTool extends AbstractTool<TToolParameters, ToolResult> {
         }
 
         const agentId = `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const agentOwnerPath: OwnerPathSegment[] = [
+        const agentOwnerPath: IOwnerPathSegment[] = [
             ...baseOwnerPath.map(segment => ({ ...segment })),
             { type: 'agent', id: agentId }
         ];

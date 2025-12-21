@@ -8,33 +8,33 @@
  */
 
 import { SimpleLogger, DefaultConsoleLogger } from '../utils/simple-logger';
-import type { ToolExecutionContext } from '../interfaces/tool';
+import type { TToolExecutionContext } from '../interfaces/tool';
 import type { TLoggerData } from '../interfaces/types';
 import type {
-    AgentEventData,
-    BaseEventData,
-    EventContext,
-    EventService,
-    EventServiceOwnerBinding,
-    ExecutionEventData,
-    OwnerPathSegment,
-    OwnerType,
-    ServiceEventData,
-    ServiceEventType,
-    ToolEventData
+    IAgentEventData,
+    IBaseEventData,
+    IEventContext,
+    IEventService,
+    IEventServiceOwnerBinding,
+    IExecutionEventData,
+    IOwnerPathSegment,
+    TOwnerType,
+    TServiceEventData,
+    TServiceEventType,
+    IToolEventData
 } from '../interfaces/event-service';
 export type {
-    AgentEventData,
-    BaseEventData,
-    EventContext,
-    EventService,
-    EventServiceOwnerBinding,
-    ExecutionEventData,
-    OwnerPathSegment,
-    OwnerType,
-    ServiceEventData,
-    ServiceEventType,
-    ToolEventData
+    IAgentEventData,
+    IEventContext,
+    IEventService,
+    IBaseEventData,
+    IEventServiceOwnerBinding,
+    IExecutionEventData,
+    IOwnerPathSegment,
+    IToolEventData,
+    TServiceEventType,
+    TServiceEventData,
+    TOwnerType
 } from '../interfaces/event-service';
 
 // NOTE: Legacy hierarchy helpers removed. Use `context.ownerPath` (absolute) for all relationships.
@@ -44,8 +44,8 @@ export type {
  * AbstractEventService - base class providing no-op defaults.
  * This is the single no-op implementation baseline for EventService DI.
  */
-export abstract class AbstractEventService implements EventService {
-    emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
+export abstract class AbstractEventService implements IEventService {
+    emit<TEvent extends IBaseEventData = IBaseEventData>(eventType: TServiceEventType, data: TEvent, context?: IEventContext): void {
         void eventType;
         void data;
         void context;
@@ -59,21 +59,21 @@ export abstract class AbstractEventService implements EventService {
         // Default: no-op
     }
 
-    createBoundEmit(executionId: string): (eventType: ServiceEventType, data: ServiceEventData) => void {
+    createBoundEmit(executionId: string): (eventType: TServiceEventType, data: TServiceEventData) => void {
         void executionId;
-        return (eventType: ServiceEventType, data: ServiceEventData): void => {
+        return (eventType: TServiceEventType, data: TServiceEventData): void => {
             this.emit(eventType, data);
         };
     }
 
-    createContextBoundInstance(executionContext: ToolExecutionContext): EventService {
+    createContextBoundInstance(executionContext: TToolExecutionContext): IEventService {
         void executionContext;
         return this;
     }
 }
 
 class DefaultNoopEventService extends AbstractEventService {
-    override emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
+    override emit<TEvent extends IBaseEventData = IBaseEventData>(eventType: TServiceEventType, data: TEvent, context?: IEventContext): void {
         void eventType;
         void data;
         void context;
@@ -82,12 +82,12 @@ class DefaultNoopEventService extends AbstractEventService {
 }
 
 // Default no-op instance for safe DI when no EventService is provided.
-export const DEFAULT_ABSTRACT_EVENT_SERVICE: EventService = new DefaultNoopEventService();
+export const DEFAULT_ABSTRACT_EVENT_SERVICE: IEventService = new DefaultNoopEventService();
 
-export const isDefaultEventService = (eventService: EventService): boolean => eventService === DEFAULT_ABSTRACT_EVENT_SERVICE;
+export const isDefaultEventService = (eventService: IEventService): boolean => eventService === DEFAULT_ABSTRACT_EVENT_SERVICE;
 
-const mergeOwnerPathSegments = (base?: OwnerPathSegment[], extension?: OwnerPathSegment[]): OwnerPathSegment[] => {
-    const segments: OwnerPathSegment[] = [];
+const mergeOwnerPathSegments = (base?: IOwnerPathSegment[], extension?: IOwnerPathSegment[]): IOwnerPathSegment[] => {
+    const segments: IOwnerPathSegment[] = [];
     if (base?.length) {
         segments.push(...base.map(segment => ({ ...segment })));
     }
@@ -101,13 +101,13 @@ const isNonEmptyString = (value: unknown): value is string => typeof value === '
 
 class OwnerBoundEventService extends AbstractEventService {
     constructor(
-        private readonly baseEventService: EventService,
-        private readonly ownerBinding: EventServiceOwnerBinding
+        private readonly baseEventService: IEventService,
+        private readonly ownerBinding: IEventServiceOwnerBinding
     ) {
         super();
     }
 
-    override emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
+    override emit<TEvent extends IBaseEventData = IBaseEventData>(eventType: TServiceEventType, data: TEvent, context?: IEventContext): void {
         const timestamp = data.timestamp ?? context?.timestamp ?? new Date();
         const resolvedSourceType = data.sourceType ?? this.ownerBinding.sourceType;
         const resolvedSourceId = data.sourceId ?? this.ownerBinding.sourceId;
@@ -123,7 +123,7 @@ class OwnerBoundEventService extends AbstractEventService {
         const boundOwnerType = this.ownerBinding.ownerType;
         const boundOwnerId = this.ownerBinding.ownerId ?? resolvedSourceId;
 
-        const resolvedOwnerPath: OwnerPathSegment[] = (() => {
+        const resolvedOwnerPath: IOwnerPathSegment[] = (() => {
             if (context?.ownerPath?.length) {
                 const provided = context.ownerPath.map(segment => ({ ...segment }));
                 const last = provided[provided.length - 1];
@@ -141,7 +141,7 @@ class OwnerBoundEventService extends AbstractEventService {
             throw new Error('[EVENT-SERVICE] Missing ownerPath for owner-bound emission');
         })();
 
-        const resolvedContext: EventContext = {
+        const resolvedContext: IEventContext = {
             ownerType: boundOwnerType,
             ownerId: boundOwnerId,
             ownerPath: resolvedOwnerPath,
@@ -165,8 +165,8 @@ class OwnerBoundEventService extends AbstractEventService {
         this.baseEventService.trackExecution?.(executionId, parentExecutionId, level);
     }
 
-    override createContextBoundInstance(executionContext: ToolExecutionContext): EventService {
-        const ownerType = executionContext.ownerType as OwnerType | (string & {});
+    override createContextBoundInstance(executionContext: TToolExecutionContext): IEventService {
+        const ownerType = executionContext.ownerType as TOwnerType | (string & {});
         if (!isNonEmptyString(ownerType)) {
             throw new Error('[EVENT-SERVICE] Missing ownerType for createContextBoundInstance');
         }
@@ -180,7 +180,7 @@ class OwnerBoundEventService extends AbstractEventService {
             ? executionContext.ownerPath.map(segment => ({ ...segment }))
             : undefined;
 
-        let ownerPath: OwnerPathSegment[];
+        let ownerPath: IOwnerPathSegment[];
         if (ownerPathProvided) {
             const last = ownerPathProvided[ownerPathProvided.length - 1];
             if (!last || last.type !== ownerType || last.id !== ownerIdCandidate) {
@@ -195,7 +195,7 @@ class OwnerBoundEventService extends AbstractEventService {
             ];
         }
 
-        const childBinding: EventServiceOwnerBinding = {
+        const childBinding: IEventServiceOwnerBinding = {
             ownerType,
             ownerId: ownerIdCandidate,
             ownerPath,
@@ -206,7 +206,7 @@ class OwnerBoundEventService extends AbstractEventService {
     }
 }
 
-export const bindEventServiceOwner = (eventService: EventService, binding: EventServiceOwnerBinding): EventService => {
+export const bindEventServiceOwner = (eventService: IEventService, binding: IEventServiceOwnerBinding): IEventService => {
     if (isDefaultEventService(eventService)) {
         return eventService;
     }
@@ -219,7 +219,7 @@ export const bindEventServiceOwner = (eventService: EventService, binding: Event
  * Canonical ownerPath binder for EventService DI.
  * This is the single helper that should be used for creating owner-bound instances.
  */
-export const bindWithOwnerPath = (eventService: EventService, binding: EventServiceOwnerBinding): EventService => {
+export const bindWithOwnerPath = (eventService: IEventService, binding: IEventServiceOwnerBinding): IEventService => {
     return bindEventServiceOwner(eventService, binding);
 };
 
@@ -235,7 +235,7 @@ export class DefaultEventService extends AbstractEventService {
         this.logger = logger || DefaultConsoleLogger;
     }
 
-    override emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
+    override emit<TEvent extends IBaseEventData = IBaseEventData>(eventType: TServiceEventType, data: TEvent, context?: IEventContext): void {
         const timestamp = data.timestamp || new Date();
         const ownerPathIds = context?.ownerPath?.length
             ? context.ownerPath.map(seg => String(seg.id ?? '')).filter(Boolean)
@@ -268,7 +268,7 @@ export class StructuredEventService extends AbstractEventService {
         this.logger = logger || DefaultConsoleLogger;
     }
 
-    override emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
+    override emit<TEvent extends IBaseEventData = IBaseEventData>(eventType: TServiceEventType, data: TEvent, context?: IEventContext): void {
         const timestamp = data.timestamp || new Date();
         const eventId = this.generateEventId();
         const ownerPathIds = context?.ownerPath?.length
