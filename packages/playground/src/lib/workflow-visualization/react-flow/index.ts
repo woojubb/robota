@@ -9,16 +9,8 @@ import type {
     UniversalWorkflowStructure,
     UniversalWorkflowNode,
     UniversalWorkflowEdge
-} from '@robota-sdk/agents';
-import { SilentLogger } from '@robota-sdk/agents';
-
-// SimpleLogger interface for internal use
-interface SimpleLogger {
-    debug: (message: string, ...args: any[]) => void;
-    info: (message: string, ...args: any[]) => void;
-    warn: (message: string, ...args: any[]) => void;
-    error: (message: string, ...args: any[]) => void;
-}
+} from '@robota-sdk/workflow';
+import { SilentLogger, type SimpleLogger } from '@robota-sdk/agents';
 import type {
     ReactFlowData,
     ReactFlowNode,
@@ -33,7 +25,6 @@ const SDK_TO_REACTFLOW_TYPE_MAP: Record<string, string> = {
     // Keep original types to match CSS classes - no mapping needed for new types
     // Legacy mappings only for old data compatibility
     'final_response': 'response',
-    'sub_agent': 'agent',
     'merge_results': 'response',
     'output': 'response'
     // All current types (agent, agent_thinking, user_message, tool_call, tool_call_response, tool_result, response) pass through as-is
@@ -89,6 +80,8 @@ export class SimpleReactFlowConverter {
 
             this.logger.debug(`Converting node ${universalNode.id}: ${universalNode.type} → ${mappedType}`);
 
+            const label = universalNode.data.label ?? `${universalNode.type} ${universalNode.id}`;
+
             return {
                 id: universalNode.id,
                 type: mappedType,
@@ -97,15 +90,13 @@ export class SimpleReactFlowConverter {
                     y: universalNode.position?.y || 0
                 },
                 data: {
-                    label: universalNode.data.label || `${universalNode.type} ${universalNode.id}`,
                     // Pass through all Universal data
                     ...universalNode.data,
+                    label,
                     // Include original SDK type for reference
                     originalType: universalNode.type,
                     // Include visual state for reference
-                    visualState: universalNode.visualState,
-                    // Include metadata for reference
-                    metadata: universalNode.metadata
+                    visualState: universalNode.visualState
                 }
             };
         });
@@ -117,24 +108,21 @@ export class SimpleReactFlowConverter {
      */
     private convertEdges(universalEdges: UniversalWorkflowEdge[]): ReactFlowEdge[] {
         return universalEdges.map(universalEdge => {
-            const edgeType = (universalEdge as any).type || 'default';
             return {
                 id: universalEdge.id,
                 source: universalEdge.source,
                 target: universalEdge.target,
                 // Preserve edge type from Universal edge (e.g., receives, continues, processes, return, executes, result, analyze)
-                type: String(edgeType) as any,
+                type: universalEdge.type,
                 data: {
                     // Generate basic label from source/target (keep minimal)
                     label: `${universalEdge.source} → ${universalEdge.target}`,
                     // Pass through all Universal data
                     ...universalEdge.data,
                     // Preserve connection semantics for UI logic if needed
-                    connectionType: String(edgeType),
-                    // Include metadata for reference
-                    metadata: universalEdge.metadata
+                    connectionType: universalEdge.type
                 }
-            } as ReactFlowEdge;
+            };
         });
     }
 }

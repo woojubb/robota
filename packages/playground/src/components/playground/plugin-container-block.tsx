@@ -43,7 +43,7 @@ import {
     Database,
     Shield
 } from 'lucide-react';
-import type { BasePlugin } from '@robota-sdk/agents';
+import type { BasePlugin } from '../../lib/playground/robota-executor';
 
 // Enums defined locally to avoid import issues from non-exported types
 export enum PluginCategory {

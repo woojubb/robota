@@ -120,6 +120,11 @@ describe.skip('AgentFactory', () => {
                 }
             });
 
+            expect(agent).toBeInstanceOf(Robota);
+            if (!(agent instanceof Robota)) {
+                throw new Error('Expected a Robota instance from createAgent');
+            }
+
             const model = agent.getModel();
             expect(model.model).toBe('gpt-4'); // Default
             expect(model.provider).toBe('mock-provider'); // From provider
@@ -172,18 +177,28 @@ describe.skip('AgentFactory', () => {
         it('should create agent from template', async () => {
             const agent = await factory.createFromTemplate(Robota as any, 'test-template');
 
+            expect(agent).toBeInstanceOf(Robota);
+            if (!(agent instanceof Robota)) {
+                throw new Error('Expected a Robota instance from template');
+            }
+
             expect(agent.name).toBe('TemplateAgent');
-            expect(agent.model).toBe('gpt-3.5-turbo');
-            expect(agent.provider).toBe('mock-provider');
+            expect(agent.getModel().model).toBe('gpt-3.5-turbo');
+            expect(agent.getModel().provider).toBe('mock-provider');
         });
 
         it('should apply overrides to template', async () => {
             const overrides = { name: 'OverriddenAgent', model: 'gpt-4' };
             const agent = await factory.createFromTemplate(Robota as any, 'test-template', overrides);
 
+            expect(agent).toBeInstanceOf(Robota);
+            if (!(agent instanceof Robota)) {
+                throw new Error('Expected a Robota instance from template');
+            }
+
             expect(agent.name).toBe('OverriddenAgent');
-            expect(agent.model).toBe('gpt-4');
-            expect(agent.provider).toBe('mock-provider'); // From template
+            expect(agent.getModel().model).toBe('gpt-4');
+            expect(agent.getModel().provider).toBe('mock-provider'); // From template
         });
 
         it('should throw error for non-existent template', async () => {

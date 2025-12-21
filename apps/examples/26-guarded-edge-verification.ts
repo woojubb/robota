@@ -3,7 +3,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 import { Robota, FunctionTool } from '@robota-sdk/agents';
-import type { AIProvider, EventService, OwnerPathSegment, ToolExecutionContext, ToolParameters, ToolResult, ToolSchema } from '@robota-sdk/agents';
+import type { AIProvider, EventService, OwnerPathSegment, ToolExecutionContext, ToolParameters, ToolExecutionData, ToolSchema } from '@robota-sdk/agents';
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 
@@ -52,10 +52,10 @@ const buildGuardedAssignTaskTool = (aiProvider: AIProvider): FunctionTool => {
         }
     };
 
-    return new FunctionTool(schema, async (params: ToolParameters, ctx?: ToolExecutionContext): Promise<ToolResult> => {
+    return new FunctionTool(schema, async (params: ToolParameters, ctx?: ToolExecutionContext): Promise<ToolExecutionData> => {
         const jobDescription = typeof params.jobDescription === 'string' ? params.jobDescription : '';
         if (!jobDescription) {
-            return { success: false, error: '[GUARDED-ASSIGN-TASK] Missing jobDescription' };
+            throw new Error('[GUARDED-ASSIGN-TASK] Missing jobDescription');
         }
 
         if (!ctx?.baseEventService) {
@@ -88,7 +88,7 @@ const buildGuardedAssignTaskTool = (aiProvider: AIProvider): FunctionTool => {
         });
 
         const response = await childAgent.run(prompt);
-        return { success: true, data: { response, delegatedFrom: parentAgentId, delegatedAgentId: childAgentId, delegatedResponseNodeId } };
+        return { response, delegatedFrom: parentAgentId, delegatedAgentId: childAgentId, delegatedResponseNodeId };
     });
 };
 

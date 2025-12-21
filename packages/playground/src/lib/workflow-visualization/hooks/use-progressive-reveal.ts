@@ -48,15 +48,7 @@ export function useProgressiveReveal<TNode extends { id: string }, TEdge extends
 
     const [currentIndex, setCurrentIndex] = useState(0);
     const [lastProcessedIndex, setLastProcessedIndex] = useState(-1);
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
-    const allNodesRef = useRef<TNode[]>([]);
-    const allEdgesRef = useRef<TEdge[]>([]);
-
-    // Update refs when data changes
-    useEffect(() => {
-        allNodesRef.current = allNodes;
-        allEdgesRef.current = allEdges;
-    }, [allNodes, allEdges]);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const totalCount = allNodes.length;
     const isComplete = currentIndex >= totalCount - 1;
@@ -88,9 +80,14 @@ export function useProgressiveReveal<TNode extends { id: string }, TEdge extends
                 return previouslyVisibleNodeIds.has(edge.source) && previouslyVisibleNodeIds.has(edge.target);
             });
 
-            const edgesToAdd = newEdges.filter(edge =>
-                !previouslyVisibleEdges.some(prevEdge => prevEdge.id === edge.id)
-            );
+            // Edge identity: if the edge provides an id, use it; otherwise fall back to (source,target) pair
+            const edgeKey = (edge: TEdge): string => {
+                const maybeEdgeId = (edge as { id?: string }).id;
+                return typeof maybeEdgeId === 'string' ? maybeEdgeId : `${edge.source}→${edge.target}`;
+            };
+
+            const previousKeys = new Set(previouslyVisibleEdges.map(edgeKey));
+            const edgesToAdd = newEdges.filter(edge => !previousKeys.has(edgeKey(edge)));
 
             return {
                 action: 'add_node',

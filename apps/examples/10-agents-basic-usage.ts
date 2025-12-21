@@ -10,6 +10,7 @@
  */
 
 import { Robota, LoggingPlugin, UsagePlugin } from '@robota-sdk/agents';
+import type { AgentConfig } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
@@ -34,7 +35,7 @@ async function main() {
         // ===== AGENT CONFIGURATION =====
         console.log('⚙️ Creating agent with comprehensive configuration...');
 
-        const config = {
+        const config: AgentConfig = {
             name: 'DemoAgent',
             aiProviders: [openaiProvider],
             defaultModel: {
@@ -106,10 +107,14 @@ async function main() {
         const usagePlugin = robota.getPlugin<UsagePlugin>('usage-plugin');
         if (usagePlugin) {
             console.log('\n📈 Usage Statistics:');
-            const usageStats = usagePlugin.getStats();
-            console.log(`- Total Executions: ${usageStats.totalExecutions}`);
-            console.log(`- Total Tokens: ${usageStats.totalTokens}`);
-            console.log(`- Average Tokens per Execution: ${Math.round(usageStats.averageTokensPerExecution)}`);
+            const aggregated = await usagePlugin.getAggregatedStats();
+            const avgTokensPerRequest =
+                aggregated.totalRequests > 0 ? aggregated.totalTokens / aggregated.totalRequests : 0;
+
+            console.log(`- Total Requests: ${aggregated.totalRequests}`);
+            console.log(`- Total Tokens: ${aggregated.totalTokens}`);
+            console.log(`- Total Duration: ${Math.round(aggregated.totalDuration)}ms`);
+            console.log(`- Avg Tokens per Request: ${Math.round(avgTokensPerRequest)}`);
         }
         console.log();
 

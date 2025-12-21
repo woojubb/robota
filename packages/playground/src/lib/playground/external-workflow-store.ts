@@ -5,7 +5,7 @@
  * Architecture: 기존 SDK 로직 수정 없이 외부 접근만 가능하게 하는 최소 수정 방식
  */
 
-import type { UniversalWorkflowStructure, UniversalWorkflowNode, UniversalWorkflowEdge } from '@robota-sdk/agents';
+import type { UniversalWorkflowStructure, UniversalWorkflowNode, UniversalWorkflowEdge } from '@robota-sdk/workflow';
 import { SilentLogger, type SimpleLogger } from '@robota-sdk/agents';
 
 /**
@@ -21,8 +21,7 @@ export interface ExternalWorkflowStore {
     addEdge(edge: UniversalWorkflowEdge): void;
     getEdges(): UniversalWorkflowEdge[];
 
-    // Manual 노드 추가용 헬퍼 메서드들
-    addTeamNode(teamData: { id: string; name: string }): void;
+    // Manual node helpers
     addAgentNode(agentData: { id: string; name: string; level?: number; taskName?: string }): void;
     addUserInputNode(inputData: { id: string; content: string }): void;
 
@@ -31,14 +30,6 @@ export interface ExternalWorkflowStore {
 
     // 업데이트 트리거 콜백 설정
     setUpdateCallback(callback: () => Promise<void>): void;
-}
-
-/**
- * Manual 노드 생성을 위한 기본 데이터 타입들
- */
-export interface ManualTeamData {
-    id: string;
-    name: string;
 }
 
 export interface ManualAgentData {
@@ -119,38 +110,17 @@ export class DefaultExternalWorkflowStore implements ExternalWorkflowStore {
     }
 
     /**
-     * Team 노드 추가 헬퍼
-     */
-    addTeamNode(teamData: ManualTeamData): void {
-        const teamNode: UniversalWorkflowNode = {
-            id: teamData.id,
-            type: 'team',
-            level: 0,
-            position: { x: 250, y: 50, level: 0, order: 0 },
-            data: {
-                label: teamData.name || 'Team'
-            },
-            visualState: {
-                status: 'pending',
-                emphasis: 'normal',
-                lastUpdated: new Date()
-            },
-            createdAt: new Date(),
-            updatedAt: new Date()
-        };
-
-        this.addNode(teamNode);
-        this.logger.info(`Team node added: ${teamData.name} (${teamData.id})`);
-    }
-
-    /**
      * Agent 노드 추가 헬퍼
      */
     addAgentNode(agentData: ManualAgentData): void {
+        const now = Date.now();
         const agentNode: UniversalWorkflowNode = {
             id: agentData.id,
             type: 'agent',
             level: agentData.level || 1,
+            status: 'pending',
+            timestamp: now,
+            connections: [],
             position: {
                 x: 150 + (agentData.level || 1) * 200,
                 y: 200,
@@ -159,10 +129,8 @@ export class DefaultExternalWorkflowStore implements ExternalWorkflowStore {
             },
             data: {
                 label: agentData.name || 'Agent',
-                metadata: {
-                    taskName: agentData.taskName ?? '',
-                    toolSlots: ['assignTask']
-                }
+                description: agentData.taskName ?? '',
+                tools: ['assignTask']
             },
             visualState: {
                 status: 'pending',

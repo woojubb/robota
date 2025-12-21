@@ -167,9 +167,9 @@ const queries = [
 ]
 
 for (const query of queries) {
-    // User: ${query}
+    // User: \${query}
     const response = await robota.run(query)
-    // Assistant: ${response}
+    // Assistant: \${response}
 }
 
 await robota.destroy()`
@@ -250,15 +250,15 @@ const question = 'Explain quantum computing in simple terms'
 
 // Test with OpenAI
 // OpenAI Response:
-// User: ${question}
+// User: \${question}
 let response = await robota.run(question)
-// Assistant: ${response}
+// Assistant: \${response}
 
 // Switch to Anthropic
 // Note: Provider switching would require additional configuration
 // This is a conceptual example
 // Anthropic Response:
-// User: ${question}
+// User: \${question}
 // response = await robota.run(question, { provider: 'anthropic' })
 // Provider switching requires additional setup
 
@@ -357,7 +357,7 @@ const queries = [
 
 for (let i = 0; i < queries.length; i++) {
     const query = queries[i]
-    // ${i + 1}. User: ${query}
+    // \${i + 1}. User: \${query}
     
     const startTime = Date.now()
     const response = await robota.run(query)

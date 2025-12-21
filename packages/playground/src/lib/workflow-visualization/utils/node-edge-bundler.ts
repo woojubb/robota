@@ -1,4 +1,4 @@
-import type { Node, Edge } from 'reactflow';
+import type { Node, Edge } from '@xyflow/react';
 
 /**
  * Node Bundle - A group of nodes and their connecting edges
@@ -27,11 +27,11 @@ export type BundleStrategy =
 /**
  * Bundle Configuration
  */
-export interface BundleConfig {
+export interface BundleConfig<TNode = Node, TEdge = Edge> {
     strategy: BundleStrategy;
     bundleSize: number;
     preserveConnections: boolean;
-    customBundler?: CustomBundlerFunction;
+    customBundler?: CustomBundlerFunction<TNode, TEdge>;
 }
 
 /**
@@ -40,7 +40,7 @@ export interface BundleConfig {
 export type CustomBundlerFunction<TNode = Node, TEdge = Edge> = (
     nodes: TNode[],
     edges: TEdge[],
-    config: BundleConfig
+    config: BundleConfig<TNode, TEdge>
 ) => NodeBundle<TNode, TEdge>[];
 
 /**
@@ -63,7 +63,7 @@ const REACT_FLOW_NODE_TYPE_PRIORITY: Record<string, number> = {
  * Creates bundles with one node at a time plus its connecting edges
  */
 export function createSequentialBundler<TNode extends { id: string }, TEdge extends { source: string; target: string }>(): CustomBundlerFunction<TNode, TEdge> {
-    return (nodes: TNode[], edges: TEdge[], config: BundleConfig): NodeBundle<TNode, TEdge>[] => {
+    return (nodes: TNode[], edges: TEdge[], config: BundleConfig<TNode, TEdge>): NodeBundle<TNode, TEdge>[] => {
         const bundles: NodeBundle<TNode, TEdge>[] = [];
 
         for (let i = 0; i < nodes.length; i += config.bundleSize) {
@@ -106,7 +106,7 @@ export function createSequentialBundler<TNode extends { id: string }, TEdge exte
  * Groups nodes by their type with priority ordering
  */
 export function createTypeBundler(): CustomBundlerFunction<Node, Edge> {
-    return (nodes: Node[], edges: Edge[], config: BundleConfig): NodeBundle<Node, Edge>[] => {
+    return (nodes: Node[], edges: Edge[], config: BundleConfig<Node, Edge>): NodeBundle<Node, Edge>[] => {
         // Sort nodes by type priority, then by original order
         const sortedNodes = [...nodes].sort((a, b) => {
             const priorityA = REACT_FLOW_NODE_TYPE_PRIORITY[a.type || 'default'] || 999;
@@ -181,7 +181,7 @@ export function createTypeBundler(): CustomBundlerFunction<Node, Edge> {
  * Groups nodes that are connected together
  */
 export function createConnectedBundler<TNode extends { id: string }, TEdge extends { source: string; target: string }>(): CustomBundlerFunction<TNode, TEdge> {
-    return (nodes: TNode[], edges: TEdge[], config: BundleConfig): NodeBundle<TNode, TEdge>[] => {
+    return (nodes: TNode[], edges: TEdge[], config: BundleConfig<TNode, TEdge>): NodeBundle<TNode, TEdge>[] => {
         const nodeMap = new Map(nodes.map(n => [n.id, n]));
         const adjacencyList = new Map<string, Set<string>>();
 
@@ -264,7 +264,7 @@ export function createConnectedBundler<TNode extends { id: string }, TEdge exten
  * Creates appropriate bundler based on strategy
  */
 export function createNodeEdgeBundler<TNode extends { id: string }, TEdge extends { source: string; target: string }>(
-    config: BundleConfig
+    config: BundleConfig<TNode, TEdge>
 ): CustomBundlerFunction<TNode, TEdge> {
     switch (config.strategy) {
         case 'sequential':
@@ -272,7 +272,7 @@ export function createNodeEdgeBundler<TNode extends { id: string }, TEdge extend
 
         case 'by-type':
             // Type bundler is React Flow specific
-            return config.customBundler || createSequentialBundler<TNode, TEdge>();
+            throw new Error('Bundling strategy "by-type" is React Flow specific. Use createReactFlowTypeBundler() instead.');
 
         case 'connected':
             return createConnectedBundler<TNode, TEdge>();
@@ -284,7 +284,7 @@ export function createNodeEdgeBundler<TNode extends { id: string }, TEdge extend
             return config.customBundler;
 
         default:
-            return createSequentialBundler<TNode, TEdge>();
+            throw new Error(`Unsupported bundling strategy: ${String(config.strategy)}`);
     }
 }
 

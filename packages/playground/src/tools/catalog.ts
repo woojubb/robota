@@ -1,4 +1,4 @@
-import type { EventService, FunctionTool } from '@robota-sdk/agents';
+import type { EventService, ToolInterface } from '@robota-sdk/agents';
 import { createAssignTaskRelayTool } from '@robota-sdk/team';
 import { CURRENT_TIME_META, createCurrentTimeTool } from './current-time/index';
 
@@ -29,7 +29,7 @@ export function getPlaygroundToolCatalog(): PlaygroundToolMeta[] {
 }
 
 // Static tool registry (id -> factory with eventService injection)
-export const ToolRegistry: Record<string, (eventService: EventService) => FunctionTool> = {
+export const ToolRegistry: Record<string, (eventService: EventService) => ToolInterface> = {
     assignTask: (eventService: EventService) => createAssignTaskRelayTool(eventService),
     'current-time': (_eventService: EventService) => createCurrentTimeTool()
 };

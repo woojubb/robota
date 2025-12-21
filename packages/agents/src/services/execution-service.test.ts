@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ExecutionService } from './execution-service';
-import { ConversationHistory } from '../managers/conversation-history-manager';
+import { ConversationHistory, ConversationSession } from '../managers/conversation-history-manager';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
@@ -49,35 +49,21 @@ class MockAIProvider extends AbstractAIProvider {
     }
 }
 
-// Define mock session value type
-type MockSessionValue = {
-    getMessages: () => any[];
-    getMessageCount: () => number;
-    addUserMessage: (content: string, metadata?: any) => void;
-    addAssistantMessage: (content: string, metadata?: any) => void;
-    addSystemMessage: (content: string) => void;
-    addToolMessageWithId: (content: string, toolCallId: string, toolName: string, metadata?: any) => void;
-    addMessage: (message: any) => void;
-    clear: () => void;
-    getMessagesByRole: (role: string) => any[];
-    getRecentMessages: (count: number) => any[];
-} | null;
-
 // Create a mock class that extends ConversationHistory
 class MockConversationHistory extends ConversationHistory {
-    private mockSession: Record<string, MockSessionValue>;
+    private sessions = new Map<string, ConversationSession>();
 
     constructor() {
         super({ maxMessagesPerConversation: 100, maxConversations: 10 });
-        this.mockSession = {};
     }
 
-    override getConversationSession(conversationId: string): MockSessionValue {
-        return this.mockSession[conversationId] || null;
-    }
+    override getConversationSession(conversationId: string): ConversationSession {
+        const existing = this.sessions.get(conversationId);
+        if (existing) return existing;
 
-    setMockSession(session: Record<string, MockSessionValue>): void {
-        this.mockSession = session;
+        const session = super.getConversationSession(conversationId);
+        this.sessions.set(conversationId, session);
+        return session;
     }
 }
 
@@ -99,62 +85,35 @@ describe.skip('ExecutionService', () => {
         // Create mock conversation history that extends ConversationHistory
         conversationHistory = new MockConversationHistory();
 
-        // Create mock AI providers manager with interface methods
-        aiProviders = {
-            getCurrentProviderInstance: vi.fn().mockReturnValue(mockProvider),
-            getCurrentProvider: vi.fn().mockReturnValue({ provider: 'mock-provider', model: 'mock-model' }),
-            getProviderInstance: vi.fn().mockReturnValue(mockProvider),
-            getAvailableProviders: vi.fn().mockReturnValue(['mock-provider']),
-            initialize: vi.fn().mockResolvedValue(undefined),
-            dispose: vi.fn().mockResolvedValue(undefined),
-            isInitialized: vi.fn().mockReturnValue(true),
-            addProvider: vi.fn(),
-            removeProvider: vi.fn(),
-            getProvider: vi.fn().mockReturnValue(mockProvider),
-            getProviders: vi.fn().mockReturnValue({ 'mock-provider': mockProvider }),
-            setCurrentProvider: vi.fn(),
-            isConfigured: vi.fn().mockReturnValue(true),
-            getAvailableModels: vi.fn().mockReturnValue(['mock-model']),
-            getProviderNames: vi.fn().mockReturnValue(['mock-provider']),
-            getProvidersByPattern: vi.fn().mockReturnValue({ 'mock-provider': mockProvider }),
-            supportsStreaming: vi.fn().mockReturnValue(true),
-            getProviderCount: vi.fn().mockReturnValue(1)
-        };
+        // Use real manager instances (type-safe) and stub behavior as needed.
+        aiProviders = new AIProviders();
+        // Tests are skipped; stubs exist purely to satisfy typecheck.
+        vi.spyOn(aiProviders, 'getCurrentProviderInstance').mockReturnValue(mockProvider);
+        vi.spyOn(aiProviders, 'getCurrentProvider').mockReturnValue({ provider: 'mock-provider', model: 'mock-model' });
+        vi.spyOn(aiProviders, 'isConfigured').mockReturnValue(true);
+        vi.spyOn(aiProviders, 'getProvider').mockReturnValue(mockProvider);
+        vi.spyOn(aiProviders, 'getProviders').mockReturnValue({ 'mock-provider': mockProvider });
+        vi.spyOn(aiProviders, 'getProviderNames').mockReturnValue(['mock-provider']);
+        vi.spyOn(aiProviders, 'supportsStreaming').mockReturnValue(true);
+        vi.spyOn(aiProviders, 'getProviderCount').mockReturnValue(1);
 
         // Create mock tools manager with interface methods
-        tools = {
-            getTools: vi.fn().mockReturnValue([
-                {
-                    type: 'function',
-                    function: {
-                        name: 'testTool',
-                        description: 'A test tool',
-                        parameters: {
-                            type: 'object',
-                            properties: {
-                                param: { type: 'string' }
-                            },
-                            required: ['param']
-                        }
-                    }
+        tools = new Tools();
+        vi.spyOn(tools, 'getTools').mockReturnValue([
+            {
+                name: 'testTool',
+                description: 'A test tool',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        param: { type: 'string', description: 'param' }
+                    },
+                    required: ['param']
                 }
-            ]),
-            hasTool: vi.fn().mockReturnValue(true),
-            getRegisteredToolNames: vi.fn().mockReturnValue(['testTool']),
-            getToolsForExecution: vi.fn().mockReturnValue([]),
-            initialize: vi.fn().mockResolvedValue(undefined),
-            dispose: vi.fn().mockResolvedValue(undefined),
-            isInitialized: vi.fn().mockReturnValue(true),
-            addTool: vi.fn(),
-            removeTool: vi.fn(),
-            getTool: vi.fn(),
-            getToolSchema: vi.fn(),
-            executeTool: vi.fn(),
-            setAllowedTools: vi.fn(),
-            getAllowedTools: vi.fn(),
-            getRegistry: vi.fn(),
-            getToolCount: vi.fn().mockReturnValue(1)
-        };
+            }
+        ]);
+        vi.spyOn(tools, 'hasTool').mockReturnValue(true);
+        vi.spyOn(tools, 'getToolCount').mockReturnValue(1);
 
         // Create execution service
         executionService = new ExecutionService(
@@ -182,23 +141,9 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
-
-            // Mock conversation session messages with assistant response
-            mockSession.getMessages = vi.fn()
+            const session = conversationHistory.getConversationSession('test-agent');
+            const getMessagesSpy = vi.spyOn(session, 'getMessages');
+            getMessagesSpy
                 .mockReturnValueOnce([]) // first call (empty)
                 .mockReturnValue([
                     { role: 'user', content: input, timestamp: new Date() },
@@ -223,21 +168,6 @@ describe.skip('ExecutionService', () => {
                     systemMessage: 'You are a helpful assistant.'
                 }
             };
-
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
 
             // Mock provider to return tool calls
             mockProvider.chat = vi.fn()
@@ -290,23 +220,14 @@ describe.skip('ExecutionService', () => {
             // Replace the tool execution service in the execution service
             (executionService as any).toolExecutionService = mockToolExecutionService;
 
-            // Create and set mock session for tool calls test
-            const mockToolSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockToolSession });
+            const session = conversationHistory.getConversationSession('test-agent');
+            const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
+            const addAssistantMessageSpy = vi.spyOn(session, 'addAssistantMessage');
+            const addToolMessageWithIdSpy = vi.spyOn(session, 'addToolMessageWithId');
+            const getMessagesSpy = vi.spyOn(session, 'getMessages');
 
             // Mock conversation session messages progression
-            mockToolSession.getMessages = vi.fn()
+            getMessagesSpy
                 .mockReturnValueOnce([]) // first call (empty)
                 .mockReturnValueOnce([  // after first AI response
                     { role: 'user', content: 'Use a tool to do something', timestamp: new Date() },
@@ -368,9 +289,9 @@ describe.skip('ExecutionService', () => {
             expect(result.response).toBe('Task completed with tool result');
 
             // Verify conversation history updates
-            expect(mockToolSession.addUserMessage).toHaveBeenCalledWith(testInput, expect.any(Object));
-            expect(mockToolSession.addAssistantMessage).toHaveBeenCalledTimes(2);
-            expect(mockToolSession.addToolMessageWithId).toHaveBeenCalledTimes(1);
+            expect(addUserMessageSpy).toHaveBeenCalledWith(testInput, expect.any(Object));
+            expect(addAssistantMessageSpy).toHaveBeenCalledTimes(2);
+            expect(addToolMessageWithIdSpy).toHaveBeenCalledTimes(1);
         });
 
         it('should handle errors during execution', async () => {
@@ -385,20 +306,7 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
+            conversationHistory.getConversationSession('test-agent');
 
             mockProvider.chat = vi.fn().mockRejectedValue(new Error('Provider error'));
 
@@ -420,27 +328,16 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
+            const session = conversationHistory.getConversationSession('test-agent');
+            const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
+            const addAssistantMessageSpy = vi.spyOn(session, 'addAssistantMessage');
 
             await executionService.execute(inputMsg, messagesArray, agentConfig, { conversationId: 'test-agent' });
 
             // Verify all messages were added
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith('Hello', undefined);
-            expect(mockSession.addAssistantMessage).toHaveBeenCalledWith('Hi there!', undefined, undefined);
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith(inputMsg, expect.any(Object));
+            expect(addUserMessageSpy).toHaveBeenCalledWith('Hello', undefined);
+            expect(addAssistantMessageSpy).toHaveBeenCalledWith('Hi there!', undefined, undefined);
+            expect(addUserMessageSpy).toHaveBeenCalledWith(inputMsg, expect.any(Object));
         });
 
         it('should handle messages with system role', async () => {
@@ -458,27 +355,16 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
+            const session = conversationHistory.getConversationSession('test-agent');
+            const addSystemMessageSpy = vi.spyOn(session, 'addSystemMessage');
+            const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
 
             await executionService.execute(userInput, messagesList, testConfig, { conversationId: 'test-agent' });
 
             // Verify system message was added
-            expect(mockSession.addSystemMessage).toHaveBeenCalledWith('You are a helpful assistant', undefined);
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith('Previous question', undefined);
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith(userInput, expect.any(Object));
+            expect(addSystemMessageSpy).toHaveBeenCalledWith('You are a helpful assistant', undefined);
+            expect(addUserMessageSpy).toHaveBeenCalledWith('Previous question', undefined);
+            expect(addUserMessageSpy).toHaveBeenCalledWith(userInput, expect.any(Object));
         });
 
         it('should handle no AI provider available', async () => {
@@ -493,20 +379,7 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
+            conversationHistory.getConversationSession('test-agent');
 
             // Mock no provider available
             aiProviders.getCurrentProviderInstance = vi.fn().mockReturnValue(null);

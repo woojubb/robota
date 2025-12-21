@@ -34,6 +34,8 @@ import type { PlaygroundMetrics } from '../types/playground-statistics';
 import type { PlaygroundExecutor } from '../lib/playground/robota-executor';
 import { WebLogger } from '../lib/web-logger';
 
+type PlaygroundActionType = Parameters<PlaygroundExecutor['recordPlaygroundAction']>[0];
+
 /**
  * Hook 반환 타입 - UI에서 사용하기 편한 형태로 가공된 통계 데이터
  */
@@ -63,7 +65,7 @@ export interface PlaygroundStatisticsHookResult {
     lastUpdated: Date;
 
     // 액션 메서드
-    recordAction: (actionType: string, metadata?: Record<string, any>) => Promise<void>;
+    recordAction: (actionType: PlaygroundActionType, metadata?: Record<string, any>) => Promise<void>;
     recordBlockCreation: (blockType: string, metadata?: Record<string, any>) => Promise<void>;
     resetStatistics: () => void;
 }
@@ -142,7 +144,7 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
     /**
      * UI용 액션 메서드들 - useCallback으로 메모이제이션
      */
-    const recordAction = useCallback(async (actionType: string, metadata?: Record<string, any>) => {
+    const recordAction = useCallback(async (actionType: PlaygroundActionType, metadata?: Record<string, any>) => {
         if (!isExecutorReady) return;
 
         try {

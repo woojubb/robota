@@ -1,9 +1,9 @@
 {
     "projectSettings": {
         "framework": "nextjs",
-        "buildCommand": "npm run build",
+        "buildCommand": "pnpm -w --filter @robota-sdk/web build",
         "outputDirectory": ".next",
-        "installCommand": "npm install"
+        "installCommand": "pnpm -w install --frozen-lockfile"
     },
     "functions": {
         "app/api/**": {

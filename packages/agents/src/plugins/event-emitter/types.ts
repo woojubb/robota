@@ -1,4 +1,4 @@
-import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
+import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Event types that can be emitted.
@@ -101,7 +101,7 @@ export interface EventEmitterPluginOptions extends BasePluginOptions {
 /**
  * Event emitter plugin statistics
  */
-export interface EventEmitterPluginStats {
+export interface EventEmitterPluginStats extends PluginStats {
     totalEventsEmitted: number;
     totalListeners: number;
     activeListeners: number;

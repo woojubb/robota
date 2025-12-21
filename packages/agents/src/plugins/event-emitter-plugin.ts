@@ -1,4 +1,4 @@
-import { AbstractPlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
+import { AbstractPlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, type PluginStats, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
 import type { ToolExecutionContext, ToolParameters, ToolResult } from '../interfaces/tool';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
@@ -230,7 +230,7 @@ export interface EventEmitterPluginOptions extends BasePluginOptions {
 /**
  * Event emitter plugin statistics
  */
-export interface EventEmitterPluginStats {
+export interface EventEmitterPluginStats extends PluginStats {
     eventTypes: EventType[];
     listenerCounts: Record<EventType, number>;
     totalListeners: number;
@@ -673,6 +673,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
      * Get event emitter statistics
      */
     override getStats(): EventEmitterPluginStats {
+        const base = super.getStats();
         const listenerCounts: Record<EventType, number> = {} as Record<EventType, number>;
         let totalListeners = 0;
 
@@ -682,6 +683,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
         }
 
         return {
+            ...base,
             eventTypes: Array.from(this.handlers.keys()),
             listenerCounts,
             totalListeners,

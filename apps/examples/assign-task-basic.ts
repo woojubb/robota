@@ -9,7 +9,7 @@
  */
 
 import { listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
-import type { ToolExecutionData, ToolResult } from '@robota-sdk/agents';
+import type { ToolExecutionContext, ToolExecutionData, ToolResult } from '@robota-sdk/agents';
 
 type TemplateSummary = {
     id: string;
@@ -62,7 +62,8 @@ const extractTemplatesList = (result: ToolResult): TemplatesListPayload => {
 };
 
 async function main() {
-    const listResult = await listTemplatesTool.execute({});
+    const listContext: ToolExecutionContext = { toolName: 'listTemplates', parameters: {} };
+    const listResult = await listTemplatesTool.execute({}, listContext);
     const { templates } = extractTemplatesList(listResult);
     console.log('Templates:', templates);
 
@@ -72,7 +73,11 @@ async function main() {
         throw new Error('No templates available');
     }
 
-    const detail = await getTemplateDetailTool.execute({ templateId: selected.id });
+    const detailContext: ToolExecutionContext = {
+        toolName: 'getTemplateDetail',
+        parameters: { templateId: selected.id }
+    };
+    const detail = await getTemplateDetailTool.execute({ templateId: selected.id }, detailContext);
     if (!detail.success) {
         throw new Error(detail.error ?? 'getTemplateDetail failed');
     }

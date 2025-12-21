@@ -44,7 +44,7 @@ import remarkGfm from 'remark-gfm';
 import type { PlaygroundToolMeta } from '../../tools/catalog';
 import type {
     UniversalWorkflowStructure
-} from '@robota-sdk/agents';
+} from '@robota-sdk/workflow';
 import { SimpleReactFlowConverter } from '../../lib/workflow-visualization';
 import {
     useReactFlowProgressiveReveal,

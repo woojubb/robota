@@ -210,12 +210,12 @@ class ScenarioRecordingProvider implements AIProvider {
         return this.delegate.validateConfig();
     }
 
-    dispose?(): Promise<void> {
-        return this.delegate.dispose?.();
+    async dispose(): Promise<void> {
+        await this.delegate.dispose?.();
     }
 
-    close?(): Promise<void> {
-        return this.delegate.close?.();
+    async close(): Promise<void> {
+        await this.delegate.close?.();
     }
 
     private async recordStep(messages: UniversalMessage[], options: ChatOptions | undefined, response: RecordingResponseInput): Promise<void> {
@@ -291,13 +291,16 @@ class ScenarioMockAIProvider implements AIProvider {
         return true;
     }
 
-    private async resolveStep(messages: UniversalMessage[], options?: ChatOptions): Promise<ScenarioStep | undefined> {
+    private async resolveStep(messages: UniversalMessage[], options?: ChatOptions): Promise<ScenarioStep> {
         if (this.options.strategy === 'sequential') {
             const steps = await this.options.store.listSteps(this.options.scenarioId);
             if (this.pointer >= steps.length) {
                 throw new Error(`[ScenarioMockAIProvider] No more recorded steps available for scenario "${this.options.scenarioId}".`);
             }
             const step = steps[this.pointer];
+            if (!step) {
+                throw new Error(`[ScenarioMockAIProvider] Missing step at index ${this.pointer} for scenario "${this.options.scenarioId}".`);
+            }
             this.pointer += 1;
             this.usedStepIds.add(step.stepId);
             return step;

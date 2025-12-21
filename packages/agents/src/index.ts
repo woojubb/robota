@@ -126,8 +126,28 @@ export type { ToolParameters, ToolResult, ToolExecutionContext } from './interfa
  */
 export type {
     UniversalMessage,
-    AssistantMessage
+    AssistantMessage,
+    ConversationMessageMetadata
 } from './managers/conversation-history-manager';
+
+/**
+ * Type guards for the canonical UniversalMessage union.
+ *
+ * @public
+ */
+export {
+    isUserMessage,
+    isAssistantMessage,
+    isSystemMessage,
+    isToolMessage
+} from './managers/conversation-history-manager';
+
+/**
+ * Provider request/response types (raw provider boundary).
+ *
+ * @public
+ */
+export type { ProviderRequest, RawProviderResponse } from './interfaces/provider';
 
 /**
  * Abstract AI provider implementation that all AI providers must extend.

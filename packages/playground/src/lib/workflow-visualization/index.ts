@@ -45,18 +45,5 @@ export type {
 } from './react-flow/layout-engine';
 
 // Mermaid Integration
-export {
-    RealTimeMermaidGenerator
-} from './mermaid';
-
-export type {
-    MermaidNodeClassMapping,
-    MermaidNodeEmojiMapping,
-    MermaidStatusMapping,
-    MermaidShapeMapping,
-    MermaidArrowMapping,
-    MermaidLabelMapping,
-    MermaidDiagramConfig,
-    MermaidNodeDefinition,
-    MermaidEdgeDefinition
-} from './mermaid/types';
+// Mermaid integration intentionally omitted from @robota-sdk/playground.
+// The playground package focuses on React-based visualization surfaces only.

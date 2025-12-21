@@ -26,11 +26,10 @@ export interface PlaygroundDataHookReturn {
     totalEvents: number;
     totalToolCalls: number;
     averageResponseTime: number;
-    currentMode: 'agent' | 'team';
+    currentMode: 'agent';
 
     // Agent/Team Structure
-    agentBlocks: PlaygroundVisualizationData['agents'] | [];
-    currentExecution: PlaygroundVisualizationData['currentExecution'] | undefined;
+    agentBlocks: VisualizationData['agents'] | [];
 
     // Real-time Status
     isRealTimeEnabled: boolean;
@@ -52,7 +51,7 @@ export interface PlaygroundDataHookReturn {
     // Data Export
     exportConversationData: () => {
         timestamp: string;
-        mode: 'agent' | 'team';
+        mode: 'agent';
         events: ConversationEvent[];
         statistics: ReturnType<PlaygroundDataHookReturn['getExecutionStatistics']>;
     };
@@ -77,24 +76,21 @@ export function usePlaygroundData(): PlaygroundDataHookReturn {
     }, [conversationEvents]);
 
     const totalToolCalls = useMemo(() => {
-        return conversationEvents.filter(event => event.type === 'tool_call').length;
+        return conversationEvents.filter(event =>
+            event.type === 'tool_call_start' ||
+            event.type === 'tool_call_complete' ||
+            event.type === 'tool_call_error'
+        ).length;
     }, [conversationEvents]);
 
     const averageResponseTime = useMemo(() => {
-        if (!visualizationData?.stats) return 0;
-        return visualizationData.stats.averageResponseTime;
-    }, [visualizationData]);
+        return state.executionStats.averageExecutionTime;
+    }, [state.executionStats.averageExecutionTime]);
 
-    const currentMode = useMemo(() => {
-        return visualizationData?.mode || 'agent';
-    }, [visualizationData]);
+    const currentMode = useMemo<'agent'>(() => 'agent', []);
 
     const agentBlocks = useMemo(() => {
         return visualizationData?.agents || [];
-    }, [visualizationData]);
-
-    const currentExecution = useMemo(() => {
-        return visualizationData?.currentExecution;
     }, [visualizationData]);
 
     const lastEventTimestamp = useMemo(() => {
@@ -127,8 +123,14 @@ export function usePlaygroundData(): PlaygroundDataHookReturn {
     const getExecutionStatistics = useCallback(() => {
         const userMessages = filterEventsByType('user_message');
         const assistantMessages = filterEventsByType('assistant_response');
-        const errors = filterEventsByType('error');
-        const toolCalls = filterEventsByType('tool_call');
+        const errors = conversationEvents.filter(event =>
+            event.type === 'execution_error' || event.type === 'tool_call_error'
+        );
+        const toolCalls = conversationEvents.filter(event =>
+            event.type === 'tool_call_start' ||
+            event.type === 'tool_call_complete' ||
+            event.type === 'tool_call_error'
+        );
 
         const totalExecutions = userMessages.length;
         const successfulExecutions = assistantMessages.length;
@@ -189,7 +191,6 @@ export function usePlaygroundData(): PlaygroundDataHookReturn {
 
         // Agent/Team Structure
         agentBlocks,
-        currentExecution,
 
         // Real-time Status
         isRealTimeEnabled: state.isWebSocketConnected,

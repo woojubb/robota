@@ -179,7 +179,16 @@ export interface PluginStats {
     errors: number;
     lastActivity?: Date;
     moduleEventsReceived?: number;
-    [key: string]: string | number | boolean | Date | undefined;
+    [key: string]:
+        | string
+        | number
+        | boolean
+        | Date
+        | string[]
+        | number[]
+        | boolean[]
+        | Record<string, string | number | boolean | Date>
+        | undefined;
 }
 
 /**
@@ -285,7 +294,7 @@ export interface PluginHooks {
  * @template TOptions - Plugin options type that extends BasePluginOptions
  * @template TStats - Plugin statistics type (defaults to PluginStats for type safety)
  */
-export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePluginOptions, TStats = PluginStats>
+export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePluginOptions, TStats extends PluginStats = PluginStats>
     implements TypeSafePluginInterface<TOptions, TStats>, PluginHooks {
     /** Plugin name */
     abstract readonly name: string;

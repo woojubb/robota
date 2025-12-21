@@ -41,7 +41,7 @@ describe('Transformers Pure Functions', () => {
                 role: 'user',
                 content: 'Hello',
                 extraProperty: 'should be preserved'
-            };
+            } satisfies BasicMessage & { extraProperty: string };
 
             const result = toRequestMessage(extendedMessage, 'anthropic', 'claude-3');
 

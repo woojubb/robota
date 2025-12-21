@@ -1,5 +1,6 @@
 import type { ToolInterface, ToolResult, ToolExecutionContext, ToolParameters } from '../../interfaces/tool';
 import type { ToolSchema } from '../../interfaces/provider';
+import type { ObjectValue } from '../../interfaces/types';
 import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import { logger as _logger } from '../../utils/logger';
@@ -56,15 +57,14 @@ interface MCPError {
 type MCPConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
 
 /**
- * MCP tool execution result
+ * MCP tool execution result (domain payload).
+ *
+ * NOTE:
+ * Tool result payloads must conform to the canonical UniversalValue axis.
+ * We return a plain object (ObjectValue) so downstream consumers can safely
+ * store/serialize it without `any`/`unknown`.
  */
-interface MCPExecutionResult {
-    success: boolean;
-    content: string | Record<string, string | number | boolean | null>;
-    metadata?: Record<string, string | number | boolean>;
-    executionTime?: number;
-    connectionStatus?: MCPConnectionStatus;
-}
+type MCPToolResultData = ObjectValue;
 
 /**
  * MCP (Model Context Protocol) tool implementation
@@ -270,39 +270,32 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
     /**
      * Process MCP response and extract execution result
      */
-    private processMCPResponse(response: MCPResponse): MCPExecutionResult {
+    private processMCPResponse(response: MCPResponse): MCPToolResultData {
         if (response.error) {
-            const result: MCPExecutionResult = {
+            const errorData: ObjectValue = {
                 success: false,
-                content: response.error.message
+                content: response.error.message,
+                metadata: response.error.data ?? undefined
             };
-
-            if (response.error.data) {
-                result.metadata = response.error.data;
-            }
-
-            return result;
+            return errorData;
         }
 
         if (response.result) {
-            const result: MCPExecutionResult = {
+            const okData: ObjectValue = {
                 success: true,
-                content: response.result.content
+                content: response.result.content,
+                metadata: response.result.metadata ?? undefined
             };
-
-            if (response.result.metadata) {
-                result.metadata = response.result.metadata;
-            }
-
-            return result;
+            return okData;
         }
 
-        // Fallback for unexpected response format
-        return {
+        // Unexpected response format
+        const unexpected: ObjectValue = {
             success: false,
             content: 'Unexpected MCP response format',
-            metadata: { responseId: response.id }
+            metadata: { responseId: String(response.id) }
         };
+        return unexpected;
     }
 
     /**
@@ -340,6 +333,6 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
 /**
  * Factory function to create MCP tools
  */
-export function createMCPTool(config: MCPConfig, schema: ToolSchema, options: BaseToolOptions = {}): MCPTool {
+export function createMCPTool(config: MCPConfig, schema: ToolSchema, options: AbstractToolOptions = {}): MCPTool {
     return new MCPTool(config, schema, options);
 } 

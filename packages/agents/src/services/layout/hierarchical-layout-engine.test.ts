@@ -14,6 +14,48 @@ import { SilentLogger } from '../../utils/simple-logger';
 
 describe('HierarchicalLayoutEngine', () => {
     let engine: HierarchicalLayoutEngine;
+
+    function createTestNodes(count: number): UniversalWorkflowNode[] {
+        const nodes: UniversalWorkflowNode[] = [];
+
+        for (let i = 0; i < count; i++) {
+            nodes.push({
+                id: `node-${i}`,
+                type: 'test',
+                level: Math.floor(i / 2), // 2 nodes per level
+                position: {
+                    level: Math.floor(i / 2),
+                    order: i % 2
+                },
+                visualState: {
+                    status: 'completed',
+                    lastUpdated: new Date()
+                },
+                data: {
+                    label: `Node ${i}`
+                },
+                createdAt: new Date(),
+                updatedAt: new Date()
+            });
+        }
+
+        return nodes;
+    }
+
+    function createTestConfig(): UniversalLayoutConfig {
+        return {
+            algorithm: 'hierarchical',
+            direction: 'TB',
+            spacing: {
+                nodeSpacing: 100,
+                levelSpacing: 150
+            },
+            alignment: {
+                horizontal: 'center',
+                vertical: 'top'
+            }
+        };
+    }
     
     beforeEach(() => {
         engine = new HierarchicalLayoutEngine(SilentLogger);
@@ -114,48 +156,6 @@ describe('HierarchicalLayoutEngine', () => {
     });
     
     describe('Layout Calculation', () => {
-        function createTestNodes(count: number): UniversalWorkflowNode[] {
-            const nodes: UniversalWorkflowNode[] = [];
-            
-            for (let i = 0; i < count; i++) {
-                nodes.push({
-                    id: `node-${i}`,
-                    type: 'test',
-                    level: Math.floor(i / 2), // 2 nodes per level
-                    position: {
-                        level: Math.floor(i / 2),
-                        order: i % 2
-                    },
-                    visualState: {
-                        status: 'completed',
-                        lastUpdated: new Date()
-                    },
-                    data: {
-                        label: `Node ${i}`
-                    },
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                });
-            }
-            
-            return nodes;
-        }
-        
-        function createTestConfig(): UniversalLayoutConfig {
-            return {
-                algorithm: 'hierarchical',
-                direction: 'TB',
-                spacing: {
-                    nodeSpacing: 100,
-                    levelSpacing: 150
-                },
-                alignment: {
-                    horizontal: 'center',
-                    vertical: 'top'
-                }
-            };
-        }
-        
         it('should calculate layout for empty node list', async () => {
             const nodes: UniversalWorkflowNode[] = [];
             const edges: UniversalWorkflowEdge[] = [];

@@ -8,7 +8,7 @@
  */
 
 import { listTemplateCategoriesTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
-import type { ToolExecutionData, ToolResult } from '@robota-sdk/agents';
+import type { ToolExecutionContext, ToolExecutionData, ToolResult } from '@robota-sdk/agents';
 
 type CategorySummary = {
     id: string;
@@ -104,12 +104,15 @@ const extractTemplatesList = (result: ToolResult): TemplatesListPayload => {
 };
 
 async function main() {
-    const categoriesResult = await listTemplateCategoriesTool.execute({});
+    const categoriesContext: ToolExecutionContext = { toolName: 'listTemplateCategories', parameters: {} };
+    const categoriesResult = await listTemplateCategoriesTool.execute({}, categoriesContext);
     const { categories } = extractCategories(categoriesResult);
     console.log('Categories:', categories);
 
     const categoryId = categories[0]?.id;
-    const templatesResult = await listTemplatesTool.execute(categoryId ? { categoryId } : {});
+    const templatesParams = categoryId ? { categoryId } : {};
+    const templatesContext: ToolExecutionContext = { toolName: 'listTemplates', parameters: templatesParams };
+    const templatesResult = await listTemplatesTool.execute(templatesParams, templatesContext);
     const { templates } = extractTemplatesList(templatesResult);
     console.log('Templates:', templates);
 
@@ -118,7 +121,11 @@ async function main() {
         throw new Error('No templates available');
     }
 
-    const detail = await getTemplateDetailTool.execute({ templateId: selected.id });
+    const detailContext: ToolExecutionContext = {
+        toolName: 'getTemplateDetail',
+        parameters: { templateId: selected.id }
+    };
+    const detail = await getTemplateDetailTool.execute({ templateId: selected.id }, detailContext);
     if (!detail.success) {
         throw new Error(detail.error ?? 'getTemplateDetail failed');
     }

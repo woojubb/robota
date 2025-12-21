@@ -62,7 +62,7 @@ export interface AggregatedUsageStats {
     };
 }
 
-import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
+import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Configuration options for usage plugin
@@ -107,7 +107,7 @@ export interface UsageStorage {
 /**
  * Usage plugin statistics
  */
-export interface UsagePluginStats {
+export interface UsagePluginStats extends PluginStats {
     /** Total number of usage entries tracked */
     entriesTracked: number;
     /** Total tokens tracked */
