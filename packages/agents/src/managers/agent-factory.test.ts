@@ -4,7 +4,7 @@ import type { AgentInterface, AgentConfig, AgentTemplate } from '../interfaces/a
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { Robota } from '../core/robota';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
-import type { UniversalMessage } from './conversation-history-manager';
+import type { TUniversalMessage } from './conversation-history-manager';
 import type { ChatOptions } from '../interfaces/provider';
 
 // Mock AI Provider for testing
@@ -16,7 +16,7 @@ class MockAIProvider extends AbstractAIProvider {
         super();
     }
 
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response',
@@ -24,7 +24,7 @@ class MockAIProvider extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response',

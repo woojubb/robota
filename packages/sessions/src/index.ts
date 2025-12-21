@@ -24,7 +24,7 @@ export type {
     CreateChatOptions,
     AgentInterface,
     AgentConfig,
-    Message,
+    TUniversalMessage,
     RunOptions
 } from './types/core';
 

@@ -644,7 +644,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             if (typeof state.executor.getPlaygroundEvents === 'function') {
                 allEvents = state.executor.getPlaygroundEvents();
             } else {
-                // Fallback: Convert basic UniversalMessage[] to ConversationEvent[] for compatibility
+                // Fallback: Convert basic TUniversalMessage[] to ConversationEvent[] for compatibility
                 const history = state.executor.getHistory();
                 allEvents = history.map((msg, index) => ({
                     id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
@@ -761,7 +761,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             if (typeof state.executor.getPlaygroundEvents === 'function') {
                 allEvents = state.executor.getPlaygroundEvents();
             } else {
-                // Fallback: Convert basic UniversalMessage[] to ConversationEvent[] for compatibility
+                // Fallback: Convert basic TUniversalMessage[] to ConversationEvent[] for compatibility
                 const history = state.executor.getHistory();
                 allEvents = history.map((msg, index) => ({
                     id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,

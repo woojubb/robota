@@ -1,5 +1,5 @@
-import { Message, AgentConfig, AssistantMessage, ToolMessage, ExecutionContextInjection } from '../interfaces/agent';
-import { PluginContext, Metadata } from '../interfaces/types';
+import { AgentConfig, IAssistantMessage, IToolMessage, ExecutionContextInjection } from '../interfaces/agent';
+import { PluginContext, TMetadata } from '../interfaces/types';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { ToolExecutionService } from './tool-execution-service';
 import type { AIProviderManagerInterface } from '../interfaces/manager';
@@ -7,7 +7,8 @@ import type { ToolManagerInterface } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import type { ToolExecutionContext } from '../interfaces/tool';
 import { Logger, createLogger } from '../utils/logger';
-import { ChatOptions, ToolCall } from '../interfaces/provider';
+import { ChatOptions } from '../interfaces/provider';
+import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
 import {
     EventService,
     DEFAULT_ABSTRACT_EVENT_SERVICE,
@@ -63,9 +64,9 @@ export interface ExecutionContext {
     conversationId?: string;
     sessionId?: string;
     userId?: string;
-    messages: Message[];
+    messages: TUniversalMessage[];
     config: AgentConfig;
-    metadata?: Metadata;
+    metadata?: TMetadata;
     startTime: Date;
     executionId: string;
 }
@@ -75,7 +76,7 @@ export interface ExecutionContext {
  */
 export interface ExecutionResult {
     response: string;
-    messages: Message[];
+    messages: TUniversalMessage[];
     executionId: string;
     duration: number;
     tokensUsed?: number;
@@ -191,7 +192,7 @@ export class ExecutionService {
      */
     async execute(
         input: string,
-        messages: Message[],
+        messages: TUniversalMessage[],
         config: AgentConfig,
         context?: Partial<ExecutionContext>
     ): Promise<ExecutionResult> {
@@ -287,14 +288,14 @@ export class ExecutionService {
                     if (msg.role === 'user') {
                         conversationSession.addUserMessage(msg.content, msg.metadata);
                     } else if (msg.role === 'assistant') {
-                        conversationSession.addAssistantMessage(msg.content, (msg as AssistantMessage).toolCalls, msg.metadata);
+                        conversationSession.addAssistantMessage(msg.content, (msg as IAssistantMessage).toolCalls, msg.metadata);
                     } else if (msg.role === 'system') {
                         conversationSession.addSystemMessage(msg.content, msg.metadata);
                     } else if (msg.role === 'tool') {
                         const toolName = (msg.metadata?.['toolName'] as string) || 'unknown';
                         conversationSession.addToolMessageWithId(
                             msg.content,
-                            (msg as ToolMessage).toolCallId,
+                            (msg as IToolMessage).toolCallId,
                             toolName,
                             msg.metadata
                         );
@@ -354,7 +355,7 @@ export class ExecutionService {
             // Call beforeRun hook on all plugins
             await this.callPluginHook('beforeRun', {
                 input,
-                metadata: (context?.metadata || {}) as Metadata
+                metadata: (context?.metadata || {}) as TMetadata
             });
 
             // Use already retrieved provider info from rich data collection above
@@ -499,7 +500,7 @@ export class ExecutionService {
                     throw new Error(`Unexpected response role: ${response.role}`);
                 }
 
-                const assistantResponse = response as AssistantMessage;
+                const assistantResponse = response as IAssistantMessage;
                 conversationSession.addAssistantMessage(
                     assistantResponse.content ?? null,  // Convert undefined to null for consistency
                     assistantResponse.toolCalls,
@@ -608,7 +609,7 @@ export class ExecutionService {
                 this.logger.debug('Tool calls detected, executing tools', {
                     toolCallCount: assistantResponse.toolCalls.length,
                     round: currentRound,
-                    toolCalls: assistantResponse.toolCalls.map((tc: ToolCall) => ({ id: tc.id, name: tc.function?.name }))
+                    toolCalls: assistantResponse.toolCalls.map((tc: IToolCall) => ({ id: tc.id, name: tc.function?.name }))
                 });
 
                 // Execute tools
@@ -782,7 +783,7 @@ export class ExecutionService {
                     metadata: msg.metadata,
                     ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
                     ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {})
-                })) as Message[],
+                })) as TUniversalMessage[],
                 executionId,
                 duration,
                 tokensUsed: finalMessages
@@ -799,7 +800,7 @@ export class ExecutionService {
             };
 
             // Call afterRun hook on all plugins
-            await this.callPluginHook('afterRun', { input, response: result.response, metadata: context?.metadata as Metadata });
+            await this.callPluginHook('afterRun', { input, response: result.response, metadata: context?.metadata as TMetadata });
 
             this.logger.debug('Execution pipeline completed successfully', {
                 executionId,
@@ -879,7 +880,7 @@ export class ExecutionService {
      */
     async* executeStream(
         input: string,
-        messages: Message[],
+        messages: TUniversalMessage[],
         config: AgentConfig,
         context?: Partial<ExecutionContext>
     ): AsyncGenerator<{ chunk: string; isComplete: boolean }> {
@@ -902,7 +903,7 @@ export class ExecutionService {
             // Call beforeRun hook on all plugins
             await this.callPluginHook('beforeRun', {
                 input,
-                metadata: (context?.metadata || {}) as Metadata
+                metadata: (context?.metadata || {}) as TMetadata
             });
 
             // Get current provider info
@@ -949,7 +950,7 @@ export class ExecutionService {
 
             const stream = (provider as any).chatStream(conversationMessages, chatOptions);
             let fullResponse = '';
-            let toolCalls: ToolCall[] = [];
+            let toolCalls: IToolCall[] = [];
             let currentToolCallIndex = -1; // 현재 작업중인 도구 호출 인덱스
 
             // Collect streaming chunks and tool calls
@@ -1099,7 +1100,7 @@ export class ExecutionService {
             await this.callPluginHook('afterRun', {
                 input,
                 response: fullResponse,
-                metadata: (context?.metadata || {}) as Metadata
+                metadata: (context?.metadata || {}) as TMetadata
             });
 
             yield { chunk: '', isComplete: true };
@@ -1114,7 +1115,7 @@ export class ExecutionService {
             await this.callPluginHook('onError', {
                 input,
                 error: error instanceof Error ? error : new Error(String(error)),
-                metadata: (context?.metadata || {}) as Metadata
+                metadata: (context?.metadata || {}) as TMetadata
             });
 
             throw error;
@@ -1166,8 +1167,8 @@ export class ExecutionService {
             try {
                 // Define proper types for plugin hooks
                 interface PluginHooks {
-                    beforeRun?: (input: string, options?: Metadata) => Promise<void> | void;
-                    afterRun?: (input: string, response: string, options?: Metadata) => Promise<void> | void;
+                    beforeRun?: (input: string, options?: TMetadata) => Promise<void> | void;
+                    afterRun?: (input: string, response: string, options?: TMetadata) => Promise<void> | void;
                     beforeProviderCall?: (messages: Array<{ role: string; content: string; timestamp: string }>) => Promise<void> | void;
                     afterProviderCall?: (messages: Array<{ role: string; content: string; timestamp: string }>, response: { role: string; content: string; timestamp: Date }) => Promise<void> | void;
                     onError?: (error: Error, context?: Record<string, string | number | boolean>) => Promise<void> | void;

@@ -5,11 +5,11 @@ import type {
 } from './types/api-types';
 import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
-    UniversalMessage,
+    TUniversalMessage,
     ChatOptions,
-    ToolCall,
+    IToolCall,
     ToolSchema,
-    AssistantMessage
+    IAssistantMessage
 } from '@robota-sdk/agents';
 import type { PayloadLogger } from './interfaces/payload-logger';
 import { OpenAIResponseParser } from './parsers/response-parser';
@@ -72,9 +72,9 @@ export class OpenAIProvider extends AbstractAIProvider {
     }
 
     /**
-     * Generate response using UniversalMessage
+     * Generate response using TUniversalMessage
      */
-    override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    override async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
         this.validateMessages(messages);
 
         // Try executor first, then fallback to direct execution
@@ -93,7 +93,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         }
 
         try {
-            // 1. Convert UniversalMessage → OpenAI format
+            // 1. Convert TUniversalMessage → OpenAI format
             const openaiMessages = this.convertToOpenAIMessages(messages);
 
             // 2. Validate required model parameter
@@ -128,7 +128,7 @@ export class OpenAIProvider extends AbstractAIProvider {
 
             const response = await this.client.chat.completions.create(requestParams);
 
-            // 3. Convert OpenAI response → UniversalMessage  
+            // 3. Convert OpenAI response → TUniversalMessage  
             return this.responseParser.parseResponse(response);
 
         } catch (error) {
@@ -139,9 +139,9 @@ export class OpenAIProvider extends AbstractAIProvider {
     }
 
     /**
-     * Generate streaming response using UniversalMessage
+     * Generate streaming response using TUniversalMessage
      */
-    override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    override async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
         // 🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Received options from ExecutionService
         console.log('🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Options received:', {
             model: options?.model,
@@ -170,7 +170,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         }
 
         try {
-            // 1. Convert UniversalMessage → OpenAI format
+            // 1. Convert TUniversalMessage → OpenAI format
             const openaiMessages = this.convertToOpenAIMessages(messages);
 
             // 2. Validate required model parameter
@@ -206,7 +206,7 @@ export class OpenAIProvider extends AbstractAIProvider {
 
             const stream = await this.client.chat.completions.create(requestParams);
 
-            // 3. Stream conversion: OpenAI chunks → UniversalMessage
+            // 3. Stream conversion: OpenAI chunks → TUniversalMessage
             for await (const chunk of stream) {
                 const universalMessage = this.responseParser.parseStreamingChunk(chunk);
                 if (universalMessage) {
@@ -234,9 +234,9 @@ export class OpenAIProvider extends AbstractAIProvider {
     }
 
     /**
-     * Convert UniversalMessage array to OpenAI format
+     * Convert TUniversalMessage array to OpenAI format
      */
-    private convertToOpenAIMessages(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
+    private convertToOpenAIMessages(messages: TUniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
         return messages.map(msg => {
             switch (msg.role) {
                 case 'user':
@@ -245,13 +245,13 @@ export class OpenAIProvider extends AbstractAIProvider {
                         content: msg.content || ''
                     };
                 case 'assistant': {
-                    const assistantMsg = msg as AssistantMessage;
+                    const assistantMsg = msg as IAssistantMessage;
                     if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
                         return {
                             role: 'assistant' as const,
                             // IMPORTANT: Preserve null for tool calls as per OpenAI API spec
                             content: assistantMsg.content === '' ? null : (assistantMsg.content || null),
-                            tool_calls: assistantMsg.toolCalls.map((toolCall: ToolCall) => ({
+                            tool_calls: assistantMsg.toolCalls.map((toolCall: IToolCall) => ({
                                 id: toolCall.id,
                                 type: 'function' as const,
                                 function: {
@@ -314,25 +314,25 @@ export class OpenAIProvider extends AbstractAIProvider {
      *    - Regular assistant messages: content can be string or null
      *    - This prevents "400 Bad Request" errors
      * 
-     * 2. When receiving FROM our API (UniversalMessage):
+     * 2. When receiving FROM our API (TUniversalMessage):
      *    - All messages must have content as string (TypeScript requirement)
      *    - Convert null to empty string for type compatibility
      * 
      * 3. This dual handling ensures:
      *    - OpenAI API compatibility (null for tool calls)
-     *    - TypeScript type safety (string content in UniversalMessage)
+     *    - TypeScript type safety (string content in TUniversalMessage)
      *    - No infinite loops in tool execution
      * 
      * Reference: OpenAI Community discussions confirm that tool_calls
      * require content to be null, not empty string.
      */
-    protected override validateMessages(messages: UniversalMessage[]): void {
+    protected override validateMessages(messages: TUniversalMessage[]): void {
         super.validateMessages(messages);
 
         // Additional OpenAI-specific validation
         for (const message of messages) {
             if (message.role === 'assistant') {
-                const assistantMsg = message as AssistantMessage;
+                const assistantMsg = message as IAssistantMessage;
                 if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0 && assistantMsg.content === '') {
                     // This is valid - we'll convert to null when sending to OpenAI
                     continue;

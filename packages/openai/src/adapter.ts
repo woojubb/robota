@@ -1,10 +1,10 @@
 import OpenAI from 'openai';
-import type { UniversalMessage, AssistantMessage } from '@robota-sdk/agents';
+import type { TUniversalMessage, IAssistantMessage } from '@robota-sdk/agents';
 
 /**
  * OpenAI Conversation Adapter
  * 
- * Converts between UniversalMessage format and OpenAI native types.
+ * Converts between TUniversalMessage format and OpenAI native types.
  * Provides bidirectional conversion for seamless integration.
  * 
  * @public
@@ -18,7 +18,7 @@ export class OpenAIConversationAdapter {
      * - Messages must be in proper sequence
      * - Tool messages without toolCallId should be excluded
      */
-    static filterMessagesForOpenAI(messages: UniversalMessage[]): UniversalMessage[] {
+    static filterMessagesForOpenAI(messages: TUniversalMessage[]): TUniversalMessage[] {
         return messages.filter(msg => {
             // Always include user, assistant, and system messages
             if (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system') {
@@ -40,20 +40,20 @@ export class OpenAIConversationAdapter {
     }
 
     /**
-     * Convert UniversalMessage array to OpenAI message format
+     * Convert TUniversalMessage array to OpenAI message format
      * Now properly handles tool messages for OpenAI's tool calling feature
      */
-    static toOpenAIFormat(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
+    static toOpenAIFormat(messages: TUniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
         // First filter messages for OpenAI compatibility
         const filteredMessages = this.filterMessagesForOpenAI(messages);
         return filteredMessages.map(msg => this.convertMessage(msg));
     }
 
     /**
-     * Convert a single UniversalMessage to OpenAI format
+     * Convert a single TUniversalMessage to OpenAI format
      * Handles all message types including tool messages
      */
-    static convertMessage(msg: UniversalMessage): OpenAI.Chat.ChatCompletionMessageParam {
+    static convertMessage(msg: TUniversalMessage): OpenAI.Chat.ChatCompletionMessageParam {
         const messageRole = msg.role;
 
         if (messageRole === 'user') {
@@ -64,7 +64,7 @@ export class OpenAIConversationAdapter {
         }
 
         if (messageRole === 'assistant') {
-            const assistantMsg = msg as AssistantMessage;
+            const assistantMsg = msg as IAssistantMessage;
 
             // Handle tool_calls format
             if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {

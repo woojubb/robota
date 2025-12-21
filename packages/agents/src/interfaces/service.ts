@@ -3,7 +3,7 @@
  * Defines contracts for stateless service implementations
  */
 
-import type { UniversalMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage } from '../managers/conversation-history-manager';
 import type { ToolSchema, AIProvider } from './provider';
 import type { ToolExecutionData } from './tool';
 
@@ -61,7 +61,7 @@ export interface ToolExecutionRequest {
  */
 export interface ConversationContext {
     /** All messages in the conversation */
-    messages: UniversalMessage[];
+    messages: TUniversalMessage[];
     /** System message for the conversation */
     systemMessage?: string;
     /** Model to use for generation */
@@ -167,7 +167,7 @@ export interface ConversationServiceInterface {
      * Pure function that transforms inputs to context object
      */
     prepareContext(
-        messages: UniversalMessage[],
+        messages: TUniversalMessage[],
         model: string,
         provider: string,
         contextOptions?: ContextOptions,

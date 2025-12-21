@@ -1,8 +1,8 @@
 import type { ToolResult, ToolExecutionContext } from './tool';
-import type { ContextData, LoggerData, MetadataValue, UniversalValue } from './types';
-import type { ToolParameters } from './types';
+import type { TContextData, TLoggerData, TMetadataValue, TUniversalValue } from './types';
+import type { TToolParameters } from './types';
 
-export type EventExtensionValue = UniversalValue | Date | Error | LoggerData | ToolParameters | ToolResult;
+export type EventExtensionValue = TUniversalValue | Date | Error | TLoggerData | TToolParameters | ToolResult;
 
 /**
  * Service event types for unified tracking
@@ -50,14 +50,14 @@ export interface BaseEventData {
     timestamp?: Date;
 
     /** Additional metadata */
-    metadata?: LoggerData;
+    metadata?: TLoggerData;
 
     // NOTE: ownerPath-derivable hierarchy fields have been removed from payload.
     // Use `context.ownerPath` exclusively for any hierarchy/path decisions.
     /** @deprecated Use domain-specific payload fields instead */
     toolName?: string;
     /** @deprecated Use domain-specific payload fields instead */
-    parameters?: ToolParameters | ContextData;
+    parameters?: TToolParameters | TContextData;
     /** @deprecated Use domain-specific payload fields instead */
     result?: ToolResult;
     /** @deprecated Use domain-specific payload fields instead */
@@ -67,26 +67,26 @@ export interface BaseEventData {
     /** @deprecated Migrate to AgentEventData.statusHistory */
     statusHistory?: Array<{ status: string; eventType: string; timestamp: number }>;
     /** Legacy context attachment (EventServiceHookFactory) */
-    context?: ContextData;
+    context?: TContextData;
 
     /** Allow forward-compat extension fields */
     [key: string]: EventExtensionValue | undefined;
 }
 
 export interface ExecutionEventData extends BaseEventData {
-    parameters?: ContextData;
+    parameters?: TContextData;
     result?: ToolResult;
 }
 
 export interface ToolEventData extends BaseEventData {
     toolName?: string;
-    parameters?: ToolParameters;
+    parameters?: TToolParameters;
     result?: ToolResult;
     error?: string;
 }
 
 export interface AgentEventData extends BaseEventData {
-    parameters?: ContextData;
+    parameters?: TContextData;
     result?: ToolResult;
     statusHistory?: Array<{ status: string; eventType: string; timestamp: number }>;
 }
@@ -122,7 +122,7 @@ export interface EventServiceOwnerBinding {
     sourceId?: string;
 }
 
-export const safeStringFromMetadata = (value: MetadataValue | undefined): string | undefined => {
+export const safeStringFromMetadata = (value: TMetadataValue | undefined): string | undefined => {
     if (typeof value === 'string') return value;
     if (typeof value === 'number') return String(value);
     if (typeof value === 'boolean') return String(value);

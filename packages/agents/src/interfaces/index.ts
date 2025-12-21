@@ -11,17 +11,15 @@ export type {
 
 // Message contracts (single source of truth)
 export type {
-    Message,
-    UniversalMessage,
-    UniversalMessageRole,
-    MessageRole,
-    ConversationMessageMetadata,
-    BaseMessage,
-    UserMessage,
-    AssistantMessage,
-    SystemMessage,
-    ToolMessage,
-    ToolCall
+    TUniversalMessage,
+    TUniversalMessageRole,
+    TUniversalMessageMetadata,
+    IBaseMessage,
+    IUserMessage,
+    IAssistantMessage,
+    ISystemMessage,
+    IToolMessage,
+    IToolCall
 } from './messages';
 
 export type {

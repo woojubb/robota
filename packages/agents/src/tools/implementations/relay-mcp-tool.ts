@@ -1,4 +1,4 @@
-import type { ToolParameters, ToolResult, ToolExecutionContext } from '../../interfaces/tool';
+import type { TToolParameters, ToolResult, ToolExecutionContext } from '../../interfaces/tool';
 import type { ToolSchema } from '../../interfaces/provider';
 import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import type { EventService, OwnerPathSegment } from '../../services/event-service';
@@ -22,7 +22,7 @@ export interface RelayMcpOptions extends AbstractToolOptions {
      * Relay executor that performs the actual work (e.g., create Robota agent and run).
      * Must not perform ownerPath inference; receives the augmented agent ownerPath.
      */
-    run: (parameters: ToolParameters, ctx: RelayMcpContext) => Promise<ToolResult>;
+    run: (parameters: TToolParameters, ctx: RelayMcpContext) => Promise<ToolResult>;
 }
 
 /**
@@ -33,7 +33,7 @@ export interface RelayMcpOptions extends AbstractToolOptions {
  * - This tool appends a single agent segment and forwards control to the provided run() callback.
  * - No prefix injection, no ownerPath inference, no fallback/clone/context creation inside.
  */
-export class RelayMcpTool extends AbstractTool<ToolParameters, ToolResult> {
+export class RelayMcpTool extends AbstractTool<TToolParameters, ToolResult> {
     readonly schema: ToolSchema;
     private readonly runImpl: RelayMcpOptions['run'];
 
@@ -43,7 +43,7 @@ export class RelayMcpTool extends AbstractTool<ToolParameters, ToolResult> {
         this.runImpl = options.run;
     }
 
-    protected override async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected override async executeImpl(parameters: TToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
         const eventService = context?.eventService;
         if (!eventService) {
             throw new ToolExecutionError('RelayMcpTool requires tool-call scoped EventService in ToolExecutionContext', this.schema.name);

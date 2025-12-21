@@ -1,5 +1,5 @@
 import { Robota, type AgentConfig, bindWithOwnerPath, FunctionTool, RelayMcpTool, type EventService } from '@robota-sdk/agents';
-import type { ToolParameters, ToolResult, ToolSchema, OwnerPathSegment } from '@robota-sdk/agents';
+import type { TToolParameters, ToolResult, ToolSchema, OwnerPathSegment } from '@robota-sdk/agents';
 import templates from './templates.json';
 
 type TemplateEntry = {
@@ -93,7 +93,7 @@ export const listTemplateCategoriesTool = new FunctionTool(listTemplateCategorie
     return { categories };
 });
 
-export const listTemplatesTool = new FunctionTool(listTemplatesSchema, async (params: ToolParameters) => {
+export const listTemplatesTool = new FunctionTool(listTemplatesSchema, async (params: TToolParameters) => {
     void params;
     const filtered = TEMPLATE_LIST.map(t => ({
         id: t.id,
@@ -104,7 +104,7 @@ export const listTemplatesTool = new FunctionTool(listTemplatesSchema, async (pa
     return { templates: filtered };
 });
 
-export const getTemplateDetailTool = new FunctionTool(getTemplateDetailSchema, async (params: ToolParameters) => {
+export const getTemplateDetailTool = new FunctionTool(getTemplateDetailSchema, async (params: TToolParameters) => {
     const templateId = typeof params.templateId === 'string' ? params.templateId : '';
     if (!templateId) {
         throw new Error('Missing required parameter: templateId');
@@ -120,7 +120,7 @@ export function createAssignTaskRelayTool(eventService: EventService): RelayMcpT
     return new RelayMcpTool({
         schema: assignTaskSchema,
         eventService,
-        run: async (params: ToolParameters, ctx): Promise<ToolResult> => {
+        run: async (params: TToolParameters, ctx): Promise<ToolResult> => {
             const templateId = typeof params.templateId === 'string' ? params.templateId : '';
             const jobDescription = typeof params.jobDescription === 'string' ? params.jobDescription : '';
             if (!templateId) {

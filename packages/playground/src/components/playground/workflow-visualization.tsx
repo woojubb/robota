@@ -45,7 +45,7 @@ import type { PlaygroundToolMeta } from '../../tools/catalog';
 import type {
     UniversalWorkflowStructure
 } from '@robota-sdk/workflow';
-import { SimpleReactFlowConverter } from '../../lib/workflow-visualization';
+import { UniversalToReactFlowConverter } from '../../lib/workflow-visualization';
 import {
     useReactFlowProgressiveReveal,
     type ReactFlowProgressiveRevealConfig
@@ -1464,7 +1464,7 @@ function WorkflowVisualizationContent({
 }: WorkflowVisualizationProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-    const [converter] = useState(() => new SimpleReactFlowConverter());
+    const [converter] = useState(() => new UniversalToReactFlowConverter());
     const [selectedLayout, setSelectedLayout] = useState<keyof typeof LAYOUT_PRESETS>('compact');
     const [isAutoLayoutEnabled, setIsAutoLayoutEnabled] = useState(true);
     const [currentLayoutConfig, setCurrentLayoutConfig] = useState<LayoutConfig>(LAYOUT_PRESETS.compact);

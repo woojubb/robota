@@ -36,7 +36,7 @@ export type {
     ExecutorInterface,
     ChatExecutionRequest,
     StreamExecutionRequest,
-    UniversalMessage,
+    TUniversalMessage,
     AssistantMessage,
     RemoteExecutorConfig
 } from './shared/types'; 

@@ -1,5 +1,5 @@
 import { AbstractPlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, type PluginStats, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
-import type { ToolExecutionContext, ToolParameters, ToolResult } from '../interfaces/tool';
+import type { ToolExecutionContext, TToolParameters, ToolResult } from '../interfaces/tool';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 import type { TimerId } from '../utils';
@@ -182,7 +182,7 @@ export interface HierarchicalEventData extends EventData {
         /** Actual duration in milliseconds (when completed) */
         actualDuration?: number;
         /** Actual input parameters */
-        actualParameters?: ToolParameters;
+        actualParameters?: TToolParameters;
         /** Actual execution result */
         actualResult?: ToolResult;
     };

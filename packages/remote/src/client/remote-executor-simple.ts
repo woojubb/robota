@@ -6,13 +6,12 @@
 
 import type { BasicMessage } from '../types/message-types';
 import type {
-    UniversalMessage,
-    AssistantMessage,
+    TUniversalMessage,
+    IAssistantMessage,
     StreamExecutionRequest,
     ChatExecutionRequest,
     ExecutorInterface,
     SimpleLogger,
-    ToolCall
 } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import { HttpClient, type HttpClientConfig } from './http-client';
@@ -77,7 +76,7 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
     /**
      * Execute chat request (ExecutorInterface compatible)
      */
-    async executeChat(request: ChatExecutionRequest): Promise<AssistantMessage> {
+    async executeChat(request: ChatExecutionRequest): Promise<IAssistantMessage> {
         this.logger.debug('SimpleRemoteExecutor.executeChat called', {
             hasTools: !!request.tools,
             toolsCount: request.tools?.length || 0
@@ -91,7 +90,7 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
         const response = await this.httpClient.chat(messages, provider, model, request.tools);
 
         // Convert ResponseMessage to AssistantMessage (ExecutorInterface requirement)
-        const assistantMessage: AssistantMessage = {
+        const assistantMessage: IAssistantMessage = {
             role: 'assistant',
             content: response.content || '',
             timestamp: new Date()
@@ -107,7 +106,7 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
     /**
      * Execute streaming chat completion
      */
-    async *executeChatStream(request: StreamExecutionRequest): AsyncIterable<UniversalMessage> {
+    async *executeChatStream(request: StreamExecutionRequest): AsyncIterable<TUniversalMessage> {
         this.logger.debug('🔍 [REMOTE-EXECUTOR] executeChatStream called');
 
         // 🔍 [TOOL-FLOW] RemoteExecutor.executeChatStream() - Request with tools
@@ -129,8 +128,8 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
 
             // ✅ LocalExecutor와 완전히 동일: 모든 청크를 그대로 yield (ExecutionService가 병합 처리)
             for await (const responseMessage of stream) {
-                // Convert ResponseMessage to UniversalMessage (LocalExecutor와 동일한 형태)
-                const universalMessage: UniversalMessage = {
+                // Convert ResponseMessage to TUniversalMessage (LocalExecutor와 동일한 형태)
+                const universalMessage: TUniversalMessage = {
                     role: responseMessage.role as 'assistant',
                     content: responseMessage.content,
                     timestamp: responseMessage.timestamp,

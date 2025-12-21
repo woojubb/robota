@@ -1,7 +1,7 @@
 /**
  * @robota-sdk/anthropic package
  * 
- * Provides Provider implementation for using Anthropic API with provider-agnostic UniversalMessage.
+ * Provides Provider implementation for using Anthropic API with provider-agnostic TUniversalMessage.
  */
 
 // Main exports

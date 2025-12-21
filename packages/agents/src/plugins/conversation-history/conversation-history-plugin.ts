@@ -1,5 +1,5 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
-import { Message } from '../../interfaces/agent';
+import { TUniversalMessage } from '../../interfaces/agent';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { TimerId } from '../../utils';
@@ -103,7 +103,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistor
     /**
      * Add a message to the current conversation
      */
-    async addMessage(message: Message): Promise<void> {
+    async addMessage(message: TUniversalMessage): Promise<void> {
         if (!this.currentConversationId) {
             throw new PluginError('No active conversation', this.name);
         }
@@ -133,7 +133,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistor
             this.logger.debug('Added message to conversation', {
                 conversationId: this.currentConversationId,
                 messageRole: message.role,
-                messageLength: message.content.length
+                messageLength: message.content?.length ?? 0
             });
         } catch (error) {
             throw new PluginError('Failed to add message to conversation', this.name, {
@@ -163,7 +163,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistor
     /**
      * Get conversation history as messages
      */
-    async getHistory(conversationId: string): Promise<Message[]> {
+    async getHistory(conversationId: string): Promise<TUniversalMessage[]> {
         const entry = await this.loadConversation(conversationId);
         return entry?.messages ?? [];
     }

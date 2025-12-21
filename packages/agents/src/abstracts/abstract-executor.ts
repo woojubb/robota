@@ -3,8 +3,8 @@ import type {
     ChatExecutionRequest,
     StreamExecutionRequest
 } from '../interfaces/executor';
-import type { UniversalMessage, AssistantMessage } from '../managers/conversation-history-manager';
-import type { LoggerData } from '../interfaces/types';
+import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
+import type { TLoggerData } from '../interfaces/types';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 
@@ -43,13 +43,13 @@ export abstract class AbstractExecutor implements ExecutorInterface {
      * Execute a chat completion request
      * Must be implemented by concrete executor classes
      */
-    abstract executeChat(request: ChatExecutionRequest): Promise<AssistantMessage>;
+    abstract executeChat(request: ChatExecutionRequest): Promise<IAssistantMessage>;
 
     /**
      * Execute a streaming chat completion request
      * Optional - can be implemented by concrete executor classes
      */
-    abstract executeChatStream?(request: StreamExecutionRequest): AsyncIterable<UniversalMessage>;
+    abstract executeChatStream?(request: StreamExecutionRequest): AsyncIterable<TUniversalMessage>;
 
     /**
      * Check if the executor supports tool calling
@@ -143,7 +143,7 @@ export abstract class AbstractExecutor implements ExecutorInterface {
      * @param message - Log message
      * @param data - Optional data to log
      */
-    protected logDebug(message: string, data?: LoggerData): void {
+    protected logDebug(message: string, data?: TLoggerData): void {
         this.logger.debug?.(`[${this.name}] ${message}`, data);
     }
 
@@ -154,7 +154,7 @@ export abstract class AbstractExecutor implements ExecutorInterface {
      * @param error - Error object
      * @param data - Optional additional data
      */
-    protected logError(message: string, error: Error, data?: LoggerData): void {
+    protected logError(message: string, error: Error, data?: TLoggerData): void {
         this.logger.error?.(`[${this.name}] ${message}`, {
             error: error.message,
             stack: error.stack,
@@ -188,7 +188,7 @@ export abstract class AbstractExecutor implements ExecutorInterface {
      * @param response - Response to validate
      * @throws Error if validation fails
      */
-    protected validateResponse(response: UniversalMessage): void {
+    protected validateResponse(response: TUniversalMessage): void {
         if (!response.role) {
             throw new Error('Response must have a role');
         }

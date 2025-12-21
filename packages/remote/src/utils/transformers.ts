@@ -11,8 +11,8 @@ import type { HttpRequest, HttpResponse, DefaultRequestData } from '../types/htt
 /**
  * Transform basic message to request message
  */
-export function toRequestMessage<TMessage extends BasicMessage>(
-    message: TMessage,
+export function toRequestMessage<TUniversalMessage extends BasicMessage>(
+    message: TUniversalMessage,
     provider: string,
     model: string
 ): RequestMessage {
@@ -27,8 +27,8 @@ export function toRequestMessage<TMessage extends BasicMessage>(
 /**
  * Transform basic message to response message
  */
-export function toResponseMessage<TMessage extends BasicMessage>(
-    message: TMessage,
+export function toResponseMessage<TUniversalMessage extends BasicMessage>(
+    message: TUniversalMessage,
     provider?: string,
     model?: string
 ): ResponseMessage {

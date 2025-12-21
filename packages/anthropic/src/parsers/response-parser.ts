@@ -1,4 +1,4 @@
-import { UniversalMessage, logger } from '@robota-sdk/agents';
+import { TUniversalMessage, logger } from '@robota-sdk/agents';
 import type Anthropic from '@anthropic-ai/sdk';
 import type { AnthropicMessage } from '../types/api-types';
 
@@ -16,7 +16,7 @@ export class AnthropicResponseParser {
      * @param response - Raw Anthropic API response
      * @returns Standardized universal message
      */
-    static parseResponse(response: AnthropicMessage): UniversalMessage {
+    static parseResponse(response: AnthropicMessage): TUniversalMessage {
         try {
             const content = response.content?.[0]?.text || '';
 
@@ -40,7 +40,7 @@ export class AnthropicResponseParser {
                 totalTokens: response.usage.input_tokens + response.usage.output_tokens
             } : undefined;
 
-            const result: UniversalMessage = {
+            const result: TUniversalMessage = {
                 role: 'assistant',
                 content,
                 timestamp: new Date(),
@@ -66,7 +66,7 @@ export class AnthropicResponseParser {
      * @param chunk - Raw streaming chunk from Anthropic API
      * @returns Parsed universal message or null if no content
      */
-    static parseStreamingChunk(chunk: Anthropic.MessageStreamEvent): UniversalMessage | null {
+    static parseStreamingChunk(chunk: Anthropic.MessageStreamEvent): TUniversalMessage | null {
         try {
             // Handle different chunk types
             switch (chunk.type) {

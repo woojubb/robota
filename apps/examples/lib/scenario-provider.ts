@@ -1,5 +1,5 @@
 import type { AIProvider, ChatOptions, RawProviderResponse, ProviderRequest } from '@robota-sdk/agents';
-import type { UniversalMessage } from '@robota-sdk/agents';
+import type { TUniversalMessage } from '@robota-sdk/agents';
 import {
     ScenarioStore,
     createRequestHash,
@@ -10,10 +10,10 @@ import {
 } from '../utils/scenario-store';
 import type { ScenarioStep } from '../utils/scenario-store';
 
-type StreamChunkInput = { index: number; delta: UniversalMessage; timestamp: number };
+type StreamChunkInput = { index: number; delta: TUniversalMessage; timestamp: number };
 
 type RecordingResponseInput = {
-    message?: UniversalMessage;
+    message?: TUniversalMessage;
     raw?: RawProviderResponse;
     stream?: StreamChunkInput[];
 };
@@ -172,13 +172,13 @@ class ScenarioRecordingProvider implements AIProvider {
         this.version = delegate.version;
     }
 
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
         const response = await this.delegate.chat(messages, options);
         await this.recordStep(messages, options, { message: response });
         return response;
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
         if (!this.delegate.chatStream) {
             throw new Error(`[ScenarioRecordingProvider] Underlying provider "${this.delegate.name}" does not support streaming`);
         }
@@ -218,7 +218,7 @@ class ScenarioRecordingProvider implements AIProvider {
         await this.delegate.close?.();
     }
 
-    private async recordStep(messages: UniversalMessage[], options: ChatOptions | undefined, response: RecordingResponseInput): Promise<void> {
+    private async recordStep(messages: TUniversalMessage[], options: ChatOptions | undefined, response: RecordingResponseInput): Promise<void> {
         const serializedMessages = serializeMessages(messages);
         const serializedOptions = serializeChatOptions(options);
         const serializedResponse = serializeResponseSnapshot(response);
@@ -254,7 +254,7 @@ class ScenarioMockAIProvider implements AIProvider {
         this.version = options.providerVersion ?? 'mock-scenario';
     }
 
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
         const step = await this.resolveStep(messages, options);
         const hydrated = hydrateResponseSnapshot(step.response);
         if (!hydrated.message) {
@@ -263,7 +263,7 @@ class ScenarioMockAIProvider implements AIProvider {
         return hydrated.message;
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
         const step = await this.resolveStep(messages, options);
         const hydrated = hydrateResponseSnapshot(step.response);
         if (!hydrated.stream) {
@@ -291,7 +291,7 @@ class ScenarioMockAIProvider implements AIProvider {
         return true;
     }
 
-    private async resolveStep(messages: UniversalMessage[], options?: ChatOptions): Promise<ScenarioStep> {
+    private async resolveStep(messages: TUniversalMessage[], options?: ChatOptions): Promise<ScenarioStep> {
         if (this.options.strategy === 'sequential') {
             const steps = await this.options.store.listSteps(this.options.scenarioId);
             if (this.pointer >= steps.length) {
@@ -339,7 +339,7 @@ class ScenarioMockAIProvider implements AIProvider {
         }
     }
 
-    private debugHashMiss(hash: string, messages: UniversalMessage[], options?: ChatOptions): void {
+    private debugHashMiss(hash: string, messages: TUniversalMessage[], options?: ChatOptions): void {
         const debugEnabled = process.env.SCENARIO_DEBUG_HASH_MISS === '1' || process.env.SCENARIO_DEBUG_HASH_MISS === 'true';
         if (!debugEnabled) {
             return;

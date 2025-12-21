@@ -7,7 +7,7 @@
 import type {
     ChatExecutionRequest,
     StreamExecutionRequest,
-    AssistantMessage,
+    IAssistantMessage,
     TransportRequest,
     TransportResponse,
     ChatResponseData
@@ -59,7 +59,7 @@ export function createStreamTransportRequest(request: StreamExecutionRequest): T
 /**
  * Transform transport response to assistant message
  */
-export function transformToAssistantMessage(response: TransportResponse<ChatResponseData>): AssistantMessage {
+export function transformToAssistantMessage(response: TransportResponse<ChatResponseData>): IAssistantMessage {
     return {
         role: 'assistant',
         content: response.data.content,

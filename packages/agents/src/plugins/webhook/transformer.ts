@@ -4,7 +4,7 @@
  */
 
 import type { BaseExecutionContext, BaseExecutionResult } from '../../abstracts/abstract-plugin';
-import type { LoggerData, UniversalValue } from '../../interfaces/types';
+import type { TLoggerData, TUniversalValue } from '../../interfaces/types';
 import type {
     WebhookExecutionContext,
     WebhookExecutionResult,
@@ -113,7 +113,7 @@ export class WebhookTransformer {
      */
     static createToolData(
         context: WebhookExecutionContext,
-        toolResult: LoggerData
+        toolResult: TLoggerData
     ): WebhookEventData {
         // Safely extract tool data from result
         const toolName = this.safeGetProperty(toolResult, 'toolName') || 'unknown';
@@ -178,7 +178,7 @@ export class WebhookTransformer {
      * 5. Type assertions (decreases type safety)
      * TODO: Consider typed property access if patterns emerge
      */
-    private static safeGetProperty(obj: LoggerData, key: string): UniversalValue | Date | Error {
+    private static safeGetProperty(obj: TLoggerData, key: string): TUniversalValue | Date | Error {
         if (!obj || typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
             return undefined;
         }

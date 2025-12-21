@@ -1,6 +1,6 @@
 import { ToolExecutionResult, ToolResult, ToolExecutionContext, ToolOwnerPathSegment, ToolMetadata } from '../interfaces/tool';
 import type { ToolManagerInterface } from '../interfaces/manager';
-import type { ToolParameters } from '../interfaces/tool';
+import type { TToolParameters } from '../interfaces/tool';
 import type { EventService, OwnerPathSegment, ToolEventData } from '../interfaces/event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
@@ -19,7 +19,7 @@ export const TOOL_EVENTS = {
 // Add missing types for ExecutionService compatibility
 export interface ToolExecutionRequest {
     toolName: string;
-    parameters: ToolParameters;
+    parameters: TToolParameters;
     executionId?: string;
     metadata?: ToolMetadata;
     ownerType?: string;
@@ -60,7 +60,7 @@ export class ToolExecutionService {
      */
     async executeTool(
         toolName: string,
-        parameters: ToolParameters,
+        parameters: TToolParameters,
         context?: ToolExecutionContext
     ): Promise<ToolExecutionResult> {
         this.logger.debug(`Executing tool: ${toolName}`);

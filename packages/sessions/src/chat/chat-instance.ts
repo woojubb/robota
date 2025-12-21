@@ -1,4 +1,4 @@
-import { Robota, type AgentConfig, type Message } from '@robota-sdk/agents';
+import { Robota, type AgentConfig, type TUniversalMessage } from '@robota-sdk/agents';
 import type {
     ChatConfig,
     ChatMetadata,
@@ -51,7 +51,7 @@ export class ChatInstance implements IChatInstance {
      */
     async regenerateResponse(): Promise<string> {
         const history = this.robota.getHistory();
-        const lastUserMessage = history.filter(msg => msg.role === 'user').pop();
+        const lastUserMessage = history.filter((msg: TUniversalMessage) => msg.role === 'user').pop();
 
         if (!lastUserMessage) {
             throw new Error('No user message found to regenerate response for');
@@ -118,7 +118,7 @@ export class ChatInstance implements IChatInstance {
     /**
      * Get conversation history - delegate to Robota
      */
-    getHistory(): Message[] {
+    getHistory(): TUniversalMessage[] {
         return this.robota.getHistory();
     }
 

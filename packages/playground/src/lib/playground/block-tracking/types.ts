@@ -1,4 +1,4 @@
-import type { UniversalMessage, ToolExecutionContext } from '@robota-sdk/agents';
+import type { TUniversalMessage, ToolExecutionContext } from '@robota-sdk/agents';
 
 /**
  * Block-specific metadata for visual representation
@@ -155,7 +155,7 @@ export interface RealTimeBlockMetadata {
  * Enhanced message with block-specific metadata
  */
 export interface BlockMessage {
-    // UniversalMessage fields
+    // TUniversalMessage fields
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string | null;
     toolCalls?: Array<{
@@ -177,7 +177,7 @@ export interface BlockMessage {
  * Enhanced message with real-time block metadata
  */
 export interface RealTimeBlockMessage {
-    // UniversalMessage fields
+    // TUniversalMessage fields
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string | null;
     toolCalls?: Array<{

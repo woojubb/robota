@@ -3,7 +3,7 @@ import type {
     StreamExecutionRequest,
     LocalExecutorConfig
 } from '../interfaces/executor';
-import type { UniversalMessage, AssistantMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
 import type { ChatOptions } from '../interfaces/provider';
 import { AbstractExecutor } from '../abstracts/abstract-executor';
 
@@ -80,7 +80,7 @@ export class LocalExecutor extends AbstractExecutor {
     /**
      * Execute a chat completion request by delegating to the appropriate provider
      */
-    async executeChat(request: ChatExecutionRequest): Promise<AssistantMessage> {
+    async executeChat(request: ChatExecutionRequest): Promise<IAssistantMessage> {
         this.validateRequest(request);
 
         const provider = this.providers.get(request.provider);
@@ -115,7 +115,7 @@ export class LocalExecutor extends AbstractExecutor {
             }
 
             this.validateResponse(response);
-            return response as AssistantMessage;
+            return response as IAssistantMessage;
 
         } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
@@ -130,7 +130,7 @@ export class LocalExecutor extends AbstractExecutor {
     /**
      * Execute a streaming chat completion request
      */
-    async *executeChatStream(request: StreamExecutionRequest): AsyncIterable<UniversalMessage> {
+    async *executeChatStream(request: StreamExecutionRequest): AsyncIterable<TUniversalMessage> {
         this.validateRequest(request);
 
         const provider = this.providers.get(request.provider);
@@ -243,10 +243,10 @@ export interface AIProviderInstance {
     readonly name?: string;
 
     /** Chat completion method */
-    chat?(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+    chat?(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage>;
 
     /** Streaming chat completion method */
-    chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+    chatStream?(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage>;
 
     /** Check if provider supports tools */
     supportsTools?(): boolean;

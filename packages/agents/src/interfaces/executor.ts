@@ -1,12 +1,12 @@
 import type { ChatOptions, ToolSchema } from './index';
-import type { UniversalMessage, AssistantMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
 
 /**
  * Request for executing a chat completion through an executor
  */
 export interface ChatExecutionRequest {
     /** Array of messages in the conversation */
-    messages: UniversalMessage[];
+    messages: TUniversalMessage[];
     /** Chat options including model, temperature, etc. */
     options?: ChatOptions;
     /** Available tools for the AI to use */
@@ -54,7 +54,7 @@ export interface ExecutorInterface {
      * });
      * ```
      */
-    executeChat(request: ChatExecutionRequest): Promise<AssistantMessage>;
+    executeChat(request: ChatExecutionRequest): Promise<IAssistantMessage>;
 
     /**
      * Execute a streaming chat completion request
@@ -75,7 +75,7 @@ export interface ExecutorInterface {
      * }
      * ```
      */
-    executeChatStream?(request: StreamExecutionRequest): AsyncIterable<UniversalMessage>;
+    executeChatStream?(request: StreamExecutionRequest): AsyncIterable<TUniversalMessage>;
 
     /**
      * Check if the executor supports tool calling

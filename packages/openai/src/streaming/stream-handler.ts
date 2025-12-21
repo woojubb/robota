@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { UniversalMessage } from '@robota-sdk/agents';
+import type { TUniversalMessage } from '@robota-sdk/agents';
 import type { PayloadLogger } from '../interfaces/payload-logger';
 import type {
     OpenAIChatRequestParams,
@@ -35,7 +35,7 @@ export class OpenAIStreamHandler {
      * @param requestParams - OpenAI API request parameters
      * @returns AsyncGenerator yielding universal messages
      */
-    async *handleStream(requestParams: OpenAIStreamRequestParams): AsyncGenerator<UniversalMessage, void, never> {
+    async *handleStream(requestParams: OpenAIStreamRequestParams): AsyncGenerator<TUniversalMessage, void, never> {
         try {
             // Log payload for debugging if logger is available
             if (this.payloadLogger?.isEnabled()) {
@@ -84,7 +84,7 @@ export class OpenAIStreamHandler {
      * @param request - Raw request payload from ConversationService
      * @returns AsyncGenerator yielding universal messages
      */
-    async *generateStreamingResponse(request: OpenAIChatRequestParams): AsyncGenerator<UniversalMessage, void, never> {
+    async *generateStreamingResponse(request: OpenAIChatRequestParams): AsyncGenerator<TUniversalMessage, void, never> {
         try {
             // Extract parameters from request payload
             const model = request.model;

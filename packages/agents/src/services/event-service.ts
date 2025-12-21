@@ -9,7 +9,7 @@
 
 import { SimpleLogger, DefaultConsoleLogger } from '../utils/simple-logger';
 import type { ToolExecutionContext } from '../interfaces/tool';
-import type { LoggerData } from '../interfaces/types';
+import type { TLoggerData } from '../interfaces/types';
 import type {
     AgentEventData,
     BaseEventData,

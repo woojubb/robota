@@ -8,7 +8,7 @@ import { AbstractTool as BaseTool } from '../abstracts/abstract-tool';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { ToolSchema, ChatOptions } from '../interfaces/provider';
 import type { ToolExecutionContext, ToolParameters, ToolResult } from '../interfaces/tool';
-import type { UniversalMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage } from '../managers/conversation-history-manager';
 
 import { ConfigurationError, ValidationError } from '../utils/errors';
 
@@ -21,7 +21,7 @@ class MockAIProvider extends AbstractAIProvider {
         super();
     }
 
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response',
@@ -29,7 +29,7 @@ class MockAIProvider extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response',
@@ -47,7 +47,7 @@ class MockAIProvider2 extends AbstractAIProvider {
         super();
     }
 
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response from provider 2',
@@ -55,7 +55,7 @@ class MockAIProvider2 extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response from provider 2',

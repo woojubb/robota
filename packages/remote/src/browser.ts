@@ -34,7 +34,7 @@ export type {
     ExecutorInterface,
     ChatExecutionRequest,
     StreamExecutionRequest,
-    UniversalMessage,
-    AssistantMessage,
+    TUniversalMessage,
+    IAssistantMessage,
     RemoteExecutorConfig
 } from './shared/types'; 

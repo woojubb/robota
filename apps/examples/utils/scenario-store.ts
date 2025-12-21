@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import * as fsSync from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
-import type { UniversalMessage, ChatOptions, RawProviderResponse, ConversationMessageMetadata } from '@robota-sdk/agents';
+import type { TUniversalMessage, ChatOptions, RawProviderResponse, TUniversalMessageMetadata } from '@robota-sdk/agents';
 import { isAssistantMessage, isToolMessage, isUserMessage } from '@robota-sdk/agents';
 
 export interface ScenarioStoreOptions {
@@ -16,12 +16,12 @@ export interface ScenarioToolCallSnapshot {
 }
 
 export interface ScenarioMessageSnapshot {
-    role: UniversalMessage['role'];
-    content: UniversalMessage['content'];
+    role: TUniversalMessage['role'];
+    content: TUniversalMessage['content'];
     name?: string;
     toolCallId?: string;
     toolCalls?: ScenarioToolCallSnapshot[];
-    metadata?: ConversationMessageMetadata;
+    metadata?: TUniversalMessageMetadata;
     timestamp: number;
 }
 
@@ -221,14 +221,14 @@ export class ScenarioStore {
 /**
  * Create deterministic hash for scenario lookup
  */
-export function createRequestHash(messages: UniversalMessage[], options?: ChatOptions): string {
+export function createRequestHash(messages: TUniversalMessage[], options?: ChatOptions): string {
     const payload = stableStringify({
         messages: serializeMessagesForHash(messages),
         options: serializeOptionsForHash(options)
     });
     return crypto.createHash('md5').update(payload).digest('hex');
 }
-export function serializeMessages(messages: UniversalMessage[]): ScenarioMessageSnapshot[] {
+export function serializeMessages(messages: TUniversalMessage[]): ScenarioMessageSnapshot[] {
     return messages.map(message => serializeMessage(message));
 }
 
@@ -256,7 +256,7 @@ export function serializeChatOptions(options?: ChatOptions): ScenarioChatOptions
     return snapshot;
 }
 
-export function deserializeMessage(snapshot: ScenarioMessageSnapshot): UniversalMessage {
+export function deserializeMessage(snapshot: ScenarioMessageSnapshot): TUniversalMessage {
     const timestamp = new Date(snapshot.timestamp);
     const metadata = snapshot.metadata ? structuredClone(snapshot.metadata) : undefined;
 
@@ -325,9 +325,9 @@ export function deserializeMessage(snapshot: ScenarioMessageSnapshot): Universal
 }
 
 export function hydrateResponseSnapshot(snapshot: ScenarioResponseSnapshot): {
-    message?: UniversalMessage;
+    message?: TUniversalMessage;
     raw?: RawProviderResponse;
-    stream?: Array<{ index: number; delta: UniversalMessage; timestamp: number }>;
+    stream?: Array<{ index: number; delta: TUniversalMessage; timestamp: number }>;
 } {
     return {
         raw: snapshot.raw ? structuredClone(snapshot.raw) : undefined,
@@ -341,9 +341,9 @@ export function hydrateResponseSnapshot(snapshot: ScenarioResponseSnapshot): {
 }
 
 export function serializeResponseSnapshot(response: {
-    message?: UniversalMessage;
+    message?: TUniversalMessage;
     raw?: RawProviderResponse;
-    stream?: Array<{ index: number; delta: UniversalMessage; timestamp: number }>;
+    stream?: Array<{ index: number; delta: TUniversalMessage; timestamp: number }>;
 }): ScenarioResponseSnapshot {
     return {
         message: response.message ? serializeMessage(response.message) : undefined,
@@ -356,7 +356,7 @@ export function serializeResponseSnapshot(response: {
     };
 }
 
-function serializeMessage(message: UniversalMessage): ScenarioMessageSnapshot {
+function serializeMessage(message: TUniversalMessage): ScenarioMessageSnapshot {
     const base: ScenarioMessageSnapshot = {
         role: message.role,
         content: message.content ?? null,
@@ -386,7 +386,7 @@ function serializeTimestamp(timestamp: Date): number {
     return timestamp.getTime();
 }
 
-function serializeMessagesForHash(messages: UniversalMessage[]): unknown {
+function serializeMessagesForHash(messages: TUniversalMessage[]): unknown {
     return messages.map(message => ({
         role: message.role,
         content: message.content ?? null,

@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { UniversalMessage } from '@robota-sdk/agents';
+import type { TUniversalMessage } from '@robota-sdk/agents';
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 
 /**
@@ -21,7 +21,7 @@ export class OpenAIResponseParser {
      * @param response - Raw OpenAI API response
      * @returns Standardized universal message
      */
-    parseResponse(response: OpenAI.Chat.ChatCompletion): UniversalMessage {
+    parseResponse(response: OpenAI.Chat.ChatCompletion): TUniversalMessage {
         try {
             const choice = response.choices?.[0];
             if (!choice) {
@@ -48,7 +48,7 @@ export class OpenAIResponseParser {
                 totalTokens: response.usage.total_tokens
             } : undefined;
 
-            const result: UniversalMessage = {
+            const result: TUniversalMessage = {
                 role: 'assistant',
                 content,
                 timestamp: new Date(),
@@ -73,7 +73,7 @@ export class OpenAIResponseParser {
      * @param chunk - Raw streaming chunk from OpenAI API
      * @returns Parsed universal message or null if no content
      */
-    parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): UniversalMessage | null {
+    parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): TUniversalMessage | null {
         try {
             const choice = chunk.choices?.[0];
             if (!choice) {

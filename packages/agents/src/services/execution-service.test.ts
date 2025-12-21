@@ -4,7 +4,7 @@ import { ConversationHistory, ConversationSession } from '../managers/conversati
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
-import type { UniversalMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage } from '../managers/conversation-history-manager';
 import type { AgentConfig, Message } from '../interfaces/agent';
 import type { ChatOptions } from '../interfaces/provider';
 
@@ -32,7 +32,7 @@ class MockAIProvider extends AbstractAIProvider {
     readonly name = 'mock-provider';
     readonly version = '1.0.0';
 
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response',
@@ -40,7 +40,7 @@ class MockAIProvider extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response',

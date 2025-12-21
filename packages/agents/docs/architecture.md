@@ -238,7 +238,7 @@ All providers convert to/from UniversalMessage format:
 interface UniversalMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
-  toolCalls?: ToolCall[];
+  toolCalls?: IToolCall[];
   metadata?: Record<string, unknown>;
 }
 ```

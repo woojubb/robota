@@ -9,7 +9,7 @@
  * Message metadata for conversation context
  * Used for storing additional information with conversation messages
  */
-export type ConversationMessageMetadata = Record<string, string | number | boolean>;
+export type TUniversalMessageMetadata = Record<string, string | number | boolean>;
 
 /**
  * Provider-specific metadata format

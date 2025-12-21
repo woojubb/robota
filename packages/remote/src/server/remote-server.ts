@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import type { SimpleLogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
-import type { UniversalMessage, ChatOptions } from '@robota-sdk/agents';
+import type { TUniversalMessage, ChatOptions } from '@robota-sdk/agents';
 
 /**
  * Server status interface
@@ -19,8 +19,8 @@ interface ServerStatus {
  * AI Provider interface
  */
 interface AIProvider {
-    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
-    chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+    chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage>;
+    chatStream?(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage>;
 }
 
 /**
@@ -230,7 +230,7 @@ export class RemoteServer {
                             toolCallsData: chunk.toolCalls
                         });
 
-                        // ✅ OpenAI Provider와 동일: UniversalMessage를 그대로 전달 (메타데이터 래핑 없음)
+                        // ✅ OpenAI Provider와 동일: TUniversalMessage를 그대로 전달 (메타데이터 래핑 없음)
                         const data = JSON.stringify(chunk);
                         res.write(`data: ${data}\n\n`);
                     }

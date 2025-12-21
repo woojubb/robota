@@ -2,17 +2,16 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { AnthropicProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
-    UniversalMessage as RobotaUniversalMessage,
+    TUniversalMessage as RobotaTUniversalMessage,
     ChatOptions as RobotaChatOptions,
     ToolSchema as RobotaToolSchema,
-    AssistantMessage as RobotaAssistantMessage
+    IAssistantMessage,
 } from '@robota-sdk/agents';
 
 // Re-export with cleaner names for internal use
-type UniversalMessage = RobotaUniversalMessage;
+type TUniversalMessage = RobotaTUniversalMessage;
 type ChatOptions = RobotaChatOptions;
 type ToolSchema = RobotaToolSchema;
-type AssistantMessage = RobotaAssistantMessage;
 
 /**
  * Anthropic provider implementation for Robota
@@ -61,9 +60,9 @@ export class AnthropicProvider extends AbstractAIProvider {
     }
 
     /**
-     * Generate response using UniversalMessage
+     * Generate response using TUniversalMessage
      */
-    override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    override async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
         this.validateMessages(messages);
 
         // Try executor first, then fallback to direct execution
@@ -106,9 +105,9 @@ export class AnthropicProvider extends AbstractAIProvider {
     }
 
     /**
-     * Generate streaming response using UniversalMessage
+     * Generate streaming response using TUniversalMessage
      */
-    override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    override async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
         this.validateMessages(messages);
 
         // Try executor first, then fallback to direct execution
@@ -173,13 +172,13 @@ export class AnthropicProvider extends AbstractAIProvider {
     }
 
     /**
-     * Convert UniversalMessage to Anthropic format
+     * Convert TUniversalMessage to Anthropic format
      * 
      * CRITICAL: Anthropic API requires specific content handling:
      * - tool_use messages: content MUST be null
      * - regular messages: content should be a string
      */
-    private convertToAnthropicFormat(messages: UniversalMessage[]): Anthropic.MessageParam[] {
+    private convertToAnthropicFormat(messages: TUniversalMessage[]): Anthropic.MessageParam[] {
         return messages.map(msg => {
             if (msg.role === 'user') {
                 return {
@@ -187,7 +186,7 @@ export class AnthropicProvider extends AbstractAIProvider {
                     content: msg.content || ''
                 };
             } else if (msg.role === 'assistant') {
-                const assistantMsg = msg as AssistantMessage;
+                const assistantMsg = msg as IAssistantMessage;
 
                 // IMPORTANT: Anthropic requires null content for tool calls
                 if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
@@ -222,9 +221,9 @@ export class AnthropicProvider extends AbstractAIProvider {
     }
 
     /**
-     * Convert Anthropic response to UniversalMessage
+     * Convert Anthropic response to TUniversalMessage
      */
-    private convertFromAnthropicResponse(response: Anthropic.Message): UniversalMessage {
+    private convertFromAnthropicResponse(response: Anthropic.Message): TUniversalMessage {
         if (!response.content || response.content.length === 0) {
             throw new Error('No content in Anthropic response');
         }
@@ -233,7 +232,7 @@ export class AnthropicProvider extends AbstractAIProvider {
 
         if (content && content.type === 'text') {
             const textContent = content as Anthropic.TextBlock;
-            const result: UniversalMessage = {
+            const result: TUniversalMessage = {
                 role: 'assistant',
                 content: textContent.text,
                 timestamp: new Date()
@@ -258,7 +257,7 @@ export class AnthropicProvider extends AbstractAIProvider {
             return result;
         } else if (content && content.type === 'tool_use') {
             const toolContent = content as Anthropic.ToolUseBlock;
-            const result: UniversalMessage = {
+            const result: TUniversalMessage = {
                 role: 'assistant',
                 content: '', // Empty string for type compatibility
                 timestamp: new Date(),
@@ -291,9 +290,9 @@ export class AnthropicProvider extends AbstractAIProvider {
     }
 
     /**
-     * Validate UniversalMessage array
+     * Validate TUniversalMessage array
      */
-    protected override validateMessages(messages: UniversalMessage[]): void {
+    protected override validateMessages(messages: TUniversalMessage[]): void {
         if (!Array.isArray(messages)) {
             throw new Error('Messages must be an array');
         }

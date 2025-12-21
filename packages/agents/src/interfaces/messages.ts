@@ -13,20 +13,10 @@
  */
 export type TUniversalMessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
-/** Backward-compatible alias. */
-export type UniversalMessageRole = TUniversalMessageRole;
-
-/**
- * Legacy alias kept for compatibility.
- * @deprecated Use UniversalMessageRole instead.
- */
-export type MessageRole = UniversalMessageRole;
-
 /**
  * Message metadata used across conversation history and provider adapters.
  */
-export type TConversationMessageMetadata = Record<string, string | number | boolean | Date | string[] | number[]>;
-export type ConversationMessageMetadata = TConversationMessageMetadata;
+export type TUniversalMessageMetadata = Record<string, string | number | boolean | Date | string[] | number[]>;
 
 /**
  * Tool call (OpenAI tool calling format).
@@ -40,9 +30,6 @@ export interface IToolCall {
     };
 }
 
-/** Backward-compatible alias. */
-export type ToolCall = IToolCall;
-
 /**
  * Base message contract shared by all message variants.
  */
@@ -50,18 +37,14 @@ export interface IBaseMessage {
     /** Message creation timestamp */
     timestamp: Date;
     /** Additional metadata */
-    metadata?: ConversationMessageMetadata;
+    metadata?: TUniversalMessageMetadata;
 }
-
-/** Backward-compatible alias. */
-export type BaseMessage = IBaseMessage;
 
 export interface IUserMessage extends IBaseMessage {
     role: 'user';
     content: string;
     name?: string;
 }
-export type UserMessage = IUserMessage;
 
 export interface IAssistantMessage extends IBaseMessage {
     role: 'assistant';
@@ -69,14 +52,12 @@ export interface IAssistantMessage extends IBaseMessage {
     content: string | null;
     toolCalls?: IToolCall[];
 }
-export type AssistantMessage = IAssistantMessage;
 
 export interface ISystemMessage extends IBaseMessage {
     role: 'system';
     content: string;
     name?: string;
 }
-export type SystemMessage = ISystemMessage;
 
 export interface IToolMessage extends IBaseMessage {
     role: 'tool';
@@ -84,18 +65,11 @@ export interface IToolMessage extends IBaseMessage {
     toolCallId: string;
     name?: string;
 }
-export type ToolMessage = IToolMessage;
 
 /**
  * Universal message union used across the SDK as the canonical contract.
  */
 export type TUniversalMessage = IUserMessage | IAssistantMessage | ISystemMessage | IToolMessage;
-export type UniversalMessage = TUniversalMessage;
 
-/**
- * Legacy alias kept for compatibility with older call sites.
- * Prefer UniversalMessage.
- */
-export type Message = UniversalMessage;
 
 
