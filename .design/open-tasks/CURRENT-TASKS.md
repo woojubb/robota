@@ -371,6 +371,44 @@
   - [ ] 로컬 개발: warning 허용 여부
   - [ ] CI: error 게이트 여부(“신규 위반 0”만 우선 적용 가능)
 
+### 최근 진행 기록 (2025-12-21) — Message/ToolCall 축 SSOT 정리 + export type 표면 정리
+
+> 목적: **중복 선언이 “다시 퍼지는 경로”를 차단**하고, 앞으로 타입 정리를 이어갈 때 “어디를 고치면 되는지”가 한눈에 보이게 한다.
+
+#### A) ToolCall 중복 선언 제거 → `IToolCall` 단일화(SSOT)
+- **결정**
+  - `ToolCall`이라는 이름(legacy/alias/중복 정의)은 프로젝트에서 더 이상 사용하지 않는다.
+  - Tool call 구조 타입은 **`packages/agents/src/interfaces/messages.ts`의 `IToolCall`만** 소유한다.
+- **정리 내용(완료)**
+  - [x] `packages/agents/src/interfaces/provider.ts`의 `export interface ToolCall` 삭제
+  - [x] `packages/agents/src/interfaces/messages.ts`의 `export type ToolCall = IToolCall` alias 삭제
+  - [x] 소비처에서 `ToolCall` 참조를 `IToolCall`로 치환(예: provider, execution, adapter tests)
+  - [x] 검증: `rg "\\bToolCall\\b" packages` 결과 0건
+- **남은 TODO(권장)**
+  - [ ] `packages/agents/src/interfaces/service.ts`의 `ToolCallData` 중복 선언 제거
+    - 기준: `ConversationResponse.toolCalls`, `StreamingChunk.toolCalls`는 `IToolCall[]`를 사용하도록 수렴
+    - 목적: “동일 shape 재정의” 방지(중복 타입 재발 방지)
+
+#### B) UniversalMessage 계약(이름/표면) 정리
+- **현 상태(관찰)**
+  - `TUniversalMessage`가 실질적인 canonical union으로 사용되고 있음(agents 내부 다수 참조).
+  - 일부 파일에서는 “manager/service/provider 경계”에서 메시지 타입을 다시 alias/re-export 하는 경향이 있음.
+- **권장 결정(선택 필요)**
+  - [ ] **정식 계약명**을 어디에 둘지 확정:
+    - 옵션 1) `packages/agents/src/interfaces/messages.ts`가 message axis의 유일한 계약 정의(추천: owner가 명확)
+    - 옵션 2) `packages/agents/src/managers/conversation-history-manager.ts`가 canonical message union을 export(현 구조 유지)
+  - [ ] `TUniversalMessageRole`만 남기고, legacy alias(`MessageRole` 등)는 public surface에서 제거(또는 내부 전용으로 격리)
+
+#### C) `export type { ... }` re-export 표면(공개 API) 정리
+- **문제 정의**
+  - `export type { ... }`가 여러 레이어에서 중복으로 노출되면, “정식 타입 이름/owner 축”이 흐려지고 alias가 다시 퍼질 수 있다.
+- **정리 원칙(권장)**
+  - [ ] 각 패키지의 public surface는 “정식 계약 타입만” 노출한다(legacy alias는 비노출).
+  - [ ] `packages/*/src/index.ts`는 가능한 한 “한 곳(interfaces/index.ts 등)만” re-export 하도록 단순화한다.
+  - [ ] 내부 구현 파일에서 타입을 다시 export(type-only re-export)하는 패턴은 최소화한다(특히 managers/services에서).
+- **빠른 검증 게이트(권장)**
+  - [ ] `rg "^\\s*export\\s+type\\s*\\{" packages`로 “표면 확산” 위치를 주기적으로 점검한다.
+
 ### 완료 조건(이 항목만)
 - [ ] 이 문서의 인벤토리 표가 “owner/중복/수정 배치” 기준으로 채워져 있고, Batch A~E가 순차적으로 실행 가능 상태다.
 - [ ] 신규 코드에서 `T/I` 규칙이 지켜지고(게이트 포함), 기존 코드는 churn 없이 배치 단위로 감소 추세가 확인된다.

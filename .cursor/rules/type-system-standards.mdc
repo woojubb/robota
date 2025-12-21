@@ -10,6 +10,12 @@ alwaysApply: true
 - **Context-Aware**: Include relevant context in type names
 - **Semantic Focus**: Use business terminology over technical jargon
 
+### Prefix Policy (Project Convention)
+- **`T*` is reserved for `type` aliases only**.
+- **`I*` is reserved for `interface` declarations only**.
+- Do not use `I*` prefixes for type aliases (e.g., avoid `type IUniversalMessage = ...`).
+- Do not use unprefixed contract names that collide with runtime values (reduce name collision risk).
+
 ### Type Organization
 - **Feature-First**: Each feature folder manages its own types
 - **Shared Contracts**: Only truly cross-cutting types go to shared interfaces
@@ -86,6 +92,7 @@ function process<T extends { id: string }>(data: T): ProcessResult<T>
 - Duplicate `Record<string, ...>` declarations
 - Blind type assertions without validation
 - Over-centralization of feature-specific types
+- Re-declaring contract shapes locally (e.g., `ToolCall`, `ToolCallData`, message unions) instead of importing the canonical type from the owner module
 
 ## 🔒 Immutable Strict Policy (Do not relax)
 

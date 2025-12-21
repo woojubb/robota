@@ -11,9 +11,9 @@ alwaysApply: true
 - **No Conditional Emission**: Don't check if someone will use the event before emitting
 
 ### 2. Node Creation Assumptions
-- **Connectivity is Guaranteed**: When creating a node, assume all required connections are possible
-- **No Defensive Validation**: Don't check if connections are possible before attempting
-- **Fail Fast on Design Errors**: If connection fails, let it throw and crash - this indicates a design flaw
+- **Deterministic linking only**: Connections must be derived only from explicit event payload fields and already-created nodes' explicit fields (see `.cursor/rules/path-only-prohibitions.mdc`).
+- **No fabricated relations**: Do not guess or infer relationships from ID strings, ordering, caches, or naming conventions.
+- **No fallback paths**: If explicit linkage information is missing, do not invent an alternative linkage. Stop processing the current event deterministically (see Path-Only precedence rules).
 
 ### 3. Fork/Join Pattern for Tools
 ```
@@ -37,9 +37,9 @@ if (!agentResponseId) {
     return; // Don't do this
 }
 
-// ✅ RIGHT: Just create and let it fail
+// ✅ RIGHT: Use explicit linkage info only (Path-Only)
 const node = createNode();
-addEdge(from, to); // Throws if impossible
+addEdge(from, to);
 ```
 
 ### 2. Conditional Event Emission
