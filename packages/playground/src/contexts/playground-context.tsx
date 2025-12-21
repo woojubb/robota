@@ -19,7 +19,7 @@ import { DefaultConsoleLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import type { EventService, SimpleLogger } from '@robota-sdk/agents';
 // Import Universal types from their proper location (Feature Ownership principle)
-import type { UniversalWorkflowStructure } from '@robota-sdk/workflow';
+import type { UniversalWorkflowStructure, WorkflowNodeStatus } from '@robota-sdk/workflow';
 import { getPlaygroundToolCatalog, type PlaygroundToolMeta } from '../tools/catalog';
 
 // ===== State Types =====
@@ -95,7 +95,7 @@ export type PlaygroundAction =
     | { type: 'SET_EXECUTION_RESULT'; payload: PlaygroundExecutionResult }
     | { type: 'SET_CURRENT_WORKFLOW'; payload: UniversalWorkflowStructure | null }
     | { type: 'UPDATE_WORKFLOW_FROM_SDK'; payload: UniversalWorkflowStructure }  // STEP 7.2.2: 새로 추가
-    | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: 'pending' | 'running' | 'completed' | 'error' } }
+    | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: WorkflowNodeStatus } }
     | { type: 'SET_TOOL_ITEMS'; payload: PlaygroundToolMeta[] }
     | { type: 'ADD_TOOL_TO_AGENT_OVERLAY'; payload: { agentId: string; toolId: string } };
 
@@ -365,7 +365,7 @@ interface PlaygroundContextValue {
     setAuth: (userId: string, sessionId: string, authToken: string) => void;
     disposeExecutor: () => Promise<void>;
     setWorkflow: (workflow: UniversalWorkflowStructure | null) => void;
-    updateNodeStatus: (nodeId: string, status: 'pending' | 'running' | 'completed' | 'error') => void;
+    updateNodeStatus: (nodeId: string, status: WorkflowNodeStatus) => void;
     setExecuting: (isExecuting: boolean) => void;
     setToolItems: (tools: PlaygroundToolMeta[]) => void;
     addToolToAgentOverlay: (agentId: string, toolId: string) => void;
@@ -865,7 +865,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId } });
     }, []);
 
-    const updateNodeStatus = useCallback((nodeId: string, status: 'pending' | 'running' | 'completed' | 'error') => {
+    const updateNodeStatus = useCallback((nodeId: string, status: WorkflowNodeStatus) => {
         dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId, status } });
     }, []);
 

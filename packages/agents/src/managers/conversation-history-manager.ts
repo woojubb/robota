@@ -1,114 +1,29 @@
 import { Logger, createLogger } from '../utils/logger';
+import type {
+    AssistantMessage,
+    BaseMessage,
+    ConversationMessageMetadata,
+    MessageRole,
+    SystemMessage,
+    ToolCall,
+    ToolMessage,
+    UniversalMessage,
+    UniversalMessageRole,
+    UserMessage
+} from '../interfaces/messages';
 
-/**
- * Universal message role type - Provider-independent neutral role
- * 
- * @public
- */
-export type UniversalMessageRole = 'user' | 'assistant' | 'system' | 'tool';
-
-/**
- * Legacy alias for UniversalMessageRole for backward compatibility
- * 
- * @public
- * @deprecated Use UniversalMessageRole instead
- */
-export type MessageRole = UniversalMessageRole;
-
-/**
- * Message metadata type following semantic naming conventions
- * Supports common message metadata properties
- * 
- * @public
- */
-export type ConversationMessageMetadata = Record<string, string | number | boolean | Date | string[] | number[]>;
-
-/**
- * Base interface for all message types
- * 
- * @public
- */
-export interface BaseMessage {
-    /** Message creation timestamp */
-    timestamp: Date;
-    /** Additional metadata */
-    metadata?: ConversationMessageMetadata;
-}
-
-/**
- * User message type
- * 
- * @public
- */
-export interface UserMessage extends BaseMessage {
-    /** Message role - always 'user' */
-    role: 'user';
-    /** User message content */
-    content: string;
-    /** Optional user identifier */
-    name?: string;
-}
-
-/**
- * Assistant message type
- * 
- * @public
- */
-export interface AssistantMessage extends BaseMessage {
-    /** Message role - always 'assistant' */
-    role: 'assistant';
-    /** Assistant response content (can be null when making tool calls) */
-    content: string | null;
-    /** Tool calls made by the assistant (OpenAI tool calling format) */
-    toolCalls?: Array<{
-        id: string;
-        type: 'function';
-        function: {
-            name: string;
-            arguments: string;
-        };
-    }>;
-}
-
-/**
- * System message type
- * 
- * @public
- */
-export interface SystemMessage extends BaseMessage {
-    /** Message role - always 'system' */
-    role: 'system';
-    /** System instruction content */
-    content: string;
-    /** Optional system message identifier */
-    name?: string;
-}
-
-/**
- * Tool message type
- * 
- * @public
- */
-export interface ToolMessage extends BaseMessage {
-    /** Message role - always 'tool' */
-    role: 'tool';
-    /** Tool execution result summary */
-    content: string;
-    /** Tool call ID for OpenAI tool calling format */
-    toolCallId: string;
-    /** Name of the tool that was executed */
-    name?: string;
-}
-
-/**
- * Universal message type covering all possible message variations
- * 
- * This union type ensures type safety by requiring specific properties
- * based on the message role, preventing invalid combinations.
- * 
- * @public
- */
-export type UniversalMessage = UserMessage | AssistantMessage | SystemMessage | ToolMessage;
+export type {
+    AssistantMessage,
+    BaseMessage,
+    ConversationMessageMetadata,
+    MessageRole,
+    SystemMessage,
+    ToolCall,
+    ToolMessage,
+    UniversalMessage,
+    UniversalMessageRole,
+    UserMessage
+} from '../interfaces/messages';
 
 /**
  * Type guard functions
@@ -198,14 +113,7 @@ export function createUserMessage(
 export function createAssistantMessage(
     content: string | null,
     options?: {
-        toolCalls?: Array<{
-            id: string;
-            type: 'function';
-            function: {
-                name: string;
-                arguments: string;
-            };
-        }>;
+        toolCalls?: ToolCall[];
         metadata?: ConversationMessageMetadata;
     }
 ): AssistantMessage {
@@ -324,14 +232,7 @@ export interface ConversationHistoryInterface {
      */
     addAssistantMessage(
         content: string | null,
-        toolCalls?: Array<{
-            id: string;
-            type: 'function';
-            function: {
-                name: string;
-                arguments: string;
-            };
-        }>,
+        toolCalls?: ToolCall[],
         metadata?: ConversationMessageMetadata
     ): void;
 
@@ -423,25 +324,11 @@ export abstract class BaseConversationHistory implements ConversationHistoryInte
 
     addAssistantMessage(
         content: string | null,
-        toolCalls?: Array<{
-            id: string;
-            type: 'function';
-            function: {
-                name: string;
-                arguments: string;
-            };
-        }>,
+        toolCalls?: ToolCall[],
         metadata?: ConversationMessageMetadata
     ): void {
         const options: {
-            toolCalls?: Array<{
-                id: string;
-                type: 'function';
-                function: {
-                    name: string;
-                    arguments: string;
-                };
-            }>;
+            toolCalls?: ToolCall[];
             metadata?: ConversationMessageMetadata;
         } = {};
         if (toolCalls) {
@@ -720,11 +607,7 @@ export class ConversationSession implements ConversationHistoryInterface {
      */
     addAssistantMessage(
         content: string | null,
-        toolCalls?: Array<{
-            id: string;
-            type: 'function';
-            function: { name: string; arguments: string };
-        }>,
+        toolCalls?: ToolCall[],
         metadata?: ConversationMessageMetadata
     ): void {
         this.history.addAssistantMessage(content, toolCalls, metadata);

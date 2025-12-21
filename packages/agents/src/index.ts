@@ -350,23 +350,8 @@ export { EVENT_EMITTER_EVENTS } from './plugins/event-emitter/types';
 export { EXECUTION_EVENTS } from './services/execution-service';
 export { TOOL_EVENTS } from './services/tool-execution-service';
 
-// Workflow Services (Phase 2)
-export {
-    RealTimeWorkflowBuilder, // Domain-neutral workflow builder (no React-Flow dependencies)
-    NodeEdgeManager // 🚀 Phase 1: Node/Edge 생성 순서 보장 시스템
-    // RealTimeDiagramGenerator // MOVED to apps/web for domain separation
-} from './services';
-
-// Universal Workflow System (Phase 1 - Additional Types)
-export type {
-    UniversalDimensions,
-    UniversalLayoutConfig,
-    UniversalConversionOptions,
-    UniversalNodeType,
-    UniversalEdgeType,
-    UNIVERSAL_NODE_TYPES,
-    UNIVERSAL_EDGE_TYPES
-} from './services/workflow-converter/universal-types';
+// NOTE: Workflow builder/converter/visualization utilities were removed from @robota-sdk/agents.
+// Ownership is @robota-sdk/workflow. Agents must not depend on workflow to avoid circular package dependencies.
 
 // Workflow Converter Interfaces
 export type {
@@ -377,12 +362,6 @@ export type {
 } from './interfaces/workflow-converter';
 
 export type {
-    LayoutEngineInterface,
-    LayoutCalculationOptions,
-    LayoutCalculationResult
-} from './interfaces/layout-engine';
-
-export type {
     WorkflowValidatorInterface,
     ValidationOptions,
     ValidationResult,
@@ -390,41 +369,13 @@ export type {
     ValidationSeverity
 } from './interfaces/workflow-validator';
 
-// Abstract Base Classes
-export { AbstractWorkflowConverter } from './abstracts/abstract-workflow-converter';
-export { AbstractLayoutEngine } from './abstracts/abstract-layout-engine';
-export { AbstractWorkflowValidator } from './abstracts/abstract-workflow-validator';
-export { AbstractVisualizationGenerator } from './abstracts/abstract-visualization-generator';
-
-// Base Visualization Types
-export type {
-    BaseVisualizationConfig,
-    VisualizationResult
-} from './abstracts/abstract-visualization-generator';
-
-// Concrete Implementations
-export { WorkflowToUniversalConverter } from './services/workflow-converter';
-export { HierarchicalLayoutEngine } from './services/layout/hierarchical-layout-engine';
-export { UniversalWorkflowValidator } from './validators/universal-workflow-validator';
+// NOTE: Universal workflow conversion/validation/layout/visualization exports were removed from @robota-sdk/agents.
+// Ownership is @robota-sdk/workflow. Agents must not depend on workflow to avoid circular package dependencies.
 
 // EventServiceHookFactory removed - simplified architecture
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 
 // ExecutionHierarchyTracker removed
-
-// ================================
-// Universal Workflow Types (Core)
-// ================================
-
-// Universal Workflow Types (for external integrations)
-export type {
-    UniversalWorkflowStructure,
-    UniversalWorkflowNode,
-    UniversalWorkflowEdge,
-    UniversalPosition,
-    UniversalVisualState
-} from './services/workflow-converter/universal-types';
-
 
 // ================================
 // Real-Time System (Phase 3)

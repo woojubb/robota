@@ -4,9 +4,17 @@
 import type { WorkflowNode } from './workflow-node.js';
 import type { WorkflowEdge } from './workflow-edge.js';
 import type { WorkflowUpdate } from './workflow-builder.js';
-import type { ContextData, LoggerData, ToolParameters, ToolResult, UniversalValue } from '@robota-sdk/agents';
+import type { BaseEventData, ContextData, EventContext, LoggerData, ToolParameters, ToolResult, UniversalValue } from '@robota-sdk/agents';
 
-type WorkflowEventExtensionValue = UniversalValue | Date | Error | LoggerData | ToolParameters | ToolResult | ContextData;
+type WorkflowEventExtensionValue =
+    | UniversalValue
+    | Date
+    | Error
+    | LoggerData
+    | ToolParameters
+    | ToolResult
+    | ContextData
+    | EventContext;
 
 /**
  * Event handler priority levels
@@ -27,44 +35,48 @@ export type EventPattern = string | RegExp | ((eventType: string) => boolean);
 /**
  * Event data structure (domain-neutral)
  */
-export interface EventData {
-    // Core event information
-    eventType: string;
-    timestamp: Date;
+export type EventData =
+    // IMPORTANT:
+    // - Event axis is owned by @robota-sdk/agents. Workflow must not redefine it.
+    // - Workflow only composes the event envelope with stricter requirements.
+    Omit<BaseEventData, 'eventType' | 'timestamp' | 'parameters' | 'result' | 'error'> & {
+        // Core event information (required in workflow processing)
+        eventType: string;
+        timestamp: Date;
 
-    // Source information
-    sourceType?: string;
-    sourceId?: string;
+        /**
+         * Path-only: ownerPath-only context.
+         * All relationship derivation MUST be done through context.ownerPath, not inferred IDs.
+         */
+        context?: EventContext;
 
-    // Execution context
-    executionId?: string;
-    parentExecutionId?: string;
-    rootExecutionId?: string;
-    executionLevel?: number;
+        /**
+         * Legacy compatibility fields (MIGRATION):
+         * These fields may still appear in some event payloads and are used by existing handlers.
+         * Prefer deriving relationships from context.ownerPath rather than relying on these.
+         */
+        sourceType?: string;
+        sourceId?: string;
+        executionId?: string;
+        parentExecutionId?: string;
+        rootExecutionId?: string;
+        executionLevel?: number;
+        path?: string[];
+        parentId?: string;
 
-    // Path-first context (immutable, extended on delegation/fork)
-    path?: string[];
+        // Event payload (flexible, still domain-neutral)
+        parameters?: ContextData;
+        result?: ToolResult | ContextData;
 
-    /**
-     * Branch anchor identifier (common parent for a fork)
-     * Path-only architecture: parentId is metadata only; edges are derived from path
-     */
-    parentId?: string;
+        // Error information (workflow accepts both Error and string)
+        error?: Error | string;
 
-    // [REMOVED] prevId/prevIds are not used in path-only architecture.
-    // Edge connectivity MUST be derived solely from immutable event.path values.
+        // Workflow processing metadata (handler-level stats, etc.)
+        metadata?: LoggerData;
 
-    // Event payload (flexible)
-    parameters?: ContextData;
-    result?: ToolResult | ContextData;
-    metadata?: LoggerData;
-
-    // Error information
-    error?: Error | string;
-
-    // Extensible data
-    [key: string]: WorkflowEventExtensionValue | undefined;
-}
+        // Extensible data (kept for backward compatibility during migration)
+        [key: string]: WorkflowEventExtensionValue | undefined;
+    };
 
 /**
  * Event processing result

@@ -6,14 +6,23 @@ export type {
     AgentConfig,
     AgentInterface,
     AgentTemplate,
+    RunOptions
+} from './agent';
+
+// Message contracts (single source of truth)
+export type {
     Message,
+    UniversalMessage,
+    UniversalMessageRole,
+    MessageRole,
+    ConversationMessageMetadata,
+    BaseMessage,
     UserMessage,
     AssistantMessage,
     SystemMessage,
     ToolMessage,
-    ToolCall,
-    RunOptions
-} from './agent';
+    ToolCall
+} from './messages';
 
 export type {
     AIProvider,
