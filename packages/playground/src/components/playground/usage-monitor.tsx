@@ -58,6 +58,7 @@ export function UsageMonitor({ isVisible, onClose }: UsageMonitorProps) {
             const interval = setInterval(fetchUsageStats, 30000);
             return () => clearInterval(interval);
         }
+        return;
     }, [isVisible]);
 
     const fetchUsageStats = async () => {

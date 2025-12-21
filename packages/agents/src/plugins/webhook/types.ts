@@ -153,7 +153,7 @@ export interface WebhookEndpoint {
     secret?: string;
 }
 
-import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
+import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Webhook plugin configuration options
@@ -184,7 +184,7 @@ export interface WebhookPluginOptions extends BasePluginOptions {
 /**
  * Webhook plugin statistics
  */
-export interface WebhookPluginStats {
+export interface WebhookPluginStats extends PluginStats {
     endpointCount: number;
     queueLength: number;
     batchQueueLength: number;

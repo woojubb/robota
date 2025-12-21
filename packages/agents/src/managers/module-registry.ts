@@ -9,6 +9,13 @@ import { ModuleTypeRegistry } from './module-type-registry';
 import { Logger, createLogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 
+export const MODULE_REGISTRY_EVENTS = {
+    /** Emitted when a module is registered in ModuleRegistry */
+    REGISTERED: 'module.registered',
+    /** Emitted when a module is unregistered in ModuleRegistry */
+    UNREGISTERED: 'module.unregistered'
+} as const;
+
 /**
  * Module registration options
  */
@@ -152,7 +159,7 @@ export class ModuleRegistry {
 
         // Emit registration event
         if (this.eventEmitter) {
-            await this.eventEmitter.emit('module.registered', {
+            await this.eventEmitter.emit(MODULE_REGISTRY_EVENTS.REGISTERED, {
                 data: {
                     moduleName: module.name,
                     moduleType: moduleType.type
@@ -206,7 +213,7 @@ export class ModuleRegistry {
 
         // Emit unregistration event
         if (this.eventEmitter) {
-            await this.eventEmitter.emit('module.unregistered', {
+            await this.eventEmitter.emit(MODULE_REGISTRY_EVENTS.UNREGISTERED, {
                 data: {
                     moduleName
                 },

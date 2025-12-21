@@ -30,3 +30,17 @@ packages/
 - ESLint enforcement at error level for type safety
 - Individual package builds: `npm run build` in package directory
 - Full workspace build: `npm run build` in root
+
+## Type Naming Conventions (Mandatory)
+
+### Type Aliases
+- Use the **`T` prefix** for TypeScript `type` aliases.
+- Example: `type TWorkflowNodeId = string;`
+
+### Interfaces
+- Use the **`I` prefix** for TypeScript `interface` declarations.
+- Example: `interface IWorkflowValidator { validate(): boolean; }`
+
+### Notes
+- This is a **project-wide convention** and should be applied consistently for new code.
+- When touching existing code, prefer migrating names gradually only when it does not create churn or break public APIs.

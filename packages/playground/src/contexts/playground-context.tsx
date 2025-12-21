@@ -19,7 +19,7 @@ import { DefaultConsoleLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import type { EventService, SimpleLogger } from '@robota-sdk/agents';
 // Import Universal types from their proper location (Feature Ownership principle)
-import type { UniversalWorkflowStructure } from '@robota-sdk/agents';
+import type { UniversalWorkflowStructure } from '@robota-sdk/workflow';
 import { getPlaygroundToolCatalog, type PlaygroundToolMeta } from '../tools/catalog';
 
 // ===== State Types =====
@@ -95,7 +95,7 @@ export type PlaygroundAction =
     | { type: 'SET_EXECUTION_RESULT'; payload: PlaygroundExecutionResult }
     | { type: 'SET_CURRENT_WORKFLOW'; payload: UniversalWorkflowStructure | null }
     | { type: 'UPDATE_WORKFLOW_FROM_SDK'; payload: UniversalWorkflowStructure }  // STEP 7.2.2: 새로 추가
-    | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: 'pending' | 'ready' | 'running' | 'completed' | 'error' } }
+    | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: 'pending' | 'running' | 'completed' | 'error' } }
     | { type: 'SET_TOOL_ITEMS'; payload: PlaygroundToolMeta[] }
     | { type: 'ADD_TOOL_TO_AGENT_OVERLAY'; payload: { agentId: string; toolId: string } };
 
@@ -263,7 +263,7 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
                     ...action.payload
                 } as any
             };
- 
+
         case 'SET_TOOL_ITEMS':
             return {
                 ...state,
@@ -309,7 +309,7 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
                 const toolCallsElement = document.getElementById('tool-calls-count');
                 const agentsElement = document.getElementById('agents-created-count');
                 if (action.payload?.nodes) {
-                    const toolCallNodes = action.payload.nodes.filter(node => node.type === 'tool_call' || node.type === 'toolCall');
+                    const toolCallNodes = action.payload.nodes.filter(node => node.type === 'tool_call');
                     const agentNodes = action.payload.nodes.filter(node => node.type === 'agent');
                     if (toolCallsElement) toolCallsElement.textContent = String(toolCallNodes.length);
                     if (agentsElement) agentsElement.textContent = String(agentNodes.length);
@@ -333,6 +333,7 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
                         node.id === action.payload.nodeId
                             ? {
                                 ...node,
+                                status: action.payload.status,
                                 data: {
                                     ...node.data,
                                     status: action.payload.status
@@ -364,13 +365,13 @@ interface PlaygroundContextValue {
     setAuth: (userId: string, sessionId: string, authToken: string) => void;
     disposeExecutor: () => Promise<void>;
     setWorkflow: (workflow: UniversalWorkflowStructure | null) => void;
-    updateNodeStatus: (nodeId: string, status: 'pending' | 'ready' | 'running' | 'completed' | 'error') => void;
+    updateNodeStatus: (nodeId: string, status: 'pending' | 'running' | 'completed' | 'error') => void;
     setExecuting: (isExecuting: boolean) => void;
     setToolItems: (tools: PlaygroundToolMeta[]) => void;
     addToolToAgentOverlay: (agentId: string, toolId: string) => void;
 
     // Getters
-    getVisualizationData: () => any;
+    getVisualizationData: () => VisualizationData | null;
     getConnectionStatus: () => { connected: boolean; url: string };
 }
 
@@ -673,12 +674,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 };
             }
 
-            const vizData = {
-                mode: state.visualizationData?.mode || state.mode,
-                events: allEvents,
-                agents: state.visualizationData?.agents || [],
-                stats: pluginStats
-            };
+            const vizData: VisualizationData = state.executor.getVisualizationData();
 
             dispatch({ type: 'UPDATE_VISUALIZATION_DATA', payload: vizData });
 
@@ -694,7 +690,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             };
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: errorResult });
-            dispatch({ type: 'SET_ERROR', payload: errorResult.uiError.message });
+            dispatch({ type: 'SET_ERROR', payload: errorResult.uiError?.message ?? 'Execution failed' });
 
             return errorResult;
         } finally {
@@ -794,12 +790,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 };
             }
 
-            const vizData = {
-                mode: state.visualizationData?.mode || state.mode,
-                events: allEvents,
-                agents: state.visualizationData?.agents || [],
-                stats: pluginStats
-            };
+            const vizData: VisualizationData = state.executor.getVisualizationData();
 
             dispatch({ type: 'UPDATE_VISUALIZATION_DATA', payload: vizData });
 
@@ -822,7 +813,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             };
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: errorResult });
-            dispatch({ type: 'SET_ERROR', payload: errorResult.uiError.message });
+            dispatch({ type: 'SET_ERROR', payload: errorResult.uiError?.message ?? 'Execution failed' });
 
             // SDK owns workflow updates; no manual node status mutation
 
@@ -874,7 +865,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId } });
     }, []);
 
-    const updateNodeStatus = useCallback((nodeId: string, status: 'pending' | 'ready' | 'running' | 'completed' | 'error') => {
+    const updateNodeStatus = useCallback((nodeId: string, status: 'pending' | 'running' | 'completed' | 'error') => {
         dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId, status } });
     }, []);
 
@@ -886,7 +877,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
 
     // ===== Getters =====
 
-    const getVisualizationData = useCallback((): any => {
+    const getVisualizationData = useCallback((): VisualizationData | null => {
         return state.visualizationData;
     }, [state.visualizationData]);
 
@@ -912,6 +903,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             const interval = setInterval(checkConnection, 1000);
             return () => clearInterval(interval);
         }
+        return;
     }, [state.executor, state.isWebSocketConnected]);
 
     // Cleanup on unmount

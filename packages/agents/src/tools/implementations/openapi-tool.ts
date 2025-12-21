@@ -38,7 +38,7 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
      * Execute the OpenAPI tool implementation
      * This method is called by the parent's Template Method Pattern
      */
-    protected async executeImpl(parameters: ToolParameters, _context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
         const toolName = this.schema.name;
 
         try {
@@ -106,7 +106,7 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
      * Execute the actual API call
      * @private
      */
-    private async executeAPICall(parameters: ToolParameters, context?: ToolExecutionContext) {
+    private async executeAPICall(parameters: ToolParameters, _context?: ToolExecutionContext) {
         // Find the operation in the OpenAPI spec
         const operation = this.findOperation();
         if (!operation) {
@@ -119,7 +119,7 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
         // TODO: Implement actual HTTP request execution
         // This would typically use fetch() or axios
         const result = {
-            message: `OpenAPI tool "${this.name}" executed`,
+            message: `OpenAPI tool "${this.schema.name}" executed`,
             operationId: this.operationId,
             method: requestConfig.method,
             url: requestConfig.url,

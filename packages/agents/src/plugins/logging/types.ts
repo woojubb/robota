@@ -26,7 +26,7 @@ export interface LogEntry {
     };
 }
 
-import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
+import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
 import type { SimpleLogger } from '../../utils/simple-logger';
 
 /**
@@ -76,7 +76,7 @@ export interface LogStorage {
 /**
  * Logging plugin statistics
  */
-export interface LoggingPluginStats {
+export interface LoggingPluginStats extends PluginStats {
     /** Total number of logs written */
     logsWritten: number;
     /** Number of failed log writes */

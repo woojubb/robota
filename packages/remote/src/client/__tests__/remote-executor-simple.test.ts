@@ -6,14 +6,15 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SimpleRemoteExecutor } from '../remote-executor-simple';
-import type { SimpleRemoteConfig, SimpleExecutionRequest } from '../remote-executor-simple';
-import type { BasicMessage } from '../../types/message-types';
+import type { SimpleRemoteConfig } from '../remote-executor-simple';
+import type { ChatExecutionRequest, StreamExecutionRequest, UniversalMessage } from '@robota-sdk/agents';
 
 // Mock the HttpClient
 const mockHttpClient = {
     post: vi.fn(),
     get: vi.fn(),
     chat: vi.fn(),
+    chatStream: vi.fn(),
     validateConfig: vi.fn().mockReturnValue(true)
 };
 
@@ -42,7 +43,7 @@ describe('SimpleRemoteExecutor Facade', () => {
                 executor = new SimpleRemoteExecutor(mockConfig);
             }).not.toThrow();
 
-            expect(executor.name).toBe('simple-remote');
+            expect(executor.name).toBe('remote');
             expect(executor.version).toBe('1.0.0');
         });
 
@@ -53,7 +54,7 @@ describe('SimpleRemoteExecutor Facade', () => {
 
             expect(() => {
                 new SimpleRemoteExecutor(invalidConfig);
-            }).toThrow('Invalid configuration provided');
+            }).toThrow('BaseURL is required but not provided');
         });
 
         it('should throw on invalid config - empty serverUrl', () => {
@@ -64,7 +65,7 @@ describe('SimpleRemoteExecutor Facade', () => {
 
             expect(() => {
                 new SimpleRemoteExecutor(invalidConfig);
-            }).toThrow('Invalid configuration provided');
+            }).toThrow('BaseURL is required but not provided');
         });
 
         it('should throw on invalid config - missing userApiKey', () => {
@@ -74,7 +75,7 @@ describe('SimpleRemoteExecutor Facade', () => {
 
             expect(() => {
                 new SimpleRemoteExecutor(invalidConfig);
-            }).toThrow('Invalid configuration provided');
+            }).toThrow('User API key is required but not provided');
         });
 
         it('should accept optional configuration parameters', () => {
@@ -100,34 +101,25 @@ describe('SimpleRemoteExecutor Facade', () => {
             expect(executor.validateConfig()).toBe(true);
         });
 
-        it('should validate provided config parameter', () => {
+        it('should validate a different instance with another valid config', () => {
             const validConfig: SimpleRemoteConfig = {
                 serverUrl: 'https://other.api.com',
                 userApiKey: 'other-key'
             };
-
-            expect(executor.validateConfig(validConfig)).toBe(true);
-        });
-
-        it('should return false for invalid config', () => {
-            const invalidConfig = {
-                serverUrl: '',
-                userApiKey: 'key'
-            } as SimpleRemoteConfig;
-
-            expect(executor.validateConfig(invalidConfig)).toBe(false);
+            const other = new SimpleRemoteExecutor(validConfig);
+            expect(other.validateConfig()).toBe(true);
         });
     });
 
     describe('Chat Execution', () => {
-        let validRequest: SimpleExecutionRequest;
+        let validRequest: ChatExecutionRequest;
 
         beforeEach(() => {
             executor = new SimpleRemoteExecutor(mockConfig);
 
             validRequest = {
                 messages: [
-                    { role: 'user', content: 'Hello AI' }
+                    { role: 'user', content: 'Hello AI', timestamp: new Date() }
                 ],
                 provider: 'openai',
                 model: 'gpt-4'
@@ -147,7 +139,9 @@ describe('SimpleRemoteExecutor Facade', () => {
 
             const result = await executor.executeChat(validRequest);
 
-            expect(result).toEqual(expectedResponse);
+            expect(result.role).toBe('assistant');
+            expect(result.content).toBe('Hello back!');
+            expect(result.timestamp).toBeInstanceOf(Date);
             expect(mockHttpClient.chat).toHaveBeenCalled();
         });
 
@@ -156,7 +150,7 @@ describe('SimpleRemoteExecutor Facade', () => {
                 messages: [],
                 provider: 'openai',
                 model: 'gpt-4'
-            } as SimpleExecutionRequest;
+            } as ChatExecutionRequest;
 
             await expect(executor.executeChat(invalidRequest))
                 .rejects.toThrow('Messages array is required and cannot be empty');
@@ -164,10 +158,10 @@ describe('SimpleRemoteExecutor Facade', () => {
 
         it('should validate provider field', async () => {
             const invalidRequest = {
-                messages: [{ role: 'user', content: 'test' }],
+                messages: [{ role: 'user', content: 'test', timestamp: new Date() }],
                 provider: '',
                 model: 'gpt-4'
-            } as SimpleExecutionRequest;
+            } as ChatExecutionRequest;
 
             await expect(executor.executeChat(invalidRequest))
                 .rejects.toThrow('Provider is required');
@@ -175,10 +169,10 @@ describe('SimpleRemoteExecutor Facade', () => {
 
         it('should validate model field', async () => {
             const invalidRequest = {
-                messages: [{ role: 'user', content: 'test' }],
+                messages: [{ role: 'user', content: 'test', timestamp: new Date() }],
                 provider: 'openai',
                 model: ''
-            } as SimpleExecutionRequest;
+            } as ChatExecutionRequest;
 
             await expect(executor.executeChat(invalidRequest))
                 .rejects.toThrow('Model is required');
@@ -187,12 +181,12 @@ describe('SimpleRemoteExecutor Facade', () => {
         it('should validate individual messages', async () => {
             const invalidRequest = {
                 messages: [
-                    { role: 'user', content: 'valid' },
+                    { role: 'user', content: 'valid', timestamp: new Date() },
                     { role: 123, content: 'invalid role' } as any
                 ],
                 provider: 'openai',
                 model: 'gpt-4'
-            } as SimpleExecutionRequest;
+            } as ChatExecutionRequest;
 
             await expect(executor.executeChat(invalidRequest))
                 .rejects.toThrow('Invalid message at index 1: role and content must be strings');
@@ -208,26 +202,29 @@ describe('SimpleRemoteExecutor Facade', () => {
     });
 
     describe('Stream Execution', () => {
-        let validRequest: SimpleExecutionRequest;
+        let validRequest: StreamExecutionRequest;
 
         beforeEach(() => {
             executor = new SimpleRemoteExecutor(mockConfig);
 
             validRequest = {
-                messages: [{ role: 'user', content: 'Hello' }],
+                messages: [{ role: 'user', content: 'Hello', timestamp: new Date() }],
                 provider: 'openai',
-                model: 'gpt-4'
+                model: 'gpt-4',
+                stream: true
             };
         });
 
         it('should handle streaming responses', async () => {
-            const expectedResponse = {
+            const expectedResponse: UniversalMessage = {
                 role: 'assistant',
                 content: 'Streaming response',
                 timestamp: new Date()
             };
 
-            mockHttpClient.chat.mockResolvedValue(expectedResponse);
+            mockHttpClient.chatStream.mockReturnValue((async function* (): AsyncIterable<UniversalMessage> {
+                yield expectedResponse;
+            })());
 
             const stream = executor.executeChatStream(validRequest);
             const chunks = [];
@@ -244,8 +241,9 @@ describe('SimpleRemoteExecutor Facade', () => {
             const invalidRequest = {
                 messages: [],
                 provider: 'openai',
-                model: 'gpt-4'
-            } as SimpleExecutionRequest;
+                model: 'gpt-4',
+                stream: true
+            } as StreamExecutionRequest;
 
             const stream = executor.executeChatStream(invalidRequest);
 
@@ -279,8 +277,8 @@ describe('SimpleRemoteExecutor Facade', () => {
         it('should handle complete conversation flow', async () => {
             executor = new SimpleRemoteExecutor(mockConfig);
 
-            const messages: BasicMessage[] = [
-                { role: 'user', content: 'What is TypeScript?' }
+            const messages: UniversalMessage[] = [
+                { role: 'user', content: 'What is TypeScript?', timestamp: new Date() }
             ];
 
             const mockResponse = {
@@ -293,7 +291,7 @@ describe('SimpleRemoteExecutor Facade', () => {
 
             mockHttpClient.chat.mockResolvedValue(mockResponse);
 
-            const request: SimpleExecutionRequest = {
+            const request: ChatExecutionRequest = {
                 messages,
                 provider: 'openai',
                 model: 'gpt-4'
@@ -318,7 +316,7 @@ describe('SimpleRemoteExecutor Facade', () => {
                 userApiKey: 'new-key'
             };
 
-            expect(executor.validateConfig(newConfig)).toBe(true);
+            expect(new SimpleRemoteExecutor(newConfig).validateConfig()).toBe(true);
         });
 
         it('should maintain facade simplicity', () => {

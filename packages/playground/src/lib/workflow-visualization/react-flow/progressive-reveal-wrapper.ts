@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Node, Edge } from 'reactflow';
+import type { Node, Edge } from '@xyflow/react';
 import {
     useProgressiveReveal,
     type ProgressiveRevealConfig,

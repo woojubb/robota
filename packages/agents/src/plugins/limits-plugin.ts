@@ -45,7 +45,7 @@ export type PluginExecutionResult = {
  * Plugin for rate limiting and resource control
  * Enforces limits on token usage, request frequency, and costs
  */
-export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions, PluginLimitsStatusData> {
+export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     name = 'LimitsPlugin';
     version = '1.0.0';
 

@@ -32,7 +32,7 @@ export interface ErrorHandlingContextData {
     [key: string]: string | number | boolean | undefined;
 }
 
-import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
+import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Configuration options for error handling plugin
@@ -57,7 +57,7 @@ export interface ErrorHandlingPluginOptions extends BasePluginOptions {
 /**
  * Error handling plugin statistics
  */
-export interface ErrorHandlingPluginStats {
+export interface ErrorHandlingPluginStats extends PluginStats {
     failureCount: number;
     circuitBreakerOpen: boolean;
     lastFailureTime: number;

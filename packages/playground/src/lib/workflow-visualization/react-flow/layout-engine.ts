@@ -7,7 +7,7 @@
 
 import type { 
     UniversalWorkflowNode
-} from '@robota-sdk/agents';
+} from '@robota-sdk/workflow';
 import { SilentLogger } from '@robota-sdk/agents';
 
 // SimpleLogger interface for internal use
@@ -55,7 +55,7 @@ export class SimpleReactFlowLayoutHelper {
         // Group nodes by level
         const levelGroups = new Map<number, UniversalWorkflowNode[]>();
         nodes.forEach(node => {
-            const level = node.level || 0;
+            const level = node.level;
             if (!levelGroups.has(level)) {
                 levelGroups.set(level, []);
             }
@@ -72,9 +72,11 @@ export class SimpleReactFlowLayoutHelper {
                 positionedNodes.push({
                     ...node,
                     position: {
-                        ...node.position,
                         x: startX + (index * nodeSpacing),
-                        y: level * levelSpacing
+                        y: level * levelSpacing,
+                        level,
+                        order: index,
+                        layoutHints: node.position?.layoutHints
                     }
                 });
             });

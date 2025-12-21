@@ -161,6 +161,7 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
 
             return () => clearInterval(interval);
         }
+        return;
     }, [refreshInterval]);
 
     // Manual refresh

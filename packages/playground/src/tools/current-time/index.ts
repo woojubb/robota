@@ -50,7 +50,21 @@ export function createCurrentTimeTool(): FunctionTool {
         },
         async (params) => {
             try {
-                const { timezone = 'local', format = 'readable', includeWeekday = true } = params;
+                const timezoneRaw = params.timezone;
+                const formatRaw = params.format;
+                const includeWeekdayRaw = params.includeWeekday;
+
+                const timezone =
+                    typeof timezoneRaw === 'string' && timezoneRaw.trim().length > 0
+                        ? timezoneRaw.trim()
+                        : 'local';
+
+                const format =
+                    formatRaw === 'iso' || formatRaw === 'readable' || formatRaw === 'timestamp' || formatRaw === 'detailed'
+                        ? formatRaw
+                        : 'readable';
+
+                const includeWeekday = typeof includeWeekdayRaw === 'boolean' ? includeWeekdayRaw : true;
 
                 // Get current date
                 const now = new Date();

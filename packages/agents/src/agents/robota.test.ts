@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { Robota } from './robota';
-import type { AgentConfig } from '../interfaces/agent';
+import { Robota } from '../core/robota';
+import type { AgentConfig, RunOptions } from '../interfaces/agent';
 import { AbstractAgent } from '../abstracts/abstract-agent';
 import type { AgentInterface } from '../interfaces/agent';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { AbstractTool as BaseTool } from '../abstracts/abstract-tool';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { ToolSchema, ChatOptions } from '../interfaces/provider';
-import type { ToolParameters, ToolResult } from '../interfaces/tool';
+import type { ToolExecutionContext, ToolParameters, ToolResult } from '../interfaces/tool';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
 
 import { ConfigurationError, ValidationError } from '../utils/errors';
@@ -66,17 +66,10 @@ class MockAIProvider2 extends AbstractAIProvider {
 
 // Mock Tool for testing
 class MockTool extends BaseTool {
-    name = 'mock-tool';
-    description = 'Mock tool for testing';
-
-    constructor() {
-        super();
-    }
-
-    get schema(): ToolSchema {
+    override get schema(): ToolSchema {
         return {
-            name: this.name,
-            description: this.description,
+            name: 'mock-tool',
+            description: 'Mock tool for testing',
             parameters: {
                 type: 'object' as const,
                 properties: {
@@ -86,28 +79,27 @@ class MockTool extends BaseTool {
         };
     }
 
-    async execute(parameters: ToolParameters): Promise<ToolResult> {
+    protected override async executeImpl(parameters: ToolParameters, _context: ToolExecutionContext): Promise<ToolResult> {
+        const inputValue = parameters.input;
+        const inputText = typeof inputValue === 'string' ? inputValue : 'no input';
+
         return {
             success: true,
-            data: `Mock tool executed with: ${(parameters as Record<string, string | number | boolean>).input || 'no input'}`
+            data: `Mock tool executed with: ${inputText}`
         };
-    }
-
-    validateParameters(parameters: ToolParameters): { isValid: boolean; errors: string[] } {
-        return { isValid: true, errors: [] };
     }
 }
 
 // Mock Plugin for testing
 class MockPlugin extends AbstractPlugin {
-    name = 'mock-plugin';
-    version = '1.0.0';
+    override readonly name = 'mock-plugin';
+    override readonly version = '1.0.0';
 
-    async beforeRun(input: string): Promise<void> {
+    override async beforeRun(input: string, _options?: RunOptions): Promise<void> {
         // Mock hook implementation
     }
 
-    async afterRun(input: string, response: string): Promise<void> {
+    override async afterRun(input: string, response: string, _options?: RunOptions): Promise<void> {
         // Mock hook implementation
     }
 }

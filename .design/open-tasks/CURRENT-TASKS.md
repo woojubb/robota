@@ -156,6 +156,7 @@
   - [ ] `pnpm --filter robota-web build` (사용자 환경에서)
       - [x] Guarded 예제 27 실행(가드) + verify 통과
       - [x] 결과 기록(노드/엣지 수, 실패 시 rule 위반 유형) 및 리팩토링 개선점 제안 정리
+  - [x] (CI) npm/package-lock 전제 제거(pnpm-lock 기준) + audit/caching 경로 정리(deploy workflow)
 4. **문서 & 검증**
    - [x] `.design/event-system` 문서 업데이트 (prefix 제거, ownerPath 규칙)
    - [x] CURRENT-TASKS 진행 기록 추가 및 전환 조건 명시
@@ -202,6 +203,42 @@
      - 문서: `.design/event-system/event-payload-normalization.md`
 
 ---
+
+## 🧪 Priority 0.6: CI / typecheck / lint 운영 정책 확정 + 0으로 만들기
+
+### 배경(현재 문제)
+- Vercel/CI에서 “npm audit + package-lock” 전제 스텝이 남아 있어, pnpm 모노레포에서 커밋마다 실패 로그가 발생했었다.
+- 현재 root `typecheck`는 실제로 `pnpm lint`로 매핑되어 있어(**typecheck=eslint**), Node 22 기준 “typecheck 102개”는 사실상 lint 문제였다.
+- 신뢰/효율 이슈: 한 줄씩 수정/미적용 패치 반복은 금지하며, **한 번의 배치 수정으로 여러 건이 동시에 감소**해야 한다.
+ - Vercel 프로젝트 설정(`apps/web/vercel.json`)이 여전히 `npm install`/`npm run build`로 고정되어 있어, pnpm 워크스페이스와 상충할 수 있었다.
+
+### 정책(확정 대상)
+1) **타입 소유권/재사용 규약(agents 기준, 선언적 타입 단일 소스)**
+   - **Value axis(UniversalValue 축)**: `packages/agents/src/interfaces/types.ts`가 소유/단일 기준
+   - **Tool contract**: `packages/agents/src/interfaces/tool.ts`가 소유, 값 타입은 `interfaces/types.ts`에서 재사용
+   - **Tool options(구현체가 가져다 써야 함)**: `packages/agents/src/abstracts/abstract-tool.ts`의 `AbstractToolOptions`가 소유
+   - **Event axis**: `packages/agents/src/interfaces/event-service.ts`가 소유/단일 기준
+   - **외부 소비 경로**: 외부 패키지는 반드시 `@robota-sdk/agents` public export만 사용
+2) **수정 운영 규칙**
+   - **[금지] 한줄씩 수정**: 한 번의 배치 패치는 최소 “3개 이상 문제 감소”를 목표로 한다.
+   - **[필수] 미적용/무의미 diff면 즉시 중단**: 재시도 전에 “왜 미적용인지(컨텍스트/패치 설계)”를 먼저 해결한다.
+
+### 작업 순서(제안)
+1) **CI/배포 워크플로우 정리**
+   - [x] `deploy.yml`에서 npm/package-lock 전제 제거 → pnpm install/audit + pnpm-lock 캐시로 통일
+   - [x] Lighthouse URL 목록을 “Playground만” 기준으로 갱신(website 라우트 삭제 반영)
+2) **typecheck/lint 스크립트 정책 확정(결정 필요)**
+   - [x] (결정) **옵션 A로 확정**: `typecheck = tsc` + `lint = eslint`
+     - 적용: root `package.json`에서 `typecheck`는 `tsc --noEmit`, `lint`는 `eslint`로 고정 (원인 분리/로그 가독성 개선)
+   - [x] (Vercel) 배포 빌드 경로에서는 **에러 게이트만** 적용하도록 `apps/web/vercel.json`을 pnpm 워크스페이스 커맨드로 정리
+     - install: `pnpm -w install --frozen-lockfile`
+     - build: `pnpm -w --filter @robota-sdk/web build`
+   - [x] (Next build) `next build`에서 ESLint는 실행하지 않되, **TypeScript 에러는 무시하지 않도록** `apps/web/next.config.ts`를 정리
+3) **에러 0 만들기(대량 배치 방식)**
+   - [ ] 1차 배치(즉시 감소 큰 묶음): 테스트 no-undef 다발 + no-console + 하드코딩 이벤트명
+   - [ ] 2차 배치(다발): `any/unknown` 다수 파일을 “소유 타입 축”으로 흡수(UniversalValue/ContextData/LoggerData)
+   - [ ] 3차 배치(레거시 파일 정리): `packages/agents/src/services/node-edge-manager.ts` 노출/사용 여부 결정(필요하면 타입 축 정리, 불필요하면 export/사용처 제거)
+   - [ ] 각 배치마다 `pnpm --filter @robota-sdk/agents lint`로 “문제 개수 감소” 확인 후 다음 배치 진행
 
 ## 📝 Priority 1: .design Documentation Maintenance (선택)
 

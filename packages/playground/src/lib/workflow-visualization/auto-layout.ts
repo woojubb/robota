@@ -5,8 +5,8 @@
  */
 
 import dagre from 'dagre';
-import type { Node, Edge } from '@xyflow/react';
-import type { UniversalWorkflowNode, UniversalWorkflowEdge } from '@robota-sdk/agents';
+import { Position, type Node, type Edge } from '@xyflow/react';
+import type { UniversalWorkflowNode, UniversalWorkflowEdge } from '@robota-sdk/workflow';
 
 /**
  * Layout configuration for different workflow types
@@ -95,8 +95,17 @@ function calculateNodeHeight(node: Node): number {
     let estimatedHeight = 60; // base height for header
 
     // Add height for content preview - allow more content for better visibility
-    if (data.userPrompt || data.userMessageContent || data.assistantMessage || data.contentPreview) {
-        const content = data.userPrompt || data.userMessageContent || data.assistantMessage || data.contentPreview || '';
+    const contentCandidateKeys = ['userPrompt', 'userMessageContent', 'assistantMessage', 'contentPreview'] as const;
+    let content: string | undefined;
+    for (const key of contentCandidateKeys) {
+        const value = data[key];
+        if (typeof value === 'string' && value.length > 0) {
+            content = value;
+            break;
+        }
+    }
+
+    if (typeof content === 'string') {
 
         // Allow more content to be visible
         const maxContentLength = 300; // Increased to show more content
@@ -116,9 +125,15 @@ function calculateNodeHeight(node: Node): number {
 
     // Add height for badges/indicators - more compact
     const hasIndicators = (
-        data.hasQuestions || data.containsUrgency || data.hasCodeBlocks ||
-        data.hasLinks || data.isError || data.hasStructuredData ||
-        data.aiProvider || data.availableTools || data.toolSlots
+        data['hasQuestions'] === true ||
+        data['containsUrgency'] === true ||
+        data['hasCodeBlocks'] === true ||
+        data['hasLinks'] === true ||
+        data['isError'] === true ||
+        data['hasStructuredData'] === true ||
+        typeof data['aiProvider'] === 'string' ||
+        Array.isArray(data['availableTools']) ||
+        Array.isArray(data['toolSlots'])
     );
     if (hasIndicators) {
         estimatedHeight += 20; // reduced space for badge row
@@ -127,15 +142,17 @@ function calculateNodeHeight(node: Node): number {
     // Add extra height for complex nodes - properly account for tools and system message
     if (node.type === 'agent') {
         // Add height for tools list
-        if (data.tools && Array.isArray(data.tools)) {
-            const toolsCount = data.tools.length;
+        const tools = data['tools'];
+        if (Array.isArray(tools)) {
+            const toolsCount = tools.length;
             const toolsHeight = Math.min(toolsCount * 30, 150); // 30px per tool, max 150px
             estimatedHeight += toolsHeight;
         }
 
         // Add height for system message
-        if (data.systemMessage) {
-            const messageLines = Math.ceil(data.systemMessage.length / 60); // ~60 chars per line
+        const systemMessage = data['systemMessage'];
+        if (typeof systemMessage === 'string') {
+            const messageLines = Math.ceil(systemMessage.length / 60); // ~60 chars per line
             const systemMessageHeight = Math.min(messageLines * 18, 200); // 18px per line, max 200px
             estimatedHeight += systemMessageHeight;
         }
@@ -144,7 +161,7 @@ function calculateNodeHeight(node: Node): number {
         estimatedHeight += 40; // Space for "Model", "System Message", "Tools" headers
     }
 
-    if (node.type === 'tool_call_response' && data.toolName) {
+    if (node.type === 'tool_call_response' && typeof data['toolName'] === 'string') {
         estimatedHeight += 18; // reduced extra space for tool details
     }
 
@@ -160,10 +177,12 @@ function calculateNodeHeight(node: Node): number {
  */
 function getNodeDimensions(node: Node, useActualDimensions = false): { width: number; height: number } {
     // Use actual measured dimensions if available
-    if (useActualDimensions && node.data.actualWidth && node.data.actualHeight) {
+    const actualWidth = node.data['actualWidth'];
+    const actualHeight = node.data['actualHeight'];
+    if (useActualDimensions && typeof actualWidth === 'number' && typeof actualHeight === 'number') {
         return {
-            width: node.data.actualWidth,
-            height: node.data.actualHeight
+            width: actualWidth,
+            height: actualHeight
         };
     }
 
@@ -369,8 +388,8 @@ export function applyDagreLayout(
         const dims = getNodeDimensions(node, useActualDimensions);
 
         // Determine handle positions based on layout direction
-        const sourcePosition = isHorizontal ? 'right' : 'bottom';
-        const targetPosition = isHorizontal ? 'left' : 'top';
+        const sourcePosition = isHorizontal ? Position.Right : Position.Bottom;
+        const targetPosition = isHorizontal ? Position.Left : Position.Top;
 
         const fallbackCenter = { x: typeof np?.x === 'number' ? np.x : 0, y: typeof np?.y === 'number' ? np.y : 0 };
         const newCenter = newCenterByNodeId.get(node.id) || fallbackCenter;
@@ -417,11 +436,8 @@ export function convertUniversalToReactFlowWithLayout(
         type: node.type,
         position: { x: 0, y: 0 }, // Will be set by layout
         data: {
-            label: node.data?.label || node.id,
-            ...node.data
-        },
-        style: {
-            ...node.visualState?.style
+            ...node.data,
+            label: node.data?.label ?? node.id
         }
     }));
 
@@ -430,11 +446,8 @@ export function convertUniversalToReactFlowWithLayout(
         id: edge.id,
         source: edge.source,
         target: edge.target,
-        type: edge.type || 'default',
-        label: edge.label,
-        style: {
-            ...edge.visualState?.style
-        }
+        type: edge.type,
+        label: edge.label
     }));
 
     // Apply layout
@@ -483,7 +496,7 @@ export function suggestOptimalLayout(
 }
 
 /**
- * 동적 레이아웃을 위한 설정 생성
+ * Create layout config with optional overrides.
  */
 export function createDynamicLayoutConfig(
     presetName: keyof typeof LAYOUT_PRESETS,
@@ -496,7 +509,7 @@ export function createDynamicLayoutConfig(
 }
 
 /**
- * 레이아웃 품질 검증 함수
+ * Validate layout quality (basic overlap + edge endpoint existence).
  */
 export function validateLayoutResult(
     nodes: Node[],
@@ -504,7 +517,7 @@ export function validateLayoutResult(
 ): { isValid: boolean; issues: string[] } {
     const issues: string[] = [];
 
-    // 노드 겹침 검사
+    // Check node proximity (basic overlap proxy)
     for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
             const node1 = nodes[i];
@@ -519,7 +532,7 @@ export function validateLayoutResult(
         }
     }
 
-    // 엣지 연결 검증
+    // Validate edge endpoints exist
     edges.forEach(edge => {
         const sourceNode = nodes.find(n => n.id === edge.source);
         const targetNode = nodes.find(n => n.id === edge.target);
@@ -539,7 +552,8 @@ export function validateLayoutResult(
 }
 
 /**
- * 노드 크기 기반 최적 간격 계산 - 긴 노드 높이에 최적화
+ * Calculate spacing overrides based on node dimensions.
+ * Optimized to avoid excessive gaps for tall nodes.
  */
 export function calculateOptimalSpacing(nodes: Node[]): Partial<LayoutConfig> {
     if (nodes.length === 0) return {};
@@ -550,8 +564,26 @@ export function calculateOptimalSpacing(nodes: Node[]): Partial<LayoutConfig> {
     let maxHeight = 0;
 
     nodes.forEach(node => {
-        const width = node.data?.actualWidth || node.data?.computedWidth || getNodeDimensions(node).width;
-        const height = node.data?.actualHeight || node.data?.computedHeight || getNodeDimensions(node).height;
+        const actualWidth = node.data['actualWidth'];
+        const computedWidth = node.data['computedWidth'];
+        const widthFromData =
+            typeof actualWidth === 'number'
+                ? actualWidth
+                : typeof computedWidth === 'number'
+                    ? computedWidth
+                    : undefined;
+
+        const actualHeight = node.data['actualHeight'];
+        const computedHeight = node.data['computedHeight'];
+        const heightFromData =
+            typeof actualHeight === 'number'
+                ? actualHeight
+                : typeof computedHeight === 'number'
+                    ? computedHeight
+                    : undefined;
+
+        const width = widthFromData ?? getNodeDimensions(node).width;
+        const height = heightFromData ?? getNodeDimensions(node).height;
 
         totalWidth += width;
         totalHeight += height;

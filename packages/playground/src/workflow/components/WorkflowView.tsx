@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { WorkflowVisualization } from '../../components/playground/workflow-visualization';
-import type { UniversalWorkflowStructure } from '@robota-sdk/agents';
+import type { UniversalWorkflowStructure } from '@robota-sdk/workflow';
 import type { PlaygroundToolMeta } from '../../tools/catalog';
 
 interface WorkflowViewProps {
@@ -19,7 +19,7 @@ export function WorkflowView({
   onToolDrop,
   toolItems,
   addedToolsByAgent
-}: WorkflowViewProps): JSX.Element {
+}: WorkflowViewProps): React.ReactElement {
   return (
     <div className="h-full w-full">
       <WorkflowVisualization

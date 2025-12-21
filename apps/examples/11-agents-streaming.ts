@@ -13,6 +13,7 @@ import {
     LoggingPlugin,
     PerformancePlugin
 } from '@robota-sdk/agents';
+import type { AgentConfig } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
@@ -37,7 +38,7 @@ async function main() {
         // ===== AGENT CONFIGURATION FOR STREAMING =====
         console.log('⚙️ Creating agent optimized for streaming...');
 
-        const config = {
+        const config: AgentConfig = {
             name: 'StreamingAgent',
             aiProviders: [openaiProvider],
             defaultModel: {
@@ -46,9 +47,9 @@ async function main() {
             },
             plugins: [
                 new PerformancePlugin({
-                    trackMemory: true,
-                    trackTiming: true,
-                    strategy: 'memory'
+                    strategy: 'memory',
+                    monitorMemory: true,
+                    aggregateStats: true
                 }),
                 new LoggingPlugin({
                     strategy: 'silent',
@@ -96,10 +97,12 @@ async function main() {
         console.log('⚡ Performance Metrics:');
         const performancePlugin = robota.getPlugin<PerformancePlugin>('performance-plugin');
         if (performancePlugin) {
-            const metrics = performancePlugin.getMetrics();
-            console.log(`- Execution count: ${metrics.executionCount}`);
-            console.log(`- Average response time: ${Math.round(metrics.averageResponseTime)}ms`);
-            console.log(`- Memory usage: ${Math.round(metrics.memoryUsage / 1024 / 1024)}MB`);
+            const stats = await performancePlugin.getAggregatedStats();
+            console.log(`- Total operations: ${stats.totalOperations}`);
+            console.log(`- Average duration: ${Math.round(stats.averageDuration)}ms`);
+            if (stats.memoryStats) {
+                console.log(`- Avg heap used: ${Math.round(stats.memoryStats.averageHeapUsed / 1024 / 1024)}MB`);
+            }
         }
         console.log();
 

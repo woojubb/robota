@@ -348,7 +348,9 @@ export class WebhookPlugin extends AbstractPlugin<WebhookPluginOptions, WebhookP
      * Get webhook plugin statistics
      */
     override getStats(): WebhookPluginStats {
+        const base = super.getStats();
         return {
+            ...base,
             endpointCount: this.pluginOptions.endpoints.length,
             queueLength: this.requestQueue.length,
             batchQueueLength: this.batchQueue.length,

@@ -8,17 +8,14 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 const nextConfig: NextConfig = {
   // ESLint configuration
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
+    // Do not run ESLint during builds. Lint is enforced separately (CI/PR),
+    // while build remains focused on compilation/type correctness.
     ignoreDuringBuilds: true,
   },
-  // TypeScript configuration  
+  // TypeScript configuration
+  // Do not ignore type errors during builds. Builds must fail on type errors.
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   // Image optimization configuration
   images: {

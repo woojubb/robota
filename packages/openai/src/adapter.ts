@@ -1,28 +1,5 @@
 import OpenAI from 'openai';
-import type {
-    UniversalMessage,
-    AssistantMessage
-} from '@robota-sdk/agents';
-
-// Define message types locally to avoid circular dependency
-export interface UserMessage {
-    role: 'user';
-    content: string | null;
-    timestamp?: Date;
-}
-
-export interface SystemMessage {
-    role: 'system';
-    content: string | null;
-    timestamp?: Date;
-}
-
-export interface ToolMessage {
-    role: 'tool';
-    content: string | null;
-    timestamp?: Date;
-    toolCallId?: string;
-}
+import type { UniversalMessage, AssistantMessage } from '@robota-sdk/agents';
 
 /**
  * OpenAI Conversation Adapter
@@ -50,11 +27,12 @@ export class OpenAIConversationAdapter {
 
             // For tool messages, only include if they have a valid toolCallId
             if (msg.role === 'tool') {
-                const toolMsg = msg as ToolMessage;
                 // Must have toolCallId and it must not be empty or 'unknown'
-                return !!(toolMsg.toolCallId &&
-                    toolMsg.toolCallId.trim() !== '' &&
-                    toolMsg.toolCallId !== 'unknown');
+                return !!(
+                    msg.toolCallId &&
+                    msg.toolCallId.trim() !== '' &&
+                    msg.toolCallId !== 'unknown'
+                );
             }
 
             return false;
@@ -79,10 +57,9 @@ export class OpenAIConversationAdapter {
         const messageRole = msg.role;
 
         if (messageRole === 'user') {
-            const userMsg = msg as UserMessage;
             return {
                 role: 'user',
-                content: userMsg.content || ''
+                content: msg.content
             };
         }
 
@@ -119,25 +96,22 @@ export class OpenAIConversationAdapter {
         }
 
         if (messageRole === 'system') {
-            const systemMsg = msg as SystemMessage;
             return {
                 role: 'system',
-                content: systemMsg.content || ''
+                content: msg.content
             };
         }
 
         // Handle tool messages for OpenAI tool calling
         if (messageRole === 'tool') {
-            const toolMsg = msg as ToolMessage;
-
-            if (!toolMsg.toolCallId || toolMsg.toolCallId.trim() === '') {
-                throw new Error(`Tool message missing toolCallId: ${JSON.stringify(toolMsg)}`);
+            if (!msg.toolCallId || msg.toolCallId.trim() === '') {
+                throw new Error(`Tool message missing toolCallId: ${JSON.stringify(msg)}`);
             }
 
             const result: OpenAI.Chat.ChatCompletionToolMessageParam = {
                 role: 'tool',
-                content: toolMsg.content || '',
-                tool_call_id: toolMsg.toolCallId
+                content: msg.content,
+                tool_call_id: msg.toolCallId
             };
             return result;
         }

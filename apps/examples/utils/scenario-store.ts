@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import * as fsSync from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
-import type { UniversalMessage, ChatOptions, RawProviderResponse } from '@robota-sdk/agents';
+import type { UniversalMessage, ChatOptions, RawProviderResponse, ConversationMessageMetadata } from '@robota-sdk/agents';
+import { isAssistantMessage, isToolMessage, isUserMessage } from '@robota-sdk/agents';
 
 export interface ScenarioStoreOptions {
     baseDir?: string;
@@ -20,8 +21,8 @@ export interface ScenarioMessageSnapshot {
     name?: string;
     toolCallId?: string;
     toolCalls?: ScenarioToolCallSnapshot[];
-    metadata?: Record<string, unknown>;
-    timestamp?: number;
+    metadata?: ConversationMessageMetadata;
+    timestamp: number;
 }
 
 export interface ScenarioResponseSnapshot {
@@ -246,11 +247,8 @@ export function serializeChatOptions(options?: ChatOptions): ScenarioChatOptions
     if (typeof (options as Record<string, unknown>).frequencyPenalty === 'number') {
         snapshot.frequencyPenalty = (options as Record<string, number>).frequencyPenalty;
     }
-    if (typeof options.toolChoice === 'string') {
-        snapshot.toolChoice = options.toolChoice;
-    }
-    if (typeof options.stream === 'boolean') {
-        snapshot.stream = options.stream;
+    if (typeof options.openai?.stream === 'boolean') {
+        snapshot.stream = options.openai.stream;
     }
     if (Array.isArray(options.tools)) {
         snapshot.tools = options.tools.map(tool => ({ name: (tool as { name?: string }).name }));
@@ -259,22 +257,71 @@ export function serializeChatOptions(options?: ChatOptions): ScenarioChatOptions
 }
 
 export function deserializeMessage(snapshot: ScenarioMessageSnapshot): UniversalMessage {
-    return {
-        role: snapshot.role,
-        content: snapshot.content ?? null,
-        name: snapshot.name,
-        toolCallId: snapshot.toolCallId,
-        metadata: snapshot.metadata ? structuredClone(snapshot.metadata) : undefined,
-        toolCalls: snapshot.toolCalls?.map(tc => ({
-            id: tc.id,
-            type: 'function' as const,
-            function: {
-                name: tc.name ?? '',
-                arguments: tc.arguments ?? ''
+    const timestamp = new Date(snapshot.timestamp);
+    const metadata = snapshot.metadata ? structuredClone(snapshot.metadata) : undefined;
+
+    switch (snapshot.role) {
+        case 'user': {
+            if (typeof snapshot.content !== 'string') {
+                throw new Error('[SCENARIO] Invalid user message content (expected string)');
             }
-        })),
-        timestamp: typeof snapshot.timestamp === 'number' ? new Date(snapshot.timestamp) : undefined
-    };
+            return {
+                role: 'user',
+                content: snapshot.content,
+                ...(snapshot.name && { name: snapshot.name }),
+                ...(metadata && { metadata }),
+                timestamp
+            };
+        }
+        case 'system': {
+            if (typeof snapshot.content !== 'string') {
+                throw new Error('[SCENARIO] Invalid system message content (expected string)');
+            }
+            return {
+                role: 'system',
+                content: snapshot.content,
+                ...(metadata && { metadata }),
+                timestamp
+            };
+        }
+        case 'tool': {
+            if (typeof snapshot.content !== 'string') {
+                throw new Error('[SCENARIO] Invalid tool message content (expected string)');
+            }
+            if (!snapshot.toolCallId) {
+                throw new Error('[SCENARIO] Missing toolCallId for tool message');
+            }
+            if (!snapshot.name) {
+                throw new Error('[SCENARIO] Missing name for tool message');
+            }
+            return {
+                role: 'tool',
+                content: snapshot.content,
+                toolCallId: snapshot.toolCallId,
+                name: snapshot.name,
+                ...(metadata && { metadata }),
+                timestamp
+            };
+        }
+        case 'assistant': {
+            return {
+                role: 'assistant',
+                content: snapshot.content ?? null,
+                ...(snapshot.toolCalls && {
+                    toolCalls: snapshot.toolCalls.map(tc => ({
+                        id: tc.id ?? '',
+                        type: 'function' as const,
+                        function: {
+                            name: tc.name ?? '',
+                            arguments: tc.arguments ?? ''
+                        }
+                    }))
+                }),
+                ...(metadata && { metadata }),
+                timestamp
+            };
+        }
+    }
 }
 
 export function hydrateResponseSnapshot(snapshot: ScenarioResponseSnapshot): {
@@ -310,54 +357,49 @@ export function serializeResponseSnapshot(response: {
 }
 
 function serializeMessage(message: UniversalMessage): ScenarioMessageSnapshot {
-    return {
+    const base: ScenarioMessageSnapshot = {
         role: message.role,
         content: message.content ?? null,
-        name: message.name,
-        toolCallId: message.toolCallId,
         metadata: message.metadata ? structuredClone(message.metadata) : undefined,
-        toolCalls: message.toolCalls?.map(tc => ({
+        timestamp: message.timestamp.getTime()
+    };
+
+    if (isUserMessage(message) && message.name) {
+        base.name = message.name;
+    }
+    if (isToolMessage(message)) {
+        base.toolCallId = message.toolCallId;
+        base.name = message.name;
+    }
+    if (isAssistantMessage(message) && message.toolCalls) {
+        base.toolCalls = message.toolCalls.map(tc => ({
             id: tc.id,
             name: tc.function?.name,
             arguments: tc.function?.arguments
-        })),
-        timestamp: serializeTimestamp(message.timestamp)
-    };
+        }));
+    }
+
+    return base;
 }
 
-function serializeTimestamp(timestamp?: Date): number | undefined {
-    if (!timestamp) {
-        return undefined;
-    }
-    if (timestamp instanceof Date) {
-        return timestamp.getTime();
-    }
-    if (typeof (timestamp as unknown) === 'number') {
-        return timestamp as unknown as number;
-    }
-    if (typeof (timestamp as unknown) === 'string') {
-        const parsed = Date.parse(timestamp as unknown as string);
-        return Number.isNaN(parsed) ? undefined : parsed;
-    }
-    return undefined;
+function serializeTimestamp(timestamp: Date): number {
+    return timestamp.getTime();
 }
 
 function serializeMessagesForHash(messages: UniversalMessage[]): unknown {
     return messages.map(message => ({
         role: message.role,
         content: message.content ?? null,
-        name: message.name,
-        toolCallId: message.toolCallId,
-        toolCalls: message.toolCalls?.map(tc => ({
-            name: tc.function?.name,
-            arguments: tc.function?.arguments
-        })),
-        functionCall: (message as Record<string, unknown>).functionCall
+        ...(isUserMessage(message) && message.name ? { name: message.name } : undefined),
+        ...(isToolMessage(message) ? { toolCallId: message.toolCallId, name: message.name } : undefined),
+        ...(isAssistantMessage(message) && message.toolCalls
             ? {
-                name: (message as Record<string, { name?: string }>).functionCall?.name,
-                arguments: (message as Record<string, { arguments?: string }>).functionCall?.arguments
+                toolCalls: message.toolCalls.map(tc => ({
+                    name: tc.function?.name,
+                    arguments: tc.function?.arguments
+                }))
             }
-            : undefined
+            : undefined)
     }));
 }
 
@@ -372,8 +414,7 @@ function serializeOptionsForHash(options?: ChatOptions): unknown {
         topP: (options as Record<string, number>).topP,
         presencePenalty: (options as Record<string, number>).presencePenalty,
         frequencyPenalty: (options as Record<string, number>).frequencyPenalty,
-        toolChoice: options.toolChoice,
-        stream: options.stream,
+        stream: options.openai?.stream,
         tools: options.tools?.map(tool => ({
             name: (tool as { name?: string }).name
         }))

@@ -77,6 +77,7 @@ export interface AggregatedPerformanceStats {
 }
 
 import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
+import type { PluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Configuration options for performance plugin
@@ -136,7 +137,7 @@ export interface SystemMetricsCollector {
 /**
  * Performance plugin statistics
  */
-export interface PerformancePluginStats {
+export interface PerformancePluginStats extends PluginStats {
     /** Total number of metrics recorded */
     metricsRecorded: number;
     /** Number of performance threshold violations */

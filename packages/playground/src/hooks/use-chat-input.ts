@@ -380,6 +380,7 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
                 input.removeEventListener('blur', handleBlur);
             };
         }
+        return;
     }, []);
 
     // Cleanup

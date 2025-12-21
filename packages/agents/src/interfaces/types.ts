@@ -10,19 +10,33 @@
 export type PrimitiveValue = string | number | boolean | null | undefined;
 
 /**
- * Array value types - well-defined array structures
+ * Universal value type axis (recursive, JSON-like + Date).
+ *
+ * IMPORTANT:
+ * - This axis is the single source of truth for payload/context/result values.
+ * - It must support nested objects/arrays without `any`/`unknown`.
  */
-export type ArrayValue = string[] | number[] | boolean[] | Array<PrimitiveValue> | Array<ObjectValue>;
+export type UniversalValue =
+    | PrimitiveValue
+    | Date
+    | UniversalArrayValue
+    | UniversalObjectValue;
+
+export type UniversalArrayValue = UniversalValue[];
+
+export interface UniversalObjectValue {
+    [key: string]: UniversalValue;
+}
 
 /**
- * Object value types - structured object definitions  
+ * Backward-compatible aliases.
+ *
+ * NOTE:
+ * - These names are used throughout the codebase.
+ * - Keep them aligned with the canonical UniversalValue axis.
  */
-export type ObjectValue = Record<string, PrimitiveValue | ArrayValue | Date>;
-
-/**
- * Universal value type - covers all valid data types
- */
-export type UniversalValue = PrimitiveValue | ArrayValue | ObjectValue;
+export type ArrayValue = UniversalArrayValue;
+export type ObjectValue = UniversalObjectValue;
 
 /**
  * Metadata type - consistent across agent components
@@ -50,7 +64,7 @@ export type ConfigData = Record<string, ConfigValue>;
 /**
  * Tool parameter value type - specific for tool parameters
  */
-export type ToolParameterValue = PrimitiveValue | ArrayValue | ObjectValue;
+export type ToolParameterValue = UniversalValue;
 export type ToolParameters = Record<string, ToolParameterValue>;
 
 /**
@@ -81,7 +95,7 @@ export interface PluginContext {
  * @internal
  */
 export const TypeUtils = {
-    isPrimitive: (value: UniversalValue | Date | Record<string, UniversalValue>): value is PrimitiveValue => {
+    isPrimitive: (value: UniversalValue): value is PrimitiveValue => {
         return value === null ||
             value === undefined ||
             typeof value === 'string' ||
@@ -89,23 +103,20 @@ export const TypeUtils = {
             typeof value === 'boolean';
     },
 
-    isArray: (value: UniversalValue | Date | Record<string, UniversalValue>): value is ArrayValue => {
-        return Array.isArray(value) &&
-            value.every(item => TypeUtils.isPrimitive(item) || TypeUtils.isObject(item));
+    isArray: (value: UniversalValue): value is ArrayValue => {
+        return Array.isArray(value) && value.every(item => TypeUtils.isUniversalValue(item));
     },
 
-    isObject: (value: UniversalValue | Date | Record<string, UniversalValue>): value is ObjectValue => {
+    isObject: (value: UniversalValue): value is ObjectValue => {
         return typeof value === 'object' &&
             value !== null &&
             !Array.isArray(value) &&
-            Object.values(value).every(val =>
-                TypeUtils.isPrimitive(val) || TypeUtils.isArray(val) || val instanceof Date
-            );
+            !(value instanceof Date) &&
+            Object.values(value).every(val => TypeUtils.isUniversalValue(val));
     },
 
-    isUniversalValue: (value: UniversalValue | Date | Record<string, UniversalValue>): value is UniversalValue => {
-        return TypeUtils.isPrimitive(value) ||
-            TypeUtils.isArray(value) ||
-            TypeUtils.isObject(value);
+    isUniversalValue: (value: UniversalValue): value is UniversalValue => {
+        if (value instanceof Date) return true;
+        return TypeUtils.isPrimitive(value) || TypeUtils.isArray(value) || TypeUtils.isObject(value);
     }
 }; 

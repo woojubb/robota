@@ -3,33 +3,33 @@ import { OpenAIConversationAdapter } from './adapter';
 import type {
     UniversalMessage,
     ToolCall
-} from './provider';
+} from '@robota-sdk/agents';
 
 // Define message types locally for testing
 type UserMessage = {
     role: 'user';
-    content: string | null;
-    timestamp?: Date;
+    content: string;
+    timestamp: Date;
 };
 
 type AssistantMessage = {
     role: 'assistant';
     content: string | null;
-    timestamp?: Date;
+    timestamp: Date;
     toolCalls?: ToolCall[];
 };
 
 type SystemMessage = {
     role: 'system';
-    content: string | null;
-    timestamp?: Date;
+    content: string;
+    timestamp: Date;
 };
 
 type ToolMessage = {
     role: 'tool';
-    content: string | null;
-    timestamp?: Date;
-    toolCallId?: string;
+    content: string;
+    timestamp: Date;
+    toolCallId: string;
     name?: string;
 };
 

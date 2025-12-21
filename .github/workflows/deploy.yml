@@ -5,11 +5,17 @@ on:
     branches: [main, develop]
     paths:
       - 'apps/web/**'
+      - 'packages/playground/**'
+      - 'packages/*/src/**'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/deploy.yml'
   pull_request:
     branches: [main]
     paths:
       - 'apps/web/**'
+      - 'packages/playground/**'
+      - 'packages/*/src/**'
+      - 'pnpm-lock.yaml'
 
 jobs:
   test:
@@ -20,24 +26,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'apps/web/package-lock.json'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       
       - name: Install dependencies
-        working-directory: apps/web
-        run: npm ci
+        run: pnpm install
       
       - name: Run linting
-        working-directory: apps/web
-        run: npm run lint
+        run: pnpm --filter @robota-sdk/web run lint
       
       - name: Run tests
-        working-directory: apps/web
-        run: npm run test:ci
+        run: pnpm --filter @robota-sdk/web run test:ci
       
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
@@ -60,20 +69,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'apps/web/package-lock.json'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       
       - name: Install dependencies
-        working-directory: apps/web
-        run: npm ci
+        run: pnpm install
       
       - name: Build application
-        working-directory: apps/web
-        run: npm run build
+        run: pnpm --filter @robota-sdk/web run build
         env:
           NEXT_PUBLIC_APP_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
           NEXT_PUBLIC_APP_VERSION: ${{ github.sha }}
@@ -115,9 +128,8 @@ jobs:
         with:
           urls: |
             https://robota.dev
-            https://robota.dev/about
-            https://robota.dev/pricing
             https://robota.dev/playground
+            https://robota.dev/playground/demo
           configPath: '.github/lighthouse/lighthouserc.json'
           temporaryPublicStorage: true
           
@@ -129,9 +141,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.4
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
+
+      - name: Install dependencies
+        run: pnpm install
+
       - name: Run security audit
-        working-directory: apps/web
-        run: npm audit --audit-level high
+        run: pnpm audit --audit-level high
         
       - name: Check for known vulnerabilities
         uses: snyk/actions/node@master

@@ -6,9 +6,10 @@
  * Defines the shared contract and helper utilities for all AI provider implementations.
  * Concrete providers should extend this class and inject their own dependencies.
  */
-import type { ToolSchema, ChatOptions } from '../interfaces/provider';
+import type { ToolSchema, ChatOptions, ProviderRequest, RawProviderResponse } from '../interfaces/provider';
 import type { ExecutorInterface } from '../interfaces/executor';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
+import { isAssistantMessage } from '../managers/conversation-history-manager';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 
@@ -25,13 +26,15 @@ export type ProviderLoggingData = Record<string, string | number | boolean | Dat
  * @template TMessage - Message type (defaults to UniversalMessage for backward compatibility)
  * @template TResponse - Response type (defaults to UniversalMessage for backward compatibility)
  */
-export interface TypeSafeAIProvider<TConfig = ProviderConfig, TMessage = UniversalMessage, TResponse = UniversalMessage> {
+export interface TypeSafeAIProvider<TConfig = ProviderConfig> {
     readonly name: string;
     readonly version: string;
 
     configure?(config: TConfig): Promise<void> | void;
-    chat(messages: TMessage[], options?: ChatOptions): Promise<TResponse>;
-    chatStream?(messages: TMessage[], options?: ChatOptions): AsyncIterable<TResponse>;
+    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+    chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+    generateResponse(payload: ProviderRequest): Promise<RawProviderResponse>;
+    generateStreamingResponse?(payload: ProviderRequest): AsyncIterable<RawProviderResponse>;
     supportsTools(): boolean;
     validateConfig(): boolean;
     dispose(): Promise<void>;
@@ -131,8 +134,8 @@ export interface ExecutorAwareProviderConfig {
  * @template TMessage - Message type (defaults to UniversalMessage for backward compatibility)
  * @template TResponse - Response type (defaults to UniversalMessage for backward compatibility)
  */
-export abstract class AbstractAIProvider<TConfig = ProviderConfig, TMessage = UniversalMessage, TResponse = UniversalMessage>
-    implements TypeSafeAIProvider<TConfig, TMessage, TResponse> {
+export abstract class AbstractAIProvider<TConfig = ProviderConfig>
+    implements TypeSafeAIProvider<TConfig> {
     abstract readonly name: string;
     abstract readonly version: string;
     protected config?: TConfig;
@@ -165,7 +168,7 @@ export abstract class AbstractAIProvider<TConfig = ProviderConfig, TMessage = Un
      * @param options - Chat options including tools, model settings, etc.
      * @returns Promise resolving to a response
      */
-    abstract chat(messages: TMessage[], options?: ChatOptions): Promise<TResponse>;
+    abstract chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
 
     /**
      * Each provider must implement streaming chat using their own native SDK types internally
@@ -173,7 +176,55 @@ export abstract class AbstractAIProvider<TConfig = ProviderConfig, TMessage = Un
      * @param options - Chat options including tools, model settings, etc.
      * @returns AsyncIterable of response chunks
      */
-    abstract chatStream?(messages: TMessage[], options?: ChatOptions): AsyncIterable<TResponse>;
+    abstract chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+
+    /**
+     * Provider-agnostic raw response API.
+     *
+     * This is the canonical "raw payload" entrypoint required by the AIProvider contract.
+     * The default implementation delegates to `chat()` and adapts the result into a
+     * RawProviderResponse shape.
+     */
+    async generateResponse(payload: ProviderRequest): Promise<RawProviderResponse> {
+        const response = await this.chat(payload.messages, {
+            ...(payload.model !== undefined && { model: payload.model }),
+            ...(payload.temperature !== undefined && { temperature: payload.temperature }),
+            ...(payload.maxTokens !== undefined && { maxTokens: payload.maxTokens }),
+            ...(payload.tools !== undefined && { tools: payload.tools })
+        });
+
+        return {
+            content: response.content ?? null,
+            toolCalls: isAssistantMessage(response) ? response.toolCalls : undefined,
+            model: payload.model,
+            metadata: payload.metadata
+        };
+    }
+
+    /**
+     * Provider-agnostic raw streaming API.
+     *
+     * If a provider does not implement chatStream, it does not support streaming.
+     */
+    async *generateStreamingResponse(payload: ProviderRequest): AsyncIterable<RawProviderResponse> {
+        if (!this.chatStream) {
+            throw new Error(`[AI-PROVIDER] Streaming is not supported by provider "${this.name}"`);
+        }
+
+        for await (const chunk of this.chatStream(payload.messages, {
+            ...(payload.model !== undefined && { model: payload.model }),
+            ...(payload.temperature !== undefined && { temperature: payload.temperature }),
+            ...(payload.maxTokens !== undefined && { maxTokens: payload.maxTokens }),
+            ...(payload.tools !== undefined && { tools: payload.tools })
+        })) {
+            yield {
+                content: chunk.content ?? null,
+                toolCalls: isAssistantMessage(chunk) ? chunk.toolCalls : undefined,
+                model: payload.model,
+                metadata: payload.metadata
+            };
+        }
+    }
 
     /**
      * Default implementation - most modern providers support tools
@@ -238,24 +289,25 @@ export abstract class AbstractAIProvider<TConfig = ProviderConfig, TMessage = Un
     }
 
     /**
- * Execute chat via executor if available, otherwise fallback to direct implementation
- * This method should be called by subclasses in their chat() implementation
- */
+     * Execute chat via executor if available.
+     *
+     * This helper is meant to be called by subclasses inside their `chat()` implementation.
+     */
     protected async executeViaExecutorOrDirect(
-        messages: TMessage[],
+        messages: UniversalMessage[],
         options?: ChatOptions
-    ): Promise<TResponse> {
+    ): Promise<UniversalMessage> {
         if (this.executor && options?.model) {
             // Use executor for remote/proxied execution
             const result = await this.executor.executeChat({
-                messages: messages as UniversalMessage[],
+                messages,
                 options,
                 provider: this.name,
                 model: options.model,
                 ...(options.tools && { tools: options.tools })
             });
 
-            return result as TResponse;
+            return result;
         }
 
         // Fallback to direct execution - subclasses must implement this
@@ -263,13 +315,14 @@ export abstract class AbstractAIProvider<TConfig = ProviderConfig, TMessage = Un
     }
 
     /**
- * Execute streaming chat via executor if available, otherwise fallback to direct implementation
- * This method should be called by subclasses in their chatStream() implementation
- */
+     * Execute streaming chat via executor if available.
+     *
+     * This helper is meant to be called by subclasses inside their `chatStream()` implementation.
+     */
     protected async *executeStreamViaExecutorOrDirect(
-        messages: TMessage[],
+        messages: UniversalMessage[],
         options?: ChatOptions
-    ): AsyncIterable<TResponse> {
+    ): AsyncIterable<UniversalMessage> {
         if (this.executor && this.executor.executeChatStream && options?.model) {
             // 🔍 [TOOL-FLOW] AbstractAIProvider.executeStreamViaExecutorOrDirect() - Preparing executor request
             this.logger.debug?.(
@@ -282,10 +335,10 @@ export abstract class AbstractAIProvider<TConfig = ProviderConfig, TMessage = Un
                     toolNames: options.tools?.map((t: ToolSchema) => t.name) || []
                 }
             );
-            
+
             // Use executor for remote/proxied streaming execution
             const stream = this.executor.executeChatStream({
-                messages: messages as UniversalMessage[],
+                messages,
                 options,
                 provider: this.name,
                 model: options.model,
@@ -294,7 +347,7 @@ export abstract class AbstractAIProvider<TConfig = ProviderConfig, TMessage = Un
             });
 
             for await (const chunk of stream) {
-                yield chunk as TResponse;
+                yield chunk;
             }
             return;
         }

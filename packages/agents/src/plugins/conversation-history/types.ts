@@ -1,5 +1,5 @@
 import { Message } from '../../interfaces/agent';
-import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
+import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Storage strategy for conversation history
@@ -51,7 +51,7 @@ export interface HistoryStorage {
 /**
  * Conversation history plugin statistics
  */
-export interface ConversationHistoryPluginStats {
+export interface ConversationHistoryPluginStats extends PluginStats {
     /** Total number of conversations stored */
     totalConversations: number;
     /** Total number of messages stored */

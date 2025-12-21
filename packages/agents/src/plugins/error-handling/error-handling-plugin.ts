@@ -177,7 +177,9 @@ export class ErrorHandlingPlugin extends AbstractPlugin<ErrorHandlingPluginOptio
      * Get error handling statistics
      */
     override getStats(): ErrorHandlingPluginStats {
+        const base = super.getStats();
         return {
+            ...base,
             failureCount: this.failureCount,
             circuitBreakerOpen: this.circuitBreakerOpen,
             lastFailureTime: this.lastFailureTime,
