@@ -1,7 +1,6 @@
 "use client";
 
-import { PlaygroundApp } from '@/playground';
-import { WorkflowSubscriberEventService } from '@/lib/playground/workflow-subscriber-event-service';
+import { PlaygroundApp, WorkflowSubscriberEventService } from '@robota-sdk/playground';
 import type { EventService, SimpleLogger } from '@robota-sdk/agents';
 import type { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 

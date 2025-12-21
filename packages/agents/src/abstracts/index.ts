@@ -1,7 +1,6 @@
 // Abstract class exports
 export * from './abstract-agent';
 export * from './abstract-manager';
-export * from './abstract-provider';
 export * from './abstract-ai-provider';
 export * from './abstract-plugin';
 export * from './abstract-executor';
