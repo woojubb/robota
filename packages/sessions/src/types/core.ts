@@ -1,5 +1,5 @@
 // Re-export necessary types from agents
-export type { AgentInterface, AgentConfig, Message, RunOptions } from '@robota-sdk/agents';
+export type { AgentInterface, AgentConfig, TUniversalMessage, RunOptions } from '@robota-sdk/agents';
 
 // Import AgentConfig type for local use
 import type { AgentConfig } from '@robota-sdk/agents';

@@ -10,7 +10,7 @@
 
 // React-Flow Integration
 export {
-    SimpleReactFlowConverter,
+    UniversalToReactFlowConverter,
     UniversalToReactFlowConverter
 } from './react-flow';
 

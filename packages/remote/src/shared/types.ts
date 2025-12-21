@@ -15,16 +15,14 @@ export type {
 // Import for extension
 import type {
     ChatExecutionRequest as BaseChatExecutionRequest,
-    StreamExecutionRequest as BaseStreamExecutionRequest
+    StreamExecutionRequest as BaseStreamExecutionRequest,
+    IAssistantMessage
 } from '@robota-sdk/agents';
 
-export type { UniversalMessage, AssistantMessage } from '@robota-sdk/agents';
-
-// Import for extension
-import type { AssistantMessage as BaseAssistantMessage } from '@robota-sdk/agents';
+export type { TUniversalMessage, IAssistantMessage } from '@robota-sdk/agents';
 
 // Extended AssistantMessage with provider info
-export interface ExtendedAssistantMessage extends BaseAssistantMessage {
+export interface ExtendedAssistantMessage extends IAssistantMessage {
     provider?: string;
     model?: string;
     usage?: {

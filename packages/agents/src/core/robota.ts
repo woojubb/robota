@@ -1,5 +1,5 @@
 import { AbstractAgent } from '../abstracts/abstract-agent';
-import { Message, AgentConfig, RunOptions, AgentInterface, ExecutionContextInjection } from '../interfaces/agent';
+import { TUniversalMessage, AgentConfig, RunOptions, AgentInterface, ExecutionContextInjection } from '../interfaces/agent';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { AbstractModule } from '../abstracts/abstract-module';
 import { ModuleRegistry } from '../managers/module-registry';
@@ -26,7 +26,7 @@ import { AbstractTool } from '../abstracts/abstract-tool';
 import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 import type { AbstractToolParameters } from '../abstracts/abstract-tool';
-import type { ToolExecutionData, ToolParameters, ToolExecutionContext } from '../interfaces/tool';
+import type { ToolExecutionData, TToolParameters, ToolExecutionContext } from '../interfaces/tool';
 import type { ModuleResultData, ModuleExecutionContext } from '../abstracts/abstract-module';
 
 /**
@@ -79,7 +79,6 @@ export type AgentStatsMetadata = Record<string, string | number | boolean | Date
  * 
  * @public
  * @class
- * @extends AbstractAgent<AgentConfig, RunOptions, Message>
  * @implements AgentInterface
  * 
  * @example Basic Usage
@@ -129,7 +128,7 @@ export type AgentStatsMetadata = Record<string, string | number | boolean | Date
  * }
  * ```
  */
-export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> implements AgentInterface {
+export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMessage> implements AgentInterface {
     /** The name of this agent instance */
     public readonly name: string;
     /** The version of the Robota agent implementation */
@@ -294,7 +293,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
                 tool.setEventService(this.eventService);
             }
             // Adapter executor consistent with initialization
-            const toolExecutor = async (parameters: AbstractToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
+            const toolExecutor = async (parameters: TToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
                 if (!context) {
                     throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
                 }
@@ -772,7 +771,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
      * for this agent's conversation session. The history includes user messages,
      * assistant responses, and tool call results.
      * 
-     * @returns Array of Message objects representing the conversation history
+     * @returns Array of TUniversalMessage objects representing the conversation history
      * 
      * @example
      * ```typescript
@@ -785,7 +784,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
      * console.log(history[0].content); // 'What is 2 + 2?'
      * ```
      */
-    override getHistory(): Message[] {
+    override getHistory(): TUniversalMessage[] {
         const conversationSession = this.conversationHistory.getConversationSession(this.conversationId);
         const universalMessages = conversationSession.getMessages();
 
@@ -796,7 +795,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
             metadata: msg.metadata,
             ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
             ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {})
-        })) as Message[];
+        })) as TUniversalMessage[];
     }
 
     /**

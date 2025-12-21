@@ -3,22 +3,21 @@ import type { AbstractPlugin, BasePluginOptions, PluginStats } from '../abstract
 import type { AbstractTool } from '../abstracts/abstract-tool';
 import type { AbstractModule } from '../abstracts/abstract-module';
 import type { UtilLogLevel } from '../utils/logger';
-import type { Metadata, ConfigValue } from './types';
+import type { TMetadata, TConfigValue } from './types';
 import type { EventService } from '../services/event-service';
 import type { OwnerPathSegment } from '../services/event-service';
-import type { ConversationMessageMetadata, UniversalMessage } from './messages';
+import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
 
 export type {
-    UniversalMessage,
-    ConversationMessageMetadata,
-    BaseMessage,
-    UserMessage,
-    AssistantMessage,
-    SystemMessage,
-    ToolMessage,
-    ToolCall,
-    UniversalMessageRole,
-    MessageRole
+    TUniversalMessage,
+    TUniversalMessageMetadata,
+    IBaseMessage,
+    IUserMessage,
+    IAssistantMessage,
+    ISystemMessage,
+    IToolMessage,
+    IToolCall,
+    TUniversalMessageRole,
 } from './messages';
 
 /**
@@ -37,18 +36,6 @@ export interface ExecutionContextInjection {
     executionLevel?: number;
     sourceId?: string;
 }
-
-/**
- * Backward-compatible alias for message metadata.
- * Prefer ConversationMessageMetadata.
- */
-export type MessageMetadata = ConversationMessageMetadata;
-
-/**
- * Legacy alias kept for compatibility with older call sites.
- * Prefer UniversalMessage.
- */
-export type Message = UniversalMessage;
 
 // ProviderConfigValue imported from provider.ts for type ownership consistency
 
@@ -109,8 +96,8 @@ export interface AgentConfig {
     userId?: string;
 
     // Metadata and context
-    metadata?: MessageMetadata;
-    context?: Record<string, ConfigValue>;
+    metadata?: TUniversalMessageMetadata;
+    context?: Record<string, TConfigValue>;
 
     // Logging configuration
     logging?: {
@@ -171,7 +158,7 @@ export interface RunOptions {
     toolChoice?: 'auto' | 'none' | string;
     sessionId?: string;
     userId?: string;
-    metadata?: Metadata;
+    metadata?: TMetadata;
 }
 
 /**
@@ -179,12 +166,12 @@ export interface RunOptions {
  * 
  * @template TConfig - Agent configuration type (defaults to AgentConfig for backward compatibility)
  * @template TContext - Execution context type (defaults to RunOptions for backward compatibility)
- * @template TMessage - Message type (defaults to Message for backward compatibility)
+ * @template TUniversalMessage - Message type (defaults to TUniversalMessage for backward compatibility)
  */
 export interface BaseAgentInterface<
     TConfig = AgentConfig,
     TContext = RunOptions,
-    TMessage = Message
+    TMessage = TUniversalMessage
 > {
     /**
      * Configure the agent with type-safe configuration
@@ -204,7 +191,7 @@ export interface BaseAgentInterface<
     /**
      * Get conversation history with type-safe messages
      */
-    getHistory(): TMessage[];
+    getHistory(): TUniversalMessage[];
 
     /**
      * Clear conversation history
@@ -223,10 +210,10 @@ export interface ExtendedRunContext {
     toolChoice?: 'auto' | 'none' | string;
     sessionId?: string;
     userId?: string;
-    metadata?: Metadata;
+    metadata?: TMetadata;
 
     // Provider-agnostic options that can be used by any provider
-    providerOptions?: Record<string, ConfigValue>;
+    providerOptions?: Record<string, TConfigValue>;
 
     // Common provider options (provider-agnostic naming)
     stopSequences?: string[];
@@ -245,7 +232,7 @@ export interface ExtendedRunContext {
  */
 export interface ResponseFormatConfig {
     type?: 'text' | 'json_object';
-    schema?: Record<string, ConfigValue>;
+    schema?: Record<string, TConfigValue>;
 }
 
 /**
@@ -254,7 +241,7 @@ export interface ResponseFormatConfig {
 export interface SafetySetting {
     category: string;
     threshold: string;
-    [key: string]: ConfigValue;
+    [key: string]: TConfigValue;
 }
 
 /**
@@ -265,11 +252,11 @@ export interface GenerationConfig {
     maxTokens?: number;
     topP?: number;
     topK?: number;
-    [key: string]: ConfigValue;
+    [key: string]: TConfigValue;
 }
 
 /**
  * Legacy agent interface for backward compatibility
  * @deprecated Use BaseAgentInterface or provider-specific interfaces instead
  */
-export interface AgentInterface extends BaseAgentInterface<AgentConfig, RunOptions, Message> { } 
+export interface AgentInterface extends BaseAgentInterface<AgentConfig, RunOptions, TUniversalMessage> { } 

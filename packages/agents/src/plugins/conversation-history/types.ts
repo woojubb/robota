@@ -1,4 +1,4 @@
-import { Message } from '../../interfaces/agent';
+import { TUniversalMessage } from '../../interfaces/agent';
 import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
 
 /**
@@ -31,7 +31,7 @@ export interface ConversationHistoryPluginOptions extends BasePluginOptions {
  */
 export interface ConversationHistoryEntry {
     conversationId: string;
-    messages: Message[];
+    messages: TUniversalMessage[];
     startTime: Date;
     lastUpdated: Date;
     metadata?: Record<string, string | number | boolean | Date>;

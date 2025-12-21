@@ -95,7 +95,7 @@ export class HttpClient {
 
         this.logger.info('🔧 [HTTP-CLIENT] Non-streaming request tools:', tools?.length || 0);
 
-        // Server responds with shape: { success: boolean, data: UniversalMessage, provider, model }
+        // Server responds with shape: { success: boolean, data: TUniversalMessage, provider, model }
         const response = await this.post<typeof requestData, DefaultRequestData>('/chat', requestData);
 
         // Extract assistant message preserving toolCalls if present
@@ -191,7 +191,7 @@ export class HttpClient {
                             try {
                                 const parsed = JSON.parse(data);
 
-                                // ✅ 서버가 원본 UniversalMessage를 직접 보내므로 래핑 해제 불필요
+                                // ✅ 서버가 원본 TUniversalMessage를 직접 보내므로 래핑 해제 불필요
                                 const responseData = parsed;
 
                                 if (responseData && responseData.role === 'assistant') {

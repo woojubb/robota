@@ -32,7 +32,7 @@
  * ```
  */
 
-import type { ToolInterface, ToolResult, ToolExecutionContext, ParameterValidationResult, ToolParameters } from '../interfaces/tool';
+import type { ToolInterface, ToolResult, ToolExecutionContext, ParameterValidationResult, TToolParameters } from '../interfaces/tool';
 import type { ToolSchema } from '../interfaces/provider';
 import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
@@ -67,7 +67,7 @@ export interface AbstractToolOptions {
  * - This must stay aligned with `ToolParameters` from the interfaces layer.
  * - Do not introduce a separate parameter taxonomy here.
  */
-export type AbstractToolParameters = ToolParameters;
+export type AbstractToolParameters = TToolParameters;
 
 /**
  * Tool execution function type with proper parameter constraints

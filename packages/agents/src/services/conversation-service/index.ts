@@ -1,5 +1,6 @@
-import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage, ConversationMessageMetadata as ConversationContextMetadata } from '../../managers/conversation-history-manager';
-import type { AIProvider, ToolCall, ProviderRequest as BaseProviderRequest, RawProviderResponse as BaseRawProviderResponse } from '../../interfaces/provider';
+import type { TUniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage, TUniversalMessageMetadata as ConversationContextMetadata } from '../../managers/conversation-history-manager';
+import type { AIProvider, ProviderRequest as BaseProviderRequest, RawProviderResponse as BaseRawProviderResponse } from '../../interfaces/provider';
+import type { IToolCall } from '../../interfaces/messages';
 import type { ToolExecutionResult } from '../../interfaces/tool';
 import { NetworkError, ProviderError } from '../../utils/errors';
 import { createLogger, Logger } from '../../utils/logger';
@@ -42,7 +43,7 @@ type RawProviderResponse = BaseRawProviderResponse;
 interface RawStreamingChunk {
     delta?: string;
     done?: boolean;
-    toolCalls?: ToolCall[];
+    toolCalls?: IToolCall[];
     usage?: {
         promptTokens?: number;
         completionTokens?: number;
@@ -63,7 +64,7 @@ export class ConversationService implements ConversationServiceInterface {
      * Pure function that transforms inputs to context object
      */
     prepareContext(
-        messages: UniversalMessage[],
+        messages: TUniversalMessage[],
         model: string,
         provider: string,
         contextOptions: ContextOptions = {},
@@ -122,7 +123,7 @@ export class ConversationService implements ConversationServiceInterface {
      * Static helper method for context creation
      */
     private static createContext(
-        messages: UniversalMessage[],
+        messages: TUniversalMessage[],
         model: string,
         provider: string,
         contextOptions: ContextOptions,

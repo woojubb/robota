@@ -1,4 +1,4 @@
-import type { LoggerData } from '../interfaces/types';
+import type { TLoggerData } from '../interfaces/types';
 import { SimpleLogger, DefaultConsoleLogger } from './simple-logger';
 
 /**
@@ -8,7 +8,7 @@ import { SimpleLogger, DefaultConsoleLogger } from './simple-logger';
 /**
  * Logger context data type - uses centralized type definition
  */
-export type LoggerContextData = LoggerData;
+export type LoggerContextData = TLoggerData;
 
 /**
  * Log levels for the logger

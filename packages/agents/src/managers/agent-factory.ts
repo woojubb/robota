@@ -1,5 +1,5 @@
 import { AgentInterface, AgentConfig, AgentTemplate } from '../interfaces/agent';
-import { ConfigData } from '../interfaces/types';
+import { TConfigData } from '../interfaces/types';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { validateAgentConfig } from '../utils/validation';
 import { Logger, createLogger } from '../utils/logger';
@@ -261,7 +261,7 @@ export class AgentFactory {
      * Apply template to configuration
      */
     applyTemplate(template: AgentTemplate, overrides: Partial<AgentConfig> = {}): TemplateApplicationResult {
-        return this.agentTemplates.applyTemplate(template, overrides as ConfigData);
+        return this.agentTemplates.applyTemplate(template, overrides as TConfigData);
     }
 
     /**

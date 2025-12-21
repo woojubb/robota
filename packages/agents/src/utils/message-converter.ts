@@ -1,4 +1,4 @@
-import type { Message } from '../interfaces/agent';
+import type { TUniversalMessage } from '../interfaces/agent';
 
 /**
  * Provider-specific message format types
@@ -33,7 +33,7 @@ interface GoogleMessage {
 /**
  * Provider message format union type
  */
-type ProviderMessage = OpenAIMessage | AnthropicMessage | GoogleMessage | Message;
+type ProviderMessage = OpenAIMessage | AnthropicMessage | GoogleMessage | TUniversalMessage;
 
 /**
  * Universal message converter utility
@@ -43,7 +43,7 @@ export class MessageConverter {
     /**
      * Convert messages to provider-specific format
      */
-    static toProviderFormat(messages: Message[], providerName: string): ProviderMessage[] {
+    static toProviderFormat(messages: TUniversalMessage[], providerName: string): ProviderMessage[] {
         switch (providerName.toLowerCase()) {
             case 'openai':
                 return this.toOpenAIFormat(messages);
@@ -59,7 +59,7 @@ export class MessageConverter {
     /**
      * Convert to OpenAI format
      */
-    private static toOpenAIFormat(messages: Message[]): OpenAIMessage[] {
+    private static toOpenAIFormat(messages: TUniversalMessage[]): OpenAIMessage[] {
         return messages.map(msg => {
             const baseMessage: OpenAIMessage = {
                 role: msg.role as OpenAIMessage['role'],
@@ -88,7 +88,7 @@ export class MessageConverter {
     /**
      * Convert to Anthropic format
      */
-    private static toAnthropicFormat(messages: Message[]): AnthropicMessage[] {
+    private static toAnthropicFormat(messages: TUniversalMessage[]): AnthropicMessage[] {
         // Anthropic has different message structure
         return messages
             .filter(msg => msg.role !== 'system') // System messages handled separately
@@ -101,7 +101,7 @@ export class MessageConverter {
     /**
      * Convert to Google format
      */
-    private static toGoogleFormat(messages: Message[]): GoogleMessage[] {
+    private static toGoogleFormat(messages: TUniversalMessage[]): GoogleMessage[] {
         return messages.map(msg => ({
             role: msg.role === 'assistant' ? 'model' : 'user',
             parts: [{ text: msg.content || '' }]
@@ -111,14 +111,14 @@ export class MessageConverter {
     /**
      * Convert to universal format (no conversion)
      */
-    private static toUniversalFormat(messages: Message[]): Message[] {
+    private static toUniversalFormat(messages: TUniversalMessage[]): TUniversalMessage[] {
         return messages;
     }
 
     /**
      * Extract system message from messages
      */
-    static extractSystemMessage(messages: Message[]): string | undefined {
+    static extractSystemMessage(messages: TUniversalMessage[]): string | undefined {
         const systemMsg = messages.find(msg => msg.role === 'system');
         return systemMsg?.content;
     }
@@ -126,7 +126,7 @@ export class MessageConverter {
     /**
      * Filter non-system messages
      */
-    static filterNonSystemMessages(messages: Message[]): Message[] {
+    static filterNonSystemMessages(messages: TUniversalMessage[]): TUniversalMessage[] {
         return messages.filter(msg => msg.role !== 'system');
     }
 } 

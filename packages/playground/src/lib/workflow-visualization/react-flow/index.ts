@@ -41,7 +41,7 @@ const SDK_TO_REACTFLOW_TYPE_MAP: Record<string, string> = {
  * - No interaction control (delegate to React-Flow props)
  * - No metadata processing (pass through to data)
  */
-export class SimpleReactFlowConverter {
+export class UniversalToReactFlowConverter {
     private readonly logger: SimpleLogger;
 
     constructor(logger: SimpleLogger = SilentLogger) {
@@ -126,6 +126,3 @@ export class SimpleReactFlowConverter {
         });
     }
 }
-
-// Legacy alias for backward compatibility (if needed)
-export const UniversalToReactFlowConverter = SimpleReactFlowConverter;

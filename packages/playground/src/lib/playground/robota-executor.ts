@@ -44,7 +44,7 @@ import { ToolRegistry } from '../../tools/catalog';
 // Robota SDK-compatible type definitions for browser environment
 // These mirror the actual types from @robota-sdk/agents but are browser-safe
 
-export interface UniversalMessage {
+export interface ITUniversalMessage {
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string | null;
     toolCalls?: Array<{
@@ -77,8 +77,8 @@ export interface ToolSchema {
 export interface AIProvider {
     readonly name: string;
     readonly version: string;
-    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
-    chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+    chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage>;
+    chatStream?(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage>;
     supportsTools(): boolean;
     validateConfig(): boolean;
     dispose?(): Promise<void>;
@@ -409,7 +409,7 @@ export class PlaygroundExecutor {
      */
     async run(prompt: string): Promise<PlaygroundExecutionResult> {
         const startTime = Date.now();
-        const request: UniversalMessage[] = [{ role: 'user', content: prompt }];
+        const request: TUniversalMessage[] = [{ role: 'user', content: prompt }];
 
         try {
             const result = await this.executeChat(request);
@@ -525,16 +525,16 @@ export class PlaygroundExecutor {
      */
     async *runStream(prompt: string): AsyncGenerator<string, PlaygroundExecutionResult> {
         const startTime = Date.now();
-        const request: UniversalMessage[] = [{ role: 'user', content: prompt }];
+        const request: TUniversalMessage[] = [{ role: 'user', content: prompt }];
 
         try {
             let fullResponse = '';
 
-            // ✅ executeChatStream의 모든 UniversalMessage를 수집
+            // ✅ executeChatStream의 모든 TUniversalMessage를 수집
             for await (const chunk of this.executeChatStream(request)) {
                 const content = chunk.content || '';
                 fullResponse += content;
-                // ❌ 각 UniversalMessage마다 yield하지 않음
+                // ❌ 각 TUniversalMessage마다 yield하지 않음
             }
 
             // ✅ 최종 완성된 응답만 한 번 yield
@@ -640,7 +640,7 @@ export class PlaygroundExecutor {
     /**
      * Get conversation history from current agent/team
      */
-    getHistory(): UniversalMessage[] {
+    getHistory(): TUniversalMessage[] {
         if (this.mode === 'agent' && this.currentAgent) {
             return this.currentAgent.getHistory();
         }
@@ -684,7 +684,7 @@ export class PlaygroundExecutor {
     /**
      * Execute chat completion (Facade method)
      */
-    private async executeChat(messages: UniversalMessage[]): Promise<UniversalMessage> {
+    private async executeChat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
         const startTime = Date.now();
         const executionId = this.generateExecutionId();
 
@@ -697,7 +697,7 @@ export class PlaygroundExecutor {
             // Record execution start
             await this.recordExecutionStart(executionId, messages);
 
-            let response: UniversalMessage;
+            let response: TUniversalMessage;
 
             if (this.mode === 'agent' && this.currentAgent) {
                 this.logger.debug('Executing in agent mode');
@@ -707,7 +707,7 @@ export class PlaygroundExecutor {
                     role: 'assistant',
                     content: result,
                     timestamp: new Date()
-                } as UniversalMessage;
+                } as TUniversalMessage;
 
             } else {
                 throw new Error('No agent configured for execution');
@@ -750,7 +750,7 @@ export class PlaygroundExecutor {
     /**
      * Execute streaming chat completion (Facade method)
      */
-    private async *executeChatStream(messages: UniversalMessage[]): AsyncIterable<UniversalMessage> {
+    private async *executeChatStream(messages: TUniversalMessage[]): AsyncIterable<TUniversalMessage> {
         const startTime = Date.now();
         const executionId = this.generateExecutionId();
 
@@ -782,7 +782,7 @@ export class PlaygroundExecutor {
                     role: 'assistant',
                     content: fullResponse,
                     timestamp: new Date()
-                } as UniversalMessage;
+                } as TUniversalMessage;
 
             } else {
                 const error = new Error('No agent configured for streaming execution');
@@ -824,7 +824,7 @@ export class PlaygroundExecutor {
     /**
      * Record execution start for statistics
      */
-    private async recordExecutionStart(executionId: string, messages: UniversalMessage[]): Promise<void> {
+    private async recordExecutionStart(executionId: string, messages: TUniversalMessage[]): Promise<void> {
         // Start time is already tracked in executeChat/executeChatStream
         // This can be used for more detailed tracking if needed
         this.logDebug('Execution started', { executionId, provider: 'openai', model: 'gpt-4', mode: this.mode || 'agent' });

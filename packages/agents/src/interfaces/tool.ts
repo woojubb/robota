@@ -1,24 +1,24 @@
 import type { ToolSchema } from './provider';
 import type { EventService, OwnerPathSegment } from './event-service';
-import type { ContextData, LoggerData, ToolParameterValue, ToolParameters, ToolResultData, UniversalValue } from './types';
+import type { TContextData, TLoggerData, TToolParameterValue, TToolParameters, TToolResultData, TUniversalValue } from './types';
 
 // Re-export canonical tool parameter types from the shared "types" axis.
-export type { ToolParameterValue, ToolParameters } from './types';
+export type { TToolParameterValue, TToolParameters } from './types';
 
 export type ToolContextExtensionValue =
-    | UniversalValue
+    | TUniversalValue
     | Date
     | Error
-    | LoggerData
-    | ContextData
-    | ToolParameters
-    | ToolResultData
+    | TLoggerData
+    | TContextData
+    | TToolParameters
+    | TToolResultData
     | ToolMetadata;
 
 /**
  * Tool metadata structure - specific type definition
  */
-export type ToolMetadata = Record<string, string | number | boolean | string[] | number[] | boolean[] | ToolParameters>;
+export type ToolMetadata = Record<string, string | number | boolean | string[] | number[] | boolean[] | TToolParameters>;
 
 /**
  * Tool execution data - domain payload for tool results.
@@ -27,7 +27,7 @@ export type ToolMetadata = Record<string, string | number | boolean | string[] |
  * - This must support structured tool outputs without resorting to `any`.
  * - Prefer `ToolResultData` (derived from the canonical `UniversalValue` axis).
  */
-export type ToolExecutionData = ToolResultData;
+export type ToolExecutionData = TToolResultData;
 
 /**
  * Tool execution result - extended for ToolExecutionData compatibility
@@ -71,7 +71,7 @@ export type ToolOwnerPathSegment = OwnerPathSegment;
 
 export interface ToolExecutionContext {
     toolName: string;
-    parameters: ToolParameters;
+    parameters: TToolParameters;
     executionId?: string; // Tool execution ID (typically tool call ID)
     userId?: string;
     sessionId?: string;
@@ -96,7 +96,7 @@ export interface ToolExecutionContext {
         /** Actual execution start time */
         startTime: Date;
         /** Actual input parameters passed to the tool */
-        actualParameters: ToolParameters;
+        actualParameters: TToolParameters;
         /** Tool-provided estimated duration (optional) */
         estimatedDuration?: number;
     };
@@ -148,7 +148,7 @@ export interface ParameterValidationResult {
 /**
  * Generic tool executor function
  */
-export type ToolExecutor<TParams = ToolParameters, TResult = ToolExecutionData> =
+export type ToolExecutor<TParams = TToolParameters, TResult = ToolExecutionData> =
     (parameters: TParams, context?: ToolExecutionContext) => Promise<TResult>;
 
 /**
@@ -214,17 +214,17 @@ export interface ToolInterface {
     /**
      * Execute the tool with given parameters
      */
-    execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult>;
+    execute(parameters: TToolParameters, context?: ToolExecutionContext): Promise<ToolResult>;
 
     /**
      * Validate tool parameters
      */
-    validate(parameters: ToolParameters): boolean;
+    validate(parameters: TToolParameters): boolean;
 
     /**
      * Validate tool parameters with detailed result
      */
-    validateParameters(parameters: ToolParameters): ParameterValidationResult;
+    validateParameters(parameters: TToolParameters): ParameterValidationResult;
 
     /**
      * Get tool description

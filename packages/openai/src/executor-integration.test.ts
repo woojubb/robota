@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { OpenAIProvider } from './provider';
 import { LocalExecutor } from '@robota-sdk/agents';
-import type { UniversalMessage } from '@robota-sdk/agents';
+import type { TUniversalMessage } from '@robota-sdk/agents';
 
 describe('OpenAI Provider Executor Integration', () => {
     let localExecutor: LocalExecutor;
@@ -13,14 +13,14 @@ describe('OpenAI Provider Executor Integration', () => {
         // Create a mock provider to register with the executor
         const mockProvider = {
             name: 'openai',
-            async chat(messages: UniversalMessage[]): Promise<UniversalMessage> {
+            async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
                 return {
                     role: 'assistant' as const,
                     content: `Mock response: ${messages[messages.length - 1]?.content}`,
                     timestamp: new Date()
                 };
             },
-            async *chatStream(messages: UniversalMessage[]): AsyncIterable<UniversalMessage> {
+            async *chatStream(messages: TUniversalMessage[]): AsyncIterable<TUniversalMessage> {
                 const chunks = ['Mock', ' streaming', ' response'];
                 for (const chunk of chunks) {
                     yield {
@@ -49,7 +49,7 @@ describe('OpenAI Provider Executor Integration', () => {
 
     describe('Provider with Executor', () => {
         it('should use executor for chat requests', async () => {
-            const messages: UniversalMessage[] = [
+            const messages: TUniversalMessage[] = [
                 { role: 'user', content: 'Hello!', timestamp: new Date() }
             ];
 
@@ -65,7 +65,7 @@ describe('OpenAI Provider Executor Integration', () => {
         });
 
         it('should use executor for streaming chat requests', async () => {
-            const messages: UniversalMessage[] = [
+            const messages: TUniversalMessage[] = [
                 { role: 'user', content: 'Tell me a story', timestamp: new Date() }
             ];
 
@@ -91,7 +91,7 @@ describe('OpenAI Provider Executor Integration', () => {
                 executor: errorExecutor
             });
 
-            const messages: UniversalMessage[] = [
+            const messages: TUniversalMessage[] = [
                 { role: 'user', content: 'Hello!', timestamp: new Date() }
             ];
 
@@ -155,7 +155,7 @@ describe('OpenAI Provider Executor Integration', () => {
             });
 
             // Should use executor, not direct API
-            const messages: UniversalMessage[] = [
+            const messages: TUniversalMessage[] = [
                 { role: 'user', content: 'Hello!', timestamp: new Date() }
             ];
 

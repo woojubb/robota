@@ -11,7 +11,7 @@
  * NOTE: Tool functionality is now integrated into @robota-sdk/agents package
  */
 
-import type { ToolParameters, ToolExecutionContext, ToolExecutionData, ParameterValidationResult } from '../../../interfaces/tool';
+import type { TToolParameters, ToolExecutionContext, ToolExecutionData, ParameterValidationResult } from '../../../interfaces/tool';
 import type { ToolSchema } from '../../../interfaces/provider';
 
 /**
@@ -19,7 +19,7 @@ import type { ToolSchema } from '../../../interfaces/provider';
  */
 export interface ZodParseResult {
     success: boolean;
-    data?: ToolParameters;
+    data?: TToolParameters;
     error?: string | Error;
 }
 
@@ -34,8 +34,8 @@ export interface ZodSchemaDef {
 }
 
 export interface ZodSchema {
-    parse(value: ToolParameters): ToolParameters;
-    safeParse(value: ToolParameters): ZodParseResult;
+    parse(value: TToolParameters): TToolParameters;
+    safeParse(value: TToolParameters): ZodParseResult;
     _def?: ZodSchemaDef;
 }
 
@@ -43,7 +43,7 @@ export interface ZodSchema {
  * Tool executor function type
  */
 export type ToolExecutor = (
-    parameters: ToolParameters,
+    parameters: TToolParameters,
     context?: ToolExecutionContext
 ) => Promise<ToolExecutionData>;
 
@@ -53,9 +53,9 @@ export type ToolExecutor = (
 export interface IFunctionTool {
     readonly schema: ToolSchema;
     readonly fn: ToolExecutor;
-    execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult>;
-    validate(parameters: ToolParameters): boolean;
-    validateParameters(parameters: ToolParameters): ParameterValidationResult;
+    execute(parameters: TToolParameters, context?: ToolExecutionContext): Promise<ToolResult>;
+    validate(parameters: TToolParameters): boolean;
+    validateParameters(parameters: TToolParameters): ParameterValidationResult;
 }
 
 /**
@@ -82,7 +82,7 @@ export interface SchemaConversionOptions {
 export interface ToolExecutionMetadata {
     executionTime: number;
     toolName: string;
-    parameters: ToolParameters;
+    parameters: TToolParameters;
 }
 
 /**

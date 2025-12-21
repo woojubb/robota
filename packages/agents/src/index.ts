@@ -105,10 +105,10 @@ export type {
  * @public
  */
 export type {
-    ToolCall,
-    UserMessage,
-    SystemMessage,
-    ToolMessage
+    IToolCall,
+    IUserMessage,
+    ISystemMessage,
+    IToolMessage,
 } from './interfaces/agent';
 
 /**
@@ -116,7 +116,7 @@ export type {
  *
  * @public
  */
-export type { ToolParameters, ToolResult, ToolExecutionContext } from './interfaces/tool';
+export type { TToolParameters, ToolResult, ToolExecutionContext } from './interfaces/tool';
 
 /**
  * Universal message format and assistant message used internally by the conversation history manager.
@@ -125,13 +125,13 @@ export type { ToolParameters, ToolResult, ToolExecutionContext } from './interfa
  * @public
  */
 export type {
-    UniversalMessage,
-    AssistantMessage,
-    ConversationMessageMetadata
+    TUniversalMessage,
+    IAssistantMessage,
+    TUniversalMessageMetadata
 } from './managers/conversation-history-manager';
 
 /**
- * Type guards for the canonical UniversalMessage union.
+ * Type guards for the canonical TUniversalMessage union.
  *
  * @public
  */

@@ -1,4 +1,4 @@
-import type { ToolInterface, ToolParameters } from './tool';
+import type { ToolInterface, TToolParameters } from './tool';
 
 /**
  * Execution step definition for tools that support step-by-step progress reporting
@@ -48,7 +48,7 @@ export interface ProgressReportingTool extends ToolInterface {
      * @param parameters - The parameters that will be passed to execute()
      * @returns Estimated duration in milliseconds, or undefined if not available
      */
-    getEstimatedDuration?(parameters: ToolParameters): number;
+    getEstimatedDuration?(parameters: TToolParameters): number;
 
     /**
      * Get execution steps for given parameters (optional)
@@ -61,7 +61,7 @@ export interface ProgressReportingTool extends ToolInterface {
      * @param parameters - The parameters that will be passed to execute()
      * @returns Array of execution steps, or undefined if not available
      */
-    getExecutionSteps?(parameters: ToolParameters): ToolExecutionStep[];
+    getExecutionSteps?(parameters: TToolParameters): ToolExecutionStep[];
 
     /**
      * Set progress callback for real-time updates (optional)
@@ -90,7 +90,7 @@ export function isProgressReportingTool(tool: ToolInterface): tool is ProgressRe
 /**
  * Helper function to safely get estimated duration from any tool
  */
-export function getToolEstimatedDuration(tool: ToolInterface, parameters: ToolParameters): number | undefined {
+export function getToolEstimatedDuration(tool: ToolInterface, parameters: TToolParameters): number | undefined {
     if (isProgressReportingTool(tool) && tool.getEstimatedDuration) {
         try {
             return tool.getEstimatedDuration(parameters);
@@ -105,7 +105,7 @@ export function getToolEstimatedDuration(tool: ToolInterface, parameters: ToolPa
 /**
  * Helper function to safely get execution steps from any tool
  */
-export function getToolExecutionSteps(tool: ToolInterface, parameters: ToolParameters): ToolExecutionStep[] | undefined {
+export function getToolExecutionSteps(tool: ToolInterface, parameters: TToolParameters): ToolExecutionStep[] | undefined {
     if (isProgressReportingTool(tool) && tool.getExecutionSteps) {
         try {
             return tool.getExecutionSteps(parameters);

@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SimpleRemoteExecutor } from '../remote-executor-simple';
 import type { SimpleRemoteConfig } from '../remote-executor-simple';
-import type { ChatExecutionRequest, StreamExecutionRequest, UniversalMessage } from '@robota-sdk/agents';
+import type { ChatExecutionRequest, StreamExecutionRequest, TUniversalMessage } from '@robota-sdk/agents';
 
 // Mock the HttpClient
 const mockHttpClient = {
@@ -216,13 +216,13 @@ describe('SimpleRemoteExecutor Facade', () => {
         });
 
         it('should handle streaming responses', async () => {
-            const expectedResponse: UniversalMessage = {
+            const expectedResponse: TUniversalMessage = {
                 role: 'assistant',
                 content: 'Streaming response',
                 timestamp: new Date()
             };
 
-            mockHttpClient.chatStream.mockReturnValue((async function* (): AsyncIterable<UniversalMessage> {
+            mockHttpClient.chatStream.mockReturnValue((async function* (): AsyncIterable<TUniversalMessage> {
                 yield expectedResponse;
             })());
 
@@ -277,7 +277,7 @@ describe('SimpleRemoteExecutor Facade', () => {
         it('should handle complete conversation flow', async () => {
             executor = new SimpleRemoteExecutor(mockConfig);
 
-            const messages: UniversalMessage[] = [
+            const messages: TUniversalMessage[] = [
                 { role: 'user', content: 'What is TypeScript?', timestamp: new Date() }
             ];
 

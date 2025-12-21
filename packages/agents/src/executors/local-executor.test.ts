@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { LocalExecutor } from './local-executor';
 import type { AIProviderInstance } from './local-executor';
-import type { UniversalMessage, AssistantMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
 
 describe('LocalExecutor', () => {
     let executor: LocalExecutor;
@@ -13,14 +13,14 @@ describe('LocalExecutor', () => {
         // Create mock provider
         mockProvider = {
             name: 'test-provider',
-            async chat(messages: UniversalMessage[], options?: any): Promise<UniversalMessage> {
+            async chat(messages: TUniversalMessage[], options?: any): Promise<TUniversalMessage> {
                 return {
                     role: 'assistant',
                     content: `Mock response to: ${messages[messages.length - 1]?.content}`,
                     timestamp: new Date()
                 };
             },
-            async *chatStream(messages: UniversalMessage[], options?: any): AsyncIterable<UniversalMessage> {
+            async *chatStream(messages: TUniversalMessage[], options?: any): AsyncIterable<TUniversalMessage> {
                 yield {
                     role: 'assistant',
                     content: 'Mock',

@@ -1,4 +1,4 @@
-import type { UniversalMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage, IToolCall } from './messages';
 
 /**
  * Reusable type definitions for provider layer
@@ -25,18 +25,6 @@ export type JSONSchemaType = 'string' | 'number' | 'integer' | 'boolean' | 'arra
  * JSON Schema enum values
  */
 export type JSONSchemaEnum = string[] | number[] | boolean[] | (string | number | boolean)[];
-
-/**
- * Tool call structure for AI responses
- */
-export interface ToolCall {
-    id: string;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string;
-    };
-}
 
 /**
  * Tool schema definition
@@ -81,7 +69,7 @@ export interface TokenUsage {
  */
 export interface RawProviderResponse {
     content: string | null;
-    toolCalls?: ToolCall[];
+    toolCalls?: IToolCall[];
     usage?: TokenUsage;
     finishReason?: string;
     model?: string;
@@ -92,7 +80,7 @@ export interface RawProviderResponse {
  * Provider request payload
  */
 export interface ProviderRequest {
-    messages: UniversalMessage[];
+    messages: TUniversalMessage[];
     model?: string;
     temperature?: number;
     maxTokens?: number;
@@ -161,7 +149,7 @@ export interface ChatOptions extends ProviderSpecificOptions {
 
 /**
  * Provider-agnostic AI Provider interface
- * This interface uses only UniversalMessage types and avoids provider-specific types
+ * This interface uses only TUniversalMessage types and avoids provider-specific types
  */
 export interface AIProvider {
     /** Provider identifier */
@@ -170,20 +158,20 @@ export interface AIProvider {
     readonly version: string;
 
     /**
-     * Generate response from AI model using UniversalMessage
-     * @param messages - Array of UniversalMessage from conversation history
+     * Generate response from AI model using TUniversalMessage
+     * @param messages - Array of TUniversalMessage from conversation history
      * @param options - Chat options including tools, model settings, etc.
-     * @returns Promise resolving to a UniversalMessage response
+     * @returns Promise resolving to a TUniversalMessage response
      */
-    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+    chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage>;
 
     /**
-     * Generate streaming response from AI model using UniversalMessage
-     * @param messages - Array of UniversalMessage from conversation history
+     * Generate streaming response from AI model using TUniversalMessage
+     * @param messages - Array of TUniversalMessage from conversation history
      * @param options - Chat options including tools, model settings, etc.
-     * @returns AsyncIterable of UniversalMessage chunks
+     * @returns AsyncIterable of TUniversalMessage chunks
      */
-    chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+    chatStream?(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage>;
 
     /**
      * Generate response from AI model (raw provider response)

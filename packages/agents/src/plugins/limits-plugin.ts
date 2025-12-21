@@ -8,6 +8,7 @@ import type {
     LimitWindow,
     TokenBucket
 } from './limits/types';
+import type { TUniversalMessage } from '../interfaces';
 
 // Re-export types for external use
 export type { LimitsStrategy, LimitsPluginOptions, PluginLimitsStatusData };
@@ -370,7 +371,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
      */
     private estimateTokens(context: PluginExecutionContext): number {
         // Simple estimation - in real implementation, this would be more sophisticated
-        const messageLength = context.messages?.reduce((total: number, msg: { role: string; content: string }) =>
+        const messageLength = context.messages?.reduce((total: number, msg: TUniversalMessage) =>
             total + (msg.content?.length || 0), 0) || 0;
 
         // Rough estimation: 1 token per 4 characters

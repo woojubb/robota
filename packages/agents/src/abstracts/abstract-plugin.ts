@@ -1,6 +1,6 @@
-import type { Message, RunOptions } from '../interfaces/agent';
-import type { UniversalMessage } from '../managers/conversation-history-manager';
-import type { ToolParameters, ToolExecutionResult, ToolExecutionContext } from '../interfaces/tool';
+import type { RunOptions } from '../interfaces/agent';
+import type { TUniversalMessage } from '../managers/conversation-history-manager';
+import type { TToolParameters, ToolExecutionResult, ToolExecutionContext } from '../interfaces/tool';
 import type { EventEmitterPlugin, EventType, EventData } from '../plugins/event-emitter-plugin';
 
 /**
@@ -53,11 +53,11 @@ export interface BaseExecutionContext {
     sessionId?: string;
     userId?: string;
     // Define specific types for common plugin context data
-    messages?: Message[];
+    messages?: TUniversalMessage[];
     config?: Record<string, string | number | boolean>;
     metadata?: Record<string, string | number | boolean | Date>;
     // Index signature for exactOptionalPropertyTypes compatibility
-    [key: string]: string | number | boolean | Date | string[] | number[] | boolean[] | Message[] | Record<string, string | number | boolean> | Record<string, string | number | boolean | Date> | undefined;
+    [key: string]: string | number | boolean | Date | string[] | number[] | boolean[] | TUniversalMessage[] | Record<string, string | number | boolean> | Record<string, string | number | boolean | Date> | undefined;
 }
 
 /**
@@ -96,7 +96,7 @@ export interface BaseExecutionResult {
 export interface ErrorContext {
     action: string;
     tool?: string;
-    parameters?: ToolParameters;
+    parameters?: TToolParameters;
     result?: ToolExecutionResult;
     error?: Error;
     // Define specific types for common error context data
@@ -180,15 +180,15 @@ export interface PluginStats {
     lastActivity?: Date;
     moduleEventsReceived?: number;
     [key: string]:
-        | string
-        | number
-        | boolean
-        | Date
-        | string[]
-        | number[]
-        | boolean[]
-        | Record<string, string | number | boolean | Date>
-        | undefined;
+    | string
+    | number
+    | boolean
+    | Date
+    | string[]
+    | number[]
+    | boolean[]
+    | Record<string, string | number | boolean | Date>
+    | undefined;
 }
 
 /**
@@ -233,7 +233,7 @@ export interface PluginHooks {
     /**
      * Called before tool execution
      */
-    beforeToolCall?(toolName: string, parameters: ToolParameters): Promise<void> | void;
+    beforeToolCall?(toolName: string, parameters: TToolParameters): Promise<void> | void;
 
     /**
      * Called before tool execution with context
@@ -243,7 +243,7 @@ export interface PluginHooks {
     /**
      * Called after tool execution
      */
-    afterToolCall?(toolName: string, parameters: ToolParameters, result: ToolExecutionResult): Promise<void> | void;
+    afterToolCall?(toolName: string, parameters: TToolParameters, result: ToolExecutionResult): Promise<void> | void;
 
     /**
      * Called after tool execution with context
@@ -253,17 +253,17 @@ export interface PluginHooks {
     /**
      * Called before AI provider call
      */
-    beforeProviderCall?(messages: UniversalMessage[]): Promise<void> | void;
+    beforeProviderCall?(messages: TUniversalMessage[]): Promise<void> | void;
 
     /**
      * Called after AI provider call
      */
-    afterProviderCall?(messages: UniversalMessage[], response: UniversalMessage): Promise<void> | void;
+    afterProviderCall?(messages: TUniversalMessage[], response: TUniversalMessage): Promise<void> | void;
 
     /**
      * Called on streaming chunk
      */
-    onStreamingChunk?(chunk: UniversalMessage): Promise<void> | void;
+    onStreamingChunk?(chunk: TUniversalMessage): Promise<void> | void;
 
     /**
      * Called on error
@@ -273,7 +273,7 @@ export interface PluginHooks {
     /**
      * Called on message added to history
      */
-    onMessageAdded?(message: Message): Promise<void> | void;
+    onMessageAdded?(message: TUniversalMessage): Promise<void> | void;
 
     /**
      * Called when module events are received
@@ -568,14 +568,14 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
     async afterExecution?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void>;
     async beforeConversation?(context: BaseExecutionContext): Promise<void>;
     async afterConversation?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void>;
-    async beforeToolCall?(toolName: string, parameters: ToolParameters): Promise<void>;
+    async beforeToolCall?(toolName: string, parameters: TToolParameters): Promise<void>;
     async beforeToolExecution?(context: BaseExecutionContext, toolData: ToolExecutionContext): Promise<void>;
-    async afterToolCall?(toolName: string, parameters: ToolParameters, result: ToolExecutionResult): Promise<void>;
+    async afterToolCall?(toolName: string, parameters: TToolParameters, result: ToolExecutionResult): Promise<void>;
     async afterToolExecution?(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void>;
-    async beforeProviderCall?(messages: UniversalMessage[]): Promise<void>;
-    async afterProviderCall?(messages: UniversalMessage[], response: UniversalMessage): Promise<void>;
-    async onStreamingChunk?(chunk: UniversalMessage): Promise<void>;
+    async beforeProviderCall?(messages: TUniversalMessage[]): Promise<void>;
+    async afterProviderCall?(messages: TUniversalMessage[], response: TUniversalMessage): Promise<void>;
+    async onStreamingChunk?(chunk: TUniversalMessage): Promise<void>;
     async onError?(error: Error, context?: ErrorContext): Promise<void>;
-    async onMessageAdded?(message: Message): Promise<void>;
+    async onMessageAdded?(message: TUniversalMessage): Promise<void>;
     async onModuleEvent?(eventType: EventType, eventData: EventData): Promise<void>;
 } 

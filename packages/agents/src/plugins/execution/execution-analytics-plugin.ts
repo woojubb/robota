@@ -1,9 +1,9 @@
 import { AbstractPlugin, PluginCategory, PluginPriority, type ErrorContext } from '../../abstracts/abstract-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import type { RunOptions } from '../../interfaces/agent';
-import type { UniversalMessage } from '../../managers/conversation-history-manager';
+import type { TUniversalMessage } from '../../managers/conversation-history-manager';
 import { isAssistantMessage } from '../../managers/conversation-history-manager';
-import type { ToolParameters, ToolExecutionResult } from '../../interfaces/tool';
+import type { TToolParameters, ToolExecutionResult } from '../../interfaces/tool';
 import type {
     ExecutionStats,
     AggregatedExecutionStats,
@@ -140,7 +140,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsO
     /**
      * Called before provider call - start tracking
      */
-    override beforeProviderCall = async (messages: UniversalMessage[]): Promise<void> => {
+    override beforeProviderCall = async (messages: TUniversalMessage[]): Promise<void> => {
         const executionId = this.generateExecutionId('provider');
 
         this.activeExecutions.set(executionId, {
@@ -158,7 +158,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsO
     /**
      * Called after provider call - end tracking
      */
-    override afterProviderCall = async (messages: UniversalMessage[], response: UniversalMessage): Promise<void> => {
+    override afterProviderCall = async (messages: TUniversalMessage[], response: TUniversalMessage): Promise<void> => {
         // Find the related execution
         const execution = this.findActiveExecution('provider-call', messages[0]?.content || '');
 
@@ -207,7 +207,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsO
     /**
      * Called before tool call - start tracking
      */
-    override async beforeToolCall(toolName: string, parameters: ToolParameters): Promise<void> {
+    override async beforeToolCall(toolName: string, parameters: TToolParameters): Promise<void> {
         const executionId = this.generateExecutionId('tool');
 
         this.activeExecutions.set(executionId, {
@@ -226,7 +226,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsO
     /**
      * Called after tool call - end tracking
      */
-    override async afterToolCall(toolName: string, parameters: ToolParameters, result: ToolExecutionResult): Promise<void> {
+    override async afterToolCall(toolName: string, parameters: TToolParameters, result: ToolExecutionResult): Promise<void> {
         // Find the related execution
         const execution = this.findActiveExecution('tool-call', toolName);
 

@@ -2,10 +2,10 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { GoogleProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
-    UniversalMessage,
+    TUniversalMessage,
     ChatOptions,
     ToolSchema,
-    AssistantMessage
+    IAssistantMessage
 } from '@robota-sdk/agents';
 
 
@@ -46,9 +46,9 @@ export class GoogleProvider extends AbstractAIProvider {
     }
 
     /**
-     * Generate response using UniversalMessage
+     * Generate response using TUniversalMessage
      */
-    override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    override async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
         this.validateMessages(messages);
 
         // Try executor first, then fallback to direct execution
@@ -94,9 +94,9 @@ export class GoogleProvider extends AbstractAIProvider {
     }
 
     /**
-     * Generate streaming response using UniversalMessage
+     * Generate streaming response using TUniversalMessage
      */
-    override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    override async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
         this.validateMessages(messages);
 
         // Try executor first, then fallback to direct execution
@@ -164,12 +164,12 @@ export class GoogleProvider extends AbstractAIProvider {
     }
 
     /**
-     * Convert UniversalMessage to Gemini format
+     * Convert TUniversalMessage to Gemini format
      * 
      * IMPORTANT: Google Gemini allows content with function calls
      * - Content can be empty string or text, but NOT null
      */
-    private convertToGeminiFormat(messages: UniversalMessage[]): Array<{
+    private convertToGeminiFormat(messages: TUniversalMessage[]): Array<{
         role: 'user' | 'model';
         parts: Array<{
             text?: string;
@@ -187,7 +187,7 @@ export class GoogleProvider extends AbstractAIProvider {
                     parts: [{ text: msg.content || '' }]
                 };
             } else if (msg.role === 'assistant') {
-                const assistantMsg = msg as AssistantMessage;
+                const assistantMsg = msg as IAssistantMessage;
                 const parts: Array<{
                     text?: string;
                     functionCall?: {
@@ -228,10 +228,10 @@ export class GoogleProvider extends AbstractAIProvider {
     }
 
     /**
-     * Convert Gemini response to UniversalMessage
+     * Convert Gemini response to TUniversalMessage
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private convertFromGeminiResponse(response: any): UniversalMessage {
+    private convertFromGeminiResponse(response: any): TUniversalMessage {
         const candidate = response.candidates?.[0];
         if (!candidate) {
             throw new Error('No candidate in Gemini response');
@@ -247,14 +247,14 @@ export class GoogleProvider extends AbstractAIProvider {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const functionCalls = content.parts.filter((p: any) => p.functionCall);
 
-        const result: UniversalMessage = {
+        const result: TUniversalMessage = {
             role: 'assistant',
             content: textParts.join('') || '',
             timestamp: new Date()
         };
 
         if (functionCalls.length > 0) {
-            const assistantResult = result as AssistantMessage;
+            const assistantResult = result as IAssistantMessage;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             assistantResult.toolCalls = functionCalls.map((fc: any) => ({
                 id: this.generateId(),

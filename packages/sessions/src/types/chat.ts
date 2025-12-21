@@ -1,7 +1,7 @@
 import type {
     Robota,
     AgentConfig,
-    Message
+    TUniversalMessage
 } from '@robota-sdk/agents';
 
 /**
@@ -68,7 +68,7 @@ export interface ChatInstance {
     deactivate(): void;
 
     // History Management - delegate to Robota
-    getHistory(): Message[];
+    getHistory(): TUniversalMessage[];
     clearHistory(): void;
 
     // Lifecycle
