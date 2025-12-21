@@ -3,10 +3,23 @@ import type { AbstractPlugin, BasePluginOptions, PluginStats } from '../abstract
 import type { AbstractTool } from '../abstracts/abstract-tool';
 import type { AbstractModule } from '../abstracts/abstract-module';
 import type { UtilLogLevel } from '../utils/logger';
-import type { ToolExecutionResult } from './tool';
 import type { Metadata, ConfigValue } from './types';
 import type { EventService } from '../services/event-service';
 import type { OwnerPathSegment } from '../services/event-service';
+import type { ConversationMessageMetadata, UniversalMessage } from './messages';
+
+export type {
+    UniversalMessage,
+    ConversationMessageMetadata,
+    BaseMessage,
+    UserMessage,
+    AssistantMessage,
+    SystemMessage,
+    ToolMessage,
+    ToolCall,
+    UniversalMessageRole,
+    MessageRole
+} from './messages';
 
 /**
  * ExecutionContextInjection
@@ -26,71 +39,16 @@ export interface ExecutionContextInjection {
 }
 
 /**
- * Message metadata structure - specific type definition for agents
+ * Backward-compatible alias for message metadata.
+ * Prefer ConversationMessageMetadata.
  */
-export type MessageMetadata = Record<string, string | number | boolean | Date>;
-
-
+export type MessageMetadata = ConversationMessageMetadata;
 
 /**
- * Base message interface for agent communication
+ * Legacy alias kept for compatibility with older call sites.
+ * Prefer UniversalMessage.
  */
-export interface BaseMessage {
-    role: 'user' | 'assistant' | 'system' | 'tool';
-    content: string;
-    timestamp?: Date;
-    metadata?: MessageMetadata;
-}
-
-/**
- * User message interface
- */
-export interface UserMessage extends BaseMessage {
-    role: 'user';
-}
-
-/**
- * Assistant message interface
- * @deprecated Use AssistantMessage from '../managers/conversation-history-manager' instead
- * This interface is being phased out in favor of the more comprehensive one in conversation-history-manager
- */
-export interface AssistantMessage extends BaseMessage {
-    role: 'assistant';
-    toolCalls?: ToolCall[];
-}
-
-/**
- * System message interface
- */
-export interface SystemMessage extends BaseMessage {
-    role: 'system';
-}
-
-/**
- * Tool message interface
- */
-export interface ToolMessage extends BaseMessage {
-    role: 'tool';
-    toolCallId: string;
-    result: ToolExecutionResult;
-}
-
-/**
- * Universal message type
- */
-export type Message = UserMessage | AssistantMessage | SystemMessage | ToolMessage;
-
-/**
- * Tool call interface
- */
-export interface ToolCall {
-    id: string;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string;
-    };
-}
+export type Message = UniversalMessage;
 
 // ProviderConfigValue imported from provider.ts for type ownership consistency
 

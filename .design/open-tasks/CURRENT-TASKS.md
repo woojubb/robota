@@ -240,6 +240,142 @@
    - [ ] 3차 배치(레거시 파일 정리): `packages/agents/src/services/node-edge-manager.ts` 노출/사용 여부 결정(필요하면 타입 축 정리, 불필요하면 export/사용처 제거)
    - [ ] 각 배치마다 `pnpm --filter @robota-sdk/agents lint`로 “문제 개수 감소” 확인 후 다음 배치 진행
 
+---
+
+## 🧭 Priority 0.7: Type Ownership Audit + T/I Prefix Rollout Plan (NEW)
+
+### 목표
+- 타입/인터페이스가 **어느 패키지가 소유(owner)** 하는지 명확히 하고, 소비자는 **owner의 public export만 사용**한다.
+- 같은 의미의 타입이 여러 곳에서 “로컬 선언”으로 중복되지 않도록 하고, **단일 소스(single source of truth)** 기준을 문서/코드로 고정한다.
+- **Type alias는 `T*`, interface는 `I*` 접두어**를 프로젝트 표준으로 확정하고, 신규 코드부터 강제하며 기존 코드는 **대규모 churn 없이 단계적으로** 전환한다.
+
+### 원칙(필수)
+1) **Owner 명확화**
+   - 어떤 타입이든 “소유 패키지(=정의 위치)”가 하나만 있어야 한다.
+   - 비-owner 패키지는 타입을 재정의/복제하지 않고 `@robota-sdk/<owner>`의 public export를 import해서 쓴다.
+2) **중복 타입 금지**
+   - 동일 의미의 유니온/인터페이스를 파일 단위로 다시 선언하는 패턴을 금지한다.
+   - 예: workflow node status 같은 도메인 타입을 UI/contexts에서 `'pending' | ...`로 재정의하는 것을 금지한다.
+3) **Naming Convention**
+   - **type alias**: `T` prefix (`TWorkflowNodeStatus`)
+   - **interface**: `I` prefix (`IWorkflowNodeData`)
+   - 신규 코드: 즉시 적용(하드 룰)
+   - 기존 코드: 단계적 전환(대량 rename은 금지)
+
+   **왜 접두어를 붙이나? (의도/효과)**
+   - **값(value)과 타입(type)의 충돌 방지**: `AssistantMessage`처럼 “런타임 객체/변수/클래스”와 “타입”이 같은 이름을 쓰면, import/리뷰/리팩토링 시 매번 구분 비용이 발생한다. `IAssistantMessage`/`TAssistantMessage`처럼 타입을 표기하면 즉시 구분된다.
+   - **계약(contract) 가시성 강화**: 패키지 간 public contract 타입을 한눈에 식별해 “어디가 owner인지” 판단이 쉬워지고, 중복 선언을 예방한다.
+   - **검색/리뷰 비용 감소**: `rg "IAssistantMessage"`처럼 타입을 빠르게 추적할 수 있고, 런타임 심볼과 섞여 노이즈가 생기지 않는다.
+
+### 현황 스냅샷(빠른 스캔, 2025-12-21 기준)
+- `T*`/`I*` 규칙을 이미 따르는 선언이 일부 존재한다(최소 32건).
+- `packages/*` 안에서 **`T` 접두어가 아닌 `type` alias가 최소 38건** 확인되었다(전수조사 시 더 늘 수 있음).
+- 결론: “전체 일괄 rename”은 churn이 너무 커서 금지. **배치별로 owner 정리와 함께 자연스럽게 수렴**시키는 전략이 필요.
+
+### Owner Map v1 (Draft, 이 문서가 단일 기준)
+- **`@robota-sdk/agents`가 소유**
+  - Event axis: `EventService`, `EventContext`, `OwnerPathSegment`, event data types, event constants
+  - Tool axis: tool schema/params/context/result + tool execution contracts
+  - Message axis: `UniversalMessage` 및 대화 메시지 계약
+  - Shared value axis: `UniversalValue`/`ContextData`/`LoggerData` 등 “값/메타데이터 축”
+- **`@robota-sdk/workflow`가 소유**
+  - Workflow graph axis: workflow node/edge/structure + status/connection types
+  - Workflow subscriber/handlers/services는 workflow graph 타입을 소유하며, event/tool/message 축은 agents를 import해서 재사용한다(중복 정의 금지).
+- **기타 패키지(`openai`, `remote`, `team`, `playground`, `apps/*`)**
+  - 원칙: “owner 타입을 소비”만 한다. 계약 타입을 로컬에서 재정의하지 않는다.
+  - UI 레이어는 UI 로컬 타입을 가질 수 있지만, SDK contract 타입과 이름/의미가 중복되면 owner 타입을 직접 사용한다.
+
+### 실행 계획 (전수 조사 → 배치 수정 → 게이트)
+
+#### 1) 전수 조사: “타입 소유권/중복 선언” 인벤토리 작성
+- [ ] 조사 범위 확정: `packages/*/src`, `apps/*/src` (테스트 포함 여부는 별도 결정)
+- [ ] 인벤토리 표 템플릿(이 섹션 아래에 “실제 행”을 채워나간다):
+
+| 개념(타입) | 현재 선언 위치(파일) | 의도 Owner | 소비 위치(대표) | 문제 유형 | 배치 | 난이도 | 수정 요약 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 예: WorkflowNodeStatus | (중복 선언 발견 시) | @robota-sdk/workflow | packages/playground/... | 중복 선언 | Batch A | 낮음 | owner 타입 import로 치환 |
+| WorkflowNodeStatus (로컬 재정의) | `packages/playground/src/contexts/playground-context.tsx` (이전: `'pending' \| 'running' \| 'completed' \| 'error'`) | @robota-sdk/workflow | `packages/playground` context/reducer | 중복 선언(로컬 유니온) | Batch A | 낮음 | **완료**: `WorkflowNodeStatus` import로 치환(단일 소스 참조) |
+| Workflow graph 핵심 타입명(T/I 미준수) | `packages/workflow/src/interfaces/workflow-node.ts` (`WorkflowNodeStatus`, `WorkflowConnectionType`, `WorkflowNodeData` 등) | @robota-sdk/workflow | workflow + playground | Naming(T/I prefix) | Prefix Phase 2 | 중간 | `TWorkflowNodeStatus` / `TWorkflowConnectionType` / `IWorkflowNodeData` 등으로 단계적 전환(일괄 rename 금지) |
+| UniversalValue axis 타입명(T/I 미준수) | `packages/agents/src/interfaces/types.ts` (`UniversalValue`, `PrimitiveValue`, `ContextData` 등) | @robota-sdk/agents | agents + 전체 의존 패키지 | Naming(T/I prefix) | Prefix Phase 2 | 높음 | public surface 영향 큼 → 패키지 단위/묶음 단위로 소규모 PR로 전환 |
+| Tool contract 타입명/shape 정리 필요 | `packages/agents/src/interfaces/tool.ts` (`ToolResult`, `ToolExecutionContext`, `ToolMetadata` 등) | @robota-sdk/agents | tools + executor + examples | Naming + 계약 축 혼재 | Batch C | 높음 | 계약 타입을 `agents` tool axis로 고정하고, legacy hierarchy fields는 분리/제거(단일 경로) |
+| ToolExecutionContext의 legacy hierarchy fields | `packages/agents/src/interfaces/tool.ts` (`parentExecutionId`, `rootExecutionId`, `executionLevel`, `executionPath`) | @robota-sdk/agents | ToolExecutionService/Tool impls | ownerPath-only 충돌(계층 필드 잔존) | Batch C | 중간 | ownerPath-only 원칙에 맞게 “필요/불필요”를 결정하고 불필요 필드는 제거(폴백/대체 경로 금지) |
+| Workflow EventData 소유권/축 중복 | `packages/workflow/src/interfaces/event-handler.ts` (`export interface EventData`) | @robota-sdk/agents | workflow handlers/subscriber | 타입 소유권 충돌(event axis 중복) | Batch E | 높음 | workflow는 agents의 event axis(`EventContext`/ownerPath)로 수렴, workflow-local EventData 재정의 제거/비공개화 |
+| Universal workflow types 중복(agents vs workflow) | `packages/agents/src/services/workflow-converter/universal-types.ts` vs `packages/workflow/src/types/universal-types.ts` | @robota-sdk/workflow | workflow converter + playground | 타입 소유권 충돌 + 중복 정의 | Batch D | 높음 | agents 쪽 정의 제거(또는 workflow import로 치환)하고 workflow가 단일 소스가 되게 정리 |
+| UniversalWorkflowStructure 중복 정의 | `packages/agents/src/services/workflow-converter/universal-types.ts` (`UniversalWorkflowStructure extends WorkflowData`) vs `packages/workflow/src/types/universal-types.ts` (`export interface UniversalWorkflowStructure`) | @robota-sdk/workflow | converter + playground | 타입 소유권 충돌(구조 불일치 위험) | Batch D | 높음 | 구조를 workflow 단일 정의로 고정하고 converter는 workflow 타입을 import해서 구현 |
+| Universal types에 `unknown`/`Record<string, unknown>` 사용 | `packages/workflow/src/types/universal-types.ts` (여러 곳) | @robota-sdk/workflow | playground/react-flow adapters | 타입 정책 위반 가능성(unknown) | Batch D | 중간 | workflow 확장값을 `UniversalValue | LoggerData | ...` 같은 제한된 union으로 치환, index signature/unknown 제거 방향 |
+| “fallback” 의미 누출 | `packages/workflow/src/types/universal-types.ts` (`conditional.fallbackEdge?: string`) | @robota-sdk/workflow | UI/layout/renderer | No-Fallback policy 충돌(용어/의미) | Batch D | 중간 | fallback semantics를 드러내지 않는 도메인-중립 명명으로 교체(또는 제거) |
+| Message contract 중복(AssistantMessage) | `packages/agents/src/interfaces/agent.ts`(deprecated) vs `packages/agents/src/managers/conversation-history-manager.ts` | @robota-sdk/agents | providers/adapters/tests | 계약 중복(드리프트 위험) | Batch B | 중간 | canonical 정의를 한 곳으로 고정하고, 다른 쪽은 제거(또는 public export 정리) |
+| Batch D 진행 상태(레거시 제거) | `packages/agents/src/services/workflow-converter/**` 및 종속 모듈 | @robota-sdk/workflow | (이전: agents export) | 중복 소유권 제거 | Batch D | - | **완료**: agents에서 universal workflow converter/types/layout/validator 제거 + agents build PASS |
+
+- [ ] “중복 선언 후보”를 패턴 기반으로 수집한다(명령은 예시, 실제 실행은 상황에 따라 조정):
+  - [ ] **문자열 유니온 재정의**(status/role/type 등):
+    - [ ] `rg "status:\\s*'pending'\\s*\\|\\s*'running'\\s*\\|\\s*'completed'\\s*\\|\\s*'error'" packages`
+  - [ ] **계약 타입 로컬 재선언**(message/tool/workflow):
+    - [ ] `rg "type\\s+UniversalMessage\\b|interface\\s+UniversalMessage\\b" packages`
+    - [ ] `rg "type\\s+Tool(Result|Parameters|ExecutionContext)\\b|interface\\s+Tool(Result|Parameters|ExecutionContext)\\b" packages`
+  - [ ] **owner export 우회(import 경로 오염)**:
+    - [ ] `rg "from\\s+['\\\"]\\.\\./\\.?\\./.*interfaces/.*['\\\"]" packages` (패키지 내부 경로로 계약 타입을 가져오는 케이스 점검)
+  - [ ] **T/I prefix 미준수 후보(대략)**:
+    - [ ] type alias: `rg "\\btype\\s+[A-SU-Z][A-Za-z0-9_]+\\b" packages`
+    - [ ] interface: `rg "\\binterface\\s+(?!I)[A-Za-z0-9_]+\\b" packages` (PCRE 필요 시 옵션/대안 결정)
+
+#### 2) 수정 전략: “Owner로 수렴” (No-Fallback, 단일 경로)
+- [ ] 공통 규칙: **소비처는 owner public export를 import하도록 변경**하고, 로컬 선언은 제거한다.
+- [ ] cross-package contract 타입(예: `UniversalMessage`, tool contract, workflow 구조 등)은 반드시 **owner 패키지**에서만 정의/수출한다.
+- [ ] re-export는 “owner public surface를 제공”하는 목적만 허용한다(동일 타입의 재정의/복제 금지).
+- [ ] 타입을 옮기거나 합칠 때는 “의미/책임”이 바뀌지 않도록 하고, 런타임/데이터 변형은 금지한다(타입 정리=계약 정리).
+
+#### 3) 배치(클러스터) 단위 실행 계획 (중복 제거를 “원인”으로 먼저 친다)
+
+**Batch A — “로컬 문자열 유니온” 제거(대표: status/type/role)**
+- [ ] 대상: UI/contexts/hooks에서 SDK 도메인 타입을 로컬 유니온으로 재정의한 케이스
+- [ ] 처리: owner 타입을 import해서 시그니처/액션 payload/리듀서까지 일관되게 치환
+- [ ] 검증: 변경 패키지별 build + root typecheck 유지
+
+**Batch B — Message/Conversation 계약 단일화**
+- [ ] 대상: `UniversalMessage`/message role/content/timestamp 계약을 로컬에서 선언/변형하는 케이스
+- [ ] 처리: agents owner 타입으로 수렴, provider/remote/adapter/transformer에서 동일 계약 사용
+- [ ] 검증: provider 패키지 build + 관련 테스트 타입체크
+
+**Batch C — Tool contract 단일화**
+- [ ] 대상: ToolResult/ToolParameters/ToolExecutionContext가 패키지별로 조금씩 다른 shape로 존재하는 케이스
+- [ ] 처리: agents의 tool axis로 수렴, “UI 편의 타입”은 별도 이름으로 분리(계약 타입과 혼동 금지)
+- [ ] 검증: agents build → 의존 패키지 build 연쇄
+
+**Batch D — Workflow graph 계약 단일화**
+- [ ] 대상: workflow node/edge/structure/status/connection 타입을 workflow 밖에서 재정의하는 케이스
+- [ ] 처리: workflow owner 타입 import로 수렴, 필요 시 `extensions.*`로 UI 메타데이터를 제한된 값 타입으로만 확장
+- [ ] 검증: workflow build + playground build
+
+**Batch E — Event axis 계약 단일화(agents 소유)**
+- [ ] 대상: workflow 등 비-owner 패키지에서 event envelope/data를 재정의한 케이스(예: workflow `EventData`)
+- [ ] 처리: agents의 event axis(`EventContext`, ownerPath)로 수렴하고, 비-owner의 중복 타입은 제거/비공개화
+- [ ] 검증: agents build + workflow build
+
+#### 4) T/I Prefix Rollout (단계적, churn 최소화)
+- [ ] **0단계(즉시, 하드룰)**: 앞으로 새로 추가/수정되는 타입 선언은 반드시 `T*`/`I*` 접두어를 적용한다.
+- [ ] **1단계(자연 수렴)**: Batch A~D에서 “어차피 수정하는 파일” 안의 타입부터 `T/I`로 정리한다(패키지 전체 rename 금지).
+- [ ] **2단계(패키지 단위 전환, 소규모 PR)**:
+  - [ ] 우선순위: contracts 중심(agents/workflow) → 의존 패키지(openai/remote/playground) → apps
+  - [ ] 한 PR당 규칙: “rename 범위는 패키지 1개 + 의미가 겹치는 타입 묶음 1세트”로 제한
+- [ ] **명명 변환 가이드(필수)**
+  - [ ] type alias → `T...` (`WorkflowNodeStatus` → `TWorkflowNodeStatus`)
+  - [ ] interface → `I...` (`WorkflowNodeData` → `IWorkflowNodeData`)
+  - [ ] 외부 라이브러리 타입명은 변경 불가이므로, 프로젝트 내부에서만 별칭을 둘 경우 `T/I` 규칙을 적용한다.
+
+#### 5) 검증 게이트(정책 고정) — “새로운 위반이 유입되지 않게”
+- [ ] 게이트 1(즉시): “owner 타입 로컬 재정의” 금지 패턴은 발견 즉시 정리한다(대표: status 유니온).
+- [ ] 게이트 2(단계적): ESLint `@typescript-eslint/naming-convention`으로 `interface`는 `I` prefix 강제부터 시작한다(효과 대비 churn 낮음).
+- [ ] 게이트 3(합의 후): `typeAlias`에 `T` prefix 강제를 도입한다(기존 코드 churn이 크므로 warning부터 시작하는 옵션 포함).
+- [ ] 게이트 강제 위치 결정:
+  - [ ] 로컬 개발: warning 허용 여부
+  - [ ] CI: error 게이트 여부(“신규 위반 0”만 우선 적용 가능)
+
+### 완료 조건(이 항목만)
+- [ ] 이 문서의 인벤토리 표가 “owner/중복/수정 배치” 기준으로 채워져 있고, Batch A~E가 순차적으로 실행 가능 상태다.
+- [ ] 신규 코드에서 `T/I` 규칙이 지켜지고(게이트 포함), 기존 코드는 churn 없이 배치 단위로 감소 추세가 확인된다.
+
+
 ## 📝 Priority 1: .design Documentation Maintenance (선택)
 
 ### 목적
