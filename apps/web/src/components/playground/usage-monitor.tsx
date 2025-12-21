@@ -288,19 +288,7 @@ export function UsageMonitor({ isVisible, onClose }: UsageMonitorProps) {
                     </div>
                 </div>
 
-                {/* Upgrade Prompt for Free Users */}
-                {usage.subscription === 'free' && (
-                    <div className="pt-3 border-t">
-                        <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                            <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
-                                Upgrade to unlock more features and higher limits
-                            </p>
-                            <Button size="sm" className="w-full">
-                                Upgrade to Pro
-                            </Button>
-                        </div>
-                    </div>
-                )}
+                {/* Monetization UI intentionally removed */}
             </CardContent>
         </Card>
     );

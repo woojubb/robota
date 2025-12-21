@@ -634,6 +634,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             const result = await state.executor.run(prompt);
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
+            if (!result.success) {
+                dispatch({ type: 'SET_ERROR', payload: result.uiError?.message || 'Execution failed' });
+            }
 
             // Get all events from PlaygroundHistoryPlugin (EventService events)
             let allEvents: any[] = [];
@@ -686,11 +689,12 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 success: false,
                 response: 'Execution failed',
                 duration: 0,
-                error: error instanceof Error ? error : new Error(String(error))
+                error: error instanceof Error ? error : new Error(String(error)),
+                uiError: { kind: 'recoverable', message: error instanceof Error ? error.message : 'Execution failed' }
             };
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: errorResult });
-            dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Execution failed' });
+            dispatch({ type: 'SET_ERROR', payload: errorResult.uiError.message });
 
             return errorResult;
         } finally {
@@ -747,6 +751,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             logger.debug('Execution completed');
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
+            if (!result.success) {
+                dispatch({ type: 'SET_ERROR', payload: result.uiError?.message || 'Execution failed' });
+            }
 
             // SDK owns workflow updates; no manual node status mutation
 
@@ -810,11 +817,12 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 success: false,
                 response: 'Execution failed',
                 duration: 0,
-                error: error instanceof Error ? error : new Error(String(error))
+                error: error instanceof Error ? error : new Error(String(error)),
+                uiError: { kind: 'recoverable', message: error instanceof Error ? error.message : 'Execution failed' }
             };
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: errorResult });
-            dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Execution failed' });
+            dispatch({ type: 'SET_ERROR', payload: errorResult.uiError.message });
 
             // SDK owns workflow updates; no manual node status mutation
 

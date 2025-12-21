@@ -155,22 +155,7 @@ export const trackEvents = {
         });
     },
 
-    // Conversion events
-    startTrial: (plan: string) => {
-        trackEvent({
-            action: 'start_trial',
-            category: 'conversion',
-            label: plan,
-        });
-    },
-
-    upgrade: (plan: string) => {
-        trackEvent({
-            action: 'purchase',
-            category: 'conversion',
-            label: plan,
-        });
-    },
+    // Conversion events intentionally omitted
 };
 
 // Track user properties

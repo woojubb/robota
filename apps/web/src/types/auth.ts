@@ -26,13 +26,9 @@ export interface UserProfile {
     };
 }
 
-import { UserExtended, UserCreditSummary } from './user-credit';
-
 export interface AuthContextType {
     user: User | null;
     userProfile: UserProfile | null;
-    userExtended: UserExtended | null;
-    creditSummary: UserCreditSummary | null;
     loading: boolean;
     authInitialized: boolean;
     signIn: (email: string, password: string) => Promise<void>;

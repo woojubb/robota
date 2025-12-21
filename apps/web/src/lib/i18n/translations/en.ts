@@ -28,7 +28,6 @@ export const en = {
         about: 'About',
         docs: 'Docs',
         playground: 'Playground',
-        pricing: 'Pricing',
         contact: 'Contact',
         dashboard: 'Dashboard',
         profile: 'Profile',

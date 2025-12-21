@@ -121,10 +121,35 @@ export interface PlaygroundExecutionResult {
     tokensUsed?: number;
     toolsExecuted?: string[];
     error?: Error;
+    uiError?: PlaygroundUiError;
     visualizationData?: VisualizationData; // ✅ 올바른 타입 이름
 }
 
 export type PlaygroundMode = 'agent';
+
+export type PlaygroundUiErrorKind = 'user_message' | 'recoverable' | 'fatal';
+
+export interface PlaygroundUiError {
+    kind: PlaygroundUiErrorKind;
+    message: string;
+}
+
+function toPlaygroundUiError(input: unknown): PlaygroundUiError {
+    const message = input instanceof Error ? input.message : String(input);
+
+    // Heuristic classification:
+    // - user_message: validation / user input issues
+    // - fatal: strict-policy / invariant violations
+    // - recoverable: default (transient/system)
+    const lowered = message.toLowerCase();
+    if (lowered.includes('missing required') || lowered.includes('invalid') || lowered.includes('unknown tool')) {
+        return { kind: 'user_message', message };
+    }
+    if (lowered.includes('[strict-policy]') || lowered.includes('[path-only]') || lowered.includes('no fallback')) {
+        return { kind: 'fatal', message };
+    }
+    return { kind: 'recoverable', message };
+}
 
 /**
  * Playground executor for managing Robota agents in browser (team removed)
@@ -393,7 +418,8 @@ export class PlaygroundExecutor {
                 success: true,
                 response: result.content || 'No response',
                 duration: duration,
-                visualizationData: this.getVisualizationData()
+                visualizationData: this.getVisualizationData(),
+                uiError: undefined
             };
 
             // Record this execution for statistics (with additional required fields)
@@ -417,7 +443,8 @@ export class PlaygroundExecutor {
                 response: 'Execution failed',
                 duration: duration,
                 error: error instanceof Error ? error : new Error(String(error)),
-                visualizationData: this.getVisualizationData()
+                visualizationData: this.getVisualizationData(),
+                uiError: toPlaygroundUiError(error)
             };
 
             // Record this failed execution for statistics
@@ -469,7 +496,8 @@ export class PlaygroundExecutor {
                 success: true,
                 response: result,
                 duration: duration,
-                visualizationData: this.getVisualizationData()
+                visualizationData: this.getVisualizationData(),
+                uiError: undefined
             };
 
         } catch (error) {
@@ -483,9 +511,10 @@ export class PlaygroundExecutor {
                 response: 'Execution failed',
                 duration: duration,
                 error: error instanceof Error ? error : new Error(String(error)),
-                visualizationData: this.getVisualizationData()
+                visualizationData: this.getVisualizationData(),
+                uiError: toPlaygroundUiError(error)
             };
-            throw executionResult.error;
+            return executionResult;
         }
     }
 

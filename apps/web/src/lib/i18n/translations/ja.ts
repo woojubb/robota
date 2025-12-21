@@ -28,7 +28,6 @@ export const ja = {
         about: '概要',
         docs: 'ドキュメント',
         playground: 'プレイグラウンド',
-        pricing: '料金',
         contact: 'お問い合わせ',
         dashboard: 'ダッシュボード',
         profile: 'プロフィール',

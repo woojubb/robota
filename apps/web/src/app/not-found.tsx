@@ -58,13 +58,6 @@ export default function NotFound() {
                                             Playground - Try Robota in your browser
                                         </Link>
                                         <Link
-                                            href="/pricing"
-                                            className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                                        >
-                                            <ArrowLeft className="w-3 h-3 mr-2" />
-                                            Pricing - View our plans
-                                        </Link>
-                                        <Link
                                             href="/about"
                                             className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
                                         >

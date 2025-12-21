@@ -150,7 +150,7 @@ interface WorkflowEdge {
 
 ### 이벤트 표준 규격(권장)
 - 필수: `eventType`, `executionId`, `timestamp`, `parentId`, `prevId`
-- 선택: `round`, `branchId`, `batchId` 등 추적용 메타
+- 선택: `round`, `batchId` 등 추적용 메타
 - 원칙: 이벤트는 가능한 `parentId`와 `prevId`를 모두 제공하고, 핸들러는 이 표준 필드만 해석하여 연결을 결정합니다.
 
 ### 검증 불변조건(요약)

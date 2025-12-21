@@ -452,7 +452,7 @@
 
 4) 이벤트 소스 표준화 계획 수립 (agents/team)
 - [ ] `ExecutionService` emit별 parentId/prevId 제공 규칙 표준 확정
-- [ ] `TeamContainer`/`SubAgentEventRelay` emit별 parentId/prevId 제공 규칙 표준 확정
+- [ ] (legacy cleanup) remove legacy team/relay references; keep ownerPath-only emission rules
 
 5) 통합 적용 (코드 변경 단계)
 - [ ] workflow: prev 엣지 생성 로직 적용(필요시)

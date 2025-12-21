@@ -715,12 +715,8 @@ export class ExecutionService {
                 this.emitWithContext(
                     EXECUTION_EVENTS.TOOL_RESULTS_READY,
                     {
-                        parameters: {
-                            thinkingId: thinkingNodeId
-                        },
                         metadata: {
-                            round: currentRound,
-                            thinkingId: thinkingNodeId
+                            round: currentRound
                         }
                     },
                     () => this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId),
@@ -1089,13 +1085,9 @@ export class ExecutionService {
                 this.emitExecution(
                     EXECUTION_EVENTS.TOOL_RESULTS_READY,
                     {
-                        thinkingId: streamingThinkingNodeId,
                         metadata: {
-                            executionId,
                             toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
                             round: 1,
-                            conversationId: streamingRoot,
-                            thinkingId: streamingThinkingNodeId
                         }
                     },
                     streamingRoot,

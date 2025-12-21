@@ -24,14 +24,6 @@ export async function GET(request: NextRequest) {
     <priority>0.8</priority>
   </url>
   
-  <!-- Pricing Page -->
-  <url>
-    <loc>${baseUrl}/pricing</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  
   <!-- Contact Page -->
   <url>
     <loc>${baseUrl}/contact</loc>

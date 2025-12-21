@@ -26,8 +26,7 @@ export const NAVIGATION = {
         { title: 'Home', href: '/' },
         { title: 'Playground', href: '/playground' },
         { title: 'API', href: '/api/v1' },
-        { title: 'Docs', href: '/docs' },
-        { title: 'Pricing', href: '/pricing' }
+        { title: 'Docs', href: '/docs' }
     ],
     footer: [
         {
@@ -81,8 +80,8 @@ export const FEATURES = {
             icon: 'Zap'
         },
         {
-            title: 'Team Collaboration',
-            description: 'Share projects, collaborate in real-time, and manage team access with enterprise-grade features.',
+            title: 'Collaboration',
+            description: 'Share projects, iterate quickly, and keep development workflows consistent across environments.',
             icon: 'Users'
         }
     ],
@@ -122,63 +121,3 @@ export const FEATURES = {
         }
     ]
 }
-
-export const PRICING = {
-    plans: [
-        {
-            name: 'Free',
-            price: 0,
-            period: 'month',
-            description: 'Perfect for experimenting and learning',
-            features: [
-                '1,000 API calls/month',
-                'Basic playground access',
-                'Community templates',
-                'Discord support'
-            ],
-            popular: false
-        },
-        {
-            name: 'Starter',
-            price: 29,
-            period: 'month',
-            description: 'For individuals and small projects',
-            features: [
-                '10,000 API calls/month',
-                'Full playground features',
-                'Private projects',
-                'Priority support',
-                'Usage analytics'
-            ],
-            popular: true
-        },
-        {
-            name: 'Pro',
-            price: 99,
-            period: 'month',
-            description: 'For teams and growing businesses',
-            features: [
-                '100,000 API calls/month',
-                'Team collaboration',
-                'Custom templates',
-                'Advanced analytics',
-                'SLA guarantees'
-            ],
-            popular: false
-        },
-        {
-            name: 'Enterprise',
-            price: null,
-            period: 'month',
-            description: 'For large organizations with custom needs',
-            features: [
-                'Unlimited API calls',
-                'On-premise deployment',
-                'Custom integrations',
-                'Dedicated support',
-                'Training sessions'
-            ],
-            popular: false
-        }
-    ]
-} 

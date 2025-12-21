@@ -1,8 +1,8 @@
 /**
- * Base Types for Robota SDK
- * 
+ * Generic Types for Robota SDK
+ *
  * Core primitive and utility types that are reused across the entire codebase.
- * These types form the foundation for all other type definitions.
+ * These types form a shared foundation for configuration and metadata.
  */
 
 /**
@@ -14,7 +14,7 @@ export type primitive = string | number | boolean | undefined;
  * Recursive configuration value type
  * Supports nested objects and arrays for complex configuration structures
  */
-export type ConfigValue = 
+export type ConfigValue =
     | primitive
     | Date
     | ConfigValue[]
@@ -30,7 +30,7 @@ export type GenericConfig = Record<string, ConfigValue>;
 /**
  * Metadata value types (includes all ConfigValue plus specific metadata types)
  */
-export type MetadataValue = 
+export type MetadataValue =
     | primitive
     | Date
     | Error
@@ -85,3 +85,5 @@ export interface BaseEntity extends Identifiable, Timestamped, Configurable {
     name?: string;
     description?: string;
 }
+
+

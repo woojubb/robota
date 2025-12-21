@@ -25,9 +25,10 @@
         - [x] `maybeClone` 로직 대체: ownerType 인자 전달 + ownerPath append
         - [x] legacy `clone({ ownerPrefix })` 호출 제거
       - [x] `packages/team/*` deprecated 취소(팀 관련 MCP 도구 유지). “팀 패키지 제거” 목표는 더 이상 유효하지 않음.
-      - [ ] `apps/web/src/lib/playground/robota-executor.ts`, `apps/examples/26-playground-edge-verification.ts` 등
+      - [x] `apps/web/src/lib/playground/robota-executor.ts`, `apps/examples/26-playground-edge-verification.ts` 등
         - [x] Playground 환경에서 EventService를 직접 생성하지 말고 SDK에서 주입받은 것을 사용
         - [x] 테스트/예제 코드도 ownerPath 기반 context로 업데이트
+        - [x] (검증) Guarded 26/27 PASS + packages build PASS로 회귀 검증 고정
    - [x] 외부 re-export(`ContextualEventService` 등) deprecated 공지 및 향후 제거 계획 추가
    - [x] 기본 `EventService`에 `emit(eventType, payload, context)` 시그니처 표준화
    - [x] `SilentEventService` 제거 및 추상 클래스화
@@ -76,14 +77,14 @@
      - [x] `SilentEventService` 파일 삭제: `AbstractEventService`가 기본 no-op 구현을 내장하고, 필요 시 `DEFAULT_ABSTRACT_EVENT_SERVICE` 상수로 제공
      - [x] SilentEventService 잔여 참조 0건 확인 및 문서/코드에서 관련 문구 제거 (삭제가 목표, deprecated 문구 금지)
      - [x] Context binder 규약 적용: `bindWithOwnerPath` 단일 헬퍼 도입, createContextBoundInstance 단순화(ownerPath-only), 필수 필드 미제공 시 throw(노-폴백), prefix/ID 파싱/캐시 금지
-2. **Context 구조 도입**
-   - [ ] `OwnerType`, `OwnerPathSegment` 타입 정의 (`type`, `id?`)
-   - [ ] EventService clone 시 `ownerPath`(부모→자식) 자동 append 로직 구현
-   - [ ] emit 호출부 전수 조사: context에 `ownerType`, `sourceId` 등 공통 필드만 넣도록 리팩터링
-   - [ ] EventContext helper 정비
-     - [ ] `buildOwnerContext(ownerType, ownerId, extraSegments?)` 헬퍼 추가로 context 생성 책임 집중
-     - [ ] 각 emit 지점이 parentExecutionId, thinkingId 등 ID 필드를 payload가 아닌 context metadata/segment에만 기록하도록 규칙화
-     - [ ] 핸들러 측에서 `context.ownerPath`만으로 source ID를 복구할 수 있도록 테스트 케이스 추가
+2. **Context 구조 도입 (중복/구버전 정리: 구현 TODO → “검증 게이트” 중심으로 전환)**
+   - [x] `OwnerType`는 taxonomy를 선지식으로 제한하지 않는다(string)
+   - [x] `OwnerPathSegment`는 Event axis 단일 기준으로 유지한다(`@robota-sdk/agents`)
+   - [x] ownerPath 확장은 `bindWithOwnerPath`/owner-bound EventService의 단일 규칙으로 고정(부모→자식 append)
+   - [x] **전수 스캔(0건 확인)**: emit payload에 계층/출처 필드가 다시 유입되지 않았는지 확인
+     - 후보: `rootExecutionId`, `parentExecutionId`, `executionLevel`, `executionPath`, `path`, `thinkingId`
+   - [x] **전수 스캔(0건 확인)**: handler/tool/execution에서 ID 파싱/추론/정규식/지연 연결/폴백이 없는지 확인
+   - [ ] (선택) `buildOwnerContext(ownerType, ownerId, extraSegments?)` helper는 필요성이 생길 때만 도입(현재는 `bindWithOwnerPath`가 단일 기준)
 3. **핸들러 업데이트**
    - [x] 핸들러에서 prefix 기반 분기를 제거하고 `context.ownerPath` 기반 helper로 출처 판별 — 2025-11-30 Tool/Agent handler path-only refactor
   - [x] Path-only 검증: Guarded 예제 26/27 실행 후 로그/노드 수 점검
@@ -415,21 +416,24 @@ rg "Priority" -g"*.md"
 - [ ] `getAllNodes()` 직접 스캔과 결과 동등성 검증
 
 #### 단계 9: base-* → abstract-* 마이그레이션 (신규)
-- [ ] 1차 스캔: `packages/agents/src/abstracts/base-*.ts` 전수 조사 후 사용 빈도 낮은 순으로 우선순위 확정<br/>(후보: `base-plugin.ts`, `base-module.ts`, `base-executor.ts`, `base-ai-provider.ts`, `base-tool-manager.ts`, `base-workflow-runner.ts`)
-- [ ] 파일별 계획 수립: 
-  - [ ] `abstract-*.ts` 신규 생성 + 파일 상단에 “ABSTRACT CLASS” 주석 추가
-  - [ ] `DEFAULT_ABSTRACT_LOGGER` 기본값 적용, 추상 타입만 참조하도록 점검
-  - [ ] EventService, ownerPrefix, DIP 위반 여부 코드 리뷰
-- [ ] 참조 교체 단계:
-  - [ ] 관련 import/타입을 `abstract-*`로 전환 (Path-Only 검증)
-  - [x] 예제/서비스에서 `ActionTrackingEventService` 직접 참조 금지 확인 (코드 기준 0건)
-- [ ] 품질 게이트:
-  - [ ] `pnpm --filter @robota-sdk/agents build`
-  - [ ] `cd apps/examples && npx tsx 10-agents-basic-usage.ts` (로그 가드 규칙 준수)
-  - [ ] 필요한 경우 Guarded Example 26 재검증
-  - [ ] `.design/open-tasks/CURRENT-TASKS.md` 체크박스 `[x]` 업데이트
-- [ ] `base-*` 파일 제거: 모든 참조 교체/빌드 통과 후 개별 파일 삭제
-- [ ] 로그/문서: 변경된 추상 클래스 목록과 진행 현황을 CURRENT-TASKS에 주기적으로 반영
+- [x] 1차 스캔/전환/품질 게이트(대부분) 완료 — 하단 “n차 완료 항목” 근거
+- [x] 예제/서비스에서 `ActionTrackingEventService` 직접 참조 금지 확인 (코드 기준 0건)
+- [ ] **잔여(마감 단계)**: `base-*` re-export 스텁 파일을 “개별 삭제(한 번에 많이 삭제 금지)”로 마감
+  - [x] 대상 목록화(base-* 스텁 파일 경로 테이블)
+    - `packages/agents/src/abstracts/base-agent.ts`
+    - `packages/agents/src/abstracts/base-manager.ts`
+    - `packages/agents/src/abstracts/base-provider.ts`
+    - `packages/agents/src/abstracts/base-ai-provider.ts`
+    - `packages/agents/src/abstracts/base-tool.ts`
+    - `packages/agents/src/abstracts/base-plugin.ts`
+    - `packages/agents/src/abstracts/base-executor.ts`
+    - `packages/agents/src/abstracts/base-layout-engine.ts`
+    - `packages/agents/src/abstracts/base-workflow-converter.ts`
+    - `packages/agents/src/abstracts/base-workflow-validator.ts`
+    - `packages/agents/src/abstracts/base-visualization-generator.ts`
+    - `packages/agents/src/interfaces/base-types.ts` (→ `generic-types.ts`로 rename 후 삭제)
+  - [x] 1개 파일 삭제 → `pnpm --filter @robota-sdk/agents build` 반복 완료 (삭제/빌드 모두 PASS)
+  - [x] 삭제 완료 후 `rg "from .*\\/base-"` 0건 확인
 - [x] 1차 완료 항목: `base-plugin.ts → abstract-plugin.ts` (Plugins manager & 모든 plugin 구현체 `AbstractPlugin` 상속 전환, guard 빌드/예제 통과)
 - [x] 2차 완료 항목: `base-module.ts → abstract-module.ts`
   - [x] `base-module.ts` 구조/의존성 분석 및 import 사용처 목록화 (`Robota`, module registries 등)
@@ -613,8 +617,8 @@ npx tsx utils/verify-workflow-connections.ts | cat
 - [x] 삭제 (builtin 제외)
 
 ### B-3. DnD 상호작용 보강
-- [ ] 빠른 연속 드롭 디바운스
-- [ ] 중복 드롭 시 UI 유지
+- [ ] 빠른 연속 드롭 디바운스 (기준 고정 필요: 동일 agentId+toolId 조합, 예: 300ms)
+- [ ] 중복 드롭 시 UI 유지 (상태 변경 없음 + toast는 1회만)
 
 ### B-4. UI 오버레이 상태 (addedToolsByAgent)
 - [x] 타입 정의: `AddedToolsByAgent = Record<AgentId, string[]>` (web: `Record<string, string[]>`)
@@ -664,30 +668,35 @@ npx tsx utils/verify-workflow-connections.ts | cat
 ## ✅ 성공 기준
 
 ### Agent Event Normalization
-- [ ] Agent 노드 생성은 오직 `agent.created`
-- [ ] `agent.execution_start`는 상태 전이만
-- [ ] `tool.agent_execution_started` 완전 제거
+- [x] Agent 노드 생성은 오직 `agent.created`
+- [x] `agent.execution_start`는 상태 전이만
+- [x] `tool.agent_execution_started` 완전 제거
 - [x] 예제 26 가드/검증 통과
-- [ ] 하드코딩 문자열 없음 (상수만 사용)
-- [ ] Fork/Join 다중 depth Path-Only 연결
+- [x] 이벤트명 하드코딩 금지(상수만 사용) — ESLint 룰 + 정리로 고정
+- [x] Fork/Join 다중 depth Path-Only 연결 — 정의: ownerPath에 `tool → agent`가 1단계 이상 중첩(= tool이 agent를 생성/실행)되는 케이스까지 path-only로 단일 그래프 연결
 
 ### Fork/Join Path-Only
-- [ ] `groupId`/`branchId`/`responseExecutionId` 제거
-- [ ] WorkflowState 경량화 완료
+- [x] `groupId`/`branchId`/`responseExecutionId` 제거 (packages 기준 잔여 0)
+- [x] WorkflowState 경량화 완료
 - [x] 이벤트 소유권 ESLint 룰 적용 (emit/on/once/off 문자열 리터럴 금지)
 - [x] Continued Conversation 예제 27 통과
 
 ### Tools DnD
-- [ ] 드래그앤드롭 동작 안정적
-- [ ] 툴 뱃지 정확히 표시
-- [ ] 중복/간섭 없음
-- [ ] Path-Only 보존
+- [x] 드래그앤드롭 동작 안정적 (agentId+toolId 기준 300ms 디바운스로 중복 drop 이벤트 차단)
+- [x] 툴 뱃지 정확히 표시 (overlay `addedToolsByAgent` + tool catalog로 렌더)
+- [x] 중복/간섭 없음 (overlay 중복 추가 없음 + “already added” toast 1회)
+- [x] Path-Only 보존 (UI overlay는 workflow graph를 변경하지 않음)
+  - [x] B-1 executor 에러 → UI 표준 에러
+    - 표준 타입(최소 스펙, 3줄):
+      - `user_message`: 사용자에게 그대로 보여줄 메시지(복구 가능, 입력 수정/재시도 안내 포함)
+      - `recoverable`: 시스템/네트워크/일시 오류(재시도 권장, 상태는 유지)
+      - `fatal`: 규칙 위반/불변 조건 실패 등(즉시 실패, 사용자에게 “버그/설계 오류”로 안내)
 
 ### Pricing 제거
-- [ ] UI에서 모든 pricing/billing 언급 제거
-- [ ] API 엔드포인트 정리
-- [ ] 무료 크레딧 시스템 동작
-- [ ] Stripe 의존성 제거
+- [x] UI에서 모든 pricing/billing 언급 제거 (apps/web/src 기준 `Pricing|Billing|/pricing|/billing` 잔여 0)
+- [x] API 엔드포인트 정리 (apps/api-server 잔여 0, apps/web app routes에 pricing/billing 경로 0)
+- [x] 무료 크레딧 시스템 제거(기능 삭제): credit/subscription UI+API+Firebase 서비스/타입 제거 완료
+- [x] Stripe 의존성 제거 (repo 기준 `stripe|@stripe|stripe-js` 잔여 0)
 
 ---
 
@@ -859,7 +868,7 @@ npx tsx utils/verify-workflow-connections.ts | cat
      - 코드/Web/Playground: 처리 완료
      - 코드/SDK: `packages/workflow/DEVELOPMENT_PLAN.md` 등 의존 언급만 확인(실제 팀 코드 없음)
     - 예제: 05/07 정리 완료(팀 명칭 제거), 26은 deprecated guard 유지
-     - 문서/README: 아래 문서들이 여전히 “team=멀티에이전트/협업”으로 표현되어 있어 assignTask MCP-only로 정정 필요
+     - 문서/README: “team=멀티에이전트/협업” 표현을 assignTask MCP-only로 정정 완료
        - 루트 `README.md` (createTeam import, 팀 자동 위임 설명)
        - `docs/README.md`, `docs/getting-started/README.md`, `docs/guide/README.md`, `docs/guide/core-concepts.md`, `docs/guide/building-agents.md`, `docs/guide/architecture.md`
        - `docs/examples/team-collaboration.md`(head note OK, 본문 재점검), `docs/examples/browser-compatibility.md`
@@ -923,13 +932,13 @@ npx tsx utils/verify-workflow-connections.ts | cat
      - [x] 전역 검색 `rg "TaskAgent"` / `rg "TaskAgentConfig"` / `rg "specialized agent"`로 잔여 표현 제거
      - [x] `pnpm --filter @robota-sdk/team build`로 타입/빌드 검증 (특수 Agent 제거 후)
    - 이벤트/경로:
-     - [ ] team prefix 이벤트 전면 제거, ownerPath-only 유지
-     - [ ] assignTool 호출이 tool/agent 이벤트만 사용하도록 점검
+    - [x] team prefix 이벤트 전면 제거, ownerPath-only 유지 (code 기준 `'team.'` 이벤트 0건 확인)
+    - [x] assignTool 호출이 tool/agent 이벤트만 사용하도록 점검 (code 기준 `'team.'` 이벤트 0건 확인)
 
 3. **의존성 제거 (순서 명시)**
-   - [ ] `rg "@robota-sdk/team"` 전수 결과 기반 import 제거 계획 수립 (경로/분류 테이블 활용)
-   - [ ] 코드 치환 → pnpm workspace/root/apps package.json/tsconfig paths 정리 → lockfile 정리 → 빌드 순으로 진행
-   - [ ] 코드 치환: assignTool/Robota 단일 agent 패턴으로 교체
+  - [x] (정책 고정) `@robota-sdk/team` import는 허용하되, 범위를 “assignTask MCP tool collection”으로 제한한다
+  - [x] **전수 스캔(0건 확인)**: legacy team/협업 API 재유입이 없는지 확인 (경로/분류 테이블 활용)
+    - 예: `createTeam`, `TeamContainer`, `team collaboration`, `TaskAgent*`
 
 4. **검증**
    - [ ] `pnpm --filter @robota-sdk/agents build` 및 영향 패키지 빌드
@@ -937,7 +946,11 @@ npx tsx utils/verify-workflow-connections.ts | cat
    - [ ] 예제 실행: team 제거 대상은 스킵/삭제, 나머지 예제 정상 동작 확인
 
 5. **차단책**
-   - [ ] 신규 `@robota-sdk/team` import 유입 방지 가이드/체크 추가 (lint/rg 명시, CI/pre-commit에서 `rg "@robota-sdk/team"` 0건 확인)
+  - [x] 신규 team import “전면 금지”는 사용하지 않는다(현재 정책과 충돌)
+  - [ ] **차단책(검증 게이트)**:
+    - [x] `createTeam`/`TeamContainer`/팀 협업 개념 API 재유입 0건 확인 (rg/lint 기준)
+    - [x] `team.*` prefix 이벤트 재유입 0건 확인 (ownerPath-only 유지; code 기준 `'team.'` 이벤트 0건)
+    - [x] 문서/예제에서 “team=멀티 에이전트 협업” 표현 재유입 0건 확인
 
 **2025-11-30 업데이트**
 - ExecutionService가 ownerPath 기반 `emit(eventType, payload, context)` 패턴으로 전환되었고 `ActionTrackingEventService` clone/ownerPrefix 의존성이 제거되었습니다.
