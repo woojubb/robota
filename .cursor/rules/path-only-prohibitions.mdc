@@ -6,6 +6,14 @@ alwaysApply: true
 
 This rule enforces the Path-Only event graph construction with zero tolerance for workarounds. It applies to all code in this workspace.
 
+## Rule Precedence
+- If any guidance conflicts with this document, **this document wins**.
+- In particular, this rule overrides any “always throw/crash” guidance when explicit linkage information is missing:
+  - **Do not fabricate relationships**
+  - **Do not fallback**
+  - **Do not infer**
+  - Stop processing the current event deterministically and let the design be fixed at the source
+
 ## Absolute Prohibitions (Hard Ban)
 - No fallback logic, no delays, no waits, no deferred/later linking, no temporary handling
 - No deduplication or suppression layers

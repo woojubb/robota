@@ -29,10 +29,10 @@ interface WorkflowValidator {
   validate(data: WorkflowData): ValidationResult;
 }
 
-// ❌ WRONG: Korean in code
-interface 워크플로우검증기 {
-  // 워크플로우 데이터 구조를 검증합니다
-  검증(데이터: WorkflowData): ValidationResult;
+// ❌ WRONG: Non-English text in code/comments (policy violation)
+interface NonEnglishNamedInterface {
+  // [NON-ENGLISH TEXT HERE]
+  validate(data: WorkflowData): ValidationResult;
 }
 ```
 
@@ -70,6 +70,10 @@ interface 워크플로우검증기 {
 - **Use Korean** for user communication and chat responses
 - **Use English** for all code, technical terms, and implementation details within responses
 - When showing code examples or technical solutions, use English even in Korean responses
+
+## Precedence
+- `.cursor/rules/language-usage.mdc` is the authoritative, minimal policy.
+- This document provides examples and elaboration.
 
 ## Enforcement
 This rule applies to all development work and should be consistently followed across the entire codebase to maintain international collaboration standards while preserving Korean documentation for internal design processes.

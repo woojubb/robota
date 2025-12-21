@@ -28,8 +28,9 @@ packages/
 - All code must pass strict TypeScript compilation
 - Zero tolerance for any/unknown types in production code
 - ESLint enforcement at error level for type safety
-- Individual package builds: `npm run build` in package directory
-- Full workspace build: `npm run build` in root
+- This repository is a **pnpm workspace monorepo**. Follow `.cursor/rules/pnpm-monorepo-build.mdc`.
+  - Individual package builds: `pnpm --filter @robota-sdk/<package> build`
+  - Full workspace build: `pnpm build`
 
 ## Type Naming Conventions (Mandatory)
 
@@ -50,3 +51,24 @@ packages/
 ### Notes
 - This is a **project-wide convention** and should be applied consistently for new code.
 - When touching existing code, prefer migrating names gradually only when it does not create churn or break public APIs.
+
+## Type Ownership & Contract Surface (Mandatory)
+
+### Single Source of Truth (SSOT)
+- Each concept must have exactly one owner module/package that defines it.
+- Non-owner packages must **import from the owner's public exports** and must not re-declare equivalent shapes locally.
+
+### Contract Re-Exports (`export type { ... }`)
+- **Public contract types** may be re-exported only from:
+  - Package entrypoints (e.g., `packages/<pkg>/src/index.ts`)
+  - Interface aggregators (e.g., `packages/<pkg>/src/interfaces/index.ts`)
+- Avoid re-exporting contract types from managers/services/handlers. That pattern makes ownership ambiguous and reintroduces alias drift.
+- Do not expose legacy/compatibility aliases in public surfaces unless explicitly required for compatibility. Prefer exporting canonical `T*`/`I*` names only.
+
+### Tool Call Contract (Hard Rule)
+- The tool call type is owned by `packages/agents/src/interfaces/messages.ts` and must be **`IToolCall` only**.
+- **Prohibited**:
+  - Defining or exporting `ToolCall` (alias or interface) anywhere.
+  - Defining “same-shape” duplicates (e.g., `ToolCallData`) in service or adapter layers.
+- **Required**:
+  - If a layer needs tool calls (responses, streaming chunks, adapters), use `IToolCall[]`.
