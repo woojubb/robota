@@ -3,7 +3,7 @@ import { Logger, createLogger } from '../../utils/logger';
 import type { RunOptions } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../managers/conversation-history-manager';
 import { isAssistantMessage } from '../../managers/conversation-history-manager';
-import type { TToolParameters, ToolExecutionResult } from '../../interfaces/tool';
+import type { TToolParameters, TToolExecutionResult } from '../../interfaces/tool';
 import type {
     ExecutionStats,
     AggregatedExecutionStats,
@@ -226,7 +226,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsO
     /**
      * Called after tool call - end tracking
      */
-    override async afterToolCall(toolName: string, parameters: TToolParameters, result: ToolExecutionResult): Promise<void> {
+    override async afterToolCall(toolName: string, parameters: TToolParameters, result: TToolExecutionResult): Promise<void> {
         // Find the related execution
         const execution = this.findActiveExecution('tool-call', toolName);
 

@@ -5,22 +5,22 @@ import { ToolExecutionService } from './tool-execution-service';
 import type { AIProviderManagerInterface } from '../interfaces/manager';
 import type { ToolManagerInterface } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
-import type { ToolExecutionContext } from '../interfaces/tool';
+import type { TToolExecutionContext } from '../interfaces/tool';
 import { Logger, createLogger } from '../utils/logger';
 import { ChatOptions } from '../interfaces/provider';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
 import {
-    EventService,
+    IEventService,
     DEFAULT_ABSTRACT_EVENT_SERVICE,
     isDefaultEventService,
-    EventContext,
-    OwnerPathSegment,
-    ServiceEventType,
-    ExecutionEventData,
-    ToolEventData,
+    IEventContext,
+    IOwnerPathSegment,
+    TServiceEventType,
+    IExecutionEventData,
+    IToolEventData,
     bindEventServiceOwner,
     bindWithOwnerPath,
-    BaseEventData
+    IBaseEventData
 } from './event-service';
 import type { ToolExecutionBatchContext } from './tool-execution-service';
 
@@ -116,11 +116,11 @@ export class ExecutionService {
     private conversationHistory: ConversationHistory;
     private plugins: AbstractPlugin[] = [];
     private logger: Logger;
-    private baseEventService: EventService;
+    private baseEventService: IEventService;
     private executionContext?: ExecutionContextInjection; // 🎯 [CONTEXT-INJECTION] Parent execution context
-    private ownerPathBase: OwnerPathSegment[];
-    private toolEventServices: Map<string, EventService>;
-    private agentOwnerPathBase: OwnerPathSegment[];
+    private ownerPathBase: IOwnerPathSegment[];
+    private toolEventServices: Map<string, IEventService>;
+    private agentOwnerPathBase: IOwnerPathSegment[];
     // Path-only: remove lastResponseExecutionId tracking
     private lastResponseExecutionId?: string | undefined;
 
@@ -128,7 +128,7 @@ export class ExecutionService {
         aiProviders: AIProviderManagerInterface,
         tools: ToolManagerInterface,
         conversationHistory: ConversationHistory,
-        eventService?: EventService,
+        eventService?: IEventService,
         executionContext?: ExecutionContextInjection // 🎯 [CONTEXT-INJECTION] Accept parent context
     ) {
         this.toolExecutionService = new ToolExecutionService(tools as any);
@@ -1243,7 +1243,7 @@ export class ExecutionService {
         }
     }
 
-    private ensureToolEventService(ownerId: string | undefined, ownerPath: OwnerPathSegment[] | undefined): EventService {
+    private ensureToolEventService(ownerId: string | undefined, ownerPath: IOwnerPathSegment[] | undefined): IEventService {
         if (isDefaultEventService(this.baseEventService)) {
             return this.baseEventService;
         }
@@ -1275,16 +1275,16 @@ export class ExecutionService {
         this.agentOwnerPathBase = [];
     }
 
-    private buildBaseOwnerPath(executionContext?: ExecutionContextInjection): OwnerPathSegment[] {
+    private buildBaseOwnerPath(executionContext?: ExecutionContextInjection): IOwnerPathSegment[] {
         if (!executionContext?.ownerPath?.length) {
             return [];
         }
         return executionContext.ownerPath.map(segment => ({ ...segment }));
     }
 
-    private buildExecutionOwnerContext(rootId: string, executionId: string): EventContext {
+    private buildExecutionOwnerContext(rootId: string, executionId: string): IEventContext {
         const basePath = this.agentOwnerPathBase.length ? this.agentOwnerPathBase : this.ownerPathBase;
-        const path: OwnerPathSegment[] = [...basePath];
+        const path: IOwnerPathSegment[] = [...basePath];
         if (rootId && !path.some(segment => segment.type === 'agent' && segment.id === rootId)) {
             path.push({ type: 'agent', id: rootId });
         }
@@ -1296,9 +1296,9 @@ export class ExecutionService {
         };
     }
 
-    private buildThinkingOwnerContext(rootId: string, executionId: string, thinkingNodeId: string): EventContext {
+    private buildThinkingOwnerContext(rootId: string, executionId: string, thinkingNodeId: string): IEventContext {
         const base = this.buildExecutionOwnerContext(rootId, executionId).ownerPath;
-        const path: OwnerPathSegment[] = [...base, { type: 'thinking', id: thinkingNodeId }];
+        const path: IOwnerPathSegment[] = [...base, { type: 'thinking', id: thinkingNodeId }];
         return {
             ownerType: 'thinking',
             ownerId: thinkingNodeId,
@@ -1306,7 +1306,7 @@ export class ExecutionService {
         };
     }
 
-    private buildToolOwnerContext(rootId: string, executionId: string, toolCallId: string): EventContext {
+    private buildToolOwnerContext(rootId: string, executionId: string, toolCallId: string): IEventContext {
         // Tool calls are always children of a specific thinking phase (fork point).
         // The caller must provide an ownerPathBase that already includes `{ type: 'thinking', id }`.
         const base = this.buildExecutionOwnerContext(rootId, executionId).ownerPath;
@@ -1318,10 +1318,10 @@ export class ExecutionService {
         };
     }
 
-    private buildResponseOwnerContext(rootId: string, executionId: string, thinkingNodeId: string): EventContext {
+    private buildResponseOwnerContext(rootId: string, executionId: string, thinkingNodeId: string): IEventContext {
         const thinkingPath = this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId).ownerPath;
         const responseNodeId = `response_${thinkingNodeId}`;
-        const path: OwnerPathSegment[] = [...thinkingPath, { type: 'response', id: responseNodeId }];
+        const path: IOwnerPathSegment[] = [...thinkingPath, { type: 'response', id: responseNodeId }];
         return {
             ownerType: 'response',
             ownerId: responseNodeId,
@@ -1329,7 +1329,7 @@ export class ExecutionService {
         };
     }
 
-    private emitExecution(eventType: ServiceEventType, data: ExecutionEventData, rootId: string, executionId: string): void {
+    private emitExecution(eventType: TServiceEventType, data: IExecutionEventData, rootId: string, executionId: string): void {
         this.emitWithContext(
             eventType,
             data,
@@ -1345,7 +1345,7 @@ export class ExecutionService {
         );
     }
 
-    private emitTool(eventType: ServiceEventType, data: ToolEventData, rootId: string, executionId: string, toolCallId: string): void {
+    private emitTool(eventType: TServiceEventType, data: IToolEventData, rootId: string, executionId: string, toolCallId: string): void {
         this.emitWithContext(
             eventType,
             data,
@@ -1354,11 +1354,11 @@ export class ExecutionService {
         );
     }
 
-    private emitWithContext<TEvent extends BaseEventData>(
-        eventType: ServiceEventType,
+    private emitWithContext<TEvent extends IBaseEventData>(
+        eventType: TServiceEventType,
         data: TEvent,
-        buildContext: () => EventContext,
-        resolveService: (context: EventContext) => EventService
+        buildContext: () => IEventContext,
+        resolveService: (context: IEventContext) => IEventService
     ): void {
         if (isDefaultEventService(this.baseEventService)) {
             return;

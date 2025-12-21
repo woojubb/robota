@@ -1,5 +1,5 @@
-import { Robota, type AgentConfig, bindWithOwnerPath, FunctionTool, RelayMcpTool, type EventService } from '@robota-sdk/agents';
-import type { TToolParameters, ToolResult, ToolSchema, OwnerPathSegment } from '@robota-sdk/agents';
+import { Robota, type AgentConfig, bindWithOwnerPath, FunctionTool, RelayMcpTool, type IEventService } from '@robota-sdk/agents';
+import type { TToolParameters, TToolResult, ToolSchema, IOwnerPathSegment } from '@robota-sdk/agents';
 import templates from './templates.json';
 
 type TemplateEntry = {
@@ -116,11 +116,11 @@ export const getTemplateDetailTool = new FunctionTool(getTemplateDetailSchema, a
     return tmpl;
 });
 
-export function createAssignTaskRelayTool(eventService: EventService): RelayMcpTool {
+export function createAssignTaskRelayTool(eventService: IEventService): RelayMcpTool {
     return new RelayMcpTool({
         schema: assignTaskSchema,
         eventService,
-        run: async (params: TToolParameters, ctx): Promise<ToolResult> => {
+        run: async (params: TToolParameters, ctx): Promise<TToolResult> => {
             const templateId = typeof params.templateId === 'string' ? params.templateId : '';
             const jobDescription = typeof params.jobDescription === 'string' ? params.jobDescription : '';
             if (!templateId) {
@@ -150,8 +150,8 @@ export function createAssignTaskRelayTool(eventService: EventService): RelayMcpT
             if (!ctx?.agentId) {
                 throw new Error('[ASSIGN-TASK] Missing context.agentId');
             }
-            const parentOwnerPath: OwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map((s: OwnerPathSegment) => ({ ...s })) : [];
-            const agentOwnerPath: OwnerPathSegment[] = [...parentOwnerPath, { type: 'agent', id: ctx.agentId }];
+            const parentOwnerPath: IOwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map((s: IOwnerPathSegment) => ({ ...s })) : [];
+            const agentOwnerPath: IOwnerPathSegment[] = [...parentOwnerPath, { type: 'agent', id: ctx.agentId }];
             const agentEventService = bindWithOwnerPath(ctx.baseEventService, {
                 ownerType: 'agent',
                 ownerId: ctx.agentId,

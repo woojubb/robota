@@ -45,28 +45,28 @@ export type {
     FunctionTool,
     ToolRegistryInterface,
     ToolFactoryInterface,
-    ToolResult,
-    ToolExecutionResult,
-    ToolExecutionContext,
+    TToolResult,
+    TToolExecutionResult,
+    TToolExecutionContext,
     ParameterValidationResult,
     ToolExecutor,
     OpenAPIToolConfig,
     MCPToolConfig,
-    ToolMetadata,
-    ToolExecutionData
+    TToolMetadata,
+    TToolExecutionData
 } from './tool';
 
 export type {
-    EventService,
-    EventContext,
-    OwnerPathSegment,
-    OwnerType,
-    ServiceEventType,
-    BaseEventData,
-    ExecutionEventData,
-    ToolEventData,
-    AgentEventData,
-    EventServiceOwnerBinding
+    IEventService,
+    IEventContext,
+    IOwnerPathSegment,
+    TOwnerType,
+    TServiceEventType,
+    IBaseEventData,
+    IExecutionEventData,
+    IToolEventData,
+    IAgentEventData,
+    IEventServiceOwnerBinding
 } from './event-service';
 
 // 🆕 Progress reporting interface exports

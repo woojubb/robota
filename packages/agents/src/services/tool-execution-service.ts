@@ -1,7 +1,7 @@
-import { ToolExecutionResult, ToolResult, ToolExecutionContext, ToolOwnerPathSegment, ToolMetadata } from '../interfaces/tool';
+import { TToolExecutionResult, TToolExecutionContext, TToolMetadata } from '../interfaces/tool';
 import type { ToolManagerInterface } from '../interfaces/manager';
 import type { TToolParameters } from '../interfaces/tool';
-import type { EventService, OwnerPathSegment, ToolEventData } from '../interfaces/event-service';
+import type { IEventService, IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
 
@@ -21,12 +21,12 @@ export interface ToolExecutionRequest {
     toolName: string;
     parameters: TToolParameters;
     executionId?: string;
-    metadata?: ToolMetadata;
+    metadata?: TToolMetadata;
     ownerType?: string;
     ownerId?: string;
-    ownerPath?: OwnerPathSegment[];
-    eventService?: EventService;
-    baseEventService?: EventService;
+    ownerPath?: IOwnerPathSegment[];
+    eventService?: IEventService;
+    baseEventService?: IEventService;
 }
 
 export interface ToolExecutionBatchContext {
@@ -35,7 +35,7 @@ export interface ToolExecutionBatchContext {
     timeout?: number;
     continueOnError?: boolean;
     maxConcurrency?: number;
-    parentContext?: ToolExecutionContext;
+    parentContext?: TToolExecutionContext;
 }
 
 /**
@@ -61,8 +61,8 @@ export class ToolExecutionService {
     async executeTool(
         toolName: string,
         parameters: TToolParameters,
-        context?: ToolExecutionContext
-    ): Promise<ToolExecutionResult> {
+        context?: TToolExecutionContext
+    ): Promise<TToolExecutionResult> {
         this.logger.debug(`Executing tool: ${toolName}`);
 
         try {
@@ -72,7 +72,7 @@ export class ToolExecutionService {
 
             const eventService = context.eventService;
             if (eventService) {
-                const startEvent: ToolEventData = {
+                const startEvent: IToolEventData = {
                     toolName,
                     parameters
                 };
@@ -88,7 +88,7 @@ export class ToolExecutionService {
             void _toolName;
             void _parameters;
 
-            const executionContext: ToolExecutionContext = {
+            const executionContext: TToolExecutionContext = {
                 ...restContext,
                 toolName,
                 parameters,
@@ -102,7 +102,7 @@ export class ToolExecutionService {
             this.logger.debug(`Tool execution completed: ${toolName}`);
 
             if (eventService) {
-                const completeEvent: ToolEventData = {
+                const completeEvent: IToolEventData = {
                     toolName,
                     result: result as any
                 };
@@ -123,7 +123,7 @@ export class ToolExecutionService {
 
             const eventService = context?.eventService;
             if (eventService && context?.executionId) {
-                const errorEvent: ToolEventData = {
+                const errorEvent: IToolEventData = {
                     toolName,
                     error: toolError.message
                 };
@@ -148,8 +148,8 @@ export class ToolExecutionService {
     createExecutionRequestsWithContext(
         toolCalls: Array<{ id: string; function: { name: string; arguments: string } }>,
         context: {
-            ownerPathBase: OwnerPathSegment[];
-            metadataFactory?: (toolCall: { id: string; function: { name: string; arguments: string } }) => ToolMetadata | undefined;
+            ownerPathBase: IOwnerPathSegment[];
+            metadataFactory?: (toolCall: { id: string; function: { name: string; arguments: string } }) => TToolMetadata | undefined;
         }
     ): ToolExecutionRequest[] {
         return toolCalls.map(toolCall => ({
@@ -168,10 +168,10 @@ export class ToolExecutionService {
      * @param batchContext - Batch execution context
      * @returns Promise resolving to tool execution summary
      */
-    async executeTools(batchContext: ToolExecutionBatchContext): Promise<{ results: ToolExecutionResult[], errors: Error[] }> {
+    async executeTools(batchContext: ToolExecutionBatchContext): Promise<{ results: TToolExecutionResult[], errors: Error[] }> {
         this.logger.debug(`Executing ${batchContext.requests.length} tools in ${batchContext.mode} mode`);
 
-        const results: ToolExecutionResult[] = [];
+        const results: TToolExecutionResult[] = [];
         const errors: Error[] = [];
 
         if (batchContext.mode === 'parallel') {
