@@ -34,38 +34,4 @@ export interface ApiResponse<T = any> {
     message?: string
 }
 
-// User types (for future auth implementation)
-export interface User {
-    id: string
-    email: string
-    name: string
-    avatar?: string
-    role: 'user' | 'admin'
-    createdAt: Date
-    updatedAt: Date
-}
-
-// Playground types (for future implementation)
-export interface Project {
-    id: string
-    name: string
-    description?: string
-    code: string
-    language: string
-    template?: string
-    isPublic: boolean
-    author: User
-    createdAt: Date
-    updatedAt: Date
-}
-
-export interface Template {
-    id: string
-    name: string
-    description: string
-    code: string
-    language: string
-    category: string
-    tags: string[]
-    featured: boolean
-} 
+// Note: Auth/Website domain types were removed. apps/web is a minimal Playground host.

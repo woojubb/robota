@@ -118,6 +118,42 @@
        - [x] `apps/examples/utils/run-and-verify-workflow.ts`가 guarded 예제만 실행하도록 전환(legacy 26 호출 제거, timeout 제거)
        - [x] `apps/examples/package.json` 스크립트에서 legacy 26 호출 제거
       - [x] Guarded 예제 26 실행(가드) + verify 통과
+
+---
+
+## 🚧 Priority 0.5: Playground 단독 배포/라이브러리 전환 (Website 제거)
+
+### 목표
+- 이 레포는 **배포 가능한 Playground(React 컴포넌트)**만 유지한다.
+- 기존 Website(홈/문서/대시보드/회원가입/로그인/프로필/설정 등)는 **완전 삭제**한다(Deprecated 금지).
+- 크레딧/요금제/구독/플랜 개념은 **완전 삭제**한다.
+- 향후 웹사이트는 **다른 레포**에서 “배포된 Playground”에 의존하는 형태로 관리한다.
+
+### 결정(필수)
+- Playground 제공 형태(최종 목표):
+  1) **단독 배포물**(예: `/playground`만 가진 앱)로 배포 → 외부 사이트가 URL/iframe 등으로 의존
+  2) **라이브러리 패키지**로 추출(`packages/*`) → 외부 사이트가 dependency로 설치해 embed
+- 현재 선택(진행 중):
+  - **2) 라이브러리 패키지 추출**을 즉시 진행한다: `packages/playground` 신설 + `apps/web`는 `/playground`만 렌더하는 최소 호스트로 축소.
+  - 추가 프레임워크 지원을 위해 패키지명은 `playground-react`가 아니라 **`@robota-sdk/playground`**로 고정한다(내부 구현은 React).
+
+### 작업 항목
+1) **Auth/회원 시스템 완전 삭제**
+  - [x] `apps/web`에서 회원가입/로그인/비밀번호 재설정 UI 삭제
+  - [x] `AuthProvider`/`AuthContext`/AuthGuard 등 인증 추상화 삭제
+  - [x] Firebase Auth 의존(클라이언트/어드민/API 라우트) 제거
+  - [x] `/dashboard`, `/profile`, `/settings`, `/api-keys`, `/analytics` 등 “회원 전제” 페이지 삭제
+2) **Website 페이지 완전 삭제**
+  - [x] `/`(홈), `/docs`, `/about`, `/contact`, `/api/v1` 등 Website 성격의 페이지 삭제 또는 Playground로 리다이렉트
+  - [x] Header/Footer 등 Website 전용 UI/네비게이션 제거(Playground 단독 UI로 단순화)
+  - [x] `/`는 `/playground`로 리다이렉트(호스트 최소화)
+3) **Playground 비로그인 예제 추가**
+  - [x] “비로그인으로 불러와서 실행만 하는” 예제 1개 추가(Playground 내부/예제 페이지로 제공)
+  - [x] 예제는 credits/subscription/pricing 언급 없이 실행 플로우만 보여준다 (`/playground/demo`)
+4) **검증 게이트**
+  - [x] `apps/web/src` 기준 `login|signup|auth|firebase` 잔여 0 확인
+  - [x] `apps/web/src` 기준 `pricing|billing|subscription|plan|upgrade|stripe` 잔여 0 확인
+  - [ ] `pnpm --filter robota-web build` (사용자 환경에서)
       - [x] Guarded 예제 27 실행(가드) + verify 통과
       - [x] 결과 기록(노드/엣지 수, 실패 시 rule 위반 유형) 및 리팩토링 개선점 제안 정리
 4. **문서 & 검증**
@@ -585,13 +621,13 @@ npx tsx utils/verify-workflow-connections.ts | cat
 
 ## 🎨 Priority 3: Playground Tools DnD
 
-### 현 상태(코드 기준, 2025-12-20)
+### 현 상태(코드 기준, 2025-12-21)
 - DnD 이벤트 라인(드래그 payload → drop → callback)은 **이미 존재**한다.
   - `PlaygroundApp.tsx`: tool 카드 drag 시 `dataTransfer`에 `application/robota-tool`로 JSON serialize
   - `WorkflowVisualization.tsx`: drop 이벤트를 받아 `onToolDrop(agentId, tool)`로 위임
-- 다만 “툴 목록/추가/삭제/오버레이 상태”는 아직 목표 체크리스트(B-2/B-4) 수준으로 정리되지 않았다.
-  - `ToolContainerBlock` 내부에 mock `AVAILABLE_TOOLS`가 존재(실제 `ToolItem`/toolItems 상태 기반 UI 아님)
-  - `PlaygroundContext`에는 `toolItems`/`addedToolsByAgent` 상태가 아직 없다(추가 필요)
+- “툴 목록/추가/삭제/오버레이 상태”는 체크리스트(B-2/B-4) 기준으로 **구현 완료**되어 있다.
+  - `PlaygroundContext`가 `toolItems`/`addedToolsByAgent`를 단일 진실로 소유한다.
+  - 사이드바에서 도구 추가/삭제가 가능하고, drop 시 overlay에 즉시 반영된다.
 
 ### 제안 방향(규칙 정합, 최소 변경)
 - **SDK tool registry/실행 경로를 건드리지 않고**, UI는 **overlay state**로만 “agent에 tool이 추가됨”을 표현한다.
@@ -602,10 +638,11 @@ npx tsx utils/verify-workflow-connections.ts | cat
 - `toolItems`/`addedToolsByAgent`의 상태 위치:
   1) `PlaygroundApp` 로컬 상태로 시작(단순/빠름)
   2) `PlaygroundContext` 전역 상태로 시작(구조적/확장성)
+  - 결론: **2) PlaygroundContext 전역 상태**로 고정 (이미 적용됨)
 
 ### B-1. 브릿지/레지스트리 보강
-- [ ] `apps/web/src/lib/playground/robota-executor.ts`
-  - [ ] executor 에러를 UI 표준 에러로 변환
+- [x] `apps/web/src/lib/playground/robota-executor.ts`
+  - [x] executor 에러를 UI 표준 에러로 변환
 
 ### B-2. Tools 목록 관리(UI)
 - [x] `ToolItem` 타입 선언 및 유효성 체크 (`PlaygroundToolMeta`)
@@ -617,8 +654,8 @@ npx tsx utils/verify-workflow-connections.ts | cat
 - [x] 삭제 (builtin 제외)
 
 ### B-3. DnD 상호작용 보강
-- [ ] 빠른 연속 드롭 디바운스 (기준 고정 필요: 동일 agentId+toolId 조합, 예: 300ms)
-- [ ] 중복 드롭 시 UI 유지 (상태 변경 없음 + toast는 1회만)
+- [x] 빠른 연속 드롭 디바운스 (기준 고정: 동일 agentId+toolId 조합, 300ms)
+- [x] 중복 드롭 시 UI 유지 (상태 변경 없음 + toast는 1회만)
 
 ### B-4. UI 오버레이 상태 (addedToolsByAgent)
 - [x] 타입 정의: `AddedToolsByAgent = Record<AgentId, string[]>` (web: `Record<string, string[]>`)
@@ -641,27 +678,27 @@ npx tsx utils/verify-workflow-connections.ts | cat
 ## 🗑️ Priority 4: Pricing 기능 제거 (무료 플랫폼 전환)
 
 ### Phase 1: Pricing UI 제거
-- [ ] `/pricing` 라우트 및 관련 컴포넌트 삭제
-- [ ] Header/Navigation에서 Pricing 링크 제거
-- [ ] 모든 "Upgrade" 프롬프트 및 버튼 제거
-- [ ] Dashboard에서 Plan 정보 섹션 제거
+- [x] `/pricing` 라우트 및 관련 컴포넌트 삭제 (apps/web/src 기준 `/pricing` 잔여 0)
+- [x] Header/Navigation에서 Pricing 링크 제거
+- [x] 모든 "Upgrade" 프롬프트 및 버튼 제거
+- [x] Dashboard에서 Plan/Subscription 정보 섹션 제거
 
 ### Phase 2: Billing 로직 제거
-- [ ] `/api/v1/billing/*`, `/api/v1/subscriptions/*` 엔드포인트 삭제
-- [ ] `types/billing.ts` 및 관련 타입 제거
-- [ ] `lib/billing/plans.ts`에서 paid plan 제거 (free만 유지)
-- [ ] Firebase billing 컬렉션 사용 중단
+- [x] `/api/v1/billing/*`, `/api/v1/subscriptions/*` 엔드포인트 삭제 (apps/web/src 기준 경로 잔여 0)
+- [x] `types/billing.ts` 및 관련 타입 제거
+- [x] `lib/billing/plans.ts` 및 billing 관련 모듈 제거
+- [x] Firebase billing/credits 컬렉션 사용 중단 (credit/billing 코드 제거)
 
 ### Phase 3: 무료 크레딧 시스템 전환
-- [ ] `UserCredit` 타입 단순화
-- [ ] Plan 기반 → 크레딧 기반 제한 로직 변경
-- [ ] Usage Dashboard "Plan limits" → "Free usage limits"
-- [ ] 제한 도달 시 친화적 메시지 (업그레이드 언급 제거)
+- [x] `UserCredit` 타입 제거(기능 삭제)
+- [x] Plan/credits 기반 제한 로직 제거 (Playground는 단일 free-only 정책으로 단순화)
+- [x] Usage/limits UI에서 plan/upgrade/cost 표기 제거
+- [x] 제한 도달 시 메시지에서 업그레이드/플랜 언급 제거
 
 ### Phase 4: 설정 정리
-- [ ] Stripe 관련 환경 변수 제거
-- [ ] API 문서에서 billing 엔드포인트 제거
-- [ ] 사용하지 않는 billing 타입 및 테스트 정리
+- [x] Stripe 관련 환경 변수/의존성 제거 (repo 기준 `stripe|@stripe|stripe-js` 잔여 0)
+- [x] API 문서에서 billing 엔드포인트 제거
+- [x] 사용하지 않는 billing 타입 및 테스트 정리
 
 ---
 
@@ -693,8 +730,8 @@ npx tsx utils/verify-workflow-connections.ts | cat
       - `fatal`: 규칙 위반/불변 조건 실패 등(즉시 실패, 사용자에게 “버그/설계 오류”로 안내)
 
 ### Pricing 제거
-- [x] UI에서 모든 pricing/billing 언급 제거 (apps/web/src 기준 `Pricing|Billing|/pricing|/billing` 잔여 0)
-- [x] API 엔드포인트 정리 (apps/api-server 잔여 0, apps/web app routes에 pricing/billing 경로 0)
+- [x] UI에서 pricing/billing/upgrade/plan tier 잔여 제거 (apps/web/src 기준 pricing/billing/upgrade/plan-tier 잔여 0)
+- [x] API 엔드포인트/가드 정리: playground access/limits에서 tier 기반 로직 제거, 단일 free-only 정책으로 고정
 - [x] 무료 크레딧 시스템 제거(기능 삭제): credit/subscription UI+API+Firebase 서비스/타입 제거 완료
 - [x] Stripe 의존성 제거 (repo 기준 `stripe|@stripe|stripe-js` 잔여 0)
 
@@ -843,6 +880,7 @@ npx tsx utils/verify-workflow-connections.ts | cat
 - 2025-12-20: (team 정리) docs/README/examples에서 “Team Collaboration” 잔여 제거, 05 스크립트 제거, 07은 `07-agent-templates.ts`로 교체. api-reference(team) stale 문서 삭제.
 - 2025-12-20: (scenario CLI) `pnpm scenario:record/play/verify` 추가, verify는 예제 실패/strict-policy violation 시 즉시 중단. `apps/examples/README.md`에 실행 플로우 문서화.
 - 2025-12-20: (Stage 6.5/6.6) workflow handlers에서 `WorkflowState` fallback 제거 → path-only scan + fail-fast로 고정.
+- 2025-12-21: (Priority 0.5) Playground 라이브러리 추출/호스트 최소화 진행 — `packages/playground`로 Playground UI/워크플로우/툴/훅/유틸 이동(`@/` alias 0), Next 의존 제거(next-themes 제거), tsup external/CSS 설정 및 `package.json` 의존성 정리. `apps/web`는 `/playground` + `/playground/demo`만 남기고 Website/Auth/Pricing 관련 파일/의존성/문구 제거(`auth|firebase|login|signup` 및 `pricing|billing|subscription|plan|stripe|credit` 0건 확인).
 
 **다음 단계**:
 1. Agent Event Normalization 단계 3, 6.5, 6.6 완료

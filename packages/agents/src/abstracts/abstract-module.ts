@@ -200,10 +200,10 @@ export interface ModuleHooks {
  * Abstract base class for all modules with type parameter support
  * Provides module lifecycle management and common functionality
  * 
- * ⚠️ 기본 전제 조건: 모든 Module은 선택적 확장 기능이어야 합니다
- * - ✅ Module이 없어도 Robota가 에러 없이 정상 동작
- * - ✅ Module 추가 시 새로운 능력이나 기능 획득  
- * - ❌ Module이 없으면 주요 로직에 문제 발생 → 내부 클래스로 구현
+ * ⚠️ Core assumption: every Module must be an optional extension feature
+ * - ✅ Robota must work normally without any Module
+ * - ✅ Adding a Module should only grant new capabilities or features
+ * - ❌ If missing a Module breaks core logic, it must be implemented as an internal class instead
  * 
  * @template TOptions - Module options type that extends BaseModuleOptions
  * @template TStats - Module statistics type (defaults to ModuleStats)

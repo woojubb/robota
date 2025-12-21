@@ -19,7 +19,7 @@
     },
     "exports": {
         ".": {
-            "types": "./dist/browser/browser.d.ts",
+            "types": "./dist/browser/browser.d.mts",
             "browser": {
                 "import": "./dist/browser/browser.js"
             },
