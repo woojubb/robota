@@ -1,4 +1,4 @@
-import type { SimpleLogger, UniversalValue } from '@robota-sdk/agents';
+import type { SimpleLogger, TUniversalValue } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
 import type {
@@ -75,7 +75,7 @@ export class PlaygroundStatisticsPlugin {
     this.metrics.lastUpdated = new Date();
   }
 
-  async recordUIInteraction(type: PlaygroundAction['type'], metadata?: Record<string, UniversalValue>): Promise<void> {
+  async recordUIInteraction(type: PlaygroundAction['type'], metadata?: Record<string, TUniversalValue>): Promise<void> {
     if (!this.options.enabled || !this.options.collectUIMetrics) return;
 
     this.actionHistory.push({ type, timestamp: new Date(), metadata });
@@ -87,7 +87,7 @@ export class PlaygroundStatisticsPlugin {
     this.metrics.lastUpdated = new Date();
   }
 
-  async recordBlockCreation(_blockType: string, _metadata?: Record<string, UniversalValue>): Promise<void> {
+  async recordBlockCreation(_blockType: string, _metadata?: Record<string, TUniversalValue>): Promise<void> {
     if (!this.options.enabled || !this.options.collectBlockMetrics) return;
 
     this.metrics.blockCreations += 1;

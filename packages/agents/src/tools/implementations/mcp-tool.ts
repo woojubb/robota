@@ -64,7 +64,6 @@ type MCPConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error'
  * We return a plain object (ObjectValue) so downstream consumers can safely
  * store/serialize it without `any`/`unknown`.
  */
-type MCPToolResultData = ObjectValue;
 
 /**
  * MCP (Model Context Protocol) tool implementation
@@ -270,7 +269,7 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
     /**
      * Process MCP response and extract execution result
      */
-    private processMCPResponse(response: MCPResponse): MCPToolResultData {
+    private processMCPResponse(response: MCPResponse): ObjectValue {
         if (response.error) {
             const errorData: ObjectValue = {
                 success: false,

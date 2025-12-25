@@ -1,19 +1,19 @@
-import type { TransportRequest, TransportResponse } from '../shared/types';
+import type { ITransportRequest, ITransportResponse } from '../shared/types';
 
 /**
  * Transport interface for network communication
  * Both client and server can use different transport implementations
  */
-export interface Transport {
+export interface ITransport {
     /**
      * Send a single request and wait for response
      */
-    send<TData>(request: TransportRequest): Promise<TransportResponse<TData>>;
+    send<TData>(request: ITransportRequest): Promise<ITransportResponse<TData>>;
 
     /**
      * Send a streaming request and get async iterator
      */
-    sendStream<TData>(request: TransportRequest): AsyncIterable<TData>;
+    sendStream<TData>(request: ITransportRequest): AsyncIterable<TData>;
 
     /**
      * Connect to the transport (for connection-based protocols)
@@ -33,13 +33,13 @@ export interface Transport {
     /**
      * Get transport capabilities
      */
-    getCapabilities(): TransportCapabilities;
+    getCapabilities(): ITransportCapabilities;
 }
 
 /**
  * Transport capabilities
  */
-export interface TransportCapabilities {
+export interface ITransportCapabilities {
     streaming: boolean;
     bidirectional: boolean;
     compression: boolean;
@@ -50,7 +50,7 @@ export interface TransportCapabilities {
 /**
  * Transport configuration
  */
-export interface TransportConfig {
+export interface ITransportConfig {
     baseUrl: string;
     timeout?: number;
     retryCount?: number;

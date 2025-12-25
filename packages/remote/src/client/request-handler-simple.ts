@@ -8,15 +8,15 @@ import type {
     IChatExecutionRequest,
     IStreamExecutionRequest,
     IAssistantMessage,
-    TransportRequest,
-    TransportResponse,
-    ChatResponseData
+    ITransportRequest,
+    ITransportResponse,
+    IChatResponseData
 } from '../shared/types';
 
 /**
  * Create transport request for chat execution
  */
-export function createChatTransportRequest(request: IChatExecutionRequest): TransportRequest {
+export function createChatTransportRequest(request: IChatExecutionRequest): ITransportRequest {
     return {
         id: generateRequestId(),
         url: '/chat',
@@ -37,7 +37,7 @@ export function createChatTransportRequest(request: IChatExecutionRequest): Tran
 /**
  * Create transport request for stream execution
  */
-export function createStreamTransportRequest(request: IStreamExecutionRequest): TransportRequest {
+export function createStreamTransportRequest(request: IStreamExecutionRequest): ITransportRequest {
     return {
         id: generateRequestId(),
         url: '/chat/stream',
@@ -59,7 +59,7 @@ export function createStreamTransportRequest(request: IStreamExecutionRequest): 
 /**
  * Transform transport response to assistant message
  */
-export function transformToAssistantMessage(response: TransportResponse<ChatResponseData>): IAssistantMessage {
+export function transformToAssistantMessage(response: ITransportResponse<IChatResponseData>): IAssistantMessage {
     return {
         role: 'assistant',
         content: response.data.content,

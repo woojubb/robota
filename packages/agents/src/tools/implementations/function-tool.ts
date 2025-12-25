@@ -1,7 +1,8 @@
-import type { FunctionTool as IFunctionTool, IToolResult, IToolExecutionContext, ParameterValidationResult, ToolExecutor, TToolExecutionData, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
+import type { FunctionTool as IFunctionTool, IToolResult, IToolExecutionContext, ParameterValidationResult, ToolExecutor, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
 import type { IToolSchema, IParameterSchema } from '../../interfaces/provider';
 import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
+import type { TToolResultData } from '../../interfaces/types';
 
 // Import from Facade pattern modules for type safety
 import type { ZodSchema } from './function-tool/types';
@@ -264,7 +265,7 @@ export function createZodFunctionTool(
     };
 
     // Wrap the function with validation and ensure proper parameter handling
-    const wrappedFn: ToolExecutor = async (parameters: TToolParameters, context?: IToolExecutionContext): Promise<TToolExecutionData> => {
+    const wrappedFn: ToolExecutor = async (parameters: TToolParameters, context?: IToolExecutionContext): Promise<TToolResultData> => {
         // Use Zod for runtime validation
         const parseResult = zodSchema.safeParse(parameters);
         if (!parseResult.success) {

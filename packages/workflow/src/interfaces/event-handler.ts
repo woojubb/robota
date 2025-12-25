@@ -1,20 +1,20 @@
 // Event Handler Interfaces
 // Domain-neutral event processing system
 
-import type { WorkflowNode } from './workflow-node.js';
-import type { WorkflowEdge } from './workflow-edge.js';
-import type { WorkflowUpdate } from './workflow-builder.js';
-import type { BaseEventData, ContextData, EventContext, LoggerData, ToolParameters, ToolResult, UniversalValue } from '@robota-sdk/agents';
+import type { IWorkflowNode } from './workflow-node.js';
+import type { IWorkflowEdge } from './workflow-edge.js';
+import type { TWorkflowUpdate } from './workflow-builder.js';
+import type { IBaseEventData, IEventContext, IToolResult, TContextData, TLoggerData, TToolParameters, TUniversalValue } from '@robota-sdk/agents';
 
-type WorkflowEventExtensionValue =
-    | UniversalValue
+export type TWorkflowEventExtensionValue =
+    | TUniversalValue
     | Date
     | Error
-    | LoggerData
-    | ToolParameters
-    | ToolResult
-    | ContextData
-    | EventContext;
+    | TLoggerData
+    | TToolParameters
+    | IToolResult
+    | TContextData
+    | IEventContext;
 
 /**
  * Event handler priority levels
@@ -30,16 +30,16 @@ export enum HandlerPriority {
 /**
  * Event pattern matching types
  */
-export type EventPattern = string | RegExp | ((eventType: string) => boolean);
+export type TEventPattern = string | RegExp | ((eventType: string) => boolean);
 
 /**
  * Event data structure (domain-neutral)
  */
-export type EventData =
+export type TEventData =
     // IMPORTANT:
     // - Event axis is owned by @robota-sdk/agents. Workflow must not redefine it.
     // - Workflow only composes the event envelope with stricter requirements.
-    Omit<BaseEventData, 'eventType' | 'timestamp' | 'parameters' | 'result' | 'error'> & {
+    Omit<IBaseEventData, 'eventType' | 'timestamp' | 'parameters' | 'result' | 'error'> & {
         // Core event information (required in workflow processing)
         eventType: string;
         timestamp: Date;
@@ -48,7 +48,7 @@ export type EventData =
          * Path-only: ownerPath-only context.
          * All relationship derivation MUST be done through context.ownerPath, not inferred IDs.
          */
-        context?: EventContext;
+        context?: IEventContext;
 
         /**
          * Legacy compatibility fields (MIGRATION):
@@ -65,50 +65,50 @@ export type EventData =
         parentId?: string;
 
         // Event payload (flexible, still domain-neutral)
-        parameters?: ContextData;
-        result?: ToolResult | ContextData;
+        parameters?: TContextData;
+        result?: IToolResult | TContextData;
 
         // Error information (workflow accepts both Error and string)
         error?: Error | string;
 
         // Workflow processing metadata (handler-level stats, etc.)
-        metadata?: LoggerData;
+        metadata?: TLoggerData;
 
         // Extensible data (kept for backward compatibility during migration)
-        [key: string]: WorkflowEventExtensionValue | undefined;
+        [key: string]: TWorkflowEventExtensionValue | undefined;
     };
 
 /**
  * Event processing result
  */
-export interface EventProcessingResult {
+export interface IEventProcessingResult {
     success: boolean;
-    updates: WorkflowUpdate[];
+    updates: TWorkflowUpdate[];
     errors?: string[];
     warnings?: string[];
-    metadata?: LoggerData;
+    metadata?: TLoggerData;
 }
 
 /**
  * Core event handler interface
  */
-export interface EventHandler {
+export interface IEventHandler {
     /**
      * Handler identification
      */
     readonly name: string;
     readonly priority: HandlerPriority;
-    readonly patterns: EventPattern[];
+    readonly patterns: TEventPattern[];
 
     /**
      * Check if this handler can process the event
      */
-    canHandle(eventType: string, eventData?: EventData): boolean;
+    canHandle(eventType: string, eventData?: TEventData): boolean;
 
     /**
      * Process the event and return workflow updates
      */
-    handle(eventType: string, eventData: EventData): Promise<EventProcessingResult>;
+    handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult>;
 
     /**
      * Initialize handler (optional)
@@ -135,42 +135,42 @@ export interface EventHandler {
 /**
  * Extended event handler with configuration
  */
-export interface ConfigurableEventHandler extends EventHandler {
+export interface IConfigurableEventHandler extends IEventHandler {
     /**
      * Handler configuration
      */
-    configure(config: EventHandlerConfig): void;
+    configure(config: IEventHandlerConfig): void;
 
     /**
      * Get current configuration
      */
-    getConfig(): EventHandlerConfig;
+    getConfig(): IEventHandlerConfig;
 }
 
 /**
  * Event handler configuration
  */
-export interface EventHandlerConfig {
+export interface IEventHandlerConfig {
     enabled?: boolean;
     priority?: HandlerPriority;
-    patterns?: EventPattern[];
-    options?: Record<string, WorkflowEventExtensionValue | undefined>;
+    patterns?: TEventPattern[];
+    options?: Record<string, TWorkflowEventExtensionValue | undefined>;
     logger?: {
-        debug: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
-        info: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
-        warn: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
-        error: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
+        debug: (message: string, ...args: TWorkflowEventExtensionValue[]) => void;
+        info: (message: string, ...args: TWorkflowEventExtensionValue[]) => void;
+        warn: (message: string, ...args: TWorkflowEventExtensionValue[]) => void;
+        error: (message: string, ...args: TWorkflowEventExtensionValue[]) => void;
     };
 }
 
 /**
  * Event handler factory interface
  */
-export interface EventHandlerFactory {
+export interface IEventHandlerFactory {
     /**
      * Create handler instance
      */
-    create(config?: EventHandlerConfig): EventHandler;
+    create(config?: IEventHandlerConfig): IEventHandler;
 
     /**
      * Get handler type information
@@ -185,7 +185,7 @@ export interface EventHandlerFactory {
     /**
      * Validate configuration
      */
-    validateConfig(config: EventHandlerConfig): {
+    validateConfig(config: IEventHandlerConfig): {
         isValid: boolean;
         errors: string[];
     };
@@ -194,11 +194,11 @@ export interface EventHandlerFactory {
 /**
  * Event handler registry interface
  */
-export interface EventHandlerRegistry {
+export interface IEventHandlerRegistry {
     /**
      * Register event handler
      */
-    register(handler: EventHandler): void;
+    register(handler: IEventHandler): void;
 
     /**
      * Unregister event handler
@@ -208,17 +208,17 @@ export interface EventHandlerRegistry {
     /**
      * Get handler by name
      */
-    getHandler(name: string): EventHandler | undefined;
+    getHandler(name: string): IEventHandler | undefined;
 
     /**
      * Get all handlers
      */
-    getAllHandlers(): EventHandler[];
+    getAllHandlers(): IEventHandler[];
 
     /**
      * Get handlers for event type
      */
-    getHandlersForEvent(eventType: string): EventHandler[];
+    getHandlersForEvent(eventType: string): IEventHandler[];
 
     /**
      * Clear all handlers
@@ -233,8 +233,8 @@ export interface EventProcessingContext {
     /**
      * Current workflow state
      */
-    currentNodes: Map<string, WorkflowNode>;
-    currentEdges: Map<string, WorkflowEdge>;
+    currentNodes: Map<string, IWorkflowNode>;
+    currentEdges: Map<string, IWorkflowEdge>;
 
     /**
      * Processing metadata
@@ -246,34 +246,34 @@ export interface EventProcessingContext {
     /**
      * Helper functions
      */
-    createNode: (nodeData: Omit<WorkflowNode, 'timestamp'>) => WorkflowNode;
-    createEdge: (edgeData: Omit<WorkflowEdge, 'timestamp'>) => WorkflowEdge;
-    findNode: (nodeId: string) => WorkflowNode | undefined;
-    findEdge: (edgeId: string) => WorkflowEdge | undefined;
+    createNode: (nodeData: Omit<IWorkflowNode, 'timestamp'>) => IWorkflowNode;
+    createEdge: (edgeData: Omit<IWorkflowEdge, 'timestamp'>) => IWorkflowEdge;
+    findNode: (nodeId: string) => IWorkflowNode | undefined;
+    findEdge: (edgeId: string) => IWorkflowEdge | undefined;
 
     /**
      * Logger
      */
     logger: {
-        debug: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
-        info: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
-        warn: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
-        error: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
+        debug: (message: string, ...args: TWorkflowEventExtensionValue[]) => void;
+        info: (message: string, ...args: TWorkflowEventExtensionValue[]) => void;
+        warn: (message: string, ...args: TWorkflowEventExtensionValue[]) => void;
+        error: (message: string, ...args: TWorkflowEventExtensionValue[]) => void;
     };
 }
 
 /**
  * Context-aware event handler interface
  */
-export interface ContextualEventHandler extends EventHandler {
+export interface IContextualEventHandler extends IEventHandler {
     /**
      * Process event with full context
      */
     handleWithContext(
         eventType: string,
-        eventData: EventData,
+        eventData: TEventData,
         context: EventProcessingContext
-    ): Promise<EventProcessingResult>;
+    ): Promise<IEventProcessingResult>;
 }
 
 /**
@@ -292,7 +292,7 @@ export class EventHandlerUtils {
     /**
      * Test if event matches pattern
      */
-    static matchesPattern(eventType: string, pattern: EventPattern): boolean {
+    static matchesPattern(eventType: string, pattern: TEventPattern): boolean {
         if (typeof pattern === 'string') {
             return pattern === eventType || eventType.startsWith(pattern);
         } else if (pattern instanceof RegExp) {
@@ -306,7 +306,7 @@ export class EventHandlerUtils {
     /**
      * Sort handlers by priority (highest first)
      */
-    static sortHandlersByPriority(handlers: EventHandler[]): EventHandler[] {
+    static sortHandlersByPriority(handlers: IEventHandler[]): IEventHandler[] {
         return [...handlers].sort((a, b) => b.priority - a.priority);
     }
 }

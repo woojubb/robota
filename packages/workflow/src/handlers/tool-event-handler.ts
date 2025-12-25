@@ -8,15 +8,15 @@
 import type { SimpleLogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import type {
-    EventHandler,
-    EventData,
-    EventProcessingResult,
+    IEventHandler,
+    TEventData,
+    IEventProcessingResult,
     HandlerPriority
 } from '../interfaces/event-handler.js';
-import type { WorkflowNode } from '../interfaces/workflow-node.js';
-import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
+import type { IWorkflowNode } from '../interfaces/workflow-node.js';
+import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
-import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
+import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES, type WorkflowNodeType } from '../constants/workflow-types.js';
 import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
 import { TOOL_EVENTS } from '@robota-sdk/agents';
@@ -24,7 +24,7 @@ import { TOOL_EVENTS } from '@robota-sdk/agents';
 /**
  * ToolEventHandler - Handles tool call and response events
  */
-export class ToolEventHandler implements EventHandler {
+export class ToolEventHandler implements IEventHandler {
     readonly name = 'ToolEventHandler';
     readonly priority = Priority.HIGH;
     readonly patterns = ['tool.*'];
@@ -47,11 +47,11 @@ export class ToolEventHandler implements EventHandler {
         });
     }
 
-    async handle(eventType: string, eventData: EventData): Promise<EventProcessingResult> {
+    async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
         try {
             this.logger.debug(`🔧 [TOOL-HANDLER] Processing ${eventType}`, { eventData });
 
-            const updates: WorkflowUpdate[] = [];
+            const updates: TWorkflowUpdate[] = [];
             let success = true;
 
             switch (eventType) {
@@ -70,7 +70,7 @@ export class ToolEventHandler implements EventHandler {
                         };
                     }
 
-                    const edge: WorkflowEdge = {
+                    const edge: IWorkflowEdge = {
                         id: EdgeUtils.generateId(pathInfo.parentId, toolCallNode.id, 'executes' as any),
                         source: pathInfo.parentId,
                         target: toolCallNode.id,
@@ -121,7 +121,7 @@ export class ToolEventHandler implements EventHandler {
                     updates.push({ action: 'create', node: toolResponseNode });
 
                     // Atomic edge: parent (response or tool_call) → tool_response ('result')
-                    const edgeFromParent: WorkflowEdge = {
+                    const edgeFromParent: IWorkflowEdge = {
                         id: EdgeUtils.generateId(parentForResponseId, toolResponseNode.id, 'result' as any),
                         source: parentForResponseId,
                         target: toolResponseNode.id,
@@ -167,7 +167,7 @@ export class ToolEventHandler implements EventHandler {
     // Node Creation Methods
     // =================================================================
 
-    private createToolCallNode(data: EventData, pathInfo: PathInfo): WorkflowNode {
+    private createToolCallNode(data: TEventData, pathInfo: PathInfo): IWorkflowNode {
         const executionId = pathInfo.nodeId || data.executionId || data.sourceId;
         const nodeId = String(executionId); // Use executionId as node id (parent will reference this directly)
 
@@ -206,7 +206,7 @@ export class ToolEventHandler implements EventHandler {
         };
     }
 
-    private createToolCallCompleteNode(data: EventData): WorkflowNode {
+    private createToolCallCompleteNode(data: TEventData): IWorkflowNode {
         const executionId = data.executionId || data.sourceId;
         const nodeId = `tool_call_complete_${executionId}`;
 
@@ -244,7 +244,7 @@ export class ToolEventHandler implements EventHandler {
         };
     }
 
-    private createToolCallErrorNode(data: EventData, pathInfo: PathInfo): WorkflowNode {
+    private createToolCallErrorNode(data: TEventData, pathInfo: PathInfo): IWorkflowNode {
         const executionId = pathInfo.nodeId || data.executionId || data.sourceId;
         const nodeId = `tool_call_error_${executionId}`;
 
@@ -284,7 +284,7 @@ export class ToolEventHandler implements EventHandler {
         };
     }
 
-    private createToolResponseNode(data: EventData, pathInfo: PathInfo): WorkflowNode {
+    private createToolResponseNode(data: TEventData, pathInfo: PathInfo): IWorkflowNode {
         // Tool response node must be derived from context.ownerPath only (no ID parsing/inference).
         const toolCallId = pathInfo.nodeId;
         if (!toolCallId) {
@@ -363,7 +363,7 @@ export class ToolEventHandler implements EventHandler {
         return toolTypeMap[toolName] || WORKFLOW_NODE_TYPES.TOOL_CALL;
     }
 
-    private extractPathInfo(eventData: EventData, eventLabel: string): PathInfo {
+    private extractPathInfo(eventData: TEventData, eventLabel: string): PathInfo {
         const ownerPath = (eventData as any)?.context?.ownerPath as unknown;
         if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
             throw new Error(`[PATH-ONLY] Missing context.ownerPath for ${eventLabel}`);
@@ -382,7 +382,7 @@ export class ToolEventHandler implements EventHandler {
     /**
      * Create tool result aggregation node
      */
-    createToolResultNode(thinkingNodeId: string, sourceId: string): WorkflowNode {
+    createToolResultNode(thinkingNodeId: string, sourceId: string): IWorkflowNode {
         const nodeId = `tool_result_${thinkingNodeId}_${Date.now()}`;
 
         return {

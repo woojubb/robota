@@ -14,13 +14,12 @@
  */
 
 import { Robota } from '@robota-sdk/agents';
-import type { EventService } from '@robota-sdk/agents';
+import type { IAIProvider, IChatOptions, IEventService, IToolSchema, TUniversalMessage, TUniversalValue } from '@robota-sdk/agents';
 import type { WorkflowEventSubscriber } from '@robota-sdk/workflow';
-import { DefaultExternalWorkflowStore, type ExternalWorkflowStore } from './external-workflow-store';
+import { DefaultExternalWorkflowStore, type IExternalWorkflowStore } from './external-workflow-store';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { FunctionTool } from '@robota-sdk/agents';
-// Note: local interface ToolSchema is defined below for browser-only runtime use.
 import {
     PlaygroundHistoryPlugin,
     ConversationEvent,
@@ -28,7 +27,6 @@ import {
 } from './plugins/playground-history-plugin';
 import { PlaygroundStatisticsPlugin } from './plugins/playground-statistics-plugin';
 import type { PlaygroundAction, PlaygroundMetrics, PlaygroundExecutionResult as PlaygroundStatisticsResult } from '../../types/playground-statistics';
-import type { UniversalValue } from '@robota-sdk/agents';
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 // ExecutionHierarchyTracker will be added later when exports are fixed
 
@@ -41,48 +39,9 @@ import { ToolRegistry } from '../../tools/catalog';
 
 
 
-// Robota SDK-compatible type definitions for browser environment
-// These mirror the actual types from @robota-sdk/agents but are browser-safe
-
-export interface ITUniversalMessage {
-    role: 'system' | 'user' | 'assistant' | 'tool';
-    content: string | null;
-    toolCalls?: Array<{
-        id: string;
-        type: 'function';
-        function: {
-            name: string;
-            arguments: string;
-        };
-    }>;
-    metadata?: Record<string, unknown>;
-    timestamp?: Date;
-}
-
-export interface ChatOptions {
-    model?: string;
-    temperature?: number;
-    maxTokens?: number;
-    tools?: ToolSchema[];
-    toolChoice?: 'auto' | 'none' | string;
-    stream?: boolean;
-}
-
-export interface ToolSchema {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-}
-
-export interface AIProvider {
-    readonly name: string;
-    readonly version: string;
-    chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage>;
-    chatStream?(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage>;
-    supportsTools(): boolean;
-    validateConfig(): boolean;
-    dispose?(): Promise<void>;
-}
+// NOTE:
+// This module must consume canonical contracts from @robota-sdk/agents (SSOT).
+// Do not re-declare message/provider/tool contracts locally.
 
 export interface BaseTool {
     readonly name: string;
@@ -101,7 +60,7 @@ export interface BasePlugin {
 export interface PlaygroundAgentConfig {
     id?: string;
     name: string;
-    aiProviders: AIProvider[];
+    aiProviders: IAIProvider[];
     defaultModel: {
         provider: string;
         model: string;
@@ -168,14 +127,14 @@ export class PlaygroundExecutor {
     // Playground-specific plugins
     private historyPlugin: PlaygroundHistoryPlugin;
     private statisticsPlugin: PlaygroundStatisticsPlugin;
-    private eventService: EventService;
+    private eventService: IEventService;
     private websocketClient: PlaygroundWebSocketClient | null = null;
 
     // SDK Workflow system
     private workflowSubscriber: WorkflowEventSubscriber;
 
     // STEP 8.3.1: External Workflow Store
-    private externalWorkflowStore: ExternalWorkflowStore;
+    private externalWorkflowStore: IExternalWorkflowStore;
 
     private readonly logger: SimpleLogger;
 
@@ -183,7 +142,7 @@ export class PlaygroundExecutor {
         private serverUrl: string,
         private authToken: string,
         options: {
-            eventService: EventService;
+            eventService: IEventService;
             workflowSubscriber: WorkflowEventSubscriber;
             logger?: SimpleLogger;
         }
@@ -214,7 +173,7 @@ export class PlaygroundExecutor {
         // Injected workflow subscriber + event service (single DI path)
         this.workflowSubscriber = options.workflowSubscriber;
         this.eventService = options.eventService;
-        this.logger.debug('PlaygroundExecutor initialized with injected EventService and WorkflowEventSubscriber');
+        this.logger.debug('PlaygroundExecutor initialized with injected IEventService and WorkflowEventSubscriber');
 
         // STEP 8.3.2: Create ExternalWorkflowStore
         this.externalWorkflowStore = new DefaultExternalWorkflowStore(this.logger);
@@ -363,7 +322,7 @@ export class PlaygroundExecutor {
 
     /** Build a simple dummy FunctionTool using JSON schema that returns a fixed or echoed result */
     private buildDummyTool(name: string, description?: string): any {
-        const schema: ToolSchema = {
+        const schema: IToolSchema = {
             name,
             description: description || 'Dummy tool (returns echo) for Playground',
             parameters: {
@@ -409,7 +368,7 @@ export class PlaygroundExecutor {
      */
     async run(prompt: string): Promise<PlaygroundExecutionResult> {
         const startTime = Date.now();
-        const request: TUniversalMessage[] = [{ role: 'user', content: prompt }];
+        const request: TUniversalMessage[] = [{ role: 'user', content: prompt, timestamp: new Date() }];
 
         try {
             const result = await this.executeChat(request);
@@ -525,19 +484,19 @@ export class PlaygroundExecutor {
      */
     async *runStream(prompt: string): AsyncGenerator<string, PlaygroundExecutionResult> {
         const startTime = Date.now();
-        const request: TUniversalMessage[] = [{ role: 'user', content: prompt }];
+        const request: TUniversalMessage[] = [{ role: 'user', content: prompt, timestamp: new Date() }];
 
         try {
             let fullResponse = '';
 
-            // ✅ executeChatStream의 모든 TUniversalMessage를 수집
+            // Collect all TUniversalMessage chunks from executeChatStream().
             for await (const chunk of this.executeChatStream(request)) {
                 const content = chunk.content || '';
                 fullResponse += content;
-                // ❌ 각 TUniversalMessage마다 yield하지 않음
+                // Do not yield per chunk; we yield the final concatenated response once.
             }
 
-            // ✅ 최종 완성된 응답만 한 번 yield
+            // Yield the final complete response once.
             yield fullResponse;
 
             const duration = Date.now() - startTime;
@@ -602,14 +561,14 @@ export class PlaygroundExecutor {
     /**
      * Record a Playground-specific action
      */
-    async recordPlaygroundAction(actionType: PlaygroundAction['type'], metadata?: Record<string, UniversalValue>): Promise<void> {
+    async recordPlaygroundAction(actionType: PlaygroundAction['type'], metadata?: Record<string, TUniversalValue>): Promise<void> {
         await this.statisticsPlugin.recordUIInteraction(actionType, metadata);
     }
 
     /**
      * Record block creation for visualization
      */
-    async recordBlockCreation(blockType: string, metadata?: Record<string, UniversalValue>): Promise<void> {
+    async recordBlockCreation(blockType: string, metadata?: Record<string, TUniversalValue>): Promise<void> {
         await this.statisticsPlugin.recordBlockCreation(blockType, metadata);
     }
 
@@ -905,7 +864,7 @@ export class PlaygroundExecutor {
     /**
      * STEP 8.3.3: Get External Workflow Store for manual node management
      */
-    getExternalWorkflowStore(): ExternalWorkflowStore {
+    getExternalWorkflowStore(): IExternalWorkflowStore {
         return this.externalWorkflowStore;
     }
 

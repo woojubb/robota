@@ -3,22 +3,22 @@
 
 import { SimpleLogger, SilentLogger, AGENT_EVENTS, EXECUTION_EVENTS } from '@robota-sdk/agents';
 import type {
-    EventHandler,
-    EventData,
-    EventProcessingResult
+    IEventHandler,
+    TEventData,
+    IEventProcessingResult
 } from '../interfaces/event-handler.js';
 import { HandlerPriority } from '../interfaces/event-handler.js';
-import type { WorkflowNode } from '../interfaces/workflow-node.js';
-import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
+import type { IWorkflowNode, TWorkflowConnectionType } from '../interfaces/workflow-node.js';
+import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
-import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
+import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
 
 /**
  * Agent Event Handler
  * Handles all agent-related events: creation, execution, thinking, responses
  */
-export class AgentEventHandler implements EventHandler {
+export class AgentEventHandler implements IEventHandler {
     readonly name = 'AgentEventHandler';
     readonly priority = HandlerPriority.HIGHEST;
     readonly patterns = ['agent.*', EXECUTION_EVENTS.START, EXECUTION_EVENTS.ASSISTANT_MESSAGE_START, EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE];
@@ -45,8 +45,8 @@ export class AgentEventHandler implements EventHandler {
 
     async handle(
         eventType: string,
-        eventData: EventData
-    ): Promise<EventProcessingResult> {
+        eventData: TEventData
+    ): Promise<IEventProcessingResult> {
         try {
             const data = eventData as any; // Type assertion for flexibility
 
@@ -55,7 +55,7 @@ export class AgentEventHandler implements EventHandler {
                 executionId: data.executionId
             });
 
-            const updates: WorkflowUpdate[] = [];
+            const updates: TWorkflowUpdate[] = [];
             let success = true;
 
             switch (eventType) {
@@ -82,14 +82,14 @@ export class AgentEventHandler implements EventHandler {
                         break;
                     }
 
-                    const edge: WorkflowEdge = {
-                        id: EdgeUtils.generateId(pathInfo.parentId, agentNode.id, 'creates' as any),
+                    const edge: IWorkflowEdge = {
+                        id: EdgeUtils.generateId(pathInfo.parentId, agentNode.id, 'creates' as TWorkflowConnectionType),
                         source: pathInfo.parentId,
                         target: agentNode.id,
-                        type: 'creates' as any,
+                        type: 'creates' as TWorkflowConnectionType,
                         timestamp: Date.now()
-                    } as any;
-                    updates.push({ action: 'create', edge } as any);
+                    };
+                    updates.push({ action: 'create', edge } as TWorkflowUpdate);
 
                     this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
                     // Register for cross-handler reference
@@ -120,7 +120,7 @@ export class AgentEventHandler implements EventHandler {
                     if (existingAgentNodeId) {
                         const updatedNode = this.buildAgentExecutionStateUpdate(existingAgentNodeId, data);
                         if (updatedNode) {
-                            updates.push({ action: 'update', node: updatedNode } as WorkflowUpdate);
+                            updates.push({ action: 'update', node: updatedNode } as TWorkflowUpdate);
                         }
 
                         this.agentNodeIdMap.set(sourceId, existingAgentNodeId);
@@ -176,7 +176,7 @@ export class AgentEventHandler implements EventHandler {
                                 }
                             };
 
-                            const merged: WorkflowNode = {
+                            const merged: IWorkflowNode = {
                                 ...existingNode,
                                 timestamp: Date.now(),
                                 data: {
@@ -315,7 +315,7 @@ export class AgentEventHandler implements EventHandler {
                         sourceForThinking = latestUserMessage.id;
                     }
                     if (sourceForThinking) {
-                        const edge: WorkflowEdge = {
+                        const edge: IWorkflowEdge = {
                             id: EdgeUtils.generateId(sourceForThinking, thinkingNode.id, typeForThinking),
                             source: sourceForThinking,
                             target: thinkingNode.id,
@@ -363,7 +363,7 @@ export class AgentEventHandler implements EventHandler {
                     updates.push({ action: 'create', node: responseNode });
 
                     if (thinkingId) {
-                        const edge: WorkflowEdge = {
+                        const edge: IWorkflowEdge = {
                             id: EdgeUtils.generateId(thinkingId, responseId, 'return' as any),
                             source: thinkingId,
                             target: responseId,
@@ -418,7 +418,7 @@ export class AgentEventHandler implements EventHandler {
     // Node Creation Helper Methods
     // =================================================================
 
-    private createAgentNode(data: any, pathInfo: PathInfo): WorkflowNode {
+    private createAgentNode(data: any, pathInfo: PathInfo): IWorkflowNode {
         const agentNumber = this.assignAgentNumber(String(data.sourceId));
         const copyNumber = this.getNextCopyNumber(agentNumber);
         const agentId = `agent_${agentNumber}_copy_${copyNumber}`;
@@ -460,7 +460,7 @@ export class AgentEventHandler implements EventHandler {
         };
     }
 
-    private findAgentNodeIdForExecutionStart(eventData: EventData, pathInfo: PathInfo): string | undefined {
+    private findAgentNodeIdForExecutionStart(eventData: TEventData, pathInfo: PathInfo): string | undefined {
         const sourceId = typeof eventData?.sourceId !== 'undefined' ? String(eventData.sourceId) : undefined;
         if (sourceId) {
             const fromMap = this.agentNodeIdMap.get(sourceId);
@@ -471,7 +471,7 @@ export class AgentEventHandler implements EventHandler {
 
         if (sourceId) {
             try {
-                const nodesAccessor: WorkflowNode[] = (this as any).subscriber?.getAllNodes?.() || [];
+                const nodesAccessor: IWorkflowNode[] = (this as any).subscriber?.getAllNodes?.() || [];
                 const found = nodesAccessor.find(node =>
                     node?.type === WORKFLOW_NODE_TYPES.AGENT &&
                     String(node?.data?.sourceId) === sourceId
@@ -487,7 +487,7 @@ export class AgentEventHandler implements EventHandler {
         return undefined;
     }
 
-    private buildAgentExecutionStateUpdate(agentNodeId: string, eventData: EventData): WorkflowNode | undefined {
+    private buildAgentExecutionStateUpdate(agentNodeId: string, eventData: TEventData): IWorkflowNode | undefined {
         const snapshot = this.getNodeSnapshot(agentNodeId);
         if (!snapshot) {
             this.logger.warn(`⚠️ [AGENT-HANDLER] Unable to find agent node '${agentNodeId}' for execution_start update.`);
@@ -518,19 +518,19 @@ export class AgentEventHandler implements EventHandler {
                 ...(statusHistory ? { statusHistory } : {}),
                 extensions: this.buildUpdatedExtensions(existingExtensions, mergedOriginalEvent, existingRobotaExtension)
             }
-        } as WorkflowNode;
+        } as IWorkflowNode;
     }
 
-    private getNodeSnapshot(nodeId: string): WorkflowNode | undefined {
+    private getNodeSnapshot(nodeId: string): IWorkflowNode | undefined {
         try {
-            const nodesAccessor: WorkflowNode[] = (this as any).subscriber?.getAllNodes?.() || [];
+            const nodesAccessor: IWorkflowNode[] = (this as any).subscriber?.getAllNodes?.() || [];
             return nodesAccessor.find(node => String(node?.id) === String(nodeId));
         } catch {
             return undefined;
         }
     }
 
-    private mergeOriginalEvent(existingEvent: unknown, nextEvent: EventData): Record<string, unknown> {
+    private mergeOriginalEvent(existingEvent: unknown, nextEvent: TEventData): Record<string, unknown> {
         const existing = typeof existingEvent === 'object' && existingEvent !== null
             ? existingEvent as Record<string, unknown>
             : {};
@@ -560,7 +560,7 @@ export class AgentEventHandler implements EventHandler {
         return mergedEvent;
     }
 
-    private getExtensionsRecord(node?: WorkflowNode): Record<string, unknown> | undefined {
+    private getExtensionsRecord(node?: IWorkflowNode): Record<string, unknown> | undefined {
         if (!node?.data?.extensions) {
             return undefined;
         }
@@ -609,7 +609,7 @@ export class AgentEventHandler implements EventHandler {
         return undefined;
     }
 
-    private createAgentThinkingNode(data: any, overrideId?: string, forcedTimestamp?: number): WorkflowNode {
+    private createAgentThinkingNode(data: any, overrideId?: string, forcedTimestamp?: number): IWorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
         const pathInfo = this.extractPathInfo(data, EXECUTION_EVENTS.ASSISTANT_MESSAGE_START);
         const thinkingId = overrideId || pathInfo.nodeId;
@@ -647,7 +647,7 @@ export class AgentEventHandler implements EventHandler {
         };
     }
 
-    private createAgentResponseNode(data: any, pathInfo: PathInfo): WorkflowNode {
+    private createAgentResponseNode(data: any, pathInfo: PathInfo): IWorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
         const responseId = pathInfo.nodeId;
         if (!responseId) {
@@ -740,7 +740,7 @@ export class AgentEventHandler implements EventHandler {
         };
     }
 
-    private extractPathInfo(eventData: EventData, contextLabel: string): PathInfo {
+    private extractPathInfo(eventData: TEventData, contextLabel: string): PathInfo {
         // Canonical: EventService.emit(..., context) provides context.ownerPath (OwnerPathSegment[])
         const ownerPath = (eventData as any)?.context?.ownerPath as unknown;
         if (!Array.isArray(ownerPath) || ownerPath.length === 0) {

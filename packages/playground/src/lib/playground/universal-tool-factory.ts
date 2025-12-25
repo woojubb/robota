@@ -1,10 +1,10 @@
 import {
     FunctionTool,
-    type ToolSchema,
+    type IToolSchema,
     type ToolExecutor,
     type SimpleLogger,
 } from '@robota-sdk/agents';
-import type { UniversalValue } from '@robota-sdk/agents';
+import type { TUniversalValue } from '@robota-sdk/agents';
 import { WebLogger } from '../web-logger';
 import type {
     BlockDataCollector,
@@ -18,7 +18,7 @@ import {
 /**
  * Universal Tool Factory options
  */
-export interface UniversalToolFactoryOptions {
+export interface IUniversalToolFactoryOptions {
     /** Block collector for tracking tool executions */
     blockCollector: BlockDataCollector;
 
@@ -35,7 +35,7 @@ export class UniversalToolFactory {
     private readonly blockCollector: BlockDataCollector;
     private readonly logger?: SimpleLogger;
 
-    constructor(options: UniversalToolFactoryOptions) {
+    constructor(options: IUniversalToolFactoryOptions) {
         this.blockCollector = options.blockCollector;
         this.logger = options.logger;
     }
@@ -44,7 +44,7 @@ export class UniversalToolFactory {
      * Create FunctionTool with block tracking
      */
     createFunctionTool(
-        schema: ToolSchema,
+        schema: IToolSchema,
         executor: ToolExecutor,
         options: {
             parentBlockId?: string;
@@ -61,7 +61,7 @@ export class UniversalToolFactory {
      * Note: OpenAPITool not available in current SDK version
      */
     createOpenAPITool(
-        _config: Record<string, UniversalValue>,
+        _config: Record<string, TUniversalValue>,
         options: {
             parentBlockId?: string;
             level?: number;
@@ -78,8 +78,8 @@ export class UniversalToolFactory {
      * Note: MCPTool not available in current SDK version
      */
     createMCPTool(
-        _config: Record<string, UniversalValue>,
-        _schema: Record<string, UniversalValue>,
+        _config: Record<string, TUniversalValue>,
+        _schema: Record<string, TUniversalValue>,
         options: {
             parentBlockId?: string;
             level?: number;
@@ -96,8 +96,8 @@ export class UniversalToolFactory {
      * Note: AgentDelegationTool not available in current SDK version
      */
     createDelegationTool(
-        _teamContainer: Record<string, UniversalValue>,
-        _availableTemplates: Array<Record<string, UniversalValue>>,
+        _teamContainer: Record<string, TUniversalValue>,
+        _availableTemplates: Array<Record<string, TUniversalValue>>,
         options: {
             parentBlockId?: string;
             level?: number;

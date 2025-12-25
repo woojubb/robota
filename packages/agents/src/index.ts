@@ -328,7 +328,6 @@ export type { IToolSchema as IFunctionSchema } from './interfaces/provider';
  */
 export {
     TServiceEventType,
-    TServiceEventData,
     IEventContext,
     IOwnerPathSegment,
     AbstractEventService,

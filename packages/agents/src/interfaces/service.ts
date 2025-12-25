@@ -5,7 +5,7 @@
 
 import type { TUniversalMessage } from '../managers/conversation-history-manager';
 import type { IToolSchema, IAIProvider } from './provider';
-import type { TToolExecutionData } from './tool';
+import type { TToolResultData } from './types';
 import type { IToolCall } from './messages';
 
 /**
@@ -200,17 +200,17 @@ export interface IToolExecutionService {
     /**
      * Execute a single tool
      */
-    executeTool(toolName: string, parameters: TToolExecutionParameters): Promise<TToolExecutionData>;
+    executeTool(toolName: string, parameters: TToolExecutionParameters): Promise<TToolResultData>;
 
     /**
      * Execute multiple tools in parallel
      */
-    executeToolsParallel(toolCalls: IToolExecutionRequest[]): Promise<TToolExecutionData[]>;
+    executeToolsParallel(toolCalls: IToolExecutionRequest[]): Promise<TToolResultData[]>;
 
     /**
      * Execute multiple tools sequentially
      */
-    executeToolsSequential(toolCalls: IToolExecutionRequest[]): Promise<TToolExecutionData[]>;
+    executeToolsSequential(toolCalls: IToolExecutionRequest[]): Promise<TToolResultData[]>;
 }
 
 /**

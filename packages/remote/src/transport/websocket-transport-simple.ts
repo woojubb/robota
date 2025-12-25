@@ -4,8 +4,8 @@
  * Uses pure functions and explicit type definitions
  */
 
-import type { Transport, TransportConfig, TransportCapabilities } from './transport-interface';
-import type { TransportRequest, TransportResponse, ChatResponseData } from '../shared/types';
+import type { ITransport, ITransportCapabilities, ITransportConfig } from './transport-interface';
+import type { IChatResponseData, ITransportRequest, ITransportResponse } from '../shared/types';
 import {
     createRequestMessage,
     createPongMessage,
@@ -17,14 +17,14 @@ import {
     isPingMessage
 } from './websocket-utils';
 
-export interface SimpleWebSocketConfig extends TransportConfig {
+export interface SimpleWebSocketConfig extends ITransportConfig {
     reconnectDelay?: number;
     maxReconnectAttempts?: number;
     pingInterval?: number;
 }
 
 interface PendingRequest {
-    resolve: (value: TransportResponse<ChatResponseData>) => void;
+    resolve: (value: ITransportResponse<IChatResponseData>) => void;
     reject: (error: Error) => void;
     timeout: NodeJS.Timeout;
 }
@@ -32,7 +32,7 @@ interface PendingRequest {
 /**
  * Simplified WebSocket Transport with Type Safety
  */
-export class SimpleWebSocketTransport implements Transport {
+export class SimpleWebSocketTransport implements ITransport {
     private ws: WebSocket | null = null;
     private config: Required<SimpleWebSocketConfig>;
     private pendingRequests = new Map<string, PendingRequest>();
@@ -107,7 +107,7 @@ export class SimpleWebSocketTransport implements Transport {
         }
     }
 
-    async send<TData>(request: TransportRequest): Promise<TransportResponse<TData>> {
+    async send<TData>(request: ITransportRequest): Promise<ITransportResponse<TData>> {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             await this.connect();
         }
@@ -122,7 +122,7 @@ export class SimpleWebSocketTransport implements Transport {
             }, this.config.timeout);
 
             this.pendingRequests.set(messageId, {
-                resolve: resolve as (value: TransportResponse<ChatResponseData>) => void,
+                resolve: resolve as (value: ITransportResponse<IChatResponseData>) => void,
                 reject,
                 timeout
             });
@@ -134,10 +134,10 @@ export class SimpleWebSocketTransport implements Transport {
                 clearTimeout(timeout);
                 reject(error instanceof Error ? error : new Error('Send failed'));
             }
-        }) as Promise<TransportResponse<TData>>;
+        }) as Promise<ITransportResponse<TData>>;
     }
 
-    async *sendStream<TData>(request: TransportRequest): AsyncIterable<TData> {
+    async *sendStream<TData>(request: ITransportRequest): AsyncIterable<TData> {
         // Simple implementation - yield single response
         const response = await this.send<TData>(request);
         yield response.data;
@@ -147,7 +147,7 @@ export class SimpleWebSocketTransport implements Transport {
         return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
     }
 
-    getCapabilities(): TransportCapabilities {
+    getCapabilities(): ITransportCapabilities {
         return {
             streaming: true,
             bidirectional: true,
@@ -176,7 +176,7 @@ export class SimpleWebSocketTransport implements Transport {
         }
     }
 
-    private handleResponse(messageId: string, data: ChatResponseData): void {
+    private handleResponse(messageId: string, data: IChatResponseData): void {
         const pending = this.pendingRequests.get(messageId);
         if (pending) {
             this.pendingRequests.delete(messageId);

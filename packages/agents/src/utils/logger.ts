@@ -5,10 +5,6 @@ import { SimpleLogger, DefaultConsoleLogger } from './simple-logger';
  * Reusable type definitions for logger utility
  */
 
-/**
- * Logger context data type - uses centralized type definition
- */
-export type LoggerContextData = TLoggerData;
 
 /**
  * Log levels for the logger
@@ -22,7 +18,7 @@ export interface UtilLogEntry {
     timestamp: string;
     level: UtilLogLevel;
     message: string;
-    context?: LoggerContextData;
+    context?: TLoggerData;
     packageName?: string;
 }
 
@@ -30,10 +26,10 @@ export interface UtilLogEntry {
  * Logger interface
  */
 export interface Logger {
-    debug(message: string, context?: LoggerContextData): void;
-    info(message: string, context?: LoggerContextData): void;
-    warn(message: string, context?: LoggerContextData): void;
-    error(message: string, context?: LoggerContextData): void;
+    debug(message: string, context?: TLoggerData): void;
+    info(message: string, context?: TLoggerData): void;
+    warn(message: string, context?: TLoggerData): void;
+    error(message: string, context?: TLoggerData): void;
     isDebugEnabled(): boolean;
     setLevel(level: UtilLogLevel): void;
     getLevel(): UtilLogLevel;
@@ -81,25 +77,25 @@ export class ConsoleLogger implements Logger {
         this.simpleLogger = logger || DefaultConsoleLogger;
     }
 
-    debug(message: string, context?: LoggerContextData): void {
+    debug(message: string, context?: TLoggerData): void {
         if (this.shouldLog('debug')) {
             this.log('debug', message, context);
         }
     }
 
-    info(message: string, context?: LoggerContextData): void {
+    info(message: string, context?: TLoggerData): void {
         if (this.shouldLog('info')) {
             this.log('info', message, context);
         }
     }
 
-    warn(message: string, context?: LoggerContextData): void {
+    warn(message: string, context?: TLoggerData): void {
         if (this.shouldLog('warn')) {
             this.log('warn', message, context);
         }
     }
 
-    error(message: string, context?: LoggerContextData): void {
+    error(message: string, context?: TLoggerData): void {
         if (this.shouldLog('error')) {
             this.log('error', message, context);
         }
@@ -125,7 +121,7 @@ export class ConsoleLogger implements Logger {
         return levels.indexOf(level) >= levels.indexOf(currentLevel);
     }
 
-    private log(level: UtilLogLevel, message: string, context?: LoggerContextData): void {
+    private log(level: UtilLogLevel, message: string, context?: TLoggerData): void {
         const entry: UtilLogEntry = {
             timestamp: new Date().toISOString(),
             level,

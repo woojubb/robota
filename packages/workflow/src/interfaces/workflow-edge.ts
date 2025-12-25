@@ -1,18 +1,18 @@
 // Workflow Edge Interfaces
 // Based on existing UniversalWorkflowEdge implementation
 
-import type { WorkflowConnectionType } from './workflow-node.js';
-import type { LoggerData, UniversalValue } from '@robota-sdk/agents';
+import type { TWorkflowConnectionType } from './workflow-node.js';
+import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
-type WorkflowEdgeDataExtensionValue = UniversalValue | Date | Error | LoggerData;
+export type TWorkflowEdgeDataExtensionValue = TUniversalValue | Date | Error | TLoggerData;
 
 /**
  * Edge validation rule interface
  */
-export interface EdgeValidationRule {
+export interface IEdgeValidationRule {
     sourceNodeType?: string | string[];
     targetNodeType?: string | string[];
-    allowedConnectionTypes?: WorkflowConnectionType[];
+    allowedConnectionTypes?: TWorkflowConnectionType[];
     required?: boolean;
     description?: string;
 }
@@ -21,13 +21,13 @@ export interface EdgeValidationRule {
  * Core workflow edge interface
  * Based on existing UniversalWorkflowEdge from universal-types
  */
-export interface WorkflowEdge {
+export interface IWorkflowEdge {
     id: string;
     source: string; // Source node ID
     target: string; // Target node ID
     
     // Connection metadata
-    type: WorkflowConnectionType; // Connection type
+    type: TWorkflowConnectionType; // Connection type
     label?: string;
     description?: string;
     
@@ -49,9 +49,9 @@ export interface WorkflowEdge {
     // Additional metadata
     data?: {
         className?: string;
-        metadata?: LoggerData;
-        extensions?: { [platformName: string]: Record<string, WorkflowEdgeDataExtensionValue | undefined> };
-        extra?: Record<string, WorkflowEdgeDataExtensionValue>;
+        metadata?: TLoggerData;
+        extensions?: { [platformName: string]: Record<string, TWorkflowEdgeDataExtensionValue | undefined> };
+        extra?: Record<string, TWorkflowEdgeDataExtensionValue>;
     };
     
     // Timestamps for ordering
@@ -63,7 +63,7 @@ export interface WorkflowEdge {
 /**
  * Edge creation options
  */
-export interface EdgeCreationOptions {
+export interface IEdgeCreationOptions {
     label?: string;
     description?: string;
     sourceHandle?: string;
@@ -72,24 +72,24 @@ export interface EdgeCreationOptions {
     dependsOn?: string[];
     hidden?: boolean;
     autoTimestamp?: boolean;
-    metadata?: LoggerData;
+    metadata?: TLoggerData;
 }
 
 /**
  * Edge update event
  */
-export interface WorkflowEdgeUpdate {
+export interface IWorkflowEdgeUpdate {
     action: 'create' | 'update' | 'delete';
-    edge: WorkflowEdge;
+    edge: IWorkflowEdge;
 }
 
 /**
  * Edge query filters
  */
-export interface EdgeQueryFilter {
+export interface IEdgeQueryFilter {
     sourceId?: string;
     targetId?: string;
-    type?: WorkflowConnectionType | WorkflowConnectionType[];
+    type?: TWorkflowConnectionType | TWorkflowConnectionType[];
     hidden?: boolean;
     fromTimestamp?: number;
     toTimestamp?: number;
@@ -98,13 +98,13 @@ export interface EdgeQueryFilter {
 /**
  * Type guard for WorkflowEdge
  */
-export function isWorkflowEdge(obj: object): obj is WorkflowEdge {
+export function isWorkflowEdge(obj: object): obj is IWorkflowEdge {
     return (
-        typeof (obj as WorkflowEdge).id === 'string' &&
-        typeof (obj as WorkflowEdge).source === 'string' &&
-        typeof (obj as WorkflowEdge).target === 'string' &&
-        typeof (obj as WorkflowEdge).type === 'string' &&
-        typeof (obj as WorkflowEdge).timestamp === 'number'
+        typeof (obj as IWorkflowEdge).id === 'string' &&
+        typeof (obj as IWorkflowEdge).source === 'string' &&
+        typeof (obj as IWorkflowEdge).target === 'string' &&
+        typeof (obj as IWorkflowEdge).type === 'string' &&
+        typeof (obj as IWorkflowEdge).timestamp === 'number'
     );
 }
 
@@ -115,14 +115,14 @@ export class EdgeUtils {
     /**
      * Generate edge ID from source and target
      */
-    static generateId(sourceId: string, targetId: string, type: WorkflowConnectionType): string {
+    static generateId(sourceId: string, targetId: string, type: TWorkflowConnectionType): string {
         return `edge_${sourceId}_${targetId}_${type}`;
     }
     
     /**
      * Check if edge creates a cycle
      */
-    static wouldCreateCycle(edges: WorkflowEdge[], sourceId: string, targetId: string): boolean {
+    static wouldCreateCycle(edges: IWorkflowEdge[], sourceId: string, targetId: string): boolean {
         // Simple cycle detection - can be enhanced later
         if (sourceId === targetId) return true;
         

@@ -1,4 +1,4 @@
-import type { TUniversalMessage, ToolExecutionContext } from '@robota-sdk/agents';
+import type { IToolExecutionContext, TUniversalMessage } from '@robota-sdk/agents';
 
 /**
  * Block-specific metadata for visual representation
@@ -246,7 +246,7 @@ export interface BlockDataCollector {
 export interface ToolExecutionTrackingData {
     toolName: string;
     parameters: any;
-    context?: ToolExecutionContext;
+    context?: IToolExecutionContext;
     startTime: Date;
     endTime?: Date;
     result?: any;

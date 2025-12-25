@@ -11,7 +11,6 @@
 // React-Flow Integration
 export {
     UniversalToReactFlowConverter,
-    UniversalToReactFlowConverter
 } from './react-flow';
 
 export type {

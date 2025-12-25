@@ -2,71 +2,71 @@
 // Based on existing implementations in agents package
 
 import type { WorkflowNodeType } from '../constants/workflow-types.js';
-import type { ContextData, LoggerData, OwnerPathSegment, ToolResult, UniversalValue } from '@robota-sdk/agents';
+import type { IToolResult, IOwnerPathSegment, TContextData, TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
-type WorkflowNodeDataExtensionValue = UniversalValue | Date | Error | LoggerData | ToolResult | ContextData;
+export type TWorkflowNodeDataExtensionValue = TUniversalValue | Date | Error | TLoggerData | IToolResult | TContextData;
 
-export interface WorkflowOriginalEvent {
+export interface IWorkflowOriginalEvent {
     eventType: string;
     timestamp: Date;
     sourceType?: string;
     sourceId?: string;
     path?: string[];
-    parameters?: ContextData;
-    result?: ToolResult | ContextData;
-    metadata?: LoggerData;
+    parameters?: TContextData;
+    result?: IToolResult | TContextData;
+    metadata?: TLoggerData;
     error?: Error | string;
     context?: {
-        ownerPath: OwnerPathSegment[];
+        ownerPath: IOwnerPathSegment[];
     };
 }
 
-export interface WorkflowNodeExtensions {
+export interface IWorkflowNodeExtensions {
     robota?: {
-        originalEvent?: WorkflowOriginalEvent;
+        originalEvent?: IWorkflowOriginalEvent;
         handlerType: 'tool' | 'agent' | 'execution';
-        extra?: Record<string, WorkflowNodeDataExtensionValue>;
+        extra?: Record<string, TWorkflowNodeDataExtensionValue>;
     };
     /**
      * Other platform extensions must be explicit and constrained (no unknown).
      */
-    other?: Record<string, Record<string, WorkflowNodeDataExtensionValue | undefined>>;
+    other?: Record<string, Record<string, TWorkflowNodeDataExtensionValue | undefined>>;
 }
 
 /**
  * Base workflow node status types
  */
-export type WorkflowNodeStatus = 'pending' | 'running' | 'completed' | 'error';
+export type TWorkflowNodeStatus = 'pending' | 'running' | 'completed' | 'error';
 
 /**
  * Connection types between workflow nodes
  * Based on existing WorkflowConnectionType from workflow-event-subscriber
  */
-export type WorkflowConnectionType =
+export type TWorkflowConnectionType =
     | 'has_tools'         // Agent → Tools Container
     | 'contains'          // Tools Container → Tool Definition
     | 'receives'          // User Input → Agent
     | 'processes'         // Agent → Agent Thinking
-    | 'continues'         // Agent Thinking → Agent Thinking (thinking 연속)
+    | 'continues'         // Agent Thinking → Agent Thinking (continuous thinking)
     | 'executes'          // Agent Thinking → Tool Call
-    | 'creates'           // Tool Call → Agent (Agent 생성)
-    | 'triggers'          // Tool Call Response → User Message (메시지 트리거)
-    | 'branch'            // 병렬 분기 (Thinking → multiple Tool Calls)
+    | 'creates'           // Tool Call → Agent (agent created)
+    | 'triggers'          // Tool Call Response → User Message (message triggers)
+    | 'branch'            // Parallel branching (Thinking → multiple Tool Calls)
     | 'result'            // Tool Call → Merge
-    | 'analyze'           // 연쇄 분석 (Merge → next Thinking)
-    | 'return'            // Response → Integration Instance (결과 반환)
-    | 'final'             // 최종 결과 (Response → Output)
-    | 'deliver'           // 출력 전달
-    | 'integrates'        // Response → Agent Integration Instance (결과 통합)
-    | 'finalizes';        // Final Thinking → Output (최종 완료)
+    | 'analyze'           // Chained analysis (Merge → next Thinking)
+    | 'return'            // Response → Integration Instance (returns result)
+    | 'final'             // Final result (Response → Output)
+    | 'deliver'           // Output delivery
+    | 'integrates'        // Response → Agent Integration Instance (integrates result)
+    | 'finalizes';        // Final Thinking → Output (finalize)
 
 /**
  * Workflow node connection information
  */
-export interface WorkflowConnection {
+export interface IWorkflowConnection {
     fromId: string;
     toId: string;
-    type: WorkflowConnectionType;
+    type: TWorkflowConnectionType;
     label?: string;
 }
 
@@ -74,7 +74,7 @@ export interface WorkflowConnection {
  * Core workflow node data structure
  * Based on existing WorkflowNodeData interface
  */
-export interface WorkflowNodeData {
+export interface IWorkflowNodeData {
     // Core identification
     eventType?: string;
     sourceId?: string;
@@ -89,13 +89,13 @@ export interface WorkflowNodeData {
     label?: string;
     description?: string;
     response?: string;
-    status?: WorkflowNodeStatus;
+    status?: TWorkflowNodeStatus;
     
     // Tool-specific data
     toolName?: string;
     agentTemplate?: string;
-    parameters?: ContextData;
-    result?: ToolResult | ContextData;
+    parameters?: TContextData;
+    result?: IToolResult | TContextData;
 
     // Optional tool list for agent nodes
     tools?: string[];
@@ -107,7 +107,7 @@ export interface WorkflowNodeData {
     parentThinkingNodeId?: string;
 
     // Tool response UI data
-    toolCall?: ContextData;
+    toolCall?: TContextData;
     toolResponse?: {
         toolName: string;
         content: string;
@@ -123,64 +123,64 @@ export interface WorkflowNodeData {
         parentThinking: string;
         status: string;
     };
-    error?: Error | string | ContextData;
+    error?: Error | string | TContextData;
 
     // Execution/assistant/user message info blocks used by execution handler
-    executionInfo?: ContextData;
-    messageInfo?: ContextData;
-    messageMetrics?: ContextData;
-    inputInfo?: ContextData;
+    executionInfo?: TContextData;
+    messageInfo?: TContextData;
+    messageMetrics?: TContextData;
+    inputInfo?: TContextData;
     
     // Agent-specific data
     agentNumber?: number;
     copyNumber?: number;
     
     // Execution metadata
-    metadata?: LoggerData;
+    metadata?: TLoggerData;
 
     statusHistory?: Array<{
-        status: WorkflowNodeStatus;
+        status: TWorkflowNodeStatus;
         eventType: string;
         timestamp: number;
     }>;
 
     // Platform extensions (typed, no unknown)
-    extensions?: WorkflowNodeExtensions;
+    extensions?: IWorkflowNodeExtensions;
 
     // Forward-compatible extra fields (typed, no unknown)
-    extra?: Record<string, WorkflowNodeDataExtensionValue>;
+    extra?: Record<string, TWorkflowNodeDataExtensionValue>;
 }
 
 /**
  * Core workflow node interface
  * Compatible with existing WorkflowNode from workflow-event-subscriber
  */
-export interface WorkflowNode {
+export interface IWorkflowNode {
     id: string;
     type: WorkflowNodeType;
     parentId?: string;
     level: number;
-    status: WorkflowNodeStatus;
-    data: WorkflowNodeData;
+    status: TWorkflowNodeStatus;
+    data: IWorkflowNodeData;
     timestamp: number; // Creation timestamp for sequential order validation
-    connections: WorkflowConnection[];
+    connections: IWorkflowConnection[];
 }
 
 /**
  * Workflow node update event
  */
-export interface WorkflowNodeUpdate {
+export interface IWorkflowNodeUpdate {
     action: 'create' | 'update' | 'complete' | 'error';
-    node: WorkflowNode;
-    relatedNodes?: WorkflowNode[]; // 연관된 노드들 (연결 관계)
+    node: IWorkflowNode;
+    relatedNodes?: IWorkflowNode[]; // Related nodes (connection relationships)
 }
 
 /**
  * Node creation options
  */
-export interface NodeCreationOptions {
+export interface INodeCreationOptions {
     parentNodeId?: string;
-    connectionType?: WorkflowConnectionType;
+    connectionType?: TWorkflowConnectionType;
     connectionLabel?: string;
     autoTimestamp?: boolean;
 }
@@ -188,12 +188,12 @@ export interface NodeCreationOptions {
 /**
  * Type guard for WorkflowNode
  */
-export function isWorkflowNode(obj: object): obj is WorkflowNode {
+export function isWorkflowNode(obj: object): obj is IWorkflowNode {
     return (
-        typeof (obj as WorkflowNode).id === 'string' &&
-        typeof (obj as WorkflowNode).type === 'string' &&
-        typeof (obj as WorkflowNode).level === 'number' &&
-        typeof (obj as WorkflowNode).status === 'string' &&
-        typeof (obj as WorkflowNode).timestamp === 'number'
+        typeof (obj as IWorkflowNode).id === 'string' &&
+        typeof (obj as IWorkflowNode).type === 'string' &&
+        typeof (obj as IWorkflowNode).level === 'number' &&
+        typeof (obj as IWorkflowNode).status === 'string' &&
+        typeof (obj as IWorkflowNode).timestamp === 'number'
     );
 }
