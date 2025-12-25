@@ -1,14 +1,14 @@
-import type { ToolInterface, ToolResult, ToolExecutionContext, ToolParameters } from '../../interfaces/tool';
+import type { IToolInterface, IToolResult, IToolExecutionContext, TToolParameters } from '../../interfaces/tool';
 import type { IToolSchema } from '../../interfaces/provider';
-import type { ObjectValue } from '../../interfaces/types';
-import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
+import type { IUniversalObjectValue } from '../../interfaces/types';
+import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import { logger as _logger } from '../../utils/logger';
 
 /**
  * MCP (Model Context Protocol) tool configuration
  */
-export interface MCPConfig {
+export interface IMCPConfig {
     endpoint: string;
     apiKey?: string;
     timeout?: number;
@@ -19,33 +19,33 @@ export interface MCPConfig {
 /**
  * MCP protocol message types
  */
-interface MCPRequest {
+interface IMCPRequest {
     jsonrpc: '2.0';
     id: string | number;
     method: string;
-    params?: MCPRequestParams;
+    params?: IMCPRequestParams;
 }
 
-interface MCPResponse {
+interface IMCPResponse {
     jsonrpc: '2.0';
     id: string | number;
-    result?: MCPResultData;
-    error?: MCPError;
+    result?: IMCPResultData;
+    error?: IMCPError;
 }
 
-interface MCPRequestParams {
+interface IMCPRequestParams {
     tool: string;
-    arguments: ToolParameters;
+    arguments: TToolParameters;
     metadata?: Record<string, string | number | boolean>;
 }
 
-interface MCPResultData {
+interface IMCPResultData {
     content: string | Record<string, string | number | boolean | null>;
     metadata?: Record<string, string | number | boolean>;
     isError?: boolean;
 }
 
-interface MCPError {
+interface IMCPError {
     code: number;
     message: string;
     data?: Record<string, string | number | boolean>;
@@ -54,14 +54,14 @@ interface MCPError {
 /**
  * MCP connection status
  */
-type MCPConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
+type TMCPConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'disconnecting' | 'error';
 
 /**
  * MCP tool execution result (domain payload).
  *
  * NOTE:
  * Tool result payloads must conform to the canonical UniversalValue axis.
- * We return a plain object (ObjectValue) so downstream consumers can safely
+ * We return a plain object (IUniversalObjectValue) so downstream consumers can safely
  * store/serialize it without `any`/`unknown`.
  */
 
@@ -69,14 +69,14 @@ type MCPConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error'
  * MCP (Model Context Protocol) tool implementation
  * Executes tools via the Model Context Protocol
  * 
- * @extends AbstractTool<ToolParameters, ToolResult>
+ * @extends AbstractTool<TToolParameters, IToolResult>
  */
-export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements ToolInterface {
+export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implements IToolInterface {
     readonly schema: IToolSchema;
-    private readonly mcpConfig: MCPConfig;
-    private connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error' = 'disconnected';
+    private readonly mcpConfig: IMCPConfig;
+    private connectionStatus: TMCPConnectionStatus = 'disconnected';
 
-    constructor(config: MCPConfig, schema: IToolSchema, options: AbstractToolOptions = {}) {
+    constructor(config: IMCPConfig, schema: IToolSchema, options: IAbstractToolOptions = {}) {
         super(options);
         this.mcpConfig = {
             timeout: 30000,
@@ -90,7 +90,7 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
      * Execute the MCP tool implementation
      * This method is called by the parent's Template Method Pattern
      */
-    protected async executeImpl(parameters: ToolParameters, _context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: TToolParameters, _context?: IToolExecutionContext): Promise<IToolResult> {
         const toolName = this.schema.name;
         const startTime = Date.now();
 
@@ -203,10 +203,10 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
     /**
      * Build MCP request from tool parameters
      */
-    private buildMCPRequest(toolName: string, parameters: ToolParameters): MCPRequest {
+    private buildMCPRequest(toolName: string, parameters: TToolParameters): IMCPRequest {
         const requestId = `${toolName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        const mcpParams: MCPRequestParams = {
+        const mcpParams: IMCPRequestParams = {
             tool: toolName,
             arguments: parameters
         };
@@ -221,13 +221,13 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
             id: requestId,
             method: 'tools/call',
             params: mcpParams
-        };
+        } satisfies IMCPRequest;
     }
 
     /**
      * Execute MCP request and return response
      */
-    private async executeMCPRequest(request: MCPRequest): Promise<MCPResponse> {
+    private async executeMCPRequest(request: IMCPRequest): Promise<IMCPResponse> {
         try {
             // TODO: Implement actual MCP protocol communication
             // This would typically use WebSocket or HTTP POST to the MCP server
@@ -238,7 +238,7 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
             });
 
             // Simulate MCP response for now
-            const mockResponse: MCPResponse = {
+            const mockResponse: IMCPResponse = {
                 jsonrpc: '2.0',
                 id: request.id,
                 result: {
@@ -262,16 +262,16 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
                     message: error instanceof Error ? error.message : String(error),
                     data: { endpoint: this.mcpConfig.endpoint }
                 }
-            };
+            } satisfies IMCPResponse;
         }
     }
 
     /**
      * Process MCP response and extract execution result
      */
-    private processMCPResponse(response: MCPResponse): ObjectValue {
+    private processMCPResponse(response: IMCPResponse): IUniversalObjectValue {
         if (response.error) {
-            const errorData: ObjectValue = {
+            const errorData: IUniversalObjectValue = {
                 success: false,
                 content: response.error.message,
                 metadata: response.error.data ?? undefined
@@ -280,7 +280,7 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
         }
 
         if (response.result) {
-            const okData: ObjectValue = {
+            const okData: IUniversalObjectValue = {
                 success: true,
                 content: response.result.content,
                 metadata: response.result.metadata ?? undefined
@@ -289,7 +289,7 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
         }
 
         // Unexpected response format
-        const unexpected: ObjectValue = {
+        const unexpected: IUniversalObjectValue = {
             success: false,
             content: 'Unexpected MCP response format',
             metadata: { responseId: String(response.id) }
@@ -300,7 +300,7 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
     /**
      * Get current connection status
      */
-    public getConnectionStatus(): MCPConnectionStatus {
+    public getConnectionStatus(): TMCPConnectionStatus {
         return this.connectionStatus;
     }
 
@@ -309,7 +309,7 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
      */
     public async disconnect(): Promise<void> {
         if (this.connectionStatus === 'connected') {
-            this.connectionStatus = 'disconnecting' as MCPConnectionStatus;
+            this.connectionStatus = 'disconnecting';
 
             try {
                 // TODO: Implement actual disconnection logic
@@ -332,6 +332,6 @@ export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements
 /**
  * Factory function to create MCP tools
  */
-export function createMCPTool(config: MCPConfig, schema: ToolSchema, options: AbstractToolOptions = {}): MCPTool {
+export function createMCPTool(config: IMCPConfig, schema: IToolSchema, options: IAbstractToolOptions = {}): MCPTool {
     return new MCPTool(config, schema, options);
 } 

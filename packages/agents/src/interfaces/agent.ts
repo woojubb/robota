@@ -21,7 +21,7 @@ export type {
 } from './messages';
 
 /**
- * ExecutionContextInjection
+ * IExecutionContextInjection
  *
  * Minimal context payload used to inject an existing ownerPath into a new agent instance
  * (e.g., when a tool creates an agent and must preserve absolute ownerPath semantics).
@@ -29,7 +29,7 @@ export type {
  * NOTE: This is intentionally NOT ToolExecutionContext. ToolExecutionContext is for tool calls
  * and requires toolName/parameters; agent creation only needs ownerPath and execution linkage.
  */
-export interface ExecutionContextInjection {
+export interface IExecutionContextInjection {
     ownerPath?: IOwnerPathSegment[];
     parentExecutionId?: string;
     rootExecutionId?: string;
@@ -42,7 +42,7 @@ export interface ExecutionContextInjection {
 /**
  * Provider-specific configuration
  */
-export interface ProviderConfig {
+export interface IProviderConfig {
     openai?: {
         apiKey?: string;
         baseURL?: string;
@@ -66,7 +66,7 @@ export interface ProviderConfig {
 /**
  * Agent configuration options - New design with aiProviders array and defaultModel
  */
-export interface AgentConfig {
+export interface IAgentConfig {
     id?: string;
     name: string;
     aiProviders: IAIProvider[];
@@ -108,13 +108,13 @@ export interface AgentConfig {
     };
 
     // Provider-specific configurations
-    providerConfig?: ProviderConfig;
+    providerConfig?: IProviderConfig;
 
     // Execution options
     stream?: boolean;
     toolChoice?: 'auto' | 'none' | string;
-    responseFormat?: ResponseFormatConfig;
-    safetySettings?: SafetySetting[];
+    responseFormat?: IResponseFormatConfig;
+    safetySettings?: ISafetySetting[];
 
     // Performance and limits
     timeout?: number;
@@ -129,19 +129,19 @@ export interface AgentConfig {
     eventService?: IEventService;
 
     // 🎯 [CONTEXT-INJECTION] Execution context for hierarchical agent management
-    executionContext?: ExecutionContextInjection;
+    executionContext?: IExecutionContextInjection;
 }
 
 /**
  * Agent template interface
  */
-export interface AgentTemplate {
+export interface IAgentTemplate {
     id: string;
     name: string;
     description?: string;
     category?: string;
     tags?: string[];
-    config: AgentConfig;
+    config: IAgentConfig;
     version?: string;
     author?: string;
     createdAt?: Date;
@@ -151,7 +151,7 @@ export interface AgentTemplate {
 /**
  * Agent run options - type-safe interface for all agent execution options
  */
-export interface RunOptions {
+export interface IRunOptions {
     temperature?: number;
     maxTokens?: number;
     stream?: boolean;
@@ -164,13 +164,13 @@ export interface RunOptions {
 /**
  * Generic agent interface with type parameters for enhanced type safety
  * 
- * @template TConfig - Agent configuration type (defaults to AgentConfig for backward compatibility)
- * @template TContext - Execution context type (defaults to RunOptions for backward compatibility)
+ * @template TConfig - Agent configuration type (defaults to IAgentConfig for backward compatibility)
+ * @template TContext - Execution context type (defaults to IRunOptions for backward compatibility)
  * @template TUniversalMessage - Message type (defaults to TUniversalMessage for backward compatibility)
  */
-export interface BaseAgentInterface<
-    TConfig = AgentConfig,
-    TContext = RunOptions,
+export interface IBaseAgentInterface<
+    TConfig = IAgentConfig,
+    TContext = IRunOptions,
     TMessage = TUniversalMessage
 > {
     /**
@@ -203,7 +203,7 @@ export interface BaseAgentInterface<
  * Extended run context with provider-agnostic options
  * Supports dynamic provider configurations without hardcoding specific providers
  */
-export interface ExtendedRunContext {
+export interface IExtendedRunContext {
     temperature?: number;
     maxTokens?: number;
     stream?: boolean;
@@ -222,15 +222,15 @@ export interface ExtendedRunContext {
     seed?: number;
 
     // Advanced configuration with specific types
-    responseFormat?: ResponseFormatConfig;
-    safetySettings?: SafetySetting[];
-    generationConfig?: GenerationConfig;
+    responseFormat?: IResponseFormatConfig;
+    safetySettings?: ISafetySetting[];
+    generationConfig?: IGenerationConfig;
 }
 
 /**
  * Response format configuration
  */
-export interface ResponseFormatConfig {
+export interface IResponseFormatConfig {
     type?: 'text' | 'json_object';
     schema?: Record<string, TConfigValue>;
 }
@@ -238,7 +238,7 @@ export interface ResponseFormatConfig {
 /**
  * Safety setting configuration
  */
-export interface SafetySetting {
+export interface ISafetySetting {
     category: string;
     threshold: string;
     [key: string]: TConfigValue;
@@ -247,7 +247,7 @@ export interface SafetySetting {
 /**
  * Generation configuration
  */
-export interface GenerationConfig {
+export interface IGenerationConfig {
     temperature?: number;
     maxTokens?: number;
     topP?: number;
@@ -257,6 +257,6 @@ export interface GenerationConfig {
 
 /**
  * Legacy agent interface for backward compatibility
- * @deprecated Use BaseAgentInterface or provider-specific interfaces instead
+ * @deprecated Use IBaseAgentInterface or provider-specific interfaces instead
  */
-export interface AgentInterface extends BaseAgentInterface<AgentConfig, RunOptions, TUniversalMessage> { } 
+export interface IAgentInterface extends IBaseAgentInterface<IAgentConfig, IRunOptions, TUniversalMessage> { } 

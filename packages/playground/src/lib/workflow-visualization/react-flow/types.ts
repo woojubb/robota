@@ -12,7 +12,7 @@
 /**
  * React-Flow Node Position
  */
-export interface ReactFlowPosition {
+export interface IReactFlowPosition {
     x: number;
     y: number;
 }
@@ -20,43 +20,45 @@ export interface ReactFlowPosition {
 /**
  * React-Flow Node Data (Pass-through container)
  */
-export interface ReactFlowNodeData {
+import type { TUniversalValue } from '@robota-sdk/agents';
+
+export interface IReactFlowNodeData {
     label: string;
-    [key: string]: any; // Let React-Flow handle any data structure
+    [key: string]: TUniversalValue;
 }
 
 /**
  * React-Flow Node (Minimal v12 structure)
  */
-export interface ReactFlowNode {
+export interface IReactFlowNode {
     id: string;
     type?: string;
-    position: ReactFlowPosition;
-    data: ReactFlowNodeData;
+    position: IReactFlowPosition;
+    data: IReactFlowNodeData;
 }
 
 /**
  * React-Flow Edge Data (Pass-through container)
  */
-export interface ReactFlowEdgeData {
-    [key: string]: any; // Let React-Flow handle any data structure
+export interface IReactFlowEdgeData {
+    [key: string]: TUniversalValue;
 }
 
 /**
  * React-Flow Edge (Minimal v12 structure)
  */
-export interface ReactFlowEdge {
+export interface IReactFlowEdge {
     id: string;
     source: string;
     target: string;
     type?: string;
-    data?: ReactFlowEdgeData;
+    data?: IReactFlowEdgeData;
 }
 
 /**
  * React-Flow Data Structure
  */
-export interface ReactFlowData {
-    nodes: ReactFlowNode[];
-    edges: ReactFlowEdge[];
+export interface IReactFlowData {
+    nodes: IReactFlowNode[];
+    edges: IReactFlowEdge[];
 }

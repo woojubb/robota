@@ -5,8 +5,8 @@
  * Follows Single Responsibility Principle by focusing only on validation logic.
  */
 
-import { SimpleLogger } from '../utils/simple-logger';
-import { WorkflowData, WorkflowConfig, WorkflowMetadata } from './workflow-converter';
+import type { SimpleLogger } from '../utils/simple-logger';
+import type { IWorkflowData, IWorkflowConfig, IWorkflowMetadata } from './workflow-converter';
 
 /**
  * Validation severity levels
@@ -49,7 +49,7 @@ export interface ValidationIssue {
     suggestedFix?: {
         description: string;
         action: 'modify' | 'remove' | 'add';
-        target?: WorkflowConfig;
+        target?: IWorkflowConfig;
     };
 
     /** Timestamp when issue was detected */
@@ -82,7 +82,7 @@ export interface ValidationOptions {
     logger?: SimpleLogger;
 
     /** Additional validation context */
-    context?: WorkflowMetadata;
+    context?: IWorkflowMetadata;
 
     /** Enable auto-recovery suggestions */
     enableAutoRecovery?: boolean;
@@ -137,7 +137,7 @@ export interface ValidationResult {
     recoveryOptions?: Array<{
         description: string;
         confidence: number; // 0-1
-        action: () => Promise<WorkflowConfig>;
+        action: () => Promise<IWorkflowConfig>;
     }>;
 }
 
@@ -149,7 +149,7 @@ export interface ValidationResult {
  * 
  * @template TWorkflowData - Type of workflow data to validate
  */
-export interface WorkflowValidatorInterface<TWorkflowData extends WorkflowData> {
+export interface WorkflowValidatorInterface<TWorkflowData extends IWorkflowData> {
     /** Validator name for identification */
     readonly name: string;
 
@@ -187,7 +187,7 @@ export interface WorkflowValidatorInterface<TWorkflowData extends WorkflowData> 
      * @param data - Data to check
      * @returns True if validator can handle this data
      */
-    canValidate(data: WorkflowData): data is TWorkflowData;
+    canValidate(data: IWorkflowData): data is TWorkflowData;
 
     /**
      * Get available validation rules with descriptions

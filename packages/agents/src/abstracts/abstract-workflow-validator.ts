@@ -14,14 +14,14 @@ import {
     ValidationIssue,
     ValidationSeverity
 } from '../interfaces/workflow-validator';
-import type { WorkflowData, WorkflowConfig } from '../interfaces/workflow-converter';
+import type { IWorkflowData, IWorkflowConfig } from '../interfaces/workflow-converter';
 import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 
 /**
  * Base validator options following BaseModule pattern
  */
-export interface BaseWorkflowValidatorOptions {
+export interface IBaseWorkflowValidatorOptions {
     /** Enable/disable the validator */
     enabled?: boolean;
 
@@ -29,7 +29,7 @@ export interface BaseWorkflowValidatorOptions {
     logger?: AbstractLogger;
 
     /** Validator-specific configuration */
-    config?: WorkflowConfig;
+    config?: IWorkflowConfig;
 
     /** Default validation options */
     defaultOptions?: Partial<ValidationOptions>;
@@ -38,7 +38,7 @@ export interface BaseWorkflowValidatorOptions {
 /**
  * Validator statistics tracking
  */
-interface ValidatorStats {
+interface IValidatorStats {
     totalValidations: number;
     successfulValidations: number;
     failedValidations: number;
@@ -52,7 +52,7 @@ interface ValidatorStats {
 /**
  * Validation rule configuration
  */
-interface ValidationRuleConfig {
+interface IValidationRuleConfig {
     enabled: boolean;
     description: string;
     severity: ValidationSeverity;
@@ -72,7 +72,7 @@ interface ValidationRuleConfig {
  * 
  * @template TWorkflowData - Type of workflow data to validate
  */
-export abstract class AbstractWorkflowValidator<TWorkflowData extends WorkflowData>
+export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowData>
     implements WorkflowValidatorInterface<TWorkflowData> {
 
     // Abstract properties that must be implemented by subclasses
@@ -88,16 +88,16 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends WorkflowDa
     protected readonly logger: AbstractLogger;
 
     /** Validator configuration */
-    protected readonly config: WorkflowConfig;
+    protected readonly config: IWorkflowConfig;
 
     /** Default validation options */
     protected readonly defaultOptions: Partial<ValidationOptions>;
 
     /** Rule configurations */
-    protected readonly ruleConfigs: Map<string, ValidationRuleConfig> = new Map();
+    protected readonly ruleConfigs: Map<string, IValidationRuleConfig> = new Map();
 
     /** Statistics tracking */
-    private stats: ValidatorStats = {
+    private stats: IValidatorStats = {
         totalValidations: 0,
         successfulValidations: 0,
         failedValidations: 0,
@@ -112,7 +112,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends WorkflowDa
      * 
      * @param options - Validator configuration options
      */
-    constructor(options: BaseWorkflowValidatorOptions = {}) {
+    constructor(options: IBaseWorkflowValidatorOptions = {}) {
         this.enabled = options.enabled ?? true;
         this.logger = options.logger || DEFAULT_ABSTRACT_LOGGER;
         this.config = options.config || {};

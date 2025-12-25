@@ -229,7 +229,7 @@ export interface IEventHandlerRegistry {
 /**
  * Event processing context
  */
-export interface EventProcessingContext {
+export interface IEventProcessingContext {
     /**
      * Current workflow state
      */
@@ -272,7 +272,7 @@ export interface IContextualEventHandler extends IEventHandler {
     handleWithContext(
         eventType: string,
         eventData: TEventData,
-        context: EventProcessingContext
+        context: IEventProcessingContext
     ): Promise<IEventProcessingResult>;
 }
 

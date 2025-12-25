@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { Robota } from '../core/robota';
-import type { AgentConfig, RunOptions } from '../interfaces/agent';
+import type { IAgentConfig, IRunOptions } from '../interfaces/agent';
 import { AbstractAgent } from '../abstracts/abstract-agent';
-import type { AgentInterface } from '../interfaces/agent';
+import type { IAgentInterface } from '../interfaces/agent';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { AbstractTool as BaseTool } from '../abstracts/abstract-tool';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
@@ -95,11 +95,11 @@ class MockPlugin extends AbstractPlugin {
     override readonly name = 'mock-plugin';
     override readonly version = '1.0.0';
 
-    override async beforeRun(input: string, _options?: RunOptions): Promise<void> {
+    override async beforeRun(input: string, _options?: IRunOptions): Promise<void> {
         // Mock hook implementation
     }
 
-    override async afterRun(input: string, response: string, _options?: RunOptions): Promise<void> {
+    override async afterRun(input: string, response: string, _options?: IRunOptions): Promise<void> {
         // Mock hook implementation
     }
 }
@@ -109,7 +109,7 @@ describe('Robota Class - New Configuration API', () => {
     let mockProvider2: MockAIProvider2;
     let mockTool: MockTool;
     let mockPlugin: MockPlugin;
-    let config: AgentConfig;
+    let config: IAgentConfig;
 
     beforeEach(() => {
         mockProvider = new MockAIProvider();
@@ -148,7 +148,7 @@ describe('Robota Class - New Configuration API', () => {
         });
 
         it('should validate required fields', () => {
-            expect(() => new Robota({} as AgentConfig)).toThrow(ConfigurationError);
+            expect(() => new Robota({} as IAgentConfig)).toThrow(ConfigurationError);
 
             expect(() => new Robota({
                 name: 'Test',
@@ -185,7 +185,7 @@ describe('Robota Class - New Configuration API', () => {
         });
 
         it('should support multiple AI providers', () => {
-            const multiProviderConfig: AgentConfig = {
+            const multiProviderConfig: IAgentConfig = {
                 name: 'Multi Provider Test',
                 aiProviders: [mockProvider, mockProvider2],
                 defaultModel: {
@@ -229,7 +229,7 @@ describe('Robota Class - New Configuration API', () => {
         });
 
         it('should switch between multiple providers', async () => {
-            const multiProviderConfig: AgentConfig = {
+            const multiProviderConfig: IAgentConfig = {
                 name: 'Multi Provider Test',
                 aiProviders: [mockProvider, mockProvider2],
                 defaultModel: {
@@ -255,7 +255,7 @@ describe('Robota Class - New Configuration API', () => {
         });
 
         it('should preserve other model settings when switching providers', async () => {
-            const multiProviderConfig: AgentConfig = {
+            const multiProviderConfig: IAgentConfig = {
                 name: 'Multi Provider Test',
                 aiProviders: [mockProvider, mockProvider2],
                 defaultModel: {
@@ -287,13 +287,13 @@ describe('Robota Class - New Configuration API', () => {
     });
 
     describe('Basic Architecture', () => {
-        it('should extend AbstractAgent and implement AgentInterface', () => {
+        it('should extend AbstractAgent and implement IAgentInterface', () => {
             const robota = new Robota(config);
 
             expect(robota).toBeInstanceOf(AbstractAgent);
             expect(robota).toBeInstanceOf(Robota);
 
-            // Check AgentInterface implementation
+            // Check IAgentInterface implementation
             expect(typeof robota.run).toBe('function');
             expect(typeof robota.runStream).toBe('function');
             expect(typeof robota.getHistory).toBe('function');

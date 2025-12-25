@@ -32,7 +32,7 @@ export class RemoteServer {
     private router: express.Router;
     private readonly logger: SimpleLogger;
 
-    constructor(config: RemoteServerConfig = {}) {
+    constructor(config: IRemoteServerConfig = {}) {
         this.logger = config.logger || SilentLogger;
         this.app = express();
         this.providers = new Map();
@@ -283,7 +283,7 @@ export class RemoteServer {
 }
 
 // Import server configuration
-export interface RemoteServerConfig {
+export interface IRemoteServerConfig {
     port?: number;
     enableCors?: boolean;
     enableHelmet?: boolean;

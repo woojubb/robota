@@ -1,4 +1,4 @@
-import { AgentTemplate, AgentConfig } from '../interfaces/agent';
+import { IAgentTemplate, IAgentConfig } from '../interfaces/agent';
 import { Logger, createLogger } from '../utils/logger';
 
 /**
@@ -9,17 +9,17 @@ import { Logger, createLogger } from '../utils/logger';
  * Agent template configuration data type
  * Used for storing template configuration values
  */
-export type AgentTemplateConfigurationData = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
+export type TAgentTemplateConfigurationData = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
 
 
 /**
  * Template application result
  */
-export interface TemplateApplicationResult {
+export interface ITemplateApplicationResult {
     /** Applied configuration */
-    config: AgentConfig;
+    config: IAgentConfig;
     /** Template that was applied */
-    template: AgentTemplate;
+    template: IAgentTemplate;
     /** Any warnings during application */
     warnings: string[];
     /** Whether config was modified during application */
@@ -32,7 +32,7 @@ export interface TemplateApplicationResult {
  * Instance-based for isolated template management
  */
 export class AgentTemplates {
-    private templates = new Map<string, AgentTemplate>();
+    private templates = new Map<string, IAgentTemplate>();
     private logger: Logger;
 
     constructor() {
@@ -43,7 +43,7 @@ export class AgentTemplates {
     /**
      * Register a template
      */
-    registerTemplate(template: AgentTemplate): void {
+    registerTemplate(template: IAgentTemplate): void {
         if (!template.id) {
             throw new Error('Template must have an ID');
         }
@@ -76,14 +76,14 @@ export class AgentTemplates {
     /**
      * Get all templates
      */
-    getTemplates(): AgentTemplate[] {
+    getTemplates(): IAgentTemplate[] {
         return Array.from(this.templates.values());
     }
 
     /**
      * Get template by ID
      */
-    getTemplate(templateId: string): AgentTemplate | undefined {
+    getTemplate(templateId: string): IAgentTemplate | undefined {
         return this.templates.get(templateId);
     }
 
@@ -95,7 +95,7 @@ export class AgentTemplates {
         tags?: string[];
         provider?: string;
         model?: string;
-    }): AgentTemplate[] {
+    }): IAgentTemplate[] {
         return this.getTemplates().filter(template => {
             // Check category
             if (criteria.category && template.category !== criteria.category) {
@@ -129,18 +129,18 @@ export class AgentTemplates {
     /**
      * Apply template to configuration
      */
-    applyTemplate(template: AgentTemplate, overrides: Partial<AgentConfig> = {}): TemplateApplicationResult {
+    applyTemplate(template: IAgentTemplate, overrides: Partial<IAgentConfig> = {}): ITemplateApplicationResult {
         const warnings: string[] = [];
         let modified = false;
 
         // Start with template configuration
-        const config: AgentConfig = { ...template.config };
+        const config: IAgentConfig = { ...template.config };
 
         // Apply overrides with type-safe approach
-        const mergedConfig: AgentConfig = { ...config, ...overrides };
+        const mergedConfig: IAgentConfig = { ...config, ...overrides };
 
         // Check for modifications by comparing specific known fields
-        const checkField = (fieldName: keyof AgentConfig): void => {
+        const checkField = (fieldName: keyof IAgentConfig): void => {
             if (fieldName in overrides && config[fieldName] !== overrides[fieldName]) {
                 modified = true;
                 if (config[fieldName] !== undefined) {

@@ -1,6 +1,7 @@
 import type { IToolManager } from '../interfaces/manager';
 import type { IToolSchema } from '../interfaces/provider';
-import type { ToolInterface, ToolExecutor, ToolExecutionData, ToolParameters, ToolExecutionContext } from '../interfaces/tool';
+import type { IToolInterface, TToolExecutor, TToolParameters, IToolExecutionContext } from '../interfaces/tool';
+import type { TToolResultData } from '../interfaces/types';
 import { AbstractManager } from '../abstracts/abstract-manager';
 import { ToolRegistry } from '../tools/registry/tool-registry';
 import { FunctionTool } from '../tools/implementations/function-tool';
@@ -41,7 +42,7 @@ export class Tools extends AbstractManager implements IToolManager {
     /**
      * Register a tool with schema and executor function
      */
-    addTool(schema: IToolSchema, executor: ToolExecutor): void {
+    addTool(schema: IToolSchema, executor: TToolExecutor): void {
         this.ensureInitialized();
 
         const tool = new FunctionTool(schema, executor);
@@ -61,7 +62,7 @@ export class Tools extends AbstractManager implements IToolManager {
     /**
      * Get tool interface by name
      */
-    getTool(name: string): ToolInterface | undefined {
+    getTool(name: string): IToolInterface | undefined {
         this.ensureInitialized();
         return this.registry.get(name);
     }
@@ -94,7 +95,7 @@ export class Tools extends AbstractManager implements IToolManager {
     /**
      * Execute a tool with parameters
      */
-    async executeTool(name: string, parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> {
+    async executeTool(name: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<TToolResultData> {
         this.ensureInitialized();
 
         // Check if tool is allowed
@@ -127,6 +128,9 @@ export class Tools extends AbstractManager implements IToolManager {
             );
         }
 
+        if (typeof result.data === 'undefined') {
+            throw new ToolExecutionError('Tool execution succeeded but returned no data', name);
+        }
         return result.data;
     }
 

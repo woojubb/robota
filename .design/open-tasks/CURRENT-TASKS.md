@@ -216,7 +216,7 @@
 1) **타입 소유권/재사용 규약(agents 기준, 선언적 타입 단일 소스)**
    - **Value axis(UniversalValue 축)**: `packages/agents/src/interfaces/types.ts`가 소유/단일 기준
    - **Tool contract**: `packages/agents/src/interfaces/tool.ts`가 소유, 값 타입은 `interfaces/types.ts`에서 재사용
-   - **Tool options(구현체가 가져다 써야 함)**: `packages/agents/src/abstracts/abstract-tool.ts`의 `AbstractToolOptions`가 소유
+- **Tool options(구현체가 가져다 써야 함)**: `packages/agents/src/abstracts/abstract-tool.ts`의 `IAbstractToolOptions`가 소유
    - **Event axis**: `packages/agents/src/interfaces/event-service.ts`가 소유/단일 기준
    - **외부 소비 경로**: 외부 패키지는 반드시 `@robota-sdk/agents` public export만 사용
 2) **수정 운영 규칙**
@@ -1191,6 +1191,13 @@ npx tsx utils/verify-workflow-connections.ts | cat
 - 2025-12-20: (scenario CLI) `pnpm scenario:record/play/verify` 추가, verify는 예제 실패/strict-policy violation 시 즉시 중단. `apps/examples/README.md`에 실행 플로우 문서화.
 - 2025-12-20: (Stage 6.5/6.6) workflow handlers에서 `WorkflowState` fallback 제거 → path-only scan + fail-fast로 고정.
 - 2025-12-21: (Priority 0.5) Playground 라이브러리 추출/호스트 최소화 진행 — `packages/playground`로 Playground UI/워크플로우/툴/훅/유틸 이동(`@/` alias 0), Next 의존 제거(next-themes 제거), tsup external/CSS 설정 및 `package.json` 의존성 정리. `apps/web`는 `/playground` + `/playground/demo`만 남기고 Website/Auth/Pricing 관련 파일/의존성/문구 제거(`auth|firebase|login|signup` 및 `pricing|billing|subscription|plan|stripe|credit` 0건 확인).
+- 2025-12-25: (Type Ownership + Prefix) `@robota-sdk/agents` tool/service 축 `T/I` 접두어 적용 배치 완료
+  - `ToolInterface`→`IToolInterface`, `FunctionTool`→`IFunctionTool`, `ToolRegistryInterface`→`IToolRegistry`, `ToolFactoryInterface`→`IToolFactory`
+  - `ParameterValidationResult`→`IParameterValidationResult`, `ToolExecutor`→`TToolExecutor`
+  - `OpenAPIToolConfig`→`IOpenAPIToolConfig`, `MCPToolConfig`→`IMCPToolConfig`
+  - `ConversationServiceOptions`→`IConversationServiceOptions`
+  - 적용 범위: tool implementations, registry/manager, facade(`function-tool/*`) export 표면 정리
+  - 검증: `pnpm --filter @robota-sdk/agents build` PASS
 
 **다음 단계**:
 1. Agent Event Normalization 단계 3, 6.5, 6.6 완료

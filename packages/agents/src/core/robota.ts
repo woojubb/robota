@@ -1,5 +1,5 @@
 import { AbstractAgent } from '../abstracts/abstract-agent';
-import { TUniversalMessage, AgentConfig, RunOptions, AgentInterface, ExecutionContextInjection } from '../interfaces/agent';
+import { TUniversalMessage, IAgentConfig, IRunOptions, IAgentInterface, IExecutionContextInjection } from '../interfaces/agent';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { AbstractModule } from '../abstracts/abstract-module';
 import { ModuleRegistry } from '../managers/module-registry';
@@ -37,7 +37,7 @@ import type { ModuleResultData, ModuleExecutionContext } from '../abstracts/abst
  * Agent statistics metadata type
  * Used for storing statistics and performance data in getStats method
  */
-export type AgentStatsMetadata = Record<string, string | number | boolean | Date | string[]>;
+export type TAgentStatsMetadata = Record<string, string | number | boolean | Date | string[]>;
 
 /**
  * Configuration options for creating a Robota instance.
@@ -128,7 +128,7 @@ export type AgentStatsMetadata = Record<string, string | number | boolean | Date
  * }
  * ```
  */
-export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMessage> implements AgentInterface {
+export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalMessage> implements IAgentInterface {
     /** The name of this agent instance */
     public readonly name: string;
     /** The version of the Robota agent implementation */
@@ -150,7 +150,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
     private agentEventService: IEventService;
 
     // State management
-    protected override config: AgentConfig;
+    protected override config: IAgentConfig;
     private conversationId: string;
     private logger: Logger;
     private initializationPromise?: Promise<void> | undefined;
@@ -190,7 +190,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
      * });
      * ```
      */
-    constructor(config: AgentConfig) {
+    constructor(config: IAgentConfig) {
         super();
 
         this.name = config.name;
@@ -331,7 +331,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
     /**
      * Update configuration partially. Currently supports tools.
      */
-    public async updateConfiguration(patch: Partial<AgentConfig>): Promise<{ version: number }> {
+    public async updateConfiguration(patch: Partial<IAgentConfig>): Promise<{ version: number }> {
         if (patch.tools) {
             return this.updateTools(patch.tools as any);
         }
@@ -373,7 +373,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
         });
     }
 
-    private buildOwnerPath(executionContext?: ExecutionContextInjection): IOwnerPathSegment[] {
+    private buildOwnerPath(executionContext?: IExecutionContextInjection): IOwnerPathSegment[] {
         const base = executionContext?.ownerPath?.length
             ? executionContext.ownerPath.map(segment => ({ ...segment }))
             : [];
@@ -599,7 +599,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
      * }
      * ```
      */
-    async run(input: string, options: RunOptions = {}): Promise<string> {
+    async run(input: string, options: IRunOptions = {}): Promise<string> {
         await this.ensureFullyInitialized();
 
 
@@ -620,7 +620,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
             const messages = this.getHistory();
 
             // Prepare execution config with current provider/model settings
-            const executionConfig: AgentConfig = {
+            const executionConfig: IAgentConfig = {
                 ...this.config
             };
 
@@ -712,7 +712,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
      * }
      * ```
      */
-    async* runStream(input: string, options: RunOptions = {}): AsyncGenerator<string, void, undefined> {
+    async* runStream(input: string, options: IRunOptions = {}): AsyncGenerator<string, void, undefined> {
         await this.ensureFullyInitialized();
 
         try {
@@ -731,7 +731,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
             const messages = this.getHistory();
 
             // Prepare execution config with current provider/model settings
-            const executionConfig: AgentConfig = {
+            const executionConfig: IAgentConfig = {
                 ...this.config
             };
 
@@ -1298,7 +1298,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
      * Returns a copy of the current configuration object. Modifications to the
      * returned object do not affect the agent - use updateConfig() to make changes.
      * 
-     * @returns Copy of the current AgentConfig
+     * @returns Copy of the current IAgentConfig
      * 
      * @example
      * ```typescript
@@ -1307,7 +1307,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
      * console.log('Available providers:', Object.keys(config.aiProviders || {}));
      * ```
      */
-    getConfig(): AgentConfig {
+    getConfig(): IAgentConfig {
         return { ...this.config };
     }
 
@@ -1338,7 +1338,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
         plugins: string[];
         modules: string[];
         historyLength: number;
-        historyStats: AgentStatsMetadata;
+        historyStats: TAgentStatsMetadata;
         uptime: number;
     } {
         const providers = this.isFullyInitialized ? this.aiProviders.getProviderNames() : [];
@@ -1374,7 +1374,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
      * Validate the new agent configuration format.
      * @internal
      */
-    private validateNewConfig(config: AgentConfig): void {
+    private validateNewConfig(config: IAgentConfig): void {
         if (!config.name) {
             throw new ConfigurationError(
                 'Agent name is required',

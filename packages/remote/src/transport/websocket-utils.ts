@@ -6,54 +6,54 @@
 
 import type { IChatResponseData, ITransportRequest } from '../shared/types';
 
-export interface WebSocketRequestPayload {
+export interface IWebSocketRequestPayload {
     id: string;
     type: 'request';
     data: ITransportRequest;
 }
 
-export interface WebSocketResponsePayload {
+export interface IWebSocketResponsePayload {
     id: string;
     type: 'response';
     data: IChatResponseData;
 }
 
-export interface WebSocketErrorPayload {
+export interface IWebSocketErrorPayload {
     id: string;
     type: 'error';
     error: string;
     requestId?: string;
 }
 
-export interface WebSocketPingPayload {
+export interface IWebSocketPingPayload {
     id: string;
     type: 'ping';
 }
 
-export interface WebSocketPongPayload {
+export interface IWebSocketPongPayload {
     id: string;
     type: 'pong';
 }
 
-export interface WebSocketStreamPayload {
+export interface IWebSocketStreamPayload {
     id: string;
     type: 'stream';
     data: IChatResponseData;
     requestId: string;
 }
 
-export type WebSocketPayload =
-    | WebSocketRequestPayload
-    | WebSocketResponsePayload
-    | WebSocketErrorPayload
-    | WebSocketPingPayload
-    | WebSocketPongPayload
-    | WebSocketStreamPayload;
+export type TWebSocketPayload =
+    | IWebSocketRequestPayload
+    | IWebSocketResponsePayload
+    | IWebSocketErrorPayload
+    | IWebSocketPingPayload
+    | IWebSocketPongPayload
+    | IWebSocketStreamPayload;
 
 /**
  * Pure function to create request message
  */
-export function createRequestMessage(id: string, request: ITransportRequest): WebSocketRequestPayload {
+export function createRequestMessage(id: string, request: ITransportRequest): IWebSocketRequestPayload {
     return {
         id,
         type: 'request',
@@ -64,7 +64,7 @@ export function createRequestMessage(id: string, request: ITransportRequest): We
 /**
  * Pure function to create ping message
  */
-export function createPingMessage(id: string): WebSocketPingPayload {
+export function createPingMessage(id: string): IWebSocketPingPayload {
     return {
         id,
         type: 'ping'
@@ -74,7 +74,7 @@ export function createPingMessage(id: string): WebSocketPingPayload {
 /**
  * Pure function to create pong message
  */
-export function createPongMessage(id: string): WebSocketPongPayload {
+export function createPongMessage(id: string): IWebSocketPongPayload {
     return {
         id,
         type: 'pong'
@@ -86,11 +86,11 @@ export function createPongMessage(id: string): WebSocketPongPayload {
  */
 export function validateWebSocketMessage(data: string): {
     valid: boolean;
-    message?: WebSocketPayload;
+    message?: TWebSocketPayload;
     error?: string;
 } {
     try {
-        const parsed = JSON.parse(data) as Partial<WebSocketPayload>;
+        const parsed = JSON.parse(data) as Partial<TWebSocketPayload>;
 
         if (!parsed.id || typeof parsed.id !== 'string') {
             return { valid: false, error: 'Invalid message: missing or invalid id' };
@@ -105,7 +105,7 @@ export function validateWebSocketMessage(data: string): {
             return { valid: false, error: `Invalid message type: ${parsed.type}` };
         }
 
-        return { valid: true, message: parsed as WebSocketPayload };
+        return { valid: true, message: parsed as TWebSocketPayload };
     } catch (error) {
         return {
             valid: false,
@@ -117,49 +117,49 @@ export function validateWebSocketMessage(data: string): {
 /**
  * Pure function to check if message is request type
  */
-export function isRequestMessage(message: WebSocketPayload): message is WebSocketRequestPayload {
+export function isRequestMessage(message: TWebSocketPayload): message is IWebSocketRequestPayload {
     return message.type === 'request';
 }
 
 /**
  * Pure function to check if message is response type
  */
-export function isResponseMessage(message: WebSocketPayload): message is WebSocketResponsePayload {
+export function isResponseMessage(message: TWebSocketPayload): message is IWebSocketResponsePayload {
     return message.type === 'response';
 }
 
 /**
  * Pure function to check if message is error type
  */
-export function isErrorMessage(message: WebSocketPayload): message is WebSocketErrorPayload {
+export function isErrorMessage(message: TWebSocketPayload): message is IWebSocketErrorPayload {
     return message.type === 'error';
 }
 
 /**
  * Pure function to check if message is ping type
  */
-export function isPingMessage(message: WebSocketPayload): message is WebSocketPingPayload {
+export function isPingMessage(message: TWebSocketPayload): message is IWebSocketPingPayload {
     return message.type === 'ping';
 }
 
 /**
  * Pure function to check if message is pong type
  */
-export function isPongMessage(message: WebSocketPayload): message is WebSocketPongPayload {
+export function isPongMessage(message: TWebSocketPayload): message is IWebSocketPongPayload {
     return message.type === 'pong';
 }
 
 /**
  * Pure function to check if message is stream type
  */
-export function isStreamMessage(message: WebSocketPayload): message is WebSocketStreamPayload {
+export function isStreamMessage(message: TWebSocketPayload): message is IWebSocketStreamPayload {
     return message.type === 'stream';
 }
 
 /**
  * Pure function to serialize message for sending
  */
-export function serializeMessage(message: WebSocketPayload): string {
+export function serializeMessage(message: TWebSocketPayload): string {
     return JSON.stringify(message);
 }
 

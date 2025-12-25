@@ -1,11 +1,11 @@
-import type { FunctionTool as IFunctionTool, IToolResult, IToolExecutionContext, ParameterValidationResult, ToolExecutor, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
+import type { IFunctionTool, IToolResult, IToolExecutionContext, IParameterValidationResult, TToolExecutor, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
 import type { IToolSchema, IParameterSchema } from '../../interfaces/provider';
-import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
+import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import type { TToolResultData } from '../../interfaces/types';
 
 // Import from Facade pattern modules for type safety
-import type { ZodSchema } from './function-tool/types';
+import type { IZodSchema } from './function-tool/types';
 import { zodToJsonSchema } from './function-tool/schema-converter';
 
 // Zod type definitions moved to Facade pattern modules
@@ -18,9 +18,9 @@ import { zodToJsonSchema } from './function-tool/schema-converter';
  */
 export class FunctionTool extends AbstractTool<TToolParameters, IToolResult> implements IFunctionTool {
     readonly schema: IToolSchema;
-    readonly fn: ToolExecutor;
+    readonly fn: TToolExecutor;
 
-    constructor(schema: IToolSchema, fn: ToolExecutor, options: AbstractToolOptions = {}) {
+    constructor(schema: IToolSchema, fn: TToolExecutor, options: IAbstractToolOptions = {}) {
         super(options);
         this.schema = schema;
         this.fn = fn;
@@ -101,7 +101,7 @@ export class FunctionTool extends AbstractTool<TToolParameters, IToolResult> imp
     /**
      * Validate tool parameters with detailed result
      */
-    override validateParameters(parameters: TToolParameters): ParameterValidationResult {
+    override validateParameters(parameters: TToolParameters): IParameterValidationResult {
         const errors = this.getValidationErrors(parameters);
         return {
             isValid: errors.length === 0,
@@ -234,7 +234,7 @@ export function createFunctionTool(
     name: string,
     description: string,
     parameters: IToolSchema['parameters'],
-    fn: ToolExecutor
+    fn: TToolExecutor
 ): FunctionTool {
     const schema: IToolSchema = {
         name,
@@ -251,9 +251,9 @@ export function createFunctionTool(
 export function createZodFunctionTool(
     name: string,
     description: string,
-    zodSchema: ZodSchema,
-    fn: ToolExecutor,
-    options?: AbstractToolOptions
+    zodSchema: IZodSchema,
+    fn: TToolExecutor,
+    options?: IAbstractToolOptions
 ): FunctionTool {
     // Use comprehensive Zod to JSON schema conversion
     const parameters = zodToJsonSchema(zodSchema);
@@ -265,7 +265,7 @@ export function createZodFunctionTool(
     };
 
     // Wrap the function with validation and ensure proper parameter handling
-    const wrappedFn: ToolExecutor = async (parameters: TToolParameters, context?: IToolExecutionContext): Promise<TToolResultData> => {
+    const wrappedFn: TToolExecutor = async (parameters: TToolParameters, context?: IToolExecutionContext): Promise<TToolResultData> => {
         // Use Zod for runtime validation
         const parseResult = zodSchema.safeParse(parameters);
         if (!parseResult.success) {

@@ -72,7 +72,7 @@ export type TToolResultData = TUniversalValue;
 /**
  * Plugin context type - for plugin execution contexts
  */
-export interface PluginContext {
+export interface IPluginContext {
     input?: string;
     response?: string;
     messages?: Array<Record<string, TUniversalValue>>;

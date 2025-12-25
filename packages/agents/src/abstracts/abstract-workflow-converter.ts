@@ -8,12 +8,12 @@
  * @template TOutput - Output workflow data type
  */
 
-import {
-    WorkflowConverterInterface,
-    WorkflowConversionOptions,
-    WorkflowConversionResult,
-    WorkflowData,
-    WorkflowConfig
+import type {
+    IWorkflowConverter,
+    IWorkflowConversionOptions,
+    IWorkflowConversionResult,
+    IWorkflowData,
+    IWorkflowConfig
 } from '../interfaces/workflow-converter';
 import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
@@ -21,7 +21,7 @@ import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 /**
  * Base converter options following BaseModule pattern
  */
-export interface BaseWorkflowConverterOptions {
+export interface IBaseWorkflowConverterOptions {
     /** Enable/disable the converter */
     enabled?: boolean;
 
@@ -29,13 +29,13 @@ export interface BaseWorkflowConverterOptions {
     logger?: AbstractLogger;
 
     /** Converter-specific configuration */
-    config?: WorkflowConfig;
+    config?: IWorkflowConfig;
 }
 
 /**
  * Converter statistics tracking
  */
-interface ConverterStats {
+interface IConverterStats {
     totalConversions: number;
     successfulConversions: number;
     failedConversions: number;
@@ -56,8 +56,8 @@ interface ConverterStats {
  * @template TInput - Input workflow data type
  * @template TOutput - Output workflow data type
  */
-export abstract class AbstractWorkflowConverter<TInput extends WorkflowData, TOutput extends WorkflowData>
-    implements WorkflowConverterInterface<TInput, TOutput> {
+export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TOutput extends IWorkflowData>
+    implements IWorkflowConverter<TInput, TOutput> {
 
     // Abstract properties that must be implemented by subclasses
     abstract readonly name: string;
@@ -72,10 +72,10 @@ export abstract class AbstractWorkflowConverter<TInput extends WorkflowData, TOu
     protected readonly logger: AbstractLogger;
 
     /** Converter configuration */
-    protected readonly config: WorkflowConfig;
+    protected readonly config: IWorkflowConfig;
 
     /** Statistics tracking */
-    private stats: ConverterStats = {
+    private stats: IConverterStats = {
         totalConversions: 0,
         successfulConversions: 0,
         failedConversions: 0,
@@ -87,7 +87,7 @@ export abstract class AbstractWorkflowConverter<TInput extends WorkflowData, TOu
      * 
      * @param options - Converter configuration options
      */
-    constructor(options: BaseWorkflowConverterOptions = {}) {
+    constructor(options: IBaseWorkflowConverterOptions = {}) {
         this.enabled = options.enabled ?? true;
         this.logger = options.logger || DEFAULT_ABSTRACT_LOGGER;
         this.config = options.config || {};
@@ -104,7 +104,7 @@ export abstract class AbstractWorkflowConverter<TInput extends WorkflowData, TOu
      * @param options - Conversion options
      * @returns Promise resolving to conversion result
      */
-    async convert(input: TInput, options: WorkflowConversionOptions = {}): Promise<WorkflowConversionResult<TOutput>> {
+    async convert(input: TInput, options: IWorkflowConversionOptions = {}): Promise<IWorkflowConversionResult<TOutput>> {
         if (!this.enabled) {
             throw new Error(`Converter ${this.name} is disabled`);
         }
@@ -194,7 +194,7 @@ export abstract class AbstractWorkflowConverter<TInput extends WorkflowData, TOu
      * @param options - Conversion options
      * @returns Promise resolving to converted data
      */
-    protected abstract performConversion(input: TInput, options: WorkflowConversionOptions): Promise<TOutput>;
+    protected abstract performConversion(input: TInput, options: IWorkflowConversionOptions): Promise<TOutput>;
 
     /**
      * Default input validation (can be overridden by subclasses)
@@ -259,7 +259,7 @@ export abstract class AbstractWorkflowConverter<TInput extends WorkflowData, TOu
      * @param input - Input data to check
      * @returns True if converter can handle this input
      */
-    canConvert(input: WorkflowData): input is TInput {
+    canConvert(input: IWorkflowData): input is TInput {
         // Basic existence check - subclasses should provide more specific logic
         return input != null;
     }
@@ -302,8 +302,8 @@ export abstract class AbstractWorkflowConverter<TInput extends WorkflowData, TOu
         data: TOutput,
         startTime: number,
         input: TInput,
-        options: WorkflowConversionOptions
-    ): WorkflowConversionResult<TOutput> {
+        options: IWorkflowConversionOptions
+    ): IWorkflowConversionResult<TOutput> {
         const now = new Date();
         const processingTime = now.getTime() - startTime;
 
@@ -321,9 +321,9 @@ export abstract class AbstractWorkflowConverter<TInput extends WorkflowData, TOu
                 outputStats: this.getDataStats(data as Record<string, unknown>),
                 converter: this.name,
                 version: this.version,
-                // Step 1: ❌ Can't assign WorkflowConversionOptions to MetadataValue directly
-                // Step 2: ✅ MetadataValue includes Record<string, MetadataValue> 
-                // Step 3: ✅ Convert to MetadataValue-compatible format with proper types
+                // Step 1: ❌ Can't assign IWorkflowConversionOptions to metadata value type directly
+                // Step 2: ✅ Use TMetadata/TMetadataValue-compatible structures
+                // Step 3: ✅ Convert to metadata-compatible format with proper types
                 // Step 4: ✅ Preserve type safety while enabling storage
                 ...(options.includeDebug && options ? {
                     options: {
@@ -345,7 +345,7 @@ export abstract class AbstractWorkflowConverter<TInput extends WorkflowData, TOu
         startTime: number,
         input: TInput,
         _logger: AbstractLogger
-    ): WorkflowConversionResult<TOutput> {
+    ): IWorkflowConversionResult<TOutput> {
         const now = new Date();
         const processingTime = now.getTime() - startTime;
 

@@ -6,9 +6,7 @@ import type {
     IEventService,
     IEventServiceOwnerBinding,
     IOwnerPathSegment,
-    IToolEventData,
-    TOwnerType,
-    TServiceEventType
+    IToolEventData
 } from '../interfaces/event-service';
 
 export type {
@@ -19,9 +17,7 @@ export type {
     IEventService,
     IEventServiceOwnerBinding,
     IOwnerPathSegment,
-    IToolEventData,
-    TOwnerType,
-    TServiceEventType
+    IToolEventData
 } from '../interfaces/event-service';
 
 /**
@@ -29,7 +25,7 @@ export type {
  * Concrete implementations decide how events are delivered.
  */
 export abstract class AbstractEventService implements IEventService {
-    abstract emit(eventType: TServiceEventType, data: IBaseEventData, context?: IEventContext): void;
+    abstract emit(eventType: string, data: IBaseEventData, context?: IEventContext): void;
 }
 
 /**
@@ -37,7 +33,7 @@ export abstract class AbstractEventService implements IEventService {
  * When injected, emit() intentionally does nothing.
  */
 export class DefaultEventService extends AbstractEventService {
-    emit(_eventType: TServiceEventType, _data: IBaseEventData, _context?: IEventContext): void {
+    emit(_eventType: string, _data: IBaseEventData, _context?: IEventContext): void {
         // Intentionally empty: no-op event service.
     }
 }
@@ -67,7 +63,7 @@ export class StructuredEventService extends AbstractEventService {
         this.binding = binding;
     }
 
-    emit(eventType: TServiceEventType, data: IBaseEventData, context?: IEventContext): void {
+    emit(eventType: string, data: IBaseEventData, context?: IEventContext): void {
         const merged: IEventContext = {
             ...context,
             ownerType: this.binding.ownerType,

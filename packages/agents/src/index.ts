@@ -285,8 +285,8 @@ export { AGENT_EVENTS } from './agents/constants';
  * 
  * @public
  */
-export { AgentFactory, AgentFactoryOptions, AgentCreationStats, AgentLifecycleEvents } from './managers/agent-factory';
-export { AgentTemplates, TemplateApplicationResult } from './managers/agent-templates';
+export { AgentFactory, type IAgentFactoryOptions, type IAgentCreationStats, type IAgentLifecycleEvents } from './managers/agent-factory';
+export { AgentTemplates, type ITemplateApplicationResult } from './managers/agent-templates';
 export { ConversationHistory, ConversationSession } from './managers/conversation-history-manager';
 
 // ===== TOOL SYSTEM EXPORTS =====
@@ -307,8 +307,8 @@ export { FunctionTool, createFunctionTool, createZodFunctionTool } from './tools
  * @public
  */
 export type {
-    AgentConfig,
-    AgentTemplate
+    IAgentConfig,
+    IAgentTemplate
 } from './interfaces/agent';
 
 /**
@@ -327,7 +327,6 @@ export type { IToolSchema as IFunctionSchema } from './interfaces/provider';
  * @public
  */
 export {
-    TServiceEventType,
     IEventContext,
     IOwnerPathSegment,
     AbstractEventService,
@@ -339,7 +338,7 @@ export {
     StructuredEventService,
 } from './services/event-service';
 export type { IEventService } from './services/event-service';
-export { RelayMcpTool, type RelayMcpOptions, type RelayMcpContext } from './tools/implementations/relay-mcp-tool';
+export { RelayMcpTool, type IRelayMcpOptions, type IRelayMcpContext } from './tools/implementations/relay-mcp-tool';
 
 // ===== EVENT EMITTER (PLUGIN) EXPORTS =====
 export { EVENT_EMITTER_EVENTS } from './plugins/event-emitter/types';
@@ -354,10 +353,12 @@ export { TOOL_EVENTS } from './services/tool-execution-service';
 
 // Workflow Converter Interfaces
 export type {
-    WorkflowConverterInterface,
-    WorkflowConversionOptions,
-    WorkflowConversionResult,
-    WorkflowData
+    IWorkflowConverter,
+    IWorkflowConversionOptions,
+    IWorkflowConversionResult,
+    IWorkflowData,
+    IWorkflowConfig,
+    IWorkflowMetadata
 } from './interfaces/workflow-converter';
 
 export type {

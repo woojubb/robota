@@ -32,7 +32,7 @@
  * ```
  */
 
-import type { ToolInterface, IToolResult, IToolExecutionContext, ParameterValidationResult, TToolParameters } from '../interfaces/tool';
+import type { IToolInterface, IToolResult, IToolExecutionContext, IParameterValidationResult, TToolParameters } from '../interfaces/tool';
 import type { IToolSchema } from '../interfaces/provider';
 import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
@@ -41,7 +41,7 @@ import type { IEventService } from '../services/event-service';
 /**
  * Options for AbstractTool construction
  */
-export interface AbstractToolOptions {
+export interface IAbstractToolOptions {
     /**
      * Optional logger for tool operations
      * Defaults to DEFAULT_ABSTRACT_LOGGER if not provided
@@ -63,7 +63,7 @@ export interface AbstractToolOptions {
 /**
  * Tool execution function type with proper parameter constraints
  */
-export type ToolExecutionFunction<TParams = TToolParameters, TResult = IToolResult> = (
+export type TToolExecutionFunction<TParams = TToolParameters, TResult = IToolResult> = (
     parameters: TParams
 ) => Promise<TResult> | TResult;
 
@@ -73,11 +73,11 @@ export type ToolExecutionFunction<TParams = TToolParameters, TResult = IToolResu
  * @template TParams - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)  
  */
-export interface AbstractToolInterface<TParams = TToolParameters, TResult = IToolResult> {
+export interface IAbstractToolInterface<TParams = TToolParameters, TResult = IToolResult> {
     name: string;
     description: string;
     parameters: IToolSchema['parameters'];
-    execute: ToolExecutionFunction<TParams, TResult>;
+    execute: TToolExecutionFunction<TParams, TResult>;
 }
 
 /**
@@ -86,11 +86,11 @@ export interface AbstractToolInterface<TParams = TToolParameters, TResult = IToo
  * @template TParameters - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
-export interface TypeSafeToolInterface<TParameters = TToolParameters, TResult = IToolResult> {
+export interface ITypeSafeToolInterface<TParameters = TToolParameters, TResult = IToolResult> {
     readonly schema: IToolSchema;
     execute(parameters: TParameters, context: IToolExecutionContext): Promise<TResult>;
     validate(parameters: TParameters): boolean;
-    validateParameters(parameters: TParameters): ParameterValidationResult;
+    validateParameters(parameters: TParameters): IParameterValidationResult;
     getDescription(): string;
     getName(): string;
 }
@@ -109,7 +109,7 @@ export interface TypeSafeToolInterface<TParameters = TToolParameters, TResult = 
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
 export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToolResult>
-    implements TypeSafeToolInterface<TParameters, TResult> {
+    implements ITypeSafeToolInterface<TParameters, TResult> {
 
     abstract readonly schema: IToolSchema;
 
@@ -133,11 +133,11 @@ export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToo
      * 
      * @param options - Configuration options for the tool
      */
-    constructor(options: AbstractToolOptions = {}) {
+    constructor(options: IAbstractToolOptions = {}) {
         // Accept eventService as-is (no wrapping, no transformation)
         // Caller is responsible for providing properly configured EventService
         this.eventService = options.eventService;
-        this.logger = options.logger || DEFAULT_ABSTRACT_LOGGER;
+        this.logger = options.logger ?? DEFAULT_ABSTRACT_LOGGER;
     }
 
     /**
@@ -203,7 +203,7 @@ export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToo
     /**
      * Validate tool parameters with detailed result (default implementation)
      */
-    validateParameters(parameters: TParameters): ParameterValidationResult {
+    validateParameters(parameters: TParameters): IParameterValidationResult {
         const required = this.schema.parameters.required || [];
         const errors: string[] = [];
         const paramObj = parameters as Record<string, string | number | boolean>;
@@ -233,5 +233,5 @@ export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToo
  * Legacy tool class for backward compatibility
  * @deprecated Use AbstractTool with type parameters instead
  */
-export abstract class LegacyAbstractTool extends AbstractTool<TToolParameters, IToolResult> implements ToolInterface { }
+export abstract class LegacyAbstractTool extends AbstractTool<TToolParameters, IToolResult> implements IToolInterface { }
 

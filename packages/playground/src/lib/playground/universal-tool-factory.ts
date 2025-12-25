@@ -1,8 +1,9 @@
 import {
     FunctionTool,
     type IToolSchema,
-    type ToolExecutor,
+    type TToolExecutor,
     type SimpleLogger,
+    SilentLogger,
 } from '@robota-sdk/agents';
 import type { TUniversalValue } from '@robota-sdk/agents';
 import { WebLogger } from '../web-logger';
@@ -33,11 +34,11 @@ export interface IUniversalToolFactoryOptions {
  */
 export class UniversalToolFactory {
     private readonly blockCollector: IBlockDataCollector;
-    private readonly logger?: SimpleLogger;
+    private readonly logger: SimpleLogger;
 
     constructor(options: IUniversalToolFactoryOptions) {
         this.blockCollector = options.blockCollector;
-        this.logger = options.logger;
+        this.logger = options.logger ?? SilentLogger;
     }
 
     /**
@@ -45,7 +46,7 @@ export class UniversalToolFactory {
      */
     createFunctionTool(
         schema: IToolSchema,
-        executor: ToolExecutor,
+        executor: TToolExecutor,
         options: {
             parentBlockId?: string;
             level?: number;
@@ -53,7 +54,7 @@ export class UniversalToolFactory {
         } = {}
     ): FunctionTool {
         // Block tracking hooks are handled in the Playground execution layer.
-        return new FunctionTool(schema, executor, { logger: options.logger || this.logger });
+        return new FunctionTool(schema, executor, { logger: options.logger ?? this.logger });
     }
 
     /**

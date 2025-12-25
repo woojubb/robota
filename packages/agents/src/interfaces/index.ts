@@ -3,10 +3,10 @@ export * from './types';
 
 // Re-export specific types to avoid conflicts
 export type {
-    AgentConfig,
-    AgentInterface,
-    AgentTemplate,
-    RunOptions
+    IAgentConfig,
+    IAgentInterface,
+    IAgentTemplate,
+    IRunOptions
 } from './agent';
 
 // Message contracts (single source of truth)
@@ -49,17 +49,17 @@ export type {
 } from './manager';
 
 export type {
-    ToolInterface,
-    FunctionTool,
-    ToolRegistryInterface,
-    ToolFactoryInterface,
+    IToolInterface,
+    IFunctionTool,
+    IToolRegistry,
+    IToolFactory,
     IToolResult,
     IToolExecutionResult,
     IToolExecutionContext,
-    ParameterValidationResult,
-    ToolExecutor,
-    OpenAPIToolConfig,
-    MCPToolConfig,
+    IParameterValidationResult,
+    TToolExecutor,
+    IOpenAPIToolConfig,
+    IMCPToolConfig,
     TToolMetadata,
 } from './tool';
 
@@ -67,8 +67,6 @@ export type {
     IEventService,
     IEventContext,
     IOwnerPathSegment,
-    TOwnerType,
-    TServiceEventType,
     IBaseEventData,
     IExecutionEventData,
     IToolEventData,
@@ -78,9 +76,9 @@ export type {
 
 // 🆕 Progress reporting interface exports
 export type {
-    ProgressReportingTool,
-    ToolExecutionStep,
-    ToolProgressCallback
+    IProgressReportingTool,
+    IToolExecutionStep,
+    TToolProgressCallback
 } from './progress-reporting';
 
 export {
@@ -101,6 +99,7 @@ export type {
     IStreamingChunk,
     IContextOptions,
     IExecutionServiceOptions,
+    IConversationServiceOptions,
     IConversationService,
     IToolExecutionService,
     IExecutionService
