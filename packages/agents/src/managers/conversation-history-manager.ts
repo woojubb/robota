@@ -1,4 +1,4 @@
-import { Logger, createLogger } from '../utils/logger';
+import { createLogger, type ILogger } from '../utils/logger';
 import type {
     IAssistantMessage,
     IBaseMessage,
@@ -735,7 +735,7 @@ export interface ConversationHistoryOptions {
  */
 export class ConversationHistory {
     private conversations = new Map<string, ConversationSession>();
-    private logger: Logger;
+    private logger: ILogger;
     private readonly maxMessagesPerConversation: number;
     private readonly maxConversations: number;
 

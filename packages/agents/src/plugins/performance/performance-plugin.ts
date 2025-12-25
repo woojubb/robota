@@ -1,5 +1,5 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
-import { Logger, createLogger } from '../../utils/logger';
+import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
@@ -25,7 +25,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
     private storage: PerformanceStorage;
     private metricsCollector: SystemMetricsCollector;
     private pluginOptions: Required<PerformancePluginOptions>;
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor(options: PerformancePluginOptions) {
         super();

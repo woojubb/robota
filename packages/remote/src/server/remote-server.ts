@@ -8,7 +8,7 @@ import type { TUniversalMessage, IChatOptions } from '@robota-sdk/agents';
 /**
  * Server status interface
  */
-interface ServerStatus {
+interface IServerStatus {
     initialized: boolean;
     providers: string[];
     providerCount: number;
@@ -18,7 +18,7 @@ interface ServerStatus {
 /**
  * AI Provider interface
  */
-interface AIProvider {
+interface IAIProvider {
     chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage>;
     chatStream?(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage>;
 }
@@ -53,7 +53,7 @@ export class RemoteServer {
     /**
      * Initialize server with AI providers
      */
-    async initialize(providers: Record<string, AIProvider>): Promise<void> {
+    async initialize(providers: Record<string, IAIProvider>): Promise<void> {
         try {
             // Register providers
             for (const [name, provider] of Object.entries(providers)) {
@@ -78,7 +78,7 @@ export class RemoteServer {
     /**
      * Get server status
      */
-    getStatus(): ServerStatus {
+    getStatus(): IServerStatus {
         return {
             initialized: true, // RemoteServer itself is always initialized
             providers: Array.from(this.providers.keys()),

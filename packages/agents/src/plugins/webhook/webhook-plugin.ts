@@ -4,7 +4,7 @@
  */
 
 import { AbstractPlugin, PluginCategory, PluginPriority, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext } from '../../abstracts/abstract-plugin';
-import { Logger, createLogger } from '../../utils/logger';
+import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError } from '../../utils/errors';
 import type { TimerId } from '../../utils';
 
@@ -49,7 +49,7 @@ export class WebhookPlugin extends AbstractPlugin<WebhookPluginOptions, WebhookP
     version = '1.0.0';
 
     private pluginOptions: Required<WebhookPluginOptions>;
-    private logger: Logger;
+    private logger: ILogger;
     private httpClient: WebhookHttpClient;
     private requestQueue: WebhookRequest[] = [];
     private batchQueue: WebhookPayload[] = [];

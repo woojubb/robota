@@ -1,11 +1,11 @@
 import { SystemMetricsCollector, PerformanceMetrics } from '../types';
-import { Logger, createLogger } from '../../../utils/logger';
+import { createLogger, type ILogger } from '../../../utils/logger';
 
 /**
  * Node.js system metrics collector
  */
 export class NodeSystemMetricsCollector implements SystemMetricsCollector {
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor() {
         this.logger = createLogger('NodeSystemMetricsCollector');

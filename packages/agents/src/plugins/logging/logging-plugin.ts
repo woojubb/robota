@@ -1,5 +1,5 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
-import { Logger, createLogger } from '../../utils/logger';
+import { createLogger, type ILogger } from '../../utils/logger';
 import { SimpleLogger, SilentLogger } from '../../utils/simple-logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
@@ -48,7 +48,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
 
     private storage: LogStorage;
     private pluginOptions: Required<Omit<LoggingPluginOptions, 'formatter' | 'logger'>> & { formatter?: LogFormatter; logger?: SimpleLogger };
-    private logger: Logger;
+    private logger: ILogger;
     private simpleLogger: SimpleLogger;
     private logLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 

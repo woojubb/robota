@@ -1,5 +1,5 @@
 import { AbstractPlugin, PluginCategory, PluginPriority, type ErrorContext } from '../../abstracts/abstract-plugin';
-import { Logger, createLogger } from '../../utils/logger';
+import { createLogger, type ILogger } from '../../utils/logger';
 import type { IRunOptions } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../managers/conversation-history-manager';
 import { isAssistantMessage } from '../../managers/conversation-history-manager';
@@ -22,7 +22,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsO
     version = '1.0.0';
 
     private pluginOptions: Required<ExecutionAnalyticsOptions>;
-    private logger: Logger;
+    private logger: ILogger;
     private activeExecutions: Map<string, { startTime: number; operation: string; input?: string }> = new Map();
     private executionHistory: ExecutionStats[] = [];
     private executionCounter = 0;

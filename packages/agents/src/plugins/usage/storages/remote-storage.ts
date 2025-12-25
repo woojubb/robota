@@ -1,5 +1,5 @@
 import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
-import { Logger, createLogger } from '../../../utils/logger';
+import { createLogger, type ILogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
 import type { TimerId } from '../../../utils';
 
@@ -12,7 +12,7 @@ export class RemoteUsageStorage implements UsageStorage {
     private flushInterval: number;
     private batch: UsageStats[] = [];
     private timer: TimerId | null = null;
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor(
         apiUrl: string,

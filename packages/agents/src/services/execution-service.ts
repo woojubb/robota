@@ -6,7 +6,7 @@ import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import type { IToolExecutionContext } from '../interfaces/tool';
-import { Logger, createLogger } from '../utils/logger';
+import { createLogger, type ILogger } from '../utils/logger';
 import { IChatOptions } from '../interfaces/provider';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
 import {
@@ -114,7 +114,7 @@ export class ExecutionService {
     private tools: IToolManager;
     private conversationHistory: ConversationHistory;
     private plugins: AbstractPlugin[] = [];
-    private logger: Logger;
+    private logger: ILogger;
     private baseEventService: IEventService;
     private executionContext?: IExecutionContextInjection; // 🎯 [CONTEXT-INJECTION] Parent execution context
     private ownerPathBase: IOwnerPathSegment[];
@@ -195,7 +195,7 @@ export class ExecutionService {
         config: IAgentConfig,
         context?: Partial<IExecutionContext>
     ): Promise<IExecutionResult> {
-        // 🎯 [EXECUTION-DEBUG] ExecutionService.execute 호출 확인
+        // [EXECUTION-DEBUG] ExecutionService.execute entrypoint
         // Avoid console usage; use injected logger only.
         const executionId = this.generateExecutionId();
         const startTime = new Date();
@@ -342,7 +342,7 @@ export class ExecutionService {
                             inputLength: input.length,
                             messageType: 'user_message',
                             hasQuestions: input.includes('?'),
-                            containsUrgency: /urgent|urgent|급함|긴급|asap/i.test(input),
+                            containsUrgency: /urgent|asap|critical|emergency/i.test(input),
                             estimatedComplexity: input.length > 200 ? 'high' : input.length > 50 ? 'medium' : 'low'
                         }
                     },
@@ -378,7 +378,7 @@ export class ExecutionService {
             while (currentRound < maxRounds) {
                 currentRound++;
 
-                // 🎯 [ROUND-DEBUG] Round 시작 명확히 로깅
+                // [ROUND-DEBUG] Round start logging
                 this.logger.info(`🔄 [ROUND-DEBUG] Starting Round ${currentRound} for agent ${fullContext.conversationId}`);
                 this.logger.debug(`🔄 [ROUND-${currentRound}] Starting execution round ${currentRound}`, {
                     executionId,
@@ -387,7 +387,7 @@ export class ExecutionService {
                     maxRounds: maxRounds
                 });
 
-                // 🎯 라운드 시작 시점에 해당 라운드의 thinking ID를 생성
+                // Generate the thinking node id for this round at round start.
                 const rootId = fullContext.conversationId || executionId;
                 // Path-only stable thinking id: conversation-level round (next assistant turn)
                 const assistantMessageCount = (conversationSession.getMessages() || []).filter(m => m.role === 'assistant').length;
@@ -516,7 +516,7 @@ export class ExecutionService {
                     responseContent: assistantResponse.content?.substring(0, 100) + '...'
                 });
 
-                // 🎯 [ROUND2-DEBUG] Round 2에서 AI 응답 상세 분석
+                // [ROUND2-DEBUG] Extra diagnostics for Round 2 response
                 if (currentRound === 2) {
                     this.logger.info(`🔍 [ROUND2-DEBUG] Round 2 AI Response for agent ${fullContext.conversationId}:`);
                     this.logger.info(`🔍 [ROUND2-DEBUG] - Content: ${assistantResponse.content?.substring(0, 200)}...`);
@@ -531,7 +531,7 @@ export class ExecutionService {
                     this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} ENDING - no tool calls for agent ${fullContext.conversationId}`);
                     this.logger.debug(`[AGENT-FLOW-CONTROL] Round ${currentRound} completed - no tool calls, execution finished for agent ${fullContext.conversationId}`);
 
-                    // 🎯 [VERIFICATION] ExecutionService 흐름 제어 로직 검증
+                    // [VERIFICATION] Validate ExecutionService flow-control logic
                     this.logger.info(`🔍 [EXECUTION-VERIFICATION] Agent ${fullContext.conversationId} - Round ${currentRound} - No tool calls detected`);
                     this.logger.info(`🔍 [EXECUTION-VERIFICATION] ExecutionContext exists: ${!!this.executionContext}`);
                     if (this.executionContext) {
@@ -539,9 +539,8 @@ export class ExecutionService {
                         this.logger.info(`🔍 [EXECUTION-VERIFICATION] Execution Level: ${this.executionContext.executionLevel || 'none'}`);
                     }
 
-                    // 🎯 [EVENT-ORTHODOXY] 이벤트는 정석으로 발생 - 조건부 억제 없음
-                    // ExecutionService는 assistant response 완료 시 무조건 이벤트 발생
-                    // 핸들러에서 context를 보고 처리 여부 결정
+                    // [EVENT-ORTHODOXY] Emit events consistently; do not conditionally suppress emission.
+                    // The handler decides whether to process the event based on context.
                     this.logger.info(`🔧 [EVENT-ORTHODOXY] Emitting assistant_message_complete for Round ${currentRound} completion (no tool calls)`);
 
                     const responseContent = assistantResponse.content || 'No response';
@@ -602,7 +601,7 @@ export class ExecutionService {
                     // Completion will be emitted when a subsequent assistant turn finishes without tool calls.
                 }
 
-                // 🎯 [ROUND-DEBUG] Round 계속 - tool calls 있음
+                // [ROUND-DEBUG] Continue round: tool calls present
                 this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} CONTINUING - ${assistantResponse.toolCalls.length} tool calls for agent ${fullContext.conversationId}`);
                 this.logger.info(`🔄 [ROUND-DEBUG] Main Agent check: isMainAgent=${!fullContext.conversationId?.includes('copy')}, conversationId=${fullContext.conversationId}`);
                 this.logger.debug('Tool calls detected, executing tools', {
@@ -950,7 +949,7 @@ export class ExecutionService {
             const stream = (provider as any).chatStream(conversationMessages, chatOptions);
             let fullResponse = '';
             let toolCalls: IToolCall[] = [];
-            let currentToolCallIndex = -1; // 현재 작업중인 도구 호출 인덱스
+            let currentToolCallIndex = -1; // Index of the currently active tool call during streaming
 
             // Collect streaming chunks and tool calls
             for await (const chunk of stream) {
@@ -963,10 +962,10 @@ export class ExecutionService {
                 if (chunk.role === 'assistant') {
                     const assistantChunk = chunk as any; // Type assertion to handle toolCalls
                     if (assistantChunk.toolCalls && assistantChunk.toolCalls.length > 0) {
-                        // 스트림 도구 호출 상태 관리
+                        // Manage tool call state while streaming
                         for (const chunkToolCall of assistantChunk.toolCalls) {
                             if (chunkToolCall.id && chunkToolCall.id !== '') {
-                                // ✅ ID 있음 = 새 도구 호출 시작
+                                // ✅ Tool call id present: start a new tool call
                                 currentToolCallIndex = toolCalls.length;
                                 toolCalls.push({
                                     id: chunkToolCall.id,
@@ -978,7 +977,7 @@ export class ExecutionService {
                                 });
                                 this.logger.debug(`🆕 [TOOL-STREAM] New tool call started: ${chunkToolCall.id} (${chunkToolCall.function?.name})`);
                             } else if (currentToolCallIndex >= 0) {
-                                // ✅ ID 없음 = 현재 도구 호출에 조각 추가
+                                // ✅ Tool call id missing: append fragments to the current tool call
                                 if (chunkToolCall.function?.name) {
                                     toolCalls[currentToolCallIndex].function.name += chunkToolCall.function.name;
                                 }

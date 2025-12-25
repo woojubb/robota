@@ -1,9 +1,9 @@
 /**
- * Base Workflow Converter
- * 
+ * Abstract Workflow Converter
+ *
  * Abstract base class for all workflow converters in the Robota SDK.
- * Follows BaseModule pattern with enabled state, logger, and event emission.
- * 
+ * Uses an enabled flag + injected logger pattern.
+ *
  * @template TInput - Input workflow data type
  * @template TOutput - Output workflow data type
  */
@@ -19,7 +19,7 @@ import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 
 /**
- * Base converter options following BaseModule pattern
+ * Converter options (enabled flag + injected logger).
  */
 export interface IBaseWorkflowConverterOptions {
     /** Enable/disable the converter */
@@ -65,7 +65,7 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
     abstract readonly sourceFormat: string;
     abstract readonly targetFormat: string;
 
-    /** Enable/disable state following BaseModule pattern */
+    /** Enable/disable state */
     public enabled: boolean;
 
     /** Logger instance with dependency injection */
@@ -83,8 +83,8 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
     };
 
     /**
-     * Constructor following BaseModule pattern
-     * 
+     * Constructor
+     *
      * @param options - Converter configuration options
      */
     constructor(options: IBaseWorkflowConverterOptions = {}) {

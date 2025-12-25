@@ -1,17 +1,17 @@
 /**
- * Base Workflow Validator
- * 
+ * Abstract Workflow Validator
+ *
  * Abstract base class for all workflow validators in the Robota SDK.
- * Follows BaseModule pattern with enabled state, logger, and event emission.
- * 
+ * Uses an enabled flag + injected logger pattern.
+ *
  * @template TWorkflowData - Type of workflow data to validate
  */
 
 import {
-    WorkflowValidatorInterface,
-    ValidationOptions,
-    ValidationResult,
-    ValidationIssue,
+    IWorkflowValidator,
+    IValidationOptions,
+    IValidationResult,
+    IValidationIssue,
     ValidationSeverity
 } from '../interfaces/workflow-validator';
 import type { IWorkflowData, IWorkflowConfig } from '../interfaces/workflow-converter';
@@ -19,7 +19,7 @@ import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 
 /**
- * Base validator options following BaseModule pattern
+ * Validator options (enabled flag + injected logger).
  */
 export interface IBaseWorkflowValidatorOptions {
     /** Enable/disable the validator */
@@ -32,7 +32,7 @@ export interface IBaseWorkflowValidatorOptions {
     config?: IWorkflowConfig;
 
     /** Default validation options */
-    defaultOptions?: Partial<ValidationOptions>;
+    defaultOptions?: Partial<IValidationOptions>;
 }
 
 /**
@@ -73,7 +73,7 @@ interface IValidationRuleConfig {
  * @template TWorkflowData - Type of workflow data to validate
  */
 export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowData>
-    implements WorkflowValidatorInterface<TWorkflowData> {
+    implements IWorkflowValidator<TWorkflowData> {
 
     // Abstract properties that must be implemented by subclasses
     abstract readonly name: string;
@@ -81,7 +81,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     abstract readonly dataFormat: string;
     abstract readonly availableRules: string[];
 
-    /** Enable/disable state following BaseModule pattern */
+    /** Enable/disable state */
     public enabled: boolean;
 
     /** Logger instance with dependency injection */
@@ -91,7 +91,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     protected readonly config: IWorkflowConfig;
 
     /** Default validation options */
-    protected readonly defaultOptions: Partial<ValidationOptions>;
+    protected readonly defaultOptions: Partial<IValidationOptions>;
 
     /** Rule configurations */
     protected readonly ruleConfigs: Map<string, IValidationRuleConfig> = new Map();
@@ -108,8 +108,8 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     };
 
     /**
-     * Constructor following BaseModule pattern
-     * 
+     * Constructor
+     *
      * @param options - Validator configuration options
      */
     constructor(options: IBaseWorkflowValidatorOptions = {}) {
@@ -133,7 +133,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
      * @param options - Validation options
      * @returns Promise resolving to validation result
      */
-    async validate(data: TWorkflowData, options: ValidationOptions = {}): Promise<ValidationResult> {
+    async validate(data: TWorkflowData, options: IValidationOptions = {}): Promise<IValidationResult> {
         if (!this.enabled) {
             throw new Error(`Validator ${this.name} is disabled`);
         }
@@ -159,7 +159,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
             }
 
             // Collect all validation issues
-            const allIssues: ValidationIssue[] = [];
+            const allIssues: IValidationIssue[] = [];
 
             // Run validation rules
             for (const rule of enabledRules) {
@@ -229,8 +229,8 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     async validateRule(
         data: TWorkflowData,
         rule: string,
-        options: ValidationOptions = {}
-    ): Promise<ValidationResult> {
+        options: IValidationOptions = {}
+    ): Promise<IValidationResult> {
         if (!this.availableRules.includes(rule)) {
             throw new Error(`Rule '${rule}' is not available in validator ${this.name}`);
         }
@@ -258,8 +258,8 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     protected abstract performRuleValidation(
         data: TWorkflowData,
         rule: string,
-        options: ValidationOptions
-    ): Promise<{ issues: ValidationIssue[] }>;
+        options: IValidationOptions
+    ): Promise<{ issues: IValidationIssue[] }>;
 
     /**
      * Abstract method for initializing rule configurations
@@ -332,12 +332,12 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
      * @param issues - Validation issues to recover from
      * @returns Promise resolving to recovered data and recovery result
      */
-    async autoRecover(data: TWorkflowData, issues: ValidationIssue[]): Promise<{
+    async autoRecover(data: TWorkflowData, issues: IValidationIssue[]): Promise<{
         recoveredData: TWorkflowData;
         recoveryResult: {
             success: boolean;
-            issuesFixed: ValidationIssue[];
-            remainingIssues: ValidationIssue[];
+            issuesFixed: IValidationIssue[];
+            remainingIssues: IValidationIssue[];
             appliedFixes: string[];
         };
     }> {
@@ -407,7 +407,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     /**
      * Get enabled rules based on options
      */
-    private getEnabledRules(options: ValidationOptions): string[] {
+    private getEnabledRules(options: IValidationOptions): string[] {
         let rules = this.availableRules.filter(rule => {
             const config = this.ruleConfigs.get(rule);
             return config?.enabled !== false;
@@ -427,7 +427,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     /**
      * Filter issues based on validation options
      */
-    private filterIssues(issues: ValidationIssue[], options: ValidationOptions): ValidationIssue[] {
+    private filterIssues(issues: IValidationIssue[], options: IValidationOptions): IValidationIssue[] {
         let filteredIssues = [...issues];
 
         // Filter by severity
@@ -460,9 +460,9 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
         appliedRules: string[],
         startTime: number,
         data: TWorkflowData,
-        options: ValidationOptions,
-        issues: ValidationIssue[] = []
-    ): ValidationResult {
+        options: IValidationOptions,
+        issues: IValidationIssue[] = []
+    ): IValidationResult {
         const now = new Date();
         const processingTime = now.getTime() - startTime;
 
@@ -496,7 +496,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
         error: Error,
         startTime: number,
         data: TWorkflowData
-    ): ValidationResult {
+    ): IValidationResult {
         const now = new Date();
         const processingTime = now.getTime() - startTime;
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -531,7 +531,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     /**
      * Update statistics based on validation result
      */
-    private updateStatistics(result: ValidationResult): void {
+    private updateStatistics(result: IValidationResult): void {
         if (result.isValid) {
             this.stats.successfulValidations++;
         } else {
@@ -557,7 +557,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     /**
      * Extract simple options representation for metadata
      */
-    private extractSimpleOptions(options: ValidationOptions): string | number | boolean | string[] | Date {
+    private extractSimpleOptions(options: IValidationOptions): string | number | boolean | string[] | Date {
         // Convert ValidationOptions to simple type safely
         if (typeof options === 'object' && options !== null) {
             return `${JSON.stringify(options).substring(0, 100)}...`; // Truncated string representation

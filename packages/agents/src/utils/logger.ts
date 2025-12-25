@@ -9,14 +9,14 @@ import { SimpleLogger, DefaultConsoleLogger } from './simple-logger';
 /**
  * Log levels for the logger
  */
-export type UtilLogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
+export type TUtilLogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 
 /**
  * Log entry structure
  */
-export interface UtilLogEntry {
+export interface IUtilLogEntry {
     timestamp: string;
-    level: UtilLogLevel;
+    level: TUtilLogLevel;
     message: string;
     context?: TLoggerData;
     packageName?: string;
@@ -25,14 +25,14 @@ export interface UtilLogEntry {
 /**
  * Logger interface
  */
-export interface Logger {
+export interface ILogger {
     debug(message: string, context?: TLoggerData): void;
     info(message: string, context?: TLoggerData): void;
     warn(message: string, context?: TLoggerData): void;
     error(message: string, context?: TLoggerData): void;
     isDebugEnabled(): boolean;
-    setLevel(level: UtilLogLevel): void;
-    getLevel(): UtilLogLevel;
+    setLevel(level: TUtilLogLevel): void;
+    getLevel(): TUtilLogLevel;
 }
 
 /**
@@ -40,7 +40,7 @@ export interface Logger {
  */
 class LoggerConfig {
     private static instance: LoggerConfig;
-    private globalLevel: UtilLogLevel;
+    private globalLevel: TUtilLogLevel;
 
     private constructor() {
         // Set default level (environment variables no longer used for browser compatibility)
@@ -54,11 +54,11 @@ class LoggerConfig {
         return LoggerConfig.instance;
     }
 
-    getGlobalLevel(): UtilLogLevel {
+    getGlobalLevel(): TUtilLogLevel {
         return this.globalLevel;
     }
 
-    setGlobalLevel(level: UtilLogLevel): void {
+    setGlobalLevel(level: TUtilLogLevel): void {
         this.globalLevel = level;
     }
 }
@@ -67,8 +67,8 @@ class LoggerConfig {
  * Console logger implementation
  * @internal
  */
-export class ConsoleLogger implements Logger {
-    private level: UtilLogLevel | null = null; // null means use global level
+export class ConsoleLogger implements ILogger {
+    private level: TUtilLogLevel | null = null; // null means use global level
     private packageName: string;
     private simpleLogger: SimpleLogger;
 
@@ -105,24 +105,24 @@ export class ConsoleLogger implements Logger {
         return this.shouldLog('debug');
     }
 
-    setLevel(level: UtilLogLevel): void {
+    setLevel(level: TUtilLogLevel): void {
         this.level = level;
     }
 
-    getLevel(): UtilLogLevel {
+    getLevel(): TUtilLogLevel {
         return this.level || LoggerConfig.getInstance().getGlobalLevel();
     }
 
-    private shouldLog(level: UtilLogLevel): boolean {
+    private shouldLog(level: TUtilLogLevel): boolean {
         const currentLevel = this.getLevel();
         if (currentLevel === 'silent') return false;
 
-        const levels: UtilLogLevel[] = ['debug', 'info', 'warn', 'error', 'silent'];
+        const levels: TUtilLogLevel[] = ['debug', 'info', 'warn', 'error', 'silent'];
         return levels.indexOf(level) >= levels.indexOf(currentLevel);
     }
 
-    private log(level: UtilLogLevel, message: string, context?: TLoggerData): void {
-        const entry: UtilLogEntry = {
+    private log(level: TUtilLogLevel, message: string, context?: TLoggerData): void {
+        const entry: IUtilLogEntry = {
             timestamp: new Date().toISOString(),
             level,
             message,
@@ -145,21 +145,21 @@ export class ConsoleLogger implements Logger {
  * Create a logger instance for a package
  * @internal
  */
-export function createLogger(packageName: string, logger?: SimpleLogger): Logger {
+export function createLogger(packageName: string, logger?: SimpleLogger): ILogger {
     return new ConsoleLogger(packageName, logger);
 }
 
 /**
  * Set global log level for all loggers
  */
-export function setGlobalLogLevel(level: UtilLogLevel): void {
+export function setGlobalLogLevel(level: TUtilLogLevel): void {
     LoggerConfig.getInstance().setGlobalLevel(level);
 }
 
 /**
  * Get global log level
  */
-export function getGlobalLogLevel(): UtilLogLevel {
+export function getGlobalLogLevel(): TUtilLogLevel {
     return LoggerConfig.getInstance().getGlobalLevel();
 }
 

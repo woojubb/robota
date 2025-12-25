@@ -1,6 +1,6 @@
 import { LogEntry, LogStorage, LogFormatter } from '../types';
 import { JsonLogFormatter } from '../formatters';
-import { Logger, createLogger } from '../../../utils/logger';
+import { createLogger, type ILogger } from '../../../utils/logger';
 import { PluginError } from '../../../utils/errors';
 import type { TimerId } from '../../../utils';
 
@@ -14,7 +14,7 @@ export class RemoteLogStorage implements LogStorage {
     private flushInterval: number;
     private pendingLogs: LogEntry[] = [];
     private flushTimer: TimerId | undefined;
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor(url: string, _options: { timeout?: number } = {}) {
         this.url = url;

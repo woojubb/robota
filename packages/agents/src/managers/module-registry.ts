@@ -6,7 +6,7 @@ import {
 } from '../abstracts/abstract-module';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import { ModuleTypeRegistry } from './module-type-registry';
-import { Logger, createLogger } from '../utils/logger';
+import { createLogger, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 
 export const MODULE_REGISTRY_EVENTS = {
@@ -78,7 +78,7 @@ export class ModuleRegistry {
     private initializationOrder: string[] = [];
     private typeRegistry: ModuleTypeRegistry;
     private eventEmitter: EventEmitterPlugin | undefined;
-    private logger: Logger;
+    private logger: ILogger;
     private isDisposing = false;
 
     constructor(eventEmitter?: EventEmitterPlugin) {
