@@ -52,6 +52,9 @@ export type TEventExtensionValue = TUniversalValue | TLoggerData | Error | IEven
  * Emitters may add additional fields, but MUST keep linkage information explicit.
  */
 export interface IBaseEventData {
+    /** Timestamp when the event was emitted. This is required for deterministic ordering. */
+    timestamp: Date;
+
     /** Optional linkage duplication for convenience (primary linkage is always in IEventContext). */
     executionId?: string;
     parentExecutionId?: string;

@@ -4,14 +4,14 @@ import { Card, CardContent } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../ui/collapsible';
-import type { BlockMessage, BlockMetadata } from '../../../lib/playground/block-tracking';
+import type { IBlockMessage, IBlockMetadata } from '../../../lib/playground/block-tracking';
 
 /**
  * Props for BlockNode component
  */
 export interface BlockNodeProps {
     /** The block message to render */
-    block: BlockMessage;
+    block: IBlockMessage;
 
     /** Child blocks to render */
     children?: React.ReactNode;
@@ -20,7 +20,7 @@ export interface BlockNodeProps {
     onToggleExpand?: (blockId: string, isExpanded: boolean) => void;
 
     /** Callback when block is clicked */
-    onClick?: (block: BlockMessage) => void;
+    onClick?: (block: IBlockMessage) => void;
 
     /** Whether this block is currently selected */
     isSelected?: boolean;
@@ -35,7 +35,7 @@ export interface BlockNodeProps {
 /**
  * Get icon based on block type
  */
-const getBlockIcon = (type: BlockMetadata['type']) => {
+const getBlockIcon = (type: IBlockMetadata['type']) => {
     switch (type) {
         case 'user':
             return <User className="w-4 h-4" />;
@@ -57,7 +57,7 @@ const getBlockIcon = (type: BlockMetadata['type']) => {
 /**
  * Get visual state icon
  */
-const getStateIcon = (state: BlockMetadata['visualState']) => {
+const getStateIcon = (state: IBlockMetadata['visualState']) => {
     switch (state) {
         case 'pending':
             return <Clock className="w-3 h-3 text-gray-400" />;
@@ -75,8 +75,8 @@ const getStateIcon = (state: BlockMetadata['visualState']) => {
 /**
  * Get color scheme based on block type and state
  */
-const getBlockColors = (type: BlockMetadata['type'], state: BlockMetadata['visualState']) => {
-    const baseColors: Record<BlockMetadata['type'], string> = {
+const getBlockColors = (type: IBlockMetadata['type'], state: IBlockMetadata['visualState']) => {
+    const baseColors: Record<IBlockMetadata['type'], string> = {
         user: 'bg-blue-50 border-blue-200 text-blue-900',
         assistant: 'bg-green-50 border-green-200 text-green-900',
         tool_call: 'bg-purple-50 border-purple-200 text-purple-900',
@@ -85,7 +85,7 @@ const getBlockColors = (type: BlockMetadata['type'], state: BlockMetadata['visua
         group: 'bg-gray-50 border-gray-200 text-gray-900'
     };
 
-    const stateOverrides: Record<BlockMetadata['visualState'], string> = {
+    const stateOverrides: Record<IBlockMetadata['visualState'], string> = {
         pending: 'ring-1 ring-gray-200',
         in_progress: 'ring-2 ring-blue-300 animate-pulse',
         error: 'ring-2 ring-red-300',

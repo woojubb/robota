@@ -1,7 +1,7 @@
 import type { SimpleLogger, TUniversalValue } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
-export type PlaygroundEventType =
+export type TPlaygroundEventType =
   | 'user_message'
   | 'assistant_response'
   | 'tool_call_start'
@@ -11,9 +11,9 @@ export type PlaygroundEventType =
   | 'execution_complete'
   | 'execution_error';
 
-export interface ConversationEvent {
+export interface IConversationEvent {
   id: string;
-  type: PlaygroundEventType;
+  type: TPlaygroundEventType;
   timestamp: Date;
   content?: string;
   agentId?: string;
@@ -21,21 +21,21 @@ export interface ConversationEvent {
   metadata?: Record<string, TUniversalValue>;
 }
 
-export interface AgentBlock {
+export interface IAgentBlock {
   id: string;
   name: string;
   status: 'idle' | 'running' | 'completed' | 'error';
   startTime?: Date;
   endTime?: Date;
-  events: ConversationEvent[];
+  events: IConversationEvent[];
 }
 
-export interface VisualizationData {
-  events: ConversationEvent[];
-  agents: AgentBlock[];
+export interface IVisualizationData {
+  events: IConversationEvent[];
+  agents: IAgentBlock[];
 }
 
-export interface PlaygroundHistoryPluginOptions {
+export interface IPlaygroundHistoryPluginOptions {
   maxEvents?: number;
   enableVisualization?: boolean;
   logger?: SimpleLogger;
@@ -52,22 +52,22 @@ export class PlaygroundHistoryPlugin {
   private readonly maxEvents: number;
   private readonly enableVisualization: boolean;
 
-  private events: ConversationEvent[] = [];
+  private events: IConversationEvent[] = [];
 
-  constructor(options: PlaygroundHistoryPluginOptions = {}) {
+  constructor(options: IPlaygroundHistoryPluginOptions = {}) {
     this.logger = options.logger ?? SilentLogger;
     this.maxEvents = Math.max(1, options.maxEvents ?? 1000);
     this.enableVisualization = options.enableVisualization ?? true;
   }
 
-  recordEvent(event: ConversationEvent): void {
+  recordEvent(event: IConversationEvent): void {
     this.events.push(event);
     if (this.events.length > this.maxEvents) {
       this.events = this.events.slice(this.events.length - this.maxEvents);
     }
   }
 
-  getAllEvents(): ConversationEvent[] {
+  getAllEvents(): IConversationEvent[] {
     return [...this.events];
   }
 
@@ -75,12 +75,12 @@ export class PlaygroundHistoryPlugin {
     this.events = [];
   }
 
-  getVisualizationData(): VisualizationData {
+  getVisualizationData(): IVisualizationData {
     if (!this.enableVisualization) {
       return { events: this.getAllEvents(), agents: [] };
     }
 
-    const byAgentId = new Map<string, AgentBlock>();
+    const byAgentId = new Map<string, IAgentBlock>();
     const events = this.getAllEvents();
 
     for (const e of events) {

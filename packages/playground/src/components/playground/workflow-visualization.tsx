@@ -41,9 +41,9 @@ import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { PlaygroundToolMeta } from '../../tools/catalog';
+import type { IPlaygroundToolMeta } from '../../tools/catalog';
 import type {
-    UniversalWorkflowStructure
+    IUniversalWorkflowStructure
 } from '@robota-sdk/workflow';
 import { UniversalToReactFlowConverter } from '../../lib/workflow-visualization';
 import {
@@ -60,18 +60,18 @@ import {
 } from '../../lib/workflow-visualization/auto-layout';
 
 interface WorkflowVisualizationProps {
-    workflow?: UniversalWorkflowStructure;
+    workflow?: IUniversalWorkflowStructure;
     className?: string;
     onAgentNodeClick?: (nodeId: string, data: any) => void;
-    onToolDrop?: (agentId: string, tool: PlaygroundToolMeta) => void;
-    toolItems?: PlaygroundToolMeta[];
+    onToolDrop?: (agentId: string, tool: IPlaygroundToolMeta) => void;
+    toolItems?: IPlaygroundToolMeta[];
     addedToolsByAgent?: Record<string, string[]>;
 }
 
 // Unified Chat System
 type ChatNodeType = 'agent' | 'response';
 
-function isPlaygroundToolMeta(value: unknown): value is PlaygroundToolMeta {
+function isPlaygroundToolMeta(value: unknown): value is IPlaygroundToolMeta {
     if (!value || typeof value !== 'object') return false;
     const obj = value as { id?: unknown; name?: unknown; description?: unknown; tags?: unknown };
     if (typeof obj.id !== 'string' || obj.id.length === 0) return false;
@@ -513,7 +513,7 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                         const agentId = (data && (data.sourceId || data.conversationId)) as string | undefined;
                         const onToolDropUnknown = (data as { __onToolDrop?: unknown }).__onToolDrop;
                         if (agentId && typeof onToolDropUnknown === 'function') {
-                            (onToolDropUnknown as (agentId: string, tool: PlaygroundToolMeta) => void)(agentId, tool);
+                            (onToolDropUnknown as (agentId: string, tool: IPlaygroundToolMeta) => void)(agentId, tool);
                         }
                     } catch { /* ignore */ }
                 }}
@@ -580,9 +580,9 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                         ) : null;
                     })()}
                     {Array.isArray((data as { __addedTools?: unknown }).__addedTools) &&
-                        ((data as { __addedTools: PlaygroundToolMeta[] }).__addedTools.length > 0) && (
+                        ((data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.length > 0) && (
                             <Badge variant="secondary" className="text-xs" data-nodrop="true">
-                                +{(data as { __addedTools: PlaygroundToolMeta[] }).__addedTools.length}
+                                +{(data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.length}
                             </Badge>
                         )}
                 </div>
@@ -603,16 +603,16 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
 
                 {/* Added tools overlay (from UI state) */}
                 {Array.isArray((data as { __addedTools?: unknown }).__addedTools) &&
-                    ((data as { __addedTools: PlaygroundToolMeta[] }).__addedTools.length > 0) && (
+                    ((data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.length > 0) && (
                         <div className="flex flex-wrap gap-1 mt-1" data-nodrop="true">
-                            {(data as { __addedTools: PlaygroundToolMeta[] }).__addedTools.slice(0, 4).map((tool) => (
+                            {(data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.slice(0, 4).map((tool) => (
                                 <Badge key={tool.id} variant="outline" className="text-[10px]" data-nodrop="true">
                                     {tool.name}
                                 </Badge>
                             ))}
-                            {(data as { __addedTools: PlaygroundToolMeta[] }).__addedTools.length > 4 && (
+                            {(data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.length > 4 && (
                                 <span className="text-[10px] text-gray-500" data-nodrop="true">
-                                    +{(data as { __addedTools: PlaygroundToolMeta[] }).__addedTools.length - 4} more
+                                    +{(data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.length - 4} more
                                 </span>
                             )}
                         </div>
@@ -1690,15 +1690,15 @@ function WorkflowVisualizationContent({
                 };
 
                 // Attach callbacks to agent and response nodes (chat/edit)
-                const toolCatalogById = new Map<string, PlaygroundToolMeta>(
+                const toolCatalogById = new Map<string, IPlaygroundToolMeta>(
                     Array.isArray(toolItems) ? toolItems.map(item => [item.id, item]) : []
                 );
 
                 const isNonEmptyString = (value: unknown): value is string =>
                     typeof value === 'string' && value.length > 0;
 
-                const mapToolIdsToMeta = (toolIds: string[]): PlaygroundToolMeta[] => {
-                    const out: PlaygroundToolMeta[] = [];
+                const mapToolIdsToMeta = (toolIds: string[]): IPlaygroundToolMeta[] => {
+                    const out: IPlaygroundToolMeta[] = [];
                     for (const toolId of toolIds) {
                         const meta = toolCatalogById.get(toolId);
                         if (meta) out.push(meta);
@@ -1726,7 +1726,7 @@ function WorkflowVisualizationContent({
                                         setSelectedNode(n);
                                         setIsInfoOpen(true);
                                     },
-                                    __onToolDrop: (agentId: string, tool: PlaygroundToolMeta) => {
+                                    __onToolDrop: (agentId: string, tool: IPlaygroundToolMeta) => {
                                         if (typeof onToolDrop === 'function') {
                                             onToolDrop(agentId, tool);
                                         }

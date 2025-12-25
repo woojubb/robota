@@ -12,10 +12,10 @@ import {
     DropdownMenuSeparator,
 } from '../../ui/dropdown-menu';
 import type {
-    BlockMessage,
-    BlockDataCollector,
-    BlockCollectionEvent,
-    BlockTreeNode
+    IBlockMessage,
+    IBlockDataCollector,
+    TBlockCollectionEvent,
+    IBlockTreeNode
 } from '../../../lib/playground/block-tracking';
 
 /**
@@ -23,7 +23,7 @@ import type {
  */
 export interface BlockTreeProps {
     /** Block collector to get data from */
-    blockCollector: BlockDataCollector;
+    blockCollector: IBlockDataCollector;
 
     /** Height of the tree container */
     height?: string | number;
@@ -35,7 +35,7 @@ export interface BlockTreeProps {
     autoScroll?: boolean;
 
     /** Callback when a block is selected */
-    onBlockSelect?: (block: BlockMessage) => void;
+    onBlockSelect?: (block: IBlockMessage) => void;
 
     /** Currently selected block ID */
     selectedBlockId?: string;
@@ -57,7 +57,7 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
     selectedBlockId,
     showControls = true
 }) => {
-    const [blocks, setBlocks] = useState<BlockMessage[]>([]);
+    const [blocks, setBlocks] = useState<IBlockMessage[]>([]);
     const [stats, setStats] = useState(() =>
         blockCollector ? blockCollector.getStats() : { total: 0, byType: {}, byState: {}, rootBlocks: 0 }
     );
@@ -77,7 +77,7 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
     useEffect(() => {
         if (!blockCollector) return;
 
-        const handleBlockEvent = (event: BlockCollectionEvent) => {
+        const handleBlockEvent = (event: TBlockCollectionEvent) => {
             switch (event.type) {
                 case 'block_added':
                     // Auto-expand parent blocks when new children are added
@@ -108,9 +108,9 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
     }, [blockCollector, updateBlocks]);
 
     // Build hierarchical tree structure
-    const buildTree = useCallback((blocks: BlockMessage[]): BlockTreeNode[] => {
-        const blockMap = new Map<string, BlockMessage>();
-        const rootBlocks: BlockMessage[] = [];
+    const buildTree = useCallback((blocks: IBlockMessage[]): IBlockTreeNode[] => {
+        const blockMap = new Map<string, IBlockMessage>();
+        const rootBlocks: IBlockMessage[] = [];
 
         // Create block map
         blocks.forEach(block => {
@@ -125,10 +125,10 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
         });
 
         // Build tree nodes recursively
-        const buildNode = (block: BlockMessage): BlockTreeNode => {
+        const buildNode = (block: IBlockMessage): IBlockTreeNode => {
             const children = block.blockMetadata.children
                 .map(childId => blockMap.get(childId))
-                .filter((child): child is BlockMessage => child !== undefined)
+                .filter((child): child is IBlockMessage => child !== undefined)
                 .map(child => buildNode(child));
 
             return {
@@ -141,7 +141,7 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
         const treeNodes = rootBlocks.map(buildNode);
 
         // Set parent references
-        const setParentReferences = (nodes: BlockTreeNode[], parent?: BlockTreeNode) => {
+        const setParentReferences = (nodes: IBlockTreeNode[], parent?: IBlockTreeNode) => {
             nodes.forEach(node => {
                 node.parent = parent;
                 setParentReferences(node.children, node);
@@ -171,7 +171,7 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
     }, [blockCollector]);
 
     // Handle block selection
-    const handleBlockClick = useCallback((block: BlockMessage) => {
+    const handleBlockClick = useCallback((block: IBlockMessage) => {
         onBlockSelect?.(block);
     }, [onBlockSelect]);
 
@@ -214,7 +214,7 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
     }, [blocks, blockCollector]);
 
     // Render tree nodes recursively
-    const renderTreeNode = useCallback((treeNode: BlockTreeNode, level: number = 0): React.ReactNode => {
+    const renderTreeNode = useCallback((treeNode: IBlockTreeNode, level: number = 0): React.ReactNode => {
         const { block, children } = treeNode;
         const isExpanded = expandedBlocks.has(block.blockMetadata.id) ?? block.blockMetadata.isExpanded;
 

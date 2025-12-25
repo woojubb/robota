@@ -5,7 +5,7 @@ import type {
 } from '@robota-sdk/agents';
 import { EVENT_EMITTER_EVENTS } from '@robota-sdk/agents';
 import type { PlaygroundBlockCollector } from './block-tracking/block-collector';
-import type { RealTimeBlockMessage, RealTimeBlockMetadata } from './block-tracking/types';
+import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from './block-tracking/types';
 
 /**
  * 🔗 ExecutionSubscriber - Bridges SDK events to Web App BlockCollector
@@ -76,7 +76,7 @@ export class ExecutionSubscriber {
         const toolName = (eventData.data as any)?.toolName || 'unknown_tool';
 
         // Create real-time block metadata
-        const blockMetadata: RealTimeBlockMetadata = {
+        const blockMetadata: IRealTimeBlockMetadata = {
             id: this.generateBlockId(),
             type: 'tool_call',
             level: hierarchicalData.executionLevel || 2,
@@ -113,7 +113,7 @@ export class ExecutionSubscriber {
         };
 
         // Create block message
-        const blockMessage: RealTimeBlockMessage = {
+        const blockMessage: IRealTimeBlockMessage = {
             role: 'tool',
             content: `Executing ${toolName}...`,
             blockMetadata
@@ -149,9 +149,9 @@ export class ExecutionSubscriber {
             visualState: 'completed',
             endTime,
             actualDuration,
-            toolResult: hierarchicalData.realTimeData?.actualResult,
+            toolResult: hierarchicalData.realTimeData?.actualResult?.data,
             renderData: {
-                result: hierarchicalData.realTimeData?.actualResult
+                result: hierarchicalData.realTimeData?.actualResult?.data
             }
         });
 
@@ -224,10 +224,10 @@ export class ExecutionSubscriber {
         // Update with real-time data
         this.blockCollector.updateRealTimeBlock(execution.blockId, {
             toolParameters: eventData.realTimeData.actualParameters,
-            toolResult: eventData.realTimeData.actualResult,
+            toolResult: eventData.realTimeData.actualResult?.data,
             renderData: {
                 parameters: eventData.realTimeData.actualParameters,
-                result: eventData.realTimeData.actualResult
+                result: eventData.realTimeData.actualResult?.data
             }
         });
     }
@@ -268,7 +268,7 @@ export class ExecutionSubscriber {
 
         // Only create blocks for Agent/Team level (level 0 or 1)
         if (hierarchicalData.executionLevel !== undefined && hierarchicalData.executionLevel <= 1) {
-            const blockMetadata: RealTimeBlockMetadata = {
+            const blockMetadata: IRealTimeBlockMetadata = {
                 id: this.generateBlockId(),
                 type: hierarchicalData.executionLevel === 0 ? 'group' : 'assistant',
                 level: hierarchicalData.executionLevel,
@@ -289,7 +289,7 @@ export class ExecutionSubscriber {
                 }
             };
 
-            const blockMessage: RealTimeBlockMessage = {
+            const blockMessage: IRealTimeBlockMessage = {
                 role: hierarchicalData.executionLevel === 0 ? 'system' : 'assistant',
                 content: hierarchicalData.executionLevel === 0 ? 'Team execution started' : 'Agent processing...',
                 blockMetadata

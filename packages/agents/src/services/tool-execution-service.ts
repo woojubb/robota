@@ -73,6 +73,7 @@ export class ToolExecutionService {
             const eventService = context.eventService;
             if (eventService) {
                 const startEvent: IToolEventData = {
+                    timestamp: new Date(),
                     toolName,
                     parameters
                 };
@@ -103,6 +104,7 @@ export class ToolExecutionService {
 
             if (eventService) {
                 const completeEvent: IToolEventData = {
+                    timestamp: new Date(),
                     toolName,
                     result: result as any
                 };
@@ -124,6 +126,7 @@ export class ToolExecutionService {
             const eventService = context?.eventService;
             if (eventService && context?.executionId) {
                 const errorEvent: IToolEventData = {
+                    timestamp: new Date(),
                     toolName,
                     error: toolError.message
                 };

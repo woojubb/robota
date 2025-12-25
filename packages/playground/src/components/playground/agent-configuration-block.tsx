@@ -41,19 +41,19 @@ import {
     AlertCircle,
     Info
 } from 'lucide-react';
-import type { PlaygroundAgentConfig } from '../../lib/playground/robota-executor';
+import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import { WebLogger } from '../../lib/web-logger';
 
 export interface AgentConfigurationBlockProps {
-    config: PlaygroundAgentConfig;
+    config: IPlaygroundAgentConfig;
     isActive?: boolean;
     isExecuting?: boolean;
-    onConfigChange: (config: PlaygroundAgentConfig) => void;
-    onExecute?: (config: PlaygroundAgentConfig) => void;
+    onConfigChange: (config: IPlaygroundAgentConfig) => void;
+    onExecute?: (config: IPlaygroundAgentConfig) => void;
     onStop?: () => void;
-    onOpenChat?: (config: PlaygroundAgentConfig) => void;
-    onDuplicate?: (config: PlaygroundAgentConfig) => void;
-    onDelete?: (config: PlaygroundAgentConfig) => void;
+    onOpenChat?: (config: IPlaygroundAgentConfig) => void;
+    onDuplicate?: (config: IPlaygroundAgentConfig) => void;
+    onDelete?: (config: IPlaygroundAgentConfig) => void;
     className?: string;
 }
 
@@ -73,7 +73,7 @@ export function AgentConfigurationBlock({
     className = ''
 }: AgentConfigurationBlockProps) {
     // Configuration state - always editable when not executing
-    const [editedConfig, setEditedConfig] = useState<PlaygroundAgentConfig>(config);
+    const [editedConfig, setEditedConfig] = useState<IPlaygroundAgentConfig>(config);
 
     // Validation state
     const validation = useMemo(() => {
@@ -96,7 +96,7 @@ export function AgentConfigurationBlock({
     const { isValid } = validation;
 
     // Auto-save configuration changes when not executing
-    const handleConfigUpdate = useCallback((updates: Partial<PlaygroundAgentConfig>) => {
+    const handleConfigUpdate = useCallback((updates: Partial<IPlaygroundAgentConfig>) => {
         if (isExecuting) return; // Prevent changes during execution
 
         const newConfig = { ...editedConfig, ...updates };

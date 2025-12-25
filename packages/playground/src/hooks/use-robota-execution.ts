@@ -16,25 +16,25 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { usePlayground } from '../contexts/playground-context';
-import type { PlaygroundExecutionResult, PlaygroundAgentConfig } from '../lib/playground/robota-executor';
+import type { IPlaygroundExecutorResult, IPlaygroundAgentConfig } from '../lib/playground/robota-executor';
 import { WebLogger } from '../lib/web-logger';
 
-export type ExecutionState = 'idle' | 'initializing' | 'running' | 'streaming' | 'error' | 'completed';
+export type TExecutionState = 'idle' | 'initializing' | 'running' | 'streaming' | 'error' | 'completed';
 
-export interface RobotaExecutionHookReturn {
+export interface IRobotaExecutionHookReturn {
     // Execution State
-    executionState: ExecutionState;
+    executionState: TExecutionState;
     isExecuting: boolean;
     isStreaming: boolean;
     canExecute: boolean;
 
     // Current Configuration
-    currentAgentConfig: PlaygroundAgentConfig | null;
+    currentAgentConfig: IPlaygroundAgentConfig | null;
     currentMode: 'agent';
 
     // Execution Results
-    lastResult: PlaygroundExecutionResult | null;
-    executionHistory: PlaygroundExecutionResult[];
+    lastResult: IPlaygroundExecutorResult | null;
+    executionHistory: IPlaygroundExecutorResult[];
 
     // Error Handling
     lastError: Error | null;
@@ -46,10 +46,10 @@ export interface RobotaExecutionHookReturn {
     successRate: number;
 
     // Actions
-    createAgent: (config: PlaygroundAgentConfig) => Promise<void>;
-    executePrompt: (prompt: string) => Promise<PlaygroundExecutionResult>;
-    executeStreamPrompt: (prompt: string, onChunk?: (chunk: string) => void) => Promise<PlaygroundExecutionResult>;
-    retryLastExecution: () => Promise<PlaygroundExecutionResult | null>;
+    createAgent: (config: IPlaygroundAgentConfig) => Promise<void>;
+    executePrompt: (prompt: string) => Promise<IPlaygroundExecutorResult>;
+    executeStreamPrompt: (prompt: string, onChunk?: (chunk: string) => void) => Promise<IPlaygroundExecutorResult>;
+    retryLastExecution: () => Promise<IPlaygroundExecutorResult | null>;
     cancelExecution: () => void;
     clearExecutionHistory: () => void;
 
@@ -58,11 +58,11 @@ export interface RobotaExecutionHookReturn {
     clearStreamingResponse: () => void;
 
     // Configuration Helpers
-    getDefaultAgentConfig: () => PlaygroundAgentConfig;
-    validateConfiguration: (config: PlaygroundAgentConfig) => { isValid: boolean; errors: string[] };
+    getDefaultAgentConfig: () => IPlaygroundAgentConfig;
+    validateConfiguration: (config: IPlaygroundAgentConfig) => { isValid: boolean; errors: string[] };
 }
 
-export function useRobotaExecution(): RobotaExecutionHookReturn {
+export function useRobotaExecution(): IRobotaExecutionHookReturn {
     const {
         state,
         createAgent: contextCreateAgent,
@@ -71,8 +71,8 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
     } = usePlayground();
 
     // Local state for execution management
-    const [executionState, setExecutionState] = useState<ExecutionState>('idle');
-    const [executionHistory, setExecutionHistory] = useState<PlaygroundExecutionResult[]>([]);
+    const [executionState, setExecutionState] = useState<TExecutionState>('idle');
+    const [executionHistory, setExecutionHistory] = useState<IPlaygroundExecutorResult[]>([]);
     const [lastError, setLastError] = useState<Error | null>(null);
     const [errorCount, setErrorCount] = useState(0);
     const [streamingResponse, setStreamingResponse] = useState('');
@@ -139,7 +139,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
     }, [state.lastExecutionResult, executionHistory]);
 
     // Actions
-    const createAgent = useCallback(async (config: PlaygroundAgentConfig) => {
+    const createAgent = useCallback(async (config: IPlaygroundAgentConfig) => {
         try {
             setExecutionState('initializing');
             setLastError(null);
@@ -156,7 +156,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
         }
     }, [contextCreateAgent]);
 
-    const executePrompt = useCallback(async (prompt: string): Promise<PlaygroundExecutionResult> => {
+    const executePrompt = useCallback(async (prompt: string): Promise<IPlaygroundExecutorResult> => {
         if (!canExecute) {
             const error = new Error('Cannot execute: executor not ready or already running');
             WebLogger.warn('executePrompt blocked', { error: error.message });
@@ -205,7 +205,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
     const executeStreamPrompt = useCallback(async (
         prompt: string,
         onChunk?: (chunk: string) => void
-    ): Promise<PlaygroundExecutionResult> => {
+    ): Promise<IPlaygroundExecutorResult> => {
         if (!canExecute) {
             const error = new Error('Cannot execute: executor not ready or already running');
             WebLogger.warn('executeStreamPrompt blocked', { error: error.message });
@@ -234,7 +234,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
         }
     }, [canExecute, contextExecuteStreamPrompt]);
 
-    const retryLastExecution = useCallback(async (): Promise<PlaygroundExecutionResult | null> => {
+    const retryLastExecution = useCallback(async (): Promise<IPlaygroundExecutorResult | null> => {
         if (!lastPromptRef.current) {
             return null;
         }
@@ -267,7 +267,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
     }, []);
 
     // Configuration helpers
-    const getDefaultAgentConfig = useCallback((): PlaygroundAgentConfig => {
+    const getDefaultAgentConfig = useCallback((): IPlaygroundAgentConfig => {
         return {
             name: 'New Agent',
             aiProviders: [],
@@ -283,7 +283,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
         };
     }, []);
 
-    const validateConfiguration = useCallback((config: PlaygroundAgentConfig): { isValid: boolean; errors: string[] } => {
+    const validateConfiguration = useCallback((config: IPlaygroundAgentConfig): { isValid: boolean; errors: string[] } => {
         const errors: string[] = [];
 
         if (!config.name || config.name.trim().length === 0) {

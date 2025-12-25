@@ -7,8 +7,8 @@ import {
 import type { TUniversalValue } from '@robota-sdk/agents';
 import { WebLogger } from '../web-logger';
 import type {
-    BlockDataCollector,
-    ToolHooks
+    IBlockDataCollector,
+    IToolHooks
 } from './block-tracking';
 import {
     createBlockTrackingHooks,
@@ -20,7 +20,7 @@ import {
  */
 export interface IUniversalToolFactoryOptions {
     /** Block collector for tracking tool executions */
-    blockCollector: BlockDataCollector;
+    blockCollector: IBlockDataCollector;
 
     /** Logger for tool execution */
     logger?: SimpleLogger;
@@ -32,7 +32,7 @@ export interface IUniversalToolFactoryOptions {
  * Leverages the universal Hook system from @robota-sdk/agents
  */
 export class UniversalToolFactory {
-    private readonly blockCollector: BlockDataCollector;
+    private readonly blockCollector: IBlockDataCollector;
     private readonly logger?: SimpleLogger;
 
     constructor(options: IUniversalToolFactoryOptions) {
@@ -112,7 +112,7 @@ export class UniversalToolFactory {
     /**
      * Get block collector for direct access
      */
-    getBlockCollector(): BlockDataCollector {
+    getBlockCollector(): IBlockDataCollector {
         return this.blockCollector;
     }
 } 

@@ -13,8 +13,8 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Bot, Trash2, Wrench } from 'lucide-react';
-import type { PlaygroundAgentConfig } from '../../lib/playground/robota-executor';
-import type { PlaygroundToolMeta } from '../../tools/catalog';
+import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
+import type { IPlaygroundToolMeta } from '../../tools/catalog';
 import { ChatInputPanel } from '../../components/playground/chat-input-panel';
 import { Toaster } from '../../components/ui/sonner';
 import type { IEventService, SimpleLogger } from '@robota-sdk/agents';
@@ -54,7 +54,7 @@ function PlaygroundContent(): React.ReactElement {
   const { state, setWorkflow, addToolToAgentOverlay, setToolItems } = usePlayground();
   const { createAgent, getDefaultAgentConfig } = useRobotaExecution();
   const { activeModal, isModalOpen, openModal, closeModal } = useModal();
-  const [agentDraft, setAgentDraft] = useState<PlaygroundAgentConfig | null>(null);
+  const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);
   const { toast } = useToast();
   const lastDropByAgentToolRef = useRef<Map<string, number>>(new Map());
 
@@ -139,7 +139,7 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
     openModal('chat');
   };
 
-  const handleToolDrop = async (agentId: string, tool: PlaygroundToolMeta) => {
+  const handleToolDrop = async (agentId: string, tool: IPlaygroundToolMeta) => {
     WebLogger.debug('Tool dropped on agent', { agentId, toolId: tool.id, toolName: tool.name });
     try {
       // Debounce rapid duplicate drop events (same agentId + toolId).
@@ -227,14 +227,14 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
       return;
     }
 
-    const next: PlaygroundToolMeta[] = [...toolItems, { id, name, description }];
+    const next: IPlaygroundToolMeta[] = [...toolItems, { id, name, description }];
     setToolItems(next);
     setLastAddedToolId(id);
     closeModal();
     toast({ title: 'Tool created', description: `${name} is now available in the sidebar.` });
   };
 
-  const handleRemoveTool = (tool: PlaygroundToolMeta) => {
+  const handleRemoveTool = (tool: IPlaygroundToolMeta) => {
     if (tool.type === 'builtin') {
       toast({ title: 'Builtin tools cannot be removed', variant: 'destructive' });
       return;

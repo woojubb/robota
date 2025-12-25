@@ -1,5 +1,5 @@
 import type { PlaygroundBlockCollector } from '../block-tracking/block-collector';
-import type { RealTimeBlockMessage, RealTimeBlockMetadata } from '../block-tracking/types';
+import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from '../block-tracking/types';
 
 /**
  * LLM response data from Agent history
@@ -114,7 +114,7 @@ export class RealTimeLLMTracker {
         const parentBlockId = this.findParentBlockId(responseData);
 
         // Create LLM response block metadata
-        const blockMetadata: RealTimeBlockMetadata = {
+        const blockMetadata: IRealTimeBlockMetadata = {
             id: this.generateBlockId(),
             type: 'assistant',
             level: this.calculateLevel(parentBlockId),
@@ -154,7 +154,7 @@ export class RealTimeLLMTracker {
         };
 
         // Create block message
-        const blockMessage: RealTimeBlockMessage = {
+        const blockMessage: IRealTimeBlockMessage = {
             role: 'assistant',
             content: responseData.content,
             timestamp: responseData.timestamp,
@@ -228,7 +228,7 @@ export class RealTimeLLMTracker {
         }
 
         // Build path from parent's hierarchy
-        const parentMetadata = parentBlock.blockMetadata as RealTimeBlockMetadata;
+        const parentMetadata = parentBlock.blockMetadata as IRealTimeBlockMetadata;
         const parentPath = parentMetadata.executionHierarchy?.path || [];
 
         return [...parentPath, currentStep];

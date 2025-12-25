@@ -1,17 +1,16 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import {
     PlaygroundBlockCollector,
-    type BlockDataCollector,
-    type BlockMessage,
-    type BlockCollectionEvent
+    type IBlockMessage,
+    type TBlockCollectionEvent
 } from '../lib/playground/block-tracking';
 import { UniversalToolFactory } from '../lib/playground/universal-tool-factory';
-import type { SimpleLogger } from '@robota-sdk/agents';
+import type { IToolSchema, SimpleLogger, ToolExecutor, TUniversalValue } from '@robota-sdk/agents';
 
 /**
  * Options for useBlockTracking hook
  */
-export interface UseBlockTrackingOptions {
+export interface IUseBlockTrackingOptions {
     /** Logger for block tracking operations */
     logger?: SimpleLogger;
 
@@ -25,7 +24,7 @@ export interface UseBlockTrackingOptions {
 /**
  * Block tracking hook result
  */
-export interface UseBlockTrackingResult {
+export interface IUseBlockTrackingResult {
     /** Block collector instance */
     blockCollector: PlaygroundBlockCollector;
 
@@ -33,7 +32,7 @@ export interface UseBlockTrackingResult {
     toolFactory: UniversalToolFactory;
 
     /** Current blocks */
-    blocks: BlockMessage[];
+    blocks: IBlockMessage[];
 
     /** Block statistics */
     stats: ReturnType<PlaygroundBlockCollector['getStats']>;
@@ -52,7 +51,7 @@ export interface UseBlockTrackingResult {
  * React hook for managing block tracking in Playground
  * Provides centralized block collection and tool factory management
  */
-export function useBlockTracking(options: UseBlockTrackingOptions = {}): UseBlockTrackingResult {
+export function useBlockTracking(options: IUseBlockTrackingOptions = {}): IUseBlockTrackingResult {
     const {
         logger,
         enableRealTime = true,
@@ -64,7 +63,7 @@ export function useBlockTracking(options: UseBlockTrackingOptions = {}): UseBloc
     const toolFactoryRef = useRef<UniversalToolFactory | null>(null);
 
     // State
-    const [blocks, setBlocks] = useState<BlockMessage[]>([]);
+    const [blocks, setBlocks] = useState<IBlockMessage[]>([]);
     const [stats, setStats] = useState(() => ({
         total: 0,
         byType: {},
@@ -110,7 +109,7 @@ export function useBlockTracking(options: UseBlockTrackingOptions = {}): UseBloc
     useEffect(() => {
         if (!blockCollectorRef.current || !enableRealTime) return;
 
-        const handleBlockEvent = (event: BlockCollectionEvent) => {
+        const handleBlockEvent = (_event: TBlockCollectionEvent) => {
             updateState();
         };
 
@@ -152,22 +151,22 @@ export function useBlockTracking(options: UseBlockTrackingOptions = {}): UseBloc
 /**
  * Hook for creating tracked tools easily
  */
-export function useTrackedTools(blockTracking: UseBlockTrackingResult) {
+export function useTrackedTools(blockTracking: IUseBlockTrackingResult) {
     const { toolFactory } = blockTracking;
 
-    const createFunctionTool = useCallback((schema: any, executor: any, options: any = {}) => {
+    const createFunctionTool = useCallback((schema: IToolSchema, executor: ToolExecutor, options: { parentBlockId?: string; level?: number; logger?: SimpleLogger } = {}) => {
         return toolFactory.createFunctionTool(schema, executor, options);
     }, [toolFactory]);
 
-    const createOpenAPITool = useCallback((config: any, options: any = {}) => {
+    const createOpenAPITool = useCallback((config: Record<string, TUniversalValue>, options: { parentBlockId?: string; level?: number; logger?: SimpleLogger } = {}) => {
         return toolFactory.createOpenAPITool(config, options);
     }, [toolFactory]);
 
-    const createMCPTool = useCallback((config: any, schema: any, options: any = {}) => {
+    const createMCPTool = useCallback((config: Record<string, TUniversalValue>, schema: Record<string, TUniversalValue>, options: { parentBlockId?: string; level?: number; logger?: SimpleLogger } = {}) => {
         return toolFactory.createMCPTool(config, schema, options);
     }, [toolFactory]);
 
-    const createDelegationTool = useCallback((teamContainer: any, templates: any[], options: any = {}) => {
+    const createDelegationTool = useCallback((teamContainer: Record<string, TUniversalValue>, templates: Array<Record<string, TUniversalValue>>, options: { parentBlockId?: string; level?: number; logger?: SimpleLogger } = {}) => {
         return toolFactory.createDelegationTool(teamContainer, templates, options);
     }, [toolFactory]);
 

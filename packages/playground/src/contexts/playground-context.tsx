@@ -14,32 +14,32 @@
  */
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
-import { PlaygroundExecutor, type PlaygroundExecutionResult, type PlaygroundAgentConfig, type PlaygroundMode, type ConversationEvent, type VisualizationData } from '../lib/playground/robota-executor';
+import { PlaygroundExecutor, type IPlaygroundExecutorResult, type IPlaygroundAgentConfig, type TPlaygroundMode, type IConversationEvent, type IVisualizationData } from '../lib/playground/robota-executor';
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
-import type { EventService, SimpleLogger } from '@robota-sdk/agents';
+import type { IEventService, SimpleLogger } from '@robota-sdk/agents';
 // Import Universal types from their proper location (Feature Ownership principle)
-import type { UniversalWorkflowStructure, WorkflowNodeStatus } from '@robota-sdk/workflow';
-import { getPlaygroundToolCatalog, type PlaygroundToolMeta } from '../tools/catalog';
+import type { IUniversalWorkflowStructure, TWorkflowNodeStatus } from '@robota-sdk/workflow';
+import { getPlaygroundToolCatalog, type IPlaygroundToolMeta } from '../tools/catalog';
 
 // ===== State Types =====
 
-export interface PlaygroundState {
+export interface IPlaygroundState {
     // Executor state
     executor: PlaygroundExecutor | null;
     isInitialized: boolean;
     isExecuting: boolean;
 
     // Configuration state
-    mode: PlaygroundMode;
+    mode: TPlaygroundMode;
     // Deprecated single-slot configs (kept for selection-only semantics)
-    currentAgentConfig: PlaygroundAgentConfig | null;
+    currentAgentConfig: IPlaygroundAgentConfig | null;
     // New multi-entity arrays
-    agentConfigs: PlaygroundAgentConfig[];
+    agentConfigs: IPlaygroundAgentConfig[];
 
     // Conversation state
-    conversationHistory: ConversationEvent[];
-    lastExecutionResult: PlaygroundExecutionResult | null;
+    conversationHistory: IConversationEvent[];
+    lastExecutionResult: IPlaygroundExecutorResult | null;
 
     // Connection state
     isWebSocketConnected: boolean;
@@ -51,57 +51,58 @@ export interface PlaygroundState {
     // UI state
     isLoading: boolean;
     error: string | null;
-    visualizationData: VisualizationData | null;
+    visualizationData: IVisualizationData | null;
 
     // Workflow state
-    currentWorkflow: UniversalWorkflowStructure | null;  // Manual Store (deprecated)
-    sdkWorkflow: UniversalWorkflowStructure | null;      // SDK Store (primary)
-    // Execution Statistics - Now managed by PlaygroundStatisticsPlugin
-    executionStats: {
-        totalExecutions: 0,
-        successfulExecutions: 0,
-        failedExecutions: 0,
-        averageExecutionTime: 0,
-        lastExecutionTime: null,
-        // Additional statistics from PlaygroundStatisticsPlugin
-        blockCreations: 0,
-        uiInteractions: 0,
-        streamingExecutions: 0,
-        agentModeExecutions: 0,
-        successRate: 100
-    };
+    currentWorkflow: IUniversalWorkflowStructure | null;  // Manual Store (deprecated)
+    sdkWorkflow: IUniversalWorkflowStructure | null;      // SDK Store (primary)
+    // Execution statistics - now managed by PlaygroundStatisticsPlugin
+    executionStats: IPlaygroundExecutionStats;
 
     // Tools DnD state (UI overlay)
-    toolItems: PlaygroundToolMeta[];
+    toolItems: IPlaygroundToolMeta[];
     addedToolsByAgent: Record<string, string[]>;
 }
 
-export type PlaygroundAction =
+export interface IPlaygroundExecutionStats {
+    totalExecutions: number;
+    successfulExecutions: number;
+    failedExecutions: number;
+    averageExecutionTime: number;
+    lastExecutionTime: Date | null;
+    blockCreations: number;
+    uiInteractions: number;
+    streamingExecutions: number;
+    agentModeExecutions: number;
+    successRate: number;
+}
+
+export type TPlaygroundAction =
     | { type: 'SET_EXECUTOR'; payload: PlaygroundExecutor | null }
     | { type: 'SET_INITIALIZED'; payload: boolean }
-    | { type: 'SET_AGENT_CONFIG'; payload: PlaygroundAgentConfig | null }
-    | { type: 'ADD_AGENT_CONFIG'; payload: PlaygroundAgentConfig }
-    | { type: 'UPDATE_AGENT_CONFIG'; payload: { index: number; config: PlaygroundAgentConfig } }
+    | { type: 'SET_AGENT_CONFIG'; payload: IPlaygroundAgentConfig | null }
+    | { type: 'ADD_AGENT_CONFIG'; payload: IPlaygroundAgentConfig }
+    | { type: 'UPDATE_AGENT_CONFIG'; payload: { index: number; config: IPlaygroundAgentConfig } }
     | { type: 'SET_EXECUTING'; payload: boolean }
     | { type: 'SET_WEBSOCKET_CONNECTED'; payload: boolean }
     | { type: 'SET_AUTH'; payload: { userId?: string; sessionId?: string; authToken?: string } }
     | { type: 'SET_LOADING'; payload: boolean }
     | { type: 'SET_ERROR'; payload: string | null }
-    | { type: 'UPDATE_VISUALIZATION_DATA'; payload: Partial<VisualizationData> }
-    | { type: 'SET_MODE'; payload: PlaygroundMode }
-    | { type: 'ADD_CONVERSATION_EVENT'; payload: ConversationEvent }
-    | { type: 'SET_CONVERSATION_HISTORY'; payload: ConversationEvent[] }
+    | { type: 'UPDATE_VISUALIZATION_DATA'; payload: Partial<IVisualizationData> }
+    | { type: 'SET_MODE'; payload: TPlaygroundMode }
+    | { type: 'ADD_CONVERSATION_EVENT'; payload: IConversationEvent }
+    | { type: 'SET_CONVERSATION_HISTORY'; payload: IConversationEvent[] }
     | { type: 'CLEAR_CONVERSATION_HISTORY' }
-    | { type: 'SET_EXECUTION_RESULT'; payload: PlaygroundExecutionResult }
-    | { type: 'SET_CURRENT_WORKFLOW'; payload: UniversalWorkflowStructure | null }
-    | { type: 'UPDATE_WORKFLOW_FROM_SDK'; payload: UniversalWorkflowStructure }  // STEP 7.2.2: 새로 추가
-    | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: WorkflowNodeStatus } }
-    | { type: 'SET_TOOL_ITEMS'; payload: PlaygroundToolMeta[] }
+    | { type: 'SET_EXECUTION_RESULT'; payload: IPlaygroundExecutorResult }
+    | { type: 'SET_CURRENT_WORKFLOW'; payload: IUniversalWorkflowStructure | null }
+    | { type: 'UPDATE_WORKFLOW_FROM_SDK'; payload: IUniversalWorkflowStructure }  // STEP 7.2.2: newly added
+    | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: TWorkflowNodeStatus } }
+    | { type: 'SET_TOOL_ITEMS'; payload: IPlaygroundToolMeta[] }
     | { type: 'ADD_TOOL_TO_AGENT_OVERLAY'; payload: { agentId: string; toolId: string } };
 
 // ===== Initial State =====
 
-const initialState: PlaygroundState = {
+const initialState: IPlaygroundState = {
     executor: null,
     isInitialized: false,
     isExecuting: false,
@@ -127,12 +128,11 @@ const initialState: PlaygroundState = {
         failedExecutions: 0,
         averageExecutionTime: 0,
         lastExecutionTime: null,
-        // Additional statistics from PlaygroundStatisticsPlugin
         blockCreations: 0,
         uiInteractions: 0,
         streamingExecutions: 0,
         agentModeExecutions: 0,
-        successRate: 100
+        successRate: 100,
     },
     toolItems: getPlaygroundToolCatalog(),
     addedToolsByAgent: {}
@@ -140,7 +140,7 @@ const initialState: PlaygroundState = {
 
 // ===== Reducer =====
 
-function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): PlaygroundState {
+function playgroundReducer(state: IPlaygroundState, action: TPlaygroundAction): IPlaygroundState {
     switch (action.type) {
         case 'SET_EXECUTOR':
             return {
@@ -209,7 +209,7 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
 
         case 'SET_EXECUTION_RESULT':
             // Update execution statistics based on result
-            const newStats = {
+            const newStats: IPlaygroundExecutionStats = {
                 ...state.executionStats,
                 totalExecutions: state.executionStats.totalExecutions + 1,
                 successfulExecutions: state.executionStats.successfulExecutions + (action.payload.success ? 1 : 0),
@@ -223,7 +223,7 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
             return {
                 ...state,
                 lastExecutionResult: action.payload,
-                executionStats: newStats as any
+                executionStats: newStats
             };
 
 
@@ -351,41 +351,41 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
 
 // ===== Context Definition =====
 
-interface PlaygroundContextValue {
+interface IPlaygroundContextValue {
     // State
-    state: PlaygroundState;
+    state: IPlaygroundState;
 
     // Actions
-    createAgent: (config: PlaygroundAgentConfig) => Promise<void>;
-    addAgentConfig: (config: PlaygroundAgentConfig) => void;
-    updateAgentConfig: (index: number, config: PlaygroundAgentConfig) => void;
-    executePrompt: (prompt: string) => Promise<PlaygroundExecutionResult>;
-    executeStreamPrompt: (prompt: string, onChunk: (chunk: string) => void) => Promise<PlaygroundExecutionResult>;
+    createAgent: (config: IPlaygroundAgentConfig) => Promise<void>;
+    addAgentConfig: (config: IPlaygroundAgentConfig) => void;
+    updateAgentConfig: (index: number, config: IPlaygroundAgentConfig) => void;
+    executePrompt: (prompt: string) => Promise<IPlaygroundExecutorResult>;
+    executeStreamPrompt: (prompt: string, onChunk: (chunk: string) => void) => Promise<IPlaygroundExecutorResult>;
     clearHistory: () => void;
     setAuth: (userId: string, sessionId: string, authToken: string) => void;
     disposeExecutor: () => Promise<void>;
-    setWorkflow: (workflow: UniversalWorkflowStructure | null) => void;
-    updateNodeStatus: (nodeId: string, status: WorkflowNodeStatus) => void;
+    setWorkflow: (workflow: IUniversalWorkflowStructure | null) => void;
+    updateNodeStatus: (nodeId: string, status: TWorkflowNodeStatus) => void;
     setExecuting: (isExecuting: boolean) => void;
-    setToolItems: (tools: PlaygroundToolMeta[]) => void;
+    setToolItems: (tools: IPlaygroundToolMeta[]) => void;
     addToolToAgentOverlay: (agentId: string, toolId: string) => void;
 
     // Getters
-    getVisualizationData: () => VisualizationData | null;
+    getVisualizationData: () => IVisualizationData | null;
     getConnectionStatus: () => { connected: boolean; url: string };
 }
 
-const PlaygroundContext = createContext<PlaygroundContextValue | undefined>(undefined);
+const PlaygroundContext = createContext<IPlaygroundContextValue | undefined>(undefined);
 
 // ===== Provider Component =====
 
-interface PlaygroundProviderProps {
+interface IPlaygroundProviderProps {
     children: ReactNode;
     defaultServerUrl?: string;
-    createEventService: (workflowSubscriber: WorkflowEventSubscriber, logger: SimpleLogger) => EventService;
+    createEventService: (workflowSubscriber: WorkflowEventSubscriber, logger: SimpleLogger) => IEventService;
 }
 
-export function PlaygroundProvider({ children, defaultServerUrl = '', createEventService }: PlaygroundProviderProps) {
+export function PlaygroundProvider({ children, defaultServerUrl = '', createEventService }: IPlaygroundProviderProps) {
     const logger = DefaultConsoleLogger;
     logger.debug('PlaygroundProvider rendering', { defaultServerUrl });
 
@@ -400,7 +400,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
     const executorRef = useRef<PlaygroundExecutor | null>(null);
 
     // Use ref to track the latest workflow state during executeStreamPrompt
-    const currentWorkflowRef = useRef<UniversalWorkflowStructure | null>(null);
+    const currentWorkflowRef = useRef<IUniversalWorkflowStructure | null>(null);
 
     // Sync currentWorkflow state with ref
     useEffect(() => {
@@ -595,7 +595,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
 
     // ===== Executor Management =====
 
-    const createAgent = useCallback(async (config: PlaygroundAgentConfig) => {
+    const createAgent = useCallback(async (config: IPlaygroundAgentConfig) => {
         if (!state.executor || !state.isInitialized) {
             const error = new Error('Executor not initialized');
             logger.error('Executor not ready', { error: error.message });
@@ -614,7 +614,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         }
     }, [state.executor, state.isInitialized]);
 
-    const executePrompt = useCallback(async (prompt: string): Promise<PlaygroundExecutionResult> => {
+    const executePrompt = useCallback(async (prompt: string): Promise<IPlaygroundExecutorResult> => {
         if (!state.executor || !state.isInitialized) {
             throw new Error('Executor not initialized');
         }
@@ -644,7 +644,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             if (typeof state.executor.getPlaygroundEvents === 'function') {
                 allEvents = state.executor.getPlaygroundEvents();
             } else {
-                // Fallback: Convert basic TUniversalMessage[] to ConversationEvent[] for compatibility
+                // Compatibility conversion: convert basic TUniversalMessage[] to IConversationEvent[].
                 const history = state.executor.getHistory();
                 allEvents = history.map((msg, index) => ({
                     id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
@@ -674,14 +674,14 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 };
             }
 
-            const vizData: VisualizationData = state.executor.getVisualizationData();
+            const vizData: IVisualizationData = state.executor.getVisualizationData();
 
             dispatch({ type: 'UPDATE_VISUALIZATION_DATA', payload: vizData });
 
             return result;
 
         } catch (error) {
-            const errorResult: PlaygroundExecutionResult = {
+            const errorResult: IPlaygroundExecutorResult = {
                 success: false,
                 response: 'Execution failed',
                 duration: 0,
@@ -701,7 +701,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
     const executeStreamPrompt = useCallback(async (
         prompt: string,
         onChunk: (chunk: string) => void
-    ): Promise<PlaygroundExecutionResult> => {
+    ): Promise<IPlaygroundExecutorResult> => {
         if (!state.executor || !state.isInitialized) {
             throw new Error('Executor not initialized');
         }
@@ -761,7 +761,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             if (typeof state.executor.getPlaygroundEvents === 'function') {
                 allEvents = state.executor.getPlaygroundEvents();
             } else {
-                // Fallback: Convert basic TUniversalMessage[] to ConversationEvent[] for compatibility
+                // Compatibility conversion: convert basic TUniversalMessage[] to IConversationEvent[].
                 const history = state.executor.getHistory();
                 allEvents = history.map((msg, index) => ({
                     id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
@@ -790,7 +790,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 };
             }
 
-            const vizData: VisualizationData = state.executor.getVisualizationData();
+            const vizData: IVisualizationData = state.executor.getVisualizationData();
 
             dispatch({ type: 'UPDATE_VISUALIZATION_DATA', payload: vizData });
 
@@ -804,7 +804,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 isInitialized: state.isInitialized
             });
 
-            const errorResult: PlaygroundExecutionResult = {
+            const errorResult: IPlaygroundExecutorResult = {
                 success: false,
                 response: 'Execution failed',
                 duration: 0,
@@ -851,13 +851,13 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         // Dispose는 state.executor가 null이 되는 것으로 처리됨
     }, []);
 
-    const setWorkflow = useCallback((workflow: UniversalWorkflowStructure | null) => {
+    const setWorkflow = useCallback((workflow: IUniversalWorkflowStructure | null) => {
         if (workflow) {
             dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
         }
     }, []);
 
-    const setToolItems = useCallback((tools: PlaygroundToolMeta[]) => {
+    const setToolItems = useCallback((tools: IPlaygroundToolMeta[]) => {
         dispatch({ type: 'SET_TOOL_ITEMS', payload: tools });
     }, []);
 
@@ -865,7 +865,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId } });
     }, []);
 
-    const updateNodeStatus = useCallback((nodeId: string, status: WorkflowNodeStatus) => {
+    const updateNodeStatus = useCallback((nodeId: string, status: TWorkflowNodeStatus) => {
         dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId, status } });
     }, []);
 
@@ -877,7 +877,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
 
     // ===== Getters =====
 
-    const getVisualizationData = useCallback((): VisualizationData | null => {
+    const getVisualizationData = useCallback((): IVisualizationData | null => {
         return state.visualizationData;
     }, [state.visualizationData]);
 
