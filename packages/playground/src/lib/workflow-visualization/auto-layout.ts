@@ -6,12 +6,12 @@
 
 import dagre from 'dagre';
 import { Position, type Node, type Edge } from '@xyflow/react';
-import type { UniversalWorkflowNode, UniversalWorkflowEdge } from '@robota-sdk/workflow';
+import type { IUniversalWorkflowNode, IUniversalWorkflowEdge } from '@robota-sdk/workflow';
 
 /**
  * Layout configuration for different workflow types
  */
-export interface LayoutConfig {
+export interface ILayoutConfig {
     rankdir: 'TB' | 'BT' | 'LR' | 'RL'; // Top-Bottom, Bottom-Top, Left-Right, Right-Left
     align?: 'UL' | 'UR' | 'DL' | 'DR'; // Up-Left, Up-Right, Down-Left, Down-Right  
     nodesep: number; // Separation between nodes in same rank
@@ -24,7 +24,7 @@ export interface LayoutConfig {
 /**
  * Default layout configurations for different scenarios
  */
-export const LAYOUT_PRESETS: Record<string, LayoutConfig> = {
+export const LAYOUT_PRESETS: Record<string, ILayoutConfig> = {
     // Vertical workflow layout (default) - balanced spacing regardless of max node height
     vertical: {
         rankdir: 'TB',
@@ -196,7 +196,7 @@ function getNodeDimensions(node: Node, useActualDimensions = false): { width: nu
 /**
  * Calculate dynamic ranksep based on actual node heights
  */
-function calculateDynamicRanksep(nodes: Node[], config: LayoutConfig, useActualDimensions: boolean): number {
+function calculateDynamicRanksep(nodes: Node[], config: ILayoutConfig, useActualDimensions: boolean): number {
     // With edge-based layout, we use a fixed gap
     // This is kept for compatibility but not actively used in the new layout
     return 100; // Fixed edge gap
@@ -208,7 +208,7 @@ function calculateDynamicRanksep(nodes: Node[], config: LayoutConfig, useActualD
 export function applyDagreLayout(
     nodes: Node[],
     edges: Edge[],
-    config: LayoutConfig = LAYOUT_PRESETS.vertical,
+    config: ILayoutConfig = LAYOUT_PRESETS.vertical,
     useActualDimensions = false
 ): { nodes: Node[]; edges: Edge[] } {
 
@@ -426,7 +426,7 @@ export function applyDagreLayout(
  * Convert Universal Workflow Structure to React Flow format with auto layout
  */
 export function convertUniversalToReactFlowWithLayout(
-    workflow: { nodes: UniversalWorkflowNode[]; edges: UniversalWorkflowEdge[] },
+    workflow: { nodes: IUniversalWorkflowNode[]; edges: IUniversalWorkflowEdge[] },
     layoutPreset: keyof typeof LAYOUT_PRESETS = 'vertical'
 ): { nodes: Node[]; edges: Edge[] } {
 
@@ -500,8 +500,8 @@ export function suggestOptimalLayout(
  */
 export function createDynamicLayoutConfig(
     presetName: keyof typeof LAYOUT_PRESETS,
-    customOverrides?: Partial<LayoutConfig>
-): LayoutConfig {
+    customOverrides?: Partial<ILayoutConfig>
+): ILayoutConfig {
     return {
         ...LAYOUT_PRESETS[presetName],
         ...customOverrides
@@ -555,10 +555,10 @@ export function validateLayoutResult(
  * Calculate spacing overrides based on node dimensions.
  * Optimized to avoid excessive gaps for tall nodes.
  */
-export function calculateOptimalSpacing(nodes: Node[]): Partial<LayoutConfig> {
+export function calculateOptimalSpacing(nodes: Node[]): Partial<ILayoutConfig> {
     if (nodes.length === 0) return {};
 
-    // 실제 노드 크기 계산 (actualWidth/Height 우선, 없으면 계산)
+    // Compute actual node dimensions (prefer actualWidth/Height from data, otherwise compute).
     let totalWidth = 0;
     let totalHeight = 0;
     let maxHeight = 0;

@@ -36,11 +36,11 @@ export {
 } from './auto-layout';
 
 export type {
-    LayoutConfig
+    ILayoutConfig
 } from './auto-layout';
 
 export type {
-    SimpleLayoutOptions
+    ISimpleLayoutOptions
 } from './react-flow/layout-engine';
 
 // Mermaid Integration

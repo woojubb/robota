@@ -48,7 +48,7 @@ import type {
 import { UniversalToReactFlowConverter } from '../../lib/workflow-visualization';
 import {
     useReactFlowProgressiveReveal,
-    type ReactFlowProgressiveRevealConfig
+    type IReactFlowProgressiveRevealConfig
 } from '../../lib/workflow-visualization/react-flow/progressive-reveal-wrapper';
 import {
     applyDagreLayout,
@@ -56,7 +56,7 @@ import {
     LAYOUT_PRESETS,
     suggestOptimalLayout,
     calculateOptimalSpacing,
-    type LayoutConfig
+    type ILayoutConfig
 } from '../../lib/workflow-visualization/auto-layout';
 
 interface WorkflowVisualizationProps {
@@ -300,13 +300,13 @@ const RecursiveAgentEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => 
 
 /**
  * Dynamic Dagre Layout Component 
- * React Flow Provider 내부에서 실행되어 실제 노드 크기로 레이아웃 재계산
+ * Runs inside the React Flow Provider and recomputes layout using measured node dimensions.
  */
 const DynamicDagreLayout = ({
     layoutConfig,
     onLayoutComplete
 }: {
-    layoutConfig: LayoutConfig;
+    layoutConfig: ILayoutConfig;
     onLayoutComplete?: () => void;
 }) => {
     const { getNodes, getEdges, setNodes } = useReactFlow();
@@ -314,28 +314,28 @@ const DynamicDagreLayout = ({
     const [hasAppliedLayout, setHasAppliedLayout] = useState(false);
 
     useEffect(() => {
-        // React Flow가 완전히 초기화되었는지 확인
+        // Ensure React Flow is fully initialized.
         if (!getNodes || !getEdges || !setNodes) {
             WebLogger.debug('React Flow not ready yet, skipping layout');
             return;
         }
 
-        // React Flow 내부 상태에서 실제 렌더링된 노드 크기 가져오기
+        // Read measured node dimensions from React Flow internals.
         const nodes = getNodes();
         const edges = getEdges();
 
-        // 노드가 없으면 레이아웃 불필요
+        // No nodes means there is nothing to layout.
         if (nodes.length === 0) {
             return;
         }
 
-        // nodeInternals가 존재하고 값이 있는지 확인
+        // Ensure nodeInternals is ready.
         if (!nodeInternals || typeof nodeInternals.values !== 'function') {
             WebLogger.debug('NodeInternals not ready yet, skipping layout');
             return;
         }
 
-        // 모든 노드가 실제 크기를 가지고 있는지 확인
+        // Ensure all nodes have measured dimensions before applying layout.
         const nodesWithDimensions = Array.from(nodeInternals.values());
         const allNodesHaveDimensions = nodesWithDimensions.length > 0 &&
             nodesWithDimensions.every((node: any) => node.width && node.height);
@@ -1467,7 +1467,7 @@ function WorkflowVisualizationContent({
     const [converter] = useState(() => new UniversalToReactFlowConverter());
     const [selectedLayout, setSelectedLayout] = useState<keyof typeof LAYOUT_PRESETS>('compact');
     const [isAutoLayoutEnabled, setIsAutoLayoutEnabled] = useState(true);
-    const [currentLayoutConfig, setCurrentLayoutConfig] = useState<LayoutConfig>(LAYOUT_PRESETS.compact);
+    const [currentLayoutConfig, setCurrentLayoutConfig] = useState<ILayoutConfig>(LAYOUT_PRESETS.compact);
     const { fitView, setCenter, getZoom, getNode, updateNodeInternals } = useReactFlow() as any;
     const [isInfoOpen, setIsInfoOpen] = useState(false);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
@@ -1489,7 +1489,7 @@ function WorkflowVisualizationContent({
     // Intentionally not reacting to node data changes
 
     // Progressive Reveal Configuration
-    const progressiveRevealConfig: ReactFlowProgressiveRevealConfig = {
+    const progressiveRevealConfig: IReactFlowProgressiveRevealConfig = {
         enabled: isProgressiveRevealEnabled,
         intervalMs: 500,
         bundleSize: 1
@@ -1502,7 +1502,7 @@ function WorkflowVisualizationContent({
         config: progressiveRevealConfig
     });
 
-    // 레이아웃 적용 함수 - DynamicDagreLayout 컴포넌트를 통해서만 처리
+    // Apply layout - handled exclusively via the DynamicDagreLayout component.
     const applyAutoLayout = useCallback((layoutPreset?: keyof typeof LAYOUT_PRESETS) => {
         if (nodes.length === 0) return;
 
@@ -1510,7 +1510,7 @@ function WorkflowVisualizationContent({
         setSelectedLayout(layoutToUse);
         setCurrentLayoutConfig(LAYOUT_PRESETS[layoutToUse]);
 
-        // DynamicDagreLayout 컴포넌트를 통해 레이아웃 적용
+        // Layout is applied through the DynamicDagreLayout component.
         // setTimeout(() => {
         //     (window as any).__resetDagreLayout?.();
         // }, 50);

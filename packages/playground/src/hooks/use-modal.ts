@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 
-export type ModalType =
+export type TModalType =
     | 'configuration'
     | 'chat'
     | 'systemStatus'
@@ -11,12 +11,12 @@ export type ModalType =
     | 'addTool'
     | null;
 
-export interface UseModalReturn {
-    activeModal: ModalType;
-    isModalOpen: (modalType: ModalType) => boolean;
-    openModal: (modalType: ModalType) => void;
+export interface IUseModalReturn {
+    activeModal: TModalType;
+    isModalOpen: (modalType: TModalType) => boolean;
+    openModal: (modalType: TModalType) => void;
     closeModal: () => void;
-    toggleModal: (modalType: ModalType) => void;
+    toggleModal: (modalType: TModalType) => void;
 }
 
 /**
@@ -27,14 +27,14 @@ export interface UseModalReturn {
  * - Type-safe modal types
  * - Easy open/close/toggle functions
  */
-export function useModal(): UseModalReturn {
-    const [activeModal, setActiveModal] = useState<ModalType>(null);
+export function useModal(): IUseModalReturn {
+    const [activeModal, setActiveModal] = useState<TModalType>(null);
 
-    const isModalOpen = useCallback((modalType: ModalType) => {
+    const isModalOpen = useCallback((modalType: TModalType) => {
         return activeModal === modalType;
     }, [activeModal]);
 
-    const openModal = useCallback((modalType: ModalType) => {
+    const openModal = useCallback((modalType: TModalType) => {
         setActiveModal(modalType);
     }, []);
 
@@ -42,7 +42,7 @@ export function useModal(): UseModalReturn {
         setActiveModal(null);
     }, []);
 
-    const toggleModal = useCallback((modalType: ModalType) => {
+    const toggleModal = useCallback((modalType: TModalType) => {
         if (activeModal === modalType) {
             setActiveModal(null);
         } else {

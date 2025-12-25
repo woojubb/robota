@@ -3,7 +3,7 @@ import type { Node, Edge } from '@xyflow/react';
 /**
  * Node Bundle - A group of nodes and their connecting edges
  */
-export interface NodeBundle<TNode = Node, TEdge = Edge> {
+export interface INodeBundle<TNode = Node, TEdge = Edge> {
     nodes: TNode[];
     edges: TEdge[];
     metadata: {
@@ -17,7 +17,7 @@ export interface NodeBundle<TNode = Node, TEdge = Edge> {
 /**
  * Bundle Strategy - How to group nodes for progressive revelation
  */
-export type BundleStrategy =
+export type TBundleStrategy =
     | 'sequential'      // One node at a time in order
     | 'by-type'         // Group by node type (all agents, then all tools, etc.)
     | 'by-level'        // Group by execution level/depth
@@ -27,21 +27,21 @@ export type BundleStrategy =
 /**
  * Bundle Configuration
  */
-export interface BundleConfig<TNode = Node, TEdge = Edge> {
-    strategy: BundleStrategy;
+export interface IBundleConfig<TNode = Node, TEdge = Edge> {
+    strategy: TBundleStrategy;
     bundleSize: number;
     preserveConnections: boolean;
-    customBundler?: CustomBundlerFunction<TNode, TEdge>;
+    customBundler?: TCustomBundlerFunction<TNode, TEdge>;
 }
 
 /**
  * Custom Bundler Function Type
  */
-export type CustomBundlerFunction<TNode = Node, TEdge = Edge> = (
+export type TCustomBundlerFunction<TNode = Node, TEdge = Edge> = (
     nodes: TNode[],
     edges: TEdge[],
-    config: BundleConfig<TNode, TEdge>
-) => NodeBundle<TNode, TEdge>[];
+    config: IBundleConfig<TNode, TEdge>
+) => INodeBundle<TNode, TEdge>[];
 
 /**
  * Node Type Priority for React Flow Workflow Visualization
@@ -62,9 +62,9 @@ const REACT_FLOW_NODE_TYPE_PRIORITY: Record<string, number> = {
  * Sequential Node-Edge Bundler
  * Creates bundles with one node at a time plus its connecting edges
  */
-export function createSequentialBundler<TNode extends { id: string }, TEdge extends { source: string; target: string }>(): CustomBundlerFunction<TNode, TEdge> {
-    return (nodes: TNode[], edges: TEdge[], config: BundleConfig<TNode, TEdge>): NodeBundle<TNode, TEdge>[] => {
-        const bundles: NodeBundle<TNode, TEdge>[] = [];
+export function createSequentialBundler<TNode extends { id: string }, TEdge extends { source: string; target: string }>(): TCustomBundlerFunction<TNode, TEdge> {
+    return (nodes: TNode[], edges: TEdge[], config: IBundleConfig<TNode, TEdge>): INodeBundle<TNode, TEdge>[] => {
+        const bundles: INodeBundle<TNode, TEdge>[] = [];
 
         for (let i = 0; i < nodes.length; i += config.bundleSize) {
             const bundleNodes = nodes.slice(i, i + config.bundleSize);
@@ -105,8 +105,8 @@ export function createSequentialBundler<TNode extends { id: string }, TEdge exte
  * Type-Based Node Bundler for React Flow
  * Groups nodes by their type with priority ordering
  */
-export function createTypeBundler(): CustomBundlerFunction<Node, Edge> {
-    return (nodes: Node[], edges: Edge[], config: BundleConfig<Node, Edge>): NodeBundle<Node, Edge>[] => {
+export function createTypeBundler(): TCustomBundlerFunction<Node, Edge> {
+    return (nodes: Node[], edges: Edge[], config: IBundleConfig<Node, Edge>): INodeBundle<Node, Edge>[] => {
         // Sort nodes by type priority, then by original order
         const sortedNodes = [...nodes].sort((a, b) => {
             const priorityA = REACT_FLOW_NODE_TYPE_PRIORITY[a.type || 'default'] || 999;
@@ -131,7 +131,7 @@ export function createTypeBundler(): CustomBundlerFunction<Node, Edge> {
         });
 
         // Create bundles from type groups
-        const bundles: NodeBundle<Node, Edge>[] = [];
+        const bundles: INodeBundle<Node, Edge>[] = [];
         let bundleIndex = 0;
 
         Object.entries(typeGroups).forEach(([nodeType, typeNodes]) => {
@@ -180,8 +180,8 @@ export function createTypeBundler(): CustomBundlerFunction<Node, Edge> {
  * Connected Components Bundler
  * Groups nodes that are connected together
  */
-export function createConnectedBundler<TNode extends { id: string }, TEdge extends { source: string; target: string }>(): CustomBundlerFunction<TNode, TEdge> {
-    return (nodes: TNode[], edges: TEdge[], config: BundleConfig<TNode, TEdge>): NodeBundle<TNode, TEdge>[] => {
+export function createConnectedBundler<TNode extends { id: string }, TEdge extends { source: string; target: string }>(): TCustomBundlerFunction<TNode, TEdge> {
+    return (nodes: TNode[], edges: TEdge[], config: IBundleConfig<TNode, TEdge>): INodeBundle<TNode, TEdge>[] => {
         const nodeMap = new Map(nodes.map(n => [n.id, n]));
         const adjacencyList = new Map<string, Set<string>>();
 
@@ -223,7 +223,7 @@ export function createConnectedBundler<TNode extends { id: string }, TEdge exten
         });
 
         // Create bundles from components
-        const bundles: NodeBundle<TNode, TEdge>[] = [];
+        const bundles: INodeBundle<TNode, TEdge>[] = [];
         let bundleIndex = 0;
 
         components.forEach(componentNodeIds => {
@@ -264,8 +264,8 @@ export function createConnectedBundler<TNode extends { id: string }, TEdge exten
  * Creates appropriate bundler based on strategy
  */
 export function createNodeEdgeBundler<TNode extends { id: string }, TEdge extends { source: string; target: string }>(
-    config: BundleConfig<TNode, TEdge>
-): CustomBundlerFunction<TNode, TEdge> {
+    config: IBundleConfig<TNode, TEdge>
+): TCustomBundlerFunction<TNode, TEdge> {
     switch (config.strategy) {
         case 'sequential':
             return createSequentialBundler<TNode, TEdge>();
@@ -292,14 +292,14 @@ export function createNodeEdgeBundler<TNode extends { id: string }, TEdge extend
  * React Flow Specific Type Bundler
  * Optimized for React Flow workflow visualization
  */
-export function createReactFlowTypeBundler(): CustomBundlerFunction<Node, Edge> {
+export function createReactFlowTypeBundler(): TCustomBundlerFunction<Node, Edge> {
     return createTypeBundler();
 }
 
 /**
  * Default Bundle Configuration
  */
-export const DEFAULT_BUNDLE_CONFIG: BundleConfig = {
+export const DEFAULT_BUNDLE_CONFIG: IBundleConfig = {
     strategy: 'sequential',
     bundleSize: 1,
     preserveConnections: true

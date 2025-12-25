@@ -38,7 +38,7 @@ interface DebugTreeNode {
 /**
  * Props for ExecutionTreeDebug component
  */
-export interface ExecutionTreeDebugProps {
+export interface IExecutionTreeDebugProps {
     /** Block collector containing all execution blocks */
     blockCollector: PlaygroundBlockCollector;
 
@@ -52,7 +52,7 @@ export interface ExecutionTreeDebugProps {
  * Shows the raw tree structure as JSON to verify the tree building logic.
  * This helps debug the hierarchical execution tracking before implementing complex UI.
  */
-export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
+export const ExecutionTreeDebug: React.FC<IExecutionTreeDebugProps> = ({
     blockCollector,
     refreshInterval = 1000
 }) => {
