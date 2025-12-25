@@ -31,7 +31,7 @@ const packages = [
     'openai',      // @robota-sdk/openai
     'anthropic',   // @robota-sdk/anthropic
     'google',      // @robota-sdk/google
-    'team',        // @robota-sdk/team (assignTask MCP tool collection; legacy team creation removed)
+    'team',        // @robota-sdk/team (assignTask MCP tool collection; team creation removed)
     'sessions'     // @robota-sdk/sessions
 ];
 

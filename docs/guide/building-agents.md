@@ -624,7 +624,7 @@ const result = await researchChain.execute('Research the impact of AI on educati
 
 ### assignTask Tool Collection (team package)
 
-Use the `@robota-sdk/team` package for assignTask MCP tools (legacy team creation removed):
+Use the `@robota-sdk/team` package for assignTask MCP tools (team creation removed):
 
 ```typescript
 import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';

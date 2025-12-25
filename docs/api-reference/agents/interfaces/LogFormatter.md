@@ -34,4 +34,4 @@ Log formatter interface
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:61](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L61)
+[packages/agents/src/plugins/logging/types.ts:64](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L64)

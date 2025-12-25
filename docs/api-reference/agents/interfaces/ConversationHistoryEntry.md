@@ -28,17 +28,17 @@ Conversation history entry
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:33](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/conversation-history/types.ts#L33)
+[packages/agents/src/plugins/conversation-history/types.ts:33](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/conversation-history/types.ts#L33)
 
 ___
 
 ### messages
 
-• **messages**: [`Message`](../modules#message)[]
+• **messages**: [`TUniversalMessage`](../modules#tuniversalmessage)[]
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:34](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/conversation-history/types.ts#L34)
+[packages/agents/src/plugins/conversation-history/types.ts:34](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/conversation-history/types.ts#L34)
 
 ___
 
@@ -48,7 +48,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:35](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/conversation-history/types.ts#L35)
+[packages/agents/src/plugins/conversation-history/types.ts:35](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/conversation-history/types.ts#L35)
 
 ___
 
@@ -58,7 +58,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:36](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/conversation-history/types.ts#L36)
+[packages/agents/src/plugins/conversation-history/types.ts:36](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/conversation-history/types.ts#L36)
 
 ___
 
@@ -68,4 +68,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:37](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/conversation-history/types.ts#L37)
+[packages/agents/src/plugins/conversation-history/types.ts:37](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/conversation-history/types.ts#L37)

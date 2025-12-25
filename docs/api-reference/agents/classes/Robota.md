@@ -8,7 +8,7 @@
 
 # Class: Robota
 
-Main AI agent implementation for the Robota SDK.
+Core AI agent implementation for the Robota SDK.
 
 Robota is a comprehensive AI agent that integrates multiple AI providers, tools, and plugins
 into a unified conversational interface. Each instance is completely independent with its own
@@ -78,13 +78,13 @@ for await (const chunk of robota.runStream('Tell me a story')) {
 
 ## Hierarchy
 
-- [`BaseAgent`](BaseAgent)\<[`AgentConfig`](../interfaces/AgentConfig), [`RunOptions`](../interfaces/RunOptions), [`Message`](../modules#message)\>
+- [`AbstractAgent`](AbstractAgent)\<[`IAgentConfig`](../interfaces/IAgentConfig), [`IRunOptions`](../interfaces/IRunOptions), [`TUniversalMessage`](../modules#tuniversalmessage)\>
 
   ↳ **`Robota`**
 
 ## Implements
 
-- [`AgentInterface`](../interfaces/AgentInterface)
+- `IAgent`\<[`IAgentConfig`](../interfaces/IAgentConfig), [`IRunOptions`](../interfaces/IRunOptions), [`TUniversalMessage`](../modules#tuniversalmessage)\>
 
 ## Table of contents
 
@@ -101,6 +101,9 @@ for await (const chunk of robota.runStream('Tell me a story')) {
 
 - [configure](Robota#configure)
 - [dispose](Robota#dispose)
+- [updateTools](Robota#updatetools)
+- [updateConfiguration](Robota#updateconfiguration)
+- [getConfiguration](Robota#getconfiguration)
 - [run](Robota#run)
 - [runStream](Robota#runstream)
 - [getHistory](Robota#gethistory)
@@ -143,7 +146,7 @@ until the first run() call for optimal performance.
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `config` | [`AgentConfig`](../interfaces/AgentConfig) | Configuration options for the agent |
+| `config` | [`IAgentConfig`](../interfaces/IAgentConfig) | Configuration options for the agent |
 
 #### Returns
 
@@ -178,11 +181,11 @@ const robota = new Robota({
 
 #### Overrides
 
-[BaseAgent](BaseAgent).[constructor](BaseAgent#constructor)
+[AbstractAgent](AbstractAgent).[constructor](AbstractAgent#constructor)
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:170](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L170)
+[packages/agents/src/core/robota.ts:194](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L194)
 
 ## Properties
 
@@ -194,7 +197,7 @@ The name of this agent instance
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:116](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L116)
+[packages/agents/src/core/robota.ts:134](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L134)
 
 ___
 
@@ -206,7 +209,7 @@ The version of the Robota agent implementation
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:118](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L118)
+[packages/agents/src/core/robota.ts:136](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L136)
 
 ## Methods
 
@@ -220,7 +223,7 @@ Configure the agent with type-safe configuration
 
 | Name | Type |
 | :------ | :------ |
-| `config` | [`AgentConfig`](../interfaces/AgentConfig) |
+| `config` | [`IAgentConfig`](../interfaces/IAgentConfig) |
 
 #### Returns
 
@@ -228,15 +231,15 @@ Configure the agent with type-safe configuration
 
 #### Implementation of
 
-[AgentInterface](../interfaces/AgentInterface).[configure](../interfaces/AgentInterface#configure)
+IAgent.configure
 
 #### Inherited from
 
-[BaseAgent](BaseAgent).[configure](BaseAgent#configure)
+[AbstractAgent](AbstractAgent).[configure](AbstractAgent#configure)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:28](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-agent.ts#L28)
+[packages/agents/src/abstracts/abstract-agent.ts:29](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-agent.ts#L29)
 
 ___
 
@@ -252,11 +255,72 @@ Cleanup resources
 
 #### Inherited from
 
-[BaseAgent](BaseAgent).[dispose](BaseAgent#dispose)
+[AbstractAgent](AbstractAgent).[dispose](AbstractAgent#dispose)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:86](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-agent.ts#L86)
+[packages/agents/src/abstracts/abstract-agent.ts:87](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-agent.ts#L87)
+
+___
+
+### updateTools
+
+▸ **updateTools**(`next`): `Promise`\<\{ `version`: `number`  }\>
+
+Update tools for this agent instance.
+Rebuilds the Tools registry atomically and emits CONFIG_UPDATED event.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `next` | `AbstractTool`\<[`TToolParameters`](../modules#ttoolparameters), [`IToolResult`](../interfaces/IToolResult)\>[] |
+
+#### Returns
+
+`Promise`\<\{ `version`: `number`  }\>
+
+#### Defined in
+
+[packages/agents/src/core/robota.ts:276](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L276)
+
+___
+
+### updateConfiguration
+
+▸ **updateConfiguration**(`patch`): `Promise`\<\{ `version`: `number`  }\>
+
+Update configuration partially. Currently supports tools.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `patch` | `Partial`\<[`IAgentConfig`](../interfaces/IAgentConfig)\> |
+
+#### Returns
+
+`Promise`\<\{ `version`: `number`  }\>
+
+#### Defined in
+
+[packages/agents/src/core/robota.ts:335](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L335)
+
+___
+
+### getConfiguration
+
+▸ **getConfiguration**(): `Promise`\<\{ `version`: `number` ; `tools`: \{ `name`: `string` ; `parameters?`: `string`[]  }[] ; `updatedAt`: `number` ; `metadata?`: `Record`\<`string`, `unknown`\>  }\>
+
+Read-only configuration overview for UI.
+
+#### Returns
+
+`Promise`\<\{ `version`: `number` ; `tools`: \{ `name`: `string` ; `parameters?`: `string`[]  }[] ; `updatedAt`: `number` ; `metadata?`: `Record`\<`string`, `unknown`\>  }\>
+
+#### Defined in
+
+[packages/agents/src/core/robota.ts:346](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L346)
 
 ___
 
@@ -275,7 +339,7 @@ The method automatically initializes the agent on first use.
 | Name | Type | Description |
 | :------ | :------ | :------ |
 | `input` | `string` | The user's message or prompt to send to the AI |
-| `options` | [`RunOptions`](../interfaces/RunOptions) | Optional configuration for this specific execution |
+| `options` | [`IRunOptions`](../interfaces/IRunOptions) | Optional configuration for this specific execution |
 
 #### Returns
 
@@ -326,15 +390,15 @@ try {
 
 #### Implementation of
 
-[AgentInterface](../interfaces/AgentInterface).[run](../interfaces/AgentInterface#run)
+IAgent.run
 
 #### Overrides
 
-[BaseAgent](BaseAgent).[run](BaseAgent#run)
+[AbstractAgent](AbstractAgent).[run](AbstractAgent#run)
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:436](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L436)
+[packages/agents/src/core/robota.ts:603](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L603)
 
 ___
 
@@ -353,7 +417,7 @@ the AI's response for better user experience.
 | Name | Type | Description |
 | :------ | :------ | :------ |
 | `input` | `string` | The user's message or prompt to send to the AI |
-| `options` | [`RunOptions`](../interfaces/RunOptions) | Optional configuration for this specific execution |
+| `options` | [`IRunOptions`](../interfaces/IRunOptions) | Optional configuration for this specific execution |
 
 #### Returns
 
@@ -407,21 +471,21 @@ try {
 
 #### Implementation of
 
-[AgentInterface](../interfaces/AgentInterface).[runStream](../interfaces/AgentInterface#runstream)
+IAgent.runStream
 
 #### Overrides
 
-[BaseAgent](BaseAgent).[runStream](BaseAgent#runstream)
+[AbstractAgent](AbstractAgent).[runStream](AbstractAgent#runstream)
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:535](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L535)
+[packages/agents/src/core/robota.ts:716](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L716)
 
 ___
 
 ### getHistory
 
-▸ **getHistory**(): [`Message`](../modules#message)[]
+▸ **getHistory**(): [`TUniversalMessage`](../modules#tuniversalmessage)[]
 
 Get the conversation history for this agent instance.
 
@@ -431,9 +495,9 @@ assistant responses, and tool call results.
 
 #### Returns
 
-[`Message`](../modules#message)[]
+[`TUniversalMessage`](../modules#tuniversalmessage)[]
 
-Array of Message objects representing the conversation history
+Array of TUniversalMessage objects representing the conversation history
 
 **`Example`**
 
@@ -449,15 +513,15 @@ console.log(history[0].content); // 'What is 2 + 2?'
 
 #### Implementation of
 
-[AgentInterface](../interfaces/AgentInterface).[getHistory](../interfaces/AgentInterface#gethistory)
+IAgent.getHistory
 
 #### Overrides
 
-[BaseAgent](BaseAgent).[getHistory](BaseAgent#gethistory)
+[AbstractAgent](AbstractAgent).[getHistory](AbstractAgent#gethistory)
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:601](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L601)
+[packages/agents/src/core/robota.ts:792](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L792)
 
 ___
 
@@ -486,15 +550,15 @@ console.log(robota.getHistory().length); // 0
 
 #### Implementation of
 
-[AgentInterface](../interfaces/AgentInterface).[clearHistory](../interfaces/AgentInterface#clearhistory)
+IAgent.clearHistory
 
 #### Overrides
 
-[BaseAgent](BaseAgent).[clearHistory](BaseAgent#clearhistory)
+[AbstractAgent](AbstractAgent).[clearHistory](AbstractAgent#clearhistory)
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:630](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L630)
+[packages/agents/src/core/robota.ts:821](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L821)
 
 ___
 
@@ -511,7 +575,7 @@ This method allows dynamic addition of plugins after agent creation.
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `plugin` | [`BasePlugin`](BasePlugin)\<[`BasePluginOptions`](../interfaces/BasePluginOptions), [`PluginStats`](../interfaces/PluginStats)\> | The plugin instance to add |
+| `plugin` | [`AbstractPlugin`](AbstractPlugin)\<[`IPluginOptions`](../interfaces/IPluginOptions), [`IPluginStats`](../interfaces/IPluginStats)\> | The plugin instance to add |
 
 #### Returns
 
@@ -531,7 +595,7 @@ robota.addPlugin(new PerformancePlugin({ trackMemory: true }));
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:655](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L655)
+[packages/agents/src/core/robota.ts:846](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L846)
 
 ___
 
@@ -566,7 +630,7 @@ if (removed) {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:676](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L676)
+[packages/agents/src/core/robota.ts:867](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L867)
 
 ___
 
@@ -580,7 +644,7 @@ Get a specific plugin by name with type safety.
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `T` | extends [`BasePlugin`](BasePlugin)\<[`BasePluginOptions`](../interfaces/BasePluginOptions), [`PluginStats`](../interfaces/PluginStats)\> = [`BasePlugin`](BasePlugin)\<[`BasePluginOptions`](../interfaces/BasePluginOptions), [`PluginStats`](../interfaces/PluginStats)\> | The expected plugin type extending BasePlugin |
+| `T` | extends [`AbstractPlugin`](AbstractPlugin)\<[`IPluginOptions`](../interfaces/IPluginOptions), [`IPluginStats`](../interfaces/IPluginStats)\> = [`AbstractPlugin`](AbstractPlugin)\<[`IPluginOptions`](../interfaces/IPluginOptions), [`IPluginStats`](../interfaces/IPluginStats)\> | The expected plugin type extending AbstractPlugin |
 
 #### Parameters
 
@@ -608,19 +672,19 @@ if (usagePlugin) {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:702](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L702)
+[packages/agents/src/core/robota.ts:893](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L893)
 
 ___
 
 ### getPlugins
 
-▸ **getPlugins**(): [`BasePlugin`](BasePlugin)\<[`BasePluginOptions`](../interfaces/BasePluginOptions), [`PluginStats`](../interfaces/PluginStats)\>[]
+▸ **getPlugins**(): [`AbstractPlugin`](AbstractPlugin)\<[`IPluginOptions`](../interfaces/IPluginOptions), [`IPluginStats`](../interfaces/IPluginStats)\>[]
 
 Get all registered plugins.
 
 #### Returns
 
-[`BasePlugin`](BasePlugin)\<[`BasePluginOptions`](../interfaces/BasePluginOptions), [`PluginStats`](../interfaces/PluginStats)\>[]
+[`AbstractPlugin`](AbstractPlugin)\<[`IPluginOptions`](../interfaces/IPluginOptions), [`IPluginStats`](../interfaces/IPluginStats)\>[]
 
 Array of all currently registered plugin instances
 
@@ -636,7 +700,7 @@ plugins.forEach(plugin => {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:720](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L720)
+[packages/agents/src/core/robota.ts:911](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L911)
 
 ___
 
@@ -652,7 +716,7 @@ Get all registered plugin names
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:727](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L727)
+[packages/agents/src/core/robota.ts:918](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L918)
 
 ___
 
@@ -666,7 +730,7 @@ Register a new module with the agent
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `module` | `BaseModule`\<`BaseModuleOptions`, `ModuleStats`\> | The module instance to register |
+| `module` | `AbstractModule`\<`BaseModuleOptions`, `ModuleStats`\> | The module instance to register |
 | `options?` | `Object` | Registration options |
 | `options.autoInitialize?` | `boolean` | - |
 | `options.validateDependencies?` | `boolean` | - |
@@ -677,7 +741,7 @@ Register a new module with the agent
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:743](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L743)
+[packages/agents/src/core/robota.ts:934](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L934)
 
 ___
 
@@ -701,7 +765,7 @@ True if module was unregistered, false if not found
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:762](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L762)
+[packages/agents/src/core/robota.ts:953](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L953)
 
 ___
 
@@ -715,7 +779,7 @@ Get a module by name with type safety
 
 | Name | Type |
 | :------ | :------ |
-| `T` | extends `BaseModule`\<`BaseModuleOptions`, `ModuleStats`\> = `BaseModule`\<`BaseModuleOptions`, `ModuleStats`\> |
+| `T` | extends `AbstractModule`\<`BaseModuleOptions`, `ModuleStats`\> = `AbstractModule`\<`BaseModuleOptions`, `ModuleStats`\> |
 
 #### Parameters
 
@@ -731,7 +795,7 @@ The module instance or null if not found
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:781](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L781)
+[packages/agents/src/core/robota.ts:972](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L972)
 
 ___
 
@@ -745,7 +809,7 @@ Get modules by type
 
 | Name | Type |
 | :------ | :------ |
-| `T` | extends `BaseModule`\<`BaseModuleOptions`, `ModuleStats`\> = `BaseModule`\<`BaseModuleOptions`, `ModuleStats`\> |
+| `T` | extends `AbstractModule`\<`BaseModuleOptions`, `ModuleStats`\> = `AbstractModule`\<`BaseModuleOptions`, `ModuleStats`\> |
 
 #### Parameters
 
@@ -761,25 +825,25 @@ Array of modules matching the type
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:793](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L793)
+[packages/agents/src/core/robota.ts:984](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L984)
 
 ___
 
 ### getModules
 
-▸ **getModules**(): `BaseModule`\<`BaseModuleOptions`, `ModuleStats`\>[]
+▸ **getModules**(): `AbstractModule`\<`BaseModuleOptions`, `ModuleStats`\>[]
 
 Get all registered modules
 
 #### Returns
 
-`BaseModule`\<`BaseModuleOptions`, `ModuleStats`\>[]
+`AbstractModule`\<`BaseModuleOptions`, `ModuleStats`\>[]
 
 Array of all registered modules
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:804](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L804)
+[packages/agents/src/core/robota.ts:995](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L995)
 
 ___
 
@@ -797,7 +861,7 @@ Array of module names
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:815](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L815)
+[packages/agents/src/core/robota.ts:1006](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1006)
 
 ___
 
@@ -821,7 +885,7 @@ True if module is registered
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:827](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L827)
+[packages/agents/src/core/robota.ts:1018](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1018)
 
 ___
 
@@ -850,7 +914,7 @@ Module execution result
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:840](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L840)
+[packages/agents/src/core/robota.ts:1031](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1031)
 
 ___
 
@@ -874,7 +938,7 @@ Module statistics or null if not found
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:859](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L859)
+[packages/agents/src/core/robota.ts:1050](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1050)
 
 ___
 
@@ -927,7 +991,7 @@ robota.setModel({
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:914](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L914)
+[packages/agents/src/core/robota.ts:1105](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1105)
 
 ___
 
@@ -965,7 +1029,7 @@ console.log(`Max tokens: ${current.maxTokens}`);
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:986](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L986)
+[packages/agents/src/core/robota.ts:1177](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1177)
 
 ___
 
@@ -982,7 +1046,7 @@ defines its name, description, and parameters for the AI to understand.
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `tool` | [`BaseTool`](BaseTool)\<[`BaseToolParameters`](../modules#basetoolparameters), [`ToolResult`](../interfaces/ToolResult)\> | The tool instance to register |
+| `tool` | `AbstractTool`\<[`TToolParameters`](../modules#ttoolparameters), [`IToolResult`](../interfaces/IToolResult)\> | The tool instance to register |
 
 #### Returns
 
@@ -991,9 +1055,9 @@ defines its name, description, and parameters for the AI to understand.
 **`Example`**
 
 ```typescript
-import { BaseTool } from '@robota-sdk/agents';
+import { AbstractTool } from '@robota-sdk/agents';
 
-class WeatherTool extends BaseTool {
+class WeatherTool extends AbstractTool {
   name = 'get_weather';
   description = 'Get current weather for a location';
   
@@ -1022,7 +1086,7 @@ robota.registerTool(new WeatherTool());
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:1066](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L1066)
+[packages/agents/src/core/robota.ts:1257](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1257)
 
 ___
 
@@ -1055,13 +1119,13 @@ console.log('Remaining tools:', stats.tools);
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:1106](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L1106)
+[packages/agents/src/core/robota.ts:1291](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1291)
 
 ___
 
 ### getConfig
 
-▸ **getConfig**(): [`AgentConfig`](../interfaces/AgentConfig)
+▸ **getConfig**(): [`IAgentConfig`](../interfaces/IAgentConfig)
 
 Get the current agent configuration.
 
@@ -1070,9 +1134,9 @@ returned object do not affect the agent - use updateConfig() to make changes.
 
 #### Returns
 
-[`AgentConfig`](../interfaces/AgentConfig)
+[`IAgentConfig`](../interfaces/IAgentConfig)
 
-Copy of the current AgentConfig
+Copy of the current IAgentConfig
 
 **`Example`**
 
@@ -1084,7 +1148,7 @@ console.log('Available providers:', Object.keys(config.aiProviders || {}));
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:1126](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L1126)
+[packages/agents/src/core/robota.ts:1311](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1311)
 
 ___
 
@@ -1111,7 +1175,7 @@ Object containing all agent statistics and metadata
 | `plugins` | `string`[] |
 | `modules` | `string`[] |
 | `historyLength` | `number` |
-| `historyStats` | `AgentStatsMetadata` |
+| `historyStats` | `TAgentStatsMetadata` |
 | `uptime` | `number` |
 
 **`Example`**
@@ -1129,7 +1193,7 @@ console.log(`Messages: ${stats.historyLength}`);
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:1147](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L1147)
+[packages/agents/src/core/robota.ts:1332](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1332)
 
 ___
 
@@ -1156,4 +1220,4 @@ console.log('Agent destroyed');
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:1261](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L1261)
+[packages/agents/src/core/robota.ts:1446](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/core/robota.ts#L1446)

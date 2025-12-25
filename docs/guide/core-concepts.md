@@ -709,7 +709,7 @@ interface UniversalMessage {
 
 ## assignTask Tool Collection (team package)
 
-The `@robota-sdk/team` package now provides assignTask MCP tools (no legacy team creation).
+The `@robota-sdk/team` package now provides assignTask MCP tools (no team creation).
 
 ```typescript
 import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';

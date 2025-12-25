@@ -51,7 +51,7 @@ export type TEventData =
         context?: IEventContext;
 
         /**
-         * Legacy compatibility fields (MIGRATION):
+         * Compatibility fields (MIGRATION):
          * These fields may still appear in some event payloads and are used by existing handlers.
          * Prefer deriving relationships from context.ownerPath rather than relying on these.
          */

@@ -290,7 +290,7 @@ pnpm publish
 
 ## Migration Guide
 
-### From Legacy OpenAI Integration
+### From Previous OpenAI Integration
 
 ```typescript
 // Old approach

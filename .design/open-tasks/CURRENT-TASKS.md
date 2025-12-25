@@ -23,7 +23,7 @@
         - [x] 파일 경로 이동 및 관련 import 업데이트(`src/core/` 사용)
       - [x] `packages/agents/src/services/execution-service.ts`
         - [x] `maybeClone` 로직 대체: ownerType 인자 전달 + ownerPath append
-        - [x] legacy `clone({ ownerPrefix })` 호출 제거
+        - [x] 구버전 `clone({ ownerPrefix })` 호출 제거
       - [x] `packages/team/*` deprecated 취소(팀 관련 MCP 도구 유지). “팀 패키지 제거” 목표는 더 이상 유효하지 않음.
       - [x] `apps/web/src/lib/playground/robota-executor.ts`, `apps/examples/26-playground-edge-verification.ts` 등
         - [x] Playground 환경에서 EventService를 직접 생성하지 말고 SDK에서 주입받은 것을 사용
@@ -99,7 +99,7 @@
        - 검증용 실행 파일:
          - `apps/examples/26-guarded-edge-verification.ts`
          - `apps/examples/27-continued-conversation-edge-verification.ts`
-       - 자동화/스크립트는 위 guarded 파일만 호출하도록 고정한다(legacy 26 파일 호출 금지).
+       - 자동화/스크립트는 위 guarded 파일만 호출하도록 고정한다(26 파일 호출 금지).
 
      - 실행 방식(Guarded)
        - 예제 실행은 **scenario playback(offline) 기반**으로만 수행한다.
@@ -115,8 +115,8 @@
        - [x] Guarded 예제 파일 분리
          - [x] `apps/examples/26-guarded-edge-verification.ts` 생성(시나리오 재생 → 워크플로우 데이터 생성)
          - [x] `apps/examples/27-continued-conversation-edge-verification.ts` 생성(continued conversation 시나리오 기반)
-       - [x] `apps/examples/utils/run-and-verify-workflow.ts`가 guarded 예제만 실행하도록 전환(legacy 26 호출 제거, timeout 제거)
-       - [x] `apps/examples/package.json` 스크립트에서 legacy 26 호출 제거
+       - [x] `apps/examples/utils/run-and-verify-workflow.ts`가 guarded 예제만 실행하도록 전환(26 호출 제거, timeout 제거)
+       - [x] `apps/examples/package.json` 스크립트에서 26 호출 제거
       - [x] Guarded 예제 26 실행(가드) + verify 통과
 
 ---
@@ -297,8 +297,8 @@
 | WorkflowNodeStatus (로컬 재정의) | `packages/playground/src/contexts/playground-context.tsx` (이전: `'pending' \| 'running' \| 'completed' \| 'error'`) | @robota-sdk/workflow | `packages/playground` context/reducer | 중복 선언(로컬 유니온) | Batch A | 낮음 | **완료**: `WorkflowNodeStatus` import로 치환(단일 소스 참조) |
 | Workflow graph 핵심 타입명(T/I 미준수) | `packages/workflow/src/interfaces/workflow-node.ts` (`WorkflowNodeStatus`, `WorkflowConnectionType`, `WorkflowNodeData` 등) | @robota-sdk/workflow | workflow + playground | Naming(T/I prefix) | Prefix Phase 2 | 중간 | `TWorkflowNodeStatus` / `TWorkflowConnectionType` / `IWorkflowNodeData` 등으로 단계적 전환(일괄 rename 금지) |
 | UniversalValue axis 타입명(T/I 미준수) | `packages/agents/src/interfaces/types.ts` (`UniversalValue`, `PrimitiveValue`, `ContextData` 등) | @robota-sdk/agents | agents + 전체 의존 패키지 | Naming(T/I prefix) | Prefix Phase 2 | 높음 | public surface 영향 큼 → 패키지 단위/묶음 단위로 소규모 PR로 전환 |
-| Tool contract 타입명/shape 정리 필요 | `packages/agents/src/interfaces/tool.ts` (`ToolResult`, `ToolExecutionContext`, `ToolMetadata` 등) | @robota-sdk/agents | tools + executor + examples | Naming + 계약 축 혼재 | Batch C | 높음 | 계약 타입을 `agents` tool axis로 고정하고, legacy hierarchy fields는 분리/제거(단일 경로) |
-| ToolExecutionContext의 legacy hierarchy fields | `packages/agents/src/interfaces/tool.ts` (`parentExecutionId`, `rootExecutionId`, `executionLevel`, `executionPath`) | @robota-sdk/agents | ToolExecutionService/Tool impls | ownerPath-only 충돌(계층 필드 잔존) | Batch C | 중간 | ownerPath-only 원칙에 맞게 “필요/불필요”를 결정하고 불필요 필드는 제거(폴백/대체 경로 금지) |
+| Tool contract 타입명/shape 정리 필요 | `packages/agents/src/interfaces/tool.ts` (`ToolResult`, `ToolExecutionContext`, `ToolMetadata` 등) | @robota-sdk/agents | tools + executor + examples | Naming + 계약 축 혼재 | Batch C | 높음 | 계약 타입을 `agents` tool axis로 고정하고, 기존 hierarchy fields는 분리/제거(단일 경로) |
+| ToolExecutionContext의 기존 hierarchy fields | `packages/agents/src/interfaces/tool.ts` (`parentExecutionId`, `rootExecutionId`, `executionLevel`, `executionPath`) | @robota-sdk/agents | ToolExecutionService/Tool impls | ownerPath-only 충돌(계층 필드 잔존) | Batch C | 중간 | ownerPath-only 원칙에 맞게 “필요/불필요”를 결정하고 불필요 필드는 제거(폴백/대체 경로 금지) |
 | Workflow EventData 소유권/축 중복 | `packages/workflow/src/interfaces/event-handler.ts` (`export interface EventData`) | @robota-sdk/agents | workflow handlers/subscriber | 타입 소유권 충돌(event axis 중복) | Batch E | 높음 | workflow는 agents의 event axis(`EventContext`/ownerPath)로 수렴, workflow-local EventData 재정의 제거/비공개화 |
 | Universal workflow types 중복(agents vs workflow) | `packages/agents/src/services/workflow-converter/universal-types.ts` vs `packages/workflow/src/types/universal-types.ts` | @robota-sdk/workflow | workflow converter + playground | 타입 소유권 충돌 + 중복 정의 | Batch D | 높음 | agents 쪽 정의 제거(또는 workflow import로 치환)하고 workflow가 단일 소스가 되게 정리 |
 | UniversalWorkflowStructure 중복 정의 | `packages/agents/src/services/workflow-converter/universal-types.ts` (`UniversalWorkflowStructure extends WorkflowData`) vs `packages/workflow/src/types/universal-types.ts` (`export interface UniversalWorkflowStructure`) | @robota-sdk/workflow | converter + playground | 타입 소유권 충돌(구조 불일치 위험) | Batch D | 높음 | 구조를 workflow 단일 정의로 고정하고 converter는 workflow 타입을 import해서 구현 |
@@ -435,7 +435,7 @@
 #### 허용(예외) — alias가 정당화되는 경우
 - **B1. 유니온/구성(composition)으로 의미를 만든 타입**: 예) `TUniversalMessage = IUserMessage | ...`
 - **B2. 제네릭 제약/브랜딩으로 의미를 강화**: 예) `type TAgentId = string & { __brand: 'AgentId' }`
-- **B3. public surface에서의 단일 진입점 제공(index 전용)**: `packages/<pkg>/src/index.ts` 또는 `packages/<pkg>/src/interfaces/index.ts`에서 “정식 타입만” re-export (legacy alias 재노출 금지)
+- **B3. public surface에서의 단일 진입점 제공(index 전용)**: `packages/<pkg>/src/index.ts` 또는 `packages/<pkg>/src/interfaces/index.ts`에서 “정식 타입만” re-export (alias 재노출 금지)
 
 #### 인벤토리(추가 행, 2025-12-25 스캔 기반)
 
@@ -476,7 +476,7 @@
 
 #### A) ToolCall 중복 선언 제거 → `IToolCall` 단일화(SSOT)
 - **결정**
-  - `ToolCall`이라는 이름(legacy/alias/중복 정의)은 프로젝트에서 더 이상 사용하지 않는다.
+  - `ToolCall`이라는 이름(alias/중복 정의)은 프로젝트에서 더 이상 사용하지 않는다.
   - Tool call 구조 타입은 **`packages/agents/src/interfaces/messages.ts`의 `IToolCall`만** 소유한다.
 - **정리 내용(완료)**
   - [x] `packages/agents/src/interfaces/provider.ts`의 `export interface ToolCall` 삭제
@@ -496,13 +496,13 @@
   - [ ] **정식 계약명**을 어디에 둘지 확정:
     - 옵션 1) `packages/agents/src/interfaces/messages.ts`가 message axis의 유일한 계약 정의(추천: owner가 명확)
     - 옵션 2) `packages/agents/src/managers/conversation-history-manager.ts`가 canonical message union을 export(현 구조 유지)
-  - [ ] `TUniversalMessageRole`만 남기고, legacy alias(`MessageRole` 등)는 public surface에서 제거(또는 내부 전용으로 격리)
+  - [ ] `TUniversalMessageRole`만 남기고, alias(`MessageRole` 등)는 public surface에서 제거(또는 내부 전용으로 격리)
 
 #### C) `export type { ... }` re-export 표면(공개 API) 정리
 - **문제 정의**
   - `export type { ... }`가 여러 레이어에서 중복으로 노출되면, “정식 타입 이름/owner 축”이 흐려지고 alias가 다시 퍼질 수 있다.
 - **정리 원칙(권장)**
-  - [ ] 각 패키지의 public surface는 “정식 계약 타입만” 노출한다(legacy alias는 비노출).
+  - [ ] 각 패키지의 public surface는 “정식 계약 타입만” 노출한다(alias는 비노출).
   - [ ] `packages/*/src/index.ts`는 가능한 한 “한 곳(interfaces/index.ts 등)만” re-export 하도록 단순화한다.
   - [ ] 내부 구현 파일에서 타입을 다시 export(type-only re-export)하는 패턴은 최소화한다(특히 managers/services에서).
 - **빠른 검증 게이트(권장)**
@@ -684,7 +684,7 @@ rg "Priority" -g"*.md"
         - [ ] `getOrCreateAgentNode`는 fallback 시 노드 생성 + logger.warn을 호출하고, 생성 경로에 `// TODO(step 6.5)` 주석 추가.
         - [ ] `setAgentForExecutionSafe`는 executionId 없을 때 root 기반으로만 갱신하며, 기존 값과 다르면 debug 로그를 남긴다.
         - [ ] timestamp helper(`ensureTimestampGreater(nodeId)`) 도입 여부 평가 및 필요 시 구현.
-      - [ ] fallback 분기에는 `// TODO(step 6.5): remove legacy fallback` 주석과 `[LEGACY-FALLBACK]` warn 로그를 박고, 사용 시 Scenario 로그에 남기도록 설계.
+      - [ ] fallback 분기에는 `// TODO(step 6.5): remove fallback` 주석과 `[FALLBACK]` warn 로그를 박고, 사용 시 Scenario 로그에 남기도록 설계.
    2. 빌드/테스트 스크립트
       - [ ] 아래 순서를 하나의 shell 스크립트로 작성해 CURRENT-TASKS에 경로를 명시:
         ```
@@ -1070,7 +1070,7 @@ npx tsx utils/verify-workflow-connections.ts | cat
    - `interfaces/types.ts`: `ToolParameters` already exists
    - `interfaces/tool.ts`: defines another `ToolParameters` + `ToolParameterValue`
    - Impact: multiple “same-name, different-shape” types leak across layers → fragile imports
-2) **ToolExecutionContext contains legacy hierarchy fields + broad index signature**
+2) **ToolExecutionContext contains hierarchy fields + broad index signature**
    - `interfaces/tool.ts` still carries `parentExecutionId/rootExecutionId/executionLevel/executionPath` etc.
    - Also includes an index signature that permits `unknown` (with eslint disable) → weakens strict typing
 3) **AssistantMessage duplication**
@@ -1084,7 +1084,7 @@ npx tsx utils/verify-workflow-connections.ts | cat
 ### Proposed refactor outline (agents first; apply after explicit approval)
 - [x] **Consolidate ToolParameters** into a single owner module (prefer `interfaces/types.ts`), and make `interfaces/tool.ts` reuse it (no duplicate name).
 - [ ] **Tighten ToolExecutionContext**:
-  - [ ] remove legacy hierarchy fields that conflict with ownerPath-only design (or move to a clearly named legacy-only interface if still required)
+  - [ ] remove hierarchy fields that conflict with ownerPath-only design (or move to a clearly named interface if still required)
   - [x] remove `unknown` from index signatures; replace with a constrained “extension value” union (similar to `EventExtensionValue`)
 - [ ] **Unify AssistantMessage**:
   - decide one canonical export (likely `conversation-history-manager`), update public export guidance, and remove/replace the deprecated interface usage sites
@@ -1177,7 +1177,7 @@ npx tsx utils/verify-workflow-connections.ts | cat
 - 2025-12-20: (Priority 0 / 1순위) DI-only 마감 — `PlaygroundProvider`에서 EventService 직접 생성 제거(외부 `createEventService` 주입). 사용처는 `apps/web/src/app/playground/page.tsx`로 이동. examples 범위에서 EventService 직접 `new` 0건 확인.
 - 2025-12-20: (Priority 0 / 1순위) 이벤트 상수/하드코딩 정리 — `EXECUTION_EVENTS`/`TOOL_EVENTS`/`AGENT_EVENTS`를 prefix 포함 상수로 고정하고, workflow/web 구독/핸들러에서 문자열 리터럴을 제거해 상수 import로 통일. `@robota-sdk/agents` public export에 `EXECUTION_EVENTS`/`TOOL_EVENTS` 추가로 workflow 빌드 호환성 확보. `pnpm --filter @robota-sdk/agents build` PASS, `pnpm --filter @robota-sdk/workflow build` PASS.
 - 2025-12-20: (검증/정리) `apps/web/src/**`에서 `console.*` 직접 호출 0건 달성 — `WebLogger`(DI-friendly wrapper) 도입 후, hooks/components/api routes/playground sandbox 포함 전수 치환 및 lint/grep 검증 완료.
-- 2025-12-20: (검증/계획) Guarded 예제 경로 재정의 — legacy `26-playground-edge-verification.ts` 실행 방지(즉시 실패), `26-guarded-edge-verification.ts`/`27-continued-conversation-edge-verification.ts`로 분리. 자동화/스크립트도 guarded 파일만 호출하도록 전환.
+- 2025-12-20: (검증/계획) Guarded 예제 경로 재정의 — `26-playground-edge-verification.ts` 실행 방지(즉시 실패), `26-guarded-edge-verification.ts`/`27-continued-conversation-edge-verification.ts`로 분리. 자동화/스크립트도 guarded 파일만 호출하도록 전환.
 - 2025-12-20: (회귀 검증) Node/Edge timestamp를 내부 단조 증가로 고정(NodeEdgeManager). 예제 26/27 verify PASS 재확인.
   - 예제 26(재검증): **nodes=18 / edges=18**, verify PASS (`SCENARIO_PLAY_ID=mandatory-delegation`)
   - 예제 27(재검증): **nodes=15 / edges=14**, verify PASS (`SCENARIO_PLAY_ID=continued-conversation`)
@@ -1198,6 +1198,12 @@ npx tsx utils/verify-workflow-connections.ts | cat
   - `ConversationServiceOptions`→`IConversationServiceOptions`
   - 적용 범위: tool implementations, registry/manager, facade(`function-tool/*`) export 표면 정리
   - 검증: `pnpm --filter @robota-sdk/agents build` PASS
+- 2025-12-26: (Plugins 정리) `@robota-sdk/agents` 플러그인 타입 Option A 전환 + 구버전 흔적 제거
+  - `abstract-plugin.ts`: `Base*` 플러그인 타입 제거 → `IPlugin*` SSOT로 리네임, Set 기반 event dedup 제거(중복은 그대로 노출)
+  - `interfaces/agent.ts`: `IAgentInterface` 제거, plugin 제네릭을 `IPluginOptions/IPluginStats`로 수렴
+  - `abstract-tool.ts`: `LegacyAbstractTool` 제거
+  - `core/robota.ts`: module 이벤트 하드코딩 제거(`EVENT_EMITTER_EVENTS` 상수 사용) + 구버전 인터페이스 의존 제거
+  - 검증: `pnpm --filter @robota-sdk/agents build` PASS
 
 **다음 단계**:
 1. Agent Event Normalization 단계 3, 6.5, 6.6 완료
@@ -1209,14 +1215,14 @@ npx tsx utils/verify-workflow-connections.ts | cat
 
 ### 목표
 - **절대 규칙**: 모든 Agent/AgentConfig는 평등하며, assignTask는 순수 third-party MCP tool collection일 뿐이다. Agent/Tool/Service 어디에서도 assignTask 전용/특수 Agent 개념을 갖지 않는다.
-- Team 패키지는 **deprecated 취소**. 팀 관련 MCP 도구(예: `assignTask`)를 포함하는 tool collection으로 유지하고, legacy 팀/협업 기능은 제거/미사용 상태로 둔다.
+- Team 패키지는 **deprecated 취소**. 팀 관련 MCP 도구(예: `assignTask`)를 포함하는 tool collection으로 유지하고, 팀/협업 기능은 제거/미사용 상태로 둔다.
 
 ### 작업 항목
 1. **참조 인벤토리 확정 (리스트+담당)**
    - [x] 코드 (Web/Playground): `apps/web/src/lib/playground/robota-executor.ts`, `playground-team-integration.ts`, `apps/web/src/tools/assign-task/index.ts`, team 전용 UI/상태 (playground-team-integration 삭제, robota-executor 팀 분기 제거, web 빌드 OK)
    - [x] 코드 (SDK/패키지) 1차 스캔: `rg "@robota-sdk/team"` 결과 확인 → 실제 남은 제거/정정 대상은 주로 문서/예제/설정(코드 의존은 assignTask 목적만 유지)
    - [x] 예제: `apps/examples/05/06/07 team-*` 정리
-     - 05: 파일 미존재(legacy script 제거)
+     - 05: 파일 미존재(구버전 script 제거)
      - 07: `07-team-templates.ts` → `07-agent-templates.ts`로 교체(팀 개념 제거)
    - [x] 문서/설정: `docs/**`, `packages/*/docs/**`, README 계열, api-reference(team) 정리
    - 스캔 결과(정리 필요 대상):
@@ -1292,7 +1298,7 @@ npx tsx utils/verify-workflow-connections.ts | cat
 
 3. **의존성 제거 (순서 명시)**
   - [x] (정책 고정) `@robota-sdk/team` import는 허용하되, 범위를 “assignTask MCP tool collection”으로 제한한다
-  - [x] **전수 스캔(0건 확인)**: legacy team/협업 API 재유입이 없는지 확인 (경로/분류 테이블 활용)
+  - [x] **전수 스캔(0건 확인)**: team/협업 API 재유입이 없는지 확인 (경로/분류 테이블 활용)
     - 예: `createTeam`, `TeamContainer`, `team collaboration`, `TaskAgent*`
 
 4. **검증**

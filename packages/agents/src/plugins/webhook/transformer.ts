@@ -3,7 +3,7 @@
  * Converts base plugin types to webhook-specific types safely
  */
 
-import type { BaseExecutionContext, BaseExecutionResult } from '../../abstracts/abstract-plugin';
+import type { IPluginExecutionContext, IPluginExecutionResult } from '../../abstracts/abstract-plugin';
 import type { TLoggerData, TUniversalValue } from '../../interfaces/types';
 import type {
     WebhookExecutionContext,
@@ -21,9 +21,9 @@ import type {
  */
 export class WebhookTransformer {
     /**
-     * Convert BaseExecutionContext to WebhookExecutionContext
+     * Convert IPluginExecutionContext to WebhookExecutionContext
      */
-    static contextToWebhook(context: BaseExecutionContext): WebhookExecutionContext {
+    static contextToWebhook(context: IPluginExecutionContext): WebhookExecutionContext {
         return {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -32,9 +32,9 @@ export class WebhookTransformer {
     }
 
     /**
-     * Convert BaseExecutionResult to WebhookExecutionResult
+     * Convert IPluginExecutionResult to WebhookExecutionResult
      */
-    static resultToWebhook(result: BaseExecutionResult): WebhookExecutionResult {
+    static resultToWebhook(result: IPluginExecutionResult): WebhookExecutionResult {
         return {
             response: result.response,
             content: result.content,

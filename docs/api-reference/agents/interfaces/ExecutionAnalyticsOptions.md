@@ -12,7 +12,7 @@ Plugin options
 
 ## Hierarchy
 
-- [`BasePluginOptions`](BasePluginOptions)
+- [`IPluginOptions`](IPluginOptions)
 
   ↳ **`ExecutionAnalyticsOptions`**
 
@@ -40,11 +40,11 @@ Whether the plugin is enabled
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[enabled](BasePluginOptions#enabled)
+[IPluginOptions](IPluginOptions).[enabled](IPluginOptions#enabled)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L125)
+[packages/agents/src/abstracts/abstract-plugin.ts:126](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L126)
 
 ___
 
@@ -56,11 +56,11 @@ Plugin category for classification
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[category](BasePluginOptions#category)
+[IPluginOptions](IPluginOptions).[category](IPluginOptions#category)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L127)
+[packages/agents/src/abstracts/abstract-plugin.ts:128](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L128)
 
 ___
 
@@ -72,11 +72,11 @@ Plugin priority for execution order
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[priority](BasePluginOptions#priority)
+[IPluginOptions](IPluginOptions).[priority](IPluginOptions#priority)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L129)
+[packages/agents/src/abstracts/abstract-plugin.ts:130](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L130)
 
 ___
 
@@ -88,11 +88,11 @@ Events to subscribe to from modules
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[moduleEvents](BasePluginOptions#moduleevents)
+[IPluginOptions](IPluginOptions).[moduleEvents](IPluginOptions#moduleevents)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L131)
+[packages/agents/src/abstracts/abstract-plugin.ts:132](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L132)
 
 ___
 
@@ -104,11 +104,11 @@ Whether to subscribe to all module events
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[subscribeToAllModuleEvents](BasePluginOptions#subscribetoallmoduleevents)
+[IPluginOptions](IPluginOptions).[subscribeToAllModuleEvents](IPluginOptions#subscribetoallmoduleevents)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/abstract-plugin.ts:134](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L134)
 
 ___
 
@@ -120,7 +120,7 @@ Maximum number of entries to keep in memory
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/types.ts:71](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/types.ts#L71)
+[packages/agents/src/plugins/execution/types.ts:71](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/types.ts#L71)
 
 ___
 
@@ -132,7 +132,7 @@ Whether to track error details
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/types.ts:73](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/types.ts#L73)
+[packages/agents/src/plugins/execution/types.ts:73](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/types.ts#L73)
 
 ___
 
@@ -144,7 +144,7 @@ Performance threshold in milliseconds for warnings
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/types.ts:75](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/types.ts#L75)
+[packages/agents/src/plugins/execution/types.ts:75](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/types.ts#L75)
 
 ___
 
@@ -156,4 +156,4 @@ Enable performance warnings
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/types.ts:77](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/types.ts#L77)
+[packages/agents/src/plugins/execution/types.ts:77](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/types.ts#L77)

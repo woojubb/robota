@@ -1,4 +1,4 @@
-import { AbstractPlugin, PluginCategory, PluginPriority, type ErrorContext } from '../../abstracts/abstract-plugin';
+import { AbstractPlugin, PluginCategory, PluginPriority, type IPluginErrorContext } from '../../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../../utils/logger';
 import type { IRunOptions } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../managers/conversation-history-manager';
@@ -44,7 +44,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsO
             trackErrors: options.trackErrors ?? true,
             performanceThreshold: options.performanceThreshold || 5000,
             enableWarnings: options.enableWarnings ?? true,
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.MONITORING,
             priority: options.priority ?? PluginPriority.NORMAL,
             moduleEvents: options.moduleEvents ?? [],
@@ -276,7 +276,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsO
     /**
      * Called on error - end tracking with error
      */
-    override async onError(error: Error, context?: ErrorContext): Promise<void> {
+    override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
         // Find any active execution that might be related to this error
         const activeExecution = Array.from(this.activeExecutions.entries())[0];
 

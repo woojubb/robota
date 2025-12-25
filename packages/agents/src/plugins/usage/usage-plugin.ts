@@ -56,7 +56,7 @@ export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginS
             flushInterval: options.flushInterval ?? 60000, // 1 minute
             aggregateStats: options.aggregateStats ?? true,
             aggregationInterval: options.aggregationInterval ?? 300000, // 5 minutes
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.MONITORING,
             priority: options.priority ?? PluginPriority.NORMAL,
             moduleEvents: options.moduleEvents ?? [],

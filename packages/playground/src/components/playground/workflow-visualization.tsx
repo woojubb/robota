@@ -1077,7 +1077,7 @@ const AgentResponseNode = ({ data, sourcePosition, targetPosition }: NodeProps<a
 };
 
 /**
- * Custom Node Component for Tool Calls (Legacy)
+ * Custom Node Component for Tool Calls (Compatibility)
  */
 const LegacyToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
     return (
@@ -1142,7 +1142,7 @@ const PlaceholderNode = ({ data }: { data: any }) => {
     );
 };
 
-// Removed legacy hierarchical node naming - use Agent node type only.
+// Removed previous hierarchical node naming - use Agent node type only.
 
 // Node types for React-Flow
 const nodeTypes = {
@@ -1159,7 +1159,7 @@ const nodeTypes = {
     agentResponse: AgentResponseNode as any,
     toolCall: LegacyToolCallNode as any,
     placeholder: PlaceholderNode as any
-    // Removed legacy user input type
+    // Removed previous user input type
 };
 
 // Local child component to show Agent details with mock endpoint generation

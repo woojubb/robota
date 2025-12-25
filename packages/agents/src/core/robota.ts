@@ -1,9 +1,10 @@
 import { AbstractAgent } from '../abstracts/abstract-agent';
-import { TUniversalMessage, IAgentConfig, IRunOptions, IAgentInterface, IExecutionContextInjection } from '../interfaces/agent';
+import { TUniversalMessage, IAgentConfig, IRunOptions, IAgent, IExecutionContextInjection } from '../interfaces/agent';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { AbstractModule } from '../abstracts/abstract-module';
 import { ModuleRegistry } from '../managers/module-registry';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
+import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
@@ -63,7 +64,7 @@ export type TAgentStatsMetadata = Record<string, string | number | boolean | Dat
 // Robota uses AgentConfig directly
 
 /**
- * Main AI agent implementation for the Robota SDK.
+ * Core AI agent implementation for the Robota SDK.
  * 
  * Robota is a comprehensive AI agent that integrates multiple AI providers, tools, and plugins
  * into a unified conversational interface. Each instance is completely independent with its own
@@ -128,7 +129,7 @@ export type TAgentStatsMetadata = Record<string, string | number | boolean | Dat
  * }
  * ```
  */
-export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalMessage> implements IAgentInterface {
+export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalMessage> implements IAgent<IAgentConfig, IRunOptions, TUniversalMessage> {
     /** The name of this agent instance */
     public readonly name: string;
     /** The version of the Robota agent implementation */
@@ -415,15 +416,15 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
         return new EventEmitterPlugin({
             enabled: true,
             events: [
-                'module.initialize.start',
-                'module.initialize.complete',
-                'module.initialize.error',
-                'module.execution.start',
-                'module.execution.complete',
-                'module.execution.error',
-                'module.dispose.start',
-                'module.dispose.complete',
-                'module.dispose.error'
+                EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START,
+                EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE,
+                EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR,
+                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START,
+                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE,
+                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR,
+                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START,
+                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE,
+                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR
             ]
         });
     }

@@ -61,12 +61,12 @@ export interface AggregatedExecutionStats {
     };
 }
 
-import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Plugin options
  */
-export interface ExecutionAnalyticsOptions extends BasePluginOptions {
+export interface ExecutionAnalyticsOptions extends IPluginOptions {
     /** Maximum number of entries to keep in memory */
     maxEntries?: number;
     /** Whether to track error details */
@@ -80,7 +80,7 @@ export interface ExecutionAnalyticsOptions extends BasePluginOptions {
 /**
  * Execution analytics plugin statistics
  */
-export interface ExecutionAnalyticsPluginStats extends PluginStats {
+export interface ExecutionAnalyticsPluginStats extends IPluginStats {
     /** Total number of executions recorded */
     totalRecorded: number;
     /** Number of active executions */

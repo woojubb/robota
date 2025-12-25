@@ -287,7 +287,7 @@ src/tools/implementations/function-tool/
 ├── types.ts              # Type definitions
 ├── schema-converter.ts   # Zod schema conversion
 ├── index.ts             # Tool implementation
-└── function-tool.ts     # Legacy compatibility
+└── function-tool.ts     # Compatibility
 ```
 
 ### Error Handling Facade

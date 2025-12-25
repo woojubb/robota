@@ -45,7 +45,7 @@ Convert messages to provider-specific format
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | [`Message`](../modules#message)[] |
+| `messages` | [`TUniversalMessage`](../modules#tuniversalmessage)[] |
 | `providerName` | `string` |
 
 #### Returns
@@ -54,7 +54,7 @@ Convert messages to provider-specific format
 
 #### Defined in
 
-[packages/agents/src/utils/message-converter.ts:46](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/message-converter.ts#L46)
+[packages/agents/src/utils/message-converter.ts:46](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/message-converter.ts#L46)
 
 ___
 
@@ -68,7 +68,7 @@ Extract system message from messages
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | [`Message`](../modules#message)[] |
+| `messages` | [`TUniversalMessage`](../modules#tuniversalmessage)[] |
 
 #### Returns
 
@@ -76,13 +76,13 @@ Extract system message from messages
 
 #### Defined in
 
-[packages/agents/src/utils/message-converter.ts:121](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/message-converter.ts#L121)
+[packages/agents/src/utils/message-converter.ts:121](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/message-converter.ts#L121)
 
 ___
 
 ### filterNonSystemMessages
 
-▸ **filterNonSystemMessages**(`messages`): [`Message`](../modules#message)[]
+▸ **filterNonSystemMessages**(`messages`): [`TUniversalMessage`](../modules#tuniversalmessage)[]
 
 Filter non-system messages
 
@@ -90,12 +90,12 @@ Filter non-system messages
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | [`Message`](../modules#message)[] |
+| `messages` | [`TUniversalMessage`](../modules#tuniversalmessage)[] |
 
 #### Returns
 
-[`Message`](../modules#message)[]
+[`TUniversalMessage`](../modules#tuniversalmessage)[]
 
 #### Defined in
 
-[packages/agents/src/utils/message-converter.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/message-converter.ts#L129)
+[packages/agents/src/utils/message-converter.ts:129](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/message-converter.ts#L129)

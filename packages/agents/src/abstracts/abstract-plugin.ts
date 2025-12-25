@@ -2,6 +2,7 @@ import type { IRunOptions } from '../interfaces/agent';
 import type { TUniversalMessage } from '../managers/conversation-history-manager';
 import type { TToolParameters, IToolExecutionResult, IToolExecutionContext } from '../interfaces/tool';
 import type { EventEmitterPlugin, EventType, EventData } from '../plugins/event-emitter-plugin';
+import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 
 /**
  * Plugin categories for classification
@@ -46,9 +47,9 @@ export enum PluginPriority {
 }
 
 /**
- * Base execution context for all plugins
+ * Plugin execution context for all plugins
  */
-export interface BaseExecutionContext {
+export interface IPluginExecutionContext {
     executionId?: string;
     sessionId?: string;
     userId?: string;
@@ -61,9 +62,9 @@ export interface BaseExecutionContext {
 }
 
 /**
- * Base execution result for all plugins
+ * Plugin execution result for all plugins
  */
-export interface BaseExecutionResult {
+export interface IPluginExecutionResult {
     response?: string;
     content?: string;
     duration?: number;
@@ -93,7 +94,7 @@ export interface BaseExecutionResult {
 /**
  * Error context for plugin error handling
  */
-export interface ErrorContext {
+export interface IPluginErrorContext {
     action: string;
     tool?: string;
     parameters?: TToolParameters;
@@ -112,15 +113,15 @@ export interface ErrorContext {
 /**
  * Plugin configuration interface
  */
-export interface PluginConfig extends BasePluginOptions {
+export interface IPluginConfig extends IPluginOptions {
     options?: Record<string, string | number | boolean>;
 }
 
 /**
- * Base plugin options that all plugin options should extend
+ * Plugin options that all plugin options should extend
  * This provides a common structure while allowing specific options
  */
-export interface BasePluginOptions {
+export interface IPluginOptions {
     /** Whether the plugin is enabled */
     enabled?: boolean;
     /** Plugin category for classification */
@@ -136,7 +137,7 @@ export interface BasePluginOptions {
 /**
  * Plugin data interface
  */
-export interface PluginData {
+export interface IPluginData {
     name: string;
     version: string;
     enabled: boolean;
@@ -149,10 +150,10 @@ export interface PluginData {
 /**
  * Type-safe plugin interface with specific type parameters
  * 
- * @template TOptions - Plugin options type that extends BasePluginOptions
- * @template TStats - Plugin statistics type (defaults to PluginStats for type safety)
+ * @template TOptions - Plugin options type that extends IPluginOptions
+ * @template TStats - Plugin statistics type (defaults to IPluginStats for type safety)
  */
-export interface TypeSafePluginInterface<TOptions extends BasePluginOptions = BasePluginOptions, TStats = PluginStats> {
+export interface ITypeSafePlugin<TOptions extends IPluginOptions = IPluginOptions, TStats = IPluginStats> {
     name: string;
     version: string;
     enabled: boolean;
@@ -161,7 +162,7 @@ export interface TypeSafePluginInterface<TOptions extends BasePluginOptions = Ba
 
     initialize(options?: TOptions): Promise<void>;
     cleanup?(): Promise<void>;
-    getData?(): PluginData;
+    getData?(): IPluginData;
     getStats?(): TStats;
 
     // Event subscription methods
@@ -173,7 +174,7 @@ export interface TypeSafePluginInterface<TOptions extends BasePluginOptions = Ba
 /**
  * Plugin statistics base interface with common metrics
  */
-export interface PluginStats {
+export interface IPluginStats {
     enabled: boolean;
     calls: number;
     errors: number;
@@ -192,14 +193,14 @@ export interface PluginStats {
 }
 
 /**
- * Base plugin interface extending TypeSafePluginInterface
+ * Plugin interface extending ITypeSafePlugin
  */
-export interface BasePluginInterface extends TypeSafePluginInterface<PluginConfig, PluginStats> { }
+export interface IPlugin extends ITypeSafePlugin<IPluginConfig, IPluginStats> { }
 
 /**
  * Plugin lifecycle hooks
  */
-export interface PluginHooks {
+export interface IPluginHooks {
     /**
      * Called before agent run
      */
@@ -213,22 +214,22 @@ export interface PluginHooks {
     /**
      * Called before execution with context
      */
-    beforeExecution?(context: BaseExecutionContext): Promise<void> | void;
+    beforeExecution?(context: IPluginExecutionContext): Promise<void> | void;
 
     /**
      * Called after execution with context and result
      */
-    afterExecution?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> | void;
+    afterExecution?(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> | void;
 
     /**
      * Called before conversation with context
      */
-    beforeConversation?(context: BaseExecutionContext): Promise<void> | void;
+    beforeConversation?(context: IPluginExecutionContext): Promise<void> | void;
 
     /**
      * Called after conversation with context and result
      */
-    afterConversation?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> | void;
+    afterConversation?(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> | void;
 
     /**
      * Called before tool execution
@@ -238,7 +239,7 @@ export interface PluginHooks {
     /**
      * Called before tool execution with context
      */
-    beforeToolExecution?(context: BaseExecutionContext, toolData: IToolExecutionContext): Promise<void> | void;
+    beforeToolExecution?(context: IPluginExecutionContext, toolData: IToolExecutionContext): Promise<void> | void;
 
     /**
      * Called after tool execution
@@ -248,7 +249,7 @@ export interface PluginHooks {
     /**
      * Called after tool execution with context
      */
-    afterToolExecution?(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void> | void;
+    afterToolExecution?(context: IPluginExecutionContext, toolResults: IPluginExecutionResult): Promise<void> | void;
 
     /**
      * Called before AI provider call
@@ -268,7 +269,7 @@ export interface PluginHooks {
     /**
      * Called on error
      */
-    onError?(error: Error, context?: ErrorContext): Promise<void> | void;
+    onError?(error: Error, context?: IPluginErrorContext): Promise<void> | void;
 
     /**
      * Called on message added to history
@@ -282,7 +283,7 @@ export interface PluginHooks {
 }
 
 /**
- * Base abstract class for all plugins with type parameter support
+ * Abstract class for all plugins with type parameter support
  * Provides plugin lifecycle management and common functionality
  * 
  * Enhanced with:
@@ -291,11 +292,11 @@ export interface PluginHooks {
  * - Improved statistics tracking
  * - Better error handling and recovery
  * 
- * @template TOptions - Plugin options type that extends BasePluginOptions
- * @template TStats - Plugin statistics type (defaults to PluginStats for type safety)
+ * @template TOptions - Plugin options type that extends IPluginOptions
+ * @template TStats - Plugin statistics type (defaults to IPluginStats for type safety)
  */
-export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePluginOptions, TStats extends PluginStats = PluginStats>
-    implements TypeSafePluginInterface<TOptions, TStats>, PluginHooks {
+export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOptions, TStats extends IPluginStats = IPluginStats>
+    implements ITypeSafePlugin<TOptions, TStats>, IPluginHooks {
     /** Plugin name */
     abstract readonly name: string;
 
@@ -321,7 +322,7 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
     protected subscribedEvents: EventType[] = [];
 
     /** Event subscription handlers */
-    protected eventHandlers = new Map<EventType, string>();
+    protected eventHandlers = new Map<EventType, string[]>();
 
     /** Plugin statistics */
     protected stats = {
@@ -374,15 +375,15 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
         // Subscribe to all module events if requested
         if (this.options.subscribeToAllModuleEvents) {
             eventsToSubscribe.push(
-                'module.initialize.start',
-                'module.initialize.complete',
-                'module.initialize.error',
-                'module.execution.start',
-                'module.execution.complete',
-                'module.execution.error',
-                'module.dispose.start',
-                'module.dispose.complete',
-                'module.dispose.error'
+                EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START,
+                EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE,
+                EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR,
+                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START,
+                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE,
+                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR,
+                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START,
+                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE,
+                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR
             );
         }
 
@@ -391,11 +392,8 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
             eventsToSubscribe.push(...this.options.moduleEvents);
         }
 
-        // Remove duplicates
-        const uniqueEvents = [...new Set(eventsToSubscribe)];
-
-        // Subscribe to events
-        for (const eventType of uniqueEvents) {
+        // Subscribe to events (no deduplication; duplicates must surface for debugging)
+        for (const eventType of eventsToSubscribe) {
             const handlerId = this.eventEmitter.on(eventType, async (eventData: EventData) => {
                 try {
                     this.stats.moduleEventsReceived++;
@@ -409,12 +407,13 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
                 }
             });
 
-            this.eventHandlers.set(eventType, handlerId);
+            const existing = this.eventHandlers.get(eventType);
+            if (existing) {
+                existing.push(handlerId);
+            } else {
+                this.eventHandlers.set(eventType, [handlerId]);
+            }
             this.subscribedEvents.push(eventType);
-        }
-
-        if (uniqueEvents.length > 0) {
-            // Plugin subscribed to module events
         }
     }
 
@@ -422,15 +421,15 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
      * Unsubscribe from module events
      */
     async unsubscribeFromModuleEvents(eventEmitter: EventEmitterPlugin): Promise<void> {
-        for (const [eventType, handlerId] of this.eventHandlers.entries()) {
-            eventEmitter.off(eventType, handlerId);
+        for (const [eventType, handlerIds] of this.eventHandlers.entries()) {
+            for (const handlerId of handlerIds) {
+                eventEmitter.off(eventType, handlerId);
+            }
         }
 
         this.eventHandlers.clear();
         this.subscribedEvents = [];
         this.eventEmitter = undefined;
-
-        // Plugin unsubscribed from all module events
     }
 
     /**
@@ -469,21 +468,21 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
     /**
      * Get plugin configuration
      */
-    getConfig(): PluginConfig {
+    getConfig(): IPluginConfig {
         return {};
     }
 
     /**
      * Update plugin configuration
      */
-    updateConfig(_config: PluginConfig): void {
+    updateConfig(_config: IPluginConfig): void {
         // Default implementation - can be overridden
     }
 
     /**
      * Get plugin data - enhanced with classification information
      */
-    getData(): PluginData {
+    getData(): IPluginData {
         return {
             name: this.name,
             version: this.version,
@@ -534,7 +533,7 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
      * Get plugin statistics - enhanced with module event tracking
      */
     getStats(): TStats {
-        const baseStats: PluginStats = {
+        const baseStats: IPluginStats = {
             enabled: this.enabled,
             calls: this.stats.calls,
             errors: this.stats.errors,
@@ -564,18 +563,18 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
     // Optional lifecycle hooks - plugins can override these
     async beforeRun?(input: string, options?: IRunOptions): Promise<void>;
     async afterRun?(input: string, response: string, options?: IRunOptions): Promise<void>;
-    async beforeExecution?(context: BaseExecutionContext): Promise<void>;
-    async afterExecution?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void>;
-    async beforeConversation?(context: BaseExecutionContext): Promise<void>;
-    async afterConversation?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void>;
+    async beforeExecution?(context: IPluginExecutionContext): Promise<void>;
+    async afterExecution?(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void>;
+    async beforeConversation?(context: IPluginExecutionContext): Promise<void>;
+    async afterConversation?(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void>;
     async beforeToolCall?(toolName: string, parameters: TToolParameters): Promise<void>;
-    async beforeToolExecution?(context: BaseExecutionContext, toolData: IToolExecutionContext): Promise<void>;
+    async beforeToolExecution?(context: IPluginExecutionContext, toolData: IToolExecutionContext): Promise<void>;
     async afterToolCall?(toolName: string, parameters: TToolParameters, result: IToolExecutionResult): Promise<void>;
-    async afterToolExecution?(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void>;
+    async afterToolExecution?(context: IPluginExecutionContext, toolResults: IPluginExecutionResult): Promise<void>;
     async beforeProviderCall?(messages: TUniversalMessage[]): Promise<void>;
     async afterProviderCall?(messages: TUniversalMessage[], response: TUniversalMessage): Promise<void>;
     async onStreamingChunk?(chunk: TUniversalMessage): Promise<void>;
-    async onError?(error: Error, context?: ErrorContext): Promise<void>;
+    async onError?(error: Error, context?: IPluginErrorContext): Promise<void>;
     async onMessageAdded?(message: TUniversalMessage): Promise<void>;
     async onModuleEvent?(eventType: EventType, eventData: EventData): Promise<void>;
 } 

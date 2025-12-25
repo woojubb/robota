@@ -101,7 +101,7 @@ packages/agents/src/
 - **@robota-sdk/openai**: Complete agents standard migration
 - **@robota-sdk/anthropic**: Complete agents standard migration  
 - **@robota-sdk/google**: Complete agents standard migration
-- **@robota-sdk/team**: assignTask MCP tool collection (legacy team creation removed)
+- **@robota-sdk/team**: assignTask MCP tool collection (team creation removed)
 - **@robota-sdk/sessions**: Complete v2.0.0 redesign with ChatInstance, ConversationServiceImpl, and individual service classes
 
 ### Deprecated Packages

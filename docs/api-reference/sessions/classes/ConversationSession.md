@@ -56,7 +56,7 @@ duplicate prevention and API format conversion.
 
 #### Defined in
 
-agents/dist/index.d.ts:285
+agents/dist/node/index.d.ts:453
 
 ## Methods
 
@@ -70,7 +70,7 @@ Add any message to history
 
 | Name | Type |
 | :------ | :------ |
-| `message` | `UniversalMessage` |
+| `message` | [`TUniversalMessage`](../modules#tuniversalmessage) |
 
 #### Returns
 
@@ -82,7 +82,7 @@ ConversationHistoryInterface.addMessage
 
 #### Defined in
 
-agents/dist/index.d.ts:289
+agents/dist/node/index.d.ts:457
 
 ___
 
@@ -97,7 +97,7 @@ Add user message
 | Name | Type |
 | :------ | :------ |
 | `content` | `string` |
-| `metadata?` | `ConversationMessageMetadata` |
+| `metadata?` | `TUniversalMessageMetadata` |
 
 #### Returns
 
@@ -109,7 +109,7 @@ ConversationHistoryInterface.addUserMessage
 
 #### Defined in
 
-agents/dist/index.d.ts:293
+agents/dist/node/index.d.ts:461
 
 ___
 
@@ -124,8 +124,8 @@ Add assistant message with optional tool calls
 | Name | Type |
 | :------ | :------ |
 | `content` | ``null`` \| `string` |
-| `toolCalls?` | \{ `id`: `string` ; `type`: ``"function"`` ; `function`: \{ `name`: `string` ; `arguments`: `string`  }  }[] |
-| `metadata?` | `ConversationMessageMetadata` |
+| `toolCalls?` | `IToolCall`[] |
+| `metadata?` | `TUniversalMessageMetadata` |
 
 #### Returns
 
@@ -137,7 +137,7 @@ ConversationHistoryInterface.addAssistantMessage
 
 #### Defined in
 
-agents/dist/index.d.ts:297
+agents/dist/node/index.d.ts:465
 
 ___
 
@@ -152,7 +152,7 @@ Add system message
 | Name | Type |
 | :------ | :------ |
 | `content` | `string` |
-| `metadata?` | `ConversationMessageMetadata` |
+| `metadata?` | `TUniversalMessageMetadata` |
 
 #### Returns
 
@@ -164,7 +164,7 @@ ConversationHistoryInterface.addSystemMessage
 
 #### Defined in
 
-agents/dist/index.d.ts:308
+agents/dist/node/index.d.ts:469
 
 ___
 
@@ -181,7 +181,7 @@ Add tool result message
 | `content` | `string` |
 | `toolCallId` | `string` |
 | `toolName?` | `string` |
-| `metadata?` | `ConversationMessageMetadata` |
+| `metadata?` | `TUniversalMessageMetadata` |
 
 #### Returns
 
@@ -189,7 +189,7 @@ Add tool result message
 
 #### Defined in
 
-agents/dist/index.d.ts:312
+agents/dist/node/index.d.ts:473
 
 ___
 
@@ -209,7 +209,7 @@ Throws error if a tool message with the same toolCallId already exists.
 | `content` | `string` |
 | `toolCallId` | `string` |
 | `toolName` | `string` |
-| `metadata?` | `ConversationMessageMetadata` |
+| `metadata?` | `TUniversalMessageMetadata` |
 
 #### Returns
 
@@ -221,19 +221,19 @@ ConversationHistoryInterface.addToolMessageWithId
 
 #### Defined in
 
-agents/dist/index.d.ts:319
+agents/dist/node/index.d.ts:480
 
 ___
 
 ### getMessages
 
-▸ **getMessages**(): `UniversalMessage`[]
+▸ **getMessages**(): [`TUniversalMessage`](../modules#tuniversalmessage)[]
 
 Get all messages in chronological order
 
 #### Returns
 
-`UniversalMessage`[]
+[`TUniversalMessage`](../modules#tuniversalmessage)[]
 
 #### Implementation of
 
@@ -241,13 +241,13 @@ ConversationHistoryInterface.getMessages
 
 #### Defined in
 
-agents/dist/index.d.ts:323
+agents/dist/node/index.d.ts:484
 
 ___
 
 ### getMessagesByRole
 
-▸ **getMessagesByRole**(`role`): `UniversalMessage`[]
+▸ **getMessagesByRole**(`role`): [`TUniversalMessage`](../modules#tuniversalmessage)[]
 
 Get messages filtered by specific role
 
@@ -255,11 +255,11 @@ Get messages filtered by specific role
 
 | Name | Type |
 | :------ | :------ |
-| `role` | `UniversalMessageRole` |
+| `role` | `TUniversalMessageRole` |
 
 #### Returns
 
-`UniversalMessage`[]
+[`TUniversalMessage`](../modules#tuniversalmessage)[]
 
 #### Implementation of
 
@@ -267,13 +267,13 @@ ConversationHistoryInterface.getMessagesByRole
 
 #### Defined in
 
-agents/dist/index.d.ts:327
+agents/dist/node/index.d.ts:488
 
 ___
 
 ### getRecentMessages
 
-▸ **getRecentMessages**(`count`): `UniversalMessage`[]
+▸ **getRecentMessages**(`count`): [`TUniversalMessage`](../modules#tuniversalmessage)[]
 
 Get the most recent n messages
 
@@ -285,7 +285,7 @@ Get the most recent n messages
 
 #### Returns
 
-`UniversalMessage`[]
+[`TUniversalMessage`](../modules#tuniversalmessage)[]
 
 #### Implementation of
 
@@ -293,7 +293,7 @@ ConversationHistoryInterface.getRecentMessages
 
 #### Defined in
 
-agents/dist/index.d.ts:331
+agents/dist/node/index.d.ts:492
 
 ___
 
@@ -309,7 +309,7 @@ Get messages formatted for API consumption
 
 #### Defined in
 
-agents/dist/index.d.ts:335
+agents/dist/node/index.d.ts:496
 
 ___
 
@@ -329,7 +329,7 @@ ConversationHistoryInterface.getMessageCount
 
 #### Defined in
 
-agents/dist/index.d.ts:339
+agents/dist/node/index.d.ts:500
 
 ___
 
@@ -349,4 +349,4 @@ ConversationHistoryInterface.clear
 
 #### Defined in
 
-agents/dist/index.d.ts:343
+agents/dist/node/index.d.ts:504

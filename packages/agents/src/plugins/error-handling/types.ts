@@ -32,12 +32,12 @@ export interface ErrorHandlingContextData {
     [key: string]: string | number | boolean | undefined;
 }
 
-import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Configuration options for error handling plugin
  */
-export interface ErrorHandlingPluginOptions extends BasePluginOptions {
+export interface ErrorHandlingPluginOptions extends IPluginOptions {
     /** Error handling strategy to use */
     strategy: ErrorHandlingStrategy;
     /** Maximum number of retry attempts */
@@ -57,7 +57,7 @@ export interface ErrorHandlingPluginOptions extends BasePluginOptions {
 /**
  * Error handling plugin statistics
  */
-export interface ErrorHandlingPluginStats extends PluginStats {
+export interface ErrorHandlingPluginStats extends IPluginStats {
     failureCount: number;
     circuitBreakerOpen: boolean;
     lastFailureTime: number;

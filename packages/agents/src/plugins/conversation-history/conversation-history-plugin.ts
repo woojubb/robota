@@ -51,7 +51,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistor
             connectionString: options.connectionString ?? '',
             autoSave: options.autoSave ?? true,
             saveInterval: options.saveInterval ?? 30000, // 30 seconds
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.STORAGE,
             priority: options.priority ?? PluginPriority.HIGH,
             moduleEvents: options.moduleEvents ?? [],

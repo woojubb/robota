@@ -1,5 +1,5 @@
 import type { TProviderConfigValue, IAIProvider } from './provider';
-import type { AbstractPlugin, BasePluginOptions, PluginStats } from '../abstracts/abstract-plugin';
+import type { AbstractPlugin, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
 import type { AbstractTool } from '../abstracts/abstract-tool';
 import type { AbstractModule } from '../abstracts/abstract-module';
 import type { TUtilLogLevel } from '../utils/logger';
@@ -81,7 +81,7 @@ export interface IAgentConfig {
 
     // Tools and plugins
     tools?: AbstractTool[];
-    plugins?: Array<AbstractPlugin<BasePluginOptions, PluginStats>>;
+    plugins?: Array<AbstractPlugin<IPluginOptions, IPluginStats>>;
 
     // Modules for extended functionality
     modules?: AbstractModule[];
@@ -168,7 +168,7 @@ export interface IRunOptions {
  * @template TContext - Execution context type (defaults to IRunOptions for backward compatibility)
  * @template TUniversalMessage - Message type (defaults to TUniversalMessage for backward compatibility)
  */
-export interface IBaseAgentInterface<
+export interface IAgent<
     TConfig = IAgentConfig,
     TContext = IRunOptions,
     TMessage = TUniversalMessage
@@ -191,7 +191,7 @@ export interface IBaseAgentInterface<
     /**
      * Get conversation history with type-safe messages
      */
-    getHistory(): TUniversalMessage[];
+    getHistory(): TMessage[];
 
     /**
      * Clear conversation history
@@ -255,8 +255,4 @@ export interface IGenerationConfig {
     [key: string]: TConfigValue;
 }
 
-/**
- * Legacy agent interface for backward compatibility
- * @deprecated Use IBaseAgentInterface or provider-specific interfaces instead
- */
-export interface IAgentInterface extends IBaseAgentInterface<IAgentConfig, IRunOptions, TUniversalMessage> { } 
+ 

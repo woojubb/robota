@@ -153,12 +153,12 @@ export interface WebhookEndpoint {
     secret?: string;
 }
 
-import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Webhook plugin configuration options
  */
-export interface WebhookPluginOptions extends BasePluginOptions {
+export interface WebhookPluginOptions extends IPluginOptions {
     /** Webhook endpoints */
     endpoints: WebhookEndpoint[];
     /** Events to send webhooks for */
@@ -184,7 +184,7 @@ export interface WebhookPluginOptions extends BasePluginOptions {
 /**
  * Webhook plugin statistics
  */
-export interface WebhookPluginStats extends PluginStats {
+export interface WebhookPluginStats extends IPluginStats {
     endpointCount: number;
     queueLength: number;
     batchQueueLength: number;

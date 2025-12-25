@@ -77,7 +77,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
             ...(options.formatter && { formatter: options.formatter }),
             batchSize: options.batchSize ?? 100,
             flushInterval: options.flushInterval ?? 30000,
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.LOGGING,
             priority: options.priority ?? PluginPriority.HIGH,
             moduleEvents: options.moduleEvents ?? [],

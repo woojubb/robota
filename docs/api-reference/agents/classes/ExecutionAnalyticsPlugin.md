@@ -13,7 +13,7 @@ Integrates with agent lifecycle to track performance without manual intervention
 
 ## Hierarchy
 
-- [`BasePlugin`](BasePlugin)\<[`ExecutionAnalyticsOptions`](../interfaces/ExecutionAnalyticsOptions), [`ExecutionAnalyticsPluginStats`](../interfaces/ExecutionAnalyticsPluginStats)\>
+- [`AbstractPlugin`](AbstractPlugin)\<[`ExecutionAnalyticsOptions`](../interfaces/ExecutionAnalyticsOptions), [`ExecutionAnalyticsPluginStats`](../interfaces/ExecutionAnalyticsPluginStats)\>
 
   ↳ **`ExecutionAnalyticsPlugin`**
 
@@ -90,11 +90,11 @@ Integrates with agent lifecycle to track performance without manual intervention
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[constructor](BasePlugin#constructor)
+[AbstractPlugin](AbstractPlugin).[constructor](AbstractPlugin#constructor)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:31](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L31)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:31](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L31)
 
 ## Properties
 
@@ -106,11 +106,11 @@ Plugin enabled state
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[enabled](BasePlugin#enabled)
+[AbstractPlugin](AbstractPlugin).[enabled](AbstractPlugin#enabled)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:297](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L297)
+[packages/agents/src/abstracts/abstract-plugin.ts:307](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L307)
 
 ___
 
@@ -122,11 +122,11 @@ Plugin category for classification
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[category](BasePlugin#category)
+[AbstractPlugin](AbstractPlugin).[category](AbstractPlugin#category)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:300](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L300)
+[packages/agents/src/abstracts/abstract-plugin.ts:310](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L310)
 
 ___
 
@@ -138,11 +138,11 @@ Plugin priority for execution order
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[priority](BasePlugin#priority)
+[AbstractPlugin](AbstractPlugin).[priority](AbstractPlugin#priority)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:303](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L303)
+[packages/agents/src/abstracts/abstract-plugin.ts:313](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L313)
 
 ___
 
@@ -154,11 +154,11 @@ Plugin name
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[name](BasePlugin#name)
+[AbstractPlugin](AbstractPlugin).[name](AbstractPlugin#name)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:21](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L21)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:21](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L21)
 
 ___
 
@@ -170,11 +170,11 @@ Plugin version
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[version](BasePlugin#version)
+[AbstractPlugin](AbstractPlugin).[version](AbstractPlugin#version)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:22](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L22)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:22](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L22)
 
 ## Methods
 
@@ -196,11 +196,11 @@ Initialize the plugin with type-safe options
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[initialize](BasePlugin#initialize)
+[AbstractPlugin](AbstractPlugin).[initialize](AbstractPlugin#initialize)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:328](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L328)
+[packages/agents/src/abstracts/abstract-plugin.ts:338](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L338)
 
 ___
 
@@ -222,11 +222,11 @@ Subscribe to module events through EventEmitter
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[subscribeToModuleEvents](BasePlugin#subscribetomoduleevents)
+[AbstractPlugin](AbstractPlugin).[subscribeToModuleEvents](AbstractPlugin#subscribetomoduleevents)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:356](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L356)
+[packages/agents/src/abstracts/abstract-plugin.ts:366](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L366)
 
 ___
 
@@ -248,11 +248,11 @@ Unsubscribe from module events
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[unsubscribeFromModuleEvents](BasePlugin#unsubscribefrommoduleevents)
+[AbstractPlugin](AbstractPlugin).[unsubscribeFromModuleEvents](AbstractPlugin#unsubscribefrommoduleevents)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:415](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L415)
+[packages/agents/src/abstracts/abstract-plugin.ts:423](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L423)
 
 ___
 
@@ -268,11 +268,11 @@ Cleanup plugin resources
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[dispose](BasePlugin#dispose)
+[AbstractPlugin](AbstractPlugin).[dispose](AbstractPlugin#dispose)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:430](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L430)
+[packages/agents/src/abstracts/abstract-plugin.ts:438](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L438)
 
 ___
 
@@ -288,11 +288,11 @@ Enable the plugin
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[enable](BasePlugin#enable)
+[AbstractPlugin](AbstractPlugin).[enable](AbstractPlugin#enable)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:442](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L442)
+[packages/agents/src/abstracts/abstract-plugin.ts:450](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L450)
 
 ___
 
@@ -308,11 +308,11 @@ Disable the plugin
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[disable](BasePlugin#disable)
+[AbstractPlugin](AbstractPlugin).[disable](AbstractPlugin#disable)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:449](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L449)
+[packages/agents/src/abstracts/abstract-plugin.ts:457](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L457)
 
 ___
 
@@ -328,31 +328,31 @@ Check if plugin is enabled
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[isEnabled](BasePlugin#isenabled)
+[AbstractPlugin](AbstractPlugin).[isEnabled](AbstractPlugin#isenabled)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:456](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L456)
+[packages/agents/src/abstracts/abstract-plugin.ts:464](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L464)
 
 ___
 
 ### getConfig
 
-▸ **getConfig**(): [`PluginConfig`](../interfaces/PluginConfig)
+▸ **getConfig**(): [`IPluginConfig`](../interfaces/IPluginConfig)
 
 Get plugin configuration
 
 #### Returns
 
-[`PluginConfig`](../interfaces/PluginConfig)
+[`IPluginConfig`](../interfaces/IPluginConfig)
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[getConfig](BasePlugin#getconfig)
+[AbstractPlugin](AbstractPlugin).[getConfig](AbstractPlugin#getconfig)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:463](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L463)
+[packages/agents/src/abstracts/abstract-plugin.ts:471](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L471)
 
 ___
 
@@ -366,7 +366,7 @@ Update plugin configuration
 
 | Name | Type |
 | :------ | :------ |
-| `_config` | [`PluginConfig`](../interfaces/PluginConfig) |
+| `_config` | [`IPluginConfig`](../interfaces/IPluginConfig) |
 
 #### Returns
 
@@ -374,31 +374,31 @@ Update plugin configuration
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[updateConfig](BasePlugin#updateconfig)
+[AbstractPlugin](AbstractPlugin).[updateConfig](AbstractPlugin#updateconfig)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:470](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L470)
+[packages/agents/src/abstracts/abstract-plugin.ts:478](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L478)
 
 ___
 
 ### getData
 
-▸ **getData**(): [`PluginData`](../interfaces/PluginData)
+▸ **getData**(): [`IPluginData`](../interfaces/IPluginData)
 
 Get plugin data - enhanced with classification information
 
 #### Returns
 
-[`PluginData`](../interfaces/PluginData)
+[`IPluginData`](../interfaces/IPluginData)
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[getData](BasePlugin#getdata)
+[AbstractPlugin](AbstractPlugin).[getData](AbstractPlugin#getdata)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:477](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L477)
+[packages/agents/src/abstracts/abstract-plugin.ts:485](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L485)
 
 ___
 
@@ -415,11 +415,11 @@ This method should be implemented by plugins that store data
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[clearData](BasePlugin#cleardata)
+[AbstractPlugin](AbstractPlugin).[clearData](AbstractPlugin#cleardata)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:497](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L497)
+[packages/agents/src/abstracts/abstract-plugin.ts:505](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L505)
 
 ___
 
@@ -433,7 +433,7 @@ Called before execution with context
 
 | Name | Type |
 | :------ | :------ |
-| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+| `context` | [`IPluginExecutionContext`](../interfaces/IPluginExecutionContext) |
 
 #### Returns
 
@@ -441,11 +441,11 @@ Called before execution with context
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[beforeExecution](BasePlugin#beforeexecution)
+[AbstractPlugin](AbstractPlugin).[beforeExecution](AbstractPlugin#beforeexecution)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:558](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L558)
+[packages/agents/src/abstracts/abstract-plugin.ts:566](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L566)
 
 ___
 
@@ -459,8 +459,8 @@ Called after execution with context and result
 
 | Name | Type |
 | :------ | :------ |
-| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
-| `result` | [`BaseExecutionResult`](../interfaces/BaseExecutionResult) |
+| `context` | [`IPluginExecutionContext`](../interfaces/IPluginExecutionContext) |
+| `result` | [`IPluginExecutionResult`](../interfaces/IPluginExecutionResult) |
 
 #### Returns
 
@@ -468,11 +468,11 @@ Called after execution with context and result
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[afterExecution](BasePlugin#afterexecution)
+[AbstractPlugin](AbstractPlugin).[afterExecution](AbstractPlugin#afterexecution)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:559](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L559)
+[packages/agents/src/abstracts/abstract-plugin.ts:567](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L567)
 
 ___
 
@@ -486,7 +486,7 @@ Called before conversation with context
 
 | Name | Type |
 | :------ | :------ |
-| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+| `context` | [`IPluginExecutionContext`](../interfaces/IPluginExecutionContext) |
 
 #### Returns
 
@@ -494,11 +494,11 @@ Called before conversation with context
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[beforeConversation](BasePlugin#beforeconversation)
+[AbstractPlugin](AbstractPlugin).[beforeConversation](AbstractPlugin#beforeconversation)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:560](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L560)
+[packages/agents/src/abstracts/abstract-plugin.ts:568](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L568)
 
 ___
 
@@ -512,8 +512,8 @@ Called after conversation with context and result
 
 | Name | Type |
 | :------ | :------ |
-| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
-| `result` | [`BaseExecutionResult`](../interfaces/BaseExecutionResult) |
+| `context` | [`IPluginExecutionContext`](../interfaces/IPluginExecutionContext) |
+| `result` | [`IPluginExecutionResult`](../interfaces/IPluginExecutionResult) |
 
 #### Returns
 
@@ -521,11 +521,11 @@ Called after conversation with context and result
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[afterConversation](BasePlugin#afterconversation)
+[AbstractPlugin](AbstractPlugin).[afterConversation](AbstractPlugin#afterconversation)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:561](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L561)
+[packages/agents/src/abstracts/abstract-plugin.ts:569](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L569)
 
 ___
 
@@ -539,8 +539,8 @@ Called before tool execution with context
 
 | Name | Type |
 | :------ | :------ |
-| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
-| `toolData` | [`ToolExecutionContext`](../interfaces/ToolExecutionContext) |
+| `context` | [`IPluginExecutionContext`](../interfaces/IPluginExecutionContext) |
+| `toolData` | [`IToolExecutionContext`](../interfaces/IToolExecutionContext) |
 
 #### Returns
 
@@ -548,11 +548,11 @@ Called before tool execution with context
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[beforeToolExecution](BasePlugin#beforetoolexecution)
+[AbstractPlugin](AbstractPlugin).[beforeToolExecution](AbstractPlugin#beforetoolexecution)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:563](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L563)
+[packages/agents/src/abstracts/abstract-plugin.ts:571](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L571)
 
 ___
 
@@ -566,8 +566,8 @@ Called after tool execution with context
 
 | Name | Type |
 | :------ | :------ |
-| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
-| `toolResults` | [`BaseExecutionResult`](../interfaces/BaseExecutionResult) |
+| `context` | [`IPluginExecutionContext`](../interfaces/IPluginExecutionContext) |
+| `toolResults` | [`IPluginExecutionResult`](../interfaces/IPluginExecutionResult) |
 
 #### Returns
 
@@ -575,11 +575,11 @@ Called after tool execution with context
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[afterToolExecution](BasePlugin#aftertoolexecution)
+[AbstractPlugin](AbstractPlugin).[afterToolExecution](AbstractPlugin#aftertoolexecution)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:565](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L565)
+[packages/agents/src/abstracts/abstract-plugin.ts:573](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L573)
 
 ___
 
@@ -593,7 +593,7 @@ Called on streaming chunk
 
 | Name | Type |
 | :------ | :------ |
-| `chunk` | [`UniversalMessage`](../modules#universalmessage) |
+| `chunk` | [`TUniversalMessage`](../modules#tuniversalmessage) |
 
 #### Returns
 
@@ -601,11 +601,11 @@ Called on streaming chunk
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[onStreamingChunk](BasePlugin#onstreamingchunk)
+[AbstractPlugin](AbstractPlugin).[onStreamingChunk](AbstractPlugin#onstreamingchunk)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:568](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L568)
+[packages/agents/src/abstracts/abstract-plugin.ts:576](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L576)
 
 ___
 
@@ -619,7 +619,7 @@ Called on message added to history
 
 | Name | Type |
 | :------ | :------ |
-| `message` | [`Message`](../modules#message) |
+| `message` | [`TUniversalMessage`](../modules#tuniversalmessage) |
 
 #### Returns
 
@@ -627,11 +627,11 @@ Called on message added to history
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[onMessageAdded](BasePlugin#onmessageadded)
+[AbstractPlugin](AbstractPlugin).[onMessageAdded](AbstractPlugin#onmessageadded)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:570](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L570)
+[packages/agents/src/abstracts/abstract-plugin.ts:578](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L578)
 
 ___
 
@@ -654,11 +654,11 @@ Called when module events are received
 
 #### Inherited from
 
-[BasePlugin](BasePlugin).[onModuleEvent](BasePlugin#onmoduleevent)
+[AbstractPlugin](AbstractPlugin).[onModuleEvent](AbstractPlugin#onmoduleevent)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:571](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L571)
+[packages/agents/src/abstracts/abstract-plugin.ts:579](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L579)
 
 ___
 
@@ -673,7 +673,7 @@ Called before agent run - start tracking
 | Name | Type |
 | :------ | :------ |
 | `input` | `string` |
-| `options?` | [`RunOptions`](../interfaces/RunOptions) |
+| `options?` | [`IRunOptions`](../interfaces/IRunOptions) |
 
 #### Returns
 
@@ -681,11 +681,11 @@ Called before agent run - start tracking
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[beforeRun](BasePlugin#beforerun)
+[AbstractPlugin](AbstractPlugin).[beforeRun](AbstractPlugin#beforerun)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:70](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L70)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:73](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L73)
 
 ___
 
@@ -701,7 +701,7 @@ Called after agent run - end tracking
 | :------ | :------ |
 | `input` | `string` |
 | `response` | `string` |
-| `options?` | [`RunOptions`](../interfaces/RunOptions) |
+| `options?` | [`IRunOptions`](../interfaces/IRunOptions) |
 
 #### Returns
 
@@ -709,11 +709,11 @@ Called after agent run - end tracking
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[afterRun](BasePlugin#afterrun)
+[AbstractPlugin](AbstractPlugin).[afterRun](AbstractPlugin#afterrun)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:89](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L89)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:92](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L92)
 
 ___
 
@@ -727,7 +727,7 @@ Called before provider call - start tracking
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | [`UniversalMessage`](../modules#universalmessage)[] |
+| `messages` | [`TUniversalMessage`](../modules#tuniversalmessage)[] |
 
 #### Returns
 
@@ -735,11 +735,11 @@ Called before provider call - start tracking
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[beforeProviderCall](BasePlugin#beforeprovidercall)
+[AbstractPlugin](AbstractPlugin).[beforeProviderCall](AbstractPlugin#beforeprovidercall)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:140](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L140)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:143](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L143)
 
 ___
 
@@ -753,8 +753,8 @@ Called after provider call - end tracking
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | [`UniversalMessage`](../modules#universalmessage)[] |
-| `response` | [`UniversalMessage`](../modules#universalmessage) |
+| `messages` | [`TUniversalMessage`](../modules#tuniversalmessage)[] |
+| `response` | [`TUniversalMessage`](../modules#tuniversalmessage) |
 
 #### Returns
 
@@ -762,11 +762,11 @@ Called after provider call - end tracking
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[afterProviderCall](BasePlugin#afterprovidercall)
+[AbstractPlugin](AbstractPlugin).[afterProviderCall](AbstractPlugin#afterprovidercall)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:158](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L158)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:161](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L161)
 
 ___
 
@@ -781,7 +781,7 @@ Called before tool call - start tracking
 | Name | Type |
 | :------ | :------ |
 | `toolName` | `string` |
-| `parameters` | `ToolParameters` |
+| `parameters` | [`TToolParameters`](../modules#ttoolparameters) |
 
 #### Returns
 
@@ -789,11 +789,11 @@ Called before tool call - start tracking
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[beforeToolCall](BasePlugin#beforetoolcall)
+[AbstractPlugin](AbstractPlugin).[beforeToolCall](AbstractPlugin#beforetoolcall)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:207](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L207)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:210](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L210)
 
 ___
 
@@ -808,8 +808,8 @@ Called after tool call - end tracking
 | Name | Type |
 | :------ | :------ |
 | `toolName` | `string` |
-| `parameters` | `ToolParameters` |
-| `result` | [`ToolExecutionResult`](../interfaces/ToolExecutionResult) |
+| `parameters` | [`TToolParameters`](../modules#ttoolparameters) |
+| `result` | [`IToolExecutionResult`](../interfaces/IToolExecutionResult) |
 
 #### Returns
 
@@ -817,11 +817,11 @@ Called after tool call - end tracking
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[afterToolCall](BasePlugin#aftertoolcall)
+[AbstractPlugin](AbstractPlugin).[afterToolCall](AbstractPlugin#aftertoolcall)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:226](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L226)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:229](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L229)
 
 ___
 
@@ -836,7 +836,7 @@ Called on error - end tracking with error
 | Name | Type |
 | :------ | :------ |
 | `error` | `Error` |
-| `context?` | [`ErrorContext`](../interfaces/ErrorContext) |
+| `context?` | [`IPluginErrorContext`](../interfaces/IPluginErrorContext) |
 
 #### Returns
 
@@ -844,11 +844,11 @@ Called on error - end tracking with error
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[onError](BasePlugin#onerror)
+[AbstractPlugin](AbstractPlugin).[onError](AbstractPlugin#onerror)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:276](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L276)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:279](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L279)
 
 ___
 
@@ -873,7 +873,7 @@ Get execution statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:325](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L325)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:328](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L328)
 
 ___
 
@@ -897,7 +897,7 @@ Get aggregated execution statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:344](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L344)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:347](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L347)
 
 ___
 
@@ -913,7 +913,7 @@ Clear all statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:437](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L437)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:440](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L440)
 
 ___
 
@@ -929,7 +929,7 @@ Get currently active executions
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:447](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L447)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:450](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L450)
 
 ___
 
@@ -953,7 +953,7 @@ Get plugin performance statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:459](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L459)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:462](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L462)
 
 ___
 
@@ -969,7 +969,7 @@ Clean up resources
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:495](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L495)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:498](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L498)
 
 ___
 
@@ -985,7 +985,7 @@ Get execution data for export
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:503](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L503)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:506](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L506)
 
 ___
 
@@ -1001,7 +1001,7 @@ Get analytics statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:510](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L510)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:513](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L513)
 
 ___
 
@@ -1017,7 +1017,7 @@ Clear execution data
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:517](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L517)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:520](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L520)
 
 ___
 
@@ -1044,11 +1044,11 @@ Get plugin status
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[getStatus](BasePlugin#getstatus)
+[AbstractPlugin](AbstractPlugin).[getStatus](AbstractPlugin#getstatus)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:524](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L524)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:527](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L527)
 
 ___
 
@@ -1064,8 +1064,8 @@ Get plugin statistics
 
 #### Overrides
 
-[BasePlugin](BasePlugin).[getStats](BasePlugin#getstats)
+[AbstractPlugin](AbstractPlugin).[getStats](AbstractPlugin#getstats)
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:549](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L549)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:552](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L552)

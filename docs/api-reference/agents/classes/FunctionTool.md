@@ -13,13 +13,13 @@ Wraps a JavaScript function as a tool with schema validation
 
 ## Hierarchy
 
-- [`BaseTool`](BaseTool)\<`ToolParameters`, [`ToolResult`](../interfaces/ToolResult)\>
+- `AbstractTool`\<[`TToolParameters`](../modules#ttoolparameters), [`IToolResult`](../interfaces/IToolResult)\>
 
   ↳ **`FunctionTool`**
 
 ## Implements
 
-- `FunctionTool`
+- [`IFunctionTool`](../interfaces/IFunctionTool)
 
 ## Table of contents
 
@@ -34,9 +34,10 @@ Wraps a JavaScript function as a tool with schema validation
 
 ### Methods
 
+- [setEventService](FunctionTool#seteventservice)
+- [execute](FunctionTool#execute)
 - [getDescription](FunctionTool#getdescription)
 - [getName](FunctionTool#getname)
-- [execute](FunctionTool#execute)
 - [validate](FunctionTool#validate)
 - [validateParameters](FunctionTool#validateparameters)
 
@@ -44,14 +45,15 @@ Wraps a JavaScript function as a tool with schema validation
 
 ### constructor
 
-• **new FunctionTool**(`schema`, `fn`): [`FunctionTool`](FunctionTool)
+• **new FunctionTool**(`schema`, `fn`, `options?`): [`FunctionTool`](FunctionTool)
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `schema` | [`ToolSchema`](../interfaces/ToolSchema) |
-| `fn` | [`ToolExecutor`](../modules#toolexecutor) |
+| `schema` | [`IToolSchema`](../interfaces/IToolSchema) |
+| `fn` | [`TToolExecutor`](../modules#ttoolexecutor) |
+| `options` | `IAbstractToolOptions` |
 
 #### Returns
 
@@ -59,49 +61,118 @@ Wraps a JavaScript function as a tool with schema validation
 
 #### Overrides
 
-[BaseTool](BaseTool).[constructor](BaseTool#constructor)
+AbstractTool\&lt;TToolParameters, IToolResult\&gt;.constructor
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:23](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/implementations/function-tool.ts#L23)
+[packages/agents/src/tools/implementations/function-tool.ts:23](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/implementations/function-tool.ts#L23)
 
 ## Properties
 
 ### schema
 
-• `Readonly` **schema**: [`ToolSchema`](../interfaces/ToolSchema)
+• `Readonly` **schema**: [`IToolSchema`](../interfaces/IToolSchema)
+
+Tool schema
 
 #### Implementation of
 
-IFunctionTool.schema
+[IFunctionTool](../interfaces/IFunctionTool).[schema](../interfaces/IFunctionTool#schema)
 
 #### Overrides
 
-[BaseTool](BaseTool).[schema](BaseTool#schema)
+AbstractTool.schema
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:20](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/implementations/function-tool.ts#L20)
+[packages/agents/src/tools/implementations/function-tool.ts:20](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/implementations/function-tool.ts#L20)
 
 ___
 
 ### fn
 
-• `Readonly` **fn**: [`ToolExecutor`](../modules#toolexecutor)
+• `Readonly` **fn**: [`TToolExecutor`](../modules#ttoolexecutor)
+
+Function to execute
 
 #### Implementation of
 
-IFunctionTool.fn
+[IFunctionTool](../interfaces/IFunctionTool).[fn](../interfaces/IFunctionTool#fn)
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:21](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/implementations/function-tool.ts#L21)
+[packages/agents/src/tools/implementations/function-tool.ts:21](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/implementations/function-tool.ts#L21)
 
 ## Methods
+
+### setEventService
+
+▸ **setEventService**(`eventService`): `void`
+
+Set EventService for post-construction injection
+
+🎯 DEPENDENCY INJECTION:
+Accepts EventService as-is without transformation
+Caller is responsible for providing properly configured EventService
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `eventService` | `undefined` \| [`IEventService`](../interfaces/IEventService) | EventService instance to use for event emission (or undefined for silent operation) |
+
+#### Returns
+
+`void`
+
+#### Inherited from
+
+AbstractTool.setEventService
+
+#### Defined in
+
+[packages/agents/src/abstracts/abstract-tool.ts:152](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-tool.ts#L152)
+
+___
+
+### execute
+
+▸ **execute**(`parameters`, `context`): `Promise`\<[`IToolResult`](../interfaces/IToolResult)\>
+
+Execute tool with simplified lifecycle
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `parameters` | [`TToolParameters`](../modules#ttoolparameters) | Tool parameters |
+| `context` | [`IToolExecutionContext`](../interfaces/IToolExecutionContext) | Optional execution context |
+
+#### Returns
+
+`Promise`\<[`IToolResult`](../interfaces/IToolResult)\>
+
+Promise resolving to tool result
+
+#### Implementation of
+
+[IFunctionTool](../interfaces/IFunctionTool).[execute](../interfaces/IFunctionTool#execute)
+
+#### Inherited from
+
+AbstractTool.execute
+
+#### Defined in
+
+[packages/agents/src/abstracts/abstract-tool.ts:184](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-tool.ts#L184)
+
+___
 
 ### getDescription
 
 ▸ **getDescription**(): `string`
+
+Get tool description
 
 #### Returns
 
@@ -109,15 +180,15 @@ IFunctionTool.fn
 
 #### Implementation of
 
-IFunctionTool.getDescription
+[IFunctionTool](../interfaces/IFunctionTool).[getDescription](../interfaces/IFunctionTool#getdescription)
 
 #### Inherited from
 
-[BaseTool](BaseTool).[getDescription](BaseTool#getdescription)
+AbstractTool.getDescription
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:103](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-tool.ts#L103)
+[packages/agents/src/abstracts/abstract-tool.ts:223](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-tool.ts#L223)
 
 ___
 
@@ -131,42 +202,11 @@ ___
 
 #### Inherited from
 
-[BaseTool](BaseTool).[getName](BaseTool#getname)
+AbstractTool.getName
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:107](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-tool.ts#L107)
-
-___
-
-### execute
-
-▸ **execute**(`parameters`, `context?`): `Promise`\<[`ToolResult`](../interfaces/ToolResult)\>
-
-Execute the function tool
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `parameters` | `ToolParameters` |
-| `context?` | [`ToolExecutionContext`](../interfaces/ToolExecutionContext) |
-
-#### Returns
-
-`Promise`\<[`ToolResult`](../interfaces/ToolResult)\>
-
-#### Implementation of
-
-IFunctionTool.execute
-
-#### Overrides
-
-[BaseTool](BaseTool).[execute](BaseTool#execute)
-
-#### Defined in
-
-[packages/agents/src/tools/implementations/function-tool.ts:33](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/implementations/function-tool.ts#L33)
+[packages/agents/src/abstracts/abstract-tool.ts:227](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-tool.ts#L227)
 
 ___
 
@@ -180,7 +220,7 @@ Enhanced validation with detailed error reporting
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `ToolParameters` |
+| `parameters` | [`TToolParameters`](../modules#ttoolparameters) |
 
 #### Returns
 
@@ -188,21 +228,21 @@ Enhanced validation with detailed error reporting
 
 #### Implementation of
 
-IFunctionTool.validate
+[IFunctionTool](../interfaces/IFunctionTool).[validate](../interfaces/IFunctionTool#validate)
 
 #### Overrides
 
-[BaseTool](BaseTool).[validate](BaseTool#validate)
+AbstractTool.validate
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:92](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/implementations/function-tool.ts#L92)
+[packages/agents/src/tools/implementations/function-tool.ts:97](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/implementations/function-tool.ts#L97)
 
 ___
 
 ### validateParameters
 
-▸ **validateParameters**(`parameters`): [`ParameterValidationResult`](../interfaces/ParameterValidationResult)
+▸ **validateParameters**(`parameters`): [`IParameterValidationResult`](../interfaces/IParameterValidationResult)
 
 Validate tool parameters with detailed result
 
@@ -210,20 +250,20 @@ Validate tool parameters with detailed result
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `ToolParameters` |
+| `parameters` | [`TToolParameters`](../modules#ttoolparameters) |
 
 #### Returns
 
-[`ParameterValidationResult`](../interfaces/ParameterValidationResult)
+[`IParameterValidationResult`](../interfaces/IParameterValidationResult)
 
 #### Implementation of
 
-IFunctionTool.validateParameters
+[IFunctionTool](../interfaces/IFunctionTool).[validateParameters](../interfaces/IFunctionTool#validateparameters)
 
 #### Overrides
 
-[BaseTool](BaseTool).[validateParameters](BaseTool#validateparameters)
+AbstractTool.validateParameters
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:99](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/implementations/function-tool.ts#L99)
+[packages/agents/src/tools/implementations/function-tool.ts:104](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/implementations/function-tool.ts#L104)

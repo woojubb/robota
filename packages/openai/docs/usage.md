@@ -698,7 +698,7 @@ const provider = new OpenAIProvider({
 
 ## Migration Guide
 
-### From Legacy OpenAI Integration
+### From Previous OpenAI Integration
 
 ```typescript
 // Old way (deprecated)

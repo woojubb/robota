@@ -43,7 +43,7 @@ Instance-based for isolated template management
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:42](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L42)
+[packages/agents/src/managers/agent-templates.ts:38](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L38)
 
 ## Methods
 
@@ -57,7 +57,7 @@ Register a template
 
 | Name | Type |
 | :------ | :------ |
-| `template` | [`AgentTemplate`](../interfaces/AgentTemplate) |
+| `template` | [`IAgentTemplate`](../interfaces/IAgentTemplate) |
 
 #### Returns
 
@@ -65,7 +65,7 @@ Register a template
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:50](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L50)
+[packages/agents/src/managers/agent-templates.ts:46](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L46)
 
 ___
 
@@ -87,29 +87,29 @@ Unregister a template
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:70](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L70)
+[packages/agents/src/managers/agent-templates.ts:66](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L66)
 
 ___
 
 ### getTemplates
 
-▸ **getTemplates**(): [`AgentTemplate`](../interfaces/AgentTemplate)[]
+▸ **getTemplates**(): [`IAgentTemplate`](../interfaces/IAgentTemplate)[]
 
 Get all templates
 
 #### Returns
 
-[`AgentTemplate`](../interfaces/AgentTemplate)[]
+[`IAgentTemplate`](../interfaces/IAgentTemplate)[]
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:83](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L83)
+[packages/agents/src/managers/agent-templates.ts:79](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L79)
 
 ___
 
 ### getTemplate
 
-▸ **getTemplate**(`templateId`): `undefined` \| [`AgentTemplate`](../interfaces/AgentTemplate)
+▸ **getTemplate**(`templateId`): `undefined` \| [`IAgentTemplate`](../interfaces/IAgentTemplate)
 
 Get template by ID
 
@@ -121,17 +121,17 @@ Get template by ID
 
 #### Returns
 
-`undefined` \| [`AgentTemplate`](../interfaces/AgentTemplate)
+`undefined` \| [`IAgentTemplate`](../interfaces/IAgentTemplate)
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:90](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L90)
+[packages/agents/src/managers/agent-templates.ts:86](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L86)
 
 ___
 
 ### findTemplates
 
-▸ **findTemplates**(`criteria`): [`AgentTemplate`](../interfaces/AgentTemplate)[]
+▸ **findTemplates**(`criteria`): [`IAgentTemplate`](../interfaces/IAgentTemplate)[]
 
 Find templates by criteria
 
@@ -147,17 +147,17 @@ Find templates by criteria
 
 #### Returns
 
-[`AgentTemplate`](../interfaces/AgentTemplate)[]
+[`IAgentTemplate`](../interfaces/IAgentTemplate)[]
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:97](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L97)
+[packages/agents/src/managers/agent-templates.ts:93](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L93)
 
 ___
 
 ### applyTemplate
 
-▸ **applyTemplate**(`template`, `overrides?`): [`TemplateApplicationResult`](../interfaces/TemplateApplicationResult)
+▸ **applyTemplate**(`template`, `overrides?`): [`ITemplateApplicationResult`](../interfaces/ITemplateApplicationResult)
 
 Apply template to configuration
 
@@ -165,16 +165,16 @@ Apply template to configuration
 
 | Name | Type |
 | :------ | :------ |
-| `template` | [`AgentTemplate`](../interfaces/AgentTemplate) |
-| `overrides` | `Partial`\<[`AgentConfig`](../interfaces/AgentConfig)\> |
+| `template` | [`IAgentTemplate`](../interfaces/IAgentTemplate) |
+| `overrides` | `Partial`\<[`IAgentConfig`](../interfaces/IAgentConfig)\> |
 
 #### Returns
 
-[`TemplateApplicationResult`](../interfaces/TemplateApplicationResult)
+[`ITemplateApplicationResult`](../interfaces/ITemplateApplicationResult)
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:136](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L136)
+[packages/agents/src/managers/agent-templates.ts:132](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L132)
 
 ___
 
@@ -196,7 +196,7 @@ Check if template exists
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:185](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L185)
+[packages/agents/src/managers/agent-templates.ts:177](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L177)
 
 ___
 
@@ -212,7 +212,7 @@ Get template count
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:192](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L192)
+[packages/agents/src/managers/agent-templates.ts:184](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L184)
 
 ___
 
@@ -228,7 +228,7 @@ Clear all templates
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:199](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L199)
+[packages/agents/src/managers/agent-templates.ts:191](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L191)
 
 ___
 
@@ -252,4 +252,4 @@ Get template statistics
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:207](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-templates.ts#L207)
+[packages/agents/src/managers/agent-templates.ts:199](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-templates.ts#L199)

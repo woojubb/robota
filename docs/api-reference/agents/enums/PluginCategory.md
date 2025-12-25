@@ -35,7 +35,7 @@ Monitoring and observability
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:11](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L11)
+[packages/agents/src/abstracts/abstract-plugin.ts:12](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L12)
 
 ___
 
@@ -47,7 +47,7 @@ Logging and debugging
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:13](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L13)
+[packages/agents/src/abstracts/abstract-plugin.ts:14](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L14)
 
 ___
 
@@ -59,7 +59,7 @@ Data storage and persistence
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:15](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L15)
+[packages/agents/src/abstracts/abstract-plugin.ts:16](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L16)
 
 ___
 
@@ -71,7 +71,7 @@ External notifications and alerts
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:17](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L17)
+[packages/agents/src/abstracts/abstract-plugin.ts:18](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L18)
 
 ___
 
@@ -83,7 +83,7 @@ Security and access control
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:19](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L19)
+[packages/agents/src/abstracts/abstract-plugin.ts:20](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L20)
 
 ___
 
@@ -95,7 +95,7 @@ Performance optimization
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:21](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L21)
+[packages/agents/src/abstracts/abstract-plugin.ts:22](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L22)
 
 ___
 
@@ -107,7 +107,7 @@ Error handling and recovery
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:23](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L23)
+[packages/agents/src/abstracts/abstract-plugin.ts:24](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L24)
 
 ___
 
@@ -119,7 +119,7 @@ Rate limiting and throttling
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:25](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L25)
+[packages/agents/src/abstracts/abstract-plugin.ts:26](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L26)
 
 ___
 
@@ -131,7 +131,7 @@ Event processing and coordination
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:27](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L27)
+[packages/agents/src/abstracts/abstract-plugin.ts:28](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L28)
 
 ___
 
@@ -143,4 +143,4 @@ Custom or specialized functionality
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:29](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L29)
+[packages/agents/src/abstracts/abstract-plugin.ts:30](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L30)

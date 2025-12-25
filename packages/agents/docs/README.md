@@ -168,7 +168,7 @@ See [architecture.md](architecture.md) for detailed architecture information.
 - **@robota-sdk/openai**: Complete agents standard migration
 - **@robota-sdk/anthropic**: Complete agents standard migration  
 - **@robota-sdk/google**: Complete agents standard migration
-- **@robota-sdk/team**: assignTask MCP tool collection (legacy team creation removed)
+- **@robota-sdk/team**: assignTask MCP tool collection (team creation removed)
 
 ### Deprecated Packages
 - **@robota-sdk/core**: Deprecated - functionality moved to agents

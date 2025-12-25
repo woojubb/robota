@@ -4,7 +4,6 @@ export * from './types';
 // Re-export specific types to avoid conflicts
 export type {
     IAgentConfig,
-    IAgentInterface,
     IAgentTemplate,
     IRunOptions
 } from './agent';

@@ -76,13 +76,12 @@ export interface AggregatedPerformanceStats {
     };
 }
 
-import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
-import type { PluginStats } from '../../abstracts/abstract-plugin';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Configuration options for performance plugin
  */
-export interface PerformancePluginOptions extends BasePluginOptions {
+export interface PerformancePluginOptions extends IPluginOptions {
     /** Performance monitoring strategy to use */
     strategy: PerformanceMonitoringStrategy;
     /** File path for file strategy */
@@ -137,7 +136,7 @@ export interface SystemMetricsCollector {
 /**
  * Performance plugin statistics
  */
-export interface PerformancePluginStats extends PluginStats {
+export interface PerformancePluginStats extends IPluginStats {
     /** Total number of metrics recorded */
     metricsRecorded: number;
     /** Number of performance threshold violations */

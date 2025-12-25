@@ -52,7 +52,7 @@ Remote storage implementation for usage statistics with batching
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:16](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/storages/remote-storage.ts#L16)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:17](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/storages/remote-storage.ts#L17)
 
 ## Methods
 
@@ -76,7 +76,7 @@ Remote storage implementation for usage statistics with batching
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:32](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/storages/remote-storage.ts#L32)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:33](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/storages/remote-storage.ts#L33)
 
 ___
 
@@ -103,7 +103,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:40](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/storages/remote-storage.ts#L40)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:41](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/storages/remote-storage.ts#L41)
 
 ___
 
@@ -129,7 +129,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:59](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/storages/remote-storage.ts#L59)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:60](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/storages/remote-storage.ts#L60)
 
 ___
 
@@ -147,7 +147,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:92](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/storages/remote-storage.ts#L92)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:93](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/storages/remote-storage.ts#L93)
 
 ___
 
@@ -165,7 +165,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:107](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/storages/remote-storage.ts#L107)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:108](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/storages/remote-storage.ts#L108)
 
 ___
 
@@ -183,4 +183,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:140](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/storages/remote-storage.ts#L140)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:141](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/storages/remote-storage.ts#L141)

@@ -84,7 +84,7 @@ Error.constructor
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:25](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L25)
+[packages/agents/src/utils/errors.ts:25](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L25)
 
 ## Properties
 
@@ -108,7 +108,7 @@ Error.stackTraceLimit
 
 #### Defined in
 
-node_modules/.pnpm/@types+node@20.17.46/node_modules/@types/node/globals.d.ts:148
+node_modules/.pnpm/@types+node@20.19.9/node_modules/@types/node/globals.d.ts:149
 
 ___
 
@@ -174,7 +174,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:21](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L21)
+[packages/agents/src/utils/errors.ts:21](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L21)
 
 ___
 
@@ -184,7 +184,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:22](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L22)
+[packages/agents/src/utils/errors.ts:22](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L22)
 
 ___
 
@@ -194,7 +194,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:23](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L23)
+[packages/agents/src/utils/errors.ts:23](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L23)
 
 ___
 
@@ -204,7 +204,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:27](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L27)
+[packages/agents/src/utils/errors.ts:27](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L27)
 
 ## Methods
 
@@ -273,7 +273,7 @@ Error.captureStackTrace
 
 #### Defined in
 
-node_modules/.pnpm/@types+node@20.17.46/node_modules/@types/node/globals.d.ts:132
+node_modules/.pnpm/@types+node@20.19.9/node_modules/@types/node/globals.d.ts:133
 
 ___
 
@@ -302,4 +302,4 @@ Error.prepareStackTrace
 
 #### Defined in
 
-node_modules/.pnpm/@types+node@20.17.46/node_modules/@types/node/globals.d.ts:136
+node_modules/.pnpm/@types+node@20.19.9/node_modules/@types/node/globals.d.ts:137

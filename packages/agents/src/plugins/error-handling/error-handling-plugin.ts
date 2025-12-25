@@ -40,7 +40,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<ErrorHandlingPluginOptio
             logErrors: options.logErrors ?? true,
             failureThreshold: options.failureThreshold ?? 5,
             circuitBreakerTimeout: options.circuitBreakerTimeout ?? 60000, // 1 minute
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.ERROR_HANDLING,
             priority: options.priority ?? PluginPriority.HIGH,
             moduleEvents: options.moduleEvents ?? [],

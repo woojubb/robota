@@ -13,29 +13,27 @@
 ### Classes
 
 - [OpenAIConversationAdapter](classes/OpenAIConversationAdapter)
-- [PayloadLogger](classes/PayloadLogger)
 - [OpenAIProvider](classes/OpenAIProvider)
 
 ### Interfaces
 
-- [UserMessage](interfaces/UserMessage)
-- [SystemMessage](interfaces/SystemMessage)
-- [ToolMessage](interfaces/ToolMessage)
-- [ProviderOptions](interfaces/ProviderOptions)
-- [OpenAIProviderOptions](interfaces/OpenAIProviderOptions)
+- [IPayloadLogger](interfaces/IPayloadLogger)
+- [IPayloadLoggerOptions](interfaces/IPayloadLoggerOptions)
+- [IProviderOptions](interfaces/IProviderOptions)
+- [IOpenAIProviderOptions](interfaces/IOpenAIProviderOptions)
 
 ### Type Aliases
 
-- [ProviderOptionValue](#provideroptionvalue)
+- [TProviderOptionValue](#tprovideroptionvalue)
 
 ## Type Aliases
 
-### ProviderOptionValue
+### TProviderOptionValue
 
-Ƭ **ProviderOptionValue**: `string` \| `number` \| `boolean` \| `undefined` \| ``null`` \| `OpenAI` \| [`ProviderOptionValue`](#provideroptionvalue)[] \| \{ `[key: string]`: [`ProviderOptionValue`](#provideroptionvalue);  }
+Ƭ **TProviderOptionValue**: `string` \| `number` \| `boolean` \| `undefined` \| ``null`` \| `OpenAI` \| [`IPayloadLogger`](interfaces/IPayloadLogger) \| `SimpleLogger` \| `IExecutor` \| [`TProviderOptionValue`](#tprovideroptionvalue)[] \| \{ `[key: string]`: [`TProviderOptionValue`](#tprovideroptionvalue);  }
 
 Valid provider option value types
 
 #### Defined in
 
-[openai/src/types.ts:6](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L6)
+[openai/src/types.ts:9](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/types.ts#L9)

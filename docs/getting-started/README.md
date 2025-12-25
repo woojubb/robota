@@ -32,7 +32,7 @@ npm install @robota-sdk/anthropic @anthropic-ai/sdk
 npm install @robota-sdk/google @google/generative-ai
 
 # Optional: Additional packages
-npm install @robota-sdk/team    # assignTask MCP tool collection (legacy team creation removed)
+npm install @robota-sdk/team    # assignTask MCP tool collection (team creation removed)
 npm install dotenv              # For environment variables
 ```
 
@@ -328,7 +328,7 @@ const response = await agent.run('What is 25 * 7?');
 
 ### assignTask Tool Collection (team package)
 
-Use the `@robota-sdk/team` package for assignTask MCP tools (legacy team creation removed):
+Use the `@robota-sdk/team` package for assignTask MCP tools (team creation removed):
 
 ```typescript
 import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';

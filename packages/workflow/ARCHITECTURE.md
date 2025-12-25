@@ -318,7 +318,7 @@ subscriber.registerHandler(new MyCustomHandler(rootEventService));
 - ✅ 타입 안전성 100% 달성
 
 ### Phase 6: EventService context propagation
-- Use EventService + ownerPath context (no legacy contextual aliases)
+- Use EventService + ownerPath context (no contextual aliases)
 - ✅ `createChild(this)` 패턴 구현 완료
 - ✅ 도메인 중립적 컨텍스트 추출 시스템 완성
 - ✅ EventService 인터페이스 표준화 준비

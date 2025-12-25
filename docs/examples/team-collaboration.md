@@ -1,6 +1,6 @@
 # assignTask Tool Collection (team package)
 
-Legacy team collaboration has been removed. The `@robota-sdk/team` package now provides assignTask MCP tools only.
+Team collaboration features have been removed. The `@robota-sdk/team` package now provides assignTask MCP tools only.
 
 ## Quick Start
 

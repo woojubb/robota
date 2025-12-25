@@ -11,7 +11,7 @@
 - [x] `packages/workflow` 디렉토리 생성
 - [x] `package.json` 작성
   - [x] 패키지명: `@robota-sdk/workflow`
-- [x] 의존성 설정: `@robota-sdk/agents`, `@robota-sdk/team` (assignTask MCP tool collection; legacy team creation 제거)
+- [x] 의존성 설정: `@robota-sdk/agents`, `@robota-sdk/team` (assignTask MCP tool collection; team creation 제거)
   - [x] TypeScript 설정
   - [x] 빌드 스크립트 설정
 - [x] `tsconfig.json` 작성
@@ -239,7 +239,7 @@
 
 ## ✅ Phase 7: EventService (ownerPath context) integration (completed)
 
-### Legacy notes: avoid contextual aliases
+### Notes: avoid contextual aliases
 - [x] **단일 `extractors` 배열 방식** 완성
   - [x] `ContextExtractor` 인터페이스: `ctor`/`name` + `extract` 함수
   - [x] 이중 구조(typeMap/nameMap) 제거, 단일 배열로 통합
@@ -258,14 +258,14 @@
 - [x] Robota/Team 생성 시 표준 EventService 주입
 - [x] 예제/웹은 단계별 교체 진행 중 (검증 PASS 기준)
   - [ ] Remove references to team-specific concepts; do not introduce team as a known owner type.
-  - [ ] Ensure workflow components rely on EventContext.ownerPath (path-only) and do not depend on legacy contextual alias concepts.
+  - [ ] Ensure workflow components rely on EventContext.ownerPath (path-only) and do not depend on contextual alias concepts.
 
 ### EventService 인터페이스 표준화
 - [ ] `packages/agents/src/services/event-service.ts` 업데이트
   - [ ] Do not enforce a fixed owner type taxonomy in types or binders (ownerType must be open-ended).
-- [x] Removed legacy contextual alias exports in `@robota-sdk/agents`
+- [x] Removed contextual alias exports in `@robota-sdk/agents`
 - [ ] 전체 시스템 EventService 생성 패턴 통일
-  - [ ] Prefer EventService + ownerPath context (no legacy contextual alias concepts).
+  - [ ] Prefer EventService + ownerPath context (no contextual alias concepts).
 
 ### 마이그레이션 전용 기능 정리
 - [ ] 마이그레이션 완료 후 정리 작업
@@ -278,7 +278,7 @@
 ### 통합 검증
 - [ ] 전체 시스템 빌드 및 실행 테스트
 - [ ] **단일 배열 `extractors` 방식** EventService 생성 및 컨텍스트 전파 검증
-- [x] Verify workflow package relies on EventContext.ownerPath and does not depend on legacy contextual aliases
+- [x] Verify workflow package relies on EventContext.ownerPath and does not depend on contextual aliases
 - [ ] **도메인 중립적 컨텍스트 추출** 기존 기능 동작 검증
 
 ## ⏸️ Phase 8: 테스트 작성 (3-4일) **미구현 (향후 확장)**
@@ -399,7 +399,7 @@
    - [x] **단일 배열 `extractors` 방식** 완성
    - [x] **`createChild(this)` 패턴** 완성
    - [x] **도메인 중립적 컨텍스트 추출** 완성
-   - [x] Remove legacy contextual alias references and use EventService ownerPath context
+   - [x] Remove contextual alias references and use EventService ownerPath context
    - [ ] 전체 시스템 EventService 생성 패턴 통일
 
 ### ⏸️ **향후 확장** (우선순위 2)
@@ -452,7 +452,7 @@
 
 4) 이벤트 소스 표준화 계획 수립 (agents/team)
 - [ ] `ExecutionService` emit별 parentId/prevId 제공 규칙 표준 확정
-- [ ] (legacy cleanup) remove legacy team/relay references; keep ownerPath-only emission rules
+- [ ] Remove team/relay references; keep ownerPath-only emission rules
 
 5) 통합 적용 (코드 변경 단계)
 - [ ] workflow: prev 엣지 생성 로직 적용(필요시)
@@ -490,7 +490,7 @@
 
 ## 🎯 EventService ownerPath context ready
 
-The workflow package should consume EventContext.ownerPath and avoid legacy contextual alias concepts.
+The workflow package should consume EventContext.ownerPath and avoid contextual alias concepts.
 
 ### ✅ **완성된 핵심 기능**
 - **단일 `extractors` 배열 방식**: 이중 구조 제거, 명확한 우선순위

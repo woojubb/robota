@@ -30,7 +30,7 @@ Highest priority - executed first
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:37](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L37)
+[packages/agents/src/abstracts/abstract-plugin.ts:38](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L38)
 
 ___
 
@@ -42,7 +42,7 @@ High priority
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:39](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L39)
+[packages/agents/src/abstracts/abstract-plugin.ts:40](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L40)
 
 ___
 
@@ -54,7 +54,7 @@ Normal priority (default)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:41](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L41)
+[packages/agents/src/abstracts/abstract-plugin.ts:42](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L42)
 
 ___
 
@@ -66,7 +66,7 @@ Low priority
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:43](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L43)
+[packages/agents/src/abstracts/abstract-plugin.ts:44](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L44)
 
 ___
 
@@ -78,4 +78,4 @@ Lowest priority - executed last
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:45](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L45)
+[packages/agents/src/abstracts/abstract-plugin.ts:46](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L46)
