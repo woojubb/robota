@@ -21,7 +21,7 @@ import { WebLogger } from '../../lib/web-logger';
 /**
  * Tree node structure for debugging
  */
-interface DebugTreeNode {
+interface IDebugTreeNode {
     id: string;
     type: string;
     state: string;
@@ -32,7 +32,7 @@ interface DebugTreeNode {
     endTime?: string;
     duration?: number;
     executionPath?: string[];
-    children: DebugTreeNode[];
+    children: IDebugTreeNode[];
 }
 
 /**
@@ -75,13 +75,13 @@ export const ExecutionTreeDebug: React.FC<IExecutionTreeDebugProps> = ({
         });
 
         // Build tree structure
-        const rootNodes: DebugTreeNode[] = [];
-        const nodeMap = new Map<string, DebugTreeNode>();
+        const rootNodes: IDebugTreeNode[] = [];
+        const nodeMap = new Map<string, IDebugTreeNode>();
 
         // Convert blocks to debug nodes
         realTimeBlocks.forEach(block => {
             const metadata = block.blockMetadata as IRealTimeBlockMetadata;
-            const debugNode: DebugTreeNode = {
+            const debugNode: IDebugTreeNode = {
                 id: metadata.id,
                 type: metadata.type,
                 state: metadata.visualState,
@@ -114,7 +114,7 @@ export const ExecutionTreeDebug: React.FC<IExecutionTreeDebugProps> = ({
         });
 
         // Sort nodes by timestamp for consistent ordering
-        const sortNodesByTime = (nodes: DebugTreeNode[]) => {
+        const sortNodesByTime = (nodes: IDebugTreeNode[]) => {
             nodes.sort((a, b) => {
                 const aTime = a.startTime ? new Date(a.startTime).getTime() : 0;
                 const bTime = b.startTime ? new Date(b.startTime).getTime() : 0;

@@ -3,7 +3,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 
-export interface ModalProps {
+export interface IModalProps {
     isOpen: boolean;
     onClose: () => void;
     title?: string;
@@ -29,7 +29,7 @@ export function Modal({
     children,
     size = 'md',
     className = ''
-}: ModalProps) {
+}: IModalProps) {
     // Handle ESC key
     React.useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {

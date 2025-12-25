@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 
-interface KeyboardShortcut {
+export interface IKeyboardShortcut {
     key: string;
     ctrl?: boolean;
     alt?: boolean;
@@ -10,12 +10,12 @@ interface KeyboardShortcut {
     description: string;
 }
 
-interface UseKeyboardShortcutsProps {
-    shortcuts: KeyboardShortcut[];
+interface IUseKeyboardShortcutsProps {
+    shortcuts: IKeyboardShortcut[];
     enabled?: boolean;
 }
 
-export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardShortcutsProps) {
+export function useKeyboardShortcuts({ shortcuts, enabled = true }: IUseKeyboardShortcutsProps) {
     const handleKeyDown = useCallback(
         (event: KeyboardEvent) => {
             if (!enabled) return;
@@ -71,35 +71,35 @@ export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardS
 
 // Predefined shortcuts for common actions
 export const createShortcuts = {
-    save: (handler: () => void): KeyboardShortcut => ({
+    save: (handler: () => void): IKeyboardShortcut => ({
         key: 's',
         ctrl: true,
         handler,
         description: 'Save current project'
     }),
 
-    run: (handler: () => void): KeyboardShortcut => ({
+    run: (handler: () => void): IKeyboardShortcut => ({
         key: 'r',
         ctrl: true,
         handler,
         description: 'Run code'
     }),
 
-    new: (handler: () => void): KeyboardShortcut => ({
+    new: (handler: () => void): IKeyboardShortcut => ({
         key: 'n',
         ctrl: true,
         handler,
         description: 'New project'
     }),
 
-    open: (handler: () => void): KeyboardShortcut => ({
+    open: (handler: () => void): IKeyboardShortcut => ({
         key: 'o',
         ctrl: true,
         handler,
         description: 'Open project browser'
     }),
 
-    export: (handler: () => void): KeyboardShortcut => ({
+    export: (handler: () => void): IKeyboardShortcut => ({
         key: 'e',
         ctrl: true,
         shift: true,
@@ -107,41 +107,41 @@ export const createShortcuts = {
         description: 'Export project'
     }),
 
-    templates: (handler: () => void): KeyboardShortcut => ({
+    templates: (handler: () => void): IKeyboardShortcut => ({
         key: 't',
         ctrl: true,
         handler,
         description: 'Open template gallery'
     }),
 
-    quickRun: (handler: () => void): KeyboardShortcut => ({
+    quickRun: (handler: () => void): IKeyboardShortcut => ({
         key: 'Enter',
         ctrl: true,
         handler,
         description: 'Quick run (Ctrl+Enter)'
     }),
 
-    escape: (handler: () => void): KeyboardShortcut => ({
+    escape: (handler: () => void): IKeyboardShortcut => ({
         key: 'Escape',
         handler,
         description: 'Close dialogs/panels'
     }),
 
-    toggleSidebar: (handler: () => void): KeyboardShortcut => ({
+    toggleSidebar: (handler: () => void): IKeyboardShortcut => ({
         key: '\\',
         ctrl: true,
         handler,
         description: 'Toggle sidebar'
     }),
 
-    search: (handler: () => void): KeyboardShortcut => ({
+    search: (handler: () => void): IKeyboardShortcut => ({
         key: 'f',
         ctrl: true,
         handler,
         description: 'Search'
     }),
 
-    formatCode: (handler: () => void): KeyboardShortcut => ({
+    formatCode: (handler: () => void): IKeyboardShortcut => ({
         key: 'f',
         ctrl: true,
         shift: true,
@@ -149,7 +149,7 @@ export const createShortcuts = {
         description: 'Format code'
     }),
 
-    toggleComments: (handler: () => void): KeyboardShortcut => ({
+    toggleComments: (handler: () => void): IKeyboardShortcut => ({
         key: '/',
         ctrl: true,
         handler,
@@ -170,5 +170,5 @@ export const createShortcuts = {
             handler: () => handler('prev'),
             description: 'Previous tab'
         }
-    ] as KeyboardShortcut[]
+    ] as IKeyboardShortcut[]
 }; 

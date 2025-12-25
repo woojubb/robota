@@ -273,10 +273,7 @@ function playgroundReducer(state: IPlaygroundState, action: TPlaygroundAction): 
         case 'ADD_TOOL_TO_AGENT_OVERLAY': {
             const { agentId, toolId } = action.payload;
             const prev = state.addedToolsByAgent[agentId] ?? [];
-            const next = prev.includes(toolId) ? prev : [...prev, toolId];
-            if (next === prev) {
-                return state;
-            }
+            const next = [...prev, toolId];
             return {
                 ...state,
                 addedToolsByAgent: {
@@ -298,14 +295,14 @@ function playgroundReducer(state: IPlaygroundState, action: TPlaygroundAction): 
                 hasWorkflow: !!action.payload,
                 nodeCount: action.payload?.nodes?.length || 0
             });
-            // UI 상태 업데이트
+            // UI state updates
             if (typeof document !== 'undefined') {
                 const nodesCountElement = document.getElementById('workflow-nodes-count');
                 const lastUpdateElement = document.getElementById('last-workflow-update');
                 if (nodesCountElement) nodesCountElement.textContent = String(action.payload?.nodes?.length || 0);
                 if (lastUpdateElement) lastUpdateElement.textContent = new Date().toLocaleTimeString();
 
-                // Tool Call 및 Agent 카운트
+                // Tool call and agent counts
                 const toolCallsElement = document.getElementById('tool-calls-count');
                 const agentsElement = document.getElementById('agents-created-count');
                 if (action.payload?.nodes) {
@@ -317,7 +314,7 @@ function playgroundReducer(state: IPlaygroundState, action: TPlaygroundAction): 
             }
             return {
                 ...state,
-                sdkWorkflow: action.payload  // STEP 10.1: SDK Store만 업데이트, merge 제거
+                sdkWorkflow: action.payload  // STEP 10.1: Update SDK store only (merge removed)
             };
 
         case 'UPDATE_NODE_STATUS':
@@ -447,11 +444,11 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             return;
         }
 
-        // 안전한 메서드 호출 - eventService 접근을 위한 대체 방법 
-        // PlaygroundExecutor에 getEventService가 없으므로 이벤트 리스너를 비활성화
+        // Safe method call: alternative path for eventService access.
+        // Event listeners are disabled because PlaygroundExecutor does not expose eventService access.
 
 
-        // Tool Call Event Listener - 범용적인 Tool Call 감지
+        // Tool call event listener (generic detection)
         const handleToolCallStart = (event: any) => {
             logger.debug('Tool call started', { hasWorkflow: !!currentWorkflowRef.current });
 
@@ -539,14 +536,14 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow as any });
         };
 
-        // 이벤트 리스너는 비활성화됨 - PlaygroundExecutor에 eventService 접근 불가
+        // Event listeners are disabled because PlaygroundExecutor does not expose eventService access.
     }, [state.executor]);
 
-    // STEP 7.2.3: SDK Workflow 구독 useEffect
+    // STEP 7.2.3: SDK workflow subscription useEffect
     useEffect(() => {
         logger.debug('Setting up SDK workflow subscription');
 
-        // UI 상태 업데이트: 연결 시도 중
+        // UI state update: connecting
         const statusElement = document.getElementById('sdk-subscription-status');
         if (statusElement) statusElement.textContent = 'Connecting...';
 
@@ -558,19 +555,19 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
 
         logger.debug('Setting up workflow subscription');
 
-        // 실제 SDK 구독 설정
+        // Configure SDK subscription
         state.executor.subscribeToWorkflowUpdates((workflow) => {
             logger.debug('Workflow update received', { hasWorkflow: !!workflow });
             dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
         });
 
-        // UI 상태 업데이트: 연결 완료
+        // UI state update: connected
         if (statusElement) statusElement.textContent = 'Connected';
         logger.debug('SDK subscription setup completed');
 
     }, [state.executor, state.isInitialized]);
 
-    // STEP 7.2.4: 초기 Workflow 로드 useEffect
+    // STEP 7.2.4: Initial workflow load useEffect
     useEffect(() => {
         if (!state.executor?.getCurrentWorkflow) return;
 
@@ -716,14 +713,14 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
 
             const externalStore = state.executor?.getExternalWorkflowStore();
             if (externalStore) {
-                // ❌ 인위적 User Input 노드 생성 제거됨 - 이벤트 시스템이 자동으로 노드 생성
+                // Removed manual user message node creation. The event system creates nodes.
                 logger.debug('User input processing (no artificial node creation)');
-                // ❌ 인위적 노드/엣지 생성 관련 코드 제거됨
+                // Removed manual node/edge creation logic.
 
-                // ❌ 인위적 Edge 생성 로직 제거됨
+                // Removed manual edge creation logic.
 
-                // ❌ 인위적 Edge 추가 제거됨
-                // 사용되지 않는 코드 블록 제거됨
+                // Removed manual edge append logic.
+                // Unused code path removed.
             } else {
                 logger.warn('External Store not available');
             }
@@ -739,7 +736,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 });
             }
 
-            // 🎯 26번 예제 구조: 단순한 executor.execute 호출
+            // Example 26 alignment: minimal executor.execute call flow.
             logger.debug('Starting execution with prompt', { preview: prompt.substring(0, 100) });
 
             const result = await state.executor.execute(prompt, onChunk);
@@ -848,7 +845,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 logger.error('Error disposing executor', { error: error instanceof Error ? error.message : String(error) });
             }
         }
-        // Dispose는 state.executor가 null이 되는 것으로 처리됨
+        // Dispose is handled by setting state.executor to null.
     }, []);
 
     const setWorkflow = useCallback((workflow: IUniversalWorkflowStructure | null) => {

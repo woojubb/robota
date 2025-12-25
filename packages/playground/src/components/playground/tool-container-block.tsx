@@ -36,24 +36,25 @@ import {
     Info,
     Search
 } from 'lucide-react';
-import type { BaseTool } from '../../lib/playground/robota-executor';
+import type { TUniversalValue } from '@robota-sdk/agents';
+import type { IPlaygroundTool } from '../../lib/playground/robota-executor';
 
-export interface ToolBlock {
+export interface IToolBlock {
     id: string;
-    tool: BaseTool;
+    tool: IPlaygroundTool;
     isActive: boolean;
     isEnabled: boolean;
-    parameters: Record<string, unknown>;
+    parameters: Record<string, TUniversalValue>;
     validationErrors: string[];
 }
 
-export interface ToolContainerBlockProps {
-    tools: ToolBlock[];
+export interface IToolContainerBlockProps {
+    tools: IToolBlock[];
     isEditable?: boolean;
-    onToolsChange: (tools: ToolBlock[]) => void;
+    onToolsChange: (tools: IToolBlock[]) => void;
     onToolAdd?: (toolType: string) => void;
     onToolRemove?: (toolId: string) => void;
-    onToolExecute?: (toolId: string, parameters: Record<string, unknown>) => void;
+    onToolExecute?: (toolId: string, parameters: Record<string, TUniversalValue>) => void;
     className?: string;
     maxHeight?: string;
 }
@@ -100,9 +101,9 @@ function ToolParameterInput({
     onChange,
     disabled = false
 }: {
-    parameter: { type: string; description?: string; default?: unknown };
-    value: unknown;
-    onChange: (value: unknown) => void;
+    parameter: { type: string; description?: string; default?: TUniversalValue };
+    value: TUniversalValue;
+    onChange: (value: TUniversalValue) => void;
     disabled?: boolean;
 }) {
     switch (parameter.type) {
@@ -155,10 +156,10 @@ function IndividualToolBlock({
     onExecute,
     isEditable = false
 }: {
-    toolBlock: ToolBlock;
-    onUpdate: (toolBlock: ToolBlock) => void;
+    toolBlock: IToolBlock;
+    onUpdate: (toolBlock: IToolBlock) => void;
     onRemove: () => void;
-    onExecute: (parameters: Record<string, unknown>) => void;
+    onExecute: (parameters: Record<string, TUniversalValue>) => void;
     isEditable?: boolean;
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -171,7 +172,7 @@ function IndividualToolBlock({
         return <Info className="h-3 w-3 text-gray-400" />;
     }, [hasErrors, toolBlock.isEnabled]);
 
-    const handleParameterChange = useCallback((key: string, value: unknown) => {
+    const handleParameterChange = useCallback((key: string, value: TUniversalValue) => {
         const updatedParameters = { ...toolBlock.parameters, [key]: value };
         onUpdate({
             ...toolBlock,
@@ -316,7 +317,7 @@ export function ToolContainerBlock({
     onToolExecute,
     className = '',
     maxHeight = '400px'
-}: ToolContainerBlockProps) {
+}: IToolContainerBlockProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [showToolLibrary, setShowToolLibrary] = useState(false);
 
@@ -329,7 +330,7 @@ export function ToolContainerBlock({
     }, [searchQuery]);
 
     // Handle tool updates
-    const handleToolUpdate = useCallback((updatedTool: ToolBlock) => {
+    const handleToolUpdate = useCallback((updatedTool: IToolBlock) => {
         const updatedTools = tools.map(tool =>
             tool.id === updatedTool.id ? updatedTool : tool
         );
@@ -344,7 +345,7 @@ export function ToolContainerBlock({
     }, [tools, onToolsChange, onToolRemove]);
 
     // Handle tool execution
-    const handleToolExecute = useCallback((toolId: string, parameters: Record<string, unknown>) => {
+    const handleToolExecute = useCallback((toolId: string, parameters: Record<string, TUniversalValue>) => {
         onToolExecute?.(toolId, parameters);
     }, [onToolExecute]);
 
@@ -353,14 +354,15 @@ export function ToolContainerBlock({
         const toolDefinition = AVAILABLE_TOOLS.find(t => t.name === toolName);
         if (!toolDefinition) return;
 
-        const newTool: ToolBlock = {
+        const emptyResult: Record<string, TUniversalValue> = {};
+
+        const newTool: IToolBlock = {
             id: `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             tool: {
                 name: toolDefinition.name,
                 description: toolDefinition.description,
-                execute: async () => ({}),
-                parameters: toolDefinition.parameters
-            } as BaseTool,
+                execute: async () => emptyResult,
+            },
             isActive: false,
             isEnabled: true,
             parameters: {},

@@ -5,7 +5,7 @@ import { WorkflowVisualization } from '../../components/playground/workflow-visu
 import type { IUniversalWorkflowStructure } from '@robota-sdk/workflow';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
 
-interface WorkflowViewProps {
+interface IWorkflowViewProps {
   workflow?: IUniversalWorkflowStructure;
   onAgentNodeClick?: (nodeId: string, data?: any) => void;
   onToolDrop?: (agentId: string, tool: IPlaygroundToolMeta) => Promise<void>;
@@ -19,7 +19,7 @@ export function WorkflowView({
   onToolDrop,
   toolItems,
   addedToolsByAgent
-}: WorkflowViewProps): React.ReactElement {
+}: IWorkflowViewProps): React.ReactElement {
   return (
     <div className="h-full w-full">
       <WorkflowVisualization

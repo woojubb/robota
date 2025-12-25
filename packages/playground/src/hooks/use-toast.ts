@@ -1,6 +1,6 @@
 import { toast as sonnerToast } from "sonner"
 
-export interface ToastProps {
+export interface IToastProps {
     title?: string
     description?: string
     variant?: "default" | "destructive"
@@ -8,7 +8,7 @@ export interface ToastProps {
 
 export function useToast() {
     return {
-        toast: ({ title, description, variant }: ToastProps) => {
+        toast: ({ title, description, variant }: IToastProps) => {
             if (variant === "destructive") {
                 sonnerToast.error(title || "Error", {
                     description,

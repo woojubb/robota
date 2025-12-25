@@ -2,14 +2,14 @@ import * as React from 'react'
 import { cn } from '../../lib/utils'
 import { Loader2 } from 'lucide-react'
 
-interface LoadingProps {
+interface ILoadingProps {
     className?: string
     size?: 'sm' | 'md' | 'lg'
     variant?: 'spinner' | 'dots' | 'pulse'
     text?: string
 }
 
-const Loading = React.forwardRef<HTMLDivElement, LoadingProps>(
+const Loading = React.forwardRef<HTMLDivElement, ILoadingProps>(
     ({ className, size = 'md', variant = 'spinner', text, ...props }, ref) => {
         const sizeClasses = {
             sm: 'h-4 w-4',
@@ -54,23 +54,20 @@ const Loading = React.forwardRef<HTMLDivElement, LoadingProps>(
                                 'h-3 w-3': size === 'md',
                                 'h-4 w-4': size === 'lg'
                             })}
-                            style={{ animationDelay: '0ms' }}
                         />
                         <div
                             className={cn('rounded-full bg-primary animate-bounce', {
                                 'h-2 w-2': size === 'sm',
                                 'h-3 w-3': size === 'md',
                                 'h-4 w-4': size === 'lg'
-                            })}
-                            style={{ animationDelay: '150ms' }}
+                            }, '[animation-delay:150ms]')}
                         />
                         <div
                             className={cn('rounded-full bg-primary animate-bounce', {
                                 'h-2 w-2': size === 'sm',
                                 'h-3 w-3': size === 'md',
                                 'h-4 w-4': size === 'lg'
-                            })}
-                            style={{ animationDelay: '300ms' }}
+                            }, '[animation-delay:300ms]')}
                         />
                     </div>
                     {text && (

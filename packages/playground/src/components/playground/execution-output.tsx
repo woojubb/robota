@@ -17,16 +17,16 @@ import {
     Play,
     Bug
 } from 'lucide-react'
-import type { ExecutionResult } from '../../lib/playground/code-executor'
+import type { IExecutionResult } from '../../lib/playground/code-executor'
 import { ErrorPanel } from './error-panel'
 
-interface ExecutionOutputProps {
-    result: ExecutionResult
+interface IExecutionOutputProps {
+    result: IExecutionResult
     isRunning: boolean
     onFixSuggestion?: (fix: string) => void
 }
 
-export function ExecutionOutput({ result, isRunning, onFixSuggestion }: ExecutionOutputProps) {
+export function ExecutionOutput({ result, isRunning, onFixSuggestion }: IExecutionOutputProps) {
     const [copiedItem, setCopiedItem] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState('output')
 

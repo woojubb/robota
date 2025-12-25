@@ -20,14 +20,15 @@ import {
     Users
 } from 'lucide-react';
 import { ProjectManager } from '../../lib/playground/project-manager';
+import type { TPlaygroundProvider } from '../../lib/playground/project-manager';
 import { useToast } from '../../hooks/use-toast';
 
-interface Template {
+interface ITemplate {
     id: string;
     name: string;
     description: string;
     category: 'basic' | 'tools' | 'creative' | 'business' | 'advanced';
-    provider: 'openai' | 'anthropic' | 'google';
+    provider: TPlaygroundProvider;
     difficulty: 'beginner' | 'intermediate' | 'advanced';
     features: string[];
     code: string;
@@ -39,12 +40,12 @@ interface Template {
     };
 }
 
-interface TemplateGalleryProps {
-    onSelectTemplate: (template: Template) => void;
+interface ITemplateGalleryProps {
+    onSelectTemplate: (template: ITemplate) => void;
     onClose?: () => void;
 }
 
-const templates: Template[] = [
+const templates: ITemplate[] = [
     {
         id: 'basic-chat',
         name: 'Basic Chat Agent',
@@ -397,11 +398,11 @@ const difficultyColors = {
     advanced: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
 };
 
-export function TemplateGallery({ onSelectTemplate, onClose }: TemplateGalleryProps) {
+export function TemplateGallery({ onSelectTemplate, onClose }: ITemplateGalleryProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
-    const [selectedProvider, setSelectedProvider] = useState<string>('all');
-    const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+    const [selectedProvider, setSelectedProvider] = useState<TPlaygroundProvider | 'all'>('all');
+    const [selectedTemplate, setSelectedTemplate] = useState<ITemplate | null>(null);
     const { toast } = useToast();
 
     const filteredTemplates = templates.filter(template => {
@@ -414,7 +415,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: TemplateGalleryPr
         return matchesSearch && matchesCategory && matchesProvider;
     });
 
-    const handleUseTemplate = (template: Template) => {
+    const handleUseTemplate = (template: ITemplate) => {
         onSelectTemplate(template);
         onClose?.();
 
@@ -424,7 +425,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: TemplateGalleryPr
         });
     };
 
-    const handleCreateProject = (template: Template) => {
+    const handleCreateProject = (template: ITemplate) => {
         const projectManager = ProjectManager.getInstance();
         const project = projectManager.createProject(
             template.name,

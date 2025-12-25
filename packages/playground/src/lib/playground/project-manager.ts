@@ -4,41 +4,52 @@
  */
 
 import { WebLogger } from '../web-logger'
+import type { TUniversalValue } from '@robota-sdk/agents'
 
-export interface PlaygroundProject {
+export type TPlaygroundProvider = 'openai' | 'anthropic' | 'google'
+
+function isPlaygroundProvider(value: TUniversalValue): value is TPlaygroundProvider {
+    return value === 'openai' || value === 'anthropic' || value === 'google'
+}
+
+export interface IProjectConfig extends Record<string, TUniversalValue> {
+    model: string
+    temperature: string
+}
+
+export interface IPlaygroundProject {
     id: string
     name: string
     description?: string
     code: string
-    provider: string
-    config: {
-        model: string
-        temperature: string
-        [key: string]: any
-    }
+    provider: TPlaygroundProvider
+    config: IProjectConfig
     createdAt: Date
     updatedAt: Date
     version: string
 }
 
-// Export type alias for compatibility
-export type Project = PlaygroundProject
-
-export interface ProjectMetadata {
+export interface IProjectMetadata {
     id: string
     name: string
     description?: string
     createdAt: Date
     updatedAt: Date
-    provider: string
+    provider: TPlaygroundProvider
     linesOfCode: number
 }
 
-interface ProjectSettings {
-    provider: 'openai' | 'anthropic' | 'google'
+interface IProjectSettings extends Record<string, TUniversalValue> {
+    provider: TPlaygroundProvider
     model?: string
     temperature?: string
-    [key: string]: any
+}
+
+interface IProjectStats {
+    totalProjects: number
+    totalLinesOfCode: number
+    providers: Record<TPlaygroundProvider, number>
+    recentActivity: number
 }
 
 const STORAGE_KEY = 'robota-playground-projects'
@@ -46,7 +57,7 @@ const CURRENT_VERSION = '1.0.0'
 
 export class ProjectManager {
     private static instance: ProjectManager
-    private projects: Map<string, PlaygroundProject> = new Map()
+    private projects: Map<string, IPlaygroundProject> = new Map()
 
     private constructor() {
         this.loadFromStorage()
@@ -63,17 +74,66 @@ export class ProjectManager {
         try {
             const stored = localStorage.getItem(STORAGE_KEY)
             if (stored) {
-                const data = JSON.parse(stored)
-                this.projects = new Map(
-                    data.map((project: any) => [
-                        project.id,
-                        {
-                            ...project,
-                            createdAt: new Date(project.createdAt),
-                            updatedAt: new Date(project.updatedAt)
-                        }
-                    ])
-                )
+                const parsed: TUniversalValue = JSON.parse(stored) as TUniversalValue
+                if (!Array.isArray(parsed)) {
+                    WebLogger.error('Failed to load projects from storage', { error: 'Stored data is not an array' })
+                    this.projects = new Map()
+                    return
+                }
+
+                const projects: Array<[string, IPlaygroundProject]> = []
+                for (const item of parsed) {
+                    if (typeof item !== 'object' || item === null || Array.isArray(item) || item instanceof Date) {
+                        continue
+                    }
+
+                    const record = item as Record<string, TUniversalValue>
+                    const id = record.id
+                    const name = record.name
+                    const code = record.code
+                    const provider = record.provider
+                    const createdAt = record.createdAt
+                    const updatedAt = record.updatedAt
+                    const version = record.version
+                    const description = record.description
+                    const config = record.config
+
+                    if (typeof id !== 'string' || typeof name !== 'string' || typeof code !== 'string' || typeof version !== 'string') {
+                        continue
+                    }
+                    if (!isPlaygroundProvider(provider)) {
+                        continue
+                    }
+                    if (typeof createdAt !== 'string' || typeof updatedAt !== 'string') {
+                        continue
+                    }
+                    if (typeof config !== 'object' || config === null || Array.isArray(config) || config instanceof Date) {
+                        continue
+                    }
+
+                    const configRecord = config as Record<string, TUniversalValue>
+                    const model = configRecord.model
+                    const temperature = configRecord.temperature
+                    if (typeof model !== 'string' || typeof temperature !== 'string') {
+                        continue
+                    }
+
+                    const project: IPlaygroundProject = {
+                        id,
+                        name,
+                        description: typeof description === 'string' ? description : undefined,
+                        code,
+                        provider,
+                        config: { ...configRecord, model, temperature },
+                        createdAt: new Date(createdAt),
+                        updatedAt: new Date(updatedAt),
+                        version,
+                    }
+
+                    projects.push([id, project])
+                }
+
+                this.projects = new Map(projects)
             }
         } catch (error) {
             WebLogger.error('Failed to load projects from storage', { error: error instanceof Error ? error.message : String(error) })
@@ -91,26 +151,28 @@ export class ProjectManager {
     }
 
     // New method: getAllProjects - returns all projects as an array
-    getAllProjects(): PlaygroundProject[] {
+    getAllProjects(): IPlaygroundProject[] {
         return Array.from(this.projects.values())
             .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
     }
 
     // New method: createProject - creates a new project with given settings
-    createProject(name: string, description: string = '', settings: ProjectSettings): PlaygroundProject {
+    createProject(name: string, description: string = '', settings: IProjectSettings): IPlaygroundProject {
         const now = new Date()
         const id = this.generateId()
 
-        const project: PlaygroundProject = {
+        const { provider, ...configExtras } = settings
+
+        const project: IPlaygroundProject = {
             id,
             name,
             description,
-            code: this.getDefaultCodeForProvider(settings.provider),
-            provider: settings.provider,
+            code: this.getDefaultCodeForProvider(provider),
+            provider,
             config: {
-                model: settings.model || this.getDefaultModelForProvider(settings.provider),
-                temperature: settings.temperature || '0.7',
-                ...settings
+                model: typeof settings.model === 'string' ? settings.model : this.getDefaultModelForProvider(provider),
+                temperature: typeof settings.temperature === 'string' ? settings.temperature : '0.7',
+                ...configExtras
             },
             createdAt: now,
             updatedAt: now,
@@ -124,23 +186,46 @@ export class ProjectManager {
     }
 
     // New method: importProject - imports a project from JSON data
-    importProject(projectData: any): PlaygroundProject {
-        // Validate required fields
-        if (!projectData.name || !projectData.code) {
+    importProject(projectData: TUniversalValue): IPlaygroundProject {
+        if (typeof projectData !== 'object' || projectData === null || Array.isArray(projectData) || projectData instanceof Date) {
+            throw new Error('Invalid project data: expected an object')
+        }
+
+        const record = projectData as Record<string, TUniversalValue>
+        const name = record.name
+        const code = record.code
+        const provider = record.provider
+        const description = record.description
+        const config = record.config
+
+        if (typeof name !== 'string' || typeof code !== 'string') {
             throw new Error('Invalid project data: missing required fields')
+        }
+        if (!isPlaygroundProvider(provider)) {
+            throw new Error('Invalid project data: invalid provider')
+        }
+        if (typeof config !== 'object' || config === null || Array.isArray(config) || config instanceof Date) {
+            throw new Error('Invalid project data: invalid config')
+        }
+
+        const configRecord = config as Record<string, TUniversalValue>
+        const model = configRecord.model
+        const temperature = configRecord.temperature
+        if (typeof model !== 'string' || typeof temperature !== 'string') {
+            throw new Error('Invalid project data: config.model and config.temperature are required')
         }
 
         // Generate new ID and timestamps for imported project
         const id = this.generateId()
         const now = new Date()
 
-        const project: PlaygroundProject = {
+        const project: IPlaygroundProject = {
             id,
-            name: `${projectData.name} (Imported)`,
-            description: projectData.description || '',
-            code: projectData.code,
-            provider: projectData.provider || 'openai',
-            config: projectData.config || { model: 'gpt-4', temperature: '0.7' },
+            name: `${name} (Imported)`,
+            description: typeof description === 'string' ? description : undefined,
+            code,
+            provider,
+            config: { ...configRecord, model, temperature },
             createdAt: now,
             updatedAt: now,
             version: CURRENT_VERSION
@@ -152,26 +237,28 @@ export class ProjectManager {
         return project
     }
 
-    private getDefaultCodeForProvider(provider: string): string {
+    private getDefaultCodeForProvider(provider: TPlaygroundProvider): string {
         const templates = this.getBuiltinTemplates()
-        const template = templates.find(t => t.provider === provider) || templates[0]
+        const template = templates.find(t => t.provider === provider)
+        if (!template) {
+            throw new Error(`Missing built-in template for provider: ${provider}`)
+        }
         return template.code
     }
 
-    private getDefaultModelForProvider(provider: string): string {
+    private getDefaultModelForProvider(provider: TPlaygroundProvider): string {
         switch (provider) {
             case 'openai': return 'gpt-4'
             case 'anthropic': return 'claude-3-opus'
             case 'google': return 'gemini-pro'
-            default: return 'gpt-4'
         }
     }
 
-    saveProject(projectData: Omit<PlaygroundProject, 'id' | 'createdAt' | 'updatedAt' | 'version'>): string {
+    saveProject(projectData: Omit<IPlaygroundProject, 'id' | 'createdAt' | 'updatedAt' | 'version'>): string {
         const now = new Date()
         const id = this.generateId()
 
-        const project: PlaygroundProject = {
+        const project: IPlaygroundProject = {
             ...projectData,
             id,
             createdAt: now,
@@ -185,11 +272,11 @@ export class ProjectManager {
         return id
     }
 
-    updateProject(id: string, updates: Partial<Omit<PlaygroundProject, 'id' | 'createdAt' | 'version'>>): boolean {
+    updateProject(id: string, updates: Partial<Omit<IPlaygroundProject, 'id' | 'createdAt' | 'version'>>): boolean {
         const project = this.projects.get(id)
         if (!project) return false
 
-        const updatedProject: PlaygroundProject = {
+        const updatedProject: IPlaygroundProject = {
             ...project,
             ...updates,
             updatedAt: new Date()
@@ -201,7 +288,7 @@ export class ProjectManager {
         return true
     }
 
-    loadProject(id: string): PlaygroundProject | null {
+    loadProject(id: string): IPlaygroundProject | null {
         return this.projects.get(id) || null
     }
 
@@ -213,7 +300,7 @@ export class ProjectManager {
         return deleted
     }
 
-    listProjects(): ProjectMetadata[] {
+    listProjects(): IProjectMetadata[] {
         return Array.from(this.projects.values())
             .map(project => ({
                 id: project.id,
@@ -241,10 +328,10 @@ export class ProjectManager {
         const newId = this.generateId()
         const now = new Date()
 
-        const duplicate: PlaygroundProject = {
+        const duplicate: IPlaygroundProject = {
             ...original,
             id: newId,
-            name: `${original.name} (Copy)`,
+            name: `${original.name} (Replica)`,
             createdAt: now,
             updatedAt: now
         }
@@ -255,22 +342,17 @@ export class ProjectManager {
         return newId
     }
 
-    getProjectStats(): {
-        totalProjects: number
-        totalLinesOfCode: number
-        providers: Record<string, number>
-        recentActivity: number
-    } {
+    getProjectStats(): IProjectStats {
         const projects = Array.from(this.projects.values())
         const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
-        const providers: Record<string, number> = {}
+        const providers: Record<TPlaygroundProvider, number> = { openai: 0, anthropic: 0, google: 0 }
         let totalLinesOfCode = 0
         let recentActivity = 0
 
         for (const project of projects) {
             totalLinesOfCode += project.code.split('\n').length
-            providers[project.provider] = (providers[project.provider] || 0) + 1
+            providers[project.provider] += 1
 
             if (project.updatedAt > oneWeekAgo) {
                 recentActivity++
@@ -285,7 +367,7 @@ export class ProjectManager {
         }
     }
 
-    searchProjects(query: string): ProjectMetadata[] {
+    searchProjects(query: string): IProjectMetadata[] {
         const lowercaseQuery = query.toLowerCase()
 
         return this.listProjects().filter(project =>
@@ -300,7 +382,7 @@ export class ProjectManager {
     }
 
     // Template management
-    getBuiltinTemplates(): Omit<PlaygroundProject, 'id' | 'createdAt' | 'updatedAt'>[] {
+    getBuiltinTemplates(): Array<Omit<IPlaygroundProject, 'id' | 'createdAt' | 'updatedAt'>> {
         return [
             {
                 name: 'Basic Chat Agent',

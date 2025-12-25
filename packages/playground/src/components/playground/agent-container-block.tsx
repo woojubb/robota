@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 
-export interface AgentContainerBlockProps {
+export interface IAgentContainerBlockProps {
     agent: IPlaygroundAgentConfig;
     index: number;
     totalAgents: number;
@@ -91,7 +91,7 @@ export function AgentContainerBlock({
     onDragStart,
     onDragOver,
     onDrop
-}: AgentContainerBlockProps) {
+}: IAgentContainerBlockProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 

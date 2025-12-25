@@ -6,11 +6,11 @@ import { useEffect, useState } from 'react';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import * as PlaygroundServices from '../services';
 
-export interface PlaygroundState {
+export interface IPlaygroundState {
     ready: boolean;
 }
 
-export function usePlayground(): PlaygroundState {
+export function usePlayground(): IPlaygroundState {
     const [ready, setReady] = useState(false);
 
     useEffect(() => {

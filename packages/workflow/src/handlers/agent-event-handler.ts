@@ -418,7 +418,7 @@ export class AgentEventHandler implements IEventHandler {
     // Node Creation Helper Methods
     // =================================================================
 
-    private createAgentNode(data: any, pathInfo: PathInfo): IWorkflowNode {
+    private createAgentNode(data: any, pathInfo: IPathInfo): IWorkflowNode {
         const agentNumber = this.assignAgentNumber(String(data.sourceId));
         const copyNumber = this.getNextCopyNumber(agentNumber);
         const agentId = `agent_${agentNumber}_copy_${copyNumber}`;
@@ -460,7 +460,7 @@ export class AgentEventHandler implements IEventHandler {
         };
     }
 
-    private findAgentNodeIdForExecutionStart(eventData: TEventData, pathInfo: PathInfo): string | undefined {
+    private findAgentNodeIdForExecutionStart(eventData: TEventData, pathInfo: IPathInfo): string | undefined {
         const sourceId = typeof eventData?.sourceId !== 'undefined' ? String(eventData.sourceId) : undefined;
         if (sourceId) {
             const fromMap = this.agentNodeIdMap.get(sourceId);
@@ -647,7 +647,7 @@ export class AgentEventHandler implements IEventHandler {
         };
     }
 
-    private createAgentResponseNode(data: any, pathInfo: PathInfo): IWorkflowNode {
+    private createAgentResponseNode(data: any, pathInfo: IPathInfo): IWorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
         const responseId = pathInfo.nodeId;
         if (!responseId) {
@@ -740,7 +740,7 @@ export class AgentEventHandler implements IEventHandler {
         };
     }
 
-    private extractPathInfo(eventData: TEventData, contextLabel: string): PathInfo {
+    private extractPathInfo(eventData: TEventData, contextLabel: string): IPathInfo {
         // Canonical: EventService.emit(..., context) provides context.ownerPath (OwnerPathSegment[])
         const ownerPath = (eventData as any)?.context?.ownerPath as unknown;
         if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
@@ -768,7 +768,7 @@ export class AgentEventHandler implements IEventHandler {
     }
 }
 
-interface PathInfo {
+interface IPathInfo {
     segments: string[];
     nodeId?: string;
     parentId?: string;

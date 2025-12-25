@@ -1,10 +1,11 @@
 import type { PlaygroundBlockCollector } from '../block-tracking/block-collector';
 import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from '../block-tracking/types';
+import type { TUniversalValue } from '@robota-sdk/agents';
 
 /**
  * LLM response data from Agent history
  */
-interface LLMResponseData {
+interface ILLMResponseData {
     content: string;
     timestamp: Date;
     agentId?: string;
@@ -25,7 +26,7 @@ interface LLMResponseData {
  */
 export class RealTimeLLMTracker {
     private blockCollector: PlaygroundBlockCollector;
-    private trackedResponses = new Set<string>();
+    private trackedResponsesCount = 0;
     private responseCheckInterval?: NodeJS.Timeout;
     private lastHistoryLength = 0;
 
@@ -41,7 +42,7 @@ export class RealTimeLLMTracker {
             role: string;
             content: string;
             timestamp?: Date;
-            metadata?: any;
+            metadata?: Record<string, TUniversalValue>;
         }>,
         checkIntervalMs = 1000
     ): void {
@@ -68,7 +69,7 @@ export class RealTimeLLMTracker {
             role: string;
             content: string;
             timestamp?: Date;
-            metadata?: any;
+            metadata?: Record<string, TUniversalValue>;
         }>
     ): void {
         // Only process if history has grown
@@ -81,15 +82,24 @@ export class RealTimeLLMTracker {
 
         for (const message of newMessages) {
             if (message.role === 'assistant' && message.content) {
+                const metadata = message.metadata;
+                const agentId = metadata && typeof metadata.agentId === 'string' ? metadata.agentId : undefined;
+                const executionId = metadata && typeof metadata.executionId === 'string' ? metadata.executionId : undefined;
+                const tokensUsed = metadata && typeof metadata.tokensUsed === 'number' ? metadata.tokensUsed : undefined;
+                const duration = metadata && typeof metadata.duration === 'number' ? metadata.duration : undefined;
+                const model = metadata && typeof metadata.model === 'string' ? metadata.model : undefined;
+                const parentExecutionId =
+                    metadata && typeof metadata.parentExecutionId === 'string' ? metadata.parentExecutionId : undefined;
+
                 this.processLLMResponse({
                     content: message.content,
                     timestamp: message.timestamp || new Date(),
-                    agentId: message.metadata?.agentId,
-                    executionId: message.metadata?.executionId,
-                    tokensUsed: message.metadata?.tokensUsed,
-                    duration: message.metadata?.duration,
-                    model: message.metadata?.model,
-                    parentExecutionId: message.metadata?.parentExecutionId
+                    agentId,
+                    executionId,
+                    tokensUsed,
+                    duration,
+                    model,
+                    parentExecutionId
                 });
             }
         }
@@ -100,15 +110,8 @@ export class RealTimeLLMTracker {
     /**
      * Process a detected LLM response
      */
-    private processLLMResponse(responseData: LLMResponseData): void {
-        const responseId = this.generateResponseId(responseData);
-
-        // Skip if already processed
-        if (this.trackedResponses.has(responseId)) {
-            return;
-        }
-
-        this.trackedResponses.add(responseId);
+    private processLLMResponse(responseData: ILLMResponseData): void {
+        this.trackedResponsesCount += 1;
 
         // Find parent block based on execution context
         const parentBlockId = this.findParentBlockId(responseData);
@@ -173,7 +176,7 @@ export class RealTimeLLMTracker {
         // Update parent block to include this as a child
         if (parentBlockId) {
             const parentBlock = this.blockCollector.getBlock(parentBlockId);
-            if (parentBlock && !parentBlock.blockMetadata.children.includes(blockMetadata.id)) {
+            if (parentBlock) {
                 this.blockCollector.updateRealTimeBlock(parentBlockId, {
                     children: [...parentBlock.blockMetadata.children, blockMetadata.id]
                 });
@@ -184,7 +187,7 @@ export class RealTimeLLMTracker {
     /**
      * Find the parent block ID for this LLM response
      */
-    private findParentBlockId(responseData: LLMResponseData): string | undefined {
+    private findParentBlockId(responseData: ILLMResponseData): string | undefined {
         if (!responseData.parentExecutionId) {
             return undefined;
         }
@@ -235,14 +238,6 @@ export class RealTimeLLMTracker {
     }
 
     /**
-     * Generate unique response ID for deduplication
-     */
-    private generateResponseId(responseData: LLMResponseData): string {
-        const key = `${responseData.executionId || 'unknown'}_${responseData.timestamp.getTime()}_${responseData.content.substring(0, 50)}`;
-        return btoa(key).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
-    }
-
-    /**
      * Generate unique block ID
      */
     private generateBlockId(): string {
@@ -253,7 +248,7 @@ export class RealTimeLLMTracker {
      * Reset tracking state
      */
     reset(): void {
-        this.trackedResponses.clear();
+        this.trackedResponsesCount = 0;
         this.lastHistoryLength = 0;
         this.stopTracking();
     }
@@ -267,7 +262,7 @@ export class RealTimeLLMTracker {
         lastHistoryLength: number;
     } {
         return {
-            trackedResponses: this.trackedResponses.size,
+            trackedResponses: this.trackedResponsesCount,
             isTracking: this.responseCheckInterval !== undefined,
             lastHistoryLength: this.lastHistoryLength
         };

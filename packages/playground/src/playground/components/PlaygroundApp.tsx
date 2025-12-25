@@ -56,7 +56,6 @@ function PlaygroundContent(): React.ReactElement {
   const { activeModal, isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);
   const { toast } = useToast();
-  const lastDropByAgentToolRef = useRef<Map<string, number>>(new Map());
 
   // Chat state
   const [chatAgentId, setChatAgentId] = useState<string | null>(null);
@@ -119,16 +118,6 @@ KEY PRINCIPLES:
 - Use tools proactively rather than reactively
 
 Your expertise lies in knowing when, how, and how many times to call tools to achieve the best possible outcome.`,
-    'tool_expert_ko': `당신은 도구 호출을 적극 활용하는 전문가입니다. 도구 호출로 결과를 얻었더라도 도구 호출이 추가로 필요할 때는 도구 호출을 추가로 해야 합니다.
-
-핵심 원칙:
-- 도구가 문제 해결에 도움이 될 때는 항상 도구 사용을 우선시하세요
-- 필요할 때는 여러 도구를 연속적으로 호출하세요
-- 추가 도구가 더 많은 가치를 제공할 수 있다면 첫 번째 도구 결과에서 멈추지 마세요
-- 도구 결과들을 지능적으로 결합하여 포괄적인 답변을 제공하세요
-- 반응적이 아닌 능동적으로 도구를 사용하세요
-
-당신의 전문성은 최상의 결과를 달성하기 위해 언제, 어떻게, 몇 번 도구를 호출해야 하는지 아는 것입니다.`
   };
 
   const handleAgentNodeClick = (nodeId: string, data?: any) => {
@@ -142,26 +131,6 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
   const handleToolDrop = async (agentId: string, tool: IPlaygroundToolMeta) => {
     WebLogger.debug('Tool dropped on agent', { agentId, toolId: tool.id, toolName: tool.name });
     try {
-      // Debounce rapid duplicate drop events (same agentId + toolId).
-      // This prevents multiple onDrop triggers from producing repeated toasts or repeated tool injection attempts.
-      const dropKey = `${agentId}:${tool.id}`;
-      const now = Date.now();
-      const lastAt = lastDropByAgentToolRef.current.get(dropKey) ?? 0;
-      if (now - lastAt < 300) {
-        return;
-      }
-      lastDropByAgentToolRef.current.set(dropKey, now);
-
-      const alreadyAdded = Array.isArray(state.addedToolsByAgent?.[agentId]) && state.addedToolsByAgent[agentId].includes(tool.id);
-      if (alreadyAdded) {
-        toast({
-          title: 'Tool already added',
-          description: `${tool.name} is already present on agent ${agentId}.`,
-          variant: 'default',
-        });
-        return;
-      }
-
       const isRegistered = Object.prototype.hasOwnProperty.call(ToolRegistry, tool.id);
 
       // UI-only tools are allowed (overlay only). Registered tools additionally update runtime via executor.
@@ -219,12 +188,7 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
     const id = buildToolId(name);
     const existingIds = new Set(toolItems.map((t) => t.id));
     if (existingIds.has(id)) {
-      toast({
-        title: 'Tool ID collision',
-        description: 'Please submit again to generate a new id.',
-        variant: 'destructive',
-      });
-      return;
+      WebLogger.warn('Tool ID collision detected', { id });
     }
 
     const next: IPlaygroundToolMeta[] = [...toolItems, { id, name, description }];
@@ -427,8 +391,7 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
                       <SelectItem value="creative_ideator">Creative Ideator</SelectItem>
                       <SelectItem value="analytical_specialist">Analytical Specialist</SelectItem>
                       <SelectItem value="technical_expert">Technical Expert</SelectItem>
-                      <SelectItem value="tool_expert_en">Tool Expert (English)</SelectItem>
-                      <SelectItem value="tool_expert_ko">Tool Expert (한국어)</SelectItem>
+                      <SelectItem value="tool_expert_en">Tool Expert</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

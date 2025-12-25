@@ -28,7 +28,7 @@ import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from '../../lib/pl
 /**
  * Props for RealTimeToolBlock component
  */
-export interface RealTimeToolBlockProps {
+export interface IRealTimeToolBlockProps {
     /** The real-time block message to render */
     block: IRealTimeBlockMessage;
 
@@ -157,7 +157,7 @@ const formatTime = (timestamp?: Date): string => {
  * - Tool parameters and results display
  * - Interactive expand/collapse for details
  */
-export const RealTimeToolBlock: React.FC<RealTimeToolBlockProps> = ({
+export const RealTimeToolBlock: React.FC<IRealTimeToolBlockProps> = ({
     block,
     children,
     onToggleExpand,

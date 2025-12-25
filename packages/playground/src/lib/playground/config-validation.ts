@@ -7,7 +7,7 @@
 
 import { WebLogger } from '../web-logger';
 
-export interface PlaygroundConfig {
+export interface IPlaygroundConfig {
     enabled: boolean;
     serverUrl: string;
     apiUrl: string;
@@ -21,7 +21,7 @@ export interface PlaygroundConfig {
 /**
  * Validate and parse playground configuration from environment variables
  */
-export function validatePlaygroundConfig(): PlaygroundConfig {
+export function validatePlaygroundConfig(): IPlaygroundConfig {
     const errors: string[] = [];
 
     // Playground is always enabled - no environment variable check needed
@@ -65,14 +65,14 @@ export function validatePlaygroundConfig(): PlaygroundConfig {
 /**
  * Get playground configuration with validation
  */
-export function getPlaygroundConfig(): PlaygroundConfig {
+export function getPlaygroundConfig(): IPlaygroundConfig {
     return validatePlaygroundConfig();
 }
 
 /**
  * Check if playground feature is enabled
  */
-export function isFeatureEnabled(feature: keyof PlaygroundConfig['features']): boolean {
+export function isFeatureEnabled(feature: keyof IPlaygroundConfig['features']): boolean {
     const config = validatePlaygroundConfig();
     return config.enabled && config.features[feature];
 }

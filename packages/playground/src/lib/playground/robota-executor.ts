@@ -14,8 +14,8 @@
  */
 
 import { Robota } from '@robota-sdk/agents';
-import type { IAIProvider, IChatOptions, IEventService, IToolSchema, TUniversalMessage, TUniversalValue } from '@robota-sdk/agents';
-import type { WorkflowEventSubscriber } from '@robota-sdk/workflow';
+import type { IAIProvider, IChatOptions, IEventService, IToolSchema, TLoggerData, TUniversalMessage, TUniversalValue } from '@robota-sdk/agents';
+import type { IWorkflowExportStructure, WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import { DefaultExternalWorkflowStore, type IExternalWorkflowStore } from './external-workflow-store';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
@@ -71,7 +71,7 @@ export interface IPlaygroundAgentConfig {
     tools?: IPlaygroundTool[];
     plugins?: IPlaygroundPlugin[];
     systemMessage?: string;
-    metadata?: Record<string, unknown>;
+    metadata?: Record<string, TUniversalValue>;
 }
 
 export interface IPlaygroundExecutorResult {
@@ -94,8 +94,8 @@ export interface IPlaygroundUiError {
     message: string;
 }
 
-function toPlaygroundUiError(input: unknown): IPlaygroundUiError {
-    const message = input instanceof Error ? input.message : String(input);
+function toPlaygroundUiError(input: Error | string): IPlaygroundUiError {
+    const message = input instanceof Error ? input.message : input;
 
     // Heuristic classification:
     // - user_message: validation / user input issues
@@ -187,17 +187,17 @@ export class PlaygroundExecutor {
     }
 
     /**
-     * 🎯 26번 예제 구조: 워크플로우 실시간 업데이트 구독 설정
+     * Subscribe to workflow snapshots (SDK source of truth).
      */
     private setupWorkflowSubscription(): void {
         let snapCount = 0;
         // Subscribe to snapshots emitted AFTER each applied update
-        this.workflowSubscriber.subscribeToWorkflowSnapshots((snapshot: any) => {
+        this.workflowSubscriber.subscribeToWorkflowSnapshots((snapshot: IWorkflowExportStructure) => {
             if (!snapshot) return;
             snapCount++;
             this.logger.debug(`Workflow snapshot received (${snapCount})`, {
-                nodeCount: snapshot.nodes?.length || 0,
-                edgeCount: snapshot.edges?.length || 0
+                nodeCount: snapshot.nodes?.length ?? 0,
+                edgeCount: snapshot.edges?.length ?? 0
             });
             if (this.uiUpdateCallback) {
                 this.uiUpdateCallback(snapshot);
@@ -207,21 +207,21 @@ export class PlaygroundExecutor {
         this.logger.debug('Workflow snapshot subscription setup completed');
     }
 
-    // 🎯 UI 업데이트 콜백 저장소
-    private uiUpdateCallback: ((workflow: any) => void) | null = null;
+    // UI update callback storage
+    private uiUpdateCallback: ((workflow: IWorkflowExportStructure) => void) | null = null;
 
     /**
-     * 🎯 플레이그라운드 UI가 워크플로우 업데이트를 구독할 수 있는 메서드
+     * Allows the Playground UI to subscribe to workflow updates.
      */
-    subscribeToWorkflowUpdates(callback: (workflow: any) => void): void {
+    subscribeToWorkflowUpdates(callback: (workflow: IWorkflowExportStructure) => void): void {
         this.logger.debug('Playground UI subscribed to workflow updates');
         this.uiUpdateCallback = callback;
     }
 
     /**
-     * 🎯 26번 예제 구조: 현재 워크플로우 데이터 반환
+     * Get current workflow snapshot.
      */
-    getCurrentWorkflow(): any {
+    getCurrentWorkflow(): IWorkflowExportStructure {
         return this.workflowSubscriber.exportWorkflow();
     }
 
@@ -230,7 +230,7 @@ export class PlaygroundExecutor {
      */
     private async getWebSocketClient(): Promise<PlaygroundWebSocketClient> {
         if (!this.websocketClient) {
-            this.websocketClient = new PlaygroundWebSocketClient(this.serverUrl, this.authToken);
+            this.websocketClient = new PlaygroundWebSocketClient(this.serverUrl);
             await this.websocketClient.connect();
         }
         return this.websocketClient;
@@ -239,14 +239,14 @@ export class PlaygroundExecutor {
     /**
      * Log debug message
      */
-    private logDebug(message: string, context?: any): void {
+    private logDebug(message: string, context?: TLoggerData): void {
         this.logger.debug(message, context);
     }
 
     /**
      * Log error message
      */
-    private logError(message: string, error?: Error, context?: any): void {
+    private logError(message: string, error?: Error, context?: TLoggerData): void {
         this.logger.error(message, { error: error?.message, stack: error?.stack, ...context });
     }
 
@@ -364,7 +364,7 @@ export class PlaygroundExecutor {
 
     /**
      * Execute a prompt (Facade method)
-     * 🚫 DEPRECATED: Use execute() method instead for 26번 compatibility
+     * 🚫 DEPRECATED: Use execute() method instead (Example 26 compatibility)
      */
     async run(prompt: string): Promise<IPlaygroundExecutorResult> {
         const startTime = Date.now();
@@ -404,7 +404,7 @@ export class PlaygroundExecutor {
                 duration: duration,
                 error: error instanceof Error ? error : new Error(String(error)),
                 visualizationData: this.getVisualizationData(),
-                uiError: toPlaygroundUiError(error)
+                uiError: toPlaygroundUiError(error instanceof Error ? error : String(error))
             };
 
             // Record this failed execution for statistics
@@ -424,7 +424,7 @@ export class PlaygroundExecutor {
     }
 
     /**
-     * 🎯 26번 예제와 동일한 단순 실행 구조
+     * Execution flow aligned with Example 26 (single-pass, UI-friendly).
      */
     async execute(prompt: string, onChunk?: (chunk: string) => void): Promise<IPlaygroundExecutorResult> {
         this.logger.debug('Playground execute called');
@@ -447,7 +447,7 @@ export class PlaygroundExecutor {
 
             const duration = Date.now() - startTime;
 
-            // 스트리밍 콜백이 있으면 한 번에 전체 결과 전달
+            // If a streaming callback is provided, deliver the full result once.
             if (onChunk) {
                 onChunk(result);
             }
@@ -472,7 +472,7 @@ export class PlaygroundExecutor {
                 duration: duration,
                 error: error instanceof Error ? error : new Error(String(error)),
                 visualizationData: this.getVisualizationData(),
-                uiError: toPlaygroundUiError(error)
+                uiError: toPlaygroundUiError(error instanceof Error ? error : String(error))
             };
             return executionResult;
         }
@@ -480,7 +480,7 @@ export class PlaygroundExecutor {
 
     /**
      * Execute with streaming response (Facade method)
-     * 🚫 DEPRECATED: Use execute() method instead for 26번 compatibility
+     * 🚫 DEPRECATED: Use execute() method instead (Example 26 compatibility)
      */
     async *runStream(prompt: string): AsyncGenerator<string, IPlaygroundExecutorResult> {
         const startTime = Date.now();
@@ -729,14 +729,14 @@ export class PlaygroundExecutor {
                 const prompt = messages[0].content || '';
                 const stream = this.currentAgent.runStream(prompt);
 
-                // ✅ Agent 모드도 team 모드와 동일: 청크를 수집만 하고 최종에 한 번만 yield
+                // Collect chunks and yield only once at the end (aligned with previous behavior).
                 let fullResponse = '';
                 for await (const chunk of stream) {
                     fullResponse += chunk;
-                    // ❌ 각 청크마다 yield하지 않음 (team 모드와 동일하게)
+                    // Do not yield per chunk.
                 }
 
-                // ✅ 최종 완성된 메시지만 한 번 yield
+                // Yield the final aggregated message once.
                 yield {
                     role: 'assistant',
                     content: fullResponse,

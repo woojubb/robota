@@ -5,7 +5,7 @@ import {
     type TBlockCollectionEvent
 } from '../lib/playground/block-tracking';
 import { UniversalToolFactory } from '../lib/playground/universal-tool-factory';
-import type { IToolSchema, SimpleLogger, ToolExecutor, TUniversalValue } from '@robota-sdk/agents';
+import type { IToolSchema, SimpleLogger, TToolExecutor, TUniversalValue } from '@robota-sdk/agents';
 
 /**
  * Options for useBlockTracking hook
@@ -154,7 +154,7 @@ export function useBlockTracking(options: IUseBlockTrackingOptions = {}): IUseBl
 export function useTrackedTools(blockTracking: IUseBlockTrackingResult) {
     const { toolFactory } = blockTracking;
 
-    const createFunctionTool = useCallback((schema: IToolSchema, executor: ToolExecutor, options: { parentBlockId?: string; level?: number; logger?: SimpleLogger } = {}) => {
+    const createFunctionTool = useCallback((schema: IToolSchema, executor: TToolExecutor, options: { parentBlockId?: string; level?: number; logger?: SimpleLogger } = {}) => {
         return toolFactory.createFunctionTool(schema, executor, options);
     }, [toolFactory]);
 

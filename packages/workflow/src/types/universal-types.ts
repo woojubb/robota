@@ -120,11 +120,11 @@ export interface IUniversalEdgeStyle {
     markerStart?: string;
 
     /** Label styling */
-    labelStyle?: Record<string, UniversalWorkflowExtensionValue | undefined>;
+    labelStyle?: Record<string, TUniversalWorkflowExtensionValue | undefined>;
     labelPosition?: number; // 0-1 along the edge
 }
 
-type UniversalWorkflowExtensionValue = TUniversalValue | Date | Error | TLoggerData;
+type TUniversalWorkflowExtensionValue = TUniversalValue | Date | Error | TLoggerData;
 
 /**
  * Universal Workflow Edge
@@ -165,12 +165,12 @@ export interface IUniversalWorkflowEdge {
 
         // Platform-agnostic extensions
         extensions?: {
-            [platformName: string]: Record<string, UniversalWorkflowExtensionValue | undefined>;
+            [platformName: string]: Record<string, TUniversalWorkflowExtensionValue | undefined>;
         };
 
         // Additional metadata
         metadata?: TLoggerData;
-        extra?: Record<string, UniversalWorkflowExtensionValue>;
+        extra?: Record<string, TUniversalWorkflowExtensionValue>;
     };
 
     // Timestamps
@@ -197,11 +197,11 @@ export interface IUniversalWorkflowNode extends IWorkflowNode {
         icon?: string;
         color?: string;
         className?: string;
-        style?: Record<string, UniversalWorkflowExtensionValue | undefined>;
+        style?: Record<string, TUniversalWorkflowExtensionValue | undefined>;
 
         // Platform-agnostic extensions
         extensions?: {
-            [platformName: string]: Record<string, UniversalWorkflowExtensionValue | undefined>;
+            [platformName: string]: Record<string, TUniversalWorkflowExtensionValue | undefined>;
         };
     };
 
@@ -251,7 +251,7 @@ export interface IUniversalLayoutConfig {
     };
 
     /** Algorithm-specific options */
-    options?: Record<string, UniversalWorkflowExtensionValue | undefined>;
+    options?: Record<string, TUniversalWorkflowExtensionValue | undefined>;
 }
 
 /**
@@ -301,7 +301,7 @@ export interface IUniversalWorkflowStructure {
         category?: string;
 
         /** Additional metadata */
-        [key: string]: UniversalWorkflowExtensionValue | undefined;
+        [key: string]: TUniversalWorkflowExtensionValue | undefined;
     };
 
     /** Validation state */
@@ -326,16 +326,16 @@ export interface IUniversalPlatformConfig {
     theme?: string;
 
     /** Platform-specific rendering configuration */
-    config?: Record<string, UniversalWorkflowExtensionValue | undefined>;
+    config?: Record<string, TUniversalWorkflowExtensionValue | undefined>;
 
     /** Platform-specific type mappings */
-    typeMapping?: Record<string, UniversalWorkflowExtensionValue | undefined>;
+    typeMapping?: Record<string, TUniversalWorkflowExtensionValue | undefined>;
 
     /** Platform-specific viewport or canvas settings */
-    viewport?: Record<string, UniversalWorkflowExtensionValue | undefined>;
+    viewport?: Record<string, TUniversalWorkflowExtensionValue | undefined>;
 
     /** Platform-specific metadata */
-    metadata?: Record<string, UniversalWorkflowExtensionValue | undefined>;
+    metadata?: Record<string, TUniversalWorkflowExtensionValue | undefined>;
 }
 
 /**
@@ -365,7 +365,7 @@ export interface IUniversalConversionOptions {
     edgeTransform?: (edge: IUniversalWorkflowEdge) => IUniversalWorkflowEdge;
 
     /** Platform-specific options */
-    platformOptions?: Record<string, UniversalWorkflowExtensionValue | undefined>;
+    platformOptions?: Record<string, TUniversalWorkflowExtensionValue | undefined>;
 }
 
 /**

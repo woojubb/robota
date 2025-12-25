@@ -43,46 +43,51 @@ import {
     Database,
     Shield
 } from 'lucide-react';
-import type { BasePlugin } from '../../lib/playground/robota-executor';
+import type { TUniversalValue } from '@robota-sdk/agents';
+import type { IPlaygroundPlugin } from '../../lib/playground/robota-executor';
 
-// Enums defined locally to avoid import issues from non-exported types
-export enum PluginCategory {
-    STORAGE = 'STORAGE',
-    MONITORING = 'MONITORING',
-    ANALYTICS = 'ANALYTICS',
-    SECURITY = 'SECURITY',
-    CUSTOM = 'CUSTOM',
+export const PLUGIN_CATEGORIES = {
+    STORAGE: 'STORAGE',
+    MONITORING: 'MONITORING',
+    ANALYTICS: 'ANALYTICS',
+    SECURITY: 'SECURITY',
+    CUSTOM: 'CUSTOM',
+} as const;
+
+export type TPluginCategory = typeof PLUGIN_CATEGORIES[keyof typeof PLUGIN_CATEGORIES];
+
+export const PLUGIN_PRIORITIES = {
+    CRITICAL: 100,
+    HIGH: 75,
+    MEDIUM: 50,
+    LOW: 25,
+    DEFAULT: 10,
+} as const;
+
+export type TPluginPriority = typeof PLUGIN_PRIORITIES[keyof typeof PLUGIN_PRIORITIES];
+
+export interface IPluginStats extends Record<string, TUniversalValue> {
+    calls: number;
+    errors: number;
+    lastActivity?: Date;
 }
 
-export enum PluginPriority {
-    CRITICAL = 100,
-    HIGH = 75,
-    MEDIUM = 50,
-    LOW = 25,
-    DEFAULT = 10
-}
-
-export interface PluginBlock {
+export interface IPluginBlock {
     id: string;
-    plugin: BasePlugin;
+    plugin: IPlaygroundPlugin;
     isActive: boolean;
     isEnabled: boolean;
-    category: PluginCategory;
-    priority: number;
-    options: Record<string, unknown>;
-    stats: {
-        calls: number;
-        errors: number;
-        lastActivity?: Date;
-        [key: string]: unknown;
-    };
+    category: TPluginCategory;
+    priority: TPluginPriority | number;
+    options: Record<string, TUniversalValue>;
+    stats: IPluginStats;
     validationErrors: string[];
 }
 
-export interface PluginContainerBlockProps {
-    plugins: PluginBlock[];
+export interface IPluginContainerBlockProps {
+    plugins: IPluginBlock[];
     isEditable?: boolean;
-    onPluginsChange: (plugins: PluginBlock[]) => void;
+    onPluginsChange: (plugins: IPluginBlock[]) => void;
     onPluginAdd?: (pluginType: string) => void;
     onPluginRemove?: (pluginId: string) => void;
     onPluginToggle?: (pluginId: string, enabled: boolean) => void;
@@ -95,8 +100,8 @@ const AVAILABLE_PLUGINS = [
     {
         name: 'HistoryPlugin',
         description: 'Track and visualize conversation history',
-        category: 'STORAGE' as PluginCategory,
-        priority: 10,
+        category: PLUGIN_CATEGORIES.STORAGE,
+        priority: PLUGIN_PRIORITIES.DEFAULT,
         options: {
             enabled: { type: 'boolean', default: true, description: 'Enable plugin' },
             maxEvents: { type: 'number', default: 1000, description: 'Maximum events to store' },
@@ -106,8 +111,8 @@ const AVAILABLE_PLUGINS = [
     {
         name: 'LoggingPlugin',
         description: 'Comprehensive logging and monitoring',
-        category: 'MONITORING' as PluginCategory,
-        priority: 5,
+        category: PLUGIN_CATEGORIES.MONITORING,
+        priority: PLUGIN_PRIORITIES.LOW,
         options: {
             enabled: { type: 'boolean', default: true, description: 'Enable plugin' },
             logLevel: { type: 'select', options: ['debug', 'info', 'warn', 'error'], default: 'info', description: 'Log level' },
@@ -117,8 +122,8 @@ const AVAILABLE_PLUGINS = [
     {
         name: 'MetricsPlugin',
         description: 'Performance metrics and analytics',
-        category: 'ANALYTICS' as PluginCategory,
-        priority: 8,
+        category: PLUGIN_CATEGORIES.ANALYTICS,
+        priority: PLUGIN_PRIORITIES.MEDIUM,
         options: {
             enabled: { type: 'boolean', default: true, description: 'Enable plugin' },
             collectTiming: { type: 'boolean', default: true, description: 'Collect timing data' },
@@ -128,8 +133,8 @@ const AVAILABLE_PLUGINS = [
     {
         name: 'SecurityPlugin',
         description: 'Security and access control',
-        category: 'SECURITY' as PluginCategory,
-        priority: 15,
+        category: PLUGIN_CATEGORIES.SECURITY,
+        priority: PLUGIN_PRIORITIES.HIGH,
         options: {
             enabled: { type: 'boolean', default: true, description: 'Enable plugin' },
             enforceRateLimit: { type: 'boolean', default: true, description: 'Enforce rate limiting' },
@@ -160,9 +165,9 @@ function PluginOptionInput({
     onChange,
     disabled = false
 }: {
-    option: { type: string; default?: unknown; description: string; options?: string[] };
-    value: unknown;
-    onChange: (value: unknown) => void;
+    option: { type: string; default?: TUniversalValue; description: string; options?: string[] };
+    value: TUniversalValue;
+    onChange: (value: TUniversalValue) => void;
     disabled?: boolean;
 }) {
     switch (option.type) {
@@ -224,8 +229,8 @@ function IndividualPluginBlock({
     onToggle,
     isEditable = false
 }: {
-    pluginBlock: PluginBlock;
-    onUpdate: (pluginBlock: PluginBlock) => void;
+    pluginBlock: IPluginBlock;
+    onUpdate: (pluginBlock: IPluginBlock) => void;
     onRemove: () => void;
     onToggle: (enabled: boolean) => void;
     isEditable?: boolean;
@@ -243,7 +248,7 @@ function IndividualPluginBlock({
         return <Info className="h-3 w-3 text-gray-400" />;
     }, [hasErrors, pluginBlock.isEnabled]);
 
-    const handleOptionChange = useCallback((key: string, value: unknown) => {
+    const handleOptionChange = useCallback((key: string, value: TUniversalValue) => {
         const updatedOptions = { ...pluginBlock.options, [key]: value };
         onUpdate({
             ...pluginBlock,
@@ -492,9 +497,9 @@ export function PluginContainerBlock({
     onPluginToggle,
     className = '',
     maxHeight = '400px'
-}: PluginContainerBlockProps) {
+}: IPluginContainerBlockProps) {
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterCategory, setFilterCategory] = useState<string>('all');
+    const [filterCategory, setFilterCategory] = useState<TPluginCategory | 'all'>('all');
     const [showPluginLibrary, setShowPluginLibrary] = useState(false);
 
     // Filter available plugins
@@ -508,7 +513,7 @@ export function PluginContainerBlock({
     }, [searchQuery, filterCategory]);
 
     // Handle plugin updates
-    const handlePluginUpdate = useCallback((updatedPlugin: PluginBlock) => {
+    const handlePluginUpdate = useCallback((updatedPlugin: IPluginBlock) => {
         const updatedPlugins = plugins.map(plugin =>
             plugin.id === updatedPlugin.id ? updatedPlugin : plugin
         );
@@ -532,21 +537,24 @@ export function PluginContainerBlock({
         const pluginDefinition = AVAILABLE_PLUGINS.find(p => p.name === pluginName);
         if (!pluginDefinition) return;
 
-        const newPlugin: PluginBlock = {
+        const options: Record<string, TUniversalValue> = {};
+        for (const [key, config] of Object.entries(pluginDefinition.options)) {
+            options[key] = config.default;
+        }
+
+        const newPlugin: IPluginBlock = {
             id: `plugin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             plugin: {
                 name: pluginDefinition.name,
                 version: '1.0.0',
                 initialize: async () => { },
                 dispose: async () => { }
-            } as BasePlugin,
+            },
             isActive: false,
             isEnabled: true,
             category: pluginDefinition.category,
             priority: pluginDefinition.priority,
-            options: Object.fromEntries(
-                Object.entries(pluginDefinition.options).map(([key, config]) => [key, config.default])
-            ),
+            options,
             stats: {
                 calls: 0,
                 errors: 0
