@@ -1,5 +1,5 @@
 import type { PlaygroundBlockCollector } from './block-tracking/block-collector';
-import type { RealTimeBlockMessage, RealTimeBlockMetadata } from './block-tracking/types';
+import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from './block-tracking/types';
 import { WebLogger } from '../web-logger';
 
 /**
@@ -14,7 +14,7 @@ export function generateDemoExecutionData(blockCollector: PlaygroundBlockCollect
     blockCollector.clearBlocks();
 
     // 1. Root level - User message
-    const userMessage: RealTimeBlockMessage = {
+    const userMessage: IRealTimeBlockMessage = {
         role: 'user',
         content: 'Compare React vs Vue for a new project and search for recent performance benchmarks',
         timestamp: new Date(now.getTime()),
@@ -36,7 +36,7 @@ export function generateDemoExecutionData(blockCollector: PlaygroundBlockCollect
     };
 
     // 2. Team level execution
-    const teamExecution: RealTimeBlockMessage = {
+    const teamExecution: IRealTimeBlockMessage = {
         role: 'system',
         content: 'Team execution started - Processing comparison request',
         timestamp: new Date(now.getTime() + 200),
@@ -64,7 +64,7 @@ export function generateDemoExecutionData(blockCollector: PlaygroundBlockCollect
     };
 
     // 3. Agent level execution
-    const agentExecution: RealTimeBlockMessage = {
+    const agentExecution: IRealTimeBlockMessage = {
         role: 'assistant',
         content: 'Agent processing: I need to research both frameworks and find recent benchmarks',
         timestamp: new Date(now.getTime() + 500),
@@ -94,7 +94,7 @@ export function generateDemoExecutionData(blockCollector: PlaygroundBlockCollect
     };
 
     // 4. First tool - Web search for React vs Vue
-    const webSearchTool: RealTimeBlockMessage = {
+    const webSearchTool: IRealTimeBlockMessage = {
         role: 'tool',
         content: 'Executing webSearch tool for React vs Vue comparison',
         timestamp: new Date(now.getTime() + 1000),
@@ -152,7 +152,7 @@ export function generateDemoExecutionData(blockCollector: PlaygroundBlockCollect
     };
 
     // 5. Second tool - Performance benchmarks search
-    const benchmarkSearchTool: RealTimeBlockMessage = {
+    const benchmarkSearchTool: IRealTimeBlockMessage = {
         role: 'tool',
         content: 'Executing webSearch tool for performance benchmarks',
         timestamp: new Date(now.getTime() + 7000),
@@ -210,7 +210,7 @@ export function generateDemoExecutionData(blockCollector: PlaygroundBlockCollect
     };
 
     // 6. Final LLM response
-    const finalResponse: RealTimeBlockMessage = {
+    const finalResponse: IRealTimeBlockMessage = {
         role: 'assistant',
         content: `Based on my research, here's a comprehensive comparison of React vs Vue for 2024:
 

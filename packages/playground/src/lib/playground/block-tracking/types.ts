@@ -1,14 +1,35 @@
-import type { IToolExecutionContext, TUniversalMessage } from '@robota-sdk/agents';
+import type { IToolCall, IToolExecutionContext, TToolParameters, TToolResultData, TUniversalValue } from '@robota-sdk/agents';
 
 /**
  * Block-specific metadata for visual representation
  */
-export interface BlockMetadata {
+export type TBlockType = 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'error' | 'group';
+
+export type TBlockVisualState = 'pending' | 'in_progress' | 'completed' | 'error';
+
+export interface IBlockExecutionContextInfo {
+    toolName?: string;
+    agentId?: string;
+    teamId?: string;
+    executionId?: string;
+    timestamp: Date;
+    duration?: number;
+}
+
+export interface IBlockRenderData {
+    parameters?: TToolParameters;
+    result?: TToolResultData;
+    error?: Error;
+    reasoning?: string;
+    toolSchema?: Record<string, TUniversalValue>;
+}
+
+export interface IBlockMetadata {
     /** Unique identifier for this block */
     id: string;
 
     /** Type of block for visual styling */
-    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'error' | 'group';
+    type: TBlockType;
 
     /** Hierarchical level for nesting */
     level: number;
@@ -23,40 +44,48 @@ export interface BlockMetadata {
     isExpanded: boolean;
 
     /** Execution context information */
-    executionContext?: {
-        toolName?: string;
-        agentId?: string;
-        teamId?: string;
-        executionId?: string;
-        timestamp: Date;
-        duration?: number;
-    };
+    executionContext?: IBlockExecutionContextInfo;
 
     /** Visual state for real-time updates */
-    visualState: 'pending' | 'in_progress' | 'completed' | 'error';
+    visualState: TBlockVisualState;
 
     /** Additional data for block-specific rendering */
-    renderData?: {
-        parameters?: any;
-        result?: any;
-        error?: Error;
-        reasoning?: string;
-        toolSchema?: any;
-    };
+    renderData?: IBlockRenderData;
 }
 
 /**
  * 🆕 Real-time enhanced block metadata with hierarchical execution tracking
- * Includes all BlockMetadata fields plus actual execution data (no simulation)
+ * Includes all IBlockMetadata fields plus actual execution data (no simulation)
  */
-export interface RealTimeBlockMetadata {
-    // 🔄 All standard BlockMetadata fields
+export interface IToolExecutionStepInfo {
+    id: string;
+    name: string;
+    estimatedDuration: number;
+    description?: string;
+}
+
+export interface IToolProvidedProgressData {
+    estimatedDuration?: number;
+    executionSteps?: IToolExecutionStepInfo[];
+    currentStep?: string;
+    progress?: number;
+}
+
+export interface IExecutionHierarchyInfo {
+    parentExecutionId?: string;
+    rootExecutionId?: string;
+    level: number;
+    path: string[];
+}
+
+export interface IRealTimeBlockMetadata {
+    // All standard IBlockMetadata fields
 
     /** Unique identifier for this block */
     id: string;
 
     /** Type of block for visual styling */
-    type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'error' | 'group';
+    type: TBlockType;
 
     /** Hierarchical level for nesting */
     level: number;
@@ -71,26 +100,13 @@ export interface RealTimeBlockMetadata {
     isExpanded: boolean;
 
     /** Execution context information */
-    executionContext?: {
-        toolName?: string;
-        agentId?: string;
-        teamId?: string;
-        executionId?: string;
-        timestamp: Date;
-        duration?: number;
-    };
+    executionContext?: IBlockExecutionContextInfo;
 
     /** Visual state for real-time updates */
-    visualState: 'pending' | 'in_progress' | 'completed' | 'error';
+    visualState: TBlockVisualState;
 
     /** Additional data for block-specific rendering */
-    renderData?: {
-        parameters?: any;
-        result?: any;
-        error?: Error;
-        reasoning?: string;
-        toolSchema?: any;
-    };
+    renderData?: IBlockRenderData;
 
     // 🎯 Real execution timing data
 
@@ -106,110 +122,61 @@ export interface RealTimeBlockMetadata {
     // 🎯 Real execution data
 
     /** Actual tool parameters passed to execution */
-    toolParameters?: any;
+    toolParameters?: TToolParameters;
 
     /** Actual tool execution result */
-    toolResult?: any;
+    toolResult?: TToolResultData;
 
     // 🌳 Hierarchical execution context
 
     /** Execution hierarchy information for tree visualization */
-    executionHierarchy?: {
-        /** Parent execution ID for tracking hierarchical tool calls */
-        parentExecutionId?: string;
-
-        /** Root execution ID (Team/Agent level) */
-        rootExecutionId?: string;
-
-        /** Execution depth level (0: Team, 1: Agent, 2: Tool, etc.) */
-        level: number;
-
-        /** Execution path array showing complete hierarchy */
-        path: string[];
-    };
+    executionHierarchy?: IExecutionHierarchyInfo;
 
     // 🔧 Tool-provided data (optional)
 
     /** Tool-provided progress/status information (if ProgressReportingTool) */
-    toolProvidedData?: {
-        /** Tool's estimated duration (if provided) */
-        estimatedDuration?: number;
-
-        /** Tool's execution steps (if provided) */
-        executionSteps?: Array<{
-            id: string;
-            name: string;
-            estimatedDuration: number;
-            description?: string;
-        }>;
-
-        /** Current step being executed */
-        currentStep?: string;
-
-        /** Progress percentage (0-100) if tool provides real-time updates */
-        progress?: number;
-    };
+    toolProvidedData?: IToolProvidedProgressData;
 }
 
 /**
  * Enhanced message with block-specific metadata
  */
-export interface BlockMessage {
-    // TUniversalMessage fields
+export interface IBlockMessage {
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string | null;
-    toolCalls?: Array<{
-        id: string;
-        type: 'function';
-        function: {
-            name: string;
-            arguments: string;
-        };
-    }>;
-    metadata?: Record<string, unknown>;
+    toolCalls?: IToolCall[];
+    metadata?: Record<string, TUniversalValue>;
     timestamp?: Date;
-
-    // Block-specific metadata
-    blockMetadata: BlockMetadata;
+    blockMetadata: IBlockMetadata;
 }
 
 /**
  * Enhanced message with real-time block metadata
  */
-export interface RealTimeBlockMessage {
-    // TUniversalMessage fields
+export interface IRealTimeBlockMessage {
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string | null;
-    toolCalls?: Array<{
-        id: string;
-        type: 'function';
-        function: {
-            name: string;
-            arguments: string;
-        };
-    }>;
-    metadata?: Record<string, unknown>;
+    toolCalls?: IToolCall[];
+    metadata?: Record<string, TUniversalValue>;
     timestamp?: Date;
-
-    // Real-time block metadata
-    blockMetadata: RealTimeBlockMetadata;
+    blockMetadata: IRealTimeBlockMetadata;
 }
 
 /**
  * Block data collector interface for capturing tool executions
  */
-export interface BlockDataCollector {
+export interface IBlockDataCollector {
     /** Collect a new block message */
-    collectBlock(message: BlockMessage): void;
+    collectBlock(message: IBlockMessage): void;
 
     /** Update an existing block */
-    updateBlock(blockId: string, updates: Partial<BlockMetadata>): void;
+    updateBlock(blockId: string, updates: Partial<IBlockMetadata>): void;
 
     /** Get all collected blocks */
-    getBlocks(): BlockMessage[];
+    getBlocks(): IBlockMessage[];
 
     /** Get blocks by parent ID for hierarchical rendering */
-    getBlocksByParent(parentId?: string): BlockMessage[];
+    getBlocksByParent(parentId?: string): IBlockMessage[];
 
     /** Clear all blocks */
     clearBlocks(): void;
@@ -223,7 +190,7 @@ export interface BlockDataCollector {
         content: string,
         parentId?: string,
         level?: number
-    ): BlockMessage;
+    ): IBlockMessage;
 
     /** Get statistics about collected blocks */
     getStats(): {
@@ -234,22 +201,22 @@ export interface BlockDataCollector {
     };
 
     /** Add event listener */
-    addListener(listener: BlockCollectionListener): void;
+    addListener(listener: TBlockCollectionListener): void;
 
     /** Remove event listener */
-    removeListener(listener: BlockCollectionListener): void;
+    removeListener(listener: TBlockCollectionListener): void;
 }
 
 /**
  * Tool execution tracking data
  */
-export interface ToolExecutionTrackingData {
+export interface IToolExecutionTrackingData {
     toolName: string;
-    parameters: any;
+    parameters: TToolParameters;
     context?: IToolExecutionContext;
     startTime: Date;
     endTime?: Date;
-    result?: any;
+    result?: TToolResultData;
     error?: Error;
     executionId: string;
     parentBlockId?: string;
@@ -258,14 +225,14 @@ export interface ToolExecutionTrackingData {
 /**
  * Agent delegation tracking data for team scenarios
  */
-export interface DelegationTrackingData {
+export interface IDelegationTrackingData {
     parentAgentId: string;
     delegatedAgentId: string;
     taskDescription: string;
     agentTemplate?: string;
     startTime: Date;
     endTime?: Date;
-    result?: any;
+    result?: TUniversalValue;
     error?: Error;
     executionId: string;
     parentBlockId: string;
@@ -274,22 +241,22 @@ export interface DelegationTrackingData {
 /**
  * Block tree structure for hierarchical visualization
  */
-export interface BlockTreeNode {
-    block: BlockMessage;
-    children: BlockTreeNode[];
-    parent?: BlockTreeNode;
+export interface IBlockTreeNode {
+    block: IBlockMessage;
+    children: IBlockTreeNode[];
+    parent?: IBlockTreeNode;
 }
 
 /**
  * Block collection events for real-time updates
  */
-export type BlockCollectionEvent =
-    | { type: 'block_added'; block: BlockMessage }
-    | { type: 'block_updated'; blockId: string; updates: Partial<BlockMetadata> }
+export type TBlockCollectionEvent =
+    | { type: 'block_added'; block: IBlockMessage }
+    | { type: 'block_updated'; blockId: string; updates: Partial<IBlockMetadata> }
     | { type: 'block_removed'; blockId: string }
     | { type: 'blocks_cleared' };
 
 /**
  * Block collection listener
  */
-export type BlockCollectionListener = (event: BlockCollectionEvent) => void; 
+export type TBlockCollectionListener = (event: TBlockCollectionEvent) => void; 

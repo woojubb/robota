@@ -357,12 +357,16 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
         };
     }
 
-    private emitAgentEvent(eventType: string, data: IAgentEventData): void {
+    private emitAgentEvent(eventType: string, data: Omit<IAgentEventData, 'timestamp'>): void {
         if (isDefaultEventService(this.agentEventService)) {
             return;
         }
+        const payload: IAgentEventData = {
+            timestamp: new Date(),
+            ...data,
+        };
         // Absolute ownerPath: pass the full path explicitly so downstream subscribers can derive `path` deterministically.
-        this.agentEventService.emit(eventType, data, {
+        this.agentEventService.emit(eventType, payload, {
             ownerType: 'agent',
             ownerId: this.conversationId,
             ownerPath: this.buildOwnerPath(this.config.executionContext)

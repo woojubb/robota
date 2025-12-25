@@ -23,14 +23,14 @@ import {
     ArrowRight,
     Zap
 } from 'lucide-react';
-import type { RealTimeBlockMessage, RealTimeBlockMetadata } from '../../lib/playground/block-tracking/types';
+import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from '../../lib/playground/block-tracking/types';
 
 /**
  * Props for RealTimeToolBlock component
  */
 export interface RealTimeToolBlockProps {
     /** The real-time block message to render */
-    block: RealTimeBlockMessage;
+    block: IRealTimeBlockMessage;
 
     /** Child blocks for hierarchical rendering */
     children?: React.ReactNode;
@@ -39,7 +39,7 @@ export interface RealTimeToolBlockProps {
     onToggleExpand?: (blockId: string, isExpanded: boolean) => void;
 
     /** Callback when block is clicked */
-    onClick?: (block: RealTimeBlockMessage) => void;
+    onClick?: (block: IRealTimeBlockMessage) => void;
 
     /** Whether this block is currently selected */
     isSelected?: boolean;
@@ -57,7 +57,7 @@ export interface RealTimeToolBlockProps {
 /**
  * Get appropriate icon based on block type and execution context
  */
-const getBlockTypeIcon = (metadata: RealTimeBlockMetadata) => {
+const getBlockTypeIcon = (metadata: IRealTimeBlockMetadata) => {
     switch (metadata.type) {
         case 'user':
             return <User className="w-4 h-4 text-blue-600" />;
@@ -79,7 +79,7 @@ const getBlockTypeIcon = (metadata: RealTimeBlockMetadata) => {
 /**
  * Get status icon based on execution state
  */
-const getStatusIcon = (state: RealTimeBlockMetadata['visualState']) => {
+const getStatusIcon = (state: IRealTimeBlockMetadata['visualState']) => {
     switch (state) {
         case 'pending':
             return <Clock className="w-3 h-3 text-gray-400" />;
@@ -97,7 +97,7 @@ const getStatusIcon = (state: RealTimeBlockMetadata['visualState']) => {
 /**
  * Get status color classes based on execution state
  */
-const getStatusColors = (state: RealTimeBlockMetadata['visualState']) => {
+const getStatusColors = (state: IRealTimeBlockMetadata['visualState']) => {
     const baseColors = {
         pending: 'border-gray-200 bg-gray-50',
         in_progress: 'border-blue-200 bg-blue-50',

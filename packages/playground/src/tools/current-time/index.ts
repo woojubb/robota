@@ -1,17 +1,8 @@
 import { FunctionTool } from '@robota-sdk/agents';
-
-export interface PlaygroundToolMeta {
-    id: string;
-    name: string;
-    type?: 'builtin' | 'mcp' | 'openapi' | 'zod';
-    description?: string;
-    category?: string;
-    tags?: string[];
-    parametersSummary?: Array<{ name: string; type: string; required?: boolean; description?: string }>;
-}
+import type { IPlaygroundToolMeta } from '../types';
 
 // Current Time Tool metadata for UI
-export const CURRENT_TIME_META: PlaygroundToolMeta = {
+export const CURRENT_TIME_META: IPlaygroundToolMeta = {
     id: 'current-time',
     name: 'Current Time',
     description: 'Get current date and time information with timezone support',

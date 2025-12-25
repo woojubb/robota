@@ -28,7 +28,7 @@ export class WorkflowSubscriberEventService implements IEventService {
             throw new Error(`[PATH-ONLY] Missing context.ownerPath for eventType=${String(eventType)}`);
         }
 
-        const { context: _legacyContext, ...rest } = data;
+        const { context: _legacyContext, ownerPath: _legacyOwnerPath, ...rest } = data;
         const payload: TEventData = {
             ...rest,
             eventType: String(eventType),

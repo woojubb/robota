@@ -1,11 +1,11 @@
 /**
  * usePlaygroundStatistics Hook
- * 
- * Playground 전용 통계 데이터를 React 컴포넌트에서 사용하기 위한 Hook
- * - PlaygroundExecutor에서 통계 데이터 가져오기
- * - 실시간 업데이트 지원
- * - 메모이제이션으로 성능 최적화
- * 
+ *
+ * React hook for consuming Playground statistics.
+ * - Pulls metrics from PlaygroundExecutor
+ * - Supports periodic refresh for real-time updates
+ * - Uses memoization for UI-friendly derived values
+ *
  * @example
  * ```tsx
  * function SystemStatusPanel() {
@@ -30,50 +30,51 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePlayground } from '../contexts/playground-context';
-import type { PlaygroundMetrics } from '../types/playground-statistics';
+import type { IPlaygroundMetrics } from '../types/playground-statistics';
 import type { PlaygroundExecutor } from '../lib/playground/robota-executor';
 import { WebLogger } from '../lib/web-logger';
+import type { TUniversalValue } from '@robota-sdk/agents';
 
-type PlaygroundActionType = Parameters<PlaygroundExecutor['recordPlaygroundAction']>[0];
+type TPlaygroundActionType = Parameters<PlaygroundExecutor['recordPlaygroundAction']>[0];
 
 /**
- * Hook 반환 타입 - UI에서 사용하기 편한 형태로 가공된 통계 데이터
+ * Hook return type - UI-friendly derived statistics
  */
-export interface PlaygroundStatisticsHookResult {
-    // 기본 실행 통계
+export interface IPlaygroundStatisticsHookResult {
+    // Core execution metrics
     chatExecutions: number;
     agentExecutions: number;
     teamExecutions: number;
     streamingExecutions: number;
 
-    // UI 인터랙션 통계  
+    // UI interaction metrics
     blockCreations: number;
     uiInteractions: number;
 
-    // 성능 메트릭
+    // Performance metrics
     averageResponseTime: number;
     lastExecutionTime: number | null;
     formattedResponseTime: string;
 
-    // 품질 지표
+    // Quality indicators
     errorCount: number;
     successRate: number;
 
-    // 상태 정보
+    // State
     isActive: boolean;
     isLoading: boolean;
     lastUpdated: Date;
 
-    // 액션 메서드
-    recordAction: (actionType: PlaygroundActionType, metadata?: Record<string, any>) => Promise<void>;
-    recordBlockCreation: (blockType: string, metadata?: Record<string, any>) => Promise<void>;
+    // Actions
+    recordAction: (actionType: TPlaygroundActionType, metadata?: Record<string, TUniversalValue>) => Promise<void>;
+    recordBlockCreation: (blockType: string, metadata?: Record<string, TUniversalValue>) => Promise<void>;
     resetStatistics: () => void;
 }
 
 /**
- * 기본 통계 데이터 (로딩 중이거나 에러 시 사용)
+ * Default statistics (used while loading or when executor is unavailable)
  */
-const defaultStatistics: PlaygroundStatisticsHookResult = {
+const defaultStatistics: IPlaygroundStatisticsHookResult = {
     chatExecutions: 0,
     agentExecutions: 0,
     teamExecutions: 0,
@@ -95,20 +96,19 @@ const defaultStatistics: PlaygroundStatisticsHookResult = {
 
 /**
  * usePlaygroundStatistics Hook
- * 
- * PlaygroundExecutor에서 실시간 통계 데이터를 가져와서
- * React 컴포넌트에서 사용하기 편한 형태로 가공하여 반환
+ *
+ * Pulls statistics from PlaygroundExecutor and returns UI-friendly values.
  */
-export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
+export function usePlaygroundStatistics(): IPlaygroundStatisticsHookResult {
     const { state } = usePlayground();
-    const [rawStatistics, setRawStatistics] = useState<PlaygroundMetrics | null>(null);
+    const [rawStatistics, setRawStatistics] = useState<IPlaygroundMetrics | null>(null);
 
-    // PlaygroundExecutor 타입 안전성 검사
+    // Type guard for executor availability
     const executor = state.executor as PlaygroundExecutor | null;
     const isExecutorReady = executor && typeof executor.getPlaygroundStatistics === 'function';
 
     /**
-     * 주기적으로 통계 데이터 업데이트
+     * Periodically refresh statistics
      */
     useEffect(() => {
         if (!isExecutorReady) {
@@ -116,7 +116,7 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
             return;
         }
 
-        // 즉시 한 번 업데이트
+        // Update once immediately
         const updateStats = () => {
             try {
                 const stats = executor.getPlaygroundStatistics();
@@ -129,22 +129,22 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
 
         updateStats();
 
-        // 1초마다 통계 업데이트 (실시간 반영)
+        // Refresh every second for real-time updates
         const interval = setInterval(updateStats, 1000);
 
         return () => clearInterval(interval);
     }, [
         isExecutorReady,
         executor,
-        state.lastExecutionResult,  // 실행 결과 변경 시 업데이트
-        state.mode,                 // 모드 변경 시 업데이트
-        state.isExecuting          // 실행 상태 변경 시 업데이트
+        state.lastExecutionResult,
+        state.mode,
+        state.isExecuting
     ]);
 
     /**
-     * UI용 액션 메서드들 - useCallback으로 메모이제이션
+     * UI action methods (memoized with useCallback)
      */
-    const recordAction = useCallback(async (actionType: PlaygroundActionType, metadata?: Record<string, any>) => {
+    const recordAction = useCallback(async (actionType: TPlaygroundActionType, metadata?: Record<string, TUniversalValue>) => {
         if (!isExecutorReady) return;
 
         try {
@@ -154,7 +154,7 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
         }
     }, [isExecutorReady, executor]);
 
-    const recordBlockCreation = useCallback(async (blockType: string, metadata?: Record<string, any>) => {
+    const recordBlockCreation = useCallback(async (blockType: string, metadata?: Record<string, TUniversalValue>) => {
         if (!isExecutorReady) return;
 
         try {
@@ -168,8 +168,7 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
         if (!isExecutorReady) return;
 
         try {
-            // PlaygroundStatisticsPlugin의 resetStatistics 메서드 호출
-            // 현재는 직접 액세스가 제한되므로 향후 executor에 메서드 추가 필요
+            // Reset is currently not exposed on the executor. Keep as a UI intent only.
             WebLogger.info('Statistics reset requested');
         } catch (error) {
             WebLogger.warn('Failed to reset statistics', { error: error instanceof Error ? error.message : String(error) });
@@ -177,9 +176,9 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
     }, [isExecutorReady, executor]);
 
     /**
-     * 가공된 통계 데이터 생성 - 복잡한 계산은 useMemo로 최적화
+     * Derived statistics (memoized with useMemo)
      */
-    const processedStatistics = useMemo((): PlaygroundStatisticsHookResult => {
+    const processedStatistics = useMemo((): IPlaygroundStatisticsHookResult => {
         if (!rawStatistics) {
             return {
                 ...defaultStatistics,
@@ -190,38 +189,38 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
             };
         }
 
-        // 응답 시간 포맷팅
+        // Format response time
         const formattedResponseTime = formatResponseTime(rawStatistics.averageResponseTime);
 
-        // 실행 상태 판단 (최근 업데이트가 5초 이내인 경우 활성으로 간주)
+        // Consider "active" if updated within the last 5 seconds
         const isRecentlyActive = (Date.now() - rawStatistics.lastUpdated.getTime()) < 5000;
 
         return {
-            // 기본 실행 통계
+            // Core execution metrics
             chatExecutions: rawStatistics.totalChatExecutions,
             agentExecutions: rawStatistics.agentModeExecutions,
             teamExecutions: rawStatistics.teamModeExecutions,
             streamingExecutions: rawStatistics.streamingExecutions,
 
-            // UI 인터랙션 통계
+            // UI interaction metrics
             blockCreations: rawStatistics.blockCreations,
             uiInteractions: rawStatistics.uiInteractions,
 
-            // 성능 메트릭
+            // Performance metrics
             averageResponseTime: rawStatistics.averageResponseTime,
             lastExecutionTime: rawStatistics.lastExecutionTime,
             formattedResponseTime,
 
-            // 품질 지표
+            // Quality indicators
             errorCount: rawStatistics.errorCount,
             successRate: rawStatistics.successRate,
 
-            // 상태 정보
+            // State
             isActive: rawStatistics.isActive || isRecentlyActive,
             isLoading: false,
             lastUpdated: rawStatistics.lastUpdated,
 
-            // 액션 메서드
+            // Actions
             recordAction,
             recordBlockCreation,
             resetStatistics
@@ -232,7 +231,7 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
 }
 
 /**
- * 응답 시간을 사용자 친화적인 형태로 포맷팅
+ * Format response time for display
  */
 function formatResponseTime(milliseconds: number): string {
     if (milliseconds === 0) return '0ms';

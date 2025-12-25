@@ -22,16 +22,16 @@ import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { FunctionTool } from '@robota-sdk/agents';
 import {
     PlaygroundHistoryPlugin,
-    ConversationEvent,
-    VisualizationData
+    type IConversationEvent,
+    type IVisualizationData
 } from './plugins/playground-history-plugin';
 import { PlaygroundStatisticsPlugin } from './plugins/playground-statistics-plugin';
-import type { PlaygroundAction, PlaygroundMetrics, PlaygroundExecutionResult as PlaygroundStatisticsResult } from '../../types/playground-statistics';
+import type { IPlaygroundAction, IPlaygroundMetrics, IPlaygroundExecutionResult as IPlaygroundStatisticsExecutionResult } from '../../types/playground-statistics';
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 // ExecutionHierarchyTracker will be added later when exports are fixed
 
 // Re-export types for external use
-export type { VisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
+export type { IVisualizationData, IConversationEvent } from './plugins/playground-history-plugin';
 import { PlaygroundWebSocketClient } from './websocket-client';
 import { RemoteExecutor } from '@robota-sdk/remote';
 import { createBlockTrackingHooks } from './block-tracking/block-hooks';
@@ -43,13 +43,13 @@ import { ToolRegistry } from '../../tools/catalog';
 // This module must consume canonical contracts from @robota-sdk/agents (SSOT).
 // Do not re-declare message/provider/tool contracts locally.
 
-export interface BaseTool {
+export interface IPlaygroundTool {
     readonly name: string;
     readonly description: string;
-    execute(params: unknown): Promise<unknown>;
+    execute(params: TUniversalValue): Promise<TUniversalValue>;
 }
 
-export interface BasePlugin {
+export interface IPlaygroundPlugin {
     readonly name: string;
     readonly version: string;
     initialize(): Promise<void>;
@@ -57,7 +57,7 @@ export interface BasePlugin {
 }
 
 // Playground-specific configuration interfaces using Robota-compatible types
-export interface PlaygroundAgentConfig {
+export interface IPlaygroundAgentConfig {
     id?: string;
     name: string;
     aiProviders: IAIProvider[];
@@ -68,33 +68,33 @@ export interface PlaygroundAgentConfig {
         maxTokens?: number;
         systemMessage?: string;
     };
-    tools?: BaseTool[];
-    plugins?: BasePlugin[];
+    tools?: IPlaygroundTool[];
+    plugins?: IPlaygroundPlugin[];
     systemMessage?: string;
     metadata?: Record<string, unknown>;
 }
 
-export interface PlaygroundExecutionResult {
+export interface IPlaygroundExecutorResult {
     success: boolean;
     response: string;
     duration: number;
     tokensUsed?: number;
     toolsExecuted?: string[];
     error?: Error;
-    uiError?: PlaygroundUiError;
-    visualizationData?: VisualizationData; // ✅ 올바른 타입 이름
+    uiError?: IPlaygroundUiError;
+    visualizationData?: IVisualizationData;
 }
 
-export type PlaygroundMode = 'agent';
+export type TPlaygroundMode = 'agent';
 
-export type PlaygroundUiErrorKind = 'user_message' | 'recoverable' | 'fatal';
+export type TPlaygroundUiErrorKind = 'user_message' | 'recoverable' | 'fatal';
 
-export interface PlaygroundUiError {
-    kind: PlaygroundUiErrorKind;
+export interface IPlaygroundUiError {
+    kind: TPlaygroundUiErrorKind;
     message: string;
 }
 
-function toPlaygroundUiError(input: unknown): PlaygroundUiError {
+function toPlaygroundUiError(input: unknown): IPlaygroundUiError {
     const message = input instanceof Error ? input.message : String(input);
 
     // Heuristic classification:
@@ -253,7 +253,7 @@ export class PlaygroundExecutor {
     /**
      * Create and configure an agent (Facade method)
      */
-    async createAgent(config: PlaygroundAgentConfig): Promise<void> {
+    async createAgent(config: IPlaygroundAgentConfig): Promise<void> {
         try {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
@@ -295,7 +295,7 @@ export class PlaygroundExecutor {
      * Update tools on a specific agent instance by rootId(conversationId).
      * Strict: if agent not found in registry, throws.
      */
-    async updateAgentTools(agentId: string, tools: BaseTool[]): Promise<{ version: number }> {
+    async updateAgentTools(agentId: string, tools: IPlaygroundTool[]): Promise<{ version: number }> {
         if (!agentId || typeof agentId !== 'string') {
             throw new Error('updateAgentTools: invalid agentId');
         }
@@ -366,7 +366,7 @@ export class PlaygroundExecutor {
      * Execute a prompt (Facade method)
      * 🚫 DEPRECATED: Use execute() method instead for 26번 compatibility
      */
-    async run(prompt: string): Promise<PlaygroundExecutionResult> {
+    async run(prompt: string): Promise<IPlaygroundExecutorResult> {
         const startTime = Date.now();
         const request: TUniversalMessage[] = [{ role: 'user', content: prompt, timestamp: new Date() }];
 
@@ -374,7 +374,7 @@ export class PlaygroundExecutor {
             const result = await this.executeChat(request);
             const duration = Date.now() - startTime;
 
-            const executionResult: PlaygroundExecutionResult = {
+            const executionResult: IPlaygroundExecutorResult = {
                 success: true,
                 response: result.content || 'No response',
                 duration: duration,
@@ -398,7 +398,7 @@ export class PlaygroundExecutor {
 
         } catch (error) {
             const duration = Date.now() - startTime;
-            const executionResult: PlaygroundExecutionResult = {
+            const executionResult: IPlaygroundExecutorResult = {
                 success: false,
                 response: 'Execution failed',
                 duration: duration,
@@ -426,7 +426,7 @@ export class PlaygroundExecutor {
     /**
      * 🎯 26번 예제와 동일한 단순 실행 구조
      */
-    async execute(prompt: string, onChunk?: (chunk: string) => void): Promise<PlaygroundExecutionResult> {
+    async execute(prompt: string, onChunk?: (chunk: string) => void): Promise<IPlaygroundExecutorResult> {
         this.logger.debug('Playground execute called');
 
         const startTime = Date.now();
@@ -466,7 +466,7 @@ export class PlaygroundExecutor {
                 error: error instanceof Error ? error.message : String(error)
             });
 
-            const executionResult: PlaygroundExecutionResult = {
+            const executionResult: IPlaygroundExecutorResult = {
                 success: false,
                 response: 'Execution failed',
                 duration: duration,
@@ -482,7 +482,7 @@ export class PlaygroundExecutor {
      * Execute with streaming response (Facade method)
      * 🚫 DEPRECATED: Use execute() method instead for 26번 compatibility
      */
-    async *runStream(prompt: string): AsyncGenerator<string, PlaygroundExecutionResult> {
+    async *runStream(prompt: string): AsyncGenerator<string, IPlaygroundExecutorResult> {
         const startTime = Date.now();
         const request: TUniversalMessage[] = [{ role: 'user', content: prompt, timestamp: new Date() }];
 
@@ -500,7 +500,7 @@ export class PlaygroundExecutor {
             yield fullResponse;
 
             const duration = Date.now() - startTime;
-            const executionResult: PlaygroundExecutionResult = {
+            const executionResult: IPlaygroundExecutorResult = {
                 success: true,
                 response: fullResponse,
                 duration: duration,
@@ -523,7 +523,7 @@ export class PlaygroundExecutor {
 
         } catch (error) {
             const duration = Date.now() - startTime;
-            const executionResult: PlaygroundExecutionResult = {
+            const executionResult: IPlaygroundExecutorResult = {
                 success: false,
                 response: 'Streaming execution failed',
                 duration: duration,
@@ -554,14 +554,14 @@ export class PlaygroundExecutor {
     /**
      * Get current Playground statistics
      */
-    getPlaygroundStatistics(): PlaygroundMetrics {
+    getPlaygroundStatistics(): IPlaygroundMetrics {
         return this.statisticsPlugin.getPlaygroundStats().metrics;
     }
 
     /**
      * Record a Playground-specific action
      */
-    async recordPlaygroundAction(actionType: PlaygroundAction['type'], metadata?: Record<string, TUniversalValue>): Promise<void> {
+    async recordPlaygroundAction(actionType: IPlaygroundAction['type'], metadata?: Record<string, TUniversalValue>): Promise<void> {
         await this.statisticsPlugin.recordUIInteraction(actionType, metadata);
     }
 
@@ -575,7 +575,7 @@ export class PlaygroundExecutor {
     /**
      * Get visualization data from history plugin
      */
-    getVisualizationData(): VisualizationData {
+    getVisualizationData(): IVisualizationData {
         return this.historyPlugin.getVisualizationData();
     }
 
@@ -583,14 +583,14 @@ export class PlaygroundExecutor {
      * Get all playground events from PlaygroundHistoryPlugin
      * These events include all EventService events (execution.*, tool_call_*, task.*)
      */
-    getPlaygroundEvents(): ConversationEvent[] {
+    getPlaygroundEvents(): IConversationEvent[] {
         return this.historyPlugin.getAllEvents();
     }
 
 
 
     /**
-     * Create ToolHooks using EventService for assignTask instrumentation
+     * Create IToolHooks using EventService for assignTask instrumentation
      */
     private createEventServiceToolHooks(): any {
         return { hooksEnabled: true } as any;
@@ -792,7 +792,7 @@ export class PlaygroundExecutor {
     /**
      * Record successful execution completion
      */
-    private async recordExecutionComplete(executionId: string, result: PlaygroundStatisticsResult): Promise<void> {
+    private async recordExecutionComplete(executionId: string, result: IPlaygroundStatisticsExecutionResult): Promise<void> {
         await this.statisticsPlugin.recordPlaygroundExecution(result);
         this.logDebug('Execution completed', { executionId, duration: result.duration, success: result.success });
     }
@@ -800,7 +800,7 @@ export class PlaygroundExecutor {
     /**
      * Record execution error
      */
-    private async recordExecutionError(executionId: string, result: PlaygroundStatisticsResult): Promise<void> {
+    private async recordExecutionError(executionId: string, result: IPlaygroundStatisticsExecutionResult): Promise<void> {
         await this.statisticsPlugin.recordPlaygroundExecution(result);
         this.logError('Execution failed', new Error(result.error || 'Unknown error'), { executionId, duration: result.duration });
     }
@@ -830,10 +830,10 @@ export class PlaygroundExecutor {
     private createProvidersWithExecutor(): any[] {
         const remoteExecutor = this.createRemoteExecutor();
 
-        // 🎯 26번 예제와 동일: model 명시적 지정
+        // Explicitly set a model to keep execution deterministic in examples/tests.
         const openaiProvider = new OpenAIProvider({
             executor: remoteExecutor,
-            model: 'gpt-4o-mini'  // 26번과 동일한 모델
+            model: 'gpt-4o-mini'
             // No API key needed - executor handles remote calls
         });
 
@@ -848,7 +848,7 @@ export class PlaygroundExecutor {
     /**
      * Set execution mode and update state
      */
-    private setMode(mode: PlaygroundMode): void {
+    private setMode(mode: TPlaygroundMode): void {
         this.logger.debug('Setting playground mode', {
             previousMode: this.mode,
             nextMode: mode,

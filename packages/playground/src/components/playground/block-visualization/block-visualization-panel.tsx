@@ -16,8 +16,8 @@ import {
     Code
 } from 'lucide-react';
 import type {
-    BlockMessage,
-    BlockDataCollector
+    IBlockMessage,
+    IBlockDataCollector
 } from '../../../lib/playground/block-tracking';
 import { ExecutionTreeDebug } from '../execution-tree-debug';
 import type { PlaygroundBlockCollector } from '../../../lib/playground/block-tracking/block-collector';
@@ -27,7 +27,7 @@ import type { PlaygroundBlockCollector } from '../../../lib/playground/block-tra
  */
 export interface BlockVisualizationPanelProps {
     /** Block collector instance */
-    blockCollector: BlockDataCollector;
+    blockCollector: IBlockDataCollector;
 
     /** Panel height */
     height?: string | number;
@@ -39,13 +39,13 @@ export interface BlockVisualizationPanelProps {
     autoScroll?: boolean;
 
     /** Callback when a block is selected for inspection */
-    onBlockInspect?: (block: BlockMessage) => void;
+    onBlockInspect?: (block: IBlockMessage) => void;
 }
 
 /**
  * Block Statistics Component
  */
-const BlockStats: React.FC<{ blockCollector: BlockDataCollector }> = ({ blockCollector }) => {
+const BlockStats: React.FC<{ blockCollector: IBlockDataCollector }> = ({ blockCollector }) => {
     const [stats, setStats] = useState(blockCollector.getStats());
 
     useEffect(() => {
@@ -119,7 +119,7 @@ const BlockStats: React.FC<{ blockCollector: BlockDataCollector }> = ({ blockCol
 /**
  * Block Type Breakdown Component
  */
-const BlockTypeBreakdown: React.FC<{ blockCollector: BlockDataCollector }> = ({ blockCollector }) => {
+const BlockTypeBreakdown: React.FC<{ blockCollector: IBlockDataCollector }> = ({ blockCollector }) => {
     const [stats, setStats] = useState(blockCollector.getStats());
 
     useEffect(() => {
@@ -165,7 +165,7 @@ const BlockTypeBreakdown: React.FC<{ blockCollector: BlockDataCollector }> = ({ 
  * Block Inspection Panel
  */
 const BlockInspectionPanel: React.FC<{
-    selectedBlock: BlockMessage | null;
+    selectedBlock: IBlockMessage | null;
     onClose: () => void;
 }> = ({ selectedBlock, onClose }) => {
     if (!selectedBlock) {
@@ -268,10 +268,10 @@ export const BlockVisualizationPanel: React.FC<BlockVisualizationPanelProps> = (
     autoScroll = true,
     onBlockInspect
 }) => {
-    const [selectedBlock, setSelectedBlock] = useState<BlockMessage | null>(null);
+    const [selectedBlock, setSelectedBlock] = useState<IBlockMessage | null>(null);
     const [activeTab, setActiveTab] = useState<string>('tree');
 
-    const handleBlockSelect = useCallback((block: BlockMessage) => {
+    const handleBlockSelect = useCallback((block: IBlockMessage) => {
         setSelectedBlock(block);
         onBlockInspect?.(block);
 

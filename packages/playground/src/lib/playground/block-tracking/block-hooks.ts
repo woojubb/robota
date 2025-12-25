@@ -1,20 +1,20 @@
 import type { IToolExecutionContext, SimpleLogger, TToolParameters, TToolResultData } from '@robota-sdk/agents';
 import type {
-    BlockDataCollector,
-    BlockMessage,
-    ToolExecutionTrackingData,
-    BlockMetadata
+    IBlockDataCollector,
+    IBlockMessage,
+    IToolExecutionTrackingData,
+    IBlockMetadata
 } from './types';
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
 
-export interface ToolHooks {
+export interface IToolHooks {
     beforeExecute(toolName: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<void>;
     afterExecute(toolName: string, parameters: TToolParameters, result: TToolResultData, context?: IToolExecutionContext): Promise<void>;
     onError(toolName: string, parameters: TToolParameters, error: Error, context?: IToolExecutionContext): Promise<void>;
 }
 
 /**
- * Create block tracking hooks that implement the universal ToolHooks interface
+ * Create block tracking hooks that implement the universal IToolHooks interface
  * This connects the SDK's universal hook system to the web app's block visualization
  * 
  * @param blockCollector - The block collector instance
@@ -22,7 +22,7 @@ export interface ToolHooks {
  * @param options - Additional configuration options
  */
 export function createBlockTrackingHooks(
-    blockCollector: BlockDataCollector,
+    blockCollector: IBlockDataCollector,
     logger: SimpleLogger = DefaultConsoleLogger,
     options: {
         /** Parent block ID for nested tool calls */
@@ -30,13 +30,13 @@ export function createBlockTrackingHooks(
         /** Level for hierarchical nesting */
         level?: number;
         /** Custom block type mapping */
-        blockTypeMapping?: Record<string, BlockMetadata['type']>;
+        blockTypeMapping?: Record<string, IBlockMetadata['type']>;
     } = {}
-): ToolHooks {
+): IToolHooks {
     const { parentBlockId, level = 0, blockTypeMapping = {} } = options;
 
     // Track ongoing tool executions
-    const activeExecutions = new Map<string, ToolExecutionTrackingData>();
+    const activeExecutions = new Map<string, IToolExecutionTrackingData>();
 
     return {
         /**
@@ -53,7 +53,7 @@ export function createBlockTrackingHooks(
                 });
 
                 // Track execution data
-                const trackingData: ToolExecutionTrackingData = {
+                const trackingData: IToolExecutionTrackingData = {
                     toolName,
                     parameters,
                     context,
@@ -67,7 +67,7 @@ export function createBlockTrackingHooks(
                 const blockType = blockTypeMapping[toolName] || 'tool_call';
 
                 // Create tool call block
-                const toolCallBlock: BlockMessage = {
+                const toolCallBlock: IBlockMessage = {
                     role: 'assistant',
                     content: `🔧 ${toolName}`,
                     blockMetadata: {
@@ -151,7 +151,7 @@ export function createBlockTrackingHooks(
                     });
 
                     // Create result block as child
-                    const resultBlock: BlockMessage = {
+                    const resultBlock: IBlockMessage = {
                         role: 'system',
                         content: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
                         blockMetadata: {
@@ -237,7 +237,7 @@ export function createBlockTrackingHooks(
                     });
 
                     // Create error block as child
-                    const errorBlock: BlockMessage = {
+                    const errorBlock: IBlockMessage = {
                         role: 'system',
                         content: `❌ Error: ${error.message}`,
                         blockMetadata: {
@@ -278,13 +278,13 @@ export function createBlockTrackingHooks(
  * Tracks when agents delegate tasks to other agents
  */
 export function createDelegationTrackingHooks(
-    blockCollector: BlockDataCollector,
+    blockCollector: IBlockDataCollector,
     logger: SimpleLogger = DefaultConsoleLogger,
     options: {
         parentBlockId?: string;
         level?: number;
     } = {}
-): ToolHooks {
+): IToolHooks {
     return createBlockTrackingHooks(blockCollector, logger, {
         ...options,
         blockTypeMapping: {

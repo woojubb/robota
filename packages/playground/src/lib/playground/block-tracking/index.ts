@@ -1,13 +1,13 @@
 // Block tracking types
 export type {
-    BlockMetadata,
-    BlockMessage,
-    BlockDataCollector,
-    ToolExecutionTrackingData,
-    DelegationTrackingData,
-    BlockTreeNode,
-    BlockCollectionEvent,
-    BlockCollectionListener
+    IBlockMetadata,
+    IBlockMessage,
+    IBlockDataCollector,
+    IToolExecutionTrackingData,
+    IDelegationTrackingData,
+    IBlockTreeNode,
+    TBlockCollectionEvent,
+    TBlockCollectionListener
 } from './types';
 
 // Block collector implementation
@@ -20,5 +20,5 @@ export {
 } from './block-hooks';
 
 // Re-export for convenience
-export type { ToolHooks } from './block-hooks';
+export type { IToolHooks } from './block-hooks';
 export type { SimpleLogger } from '@robota-sdk/agents';

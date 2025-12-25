@@ -319,6 +319,18 @@
     - [ ] type alias: `rg "\\btype\\s+[A-SU-Z][A-Za-z0-9_]+\\b" packages`
     - [ ] interface: `rg "\\binterface\\s+(?!I)[A-Za-z0-9_]+\\b" packages` (PCRE 필요 시 옵션/대안 결정)
 
+#### 1.1) 스캔 정확도 게이트 (NEW)
+- 배경: ripgrep 기본 엔진에서는 **lookahead/lookbehind** 같은 PCRE 기능이 적용되지 않아,
+  “`(?!I)` 같은 패턴”으로 스캔하면 **거짓 음성(false negative)** 이 발생할 수 있다.
+- 결정: 타입/인터페이스 prefix 전수 스캔은 **lookahead 없이** 아래 패턴만 사용한다(단일 기준).
+  - export interface(미준수 후보): `rg "\\bexport\\s+interface\\s+[A-HJ-Z][A-Za-z0-9_]+" packages`
+  - export type alias(미준수 후보): `rg "\\bexport\\s+type\\s+[A-SU-Z][A-Za-z0-9_]+\\s*=" packages`
+  - local interface(미준수 후보): `rg "\\binterface\\s+[A-HJ-Z][A-Za-z0-9_]+" packages`
+  - local type alias(미준수 후보): `rg "\\btype\\s+[A-SU-Z][A-Za-z0-9_]+\\s*=" packages`
+- 완료 조건:
+  - [ ] 위 스캔으로 잡힌 후보가 “수정 완료 후 감소”하는지 확인한다.
+  - [ ] 스캔 루틴을 CI gate로 승격할지(경고→에러)는 별도 합의 후 결정한다.
+
 #### 2) 수정 전략: “Owner로 수렴” (No-Fallback, 단일 경로)
 - [ ] 공통 규칙: **소비처는 owner public export를 import하도록 변경**하고, 로컬 선언은 제거한다.
 - [ ] cross-package contract 타입(예: `UniversalMessage`, tool contract, workflow 구조 등)은 반드시 **owner 패키지**에서만 정의/수출한다.
@@ -367,6 +379,26 @@
 - [ ] 게이트 1(즉시): “owner 타입 로컬 재정의” 금지 패턴은 발견 즉시 정리한다(대표: status 유니온).
 - [ ] 게이트 2(단계적): ESLint `@typescript-eslint/naming-convention`으로 `interface`는 `I` prefix 강제부터 시작한다(효과 대비 churn 낮음).
 - [ ] 게이트 3(합의 후): `typeAlias`에 `T` prefix 강제를 도입한다(기존 코드 churn이 크므로 warning부터 시작하는 옵션 포함).
+
+### Prefix Phase 3: 잔존 export 타입/인터페이스 + Base* 접두어 정리 (NEW)
+> 목표: “public export surface”에 남아있는 무접두어 타입/인터페이스와 `Base*` 접두어를 제거하고, `I*/T*` 규칙으로 수렴한다.
+
+#### A) Playground(@robota-sdk/playground) 잔존 정리
+- [ ] `packages/playground/src/lib/playground/block-tracking/types.ts`
+  - [ ] `BlockDataCollector` 포함, `Block*`/`RealTimeBlock*`/listener/event 타입을 `I*/T*`로 전환
+- [ ] `packages/playground/src/lib/playground/block-tracking/block-hooks.ts`
+  - [ ] `ToolHooks` → `IToolHooks` (interface)
+- [ ] `packages/playground/src/lib/playground/robota-executor.ts`
+  - [ ] `BaseTool`/`BasePlugin` 등 `Base*` 접두어 제거(SSOT 타입 import로 수렴)
+  - [ ] `Playground*` 타입/인터페이스 `I*/T*` 전환(공개 계약만)
+- [ ] 검증: `pnpm --filter @robota-sdk/playground build` PASS
+
+#### B) Agents/Remote/Workflow 잔존 export 정리(스캔 기반)
+- [ ] `packages/agents/src/services/execution-service.ts`: `ExecutionContext`/`ExecutionResult` 등 export interface `I*` 전환
+- [ ] `packages/agents/src/abstracts/abstract-ai-provider.ts`: `ProviderConfig`/`ExecutorAwareProviderConfig` 등 export interface `I*` 전환
+- [ ] `packages/agents/src/utils/logger.ts`: 런타임 `Logger`와 충돌하는 interface/type 정리(`ILogger` 등)
+- [ ] `packages/remote/src/transport/websocket-*.ts`: websocket payload/export 타입 `I*/T*` 전환
+- [ ] 검증: 변경 패키지별 build PASS (필수)
 - [ ] 게이트 강제 위치 결정:
   - [ ] 로컬 개발: warning 허용 여부
   - [ ] CI: error 게이트 여부(“신규 위반 0”만 우선 적용 가능)

@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 import { RealTimeToolBlock } from './real-time-tool-block';
 import type {
-    RealTimeBlockMessage,
-    RealTimeBlockMetadata
+    IRealTimeBlockMessage,
+    IRealTimeBlockMetadata
 } from '../../lib/playground/block-tracking/types';
 import type { PlaygroundBlockCollector } from '../../lib/playground/block-tracking/block-collector';
 
@@ -21,7 +21,7 @@ import type { PlaygroundBlockCollector } from '../../lib/playground/block-tracki
  * Tree node structure for hierarchical rendering
  */
 interface ExecutionTreeNode {
-    block: RealTimeBlockMessage;
+    block: IRealTimeBlockMessage;
     children: ExecutionTreeNode[];
     level: number;
 }
@@ -43,13 +43,13 @@ export interface ExecutionTreeVisualizerProps {
     autoExpand?: boolean;
 
     /** Callback when a block is selected */
-    onBlockSelect?: (block: RealTimeBlockMessage) => void;
+    onBlockSelect?: (block: IRealTimeBlockMessage) => void;
 
     /** Currently selected block ID */
     selectedBlockId?: string;
 
     /** Filter function for blocks */
-    blockFilter?: (block: RealTimeBlockMessage) => boolean;
+    blockFilter?: (block: IRealTimeBlockMessage) => boolean;
 }
 
 /**
@@ -78,7 +78,7 @@ export const ExecutionTreeVisualizer: React.FC<ExecutionTreeVisualizerProps> = (
         const realTimeBlocks = allBlocks.filter(block =>
             'startTime' in block.blockMetadata ||
             'executionHierarchy' in block.blockMetadata
-        ) as RealTimeBlockMessage[];
+        ) as IRealTimeBlockMessage[];
 
         // Apply filter if provided
         const filteredBlocks = blockFilter ?
@@ -86,7 +86,7 @@ export const ExecutionTreeVisualizer: React.FC<ExecutionTreeVisualizerProps> = (
             realTimeBlocks;
 
         // Create a map for quick lookup
-        const blockMap = new Map<string, RealTimeBlockMessage>();
+        const blockMap = new Map<string, IRealTimeBlockMessage>();
         filteredBlocks.forEach(block => {
             blockMap.set(block.blockMetadata.id, block);
         });
@@ -148,7 +148,7 @@ export const ExecutionTreeVisualizer: React.FC<ExecutionTreeVisualizerProps> = (
         const allBlocks = blockCollector.getBlocks();
         const realTimeBlocks = allBlocks.filter(block =>
             'startTime' in block.blockMetadata
-        ) as RealTimeBlockMessage[];
+        ) as IRealTimeBlockMessage[];
 
         const stats = {
             total: realTimeBlocks.length,
@@ -163,7 +163,7 @@ export const ExecutionTreeVisualizer: React.FC<ExecutionTreeVisualizerProps> = (
         let completedDurations: number[] = [];
 
         realTimeBlocks.forEach(block => {
-            const metadata = block.blockMetadata as RealTimeBlockMetadata;
+            const metadata = block.blockMetadata as IRealTimeBlockMetadata;
             switch (metadata.visualState) {
                 case 'pending':
                     stats.pending++;
@@ -192,7 +192,7 @@ export const ExecutionTreeVisualizer: React.FC<ExecutionTreeVisualizerProps> = (
     }, [blockCollector]);
 
     // Handle block selection
-    const handleBlockSelect = useCallback((block: RealTimeBlockMessage) => {
+    const handleBlockSelect = useCallback((block: IRealTimeBlockMessage) => {
         onBlockSelect?.(block);
     }, [onBlockSelect]);
 

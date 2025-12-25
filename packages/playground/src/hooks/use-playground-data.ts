@@ -15,12 +15,12 @@
 
 import { useMemo, useCallback } from 'react';
 import { usePlayground } from '../contexts/playground-context';
-import type { ConversationEvent, VisualizationData } from '../lib/playground/robota-executor';
+import type { IConversationEvent, IVisualizationData } from '../lib/playground/robota-executor';
 
 export interface PlaygroundDataHookReturn {
     // Visualization Data
-    visualizationData: VisualizationData | null;
-    conversationEvents: ConversationEvent[];
+    visualizationData: IVisualizationData | null;
+    conversationEvents: IConversationEvent[];
 
     // Computed Data
     totalEvents: number;
@@ -29,16 +29,16 @@ export interface PlaygroundDataHookReturn {
     currentMode: 'agent';
 
     // Agent/Team Structure
-    agentBlocks: VisualizationData['agents'] | [];
+    agentBlocks: IVisualizationData['agents'] | [];
 
     // Real-time Status
     isRealTimeEnabled: boolean;
     lastEventTimestamp: Date | null;
 
     // Data Filtering and Search
-    filterEventsByType: (type: ConversationEvent['type']) => ConversationEvent[];
-    getEventsInTimeRange: (startTime: Date, endTime: Date) => ConversationEvent[];
-    searchEventsByContent: (searchTerm: string) => ConversationEvent[];
+    filterEventsByType: (type: IConversationEvent['type']) => IConversationEvent[];
+    getEventsInTimeRange: (startTime: Date, endTime: Date) => IConversationEvent[];
+    searchEventsByContent: (searchTerm: string) => IConversationEvent[];
 
     // Statistics
     getExecutionStatistics: () => {
@@ -52,7 +52,7 @@ export interface PlaygroundDataHookReturn {
     exportConversationData: () => {
         timestamp: string;
         mode: 'agent';
-        events: ConversationEvent[];
+        events: IConversationEvent[];
         statistics: ReturnType<PlaygroundDataHookReturn['getExecutionStatistics']>;
     };
 }
@@ -100,7 +100,7 @@ export function usePlaygroundData(): PlaygroundDataHookReturn {
     }, [conversationEvents]);
 
     // Data filtering functions
-    const filterEventsByType = useCallback((type: ConversationEvent['type']) => {
+    const filterEventsByType = useCallback((type: IConversationEvent['type']) => {
         return conversationEvents.filter(event => event.type === type);
     }, [conversationEvents]);
 

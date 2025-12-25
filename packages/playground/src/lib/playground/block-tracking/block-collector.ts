@@ -1,12 +1,12 @@
 import type {
-    BlockDataCollector,
-    BlockMessage,
-    BlockMetadata,
-    BlockCollectionEvent,
-    BlockCollectionListener,
-    BlockTreeNode,
-    RealTimeBlockMessage,
-    RealTimeBlockMetadata
+    IBlockDataCollector,
+    IBlockMessage,
+    IBlockMetadata,
+    TBlockCollectionEvent,
+    TBlockCollectionListener,
+    IBlockTreeNode,
+    IRealTimeBlockMessage,
+    IRealTimeBlockMetadata
 } from './types';
 import { WebLogger } from '../../web-logger';
 
@@ -14,29 +14,29 @@ import { WebLogger } from '../../web-logger';
  * Playground-specific block collector implementation
  * Manages block collection with React state integration
  */
-export class PlaygroundBlockCollector implements BlockDataCollector {
-    private blocks: Map<string, BlockMessage> = new Map();
-    private listeners: Set<BlockCollectionListener> = new Set();
+export class PlaygroundBlockCollector implements IBlockDataCollector {
+    private blocks: Map<string, IBlockMessage> = new Map();
+    private listeners: Set<TBlockCollectionListener> = new Set();
     private rootBlocks: string[] = [];
 
     /**
      * Add a listener for block collection events
      */
-    addListener(listener: BlockCollectionListener): void {
+    addListener(listener: TBlockCollectionListener): void {
         this.listeners.add(listener);
     }
 
     /**
      * Remove a listener
      */
-    removeListener(listener: BlockCollectionListener): void {
+    removeListener(listener: TBlockCollectionListener): void {
         this.listeners.delete(listener);
     }
 
     /**
      * Notify all listeners of an event
      */
-    private notifyListeners(event: BlockCollectionEvent): void {
+    private notifyListeners(event: TBlockCollectionEvent): void {
         this.listeners.forEach(listener => {
             try {
                 listener(event);
@@ -49,7 +49,7 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
     /**
      * Collect a new block message
      */
-    collectBlock(message: BlockMessage): void {
+    collectBlock(message: IBlockMessage): void {
         this.blocks.set(message.blockMetadata.id, message);
 
         // Track root blocks (no parent)
@@ -74,7 +74,7 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
     /**
      * Update an existing block
      */
-    updateBlock(blockId: string, updates: Partial<BlockMetadata>): void {
+    updateBlock(blockId: string, updates: Partial<IBlockMetadata>): void {
         const block = this.blocks.get(blockId);
         if (!block) {
             WebLogger.warn('Block not found for update', { blockId });
@@ -90,7 +90,7 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
     /**
      * Update a block's metadata in real-time
      */
-    updateRealTimeBlock(blockId: string, updates: Partial<RealTimeBlockMetadata>): void {
+    updateRealTimeBlock(blockId: string, updates: Partial<IRealTimeBlockMetadata>): void {
         const block = this.blocks.get(blockId);
         if (!block) {
             WebLogger.warn('Block not found for real-time update', { blockId });
@@ -106,19 +106,19 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
     /**
      * Get all collected blocks
      */
-    getBlocks(): BlockMessage[] {
+    getBlocks(): IBlockMessage[] {
         return Array.from(this.blocks.values());
     }
 
     /**
      * Get blocks by parent ID for hierarchical rendering
      */
-    getBlocksByParent(parentId?: string): BlockMessage[] {
+    getBlocksByParent(parentId?: string): IBlockMessage[] {
         if (!parentId) {
             // Return root blocks
             return this.rootBlocks
                 .map(id => this.blocks.get(id))
-                .filter((block): block is BlockMessage => block !== undefined);
+                .filter((block): block is IBlockMessage => block !== undefined);
         }
 
         const parent = this.blocks.get(parentId);
@@ -128,20 +128,20 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
 
         return parent.blockMetadata.children
             .map(childId => this.blocks.get(childId))
-            .filter((block): block is BlockMessage => block !== undefined);
+            .filter((block): block is IBlockMessage => block !== undefined);
     }
 
     /**
      * Build block tree for hierarchical visualization
      */
-    getBlockTree(): BlockTreeNode[] {
-        const buildNode = (blockId: string, parent?: BlockTreeNode): BlockTreeNode => {
+    getBlockTree(): IBlockTreeNode[] {
+        const buildNode = (blockId: string, parent?: IBlockTreeNode): IBlockTreeNode => {
             const block = this.blocks.get(blockId);
             if (!block) {
                 throw new Error(`Block not found: ${blockId}`);
             }
 
-            const node: BlockTreeNode = {
+            const node: IBlockTreeNode = {
                 block,
                 children: [],
                 parent
@@ -177,7 +177,7 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
     /**
      * Get block by ID
      */
-    getBlock(blockId: string): BlockMessage | undefined {
+    getBlock(blockId: string): IBlockMessage | undefined {
         return this.blocks.get(blockId);
     }
 
@@ -226,10 +226,10 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
         content: string,
         parentId?: string,
         level: number = 0
-    ): BlockMessage {
+    ): IBlockMessage {
         const blockId = this.generateBlockId();
 
-        const groupBlock: BlockMessage = {
+        const groupBlock: IBlockMessage = {
             role: 'system',
             content,
             blockMetadata: {

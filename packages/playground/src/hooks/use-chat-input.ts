@@ -18,7 +18,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useRobotaExecution } from './use-robota-execution';
 import { usePlaygroundData } from './use-playground-data';
-import type { UseBlockTrackingResult } from './use-block-tracking';
+import type { IUseBlockTrackingResult } from './use-block-tracking';
 import { WebLogger } from '../lib/web-logger';
 
 export interface ChatMessage {
@@ -41,7 +41,7 @@ export interface ChatInputState {
 
 export interface ChatInputOptions {
     /** Block tracking integration for automatic block creation */
-    blockTracking?: UseBlockTrackingResult;
+    blockTracking?: IUseBlockTrackingResult;
 
     /** Maximum input length */
     maxLength?: number;

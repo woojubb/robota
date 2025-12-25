@@ -17,7 +17,7 @@ import { ExecutionTreeDebug } from './execution-tree-debug';
 import { RealTimeToolBlock } from './real-time-tool-block';
 import { PlaygroundBlockCollector } from '../../lib/playground/block-tracking/block-collector';
 import { generateDemoExecutionData, generateComplexDemoData } from '../../lib/playground/demo-execution-data';
-import type { RealTimeBlockMessage } from '../../lib/playground/block-tracking/types';
+import type { IRealTimeBlockMessage } from '../../lib/playground/block-tracking/types';
 
 /**
  * 🧪 ExecutionTreeTest - Test Component for Real-Time Execution Tracking
@@ -27,7 +27,7 @@ import type { RealTimeBlockMessage } from '../../lib/playground/block-tracking/t
  */
 export const ExecutionTreeTest: React.FC = () => {
     const [blockCollector] = useState(() => new PlaygroundBlockCollector());
-    const [selectedBlock, setSelectedBlock] = useState<RealTimeBlockMessage | null>(null);
+    const [selectedBlock, setSelectedBlock] = useState<IRealTimeBlockMessage | null>(null);
     const [lastUpdate, setLastUpdate] = useState(Date.now());
 
     // Generate demo data
@@ -47,7 +47,7 @@ export const ExecutionTreeTest: React.FC = () => {
         setLastUpdate(Date.now());
     };
 
-    const handleBlockSelect = (block: RealTimeBlockMessage) => {
+    const handleBlockSelect = (block: IRealTimeBlockMessage) => {
         setSelectedBlock(block);
     };
 

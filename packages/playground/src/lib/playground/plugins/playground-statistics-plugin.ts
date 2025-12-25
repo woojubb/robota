@@ -2,11 +2,11 @@ import type { SimpleLogger, TUniversalValue } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
 import type {
-  PlaygroundAction,
-  PlaygroundExecutionResult,
-  PlaygroundMetrics,
-  PlaygroundStatisticsOptions,
-  PlaygroundStatisticsStats,
+  IPlaygroundAction,
+  IPlaygroundExecutionResult,
+  IPlaygroundMetrics,
+  IPlaygroundStatisticsOptions,
+  IPlaygroundStatisticsStats,
 } from '../../../types/playground-statistics';
 
 /**
@@ -17,13 +17,13 @@ import type {
  */
 export class PlaygroundStatisticsPlugin {
   private readonly logger: SimpleLogger;
-  private readonly options: Required<PlaygroundStatisticsOptions>;
+  private readonly options: Required<IPlaygroundStatisticsOptions>;
 
-  private metrics: PlaygroundMetrics;
-  private executionHistory: PlaygroundExecutionResult[] = [];
-  private actionHistory: PlaygroundAction[] = [];
+  private metrics: IPlaygroundMetrics;
+  private executionHistory: IPlaygroundExecutionResult[] = [];
+  private actionHistory: IPlaygroundAction[] = [];
 
-  constructor(options: PlaygroundStatisticsOptions = {}, logger: SimpleLogger = SilentLogger) {
+  constructor(options: IPlaygroundStatisticsOptions = {}, logger: SimpleLogger = SilentLogger) {
     this.logger = logger;
     this.options = {
       enabled: options.enabled ?? true,
@@ -56,7 +56,7 @@ export class PlaygroundStatisticsPlugin {
     };
   }
 
-  async recordPlaygroundExecution(result: PlaygroundExecutionResult): Promise<void> {
+  async recordPlaygroundExecution(result: IPlaygroundExecutionResult): Promise<void> {
     if (!this.options.enabled) return;
 
     this.executionHistory.push(result);
@@ -75,7 +75,7 @@ export class PlaygroundStatisticsPlugin {
     this.metrics.lastUpdated = new Date();
   }
 
-  async recordUIInteraction(type: PlaygroundAction['type'], metadata?: Record<string, TUniversalValue>): Promise<void> {
+  async recordUIInteraction(type: IPlaygroundAction['type'], metadata?: Record<string, TUniversalValue>): Promise<void> {
     if (!this.options.enabled || !this.options.collectUIMetrics) return;
 
     this.actionHistory.push({ type, timestamp: new Date(), metadata });
@@ -94,7 +94,7 @@ export class PlaygroundStatisticsPlugin {
     this.metrics.lastUpdated = new Date();
   }
 
-  getPlaygroundStats(): PlaygroundStatisticsStats {
+  getPlaygroundStats(): IPlaygroundStatisticsStats {
     return {
       metrics: { ...this.metrics },
       executionHistory: [...this.executionHistory],
@@ -135,7 +135,7 @@ export class PlaygroundStatisticsPlugin {
     return Math.round(totalTime / this.executionHistory.length);
   }
 
-  private calculateAggregatedStats(): PlaygroundStatisticsStats['aggregatedStats'] {
+  private calculateAggregatedStats(): IPlaygroundStatisticsStats['aggregatedStats'] {
     const providerUsage: Record<string, number> = {};
     const modelUsage: Record<string, number> = {};
     const errorCounts: Record<string, number> = {};
@@ -163,7 +163,7 @@ export class PlaygroundStatisticsPlugin {
     };
   }
 
-  private calculateTimeBasedStats(): PlaygroundStatisticsStats['timeBasedStats'] {
+  private calculateTimeBasedStats(): IPlaygroundStatisticsStats['timeBasedStats'] {
     const hourlyExecutions = Array.from({ length: 24 }, () => 0);
     const dailyExecutions = Array.from({ length: 7 }, () => 0);
 

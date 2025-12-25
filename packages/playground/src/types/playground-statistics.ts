@@ -1,11 +1,12 @@
 /**
  * Playground Statistics Type Definitions
- * 
+ *
  * Type definitions for the Playground statistics system.
  * - Not intended for cross-project reuse
  * - Focused on UI/UX-oriented metrics
  */
 
+import { EXECUTION_EVENTS } from '@robota-sdk/agents';
 import type { TUniversalValue } from '@robota-sdk/agents';
 
 // =============================================================================
@@ -15,7 +16,7 @@ import type { TUniversalValue } from '@robota-sdk/agents';
 /**
  * Playground-specific execution result
  */
-export interface PlaygroundExecutionResult {
+export interface IPlaygroundExecutionResult {
     success: boolean;
     duration: number;
     provider: string;
@@ -34,7 +35,7 @@ export interface PlaygroundExecutionResult {
 /**
  * Playground UI interaction action
  */
-export interface PlaygroundAction {
+export interface IPlaygroundAction {
     type: 'chat_send' | 'agent_create' | 'team_create' | 'agent_start' | 'team_start' |
     'agent_stop' | 'team_stop' | 'block_expand' | 'block_collapse' | 'config_change';
     timestamp: Date;
@@ -44,7 +45,7 @@ export interface PlaygroundAction {
 /**
  * Playground metric set
  */
-export interface PlaygroundMetrics {
+export interface IPlaygroundMetrics {
     // Chat execution statistics
     totalChatExecutions: number;
     agentModeExecutions: number;
@@ -76,24 +77,24 @@ export interface PlaygroundMetrics {
 /**
  * PlaygroundStatisticsPlugin configuration options
  */
-export interface PlaygroundStatisticsOptions {
+export interface IPlaygroundStatisticsOptions {
     enabled?: boolean;
 
-    // UI 메트릭 수집 옵션
+    // UI metrics collection options
     collectUIMetrics?: boolean;
     collectBlockMetrics?: boolean;
     collectConfigMetrics?: boolean;
 
-    // 성능 모니터링 옵션
+    // Performance monitoring options
     trackResponseTime?: boolean;
     trackExecutionDetails?: boolean;
 
-    // 저장 및 집계 옵션
+    // Storage and aggregation options
     maxEntries?: number;
     aggregateStats?: boolean;
     resetOnSessionStart?: boolean;
 
-    // 알림 임계치
+    // Alert thresholds
     slowExecutionThreshold?: number; // ms
     errorRateThreshold?: number; // percentage
 }
@@ -101,17 +102,17 @@ export interface PlaygroundStatisticsOptions {
 /**
  * PlaygroundStatisticsPlugin stats data
  */
-export interface PlaygroundStatisticsStats {
-    // 기본 메트릭
-    metrics: PlaygroundMetrics;
+export interface IPlaygroundStatisticsStats {
+    // Core metrics
+    metrics: IPlaygroundMetrics;
 
-    // 상세 실행 이력
-    executionHistory: PlaygroundExecutionResult[];
+    // Execution history
+    executionHistory: IPlaygroundExecutionResult[];
 
-    // UI 인터랙션 이력
-    actionHistory: PlaygroundAction[];
+    // UI interaction history
+    actionHistory: IPlaygroundAction[];
 
-    // 집계된 통계
+    // Aggregated stats
     aggregatedStats: {
         sessionsCount: number;
         totalExecutionTime: number;
@@ -121,7 +122,7 @@ export interface PlaygroundStatisticsStats {
         modelUsage: Record<string, number>;
     };
 
-    // 시간대별 통계
+    // Time-based stats
     timeBasedStats: {
         hourlyExecutions: number[];
         dailyExecutions: number[];
@@ -134,9 +135,9 @@ export interface PlaygroundStatisticsStats {
 // =============================================================================
 
 /**
- * 기본 Playground 메트릭
+ * Default Playground metrics
  */
-export const defaultPlaygroundStats: PlaygroundMetrics = {
+export const defaultPlaygroundStats: IPlaygroundMetrics = {
     totalChatExecutions: 0,
     agentModeExecutions: 0,
     teamModeExecutions: 0,
@@ -153,9 +154,9 @@ export const defaultPlaygroundStats: PlaygroundMetrics = {
 };
 
 /**
- * 기본 플러그인 설정
+ * Default plugin options
  */
-export const defaultPlaygroundStatisticsOptions: Required<PlaygroundStatisticsOptions> = {
+export const defaultPlaygroundStatisticsOptions: Required<IPlaygroundStatisticsOptions> = {
     enabled: true,
     collectUIMetrics: true,
     collectBlockMetrics: true,
@@ -165,7 +166,7 @@ export const defaultPlaygroundStatisticsOptions: Required<PlaygroundStatisticsOp
     maxEntries: 1000,
     aggregateStats: true,
     resetOnSessionStart: false,
-    slowExecutionThreshold: 3000, // 3초
+    slowExecutionThreshold: 3000, // 3 seconds
     errorRateThreshold: 10 // 10%
 };
 
@@ -174,27 +175,29 @@ export const defaultPlaygroundStatisticsOptions: Required<PlaygroundStatisticsOp
 // =============================================================================
 
 /**
- * Playground 통계 수집을 위한 이벤트 타입
+ * Event types for statistics collection
  */
-export type PlaygroundStatisticsEventType =
-    | 'execution.start'
-    | 'execution.complete'
-    | 'execution.error'
-    | 'ui.interaction'
-    | 'block.create'
-    | 'block.expand'
-    | 'block.collapse'
-    | 'config.change'
-    | 'session.start'
-    | 'session.end';
+export const PLAYGROUND_STATISTICS_EVENTS = {
+    UI_INTERACTION: 'playground.ui_interaction',
+    BLOCK_CREATE: 'playground.block_create',
+    BLOCK_EXPAND: 'playground.block_expand',
+    BLOCK_COLLAPSE: 'playground.block_collapse',
+    CONFIG_CHANGE: 'playground.config_change',
+    SESSION_START: 'playground.session_start',
+    SESSION_END: 'playground.session_end',
+} as const;
+
+export type TPlaygroundStatisticsEventType =
+    | (typeof EXECUTION_EVENTS)[keyof typeof EXECUTION_EVENTS]
+    | (typeof PLAYGROUND_STATISTICS_EVENTS)[keyof typeof PLAYGROUND_STATISTICS_EVENTS];
 
 /**
- * 통계 이벤트 데이터
+ * Statistics event data
  */
-export interface PlaygroundStatisticsEventData {
-    type: PlaygroundStatisticsEventType;
+export interface IPlaygroundStatisticsEventData {
+    type: TPlaygroundStatisticsEventType;
     timestamp: Date;
     executionId?: string;
     sessionId?: string;
-    data: Record<string, any>;
+    data: Record<string, TUniversalValue>;
 } 

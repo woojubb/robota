@@ -14,7 +14,7 @@ import {
     Zap
 } from 'lucide-react';
 import type { PlaygroundBlockCollector } from '../../lib/playground/block-tracking/block-collector';
-import type { RealTimeBlockMessage, RealTimeBlockMetadata } from '../../lib/playground/block-tracking/types';
+import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from '../../lib/playground/block-tracking/types';
 import { generateDemoExecutionData, generateComplexDemoData } from '../../lib/playground/demo-execution-data';
 import { WebLogger } from '../../lib/web-logger';
 
@@ -66,10 +66,10 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
         const realTimeBlocks = allBlocks.filter(block =>
             'startTime' in block.blockMetadata ||
             'executionHierarchy' in block.blockMetadata
-        ) as RealTimeBlockMessage[];
+        ) as IRealTimeBlockMessage[];
 
         // Create a map for quick lookup
-        const blockMap = new Map<string, RealTimeBlockMessage>();
+        const blockMap = new Map<string, IRealTimeBlockMessage>();
         realTimeBlocks.forEach(block => {
             blockMap.set(block.blockMetadata.id, block);
         });
@@ -80,7 +80,7 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
 
         // Convert blocks to debug nodes
         realTimeBlocks.forEach(block => {
-            const metadata = block.blockMetadata as RealTimeBlockMetadata;
+            const metadata = block.blockMetadata as IRealTimeBlockMetadata;
             const debugNode: DebugTreeNode = {
                 id: metadata.id,
                 type: metadata.type,
@@ -99,7 +99,7 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
 
         // Establish parent-child relationships
         realTimeBlocks.forEach(block => {
-            const metadata = block.blockMetadata as RealTimeBlockMetadata;
+            const metadata = block.blockMetadata as IRealTimeBlockMetadata;
             const node = nodeMap.get(metadata.id);
             if (!node) return;
 
@@ -186,7 +186,7 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
 
         try {
             // First test with a simple manual block
-            const testBlock: RealTimeBlockMessage = {
+            const testBlock: IRealTimeBlockMessage = {
                 role: 'user',
                 content: 'Test message from debug',
                 timestamp: new Date(),
@@ -371,7 +371,7 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
                             ) : (
                                 <div className="space-y-3">
                                     {rawBlocks.map((block, index) => {
-                                        const metadata = block.blockMetadata as RealTimeBlockMetadata;
+                                        const metadata = block.blockMetadata as IRealTimeBlockMetadata;
                                         return (
                                             <div key={metadata.id} className="border rounded p-2 text-xs">
                                                 <div className="flex items-center justify-between mb-2">

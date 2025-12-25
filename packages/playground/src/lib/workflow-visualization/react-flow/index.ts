@@ -6,9 +6,9 @@
  */
 
 import type {
-    UniversalWorkflowStructure,
-    UniversalWorkflowNode,
-    UniversalWorkflowEdge
+    IUniversalWorkflowStructure,
+    IUniversalWorkflowNode,
+    IUniversalWorkflowEdge
 } from '@robota-sdk/workflow';
 import { SilentLogger, type SimpleLogger } from '@robota-sdk/agents';
 import type {
@@ -52,7 +52,7 @@ export class UniversalToReactFlowConverter {
      * Convert Universal Workflow Structure to React-Flow Data
      * Simple 1:1 transformation with React-Flow responsibility delegation
      */
-    async convert(universal: UniversalWorkflowStructure): Promise<ReactFlowData> {
+    async convert(universal: IUniversalWorkflowStructure): Promise<ReactFlowData> {
         this.logger.debug('Converting Universal Workflow to React-Flow format');
 
         try {
@@ -73,7 +73,7 @@ export class UniversalToReactFlowConverter {
      * Convert Universal nodes to React-Flow nodes
      * Pure data transformation with SDK type mapping - styling delegated to React-Flow
      */
-    private convertNodes(universalNodes: UniversalWorkflowNode[]): ReactFlowNode[] {
+    private convertNodes(universalNodes: IUniversalWorkflowNode[]): ReactFlowNode[] {
         return universalNodes.map(universalNode => {
             // Map SDK node type to React-Flow custom node type
             const mappedType = SDK_TO_REACTFLOW_TYPE_MAP[universalNode.type] || universalNode.type || 'default';
@@ -106,7 +106,7 @@ export class UniversalToReactFlowConverter {
      * Convert Universal edges to React-Flow edges
      * Pure data transformation - styling delegated to React-Flow
      */
-    private convertEdges(universalEdges: UniversalWorkflowEdge[]): ReactFlowEdge[] {
+    private convertEdges(universalEdges: IUniversalWorkflowEdge[]): ReactFlowEdge[] {
         return universalEdges.map(universalEdge => {
             return {
                 id: universalEdge.id,

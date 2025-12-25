@@ -39,10 +39,10 @@ import {
     Puzzle,
     GripVertical
 } from 'lucide-react';
-import type { PlaygroundAgentConfig } from '../../lib/playground/robota-executor';
+import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 
 export interface AgentContainerBlockProps {
-    agent: PlaygroundAgentConfig;
+    agent: IPlaygroundAgentConfig;
     index: number;
     totalAgents: number;
     isActive?: boolean;
@@ -50,7 +50,7 @@ export interface AgentContainerBlockProps {
     isLeader?: boolean;
     teamRole?: string;
     priority?: number;
-    onAgentChange: (agent: PlaygroundAgentConfig) => void;
+    onAgentChange: (agent: IPlaygroundAgentConfig) => void;
     onRemove?: () => void;
     onEdit?: () => void;
     onSetLeader?: () => void;

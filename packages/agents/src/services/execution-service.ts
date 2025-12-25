@@ -1332,7 +1332,7 @@ export class ExecutionService {
         };
     }
 
-    private emitExecution(eventType: TServiceEventType, data: IExecutionEventData, rootId: string, executionId: string): void {
+    private emitExecution(eventType: TServiceEventType, data: Omit<IExecutionEventData, 'timestamp'>, rootId: string, executionId: string): void {
         this.emitWithContext(
             eventType,
             data,
@@ -1348,7 +1348,7 @@ export class ExecutionService {
         );
     }
 
-    private emitTool(eventType: TServiceEventType, data: IToolEventData, rootId: string, executionId: string, toolCallId: string): void {
+    private emitTool(eventType: TServiceEventType, data: Omit<IToolEventData, 'timestamp'>, rootId: string, executionId: string, toolCallId: string): void {
         this.emitWithContext(
             eventType,
             data,
@@ -1359,7 +1359,7 @@ export class ExecutionService {
 
     private emitWithContext<TEvent extends IBaseEventData>(
         eventType: TServiceEventType,
-        data: TEvent,
+        data: Omit<TEvent, 'timestamp'>,
         buildContext: () => IEventContext,
         resolveService: (context: IEventContext) => IEventService
     ): void {
@@ -1368,7 +1368,11 @@ export class ExecutionService {
         }
         const context = buildContext();
         const service = resolveService(context);
-        service.emit(eventType, data, context);
+        const payload: TEvent = {
+            timestamp: new Date(),
+            ...(data as Omit<TEvent, 'timestamp'>),
+        } as TEvent;
+        service.emit(eventType, payload, context);
     }
 
     /**
