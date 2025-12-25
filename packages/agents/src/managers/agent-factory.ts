@@ -2,7 +2,7 @@ import { IAgentInterface, IAgentConfig, IAgentTemplate } from '../interfaces/age
 import { TConfigData } from '../interfaces/types';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { validateAgentConfig } from '../utils/validation';
-import { Logger, createLogger } from '../utils/logger';
+import { createLogger, type ILogger } from '../utils/logger';
 import { AgentTemplates, type ITemplateApplicationResult } from './agent-templates';
 
 /**
@@ -58,7 +58,7 @@ export interface IAgentLifecycleEvents {
 export class AgentFactory {
     private agentTemplates: AgentTemplates;
     private initialized = false;
-    private logger: Logger;
+    private logger: ILogger;
     private options: Required<IAgentFactoryOptions>;
     private activeAgents: Map<string, IAgentInterface>;
     private creationStats: IAgentCreationStats;

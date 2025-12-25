@@ -1,5 +1,5 @@
 import { HistoryStorage, ConversationHistoryEntry } from '../types';
-import { Logger, createLogger } from '../../../utils/logger';
+import { createLogger, type ILogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
 
 /**
@@ -7,7 +7,7 @@ import { StorageError } from '../../../utils/errors';
  */
 export class DatabaseHistoryStorage implements HistoryStorage {
     private connectionString: string;
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor(connectionString: string) {
         this.connectionString = connectionString;

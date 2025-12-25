@@ -23,7 +23,7 @@ export interface ISimpleWebSocketConfig extends ITransportConfig {
     pingInterval?: number;
 }
 
-interface PendingRequest {
+interface IPendingRequest {
     resolve: (value: ITransportResponse<IChatResponseData>) => void;
     reject: (error: Error) => void;
     timeout: NodeJS.Timeout;
@@ -35,7 +35,7 @@ interface PendingRequest {
 export class SimpleWebSocketTransport implements ITransport {
     private ws: WebSocket | null = null;
     private config: Required<ISimpleWebSocketConfig>;
-    private pendingRequests = new Map<string, PendingRequest>();
+    private pendingRequests = new Map<string, IPendingRequest>();
     private reconnectAttempts = 0;
     private isReconnecting = false;
 

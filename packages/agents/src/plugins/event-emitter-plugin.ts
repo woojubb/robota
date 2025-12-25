@@ -1,6 +1,6 @@
 import { AbstractPlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, type PluginStats, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
 import type { IToolExecutionContext, TToolParameters, IToolResult } from '../interfaces/tool';
-import { Logger, createLogger } from '../utils/logger';
+import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 import type { TimerId } from '../utils';
 
@@ -249,7 +249,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
 
 
     private pluginOptions: Required<EventEmitterPluginOptions>;
-    private logger: Logger;
+    private logger: ILogger;
     private handlers = new Map<EventType, EventHandler[]>();
     private eventBuffer: EventData[] = [];
     private nextHandlerId = 1;

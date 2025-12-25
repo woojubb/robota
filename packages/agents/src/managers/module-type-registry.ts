@@ -3,13 +3,13 @@ import {
     ModuleCategory,
     ModuleLayer
 } from '../abstracts/abstract-module';
-import { Logger, createLogger } from '../utils/logger';
+import { createLogger, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 
 /**
  * Module type validation result
  */
-export interface ModuleTypeValidationResult {
+export interface IModuleTypeValidationResult {
     valid: boolean;
     errors: string[];
     warnings: string[];
@@ -18,7 +18,7 @@ export interface ModuleTypeValidationResult {
 /**
  * Module dependency resolution result
  */
-export interface ModuleDependencyResolution {
+export interface IModuleDependencyResolution {
     resolved: boolean;
     order: string[];
     circularDependencies: string[][];
@@ -28,7 +28,7 @@ export interface ModuleDependencyResolution {
 /**
  * Module compatibility check result
  */
-export interface ModuleCompatibilityResult {
+export interface IModuleCompatibilityResult {
     compatible: boolean;
     conflicts: Array<{
         module1: string;
@@ -51,7 +51,7 @@ export interface ModuleCompatibilityResult {
 export class ModuleTypeRegistry {
     private static instance: ModuleTypeRegistry | null = null;
     private registeredTypes = new Map<string, ModuleTypeDescriptor>();
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor() {
         this.logger = createLogger('ModuleTypeRegistry');
@@ -164,7 +164,7 @@ export class ModuleTypeRegistry {
     /**
      * Validate module type descriptor
      */
-    validateTypeDescriptor(typeDescriptor: ModuleTypeDescriptor): ModuleTypeValidationResult {
+    validateTypeDescriptor(typeDescriptor: ModuleTypeDescriptor): IModuleTypeValidationResult {
         const errors: string[] = [];
         const warnings: string[] = [];
 
@@ -245,7 +245,7 @@ export class ModuleTypeRegistry {
     /**
      * Resolve module dependencies and return initialization order
      */
-    resolveDependencies(moduleTypes: string[]): ModuleDependencyResolution {
+    resolveDependencies(moduleTypes: string[]): IModuleDependencyResolution {
         const visited = new Set<string>();
         const visiting = new Set<string>();
         const order: string[] = [];
@@ -321,7 +321,7 @@ export class ModuleTypeRegistry {
     /**
      * Check compatibility between module types
      */
-    checkCompatibility(moduleTypes: string[]): ModuleCompatibilityResult {
+    checkCompatibility(moduleTypes: string[]): IModuleCompatibilityResult {
         const conflicts: Array<{ module1: string; module2: string; reason: string }> = [];
         const suggestions: string[] = [];
 

@@ -1,5 +1,5 @@
 import { IAgentTemplate, IAgentConfig } from '../interfaces/agent';
-import { Logger, createLogger } from '../utils/logger';
+import { createLogger, type ILogger } from '../utils/logger';
 
 /**
  * Reusable type definitions for agent templates
@@ -33,7 +33,7 @@ export interface ITemplateApplicationResult {
  */
 export class AgentTemplates {
     private templates = new Map<string, IAgentTemplate>();
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor() {
         this.logger = createLogger('AgentTemplates');

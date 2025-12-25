@@ -1,5 +1,5 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
-import { Logger, createLogger } from '../../utils/logger';
+import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
 import type { TimerId } from '../../utils';
@@ -28,7 +28,7 @@ export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginS
 
     private storage: UsageStorage;
     private pluginOptions: Required<Omit<UsagePluginOptions, 'costRates'>> & { costRates?: Record<string, { input: number; output: number }> };
-    private logger: Logger;
+    private logger: ILogger;
     private aggregationTimer?: TimerId;
 
     constructor(options: UsagePluginOptions) {

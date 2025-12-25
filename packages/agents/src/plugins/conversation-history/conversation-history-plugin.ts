@@ -1,6 +1,6 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { TUniversalMessage } from '../../interfaces/agent';
-import { Logger, createLogger } from '../../utils/logger';
+import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { TimerId } from '../../utils';
 import {
@@ -25,7 +25,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistor
 
     private storage: HistoryStorage;
     private pluginOptions: Required<ConversationHistoryPluginOptions>;
-    private logger: Logger;
+    private logger: ILogger;
     private currentConversationId?: string;
     private batchSaveTimer?: TimerId;
     private pendingSaves = new Set<string>();

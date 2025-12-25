@@ -1,5 +1,5 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
-import { Logger, createLogger } from '../../utils/logger';
+import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 
 // Import from Facade pattern modules for type safety
@@ -19,7 +19,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<ErrorHandlingPluginOptio
     version = '1.0.0';
 
     private pluginOptions: Required<Omit<ErrorHandlingPluginOptions, 'customErrorHandler'>> & { customErrorHandler?: (error: Error, context: ErrorHandlingContextData) => Promise<void> };
-    private logger: Logger;
+    private logger: ILogger;
     private failureCount = 0;
     private circuitBreakerOpen = false;
     private lastFailureTime = 0;

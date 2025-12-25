@@ -23,7 +23,7 @@ import {
 
 
 import { AbstractTool } from '../abstracts/abstract-tool';
-import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
+import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 import type { IToolExecutionContext, TToolParameters } from '../interfaces/tool';
 import type { TToolResultData } from '../interfaces/types';
@@ -152,7 +152,7 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
     // State management
     protected override config: IAgentConfig;
     private conversationId: string;
-    private logger: Logger;
+    private logger: ILogger;
     private initializationPromise?: Promise<void> | undefined;
     private isFullyInitialized = false;
     private startTime: number;

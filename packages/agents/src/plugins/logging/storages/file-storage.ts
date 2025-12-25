@@ -1,6 +1,6 @@
 import { LogEntry, LogStorage, LogFormatter } from '../types';
 import { JsonLogFormatter } from '../formatters';
-import { Logger, createLogger } from '../../../utils/logger';
+import { createLogger, type ILogger } from '../../../utils/logger';
 import { PluginError } from '../../../utils/errors';
 
 /**
@@ -9,7 +9,7 @@ import { PluginError } from '../../../utils/errors';
 export class FileLogStorage implements LogStorage {
     private filePath: string;
     private formatter: LogFormatter;
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor(filePath: string, formatter?: LogFormatter) {
         this.filePath = filePath;

@@ -362,10 +362,10 @@ export type {
 } from './interfaces/workflow-converter';
 
 export type {
-    WorkflowValidatorInterface,
-    ValidationOptions,
-    ValidationResult,
-    ValidationIssue,
+    IWorkflowValidator,
+    IValidationOptions,
+    IValidationResult,
+    IValidationIssue,
     ValidationSeverity
 } from './interfaces/workflow-validator';
 

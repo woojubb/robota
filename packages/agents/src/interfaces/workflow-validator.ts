@@ -20,7 +20,7 @@ export enum ValidationSeverity {
 /**
  * Individual validation issue
  */
-export interface ValidationIssue {
+export interface IValidationIssue {
     /** Unique identifier for this issue */
     id: string;
 
@@ -59,7 +59,7 @@ export interface ValidationIssue {
 /**
  * Validation options
  */
-export interface ValidationOptions {
+export interface IValidationOptions {
     /** Validation strictness level */
     strict?: boolean;
 
@@ -91,12 +91,12 @@ export interface ValidationOptions {
 /**
  * Validation result
  */
-export interface ValidationResult {
+export interface IValidationResult {
     /** Overall validation success status */
     isValid: boolean;
 
     /** All validation issues found */
-    issues: ValidationIssue[];
+    issues: IValidationIssue[];
 
     /** Summary by severity */
     summary: {
@@ -149,7 +149,7 @@ export interface ValidationResult {
  * 
  * @template TWorkflowData - Type of workflow data to validate
  */
-export interface WorkflowValidatorInterface<TWorkflowData extends IWorkflowData> {
+export interface IWorkflowValidator<TWorkflowData extends IWorkflowData> {
     /** Validator name for identification */
     readonly name: string;
 
@@ -169,7 +169,7 @@ export interface WorkflowValidatorInterface<TWorkflowData extends IWorkflowData>
      * @param options - Validation options
      * @returns Promise resolving to validation result
      */
-    validate(data: TWorkflowData, options?: ValidationOptions): Promise<ValidationResult>;
+    validate(data: TWorkflowData, options?: IValidationOptions): Promise<IValidationResult>;
 
     /**
      * Validate specific aspect of workflow data
@@ -179,7 +179,7 @@ export interface WorkflowValidatorInterface<TWorkflowData extends IWorkflowData>
      * @param options - Validation options
      * @returns Promise resolving to validation result for this rule
      */
-    validateRule(data: TWorkflowData, rule: string, options?: ValidationOptions): Promise<ValidationResult>;
+    validateRule(data: TWorkflowData, rule: string, options?: IValidationOptions): Promise<IValidationResult>;
 
     /**
      * Check if validator can handle the given data format
@@ -215,12 +215,12 @@ export interface WorkflowValidatorInterface<TWorkflowData extends IWorkflowData>
      * @param issues - Validation issues to recover from
      * @returns Promise resolving to recovered data and recovery result
      */
-    autoRecover(data: TWorkflowData, issues: ValidationIssue[]): Promise<{
+    autoRecover(data: TWorkflowData, issues: IValidationIssue[]): Promise<{
         recoveredData: TWorkflowData;
         recoveryResult: {
             success: boolean;
-            issuesFixed: ValidationIssue[];
-            remainingIssues: ValidationIssue[];
+            issuesFixed: IValidationIssue[];
+            remainingIssues: IValidationIssue[];
             appliedFixes: string[];
         };
     }>;

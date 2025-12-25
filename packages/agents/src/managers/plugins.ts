@@ -1,6 +1,6 @@
 import { AbstractManager } from '../abstracts/abstract-manager';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
-import { Logger, createLogger } from '../utils/logger';
+import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError, ConfigurationError } from '../utils/errors';
 
 /**
@@ -109,7 +109,7 @@ export class Plugins extends AbstractManager implements PluginsManagerInterface 
     private pluginOptions = new Map<string, PluginRegistrationOptions>();
     private initializationOrder: string[] = [];
     private lifecycleEvents: PluginLifecycleEvents;
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor(lifecycleEvents: PluginLifecycleEvents = {}) {
         super();

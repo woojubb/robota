@@ -1,5 +1,5 @@
 import { AbstractPlugin, BaseExecutionContext, BaseExecutionResult, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
-import { Logger, createLogger } from '../utils/logger';
+import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 import type {
     LimitsStrategy,
@@ -51,7 +51,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     version = '1.0.0';
 
     private pluginOptions: Required<LimitsPluginOptions>;
-    private logger: Logger;
+    private logger: ILogger;
     private windows = new Map<string, LimitWindow>();
     private buckets = new Map<string, TokenBucket>();
     private requestCounts = new Map<string, number>();

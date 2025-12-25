@@ -1,9 +1,9 @@
 import type { TUniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage, TUniversalMessageMetadata as ConversationContextMetadata } from '../../managers/conversation-history-manager';
-import type { IAIProvider, IProviderRequest as BaseProviderRequest, IRawProviderResponse as BaseRawProviderResponse } from '../../interfaces/provider';
+import type { IAIProvider, IProviderRequest, IRawProviderResponse } from '../../interfaces/provider';
 import type { IToolCall } from '../../interfaces/messages';
 import type { TToolResultData } from '../../interfaces/types';
 import { NetworkError, ProviderError } from '../../utils/errors';
-import { createLogger, Logger } from '../../utils/logger';
+import { createLogger, type ILogger } from '../../utils/logger';
 import {
     IConversationContext,
     IConversationResponse,
@@ -27,7 +27,7 @@ const DEFAULT_OPTIONS: Required<IConversationServiceOptions> = {
 /**
  * Provider request configuration with stream property
  */
-interface IConversationProviderRequest extends BaseProviderRequest {
+interface IConversationProviderRequest extends IProviderRequest {
     model: string; // Make model required
     stream?: boolean;
 }
@@ -124,7 +124,7 @@ export class ConversationService implements IConversationService {
         provider: string,
         contextOptions: IContextOptions,
         serviceOptions: IConversationServiceOptions,
-        logger: Logger
+        logger: ILogger
     ): IConversationContext {
         const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
 
@@ -174,7 +174,7 @@ export class ConversationService implements IConversationService {
         provider: IAIProvider,
         context: IConversationContext,
         serviceOptions: IConversationServiceOptions,
-        logger: Logger
+        logger: ILogger
     ): Promise<IConversationResponse> {
         const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
         const startTime = Date.now();
@@ -238,7 +238,7 @@ export class ConversationService implements IConversationService {
         provider: IAIProvider,
         context: IConversationContext,
         _serviceOptions: IConversationServiceOptions,
-        logger: Logger
+        logger: ILogger
     ): AsyncGenerator<IStreamingChunk, void, undefined> {
         // Apply defaults for future use - currently not needed but maintains service contract
         const startTime = Date.now();
@@ -492,7 +492,7 @@ export class ConversationService implements IConversationService {
         return request;
     }
 
-    private static processProviderResponse(response: BaseRawProviderResponse): IConversationResponse {
+    private static processProviderResponse(response: IRawProviderResponse): IConversationResponse {
         const usage = ConversationService.convertUsage(response.usage);
 
         const result: IConversationResponse = {
@@ -523,7 +523,7 @@ export class ConversationService implements IConversationService {
         fn: () => Promise<T>,
         operation: string,
         options: Required<IConversationServiceOptions>,
-        logger: Logger
+        logger: ILogger
     ): Promise<T> {
         let lastError: Error | undefined;
 

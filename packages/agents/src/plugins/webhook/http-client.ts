@@ -5,15 +5,15 @@
 
 import jsSHA from 'jssha';
 import type { WebhookRequest } from './types';
-import { Logger } from '../../utils/logger';
+import type { ILogger } from '../../utils/logger';
 
 /**
  * HTTP client for webhook requests
  */
 export class WebhookHttpClient {
-    private logger: Logger;
+    private logger: ILogger;
 
-    constructor(logger: Logger) {
+    constructor(logger: ILogger) {
         this.logger = logger;
     }
 

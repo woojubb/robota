@@ -2,7 +2,7 @@ import type { TProviderConfigValue, IAIProvider } from './provider';
 import type { AbstractPlugin, BasePluginOptions, PluginStats } from '../abstracts/abstract-plugin';
 import type { AbstractTool } from '../abstracts/abstract-tool';
 import type { AbstractModule } from '../abstracts/abstract-module';
-import type { UtilLogLevel } from '../utils/logger';
+import type { TUtilLogLevel } from '../utils/logger';
 import type { TMetadata, TConfigValue } from './types';
 import type { IEventService } from '../services/event-service';
 import type { IOwnerPathSegment } from '../services/event-service';
@@ -101,7 +101,7 @@ export interface IAgentConfig {
 
     // Logging configuration
     logging?: {
-        level?: UtilLogLevel;
+        level?: TUtilLogLevel;
         enabled?: boolean;
         format?: string;
         destination?: string;
