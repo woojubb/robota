@@ -4,18 +4,19 @@
  * Single responsibility: Transform data between different formats
  */
 
-import type { BasicMessage, ResponseMessage, RequestMessage } from '../types/message-types';
-import type { HttpRequest, HttpResponse, DefaultRequestData } from '../types/http-types';
+import type { IBasicMessage, IResponseMessage, IRequestMessage } from '../types/message-types';
+import type { IHttpRequest, IHttpResponse, TDefaultRequestData, THttpMethod } from '../types/http-types';
+import type { TUniversalValue } from '@robota-sdk/agents';
 // Simple utility functions for basic type checking
 
 /**
  * Transform basic message to request message
  */
-export function toRequestMessage<TUniversalMessage extends BasicMessage>(
+export function toRequestMessage<TUniversalMessage extends IBasicMessage>(
     message: TUniversalMessage,
     provider: string,
     model: string
-): RequestMessage {
+): IRequestMessage {
     return {
         role: message.role,
         content: message.content,
@@ -27,12 +28,12 @@ export function toRequestMessage<TUniversalMessage extends BasicMessage>(
 /**
  * Transform basic message to response message
  */
-export function toResponseMessage<TUniversalMessage extends BasicMessage>(
+export function toResponseMessage<TUniversalMessage extends IBasicMessage>(
     message: TUniversalMessage,
     provider?: string,
     model?: string
-): ResponseMessage {
-    const response: ResponseMessage = {
+): IResponseMessage {
+    const response: IResponseMessage = {
         role: message.role,
         content: message.content,
         timestamp: new Date()
@@ -46,10 +47,10 @@ export function toResponseMessage<TUniversalMessage extends BasicMessage>(
         response.model = model;
     }
 
-    // ✅ toolCalls 데이터 보존 (타입 단언 사용)
-    const messageWithToolCalls = message as any;
-    if (messageWithToolCalls.toolCalls && Array.isArray(messageWithToolCalls.toolCalls)) {
-        response.toolCalls = messageWithToolCalls.toolCalls;
+    // Preserve toolCalls data (type assertion is used here)
+    const toolCalls = (message as Partial<IResponseMessage>).toolCalls;
+    if (toolCalls && Array.isArray(toolCalls)) {
+        response.toolCalls = toolCalls;
     }
 
     return response;
@@ -61,11 +62,11 @@ export function toResponseMessage<TUniversalMessage extends BasicMessage>(
 export function createHttpRequest<TData>(
     id: string,
     url: string,
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: THttpMethod,
     data?: TData,
     headers: Record<string, string> = {}
-): HttpRequest<TData> {
-    const request: HttpRequest<TData> = {
+): IHttpRequest<TData> {
+    const request: IHttpRequest<TData> = {
         id,
         url,
         method,
@@ -90,7 +91,7 @@ export function createHttpResponse<TData>(
     status: number,
     data: TData,
     headers: Record<string, string> = {}
-): HttpResponse<TData> {
+): IHttpResponse<TData> {
     return {
         id,
         status,
@@ -103,18 +104,18 @@ export function createHttpResponse<TData>(
 /**
  * Extract content from response safely
  */
-export function extractContent(response: HttpResponse<DefaultRequestData>): string {
+export function extractContent(response: IHttpResponse<TDefaultRequestData>): string {
     // Check for nested data structure: response.data.data.content
-    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+    if ('data' in response.data) {
         const nestedData = response.data['data'];
-        if (nestedData && typeof nestedData === 'object' && 'content' in nestedData) {
-            const content = nestedData['content'];
+        if (nestedData !== null && typeof nestedData === 'object' && 'content' in nestedData) {
+            const content = (nestedData as Record<string, TUniversalValue>)['content'];
             return typeof content === 'string' ? content : '';
         }
     }
 
     // Fallback to original structure: response.data.content
-    if (response.data && typeof response.data === 'object' && 'content' in response.data) {
+    if ('content' in response.data) {
         const content = response.data['content'];
         return typeof content === 'string' ? content : '';
     }

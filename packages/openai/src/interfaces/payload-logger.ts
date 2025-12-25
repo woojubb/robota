@@ -2,14 +2,14 @@ import type { OpenAILogData } from '../types/api-types';
 import type { SimpleLogger } from '@robota-sdk/agents';
 
 /**
- * PayloadLogger interface for logging OpenAI API payloads
+ * IPayloadLogger interface for logging OpenAI API payloads
  * 
  * This interface provides a contract for different logging implementations:
  * - FilePayloadLogger: Node.js file-based logging
  * - ConsolePayloadLogger: Browser console-based logging
  * - Custom implementations: User-defined loggers
  */
-export interface PayloadLogger {
+export interface IPayloadLogger {
     /**
      * Check if logging is enabled
      * @returns true if logging is active, false otherwise
@@ -27,7 +27,7 @@ export interface PayloadLogger {
 /**
  * Configuration options for payload loggers
  */
-export interface PayloadLoggerOptions {
+export interface IPayloadLoggerOptions {
     /**
      * Whether logging is enabled
      * @defaultValue true

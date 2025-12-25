@@ -362,7 +362,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
             return;
         }
         // Absolute ownerPath: pass the full path explicitly so downstream subscribers can derive `path` deterministically.
-        this.agentEventService.emit<IAgentEventData>(eventType, data, {
+        this.agentEventService.emit(eventType, data, {
             ownerType: 'agent',
             ownerId: this.conversationId,
             ownerPath: this.buildOwnerPath(this.config.executionContext)

@@ -6,12 +6,12 @@ export { SessionManager } from './session/session-manager';
 export { TemplateManagerAdapter } from './adapters/template-manager-adapter';
 
 // Interfaces and types
-export type { TemplateManager } from './types/chat';
+export type { ITemplateManager } from './types/chat';
 export type {
-    ChatConfig,
-    ChatMetadata,
-    ChatStats,
-    MessageContent
+    IChatConfig,
+    IChatMetadata,
+    IChatStats,
+    TMessageContent
 } from './types/chat';
 
 export type {

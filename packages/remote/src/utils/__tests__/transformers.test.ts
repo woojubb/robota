@@ -16,12 +16,12 @@ import {
     safeJsonParse
 } from '../transformers';
 // Type guard removed - using proper TypeScript types
-import type { BasicMessage } from '../../types/message-types';
+import type { IBasicMessage } from '../../types/message-types';
 
 describe('Transformers Pure Functions', () => {
     describe('toRequestMessage', () => {
         it('should transform BasicMessage to RequestMessage', () => {
-            const basicMessage: BasicMessage = {
+            const basicMessage: IBasicMessage = {
                 role: 'user',
                 content: 'Hello AI'
             };
@@ -41,7 +41,7 @@ describe('Transformers Pure Functions', () => {
                 role: 'user',
                 content: 'Hello',
                 extraProperty: 'should be preserved'
-            } satisfies BasicMessage & { extraProperty: string };
+            } satisfies IBasicMessage & { extraProperty: string };
 
             const result = toRequestMessage(extendedMessage, 'anthropic', 'claude-3');
 
@@ -54,7 +54,7 @@ describe('Transformers Pure Functions', () => {
 
     describe('toResponseMessage', () => {
         it('should transform BasicMessage to ResponseMessage with timestamp', () => {
-            const basicMessage: BasicMessage = {
+            const basicMessage: IBasicMessage = {
                 role: 'assistant',
                 content: 'Hello back!'
             };
@@ -69,7 +69,7 @@ describe('Transformers Pure Functions', () => {
         });
 
         it('should include optional provider and model', () => {
-            const basicMessage: BasicMessage = {
+            const basicMessage: IBasicMessage = {
                 role: 'assistant',
                 content: 'Response'
             };
@@ -81,7 +81,7 @@ describe('Transformers Pure Functions', () => {
         });
 
         it('should create recent timestamp', () => {
-            const basicMessage: BasicMessage = {
+            const basicMessage: IBasicMessage = {
                 role: 'assistant',
                 content: 'Test'
             };
@@ -279,7 +279,7 @@ describe('Transformers Pure Functions', () => {
         it('should parse valid JSON', () => {
             const jsonString = '{"role": "user", "content": "hello"}';
 
-            const result = safeJsonParse<BasicMessage>(jsonString);
+            const result = safeJsonParse<IBasicMessage>(jsonString);
 
             expect(result).toEqual({
                 role: 'user',
@@ -290,13 +290,13 @@ describe('Transformers Pure Functions', () => {
         it('should return null for invalid JSON', () => {
             const invalidJson = '{"invalid": json}';
 
-            const result = safeJsonParse<BasicMessage>(invalidJson);
+            const result = safeJsonParse<IBasicMessage>(invalidJson);
 
             expect(result).toBeNull();
         });
 
         it('should handle empty strings', () => {
-            const result = safeJsonParse<BasicMessage>('');
+            const result = safeJsonParse<IBasicMessage>('');
 
             expect(result).toBeNull();
         });
@@ -324,7 +324,7 @@ describe('Transformers Pure Functions', () => {
     describe('Function Composition', () => {
         it('should compose transformers correctly', () => {
             // Test realistic workflow
-            const userMessage: BasicMessage = {
+            const userMessage: IBasicMessage = {
                 role: 'user',
                 content: 'Test message'
             };

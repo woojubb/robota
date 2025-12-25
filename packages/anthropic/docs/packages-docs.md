@@ -197,7 +197,7 @@ const quickResponse = await robota.run('What is 2+2?');
 ## Provider Options
 
 ```typescript
-interface AnthropicProviderOptions {
+interface IAnthropicProviderOptions {
   client: Anthropic;        // Required: Anthropic client instance
   model?: string;           // Optional: Model name (default: 'claude-2')
   temperature?: number;     // Optional: 0-1, default 0.7

@@ -119,7 +119,7 @@ export interface ExecutorAwareProviderConfig {
  * 
  * 6. CALL SUPER() IN CONSTRUCTOR:
  *    ```typescript
- *    constructor(options: ProviderOptions) {
+ *    constructor(options: IProviderOptions) {
  *        super();
  *        // provider-specific initialization
  *    }

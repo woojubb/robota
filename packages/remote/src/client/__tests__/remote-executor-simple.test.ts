@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SimpleRemoteExecutor } from '../remote-executor-simple';
-import type { SimpleRemoteConfig } from '../remote-executor-simple';
+import type { ISimpleRemoteConfig } from '../remote-executor-simple';
 import type { IChatExecutionRequest, IStreamExecutionRequest, TUniversalMessage } from '@robota-sdk/agents';
 
 // Mock the HttpClient
@@ -24,7 +24,7 @@ vi.mock('../http-client', () => ({
 
 describe('SimpleRemoteExecutor Facade', () => {
     let executor: SimpleRemoteExecutor;
-    let mockConfig: SimpleRemoteConfig;
+    let mockConfig: ISimpleRemoteConfig;
 
     beforeEach(() => {
         mockConfig = {
@@ -50,7 +50,7 @@ describe('SimpleRemoteExecutor Facade', () => {
         it('should throw on invalid config - missing serverUrl', () => {
             const invalidConfig = {
                 userApiKey: 'test-key'
-            } as SimpleRemoteConfig;
+            } as ISimpleRemoteConfig;
 
             expect(() => {
                 new SimpleRemoteExecutor(invalidConfig);
@@ -58,7 +58,7 @@ describe('SimpleRemoteExecutor Facade', () => {
         });
 
         it('should throw on invalid config - empty serverUrl', () => {
-            const invalidConfig: SimpleRemoteConfig = {
+            const invalidConfig: ISimpleRemoteConfig = {
                 serverUrl: '',
                 userApiKey: 'test-key'
             };
@@ -71,7 +71,7 @@ describe('SimpleRemoteExecutor Facade', () => {
         it('should throw on invalid config - missing userApiKey', () => {
             const invalidConfig = {
                 serverUrl: 'https://api.test.com'
-            } as SimpleRemoteConfig;
+            } as ISimpleRemoteConfig;
 
             expect(() => {
                 new SimpleRemoteExecutor(invalidConfig);
@@ -79,7 +79,7 @@ describe('SimpleRemoteExecutor Facade', () => {
         });
 
         it('should accept optional configuration parameters', () => {
-            const configWithOptionals: SimpleRemoteConfig = {
+            const configWithOptionals: ISimpleRemoteConfig = {
                 serverUrl: 'https://api.test.com',
                 userApiKey: 'test-key',
                 timeout: 60000,
@@ -102,7 +102,7 @@ describe('SimpleRemoteExecutor Facade', () => {
         });
 
         it('should validate a different instance with another valid config', () => {
-            const validConfig: SimpleRemoteConfig = {
+            const validConfig: ISimpleRemoteConfig = {
                 serverUrl: 'https://other.api.com',
                 userApiKey: 'other-key'
             };
@@ -311,7 +311,7 @@ describe('SimpleRemoteExecutor Facade', () => {
             expect(executor.validateConfig()).toBe(true);
 
             // Should validate different config
-            const newConfig: SimpleRemoteConfig = {
+            const newConfig: ISimpleRemoteConfig = {
                 serverUrl: 'https://api.example.com',
                 userApiKey: 'new-key'
             };

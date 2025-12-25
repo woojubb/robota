@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { PayloadLogger } from '../interfaces/payload-logger';
+import type { IPayloadLogger } from '../interfaces/payload-logger';
 import type { OpenAILogData } from '../types/api-types';
 
 /**
@@ -25,7 +25,7 @@ import type { OpenAILogData } from '../types/api-types';
  * });
  * ```
  */
-export class FilePayloadLogger implements PayloadLogger {
+export class FilePayloadLogger implements IPayloadLogger {
     private readonly enabled: boolean;
     private readonly logDir: string;
     private readonly includeTimestamp: boolean;

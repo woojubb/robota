@@ -12,7 +12,7 @@ The `@robota-sdk/openai` package implements a complete type-safe integration wit
 BaseAIProvider<TConfig, TMessage, TResponse>
   ↓
 OpenAIProvider extends BaseAIProvider<
-  OpenAIProviderOptions,
+  IOpenAIProviderOptions,
   UniversalMessage, 
   UniversalMessage
 >
@@ -50,7 +50,7 @@ The OpenAI Provider strictly adheres to the Zero Any Policy:
 #### 1. Provider Integration
 ```typescript
 export class OpenAIProvider extends BaseAIProvider<
-  OpenAIProviderOptions,    // Configuration type
+  IOpenAIProviderOptions,    // Configuration type
   UniversalMessage,         // Input message type
   UniversalMessage          // Output message type
 > {
@@ -191,7 +191,7 @@ All public methods use proper TypeScript types:
 
 ```typescript
 // ✅ Good: Explicit types
-async configure(config: OpenAIProviderOptions): Promise<void>
+async configure(config: IOpenAIProviderOptions): Promise<void>
 
 // ❌ Bad: Any types
 async configure(config: any): Promise<void>

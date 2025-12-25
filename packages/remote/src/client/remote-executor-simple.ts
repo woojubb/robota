@@ -4,7 +4,7 @@
  * Facade pattern using pure functions and atomic types
  */
 
-import type { BasicMessage } from '../types/message-types';
+import type { IBasicMessage } from '../types/message-types';
 import type {
     TUniversalMessage,
     IAssistantMessage,
@@ -14,10 +14,10 @@ import type {
     SimpleLogger,
 } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
-import { HttpClient, type HttpClientConfig } from './http-client';
+import { HttpClient, type IHttpClientConfig } from './http-client';
 // Simple inline type checking instead of external type guards
 
-export interface SimpleRemoteConfig {
+export interface ISimpleRemoteConfig {
     serverUrl: string;
     userApiKey: string;
     timeout?: number;
@@ -32,8 +32,8 @@ export interface SimpleRemoteConfig {
     logger?: SimpleLogger;
 }
 
-export interface SimpleExecutionRequest {
-    messages: BasicMessage[];
+export interface ISimpleExecutionRequest {
+    messages: IBasicMessage[];
     provider: string;
     model: string;
 }
@@ -48,9 +48,9 @@ export class SimpleRemoteExecutor implements IExecutor {
 
     private readonly httpClient: HttpClient;
     private readonly logger: SimpleLogger;
-    private readonly config: SimpleRemoteConfig;
+    private readonly config: ISimpleRemoteConfig;
 
-    constructor(config: SimpleRemoteConfig) {
+    constructor(config: ISimpleRemoteConfig) {
         this.config = config;
         // Validate configuration
         this.validateConfig();
@@ -59,7 +59,7 @@ export class SimpleRemoteExecutor implements IExecutor {
         this.logger = config.logger || SilentLogger;
 
         // Create HTTP client with timeout and headers
-        const httpConfig: HttpClientConfig = {
+        const httpConfig: IHttpClientConfig = {
             baseUrl: config.serverUrl,
             timeout: config.timeout || 30000,
             headers: {
@@ -89,7 +89,7 @@ export class SimpleRemoteExecutor implements IExecutor {
 
         const response = await this.httpClient.chat(messages, provider, model, request.tools);
 
-        // Convert ResponseMessage to AssistantMessage (IExecutor requirement)
+        // Convert IResponseMessage to IAssistantMessage (IExecutor requirement)
         const assistantMessage: IAssistantMessage = {
             role: 'assistant',
             content: response.content || '',
@@ -128,7 +128,7 @@ export class SimpleRemoteExecutor implements IExecutor {
 
             // LocalExecutor-compatible: yield every chunk as-is (ExecutionService merges them).
             for await (const responseMessage of stream) {
-                // Convert ResponseMessage to TUniversalMessage (LocalExecutor-compatible shape)
+                // Convert IResponseMessage to TUniversalMessage (LocalExecutor-compatible shape)
                 const universalMessage: TUniversalMessage = {
                     role: responseMessage.role as 'assistant',
                     content: responseMessage.content,

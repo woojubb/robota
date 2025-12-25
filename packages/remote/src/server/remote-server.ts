@@ -221,7 +221,7 @@ export class RemoteServer {
                     const stream = providerInstance.chatStream(messages, chatOptions);
 
                     for await (const chunk of stream) {
-                        // 🔍 디버깅: OpenAI에서 받은 원본 청크 로깅
+                        // Debug: log raw chunks received from OpenAI
                         this.logger.debug('🔍 [REMOTE-SERVER-CHUNK] Raw chunk from OpenAI:', {
                             role: chunk.role,
                             content: chunk.content?.substring(0, 30) + '...',
@@ -230,7 +230,7 @@ export class RemoteServer {
                             toolCallsData: chunk.toolCalls
                         });
 
-                        // ✅ OpenAI Provider와 동일: TUniversalMessage를 그대로 전달 (메타데이터 래핑 없음)
+                        // Same behavior as OpenAIProvider: forward the raw TUniversalMessage (no metadata wrapping)
                         const data = JSON.stringify(chunk);
                         res.write(`data: ${data}\n\n`);
                     }

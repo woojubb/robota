@@ -7,12 +7,12 @@ import type {
 /**
  * Simple message content type
  */
-export type MessageContent = string;
+export type TMessageContent = string;
 
 /**
  * Chat configuration interface - simplified
  */
-export interface ChatConfig {
+export interface IChatConfig {
     chatName?: string;
     description?: string;
     robotaConfig: AgentConfig; // Required for creating the agent
@@ -22,7 +22,7 @@ export interface ChatConfig {
 /**
  * Chat metadata interface - simplified
  */
-export interface ChatMetadata {
+export interface IChatMetadata {
     chatId: string;
     sessionId: string;
     chatName: string;
@@ -37,7 +37,7 @@ export interface ChatMetadata {
 /**
  * Template manager interface for agent templates
  */
-export interface TemplateManager {
+export interface ITemplateManager {
     getTemplate(name: string): AgentConfig | undefined;
     listTemplates(): string[];
     validateTemplate(config: AgentConfig): boolean;
@@ -46,13 +46,13 @@ export interface TemplateManager {
 /**
  * Simplified chat instance interface - just a wrapper around Robota
  */
-export interface ChatInstance {
-    readonly metadata: ChatMetadata;
-    readonly config: ChatConfig;
+export interface IChatInstance {
+    readonly metadata: IChatMetadata;
+    readonly config: IChatConfig;
     readonly robota: Robota;
 
     // Core Chat Operations
-    sendMessage(content: MessageContent): Promise<string>;
+    sendMessage(content: TMessageContent): Promise<string>;
     regenerateResponse(): Promise<string>;
 
     // Configuration
@@ -61,7 +61,7 @@ export interface ChatInstance {
 
     // Agent Template Support
     upgradeToTemplate?(templateName: string): Promise<void>;
-    getTemplateManager?(): TemplateManager;
+    getTemplateManager?(): ITemplateManager;
 
     // State Management  
     activate(): void;
@@ -76,14 +76,14 @@ export interface ChatInstance {
     load(): Promise<void>;
 
     // Utils
-    getStats(): ChatStats;
-    updateConfig(config: Partial<ChatConfig>): void;
+    getStats(): IChatStats;
+    updateConfig(config: Partial<IChatConfig>): void;
 }
 
 /**
  * Chat statistics interface - simplified
  */
-export interface ChatStats {
+export interface IChatStats {
     messageCount: number;
     createdAt: Date;
     lastActivity: Date;

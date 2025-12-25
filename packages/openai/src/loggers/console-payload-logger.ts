@@ -1,4 +1,4 @@
-import type { PayloadLogger, PayloadLoggerOptions } from '../interfaces/payload-logger';
+import type { IPayloadLogger, IPayloadLoggerOptions } from '../interfaces/payload-logger';
 import type { OpenAILogData } from '../types/api-types';
 import { SimpleLogger, DefaultConsoleLogger } from '@robota-sdk/agents';
 
@@ -24,12 +24,12 @@ import { SimpleLogger, DefaultConsoleLogger } from '@robota-sdk/agents';
  * });
  * ```
  */
-export class ConsolePayloadLogger implements PayloadLogger {
+export class ConsolePayloadLogger implements IPayloadLogger {
     private readonly enabled: boolean;
     private readonly includeTimestamp: boolean;
     private readonly logger: SimpleLogger;
 
-    constructor(options: PayloadLoggerOptions = {}) {
+    constructor(options: IPayloadLoggerOptions = {}) {
         this.enabled = options.enabled ?? true;
         this.includeTimestamp = options.includeTimestamp ?? true;
         this.logger = options.logger || DefaultConsoleLogger;

@@ -1,13 +1,13 @@
 import { AgentFactory, AgentTemplates, type AgentConfig, type AgentTemplate } from '@robota-sdk/agents';
-import type { TemplateManager } from '../types/chat';
+import type { ITemplateManager } from '../types/chat';
 
 /**
- * TemplateManagerAdapter - adapts agents package AgentFactory/AgentTemplates to TemplateManager interface
+ * TemplateManagerAdapter - adapts agents package AgentFactory/AgentTemplates to ITemplateManager interface
  * 
  * This adapter allows the sessions package to use the template functionality from
  * the agents package without duplicating implementation.
  */
-export class TemplateManagerAdapter implements TemplateManager {
+export class TemplateManagerAdapter implements ITemplateManager {
     private agentFactory: AgentFactory;
     private agentTemplates: AgentTemplates;
 

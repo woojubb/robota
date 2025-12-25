@@ -131,7 +131,7 @@ export interface IHealthStatus {
 /**
  * User context for authentication
  */
-export interface UserContext {
+export interface IUserContext {
     id: string;
     email?: string;
     permissions: string[];
@@ -144,7 +144,7 @@ export interface UserContext {
 /**
  * Provider availability info
  */
-export interface ProviderStatus {
+export interface IProviderStatus {
     name: string;
     available: boolean;
     models: string[];

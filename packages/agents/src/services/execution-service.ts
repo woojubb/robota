@@ -1250,13 +1250,16 @@ export class ExecutionService {
         if (!ownerId) {
             throw new Error('[EVENT-SERVICE] Missing ownerId for tool event context');
         }
+        if (!ownerPath || ownerPath.length === 0) {
+            throw new Error('[EVENT-SERVICE] Missing ownerPath for tool event context');
+        }
         if (this.toolEventServices.has(ownerId)) {
             return this.toolEventServices.get(ownerId)!;
         }
         const scoped = bindWithOwnerPath(this.baseEventService, {
             ownerType: 'tool',
             ownerId,
-            ownerPath: ownerPath ? ownerPath.map(segment => ({ ...segment })) : undefined,
+            ownerPath: ownerPath.map(segment => ({ ...segment })),
             sourceType: 'tool',
             sourceId: ownerId
         });

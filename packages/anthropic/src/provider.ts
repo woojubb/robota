@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { AnthropicProviderOptions } from './types';
+import type { IAnthropicProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
     TUniversalMessage,
@@ -26,9 +26,9 @@ export class AnthropicProvider extends AbstractAIProvider {
     override readonly version = '1.0.0';
 
     private readonly client?: Anthropic;
-    private readonly options: AnthropicProviderOptions;
+    private readonly options: IAnthropicProviderOptions;
 
-    constructor(options: AnthropicProviderOptions) {
+    constructor(options: IAnthropicProviderOptions) {
         super();
         this.options = options;
 

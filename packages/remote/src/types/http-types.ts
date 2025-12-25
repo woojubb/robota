@@ -4,32 +4,32 @@
  * Single responsibility: Define only HTTP-related types
  */
 
+import type { TUniversalValue } from '@robota-sdk/agents';
+
 // HTTP methods
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+export type THttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
 // Basic HTTP headers
-export interface HttpHeaders {
+export interface IHttpHeaders {
     'Content-Type'?: string;
     'Authorization'?: string;
     [key: string]: string | undefined;
 }
 
 // Default data structure for requests - flexible JSON-serializable data
-export interface DefaultRequestData {
-    [key: string]: any; // 더 유연한 타입으로 변경
-}
+export type TDefaultRequestData = Record<string, TUniversalValue>;
 
 // HTTP request structure
-export interface HttpRequest<TData = DefaultRequestData> {
+export interface IHttpRequest<TData = TDefaultRequestData> {
     id: string;
     url: string;
-    method: HttpMethod;
-    headers: HttpHeaders;
+    method: THttpMethod;
+    headers: IHttpHeaders;
     data?: TData;
 }
 
 // HTTP response structure
-export interface HttpResponse<TData = DefaultRequestData> {
+export interface IHttpResponse<TData = TDefaultRequestData> {
     id: string;
     status: number;
     headers: Record<string, string>;
@@ -38,7 +38,7 @@ export interface HttpResponse<TData = DefaultRequestData> {
 }
 
 // HTTP error structure
-export interface HttpError {
+export interface IHttpError {
     code: string;
     message: string;
     status?: number;

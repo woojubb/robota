@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { GoogleProviderOptions } from './types';
+import type { IGoogleProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
     TUniversalMessage,
@@ -28,9 +28,9 @@ export class GoogleProvider extends AbstractAIProvider {
     override readonly version = '1.0.0';
 
     private readonly client?: GoogleGenerativeAI;
-    private readonly options: GoogleProviderOptions;
+    private readonly options: IGoogleProviderOptions;
 
-    constructor(options: GoogleProviderOptions) {
+    constructor(options: IGoogleProviderOptions) {
         super();
         this.options = options;
 

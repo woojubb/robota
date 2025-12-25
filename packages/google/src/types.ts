@@ -3,22 +3,30 @@ import type { IExecutor } from '@robota-sdk/agents';
 /**
  * Valid provider option value types
  */
-export type ProviderOptionValue = string | number | boolean | undefined | null | IExecutor | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
+export type TProviderOptionValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | null
+  | IExecutor
+  | TProviderOptionValue[]
+  | { [key: string]: TProviderOptionValue };
 
 /**
  * Base provider options interface
  */
-export interface ProviderOptions {
+export interface IProviderOptions {
     /**
      * Additional provider-specific options
      */
-    [key: string]: ProviderOptionValue;
+    [key: string]: TProviderOptionValue;
 }
 
 /**
  * Google AI Provider options
  */
-export interface GoogleProviderOptions extends ProviderOptions {
+export interface IGoogleProviderOptions extends IProviderOptions {
     /** Google AI API key */
     apiKey: string;
 
@@ -32,7 +40,7 @@ export interface GoogleProviderOptions extends ProviderOptions {
     /** 
      * Response schema for JSON output (only used when responseMimeType is 'application/json')
      */
-    responseSchema?: Record<string, ProviderOptionValue>;
+    responseSchema?: Record<string, TProviderOptionValue>;
 
     /**
      * Optional executor for handling AI requests

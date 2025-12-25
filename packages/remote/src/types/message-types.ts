@@ -4,43 +4,38 @@
  * Single responsibility: Define only message-related types
  */
 
+import type { IToolCall } from '@robota-sdk/agents';
+
 // Basic message interface
-export interface BasicMessage {
+export interface IBasicMessage {
     role: 'user' | 'assistant' | 'system' | 'tool';
     content: string | null;
 }
 
 // Request message with metadata
-export interface RequestMessage extends BasicMessage {
+export interface IRequestMessage extends IBasicMessage {
     provider: string;
     model: string;
 }
 
 // Response message with metadata  
-export interface ResponseMessage extends BasicMessage {
+export interface IResponseMessage extends IBasicMessage {
     timestamp: Date;
     provider?: string;
     model?: string;
     /** Tool calls made by the assistant (OpenAI tool calling format) */
-    toolCalls?: Array<{
-        id: string;
-        type: 'function';
-        function: {
-            name: string;
-            arguments: string;
-        };
-    }>;
+    toolCalls?: IToolCall[];
 }
 
 // Token usage information
-export interface TokenUsage {
+export interface ITokenUsage {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
 }
 
 // Enhanced response with usage
-export interface EnhancedResponseMessage extends ResponseMessage {
-    usage?: TokenUsage;
+export interface IEnhancedResponseMessage extends IResponseMessage {
+    usage?: ITokenUsage;
     tools?: Array<Record<string, string>>;
 } 
