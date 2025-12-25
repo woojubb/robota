@@ -5,23 +5,13 @@
  * Principle: Basic positioning only - let React-Flow handle complex layouts
  */
 
-import type { 
-    UniversalWorkflowNode
-} from '@robota-sdk/workflow';
-import { SilentLogger } from '@robota-sdk/agents';
-
-// SimpleLogger interface for internal use
-interface SimpleLogger {
-    debug: (message: string, ...args: any[]) => void;
-    info: (message: string, ...args: any[]) => void;
-    warn: (message: string, ...args: any[]) => void;
-    error: (message: string, ...args: any[]) => void;
-}
+import type { IUniversalWorkflowNode } from '@robota-sdk/workflow';
+import { SilentLogger, type SimpleLogger } from '@robota-sdk/agents';
 
 /**
  * Simple layout options
  */
-export interface SimpleLayoutOptions {
+export interface ISimpleLayoutOptions {
     nodeSpacing?: number;
     levelSpacing?: number;
 }
@@ -46,14 +36,14 @@ export class SimpleReactFlowLayoutHelper {
      * For complex layouts, use React-Flow's built-in layout libraries
      */
     calculateSimpleLayout(
-        nodes: UniversalWorkflowNode[], 
-        options: SimpleLayoutOptions = {}
-    ): UniversalWorkflowNode[] {
-        const nodeSpacing = options.nodeSpacing || 150;
-        const levelSpacing = options.levelSpacing || 100;
+        nodes: IUniversalWorkflowNode[],
+        options: ISimpleLayoutOptions = {}
+    ): IUniversalWorkflowNode[] {
+        const nodeSpacing = options.nodeSpacing ?? 150;
+        const levelSpacing = options.levelSpacing ?? 100;
 
         // Group nodes by level
-        const levelGroups = new Map<number, UniversalWorkflowNode[]>();
+        const levelGroups = new Map<number, IUniversalWorkflowNode[]>();
         nodes.forEach(node => {
             const level = node.level;
             if (!levelGroups.has(level)) {
@@ -63,7 +53,7 @@ export class SimpleReactFlowLayoutHelper {
         });
 
         // Simple positioning: spread nodes horizontally by level
-        const positionedNodes: UniversalWorkflowNode[] = [];
+        const positionedNodes: IUniversalWorkflowNode[] = [];
         
         for (const [level, levelNodes] of levelGroups.entries()) {
             const startX = -(levelNodes.length - 1) * nodeSpacing / 2;

@@ -38,7 +38,7 @@ export interface IManualAgentData {
     taskName?: string;
 }
 
-export interface ManualUserInputData {
+export interface IManualUserInputData {
     id: string;
     content: string;
 }
@@ -53,13 +53,13 @@ export class DefaultExternalWorkflowStore implements IExternalWorkflowStore {
     private logger: SimpleLogger;
     private updateCallback: (() => Promise<void>) | null = null;
 
-    constructor(logger?: SimpleLogger) {
-        this.logger = logger || SilentLogger;
+    constructor(logger: SimpleLogger = SilentLogger) {
+        this.logger = logger;
         this.logger.debug('DefaultExternalWorkflowStore initialized');
     }
 
     /**
-     * 노드 추가 (범용)
+     * Add a node (universal shape).
      */
     addNode(node: IUniversalWorkflowNode): void {
         this.nodes.push(node);
@@ -70,14 +70,14 @@ export class DefaultExternalWorkflowStore implements IExternalWorkflowStore {
     }
 
     /**
-     * 모든 노드 반환
+     * Get all nodes.
      */
     getNodes(): IUniversalWorkflowNode[] {
         return [...this.nodes];
     }
 
     /**
-     * 엣지 추가 (범용)
+     * Add an edge (universal shape).
      */
     addEdge(edge: IUniversalWorkflowEdge): void {
         this.edges.push(edge);
@@ -88,32 +88,34 @@ export class DefaultExternalWorkflowStore implements IExternalWorkflowStore {
     }
 
     /**
-     * 모든 엣지 반환
+     * Get all edges.
      */
     getEdges(): IUniversalWorkflowEdge[] {
         return [...this.edges];
     }
 
     /**
-     * Agent 노드 추가 헬퍼
+     * Add an agent node helper.
      */
     addAgentNode(agentData: IManualAgentData): void {
+        const agentLevel = agentData.level ?? 1;
+        const agentName = agentData.name ?? 'Agent';
         const now = Date.now();
         const agentNode: IUniversalWorkflowNode = {
             id: agentData.id,
             type: 'agent',
-            level: agentData.level || 1,
+            level: agentLevel,
             status: 'pending',
             timestamp: now,
             connections: [],
             position: {
-                x: 150 + (agentData.level || 1) * 200,
+                x: 150 + agentLevel * 200,
                 y: 200,
-                level: agentData.level || 1,
+                level: agentLevel,
                 order: 0
             },
             data: {
-                label: agentData.name || 'Agent',
+                label: agentName,
                 description: agentData.taskName ?? '',
                 tools: ['assignTask']
             },
@@ -127,19 +129,19 @@ export class DefaultExternalWorkflowStore implements IExternalWorkflowStore {
         };
 
         this.addNode(agentNode);
-        this.logger.info(`Agent node added: ${agentData.name} (${agentData.id})`);
+        this.logger.info(`Agent node added: ${agentName} (${agentData.id})`);
     }
 
     /**
-     * ❌ User Input 노드 추가 비활성화 - 이벤트 시스템이 자동으로 노드 생성
+     * User message node creation is disabled - the event system will create nodes.
      */
-    addUserInputNode(inputData: ManualUserInputData): void {
+    addUserInputNode(_inputData: IManualUserInputData): void {
         this.logger.debug('User Input node creation disabled - event system will handle');
-        // 인위적 노드 생성 제거됨
+        // Manual node creation is intentionally removed.
     }
 
     /**
-     * 모든 노드와 엣지 초기화
+     * Clear all nodes and edges.
      */
     clear(): void {
         this.nodes = [];
@@ -148,7 +150,7 @@ export class DefaultExternalWorkflowStore implements IExternalWorkflowStore {
     }
 
     /**
-     * 업데이트 콜백 설정 (SDK Store 트리거용)
+     * Set update callback (SDK Store trigger).
      */
     setUpdateCallback(callback: () => Promise<void>): void {
         this.updateCallback = callback;
@@ -156,7 +158,7 @@ export class DefaultExternalWorkflowStore implements IExternalWorkflowStore {
     }
 
     /**
-     * SDK Store 업데이트 트리거 (비동기)
+     * Trigger SDK Store update (async).
      */
     private triggerUpdate(): void {
         if (this.updateCallback) {

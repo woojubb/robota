@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 /**
  * Simple Progressive Reveal Configuration
  */
-export interface ProgressiveRevealConfig {
+export interface IProgressiveRevealConfig {
     enabled: boolean;
     intervalMs: number;
     bundleSize: number;
@@ -12,7 +12,7 @@ export interface ProgressiveRevealConfig {
 /**
  * Simple Progressive Reveal State
  */
-export interface ProgressiveRevealState<TNode, TEdge> {
+export interface IProgressiveRevealState<TNode, TEdge> {
     visibleNodes: TNode[];
     visibleEdges: TEdge[];
     currentIndex: number;
@@ -23,7 +23,7 @@ export interface ProgressiveRevealState<TNode, TEdge> {
 /**
  * Incremental Progressive Reveal State
  */
-export interface IncrementalProgressiveRevealState<TNode, TEdge> {
+export interface IIncrementalProgressiveRevealState<TNode, TEdge> {
     /** Action to perform: 'add_node', 'add_edge', 'complete', 'init' */
     action: 'add_node' | 'add_edge' | 'complete' | 'init';
     /** Node to add (if action is 'add_node') */
@@ -40,11 +40,14 @@ export interface IncrementalProgressiveRevealState<TNode, TEdge> {
  * Incremental Progressive Reveal Hook
  * Returns incremental updates instead of full arrays to avoid re-rendering all nodes
  */
-export function useProgressiveReveal<TNode extends { id: string }, TEdge extends { source: string; target: string }>(
+export function useProgressiveReveal<
+    TNode extends { id: string },
+    TEdge extends { id: string; source: string; target: string }
+>(
     allNodes: TNode[],
     allEdges: TEdge[],
-    config: ProgressiveRevealConfig
-): IncrementalProgressiveRevealState<TNode, TEdge> {
+    config: IProgressiveRevealConfig
+): IIncrementalProgressiveRevealState<TNode, TEdge> {
 
     const [currentIndex, setCurrentIndex] = useState(0);
     const [lastProcessedIndex, setLastProcessedIndex] = useState(-1);
@@ -54,7 +57,7 @@ export function useProgressiveReveal<TNode extends { id: string }, TEdge extends
     const isComplete = currentIndex >= totalCount - 1;
 
     // Determine what action to take
-    const actionData = useMemo((): IncrementalProgressiveRevealState<TNode, TEdge> => {
+    const actionData = useMemo((): IIncrementalProgressiveRevealState<TNode, TEdge> => {
         if (!config.enabled || totalCount === 0) {
             return {
                 action: 'init',
@@ -80,14 +83,8 @@ export function useProgressiveReveal<TNode extends { id: string }, TEdge extends
                 return previouslyVisibleNodeIds.has(edge.source) && previouslyVisibleNodeIds.has(edge.target);
             });
 
-            // Edge identity: if the edge provides an id, use it; otherwise fall back to (source,target) pair
-            const edgeKey = (edge: TEdge): string => {
-                const maybeEdgeId = (edge as { id?: string }).id;
-                return typeof maybeEdgeId === 'string' ? maybeEdgeId : `${edge.source}→${edge.target}`;
-            };
-
-            const previousKeys = new Set(previouslyVisibleEdges.map(edgeKey));
-            const edgesToAdd = newEdges.filter(edge => !previousKeys.has(edgeKey(edge)));
+            const previousEdgeIds = new Set(previouslyVisibleEdges.map(e => e.id));
+            const edgesToAdd = newEdges.filter(edge => !previousEdgeIds.has(edge.id));
 
             return {
                 action: 'add_node',
@@ -164,7 +161,7 @@ export function useProgressiveReveal<TNode extends { id: string }, TEdge extends
 /**
  * Default Configuration
  */
-export const DEFAULT_PROGRESSIVE_REVEAL_CONFIG: ProgressiveRevealConfig = {
+export const DEFAULT_PROGRESSIVE_REVEAL_CONFIG: IProgressiveRevealConfig = {
     enabled: true,
     intervalMs: 500,
     bundleSize: 1
