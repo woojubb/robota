@@ -11,8 +11,8 @@ export { SimpleRemoteExecutor as RemoteExecutor } from './client/remote-executor
 export { HttpClient } from './client/http-client';
 
 // Atomic Types
-export type { BasicMessage, ResponseMessage, RequestMessage, TokenUsage } from './types/message-types';
-export type { HttpRequest, HttpResponse, HttpError, HttpMethod } from './types/http-types';
+export type { IBasicMessage, IResponseMessage, IRequestMessage, ITokenUsage } from './types/message-types';
+export type { IHttpRequest, IHttpResponse, IHttpError, THttpMethod } from './types/http-types';
 
 // Pure Utility Functions
 export {
@@ -31,12 +31,12 @@ export {
 // WebSocket Transport for real-time features
 export { SimpleWebSocketTransport as WebSocketTransport } from './transport/websocket-transport-simple';
 
-// Legacy compatibility exports
+// Re-exports (shared contracts)
 export type {
     IExecutor,
     IChatExecutionRequest,
     IStreamExecutionRequest,
     TUniversalMessage,
-    AssistantMessage,
+    IAssistantMessage,
     IRemoteExecutorConfig
 } from './shared/types'; 

@@ -8,7 +8,7 @@ import type {
     ChatInfo
 } from '../types/core';
 import { SessionState } from '../types/core';
-import type { ChatMetadata, ChatConfig } from '../types/chat';
+import type { IChatMetadata, IChatConfig } from '../types/chat';
 
 /**
  * SessionManager - manages multiple independent AI agents in isolated workspaces
@@ -84,7 +84,7 @@ export class SessionManager {
         const robota = await this.agentFactory.createAgent(Robota, options.agentConfig) as Robota;
 
         // Create chat metadata
-        const metadata: ChatMetadata = {
+        const metadata: IChatMetadata = {
             chatId,
             sessionId,
             chatName: options.name || `Chat ${chatId.slice(-8)}`,
@@ -97,7 +97,7 @@ export class SessionManager {
         };
 
         // Create chat config
-        const chatConfig: ChatConfig = {
+        const chatConfig: IChatConfig = {
             robotaConfig: options.agentConfig,
             ...(options.name && { chatName: options.name }),
             ...(options.description && { description: options.description }),

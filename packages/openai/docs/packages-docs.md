@@ -191,7 +191,7 @@ const gpt35Response = await robota.run('Quick question...');
 ## Provider Options
 
 ```typescript
-interface OpenAIProviderOptions {
+interface IOpenAIProviderOptions {
   client: OpenAI;           // Required: OpenAI client instance
   model: string;            // Required: Model name (e.g., 'gpt-4')
   temperature?: number;     // Optional: 0-1, default 0.7

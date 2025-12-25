@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import type { TUniversalMessage } from '@robota-sdk/agents';
-import type { PayloadLogger } from '../interfaces/payload-logger';
+import type { IPayloadLogger } from '../interfaces/payload-logger';
 import type {
     OpenAIChatRequestParams,
     OpenAIStreamRequestParams
@@ -22,7 +22,7 @@ export class OpenAIStreamHandler {
 
     constructor(
         private readonly client: OpenAI,
-        private readonly payloadLogger?: PayloadLogger,
+        private readonly payloadLogger?: IPayloadLogger,
         logger?: SimpleLogger
     ) {
         this.logger = logger || SilentLogger;

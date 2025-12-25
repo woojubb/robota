@@ -171,7 +171,7 @@ const claudeResponse = await agent.run('Respond using Claude');
 ## ⚙️ Configuration Options
 
 ```typescript
-interface OpenAIProviderOptions {
+interface IOpenAIProviderOptions {
   // Required
   client: OpenAI;                    // OpenAI SDK client instance
   
@@ -217,7 +217,7 @@ interface OpenAIProviderOptions {
 
 ```typescript
 class OpenAIProvider extends BaseAIProvider<
-  OpenAIProviderOptions,
+  IOpenAIProviderOptions,
   UniversalMessage,
   UniversalMessage
 > {

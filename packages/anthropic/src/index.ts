@@ -8,8 +8,8 @@
 export * from './provider';
 export * from './types';
 
-import { AnthropicProviderOptions } from './types';
+import type { IAnthropicProviderOptions } from './types';
 
-export function createAnthropicProvider(_options: AnthropicProviderOptions) {
+export function createAnthropicProvider(_options: IAnthropicProviderOptions) {
     // Implementation of createAnthropicProvider function
 } 

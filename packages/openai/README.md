@@ -171,7 +171,7 @@ const claudeResponse = await agent.run('Respond using Claude');
 ## ⚙️ Configuration Options
 
 ```typescript
-interface OpenAIProviderOptions {
+interface IOpenAIProviderOptions {
   // Required
   client: OpenAI;                    // OpenAI SDK client instance
   
@@ -196,12 +196,12 @@ interface OpenAIProviderOptions {
   };
   
   // Debugging & Logging
-  payloadLogger?: PayloadLogger;   // Environment-specific payload logger
+  payloadLogger?: IPayloadLogger;   // Environment-specific payload logger
   
   // Interface-based logger implementations:
   // - FilePayloadLogger: Node.js file-based logging
   // - ConsolePayloadLogger: Browser console-based logging
-  // - Custom: Implement PayloadLogger interface
+  // - Custom: Implement IPayloadLogger interface
 }
 ```
 
@@ -220,7 +220,7 @@ interface OpenAIProviderOptions {
 
 ```typescript
 class OpenAIProvider extends BaseAIProvider<
-  OpenAIProviderOptions,
+  IOpenAIProviderOptions,
   UniversalMessage,
   UniversalMessage
 > {
@@ -319,12 +319,12 @@ const provider = new OpenAIProvider({
 
 ### Custom Logger Implementation
 
-You can create custom logger implementations by implementing the PayloadLogger interface:
+You can create custom logger implementations by implementing the IPayloadLogger interface:
 
 ```typescript
-import type { PayloadLogger, OpenAILogData } from '@robota-sdk/openai';
+import type { IPayloadLogger, OpenAILogData } from '@robota-sdk/openai';
 
-class CustomPayloadLogger implements PayloadLogger {
+class CustomPayloadLogger implements IPayloadLogger {
   isEnabled(): boolean {
     return true;
   }

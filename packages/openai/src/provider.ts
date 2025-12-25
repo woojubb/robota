@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { OpenAIProviderOptions } from './types';
+import type { IOpenAIProviderOptions } from './types';
 import type {
     OpenAIError
 } from './types/api-types';
@@ -11,7 +11,7 @@ import type {
     IToolSchema,
     IAssistantMessage
 } from '@robota-sdk/agents';
-import type { PayloadLogger } from './interfaces/payload-logger';
+import type { IPayloadLogger } from './interfaces/payload-logger';
 import { OpenAIResponseParser } from './parsers/response-parser';
 import { SilentLogger } from '@robota-sdk/agents';
 
@@ -28,11 +28,11 @@ export class OpenAIProvider extends AbstractAIProvider {
     override readonly version = '1.0.0';
 
     private readonly client?: OpenAI;
-    private readonly options: OpenAIProviderOptions;
-    private readonly payloadLogger: PayloadLogger | undefined;
+    private readonly options: IOpenAIProviderOptions;
+    private readonly payloadLogger: IPayloadLogger | undefined;
     private readonly responseParser: OpenAIResponseParser;
 
-    constructor(options: OpenAIProviderOptions) {
+    constructor(options: IOpenAIProviderOptions) {
         super(options.logger || SilentLogger);
         this.options = options;
 
@@ -60,14 +60,14 @@ export class OpenAIProvider extends AbstractAIProvider {
 
         this.responseParser = new OpenAIResponseParser(this.logger);
 
-        // Initialize payload logger with backward compatibility
+        // Initialize payload logger
         this.payloadLogger = this.initializePayloadLogger(options) ?? undefined;
     }
 
     /**
      * Initialize payload logger
      */
-    private initializePayloadLogger(options: OpenAIProviderOptions): PayloadLogger | undefined {
+    private initializePayloadLogger(options: IOpenAIProviderOptions): IPayloadLogger | undefined {
         return options.payloadLogger;
     }
 
@@ -142,19 +142,7 @@ export class OpenAIProvider extends AbstractAIProvider {
      * Generate streaming response using TUniversalMessage
      */
     override async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
-        // 🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Received options from ExecutionService
-        console.log('🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Options received:', {
-            model: options?.model,
-            hasTools: !!options?.tools,
-            toolsCount: options?.tools?.length || 0,
-            toolNames: options?.tools?.map((t: any) => t.name) || [],
-            temperature: options?.temperature,
-            maxTokens: options?.maxTokens
-        });
-
         if (this.executor) {
-            // 🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Using executor path
-            console.log('🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Delegating to executor');
             try {
                 yield* this.executeStreamViaExecutorOrDirect(messages, options);
                 return;

@@ -201,7 +201,7 @@ const comparison = await compareReasoningApproaches(
 ## ⚙️ Configuration Options
 
 ```typescript
-interface AnthropicProviderOptions {
+interface IAnthropicProviderOptions {
   // Required
   client: Anthropic;                 // Anthropic SDK client instance
   
@@ -241,7 +241,7 @@ interface AnthropicProviderOptions {
 
 ```typescript
 class AnthropicProvider extends BaseAIProvider<
-  AnthropicProviderOptions,
+  IAnthropicProviderOptions,
   UniversalMessage,
   UniversalMessage
 > {

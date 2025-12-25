@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { HttpClient, type HttpClientConfig } from '../http-client';
+import { HttpClient, type IHttpClientConfig } from '../http-client';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -13,7 +13,7 @@ global.fetch = mockFetch;
 
 describe('HttpClient', () => {
     let httpClient: HttpClient;
-    let config: HttpClientConfig;
+    let config: IHttpClientConfig;
 
     beforeEach(() => {
         config = {
@@ -39,7 +39,7 @@ describe('HttpClient', () => {
         });
 
         it('should fail validation with empty baseUrl', () => {
-            const invalidConfig: HttpClientConfig = {
+            const invalidConfig: IHttpClientConfig = {
                 baseUrl: '',
                 timeout: 30000,
                 headers: {}
@@ -49,7 +49,7 @@ describe('HttpClient', () => {
         });
 
         it('should fail validation with invalid timeout', () => {
-            const invalidConfig: HttpClientConfig = {
+            const invalidConfig: IHttpClientConfig = {
                 baseUrl: 'https://api.test.com',
                 timeout: 0,
                 headers: {}
@@ -163,7 +163,7 @@ describe('HttpClient', () => {
 
     describe('URL construction', () => {
         it('should handle baseUrl with trailing slash', () => {
-            const configWithSlash: HttpClientConfig = {
+            const configWithSlash: IHttpClientConfig = {
                 baseUrl: 'https://api.test.com/',
                 timeout: 30000,
                 headers: {}

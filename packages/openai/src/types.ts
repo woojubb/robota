@@ -1,27 +1,38 @@
 import OpenAI from 'openai';
 
-import type { PayloadLogger } from './interfaces/payload-logger';
+import type { IPayloadLogger } from './interfaces/payload-logger';
 import type { SimpleLogger, IExecutor } from '@robota-sdk/agents';
 
 /**
  * Valid provider option value types
  */
-export type ProviderOptionValue = string | number | boolean | undefined | null | OpenAI | PayloadLogger | SimpleLogger | IExecutor | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
+export type TProviderOptionValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | null
+  | OpenAI
+  | IPayloadLogger
+  | SimpleLogger
+  | IExecutor
+  | TProviderOptionValue[]
+  | { [key: string]: TProviderOptionValue };
 
 /**
  * Base provider options interface
  */
-export interface ProviderOptions {
+export interface IProviderOptions {
   /**
    * Additional provider-specific options
    */
-  [key: string]: ProviderOptionValue;
+  [key: string]: TProviderOptionValue;
 }
 
 /**
  * OpenAI provider options
  */
-export interface OpenAIProviderOptions extends ProviderOptions {
+export interface IOpenAIProviderOptions extends IProviderOptions {
   /**
    * OpenAI API key (required when client is not provided)
    */
@@ -56,7 +67,7 @@ export interface OpenAIProviderOptions extends ProviderOptions {
   jsonSchema?: {
     name: string;
     description?: string;
-    schema?: Record<string, ProviderOptionValue>;
+    schema?: Record<string, TProviderOptionValue>;
     strict?: boolean;
   };
 
@@ -71,7 +82,7 @@ export interface OpenAIProviderOptions extends ProviderOptions {
    * Use different implementations based on your environment:
    * - FilePayloadLogger: Node.js file-based logging
    * - ConsolePayloadLogger: Browser console-based logging
-   * - Custom: Implement PayloadLogger interface
+   * - Custom: Implement IPayloadLogger interface
    * 
    * @example
    * ```typescript
@@ -90,7 +101,7 @@ export interface OpenAIProviderOptions extends ProviderOptions {
    * });
    * ```
    */
-  payloadLogger?: PayloadLogger;
+  payloadLogger?: IPayloadLogger;
 
   /**
    * Optional executor for handling AI requests
