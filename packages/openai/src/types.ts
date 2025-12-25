@@ -56,7 +56,7 @@ export interface IOpenAIProviderOptions extends IProviderOptions {
   /**
    * Response format (default: 'text')
    * - 'text': Plain text response
-   * - 'json_object': Legacy JSON mode (requires system message)
+   * - 'json_object': JSON object mode (requires system message)
    * - 'json_schema': Structured Outputs with schema validation
    */
   responseFormat?: 'text' | 'json_object' | 'json_schema';

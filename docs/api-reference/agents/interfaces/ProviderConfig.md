@@ -30,7 +30,7 @@ Provider configuration base interface
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:34](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L34)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:47](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L47)
 
 ___
 
@@ -40,7 +40,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:35](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L35)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:48](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L48)
 
 ___
 
@@ -50,4 +50,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:36](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L36)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:49](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L49)

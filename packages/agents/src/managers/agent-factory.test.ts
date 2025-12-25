@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AgentFactory, type IAgentFactoryOptions, type IAgentLifecycleEvents } from './agent-factory';
-import type { IAgentInterface, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
+import type { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { Robota } from '../core/robota';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';

@@ -12,7 +12,7 @@ Configuration options for usage plugin
 
 ## Hierarchy
 
-- [`BasePluginOptions`](BasePluginOptions)
+- [`IPluginOptions`](IPluginOptions)
 
   ↳ **`UsagePluginOptions`**
 
@@ -47,11 +47,11 @@ Whether the plugin is enabled
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[enabled](BasePluginOptions#enabled)
+[IPluginOptions](IPluginOptions).[enabled](IPluginOptions#enabled)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L125)
+[packages/agents/src/abstracts/abstract-plugin.ts:126](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L126)
 
 ___
 
@@ -63,11 +63,11 @@ Plugin category for classification
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[category](BasePluginOptions#category)
+[IPluginOptions](IPluginOptions).[category](IPluginOptions#category)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L127)
+[packages/agents/src/abstracts/abstract-plugin.ts:128](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L128)
 
 ___
 
@@ -79,11 +79,11 @@ Plugin priority for execution order
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[priority](BasePluginOptions#priority)
+[IPluginOptions](IPluginOptions).[priority](IPluginOptions#priority)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L129)
+[packages/agents/src/abstracts/abstract-plugin.ts:130](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L130)
 
 ___
 
@@ -95,11 +95,11 @@ Events to subscribe to from modules
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[moduleEvents](BasePluginOptions#moduleevents)
+[IPluginOptions](IPluginOptions).[moduleEvents](IPluginOptions#moduleevents)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L131)
+[packages/agents/src/abstracts/abstract-plugin.ts:132](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L132)
 
 ___
 
@@ -111,11 +111,11 @@ Whether to subscribe to all module events
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[subscribeToAllModuleEvents](BasePluginOptions#subscribetoallmoduleevents)
+[IPluginOptions](IPluginOptions).[subscribeToAllModuleEvents](IPluginOptions#subscribetoallmoduleevents)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/abstract-plugin.ts:134](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L134)
 
 ___
 
@@ -127,7 +127,7 @@ Usage tracking strategy to use
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:72](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L72)
+[packages/agents/src/plugins/usage/types.ts:72](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L72)
 
 ___
 
@@ -139,7 +139,7 @@ File path for file strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:74](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L74)
+[packages/agents/src/plugins/usage/types.ts:74](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L74)
 
 ___
 
@@ -151,7 +151,7 @@ Remote endpoint for remote strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:76](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L76)
+[packages/agents/src/plugins/usage/types.ts:76](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L76)
 
 ___
 
@@ -163,7 +163,7 @@ Headers for remote logging
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:78](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L78)
+[packages/agents/src/plugins/usage/types.ts:78](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L78)
 
 ___
 
@@ -175,7 +175,7 @@ Maximum number of usage entries to keep in memory
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:80](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L80)
+[packages/agents/src/plugins/usage/types.ts:80](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L80)
 
 ___
 
@@ -187,7 +187,7 @@ Whether to track token costs
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:82](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L82)
+[packages/agents/src/plugins/usage/types.ts:82](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L82)
 
 ___
 
@@ -199,7 +199,7 @@ Cost per token rates for different models
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:84](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L84)
+[packages/agents/src/plugins/usage/types.ts:84](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L84)
 
 ___
 
@@ -211,7 +211,7 @@ Batch size for remote reporting
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:86](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L86)
+[packages/agents/src/plugins/usage/types.ts:86](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L86)
 
 ___
 
@@ -223,7 +223,7 @@ Flush interval for batched reporting in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:88](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L88)
+[packages/agents/src/plugins/usage/types.ts:88](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L88)
 
 ___
 
@@ -235,7 +235,7 @@ Whether to aggregate statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:90](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L90)
+[packages/agents/src/plugins/usage/types.ts:90](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L90)
 
 ___
 
@@ -247,4 +247,4 @@ Aggregation interval in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:92](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L92)
+[packages/agents/src/plugins/usage/types.ts:92](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L92)

@@ -315,9 +315,7 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
             metadata: {
                 convertedAt: now,
                 processingTime,
-                // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, legacy-code
                 inputStats: this.getDataStats(input as Record<string, unknown>),
-                // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, legacy-code  
                 outputStats: this.getDataStats(data as Record<string, unknown>),
                 converter: this.name,
                 version: this.version,
@@ -358,7 +356,6 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
             metadata: {
                 convertedAt: now,
                 processingTime,
-                // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, legacy-code
                 inputStats: this.getDataStats(input as Record<string, unknown>),
                 outputStats: { nodeCount: 0, edgeCount: 0 },
                 converter: this.name,
@@ -371,7 +368,6 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
      * Extract basic statistics from workflow data
      * Can be overridden by subclasses for specific data formats
      */
-    // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, legacy-code
     protected getDataStats(data: Record<string, unknown>): { nodeCount: number; edgeCount: number } {
         if (!data) {
             return { nodeCount: 0, edgeCount: 0 };

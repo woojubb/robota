@@ -1,4 +1,4 @@
-import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Event types that can be emitted.
@@ -79,7 +79,7 @@ export interface EventHandler {
 /**
  * Event emitter configuration
  */
-export interface EventEmitterPluginOptions extends BasePluginOptions {
+export interface EventEmitterPluginOptions extends IPluginOptions {
     /** Events to listen for */
     events?: EventType[];
     /** Maximum number of listeners per event type */
@@ -101,7 +101,7 @@ export interface EventEmitterPluginOptions extends BasePluginOptions {
 /**
  * Event emitter plugin statistics
  */
-export interface EventEmitterPluginStats extends PluginStats {
+export interface EventEmitterPluginStats extends IPluginStats {
     totalEventsEmitted: number;
     totalListeners: number;
     activeListeners: number;

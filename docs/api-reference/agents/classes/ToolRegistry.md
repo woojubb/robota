@@ -13,7 +13,7 @@ Manages tool registration, validation, and retrieval
 
 ## Implements
 
-- [`ToolRegistryInterface`](../interfaces/ToolRegistryInterface)
+- [`IToolRegistry`](../interfaces/IToolRegistry)
 
 ## Table of contents
 
@@ -56,7 +56,7 @@ Register a tool
 
 | Name | Type |
 | :------ | :------ |
-| `tool` | [`ToolInterface`](../interfaces/ToolInterface) |
+| `tool` | [`IToolInterface`](../interfaces/IToolInterface) |
 
 #### Returns
 
@@ -64,11 +64,11 @@ Register a tool
 
 #### Implementation of
 
-[ToolRegistryInterface](../interfaces/ToolRegistryInterface).[register](../interfaces/ToolRegistryInterface#register)
+[IToolRegistry](../interfaces/IToolRegistry).[register](../interfaces/IToolRegistry#register)
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:16](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/registry/tool-registry.ts#L16)
+[packages/agents/src/tools/registry/tool-registry.ts:16](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/registry/tool-registry.ts#L16)
 
 ___
 
@@ -90,17 +90,17 @@ Unregister a tool
 
 #### Implementation of
 
-[ToolRegistryInterface](../interfaces/ToolRegistryInterface).[unregister](../interfaces/ToolRegistryInterface#unregister)
+[IToolRegistry](../interfaces/IToolRegistry).[unregister](../interfaces/IToolRegistry#unregister)
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:45](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/registry/tool-registry.ts#L45)
+[packages/agents/src/tools/registry/tool-registry.ts:45](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/registry/tool-registry.ts#L45)
 
 ___
 
 ### get
 
-▸ **get**(`name`): `undefined` \| [`ToolInterface`](../interfaces/ToolInterface)
+▸ **get**(`name`): `undefined` \| [`IToolInterface`](../interfaces/IToolInterface)
 
 Get tool by name
 
@@ -112,55 +112,55 @@ Get tool by name
 
 #### Returns
 
-`undefined` \| [`ToolInterface`](../interfaces/ToolInterface)
+`undefined` \| [`IToolInterface`](../interfaces/IToolInterface)
 
 #### Implementation of
 
-[ToolRegistryInterface](../interfaces/ToolRegistryInterface).[get](../interfaces/ToolRegistryInterface#get)
+[IToolRegistry](../interfaces/IToolRegistry).[get](../interfaces/IToolRegistry#get)
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:58](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/registry/tool-registry.ts#L58)
+[packages/agents/src/tools/registry/tool-registry.ts:58](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/registry/tool-registry.ts#L58)
 
 ___
 
 ### getAll
 
-▸ **getAll**(): [`ToolInterface`](../interfaces/ToolInterface)[]
+▸ **getAll**(): [`IToolInterface`](../interfaces/IToolInterface)[]
 
 Get all registered tools
 
 #### Returns
 
-[`ToolInterface`](../interfaces/ToolInterface)[]
+[`IToolInterface`](../interfaces/IToolInterface)[]
 
 #### Implementation of
 
-[ToolRegistryInterface](../interfaces/ToolRegistryInterface).[getAll](../interfaces/ToolRegistryInterface#getall)
+[IToolRegistry](../interfaces/IToolRegistry).[getAll](../interfaces/IToolRegistry#getall)
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:65](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/registry/tool-registry.ts#L65)
+[packages/agents/src/tools/registry/tool-registry.ts:65](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/registry/tool-registry.ts#L65)
 
 ___
 
 ### getSchemas
 
-▸ **getSchemas**(): [`ToolSchema`](../interfaces/ToolSchema)[]
+▸ **getSchemas**(): [`IToolSchema`](../interfaces/IToolSchema)[]
 
 Get tool schemas
 
 #### Returns
 
-[`ToolSchema`](../interfaces/ToolSchema)[]
+[`IToolSchema`](../interfaces/IToolSchema)[]
 
 #### Implementation of
 
-[ToolRegistryInterface](../interfaces/ToolRegistryInterface).[getSchemas](../interfaces/ToolRegistryInterface#getschemas)
+[IToolRegistry](../interfaces/IToolRegistry).[getSchemas](../interfaces/IToolRegistry#getschemas)
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:72](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/registry/tool-registry.ts#L72)
+[packages/agents/src/tools/registry/tool-registry.ts:72](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/registry/tool-registry.ts#L72)
 
 ___
 
@@ -182,11 +182,11 @@ Check if tool exists
 
 #### Implementation of
 
-[ToolRegistryInterface](../interfaces/ToolRegistryInterface).[has](../interfaces/ToolRegistryInterface#has)
+[IToolRegistry](../interfaces/IToolRegistry).[has](../interfaces/IToolRegistry#has)
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:79](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/registry/tool-registry.ts#L79)
+[packages/agents/src/tools/registry/tool-registry.ts:92](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/registry/tool-registry.ts#L92)
 
 ___
 
@@ -202,11 +202,11 @@ Clear all tools
 
 #### Implementation of
 
-[ToolRegistryInterface](../interfaces/ToolRegistryInterface).[clear](../interfaces/ToolRegistryInterface#clear)
+[IToolRegistry](../interfaces/IToolRegistry).[clear](../interfaces/IToolRegistry#clear)
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:86](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/registry/tool-registry.ts#L86)
+[packages/agents/src/tools/registry/tool-registry.ts:99](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/registry/tool-registry.ts#L99)
 
 ___
 
@@ -222,13 +222,13 @@ Get tool names
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:95](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/registry/tool-registry.ts#L95)
+[packages/agents/src/tools/registry/tool-registry.ts:108](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/registry/tool-registry.ts#L108)
 
 ___
 
 ### getToolsByPattern
 
-▸ **getToolsByPattern**(`pattern`): [`ToolInterface`](../interfaces/ToolInterface)[]
+▸ **getToolsByPattern**(`pattern`): [`IToolInterface`](../interfaces/IToolInterface)[]
 
 Get tools by pattern
 
@@ -240,11 +240,11 @@ Get tools by pattern
 
 #### Returns
 
-[`ToolInterface`](../interfaces/ToolInterface)[]
+[`IToolInterface`](../interfaces/IToolInterface)[]
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:102](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/registry/tool-registry.ts#L102)
+[packages/agents/src/tools/registry/tool-registry.ts:115](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/registry/tool-registry.ts#L115)
 
 ___
 
@@ -260,4 +260,4 @@ Get tool count
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:110](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/registry/tool-registry.ts#L110)
+[packages/agents/src/tools/registry/tool-registry.ts:123](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/registry/tool-registry.ts#L123)

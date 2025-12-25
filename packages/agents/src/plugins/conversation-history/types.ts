@@ -1,5 +1,5 @@
 import { TUniversalMessage } from '../../interfaces/agent';
-import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Storage strategy for conversation history
@@ -9,7 +9,7 @@ export type HistoryStorageStrategy = 'memory' | 'file' | 'database';
 /**
  * Configuration options for conversation history plugin
  */
-export interface ConversationHistoryPluginOptions extends BasePluginOptions {
+export interface ConversationHistoryPluginOptions extends IPluginOptions {
     /** Storage strategy to use */
     storage: HistoryStorageStrategy;
     /** Maximum number of conversations to store */
@@ -51,7 +51,7 @@ export interface HistoryStorage {
 /**
  * Conversation history plugin statistics
  */
-export interface ConversationHistoryPluginStats extends PluginStats {
+export interface ConversationHistoryPluginStats extends IPluginStats {
     /** Total number of conversations stored */
     totalConversations: number;
     /** Total number of messages stored */

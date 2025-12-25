@@ -10,7 +10,7 @@
 
 OpenAI Conversation Adapter
 
-Converts between UniversalMessage format and OpenAI native types.
+Converts between TUniversalMessage format and OpenAI native types.
 Provides bidirectional conversion for seamless integration.
 
 ## Table of contents
@@ -40,7 +40,7 @@ Provides bidirectional conversion for seamless integration.
 
 ### filterMessagesForOpenAI
 
-▸ **filterMessagesForOpenAI**(`messages`): `UniversalMessage`[]
+▸ **filterMessagesForOpenAI**(`messages`): `TUniversalMessage`[]
 
 Filter messages for OpenAI compatibility
 
@@ -53,15 +53,15 @@ OpenAI has specific requirements:
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
+| `messages` | `TUniversalMessage`[] |
 
 #### Returns
 
-`UniversalMessage`[]
+`TUniversalMessage`[]
 
 #### Defined in
 
-[openai/src/adapter.ts:44](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/adapter.ts#L44)
+[openai/src/adapter.ts:21](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/adapter.ts#L21)
 
 ___
 
@@ -69,14 +69,14 @@ ___
 
 ▸ **toOpenAIFormat**(`messages`): `ChatCompletionMessageParam`[]
 
-Convert UniversalMessage array to OpenAI message format
+Convert TUniversalMessage array to OpenAI message format
 Now properly handles tool messages for OpenAI's tool calling feature
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
+| `messages` | `TUniversalMessage`[] |
 
 #### Returns
 
@@ -84,7 +84,7 @@ Now properly handles tool messages for OpenAI's tool calling feature
 
 #### Defined in
 
-[openai/src/adapter.ts:68](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/adapter.ts#L68)
+[openai/src/adapter.ts:46](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/adapter.ts#L46)
 
 ___
 
@@ -92,14 +92,14 @@ ___
 
 ▸ **convertMessage**(`msg`): `ChatCompletionMessageParam`
 
-Convert a single UniversalMessage to OpenAI format
+Convert a single TUniversalMessage to OpenAI format
 Handles all message types including tool messages
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `msg` | `UniversalMessage` |
+| `msg` | `TUniversalMessage` |
 
 #### Returns
 
@@ -107,7 +107,7 @@ Handles all message types including tool messages
 
 #### Defined in
 
-[openai/src/adapter.ts:78](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/adapter.ts#L78)
+[openai/src/adapter.ts:56](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/adapter.ts#L56)
 
 ___
 
@@ -130,4 +130,4 @@ Add system prompt to message array if needed
 
 #### Defined in
 
-[openai/src/adapter.ts:153](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/adapter.ts#L153)
+[openai/src/adapter.ts:127](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/adapter.ts#L127)

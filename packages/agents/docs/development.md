@@ -40,7 +40,7 @@
 **Core Achievements:**
 - ✅ **All Base Classes Type Parameterized**: BaseAgent, BaseAIProvider, BaseTool, BasePlugin
 - ✅ **Dynamic Provider Support**: Runtime provider registration and type safety guarantee
-- ✅ **Backward Compatibility Maintained**: Legacy class compatibility through Legacy classes
+- ✅ **Compatibility Maintained**: Compatibility maintained through explicit contracts
 - ✅ **Plugin-Specific Type**: Unique Options/Stats type system for each plugin
 - ✅ **ExtendedRunContext**: Provider-agnostic design with dynamic option support
 

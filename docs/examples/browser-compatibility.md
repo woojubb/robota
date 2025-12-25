@@ -12,7 +12,7 @@ This document covers the complete browser compatibility implementation across al
 - ✅ `@robota-sdk/anthropic` - Anthropic provider
 - ✅ `@robota-sdk/google` - Google provider
 - ✅ `@robota-sdk/sessions` - Session management
-- ✅ `@robota-sdk/team` - assignTask MCP tool collection (legacy team creation removed)
+- ✅ `@robota-sdk/team` - assignTask MCP tool collection (team creation removed)
 - ✅ `@robota-sdk/tools` - Tool system
 - ✅ `@robota-sdk/core` - Core utilities
 
@@ -120,8 +120,8 @@ export class ConsolePayloadLogger implements PayloadLogger {
 
 ## 🚫 Removed Features
 
-### Legacy Code Elimination
-- **❌ Legacy PayloadLogger class**: Completely removed
+### Compatibility Cleanup
+- **❌ PayloadLogger class**: Completely removed
 - **❌ Deprecated options**: enablePayloadLogging, payloadLogDir, includeTimestampInLogFiles
 - **❌ Environment detection**: No runtime environment checks
 - **❌ Conditional imports**: No environment-based code branching

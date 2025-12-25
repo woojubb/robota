@@ -55,7 +55,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
             aggregateStats: options.aggregateStats ?? true,
             aggregationInterval: options.aggregationInterval ?? 60000,
             performanceThreshold: options.performanceThreshold ?? 1000, // 1 second
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.MONITORING,
             priority: options.priority ?? PluginPriority.NORMAL,
             moduleEvents: options.moduleEvents ?? [],

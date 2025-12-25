@@ -1,4 +1,13 @@
-import { AbstractPlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, type PluginStats, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
+import {
+    AbstractPlugin,
+    type IPluginExecutionContext,
+    type IPluginExecutionResult,
+    type IPluginErrorContext,
+    type IPluginOptions,
+    type IPluginStats,
+    PluginCategory,
+    PluginPriority
+} from '../abstracts/abstract-plugin';
 import type { IToolExecutionContext, TToolParameters, IToolResult } from '../interfaces/tool';
 import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
@@ -85,7 +94,7 @@ export type EventType =
     | 'tool.realtime';         // Tool real-time status changes
 
 /**
- * Basic event execution value types - compatible with BaseExecutionResult
+ * Basic event execution value types - compatible with IPluginExecutionResult
  */
 export type EventExecutionValue =
     | string
@@ -106,14 +115,14 @@ export type EventExecutionValue =
 export interface EventExecutionContextData {
     messageCount?: number | undefined;
     config?: Record<string, EventExecutionValue> | undefined;
-    result?: BaseExecutionResult | undefined;
+    result?: IPluginExecutionResult | undefined;
     duration?: number | undefined;
     tokensUsed?: number | undefined;
     toolsExecuted?: number | undefined;
     messages?: Record<string, EventExecutionValue>[] | undefined;
     response?: string | undefined;
     toolCalls?: Record<string, EventExecutionValue>[] | undefined;
-    [key: string]: EventExecutionValue | Record<string, EventExecutionValue> | Record<string, EventExecutionValue>[] | BaseExecutionResult | undefined;
+    [key: string]: EventExecutionValue | Record<string, EventExecutionValue> | Record<string, EventExecutionValue>[] | IPluginExecutionResult | undefined;
 }
 
 /**
@@ -124,7 +133,7 @@ export type EventEmitterMetadata = Record<string, string | number | boolean | Da
 /**
  * Plugin execution context for event emitter
  */
-export interface PluginExecutionContext extends BaseExecutionContext {
+export interface PluginExecutionContext extends IPluginExecutionContext {
     // Override config to support additional types
 }
 
@@ -203,12 +212,10 @@ interface EventHandler {
     filter?: (event: EventData) => boolean;
 }
 
-import type { BasePluginOptions } from '../abstracts/abstract-plugin';
-
 /**
  * Event emitter configuration
  */
-export interface EventEmitterPluginOptions extends BasePluginOptions {
+export interface EventEmitterPluginOptions extends IPluginOptions {
     /** Events to listen for */
     events?: EventType[];
     /** Maximum number of listeners per event type */
@@ -230,7 +237,7 @@ export interface EventEmitterPluginOptions extends BasePluginOptions {
 /**
  * Event emitter plugin statistics
  */
-export interface EventEmitterPluginStats extends PluginStats {
+export interface EventEmitterPluginStats extends IPluginStats {
     eventTypes: EventType[];
     listenerCounts: Record<EventType, number>;
     totalListeners: number;
@@ -282,7 +289,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
                 maxSize: 1000,
                 flushInterval: 5000
             },
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.EVENT_PROCESSING,
             priority: options.priority ?? PluginPriority.HIGH,
             moduleEvents: options.moduleEvents ?? [],
@@ -305,7 +312,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Before execution starts
      */
-    override async beforeExecution(context: BaseExecutionContext): Promise<void> {
+    override async beforeExecution(context: IPluginExecutionContext): Promise<void> {
         await this.emit(AGENT_EXEC_EVENTS.START, {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -320,7 +327,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * After execution completes
      */
-    override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
+    override async afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         await this.emit(AGENT_EXEC_EVENTS.COMPLETE, {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -337,7 +344,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Before conversation starts
      */
-    override async beforeConversation(context: BaseExecutionContext): Promise<void> {
+    override async beforeConversation(context: IPluginExecutionContext): Promise<void> {
         await this.emit(CONV_EVENTS.START, {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -356,7 +363,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * After conversation completes
      */
-    override async afterConversation(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
+    override async afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         await this.emit(CONV_EVENTS.COMPLETE, {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -377,7 +384,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Before tool execution - emits tool.beforeExecute event
      */
-    override async beforeToolExecution(context: BaseExecutionContext, toolData: IToolExecutionContext): Promise<void> {
+    override async beforeToolExecution(context: IPluginExecutionContext, toolData: IToolExecutionContext): Promise<void> {
         if (!toolData) {
             return;
         }
@@ -400,8 +407,8 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * After tool execution - emits tool.success or tool.error events
      */
-    override async afterToolExecution(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void> {
-        // Handle tool results from BaseExecutionResult
+    override async afterToolExecution(context: IPluginExecutionContext, toolResults: IPluginExecutionResult): Promise<void> {
+        // Handle tool results from IPluginExecutionResult
         if (toolResults.toolCalls && toolResults.toolCalls.length > 0) {
             for (const toolCall of toolResults.toolCalls) {
                 const eventType = toolCall.result === null ? TOOL_EVENTS_LOCAL.ERROR : TOOL_EVENTS_LOCAL.SUCCESS;
@@ -448,7 +455,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
      * 5. Type assertions (decreases type safety)
      * TODO: Consider standardized error context interface
      */
-    override async onError(error: Error, context?: ErrorContext): Promise<void> {
+    override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
         await this.emit(AGENT_EXEC_EVENTS.ERROR, {
             executionId: context?.executionId,
             sessionId: context?.sessionId,

@@ -126,7 +126,7 @@ export class WorkflowEventSubscriber {
             this.registerEventHandler(handler);
         });
 
-        // Subscribe to workflow updates: apply stats and notify legacy update subscribers
+        // Subscribe to workflow updates: apply stats and notify update subscribers
         // Note: Snapshot emission moved to processHandlerResults for atomic batch completion
         this.workflowBuilder.subscribe((update) => {
             this.updateStatistics(update);

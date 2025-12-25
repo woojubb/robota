@@ -38,7 +38,7 @@ Validation utility class
 
 ### validateAgentConfig
 
-▸ **validateAgentConfig**(`config`): [`ValidationResult`](../interfaces/ValidationResult)
+▸ **validateAgentConfig**(`config`): `IValidationResult`
 
 Validate agent configuration
 
@@ -46,21 +46,21 @@ Validate agent configuration
 
 | Name | Type |
 | :------ | :------ |
-| `config` | `Partial`\<[`AgentConfig`](../interfaces/AgentConfig)\> |
+| `config` | `Partial`\<[`IAgentConfig`](../interfaces/IAgentConfig)\> |
 
 #### Returns
 
-[`ValidationResult`](../interfaces/ValidationResult)
+`IValidationResult`
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:19](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L19)
+[packages/agents/src/utils/validation.ts:19](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/validation.ts#L19)
 
 ___
 
 ### validateUserInput
 
-▸ **validateUserInput**(`input`): [`ValidationResult`](../interfaces/ValidationResult)
+▸ **validateUserInput**(`input`): `IValidationResult`
 
 Validate user input string
 
@@ -72,17 +72,17 @@ Validate user input string
 
 #### Returns
 
-[`ValidationResult`](../interfaces/ValidationResult)
+`IValidationResult`
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:83](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L83)
+[packages/agents/src/utils/validation.ts:83](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/validation.ts#L83)
 
 ___
 
 ### validateProviderName
 
-▸ **validateProviderName**(`name`): [`ValidationResult`](../interfaces/ValidationResult)
+▸ **validateProviderName**(`name`): `IValidationResult`
 
 Validate provider name
 
@@ -94,17 +94,17 @@ Validate provider name
 
 #### Returns
 
-[`ValidationResult`](../interfaces/ValidationResult)
+`IValidationResult`
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:109](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L109)
+[packages/agents/src/utils/validation.ts:109](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/validation.ts#L109)
 
 ___
 
 ### validateModelName
 
-▸ **validateModelName**(`name`): [`ValidationResult`](../interfaces/ValidationResult)
+▸ **validateModelName**(`name`): `IValidationResult`
 
 Validate model name
 
@@ -116,17 +116,17 @@ Validate model name
 
 #### Returns
 
-[`ValidationResult`](../interfaces/ValidationResult)
+`IValidationResult`
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L129)
+[packages/agents/src/utils/validation.ts:129](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/validation.ts#L129)
 
 ___
 
 ### validateApiKey
 
-▸ **validateApiKey**(`apiKey`, `provider?`): [`ValidationResult`](../interfaces/ValidationResult)
+▸ **validateApiKey**(`apiKey`, `provider?`): `IValidationResult`
 
 Validate API key format (basic check)
 
@@ -139,8 +139,8 @@ Validate API key format (basic check)
 
 #### Returns
 
-[`ValidationResult`](../interfaces/ValidationResult)
+`IValidationResult`
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:149](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L149)
+[packages/agents/src/utils/validation.ts:149](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/validation.ts#L149)

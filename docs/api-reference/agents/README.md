@@ -12,6 +12,8 @@
 
 Robota SDK Agents Package - Comprehensive AI Agent Framework
 
+🎯 Centralized node type management: domain-neutral workflow node type system
+
 The `@robota-sdk/agents` package provides a complete AI agent framework with support for
 multiple AI providers, tool calling, plugin systems, and streaming responses. This package
 provides a modern, modular architecture for building powerful AI applications.
@@ -59,23 +61,23 @@ console.log(response);
 
 ### References
 
-- [FunctionSchema](#functionschema)
+- [IFunctionSchema](#ifunctionschema)
 
 ### Enumerations
 
 - [PluginCategory](enums/PluginCategory)
 - [PluginPriority](enums/PluginPriority)
+- [ValidationSeverity](enums/ValidationSeverity)
 
 ### Classes
 
-- [BaseAgent](classes/BaseAgent)
-- [BaseAIProvider](classes/BaseAIProvider)
-- [BaseManager](classes/BaseManager)
-- [BasePlugin](classes/BasePlugin)
-- [BaseProvider](classes/BaseProvider)
-- [BaseTool](classes/BaseTool)
-- [LegacyBaseTool](classes/LegacyBaseTool)
+- [AbstractAgent](classes/AbstractAgent)
+- [AbstractAIProvider](classes/AbstractAIProvider)
+- [AbstractExecutor](classes/AbstractExecutor)
+- [AbstractManager](classes/AbstractManager)
+- [AbstractPlugin](classes/AbstractPlugin)
 - [Robota](classes/Robota)
+- [LocalExecutor](classes/LocalExecutor)
 - [AgentFactory](classes/AgentFactory)
 - [AgentTemplates](classes/AgentTemplates)
 - [ConversationSession](classes/ConversationSession)
@@ -95,7 +97,11 @@ console.log(response);
 - [SilentUsageStorage](classes/SilentUsageStorage)
 - [UsagePlugin](classes/UsagePlugin)
 - [WebhookPlugin](classes/WebhookPlugin)
+- [AbstractEventService](classes/AbstractEventService)
+- [DefaultEventService](classes/DefaultEventService)
+- [StructuredEventService](classes/StructuredEventService)
 - [FunctionTool](classes/FunctionTool)
+- [RelayMcpTool](classes/RelayMcpTool)
 - [ToolRegistry](classes/ToolRegistry)
 - [RobotaError](classes/RobotaError)
 - [ConfigurationError](classes/ConfigurationError)
@@ -110,6 +116,7 @@ console.log(response);
 - [PluginError](classes/PluginError)
 - [StorageError](classes/StorageError)
 - [ErrorUtils](classes/ErrorUtils)
+- [ExecutionProxy](classes/ExecutionProxy)
 - [ConsoleLogger](classes/ConsoleLogger)
 - [MessageConverter](classes/MessageConverter)
 - [Validator](classes/Validator)
@@ -118,59 +125,98 @@ console.log(response);
 
 - [TypeSafeAIProvider](interfaces/TypeSafeAIProvider)
 - [ProviderConfig](interfaces/ProviderConfig)
-- [BaseExecutionContext](interfaces/BaseExecutionContext)
-- [BaseExecutionResult](interfaces/BaseExecutionResult)
-- [ErrorContext](interfaces/ErrorContext)
-- [PluginConfig](interfaces/PluginConfig)
-- [BasePluginOptions](interfaces/BasePluginOptions)
-- [PluginData](interfaces/PluginData)
-- [TypeSafePluginInterface](interfaces/TypeSafePluginInterface)
-- [PluginStats](interfaces/PluginStats)
-- [BasePluginInterface](interfaces/BasePluginInterface)
-- [PluginHooks](interfaces/PluginHooks)
-- [BaseToolInterface](interfaces/BaseToolInterface)
-- [TypeSafeToolInterface](interfaces/TypeSafeToolInterface)
-- [UserMessage](interfaces/UserMessage)
-- [AssistantMessage](interfaces/AssistantMessage)
-- [SystemMessage](interfaces/SystemMessage)
-- [ToolMessage](interfaces/ToolMessage)
-- [ToolCall](interfaces/ToolCall)
-- [AgentConfig](interfaces/AgentConfig)
-- [AgentTemplate](interfaces/AgentTemplate)
-- [RunOptions](interfaces/RunOptions)
-- [AgentInterface](interfaces/AgentInterface)
-- [ConfigValidationResult](interfaces/ConfigValidationResult)
-- [AIProviderManagerInterface](interfaces/AIProviderManagerInterface)
-- [ToolManagerInterface](interfaces/ToolManagerInterface)
-- [AgentFactoryInterface](interfaces/AgentFactoryInterface)
-- [ToolSchema](interfaces/ToolSchema)
-- [ParameterSchema](interfaces/ParameterSchema)
-- [ChatOptions](interfaces/ChatOptions)
-- [AIProvider](interfaces/AIProvider)
-- [ProviderOptions](interfaces/ProviderOptions)
-- [ConversationContext](interfaces/ConversationContext)
-- [ConversationServiceInterface](interfaces/ConversationServiceInterface)
-- [ToolExecutionServiceInterface](interfaces/ToolExecutionServiceInterface)
-- [ExecutionServiceInterface](interfaces/ExecutionServiceInterface)
-- [ToolResult](interfaces/ToolResult)
-- [ToolExecutionResult](interfaces/ToolExecutionResult)
-- [ToolExecutionContext](interfaces/ToolExecutionContext)
-- [ParameterValidationResult](interfaces/ParameterValidationResult)
-- [OpenAPIToolConfig](interfaces/OpenAPIToolConfig)
-- [MCPToolConfig](interfaces/MCPToolConfig)
-- [ToolInterface](interfaces/ToolInterface)
-- [ToolRegistryInterface](interfaces/ToolRegistryInterface)
-- [ToolFactoryInterface](interfaces/ToolFactoryInterface)
-- [PluginContext](interfaces/PluginContext)
-- [AgentFactoryOptions](interfaces/AgentFactoryOptions)
-- [AgentCreationStats](interfaces/AgentCreationStats)
-- [AgentLifecycleEvents](interfaces/AgentLifecycleEvents)
-- [TemplateApplicationResult](interfaces/TemplateApplicationResult)
+- [ExecutorAwareProviderConfig](interfaces/ExecutorAwareProviderConfig)
+- [IPluginExecutionContext](interfaces/IPluginExecutionContext)
+- [IPluginExecutionResult](interfaces/IPluginExecutionResult)
+- [IPluginErrorContext](interfaces/IPluginErrorContext)
+- [IPluginConfig](interfaces/IPluginConfig)
+- [IPluginOptions](interfaces/IPluginOptions)
+- [IPluginData](interfaces/IPluginData)
+- [ITypeSafePlugin](interfaces/ITypeSafePlugin)
+- [IPluginStats](interfaces/IPluginStats)
+- [IPlugin](interfaces/IPlugin)
+- [IPluginHooks](interfaces/IPluginHooks)
+- [AIProviderInstance](interfaces/AIProviderInstance)
+- [IAgentConfig](interfaces/IAgentConfig)
+- [IAgentTemplate](interfaces/IAgentTemplate)
+- [IRunOptions](interfaces/IRunOptions)
+- [IOwnerPathSegment](interfaces/IOwnerPathSegment)
+- [IEventContext](interfaces/IEventContext)
+- [IBaseEventData](interfaces/IBaseEventData)
+- [IExecutionEventData](interfaces/IExecutionEventData)
+- [IToolEventData](interfaces/IToolEventData)
+- [IAgentEventData](interfaces/IAgentEventData)
+- [IEventService](interfaces/IEventService)
+- [IEventServiceOwnerBinding](interfaces/IEventServiceOwnerBinding)
+- [IChatExecutionRequest](interfaces/IChatExecutionRequest)
+- [IStreamExecutionRequest](interfaces/IStreamExecutionRequest)
+- [IExecutor](interfaces/IExecutor)
+- [ILocalExecutorConfig](interfaces/ILocalExecutorConfig)
+- [IRemoteExecutorConfig](interfaces/IRemoteExecutorConfig)
+- [IConfigValidationResult](interfaces/IConfigValidationResult)
+- [IAIProviderManager](interfaces/IAIProviderManager)
+- [IToolManager](interfaces/IToolManager)
+- [IAgentCreationOptions](interfaces/IAgentCreationOptions)
+- [IAgentFactory](interfaces/IAgentFactory)
+- [IToolCall](interfaces/IToolCall)
+- [IBaseMessage](interfaces/IBaseMessage)
+- [IUserMessage](interfaces/IUserMessage)
+- [IAssistantMessage](interfaces/IAssistantMessage)
+- [ISystemMessage](interfaces/ISystemMessage)
+- [IToolMessage](interfaces/IToolMessage)
+- [IToolExecutionStep](interfaces/IToolExecutionStep)
+- [IProgressReportingTool](interfaces/IProgressReportingTool)
+- [IToolSchema](interfaces/IToolSchema)
+- [IParameterSchema](interfaces/IParameterSchema)
+- [ITokenUsage](interfaces/ITokenUsage)
+- [IRawProviderResponse](interfaces/IRawProviderResponse)
+- [IProviderRequest](interfaces/IProviderRequest)
+- [IProviderSpecificOptions](interfaces/IProviderSpecificOptions)
+- [IChatOptions](interfaces/IChatOptions)
+- [IAIProvider](interfaces/IAIProvider)
+- [IProviderOptions](interfaces/IProviderOptions)
+- [IToolExecutionRequest](interfaces/IToolExecutionRequest)
+- [IConversationContext](interfaces/IConversationContext)
+- [IConversationResponse](interfaces/IConversationResponse)
+- [IStreamingChunk](interfaces/IStreamingChunk)
+- [IConversationServiceOptions](interfaces/IConversationServiceOptions)
+- [IContextOptions](interfaces/IContextOptions)
+- [IExecutionServiceOptions](interfaces/IExecutionServiceOptions)
+- [IConversationService](interfaces/IConversationService)
+- [IToolExecutionService](interfaces/IToolExecutionService)
+- [IExecutionService](interfaces/IExecutionService)
+- [IToolResult](interfaces/IToolResult)
+- [IToolExecutionResult](interfaces/IToolExecutionResult)
+- [IToolExecutionContext](interfaces/IToolExecutionContext)
+- [IParameterValidationResult](interfaces/IParameterValidationResult)
+- [IOpenAPIToolConfig](interfaces/IOpenAPIToolConfig)
+- [IMCPToolConfig](interfaces/IMCPToolConfig)
+- [IToolInterface](interfaces/IToolInterface)
+- [IFunctionTool](interfaces/IFunctionTool)
+- [IToolRegistry](interfaces/IToolRegistry)
+- [IToolFactory](interfaces/IToolFactory)
+- [IUniversalObjectValue](interfaces/IUniversalObjectValue)
+- [IPluginContext](interfaces/IPluginContext)
+- [IWorkflowConfig](interfaces/IWorkflowConfig)
+- [IWorkflowMetadata](interfaces/IWorkflowMetadata)
+- [IWorkflowData](interfaces/IWorkflowData)
+- [IWorkflowConversionOptions](interfaces/IWorkflowConversionOptions)
+- [IWorkflowConversionResult](interfaces/IWorkflowConversionResult)
+- [IWorkflowConverter](interfaces/IWorkflowConverter)
+- [IValidationIssue](interfaces/IValidationIssue)
+- [IValidationOptions](interfaces/IValidationOptions)
+- [IValidationResult](interfaces/IValidationResult)
+- [IWorkflowValidator](interfaces/IWorkflowValidator)
+- [IAgentFactoryOptions](interfaces/IAgentFactoryOptions)
+- [IAgentCreationStats](interfaces/IAgentCreationStats)
+- [IAgentLifecycleEvents](interfaces/IAgentLifecycleEvents)
+- [ITemplateApplicationResult](interfaces/ITemplateApplicationResult)
 - [ConversationHistoryPluginOptions](interfaces/ConversationHistoryPluginOptions)
 - [ConversationHistoryEntry](interfaces/ConversationHistoryEntry)
 - [HistoryStorage](interfaces/HistoryStorage)
 - [ErrorHandlingPluginOptions](interfaces/ErrorHandlingPluginOptions)
 - [EventData](interfaces/EventData)
+- [HierarchicalEventData](interfaces/HierarchicalEventData)
 - [EventEmitterPluginOptions](interfaces/EventEmitterPluginOptions)
 - [AnalyticsContextData](interfaces/AnalyticsContextData)
 - [ExecutionStats](interfaces/ExecutionStats)
@@ -193,40 +239,45 @@ console.log(response);
 - [WebhookPayload](interfaces/WebhookPayload)
 - [WebhookEndpoint](interfaces/WebhookEndpoint)
 - [WebhookPluginOptions](interfaces/WebhookPluginOptions)
-- [UtilLogEntry](interfaces/UtilLogEntry)
-- [Logger](interfaces/Logger)
-- [ValidationResult](interfaces/ValidationResult)
+- [IRelayMcpContext](interfaces/IRelayMcpContext)
+- [IRelayMcpOptions](interfaces/IRelayMcpOptions)
+- [AbstractLogger](interfaces/AbstractLogger)
+- [IUtilLogEntry](interfaces/IUtilLogEntry)
+- [ILogger](interfaces/ILogger)
 
 ### Type Aliases
 
 - [ProviderLoggingData](#providerloggingdata)
-- [BaseToolParameters](#basetoolparameters)
-- [ToolExecutionFunction](#toolexecutionfunction)
-- [Message](#message)
-- [AgentCreationMetadata](#agentcreationmetadata)
-- [ParameterDefaultValue](#parameterdefaultvalue)
-- [JSONSchemaType](#jsonschematype)
-- [JSONSchemaEnum](#jsonschemaenum)
-- [ConversationContextMetadata](#conversationcontextmetadata)
-- [ToolMetadata](#toolmetadata)
-- [ToolExecutionData](#toolexecutiondata)
-- [ToolExecutor](#toolexecutor)
-- [PrimitiveValue](#primitivevalue)
-- [ArrayValue](#arrayvalue)
-- [ObjectValue](#objectvalue)
-- [UniversalValue](#universalvalue)
-- [MetadataValue](#metadatavalue)
-- [Metadata](#metadata)
-- [ContextData](#contextdata)
-- [LoggerData](#loggerdata)
-- [ComplexConfigValue](#complexconfigvalue)
-- [ConfigValue](#configvalue)
-- [ConfigData](#configdata)
-- [ToolParameterValue](#toolparametervalue)
-- [ToolParameters](#toolparameters)
-- [ToolResultData](#toolresultdata)
-- [ProviderConfigValue](#providerconfigvalue)
-- [UniversalMessage](#universalmessage)
+- [TWorkflowNodeType](#tworkflownodetype)
+- [TAgentCreationMetadata](#tagentcreationmetadata)
+- [TManagerToolParameters](#tmanagertoolparameters)
+- [TUniversalMessageRole](#tuniversalmessagerole)
+- [TUniversalMessageMetadata](#tuniversalmessagemetadata)
+- [TUniversalMessage](#tuniversalmessage)
+- [TToolProgressCallback](#ttoolprogresscallback)
+- [TProviderConfigValue](#tproviderconfigvalue)
+- [TParameterDefaultValue](#tparameterdefaultvalue)
+- [TJSONSchemaType](#tjsonschematype)
+- [TJSONSchemaEnum](#tjsonschemaenum)
+- [TConversationContextMetadata](#tconversationcontextmetadata)
+- [TToolExecutionParameters](#ttoolexecutionparameters)
+- [TExecutionMetadata](#texecutionmetadata)
+- [TResponseMetadata](#tresponsemetadata)
+- [TToolMetadata](#ttoolmetadata)
+- [TToolExecutor](#ttoolexecutor)
+- [TPrimitiveValue](#tprimitivevalue)
+- [TUniversalValue](#tuniversalvalue)
+- [TUniversalArrayValue](#tuniversalarrayvalue)
+- [TMetadataValue](#tmetadatavalue)
+- [TMetadata](#tmetadata)
+- [TContextData](#tcontextdata)
+- [TLoggerData](#tloggerdata)
+- [TComplexConfigValue](#tcomplexconfigvalue)
+- [TConfigValue](#tconfigvalue)
+- [TConfigData](#tconfigdata)
+- [TToolParameterValue](#ttoolparametervalue)
+- [TToolParameters](#ttoolparameters)
+- [TToolResultData](#ttoolresultdata)
 - [HistoryStorageStrategy](#historystoragestrategy)
 - [ErrorHandlingStrategy](#errorhandlingstrategy)
 - [EventType](#eventtype)
@@ -239,18 +290,43 @@ console.log(response);
 - [WebhookEventType](#webhookeventtype)
 - [ErrorContextData](#errorcontextdata)
 - [ErrorExternalInput](#errorexternalinput)
-- [LoggerContextData](#loggercontextdata)
-- [UtilLogLevel](#utilloglevel)
+- [TimerId](#timerid)
+- [TUtilLogLevel](#tutilloglevel)
+- [SimpleLogger](#simplelogger)
 
 ### Variables
 
+- [AGENT\_EVENTS](#agent_events)
+- [WORKFLOW\_NODE\_TYPES](#workflow_node_types)
+- [WORKFLOW\_NODE\_TYPE\_DESCRIPTIONS](#workflow_node_type_descriptions)
 - [TypeUtils](#typeutils)
+- [EVENT\_EMITTER\_EVENTS](#event_emitter_events)
+- [DEFAULT\_ABSTRACT\_EVENT\_SERVICE](#default_abstract_event_service)
+- [EXECUTION\_EVENTS](#execution_events)
+- [TOOL\_EVENTS](#tool_events)
 - [logger](#logger)
+- [SilentLogger](#silentlogger)
+- [DefaultConsoleLogger](#defaultconsolelogger)
+- [StderrLogger](#stderrlogger)
 
 ### Functions
 
+- [isValidWorkflowNodeType](#isvalidworkflownodetype)
+- [isProgressReportingTool](#isprogressreportingtool)
+- [getToolEstimatedDuration](#gettoolestimatedduration)
+- [getToolExecutionSteps](#gettoolexecutionsteps)
+- [setToolProgressCallback](#settoolprogresscallback)
+- [isUserMessage](#isusermessage)
+- [isAssistantMessage](#isassistantmessage)
+- [isSystemMessage](#issystemmessage)
+- [isToolMessage](#istoolmessage)
+- [isDefaultEventService](#isdefaulteventservice)
+- [bindWithOwnerPath](#bindwithownerpath)
+- [bindEventServiceOwner](#bindeventserviceowner)
 - [createFunctionTool](#createfunctiontool)
 - [createZodFunctionTool](#createzodfunctiontool)
+- [createExecutionProxy](#createexecutionproxy)
+- [withEventEmission](#witheventemission)
 - [createLogger](#createlogger)
 - [setGlobalLogLevel](#setgloballoglevel)
 - [getGlobalLogLevel](#getgloballoglevel)
@@ -262,9 +338,9 @@ console.log(response);
 
 ## References
 
-### FunctionSchema
+### IFunctionSchema
 
-Renames and re-exports [ToolSchema](interfaces/ToolSchema)
+Renames and re-exports [IToolSchema](interfaces/IToolSchema)
 
 ## Type Aliases
 
@@ -277,175 +353,230 @@ Used for storing logging information in provider operations
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:9](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L9)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:20](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L20)
 
 ___
 
-### BaseToolParameters
+### TWorkflowNodeType
 
-Ƭ **BaseToolParameters**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| `boolean`[] \| (`string` \| `number` \| `boolean`)[] \| `Record`\<`string`, `string` \| `number` \| `boolean`\> \| ``null`` \| `undefined`\>
+Ƭ **TWorkflowNodeType**: typeof [`WORKFLOW_NODE_TYPES`](#workflow_node_types)[keyof typeof [`WORKFLOW_NODE_TYPES`](#workflow_node_types)]
 
-Base tool parameters type - extended for full ToolParameters compatibility
-Used for parameter validation and execution in base tool context
+Workflow node type union.
 
-REASON: Extended to include all ToolParameterValue types for complete compatibility
-ALTERNATIVES_CONSIDERED: 
-1. Keep narrow type and use type assertions everywhere (increases maintenance burden)
-2. Create separate conversion functions (adds complexity without benefit)
-3. Use intersection types (unnecessary complexity for this use case)
-4. Modify ToolParameters to remove complex types (breaks existing APIs)
-5. Create type conversion utilities (adds runtime overhead)
-TODO: Monitor usage patterns and consider narrowing if complex types cause runtime issues
+Prevents using node types outside of WORKFLOW_NODE_TYPES.
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:17](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-tool.ts#L17)
+[packages/agents/src/constants/workflow-node-types.ts:70](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/constants/workflow-node-types.ts#L70)
 
 ___
 
-### ToolExecutionFunction
+### TAgentCreationMetadata
 
-Ƭ **ToolExecutionFunction**\<`TParams`, `TResult`\>: (`parameters`: `TParams`) => `Promise`\<`TResult`\> \| `TResult`
-
-Tool execution function type with proper parameter constraints
-
-#### Type parameters
-
-| Name | Type |
-| :------ | :------ |
-| `TParams` | [`BaseToolParameters`](#basetoolparameters) |
-| `TResult` | [`ToolResult`](interfaces/ToolResult) |
-
-#### Type declaration
-
-▸ (`parameters`): `Promise`\<`TResult`\> \| `TResult`
-
-##### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `parameters` | `TParams` |
-
-##### Returns
-
-`Promise`\<`TResult`\> \| `TResult`
-
-#### Defined in
-
-[packages/agents/src/abstracts/base-tool.ts:33](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-tool.ts#L33)
-
-___
-
-### Message
-
-Ƭ **Message**: [`UserMessage`](interfaces/UserMessage) \| [`AssistantMessage`](interfaces/AssistantMessage) \| [`SystemMessage`](interfaces/SystemMessage) \| [`ToolMessage`](interfaces/ToolMessage)
-
-Universal message type
-
-#### Defined in
-
-[packages/agents/src/interfaces/agent.ts:58](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/agent.ts#L58)
-
-___
-
-### AgentCreationMetadata
-
-Ƭ **AgentCreationMetadata**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date`\>
+Ƭ **TAgentCreationMetadata**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date`\>
 
 Agent creation metadata type
 Used for storing additional information about agent creation and configuration
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:14](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/manager.ts#L14)
+[packages/agents/src/interfaces/manager.ts:14](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/manager.ts#L14)
 
 ___
 
-### ParameterDefaultValue
+### TManagerToolParameters
 
-Ƭ **ParameterDefaultValue**: `string` \| `number` \| `boolean` \| ``null``
+Ƭ **TManagerToolParameters**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| `boolean`[]\>
+
+Tool execution parameters for manager operations
+Used for tool parameter validation and execution in manager context
+
+#### Defined in
+
+[packages/agents/src/interfaces/manager.ts:20](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/manager.ts#L20)
+
+___
+
+### TUniversalMessageRole
+
+Ƭ **TUniversalMessageRole**: ``"user"`` \| ``"assistant"`` \| ``"system"`` \| ``"tool"``
+
+Universal message role type - provider-independent neutral role.
+
+#### Defined in
+
+[packages/agents/src/interfaces/messages.ts:14](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/messages.ts#L14)
+
+___
+
+### TUniversalMessageMetadata
+
+Ƭ **TUniversalMessageMetadata**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date` \| `string`[] \| `number`[]\>
+
+Message metadata used across conversation history and provider adapters.
+
+#### Defined in
+
+[packages/agents/src/interfaces/messages.ts:19](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/messages.ts#L19)
+
+___
+
+### TUniversalMessage
+
+Ƭ **TUniversalMessage**: [`IUserMessage`](interfaces/IUserMessage) \| [`IAssistantMessage`](interfaces/IAssistantMessage) \| [`ISystemMessage`](interfaces/ISystemMessage) \| [`IToolMessage`](interfaces/IToolMessage)
+
+Universal message union used across the SDK as the canonical contract.
+
+#### Defined in
+
+[packages/agents/src/interfaces/messages.ts:72](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/messages.ts#L72)
+
+___
+
+### TToolProgressCallback
+
+Ƭ **TToolProgressCallback**: (`step`: `string`, `progress`: `number`) => `void`
+
+Progress callback function type for real-time progress updates
+
+#### Type declaration
+
+▸ (`step`, `progress`): `void`
+
+##### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `step` | `string` |
+| `progress` | `number` |
+
+##### Returns
+
+`void`
+
+#### Defined in
+
+[packages/agents/src/interfaces/progress-reporting.ts:23](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/progress-reporting.ts#L23)
+
+___
+
+### TProviderConfigValue
+
+Ƭ **TProviderConfigValue**: `string` \| `number` \| `boolean`
+
+Provider configuration value type
+Used for storing provider-specific configuration values
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:11](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/provider.ts#L11)
+
+___
+
+### TParameterDefaultValue
+
+Ƭ **TParameterDefaultValue**: `string` \| `number` \| `boolean` \| ``null``
 
 JSON Schema parameter default value type
 Used for default values in parameter schemas
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:17](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L17)
+[packages/agents/src/interfaces/provider.ts:17](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/provider.ts#L17)
 
 ___
 
-### JSONSchemaType
+### TJSONSchemaType
 
-Ƭ **JSONSchemaType**: ``"string"`` \| ``"number"`` \| ``"integer"`` \| ``"boolean"`` \| ``"array"`` \| ``"object"`` \| ``"null"``
+Ƭ **TJSONSchemaType**: ``"string"`` \| ``"number"`` \| ``"integer"`` \| ``"boolean"`` \| ``"array"`` \| ``"object"`` \| ``"null"``
 
 JSON Schema primitive types
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:22](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L22)
+[packages/agents/src/interfaces/provider.ts:22](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/provider.ts#L22)
 
 ___
 
-### JSONSchemaEnum
+### TJSONSchemaEnum
 
-Ƭ **JSONSchemaEnum**: `string`[] \| `number`[] \| `boolean`[] \| (`string` \| `number` \| `boolean`)[]
+Ƭ **TJSONSchemaEnum**: `string`[] \| `number`[] \| `boolean`[] \| (`string` \| `number` \| `boolean`)[]
 
 JSON Schema enum values
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:27](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L27)
+[packages/agents/src/interfaces/provider.ts:27](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/provider.ts#L27)
 
 ___
 
-### ConversationContextMetadata
+### TConversationContextMetadata
 
-Ƭ **ConversationContextMetadata**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date`\>
+Ƭ **TConversationContextMetadata**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date`\>
 
 Metadata type for conversation and execution context
 Used for storing additional information about conversations, responses, and execution
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:18](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/service.ts#L18)
+[packages/agents/src/interfaces/service.ts:19](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/service.ts#L19)
 
 ___
 
-### ToolMetadata
+### TToolExecutionParameters
 
-Ƭ **ToolMetadata**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| `boolean`[] \| `ToolParameters`\>
+Ƭ **TToolExecutionParameters**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| `boolean`[]\>
+
+Tool execution parameters type
+Used for passing parameters to tool execution methods
+
+#### Defined in
+
+[packages/agents/src/interfaces/service.ts:25](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/service.ts#L25)
+
+___
+
+### TExecutionMetadata
+
+Ƭ **TExecutionMetadata**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date`\>
+
+Execution metadata type
+Used for storing metadata about execution processes and options
+
+#### Defined in
+
+[packages/agents/src/interfaces/service.ts:31](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/service.ts#L31)
+
+___
+
+### TResponseMetadata
+
+Ƭ **TResponseMetadata**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date`\>
+
+Response metadata type  
+Used for storing metadata about AI provider responses and streaming chunks
+
+#### Defined in
+
+[packages/agents/src/interfaces/service.ts:37](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/service.ts#L37)
+
+___
+
+### TToolMetadata
+
+Ƭ **TToolMetadata**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `string`[] \| `number`[] \| `boolean`[] \| [`TToolParameters`](#ttoolparameters)\>
 
 Tool metadata structure - specific type definition
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:26](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L26)
+[packages/agents/src/interfaces/tool.ts:21](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/tool.ts#L21)
 
 ___
 
-### ToolExecutionData
+### TToolExecutor
 
-Ƭ **ToolExecutionData**: `string` \| `number` \| `boolean` \| `Record`\<`string`, `string` \| `number` \| `boolean` \| `ToolParameters`\> \| (`string` \| `number` \| `boolean` \| `ToolParameters`)[] \| `ToolParameters` \| [`ToolResult`](interfaces/ToolResult) \| ``null`` \| `undefined`
-
-Generic tool execution data - supports complex nested structures including ToolResult
-
-REASON: Extended to include ToolResult and Record types for tool adapter compatibility
-ALTERNATIVES_CONSIDERED:
-1. Create separate adapter functions (increases complexity without benefit)
-2. Use type assertions at tool registration (decreases type safety)
-3. Modify tool return types throughout codebase (massive breaking change)
-4. Use intersection types (unnecessary complexity)
-TODO: Consider creating stricter variants if broad typing causes issues
-
-#### Defined in
-
-[packages/agents/src/interfaces/tool.ts:39](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L39)
-
-___
-
-### ToolExecutor
-
-Ƭ **ToolExecutor**\<`TParams`, `TResult`\>: (`parameters`: `TParams`, `context?`: [`ToolExecutionContext`](interfaces/ToolExecutionContext)) => `Promise`\<`TResult`\>
+Ƭ **TToolExecutor**\<`TParams`, `TResult`\>: (`parameters`: `TParams`, `context?`: [`IToolExecutionContext`](interfaces/IToolExecutionContext)) => `Promise`\<`TResult`\>
 
 Generic tool executor function
 
@@ -453,8 +584,8 @@ Generic tool executor function
 
 | Name | Type |
 | :------ | :------ |
-| `TParams` | `ToolParameters` |
-| `TResult` | [`ToolExecutionData`](#toolexecutiondata) |
+| `TParams` | [`TToolParameters`](#ttoolparameters) |
+| `TResult` | [`TToolResultData`](#ttoolresultdata) |
 
 #### Type declaration
 
@@ -465,7 +596,7 @@ Generic tool executor function
 | Name | Type |
 | :------ | :------ |
 | `parameters` | `TParams` |
-| `context?` | [`ToolExecutionContext`](interfaces/ToolExecutionContext) |
+| `context?` | [`IToolExecutionContext`](interfaces/IToolExecutionContext) |
 
 ##### Returns
 
@@ -473,206 +604,158 @@ Generic tool executor function
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:117](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L117)
+[packages/agents/src/interfaces/tool.ts:146](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/tool.ts#L146)
 
 ___
 
-### PrimitiveValue
+### TPrimitiveValue
 
-Ƭ **PrimitiveValue**: `string` \| `number` \| `boolean` \| ``null`` \| `undefined`
+Ƭ **TPrimitiveValue**: `string` \| `number` \| `boolean` \| ``null`` \| `undefined`
 
 Primitive value types - foundation for all other types
+Extended to include null/undefined for agent contexts
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:9](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L9)
+[packages/agents/src/interfaces/types.ts:10](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L10)
 
 ___
 
-### ArrayValue
+### TUniversalValue
 
-Ƭ **ArrayValue**: `string`[] \| `number`[] \| `boolean`[] \| [`PrimitiveValue`](#primitivevalue)[] \| [`ObjectValue`](#objectvalue)[]
+Ƭ **TUniversalValue**: [`TPrimitiveValue`](#tprimitivevalue) \| `Date` \| [`TUniversalArrayValue`](#tuniversalarrayvalue) \| [`IUniversalObjectValue`](interfaces/IUniversalObjectValue)
 
-Array value types - well-defined array structures (includes object arrays for complex data)
+Universal value type axis (recursive, JSON-like + Date).
+
+IMPORTANT:
+- This axis is the single source of truth for payload/context/result values.
+- It must support nested objects/arrays without `any`/`unknown`.
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:14](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L14)
+[packages/agents/src/interfaces/types.ts:19](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L19)
 
 ___
 
-### ObjectValue
+### TUniversalArrayValue
 
-Ƭ **ObjectValue**: `Record`\<`string`, [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| `Date`\>
-
-Object value types - structured object definitions (includes Date for compatibility)
+Ƭ **TUniversalArrayValue**: [`TUniversalValue`](#tuniversalvalue)[]
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:19](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L19)
+[packages/agents/src/interfaces/types.ts:25](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L25)
 
 ___
 
-### UniversalValue
+### TMetadataValue
 
-Ƭ **UniversalValue**: [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| [`ObjectValue`](#objectvalue)
+Ƭ **TMetadataValue**: [`TPrimitiveValue`](#tprimitivevalue) \| [`TUniversalArrayValue`](#tuniversalarrayvalue) \| `Date`
 
-Universal value type - covers all valid data types
+Metadata type - consistent across agent components
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:24](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L24)
+[packages/agents/src/interfaces/types.ts:34](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L34)
 
 ___
 
-### MetadataValue
+### TMetadata
 
-Ƭ **MetadataValue**: [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| `Date`
-
-Metadata type - consistent across all components (includes Date for compatibility)
+Ƭ **TMetadata**: `Record`\<`string`, [`TMetadataValue`](#tmetadatavalue)\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:29](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L29)
+[packages/agents/src/interfaces/types.ts:35](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L35)
 
 ___
 
-### Metadata
+### TContextData
 
-Ƭ **Metadata**: `Record`\<`string`, [`MetadataValue`](#metadatavalue)\>
-
-#### Defined in
-
-[packages/agents/src/interfaces/types.ts:30](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L30)
-
-___
-
-### ContextData
-
-Ƭ **ContextData**: `Record`\<`string`, [`UniversalValue`](#universalvalue)\>
+Ƭ **TContextData**: `Record`\<`string`, [`TUniversalValue`](#tuniversalvalue)\>
 
 Context data type - for execution contexts
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:35](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L35)
+[packages/agents/src/interfaces/types.ts:40](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L40)
 
 ___
 
-### LoggerData
+### TLoggerData
 
-Ƭ **LoggerData**: `Record`\<`string`, [`UniversalValue`](#universalvalue) \| `Date` \| `Error`\>
+Ƭ **TLoggerData**: `Record`\<`string`, [`TUniversalValue`](#tuniversalvalue) \| `Date` \| `Error`\>
 
-Logger data type - for logging contexts (includes Date for timestamps)
+Logger data type - for logging contexts
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:40](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L40)
+[packages/agents/src/interfaces/types.ts:45](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L45)
 
 ___
 
-### ComplexConfigValue
+### TComplexConfigValue
 
-Ƭ **ComplexConfigValue**: `Record`\<`string`, [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| [`ObjectValue`](#objectvalue)\>
+Ƭ **TComplexConfigValue**: `Record`\<`string`, [`TPrimitiveValue`](#tprimitivevalue) \| [`TUniversalArrayValue`](#tuniversalarrayvalue) \| [`IUniversalObjectValue`](interfaces/IUniversalObjectValue)\>
 
-Configuration value type - for all configuration objects
-
-REASON: Configuration needs to support complex objects like BaseTool[], BasePlugin[], and nested configurations
-ALTERNATIVES_CONSIDERED:
-1. Strict primitive types (breaks existing configuration functionality)
-2. Union types with all possible objects (becomes unwieldy and incomplete)
-3. Generic constraints (too complex for configuration scenarios)
-4. Interface definitions (too rigid for varied configuration objects)
-5. Type assertions at usage sites (decreases type safety)
-6. Separate configuration types (breaks existing functionality)
-7. Using 'any' type (violates type safety requirements)
-TODO: Consider creating specific configuration interfaces if runtime issues occur
+Configuration types - for agent configuration
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:56](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L56)
+[packages/agents/src/interfaces/types.ts:50](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L50)
 
 ___
 
-### ConfigValue
+### TConfigValue
 
-Ƭ **ConfigValue**: [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| [`ObjectValue`](#objectvalue) \| [`ComplexConfigValue`](#complexconfigvalue)[] \| `Record`\<`string`, [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| [`ObjectValue`](#objectvalue)\>[] \| [`ComplexConfigValue`](#complexconfigvalue)[] \| [`ComplexConfigValue`](#complexconfigvalue)
+Ƭ **TConfigValue**: [`TPrimitiveValue`](#tprimitivevalue) \| [`TUniversalArrayValue`](#tuniversalarrayvalue) \| [`IUniversalObjectValue`](interfaces/IUniversalObjectValue) \| [`TComplexConfigValue`](#tcomplexconfigvalue)[] \| `Record`\<`string`, [`TPrimitiveValue`](#tprimitivevalue) \| [`TUniversalArrayValue`](#tuniversalarrayvalue) \| [`IUniversalObjectValue`](interfaces/IUniversalObjectValue)\>[] \| [`TComplexConfigValue`](#tcomplexconfigvalue)[] \| [`TComplexConfigValue`](#tcomplexconfigvalue)
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:57](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L57)
+[packages/agents/src/interfaces/types.ts:51](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L51)
 
 ___
 
-### ConfigData
+### TConfigData
 
-Ƭ **ConfigData**: `Record`\<`string`, [`ConfigValue`](#configvalue)\>
+Ƭ **TConfigData**: `Record`\<`string`, [`TConfigValue`](#tconfigvalue)\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:58](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L58)
+[packages/agents/src/interfaces/types.ts:52](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L52)
 
 ___
 
-### ToolParameterValue
+### TToolParameterValue
 
-Ƭ **ToolParameterValue**: [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| [`ObjectValue`](#objectvalue)
+Ƭ **TToolParameterValue**: [`TUniversalValue`](#tuniversalvalue)
 
 Tool parameter value type - specific for tool parameters
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:63](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L63)
+[packages/agents/src/interfaces/types.ts:57](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L57)
 
 ___
 
-### ToolParameters
+### TToolParameters
 
-Ƭ **ToolParameters**: `Record`\<`string`, [`ToolParameterValue`](#toolparametervalue)\>
+Ƭ **TToolParameters**: `Record`\<`string`, [`TToolParameterValue`](#ttoolparametervalue)\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:64](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L64)
+[packages/agents/src/interfaces/types.ts:58](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L58)
 
 ___
 
-### ToolResultData
+### TToolResultData
 
-Ƭ **ToolResultData**: [`UniversalValue`](#universalvalue)
+Ƭ **TToolResultData**: [`TUniversalValue`](#tuniversalvalue)
 
 Tool result data type - for tool execution results
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:69](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L69)
-
-___
-
-### ProviderConfigValue
-
-Ƭ **ProviderConfigValue**: [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| [`ObjectValue`](#objectvalue)
-
-Provider configuration value type - for AI provider configs
-Note: ProviderConfig is defined in agent.ts to avoid export conflicts
-
-#### Defined in
-
-[packages/agents/src/interfaces/types.ts:75](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L75)
-
-___
-
-### UniversalMessage
-
-Ƭ **UniversalMessage**: `UserMessage` \| `AssistantMessage` \| `SystemMessage` \| `ToolMessage`
-
-Universal message type covering all possible message variations
-
-This union type ensures type safety by requiring specific properties
-based on the message role, preventing invalid combinations.
-
-#### Defined in
-
-[packages/agents/src/managers/conversation-history-manager.ts:111](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/conversation-history-manager.ts#L111)
+[packages/agents/src/interfaces/types.ts:63](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L63)
 
 ___
 
@@ -684,7 +767,7 @@ Storage strategy for conversation history
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:7](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/conversation-history/types.ts#L7)
+[packages/agents/src/plugins/conversation-history/types.ts:7](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/conversation-history/types.ts#L7)
 
 ___
 
@@ -696,19 +779,20 @@ Error handling strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/types.ts:17](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/error-handling/types.ts#L17)
+[packages/agents/src/plugins/error-handling/types.ts:17](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/error-handling/types.ts#L17)
 
 ___
 
 ### EventType
 
-Ƭ **EventType**: ``"execution.start"`` \| ``"execution.complete"`` \| ``"execution.error"`` \| ``"conversation.start"`` \| ``"conversation.complete"`` \| ``"conversation.error"`` \| ``"tool.beforeExecute"`` \| ``"tool.afterExecute"`` \| ``"tool.success"`` \| ``"tool.error"`` \| ``"plugin.error"`` \| ``"module.initialize.start"`` \| ``"module.initialize.complete"`` \| ``"module.initialize.error"`` \| ``"module.execution.start"`` \| ``"module.execution.complete"`` \| ``"module.execution.error"`` \| ``"module.dispose.start"`` \| ``"module.dispose.complete"`` \| ``"module.dispose.error"`` \| ``"module.registered"`` \| ``"module.unregistered"`` \| ``"custom"``
+Ƭ **EventType**: ``"agent.execution_start"`` \| ``"agent.execution_complete"`` \| ``"agent.execution_error"`` \| ``"execution.start"`` \| ``"execution.complete"`` \| ``"execution.error"`` \| ``"conversation.start"`` \| ``"conversation.complete"`` \| ``"conversation.error"`` \| ``"tool.beforeExecute"`` \| ``"tool.afterExecute"`` \| ``"tool.success"`` \| ``"tool.error"`` \| ``"plugin.error"`` \| ``"module.initialize.start"`` \| ``"module.initialize.complete"`` \| ``"module.initialize.error"`` \| ``"module.execution.start"`` \| ``"module.execution.complete"`` \| ``"module.execution.error"`` \| ``"module.dispose.start"`` \| ``"module.dispose.complete"`` \| ``"module.dispose.error"`` \| ``"module.registered"`` \| ``"module.unregistered"`` \| ``"custom"`` \| ``"execution.hierarchy"`` \| ``"execution.realtime"`` \| ``"tool.realtime"``
 
 Event types that can be emitted
+Enhanced with hierarchical execution tracking events
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:9](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L9)
+[packages/agents/src/plugins/event-emitter-plugin.ts:62](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter-plugin.ts#L62)
 
 ___
 
@@ -734,7 +818,7 @@ Event listener function
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:111](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L111)
+[packages/agents/src/plugins/event-emitter-plugin.ts:203](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter-plugin.ts#L203)
 
 ___
 
@@ -746,7 +830,7 @@ Rate limiting strategies
 
 #### Defined in
 
-[packages/agents/src/plugins/limits/types.ts:6](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/limits/types.ts#L6)
+[packages/agents/src/plugins/limits/types.ts:6](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/limits/types.ts#L6)
 
 ___
 
@@ -758,7 +842,7 @@ Logging strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:4](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L4)
+[packages/agents/src/plugins/logging/types.ts:4](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L4)
 
 ___
 
@@ -770,7 +854,7 @@ Log levels
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:9](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L9)
+[packages/agents/src/plugins/logging/types.ts:9](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L9)
 
 ___
 
@@ -782,7 +866,7 @@ Performance monitoring strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:4](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/performance/types.ts#L4)
+[packages/agents/src/plugins/performance/types.ts:4](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/performance/types.ts#L4)
 
 ___
 
@@ -794,7 +878,7 @@ Usage tracking strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:4](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/usage/types.ts#L4)
+[packages/agents/src/plugins/usage/types.ts:4](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/usage/types.ts#L4)
 
 ___
 
@@ -806,20 +890,20 @@ Webhook event types for different lifecycle events
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook/types.ts:9](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/webhook/types.ts#L9)
+[packages/agents/src/plugins/webhook/types.ts:9](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/webhook/types.ts#L9)
 
 ___
 
 ### ErrorContextData
 
-Ƭ **ErrorContextData**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date` \| `Error` \| `string`[]\>
+Ƭ **ErrorContextData**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date` \| `Error` \| `string`[] \| `undefined`\>
 
 Error context data type
 Used for storing contextual information in error instances
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:9](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L9)
+[packages/agents/src/utils/errors.ts:9](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L9)
 
 ___
 
@@ -832,75 +916,607 @@ Used for handling external errors from unknown sources
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:15](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L15)
+[packages/agents/src/utils/errors.ts:15](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L15)
 
 ___
 
-### LoggerContextData
+### TimerId
 
-Ƭ **LoggerContextData**: [`LoggerData`](#loggerdata)
+Ƭ **TimerId**: `ReturnType`\<typeof `setTimeout`\>
 
-Logger context data type - uses centralized type definition
+Cross-platform timer identifier type
+Works in both Node.js and browser environments
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:10](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L10)
+[packages/agents/src/utils/index.ts:12](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/index.ts#L12)
 
 ___
 
-### UtilLogLevel
+### TUtilLogLevel
 
-Ƭ **UtilLogLevel**: ``"debug"`` \| ``"info"`` \| ``"warn"`` \| ``"error"`` \| ``"silent"``
+Ƭ **TUtilLogLevel**: ``"debug"`` \| ``"info"`` \| ``"warn"`` \| ``"error"`` \| ``"silent"``
 
 Log levels for the logger
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:15](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L15)
+[packages/agents/src/utils/logger.ts:12](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L12)
+
+___
+
+### SimpleLogger
+
+Ƭ **SimpleLogger**: [`AbstractLogger`](interfaces/AbstractLogger)
+
+Simple logger type - convenience alias for AbstractLogger
+
+This is a type alias that extends AbstractLogger for backward compatibility
+and convenience. It provides the same interface as AbstractLogger.
+
+TYPE HIERARCHY:
+AbstractLogger (interface) ← Base type
+    ↓
+SimpleLogger (alias) ← This type
+    ↓
+SilentLogger, ConsoleLogger (implementations)
+
+#### Defined in
+
+[packages/agents/src/utils/simple-logger.ts:16](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/simple-logger.ts#L16)
 
 ## Variables
 
-### TypeUtils
+### AGENT\_EVENTS
 
-• `Const` **TypeUtils**: `Object`
+• `Const` **AGENT\_EVENTS**: `Object`
 
-Type utility functions for safe type checking
+Agent event constants
 
-REASON: Type guards need to accept any input for runtime validation. Using specific input type for type-safe validation.
-ALTERNATIVES_CONSIDERED:
-1. Using 'any' type (violates type safety requirements)
-2. Multiple overloaded signatures (creates maintenance burden)
-3. Generic constraints (too complex for simple type checking)
-4. Separate validation functions (unnecessary complexity)
-5. Interface-based approach (overkill for simple type guards)
-TODO: Consider adding more specific type guards if needed
+Events emitted by Agent instances themselves.
+Event names are fully prefixed and must be used via constants (no string literals).
+
+#### Type declaration
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `CREATED` | ``"agent.created"`` | Agent instance has been created and initialized |
+| `EXECUTION_START` | ``"agent.execution_start"`` | Agent execution lifecycle - start |
+| `EXECUTION_COMPLETE` | ``"agent.execution_complete"`` | Agent execution lifecycle - complete |
+| `EXECUTION_ERROR` | ``"agent.execution_error"`` | Agent execution lifecycle - error |
+| `AGGREGATION_COMPLETE` | ``"agent.aggregation_complete"`` | Agent aggregation process completed |
+| `CONFIG_UPDATED` | ``"agent.config_updated"`` | Agent configuration (e.g., tools) has been updated by the agent |
+
+#### Defined in
+
+[packages/agents/src/agents/constants.ts:7](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/agents/constants.ts#L7)
+
+___
+
+### WORKFLOW\_NODE\_TYPES
+
+• `Const` **WORKFLOW\_NODE\_TYPES**: `Object`
+
+Entry/Exit Points - workflow start and end.
+
+#### Type declaration
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `USER_INPUT` | ``"user_input"`` | - |
+| `USER_MESSAGE` | ``"user_message"`` | - |
+| `OUTPUT` | ``"output"`` | - |
+| `AGENT` | ``"agent"`` | Agent core: - All agents share the same 'agent' node type. - Agent number/label is represented in node data (e.g., data.agentNumber, data.label). |
+| `TOOLS_CONTAINER` | ``"tools_container"`` | - |
+| `TOOL_DEFINITION` | ``"tool_definition"`` | - |
+| `AGENT_THINKING` | ``"agent_thinking"`` | Execution flow |
+| `TOOL_CALL` | ``"tool_call"`` | - |
+| `TOOL_CALL_RESPONSE` | ``"tool_call_response"`` | - |
+| `RESPONSE` | ``"response"`` | Response types: - No "final" concept; responses may continue. |
+| `TOOL_RESULT` | ``"tool_result"`` | - |
+
+#### Defined in
+
+[packages/agents/src/constants/workflow-node-types.ts:19](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/constants/workflow-node-types.ts#L19)
+
+___
+
+### WORKFLOW\_NODE\_TYPE\_DESCRIPTIONS
+
+• `Const` **WORKFLOW\_NODE\_TYPE\_DESCRIPTIONS**: `Object`
+
+Node type descriptions (debugging/logging).
 
 #### Type declaration
 
 | Name | Type |
 | :------ | :------ |
-| `isPrimitive` | (`value`: `Date` \| [`UniversalValue`](#universalvalue) \| `Record`\<`string`, [`UniversalValue`](#universalvalue)\>) => value is PrimitiveValue |
-| `isArray` | (`value`: `Date` \| [`UniversalValue`](#universalvalue) \| `Record`\<`string`, [`UniversalValue`](#universalvalue)\>) => value is ArrayValue |
-| `isObject` | (`value`: `Date` \| [`UniversalValue`](#universalvalue) \| `Record`\<`string`, [`UniversalValue`](#universalvalue)\>) => value is ObjectValue |
-| `isUniversalValue` | (`value`: `Date` \| [`UniversalValue`](#universalvalue) \| `Record`\<`string`, [`UniversalValue`](#universalvalue)\>) => value is UniversalValue |
+| `user_input` | ``"User input (workflow entry)"`` |
+| `user_message` | ``"User message"`` |
+| `output` | ``"Output to user"`` |
+| `agent` | ``"Agent"`` |
+| `tools_container` | ``"Tools container"`` |
+| `tool_definition` | ``"Tool definition"`` |
+| `agent_thinking` | ``"Agent thinking"`` |
+| `tool_call` | ``"Tool call"`` |
+| `tool_call_response` | ``"Tool call response"`` |
+| `response` | ``"Agent response"`` |
+| `tool_result` | ``"Tool result join"`` |
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:101](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/types.ts#L101)
+[packages/agents/src/constants/workflow-node-types.ts:82](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/constants/workflow-node-types.ts#L82)
+
+___
+
+### TypeUtils
+
+• `Const` **TypeUtils**: `Object`
+
+Type utility functions for safe type checking and validation
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `isPrimitive` | (`value`: [`TUniversalValue`](#tuniversalvalue)) => value is TPrimitiveValue |
+| `isArray` | (`value`: [`TUniversalValue`](#tuniversalvalue)) => value is TUniversalArrayValue |
+| `isObject` | (`value`: [`TUniversalValue`](#tuniversalvalue)) => value is IUniversalObjectValue |
+| `isUniversalValue` | (`value`: [`TUniversalValue`](#tuniversalvalue)) => value is TUniversalValue |
+
+#### Defined in
+
+[packages/agents/src/interfaces/types.ts:88](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/types.ts#L88)
+
+___
+
+### EVENT\_EMITTER\_EVENTS
+
+• `Const` **EVENT\_EMITTER\_EVENTS**: `Object`
+
+Event types that can be emitted.
+
+IMPORTANT:
+- Do not use string literals for event names outside this module.
+- Import and use EVENT_EMITTER_EVENTS instead.
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `EXECUTION_START` | ``"execution.start"`` |
+| `EXECUTION_COMPLETE` | ``"execution.complete"`` |
+| `EXECUTION_ERROR` | ``"execution.error"`` |
+| `TOOL_BEFORE_EXECUTE` | ``"tool.beforeExecute"`` |
+| `TOOL_AFTER_EXECUTE` | ``"tool.afterExecute"`` |
+| `TOOL_SUCCESS` | ``"tool.success"`` |
+| `TOOL_ERROR` | ``"tool.error"`` |
+| `CONVERSATION_START` | ``"conversation.start"`` |
+| `CONVERSATION_COMPLETE` | ``"conversation.complete"`` |
+| `AGENT_CREATED` | ``"agent.created"`` |
+| `AGENT_DESTROYED` | ``"agent.destroyed"`` |
+| `PLUGIN_LOADED` | ``"plugin.loaded"`` |
+| `PLUGIN_UNLOADED` | ``"plugin.unloaded"`` |
+| `ERROR_OCCURRED` | ``"error.occurred"`` |
+| `WARNING_OCCURRED` | ``"warning.occurred"`` |
+| `MODULE_INITIALIZE_START` | ``"module.initialize.start"`` |
+| `MODULE_INITIALIZE_COMPLETE` | ``"module.initialize.complete"`` |
+| `MODULE_INITIALIZE_ERROR` | ``"module.initialize.error"`` |
+| `MODULE_EXECUTION_START` | ``"module.execution.start"`` |
+| `MODULE_EXECUTION_COMPLETE` | ``"module.execution.complete"`` |
+| `MODULE_EXECUTION_ERROR` | ``"module.execution.error"`` |
+| `MODULE_DISPOSE_START` | ``"module.dispose.start"`` |
+| `MODULE_DISPOSE_COMPLETE` | ``"module.dispose.complete"`` |
+| `MODULE_DISPOSE_ERROR` | ``"module.dispose.error"`` |
+| `EXECUTION_HIERARCHY` | ``"execution.hierarchy"`` |
+| `EXECUTION_REALTIME` | ``"execution.realtime"`` |
+| `TOOL_REALTIME` | ``"tool.realtime"`` |
+
+#### Defined in
+
+[packages/agents/src/plugins/event-emitter/types.ts:10](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter/types.ts#L10)
+
+___
+
+### DEFAULT\_ABSTRACT\_EVENT\_SERVICE
+
+• `Const` **DEFAULT\_ABSTRACT\_EVENT\_SERVICE**: [`IEventService`](interfaces/IEventService)
+
+Singleton default event service instance.
+
+#### Defined in
+
+[packages/agents/src/services/event-service.ts:44](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/services/event-service.ts#L44)
+
+___
+
+### EXECUTION\_EVENTS
+
+• `Const` **EXECUTION\_EVENTS**: `Object`
+
+ExecutionService owned events
+All events emitted by ExecutionService must use these constants (no string literals).
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `START` | ``"execution.start"`` |
+| `COMPLETE` | ``"execution.complete"`` |
+| `ERROR` | ``"execution.error"`` |
+| `ASSISTANT_MESSAGE_START` | ``"execution.assistant_message_start"`` |
+| `ASSISTANT_MESSAGE_COMPLETE` | ``"execution.assistant_message_complete"`` |
+| `USER_MESSAGE` | ``"execution.user_message"`` |
+| `TOOL_RESULTS_TO_LLM` | ``"execution.tool_results_to_llm"`` |
+| `TOOL_RESULTS_READY` | ``"execution.tool_results_ready"`` |
+
+#### Defined in
+
+[packages/agents/src/services/execution-service.ts:30](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/services/execution-service.ts#L30)
+
+___
+
+### TOOL\_EVENTS
+
+• `Const` **TOOL\_EVENTS**: `Object`
+
+ToolExecutionService owned events
+All tool lifecycle events must use these constants (no string literals).
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `CALL_START` | ``"tool.call_start"`` |
+| `CALL_COMPLETE` | ``"tool.call_complete"`` |
+| `CALL_ERROR` | ``"tool.call_error"`` |
+| `CALL_RESPONSE_READY` | ``"tool.call_response_ready"`` |
+
+#### Defined in
+
+[packages/agents/src/services/tool-execution-service.ts:12](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/services/tool-execution-service.ts#L12)
 
 ___
 
 ### logger
 
-• `Const` **logger**: [`Logger`](interfaces/Logger)
+• `Const` **logger**: [`ILogger`](interfaces/ILogger)
 
 Default logger for the agents package
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:173](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L173)
+[packages/agents/src/utils/logger.ts:169](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L169)
+
+___
+
+### SilentLogger
+
+• `Const` **SilentLogger**: [`SimpleLogger`](#simplelogger)
+
+Silent logger that does nothing (concrete implementation)
+
+This is the default Null Object Pattern implementation.
+Use this in concrete classes when no specific logger is provided.
+
+**`Example`**
+
+```typescript
+// ✅ CORRECT: Use in concrete classes
+class MyService {
+  constructor(private logger: SimpleLogger = SilentLogger) {}
+}
+```
+
+#### Defined in
+
+[packages/agents/src/utils/simple-logger.ts:32](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/simple-logger.ts#L32)
+
+___
+
+### DefaultConsoleLogger
+
+• `Const` **DefaultConsoleLogger**: [`SimpleLogger`](#simplelogger)
+
+Default console logger that wraps console methods
+
+#### Defined in
+
+[packages/agents/src/utils/simple-logger.ts:45](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/simple-logger.ts#L45)
+
+___
+
+### StderrLogger
+
+• `Const` **StderrLogger**: [`SimpleLogger`](#simplelogger)
+
+Stderr-only logger for special environments
+Only error and warn go to stderr, others are silent
+
+#### Defined in
+
+[packages/agents/src/utils/simple-logger.ts:66](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/simple-logger.ts#L66)
 
 ## Functions
+
+### isValidWorkflowNodeType
+
+▸ **isValidWorkflowNodeType**(`nodeType`): nodeType is TWorkflowNodeType
+
+Validate a node type string.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `nodeType` | `string` |
+
+#### Returns
+
+nodeType is TWorkflowNodeType
+
+#### Defined in
+
+[packages/agents/src/constants/workflow-node-types.ts:75](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/constants/workflow-node-types.ts#L75)
+
+___
+
+### isProgressReportingTool
+
+▸ **isProgressReportingTool**(`tool`): tool is IProgressReportingTool
+
+Type guard to check if a tool implements progress reporting
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `tool` | [`IToolInterface`](interfaces/IToolInterface) |
+
+#### Returns
+
+tool is IProgressReportingTool
+
+#### Defined in
+
+[packages/agents/src/interfaces/progress-reporting.ts:82](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/progress-reporting.ts#L82)
+
+___
+
+### getToolEstimatedDuration
+
+▸ **getToolEstimatedDuration**(`tool`, `parameters`): `number` \| `undefined`
+
+Helper function to safely get estimated duration from any tool
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `tool` | [`IToolInterface`](interfaces/IToolInterface) |
+| `parameters` | [`TToolParameters`](#ttoolparameters) |
+
+#### Returns
+
+`number` \| `undefined`
+
+#### Defined in
+
+[packages/agents/src/interfaces/progress-reporting.ts:93](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/progress-reporting.ts#L93)
+
+___
+
+### getToolExecutionSteps
+
+▸ **getToolExecutionSteps**(`tool`, `parameters`): [`IToolExecutionStep`](interfaces/IToolExecutionStep)[] \| `undefined`
+
+Helper function to safely get execution steps from any tool
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `tool` | [`IToolInterface`](interfaces/IToolInterface) |
+| `parameters` | [`TToolParameters`](#ttoolparameters) |
+
+#### Returns
+
+[`IToolExecutionStep`](interfaces/IToolExecutionStep)[] \| `undefined`
+
+#### Defined in
+
+[packages/agents/src/interfaces/progress-reporting.ts:103](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/progress-reporting.ts#L103)
+
+___
+
+### setToolProgressCallback
+
+▸ **setToolProgressCallback**(`tool`, `callback`): `boolean`
+
+Helper function to safely set progress callback on any tool
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `tool` | [`IToolInterface`](interfaces/IToolInterface) |
+| `callback` | [`TToolProgressCallback`](#ttoolprogresscallback) |
+
+#### Returns
+
+`boolean`
+
+#### Defined in
+
+[packages/agents/src/interfaces/progress-reporting.ts:113](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/interfaces/progress-reporting.ts#L113)
+
+___
+
+### isUserMessage
+
+▸ **isUserMessage**(`message`): message is IUserMessage
+
+Check if a message is a user message
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `message` | [`TUniversalMessage`](#tuniversalmessage) | Message to check |
+
+#### Returns
+
+message is IUserMessage
+
+True if the message is a user message
+
+#### Defined in
+
+[packages/agents/src/managers/conversation-history-manager.ts:36](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/conversation-history-manager.ts#L36)
+
+___
+
+### isAssistantMessage
+
+▸ **isAssistantMessage**(`message`): message is IAssistantMessage
+
+Check if a message is an assistant message
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `message` | [`TUniversalMessage`](#tuniversalmessage) | Message to check |
+
+#### Returns
+
+message is IAssistantMessage
+
+True if the message is an assistant message
+
+#### Defined in
+
+[packages/agents/src/managers/conversation-history-manager.ts:46](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/conversation-history-manager.ts#L46)
+
+___
+
+### isSystemMessage
+
+▸ **isSystemMessage**(`message`): message is ISystemMessage
+
+Check if a message is a system message
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `message` | [`TUniversalMessage`](#tuniversalmessage) | Message to check |
+
+#### Returns
+
+message is ISystemMessage
+
+True if the message is a system message
+
+#### Defined in
+
+[packages/agents/src/managers/conversation-history-manager.ts:56](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/conversation-history-manager.ts#L56)
+
+___
+
+### isToolMessage
+
+▸ **isToolMessage**(`message`): message is IToolMessage
+
+Check if a message is a tool message
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `message` | [`TUniversalMessage`](#tuniversalmessage) | Message to check |
+
+#### Returns
+
+message is IToolMessage
+
+True if the message is a tool message
+
+#### Defined in
+
+[packages/agents/src/managers/conversation-history-manager.ts:66](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/conversation-history-manager.ts#L66)
+
+___
+
+### isDefaultEventService
+
+▸ **isDefaultEventService**(`service`): `boolean`
+
+Check if a given service is the default no-op implementation.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `service` | [`IEventService`](interfaces/IEventService) |
+
+#### Returns
+
+`boolean`
+
+#### Defined in
+
+[packages/agents/src/services/event-service.ts:49](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/services/event-service.ts#L49)
+
+___
+
+### bindWithOwnerPath
+
+▸ **bindWithOwnerPath**(`base`, `binding`): [`IEventService`](interfaces/IEventService)
+
+Bind an EventService to an explicit owner path and source identity.
+This is the standard entry point for scoped emission (path-only architecture).
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `base` | [`IEventService`](interfaces/IEventService) |
+| `binding` | [`IEventServiceOwnerBinding`](interfaces/IEventServiceOwnerBinding) |
+
+#### Returns
+
+[`IEventService`](interfaces/IEventService)
+
+#### Defined in
+
+[packages/agents/src/services/event-service.ts:81](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/services/event-service.ts#L81)
+
+___
+
+### bindEventServiceOwner
+
+▸ **bindEventServiceOwner**(`base`, `binding`): [`IEventService`](interfaces/IEventService)
+
+Alias for bindWithOwnerPath for historical call sites.
+Intentionally forwards to the single authoritative implementation.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `base` | [`IEventService`](interfaces/IEventService) |
+| `binding` | [`IEventServiceOwnerBinding`](interfaces/IEventServiceOwnerBinding) |
+
+#### Returns
+
+[`IEventService`](interfaces/IEventService)
+
+#### Defined in
+
+[packages/agents/src/services/event-service.ts:89](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/services/event-service.ts#L89)
+
+___
 
 ### createFunctionTool
 
@@ -916,9 +1532,9 @@ Helper function to create a function tool from a simple function
 | `description` | `string` |
 | `parameters` | `Object` |
 | `parameters.type` | ``"object"`` |
-| `parameters.properties` | `Record`\<`string`, [`ParameterSchema`](interfaces/ParameterSchema)\> |
+| `parameters.properties` | `Record`\<`string`, [`IParameterSchema`](interfaces/IParameterSchema)\> |
 | `parameters.required?` | `string`[] |
-| `fn` | [`ToolExecutor`](#toolexecutor) |
+| `fn` | [`TToolExecutor`](#ttoolexecutor) |
 
 #### Returns
 
@@ -926,13 +1542,13 @@ Helper function to create a function tool from a simple function
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:228](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/implementations/function-tool.ts#L228)
+[packages/agents/src/tools/implementations/function-tool.ts:233](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/implementations/function-tool.ts#L233)
 
 ___
 
 ### createZodFunctionTool
 
-▸ **createZodFunctionTool**(`name`, `description`, `zodSchema`, `fn`): [`FunctionTool`](classes/FunctionTool)
+▸ **createZodFunctionTool**(`name`, `description`, `zodSchema`, `fn`, `options?`): [`FunctionTool`](classes/FunctionTool)
 
 Helper function to create a function tool from Zod schema
 
@@ -942,8 +1558,9 @@ Helper function to create a function tool from Zod schema
 | :------ | :------ |
 | `name` | `string` |
 | `description` | `string` |
-| `zodSchema` | `ZodSchema` |
-| `fn` | [`ToolExecutor`](#toolexecutor) |
+| `zodSchema` | `IZodSchema` |
+| `fn` | [`TToolExecutor`](#ttoolexecutor) |
+| `options?` | `IAbstractToolOptions` |
 
 #### Returns
 
@@ -951,13 +1568,85 @@ Helper function to create a function tool from Zod schema
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:246](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/tools/implementations/function-tool.ts#L246)
+[packages/agents/src/tools/implementations/function-tool.ts:251](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/tools/implementations/function-tool.ts#L251)
+
+___
+
+### createExecutionProxy
+
+▸ **createExecutionProxy**\<`T`\>(`target`, `config`): `T`
+
+Factory function to create execution proxy with standard configuration
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `T` | extends `object` |
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `target` | `T` |
+| `config` | `ExecutionProxyConfig` |
+
+#### Returns
+
+`T`
+
+#### Defined in
+
+[packages/agents/src/utils/execution-proxy.ts:272](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/execution-proxy.ts#L272)
+
+___
+
+### withEventEmission
+
+▸ **withEventEmission**(`eventService`, `sourceType`, `sourceId`): \<T\>(`target`: `T`) => `T`
+
+Decorator function for automatic event emission
+Usage: @withEventEmission(eventService, 'agent', 'agent-id')
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `eventService` | [`IEventService`](interfaces/IEventService) |
+| `sourceType` | ``"tool"`` \| ``"agent"`` \| ``"team"`` |
+| `sourceId` | `string` |
+
+#### Returns
+
+`fn`
+
+▸ \<`T`\>(`target`): `T`
+
+##### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `T` | extends `object` |
+
+##### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `target` | `T` |
+
+##### Returns
+
+`T`
+
+#### Defined in
+
+[packages/agents/src/utils/execution-proxy.ts:285](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/execution-proxy.ts#L285)
 
 ___
 
 ### createLogger
 
-▸ **createLogger**(`packageName`): [`Logger`](interfaces/Logger)
+▸ **createLogger**(`packageName`, `logger?`): [`ILogger`](interfaces/ILogger)
 
 Create a logger instance for a package
 
@@ -966,14 +1655,15 @@ Create a logger instance for a package
 | Name | Type |
 | :------ | :------ |
 | `packageName` | `string` |
+| `logger?` | [`AbstractLogger`](interfaces/AbstractLogger) |
 
 #### Returns
 
-[`Logger`](interfaces/Logger)
+[`ILogger`](interfaces/ILogger)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:152](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L152)
+[packages/agents/src/utils/logger.ts:148](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L148)
 
 ___
 
@@ -987,7 +1677,7 @@ Set global log level for all loggers
 
 | Name | Type |
 | :------ | :------ |
-| `level` | [`UtilLogLevel`](#utilloglevel) |
+| `level` | [`TUtilLogLevel`](#tutilloglevel) |
 
 #### Returns
 
@@ -995,29 +1685,29 @@ Set global log level for all loggers
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:159](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L159)
+[packages/agents/src/utils/logger.ts:155](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L155)
 
 ___
 
 ### getGlobalLogLevel
 
-▸ **getGlobalLogLevel**(): [`UtilLogLevel`](#utilloglevel)
+▸ **getGlobalLogLevel**(): [`TUtilLogLevel`](#tutilloglevel)
 
 Get global log level
 
 #### Returns
 
-[`UtilLogLevel`](#utilloglevel)
+[`TUtilLogLevel`](#tutilloglevel)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:166](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L166)
+[packages/agents/src/utils/logger.ts:162](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L162)
 
 ___
 
 ### validateAgentConfig
 
-▸ **validateAgentConfig**(`config`): [`ValidationResult`](interfaces/ValidationResult)
+▸ **validateAgentConfig**(`config`): `IValidationResult`
 
 Validate agent configuration
 
@@ -1025,21 +1715,21 @@ Validate agent configuration
 
 | Name | Type |
 | :------ | :------ |
-| `config` | `Partial`\<[`AgentConfig`](interfaces/AgentConfig)\> |
+| `config` | `Partial`\<[`IAgentConfig`](interfaces/IAgentConfig)\> |
 
 #### Returns
 
-[`ValidationResult`](interfaces/ValidationResult)
+`IValidationResult`
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:190](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L190)
+[packages/agents/src/utils/validation.ts:190](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/validation.ts#L190)
 
 ___
 
 ### validateUserInput
 
-▸ **validateUserInput**(`input`): [`ValidationResult`](interfaces/ValidationResult)
+▸ **validateUserInput**(`input`): `IValidationResult`
 
 Validate user input string
 
@@ -1051,17 +1741,17 @@ Validate user input string
 
 #### Returns
 
-[`ValidationResult`](interfaces/ValidationResult)
+`IValidationResult`
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:191](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L191)
+[packages/agents/src/utils/validation.ts:191](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/validation.ts#L191)
 
 ___
 
 ### validateProviderName
 
-▸ **validateProviderName**(`name`): [`ValidationResult`](interfaces/ValidationResult)
+▸ **validateProviderName**(`name`): `IValidationResult`
 
 Validate provider name
 
@@ -1073,17 +1763,17 @@ Validate provider name
 
 #### Returns
 
-[`ValidationResult`](interfaces/ValidationResult)
+`IValidationResult`
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:192](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L192)
+[packages/agents/src/utils/validation.ts:192](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/validation.ts#L192)
 
 ___
 
 ### validateModelName
 
-▸ **validateModelName**(`name`): [`ValidationResult`](interfaces/ValidationResult)
+▸ **validateModelName**(`name`): `IValidationResult`
 
 Validate model name
 
@@ -1095,17 +1785,17 @@ Validate model name
 
 #### Returns
 
-[`ValidationResult`](interfaces/ValidationResult)
+`IValidationResult`
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:193](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L193)
+[packages/agents/src/utils/validation.ts:193](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/validation.ts#L193)
 
 ___
 
 ### validateApiKey
 
-▸ **validateApiKey**(`apiKey`, `provider?`): [`ValidationResult`](interfaces/ValidationResult)
+▸ **validateApiKey**(`apiKey`, `provider?`): `IValidationResult`
 
 Validate API key format (basic check)
 
@@ -1118,8 +1808,8 @@ Validate API key format (basic check)
 
 #### Returns
 
-[`ValidationResult`](interfaces/ValidationResult)
+`IValidationResult`
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:194](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L194)
+[packages/agents/src/utils/validation.ts:194](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/validation.ts#L194)

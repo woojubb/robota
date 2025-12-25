@@ -229,9 +229,4 @@ export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToo
     }
 }
 
-/**
- * Legacy tool class for backward compatibility
- * @deprecated Use AbstractTool with type parameters instead
- */
-export abstract class LegacyAbstractTool extends AbstractTool<TToolParameters, IToolResult> implements IToolInterface { }
-
+ 

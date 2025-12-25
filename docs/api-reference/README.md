@@ -20,20 +20,58 @@ npm install @robota-sdk/agents
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 
+const openaiProvider = new OpenAIProvider({ apiKey: 'sk-...' });
+
 const agent = new Robota({
   name: 'MyAgent',
-  aiProviders: { 
-    openai: new OpenAIProvider({ apiKey: 'sk-...' }) 
-  },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4'
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+    systemMessage: 'You are a helpful assistant.'
+  }
 });
 
 const response = await agent.run('Hello, world!');
 console.log(response);
 ```
 
+### Browser Quick Start
+
+```typescript
+import { Robota, LoggingPlugin, UsagePlugin } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
+
+const openaiProvider = new OpenAIProvider({ 
+  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY // or proxy endpoint
+});
+
+// Browser-optimized configuration
+const agent = new Robota({
+  name: 'BrowserAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-3.5-turbo'
+  },
+  plugins: [
+    new LoggingPlugin({ strategy: 'console' }),    // Console logging
+    new UsagePlugin({ strategy: 'memory' })        // Memory storage
+  ]
+});
+
+const response = await agent.run('Hello from browser!');
+console.log(response);
+```
+
 ## Key Features
+
+### 🌐 Cross-Platform Compatibility
+- **Universal Runtime Support**: Works seamlessly in Node.js, browsers, and WebWorkers
+- **Zero Breaking Changes**: Existing Node.js code runs unchanged in browsers
+- **Pure JavaScript Implementation**: No Node.js-specific dependencies in core functionality
+- **Browser-Optimized Storage**: Memory-based alternatives for file system operations
+- **Secure API Patterns**: Proxy server support for secure browser deployments
 
 ### 🤖 Agent System
 - **Type-Safe Architecture**: Full TypeScript support with generic type parameters
@@ -54,16 +92,50 @@ console.log(response);
 - **OpenAPI/MCP Support**: Basic structure for extensibility
 
 ### 🔌 Plugin System
-Eight core plugins with type-safe configuration:
+Eight core plugins with type-safe configuration and BasePluginOptions integration:
 
-- **ConversationHistoryPlugin**: Conversation storage (memory/file/database)
-- **UsagePlugin**: Usage statistics collection (calls, tokens, costs)
-- **LoggingPlugin**: Operation logging (Console/File/Remote with environment control)
-- **PerformancePlugin**: Performance metrics (response time, memory, CPU)
-- **ErrorHandlingPlugin**: Error logging, recovery, and retry handling
-- **LimitsPlugin**: Token/request limits (Rate limiting, cost control)
-- **EventEmitterPlugin**: Tool event detection and propagation
-- **WebhookPlugin**: Webhook notifications for external systems
+- **ConversationHistoryPlugin**: Comprehensive conversation storage with support for memory, file, and database backends. Features auto-save, batch processing, and configurable limits.
+- **UsagePlugin**: Advanced usage analytics including token counting, cost calculation, aggregated statistics, and multiple storage strategies (memory/file/remote).
+- **LoggingPlugin**: Multi-level logging system with console, file, and remote endpoints. Supports custom formatters, batch processing, and structured logging.
+- **PerformancePlugin**: Real-time performance monitoring including execution time tracking, memory usage, CPU metrics, and customizable performance thresholds.
+- **ErrorHandlingPlugin**: Robust error management with multiple strategies (simple, exponential-backoff, circuit-breaker, silent) and custom error handlers.
+- **LimitsPlugin**: Advanced rate limiting with token bucket, sliding window, and fixed window strategies. Supports cost tracking and custom calculators.
+- **EventEmitterPlugin**: Comprehensive event system with async/sync event handling, filtering, buffering, and lifecycle event tracking.
+- **WebhookPlugin**: HTTP webhook notifications with batch processing, retry logic, custom transformers, and concurrent request management.
+
+#### Plugin Features
+- **Type Safety**: All plugins extend BasePluginOptions for consistent configuration
+- **Lifecycle Integration**: Automatic integration with agent lifecycle events
+- **Resource Management**: Built-in cleanup and resource optimization
+- **Performance Monitoring**: All plugins include built-in statistics and monitoring
+- **Error Resilience**: Graceful error handling across all plugin operations
+
+#### Plugin Control and Configuration
+- **Clear Disable Options**: Every plugin provides multiple ways to disable functionality
+- **No Arbitrary Decisions**: Plugins avoid making policy decisions without explicit configuration
+- **Explicit Configuration**: All automatic behaviors can be controlled through configuration
+- **Silent Modes**: Most plugins support 'silent' strategies for performance-critical scenarios
+
+```typescript
+// Complete plugin disable
+const agent = new Robota({
+  plugins: [] // No plugins
+});
+
+// Selective plugin disable
+const agent = new Robota({
+  plugins: [
+    new LoggingPlugin({ strategy: 'silent', enabled: false }),
+    new LimitsPlugin({ strategy: 'none' }),
+    new UsagePlugin({ strategy: 'silent' })
+  ]
+});
+```
+
+#### Plugin Documentation
+- **[Plugin Behaviors](plugin-automatic-behaviors.md)**: Detailed documentation of all automatic behaviors and default policies
+- **[Configuration Examples](plugin-configuration-examples.md)**: Comprehensive examples for each plugin including disable options
+- **[Best Practices](plugin-best-practices.md)**: Guidelines for plugin configuration and performance optimization
 
 ### 🔒 Type Safety Features
 - **Generic Type Parameters**: `BaseAgent<TConfig, TContext, TMessage>`
@@ -123,6 +195,7 @@ See [architecture.md](architecture.md) for detailed architecture information.
 ## Examples
 
 - [Basic Usage](../../../docs/examples/basic-usage.md)
+- [Browser Usage](../../../docs/examples/browser-usage.md) 🌐
 - [Tool Integration](../../../docs/examples/tool-integration.md)
 - [Plugin Development](../../../docs/examples/plugin-development.md)
 - [Streaming Responses](../../../docs/examples/streaming.md)
@@ -133,11 +206,11 @@ See [architecture.md](architecture.md) for detailed architecture information.
 - **@robota-sdk/openai**: Complete agents standard migration
 - **@robota-sdk/anthropic**: Complete agents standard migration  
 - **@robota-sdk/google**: Complete agents standard migration
-- **@robota-sdk/team**: assignTask MCP tool collection (legacy team creation removed)
+- **@robota-sdk/team**: assignTask MCP tool collection (team creation removed)
 
 ### Deprecated Packages
 - **@robota-sdk/core**: Deprecated - functionality moved to agents
-- **@robota-sdk/agents**: Comprehensive AI agent framework with tools and plugins
+- **@robota-sdk/tools**: Deprecated - functionality moved to agents
 
 ## License
 

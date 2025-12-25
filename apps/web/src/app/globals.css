@@ -351,15 +351,15 @@
   /* violet-600 */
 }
 
-/* === LEGACY NODE TYPES === */
+/* === COMPATIBILITY NODE TYPES === */
 
-/* Legacy Tool Call (camelCase) */
+/* Tool Call (camelCase) */
 .react-flow__node-toolCall {
   border: 2px solid #ea580c;
   /* orange-600 */
 }
 
-/* Legacy Agent Response (camelCase) */
+/* Agent Response (camelCase) */
 .react-flow__node-agentResponse {
   border: 2px solid #22c55e;
   /* green-500 */

@@ -10,53 +10,83 @@
 
 ## Table of contents
 
+### References
+
+- [AgentConfig](#agentconfig)
+- [RunOptions](#runoptions)
+
 ### Enumerations
 
 - [SessionState](enums/SessionState)
 
 ### Classes
 
-- [SessionManager](classes/SessionManager)
-- [ChatInstance](classes/ChatInstance)
+- [ConversationSession](classes/ConversationSession)
+- [ConversationHistory](classes/ConversationHistory)
 - [TemplateManagerAdapter](classes/TemplateManagerAdapter)
+- [ChatInstance](classes/ChatInstance)
+- [SessionManager](classes/SessionManager)
 
 ### Interfaces
 
-- [SessionManagerConfig](interfaces/SessionManagerConfig)
+- [IChatConfig](interfaces/IChatConfig)
+- [IChatMetadata](interfaces/IChatMetadata)
+- [ITemplateManager](interfaces/ITemplateManager)
+- [IChatStats](interfaces/IChatStats)
 - [SessionConfig](interfaces/SessionConfig)
 - [SessionInfo](interfaces/SessionInfo)
-- [ChatConfig](interfaces/ChatConfig)
 - [ChatInfo](interfaces/ChatInfo)
-- [ChatMetadata](interfaces/ChatMetadata)
-- [ChatStats](interfaces/ChatStats)
-- [IChatInstance](interfaces/IChatInstance)
-- [TemplateManager](interfaces/TemplateManager)
+- [SessionManagerConfig](interfaces/SessionManagerConfig)
+- [CreateSessionOptions](interfaces/CreateSessionOptions)
+- [CreateChatOptions](interfaces/CreateChatOptions)
 
 ### Type Aliases
 
-- [Message](#message)
-- [MessageContent](#messagecontent)
+- [TUniversalMessage](#tuniversalmessage)
+- [TMessageContent](#tmessagecontent)
 
-## Type Aliases
+### Variables
 
-### Message
+- [AgentInterface](#agentinterface)
 
-Ƭ **Message**: `UserMessage` \| `AssistantMessage` \| `SystemMessage` \| `ToolMessage`
+## References
 
-Universal message type from the agents package
+### AgentConfig
 
-#### Defined in
-
-agents/dist/index.d.ts:1870
+Renames and re-exports [AgentInterface](#agentinterface)
 
 ___
 
-### MessageContent
+### RunOptions
 
-Ƭ **MessageContent**: `string`
+Renames and re-exports [AgentInterface](#agentinterface)
 
-Simple message content type for clean API
+## Type Aliases
+
+### TUniversalMessage
+
+Ƭ **TUniversalMessage**: `IUserMessage` \| `IAssistantMessage` \| `ISystemMessage` \| `IToolMessage`
+
+Universal message union used across the SDK as the canonical contract.
 
 #### Defined in
 
-[sessions/src/types/chat.ts:28](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L28)
+agents/dist/node/index.d.ts:128
+
+___
+
+### TMessageContent
+
+Ƭ **TMessageContent**: `string`
+
+Simple message content type
+
+#### Defined in
+
+[sessions/src/types/chat.ts:10](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/chat.ts#L10)
+
+## Variables
+
+### AgentInterface
+
+• **AgentInterface**: `any`

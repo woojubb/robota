@@ -40,7 +40,7 @@ A powerful TypeScript library for building AI agents with multi-provider support
 
 - **Multi-Provider Support**: OpenAI, Anthropic, Google AI with seamless switching
 - **Cross-Platform Compatibility**: Node.js, browsers, WebWorkers support
-- **assignTask MCP Tools**: Use `@robota-sdk/team` for assignTask tool collection (legacy team creation removed)
+- **assignTask MCP Tools**: Use `@robota-sdk/team` for assignTask tool collection (team creation removed)
 - **Type-Safe Function Calling**: Zod schemas and tool integration
 - **Plugin System**: Extensible architecture with conversation history, analytics, and error handling plugins
 - **Streaming Support**: Real-time responses from all providers
@@ -170,7 +170,7 @@ npm install @robota-sdk/team
 **assignTask Tool Collection**
 - MCP-style tools: listTemplateCategories, listTemplates, getTemplateDetail, assignTask
 - Built-in templates stored in package JSON
-- Legacy team creation removed; use Robota agents + assignTask tools instead
+- Team creation removed; use Robota agents + assignTask tools instead
 
 ## Documentation
 
@@ -179,7 +179,7 @@ npm install @robota-sdk/team
 - **[Guide](guide/)** - Core concepts and advanced features
 - **[AI Providers](providers/)** - OpenAI, Anthropic, Google AI configuration
 - **[Examples](examples/)** - Comprehensive examples and tutorials
-- **[assignTask Tooling](team.md)** - assignTask MCP tool collection (legacy team creation removed)
+- **[assignTask Tooling](team.md)** - assignTask MCP tool collection (team creation removed)
 - **[Protocols](protocols/)** - Model Context Protocol and integrations
 
 ### For Developers

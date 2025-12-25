@@ -1,4 +1,4 @@
-// Playground services surface (re-export legacy implementations under new layer)
+// Playground services surface (re-export implementations under new layer)
 
 export * from '../../lib/playground/execution-subscriber';
 export * from '../../lib/playground/universal-tool-factory';

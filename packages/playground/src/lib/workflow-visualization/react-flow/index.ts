@@ -23,7 +23,7 @@ import type {
  */
 const SDK_TO_REACTFLOW_TYPE_MAP: Record<string, string> = {
     // Keep original types to match CSS classes - no mapping needed for new types
-    // Legacy mappings only for old data compatibility
+    // Compatibility mappings only for older data
     'final_response': 'response',
     'merge_results': 'response',
     'output': 'response'

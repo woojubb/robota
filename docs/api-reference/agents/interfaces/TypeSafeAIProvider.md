@@ -6,21 +6,27 @@
 
 [agents](../../) / [Exports](../modules) / TypeSafeAIProvider
 
-# Interface: TypeSafeAIProvider\<TConfig, TMessage, TResponse\>
+# Interface: TypeSafeAIProvider\<TConfig\>
 
 Type-safe AI provider interface with proper generic constraints
+
+**`Template`**
+
+Message type (defaults to TUniversalMessage for backward compatibility)
+
+**`Template`**
+
+Response type (defaults to TUniversalMessage for backward compatibility)
 
 ## Type parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
 | `TConfig` | [`ProviderConfig`](ProviderConfig) | Provider configuration type (defaults to ProviderConfig for type safety) |
-| `TMessage` | [`UniversalMessage`](../modules#universalmessage) | Message type (defaults to UniversalMessage for backward compatibility) |
-| `TResponse` | [`UniversalMessage`](../modules#universalmessage) | Response type (defaults to UniversalMessage for backward compatibility) |
 
 ## Implemented by
 
-- [`BaseAIProvider`](../classes/BaseAIProvider)
+- [`AbstractAIProvider`](../classes/AbstractAIProvider)
 
 ## Table of contents
 
@@ -34,6 +40,8 @@ Type-safe AI provider interface with proper generic constraints
 - [configure](TypeSafeAIProvider#configure)
 - [chat](TypeSafeAIProvider#chat)
 - [chatStream](TypeSafeAIProvider#chatstream)
+- [generateResponse](TypeSafeAIProvider#generateresponse)
+- [generateStreamingResponse](TypeSafeAIProvider#generatestreamingresponse)
 - [supportsTools](TypeSafeAIProvider#supportstools)
 - [validateConfig](TypeSafeAIProvider#validateconfig)
 - [dispose](TypeSafeAIProvider#dispose)
@@ -46,7 +54,7 @@ Type-safe AI provider interface with proper generic constraints
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:19](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L19)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:30](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L30)
 
 ___
 
@@ -56,7 +64,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:20](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L20)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:31](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L31)
 
 ## Methods
 
@@ -76,49 +84,89 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:22](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L22)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:33](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L33)
 
 ___
 
 ### chat
 
-▸ **chat**(`messages`, `options?`): `Promise`\<`TResponse`\>
+▸ **chat**(`messages`, `options?`): `Promise`\<[`TUniversalMessage`](../modules#tuniversalmessage)\>
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `TMessage`[] |
-| `options?` | [`ChatOptions`](ChatOptions) |
+| `messages` | [`TUniversalMessage`](../modules#tuniversalmessage)[] |
+| `options?` | [`IChatOptions`](IChatOptions) |
 
 #### Returns
 
-`Promise`\<`TResponse`\>
+`Promise`\<[`TUniversalMessage`](../modules#tuniversalmessage)\>
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:23](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L23)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:34](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L34)
 
 ___
 
 ### chatStream
 
-▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<`TResponse`, `any`, `any`\>
+▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<[`TUniversalMessage`](../modules#tuniversalmessage), `any`, `any`\>
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `TMessage`[] |
-| `options?` | [`ChatOptions`](ChatOptions) |
+| `messages` | [`TUniversalMessage`](../modules#tuniversalmessage)[] |
+| `options?` | [`IChatOptions`](IChatOptions) |
 
 #### Returns
 
-`AsyncIterable`\<`TResponse`, `any`, `any`\>
+`AsyncIterable`\<[`TUniversalMessage`](../modules#tuniversalmessage), `any`, `any`\>
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:24](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L24)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:35](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L35)
+
+___
+
+### generateResponse
+
+▸ **generateResponse**(`payload`): `Promise`\<[`IRawProviderResponse`](IRawProviderResponse)\>
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `payload` | [`IProviderRequest`](IProviderRequest) |
+
+#### Returns
+
+`Promise`\<[`IRawProviderResponse`](IRawProviderResponse)\>
+
+#### Defined in
+
+[packages/agents/src/abstracts/abstract-ai-provider.ts:36](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L36)
+
+___
+
+### generateStreamingResponse
+
+▸ **generateStreamingResponse**(`payload`): `AsyncIterable`\<[`IRawProviderResponse`](IRawProviderResponse), `any`, `any`\>
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `payload` | [`IProviderRequest`](IProviderRequest) |
+
+#### Returns
+
+`AsyncIterable`\<[`IRawProviderResponse`](IRawProviderResponse), `any`, `any`\>
+
+#### Defined in
+
+[packages/agents/src/abstracts/abstract-ai-provider.ts:37](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L37)
 
 ___
 
@@ -132,7 +180,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:25](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L25)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:38](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L38)
 
 ___
 
@@ -146,7 +194,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:26](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L26)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:39](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L39)
 
 ___
 
@@ -160,4 +208,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:27](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L27)
+[packages/agents/src/abstracts/abstract-ai-provider.ts:40](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-ai-provider.ts#L40)

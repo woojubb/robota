@@ -10,6 +10,12 @@
 
 Event data structure
 
+## Hierarchy
+
+- **`EventData`**
+
+  ↳ [`HierarchicalEventData`](HierarchicalEventData)
+
 ## Table of contents
 
 ### Properties
@@ -31,7 +37,7 @@ Event data structure
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:98](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L98)
+[packages/agents/src/plugins/event-emitter-plugin.ts:160](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter-plugin.ts#L160)
 
 ___
 
@@ -41,7 +47,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:99](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L99)
+[packages/agents/src/plugins/event-emitter-plugin.ts:161](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter-plugin.ts#L161)
 
 ___
 
@@ -51,7 +57,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:100](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L100)
+[packages/agents/src/plugins/event-emitter-plugin.ts:162](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter-plugin.ts#L162)
 
 ___
 
@@ -61,7 +67,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:101](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L101)
+[packages/agents/src/plugins/event-emitter-plugin.ts:163](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter-plugin.ts#L163)
 
 ___
 
@@ -71,7 +77,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:102](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L102)
+[packages/agents/src/plugins/event-emitter-plugin.ts:164](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter-plugin.ts#L164)
 
 ___
 
@@ -81,7 +87,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:103](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L103)
+[packages/agents/src/plugins/event-emitter-plugin.ts:165](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter-plugin.ts#L165)
 
 ___
 
@@ -91,7 +97,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:104](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L104)
+[packages/agents/src/plugins/event-emitter-plugin.ts:166](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter-plugin.ts#L166)
 
 ___
 
@@ -101,4 +107,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:105](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L105)
+[packages/agents/src/plugins/event-emitter-plugin.ts:167](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/event-emitter-plugin.ts#L167)

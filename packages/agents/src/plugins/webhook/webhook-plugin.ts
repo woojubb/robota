@@ -3,7 +3,14 @@
  * Coordinates webhook functionality through clean, separated components
  */
 
-import { AbstractPlugin, PluginCategory, PluginPriority, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext } from '../../abstracts/abstract-plugin';
+import {
+    AbstractPlugin,
+    PluginCategory,
+    PluginPriority,
+    type IPluginExecutionContext,
+    type IPluginExecutionResult,
+    type IPluginErrorContext
+} from '../../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError } from '../../utils/errors';
 import type { TimerId } from '../../utils';
@@ -82,7 +89,7 @@ export class WebhookPlugin extends AbstractPlugin<WebhookPluginOptions, WebhookP
                 flushInterval: 5000
             },
             payloadTransformer: WebhookTransformer.defaultPayloadTransformer,
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.NOTIFICATION,
             priority: options.priority ?? PluginPriority.LOW,
             moduleEvents: options.moduleEvents ?? [],
@@ -109,7 +116,7 @@ export class WebhookPlugin extends AbstractPlugin<WebhookPluginOptions, WebhookP
     /**
      * After execution completes
      */
-    override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
+    override async afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
         const webhookResult = WebhookTransformer.resultToWebhook(result);
         const eventData = WebhookTransformer.createExecutionData(webhookContext, webhookResult);
@@ -120,7 +127,7 @@ export class WebhookPlugin extends AbstractPlugin<WebhookPluginOptions, WebhookP
     /**
      * After conversation completes
      */
-    override async afterConversation(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
+    override async afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
         const webhookResult = WebhookTransformer.resultToWebhook(result);
         const eventData = WebhookTransformer.createConversationData(webhookContext, webhookResult);
@@ -140,9 +147,9 @@ export class WebhookPlugin extends AbstractPlugin<WebhookPluginOptions, WebhookP
      * 5. Type assertions (decreases type safety)
      * TODO: Consider standardized tool result interface across tools
      */
-    override async afterToolExecution(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void> {
+    override async afterToolExecution(context: IPluginExecutionContext, toolResults: IPluginExecutionResult): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
-        // Handle tool results from BaseExecutionResult
+        // Handle tool results from IPluginExecutionResult
         if (toolResults.toolCalls && toolResults.toolCalls.length > 0) {
             for (const toolCall of toolResults.toolCalls) {
                 const toolData = {
@@ -161,7 +168,7 @@ export class WebhookPlugin extends AbstractPlugin<WebhookPluginOptions, WebhookP
     /**
      * On error
      */
-    override async onError(error: Error, context?: ErrorContext): Promise<void> {
+    override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
         const webhookContext = context ? {
             executionId: context.executionId,
             sessionId: context.sessionId,

@@ -1,7 +1,7 @@
 import type { IAIProvider, IToolSchema } from './provider';
 import type { IToolInterface, TToolExecutor, IToolExecutionContext } from './tool';
 import type { TToolResultData } from './types';
-import type { IAgentConfig, IAgentInterface } from './agent';
+import type { IAgentConfig, IAgent } from './agent';
 
 /**
  * Reusable type definitions for manager layer
@@ -145,7 +145,7 @@ export interface IAgentFactory {
     /**
      * Create agent instance
      */
-    createAgent(config: IAgentConfig, options?: IAgentCreationOptions): IAgentInterface;
+    createAgent(config: IAgentConfig, options?: IAgentCreationOptions): IAgent<IAgentConfig>;
 
     /**
      * Validate agent configuration

@@ -7,14 +7,14 @@
  * Subclasses provide provider/tool-specific behavior while inheriting the
  * shared guarantees around initialization, history, and disposal.
  */
-import type { IBaseAgentInterface, IAgentConfig, TUniversalMessage, IRunOptions } from '../interfaces/agent';
+import type { IAgent, IAgentConfig, TUniversalMessage, IRunOptions } from '../interfaces/agent';
 
 export abstract class AbstractAgent<
     TConfig = IAgentConfig,
     TContext = IRunOptions,
     TMessage = TUniversalMessage
-> implements IBaseAgentInterface<TConfig, TContext, TUniversalMessage> {
-    protected history: TUniversalMessage[] = [];
+> implements IAgent<TConfig, TContext, TMessage> {
+    protected history: TMessage[] = [];
     protected isInitialized = false;
     protected config?: TConfig;
 
@@ -44,7 +44,7 @@ export abstract class AbstractAgent<
     /**
      * Get conversation history with type-safe messages
      */
-    getHistory(): TUniversalMessage[] {
+    getHistory(): TMessage[] {
         return [...this.history];
     }
 
@@ -58,7 +58,7 @@ export abstract class AbstractAgent<
     /**
      * Add message to history
      */
-    protected addMessage(message: TUniversalMessage): void {
+    protected addMessage(message: TMessage): void {
         this.history.push(message);
     }
 

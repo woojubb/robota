@@ -67,14 +67,14 @@ pnpm --filter robota-examples run lint:fix
 - **Naming Conventions**: Consistency improvements
 - **Comment Style**: Documentation improvements
 
-## Legacy Code Management
+## Compatibility Code Management
 
-### Pragmatic Legacy Handling
+### Pragmatic Compatibility Handling
 
-- **Deprecation with Purpose**: Deprecate when there's a clear better alternative
-- **Migration Support**: Provide migration tools and documentation
-- **Compatibility Windows**: Support deprecated features for reasonable time periods
-- **User Communication**: Clear communication about deprecations and timelines
+- **Change with Purpose**: Make breaking changes only when there's a clear, validated alternative
+- **Migration Support**: Provide migration documentation
+- **Compatibility Windows**: Maintain compatibility where it is structurally sound and explicitly supported
+- **User Communication**: Clear communication about changes and timelines
 
 ### Refactoring Strategy
 

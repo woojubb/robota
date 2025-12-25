@@ -885,4 +885,4 @@ export class PlaygroundExecutor {
     }
 }
 
-// Team feature removed: legacy team execution code deleted.
+// Team feature removed: previous team execution code deleted.

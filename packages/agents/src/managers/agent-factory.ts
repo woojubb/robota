@@ -1,4 +1,4 @@
-import { IAgentInterface, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
+import { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
 import { TConfigData } from '../interfaces/types';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { validateAgentConfig } from '../utils/validation';
@@ -44,7 +44,7 @@ export interface IAgentLifecycleEvents {
     /** Called before agent creation */
     beforeCreate?: (config: IAgentConfig) => Promise<void> | void;
     /** Called after successful agent creation */
-    afterCreate?: (agent: IAgentInterface, config: IAgentConfig) => Promise<void> | void;
+    afterCreate?: (agent: IAgent<IAgentConfig>, config: IAgentConfig) => Promise<void> | void;
     /** Called when agent creation fails */
     onCreateError?: (error: Error, config: IAgentConfig) => Promise<void> | void;
     /** Called when agent is destroyed */
@@ -60,7 +60,7 @@ export class AgentFactory {
     private initialized = false;
     private logger: ILogger;
     private options: Required<IAgentFactoryOptions>;
-    private activeAgents: Map<string, IAgentInterface>;
+    private activeAgents: Map<string, IAgent<IAgentConfig>>;
     private creationStats: IAgentCreationStats;
     private lifecycleEvents: IAgentLifecycleEvents;
 
@@ -111,10 +111,10 @@ export class AgentFactory {
      * Create a new agent instance
      */
     async createAgent(
-        AgentClass: new (config: IAgentConfig) => IAgentInterface,
+        AgentClass: new (config: IAgentConfig) => IAgent<IAgentConfig>,
         config: Partial<IAgentConfig>,
         fromTemplate: boolean = false
-    ): Promise<IAgentInterface> {
+    ): Promise<IAgent<IAgentConfig>> {
         try {
             // Check concurrent agent limit
             if (this.activeAgents.size >= this.options.maxConcurrentAgents) {
@@ -143,8 +143,12 @@ export class AgentFactory {
             const agent = new AgentClass(fullConfig);
 
             // Initialize agent if it has an initialize method
-            if ('initialize' in agent && typeof agent.initialize === 'function') {
-                await (agent as IAgentInterface & { initialize(): Promise<void> }).initialize();
+            interface IInitializableAgent {
+                initialize(): Promise<void>;
+            }
+            const maybeInitializable = agent as Partial<IInitializableAgent>;
+            if (typeof maybeInitializable.initialize === 'function') {
+                await maybeInitializable.initialize();
             }
 
             // Track agent
@@ -186,10 +190,10 @@ export class AgentFactory {
      * Create agent from template
      */
     async createFromTemplate(
-        AgentClass: new (config: IAgentConfig) => IAgentInterface,
+        AgentClass: new (config: IAgentConfig) => IAgent<IAgentConfig>,
         templateId: string,
         overrides: Partial<IAgentConfig> = {}
-    ): Promise<IAgentInterface> {
+    ): Promise<IAgent<IAgentConfig>> {
         const template = this.agentTemplates.getTemplate(templateId);
         if (!template) {
             throw new ConfigurationError(`Template not found: ${templateId}`);
@@ -275,8 +279,12 @@ export class AgentFactory {
 
         try {
             // Cleanup agent if it has a cleanup method
-            if ('cleanup' in agent && typeof agent.cleanup === 'function') {
-                await (agent as IAgentInterface & { cleanup(): Promise<void> }).cleanup();
+            interface ICleanableAgent {
+                cleanup(): Promise<void>;
+            }
+            const maybeCleanable = agent as Partial<ICleanableAgent>;
+            if (typeof maybeCleanable.cleanup === 'function') {
+                await maybeCleanable.cleanup();
             }
 
             // Remove from tracking
@@ -309,7 +317,7 @@ export class AgentFactory {
     /**
      * Get all active agents
      */
-    getActiveAgents(): Map<string, IAgentInterface> {
+    getActiveAgents(): Map<string, IAgent<IAgentConfig>> {
         return new Map(this.activeAgents);
     }
 

@@ -12,7 +12,7 @@ Configuration options for logging plugin
 
 ## Hierarchy
 
-- [`BasePluginOptions`](BasePluginOptions)
+- [`IPluginOptions`](IPluginOptions)
 
   ↳ **`LoggingPluginOptions`**
 
@@ -33,6 +33,7 @@ Configuration options for logging plugin
 - [maxLogs](LoggingPluginOptions#maxlogs)
 - [includeStackTrace](LoggingPluginOptions#includestacktrace)
 - [formatter](LoggingPluginOptions#formatter)
+- [logger](LoggingPluginOptions#logger)
 - [batchSize](LoggingPluginOptions#batchsize)
 - [flushInterval](LoggingPluginOptions#flushinterval)
 
@@ -46,11 +47,11 @@ Whether the plugin is enabled
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[enabled](BasePluginOptions#enabled)
+[IPluginOptions](IPluginOptions).[enabled](IPluginOptions#enabled)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L125)
+[packages/agents/src/abstracts/abstract-plugin.ts:126](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L126)
 
 ___
 
@@ -62,11 +63,11 @@ Plugin category for classification
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[category](BasePluginOptions#category)
+[IPluginOptions](IPluginOptions).[category](IPluginOptions#category)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L127)
+[packages/agents/src/abstracts/abstract-plugin.ts:128](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L128)
 
 ___
 
@@ -78,11 +79,11 @@ Plugin priority for execution order
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[priority](BasePluginOptions#priority)
+[IPluginOptions](IPluginOptions).[priority](IPluginOptions#priority)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L129)
+[packages/agents/src/abstracts/abstract-plugin.ts:130](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L130)
 
 ___
 
@@ -94,11 +95,11 @@ Events to subscribe to from modules
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[moduleEvents](BasePluginOptions#moduleevents)
+[IPluginOptions](IPluginOptions).[moduleEvents](IPluginOptions#moduleevents)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L131)
+[packages/agents/src/abstracts/abstract-plugin.ts:132](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L132)
 
 ___
 
@@ -110,11 +111,11 @@ Whether to subscribe to all module events
 
 #### Inherited from
 
-[BasePluginOptions](BasePluginOptions).[subscribeToAllModuleEvents](BasePluginOptions#subscribetoallmoduleevents)
+[IPluginOptions](IPluginOptions).[subscribeToAllModuleEvents](IPluginOptions#subscribetoallmoduleevents)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/abstract-plugin.ts:134](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/abstracts/abstract-plugin.ts#L134)
 
 ___
 
@@ -126,7 +127,7 @@ Logging strategy to use
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:36](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L36)
+[packages/agents/src/plugins/logging/types.ts:37](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L37)
 
 ___
 
@@ -138,7 +139,7 @@ Minimum log level to capture
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:38](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L38)
+[packages/agents/src/plugins/logging/types.ts:39](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L39)
 
 ___
 
@@ -150,7 +151,7 @@ File path for file strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:40](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L40)
+[packages/agents/src/plugins/logging/types.ts:41](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L41)
 
 ___
 
@@ -162,7 +163,7 @@ Remote endpoint for remote strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:42](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L42)
+[packages/agents/src/plugins/logging/types.ts:43](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L43)
 
 ___
 
@@ -174,7 +175,7 @@ Headers for remote logging
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:44](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L44)
+[packages/agents/src/plugins/logging/types.ts:45](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L45)
 
 ___
 
@@ -186,7 +187,7 @@ Maximum number of logs to keep in memory
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:46](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L46)
+[packages/agents/src/plugins/logging/types.ts:47](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L47)
 
 ___
 
@@ -198,7 +199,7 @@ Whether to include stack traces in error logs
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:48](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L48)
+[packages/agents/src/plugins/logging/types.ts:49](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L49)
 
 ___
 
@@ -210,7 +211,19 @@ Custom log formatter
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:50](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L50)
+[packages/agents/src/plugins/logging/types.ts:51](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L51)
+
+___
+
+### logger
+
+• `Optional` **logger**: [`AbstractLogger`](AbstractLogger)
+
+Logger instance for internal plugin logging
+
+#### Defined in
+
+[packages/agents/src/plugins/logging/types.ts:53](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L53)
 
 ___
 
@@ -222,7 +235,7 @@ Batch size for remote logging
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:52](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L52)
+[packages/agents/src/plugins/logging/types.ts:55](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L55)
 
 ___
 
@@ -234,4 +247,4 @@ Flush interval for batched logging in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:54](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/logging/types.ts#L54)
+[packages/agents/src/plugins/logging/types.ts:57](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/plugins/logging/types.ts#L57)

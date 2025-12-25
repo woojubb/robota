@@ -633,7 +633,7 @@ export class ExecutionEventHandler implements IEventHandler {
         return this.assistantMessageMap.get(executionId);
     }
 
-    // Legacy executionLevel/parentExecutionId removed: use context.ownerPath only.
+    // executionLevel/parentExecutionId removed: use context.ownerPath only.
 
     /**
      * Clear handler state (useful for testing and cleanup)

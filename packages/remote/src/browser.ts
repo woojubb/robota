@@ -29,7 +29,7 @@ export {
 // WebSocket Transport for real-time features
 export { SimpleWebSocketTransport as WebSocketTransport } from './transport/websocket-transport-simple';
 
-// Legacy compatibility exports
+// Compatibility exports
 export type {
     IExecutor,
     IChatExecutionRequest,

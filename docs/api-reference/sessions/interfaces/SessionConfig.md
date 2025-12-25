@@ -14,6 +14,8 @@
 
 - [name](SessionConfig#name)
 - [maxChats](SessionConfig#maxchats)
+- [userId](SessionConfig#userid)
+- [workspaceId](SessionConfig#workspaceid)
 
 ## Properties
 
@@ -23,7 +25,7 @@
 
 #### Defined in
 
-[sessions/src/types/core.ts:15](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/core.ts#L15)
+[sessions/src/types/core.ts:15](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L15)
 
 ___
 
@@ -33,4 +35,24 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:16](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/core.ts#L16)
+[sessions/src/types/core.ts:16](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L16)
+
+___
+
+### userId
+
+• `Optional` **userId**: `string`
+
+#### Defined in
+
+[sessions/src/types/core.ts:17](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L17)
+
+___
+
+### workspaceId
+
+• `Optional` **workspaceId**: `string`
+
+#### Defined in
+
+[sessions/src/types/core.ts:18](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L18)

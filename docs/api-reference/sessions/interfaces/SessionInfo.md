@@ -20,6 +20,7 @@
 - [activeChatId](SessionInfo#activechatid)
 - [createdAt](SessionInfo#createdat)
 - [lastUsedAt](SessionInfo#lastusedat)
+- [workspaceId](SessionInfo#workspaceid)
 
 ## Properties
 
@@ -29,7 +30,7 @@
 
 #### Defined in
 
-[sessions/src/types/core.ts:20](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/core.ts#L20)
+[sessions/src/types/core.ts:22](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L22)
 
 ___
 
@@ -39,7 +40,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:21](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/core.ts#L21)
+[sessions/src/types/core.ts:23](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L23)
 
 ___
 
@@ -49,7 +50,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:22](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/core.ts#L22)
+[sessions/src/types/core.ts:24](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L24)
 
 ___
 
@@ -59,7 +60,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:23](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/core.ts#L23)
+[sessions/src/types/core.ts:25](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L25)
 
 ___
 
@@ -69,7 +70,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:24](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/core.ts#L24)
+[sessions/src/types/core.ts:26](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L26)
 
 ___
 
@@ -79,7 +80,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:25](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/core.ts#L25)
+[sessions/src/types/core.ts:27](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L27)
 
 ___
 
@@ -89,7 +90,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:26](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/core.ts#L26)
+[sessions/src/types/core.ts:28](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L28)
 
 ___
 
@@ -99,4 +100,14 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:27](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/core.ts#L27)
+[sessions/src/types/core.ts:29](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L29)
+
+___
+
+### workspaceId
+
+• `Optional` **workspaceId**: `string`
+
+#### Defined in
+
+[sessions/src/types/core.ts:30](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/sessions/src/types/core.ts#L30)

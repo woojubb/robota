@@ -43,8 +43,8 @@ Instance-based for isolated agent factory management
 
 | Name | Type |
 | :------ | :------ |
-| `options` | [`AgentFactoryOptions`](../interfaces/AgentFactoryOptions) |
-| `lifecycleEvents` | [`AgentLifecycleEvents`](../interfaces/AgentLifecycleEvents) |
+| `options` | [`IAgentFactoryOptions`](../interfaces/IAgentFactoryOptions) |
+| `lifecycleEvents` | [`IAgentLifecycleEvents`](../interfaces/IAgentLifecycleEvents) |
 
 #### Returns
 
@@ -52,7 +52,7 @@ Instance-based for isolated agent factory management
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:68](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L68)
+[packages/agents/src/managers/agent-factory.ts:68](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L68)
 
 ## Methods
 
@@ -68,13 +68,13 @@ Initialize the factory
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:100](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L100)
+[packages/agents/src/managers/agent-factory.ts:100](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L100)
 
 ___
 
 ### createAgent
 
-▸ **createAgent**(`AgentClass`, `config`, `fromTemplate?`): `Promise`\<[`AgentInterface`](../interfaces/AgentInterface)\>
+▸ **createAgent**(`AgentClass`, `config`, `fromTemplate?`): `Promise`\<`IAgent`\<[`IAgentConfig`](../interfaces/IAgentConfig), [`IRunOptions`](../interfaces/IRunOptions), [`TUniversalMessage`](../modules#tuniversalmessage)\>\>
 
 Create a new agent instance
 
@@ -82,23 +82,23 @@ Create a new agent instance
 
 | Name | Type | Default value |
 | :------ | :------ | :------ |
-| `AgentClass` | (`config`: [`AgentConfig`](../interfaces/AgentConfig)) => [`AgentInterface`](../interfaces/AgentInterface) | `undefined` |
-| `config` | `Partial`\<[`AgentConfig`](../interfaces/AgentConfig)\> | `undefined` |
+| `AgentClass` | (`config`: [`IAgentConfig`](../interfaces/IAgentConfig)) => `IAgent`\<[`IAgentConfig`](../interfaces/IAgentConfig), [`IRunOptions`](../interfaces/IRunOptions), [`TUniversalMessage`](../modules#tuniversalmessage)\> | `undefined` |
+| `config` | `Partial`\<[`IAgentConfig`](../interfaces/IAgentConfig)\> | `undefined` |
 | `fromTemplate` | `boolean` | `false` |
 
 #### Returns
 
-`Promise`\<[`AgentInterface`](../interfaces/AgentInterface)\>
+`Promise`\<`IAgent`\<[`IAgentConfig`](../interfaces/IAgentConfig), [`IRunOptions`](../interfaces/IRunOptions), [`TUniversalMessage`](../modules#tuniversalmessage)\>\>
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:113](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L113)
+[packages/agents/src/managers/agent-factory.ts:113](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L113)
 
 ___
 
 ### createFromTemplate
 
-▸ **createFromTemplate**(`AgentClass`, `templateId`, `overrides?`): `Promise`\<[`AgentInterface`](../interfaces/AgentInterface)\>
+▸ **createFromTemplate**(`AgentClass`, `templateId`, `overrides?`): `Promise`\<`IAgent`\<[`IAgentConfig`](../interfaces/IAgentConfig), [`IRunOptions`](../interfaces/IRunOptions), [`TUniversalMessage`](../modules#tuniversalmessage)\>\>
 
 Create agent from template
 
@@ -106,17 +106,17 @@ Create agent from template
 
 | Name | Type |
 | :------ | :------ |
-| `AgentClass` | (`config`: [`AgentConfig`](../interfaces/AgentConfig)) => [`AgentInterface`](../interfaces/AgentInterface) |
+| `AgentClass` | (`config`: [`IAgentConfig`](../interfaces/IAgentConfig)) => `IAgent`\<[`IAgentConfig`](../interfaces/IAgentConfig), [`IRunOptions`](../interfaces/IRunOptions), [`TUniversalMessage`](../modules#tuniversalmessage)\> |
 | `templateId` | `string` |
-| `overrides` | `Partial`\<[`AgentConfig`](../interfaces/AgentConfig)\> |
+| `overrides` | `Partial`\<[`IAgentConfig`](../interfaces/IAgentConfig)\> |
 
 #### Returns
 
-`Promise`\<[`AgentInterface`](../interfaces/AgentInterface)\>
+`Promise`\<`IAgent`\<[`IAgentConfig`](../interfaces/IAgentConfig), [`IRunOptions`](../interfaces/IRunOptions), [`TUniversalMessage`](../modules#tuniversalmessage)\>\>
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:188](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L188)
+[packages/agents/src/managers/agent-factory.ts:192](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L192)
 
 ___
 
@@ -130,7 +130,7 @@ Register a template
 
 | Name | Type |
 | :------ | :------ |
-| `template` | [`AgentTemplate`](../interfaces/AgentTemplate) |
+| `template` | [`IAgentTemplate`](../interfaces/IAgentTemplate) |
 
 #### Returns
 
@@ -138,7 +138,7 @@ Register a template
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:223](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L223)
+[packages/agents/src/managers/agent-factory.ts:227](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L227)
 
 ___
 
@@ -160,29 +160,29 @@ Unregister a template
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:230](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L230)
+[packages/agents/src/managers/agent-factory.ts:234](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L234)
 
 ___
 
 ### getTemplates
 
-▸ **getTemplates**(): [`AgentTemplate`](../interfaces/AgentTemplate)[]
+▸ **getTemplates**(): [`IAgentTemplate`](../interfaces/IAgentTemplate)[]
 
 Get all templates
 
 #### Returns
 
-[`AgentTemplate`](../interfaces/AgentTemplate)[]
+[`IAgentTemplate`](../interfaces/IAgentTemplate)[]
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:237](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L237)
+[packages/agents/src/managers/agent-factory.ts:241](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L241)
 
 ___
 
 ### getTemplate
 
-▸ **getTemplate**(`templateId`): `undefined` \| [`AgentTemplate`](../interfaces/AgentTemplate)
+▸ **getTemplate**(`templateId`): `undefined` \| [`IAgentTemplate`](../interfaces/IAgentTemplate)
 
 Get template by ID
 
@@ -194,17 +194,17 @@ Get template by ID
 
 #### Returns
 
-`undefined` \| [`AgentTemplate`](../interfaces/AgentTemplate)
+`undefined` \| [`IAgentTemplate`](../interfaces/IAgentTemplate)
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:244](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L244)
+[packages/agents/src/managers/agent-factory.ts:248](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L248)
 
 ___
 
 ### findTemplates
 
-▸ **findTemplates**(`criteria`): [`AgentTemplate`](../interfaces/AgentTemplate)[]
+▸ **findTemplates**(`criteria`): [`IAgentTemplate`](../interfaces/IAgentTemplate)[]
 
 Find templates by criteria
 
@@ -220,17 +220,17 @@ Find templates by criteria
 
 #### Returns
 
-[`AgentTemplate`](../interfaces/AgentTemplate)[]
+[`IAgentTemplate`](../interfaces/IAgentTemplate)[]
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:251](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L251)
+[packages/agents/src/managers/agent-factory.ts:255](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L255)
 
 ___
 
 ### applyTemplate
 
-▸ **applyTemplate**(`template`, `overrides?`): [`TemplateApplicationResult`](../interfaces/TemplateApplicationResult)
+▸ **applyTemplate**(`template`, `overrides?`): [`ITemplateApplicationResult`](../interfaces/ITemplateApplicationResult)
 
 Apply template to configuration
 
@@ -238,16 +238,16 @@ Apply template to configuration
 
 | Name | Type |
 | :------ | :------ |
-| `template` | [`AgentTemplate`](../interfaces/AgentTemplate) |
-| `overrides` | `Partial`\<[`AgentConfig`](../interfaces/AgentConfig)\> |
+| `template` | [`IAgentTemplate`](../interfaces/IAgentTemplate) |
+| `overrides` | `Partial`\<[`IAgentConfig`](../interfaces/IAgentConfig)\> |
 
 #### Returns
 
-[`TemplateApplicationResult`](../interfaces/TemplateApplicationResult)
+[`ITemplateApplicationResult`](../interfaces/ITemplateApplicationResult)
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:263](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L263)
+[packages/agents/src/managers/agent-factory.ts:267](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L267)
 
 ___
 
@@ -269,39 +269,39 @@ Destroy an agent
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:270](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L270)
+[packages/agents/src/managers/agent-factory.ts:274](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L274)
 
 ___
 
 ### getCreationStats
 
-▸ **getCreationStats**(): [`AgentCreationStats`](../interfaces/AgentCreationStats)
+▸ **getCreationStats**(): [`IAgentCreationStats`](../interfaces/IAgentCreationStats)
 
 Get creation statistics
 
 #### Returns
 
-[`AgentCreationStats`](../interfaces/AgentCreationStats)
+[`IAgentCreationStats`](../interfaces/IAgentCreationStats)
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:305](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L305)
+[packages/agents/src/managers/agent-factory.ts:313](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L313)
 
 ___
 
 ### getActiveAgents
 
-▸ **getActiveAgents**(): `Map`\<`string`, [`AgentInterface`](../interfaces/AgentInterface)\>
+▸ **getActiveAgents**(): `Map`\<`string`, `IAgent`\<[`IAgentConfig`](../interfaces/IAgentConfig), [`IRunOptions`](../interfaces/IRunOptions), [`TUniversalMessage`](../modules#tuniversalmessage)\>\>
 
 Get all active agents
 
 #### Returns
 
-`Map`\<`string`, [`AgentInterface`](../interfaces/AgentInterface)\>
+`Map`\<`string`, `IAgent`\<[`IAgentConfig`](../interfaces/IAgentConfig), [`IRunOptions`](../interfaces/IRunOptions), [`TUniversalMessage`](../modules#tuniversalmessage)\>\>
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:312](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L312)
+[packages/agents/src/managers/agent-factory.ts:320](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L320)
 
 ___
 
@@ -315,7 +315,7 @@ Validate agent configuration
 
 | Name | Type |
 | :------ | :------ |
-| `config` | `Partial`\<[`AgentConfig`](../interfaces/AgentConfig)\> |
+| `config` | `Partial`\<[`IAgentConfig`](../interfaces/IAgentConfig)\> |
 
 #### Returns
 
@@ -328,4 +328,4 @@ Validate agent configuration
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:319](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L319)
+[packages/agents/src/managers/agent-factory.ts:327](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/managers/agent-factory.ts#L327)

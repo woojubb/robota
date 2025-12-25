@@ -16,12 +16,12 @@
 
 ### Interfaces
 
-- [ProviderOptions](interfaces/ProviderOptions)
-- [AnthropicProviderOptions](interfaces/AnthropicProviderOptions)
+- [IProviderOptions](interfaces/IProviderOptions)
+- [IAnthropicProviderOptions](interfaces/IAnthropicProviderOptions)
 
 ### Type Aliases
 
-- [ProviderOptionValue](#provideroptionvalue)
+- [TProviderOptionValue](#tprovideroptionvalue)
 
 ### Functions
 
@@ -29,15 +29,15 @@
 
 ## Type Aliases
 
-### ProviderOptionValue
+### TProviderOptionValue
 
-Ƭ **ProviderOptionValue**: `string` \| `number` \| `boolean` \| `undefined` \| ``null`` \| `Anthropic` \| [`ProviderOptionValue`](#provideroptionvalue)[] \| \{ `[key: string]`: [`ProviderOptionValue`](#provideroptionvalue);  }
+Ƭ **TProviderOptionValue**: `string` \| `number` \| `boolean` \| `undefined` \| ``null`` \| `Anthropic` \| `IExecutor` \| [`TProviderOptionValue`](#tprovideroptionvalue)[] \| \{ `[key: string]`: [`TProviderOptionValue`](#tprovideroptionvalue);  }
 
 Valid provider option value types
 
 #### Defined in
 
-[anthropic/src/types.ts:6](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/types.ts#L6)
+[anthropic/src/types.ts:7](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/anthropic/src/types.ts#L7)
 
 ## Functions
 
@@ -49,7 +49,7 @@ Valid provider option value types
 
 | Name | Type |
 | :------ | :------ |
-| `_options` | [`AnthropicProviderOptions`](interfaces/AnthropicProviderOptions) |
+| `_options` | [`IAnthropicProviderOptions`](interfaces/IAnthropicProviderOptions) |
 
 #### Returns
 
@@ -57,4 +57,4 @@ Valid provider option value types
 
 #### Defined in
 
-[anthropic/src/index.ts:13](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/index.ts#L13)
+[anthropic/src/index.ts:13](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/anthropic/src/index.ts#L13)

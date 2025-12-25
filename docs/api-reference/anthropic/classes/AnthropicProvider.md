@@ -20,7 +20,7 @@ IMPORTANT PROVIDER-SPECIFIC RULES:
 
 ## Hierarchy
 
-- `BaseAIProvider`
+- `AbstractAIProvider`
 
   ↳ **`AnthropicProvider`**
 
@@ -38,6 +38,8 @@ IMPORTANT PROVIDER-SPECIFIC RULES:
 ### Methods
 
 - [configure](AnthropicProvider#configure)
+- [generateResponse](AnthropicProvider#generateresponse)
+- [generateStreamingResponse](AnthropicProvider#generatestreamingresponse)
 - [chat](AnthropicProvider#chat)
 - [chatStream](AnthropicProvider#chatstream)
 - [supportsTools](AnthropicProvider#supportstools)
@@ -54,7 +56,7 @@ IMPORTANT PROVIDER-SPECIFIC RULES:
 
 | Name | Type |
 | :------ | :------ |
-| `options` | [`AnthropicProviderOptions`](../interfaces/AnthropicProviderOptions) |
+| `options` | [`IAnthropicProviderOptions`](../interfaces/IAnthropicProviderOptions) |
 
 #### Returns
 
@@ -62,11 +64,11 @@ IMPORTANT PROVIDER-SPECIFIC RULES:
 
 #### Overrides
 
-BaseAIProvider.constructor
+AbstractAIProvider.constructor
 
 #### Defined in
 
-[anthropic/src/provider.ts:37](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/provider.ts#L37)
+[anthropic/src/provider.ts:31](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/anthropic/src/provider.ts#L31)
 
 ## Properties
 
@@ -76,11 +78,11 @@ BaseAIProvider.constructor
 
 #### Overrides
 
-BaseAIProvider.name
+AbstractAIProvider.name
 
 #### Defined in
 
-[anthropic/src/provider.ts:31](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/provider.ts#L31)
+[anthropic/src/provider.ts:25](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/anthropic/src/provider.ts#L25)
 
 ___
 
@@ -90,11 +92,11 @@ ___
 
 #### Overrides
 
-BaseAIProvider.version
+AbstractAIProvider.version
 
 #### Defined in
 
-[anthropic/src/provider.ts:32](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/provider.ts#L32)
+[anthropic/src/provider.ts:26](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/anthropic/src/provider.ts#L26)
 
 ## Methods
 
@@ -116,65 +118,123 @@ Configure the provider with type-safe configuration
 
 #### Inherited from
 
-BaseAIProvider.configure
+AbstractAIProvider.configure
 
 #### Defined in
 
-agents/dist/index.d.ts:2580
+agents/dist/node/index.d.ts:3098
+
+___
+
+### generateResponse
+
+▸ **generateResponse**(`payload`): `Promise`\<`IRawProviderResponse`\>
+
+Provider-agnostic raw response API.
+
+This is the canonical "raw payload" entrypoint required by the AIProvider contract.
+The default implementation delegates to `chat()` and adapts the result into a
+RawProviderResponse shape.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `payload` | `IProviderRequest` |
+
+#### Returns
+
+`Promise`\<`IRawProviderResponse`\>
+
+#### Inherited from
+
+AbstractAIProvider.generateResponse
+
+#### Defined in
+
+agents/dist/node/index.d.ts:3120
+
+___
+
+### generateStreamingResponse
+
+▸ **generateStreamingResponse**(`payload`): `AsyncIterable`\<`IRawProviderResponse`, `any`, `any`\>
+
+Provider-agnostic raw streaming API.
+
+If a provider does not implement chatStream, it does not support streaming.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `payload` | `IProviderRequest` |
+
+#### Returns
+
+`AsyncIterable`\<`IRawProviderResponse`, `any`, `any`\>
+
+#### Inherited from
+
+AbstractAIProvider.generateStreamingResponse
+
+#### Defined in
+
+agents/dist/node/index.d.ts:3126
 
 ___
 
 ### chat
 
-▸ **chat**(`messages`, `options?`): `Promise`\<`UniversalMessage`\>
+▸ **chat**(`messages`, `options?`): `Promise`\<`TUniversalMessage`\>
 
-Generate response using UniversalMessage
+Generate response using TUniversalMessage
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
-| `options?` | `ChatOptions` |
+| `messages` | `TUniversalMessage`[] |
+| `options?` | `IChatOptions` |
 
 #### Returns
 
-`Promise`\<`UniversalMessage`\>
+`Promise`\<`TUniversalMessage`\>
 
 #### Overrides
 
-BaseAIProvider.chat
+AbstractAIProvider.chat
 
 #### Defined in
 
-[anthropic/src/provider.ts:48](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/provider.ts#L48)
+[anthropic/src/provider.ts:60](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/anthropic/src/provider.ts#L60)
 
 ___
 
 ### chatStream
 
-▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<`UniversalMessage`, `any`, `any`\>
+▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<`TUniversalMessage`, `any`, `any`\>
 
-Generate streaming response using UniversalMessage
+Generate streaming response using TUniversalMessage
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
-| `options?` | `ChatOptions` |
+| `messages` | `TUniversalMessage`[] |
+| `options?` | `IChatOptions` |
 
 #### Returns
 
-`AsyncIterable`\<`UniversalMessage`, `any`, `any`\>
+`AsyncIterable`\<`TUniversalMessage`, `any`, `any`\>
 
 #### Overrides
 
-BaseAIProvider.chatStream
+AbstractAIProvider.chatStream
 
 #### Defined in
 
-[anthropic/src/provider.ts:75](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/provider.ts#L75)
+[anthropic/src/provider.ts:105](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/anthropic/src/provider.ts#L105)
 
 ___
 
@@ -188,11 +248,11 @@ ___
 
 #### Overrides
 
-BaseAIProvider.supportsTools
+AbstractAIProvider.supportsTools
 
 #### Defined in
 
-[anthropic/src/provider.ts:108](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/provider.ts#L108)
+[anthropic/src/provider.ts:157](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/anthropic/src/provider.ts#L157)
 
 ___
 
@@ -206,11 +266,11 @@ ___
 
 #### Overrides
 
-BaseAIProvider.validateConfig
+AbstractAIProvider.validateConfig
 
 #### Defined in
 
-[anthropic/src/provider.ts:112](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/provider.ts#L112)
+[anthropic/src/provider.ts:161](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/anthropic/src/provider.ts#L161)
 
 ___
 
@@ -224,8 +284,8 @@ ___
 
 #### Overrides
 
-BaseAIProvider.dispose
+AbstractAIProvider.dispose
 
 #### Defined in
 
-[anthropic/src/provider.ts:116](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/provider.ts#L116)
+[anthropic/src/provider.ts:165](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/anthropic/src/provider.ts#L165)

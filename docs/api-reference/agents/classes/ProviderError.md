@@ -66,7 +66,7 @@ Provider related errors
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:71](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L71)
+[packages/agents/src/utils/errors.ts:71](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L71)
 
 ## Properties
 
@@ -90,7 +90,7 @@ not capture any frames.
 
 #### Defined in
 
-node_modules/.pnpm/@types+node@20.17.46/node_modules/@types/node/globals.d.ts:148
+node_modules/.pnpm/@types+node@20.19.9/node_modules/@types/node/globals.d.ts:149
 
 ___
 
@@ -160,7 +160,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:27](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L27)
+[packages/agents/src/utils/errors.ts:27](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L27)
 
 ___
 
@@ -174,7 +174,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:67](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L67)
+[packages/agents/src/utils/errors.ts:67](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L67)
 
 ___
 
@@ -188,7 +188,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:68](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L68)
+[packages/agents/src/utils/errors.ts:68](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L68)
 
 ___
 
@@ -202,7 +202,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:69](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L69)
+[packages/agents/src/utils/errors.ts:69](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L69)
 
 ___
 
@@ -212,7 +212,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:73](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L73)
+[packages/agents/src/utils/errors.ts:73](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L73)
 
 ___
 
@@ -222,7 +222,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:74](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/errors.ts#L74)
+[packages/agents/src/utils/errors.ts:74](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/errors.ts#L74)
 
 ## Methods
 
@@ -291,7 +291,7 @@ a();
 
 #### Defined in
 
-node_modules/.pnpm/@types+node@20.17.46/node_modules/@types/node/globals.d.ts:132
+node_modules/.pnpm/@types+node@20.19.9/node_modules/@types/node/globals.d.ts:133
 
 ___
 
@@ -320,4 +320,4 @@ https://v8.dev/docs/stack-trace-api#customizing-stack-traces
 
 #### Defined in
 
-node_modules/.pnpm/@types+node@20.17.46/node_modules/@types/node/globals.d.ts:136
+node_modules/.pnpm/@types+node@20.19.9/node_modules/@types/node/globals.d.ts:137

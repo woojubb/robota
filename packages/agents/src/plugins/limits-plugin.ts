@@ -1,4 +1,10 @@
-import { AbstractPlugin, BaseExecutionContext, BaseExecutionResult, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
+import {
+    AbstractPlugin,
+    type IPluginExecutionContext,
+    type IPluginExecutionResult,
+    PluginCategory,
+    PluginPriority
+} from '../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 import type {
@@ -20,9 +26,9 @@ export type { LimitsStrategy, LimitsPluginOptions, PluginLimitsStatusData };
 /**
  * Plugin execution context type
  * Used for processing execution context in limits plugin
- * Extends BaseExecutionContext for compatibility
+ * Extends IPluginExecutionContext for compatibility
  */
-export interface PluginExecutionContext extends BaseExecutionContext {
+export interface PluginExecutionContext extends IPluginExecutionContext {
     config?: {
         model?: string;
         maxTokens?: number;
@@ -75,7 +81,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
             refillRate: options.refillRate ?? 100, // tokens per second
             bucketSize: options.bucketSize ?? 10000,
             costCalculator: options.costCalculator ?? this.defaultCostCalculator.bind(this),
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.LIMITS,
             priority: options.priority ?? PluginPriority.NORMAL,
             moduleEvents: options.moduleEvents ?? [],
@@ -93,7 +99,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     /**
      * Check limits before execution
      */
-    override async beforeExecution(context: BaseExecutionContext): Promise<void> {
+    override async beforeExecution(context: IPluginExecutionContext): Promise<void> {
         if (this.pluginOptions.strategy === 'none') {
             return;
         }
@@ -131,7 +137,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     /**
      * Update limits after execution
      */
-    override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
+    override async afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         if (this.pluginOptions.strategy === 'none') {
             return;
         }

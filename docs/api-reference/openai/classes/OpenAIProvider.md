@@ -15,7 +15,7 @@ Uses OpenAI SDK native types internally for optimal performance and feature supp
 
 ## Hierarchy
 
-- `BaseAIProvider`
+- `AbstractAIProvider`
 
   ↳ **`OpenAIProvider`**
 
@@ -33,6 +33,8 @@ Uses OpenAI SDK native types internally for optimal performance and feature supp
 ### Methods
 
 - [configure](OpenAIProvider#configure)
+- [generateResponse](OpenAIProvider#generateresponse)
+- [generateStreamingResponse](OpenAIProvider#generatestreamingresponse)
 - [chat](OpenAIProvider#chat)
 - [chatStream](OpenAIProvider#chatstream)
 - [supportsTools](OpenAIProvider#supportstools)
@@ -49,7 +51,7 @@ Uses OpenAI SDK native types internally for optimal performance and feature supp
 
 | Name | Type |
 | :------ | :------ |
-| `options` | [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions) |
+| `options` | [`IOpenAIProviderOptions`](../interfaces/IOpenAIProviderOptions) |
 
 #### Returns
 
@@ -57,11 +59,11 @@ Uses OpenAI SDK native types internally for optimal performance and feature supp
 
 #### Overrides
 
-BaseAIProvider.constructor
+AbstractAIProvider.constructor
 
 #### Defined in
 
-[openai/src/provider.ts:30](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L30)
+[openai/src/provider.ts:35](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/provider.ts#L35)
 
 ## Properties
 
@@ -71,11 +73,11 @@ BaseAIProvider.constructor
 
 #### Overrides
 
-BaseAIProvider.name
+AbstractAIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L24)
+[openai/src/provider.ts:27](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/provider.ts#L27)
 
 ___
 
@@ -85,11 +87,11 @@ ___
 
 #### Overrides
 
-BaseAIProvider.version
+AbstractAIProvider.version
 
 #### Defined in
 
-[openai/src/provider.ts:25](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L25)
+[openai/src/provider.ts:28](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/provider.ts#L28)
 
 ## Methods
 
@@ -111,65 +113,123 @@ Configure the provider with type-safe configuration
 
 #### Inherited from
 
-BaseAIProvider.configure
+AbstractAIProvider.configure
 
 #### Defined in
 
-agents/dist/index.d.ts:2580
+agents/dist/node/index.d.ts:3098
+
+___
+
+### generateResponse
+
+▸ **generateResponse**(`payload`): `Promise`\<`IRawProviderResponse`\>
+
+Provider-agnostic raw response API.
+
+This is the canonical "raw payload" entrypoint required by the AIProvider contract.
+The default implementation delegates to `chat()` and adapts the result into a
+RawProviderResponse shape.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `payload` | `IProviderRequest` |
+
+#### Returns
+
+`Promise`\<`IRawProviderResponse`\>
+
+#### Inherited from
+
+AbstractAIProvider.generateResponse
+
+#### Defined in
+
+agents/dist/node/index.d.ts:3120
+
+___
+
+### generateStreamingResponse
+
+▸ **generateStreamingResponse**(`payload`): `AsyncIterable`\<`IRawProviderResponse`, `any`, `any`\>
+
+Provider-agnostic raw streaming API.
+
+If a provider does not implement chatStream, it does not support streaming.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `payload` | `IProviderRequest` |
+
+#### Returns
+
+`AsyncIterable`\<`IRawProviderResponse`, `any`, `any`\>
+
+#### Inherited from
+
+AbstractAIProvider.generateStreamingResponse
+
+#### Defined in
+
+agents/dist/node/index.d.ts:3126
 
 ___
 
 ### chat
 
-▸ **chat**(`messages`, `options?`): `Promise`\<`UniversalMessage`\>
+▸ **chat**(`messages`, `options?`): `Promise`\<`TUniversalMessage`\>
 
-Generate response using UniversalMessage
+Generate response using TUniversalMessage
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
-| `options?` | `ChatOptions` |
+| `messages` | `TUniversalMessage`[] |
+| `options?` | `IChatOptions` |
 
 #### Returns
 
-`Promise`\<`UniversalMessage`\>
+`Promise`\<`TUniversalMessage`\>
 
 #### Overrides
 
-BaseAIProvider.chat
+AbstractAIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:47](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L47)
+[openai/src/provider.ts:77](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/provider.ts#L77)
 
 ___
 
 ### chatStream
 
-▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<`UniversalMessage`, `any`, `any`\>
+▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<`TUniversalMessage`, `any`, `any`\>
 
-Generate streaming response using UniversalMessage
+Generate streaming response using TUniversalMessage
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
-| `options?` | `ChatOptions` |
+| `messages` | `TUniversalMessage`[] |
+| `options?` | `IChatOptions` |
 
 #### Returns
 
-`AsyncIterable`\<`UniversalMessage`, `any`, `any`\>
+`AsyncIterable`\<`TUniversalMessage`, `any`, `any`\>
 
 #### Overrides
 
-BaseAIProvider.chatStream
+AbstractAIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:81](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L81)
+[openai/src/provider.ts:144](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/provider.ts#L144)
 
 ___
 
@@ -183,11 +243,11 @@ ___
 
 #### Overrides
 
-BaseAIProvider.supportsTools
+AbstractAIProvider.supportsTools
 
 #### Defined in
 
-[openai/src/provider.ts:118](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L118)
+[openai/src/provider.ts:212](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/provider.ts#L212)
 
 ___
 
@@ -201,11 +261,11 @@ ___
 
 #### Overrides
 
-BaseAIProvider.validateConfig
+AbstractAIProvider.validateConfig
 
 #### Defined in
 
-[openai/src/provider.ts:122](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L122)
+[openai/src/provider.ts:216](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/provider.ts#L216)
 
 ___
 
@@ -219,8 +279,8 @@ ___
 
 #### Overrides
 
-BaseAIProvider.dispose
+AbstractAIProvider.dispose
 
 #### Defined in
 
-[openai/src/provider.ts:126](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L126)
+[openai/src/provider.ts:220](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/openai/src/provider.ts#L220)

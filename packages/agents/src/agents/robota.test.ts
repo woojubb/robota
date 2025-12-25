@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { Robota } from '../core/robota';
 import type { IAgentConfig, IRunOptions } from '../interfaces/agent';
 import { AbstractAgent } from '../abstracts/abstract-agent';
-import type { IAgentInterface } from '../interfaces/agent';
+import type { IAgent } from '../interfaces/agent';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { AbstractTool as BaseTool } from '../abstracts/abstract-tool';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
@@ -287,13 +287,13 @@ describe('Robota Class - New Configuration API', () => {
     });
 
     describe('Basic Architecture', () => {
-        it('should extend AbstractAgent and implement IAgentInterface', () => {
+        it('should extend AbstractAgent and implement IAgent', () => {
             const robota = new Robota(config);
 
             expect(robota).toBeInstanceOf(AbstractAgent);
             expect(robota).toBeInstanceOf(Robota);
 
-            // Check IAgentInterface implementation
+            // Check IAgent implementation
             expect(typeof robota.run).toBe('function');
             expect(typeof robota.runStream).toBe('function');
             expect(typeof robota.getHistory).toBe('function');

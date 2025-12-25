@@ -26,13 +26,13 @@ export interface LogEntry {
     };
 }
 
-import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 import type { SimpleLogger } from '../../utils/simple-logger';
 
 /**
  * Configuration options for logging plugin
  */
-export interface LoggingPluginOptions extends BasePluginOptions {
+export interface LoggingPluginOptions extends IPluginOptions {
     /** Logging strategy to use */
     strategy: LoggingStrategy;
     /** Minimum log level to capture */
@@ -76,7 +76,7 @@ export interface LogStorage {
 /**
  * Logging plugin statistics
  */
-export interface LoggingPluginStats extends PluginStats {
+export interface LoggingPluginStats extends IPluginStats {
     /** Total number of logs written */
     logsWritten: number;
     /** Number of failed log writes */

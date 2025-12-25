@@ -12,7 +12,7 @@ Console logger implementation
 
 ## Implements
 
-- [`Logger`](../interfaces/Logger)
+- [`ILogger`](../interfaces/ILogger)
 
 ## Table of contents
 
@@ -34,13 +34,14 @@ Console logger implementation
 
 ### constructor
 
-• **new ConsoleLogger**(`packageName`): [`ConsoleLogger`](ConsoleLogger)
+• **new ConsoleLogger**(`packageName`, `logger?`): [`ConsoleLogger`](ConsoleLogger)
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `packageName` | `string` |
+| `logger?` | [`AbstractLogger`](../interfaces/AbstractLogger) |
 
 #### Returns
 
@@ -48,7 +49,7 @@ Console logger implementation
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:81](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L81)
+[packages/agents/src/utils/logger.ts:75](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L75)
 
 ## Methods
 
@@ -61,7 +62,7 @@ Console logger implementation
 | Name | Type |
 | :------ | :------ |
 | `message` | `string` |
-| `context?` | [`LoggerData`](../modules#loggerdata) |
+| `context?` | [`TLoggerData`](../modules#tloggerdata) |
 
 #### Returns
 
@@ -69,11 +70,11 @@ Console logger implementation
 
 #### Implementation of
 
-[Logger](../interfaces/Logger).[debug](../interfaces/Logger#debug)
+[ILogger](../interfaces/ILogger).[debug](../interfaces/ILogger#debug)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:85](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L85)
+[packages/agents/src/utils/logger.ts:80](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L80)
 
 ___
 
@@ -86,7 +87,7 @@ ___
 | Name | Type |
 | :------ | :------ |
 | `message` | `string` |
-| `context?` | [`LoggerData`](../modules#loggerdata) |
+| `context?` | [`TLoggerData`](../modules#tloggerdata) |
 
 #### Returns
 
@@ -94,11 +95,11 @@ ___
 
 #### Implementation of
 
-[Logger](../interfaces/Logger).[info](../interfaces/Logger#info)
+[ILogger](../interfaces/ILogger).[info](../interfaces/ILogger#info)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:91](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L91)
+[packages/agents/src/utils/logger.ts:86](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L86)
 
 ___
 
@@ -111,7 +112,7 @@ ___
 | Name | Type |
 | :------ | :------ |
 | `message` | `string` |
-| `context?` | [`LoggerData`](../modules#loggerdata) |
+| `context?` | [`TLoggerData`](../modules#tloggerdata) |
 
 #### Returns
 
@@ -119,11 +120,11 @@ ___
 
 #### Implementation of
 
-[Logger](../interfaces/Logger).[warn](../interfaces/Logger#warn)
+[ILogger](../interfaces/ILogger).[warn](../interfaces/ILogger#warn)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:97](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L97)
+[packages/agents/src/utils/logger.ts:92](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L92)
 
 ___
 
@@ -136,7 +137,7 @@ ___
 | Name | Type |
 | :------ | :------ |
 | `message` | `string` |
-| `context?` | [`LoggerData`](../modules#loggerdata) |
+| `context?` | [`TLoggerData`](../modules#tloggerdata) |
 
 #### Returns
 
@@ -144,11 +145,11 @@ ___
 
 #### Implementation of
 
-[Logger](../interfaces/Logger).[error](../interfaces/Logger#error)
+[ILogger](../interfaces/ILogger).[error](../interfaces/ILogger#error)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:103](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L103)
+[packages/agents/src/utils/logger.ts:98](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L98)
 
 ___
 
@@ -162,11 +163,11 @@ ___
 
 #### Implementation of
 
-[Logger](../interfaces/Logger).[isDebugEnabled](../interfaces/Logger#isdebugenabled)
+[ILogger](../interfaces/ILogger).[isDebugEnabled](../interfaces/ILogger#isdebugenabled)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:109](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L109)
+[packages/agents/src/utils/logger.ts:104](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L104)
 
 ___
 
@@ -178,7 +179,7 @@ ___
 
 | Name | Type |
 | :------ | :------ |
-| `level` | [`UtilLogLevel`](../modules#utilloglevel) |
+| `level` | [`TUtilLogLevel`](../modules#tutilloglevel) |
 
 #### Returns
 
@@ -186,26 +187,26 @@ ___
 
 #### Implementation of
 
-[Logger](../interfaces/Logger).[setLevel](../interfaces/Logger#setlevel)
+[ILogger](../interfaces/ILogger).[setLevel](../interfaces/ILogger#setlevel)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:113](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L113)
+[packages/agents/src/utils/logger.ts:108](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L108)
 
 ___
 
 ### getLevel
 
-▸ **getLevel**(): [`UtilLogLevel`](../modules#utilloglevel)
+▸ **getLevel**(): [`TUtilLogLevel`](../modules#tutilloglevel)
 
 #### Returns
 
-[`UtilLogLevel`](../modules#utilloglevel)
+[`TUtilLogLevel`](../modules#tutilloglevel)
 
 #### Implementation of
 
-[Logger](../interfaces/Logger).[getLevel](../interfaces/Logger#getlevel)
+[ILogger](../interfaces/ILogger).[getLevel](../interfaces/ILogger#getlevel)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:117](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/logger.ts#L117)
+[packages/agents/src/utils/logger.ts:112](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/agents/src/utils/logger.ts#L112)

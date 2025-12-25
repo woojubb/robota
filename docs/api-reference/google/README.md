@@ -16,21 +16,21 @@
 
 ### Interfaces
 
-- [ProviderOptions](interfaces/ProviderOptions)
-- [GoogleProviderOptions](interfaces/GoogleProviderOptions)
+- [IProviderOptions](interfaces/IProviderOptions)
+- [IGoogleProviderOptions](interfaces/IGoogleProviderOptions)
 
 ### Type Aliases
 
-- [ProviderOptionValue](#provideroptionvalue)
+- [TProviderOptionValue](#tprovideroptionvalue)
 
 ## Type Aliases
 
-### ProviderOptionValue
+### TProviderOptionValue
 
-Ƭ **ProviderOptionValue**: `string` \| `number` \| `boolean` \| `undefined` \| ``null`` \| [`ProviderOptionValue`](#provideroptionvalue)[] \| \{ `[key: string]`: [`ProviderOptionValue`](#provideroptionvalue);  }
+Ƭ **TProviderOptionValue**: `string` \| `number` \| `boolean` \| `undefined` \| ``null`` \| `IExecutor` \| [`TProviderOptionValue`](#tprovideroptionvalue)[] \| \{ `[key: string]`: [`TProviderOptionValue`](#tprovideroptionvalue);  }
 
 Valid provider option value types
 
 #### Defined in
 
-[google/src/types.ts:4](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L4)
+[google/src/types.ts:6](https://github.com/woojubb/robota/blob/4f4c8a3197e92ddd43d12dc9186b0771983054c9/packages/google/src/types.ts#L6)

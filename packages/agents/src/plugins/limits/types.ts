@@ -1,4 +1,4 @@
-import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
+import type { IPluginOptions } from '../../abstracts/abstract-plugin';
 
 /**
  * Rate limiting strategies
@@ -8,7 +8,7 @@ export type LimitsStrategy = 'token-bucket' | 'sliding-window' | 'fixed-window' 
 /**
  * Limits plugin configuration
  */
-export interface LimitsPluginOptions extends BasePluginOptions {
+export interface LimitsPluginOptions extends IPluginOptions {
     /** Rate limiting strategy */
     strategy: LimitsStrategy;
     /** Maximum tokens per time window */

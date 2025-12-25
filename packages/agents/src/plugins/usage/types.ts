@@ -62,12 +62,12 @@ export interface AggregatedUsageStats {
     };
 }
 
-import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Configuration options for usage plugin
  */
-export interface UsagePluginOptions extends BasePluginOptions {
+export interface UsagePluginOptions extends IPluginOptions {
     /** Usage tracking strategy to use */
     strategy: UsageTrackingStrategy;
     /** File path for file strategy */
@@ -107,7 +107,7 @@ export interface UsageStorage {
 /**
  * Usage plugin statistics
  */
-export interface UsagePluginStats extends PluginStats {
+export interface UsagePluginStats extends IPluginStats {
     /** Total number of usage entries tracked */
     entriesTracked: number;
     /** Total tokens tracked */
