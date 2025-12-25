@@ -17,7 +17,7 @@ import {
     isPingMessage
 } from './websocket-utils';
 
-export interface SimpleWebSocketConfig extends ITransportConfig {
+export interface ISimpleWebSocketConfig extends ITransportConfig {
     reconnectDelay?: number;
     maxReconnectAttempts?: number;
     pingInterval?: number;
@@ -34,12 +34,12 @@ interface PendingRequest {
  */
 export class SimpleWebSocketTransport implements ITransport {
     private ws: WebSocket | null = null;
-    private config: Required<SimpleWebSocketConfig>;
+    private config: Required<ISimpleWebSocketConfig>;
     private pendingRequests = new Map<string, PendingRequest>();
     private reconnectAttempts = 0;
     private isReconnecting = false;
 
-    constructor(config: SimpleWebSocketConfig) {
+    constructor(config: ISimpleWebSocketConfig) {
         this.config = {
             baseUrl: config.baseUrl,
             timeout: config.timeout || 30000,

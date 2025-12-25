@@ -1,14 +1,14 @@
 import type { TUniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage, TUniversalMessageMetadata as ConversationContextMetadata } from '../../managers/conversation-history-manager';
 import type { IAIProvider, IProviderRequest as BaseProviderRequest, IRawProviderResponse as BaseRawProviderResponse } from '../../interfaces/provider';
 import type { IToolCall } from '../../interfaces/messages';
-import type { ToolExecutionResult } from '../../interfaces/tool';
+import type { TToolResultData } from '../../interfaces/types';
 import { NetworkError, ProviderError } from '../../utils/errors';
 import { createLogger, Logger } from '../../utils/logger';
 import {
     IConversationContext,
     IConversationResponse,
     IStreamingChunk,
-    ConversationServiceOptions,
+    IConversationServiceOptions,
     IContextOptions,
     IConversationService
 } from '../../interfaces/service';
@@ -16,7 +16,7 @@ import {
 /**
  * Default conversation service options
  */
-const DEFAULT_OPTIONS: Required<ConversationServiceOptions> = {
+const DEFAULT_OPTIONS: Required<IConversationServiceOptions> = {
     maxHistoryLength: 100,
     enableRetry: true,
     maxRetries: 3,
@@ -64,7 +64,7 @@ export class ConversationService implements IConversationService {
         model: string,
         provider: string,
         contextOptions: IContextOptions = {},
-        serviceOptions: ConversationServiceOptions = {}
+        serviceOptions: IConversationServiceOptions = {}
     ): IConversationContext {
         const logger = createLogger('ConversationService');
         return ConversationService.createContext(
@@ -84,7 +84,7 @@ export class ConversationService implements IConversationService {
     async generateResponse(
         provider: IAIProvider,
         context: IConversationContext,
-        serviceOptions: ConversationServiceOptions = {}
+        serviceOptions: IConversationServiceOptions = {}
     ): Promise<IConversationResponse> {
         const logger = createLogger('ConversationService');
         return ConversationService.performResponseGeneration(provider, context, serviceOptions, logger);
@@ -97,7 +97,7 @@ export class ConversationService implements IConversationService {
     async* generateStreamingResponse(
         provider: IAIProvider,
         context: IConversationContext,
-        serviceOptions: ConversationServiceOptions = {}
+        serviceOptions: IConversationServiceOptions = {}
     ): AsyncGenerator<IStreamingChunk, void, undefined> {
         const logger = createLogger('ConversationService');
         yield* ConversationService.performStreamingResponse(provider, context, serviceOptions, logger);
@@ -123,7 +123,7 @@ export class ConversationService implements IConversationService {
         model: string,
         provider: string,
         contextOptions: IContextOptions,
-        serviceOptions: ConversationServiceOptions,
+        serviceOptions: IConversationServiceOptions,
         logger: Logger
     ): IConversationContext {
         const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
@@ -173,7 +173,7 @@ export class ConversationService implements IConversationService {
     private static async performResponseGeneration(
         provider: IAIProvider,
         context: IConversationContext,
-        serviceOptions: ConversationServiceOptions,
+        serviceOptions: IConversationServiceOptions,
         logger: Logger
     ): Promise<IConversationResponse> {
         const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
@@ -237,7 +237,7 @@ export class ConversationService implements IConversationService {
     private static async* performStreamingResponse(
         provider: IAIProvider,
         context: IConversationContext,
-        _serviceOptions: ConversationServiceOptions,
+        _serviceOptions: IConversationServiceOptions,
         logger: Logger
     ): AsyncGenerator<IStreamingChunk, void, undefined> {
         // Apply defaults for future use - currently not needed but maintains service contract
@@ -370,7 +370,7 @@ export class ConversationService implements IConversationService {
     /**
      * Create a tool message
      */
-    createToolMessage(toolCallId: string, result: ToolExecutionResult, metadata?: Record<string, string | number | boolean>): ToolMessage {
+    createToolMessage(toolCallId: string, result: TToolResultData, metadata?: Record<string, string | number | boolean>): ToolMessage {
         return ConversationService.createToolMessageStatic(toolCallId, result, metadata);
     }
 
@@ -419,7 +419,7 @@ export class ConversationService implements IConversationService {
         };
     }
 
-    private static createToolMessageStatic(toolCallId: string, result: ToolExecutionResult, metadata?: Record<string, string | number | boolean>): ToolMessage {
+    private static createToolMessageStatic(toolCallId: string, result: TToolResultData, metadata?: Record<string, string | number | boolean>): ToolMessage {
         return {
             role: 'tool',
             content: typeof result === 'string' ? result : JSON.stringify(result),
@@ -522,7 +522,7 @@ export class ConversationService implements IConversationService {
     private static async executeWithRetry<T>(
         fn: () => Promise<T>,
         operation: string,
-        options: Required<ConversationServiceOptions>,
+        options: Required<IConversationServiceOptions>,
         logger: Logger
     ): Promise<T> {
         let lastError: Error | undefined;

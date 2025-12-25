@@ -7,13 +7,13 @@
  * Subclasses provide provider/tool-specific behavior while inheriting the
  * shared guarantees around initialization, history, and disposal.
  */
-import type { BaseAgentInterface, AgentConfig, TUniversalMessage, RunOptions } from '../interfaces/agent';
+import type { IBaseAgentInterface, IAgentConfig, TUniversalMessage, IRunOptions } from '../interfaces/agent';
 
 export abstract class AbstractAgent<
-    TConfig = AgentConfig,
-    TContext = RunOptions,
+    TConfig = IAgentConfig,
+    TContext = IRunOptions,
     TMessage = TUniversalMessage
-> implements BaseAgentInterface<TConfig, TContext, TUniversalMessage> {
+> implements IBaseAgentInterface<TConfig, TContext, TUniversalMessage> {
     protected history: TUniversalMessage[] = [];
     protected isInitialized = false;
     protected config?: TConfig;

@@ -1,6 +1,6 @@
 import { AbstractPlugin, PluginCategory, PluginPriority, type ErrorContext } from '../../abstracts/abstract-plugin';
 import { Logger, createLogger } from '../../utils/logger';
-import type { RunOptions } from '../../interfaces/agent';
+import type { IRunOptions } from '../../interfaces/agent';
 import type { TUniversalMessage } from '../../managers/conversation-history-manager';
 import { isAssistantMessage } from '../../managers/conversation-history-manager';
 import type { TToolParameters, IToolExecutionResult } from '../../interfaces/tool';
@@ -70,7 +70,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsO
     /**
      * Called before agent run - start tracking
      */
-    override beforeRun = async (input: string, options?: RunOptions): Promise<void> => {
+    override beforeRun = async (input: string, options?: IRunOptions): Promise<void> => {
         const executionId = this.generateExecutionId();
 
         this.activeExecutions.set(executionId, {
@@ -89,7 +89,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsO
     /**
      * Called after agent run - end tracking
      */
-    override afterRun = async (input: string, response: string, options?: RunOptions): Promise<void> => {
+    override afterRun = async (input: string, response: string, options?: IRunOptions): Promise<void> => {
         // Find the related execution
         const execution = this.findActiveExecution('run', input);
 

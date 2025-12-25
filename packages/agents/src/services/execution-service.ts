@@ -1,5 +1,5 @@
-import { AgentConfig, IAssistantMessage, IToolMessage, ExecutionContextInjection } from '../interfaces/agent';
-import { PluginContext, TMetadata } from '../interfaces/types';
+import { IAgentConfig, IAssistantMessage, IToolMessage, IExecutionContextInjection } from '../interfaces/agent';
+import { IPluginContext, TMetadata } from '../interfaces/types';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { ToolExecutionService } from './tool-execution-service';
 import type { IAIProviderManager } from '../interfaces/manager';
@@ -15,14 +15,13 @@ import {
     isDefaultEventService,
     IEventContext,
     IOwnerPathSegment,
-    TServiceEventType,
     IExecutionEventData,
     IToolEventData,
     bindEventServiceOwner,
     bindWithOwnerPath,
     IBaseEventData
 } from './event-service';
-import type { ToolExecutionBatchContext } from './tool-execution-service';
+import type { IToolExecutionBatchContext } from './tool-execution-service';
 
 /**
  * ExecutionService owned events
@@ -42,14 +41,14 @@ export const EXECUTION_EVENTS = {
 // Step 1: ❌ Can't use Error.executionId (not in Error interface)
 // Step 2: ❌ Can't extend Error interface (TypeScript limitation)  
 // Step 3: ✅ Define custom interface for execution errors
-interface ExecutionError extends Error {
+interface IExecutionError extends Error {
     executionId?: string;
     toolName?: string;
     error?: Error;
 }
 
 // Type guard to check if error has execution properties
-function isExecutionError(error: Error): error is ExecutionError {
+function isExecutionError(error: Error): error is IExecutionError {
     return 'executionId' in error || 'toolName' in error;
 }
 
@@ -60,12 +59,12 @@ function isExecutionError(error: Error): error is ExecutionError {
  * Execution context for service operations
  * Applies Type Deduplication Rule: Use standardized metadata type
  */
-export interface ExecutionContext {
+export interface IExecutionContext {
     conversationId?: string;
     sessionId?: string;
     userId?: string;
     messages: TUniversalMessage[];
-    config: AgentConfig;
+    config: IAgentConfig;
     metadata?: TMetadata;
     startTime: Date;
     executionId: string;
@@ -74,7 +73,7 @@ export interface ExecutionContext {
 /**
  * Execution result containing the response and execution metadata
  */
-export interface ExecutionResult {
+export interface IExecutionResult {
     response: string;
     messages: TUniversalMessage[];
     executionId: string;
@@ -88,7 +87,7 @@ export interface ExecutionResult {
 /**
  * History statistics type returned by ConversationHistory.getStats()
  */
-interface HistoryStats {
+interface IHistoryStats {
     totalConversations: number;
     conversationIds: string[];
     totalMessages: number;
@@ -97,10 +96,10 @@ interface HistoryStats {
 /**
  * Plugin statistics type - using a simpler structure
  */
-interface PluginStats {
+interface IPluginStats {
     pluginCount: number;
     pluginNames: string[];
-    historyStats: HistoryStats;
+    historyStats: IHistoryStats;
     // Plugin-specific stats will be stored separately to avoid type conflicts
 }
 
@@ -117,7 +116,7 @@ export class ExecutionService {
     private plugins: AbstractPlugin[] = [];
     private logger: Logger;
     private baseEventService: IEventService;
-    private executionContext?: ExecutionContextInjection; // 🎯 [CONTEXT-INJECTION] Parent execution context
+    private executionContext?: IExecutionContextInjection; // 🎯 [CONTEXT-INJECTION] Parent execution context
     private ownerPathBase: IOwnerPathSegment[];
     private toolEventServices: Map<string, IEventService>;
     private agentOwnerPathBase: IOwnerPathSegment[];
@@ -129,7 +128,7 @@ export class ExecutionService {
         tools: IToolManager,
         conversationHistory: ConversationHistory,
         eventService?: IEventService,
-        executionContext?: ExecutionContextInjection // 🎯 [CONTEXT-INJECTION] Accept parent context
+        executionContext?: IExecutionContextInjection // 🎯 [CONTEXT-INJECTION] Accept parent context
     ) {
         this.toolExecutionService = new ToolExecutionService(tools as any);
         this.aiProviders = aiProviders;
@@ -193,16 +192,16 @@ export class ExecutionService {
     async execute(
         input: string,
         messages: TUniversalMessage[],
-        config: AgentConfig,
-        context?: Partial<ExecutionContext>
-    ): Promise<ExecutionResult> {
+        config: IAgentConfig,
+        context?: Partial<IExecutionContext>
+    ): Promise<IExecutionResult> {
         // 🎯 [EXECUTION-DEBUG] ExecutionService.execute 호출 확인
         // Avoid console usage; use injected logger only.
         const executionId = this.generateExecutionId();
         const startTime = new Date();
         const conversationId = context?.conversationId || executionId;
 
-        const fullContext: ExecutionContext = {
+        const fullContext: IExecutionContext = {
             messages,
             config,
             startTime,
@@ -639,7 +638,7 @@ export class ExecutionService {
                     eventService: this.ensureToolEventService(request.ownerId ?? request.executionId, request.ownerPath),
                     baseEventService: this.baseEventService
                 }));
-                const toolContext: ToolExecutionBatchContext = {
+                const toolContext: IToolExecutionBatchContext = {
                     requests: toolRequests,
                     mode: 'parallel',
                     maxConcurrency: 5,
@@ -675,7 +674,7 @@ export class ExecutionService {
                         }
                     } else if (error) {
                         // Tool execution failed
-                        const execError = error as ExecutionError;
+                        const execError = error as IExecutionError;
                         content = `Error: ${execError.error?.message || execError.message || 'Unknown error'}`;
                         metadata['success'] = false;
                         metadata['error'] = execError.error?.message || execError.message || 'Unknown error';
@@ -774,7 +773,7 @@ export class ExecutionService {
                 .pop();
 
             const duration = Date.now() - startTime.getTime();
-            const result: ExecutionResult = {
+            const result: IExecutionResult = {
                 response: lastAssistantMessage?.content || 'No response generated',
                 messages: finalMessages.map(msg => ({
                     role: msg.role,
@@ -881,8 +880,8 @@ export class ExecutionService {
     async* executeStream(
         input: string,
         messages: TUniversalMessage[],
-        config: AgentConfig,
-        context?: Partial<ExecutionContext>
+        config: IAgentConfig,
+        context?: Partial<IExecutionContext>
     ): AsyncGenerator<{ chunk: string; isComplete: boolean }> {
         this.logger.debug('ExecutionService.executeStream called');
 
@@ -1017,7 +1016,7 @@ export class ExecutionService {
                         ownerPathBase: streamingOwnerPathBase
                     }
                 );
-                const toolContext: ToolExecutionBatchContext = {
+                const toolContext: IToolExecutionBatchContext = {
                     requests: toolRequests,
                     mode: 'parallel',
                     maxConcurrency: 5,
@@ -1053,7 +1052,7 @@ export class ExecutionService {
                         yield { chunk: `\n[Tool: ${toolCall.function.name} executed successfully]`, isComplete: false };
                     } else if (error) {
                         // Tool execution failed
-                        const execError = error as ExecutionError;
+                        const execError = error as IExecutionError;
                         content = `Error: ${execError.error?.message || execError.message || 'Unknown error'}`;
                         metadata['success'] = false;
                         metadata['error'] = execError.error?.message || execError.message || 'Unknown error';
@@ -1134,8 +1133,8 @@ export class ExecutionService {
     /**
      * Get execution statistics from plugins
      */
-    async getStats(): Promise<PluginStats> {
-        const stats: PluginStats = {
+    async getStats(): Promise<IPluginStats> {
+        const stats: IPluginStats = {
             pluginCount: this.plugins.length,
             pluginNames: this.plugins.map(p => p.name),
             historyStats: this.conversationHistory.getStats()
@@ -1161,12 +1160,12 @@ export class ExecutionService {
      */
     private async callPluginHook(
         hookName: string,
-        context: PluginContext
+        context: IPluginContext
     ): Promise<void> {
         for (const plugin of this.plugins) {
             try {
                 // Define proper types for plugin hooks
-                interface PluginHooks {
+                interface IPluginHooks {
                     beforeRun?: (input: string, options?: TMetadata) => Promise<void> | void;
                     afterRun?: (input: string, response: string, options?: TMetadata) => Promise<void> | void;
                     beforeProviderCall?: (messages: Array<{ role: string; content: string; timestamp: string }>) => Promise<void> | void;
@@ -1175,7 +1174,7 @@ export class ExecutionService {
                 }
 
                 // Use type assertion to access the hook methods
-                const pluginWithHooks = plugin as AbstractPlugin & PluginHooks;
+                const pluginWithHooks = plugin as AbstractPlugin & IPluginHooks;
 
                 // Call the appropriate hook method with correct parameters
                 switch (hookName) {
@@ -1278,7 +1277,7 @@ export class ExecutionService {
         this.agentOwnerPathBase = [];
     }
 
-    private buildBaseOwnerPath(executionContext?: ExecutionContextInjection): IOwnerPathSegment[] {
+    private buildBaseOwnerPath(executionContext?: IExecutionContextInjection): IOwnerPathSegment[] {
         if (!executionContext?.ownerPath?.length) {
             return [];
         }
@@ -1332,7 +1331,7 @@ export class ExecutionService {
         };
     }
 
-    private emitExecution(eventType: TServiceEventType, data: Omit<IExecutionEventData, 'timestamp'>, rootId: string, executionId: string): void {
+    private emitExecution(eventType: string, data: Omit<IExecutionEventData, 'timestamp'>, rootId: string, executionId: string): void {
         this.emitWithContext(
             eventType,
             data,
@@ -1348,7 +1347,7 @@ export class ExecutionService {
         );
     }
 
-    private emitTool(eventType: TServiceEventType, data: Omit<IToolEventData, 'timestamp'>, rootId: string, executionId: string, toolCallId: string): void {
+    private emitTool(eventType: string, data: Omit<IToolEventData, 'timestamp'>, rootId: string, executionId: string, toolCallId: string): void {
         this.emitWithContext(
             eventType,
             data,
@@ -1358,7 +1357,7 @@ export class ExecutionService {
     }
 
     private emitWithContext<TEvent extends IBaseEventData>(
-        eventType: TServiceEventType,
+        eventType: string,
         data: Omit<TEvent, 'timestamp'>,
         buildContext: () => IEventContext,
         resolveService: (context: IEventContext) => IEventService
@@ -1376,9 +1375,9 @@ export class ExecutionService {
     }
 
     /**
-     * Convert ExecutionContext to PluginContext compatible format
+     * Convert IExecutionContext to IPluginContext compatible format
      */
-    private convertExecutionContextToPluginFormat(context: ExecutionContext): Record<string, string | number | boolean> {
+    private convertExecutionContextToPluginFormat(context: IExecutionContext): Record<string, string | number | boolean> {
         return {
             conversationId: context.conversationId || '',
             sessionId: context.sessionId || '',

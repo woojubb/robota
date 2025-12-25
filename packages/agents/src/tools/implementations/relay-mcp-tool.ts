@@ -1,10 +1,10 @@
 import type { TToolParameters, IToolResult, IToolExecutionContext } from '../../interfaces/tool';
 import type { IToolSchema } from '../../interfaces/provider';
-import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
+import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstract-tool';
 import type { IEventService, IOwnerPathSegment } from '../../services/event-service';
 import { ToolExecutionError } from '../../utils/errors';
 
-export interface RelayMcpContext {
+export interface IRelayMcpContext {
     /** OwnerPath including agent segment appended for this relay execution */
     ownerPath: IOwnerPathSegment[];
     /** Tool-bound EventService (already bound to tool by caller) */
@@ -15,14 +15,14 @@ export interface RelayMcpContext {
     agentId: string;
 }
 
-export interface RelayMcpOptions extends AbstractToolOptions {
+export interface IRelayMcpOptions extends IAbstractToolOptions {
     /** MCP schema describing this relay tool */
     schema: IToolSchema;
     /**
      * Relay executor that performs the actual work (e.g., create Robota agent and run).
      * Must not perform ownerPath inference; receives the augmented agent ownerPath.
      */
-    run: (parameters: TToolParameters, ctx: RelayMcpContext) => Promise<IToolResult>;
+    run: (parameters: TToolParameters, ctx: IRelayMcpContext) => Promise<IToolResult>;
 }
 
 /**
@@ -35,9 +35,9 @@ export interface RelayMcpOptions extends AbstractToolOptions {
  */
 export class RelayMcpTool extends AbstractTool<TToolParameters, IToolResult> {
     readonly schema: IToolSchema;
-    private readonly runImpl: RelayMcpOptions['run'];
+    private readonly runImpl: IRelayMcpOptions['run'];
 
-    constructor(options: RelayMcpOptions) {
+    constructor(options: IRelayMcpOptions) {
         super(options);
         this.schema = options.schema;
         this.runImpl = options.run;
@@ -64,7 +64,7 @@ export class RelayMcpTool extends AbstractTool<TToolParameters, IToolResult> {
             { type: 'agent', id: agentId }
         ];
 
-        const ctx: RelayMcpContext = {
+        const ctx: IRelayMcpContext = {
             ownerPath: agentOwnerPath,
             eventService,
             baseEventService,

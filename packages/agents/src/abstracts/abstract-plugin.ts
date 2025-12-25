@@ -1,4 +1,4 @@
-import type { RunOptions } from '../interfaces/agent';
+import type { IRunOptions } from '../interfaces/agent';
 import type { TUniversalMessage } from '../managers/conversation-history-manager';
 import type { TToolParameters, IToolExecutionResult, IToolExecutionContext } from '../interfaces/tool';
 import type { EventEmitterPlugin, EventType, EventData } from '../plugins/event-emitter-plugin';
@@ -203,12 +203,12 @@ export interface PluginHooks {
     /**
      * Called before agent run
      */
-    beforeRun?(input: string, options?: RunOptions): Promise<void> | void;
+    beforeRun?(input: string, options?: IRunOptions): Promise<void> | void;
 
     /**
      * Called after agent run
      */
-    afterRun?(input: string, response: string, options?: RunOptions): Promise<void> | void;
+    afterRun?(input: string, response: string, options?: IRunOptions): Promise<void> | void;
 
     /**
      * Called before execution with context
@@ -562,8 +562,8 @@ export abstract class AbstractPlugin<TOptions extends BasePluginOptions = BasePl
     }
 
     // Optional lifecycle hooks - plugins can override these
-    async beforeRun?(input: string, options?: RunOptions): Promise<void>;
-    async afterRun?(input: string, response: string, options?: RunOptions): Promise<void>;
+    async beforeRun?(input: string, options?: IRunOptions): Promise<void>;
+    async afterRun?(input: string, response: string, options?: IRunOptions): Promise<void>;
     async beforeExecution?(context: BaseExecutionContext): Promise<void>;
     async afterExecution?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void>;
     async beforeConversation?(context: BaseExecutionContext): Promise<void>;

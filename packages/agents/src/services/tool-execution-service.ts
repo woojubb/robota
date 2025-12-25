@@ -17,7 +17,7 @@ export const TOOL_EVENTS = {
 } as const;
 
 // Add missing types for ExecutionService compatibility
-export interface ToolExecutionRequest {
+export interface IToolExecutionRequest {
     toolName: string;
     parameters: TToolParameters;
     executionId?: string;
@@ -29,8 +29,8 @@ export interface ToolExecutionRequest {
     baseEventService?: IEventService;
 }
 
-export interface ToolExecutionBatchContext {
-    requests: ToolExecutionRequest[];
+export interface IToolExecutionBatchContext {
+    requests: IToolExecutionRequest[];
     mode: 'parallel' | 'sequential';
     timeout?: number;
     continueOnError?: boolean;
@@ -46,9 +46,9 @@ export class ToolExecutionService {
     private tools: IToolManager;
     private logger: SimpleLogger;
 
-    constructor(tools: IToolManager, logger?: SimpleLogger) {
+    constructor(tools: IToolManager, logger: SimpleLogger = SilentLogger) {
         this.tools = tools;
-        this.logger = logger || SilentLogger;
+        this.logger = logger;
     }
 
     /**
@@ -154,7 +154,7 @@ export class ToolExecutionService {
             ownerPathBase: IOwnerPathSegment[];
             metadataFactory?: (toolCall: { id: string; function: { name: string; arguments: string } }) => TToolMetadata | undefined;
         }
-    ): ToolExecutionRequest[] {
+    ): IToolExecutionRequest[] {
         return toolCalls.map(toolCall => ({
             toolName: toolCall.function.name,
             parameters: JSON.parse(toolCall.function.arguments),
@@ -171,7 +171,7 @@ export class ToolExecutionService {
      * @param batchContext - Batch execution context
      * @returns Promise resolving to tool execution summary
      */
-    async executeTools(batchContext: ToolExecutionBatchContext): Promise<{ results: IToolExecutionResult[], errors: Error[] }> {
+    async executeTools(batchContext: IToolExecutionBatchContext): Promise<{ results: IToolExecutionResult[], errors: Error[] }> {
         this.logger.debug(`Executing ${batchContext.requests.length} tools in ${batchContext.mode} mode`);
 
         const results: IToolExecutionResult[] = [];

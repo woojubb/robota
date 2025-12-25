@@ -1,7 +1,7 @@
 import type { IAIProvider, IToolSchema } from './provider';
-import type { ToolInterface, ToolExecutor, IToolExecutionContext } from './tool';
+import type { IToolInterface, TToolExecutor, IToolExecutionContext } from './tool';
 import type { TToolResultData } from './types';
-import type { AgentConfig, AgentInterface } from './agent';
+import type { IAgentConfig, IAgentInterface } from './agent';
 
 /**
  * Reusable type definitions for manager layer
@@ -80,7 +80,7 @@ export interface IToolManager {
     /**
      * Register a tool
      */
-    addTool(schema: IToolSchema, executor: ToolExecutor): void;
+    addTool(schema: IToolSchema, executor: TToolExecutor): void;
 
     /**
      * Remove a tool by name
@@ -90,7 +90,7 @@ export interface IToolManager {
     /**
      * Get tool interface by name
      */
-    getTool(name: string): ToolInterface | undefined;
+    getTool(name: string): IToolInterface | undefined;
 
     /**
      * Get tool schema by name
@@ -128,7 +128,7 @@ export interface IToolManager {
  */
 export interface IAgentCreationOptions {
     /** Override default configuration */
-    overrides?: Partial<AgentConfig>;
+    overrides?: Partial<IAgentConfig>;
     /** Validation options */
     validation?: {
         strict?: boolean;
@@ -145,20 +145,20 @@ export interface IAgentFactory {
     /**
      * Create agent instance
      */
-    createAgent(config: AgentConfig, options?: IAgentCreationOptions): AgentInterface;
+    createAgent(config: IAgentConfig, options?: IAgentCreationOptions): IAgentInterface;
 
     /**
      * Validate agent configuration
      */
-    validateConfig(config: AgentConfig): IConfigValidationResult;
+    validateConfig(config: IAgentConfig): IConfigValidationResult;
 
     /**
      * Get default configuration
      */
-    getDefaultConfig(): AgentConfig;
+    getDefaultConfig(): IAgentConfig;
 
     /**
      * Merge configurations
      */
-    mergeConfig(base: AgentConfig, override: Partial<AgentConfig>): AgentConfig;
+    mergeConfig(base: IAgentConfig, override: Partial<IAgentConfig>): IAgentConfig;
 } 

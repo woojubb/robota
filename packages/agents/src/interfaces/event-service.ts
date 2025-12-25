@@ -1,22 +1,13 @@
 import type { TLoggerData, TUniversalValue } from './types';
 
 /**
- * Owner type axis for event context and ownerPath segments.
- *
- * NOTE:
- * - This is intentionally a string axis to allow new owner types without refactoring.
- * - Relationship derivation is still strictly path-only: do not infer from IDs.
- */
-export type TOwnerType = string;
-
-/**
  * A single segment in an explicit ownerPath.
  *
  * Path-only rule:
  * - Relationships must be derived from these explicit segments, not from parsing IDs.
  */
 export interface IOwnerPathSegment {
-    type: TOwnerType;
+    type: string;
     id: string;
 }
 
@@ -25,7 +16,7 @@ export interface IOwnerPathSegment {
  * This is the single source of truth for deterministic linking in subscribers.
  */
 export interface IEventContext {
-    ownerType: TOwnerType;
+    ownerType: string;
     ownerId: string;
     ownerPath: IOwnerPathSegment[];
 
@@ -69,12 +60,6 @@ export interface IBaseEventData {
 }
 
 /**
- * Canonical event type used by services.
- * Event names are owned by the emitter modules and exported as constants elsewhere.
- */
-export type TServiceEventType = string;
-
-/**
  * Execution-related event payload.
  */
 export interface IExecutionEventData extends IBaseEventData {}
@@ -99,17 +84,17 @@ export interface IAgentEventData extends IBaseEventData {
  * Subscriptions are handled by dedicated modules (e.g., EventEmitterPlugin), not here.
  */
 export interface IEventService {
-    emit(eventType: TServiceEventType, data: IBaseEventData, context?: IEventContext): void;
+    emit(eventType: string, data: IBaseEventData, context?: IEventContext): void;
 }
 
 /**
  * Explicit owner binding information used for scoped event emission.
  */
 export interface IEventServiceOwnerBinding {
-    ownerType: TOwnerType;
+    ownerType: string;
     ownerId: string;
     ownerPath: IOwnerPathSegment[];
-    sourceType: TOwnerType;
+    sourceType: string;
     sourceId: string;
 }
 

@@ -1,7 +1,7 @@
 // Workflow Node Interfaces
 // Based on existing implementations in agents package
 
-import type { WorkflowNodeType } from '../constants/workflow-types.js';
+import type { TWorkflowNodeType } from '../constants/workflow-types.js';
 import type { IToolResult, IOwnerPathSegment, TContextData, TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
 export type TWorkflowNodeDataExtensionValue = TUniversalValue | Date | Error | TLoggerData | IToolResult | TContextData;
@@ -157,7 +157,7 @@ export interface IWorkflowNodeData {
  */
 export interface IWorkflowNode {
     id: string;
-    type: WorkflowNodeType;
+    type: TWorkflowNodeType;
     parentId?: string;
     level: number;
     status: TWorkflowNodeStatus;

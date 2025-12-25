@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { AgentFactory, type AgentFactoryOptions, type AgentLifecycleEvents } from './agent-factory';
-import type { AgentInterface, AgentConfig, AgentTemplate } from '../interfaces/agent';
+import { AgentFactory, type IAgentFactoryOptions, type IAgentLifecycleEvents } from './agent-factory';
+import type { IAgentInterface, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { Robota } from '../core/robota';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { TUniversalMessage } from './conversation-history-manager';
-import type { ChatOptions } from '../interfaces/provider';
+import type { IChatOptions } from '../interfaces/provider';
 
 // Mock AI Provider for testing
 class MockAIProvider extends AbstractAIProvider {
@@ -16,7 +16,7 @@ class MockAIProvider extends AbstractAIProvider {
         super();
     }
 
-    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response',
@@ -24,7 +24,7 @@ class MockAIProvider extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response',
@@ -35,14 +35,14 @@ class MockAIProvider extends AbstractAIProvider {
 
 describe.skip('AgentFactory', () => {
     let factory: AgentFactory;
-    const mockLifecycleEvents: AgentLifecycleEvents = {
+    const mockLifecycleEvents: IAgentLifecycleEvents = {
         beforeCreate: vi.fn(),
         afterCreate: vi.fn(),
         onCreateError: vi.fn(),
         onDestroy: vi.fn()
     };
 
-    const mockTemplate: AgentTemplate = {
+    const mockTemplate: IAgentTemplate = {
         id: 'test-template',
         name: 'Test Template',
         description: 'A test template',
@@ -92,7 +92,7 @@ describe.skip('AgentFactory', () => {
     });
 
     describe('Agent Creation', () => {
-        const basicConfig: Partial<AgentConfig> = {
+        const basicConfig: Partial<IAgentConfig> = {
             name: 'TestAgent',
             aiProviders: [new MockAIProvider()],
             defaultModel: {

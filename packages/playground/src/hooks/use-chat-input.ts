@@ -20,17 +20,19 @@ import { useRobotaExecution } from './use-robota-execution';
 import { usePlaygroundData } from './use-playground-data';
 import type { IUseBlockTrackingResult } from './use-block-tracking';
 import { WebLogger } from '../lib/web-logger';
+import type { TUniversalValue } from '@robota-sdk/agents';
+import type { IPlaygroundExecutorResult } from '../lib/playground/robota-executor';
 
-export interface ChatMessage {
+export interface IChatMessage {
     id: string;
     type: 'user' | 'assistant' | 'system' | 'error';
     content: string;
     timestamp: Date;
     isStreaming?: boolean;
-    metadata?: Record<string, unknown>;
+    metadata?: Record<string, TUniversalValue>;
 }
 
-export interface ChatInputState {
+export interface IChatInputState {
     value: string;
     isValid: boolean;
     errors: string[];
@@ -39,7 +41,7 @@ export interface ChatInputState {
     estimatedTokens: number;
 }
 
-export interface ChatInputOptions {
+export interface IChatInputOptions {
     /** Block tracking integration for automatic block creation */
     blockTracking?: IUseBlockTrackingResult;
 
@@ -53,9 +55,9 @@ export interface ChatInputOptions {
     placeholder?: string;
 }
 
-export interface ChatInputHookReturn {
+export interface IChatInputHookReturn {
     // Input State
-    inputState: ChatInputState;
+    inputState: IChatInputState;
     isTyping: boolean;
     isSending: boolean;
     canSend: boolean;
@@ -67,12 +69,12 @@ export interface ChatInputHookReturn {
     insertAtCursor: (text: string) => void;
 
     // Message Management
-    sendMessage: (message?: string) => Promise<any>;
-    sendStreamingMessage: (message?: string) => Promise<any>;
+    sendMessage: (message?: string) => Promise<IPlaygroundExecutorResult | undefined>;
+    sendStreamingMessage: (message?: string) => Promise<IPlaygroundExecutorResult | undefined>;
     retryLastMessage: () => Promise<void>;
 
     // Chat History
-    chatHistory: ChatMessage[];
+    chatHistory: IChatMessage[];
     clearChatHistory: () => void;
     exportChatHistory: () => string;
 
@@ -99,7 +101,7 @@ export interface ChatInputHookReturn {
     stopStreaming: () => void;
 }
 
-export function useChatInput(options: ChatInputOptions = {}): ChatInputHookReturn {
+export function useChatInput(options: IChatInputOptions = {}): IChatInputHookReturn {
     const {
         blockTracking,
         maxLength = 10000,
@@ -126,7 +128,7 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
     const [showSuggestions, setShowSuggestions] = useState(false);
 
     // Chat history (simplified for now)
-    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+    const [chatHistory, setChatHistory] = useState<IChatMessage[]>([]);
     const userMessageHistory = useMemo(() => {
         return chatHistory.filter(msg => msg.type === 'user').map(msg => msg.content);
     }, [chatHistory]);
@@ -137,7 +139,7 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
     const lastUserInputRef = useRef<string>('');
 
     // Input validation and state calculation
-    const inputState = useMemo<ChatInputState>(() => {
+    const inputState = useMemo<IChatInputState>(() => {
         const trimmed = inputValue.trim();
         const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
         const characterCount = inputValue.length;
@@ -221,12 +223,12 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
     }, [inputValue, setValue]);
 
     // Message sending
-    const sendMessage = useCallback(async (message?: string) => {
+    const sendMessage = useCallback(async (message?: string): Promise<IPlaygroundExecutorResult | undefined> => {
         const messageToSend = message || inputValue.trim();
 
         if (!canSend || !messageToSend) {
             WebLogger.warn('sendMessage blocked', { canSend, hasMessage: !!messageToSend });
-            return;
+            return undefined;
         }
 
         try {
@@ -247,12 +249,12 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
         }
     }, [inputValue, canSend, clearInput, executePrompt, setValue]);
 
-    const sendStreamingMessage = useCallback(async (message?: string) => {
+    const sendStreamingMessage = useCallback(async (message?: string): Promise<IPlaygroundExecutorResult | undefined> => {
         const messageToSend = message || inputValue.trim();
 
         if (!canSend || !messageToSend) {
             WebLogger.warn('sendStreamingMessage blocked', { canSend, hasMessage: !!messageToSend });
-            return;
+            return undefined;
         }
 
         try {

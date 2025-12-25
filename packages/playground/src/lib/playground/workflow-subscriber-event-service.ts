@@ -1,4 +1,4 @@
-import type { IBaseEventData, IEventContext, IEventService, TServiceEventType, SimpleLogger } from '@robota-sdk/agents';
+import type { IBaseEventData, IEventContext, IEventService, SimpleLogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import type { TEventData, WorkflowEventSubscriber } from '@robota-sdk/workflow';
 
@@ -20,7 +20,7 @@ export class WorkflowSubscriberEventService implements IEventService {
         private readonly logger: SimpleLogger = SilentLogger
     ) { }
 
-    emit(eventType: TServiceEventType, data: IBaseEventData, context?: IEventContext): void {
+    emit(eventType: string, data: IBaseEventData, context?: IEventContext): void {
         if (!data.timestamp) {
             throw new Error(`[PATH-ONLY] Missing timestamp for eventType=${String(eventType)}`);
         }

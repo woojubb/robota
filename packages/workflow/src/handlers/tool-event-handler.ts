@@ -17,7 +17,7 @@ import type { IWorkflowNode } from '../interfaces/workflow-node.js';
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
-import { WORKFLOW_NODE_TYPES, type WorkflowNodeType } from '../constants/workflow-types.js';
+import { WORKFLOW_NODE_TYPES, type TWorkflowNodeType } from '../constants/workflow-types.js';
 import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
 import { TOOL_EVENTS } from '@robota-sdk/agents';
 
@@ -348,9 +348,9 @@ export class ToolEventHandler implements IEventHandler {
     // Helper Methods
     // =================================================================
 
-    private getToolTypeFromName(toolName: string): WorkflowNodeType {
+    private getToolTypeFromName(toolName: string): TWorkflowNodeType {
         // Map tool names to specific node types
-        const toolTypeMap: Record<string, WorkflowNodeType> = {
+        const toolTypeMap: Record<string, TWorkflowNodeType> = {
             'assignTask': WORKFLOW_NODE_TYPES.TOOL_CALL,
             'fileRead': WORKFLOW_NODE_TYPES.TOOL_CALL,
             'fileWrite': WORKFLOW_NODE_TYPES.TOOL_CALL,

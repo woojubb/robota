@@ -5,8 +5,8 @@ import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { TUniversalMessage } from '../managers/conversation-history-manager';
-import type { AgentConfig, Message } from '../interfaces/agent';
-import type { ChatOptions } from '../interfaces/provider';
+import type { IAgentConfig } from '../interfaces/agent';
+import type { IChatOptions } from '../interfaces/provider';
 
 // Mock dependencies
 vi.mock('../utils/logger', () => ({
@@ -32,7 +32,7 @@ class MockAIProvider extends AbstractAIProvider {
     readonly name = 'mock-provider';
     readonly version = '1.0.0';
 
-    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response',
@@ -40,7 +40,7 @@ class MockAIProvider extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response',
@@ -130,8 +130,8 @@ describe.skip('ExecutionService', () => {
     describe('execute', () => {
         it('should execute a conversation without tool calls', async () => {
             const input = 'Hello, how are you?';
-            const messages: Message[] = [];
-            const config: AgentConfig = {
+            const messages: TUniversalMessage[] = [];
+            const config: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -158,8 +158,8 @@ describe.skip('ExecutionService', () => {
 
         it('should execute a conversation with tool calls', async () => {
             const toolInput = 'Use the test tool';
-            const toolMessages: Message[] = [];
-            const toolConfig: AgentConfig = {
+            const toolMessages: TUniversalMessage[] = [];
+            const toolConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -273,8 +273,8 @@ describe.skip('ExecutionService', () => {
                 ]);
 
             const testInput = 'Use a tool to do something';
-            const testMessages: Message[] = [];
-            const testConfig: AgentConfig = {
+            const testMessages: TUniversalMessage[] = [];
+            const testConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -296,8 +296,8 @@ describe.skip('ExecutionService', () => {
 
         it('should handle errors during execution', async () => {
             const errorInput = 'Hello';
-            const errorMessages: Message[] = [];
-            const errorConfig: AgentConfig = {
+            const errorMessages: TUniversalMessage[] = [];
+            const errorConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -315,11 +315,11 @@ describe.skip('ExecutionService', () => {
 
         it('should initialize conversation history with existing messages', async () => {
             const inputMsg = 'Hello again';
-            const messagesArray: Message[] = [
+            const messagesArray: TUniversalMessage[] = [
                 { role: 'user', content: 'Hello', timestamp: new Date() },
                 { role: 'assistant', content: 'Hi there!', timestamp: new Date() }
-            ] as Message[];
-            const agentConfig: AgentConfig = {
+            ];
+            const agentConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -342,11 +342,11 @@ describe.skip('ExecutionService', () => {
 
         it('should handle messages with system role', async () => {
             const userInput = 'Hello';
-            const messagesList: Message[] = [
+            const messagesList: TUniversalMessage[] = [
                 { role: 'system', content: 'You are a helpful assistant', timestamp: new Date() },
                 { role: 'user', content: 'Previous question', timestamp: new Date() }
-            ] as Message[];
-            const testConfig: AgentConfig = {
+            ];
+            const testConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -369,8 +369,8 @@ describe.skip('ExecutionService', () => {
 
         it('should handle no AI provider available', async () => {
             const testInput = 'Hello';
-            const emptyMessages: Message[] = [];
-            const providerConfig: AgentConfig = {
+            const emptyMessages: TUniversalMessage[] = [];
+            const providerConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {

@@ -111,7 +111,7 @@ export interface IStreamingChunk {
 /**
  * Service options for conversation operations
  */
-export interface ConversationServiceOptions {
+export interface IConversationServiceOptions {
     /** Maximum conversation history length */
     maxHistoryLength?: number;
     /** Whether to automatically retry on failure */
@@ -163,7 +163,7 @@ export interface IConversationService {
         model: string,
         provider: string,
         contextOptions?: IContextOptions,
-        serviceOptions?: ConversationServiceOptions
+        serviceOptions?: IConversationServiceOptions
     ): IConversationContext;
 
     /**
@@ -173,7 +173,7 @@ export interface IConversationService {
     generateResponse(
         provider: IAIProvider,
         context: IConversationContext,
-        serviceOptions?: ConversationServiceOptions
+        serviceOptions?: IConversationServiceOptions
     ): Promise<IConversationResponse>;
 
     /**
@@ -183,7 +183,7 @@ export interface IConversationService {
     generateStreamingResponse(
         provider: IAIProvider,
         context: IConversationContext,
-        serviceOptions?: ConversationServiceOptions
+        serviceOptions?: IConversationServiceOptions
     ): AsyncGenerator<IStreamingChunk, void, never>;
 
     /**

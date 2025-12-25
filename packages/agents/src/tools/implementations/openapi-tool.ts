@@ -1,31 +1,28 @@
-import type { ToolInterface, ToolResult, ToolExecutionContext, OpenAPIToolConfig, ToolParameters, ToolParameterValue } from '../../interfaces/tool';
+import type { IToolInterface, IToolResult, IToolExecutionContext, IOpenAPIToolConfig, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
 import type { IToolSchema, IParameterSchema } from '../../interfaces/provider';
 import type { OpenAPIV3 } from 'openapi-types';
-import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
+import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import { logger as _logger } from '../../utils/logger';
 
 /**
  * OpenAPI operation method types
  */
-type HTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options';
-
-
-
+type THTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options';
 /**
  * OpenAPI tool implementation
  * Executes API calls based on OpenAPI 3.0 specifications
  * 
  * @extends AbstractTool<ToolParameters, ToolResult>
  */
-export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implements ToolInterface {
+export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> implements IToolInterface {
     readonly schema: IToolSchema;
     private readonly apiSpec: OpenAPIV3.Document;
     private readonly operationId: string;
     private readonly baseURL: string;
-    private readonly config: OpenAPIToolConfig;
+    private readonly config: IOpenAPIToolConfig;
 
-    constructor(config: OpenAPIToolConfig, options: AbstractToolOptions = {}) {
+    constructor(config: IOpenAPIToolConfig, options: IAbstractToolOptions = {}) {
         super(options);
         this.config = config;
         this.apiSpec = config.spec as OpenAPIV3.Document;
@@ -38,7 +35,7 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
      * Execute the OpenAPI tool implementation
      * This method is called by the parent's Template Method Pattern
      */
-    protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: TToolParameters, context?: IToolExecutionContext): Promise<IToolResult> {
         const toolName = this.schema.name;
 
         try {
@@ -384,6 +381,6 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
 /**
  * Factory function to create OpenAPI tools from specification
  */
-export function createOpenAPITool(config: OpenAPIToolConfig): OpenAPITool {
+export function createOpenAPITool(config: IOpenAPIToolConfig): OpenAPITool {
     return new OpenAPITool(config);
 } 

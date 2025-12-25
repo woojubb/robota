@@ -17,7 +17,7 @@ import { useMemo, useCallback } from 'react';
 import { usePlayground } from '../contexts/playground-context';
 import type { IConversationEvent, IVisualizationData } from '../lib/playground/robota-executor';
 
-export interface PlaygroundDataHookReturn {
+export interface IPlaygroundDataHookReturn {
     // Visualization Data
     visualizationData: IVisualizationData | null;
     conversationEvents: IConversationEvent[];
@@ -53,11 +53,11 @@ export interface PlaygroundDataHookReturn {
         timestamp: string;
         mode: 'agent';
         events: IConversationEvent[];
-        statistics: ReturnType<PlaygroundDataHookReturn['getExecutionStatistics']>;
+        statistics: ReturnType<IPlaygroundDataHookReturn['getExecutionStatistics']>;
     };
 }
 
-export function usePlaygroundData(): PlaygroundDataHookReturn {
+export function usePlaygroundData(): IPlaygroundDataHookReturn {
     const { state, getVisualizationData } = usePlayground();
 
     // Get current visualization data

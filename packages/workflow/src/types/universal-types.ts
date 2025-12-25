@@ -3,7 +3,7 @@
 
 import type { IWorkflowNode } from '../interfaces/workflow-node.js';
 import type { IWorkflowSnapshot } from '../interfaces/workflow-builder.js';
-import type { WorkflowNodeType } from '../constants/workflow-types.js';
+import type { TWorkflowNodeType } from '../constants/workflow-types.js';
 import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
 /**

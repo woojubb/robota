@@ -133,7 +133,7 @@ export interface IToolExecutionContext {
 /**
  * Parameter validation result
  */
-export interface ParameterValidationResult {
+export interface IParameterValidationResult {
     /** Whether parameters are valid */
     isValid: boolean;
     /** Validation error messages */
@@ -143,13 +143,13 @@ export interface ParameterValidationResult {
 /**
  * Generic tool executor function
  */
-export type ToolExecutor<TParams = TToolParameters, TResult = TToolResultData> =
+export type TToolExecutor<TParams = TToolParameters, TResult = TToolResultData> =
     (parameters: TParams, context?: IToolExecutionContext) => Promise<TResult>;
 
 /**
  * OpenAPI specification configuration
  */
-export interface OpenAPIToolConfig {
+export interface IOpenAPIToolConfig {
     /** OpenAPI 3.0 specification */
     spec: {
         openapi: string;
@@ -183,7 +183,7 @@ export interface OpenAPIToolConfig {
 /**
  * MCP (Model Context Protocol) configuration
  */
-export interface MCPToolConfig {
+export interface IMCPToolConfig {
     /** MCP server endpoint */
     endpoint: string;
     /** Protocol version */
@@ -202,7 +202,7 @@ export interface MCPToolConfig {
 /**
  * Base tool interface
  */
-export interface ToolInterface {
+export interface IToolInterface {
     /** Tool schema */
     schema: IToolSchema;
 
@@ -219,7 +219,7 @@ export interface ToolInterface {
     /**
      * Validate tool parameters with detailed result
      */
-    validateParameters(parameters: TToolParameters): ParameterValidationResult;
+    validateParameters(parameters: TToolParameters): IParameterValidationResult;
 
     /**
      * Get tool description
@@ -230,19 +230,19 @@ export interface ToolInterface {
 /**
  * Function tool implementation
  */
-export interface FunctionTool extends ToolInterface {
+export interface IFunctionTool extends IToolInterface {
     /** Function to execute */
-    fn: ToolExecutor;
+    fn: TToolExecutor;
 }
 
 /**
  * Tool registry interface
  */
-export interface ToolRegistryInterface {
+export interface IToolRegistry {
     /**
      * Register a tool
      */
-    register(tool: ToolInterface): void;
+    register(tool: IToolInterface): void;
 
     /**
      * Unregister a tool
@@ -252,12 +252,12 @@ export interface ToolRegistryInterface {
     /**
      * Get tool by name
      */
-    get(name: string): ToolInterface | undefined;
+    get(name: string): IToolInterface | undefined;
 
     /**
      * Get all registered tools
      */
-    getAll(): ToolInterface[];
+    getAll(): IToolInterface[];
 
     /**
      * Get tool schemas
@@ -278,19 +278,19 @@ export interface ToolRegistryInterface {
 /**
  * Tool factory interface
  */
-export interface ToolFactoryInterface {
+export interface IToolFactory {
     /**
      * Create function tool from schema and function
      */
-    createFunctionTool(schema: IToolSchema, fn: ToolExecutor): FunctionTool;
+    createFunctionTool(schema: IToolSchema, fn: TToolExecutor): IFunctionTool;
 
     /**
      * Create tool from OpenAPI specification
      */
-    createOpenAPITool(config: OpenAPIToolConfig): ToolInterface;
+    createOpenAPITool(config: IOpenAPIToolConfig): IToolInterface;
 
     /**
      * Create MCP tool
      */
-    createMCPTool(config: MCPToolConfig): ToolInterface;
+    createMCPTool(config: IMCPToolConfig): IToolInterface;
 } 

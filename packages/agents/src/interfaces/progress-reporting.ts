@@ -1,9 +1,9 @@
-import type { ToolInterface, TToolParameters } from './tool';
+import type { IToolInterface, TToolParameters } from './tool';
 
 /**
  * Execution step definition for tools that support step-by-step progress reporting
  */
-export interface ToolExecutionStep {
+export interface IToolExecutionStep {
     /** Unique identifier for this step */
     id: string;
 
@@ -20,12 +20,12 @@ export interface ToolExecutionStep {
 /**
  * Progress callback function type for real-time progress updates
  */
-export type ToolProgressCallback = (step: string, progress: number) => void;
+export type TToolProgressCallback = (step: string, progress: number) => void;
 
 /**
- * 🆕 ProgressReportingTool - Optional interface for tools that can provide their own progress information
+ * 🆕 IProgressReportingTool - Optional interface for tools that can provide their own progress information
  * 
- * This interface extends the standard ToolInterface to allow tools to optionally provide:
+ * This interface extends the standard IToolInterface to allow tools to optionally provide:
  * - Estimated execution duration
  * - Step-by-step execution plans
  * - Real-time progress callbacks
@@ -36,7 +36,7 @@ export type ToolProgressCallback = (step: string, progress: number) => void;
  * - Completely optional - existing tools work unchanged
  * - Tools can self-report progress for better user experience
  */
-export interface ProgressReportingTool extends ToolInterface {
+export interface IProgressReportingTool extends IToolInterface {
     /**
      * Get estimated execution duration for given parameters (optional)
      * 
@@ -61,7 +61,7 @@ export interface ProgressReportingTool extends ToolInterface {
      * @param parameters - The parameters that will be passed to execute()
      * @returns Array of execution steps, or undefined if not available
      */
-    getExecutionSteps?(parameters: TToolParameters): ToolExecutionStep[];
+    getExecutionSteps?(parameters: TToolParameters): IToolExecutionStep[];
 
     /**
      * Set progress callback for real-time updates (optional)
@@ -73,13 +73,13 @@ export interface ProgressReportingTool extends ToolInterface {
      * 
      * @param callback - Function to call with progress updates
      */
-    setProgressCallback?(callback: ToolProgressCallback): void;
+    setProgressCallback?(callback: TToolProgressCallback): void;
 }
 
 /**
  * Type guard to check if a tool implements progress reporting
  */
-export function isProgressReportingTool(tool: ToolInterface): tool is ProgressReportingTool {
+export function isProgressReportingTool(tool: IToolInterface): tool is IProgressReportingTool {
     return (
         'getEstimatedDuration' in tool ||
         'getExecutionSteps' in tool ||
@@ -90,14 +90,9 @@ export function isProgressReportingTool(tool: ToolInterface): tool is ProgressRe
 /**
  * Helper function to safely get estimated duration from any tool
  */
-export function getToolEstimatedDuration(tool: ToolInterface, parameters: TToolParameters): number | undefined {
+export function getToolEstimatedDuration(tool: IToolInterface, parameters: TToolParameters): number | undefined {
     if (isProgressReportingTool(tool) && tool.getEstimatedDuration) {
-        try {
-            return tool.getEstimatedDuration(parameters);
-        } catch (error) {
-            // Silently fail - progress reporting should never break tool execution
-            return undefined;
-        }
+        return tool.getEstimatedDuration(parameters);
     }
     return undefined;
 }
@@ -105,14 +100,9 @@ export function getToolEstimatedDuration(tool: ToolInterface, parameters: TToolP
 /**
  * Helper function to safely get execution steps from any tool
  */
-export function getToolExecutionSteps(tool: ToolInterface, parameters: TToolParameters): ToolExecutionStep[] | undefined {
+export function getToolExecutionSteps(tool: IToolInterface, parameters: TToolParameters): IToolExecutionStep[] | undefined {
     if (isProgressReportingTool(tool) && tool.getExecutionSteps) {
-        try {
-            return tool.getExecutionSteps(parameters);
-        } catch (error) {
-            // Silently fail - progress reporting should never break tool execution
-            return undefined;
-        }
+        return tool.getExecutionSteps(parameters);
     }
     return undefined;
 }
@@ -120,15 +110,10 @@ export function getToolExecutionSteps(tool: ToolInterface, parameters: TToolPara
 /**
  * Helper function to safely set progress callback on any tool
  */
-export function setToolProgressCallback(tool: ToolInterface, callback: ToolProgressCallback): boolean {
+export function setToolProgressCallback(tool: IToolInterface, callback: TToolProgressCallback): boolean {
     if (isProgressReportingTool(tool) && tool.setProgressCallback) {
-        try {
-            tool.setProgressCallback(callback);
-            return true;
-        } catch (error) {
-            // Silently fail - progress reporting should never break tool execution
-            return false;
-        }
+        tool.setProgressCallback(callback);
+        return true;
     }
     return false;
 } 
