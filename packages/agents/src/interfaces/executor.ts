@@ -1,16 +1,16 @@
-import type { ChatOptions, ToolSchema } from './index';
+import type { IChatOptions, IToolSchema } from './index';
 import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
 
 /**
- * Request for executing a chat completion through an executor
+ * Request for executing a streaming chat completion through an executor
  */
-export interface ChatExecutionRequest {
+export interface IChatExecutionRequest {
     /** Array of messages in the conversation */
     messages: TUniversalMessage[];
     /** Chat options including model, temperature, etc. */
-    options?: ChatOptions;
+    options?: IChatOptions;
     /** Available tools for the AI to use */
-    tools?: ToolSchema[];
+    tools?: IToolSchema[];
     /** Target AI provider (e.g., 'openai', 'anthropic', 'google') */
     provider: string;
     /** Specific model to use */
@@ -20,7 +20,7 @@ export interface ChatExecutionRequest {
 /**
  * Request for executing a streaming chat completion through an executor
  */
-export interface StreamExecutionRequest extends ChatExecutionRequest {
+export interface IStreamExecutionRequest extends IChatExecutionRequest {
     /** Indicates this is a streaming request */
     stream: true;
 }
@@ -37,7 +37,7 @@ export interface StreamExecutionRequest extends ChatExecutionRequest {
  * - CacheExecutor: Cached responses with fallback to another executor
  * - HybridExecutor: Conditional local/remote execution
  */
-export interface ExecutorInterface {
+export interface IExecutor {
     /**
      * Execute a chat completion request
      * 
@@ -54,7 +54,7 @@ export interface ExecutorInterface {
      * });
      * ```
      */
-    executeChat(request: ChatExecutionRequest): Promise<IAssistantMessage>;
+    executeChat(request: IChatExecutionRequest): Promise<IAssistantMessage>;
 
     /**
      * Execute a streaming chat completion request
@@ -75,7 +75,7 @@ export interface ExecutorInterface {
      * }
      * ```
      */
-    executeChatStream?(request: StreamExecutionRequest): AsyncIterable<TUniversalMessage>;
+    executeChatStream?(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage>;
 
     /**
      * Check if the executor supports tool calling
@@ -108,7 +108,7 @@ export interface ExecutorInterface {
 /**
  * Configuration options for local executor
  */
-export interface LocalExecutorConfig {
+export interface ILocalExecutorConfig {
     /** Timeout for API requests in milliseconds */
     timeout?: number;
     /** Maximum number of retry attempts */
@@ -122,7 +122,7 @@ export interface LocalExecutorConfig {
 /**
  * Configuration options for remote executor
  */
-export interface RemoteExecutorConfig {
+export interface IRemoteExecutorConfig {
     /** Remote server URL */
     serverUrl: string;
     /** User authentication token */

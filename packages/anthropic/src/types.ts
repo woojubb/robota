@@ -1,10 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ExecutorInterface } from '@robota-sdk/agents';
+import type { IExecutor } from '@robota-sdk/agents';
 
 /**
  * Valid provider option value types
  */
-export type ProviderOptionValue = string | number | boolean | undefined | null | Anthropic | ExecutorInterface | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
+export type ProviderOptionValue = string | number | boolean | undefined | null | Anthropic | IExecutor | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
 
 /**
  * Base provider options interface
@@ -68,5 +68,5 @@ export interface AnthropicProviderOptions extends ProviderOptions {
      * });
      * ```
      */
-    executor?: ExecutorInterface;
+    executor?: IExecutor;
 } 

@@ -1,5 +1,5 @@
-import type { FunctionTool as IFunctionTool, TToolResult, TToolExecutionContext, ParameterValidationResult, ToolExecutor, TToolExecutionData, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
-import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
+import type { FunctionTool as IFunctionTool, IToolResult, IToolExecutionContext, ParameterValidationResult, ToolExecutor, TToolExecutionData, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
+import type { IToolSchema, IParameterSchema } from '../../interfaces/provider';
 import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 
@@ -15,11 +15,11 @@ import { zodToJsonSchema } from './function-tool/schema-converter';
  * 
  * @extends AbstractTool<TToolParameters, ToolResult>
  */
-export class FunctionTool extends AbstractTool<TToolParameters, TToolResult> implements IFunctionTool {
-    readonly schema: ToolSchema;
+export class FunctionTool extends AbstractTool<TToolParameters, IToolResult> implements IFunctionTool {
+    readonly schema: IToolSchema;
     readonly fn: ToolExecutor;
 
-    constructor(schema: ToolSchema, fn: ToolExecutor, options: AbstractToolOptions = {}) {
+    constructor(schema: IToolSchema, fn: ToolExecutor, options: AbstractToolOptions = {}) {
         super(options);
         this.schema = schema;
         this.fn = fn;
@@ -30,7 +30,7 @@ export class FunctionTool extends AbstractTool<TToolParameters, TToolResult> imp
      * Execute the function tool implementation
      * This method is called by the parent's Template Method Pattern
      */
-    protected async executeImpl(parameters: TToolParameters, context?: TToolExecutionContext): Promise<TToolResult> {
+    protected async executeImpl(parameters: TToolParameters, context?: IToolExecutionContext): Promise<IToolResult> {
         const toolName = this.schema.name;
 
         try {
@@ -143,7 +143,7 @@ export class FunctionTool extends AbstractTool<TToolParameters, TToolResult> imp
     /**
      * Validate individual parameter type
      */
-    private validateParameterType(key: string, value: TToolParameterValue, schema: ParameterSchema): string | null {
+    private validateParameterType(key: string, value: TToolParameterValue, schema: IParameterSchema): string | null {
         const expectedType = schema['type'];
 
         switch (expectedType) {
@@ -232,10 +232,10 @@ export class FunctionTool extends AbstractTool<TToolParameters, TToolResult> imp
 export function createFunctionTool(
     name: string,
     description: string,
-    parameters: ToolSchema['parameters'],
+    parameters: IToolSchema['parameters'],
     fn: ToolExecutor
 ): FunctionTool {
-    const schema: ToolSchema = {
+    const schema: IToolSchema = {
         name,
         description,
         parameters
@@ -257,14 +257,14 @@ export function createZodFunctionTool(
     // Use comprehensive Zod to JSON schema conversion
     const parameters = zodToJsonSchema(zodSchema);
 
-    const schema: ToolSchema = {
+    const schema: IToolSchema = {
         name,
         description,
         parameters
     };
 
     // Wrap the function with validation and ensure proper parameter handling
-    const wrappedFn: ToolExecutor = async (parameters: TToolParameters, context?: TToolExecutionContext): Promise<TToolExecutionData> => {
+    const wrappedFn: ToolExecutor = async (parameters: TToolParameters, context?: IToolExecutionContext): Promise<TToolExecutionData> => {
         // Use Zod for runtime validation
         const parseResult = zodSchema.safeParse(parameters);
         if (!parseResult.success) {

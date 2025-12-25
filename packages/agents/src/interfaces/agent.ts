@@ -1,4 +1,4 @@
-import type { ProviderConfigValue, AIProvider } from './provider';
+import type { TProviderConfigValue, IAIProvider } from './provider';
 import type { AbstractPlugin, BasePluginOptions, PluginStats } from '../abstracts/abstract-plugin';
 import type { AbstractTool } from '../abstracts/abstract-tool';
 import type { AbstractModule } from '../abstracts/abstract-module';
@@ -37,7 +37,7 @@ export interface ExecutionContextInjection {
     sourceId?: string;
 }
 
-// ProviderConfigValue imported from provider.ts for type ownership consistency
+// Provider config value types are owned by provider axis (`interfaces/provider.ts`).
 
 /**
  * Provider-specific configuration
@@ -47,20 +47,20 @@ export interface ProviderConfig {
         apiKey?: string;
         baseURL?: string;
         organization?: string;
-        [key: string]: ProviderConfigValue | undefined;
+        [key: string]: TProviderConfigValue | undefined;
     };
     anthropic?: {
         apiKey?: string;
         baseURL?: string;
-        [key: string]: ProviderConfigValue | undefined;
+        [key: string]: TProviderConfigValue | undefined;
     };
     google?: {
         apiKey?: string;
         projectId?: string;
         location?: string;
-        [key: string]: ProviderConfigValue | undefined;
+        [key: string]: TProviderConfigValue | undefined;
     };
-    [provider: string]: Record<string, ProviderConfigValue | undefined> | undefined;
+    [provider: string]: Record<string, TProviderConfigValue | undefined> | undefined;
 }
 
 /**
@@ -69,7 +69,7 @@ export interface ProviderConfig {
 export interface AgentConfig {
     id?: string;
     name: string;
-    aiProviders: AIProvider[];
+    aiProviders: IAIProvider[];
     defaultModel: {
         provider: string;
         model: string;

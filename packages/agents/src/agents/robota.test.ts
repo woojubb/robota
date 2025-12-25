@@ -6,7 +6,7 @@ import type { AgentInterface } from '../interfaces/agent';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { AbstractTool as BaseTool } from '../abstracts/abstract-tool';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
-import type { ToolSchema, ChatOptions } from '../interfaces/provider';
+import type { IToolSchema, IChatOptions } from '../interfaces/provider';
 import type { ToolExecutionContext, ToolParameters, ToolResult } from '../interfaces/tool';
 import type { TUniversalMessage } from '../managers/conversation-history-manager';
 
@@ -21,7 +21,7 @@ class MockAIProvider extends AbstractAIProvider {
         super();
     }
 
-    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response',
@@ -29,7 +29,7 @@ class MockAIProvider extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response',
@@ -47,7 +47,7 @@ class MockAIProvider2 extends AbstractAIProvider {
         super();
     }
 
-    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response from provider 2',
@@ -55,7 +55,7 @@ class MockAIProvider2 extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response from provider 2',
@@ -66,7 +66,7 @@ class MockAIProvider2 extends AbstractAIProvider {
 
 // Mock Tool for testing
 class MockTool extends BaseTool {
-    override get schema(): ToolSchema {
+    override get schema(): IToolSchema {
         return {
             name: 'mock-tool',
             description: 'Mock tool for testing',

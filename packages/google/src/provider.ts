@@ -3,8 +3,8 @@ import type { GoogleProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
     TUniversalMessage,
-    ChatOptions,
-    ToolSchema,
+    IChatOptions,
+    IToolSchema,
     IAssistantMessage
 } from '@robota-sdk/agents';
 
@@ -48,7 +48,7 @@ export class GoogleProvider extends AbstractAIProvider {
     /**
      * Generate response using TUniversalMessage
      */
-    override async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
+    override async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         this.validateMessages(messages);
 
         // Try executor first, then fallback to direct execution
@@ -66,7 +66,7 @@ export class GoogleProvider extends AbstractAIProvider {
         }
 
         if (!options?.model) {
-            throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+            throw new Error('Model is required in IChatOptions. Please specify a model in defaultModel configuration.');
         }
 
         const model = this.client.getGenerativeModel({
@@ -96,7 +96,7 @@ export class GoogleProvider extends AbstractAIProvider {
     /**
      * Generate streaming response using TUniversalMessage
      */
-    override async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
+    override async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         this.validateMessages(messages);
 
         // Try executor first, then fallback to direct execution
@@ -115,7 +115,7 @@ export class GoogleProvider extends AbstractAIProvider {
         }
 
         if (!options?.model) {
-            throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+            throw new Error('Model is required in IChatOptions. Please specify a model in defaultModel configuration.');
         }
 
         const model = this.client.getGenerativeModel({
@@ -281,7 +281,7 @@ export class GoogleProvider extends AbstractAIProvider {
     /**
      * Convert tools to Gemini format
      */
-    private convertToolsToGeminiFormat(tools: ToolSchema[]): Array<{
+    private convertToolsToGeminiFormat(tools: IToolSchema[]): Array<{
         name: string;
         description: string;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

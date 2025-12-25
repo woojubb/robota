@@ -11,7 +11,7 @@
  * TODO: Consider caching conversion results for performance
  */
 
-import type { ToolSchema, ParameterSchema, JSONSchemaEnum } from '../../../interfaces/provider';
+import type { IToolSchema, IParameterSchema, TJSONSchemaEnum } from '../../../interfaces/provider';
 import type {
     ZodSchema,
     ToolParameterValue,
@@ -24,8 +24,8 @@ import type {
 export function zodToJsonSchema(
     schema: ZodSchema,
     options: SchemaConversionOptions = {}
-): ToolSchema['parameters'] {
-    const properties: Record<string, ParameterSchema> = {};
+): IToolSchema['parameters'] {
+    const properties: Record<string, IParameterSchema> = {};
     const required: string[] = [];
 
     // Safe access to schema definition with fallback
@@ -68,14 +68,14 @@ export function zodToJsonSchema(
 /**
  * Convert individual Zod type to parameter schema with safe undefined handling
  */
-function convertZodTypeToProperty(typeObj: ZodSchema): ParameterSchema | null {
+function convertZodTypeToProperty(typeObj: ZodSchema): IParameterSchema | null {
     // Safe access to type definition
     const typeDef = typeObj._def;
     if (!typeDef) {
         return null;
     }
 
-    const base: Partial<ParameterSchema> = {};
+    const base: Partial<IParameterSchema> = {};
 
     // Add description if available
     if (typeDef.description) {
@@ -112,7 +112,7 @@ function convertZodTypeToProperty(typeObj: ZodSchema): ParameterSchema | null {
             if (enumValues && Array.isArray(enumValues)) {
                 return {
                     type: 'string',
-                    enum: enumValues as JSONSchemaEnum,
+                    enum: enumValues as TJSONSchemaEnum,
                     ...base
                 };
             }

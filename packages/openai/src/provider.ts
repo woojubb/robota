@@ -6,9 +6,9 @@ import type {
 import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
     TUniversalMessage,
-    ChatOptions,
+    IChatOptions,
     IToolCall,
-    ToolSchema,
+    IToolSchema,
     IAssistantMessage
 } from '@robota-sdk/agents';
 import type { PayloadLogger } from './interfaces/payload-logger';
@@ -74,7 +74,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     /**
      * Generate response using TUniversalMessage
      */
-    override async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
+    override async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         this.validateMessages(messages);
 
         // Try executor first, then fallback to direct execution
@@ -98,7 +98,7 @@ export class OpenAIProvider extends AbstractAIProvider {
 
             // 2. Validate required model parameter
             if (!options?.model) {
-                throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+                throw new Error('Model is required in chat options. Please specify a model in defaultModel configuration.');
             }
 
             // 3. Call OpenAI API (native SDK types)
@@ -141,7 +141,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     /**
      * Generate streaming response using TUniversalMessage
      */
-    override async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
+    override async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         // 🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Received options from ExecutionService
         console.log('🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Options received:', {
             model: options?.model,
@@ -175,7 +175,7 @@ export class OpenAIProvider extends AbstractAIProvider {
 
             // 2. Validate required model parameter
             if (!options?.model) {
-                throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+                throw new Error('Model is required in chat options. Please specify a model in defaultModel configuration.');
             }
 
             // 3. Call OpenAI streaming API
@@ -288,7 +288,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     /**
      * Convert tool schemas to OpenAI format
      */
-    private convertToOpenAITools(tools: ToolSchema[]): OpenAI.Chat.ChatCompletionTool[] {
+    private convertToOpenAITools(tools: IToolSchema[]): OpenAI.Chat.ChatCompletionTool[] {
         return tools.map(tool => ({
             type: 'function',
             function: {

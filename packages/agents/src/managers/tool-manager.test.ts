@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Tools } from './tool-manager';
-import type { ToolSchema } from '../interfaces/provider';
+import type { IToolSchema } from '../interfaces/provider';
 import type { ToolParameters } from '../interfaces/tool';
 import { ToolExecutionError } from '../utils/errors';
 
 describe('Tools (ToolManager)', () => {
     let toolManager: Tools;
 
-    const mockToolSchema: ToolSchema = {
+    const mockToolSchema: IToolSchema = {
         name: 'testTool',
         description: 'A test tool',
         parameters: {

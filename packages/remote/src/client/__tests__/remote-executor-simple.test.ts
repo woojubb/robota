@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SimpleRemoteExecutor } from '../remote-executor-simple';
 import type { SimpleRemoteConfig } from '../remote-executor-simple';
-import type { ChatExecutionRequest, StreamExecutionRequest, TUniversalMessage } from '@robota-sdk/agents';
+import type { IChatExecutionRequest, IStreamExecutionRequest, TUniversalMessage } from '@robota-sdk/agents';
 
 // Mock the HttpClient
 const mockHttpClient = {
@@ -112,7 +112,7 @@ describe('SimpleRemoteExecutor Facade', () => {
     });
 
     describe('Chat Execution', () => {
-        let validRequest: ChatExecutionRequest;
+        let validRequest: IChatExecutionRequest;
 
         beforeEach(() => {
             executor = new SimpleRemoteExecutor(mockConfig);
@@ -150,7 +150,7 @@ describe('SimpleRemoteExecutor Facade', () => {
                 messages: [],
                 provider: 'openai',
                 model: 'gpt-4'
-            } as ChatExecutionRequest;
+            } as IChatExecutionRequest;
 
             await expect(executor.executeChat(invalidRequest))
                 .rejects.toThrow('Messages array is required and cannot be empty');
@@ -161,7 +161,7 @@ describe('SimpleRemoteExecutor Facade', () => {
                 messages: [{ role: 'user', content: 'test', timestamp: new Date() }],
                 provider: '',
                 model: 'gpt-4'
-            } as ChatExecutionRequest;
+            } as IChatExecutionRequest;
 
             await expect(executor.executeChat(invalidRequest))
                 .rejects.toThrow('Provider is required');
@@ -172,7 +172,7 @@ describe('SimpleRemoteExecutor Facade', () => {
                 messages: [{ role: 'user', content: 'test', timestamp: new Date() }],
                 provider: 'openai',
                 model: ''
-            } as ChatExecutionRequest;
+            } as IChatExecutionRequest;
 
             await expect(executor.executeChat(invalidRequest))
                 .rejects.toThrow('Model is required');
@@ -186,7 +186,7 @@ describe('SimpleRemoteExecutor Facade', () => {
                 ],
                 provider: 'openai',
                 model: 'gpt-4'
-            } as ChatExecutionRequest;
+            } as IChatExecutionRequest;
 
             await expect(executor.executeChat(invalidRequest))
                 .rejects.toThrow('Invalid message at index 1: role and content must be strings');
@@ -202,7 +202,7 @@ describe('SimpleRemoteExecutor Facade', () => {
     });
 
     describe('Stream Execution', () => {
-        let validRequest: StreamExecutionRequest;
+        let validRequest: IStreamExecutionRequest;
 
         beforeEach(() => {
             executor = new SimpleRemoteExecutor(mockConfig);
@@ -243,7 +243,7 @@ describe('SimpleRemoteExecutor Facade', () => {
                 provider: 'openai',
                 model: 'gpt-4',
                 stream: true
-            } as StreamExecutionRequest;
+            } as IStreamExecutionRequest;
 
             const stream = executor.executeChatStream(invalidRequest);
 
@@ -291,7 +291,7 @@ describe('SimpleRemoteExecutor Facade', () => {
 
             mockHttpClient.chat.mockResolvedValue(mockResponse);
 
-            const request: ChatExecutionRequest = {
+            const request: IChatExecutionRequest = {
                 messages,
                 provider: 'openai',
                 model: 'gpt-4'

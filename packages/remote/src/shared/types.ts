@@ -5,17 +5,17 @@
 
 // Re-export core interfaces from @robota-sdk/agents
 export type {
-    ExecutorInterface,
-    ChatExecutionRequest,
-    StreamExecutionRequest,
-    LocalExecutorConfig,
-    RemoteExecutorConfig
+    IExecutor,
+    IChatExecutionRequest,
+    IStreamExecutionRequest,
+    ILocalExecutorConfig,
+    IRemoteExecutorConfig
 } from '@robota-sdk/agents';
 
 // Import for extension
 import type {
-    ChatExecutionRequest as BaseChatExecutionRequest,
-    StreamExecutionRequest as BaseStreamExecutionRequest,
+    IChatExecutionRequest as BaseChatExecutionRequest,
+    IStreamExecutionRequest as BaseStreamExecutionRequest,
     IAssistantMessage
 } from '@robota-sdk/agents';
 

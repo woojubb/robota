@@ -23,21 +23,29 @@ export type {
 } from './messages';
 
 export type {
-    AIProvider,
-    ToolSchema,
-    ParameterSchema,
-    JSONSchemaType,
-    JSONSchemaEnum,
-    ParameterDefaultValue,
-    ChatOptions
+    IAIProvider,
+    IToolSchema,
+    IParameterSchema,
+    TJSONSchemaType,
+    TJSONSchemaEnum,
+    TParameterDefaultValue,
+    IChatOptions,
+    IProviderOptions,
+    IProviderRequest,
+    IRawProviderResponse,
+    ITokenUsage,
+    IProviderSpecificOptions,
+    TProviderConfigValue
 } from './provider';
 
 export type {
-    AgentCreationMetadata,
-    ConfigValidationResult,
-    AgentFactoryInterface,
-    AIProviderManagerInterface,
-    ToolManagerInterface
+    TAgentCreationMetadata,
+    TManagerToolParameters,
+    IConfigValidationResult,
+    IAgentCreationOptions,
+    IAgentFactory,
+    IAIProviderManager,
+    IToolManager
 } from './manager';
 
 export type {
@@ -45,9 +53,9 @@ export type {
     FunctionTool,
     ToolRegistryInterface,
     ToolFactoryInterface,
-    TToolResult,
-    TToolExecutionResult,
-    TToolExecutionContext,
+    IToolResult,
+    IToolExecutionResult,
+    IToolExecutionContext,
     ParameterValidationResult,
     ToolExecutor,
     OpenAPIToolConfig,
@@ -84,17 +92,25 @@ export {
 } from './progress-reporting';
 
 export type {
-    ConversationContextMetadata,
-    ConversationContext,
-    ConversationServiceInterface,
-    ToolExecutionServiceInterface,
-    ExecutionServiceInterface
+    TConversationContextMetadata,
+    TToolExecutionParameters,
+    TExecutionMetadata,
+    TResponseMetadata,
+    IToolExecutionRequest,
+    IConversationContext,
+    IConversationResponse,
+    IStreamingChunk,
+    IContextOptions,
+    IExecutionServiceOptions,
+    IConversationService,
+    IToolExecutionService,
+    IExecutionService
 } from './service';
 
 export type {
-    ExecutorInterface,
-    ChatExecutionRequest,
-    StreamExecutionRequest,
-    LocalExecutorConfig,
-    RemoteExecutorConfig
+    IExecutor,
+    IChatExecutionRequest,
+    IStreamExecutionRequest,
+    ILocalExecutorConfig,
+    IRemoteExecutorConfig
 } from './executor'; 

@@ -8,9 +8,9 @@ import type { BasicMessage } from '../types/message-types';
 import type {
     TUniversalMessage,
     IAssistantMessage,
-    StreamExecutionRequest,
-    ChatExecutionRequest,
-    ExecutorInterface,
+    IStreamExecutionRequest,
+    IChatExecutionRequest,
+    IExecutor,
     SimpleLogger,
 } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
@@ -40,9 +40,9 @@ export interface SimpleExecutionRequest {
 
 /**
  * Simple RemoteExecutor using atomic components
- * Implements ExecutorInterface for full compatibility with LocalExecutor
+ * Implements IExecutor for full compatibility with LocalExecutor
  */
-export class SimpleRemoteExecutor implements ExecutorInterface {
+export class SimpleRemoteExecutor implements IExecutor {
     readonly name = 'remote';
     readonly version = '1.0.0';
 
@@ -74,22 +74,22 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
     }
 
     /**
-     * Execute chat request (ExecutorInterface compatible)
+     * Execute chat request (IExecutor compatible)
      */
-    async executeChat(request: ChatExecutionRequest): Promise<IAssistantMessage> {
+    async executeChat(request: IChatExecutionRequest): Promise<IAssistantMessage> {
         this.logger.debug('SimpleRemoteExecutor.executeChat called', {
             hasTools: !!request.tools,
             toolsCount: request.tools?.length || 0
         });
 
-        this.logger.debug('Using ExecutorInterface format (non-streaming)');
+        this.logger.debug('Using IExecutor format (non-streaming)');
         const messages = request.messages;
         const provider = request.provider;
         const model = request.model;
 
         const response = await this.httpClient.chat(messages, provider, model, request.tools);
 
-        // Convert ResponseMessage to AssistantMessage (ExecutorInterface requirement)
+        // Convert ResponseMessage to AssistantMessage (IExecutor requirement)
         const assistantMessage: IAssistantMessage = {
             role: 'assistant',
             content: response.content || '',
@@ -106,16 +106,16 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
     /**
      * Execute streaming chat completion
      */
-    async *executeChatStream(request: StreamExecutionRequest): AsyncIterable<TUniversalMessage> {
-        this.logger.debug('🔍 [REMOTE-EXECUTOR] executeChatStream called');
+    async *executeChatStream(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage> {
+        this.logger.debug('[REMOTE-EXECUTOR] executeChatStream called');
 
-        // 🔍 [TOOL-FLOW] RemoteExecutor.executeChatStream() - Request with tools
-        console.log('🔍 [TOOL-FLOW] RemoteExecutor.executeChatStream() - Sending to server:', {
+        // RemoteExecutor.executeChatStream() - Request with tools
+        this.logger.debug('[TOOL-FLOW] RemoteExecutor.executeChatStream() - Sending to server', {
             provider: request.provider,
             model: request.model,
             hasTools: !!request.tools,
             toolsCount: request.tools?.length || 0,
-            toolNames: request.tools?.map((t: any) => t.name) || []
+            toolNames: request.tools?.map(t => t.name) || []
         });
 
         try {
@@ -126,9 +126,9 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
                 request.tools
             );
 
-            // ✅ LocalExecutor와 완전히 동일: 모든 청크를 그대로 yield (ExecutionService가 병합 처리)
+            // LocalExecutor-compatible: yield every chunk as-is (ExecutionService merges them).
             for await (const responseMessage of stream) {
-                // Convert ResponseMessage to TUniversalMessage (LocalExecutor와 동일한 형태)
+                // Convert ResponseMessage to TUniversalMessage (LocalExecutor-compatible shape)
                 const universalMessage: TUniversalMessage = {
                     role: responseMessage.role as 'assistant',
                     content: responseMessage.content,
@@ -136,25 +136,25 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
                     ...(responseMessage.toolCalls && { toolCalls: responseMessage.toolCalls })
                 };
 
-                // LocalExecutor처럼 모든 청크를 그대로 yield
+                // Yield every chunk (no buffering)
                 yield universalMessage;
             }
 
         } catch (error) {
-            this.logger.error('Error in executeChatStream:', error);
+            this.logger.error?.('Error in executeChatStream', { error });
             throw error;
         }
     }
 
     /**
-     * Check if the executor supports tool calling (ExecutorInterface requirement)
+     * Check if the executor supports tool calling (IExecutor requirement)
      */
     supportsTools(): boolean {
         return true;
     }
 
     /**
-     * Validate executor configuration (ExecutorInterface requirement)
+     * Validate executor configuration (IExecutor requirement)
      */
     validateConfig(): boolean {
         if (!this.config.serverUrl) {
@@ -167,7 +167,7 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
     }
 
     /**
-     * Clean up resources (ExecutorInterface requirement)
+     * Clean up resources (IExecutor requirement)
      */
     async dispose(): Promise<void> {
         // Cleanup any resources if needed

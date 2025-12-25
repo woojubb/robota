@@ -2,12 +2,12 @@ import { AgentConfig, IAssistantMessage, IToolMessage, ExecutionContextInjection
 import { PluginContext, TMetadata } from '../interfaces/types';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { ToolExecutionService } from './tool-execution-service';
-import type { AIProviderManagerInterface } from '../interfaces/manager';
-import type { ToolManagerInterface } from '../interfaces/manager';
+import type { IAIProviderManager } from '../interfaces/manager';
+import type { IToolManager } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
-import type { TToolExecutionContext } from '../interfaces/tool';
+import type { IToolExecutionContext } from '../interfaces/tool';
 import { Logger, createLogger } from '../utils/logger';
-import { ChatOptions } from '../interfaces/provider';
+import { IChatOptions } from '../interfaces/provider';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
 import {
     IEventService,
@@ -111,8 +111,8 @@ interface PluginStats {
  */
 export class ExecutionService {
     private toolExecutionService: ToolExecutionService;
-    private aiProviders: AIProviderManagerInterface;
-    private tools: ToolManagerInterface;
+    private aiProviders: IAIProviderManager;
+    private tools: IToolManager;
     private conversationHistory: ConversationHistory;
     private plugins: AbstractPlugin[] = [];
     private logger: Logger;
@@ -125,8 +125,8 @@ export class ExecutionService {
     private lastResponseExecutionId?: string | undefined;
 
     constructor(
-        aiProviders: AIProviderManagerInterface,
-        tools: ToolManagerInterface,
+        aiProviders: IAIProviderManager,
+        tools: IToolManager,
         conversationHistory: ConversationHistory,
         eventService?: IEventService,
         executionContext?: ExecutionContextInjection // 🎯 [CONTEXT-INJECTION] Accept parent context
@@ -442,7 +442,7 @@ export class ExecutionService {
                 // Delegate entire execution to provider
                 const availableTools = this.tools.getTools();
 
-                const chatOptions: ChatOptions = {
+                const chatOptions: IChatOptions = {
                     model: config.defaultModel.model,
                     ...(config.defaultModel.maxTokens !== undefined && { maxTokens: config.defaultModel.maxTokens }),
                     ...(config.defaultModel.temperature !== undefined && { temperature: config.defaultModel.temperature }),
@@ -935,7 +935,7 @@ export class ExecutionService {
             this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools exists:', { exists: !!config.tools });
             this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools.length > 0:', { hasTools: config.tools && config.tools.length > 0 });
 
-            const chatOptions: ChatOptions = {
+            const chatOptions: IChatOptions = {
                 model: config.defaultModel.model,
                 ...(config.tools && config.tools.length > 0 && { tools: this.tools.getTools() })
             };

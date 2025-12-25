@@ -26,7 +26,7 @@ import { AbstractTool } from '../abstracts/abstract-tool';
 import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 import type { AbstractToolParameters } from '../abstracts/abstract-tool';
-import type { TToolExecutionData, TToolParameters, TToolExecutionContext } from '../interfaces/tool';
+import type { TToolExecutionData, TToolParameters, IToolExecutionContext } from '../interfaces/tool';
 import type { ModuleResultData, ModuleExecutionContext } from '../abstracts/abstract-module';
 
 /**
@@ -293,7 +293,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
                 tool.setEventService(this.eventService);
             }
             // Adapter executor consistent with initialization
-            const toolExecutor = async (parameters: TToolParameters, context?: TToolExecutionContext): Promise<TToolExecutionData> => {
+            const toolExecutor = async (parameters: TToolParameters, context?: IToolExecutionContext): Promise<TToolExecutionData> => {
                 if (!context) {
                     throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
                 }
@@ -496,7 +496,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
 
                     // Convert AbstractTool to ToolSchema and executor
                     // Create an adapter to convert ToolResult to ToolExecutionData
-                    const toolExecutor = async (parameters: AbstractToolParameters, context?: TToolExecutionContext): Promise<TToolExecutionData> => {
+                    const toolExecutor = async (parameters: AbstractToolParameters, context?: IToolExecutionContext): Promise<TToolExecutionData> => {
                         if (!context) {
                             throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
                         }
@@ -1257,7 +1257,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, TUniversalMes
         }
 
         // Create an adapter to convert ToolResult to ToolExecutionData
-        const toolExecutor = async (parameters: AbstractToolParameters, context?: TToolExecutionContext): Promise<TToolExecutionData> => {
+        const toolExecutor = async (parameters: AbstractToolParameters, context?: IToolExecutionContext): Promise<TToolExecutionData> => {
             if (!context) {
                 throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
             }

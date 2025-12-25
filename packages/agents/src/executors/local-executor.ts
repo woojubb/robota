@@ -1,10 +1,10 @@
 import type {
-    ChatExecutionRequest,
-    StreamExecutionRequest,
-    LocalExecutorConfig
+    IChatExecutionRequest,
+    IStreamExecutionRequest,
+    ILocalExecutorConfig
 } from '../interfaces/executor';
 import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
-import type { ChatOptions } from '../interfaces/provider';
+import type { IChatOptions } from '../interfaces/provider';
 import { AbstractExecutor } from '../abstracts/abstract-executor';
 
 /**
@@ -35,9 +35,9 @@ export class LocalExecutor extends AbstractExecutor {
     readonly version = '1.0.0';
 
     private providers = new Map<string, AIProviderInstance>();
-    private config: Required<LocalExecutorConfig>;
+    private config: Required<ILocalExecutorConfig>;
 
-    constructor(config: LocalExecutorConfig = {}) {
+    constructor(config: ILocalExecutorConfig = {}) {
         super();
         this.config = {
             timeout: 30000,
@@ -80,7 +80,7 @@ export class LocalExecutor extends AbstractExecutor {
     /**
      * Execute a chat completion request by delegating to the appropriate provider
      */
-    async executeChat(request: ChatExecutionRequest): Promise<IAssistantMessage> {
+    async executeChat(request: IChatExecutionRequest): Promise<IAssistantMessage> {
         this.validateRequest(request);
 
         const provider = this.providers.get(request.provider);
@@ -130,7 +130,7 @@ export class LocalExecutor extends AbstractExecutor {
     /**
      * Execute a streaming chat completion request
      */
-    async *executeChatStream(request: StreamExecutionRequest): AsyncIterable<TUniversalMessage> {
+    async *executeChatStream(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage> {
         this.validateRequest(request);
 
         const provider = this.providers.get(request.provider);
@@ -243,10 +243,10 @@ export interface AIProviderInstance {
     readonly name?: string;
 
     /** Chat completion method */
-    chat?(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage>;
+    chat?(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage>;
 
     /** Streaming chat completion method */
-    chatStream?(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage>;
+    chatStream?(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage>;
 
     /** Check if provider supports tools */
     supportsTools?(): boolean;

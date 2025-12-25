@@ -1,8 +1,8 @@
-import type { TToolResult, TToolExecutionContext } from './tool';
+import type { IToolResult, IToolExecutionContext } from './tool';
 import type { TContextData, TLoggerData, TMetadataValue, TUniversalValue } from './types';
 import type { TToolParameters } from './types';
 
-export type TEventExtensionValue = TUniversalValue | Date | Error | TLoggerData | TToolParameters | TToolResult;
+export type TEventExtensionValue = TUniversalValue | Date | Error | TLoggerData | TToolParameters | IToolResult;
 
 /**
  * Service event types for unified tracking
@@ -59,7 +59,7 @@ export interface IBaseEventData {
     /** @deprecated Use domain-specific payload fields instead */
     parameters?: TToolParameters | TContextData;
     /** @deprecated Use domain-specific payload fields instead */
-    result?: TToolResult;
+    result?: IToolResult;
     /** @deprecated Use domain-specific payload fields instead */
     error?: string;
     /** @deprecated Use domain-specific payload fields instead */
@@ -75,19 +75,19 @@ export interface IBaseEventData {
 
 export interface IExecutionEventData extends IBaseEventData {
     parameters?: TContextData;
-    result?: TToolResult;
+    result?: IToolResult;
 }
 
 export interface IToolEventData extends IBaseEventData {
     toolName?: string;
     parameters?: TToolParameters;
-    result?: TToolResult;
+    result?: IToolResult;
     error?: string;
 }
 
 export interface IAgentEventData extends IBaseEventData {
     parameters?: TContextData;
-    result?: TToolResult;
+    result?: IToolResult;
     statusHistory?: Array<{ status: string; eventType: string; timestamp: number }>;
 }
 
@@ -111,7 +111,7 @@ export interface IEventService {
 
     createBoundEmit?(executionId: string): (eventType: TServiceEventType, data: TServiceEventData) => void;
 
-    createContextBoundInstance?(executionContext: TToolExecutionContext): IEventService;
+    createContextBoundInstance?(executionContext: IToolExecutionContext): IEventService;
 }
 
 export interface IEventServiceOwnerBinding {

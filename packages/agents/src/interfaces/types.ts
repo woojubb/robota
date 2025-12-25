@@ -19,10 +19,10 @@ export type TPrimitiveValue = string | number | boolean | null | undefined;
 export type TUniversalValue =
     | TPrimitiveValue
     | Date
-    | IUniversalArrayValue
+    | TUniversalArrayValue
     | IUniversalObjectValue;
 
-export type IUniversalArrayValue = TUniversalValue[];
+export type TUniversalArrayValue = TUniversalValue[];
 
 export interface IUniversalObjectValue {
     [key: string]: TUniversalValue;
@@ -31,7 +31,7 @@ export interface IUniversalObjectValue {
 /**
  * Metadata type - consistent across agent components
  */
-export type TMetadataValue = TPrimitiveValue | IUniversalArrayValue | Date;
+export type TMetadataValue = TPrimitiveValue | TUniversalArrayValue | Date;
 export type TMetadata = Record<string, TMetadataValue>;
 
 /**
@@ -47,8 +47,8 @@ export type TLoggerData = Record<string, TUniversalValue | Date | Error>;
 /**
  * Configuration types - for agent configuration
  */
-export type TComplexConfigValue = Record<string, TPrimitiveValue | IUniversalArrayValue | IUniversalObjectValue>;
-export type TConfigValue = TPrimitiveValue | IUniversalArrayValue | IUniversalObjectValue | Array<TComplexConfigValue> | Array<Record<string, TPrimitiveValue | IUniversalArrayValue | IUniversalObjectValue>> | Array<TComplexConfigValue> | TComplexConfigValue;
+export type TComplexConfigValue = Record<string, TPrimitiveValue | TUniversalArrayValue | IUniversalObjectValue>;
+export type TConfigValue = TPrimitiveValue | TUniversalArrayValue | IUniversalObjectValue | Array<TComplexConfigValue> | Array<Record<string, TPrimitiveValue | TUniversalArrayValue | IUniversalObjectValue>> | Array<TComplexConfigValue> | TComplexConfigValue;
 export type TConfigData = Record<string, TConfigValue>;
 
 /**
@@ -66,7 +66,8 @@ export type TToolResultData = TUniversalValue;
  * Provider configuration value type - for AI provider configs
  * Note: ProviderConfig is defined in agent.ts to avoid export conflicts
  */
-export type ProviderConfigValue = TPrimitiveValue | IUniversalArrayValue | IUniversalObjectValue;
+// NOTE: Provider config value types are owned by the provider axis (`interfaces/provider.ts`).
+// Do not introduce duplicate provider config value types here.
 
 /**
  * Plugin context type - for plugin execution contexts
@@ -93,7 +94,7 @@ export const TypeUtils = {
             typeof value === 'boolean';
     },
 
-    isArray: (value: TUniversalValue): value is IUniversalArrayValue => {
+    isArray: (value: TUniversalValue): value is TUniversalArrayValue => {
         return Array.isArray(value) && value.every(item => TypeUtils.isUniversalValue(item));
     },
 

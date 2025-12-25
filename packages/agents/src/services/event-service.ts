@@ -8,7 +8,7 @@
  */
 
 import { SimpleLogger, DefaultConsoleLogger } from '../utils/simple-logger';
-import type { TToolExecutionContext } from '../interfaces/tool';
+import type { IToolExecutionContext } from '../interfaces/tool';
 import type { TLoggerData } from '../interfaces/types';
 import type {
     IAgentEventData,
@@ -66,7 +66,7 @@ export abstract class AbstractEventService implements IEventService {
         };
     }
 
-    createContextBoundInstance(executionContext: TToolExecutionContext): IEventService {
+    createContextBoundInstance(executionContext: IToolExecutionContext): IEventService {
         void executionContext;
         return this;
     }
@@ -165,7 +165,7 @@ class OwnerBoundEventService extends AbstractEventService {
         this.baseEventService.trackExecution?.(executionId, parentExecutionId, level);
     }
 
-    override createContextBoundInstance(executionContext: TToolExecutionContext): IEventService {
+    override createContextBoundInstance(executionContext: IToolExecutionContext): IEventService {
         const ownerType = executionContext.ownerType as TOwnerType | (string & {});
         if (!isNonEmptyString(ownerType)) {
             throw new Error('[EVENT-SERVICE] Missing ownerType for createContextBoundInstance');

@@ -2,16 +2,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { AnthropicProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
-    TUniversalMessage as RobotaTUniversalMessage,
-    ChatOptions as RobotaChatOptions,
-    ToolSchema as RobotaToolSchema,
+    TUniversalMessage,
+    IChatOptions,
+    IToolSchema,
     IAssistantMessage,
 } from '@robota-sdk/agents';
-
-// Re-export with cleaner names for internal use
-type TUniversalMessage = RobotaTUniversalMessage;
-type ChatOptions = RobotaChatOptions;
-type ToolSchema = RobotaToolSchema;
 
 /**
  * Anthropic provider implementation for Robota
@@ -62,7 +57,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     /**
      * Generate response using TUniversalMessage
      */
-    override async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
+    override async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         this.validateMessages(messages);
 
         // Try executor first, then fallback to direct execution
@@ -82,7 +77,7 @@ export class AnthropicProvider extends AbstractAIProvider {
         const anthropicMessages = this.convertToAnthropicFormat(messages);
 
         if (!options?.model) {
-            throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+            throw new Error('Model is required in chat options. Please specify a model in defaultModel configuration.');
         }
 
         const requestParams: Anthropic.MessageCreateParams = {
@@ -107,7 +102,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     /**
      * Generate streaming response using TUniversalMessage
      */
-    override async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
+    override async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         this.validateMessages(messages);
 
         // Try executor first, then fallback to direct execution
@@ -128,7 +123,7 @@ export class AnthropicProvider extends AbstractAIProvider {
         const anthropicMessages = this.convertToAnthropicFormat(messages);
 
         if (!options?.model) {
-            throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+            throw new Error('Model is required in chat options. Please specify a model in defaultModel configuration.');
         }
 
         const requestParams: Anthropic.MessageCreateParamsStreaming = {
@@ -281,7 +276,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     /**
      * Convert tools to Anthropic format
      */
-    private convertToolsToAnthropicFormat(tools: ToolSchema[]): Anthropic.Tool[] {
+    private convertToolsToAnthropicFormat(tools: IToolSchema[]): Anthropic.Tool[] {
         return tools.map(tool => ({
             name: tool.name,
             description: tool.description,

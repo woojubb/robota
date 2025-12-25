@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import type { SimpleLogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
-import type { TUniversalMessage, ChatOptions } from '@robota-sdk/agents';
+import type { TUniversalMessage, IChatOptions } from '@robota-sdk/agents';
 
 /**
  * Server status interface
@@ -19,8 +19,8 @@ interface ServerStatus {
  * AI Provider interface
  */
 interface AIProvider {
-    chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage>;
-    chatStream?(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage>;
+    chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage>;
+    chatStream?(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage>;
 }
 
 /**

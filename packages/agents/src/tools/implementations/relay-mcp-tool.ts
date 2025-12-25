@@ -1,5 +1,5 @@
-import type { TToolParameters, TToolResult, TToolExecutionContext } from '../../interfaces/tool';
-import type { ToolSchema } from '../../interfaces/provider';
+import type { TToolParameters, IToolResult, IToolExecutionContext } from '../../interfaces/tool';
+import type { IToolSchema } from '../../interfaces/provider';
 import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import type { IEventService, IOwnerPathSegment } from '../../services/event-service';
 import { ToolExecutionError } from '../../utils/errors';
@@ -17,12 +17,12 @@ export interface RelayMcpContext {
 
 export interface RelayMcpOptions extends AbstractToolOptions {
     /** MCP schema describing this relay tool */
-    schema: ToolSchema;
+    schema: IToolSchema;
     /**
      * Relay executor that performs the actual work (e.g., create Robota agent and run).
      * Must not perform ownerPath inference; receives the augmented agent ownerPath.
      */
-    run: (parameters: TToolParameters, ctx: RelayMcpContext) => Promise<TToolResult>;
+    run: (parameters: TToolParameters, ctx: RelayMcpContext) => Promise<IToolResult>;
 }
 
 /**
@@ -33,8 +33,8 @@ export interface RelayMcpOptions extends AbstractToolOptions {
  * - This tool appends a single agent segment and forwards control to the provided run() callback.
  * - No prefix injection, no ownerPath inference, no fallback/clone/context creation inside.
  */
-export class RelayMcpTool extends AbstractTool<TToolParameters, TToolResult> {
-    readonly schema: ToolSchema;
+export class RelayMcpTool extends AbstractTool<TToolParameters, IToolResult> {
+    readonly schema: IToolSchema;
     private readonly runImpl: RelayMcpOptions['run'];
 
     constructor(options: RelayMcpOptions) {
@@ -43,7 +43,7 @@ export class RelayMcpTool extends AbstractTool<TToolParameters, TToolResult> {
         this.runImpl = options.run;
     }
 
-    protected override async executeImpl(parameters: TToolParameters, context?: TToolExecutionContext): Promise<TToolResult> {
+    protected override async executeImpl(parameters: TToolParameters, context?: IToolExecutionContext): Promise<IToolResult> {
         const eventService = context?.eventService;
         if (!eventService) {
             throw new ToolExecutionError('RelayMcpTool requires tool-call scoped EventService in ToolExecutionContext', this.schema.name);
