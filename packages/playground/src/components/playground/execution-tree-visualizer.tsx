@@ -20,16 +20,16 @@ import type { PlaygroundBlockCollector } from '../../lib/playground/block-tracki
 /**
  * Tree node structure for hierarchical rendering
  */
-interface ExecutionTreeNode {
+interface IExecutionTreeNode {
     block: IRealTimeBlockMessage;
-    children: ExecutionTreeNode[];
+    children: IExecutionTreeNode[];
     level: number;
 }
 
 /**
  * Props for ExecutionTreeVisualizer component
  */
-export interface ExecutionTreeVisualizerProps {
+export interface IExecutionTreeVisualizerProps {
     /** Block collector containing all execution blocks */
     blockCollector: PlaygroundBlockCollector;
 
@@ -63,7 +63,7 @@ export interface ExecutionTreeVisualizerProps {
  * - Visual indicators for execution status and timing
  * - Filter and search capabilities
  */
-export const ExecutionTreeVisualizer: React.FC<ExecutionTreeVisualizerProps> = ({
+export const ExecutionTreeVisualizer: React.FC<IExecutionTreeVisualizerProps> = ({
     blockCollector,
     showDebug = false,
     showProgress = true,
@@ -92,12 +92,12 @@ export const ExecutionTreeVisualizer: React.FC<ExecutionTreeVisualizerProps> = (
         });
 
         // Build tree structure
-        const rootNodes: ExecutionTreeNode[] = [];
-        const nodeMap = new Map<string, ExecutionTreeNode>();
+        const rootNodes: IExecutionTreeNode[] = [];
+        const nodeMap = new Map<string, IExecutionTreeNode>();
 
         // First pass: create all nodes
         filteredBlocks.forEach(block => {
-            const node: ExecutionTreeNode = {
+            const node: IExecutionTreeNode = {
                 block,
                 children: [],
                 level: block.blockMetadata.executionHierarchy?.level ?? 0
@@ -123,7 +123,7 @@ export const ExecutionTreeVisualizer: React.FC<ExecutionTreeVisualizerProps> = (
         });
 
         // Sort nodes by timestamp for consistent ordering
-        const sortNodesByTime = (nodes: ExecutionTreeNode[]) => {
+        const sortNodesByTime = (nodes: IExecutionTreeNode[]) => {
             nodes.sort((a, b) => {
                 const aTime = a.block.blockMetadata.startTime?.getTime() ?? 0;
                 const bTime = b.block.blockMetadata.startTime?.getTime() ?? 0;
@@ -203,7 +203,7 @@ export const ExecutionTreeVisualizer: React.FC<ExecutionTreeVisualizerProps> = (
     }, [blockCollector]);
 
     // Render a single tree node and its children
-    const renderTreeNode = useCallback((node: ExecutionTreeNode): React.ReactNode => {
+    const renderTreeNode = useCallback((node: IExecutionTreeNode): React.ReactNode => {
         const hasChildren = node.children.length > 0;
 
         return (

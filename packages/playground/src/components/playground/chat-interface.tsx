@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { WebLogger } from '../../lib/web-logger'
 
-interface Message {
+interface IChatMessage {
     id: string
     role: 'user' | 'assistant'
     content: string
@@ -27,13 +27,13 @@ interface Message {
     status?: 'sending' | 'sent' | 'error'
 }
 
-interface ChatInterfaceProps {
+interface IChatInterfaceProps {
     isAgentReady: boolean
     onSendMessage?: (message: string) => Promise<string>
 }
 
-export function ChatInterface({ isAgentReady, onSendMessage }: ChatInterfaceProps) {
-    const [messages, setMessages] = useState<Message[]>([])
+export function ChatInterface({ isAgentReady, onSendMessage }: IChatInterfaceProps) {
+    const [messages, setMessages] = useState<IChatMessage[]>([])
     const [input, setInput] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -42,7 +42,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: ChatInterfaceProp
     const handleSend = async () => {
         if (!input.trim() || !isAgentReady || isLoading) return
 
-        const userMessage: Message = {
+        const userMessage: IChatMessage = {
             id: Date.now().toString(),
             role: 'user',
             content: input.trim(),
@@ -60,7 +60,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: ChatInterfaceProp
                 ? await onSendMessage(userMessage.content)
                 : await simulateAgentResponse(userMessage.content)
 
-            const assistantMessage: Message = {
+            const assistantMessage: IChatMessage = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: response,
@@ -70,7 +70,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: ChatInterfaceProp
 
             setMessages(prev => [...prev, assistantMessage])
         } catch (error) {
-            const errorMessage: Message = {
+            const errorMessage: IChatMessage = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: 'Sorry, I encountered an error while processing your message. Please try again.',

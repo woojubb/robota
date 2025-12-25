@@ -44,7 +44,7 @@ import {
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import { WebLogger } from '../../lib/web-logger';
 
-export interface AgentConfigurationBlockProps {
+export interface IAgentConfigurationBlockProps {
     config: IPlaygroundAgentConfig;
     isActive?: boolean;
     isExecuting?: boolean;
@@ -71,7 +71,7 @@ export function AgentConfigurationBlock({
     onDuplicate,
     onDelete,
     className = ''
-}: AgentConfigurationBlockProps) {
+}: IAgentConfigurationBlockProps) {
     // Configuration state - always editable when not executing
     const [editedConfig, setEditedConfig] = useState<IPlaygroundAgentConfig>(config);
 

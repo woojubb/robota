@@ -59,7 +59,7 @@ import {
     type ILayoutConfig
 } from '../../lib/workflow-visualization/auto-layout';
 
-interface WorkflowVisualizationProps {
+interface IWorkflowVisualizationProps {
     workflow?: IUniversalWorkflowStructure;
     className?: string;
     onAgentNodeClick?: (nodeId: string, data: any) => void;
@@ -69,7 +69,7 @@ interface WorkflowVisualizationProps {
 }
 
 // Unified Chat System
-type ChatNodeType = 'agent' | 'response';
+type TChatNodeType = 'agent' | 'response';
 
 function isPlaygroundToolMeta(value: unknown): value is IPlaygroundToolMeta {
     if (!value || typeof value !== 'object') return false;
@@ -84,7 +84,7 @@ function isPlaygroundToolMeta(value: unknown): value is IPlaygroundToolMeta {
 /**
  * Extract Agent ID from node data based on node type
  */
-const extractAgentId = (nodeData: any, nodeType: ChatNodeType): string | null => {
+const extractAgentId = (nodeData: any, nodeType: TChatNodeType): string | null => {
     if (nodeType === 'agent') {
         return nodeData.sourceId || nodeData.conversationId || null;
     } else if (nodeType === 'response') {
@@ -103,7 +103,7 @@ const ChatButton = ({
     onChatOpen
 }: {
     nodeData: any;
-    nodeType: ChatNodeType;
+    nodeType: TChatNodeType;
     onChatOpen?: (agentId: string, nodeData: any) => void;
 }) => {
     const handleChatClick = (e: React.MouseEvent) => {
@@ -132,10 +132,10 @@ const ChatButton = ({
 };
 
 // Base Node Template Types
-type NodeType = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'user_message' | 'agent_thinking' | 'response' | 'tool_call' | 'tool_call_response' | 'tool_response' | 'tool_result';
+type TNodeType = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'user_message' | 'agent_thinking' | 'response' | 'tool_call' | 'tool_call_response' | 'tool_response' | 'tool_result';
 
-interface BaseNodeTemplateProps {
-    nodeType: NodeType;
+interface INodeTemplateProps {
+    nodeType: TNodeType;
     data: any;
     sourcePosition?: Position;
     targetPosition?: Position;
@@ -151,10 +151,10 @@ interface BaseNodeTemplateProps {
 /**
  * Base Node Template Component
  * 
- * 모든 커스텀 노드의 공통 구조와 Handle 로직을 추상화
- * - 외부 div에 data-node-type, data-status 속성 설정
- * - Handle 위치와 ID 자동 관리
- * - CSS에서 노드 타입별 스타일링 적용
+ * Abstracts shared node structure and React Flow Handle logic for custom nodes.
+ * - Sets `data-node-type` and `data-status` on the outer container.
+ * - Manages Handle positions and IDs.
+ * - Enables node-type styling via CSS selectors.
  */
 const BaseNodeTemplate = ({
     nodeType,
@@ -163,7 +163,7 @@ const BaseNodeTemplate = ({
     targetPosition,
     children,
     handles = { target: true, source: true }
-}: BaseNodeTemplateProps) => {
+}: INodeTemplateProps) => {
     return (
         <div
             className="w-48 p-2.5 bg-gray-50 rounded-lg text-sm font-medium"
@@ -191,10 +191,10 @@ const BaseNodeTemplate = ({
     );
 };
 
-// STEP 12.0.3: 시각적 구분 시스템 - Custom Edge Components
+// Visual distinction system - Custom Edge Components
 
 /**
- * 정상 연결 Edge (부드러운 초록색 곡선 + 은은한 외곽선)
+ * Connected Edge (smooth green curve with a subtle outline)
  */
 const ConnectedEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: any) => {
     const [edgePath] = getBezierPath({
@@ -231,7 +231,7 @@ const ConnectedEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition,
 };
 
 /**
- * 누락된 연결 Edge (빨간색 점선)
+ * Missing Edge (red dashed line)
  */
 const MissingEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
     const [edgePath] = getStraightPath({
@@ -254,7 +254,7 @@ const MissingEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
 };
 
 /**
- * 도메인 중립적 Tool Call Edge (오렌지색)
+ * Domain-neutral Tool Call Edge (orange)
  */
 const ToolCallEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
     const [edgePath] = getStraightPath({
@@ -276,7 +276,7 @@ const ToolCallEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
 };
 
 /**
- * 재귀적 Agent 생성 Edge (보라색)
+ * Recursive agent creation Edge (purple)
  */
 const RecursiveAgentEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
     const [edgePath] = getStraightPath({
@@ -344,7 +344,7 @@ const DynamicDagreLayout = ({
             WebLogger.debug('Applying unified Dagre layout with actual node dimensions');
 
             try {
-                // 실제 측정된 크기를 노드 데이터에 업데이트
+                // Update node data with the measured dimensions.
                 const nodesWithRealDimensions = nodes.map((node) => {
                     const nodeInternal = nodeInternals.get(node.id);
                     return {
@@ -357,11 +357,11 @@ const DynamicDagreLayout = ({
                     };
                 });
 
-                // 동적 간격 계산을 현재 레이아웃 설정에 병합
+                // Merge dynamic spacing into the current layout configuration.
                 const dynamicOverrides = calculateOptimalSpacing(nodesWithRealDimensions);
                 const mergedConfig = { ...layoutConfig, ...dynamicOverrides };
 
-                // 통합된 레이아웃 함수 사용 (실제 크기 반영 + 동적 간격)
+                // Use the unified layout function (measured sizes + dynamic spacing).
                 const { nodes: layoutedNodes } = applyDagreLayout(
                     nodesWithRealDimensions,
                     edges,
@@ -380,17 +380,17 @@ const DynamicDagreLayout = ({
         }
     }, [nodeInternals, getNodes, getEdges, setNodes, layoutConfig, hasAppliedLayout, onLayoutComplete]);
 
-    // 레이아웃 재설정 함수
+    // Layout reset function
     const resetLayout = useCallback(() => {
         setHasAppliedLayout(false);
     }, []);
 
-    // 레이아웃 설정이 변경되면 재적용
+    // Re-apply when layout configuration changes
     useEffect(() => {
         setHasAppliedLayout(false);
     }, [layoutConfig]);
 
-    // 외부에서 재레이아웃 트리거할 수 있도록 노출
+    // Expose a re-layout trigger for external callers
     useEffect(() => {
         (window as any).__resetDagreLayout = resetLayout;
         return () => {
@@ -404,17 +404,17 @@ const DynamicDagreLayout = ({
 
 
 /**
- * Edge Types 정의 - 연결 상태 시각적 구분
+ * Edge Types - visual distinction by connection status
  */
 const edgeTypes: EdgeTypes = {
     // Use our styled edge as the default renderer so all unspecified edges get the style
     default: ConnectedEdge,
-    connected: ConnectedEdge,        // ✅ 정상 연결 (초록색)
-    missing: MissingEdge,            // ❌ 누락 연결 (빨간색 점선)
-    toolCall: ToolCallEdge,          // 🔧 Tool Call (오렌지색)
-    recursiveAgent: RecursiveAgentEdge, // 🔄 재귀 Agent (보라색)
+    connected: ConnectedEdge,        // Connected (green)
+    missing: MissingEdge,            // Missing (red dashed)
+    toolCall: ToolCallEdge,          // Tool call (orange)
+    recursiveAgent: RecursiveAgentEdge, // Recursive agent (purple)
 
-    // 실제 SDK에서 생성되는 타입들 매핑
+    // Mapping for types produced by the SDK
     processes: ConnectedEdge,        // user_message → agent_thinking
     continues: ConnectedEdge,        // response → user_message
     return: ConnectedEdge,           // agent_thinking → response
@@ -1142,7 +1142,7 @@ const PlaceholderNode = ({ data }: { data: any }) => {
     );
 };
 
-// SubAgentNode 제거 - Agent 노드 타입으로 통일
+// Removed legacy hierarchical node naming - use Agent node type only.
 
 // Node types for React-Flow
 const nodeTypes = {
@@ -1159,7 +1159,7 @@ const nodeTypes = {
     agentResponse: AgentResponseNode as any,
     toolCall: LegacyToolCallNode as any,
     placeholder: PlaceholderNode as any
-    // userInput 제거 - 레거시 타입
+    // Removed legacy user input type
 };
 
 // Local child component to show Agent details with mock endpoint generation
@@ -1461,7 +1461,7 @@ function WorkflowVisualizationContent({
     onToolDrop,
     toolItems,
     addedToolsByAgent
-}: WorkflowVisualizationProps) {
+}: IWorkflowVisualizationProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [converter] = useState(() => new UniversalToReactFlowConverter());
@@ -1614,7 +1614,7 @@ function WorkflowVisualizationContent({
         };
     }, []);
 
-    // 🔍 Data Dump 기능 - 현재 workflow 데이터를 클립보드에 복사
+    // Data dump - copy the current workflow data to the clipboard
     const handleDataDump = useCallback(async () => {
         try {
             // Single source of truth: dump only workflow (UI derives reactFlow data)
@@ -2054,7 +2054,7 @@ function WorkflowVisualizationContent({
                             edgeTypes={edgeTypes}
                             attributionPosition="bottom-left"
                         >
-                            {/* 동적 Dagre 레이아웃 컴포넌트 */}
+                            {/* Dynamic Dagre layout component */}
                             <DynamicDagreLayout
                                 layoutConfig={currentLayoutConfig}
                                 onLayoutComplete={() => {
@@ -2118,7 +2118,7 @@ function WorkflowVisualizationContent({
     );
 }
 
-export function WorkflowVisualization(props: WorkflowVisualizationProps) {
+export function WorkflowVisualization(props: IWorkflowVisualizationProps) {
     return (
         <ReactFlowProvider>
             <WorkflowVisualizationContent {...props} />

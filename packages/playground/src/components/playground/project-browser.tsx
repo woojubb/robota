@@ -11,26 +11,27 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { ScrollArea } from '../ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { ProjectManager, type Project } from '../../lib/playground/project-manager';
+import { ProjectManager } from '../../lib/playground/project-manager';
+import type { IPlaygroundProject, TPlaygroundProvider } from '../../lib/playground/project-manager';
 import { useToast } from '../../hooks/use-toast';
 
-interface ProjectBrowserProps {
-    onSelectProject: (project: Project) => void;
+interface IProjectBrowserProps {
+    onSelectProject: (project: IPlaygroundProject) => void;
     onCreateNew: () => void;
     currentProjectId?: string;
 }
 
-export function ProjectBrowser({ onSelectProject, onCreateNew, currentProjectId }: ProjectBrowserProps) {
-    const [projects, setProjects] = useState<Project[]>([]);
+export function ProjectBrowser({ onSelectProject, onCreateNew, currentProjectId }: IProjectBrowserProps) {
+    const [projects, setProjects] = useState<IPlaygroundProject[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState<'name' | 'created' | 'modified'>('modified');
-    const [filterProvider, setFilterProvider] = useState<string>('all');
+    const [filterProvider, setFilterProvider] = useState<TPlaygroundProvider | 'all'>('all');
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
     const [newProject, setNewProject] = useState<{
         name: string
         description: string
-        provider: 'openai' | 'anthropic' | 'google'
+        provider: TPlaygroundProvider
     }>({
         name: '',
         description: '',
@@ -108,7 +109,7 @@ export function ProjectBrowser({ onSelectProject, onCreateNew, currentProjectId 
         }
     };
 
-    const handleExportProject = (project: Project) => {
+    const handleExportProject = (project: IPlaygroundProject) => {
         const dataStr = JSON.stringify(project, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(dataBlob);

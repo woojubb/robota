@@ -8,13 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { ScrollArea } from '../ui/scroll-area';
 import { Keyboard, Command, Save, Play, FileText, Search, Zap } from 'lucide-react';
 
-interface ShortcutItem {
+interface IShortcutItem {
     keys: string[];
     description: string;
     category: string;
 }
 
-const shortcuts: ShortcutItem[] = [
+const shortcuts: IShortcutItem[] = [
     // Project Management
     { keys: ['Ctrl', 'S'], description: 'Save current project', category: 'Project' },
     { keys: ['Ctrl', 'N'], description: 'Create new project', category: 'Project' },
@@ -69,18 +69,18 @@ const KeyBadge = ({ keyCombo }: { keyCombo: string[] }) => (
     </div>
 );
 
-interface ShortcutsHelpProps {
+interface IShortcutsHelpProps {
     trigger?: React.ReactNode;
 }
 
-export function ShortcutsHelp({ trigger }: ShortcutsHelpProps) {
+export function ShortcutsHelp({ trigger }: IShortcutsHelpProps) {
     const groupedShortcuts = shortcuts.reduce((acc, shortcut) => {
         if (!acc[shortcut.category]) {
             acc[shortcut.category] = [];
         }
         acc[shortcut.category].push(shortcut);
         return acc;
-    }, {} as Record<string, ShortcutItem[]>);
+    }, {} as Record<string, IShortcutItem[]>);
 
     const defaultTrigger = (
         <Button variant="ghost" size="sm">

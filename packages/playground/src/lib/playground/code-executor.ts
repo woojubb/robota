@@ -10,9 +10,9 @@ import {
     extractProviderInfo,
     createPlaygroundSandbox,
 } from './remote-injection';
-import type { PlaygroundConfig } from './config-validation';
+import type { IPlaygroundConfig } from './config-validation';
 
-export interface ExecutionResult {
+export interface IExecutionResult {
     success: boolean
     output?: string
     error?: string
@@ -20,11 +20,11 @@ export interface ExecutionResult {
     duration: number
     agentReady: boolean
     compiledCode?: string
-    errors?: ErrorInfo[]
-    warnings?: ErrorInfo[]
+    errors?: IErrorInfo[]
+    warnings?: IErrorInfo[]
 }
 
-export interface ErrorInfo {
+export interface IErrorInfo {
     type: 'syntax' | 'runtime' | 'api' | 'configuration' | 'import'
     severity: 'error' | 'warning' | 'info'
     message: string
@@ -36,7 +36,7 @@ export interface ErrorInfo {
     documentation?: string
 }
 
-export interface AgentContext {
+export interface IAgentContext {
     provider: string
     model: string
     tools: Array<{ name: string; description: string }>
@@ -44,10 +44,10 @@ export interface AgentContext {
 }
 
 export class CodeExecutor {
-    private context: AgentContext | null = null
-    private playgroundConfig: PlaygroundConfig
+    private context: IAgentContext | null = null
+    private playgroundConfig: IPlaygroundConfig
 
-    constructor(config?: Partial<PlaygroundConfig>) {
+    constructor(config?: Partial<IPlaygroundConfig>) {
         this.playgroundConfig = {
             enabled: true,
             serverUrl: config?.serverUrl || 'https://api.robota.io',
@@ -61,11 +61,11 @@ export class CodeExecutor {
         };
     }
 
-    async executeCode(code: string, provider: string): Promise<ExecutionResult> {
+    async executeCode(code: string, provider: string): Promise<IExecutionResult> {
         const startTime = Date.now()
         const logs: string[] = []
-        const errors: ErrorInfo[] = []
-        const warnings: ErrorInfo[] = []
+        const errors: IErrorInfo[] = []
+        const warnings: IErrorInfo[] = []
 
         try {
             // Step 0: Transform code for RemoteExecutor if needed
@@ -210,7 +210,7 @@ export class CodeExecutor {
             }
 
         } catch (error) {
-            const errorInfo: ErrorInfo = {
+            const errorInfo: IErrorInfo = {
                 type: 'runtime',
                 severity: 'error',
                 message: error instanceof Error ? error.message : 'Unknown runtime error',
@@ -248,9 +248,9 @@ export class CodeExecutor {
         return this.generateAgentResponse(message, this.context)
     }
 
-    private analyzeCode(code: string): { errors: ErrorInfo[], warnings: ErrorInfo[] } {
-        const errors: ErrorInfo[] = []
-        const warnings: ErrorInfo[] = []
+    private analyzeCode(code: string): { errors: IErrorInfo[], warnings: IErrorInfo[] } {
+        const errors: IErrorInfo[] = []
+        const warnings: IErrorInfo[] = []
         const lines = code.split('\n')
 
         // Check for basic syntax issues
@@ -268,7 +268,7 @@ export class CodeExecutor {
         return { errors, warnings }
     }
 
-    private checkSyntax(code: string, lines: string[], errors: ErrorInfo[], warnings: ErrorInfo[]) {
+    private checkSyntax(code: string, lines: string[], errors: IErrorInfo[], warnings: IErrorInfo[]) {
         // Check for common syntax errors
         if (code.includes('import') && !code.includes('from')) {
             const importLine = lines.findIndex(line => line.includes('import') && !line.includes('from'))
@@ -331,7 +331,7 @@ export class CodeExecutor {
         })
     }
 
-    private checkImports(code: string, lines: string[], errors: ErrorInfo[], warnings: ErrorInfo[]) {
+    private checkImports(code: string, lines: string[], errors: IErrorInfo[], warnings: IErrorInfo[]) {
         const requiredImports = [
             { package: '@robota-sdk/agents', export: 'Robota' },
             { package: '@robota-sdk/openai', export: 'OpenAIProvider' },
@@ -432,7 +432,7 @@ export class CodeExecutor {
         })
     }
 
-    private checkAgentConfig(code: string, lines: string[], errors: ErrorInfo[], warnings: ErrorInfo[]) {
+    private checkAgentConfig(code: string, lines: string[], errors: IErrorInfo[], warnings: IErrorInfo[]) {
         // Check if Robota is instantiated
         if (!code.includes('new Robota(')) {
             errors.push({
@@ -501,7 +501,7 @@ export class CodeExecutor {
         }
     }
 
-    private checkEnvironmentUsage(code: string, lines: string[], warnings: ErrorInfo[]) {
+    private checkEnvironmentUsage(code: string, lines: string[], warnings: IErrorInfo[]) {
         // Check for environment variable usage
         const envVarPattern = /process\.env\.(\w+)/g
         const envVars = []
@@ -525,9 +525,9 @@ export class CodeExecutor {
         })
     }
 
-    private validateEnvironment(provider: string, agentConfig: AgentContext): { errors: ErrorInfo[], warnings: ErrorInfo[] } {
-        const errors: ErrorInfo[] = []
-        const warnings: ErrorInfo[] = []
+    private validateEnvironment(provider: string, agentConfig: IAgentContext): { errors: IErrorInfo[], warnings: IErrorInfo[] } {
+        const errors: IErrorInfo[] = []
+        const warnings: IErrorInfo[] = []
 
         // Simulate environment validation
         const commonEnvVars = {
@@ -683,7 +683,7 @@ const compiledAgent = {
 export default compiledAgent;`
     }
 
-    private generateSuccessOutput(config: AgentContext, provider: string, transformedCode?: string): string {
+    private generateSuccessOutput(config: IAgentContext, provider: string, transformedCode?: string): string {
         const isRemoteExecution = transformedCode && transformedCode !== transformedCode;
 
         return `🎉 Agent Initialization Successful!
@@ -714,7 +714,7 @@ const compiledAgent = {
 export default compiledAgent;`
     }
 
-    private generateAgentResponse(message: string, context: AgentContext): string {
+    private generateAgentResponse(message: string, context: IAgentContext): string {
         const responses = [
             `I understand you're asking about "${message}". As an AI agent powered by ${context.provider}, I'm here to help!`,
             `Thanks for your message: "${message}". I have ${context.tools.length} tools available to assist you.`,
@@ -746,7 +746,7 @@ export default compiledAgent;`
         return new Promise(resolve => setTimeout(resolve, ms))
     }
 
-    getContext(): AgentContext | null {
+    getContext(): IAgentContext | null {
         return this.context
     }
 

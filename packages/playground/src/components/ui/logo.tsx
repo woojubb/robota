@@ -1,13 +1,13 @@
 import * as React from 'react'
 import { cn } from '../../lib/utils'
 
-interface LogoProps {
+interface ILogoProps {
     className?: string
     size?: 'sm' | 'md' | 'lg' | 'xl'
     variant?: 'full' | 'icon' | 'text'
 }
 
-const Logo = React.forwardRef<HTMLDivElement, LogoProps>(
+const Logo = React.forwardRef<HTMLDivElement, ILogoProps>(
     ({ className, size = 'md', variant = 'full', ...props }, ref) => {
         const sizeClasses = {
             sm: 'h-6',

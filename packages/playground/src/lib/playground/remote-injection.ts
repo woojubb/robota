@@ -6,7 +6,7 @@
  */
 
 import type { TUniversalValue } from '@robota-sdk/agents';
-import type { PlaygroundConfig } from './config-validation';
+import type { IPlaygroundConfig } from './config-validation';
 
 // Import RemoteExecutor dynamically for web environment
 // Dynamic import to avoid build issues with SSR
@@ -27,7 +27,7 @@ interface IRemoteExecutor {
 declare global {
   interface Window {
     __ROBOTA_PLAYGROUND_EXECUTOR__?: IRemoteExecutor;
-    __ROBOTA_PLAYGROUND_CONFIG__?: PlaygroundConfig;
+    __ROBOTA_PLAYGROUND_CONFIG__?: IPlaygroundConfig;
   }
 }
 
@@ -38,7 +38,7 @@ declare global {
  * @param config - Playground configuration with server details
  * @returns Transformed code with RemoteExecutor injection
  */
-export function injectRemoteExecutor(userCode: string, config: PlaygroundConfig): string {
+export function injectRemoteExecutor(userCode: string, config: IPlaygroundConfig): string {
   // Convert ES6 imports to global variables for browser execution
   let transformedCode = convertImportsToGlobals(userCode);
 
@@ -246,7 +246,7 @@ function injectExecutorIntoProviders(code: string): string {
 /**
  * Add playground setup including configuration and mock SDK
  */
-function addPlaygroundSetup(code: string, config: PlaygroundConfig): string {
+function addPlaygroundSetup(code: string, config: IPlaygroundConfig): string {
   const setupCode = `
 // Playground setup (auto-injected)
 if (typeof window !== 'undefined') {
@@ -464,7 +464,7 @@ if (typeof window !== 'undefined') {
 /**
  * Create a sandbox environment for secure code execution
  */
-export function createPlaygroundSandbox(config: PlaygroundConfig): {
+export function createPlaygroundSandbox(config: IPlaygroundConfig): {
   execute: (code: string) => Promise<{ result: any; logs: string[] }>;
   cleanup: () => void;
 } {
@@ -600,7 +600,7 @@ export function requiresTransformation(code: string): boolean {
 /**
  * Preview transformed code for debugging
  */
-export function previewTransformation(code: string, config: PlaygroundConfig): {
+export function previewTransformation(code: string, config: IPlaygroundConfig): {
   original: string;
   transformed: string;
   changes: string[];

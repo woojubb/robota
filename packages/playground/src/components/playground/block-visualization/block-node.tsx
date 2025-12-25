@@ -9,7 +9,7 @@ import type { IBlockMessage, IBlockMetadata } from '../../../lib/playground/bloc
 /**
  * Props for BlockNode component
  */
-export interface BlockNodeProps {
+export interface IBlockNodeProps {
     /** The block message to render */
     block: IBlockMessage;
 
@@ -109,7 +109,7 @@ const formatDuration = (duration?: number) => {
  * BlockNode Component
  * Renders a single block with hierarchical structure and visual states
  */
-export const BlockNode: React.FC<BlockNodeProps> = ({
+export const BlockNode: React.FC<IBlockNodeProps> = ({
     block,
     children,
     onToggleExpand,

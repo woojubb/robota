@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useRef, ReactNode, type DependencyList } from 'react';
 
-interface LazyLoadProps {
+interface ILazyLoadProps {
     children: ReactNode;
     placeholder?: ReactNode;
     threshold?: number;
@@ -18,7 +18,7 @@ export function LazyLoad({
     rootMargin = '50px',
     className,
     onVisible,
-}: LazyLoadProps) {
+}: ILazyLoadProps) {
     const [isVisible, setIsVisible] = useState(false);
     const elementRef = useRef<HTMLDivElement>(null);
 
@@ -108,7 +108,7 @@ export function LazyCard({
 // Hook for lazy loading data
 export function useLazyLoad<T>(
     loadFn: () => Promise<T>,
-    deps: any[] = []
+    deps: DependencyList = []
 ) {
     const [data, setData] = useState<T | null>(null);
     const [loading, setLoading] = useState(false);

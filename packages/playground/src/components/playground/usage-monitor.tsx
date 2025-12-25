@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { WebLogger } from '../../lib/web-logger';
 
-interface UsageStats {
+interface IUsageStats {
     dailyExecutions: number;
     maxConcurrentSessions: number;
     allowedProviders: string[];
@@ -34,20 +34,20 @@ interface UsageStats {
     };
 }
 
-interface RateLimitInfo {
+interface IRateLimitInfo {
     minute: { remaining: number; limit: number; resetTime: string };
     hour: { remaining: number; limit: number; resetTime: string };
     day: { remaining: number; limit: number; resetTime: string };
 }
 
-interface UsageMonitorProps {
+interface IUsageMonitorProps {
     isVisible: boolean;
     onClose?: () => void;
 }
 
-export function UsageMonitor({ isVisible, onClose }: UsageMonitorProps) {
-    const [usage, setUsage] = useState<UsageStats | null>(null);
-    const [rateLimit, setRateLimit] = useState<RateLimitInfo | null>(null);
+export function UsageMonitor({ isVisible, onClose }: IUsageMonitorProps) {
+    const [usage, setUsage] = useState<IUsageStats | null>(null);
+    const [rateLimit, setRateLimit] = useState<IRateLimitInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
@@ -68,7 +68,7 @@ export function UsageMonitor({ isVisible, onClose }: UsageMonitorProps) {
             // For now, we'll simulate the data
             await new Promise(resolve => setTimeout(resolve, 500));
 
-            const mockUsage: UsageStats = {
+            const mockUsage: IUsageStats = {
                 dailyExecutions: 100,
                 maxConcurrentSessions: 1,
                 allowedProviders: ['openai'],
@@ -85,7 +85,7 @@ export function UsageMonitor({ isVisible, onClose }: UsageMonitorProps) {
                 }
             };
 
-            const mockRateLimit: RateLimitInfo = {
+            const mockRateLimit: IRateLimitInfo = {
                 minute: {
                     remaining: Math.floor(Math.random() * 5),
                     limit: 5,

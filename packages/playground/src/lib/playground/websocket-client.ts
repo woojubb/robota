@@ -6,16 +6,20 @@
  */
 
 import { WebLogger } from '../web-logger';
+import type { TUniversalValue } from '@robota-sdk/agents';
 
-export interface PlaygroundWebSocketMessage {
-    type: 'playground_update' | 'auth' | 'ping' | 'pong';
+export type TPlaygroundWebSocketMessageType = 'playground_update' | 'auth' | 'ping' | 'pong';
+
+export interface IPlaygroundWebSocketMessage {
+    [key: string]: TUniversalValue;
+    type: TPlaygroundWebSocketMessageType;
     timestamp: string;
-    data?: any;
+    data?: TUniversalValue;
     userId?: string;
     sessionId?: string;
 }
 
-export interface PlaygroundConnectionStatus {
+export interface IPlaygroundConnectionStatus {
     connected: boolean;
     authenticated: boolean;
     connectionId?: string;
@@ -23,19 +27,53 @@ export interface PlaygroundConnectionStatus {
     error?: string;
 }
 
-export type PlaygroundWebSocketEventHandler = (message: PlaygroundWebSocketMessage) => void;
+export interface IPlaygroundWebSocketAuthenticatedEvent {
+    success: boolean;
+    userId?: string;
+    sessionId?: string;
+    error?: string;
+}
+
+export interface IPlaygroundWebSocketConnectionEvent {
+    connected: boolean;
+}
+
+export interface IPlaygroundWebSocketErrorEvent {
+    error: string;
+}
+
+export type TPlaygroundWebSocketEventPayload =
+    | IPlaygroundWebSocketMessage
+    | IPlaygroundWebSocketAuthenticatedEvent
+    | IPlaygroundWebSocketConnectionEvent
+    | IPlaygroundWebSocketErrorEvent;
+
+export type TPlaygroundWebSocketEventHandler = (payload: TPlaygroundWebSocketEventPayload) => void;
+
+function isUniversalObjectValue(value: TUniversalValue): value is Record<string, TUniversalValue> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date);
+}
+
+function isPlaygroundWebSocketMessage(value: TUniversalValue): value is IPlaygroundWebSocketMessage {
+    if (!isUniversalObjectValue(value)) return false;
+    const type = value.type;
+    const timestamp = value.timestamp;
+    if (typeof type !== 'string') return false;
+    if (typeof timestamp !== 'string') return false;
+    return type === 'playground_update' || type === 'auth' || type === 'ping' || type === 'pong';
+}
 
 /**
  * WebSocket client for Playground real-time communication
  */
 export class PlaygroundWebSocketClient {
     private ws: WebSocket | null = null;
-    private status: PlaygroundConnectionStatus = { connected: false, authenticated: false };
+    private status: IPlaygroundConnectionStatus = { connected: false, authenticated: false };
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
     private reconnectTimeout: NodeJS.Timeout | null = null;
     private pingInterval: NodeJS.Timeout | null = null;
-    private eventHandlers = new Map<string, Set<PlaygroundWebSocketEventHandler>>();
+    private eventHandlers = new Map<string, Set<TPlaygroundWebSocketEventHandler>>();
 
     constructor(
         private serverUrl: string,
@@ -75,14 +113,15 @@ export class PlaygroundWebSocketClient {
                         // Don't resolve yet - wait for authentication
 
                         // Set up one-time authentication handler
-                        const authHandler = (event: any) => {
-                            if (event.data.success) {
-                                this.off('authenticated', authHandler);
+                        const authHandler: TPlaygroundWebSocketEventHandler = (payload) => {
+                            if ('type' in payload) return;
+                            if (!('success' in payload) || typeof payload.success !== 'boolean') return;
+                            this.off('authenticated', authHandler);
+                            if (payload.success) {
                                 connectionResolve(true);
-                            } else {
-                                this.off('authenticated', authHandler);
-                                connectionReject(new Error(event.data.error || 'Authentication failed'));
+                                return;
                             }
+                            connectionReject(new Error(payload.error || 'Authentication failed'));
                         };
                         this.on('authenticated', authHandler);
                     } else {
@@ -95,8 +134,12 @@ export class PlaygroundWebSocketClient {
 
                 this.ws.onmessage = (event) => {
                     try {
-                        const message: PlaygroundWebSocketMessage = JSON.parse(event.data);
-                        this.handleMessage(message);
+                        const parsed: TUniversalValue = JSON.parse(event.data) as TUniversalValue;
+                        if (!isPlaygroundWebSocketMessage(parsed)) {
+                            WebLogger.error('Invalid WebSocket message', { error: 'Message shape validation failed' });
+                            return;
+                        }
+                        this.handleMessage(parsed);
                     } catch (error) {
                         WebLogger.error('Invalid WebSocket message', { error: error instanceof Error ? error.message : String(error) });
                     }
@@ -158,7 +201,7 @@ export class PlaygroundWebSocketClient {
             return;
         }
 
-        const authData: Omit<PlaygroundWebSocketMessage, "timestamp"> = {
+        const authData: Omit<IPlaygroundWebSocketMessage, "timestamp"> = {
             type: 'auth',
             data: {
                 userId: this.userId,
@@ -187,7 +230,7 @@ export class PlaygroundWebSocketClient {
     /**
      * Send a message through the WebSocket
      */
-    sendMessage(message: Omit<PlaygroundWebSocketMessage, 'timestamp'>): boolean {
+    sendMessage(message: Omit<IPlaygroundWebSocketMessage, 'timestamp'>): boolean {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             WebLogger.warn('WebSocket not connected, cannot send message');
             return false;
@@ -210,7 +253,7 @@ export class PlaygroundWebSocketClient {
     /**
      * Broadcast playground update
      */
-    broadcastUpdate(data: any): boolean {
+    broadcastUpdate(data: TUniversalValue): boolean {
         return this.sendMessage({
             type: 'playground_update',
             data,
@@ -222,7 +265,7 @@ export class PlaygroundWebSocketClient {
     /**
      * Add event listener
      */
-    on(event: string, handler: PlaygroundWebSocketEventHandler): void {
+    on(event: string, handler: TPlaygroundWebSocketEventHandler): void {
         if (!this.eventHandlers.has(event)) {
             this.eventHandlers.set(event, new Set());
         }
@@ -232,7 +275,7 @@ export class PlaygroundWebSocketClient {
     /**
      * Remove event listener
      */
-    off(event: string, handler: PlaygroundWebSocketEventHandler): void {
+    off(event: string, handler: TPlaygroundWebSocketEventHandler): void {
         const handlers = this.eventHandlers.get(event);
         if (handlers) {
             handlers.delete(handler);
@@ -242,13 +285,13 @@ export class PlaygroundWebSocketClient {
     /**
      * Get current connection status
      */
-    getStatus(): PlaygroundConnectionStatus {
+    getStatus(): IPlaygroundConnectionStatus {
         return { ...this.status };
     }
 
     // Private methods
 
-    private handleMessage(message: PlaygroundWebSocketMessage): void {
+    private handleMessage(message: IPlaygroundWebSocketMessage): void {
         this.status.lastActivity = new Date();
 
         switch (message.type) {
@@ -269,34 +312,51 @@ export class PlaygroundWebSocketClient {
         }
     }
 
-    private handleAuthResponse(message: PlaygroundWebSocketMessage): void {
-        const { success, error, userId, sessionId, clientId, message: welcomeMessage } = message.data || {};
+    private handleAuthResponse(message: IPlaygroundWebSocketMessage): void {
+        const data = message.data;
+        if (!data || !isUniversalObjectValue(data)) {
+            return;
+        }
+
+        const success = data.success;
+        const error = data.error;
+        const userId = data.userId;
+        const sessionId = data.sessionId;
+        const clientId = data.clientId;
+        const welcomeMessage = data.message;
 
         // Check if this is a welcome message (not an auth response)
-        if (welcomeMessage && !('success' in (message.data || {}))) {
+        if (welcomeMessage && typeof success !== 'boolean') {
             return; // Just ignore welcome messages
         }
 
-        if (success) {
+        if (success === true) {
             this.status.authenticated = true;
-            this.status.connectionId = clientId;
+            this.status.connectionId = typeof clientId === 'string' ? clientId : undefined;
             this.status.error = undefined;
-            WebLogger.info('Playground WebSocket authenticated', { userId, sessionId });
-            this.emit('authenticated', { success: true, userId, sessionId });
+            WebLogger.info('Playground WebSocket authenticated', {
+                userId: typeof userId === 'string' ? userId : undefined,
+                sessionId: typeof sessionId === 'string' ? sessionId : undefined
+            });
+            this.emit('authenticated', {
+                success: true,
+                userId: typeof userId === 'string' ? userId : undefined,
+                sessionId: typeof sessionId === 'string' ? sessionId : undefined
+            });
         } else {
             this.status.authenticated = false;
-            this.status.error = error || 'Authentication failed';
-            WebLogger.error('Playground WebSocket authentication failed', { error });
-            this.emit('authenticated', { success: false, error });
+            this.status.error = typeof error === 'string' ? error : 'Authentication failed';
+            WebLogger.error('Playground WebSocket authentication failed', { error: typeof error === 'string' ? error : 'Authentication failed' });
+            this.emit('authenticated', { success: false, error: typeof error === 'string' ? error : 'Authentication failed' });
         }
     }
 
-    private emit(event: string, data: any): void {
+    private emit(event: string, data: TPlaygroundWebSocketEventPayload): void {
         const handlers = this.eventHandlers.get(event);
         if (handlers) {
             for (const handler of handlers) {
                 try {
-                    handler({ type: event as any, timestamp: new Date().toISOString(), data });
+                    handler(data);
                 } catch (error) {
                     WebLogger.error('Error in WebSocket event handler', { error: error instanceof Error ? error.message : String(error) });
                 }

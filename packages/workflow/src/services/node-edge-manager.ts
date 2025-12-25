@@ -199,7 +199,7 @@ export class NodeEdgeManager {
     }
 
     /**
-     * 엣지 업데이트
+     * Update an edge
      */
     updateEdge(edgeId: string, updates: Partial<IUniversalWorkflowEdge>): IUniversalWorkflowEdge | null {
         const edgeIndex = this.edges.findIndex(edge => edge.id === edgeId);
@@ -228,7 +228,7 @@ export class NodeEdgeManager {
     }
 
     /**
-     * 노드 삭제
+     * Remove a node
      */
     removeNode(nodeId: string): boolean {
         const node = this.nodeMap.get(nodeId);
@@ -250,7 +250,7 @@ export class NodeEdgeManager {
     }
 
     /**
-     * 엣지 삭제
+     * Remove an edge
      */
     removeEdge(edgeId: string): boolean {
         const edgeIndex = this.edges.findIndex(edge => edge.id === edgeId);
@@ -266,7 +266,7 @@ export class NodeEdgeManager {
     }
 
     /**
-     * 특정 노드의 연결된 엣지 조회
+     * Get edges connected to a specific node
      */
     getNodeEdges(nodeId: string): {
         incoming: IUniversalWorkflowEdge[];
@@ -279,7 +279,7 @@ export class NodeEdgeManager {
     }
 
     /**
-     * 워크플로우 통계 조회
+     * Get workflow statistics
      */
     getStats(): {
         nodeCount: number;
@@ -309,7 +309,7 @@ export class NodeEdgeManager {
     }
 
     /**
-     * 워크플로우 검증
+     * Validate workflow structure
      */
     validate(): {
         isValid: boolean;

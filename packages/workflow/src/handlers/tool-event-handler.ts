@@ -167,7 +167,7 @@ export class ToolEventHandler implements IEventHandler {
     // Node Creation Methods
     // =================================================================
 
-    private createToolCallNode(data: TEventData, pathInfo: PathInfo): IWorkflowNode {
+    private createToolCallNode(data: TEventData, pathInfo: IPathInfo): IWorkflowNode {
         const executionId = pathInfo.nodeId || data.executionId || data.sourceId;
         const nodeId = String(executionId); // Use executionId as node id (parent will reference this directly)
 
@@ -244,7 +244,7 @@ export class ToolEventHandler implements IEventHandler {
         };
     }
 
-    private createToolCallErrorNode(data: TEventData, pathInfo: PathInfo): IWorkflowNode {
+    private createToolCallErrorNode(data: TEventData, pathInfo: IPathInfo): IWorkflowNode {
         const executionId = pathInfo.nodeId || data.executionId || data.sourceId;
         const nodeId = `tool_call_error_${executionId}`;
 
@@ -284,7 +284,7 @@ export class ToolEventHandler implements IEventHandler {
         };
     }
 
-    private createToolResponseNode(data: TEventData, pathInfo: PathInfo): IWorkflowNode {
+    private createToolResponseNode(data: TEventData, pathInfo: IPathInfo): IWorkflowNode {
         // Tool response node must be derived from context.ownerPath only (no ID parsing/inference).
         const toolCallId = pathInfo.nodeId;
         if (!toolCallId) {
@@ -363,7 +363,7 @@ export class ToolEventHandler implements IEventHandler {
         return toolTypeMap[toolName] || WORKFLOW_NODE_TYPES.TOOL_CALL;
     }
 
-    private extractPathInfo(eventData: TEventData, eventLabel: string): PathInfo {
+    private extractPathInfo(eventData: TEventData, eventLabel: string): IPathInfo {
         const ownerPath = (eventData as any)?.context?.ownerPath as unknown;
         if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
             throw new Error(`[PATH-ONLY] Missing context.ownerPath for ${eventLabel}`);
@@ -424,7 +424,7 @@ export class ToolEventHandler implements IEventHandler {
     }
 }
 
-interface PathInfo {
+interface IPathInfo {
     segments: string[];
     nodeId: string;
     parentId?: string;

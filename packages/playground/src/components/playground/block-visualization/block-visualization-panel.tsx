@@ -25,7 +25,7 @@ import type { PlaygroundBlockCollector } from '../../../lib/playground/block-tra
 /**
  * Props for BlockVisualizationPanel
  */
-export interface BlockVisualizationPanelProps {
+export interface IBlockVisualizationPanelProps {
     /** Block collector instance */
     blockCollector: IBlockDataCollector;
 
@@ -45,7 +45,11 @@ export interface BlockVisualizationPanelProps {
 /**
  * Block Statistics Component
  */
-const BlockStats: React.FC<{ blockCollector: IBlockDataCollector }> = ({ blockCollector }) => {
+interface IBlockStatsProps {
+    blockCollector: IBlockDataCollector;
+}
+
+const BlockStats: React.FC<IBlockStatsProps> = ({ blockCollector }) => {
     const [stats, setStats] = useState(blockCollector.getStats());
 
     useEffect(() => {
@@ -261,7 +265,7 @@ const BlockInspectionPanel: React.FC<{
  * Main Block Visualization Panel Component
  * Provides complete block coding visualization with statistics and inspection
  */
-export const BlockVisualizationPanel: React.FC<BlockVisualizationPanelProps> = ({
+export const BlockVisualizationPanel: React.FC<IBlockVisualizationPanelProps> = ({
     blockCollector,
     height = '600px',
     showDebug = false,

@@ -1,12 +1,12 @@
 import { useToast } from './use-toast';
 import { WebLogger } from '../lib/web-logger';
 
-type ApiLikeError = {
+type TApiLikeError = {
   code?: string;
   message?: string;
 };
 
-function isApiLikeError(value: object): value is ApiLikeError {
+function isApiLikeError(value: object): value is TApiLikeError {
   if (!value) return false;
   const v = value as { code?: unknown; message?: unknown };
   if (typeof v.code !== 'undefined' && typeof v.code !== 'string') return false;
@@ -17,7 +17,7 @@ function isApiLikeError(value: object): value is ApiLikeError {
 export const useApiError = () => {
     const { toast } = useToast();
 
-    const handleError = (error: Error | ApiLikeError, customMessage?: string) => {
+    const handleError = (error: Error | TApiLikeError, customMessage?: string) => {
         WebLogger.error('API Error', { error: error instanceof Error ? error.message : (error.message ?? 'Unknown error') });
 
         if (!(error instanceof Error) && isApiLikeError(error) && typeof error.code === 'string') {

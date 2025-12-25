@@ -21,7 +21,7 @@ import type {
 /**
  * Props for BlockTree component
  */
-export interface BlockTreeProps {
+export interface IBlockTreeProps {
     /** Block collector to get data from */
     blockCollector: IBlockDataCollector;
 
@@ -48,7 +48,7 @@ export interface BlockTreeProps {
  * BlockTree Component
  * Renders hierarchical block structure with real-time updates
  */
-export const BlockTree: React.FC<BlockTreeProps> = ({
+export const BlockTree: React.FC<IBlockTreeProps> = ({
     blockCollector,
     height = '400px',
     showDebug = false,

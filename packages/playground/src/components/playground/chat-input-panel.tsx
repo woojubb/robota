@@ -11,11 +11,11 @@ import { useChatInput } from '../../hooks/use-chat-input';
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { WebLogger } from '../../lib/web-logger';
 
-interface ChatInputPanelProps {
+interface IChatInputPanelProps {
     onClose: () => void;
 }
 
-export function ChatInputPanel({ onClose }: ChatInputPanelProps) {
+export function ChatInputPanel({ onClose }: IChatInputPanelProps) {
     const { executePrompt, executeStreamPrompt, isExecuting } = useRobotaExecution();
     const {
         inputState,
@@ -64,10 +64,8 @@ export function ChatInputPanel({ onClose }: ChatInputPanelProps) {
         if (!trimmedPrompt) return;
 
         setRecentPrompts(current => {
-            // Remove if already exists to avoid duplicates
-            const filtered = current.filter(p => p !== trimmedPrompt);
             // Add to beginning and limit to 3
-            const updated = [trimmedPrompt, ...filtered].slice(0, 3);
+            const updated = [trimmedPrompt, ...current].slice(0, 3);
 
             // Save to localStorage
             try {

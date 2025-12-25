@@ -20,7 +20,7 @@ import {
     Zap
 } from 'lucide-react';
 
-interface ErrorInfo {
+interface IErrorPanelIssue {
     type: 'syntax' | 'runtime' | 'api' | 'configuration' | 'import';
     severity: 'error' | 'warning' | 'info';
     message: string;
@@ -32,9 +32,9 @@ interface ErrorInfo {
     documentation?: string;
 }
 
-interface ErrorPanelProps {
-    errors: ErrorInfo[];
-    warnings: ErrorInfo[];
+interface IErrorPanelProps {
+    errors: IErrorPanelIssue[];
+    warnings: IErrorPanelIssue[];
     onFixSuggestion?: (fix: string) => void;
 }
 
@@ -87,7 +87,7 @@ const severityConfig = {
     }
 };
 
-export function ErrorPanel({ errors, warnings, onFixSuggestion }: ErrorPanelProps) {
+export function ErrorPanel({ errors, warnings, onFixSuggestion }: IErrorPanelProps) {
     const [copiedText, setCopiedText] = useState<string | null>(null);
     const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
 
@@ -112,7 +112,7 @@ export function ErrorPanel({ errors, warnings, onFixSuggestion }: ErrorPanelProp
         setExpandedItems(newExpanded);
     };
 
-    const generateDebugInfo = (error: ErrorInfo) => {
+    const generateDebugInfo = (error: IErrorPanelIssue) => {
         const debugInfo = {
             timestamp: new Date().toISOString(),
             userAgent: navigator.userAgent,
@@ -128,7 +128,7 @@ export function ErrorPanel({ errors, warnings, onFixSuggestion }: ErrorPanelProp
         return JSON.stringify(debugInfo, null, 2);
     };
 
-    const getCommonFixes = (error: ErrorInfo): string[] => {
+    const getCommonFixes = (error: IErrorPanelIssue): string[] => {
         switch (error.type) {
             case 'syntax':
                 return [

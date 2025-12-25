@@ -17,11 +17,12 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePlayground } from '../contexts/playground-context';
+import type { TUniversalValue } from '@robota-sdk/agents';
 
-export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error' | 'reconnecting';
+export type TConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error' | 'reconnecting';
 
-export interface ConnectionInfo {
-    state: ConnectionState;
+export interface IConnectionInfo {
+    state: TConnectionState;
     url: string;
     connected: boolean;
     lastConnected: Date | null;
@@ -30,7 +31,7 @@ export interface ConnectionInfo {
     uptime: number; // in milliseconds
 }
 
-export interface ConnectionStatistics {
+export interface IConnectionStatistics {
     totalConnections: number;
     totalDisconnections: number;
     totalReconnections: number;
@@ -41,22 +42,35 @@ export interface ConnectionStatistics {
     lastError: Error | null;
 }
 
-export interface WebSocketConnectionHookReturn {
+export interface IWebSocketAuth {
+    userId: string;
+    sessionId: string;
+    authToken: string;
+}
+
+export interface IConnectionHealth {
+    isHealthy: boolean;
+    latency: number;
+    lastPing: Date | null;
+    issues: string[];
+}
+
+export interface IWebSocketConnectionHookReturn {
     // Connection State
-    connectionState: ConnectionState;
-    connectionInfo: ConnectionInfo;
+    connectionState: TConnectionState;
+    connectionInfo: IConnectionInfo;
     isConnected: boolean;
     isConnecting: boolean;
     canConnect: boolean;
 
     // Connection Statistics
-    statistics: ConnectionStatistics;
+    statistics: IConnectionStatistics;
 
     // Actions
-    connect: (url?: string, auth?: { userId: string; sessionId: string; authToken: string }) => Promise<void>;
+    connect: (url?: string, auth?: IWebSocketAuth) => Promise<void>;
     disconnect: () => void;
     reconnect: () => Promise<void>;
-    sendMessage: (message: unknown) => boolean;
+    sendMessage: (message: TUniversalValue) => boolean;
 
     // Configuration
     setAutoReconnect: (enabled: boolean) => void;
@@ -64,26 +78,21 @@ export interface WebSocketConnectionHookReturn {
     setMaxReconnectAttempts: (attempts: number) => void;
 
     // Event Handlers
-    onMessage: (handler: (message: unknown) => void) => () => void;
-    onConnectionChange: (handler: (state: ConnectionState) => void) => () => void;
+    onMessage: (handler: (message: TUniversalValue) => void) => () => void;
+    onConnectionChange: (handler: (state: TConnectionState) => void) => () => void;
     onError: (handler: (error: Error) => void) => () => void;
 
     // Health Monitoring
     ping: () => Promise<number>; // Returns ping time in ms
-    getConnectionHealth: () => {
-        isHealthy: boolean;
-        latency: number;
-        lastPing: Date | null;
-        issues: string[];
-    };
+    getConnectionHealth: () => IConnectionHealth;
 }
 
-export function useWebSocketConnection(): WebSocketConnectionHookReturn {
+export function useWebSocketConnection(): IWebSocketConnectionHookReturn {
     const { state, getConnectionStatus } = usePlayground();
 
     // Local state
-    const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
-    const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo>({
+    const [connectionState, setConnectionState] = useState<TConnectionState>('disconnected');
+    const [connectionInfo, setConnectionInfo] = useState<IConnectionInfo>({
         state: 'disconnected',
         url: '',
         connected: false,
@@ -93,7 +102,7 @@ export function useWebSocketConnection(): WebSocketConnectionHookReturn {
         uptime: 0
     });
 
-    const [statistics, setStatistics] = useState<ConnectionStatistics>({
+    const [statistics, setStatistics] = useState<IConnectionStatistics>({
         totalConnections: 0,
         totalDisconnections: 0,
         totalReconnections: 0,
@@ -117,8 +126,8 @@ export function useWebSocketConnection(): WebSocketConnectionHookReturn {
     const pingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Event handlers
-    const messageHandlers = useRef<Set<(message: unknown) => void>>(new Set());
-    const connectionHandlers = useRef<Set<(state: ConnectionState) => void>>(new Set());
+    const messageHandlers = useRef<Set<(message: TUniversalValue) => void>>(new Set());
+    const connectionHandlers = useRef<Set<(state: TConnectionState) => void>>(new Set());
     const errorHandlers = useRef<Set<(error: Error) => void>>(new Set());
 
     // Derived state
@@ -296,7 +305,7 @@ export function useWebSocketConnection(): WebSocketConnectionHookReturn {
         await connect();
     }, [disconnect, connect]);
 
-    const sendMessage = useCallback((message: unknown): boolean => {
+    const sendMessage = useCallback((message: TUniversalValue): boolean => {
         if (!isConnected || !websocketRef.current) {
             return false;
         }
@@ -314,12 +323,12 @@ export function useWebSocketConnection(): WebSocketConnectionHookReturn {
     }, [isConnected]);
 
     // Event handler registration
-    const onMessage = useCallback((handler: (message: unknown) => void) => {
+    const onMessage = useCallback((handler: (message: TUniversalValue) => void) => {
         messageHandlers.current.add(handler);
         return () => messageHandlers.current.delete(handler);
     }, []);
 
-    const onConnectionChange = useCallback((handler: (state: ConnectionState) => void) => {
+    const onConnectionChange = useCallback((handler: (state: TConnectionState) => void) => {
         connectionHandlers.current.add(handler);
         return () => connectionHandlers.current.delete(handler);
     }, []);

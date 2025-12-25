@@ -5,9 +5,9 @@ import Editor, { OnMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { WebLogger } from '../../lib/web-logger'
 
-type MonacoTheme = 'vs-dark' | 'light';
+type TMonacoTheme = 'vs-dark' | 'light';
 
-function getPreferredMonacoTheme(): MonacoTheme {
+function getPreferredMonacoTheme(): TMonacoTheme {
   if (typeof window === 'undefined') {
     return 'light';
   }
@@ -21,7 +21,7 @@ function getPreferredMonacoTheme(): MonacoTheme {
   return prefersDark ? 'vs-dark' : 'light';
 }
 
-interface CodeEditorProps {
+interface ICodeEditorProps {
   value: string
   onChange: (value: string | undefined) => void
   language?: string
@@ -383,7 +383,7 @@ export function CodeEditor({
   language = 'typescript',
   height = '100%',
   readOnly = false
-}: CodeEditorProps) {
+}: ICodeEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
@@ -405,6 +405,16 @@ export function CodeEditor({
 
     // Add Robota SDK type definitions (based on real API)
     const robotaTypes = `
+        type TUniversalValue =
+          | string
+          | number
+          | boolean
+          | null
+          | undefined
+          | Date
+          | { [key: string]: TUniversalValue }
+          | TUniversalValue[];
+
         declare module 'openai' {
           export default class OpenAI {
             constructor(config: { apiKey: string })
@@ -418,40 +428,40 @@ export function CodeEditor({
         }
 
         declare module '@robota-sdk/agents' {
-          export interface AgentConfig {
+          export interface IAgentConfig {
             name: string
-            aiProviders: any[]
+            aiProviders: Array<Record<string, TUniversalValue>>
             defaultModel: {
               provider: string
               model: string
               systemMessage?: string
             }
-            tools?: any[]
-            plugins?: any[]
+            tools?: Array<Record<string, TUniversalValue>>
+            plugins?: Array<Record<string, TUniversalValue>>
             logging?: {
               level: string
               enabled: boolean
             }
           }
 
-          export interface RunOptions {
+          export interface IRunOptions {
             sessionId?: string
             userId?: string
-            metadata?: Record<string, any>
+            metadata?: Record<string, TUniversalValue>
           }
 
-          export interface ToolSchema {
+          export interface IToolSchema {
             type: 'object'
-            properties: Record<string, any>
+            properties: Record<string, TUniversalValue>
             required?: string[]
           }
 
           export class Robota {
             readonly name: string
             readonly version: string
-            constructor(config: AgentConfig)
-            run(input: string, options?: RunOptions): Promise<string>
-            runStream(input: string, options?: RunOptions): AsyncGenerator<string, void, undefined>
+            constructor(config: IAgentConfig)
+            run(input: string, options?: IRunOptions): Promise<string>
+            runStream(input: string, options?: IRunOptions): AsyncGenerator<string, void, undefined>
             getStats(): any
             getHistory(): any[]
             destroy(): Promise<void>
