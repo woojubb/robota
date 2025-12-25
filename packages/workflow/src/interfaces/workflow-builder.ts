@@ -1,92 +1,96 @@
 // Workflow Builder Interfaces
 // Domain-neutral workflow building and management
 
-import type { WorkflowNode, WorkflowNodeUpdate } from './workflow-node.js';
-import type { WorkflowEdge, WorkflowEdgeUpdate } from './workflow-edge.js';
-import type { LoggerData, UniversalValue } from '@robota-sdk/agents';
+import type { IWorkflowNode, IWorkflowNodeUpdate } from './workflow-node.js';
+import type { IWorkflowEdge, IWorkflowEdgeUpdate } from './workflow-edge.js';
+import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
-type WorkflowBuilderExtensionValue = UniversalValue | Date | Error | LoggerData;
+export type TWorkflowBuilderExtensionValue = TUniversalValue | Date | Error | TLoggerData;
 
 /**
  * Workflow snapshot data structure
  */
-export interface WorkflowSnapshot {
+export interface IWorkflowSnapshot {
     id: string;
     timestamp: Date;
-    nodes: WorkflowNode[];
-    edges: WorkflowEdge[];
+    nodes: IWorkflowNode[];
+    edges: IWorkflowEdge[];
     metadata: {
         nodeCount: number;
         edgeCount: number;
         createdAt: Date;
         version: string;
-        [key: string]: WorkflowBuilderExtensionValue | undefined;
+        [key: string]: TWorkflowBuilderExtensionValue | undefined;
     };
 }
 
 /**
  * Workflow update types
  */
-export type WorkflowUpdate = WorkflowNodeUpdate | WorkflowEdgeUpdate;
+export interface IWorkflowClearUpdate {
+    action: 'clear';
+}
 
-export type WorkflowBatchOperation =
-    | { type: 'addNode'; data: Omit<WorkflowNode, 'timestamp'> }
-    | { type: 'updateNode'; data: { nodeId: string; updates: Partial<WorkflowNode> } }
+export type TWorkflowUpdate = IWorkflowNodeUpdate | IWorkflowEdgeUpdate | IWorkflowClearUpdate;
+
+export type TWorkflowBatchOperation =
+    | { type: 'addNode'; data: Omit<IWorkflowNode, 'timestamp'> }
+    | { type: 'updateNode'; data: { nodeId: string; updates: Partial<IWorkflowNode> } }
     | { type: 'removeNode'; data: { nodeId: string } }
-    | { type: 'addEdge'; data: Omit<WorkflowEdge, 'timestamp'> }
-    | { type: 'updateEdge'; data: { edgeId: string; updates: Partial<WorkflowEdge> } }
+    | { type: 'addEdge'; data: Omit<IWorkflowEdge, 'timestamp'> }
+    | { type: 'updateEdge'; data: { edgeId: string; updates: Partial<IWorkflowEdge> } }
     | { type: 'removeEdge'; data: { edgeId: string } };
 
 /**
  * Workflow builder configuration
  */
-export interface WorkflowBuilderConfig {
+export interface IWorkflowBuilderConfig {
     autoTimestamp?: boolean;
     validateConnections?: boolean;
     maxNodes?: number;
     maxEdges?: number;
     logger?: {
-        debug: (message: string, ...args: WorkflowBuilderExtensionValue[]) => void;
-        info: (message: string, ...args: WorkflowBuilderExtensionValue[]) => void;
-        warn: (message: string, ...args: WorkflowBuilderExtensionValue[]) => void;
-        error: (message: string, ...args: WorkflowBuilderExtensionValue[]) => void;
-        log: (message: string, ...args: WorkflowBuilderExtensionValue[]) => void;
+        debug: (message: string, ...args: TWorkflowBuilderExtensionValue[]) => void;
+        info: (message: string, ...args: TWorkflowBuilderExtensionValue[]) => void;
+        warn: (message: string, ...args: TWorkflowBuilderExtensionValue[]) => void;
+        error: (message: string, ...args: TWorkflowBuilderExtensionValue[]) => void;
+        log: (message: string, ...args: TWorkflowBuilderExtensionValue[]) => void;
     };
 }
 
 /**
  * Workflow subscription callback
  */
-export type WorkflowUpdateCallback = (update: WorkflowUpdate) => void;
+export type TWorkflowUpdateCallback = (update: TWorkflowUpdate) => void;
 
 /**
  * Core workflow builder interface
  */
-export interface WorkflowBuilder {
+export interface IWorkflowBuilder {
     /**
      * Get current workflow snapshot
      */
-    getSnapshot(): WorkflowSnapshot;
+    getSnapshot(): IWorkflowSnapshot;
 
     /**
      * Get all nodes
      */
-    getAllNodes(): WorkflowNode[];
+    getAllNodes(): IWorkflowNode[];
 
     /**
      * Get all edges
      */
-    getAllEdges(): WorkflowEdge[];
+    getAllEdges(): IWorkflowEdge[];
 
     /**
      * Get node by ID
      */
-    getNode(nodeId: string): WorkflowNode | undefined;
+    getNode(nodeId: string): IWorkflowNode | undefined;
 
     /**
      * Get edge by ID
      */
-    getEdge(edgeId: string): WorkflowEdge | undefined;
+    getEdge(edgeId: string): IWorkflowEdge | undefined;
 
     /**
      * Check if node exists
@@ -101,12 +105,12 @@ export interface WorkflowBuilder {
     /**
      * Subscribe to workflow updates
      */
-    subscribe(callback: WorkflowUpdateCallback): () => void;
+    subscribe(callback: TWorkflowUpdateCallback): () => void;
 
     /**
      * Unsubscribe from workflow updates
      */
-    unsubscribe(callback: WorkflowUpdateCallback): void;
+    unsubscribe(callback: TWorkflowUpdateCallback): void;
 
     /**
      * Clear all data
@@ -127,16 +131,16 @@ export interface WorkflowBuilder {
 /**
  * Extended workflow builder with management capabilities
  */
-export interface ExtendedWorkflowBuilder extends WorkflowBuilder {
+export interface IExtendedWorkflowBuilder extends IWorkflowBuilder {
     /**
      * Add node to workflow
      */
-    addNode(node: Omit<WorkflowNode, 'timestamp'>, parentNodeId?: string): WorkflowNode;
+    addNode(node: Omit<IWorkflowNode, 'timestamp'>, parentNodeId?: string): IWorkflowNode;
 
     /**
      * Update existing node
      */
-    updateNode(nodeId: string, updates: Partial<WorkflowNode>): WorkflowNode | null;
+    updateNode(nodeId: string, updates: Partial<IWorkflowNode>): IWorkflowNode | null;
 
     /**
      * Remove node from workflow
@@ -146,12 +150,12 @@ export interface ExtendedWorkflowBuilder extends WorkflowBuilder {
     /**
      * Add edge to workflow
      */
-    addEdge(edge: Omit<WorkflowEdge, 'timestamp'>): WorkflowEdge;
+    addEdge(edge: Omit<IWorkflowEdge, 'timestamp'>): IWorkflowEdge;
 
     /**
      * Update existing edge
      */
-    updateEdge(edgeId: string, updates: Partial<WorkflowEdge>): WorkflowEdge | null;
+    updateEdge(edgeId: string, updates: Partial<IWorkflowEdge>): IWorkflowEdge | null;
 
     /**
      * Remove edge from workflow
@@ -161,7 +165,7 @@ export interface ExtendedWorkflowBuilder extends WorkflowBuilder {
     /**
      * Batch operations for performance
      */
-    batch(operations: WorkflowBatchOperation[]): void;
+    batch(operations: TWorkflowBatchOperation[]): void;
 
     /**
      * Validate current workflow state
@@ -175,14 +179,14 @@ export interface ExtendedWorkflowBuilder extends WorkflowBuilder {
     /**
      * Raw accessors (append-only order) for source-of-truth export without any transformation
      */
-    getRawNodes(): WorkflowNode[];
-    getRawEdges(): WorkflowEdge[];
+    getRawNodes(): IWorkflowNode[];
+    getRawEdges(): IWorkflowEdge[];
 }
 
 /**
  * Workflow query interface for advanced querying
  */
-export interface WorkflowQuery {
+export interface IWorkflowQuery {
     /**
      * Find nodes by criteria
      */
@@ -192,8 +196,8 @@ export interface WorkflowQuery {
         level?: number | number[];
         parentId?: string;
         hasChildren?: boolean;
-        [key: string]: WorkflowBuilderExtensionValue | undefined;
-    }): WorkflowNode[];
+        [key: string]: TWorkflowBuilderExtensionValue | undefined;
+    }): IWorkflowNode[];
 
     /**
      * Find edges by criteria
@@ -203,18 +207,18 @@ export interface WorkflowQuery {
         sourceId?: string;
         targetId?: string;
         hidden?: boolean;
-        [key: string]: WorkflowBuilderExtensionValue | undefined;
-    }): WorkflowEdge[];
+        [key: string]: TWorkflowBuilderExtensionValue | undefined;
+    }): IWorkflowEdge[];
 
     /**
      * Get connected nodes
      */
-    getConnectedNodes(nodeId: string, direction?: 'incoming' | 'outgoing' | 'both'): WorkflowNode[];
+    getConnectedNodes(nodeId: string, direction?: 'incoming' | 'outgoing' | 'both'): IWorkflowNode[];
 
     /**
      * Get node path from root
      */
-    getNodePath(nodeId: string): WorkflowNode[];
+    getNodePath(nodeId: string): IWorkflowNode[];
 
     /**
      * Get workflow depth
@@ -224,13 +228,13 @@ export interface WorkflowQuery {
     /**
      * Find disconnected components
      */
-    getDisconnectedComponents(): WorkflowNode[][];
+    getDisconnectedComponents(): IWorkflowNode[][];
 }
 
 /**
  * Workflow export/import interface
  */
-export interface WorkflowPortable {
+export interface IWorkflowPortable {
     /**
      * Export workflow to JSON
      */
@@ -245,20 +249,20 @@ export interface WorkflowPortable {
      * Export to universal format (flat model for compatibility)
      */
     exportToUniversal(): {
-        nodes: WorkflowNode[];
-        edges: WorkflowEdge[];
+        nodes: IWorkflowNode[];
+        edges: IWorkflowEdge[];
         metadata: {
             version: string;
             format: 'universal-workflow';
             nodeCount: number;
             edgeCount: number;
             createdAt: Date;
-            [key: string]: WorkflowBuilderExtensionValue | undefined;
+            [key: string]: TWorkflowBuilderExtensionValue | undefined;
         };
     };
 
     /**
      * Import from universal format
      */
-    importFromUniversal(data: { version: string; format: string; data: WorkflowSnapshot }): boolean;
+    importFromUniversal(data: { version: string; format: string; data: IWorkflowSnapshot }): boolean;
 }

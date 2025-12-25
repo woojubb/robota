@@ -11,17 +11,13 @@ import { Logger, createLogger } from '../utils/logger';
  */
 export type AgentTemplateConfigurationData = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
 
-/**
- * Agent template configuration - uses AgentConfig type
- */
-export type AgentTemplateConfig = AgentConfig;
 
 /**
  * Template application result
  */
 export interface TemplateApplicationResult {
     /** Applied configuration */
-    config: AgentTemplateConfig;
+    config: AgentConfig;
     /** Template that was applied */
     template: AgentTemplate;
     /** Any warnings during application */
@@ -133,15 +129,15 @@ export class AgentTemplates {
     /**
      * Apply template to configuration
      */
-    applyTemplate(template: AgentTemplate, overrides: Partial<AgentTemplateConfig> = {}): TemplateApplicationResult {
+    applyTemplate(template: AgentTemplate, overrides: Partial<AgentConfig> = {}): TemplateApplicationResult {
         const warnings: string[] = [];
         let modified = false;
 
         // Start with template configuration
-        const config: AgentTemplateConfig = { ...template.config };
+        const config: AgentConfig = { ...template.config };
 
         // Apply overrides with type-safe approach
-        const mergedConfig = { ...config, ...overrides } as AgentTemplateConfig;
+        const mergedConfig: AgentConfig = { ...config, ...overrides };
 
         // Check for modifications by comparing specific known fields
         const checkField = (fieldName: keyof AgentConfig): void => {

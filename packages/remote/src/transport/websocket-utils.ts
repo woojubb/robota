@@ -4,18 +4,18 @@
  * Zero any/unknown types, explicit interfaces for all data structures
  */
 
-import type { TransportRequest, ChatResponseData } from '../shared/types';
+import type { IChatResponseData, ITransportRequest } from '../shared/types';
 
 export interface WebSocketRequestPayload {
     id: string;
     type: 'request';
-    data: TransportRequest;
+    data: ITransportRequest;
 }
 
 export interface WebSocketResponsePayload {
     id: string;
     type: 'response';
-    data: ChatResponseData;
+    data: IChatResponseData;
 }
 
 export interface WebSocketErrorPayload {
@@ -38,7 +38,7 @@ export interface WebSocketPongPayload {
 export interface WebSocketStreamPayload {
     id: string;
     type: 'stream';
-    data: ChatResponseData;
+    data: IChatResponseData;
     requestId: string;
 }
 
@@ -53,7 +53,7 @@ export type WebSocketPayload =
 /**
  * Pure function to create request message
  */
-export function createRequestMessage(id: string, request: TransportRequest): WebSocketRequestPayload {
+export function createRequestMessage(id: string, request: ITransportRequest): WebSocketRequestPayload {
     return {
         id,
         type: 'request',

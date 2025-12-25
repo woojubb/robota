@@ -1,4 +1,4 @@
-import type { IEventService, TServiceEventData } from '../services/event-service';
+import type { IBaseEventData, IEventService } from '../services/event-service';
 import { EXECUTION_EVENTS } from '../services/execution-service';
 import { TOOL_EVENTS } from '../services/tool-execution-service';
 import { AGENT_EVENTS } from '../agents/constants';
@@ -246,8 +246,8 @@ export class ExecutionProxy<T extends object = object> {
     /**
      * Emit event with standard ServiceEventData format
      */
-    private emitEvent(eventType: string, additionalData: Partial<TServiceEventData>): void {
-        const eventData: TServiceEventData = {
+    private emitEvent(eventType: string, additionalData: Partial<IBaseEventData>): void {
+        const eventData: IBaseEventData = {
             sourceType: this.config.sourceType,
             sourceId: this.config.sourceId,
             timestamp: new Date(),

@@ -6,7 +6,7 @@
  * - Focused on UI/UX-oriented metrics
  */
 
-import type { UniversalValue } from '@robota-sdk/agents';
+import type { TUniversalValue } from '@robota-sdk/agents';
 
 // =============================================================================
 // Core Statistics Interfaces
@@ -38,7 +38,7 @@ export interface PlaygroundAction {
     type: 'chat_send' | 'agent_create' | 'team_create' | 'agent_start' | 'team_start' |
     'agent_stop' | 'team_stop' | 'block_expand' | 'block_collapse' | 'config_change';
     timestamp: Date;
-    metadata?: Record<string, UniversalValue>;
+    metadata?: Record<string, TUniversalValue>;
 }
 
 /**

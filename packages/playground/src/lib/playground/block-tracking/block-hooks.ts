@@ -1,4 +1,4 @@
-import type { ToolExecutionContext, ToolParameters, ToolExecutionData, SimpleLogger } from '@robota-sdk/agents';
+import type { IToolExecutionContext, SimpleLogger, TToolParameters, TToolResultData } from '@robota-sdk/agents';
 import type {
     BlockDataCollector,
     BlockMessage,
@@ -8,9 +8,9 @@ import type {
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
 
 export interface ToolHooks {
-    beforeExecute(toolName: string, parameters: ToolParameters, context?: ToolExecutionContext): Promise<void>;
-    afterExecute(toolName: string, parameters: ToolParameters, result: ToolExecutionData, context?: ToolExecutionContext): Promise<void>;
-    onError(toolName: string, parameters: ToolParameters, error: Error, context?: ToolExecutionContext): Promise<void>;
+    beforeExecute(toolName: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<void>;
+    afterExecute(toolName: string, parameters: TToolParameters, result: TToolResultData, context?: IToolExecutionContext): Promise<void>;
+    onError(toolName: string, parameters: TToolParameters, error: Error, context?: IToolExecutionContext): Promise<void>;
 }
 
 /**
@@ -42,7 +42,7 @@ export function createBlockTrackingHooks(
         /**
          * Before tool execution: Create initial blocks
          */
-        async beforeExecute(toolName: string, parameters: ToolParameters, context?: ToolExecutionContext): Promise<void> {
+        async beforeExecute(toolName: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<void> {
             try {
                 const executionId = context?.executionId || blockCollector.generateBlockId();
 
@@ -105,9 +105,9 @@ export function createBlockTrackingHooks(
          */
         async afterExecute(
             toolName: string,
-            parameters: ToolParameters,
-            result: ToolExecutionData,
-            context?: ToolExecutionContext
+            parameters: TToolParameters,
+            result: TToolResultData,
+            context?: IToolExecutionContext
         ): Promise<void> {
             try {
                 const executionId = context?.executionId;
@@ -190,9 +190,9 @@ export function createBlockTrackingHooks(
          */
         async onError(
             toolName: string,
-            parameters: ToolParameters,
+            parameters: TToolParameters,
             error: Error,
-            context?: ToolExecutionContext
+            context?: IToolExecutionContext
         ): Promise<void> {
             try {
                 const executionId = context?.executionId;

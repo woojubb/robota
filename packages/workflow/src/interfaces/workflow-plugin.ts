@@ -1,17 +1,17 @@
 // Workflow Plugin Interfaces
 // Extensible plugin system for workflow customization
 
-import type { WorkflowNode } from './workflow-node.js';
-import type { WorkflowEdge } from './workflow-edge.js';
-import type { WorkflowSnapshot } from './workflow-builder.js';
-import type { LoggerData, UniversalValue } from '@robota-sdk/agents';
+import type { IWorkflowNode } from './workflow-node.js';
+import type { IWorkflowEdge } from './workflow-edge.js';
+import type { IWorkflowSnapshot } from './workflow-builder.js';
+import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
-type WorkflowPluginValue = UniversalValue | Date | Error | LoggerData;
+export type TWorkflowPluginValue = TUniversalValue | Date | Error | TLoggerData;
 
 /**
  * Plugin lifecycle hooks
  */
-export type PluginLifecycle =
+export type TPluginLifecycle =
     | 'beforeNodeCreate'
     | 'afterNodeCreate'
     | 'beforeNodeUpdate'
@@ -30,10 +30,10 @@ export type PluginLifecycle =
 /**
  * Plugin configuration interface
  */
-export interface PluginConfig {
+export interface IPluginConfig {
     enabled?: boolean;
     priority?: number;
-    options?: Record<string, WorkflowPluginValue | undefined>;
+    options?: Record<string, TWorkflowPluginValue | undefined>;
     dependencies?: string[]; // Other plugin names this plugin depends on
     conflicts?: string[]; // Plugin names that conflict with this plugin
 }
@@ -41,43 +41,43 @@ export interface PluginConfig {
 /**
  * Plugin context for lifecycle hooks
  */
-export interface PluginContext {
+export interface IPluginContext {
     // Current workflow state
-    nodes: Map<string, WorkflowNode>;
-    edges: Map<string, WorkflowEdge>;
+    nodes: Map<string, IWorkflowNode>;
+    edges: Map<string, IWorkflowEdge>;
 
     // Plugin utilities
-    createNode: (nodeData: Omit<WorkflowNode, 'timestamp'>) => WorkflowNode;
-    createEdge: (edgeData: Omit<WorkflowEdge, 'timestamp'>) => WorkflowEdge;
-    updateNode: (nodeId: string, updates: Partial<WorkflowNode>) => WorkflowNode | null;
-    updateEdge: (edgeId: string, updates: Partial<WorkflowEdge>) => WorkflowEdge | null;
+    createNode: (nodeData: Omit<IWorkflowNode, 'timestamp'>) => IWorkflowNode;
+    createEdge: (edgeData: Omit<IWorkflowEdge, 'timestamp'>) => IWorkflowEdge;
+    updateNode: (nodeId: string, updates: Partial<IWorkflowNode>) => IWorkflowNode | null;
+    updateEdge: (edgeId: string, updates: Partial<IWorkflowEdge>) => IWorkflowEdge | null;
 
     // Metadata
     pluginName: string;
-    hookName: PluginLifecycle;
+    hookName: TPluginLifecycle;
     timestamp: Date;
 
     // Logger
     logger: {
-        debug: (message: string, ...args: WorkflowPluginValue[]) => void;
-        info: (message: string, ...args: WorkflowPluginValue[]) => void;
-        warn: (message: string, ...args: WorkflowPluginValue[]) => void;
-        error: (message: string, ...args: WorkflowPluginValue[]) => void;
+        debug: (message: string, ...args: TWorkflowPluginValue[]) => void;
+        info: (message: string, ...args: TWorkflowPluginValue[]) => void;
+        warn: (message: string, ...args: TWorkflowPluginValue[]) => void;
+        error: (message: string, ...args: TWorkflowPluginValue[]) => void;
     };
 }
 
 /**
  * Hook handler function type
  */
-export type PluginHookHandler<TInput = WorkflowPluginValue, TOutput = WorkflowPluginValue> = (
+export type TPluginHookHandler<TInput = TWorkflowPluginValue, TOutput = TWorkflowPluginValue> = (
     input: TInput,
-    context: PluginContext
+    context: IPluginContext
 ) => Promise<TOutput> | TOutput;
 
 /**
  * Core workflow plugin interface
  */
-export interface WorkflowPlugin {
+export interface IWorkflowPlugin {
     /**
      * Plugin identification
      */
@@ -88,33 +88,33 @@ export interface WorkflowPlugin {
     /**
      * Plugin configuration
      */
-    config: PluginConfig;
+    config: IPluginConfig;
 
     /**
      * Lifecycle hooks (all optional)
      */
-    beforeNodeCreate?: PluginHookHandler<WorkflowNode, WorkflowNode>;
-    afterNodeCreate?: PluginHookHandler<WorkflowNode, void>;
-    beforeNodeUpdate?: PluginHookHandler<{ node: WorkflowNode; updates: Partial<WorkflowNode> }, Partial<WorkflowNode>>;
-    afterNodeUpdate?: PluginHookHandler<{ oldNode: WorkflowNode; newNode: WorkflowNode }, void>;
-    beforeNodeDelete?: PluginHookHandler<WorkflowNode, boolean>; // Return false to prevent deletion
-    afterNodeDelete?: PluginHookHandler<WorkflowNode, void>;
+    beforeNodeCreate?: TPluginHookHandler<IWorkflowNode, IWorkflowNode>;
+    afterNodeCreate?: TPluginHookHandler<IWorkflowNode, void>;
+    beforeNodeUpdate?: TPluginHookHandler<{ node: IWorkflowNode; updates: Partial<IWorkflowNode> }, Partial<IWorkflowNode>>;
+    afterNodeUpdate?: TPluginHookHandler<{ oldNode: IWorkflowNode; newNode: IWorkflowNode }, void>;
+    beforeNodeDelete?: TPluginHookHandler<IWorkflowNode, boolean>; // Return false to prevent deletion
+    afterNodeDelete?: TPluginHookHandler<IWorkflowNode, void>;
 
-    beforeEdgeCreate?: PluginHookHandler<WorkflowEdge, WorkflowEdge>;
-    afterEdgeCreate?: PluginHookHandler<WorkflowEdge, void>;
-    beforeEdgeUpdate?: PluginHookHandler<{ edge: WorkflowEdge; updates: Partial<WorkflowEdge> }, Partial<WorkflowEdge>>;
-    afterEdgeUpdate?: PluginHookHandler<{ oldEdge: WorkflowEdge; newEdge: WorkflowEdge }, void>;
-    beforeEdgeDelete?: PluginHookHandler<WorkflowEdge, boolean>; // Return false to prevent deletion
-    afterEdgeDelete?: PluginHookHandler<WorkflowEdge, void>;
+    beforeEdgeCreate?: TPluginHookHandler<IWorkflowEdge, IWorkflowEdge>;
+    afterEdgeCreate?: TPluginHookHandler<IWorkflowEdge, void>;
+    beforeEdgeUpdate?: TPluginHookHandler<{ edge: IWorkflowEdge; updates: Partial<IWorkflowEdge> }, Partial<IWorkflowEdge>>;
+    afterEdgeUpdate?: TPluginHookHandler<{ oldEdge: IWorkflowEdge; newEdge: IWorkflowEdge }, void>;
+    beforeEdgeDelete?: TPluginHookHandler<IWorkflowEdge, boolean>; // Return false to prevent deletion
+    afterEdgeDelete?: TPluginHookHandler<IWorkflowEdge, void>;
 
-    beforeSnapshot?: PluginHookHandler<WorkflowSnapshot, WorkflowSnapshot>;
-    afterSnapshot?: PluginHookHandler<WorkflowSnapshot, void>;
+    beforeSnapshot?: TPluginHookHandler<IWorkflowSnapshot, IWorkflowSnapshot>;
+    afterSnapshot?: TPluginHookHandler<IWorkflowSnapshot, void>;
 
     /**
      * Plugin lifecycle methods
      */
-    initialize?: (context: PluginContext) => Promise<void> | void;
-    configure?: (config: PluginConfig) => void;
+    initialize?: (context: IPluginContext) => Promise<void> | void;
+    configure?: (config: IPluginConfig) => void;
     destroy?: () => Promise<void> | void;
 
     /**
@@ -133,14 +133,14 @@ export interface WorkflowPlugin {
     healthCheck?: () => Promise<{
         healthy: boolean;
         message?: string;
-        details?: Record<string, WorkflowPluginValue | undefined>;
+        details?: Record<string, TWorkflowPluginValue | undefined>;
     }>;
 }
 
 /**
  * Plugin validation result
  */
-export interface PluginValidationResult {
+export interface IPluginValidationResult {
     isValid: boolean;
     errors: string[];
     warnings: string[];
@@ -153,11 +153,11 @@ export interface PluginValidationResult {
 /**
  * Plugin manager interface
  */
-export interface PluginManager {
+export interface IPluginManager {
     /**
      * Register a plugin
      */
-    register(plugin: WorkflowPlugin): Promise<PluginValidationResult>;
+    register(plugin: IWorkflowPlugin): Promise<IPluginValidationResult>;
 
     /**
      * Unregister a plugin
@@ -167,17 +167,17 @@ export interface PluginManager {
     /**
      * Get plugin by name
      */
-    getPlugin(name: string): WorkflowPlugin | undefined;
+    getPlugin(name: string): IWorkflowPlugin | undefined;
 
     /**
      * Get all registered plugins
      */
-    getAllPlugins(): WorkflowPlugin[];
+    getAllPlugins(): IWorkflowPlugin[];
 
     /**
      * Get enabled plugins
      */
-    getEnabledPlugins(): WorkflowPlugin[];
+    getEnabledPlugins(): IWorkflowPlugin[];
 
     /**
      * Enable/disable plugin
@@ -187,26 +187,26 @@ export interface PluginManager {
     /**
      * Configure plugin
      */
-    configurePlugin(name: string, config: PluginConfig): boolean;
+    configurePlugin(name: string, config: IPluginConfig): boolean;
 
     /**
      * Execute hook for all plugins
      */
     executeHook<TInput, TOutput>(
-        hookName: PluginLifecycle,
+        hookName: TPluginLifecycle,
         input: TInput,
-        context: PluginContext
+        context: IPluginContext
     ): Promise<TOutput>;
 
     /**
      * Validate all plugins
      */
-    validateAllPlugins(): PluginValidationResult[];
+    validateAllPlugins(): IPluginValidationResult[];
 
     /**
      * Get plugin execution order based on dependencies and priorities
      */
-    getExecutionOrder(): WorkflowPlugin[];
+    getExecutionOrder(): IWorkflowPlugin[];
 
     /**
      * Plugin health check
@@ -215,7 +215,7 @@ export interface PluginManager {
         [pluginName: string]: {
             healthy: boolean;
             message?: string;
-            details?: Record<string, WorkflowPluginValue | undefined>;
+            details?: Record<string, TWorkflowPluginValue | undefined>;
         };
     }>;
 
@@ -228,11 +228,11 @@ export interface PluginManager {
 /**
  * Plugin factory interface
  */
-export interface PluginFactory {
+export interface IPluginFactory {
     /**
      * Create plugin instance
      */
-    create(config?: PluginConfig): WorkflowPlugin;
+    create(config?: IPluginConfig): IWorkflowPlugin;
 
     /**
      * Get plugin metadata
@@ -249,7 +249,7 @@ export interface PluginFactory {
     /**
      * Validate plugin configuration
      */
-    validateConfig(config: PluginConfig): {
+    validateConfig(config: IPluginConfig): {
         isValid: boolean;
         errors: string[];
     };
@@ -258,26 +258,26 @@ export interface PluginFactory {
 /**
  * Built-in plugin types for common use cases
  */
-export interface ValidationPlugin extends WorkflowPlugin {
-    validateNode?: (node: WorkflowNode) => { valid: boolean; errors: string[] };
-    validateEdge?: (edge: WorkflowEdge) => { valid: boolean; errors: string[] };
-    validateWorkflow?: (snapshot: WorkflowSnapshot) => { valid: boolean; errors: string[] };
+export interface IValidationPlugin extends IWorkflowPlugin {
+    validateNode?: (node: IWorkflowNode) => { valid: boolean; errors: string[] };
+    validateEdge?: (edge: IWorkflowEdge) => { valid: boolean; errors: string[] };
+    validateWorkflow?: (snapshot: IWorkflowSnapshot) => { valid: boolean; errors: string[] };
 }
 
-export interface TransformationPlugin extends WorkflowPlugin {
-    transformNode?: (node: WorkflowNode) => WorkflowNode;
-    transformEdge?: (edge: WorkflowEdge) => WorkflowEdge;
-    transformWorkflow?: (snapshot: WorkflowSnapshot) => WorkflowSnapshot;
+export interface ITransformationPlugin extends IWorkflowPlugin {
+    transformNode?: (node: IWorkflowNode) => IWorkflowNode;
+    transformEdge?: (edge: IWorkflowEdge) => IWorkflowEdge;
+    transformWorkflow?: (snapshot: IWorkflowSnapshot) => IWorkflowSnapshot;
 }
 
-export interface AuditPlugin extends WorkflowPlugin {
+export interface IAuditPlugin extends IWorkflowPlugin {
     auditLog?: {
         operation: string;
         target: string;
         timestamp: Date;
-        metadata: Record<string, WorkflowPluginValue | undefined>;
+        metadata: Record<string, TWorkflowPluginValue | undefined>;
     }[];
-    getAuditLog?: () => AuditPlugin['auditLog'];
+    getAuditLog?: () => IAuditPlugin['auditLog'];
     clearAuditLog?: () => void;
 }
 
@@ -288,12 +288,12 @@ export class PluginUtils {
     /**
      * Resolve plugin dependencies
      */
-    static resolveDependencies(plugins: WorkflowPlugin[]): WorkflowPlugin[] {
-        const resolved: WorkflowPlugin[] = [];
+    static resolveDependencies(plugins: IWorkflowPlugin[]): IWorkflowPlugin[] {
+        const resolved: IWorkflowPlugin[] = [];
         const visiting = new Set<string>();
         const visited = new Set<string>();
 
-        const visit = (plugin: WorkflowPlugin) => {
+        const visit = (plugin: IWorkflowPlugin) => {
             if (visited.has(plugin.name)) return;
             if (visiting.has(plugin.name)) {
                 throw new Error(`Circular dependency detected involving plugin: ${plugin.name}`);
@@ -325,7 +325,7 @@ export class PluginUtils {
     /**
      * Check for plugin conflicts
      */
-    static checkConflicts(plugins: WorkflowPlugin[]): string[] {
+    static checkConflicts(plugins: IWorkflowPlugin[]): string[] {
         const conflicts: string[] = [];
         const pluginMap = new Map(plugins.map(p => [p.name, p]));
 

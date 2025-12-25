@@ -27,14 +27,12 @@ export type TToolMetadata = Record<string, string | number | boolean | string[] 
  * - This must support structured tool outputs without resorting to `any`.
  * - Prefer `ToolResultData` (derived from the canonical `UniversalValue` axis).
  */
-export type TToolExecutionData = TToolResultData;
-
 /**
  * Tool execution result - extended for ToolExecutionData compatibility
  */
 export interface IToolResult {
     success: boolean;
-    data?: TToolExecutionData;
+    data?: TToolResultData;
     error?: string;
     metadata?: TToolMetadata;
     [key: string]: TToolContextExtensionValue | undefined;
@@ -49,7 +47,7 @@ export interface IToolExecutionResult {
     /** Tool name that was executed */
     toolName?: string;
     /** Execution result or data */
-    result?: TToolExecutionData;
+    result?: TToolResultData;
     /** Error message if execution failed */
     error?: string;
     /** Execution duration in milliseconds */
@@ -66,9 +64,6 @@ export interface IToolExecutionResult {
  * Tool execution context - type-safe context for tool execution
  * Enhanced with hierarchical execution tracking support
  */
-// Align Tool ownerPath segments with the canonical ownerPath segment type.
-export type TToolOwnerPathSegment = IOwnerPathSegment;
-
 export interface IToolExecutionContext {
     toolName: string;
     parameters: TToolParameters;
@@ -113,7 +108,7 @@ export interface IToolExecutionContext {
     /** Owner context propagated from EventService */
     ownerType?: string;
     ownerId?: string;
-    ownerPath?: TToolOwnerPathSegment[];
+    ownerPath?: IOwnerPathSegment[];
     sourceId?: string;
 
     /**
@@ -148,7 +143,7 @@ export interface ParameterValidationResult {
 /**
  * Generic tool executor function
  */
-export type ToolExecutor<TParams = TToolParameters, TResult = TToolExecutionData> =
+export type ToolExecutor<TParams = TToolParameters, TResult = TToolResultData> =
     (parameters: TParams, context?: IToolExecutionContext) => Promise<TResult>;
 
 /**

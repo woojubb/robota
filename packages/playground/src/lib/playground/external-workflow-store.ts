@@ -1,38 +1,37 @@
 /**
- * ExternalWorkflowStore - SDK Store 외부 주입을 위한 인터페이스
- * 
- * Purpose: RealTimeWorkflowBuilder에 외부에서 Manual 노드를 주입할 수 있도록 하는 최소 인터페이스
- * Architecture: 기존 SDK 로직 수정 없이 외부 접근만 가능하게 하는 최소 수정 방식
+ * ExternalWorkflowStore - external injection surface for the workflow store
+ *
+ * Purpose: allow manual node/edge injection without modifying the core SDK store.
  */
 
-import type { UniversalWorkflowStructure, UniversalWorkflowNode, UniversalWorkflowEdge } from '@robota-sdk/workflow';
+import type { IUniversalWorkflowEdge, IUniversalWorkflowNode } from '@robota-sdk/workflow';
 import { SilentLogger, type SimpleLogger } from '@robota-sdk/agents';
 
 /**
- * 외부 워크플로우 스토어 인터페이스
- * SDK Store에 외부에서 Manual 노드를 추가할 수 있는 최소 기능 제공
+ * External workflow store interface.
+ * Provides a minimal API for adding manual nodes/edges into the store.
  */
-export interface ExternalWorkflowStore {
-    // 기본 노드 관리
-    addNode(node: UniversalWorkflowNode): void;
-    getNodes(): UniversalWorkflowNode[];
+export interface IExternalWorkflowStore {
+    // Node management
+    addNode(node: IUniversalWorkflowNode): void;
+    getNodes(): IUniversalWorkflowNode[];
 
-    // 기본 엣지 관리
-    addEdge(edge: UniversalWorkflowEdge): void;
-    getEdges(): UniversalWorkflowEdge[];
+    // Edge management
+    addEdge(edge: IUniversalWorkflowEdge): void;
+    getEdges(): IUniversalWorkflowEdge[];
 
     // Manual node helpers
     addAgentNode(agentData: { id: string; name: string; level?: number; taskName?: string }): void;
     addUserInputNode(inputData: { id: string; content: string }): void;
 
-    // 초기화 및 정리
+    // Lifecycle
     clear(): void;
 
-    // 업데이트 트리거 콜백 설정
+    // Update callback
     setUpdateCallback(callback: () => Promise<void>): void;
 }
 
-export interface ManualAgentData {
+export interface IManualAgentData {
     id: string;
     name: string;
     level?: number;
@@ -45,12 +44,12 @@ export interface ManualUserInputData {
 }
 
 /**
- * 기본 ExternalWorkflowStore 구현체
- * Manual 노드들을 UniversalWorkflowNode 형태로 변환하여 저장
+ * Default external workflow store implementation.
+ * Stores injected nodes/edges using universal workflow shapes.
  */
-export class DefaultExternalWorkflowStore implements ExternalWorkflowStore {
-    private nodes: UniversalWorkflowNode[] = [];
-    private edges: UniversalWorkflowEdge[] = [];
+export class DefaultExternalWorkflowStore implements IExternalWorkflowStore {
+    private nodes: IUniversalWorkflowNode[] = [];
+    private edges: IUniversalWorkflowEdge[] = [];
     private logger: SimpleLogger;
     private updateCallback: (() => Promise<void>) | null = null;
 
@@ -62,59 +61,45 @@ export class DefaultExternalWorkflowStore implements ExternalWorkflowStore {
     /**
      * 노드 추가 (범용)
      */
-    addNode(node: UniversalWorkflowNode): void {
-        // 중복 방지
-        const existingIndex = this.nodes.findIndex(n => n.id === node.id);
-        if (existingIndex !== -1) {
-            this.nodes[existingIndex] = node;
-            this.logger.debug(`Updated existing node: ${node.id}`);
-        } else {
-            this.nodes.push(node);
-            this.logger.debug(`Added new node: ${node.id} (type: ${node.type})`);
-        }
+    addNode(node: IUniversalWorkflowNode): void {
+        this.nodes.push(node);
+        this.logger.debug(`Added node: ${node.id} (type: ${node.type})`);
 
-        // 노드 추가 후 SDK Store 업데이트 트리거
+        // Trigger store update after node insertion.
         this.triggerUpdate();
     }
 
     /**
      * 모든 노드 반환
      */
-    getNodes(): UniversalWorkflowNode[] {
-        return [...this.nodes]; // 복사본 반환
+    getNodes(): IUniversalWorkflowNode[] {
+        return [...this.nodes];
     }
 
     /**
      * 엣지 추가 (범용)
      */
-    addEdge(edge: UniversalWorkflowEdge): void {
-        // 중복 방지
-        const existingIndex = this.edges.findIndex(e => e.id === edge.id);
-        if (existingIndex !== -1) {
-            this.edges[existingIndex] = edge;
-            this.logger.debug(`Updated existing edge: ${edge.id}`);
-        } else {
-            this.edges.push(edge);
-            this.logger.debug(`Added new edge: ${edge.id} (${edge.source} → ${edge.target})`);
-        }
+    addEdge(edge: IUniversalWorkflowEdge): void {
+        this.edges.push(edge);
+        this.logger.debug(`Added edge: ${edge.id} (${edge.source} → ${edge.target})`);
 
-        // 엣지 추가 후 SDK Store 업데이트 트리거
+        // Trigger store update after edge insertion.
         this.triggerUpdate();
     }
 
     /**
      * 모든 엣지 반환
      */
-    getEdges(): UniversalWorkflowEdge[] {
-        return [...this.edges]; // 복사본 반환
+    getEdges(): IUniversalWorkflowEdge[] {
+        return [...this.edges];
     }
 
     /**
      * Agent 노드 추가 헬퍼
      */
-    addAgentNode(agentData: ManualAgentData): void {
+    addAgentNode(agentData: IManualAgentData): void {
         const now = Date.now();
-        const agentNode: UniversalWorkflowNode = {
+        const agentNode: IUniversalWorkflowNode = {
             id: agentData.id,
             type: 'agent',
             level: agentData.level || 1,
@@ -159,7 +144,7 @@ export class DefaultExternalWorkflowStore implements ExternalWorkflowStore {
     clear(): void {
         this.nodes = [];
         this.edges = [];
-        this.logger.debug('ExternalWorkflowStore cleared');
+        this.logger.debug('External workflow store cleared');
     }
 
     /**

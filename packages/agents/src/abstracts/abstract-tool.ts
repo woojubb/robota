@@ -61,18 +61,9 @@ export interface AbstractToolOptions {
 }
 
 /**
- * Canonical tool parameters type for AbstractTool.
- *
- * IMPORTANT:
- * - This must stay aligned with `ToolParameters` from the interfaces layer.
- * - Do not introduce a separate parameter taxonomy here.
- */
-export type AbstractToolParameters = TToolParameters;
-
-/**
  * Tool execution function type with proper parameter constraints
  */
-export type ToolExecutionFunction<TParams = AbstractToolParameters, TResult = IToolResult> = (
+export type ToolExecutionFunction<TParams = TToolParameters, TResult = IToolResult> = (
     parameters: TParams
 ) => Promise<TResult> | TResult;
 
@@ -82,7 +73,7 @@ export type ToolExecutionFunction<TParams = AbstractToolParameters, TResult = IT
  * @template TParams - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)  
  */
-export interface AbstractToolInterface<TParams = AbstractToolParameters, TResult = IToolResult> {
+export interface AbstractToolInterface<TParams = TToolParameters, TResult = IToolResult> {
     name: string;
     description: string;
     parameters: IToolSchema['parameters'];
@@ -95,7 +86,7 @@ export interface AbstractToolInterface<TParams = AbstractToolParameters, TResult
  * @template TParameters - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
-export interface TypeSafeToolInterface<TParameters = AbstractToolParameters, TResult = IToolResult> {
+export interface TypeSafeToolInterface<TParameters = TToolParameters, TResult = IToolResult> {
     readonly schema: IToolSchema;
     execute(parameters: TParameters, context: IToolExecutionContext): Promise<TResult>;
     validate(parameters: TParameters): boolean;
@@ -114,10 +105,10 @@ export interface TypeSafeToolInterface<TParameters = AbstractToolParameters, TRe
  * - Dependency Injection for all external dependencies
  * - Graceful degradation (undefined dependencies = silent operation)
  * 
- * @template TParameters - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
+ * @template TParameters - Tool parameters type (defaults to TToolParameters)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
-export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult = IToolResult>
+export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToolResult>
     implements TypeSafeToolInterface<TParameters, TResult> {
 
     abstract readonly schema: IToolSchema;
@@ -242,5 +233,5 @@ export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult
  * Legacy tool class for backward compatibility
  * @deprecated Use AbstractTool with type parameters instead
  */
-export abstract class LegacyAbstractTool extends AbstractTool<AbstractToolParameters, IToolResult> implements ToolInterface { }
+export abstract class LegacyAbstractTool extends AbstractTool<TToolParameters, IToolResult> implements ToolInterface { }
 

@@ -1,20 +1,20 @@
 import type {
-    Transport,
-    TransportCapabilities,
-    TransportConfig
+    ITransport,
+    ITransportCapabilities,
+    ITransportConfig
 } from './transport-interface';
 import { TransportError } from './transport-interface';
-import type { TransportRequest, TransportResponse } from '../shared/types';
+import type { ITransportRequest, ITransportResponse } from '../shared/types';
 
 /**
  * HTTP Transport implementation
  * Works in both browser and Node.js environments
  */
-export class HttpTransport implements Transport {
+export class HttpTransport implements ITransport {
     private connected = false;
-    private readonly config: Required<TransportConfig>;
+    private readonly config: Required<ITransportConfig>;
 
-    constructor(config: TransportConfig) {
+    constructor(config: ITransportConfig) {
         this.config = {
             timeout: 30000,
             retryCount: 3,
@@ -27,7 +27,7 @@ export class HttpTransport implements Transport {
     async connect(): Promise<void> {
         // HTTP is connectionless, but we can do a health check
         try {
-            const healthRequest: TransportRequest = {
+            const healthRequest: ITransportRequest = {
                 id: 'health-check',
                 url: `${this.config.baseUrl}/health`,
                 endpoint: '/health',
@@ -60,7 +60,7 @@ export class HttpTransport implements Transport {
         return this.connected;
     }
 
-    getCapabilities(): TransportCapabilities {
+    getCapabilities(): ITransportCapabilities {
         return {
             streaming: false, // HTTP doesn't support true streaming
             bidirectional: false,
@@ -70,7 +70,7 @@ export class HttpTransport implements Transport {
         };
     }
 
-    async send<TData>(request: TransportRequest): Promise<TransportResponse<TData>> {
+    async send<TData>(request: ITransportRequest): Promise<ITransportResponse<TData>> {
         const url = this.buildUrl(request.url);
         const requestInit: RequestInit = {
             method: request.method,
@@ -130,7 +130,7 @@ export class HttpTransport implements Transport {
         }
     }
 
-    async *sendStream<T>(request: TransportRequest): AsyncIterable<T> {
+    async *sendStream<T>(request: ITransportRequest): AsyncIterable<T> {
         // HTTP streaming using Server-Sent Events
         const url = this.buildUrl(request.url);
         const requestInit: RequestInit = {

@@ -5,16 +5,16 @@
  * for secure server-side execution without exposing actual API keys.
  */
 
-import type { UniversalValue } from '@robota-sdk/agents';
+import type { TUniversalValue } from '@robota-sdk/agents';
 import type { PlaygroundConfig } from './config-validation';
 
 // Import RemoteExecutor dynamically for web environment
 // Dynamic import to avoid build issues with SSR
-interface RemoteExecutorInterface {
+interface IRemoteExecutor {
   readonly name: string;
   readonly version: string;
-  executeChat(request: Record<string, UniversalValue>): Promise<UniversalValue>;
-  executeChatStream?(request: Record<string, UniversalValue>): AsyncIterable<UniversalValue>;
+  executeChat(request: Record<string, TUniversalValue>): Promise<TUniversalValue>;
+  executeChatStream?(request: Record<string, TUniversalValue>): AsyncIterable<TUniversalValue>;
   supportsTools(): boolean;
   validateConfig(): boolean;
   dispose?(): Promise<void>;
@@ -26,7 +26,7 @@ interface RemoteExecutorInterface {
  */
 declare global {
   interface Window {
-    __ROBOTA_PLAYGROUND_EXECUTOR__?: RemoteExecutorInterface;
+    __ROBOTA_PLAYGROUND_EXECUTOR__?: IRemoteExecutor;
     __ROBOTA_PLAYGROUND_CONFIG__?: PlaygroundConfig;
   }
 }
@@ -513,7 +513,7 @@ export function createPlaygroundSandbox(config: PlaygroundConfig): {
     },
     // Playground-specific globals
     __ROBOTA_PLAYGROUND_CONFIG__: config,
-    __ROBOTA_PLAYGROUND_EXECUTOR__: null as RemoteExecutorInterface | null
+    __ROBOTA_PLAYGROUND_EXECUTOR__: null as IRemoteExecutor | null
   };
 
   return {
@@ -535,7 +535,7 @@ export function createPlaygroundSandbox(config: PlaygroundConfig): {
             supportsTools: () => true,
             validateConfig: () => true,
             dispose: async () => { }
-          } as RemoteExecutorInterface;
+          } as IRemoteExecutor;
         }
 
         // Transform code for playground execution

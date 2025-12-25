@@ -1,16 +1,16 @@
 // Universal Workflow Types
 // Migrated from agents package to workflow package
 
-import type { WorkflowNode } from '../interfaces/workflow-node.js';
-import type { WorkflowSnapshot } from '../interfaces/workflow-builder.js';
+import type { IWorkflowNode } from '../interfaces/workflow-node.js';
+import type { IWorkflowSnapshot } from '../interfaces/workflow-builder.js';
 import type { WorkflowNodeType } from '../constants/workflow-types.js';
-import type { LoggerData, UniversalValue } from '@robota-sdk/agents';
+import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
 /**
  * Universal position information for nodes
  * Supports both explicit positioning and automatic layout hints
  */
-export interface UniversalPosition {
+export interface IUniversalPosition {
     /** Explicit X coordinate (pixels) */
     x?: number;
 
@@ -44,7 +44,7 @@ export interface UniversalPosition {
 /**
  * Universal visual state for real-time updates
  */
-export interface UniversalVisualState {
+export interface IUniversalVisualState {
     /** Current execution status */
     status: 'pending' | 'running' | 'completed' | 'error' | 'skipped';
 
@@ -73,7 +73,7 @@ export interface UniversalVisualState {
  * Universal node size information
  * Supports both measured and predefined dimensions
  */
-export interface UniversalDimensions {
+export interface IUniversalDimensions {
     /** Predefined width (for SSR/SSG support) */
     width?: number;
 
@@ -102,7 +102,7 @@ export interface UniversalDimensions {
 /**
  * Universal edge/connection styling
  */
-export interface UniversalEdgeStyle {
+export interface IUniversalEdgeStyle {
     /** Edge type for rendering */
     type?: 'default' | 'straight' | 'step' | 'smoothstep' | 'bezier';
 
@@ -120,17 +120,17 @@ export interface UniversalEdgeStyle {
     markerStart?: string;
 
     /** Label styling */
-    labelStyle?: Record<string, unknown>;
+    labelStyle?: Record<string, UniversalWorkflowExtensionValue | undefined>;
     labelPosition?: number; // 0-1 along the edge
 }
 
-type UniversalWorkflowExtensionValue = UniversalValue | Date | Error | LoggerData;
+type UniversalWorkflowExtensionValue = TUniversalValue | Date | Error | TLoggerData;
 
 /**
  * Universal Workflow Edge
  * Represents connections between nodes with rich styling and metadata
  */
-export interface UniversalWorkflowEdge {
+export interface IUniversalWorkflowEdge {
     id: string;
     source: string; // Source node ID
     target: string; // Target node ID
@@ -145,7 +145,7 @@ export interface UniversalWorkflowEdge {
     targetHandle?: string;
 
     // Visual styling
-    style?: UniversalEdgeStyle;
+    style?: IUniversalEdgeStyle;
 
     // Conditional display
     hidden?: boolean;
@@ -169,7 +169,7 @@ export interface UniversalWorkflowEdge {
         };
 
         // Additional metadata
-        metadata?: LoggerData;
+        metadata?: TLoggerData;
         extra?: Record<string, UniversalWorkflowExtensionValue>;
     };
 
@@ -183,25 +183,25 @@ export interface UniversalWorkflowEdge {
  * Universal Workflow Node
  * Extended version of WorkflowNode with universal visualization capabilities
  */
-export interface UniversalWorkflowNode extends WorkflowNode {
+export interface IUniversalWorkflowNode extends IWorkflowNode {
     // Enhanced positioning and layout
-    position?: UniversalPosition;
-    dimensions?: UniversalDimensions;
+    position?: IUniversalPosition;
+    dimensions?: IUniversalDimensions;
 
     // Visual state management
-    visualState?: UniversalVisualState;
+    visualState?: IUniversalVisualState;
 
     // Enhanced data with visual properties
-    data: WorkflowNode['data'] & {
+    data: IWorkflowNode['data'] & {
         // Visual customization
         icon?: string;
         color?: string;
         className?: string;
-        style?: Record<string, unknown>;
+        style?: Record<string, UniversalWorkflowExtensionValue | undefined>;
 
         // Platform-agnostic extensions
         extensions?: {
-            [platformName: string]: Record<string, unknown>;
+            [platformName: string]: Record<string, UniversalWorkflowExtensionValue | undefined>;
         };
     };
 
@@ -223,7 +223,7 @@ export interface UniversalWorkflowNode extends WorkflowNode {
 /**
  * Layout configuration for automatic positioning
  */
-export interface UniversalLayoutConfig {
+export interface IUniversalLayoutConfig {
     /** Layout algorithm to use */
     algorithm: string;
 
@@ -251,14 +251,14 @@ export interface UniversalLayoutConfig {
     };
 
     /** Algorithm-specific options */
-    options?: Record<string, unknown>;
+    options?: Record<string, UniversalWorkflowExtensionValue | undefined>;
 }
 
 /**
  * Universal Workflow Structure
  * Complete workflow representation with metadata and configuration
  */
-export interface UniversalWorkflowStructure {
+export interface IUniversalWorkflowStructure {
     /** Workflow identification */
     id: string;
     name?: string;
@@ -266,11 +266,11 @@ export interface UniversalWorkflowStructure {
     version?: string;
 
     /** Core workflow data */
-    nodes: UniversalWorkflowNode[];
-    edges: UniversalWorkflowEdge[];
+    nodes: IUniversalWorkflowNode[];
+    edges: IUniversalWorkflowEdge[];
 
     /** Layout and presentation */
-    layout: UniversalLayoutConfig;
+    layout: IUniversalLayoutConfig;
     viewport?: {
         x: number;
         y: number;
@@ -301,7 +301,7 @@ export interface UniversalWorkflowStructure {
         category?: string;
 
         /** Additional metadata */
-        [key: string]: unknown;
+        [key: string]: UniversalWorkflowExtensionValue | undefined;
     };
 
     /** Validation state */
@@ -314,34 +314,34 @@ export interface UniversalWorkflowStructure {
 
     /** Platform-agnostic configurations */
     platforms?: {
-        [platformName: string]: UniversalPlatformConfig;
+        [platformName: string]: IUniversalPlatformConfig;
     };
 }
 
 /**
  * Platform configuration interface for extensible platform support
  */
-export interface UniversalPlatformConfig {
+export interface IUniversalPlatformConfig {
     /** Platform-specific theme or style configuration */
     theme?: string;
 
     /** Platform-specific rendering configuration */
-    config?: Record<string, unknown>;
+    config?: Record<string, UniversalWorkflowExtensionValue | undefined>;
 
     /** Platform-specific type mappings */
-    typeMapping?: Record<string, unknown>;
+    typeMapping?: Record<string, UniversalWorkflowExtensionValue | undefined>;
 
     /** Platform-specific viewport or canvas settings */
-    viewport?: Record<string, unknown>;
+    viewport?: Record<string, UniversalWorkflowExtensionValue | undefined>;
 
     /** Platform-specific metadata */
-    metadata?: Record<string, unknown>;
+    metadata?: Record<string, UniversalWorkflowExtensionValue | undefined>;
 }
 
 /**
  * Conversion options for platform-agnostic exports
  */
-export interface UniversalConversionOptions {
+export interface IUniversalConversionOptions {
     /** Target platform identifier */
     platform: string;
 
@@ -354,18 +354,18 @@ export interface UniversalConversionOptions {
 
     /** Layout options */
     autoLayout?: boolean;
-    layoutConfig?: Partial<UniversalLayoutConfig>;
+    layoutConfig?: Partial<IUniversalLayoutConfig>;
 
     /** Filtering options */
-    nodeFilter?: (node: UniversalWorkflowNode) => boolean;
-    edgeFilter?: (edge: UniversalWorkflowEdge) => boolean;
+    nodeFilter?: (node: IUniversalWorkflowNode) => boolean;
+    edgeFilter?: (edge: IUniversalWorkflowEdge) => boolean;
 
     /** Transformation options */
-    nodeTransform?: (node: UniversalWorkflowNode) => UniversalWorkflowNode;
-    edgeTransform?: (edge: UniversalWorkflowEdge) => UniversalWorkflowEdge;
+    nodeTransform?: (node: IUniversalWorkflowNode) => IUniversalWorkflowNode;
+    edgeTransform?: (edge: IUniversalWorkflowEdge) => IUniversalWorkflowEdge;
 
     /** Platform-specific options */
-    platformOptions?: Record<string, unknown>;
+    platformOptions?: Record<string, UniversalWorkflowExtensionValue | undefined>;
 }
 
 /**
@@ -431,5 +431,5 @@ export const UNIVERSAL_EDGE_TYPES = {
 } as const;
 
 // Type exports for convenience
-export type UniversalNodeType = typeof UNIVERSAL_NODE_TYPES[keyof typeof UNIVERSAL_NODE_TYPES];
-export type UniversalEdgeType = typeof UNIVERSAL_EDGE_TYPES[keyof typeof UNIVERSAL_EDGE_TYPES];
+export type TUniversalNodeType = typeof UNIVERSAL_NODE_TYPES[keyof typeof UNIVERSAL_NODE_TYPES];
+export type TUniversalEdgeType = typeof UNIVERSAL_EDGE_TYPES[keyof typeof UNIVERSAL_EDGE_TYPES];

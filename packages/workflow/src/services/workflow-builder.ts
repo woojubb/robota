@@ -3,19 +3,20 @@
 
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 import type {
-    WorkflowBuilder,
-    ExtendedWorkflowBuilder,
-    WorkflowQuery,
-    WorkflowPortable,
-    WorkflowSnapshot,
-    WorkflowUpdate,
-    WorkflowUpdateCallback,
-    WorkflowBuilderConfig
+    IWorkflowBuilder,
+    IExtendedWorkflowBuilder,
+    IWorkflowQuery,
+    IWorkflowPortable,
+    IWorkflowSnapshot,
+    TWorkflowBatchOperation,
+    TWorkflowBuilderExtensionValue,
+    TWorkflowUpdate,
+    TWorkflowUpdateCallback,
+    IWorkflowBuilderConfig
 } from '../interfaces/workflow-builder.js';
-import type { WorkflowNode } from '../interfaces/workflow-node.js';
-import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
-import type { WorkflowConnectionType } from '../interfaces/workflow-node.js';
-import type { UniversalWorkflowEdge } from '../types/universal-types.js';
+import type { IWorkflowNode, TWorkflowConnectionType } from '../interfaces/workflow-node.js';
+import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
+import type { IUniversalWorkflowEdge } from '../types/universal-types.js';
 import { NodeEdgeManager } from './node-edge-manager.js';
 import { WORKFLOW_DEFAULTS, WORKFLOW_CONSTRAINTS } from '../constants/defaults.js';
 
@@ -23,15 +24,15 @@ import { WORKFLOW_DEFAULTS, WORKFLOW_CONSTRAINTS } from '../constants/defaults.j
  * Core WorkflowBuilder implementation
  * Provides comprehensive workflow building and management capabilities
  */
-export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQuery, WorkflowPortable {
+export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQuery, IWorkflowPortable {
     private logger: SimpleLogger;
     private nodeEdgeManager: NodeEdgeManager;
-    private subscribers: Set<WorkflowUpdateCallback> = new Set();
-    private config: Required<WorkflowBuilderConfig>;
+    private subscribers: Set<TWorkflowUpdateCallback> = new Set();
+    private config: Required<IWorkflowBuilderConfig>;
     private updateCounter = 0;
     private lastUpdateTime?: Date;
 
-    constructor(config: WorkflowBuilderConfig = {}) {
+    constructor(config: IWorkflowBuilderConfig = {}) {
         this.config = {
             autoTimestamp: config.autoTimestamp ?? WORKFLOW_DEFAULTS.AUTO_TIMESTAMP,
             validateConnections: config.validateConnections ?? WORKFLOW_DEFAULTS.VALIDATE_CONNECTIONS,
@@ -61,7 +62,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
     // Core WorkflowBuilder Interface Implementation
     // =================================================================
 
-    getSnapshot(): WorkflowSnapshot {
+    getSnapshot(): IWorkflowSnapshot {
         const nodes = this.nodeEdgeManager.getAllNodes();
         const edges = this.nodeEdgeManager.getAllEdges().map(edge => this.convertUniversalEdgeToWorkflowEdge(edge));
 
@@ -85,11 +86,11 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         };
     }
 
-    getAllNodes(): WorkflowNode[] {
+    getAllNodes(): IWorkflowNode[] {
         return this.nodeEdgeManager.getAllNodes();
     }
 
-    getAllEdges(): WorkflowEdge[] {
+    getAllEdges(): IWorkflowEdge[] {
         // Convert UniversalWorkflowEdge to WorkflowEdge
         return this.nodeEdgeManager.getAllEdges().map(edge => this.convertUniversalEdgeToWorkflowEdge(edge));
     }
@@ -97,19 +98,19 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
     /**
      * Raw accessors (append-only order) for source-of-truth export without any transformation
      */
-    getRawNodes(): WorkflowNode[] {
+    getRawNodes(): IWorkflowNode[] {
         return this.nodeEdgeManager.getAllNodes();
     }
 
-    getRawEdges(): WorkflowEdge[] {
+    getRawEdges(): IWorkflowEdge[] {
         return this.getAllEdges();
     }
 
-    getNode(nodeId: string): WorkflowNode | undefined {
+    getNode(nodeId: string): IWorkflowNode | undefined {
         return this.nodeEdgeManager.getNode(nodeId);
     }
 
-    getEdge(edgeId: string): WorkflowEdge | undefined {
+    getEdge(edgeId: string): IWorkflowEdge | undefined {
         const universalEdge = this.nodeEdgeManager.getEdge(edgeId);
         return universalEdge ? this.convertUniversalEdgeToWorkflowEdge(universalEdge) : undefined;
     }
@@ -122,7 +123,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         return this.nodeEdgeManager.hasEdge(edgeId);
     }
 
-    subscribe(callback: WorkflowUpdateCallback): () => void {
+    subscribe(callback: TWorkflowUpdateCallback): () => void {
         this.subscribers.add(callback);
         this.logger.debug(`📡 [SUBSCRIPTION] Added subscriber, total: ${this.subscribers.size}`);
 
@@ -132,7 +133,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         };
     }
 
-    unsubscribe(callback: WorkflowUpdateCallback): void {
+    unsubscribe(callback: TWorkflowUpdateCallback): void {
         const removed = this.subscribers.delete(callback);
         if (removed) {
             this.logger.debug(`📡 [UNSUBSCRIPTION] Removed subscriber, total: ${this.subscribers.size}`);
@@ -143,10 +144,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         this.nodeEdgeManager.clear();
         this.updateCounter = 0;
         this.lastUpdateTime = undefined;
-        this.notifySubscribers({
-            action: 'create', // Use 'create' for consistency, though this is a clear operation
-            node: {} as WorkflowNode, // Empty node for clear operation
-        });
+        this.notifySubscribers({ action: 'clear' });
         this.logger.debug('🧹 [CLEAR] Workflow cleared');
     }
 
@@ -164,7 +162,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
     // ExtendedWorkflowBuilder Interface Implementation
     // =================================================================
 
-    addNode(node: Omit<WorkflowNode, 'timestamp'>, parentNodeId?: string): WorkflowNode {
+    addNode(node: Omit<IWorkflowNode, 'timestamp'>, parentNodeId?: string): IWorkflowNode {
         // Validate constraints
         if (this.nodeEdgeManager.getAllNodes().length >= this.config.maxNodes) {
             throw new Error(`Cannot add node: Maximum node limit (${this.config.maxNodes}) reached`);
@@ -186,7 +184,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         return createdNode;
     }
 
-    updateNode(nodeId: string, updates: Partial<WorkflowNode>): WorkflowNode | null {
+    updateNode(nodeId: string, updates: Partial<IWorkflowNode>): IWorkflowNode | null {
         const updatedNode = this.nodeEdgeManager.updateNode(nodeId, updates);
         if (!updatedNode) return null;
 
@@ -223,7 +221,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         return success;
     }
 
-    addEdge(edge: Omit<WorkflowEdge, 'timestamp'>): WorkflowEdge {
+    addEdge(edge: Omit<IWorkflowEdge, 'timestamp'>): IWorkflowEdge {
         // Validate constraints
         if (this.nodeEdgeManager.getAllEdges().length >= this.config.maxEdges) {
             throw new Error(`Cannot add edge: Maximum edge limit (${this.config.maxEdges}) reached`);
@@ -246,7 +244,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         return workflowEdge;
     }
 
-    updateEdge(edgeId: string, updates: Partial<WorkflowEdge>): WorkflowEdge | null {
+    updateEdge(edgeId: string, updates: Partial<IWorkflowEdge>): IWorkflowEdge | null {
         const nextData =
             updates.data || typeof updates.executionOrder !== 'undefined' || typeof updates.dependsOn !== 'undefined'
                 ? {
@@ -260,7 +258,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
                 : undefined;
 
         // Convert updates to UniversalWorkflowEdge format
-        const universalUpdates: Partial<UniversalWorkflowEdge> = {
+        const universalUpdates: Partial<IUniversalWorkflowEdge> = {
             id: updates.id,
             source: updates.source,
             target: updates.target,
@@ -298,10 +296,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         return success;
     }
 
-    batch(operations: Array<{
-        type: 'addNode' | 'updateNode' | 'removeNode' | 'addEdge' | 'updateEdge' | 'removeEdge';
-        data: unknown;
-    }>): void {
+    batch(operations: TWorkflowBatchOperation[]): void {
         this.logger.debug(`📦 [BATCH] Starting batch operation with ${operations.length} operations`);
 
         const startTime = Date.now();
@@ -312,27 +307,29 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
             try {
                 switch (operation.type) {
                     case 'addNode':
-                        this.addNode(operation.data as Omit<WorkflowNode, 'timestamp'>);
+                        this.addNode(operation.data);
                         break;
                     case 'updateNode':
-                        const { nodeId, updates } = operation.data as { nodeId: string; updates: Partial<WorkflowNode> };
-                        this.updateNode(nodeId, updates);
+                        this.updateNode(operation.data.nodeId, operation.data.updates);
                         break;
                     case 'removeNode':
-                        this.removeNode(operation.data as string);
+                        this.removeNode(operation.data.nodeId);
                         break;
                     case 'addEdge':
-                        this.addEdge(operation.data as Omit<WorkflowEdge, 'timestamp'>);
+                        this.addEdge(operation.data);
                         break;
                     case 'updateEdge':
-                        const { edgeId, edgeUpdates } = operation.data as { edgeId: string; edgeUpdates: Partial<WorkflowEdge> };
-                        this.updateEdge(edgeId, edgeUpdates);
+                        this.updateEdge(operation.data.edgeId, operation.data.updates);
                         break;
                     case 'removeEdge':
-                        this.removeEdge(operation.data as string);
+                        this.removeEdge(operation.data.edgeId);
                         break;
                     default:
-                        throw new Error(`Unknown operation type: ${operation.type}`);
+                        // Exhaustiveness check: all operation types must be handled above.
+                        // If this fails, update TWorkflowBatchOperation to include the new case.
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        const _exhaustive: never = operation;
+                        throw new Error('Unhandled batch operation');
                 }
                 successCount++;
             } catch (error) {
@@ -359,8 +356,8 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         level?: number | number[];
         parentId?: string;
         hasChildren?: boolean;
-        [key: string]: unknown;
-    }): WorkflowNode[] {
+        [key: string]: TWorkflowBuilderExtensionValue | undefined;
+    }): IWorkflowNode[] {
         const nodes = this.nodeEdgeManager.getAllNodes();
 
         return nodes.filter(node => {
@@ -402,8 +399,8 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         sourceId?: string;
         targetId?: string;
         hidden?: boolean;
-        [key: string]: unknown;
-    }): WorkflowEdge[] {
+        [key: string]: TWorkflowBuilderExtensionValue | undefined;
+    }): IWorkflowEdge[] {
         const edges = this.getAllEdges();
 
         return edges.filter(edge => {
@@ -426,7 +423,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         });
     }
 
-    getConnectedNodes(nodeId: string, direction: 'incoming' | 'outgoing' | 'both' = 'both'): WorkflowNode[] {
+    getConnectedNodes(nodeId: string, direction: 'incoming' | 'outgoing' | 'both' = 'both'): IWorkflowNode[] {
         const { incoming, outgoing } = this.nodeEdgeManager.getNodeEdges(nodeId);
         const connectedNodeIds = new Set<string>();
 
@@ -440,11 +437,11 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
 
         return Array.from(connectedNodeIds)
             .map(id => this.nodeEdgeManager.getNode(id))
-            .filter((node): node is WorkflowNode => node !== undefined);
+            .filter((node): node is IWorkflowNode => node !== undefined);
     }
 
-    getNodePath(nodeId: string): WorkflowNode[] {
-        const path: WorkflowNode[] = [];
+    getNodePath(nodeId: string): IWorkflowNode[] {
+        const path: IWorkflowNode[] = [];
         let currentNodeId: string | undefined = nodeId;
 
         while (currentNodeId) {
@@ -463,13 +460,13 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         return Math.max(...nodes.map(node => node.level), 0);
     }
 
-    getDisconnectedComponents(): WorkflowNode[][] {
+    getDisconnectedComponents(): IWorkflowNode[][] {
         const nodes = this.nodeEdgeManager.getAllNodes();
         const edges = this.nodeEdgeManager.getAllEdges();
         const visited = new Set<string>();
-        const components: WorkflowNode[][] = [];
+        const components: IWorkflowNode[][] = [];
 
-        const dfs = (nodeId: string, component: WorkflowNode[]) => {
+        const dfs = (nodeId: string, component: IWorkflowNode[]) => {
             if (visited.has(nodeId)) return;
 
             visited.add(nodeId);
@@ -489,7 +486,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
 
         nodes.forEach(node => {
             if (!visited.has(node.id)) {
-                const component: WorkflowNode[] = [];
+                const component: IWorkflowNode[] = [];
                 dfs(node.id, component);
                 if (component.length > 0) {
                     components.push(component);
@@ -546,7 +543,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
 
     exportToUniversal() {
         const snapshot = this.getSnapshot();
-        // ✅ 평면 모델로 변경: 기존 예제/검증/플레이그라운드 호환성 유지
+        // Flat model export for example/verification/playground compatibility.
         return {
             nodes: snapshot.nodes,
             edges: snapshot.edges,
@@ -558,7 +555,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         };
     }
 
-    importFromUniversal(data: { version: string; format: string; data: WorkflowSnapshot }): boolean {
+    importFromUniversal(data: { version: string; format: string; data: IWorkflowSnapshot }): boolean {
         if (data.format !== 'universal-workflow') {
             this.logger.error('❌ [IMPORT] Invalid format, expected: universal-workflow');
             return false;
@@ -591,7 +588,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
     // Private Helper Methods
     // =================================================================
 
-    private notifySubscribers(update: WorkflowUpdate): void {
+    private notifySubscribers(update: TWorkflowUpdate): void {
         this.subscribers.forEach(callback => {
             try {
                 callback(update);
@@ -601,12 +598,12 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         });
     }
 
-    private convertUniversalEdgeToWorkflowEdge(universalEdge: UniversalWorkflowEdge): WorkflowEdge {
+    private convertUniversalEdgeToWorkflowEdge(universalEdge: IUniversalWorkflowEdge): IWorkflowEdge {
         return {
             id: universalEdge.id,
             source: universalEdge.source,
             target: universalEdge.target,
-            type: universalEdge.type as WorkflowConnectionType,
+            type: universalEdge.type as TWorkflowConnectionType,
             label: universalEdge.label,
             description: universalEdge.description,
             sourceHandle: universalEdge.sourceHandle,

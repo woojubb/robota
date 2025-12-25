@@ -61,7 +61,6 @@ export type {
     OpenAPIToolConfig,
     MCPToolConfig,
     TToolMetadata,
-    TToolExecutionData
 } from './tool';
 
 export type {

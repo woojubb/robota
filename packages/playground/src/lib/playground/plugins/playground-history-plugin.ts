@@ -1,4 +1,4 @@
-import type { SimpleLogger, UniversalValue } from '@robota-sdk/agents';
+import type { SimpleLogger, TUniversalValue } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
 export type PlaygroundEventType =
@@ -18,7 +18,7 @@ export interface ConversationEvent {
   content?: string;
   agentId?: string;
   toolName?: string;
-  metadata?: Record<string, UniversalValue>;
+  metadata?: Record<string, TUniversalValue>;
 }
 
 export interface AgentBlock {

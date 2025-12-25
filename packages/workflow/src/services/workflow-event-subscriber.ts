@@ -9,15 +9,19 @@
 
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 import type {
-    EventHandler,
-    EventData,
-    EventProcessingResult
+    IEventHandler,
+    TEventData,
+    IEventProcessingResult
 } from '../interfaces/event-handler.js';
-import type { WorkflowNode } from '../interfaces/workflow-node.js';
+import type { IWorkflowNode } from '../interfaces/workflow-node.js';
 import type {
-    ExtendedWorkflowBuilder,
-    WorkflowUpdate,
-    WorkflowUpdateCallback
+    IExtendedWorkflowBuilder,
+    IWorkflowQuery,
+    IWorkflowPortable,
+    TWorkflowBuilderExtensionValue,
+    TWorkflowUpdate,
+    TWorkflowUpdateCallback,
+    IWorkflowSnapshot
 } from '../interfaces/workflow-builder.js';
 import { NodeEdgeManager } from './node-edge-manager.js';
 import { CoreWorkflowBuilder } from './workflow-builder.js';
@@ -29,12 +33,36 @@ import { ExecutionEventHandler } from '../handlers/execution-event-handler.js';
 /**
  * Event subscription callback for external integrations
  */
-export type EventSubscriptionCallback = (eventType: string, eventData: unknown) => void;
+export type TEventSubscriptionCallback = (eventType: string, eventData: TEventData) => void;
+
+export interface IWorkflowExportLayout {
+    algorithm: string;
+    direction: string;
+    spacing: { nodeSpacing: number; levelSpacing: number };
+    alignment: { horizontal: string; vertical: string };
+}
+
+export interface IWorkflowExportMetadata {
+    createdAt: string;
+    updatedAt: string;
+    metrics: { totalNodes: number; totalEdges: number };
+    [key: string]: TWorkflowBuilderExtensionValue | undefined;
+}
+
+export interface IWorkflowExportStructure {
+    __workflowType: 'UniversalWorkflowStructure';
+    id: string;
+    name: string;
+    nodes: IWorkflowNode[];
+    edges: ReturnType<IWorkflowPortable['exportToUniversal']>['edges'];
+    metadata: IWorkflowExportMetadata;
+    layout: IWorkflowExportLayout;
+}
 
 /**
  * WorkflowEventSubscriber Configuration
  */
-export interface WorkflowEventSubscriberConfig {
+export interface IWorkflowEventSubscriberConfig {
     /** Logger instance for debugging */
     logger?: SimpleLogger;
 
@@ -45,7 +73,7 @@ export interface WorkflowEventSubscriberConfig {
     maxEdges?: number;
 
     /** Event handlers to register */
-    eventHandlers?: EventHandler[];
+    eventHandlers?: IEventHandler[];
 
     /** Enable automatic node cleanup */
     enableAutoCleanup?: boolean;
@@ -56,14 +84,14 @@ export interface WorkflowEventSubscriberConfig {
  */
 export class WorkflowEventSubscriber {
     private logger: SimpleLogger;
-    private workflowBuilder: ExtendedWorkflowBuilder;
-    private eventHandlers = new Map<string, EventHandler>();
-    private eventSubscribers = new Set<EventSubscriptionCallback>();
-    private workflowUpdateSubscribers = new Set<WorkflowUpdateCallback>();
-    private workflowSnapshotSubscribers = new Set<(snapshot: any) => void>();
+    private workflowBuilder: IExtendedWorkflowBuilder & IWorkflowQuery & IWorkflowPortable;
+    private eventHandlers = new Map<string, IEventHandler>();
+    private eventSubscribers = new Set<TEventSubscriptionCallback>();
+    private workflowUpdateSubscribers = new Set<TWorkflowUpdateCallback>();
+    private workflowSnapshotSubscribers = new Set<(snapshot: IWorkflowExportStructure) => void>();
 
     // Configuration
-    private config: Required<WorkflowEventSubscriberConfig>;
+    private config: Required<IWorkflowEventSubscriberConfig>;
 
     // Statistics
     private stats = {
@@ -74,7 +102,7 @@ export class WorkflowEventSubscriber {
         lastEventTime: new Date()
     };
 
-    constructor(config: WorkflowEventSubscriberConfig = {}) {
+    constructor(config: IWorkflowEventSubscriberConfig = {}) {
         this.config = {
             logger: config.logger ?? SilentLogger,
             maxNodes: config.maxNodes ?? 1000,
@@ -118,7 +146,7 @@ export class WorkflowEventSubscriber {
     /**
      * Process an event through the registered handlers
      */
-    async processEvent(eventType: string, eventData: unknown): Promise<void> {
+    async processEvent(eventType: string, eventData: TEventData): Promise<void> {
         try {
             this.stats.eventsProcessed++;
             this.stats.lastEventTime = new Date();
@@ -130,8 +158,7 @@ export class WorkflowEventSubscriber {
             // Notify event subscribers
             this.notifyEventSubscribers(eventType, eventData);
 
-            // Convert to EventData format
-            const normalizedEventData: EventData = this.normalizeEventData(eventType, eventData);
+            const normalizedEventData: TEventData = eventData;
 
             // Find and execute handlers
             const matchingHandlers = this.findMatchingHandlers(eventType);
@@ -166,7 +193,7 @@ export class WorkflowEventSubscriber {
     /**
      * Subscribe to raw events
      */
-    subscribeToEvents(callback: EventSubscriptionCallback): () => void {
+    subscribeToEvents(callback: TEventSubscriptionCallback): () => void {
         this.eventSubscribers.add(callback);
         this.logger.debug('📡 [EVENT-SUBSCRIPTION] Added event subscriber');
 
@@ -178,7 +205,7 @@ export class WorkflowEventSubscriber {
     /**
      * Unsubscribe from raw events
      */
-    unsubscribeFromEvents(callback: EventSubscriptionCallback): void {
+    unsubscribeFromEvents(callback: TEventSubscriptionCallback): void {
         const removed = this.eventSubscribers.delete(callback);
         if (removed) {
             this.logger.debug('📡 [EVENT-UNSUBSCRIPTION] Removed event subscriber');
@@ -188,7 +215,7 @@ export class WorkflowEventSubscriber {
     /**
      * Subscribe to workflow updates
      */
-    subscribeToWorkflowUpdates(callback: WorkflowUpdateCallback): () => void {
+    subscribeToWorkflowUpdates(callback: TWorkflowUpdateCallback): () => void {
         this.workflowUpdateSubscribers.add(callback);
         this.logger.debug('📡 [WORKFLOW-SUBSCRIPTION] Added workflow update subscriber');
 
@@ -200,7 +227,7 @@ export class WorkflowEventSubscriber {
     /**
      * Subscribe to workflow snapshots (exported after each applied update)
      */
-    subscribeToWorkflowSnapshots(callback: (snapshot: any) => void): () => void {
+    subscribeToWorkflowSnapshots(callback: (snapshot: IWorkflowExportStructure) => void): () => void {
         this.workflowSnapshotSubscribers.add(callback);
         this.logger.debug('📸 [WORKFLOW-SNAPSHOT-SUBSCRIPTION] Added workflow snapshot subscriber');
 
@@ -215,7 +242,7 @@ export class WorkflowEventSubscriber {
     /**
      * Unsubscribe from workflow updates
      */
-    unsubscribeFromWorkflowUpdates(callback: WorkflowUpdateCallback): void {
+    unsubscribeFromWorkflowUpdates(callback: TWorkflowUpdateCallback): void {
         const removed = this.workflowUpdateSubscribers.delete(callback);
         if (removed) {
             this.logger.debug('📡 [WORKFLOW-UNSUBSCRIPTION] Removed workflow update subscriber');
@@ -229,9 +256,9 @@ export class WorkflowEventSubscriber {
     /**
      * Register an event handler
      */
-    registerEventHandler(handler: EventHandler): void {
+    registerEventHandler(handler: IEventHandler): void {
         // Inject back-reference for central registry access (internal use only)
-        (handler as any).subscriber = this;
+        (handler as { subscriber?: WorkflowEventSubscriber }).subscriber = this;
         this.eventHandlers.set(handler.name, handler);
         this.logger.debug(`🔧 [HANDLER-REGISTERED] ${handler.name}`, {
             priority: handler.priority,
@@ -253,7 +280,7 @@ export class WorkflowEventSubscriber {
     /**
      * Get all registered handlers
      */
-    getRegisteredHandlers(): EventHandler[] {
+    getRegisteredHandlers(): IEventHandler[] {
         return Array.from(this.eventHandlers.values());
     }
 
@@ -271,7 +298,7 @@ export class WorkflowEventSubscriber {
     /**
      * Get all workflow nodes
      */
-    getAllNodes(): WorkflowNode[] {
+    getAllNodes(): IWorkflowNode[] {
         return this.workflowBuilder.getRawNodes();
     }
 
@@ -289,10 +316,10 @@ export class WorkflowEventSubscriber {
         type?: string | string[];
         status?: string | string[];
         level?: number | number[];
-        [key: string]: unknown;
+        [key: string]: TWorkflowBuilderExtensionValue | undefined;
     }) {
         // Use CoreWorkflowBuilder's findNodes method (it implements WorkflowQuery)
-        return (this.workflowBuilder as any).findNodes(criteria);
+        return this.workflowBuilder.findNodes(criteria);
     }
 
     /**
@@ -319,7 +346,7 @@ export class WorkflowEventSubscriber {
         // Clear handler state
         this.eventHandlers.forEach(handler => {
             if ('clear' in handler && typeof handler.clear === 'function') {
-                (handler as any).clear();
+                (handler as { clear?: () => void }).clear?.();
             }
         });
 
@@ -339,14 +366,22 @@ export class WorkflowEventSubscriber {
      * Export workflow data in flat format for compatibility
      */
     exportWorkflow() {
-        const data = (this.workflowBuilder as any).exportToUniversal();
+        const data = this.workflowBuilder.exportToUniversal();
         // Normalize to good-case schema where possible without hardcoding
         const nodes = data.nodes;
         const edges = data.edges;
         const metadata = data.metadata || {};
+        const workflowId =
+            typeof metadata.id === 'string' && metadata.id.length > 0
+                ? metadata.id
+                : 'example-26-pure-nodemanager';
+        const workflowName =
+            typeof metadata.name === 'string' && metadata.name.length > 0
+                ? metadata.name
+                : 'Example 26 Pure NodeEdgeManager Result';
 
         // Compute metrics
-        const enriched = {
+        const enriched: IWorkflowExportStructure = {
             metadata: {
                 ...metadata,
                 createdAt: new Date().toISOString(),
@@ -357,8 +392,8 @@ export class WorkflowEventSubscriber {
                 }
             },
             __workflowType: 'UniversalWorkflowStructure',
-            id: metadata.id || 'example-26-pure-nodemanager',
-            name: metadata.name || 'Example 26 Pure NodeEdgeManager Result',
+            id: workflowId,
+            name: workflowName,
             nodes,
             edges,
             layout: {
@@ -374,8 +409,8 @@ export class WorkflowEventSubscriber {
     /**
      * Import workflow data
      */
-    importWorkflow(data: any): boolean {
-        return (this.workflowBuilder as any).importFromUniversal(data);
+    importWorkflow(data: { version: string; format: string; data: IWorkflowSnapshot }): boolean {
+        return this.workflowBuilder.importFromUniversal(data);
     }
 
     // =================================================================
@@ -397,41 +432,18 @@ export class WorkflowEventSubscriber {
         });
     }
 
-    private normalizeEventData(eventType: string, eventData: unknown): EventData {
-        // If already in EventData format, return as-is
-        if (typeof eventData === 'object' && eventData !== null && 'eventType' in eventData) {
-            const existing = eventData as any;
-            if (!existing.timestamp) {
-                throw new Error(`[PATH-ONLY] Missing timestamp for event: ${eventType}`);
-            }
-            if (!existing.context?.ownerPath?.length) {
-                throw new Error(`[PATH-ONLY] Missing context.ownerPath for event: ${eventType}`);
-            }
-            return existing as EventData;
-        }
-
-        // Convert to EventData format
-        const data = eventData as any || {};
-        if (!data.timestamp) {
+    private normalizeEventData(eventType: string, eventData: TEventData): TEventData {
+        if (!eventData.timestamp) {
             throw new Error(`[PATH-ONLY] Missing timestamp for event: ${eventType}`);
         }
-        if (!data.context?.ownerPath?.length) {
+        if (!eventData.context?.ownerPath?.length) {
             throw new Error(`[PATH-ONLY] Missing context.ownerPath for event: ${eventType}`);
         }
-        return {
-            eventType,
-            timestamp: data.timestamp,
-            context: data.context,
-            parameters: data.parameters || data,
-            ...(data.metadata ? { metadata: data.metadata } : {}),
-            ...(data.result ? { result: data.result } : {}),
-            ...(data.error ? { error: data.error } : {}),
-            ...data
-        };
+        return eventData;
     }
 
-    private findMatchingHandlers(eventType: string): EventHandler[] {
-        const handlers: EventHandler[] = [];
+    private findMatchingHandlers(eventType: string): IEventHandler[] {
+        const handlers: IEventHandler[] = [];
 
         for (const handler of this.eventHandlers.values()) {
             if (handler.canHandle(eventType)) {
@@ -444,10 +456,10 @@ export class WorkflowEventSubscriber {
     }
 
     private async executeHandler(
-        handler: EventHandler,
+        handler: IEventHandler,
         eventType: string,
-        eventData: EventData
-    ): Promise<EventProcessingResult> {
+        eventData: TEventData
+    ): Promise<IEventProcessingResult> {
         try {
             this.logger.debug(`🔧 [HANDLER-EXECUTING] ${handler.name} for ${eventType}`);
 
@@ -476,9 +488,9 @@ export class WorkflowEventSubscriber {
 
     private async processHandlerResults(
         eventType: string,
-        results: PromiseSettledResult<EventProcessingResult>[]
+        results: PromiseSettledResult<IEventProcessingResult>[]
     ): Promise<void> {
-        const successfulResults: EventProcessingResult[] = [];
+        const successfulResults: IEventProcessingResult[] = [];
         const errors: string[] = [];
 
         // Collect results
@@ -495,7 +507,7 @@ export class WorkflowEventSubscriber {
         });
 
         // Apply all updates from successful handlers
-        const allUpdates: WorkflowUpdate[] = successfulResults.flatMap(result => result.updates);
+        const allUpdates: TWorkflowUpdate[] = successfulResults.flatMap(result => result.updates);
 
         for (const update of allUpdates) {
             try {
@@ -534,61 +546,52 @@ export class WorkflowEventSubscriber {
         }
     }
 
-    private async applyWorkflowUpdate(update: WorkflowUpdate): Promise<void> {
+    private async applyWorkflowUpdate(update: TWorkflowUpdate): Promise<void> {
+        if (update.action === 'clear') {
+            this.workflowBuilder.clear();
+            this.logger.debug(`🧹 [WORKFLOW-CLEARED]`);
+            return;
+        }
+
         if ('node' in update) {
-            // This is a WorkflowNodeUpdate
-            switch (update.action) {
-                case 'create':
-                    // Create node only; edges must be provided explicitly by handlers (no prevId usage)
-                    const created = this.workflowBuilder.addNode(update.node);
-                    this.logger.debug(`🆕 [NODE-CREATED] ${created.id}`);
-                    break;
-
-                case 'update':
-                    // Update node only; no implicit prev-based edges (path-only)
-                    const updated = this.workflowBuilder.updateNode(update.node.id, update.node);
-                    this.logger.debug(`🔄 [NODE-UPDATED] ${update.node.id}`);
-                    // No implicit edge creation
-                    break;
-
-                default:
-                    this.logger.warn(`⚠️ [UNKNOWN-NODE-UPDATE-ACTION] ${(update as any).action}`);
+            if (update.action === 'create') {
+                const created = this.workflowBuilder.addNode(update.node);
+                this.logger.debug(`🆕 [NODE-CREATED] ${created.id}`);
+                return;
             }
-        } else if ('edge' in update) {
-            // This is a WorkflowEdgeUpdate
-            switch (update.action) {
-                case 'create':
-                    // Explicit edge creation (timestamp will be assigned by builder)
-                    this.workflowBuilder.addEdge({
-                        id: update.edge.id,
-                        source: update.edge.source,
-                        target: update.edge.target,
-                        type: update.edge.type,
-                        label: update.edge.label,
-                        description: update.edge.description,
-                        sourceHandle: update.edge.sourceHandle,
-                        targetHandle: update.edge.targetHandle,
-                        executionOrder: update.edge.executionOrder,
-                        dependsOn: update.edge.dependsOn,
-                        hidden: update.edge.hidden,
-                        conditional: update.edge.conditional,
-                        data: update.edge.data,
-                    } as any);
-                    this.logger.debug(`🔗 [EDGE-CREATED] ${update.edge.id}`);
-                    break;
 
-                case 'update':
-                    this.workflowBuilder.updateEdge(update.edge.id, update.edge);
-                    this.logger.debug(`🔄 [EDGE-UPDATED] ${update.edge.id}`);
-                    break;
+            if (update.action === 'update') {
+                this.workflowBuilder.updateNode(update.node.id, update.node);
+                this.logger.debug(`🔄 [NODE-UPDATED] ${update.node.id}`);
+                return;
+            }
 
-                default:
-                    this.logger.warn(`⚠️ [UNKNOWN-EDGE-UPDATE-ACTION] ${(update as any).action}`);
+            // Other node actions are intentionally not applied by this subscriber.
+            return;
+        }
+
+        if ('edge' in update) {
+            if (update.action === 'create') {
+                const { timestamp: _timestamp, ...edgeData } = update.edge;
+                this.workflowBuilder.addEdge(edgeData);
+                this.logger.debug(`🔗 [EDGE-CREATED] ${update.edge.id}`);
+                return;
+            }
+
+            if (update.action === 'update') {
+                this.workflowBuilder.updateEdge(update.edge.id, update.edge);
+                this.logger.debug(`🔄 [EDGE-UPDATED] ${update.edge.id}`);
+                return;
+            }
+
+            if (update.action === 'delete') {
+                this.workflowBuilder.removeEdge(update.edge.id);
+                this.logger.debug(`🗑️ [EDGE-DELETED] ${update.edge.id}`);
             }
         }
     }
 
-    private updateStatistics(update: WorkflowUpdate): void {
+    private updateStatistics(update: TWorkflowUpdate): void {
         if ('node' in update && update.action === 'create') {
             this.stats.nodesCreated++;
         } else if ('edge' in update && update.action === 'create') {
@@ -596,7 +599,7 @@ export class WorkflowEventSubscriber {
         }
     }
 
-    private notifyEventSubscribers(eventType: string, eventData: unknown): void {
+    private notifyEventSubscribers(eventType: string, eventData: TEventData): void {
         if (this.eventSubscribers.size === 0) return;
 
         this.eventSubscribers.forEach(callback => {
@@ -608,7 +611,7 @@ export class WorkflowEventSubscriber {
         });
     }
 
-    private notifyWorkflowUpdateSubscribers(update: WorkflowUpdate): void {
+    private notifyWorkflowUpdateSubscribers(update: TWorkflowUpdate): void {
         if (this.workflowUpdateSubscribers.size === 0) return;
 
         this.workflowUpdateSubscribers.forEach(callback => {
@@ -620,7 +623,7 @@ export class WorkflowEventSubscriber {
         });
     }
 
-    private notifyWorkflowSnapshotSubscribers(snapshot: any): void {
+    private notifyWorkflowSnapshotSubscribers(snapshot: IWorkflowExportStructure): void {
         if (this.workflowSnapshotSubscribers.size === 0) return;
         this.workflowSnapshotSubscribers.forEach(callback => {
             try {

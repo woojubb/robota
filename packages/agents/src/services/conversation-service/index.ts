@@ -32,10 +32,6 @@ interface IConversationProviderRequest extends BaseProviderRequest {
     stream?: boolean;
 }
 
-/**
- * Use the base raw provider response from provider interface
- */
-type IConversationRawProviderResponse = BaseRawProviderResponse;
 
 /**
  * Raw streaming chunk structure
@@ -496,7 +492,7 @@ export class ConversationService implements IConversationService {
         return request;
     }
 
-    private static processProviderResponse(response: IConversationRawProviderResponse): IConversationResponse {
+    private static processProviderResponse(response: BaseRawProviderResponse): IConversationResponse {
         const usage = ConversationService.convertUsage(response.usage);
 
         const result: IConversationResponse = {

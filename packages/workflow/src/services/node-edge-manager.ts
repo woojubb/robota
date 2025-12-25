@@ -2,8 +2,8 @@
 // Migrated from agents package to workflow package
 
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
-import type { UniversalWorkflowEdge } from '../types/universal-types.js';
-import type { WorkflowNode, WorkflowConnectionType } from '../interfaces/workflow-node.js';
+import type { IUniversalWorkflowEdge } from '../types/universal-types.js';
+import type { IWorkflowNode, TWorkflowConnectionType } from '../interfaces/workflow-node.js';
 
 /**
  * NodeEdgeManager - guarantees sequential creation order and edge integrity.
@@ -16,8 +16,8 @@ import type { WorkflowNode, WorkflowConnectionType } from '../interfaces/workflo
  */
 export class NodeEdgeManager {
     private logger: SimpleLogger;
-    private nodeMap = new Map<string, WorkflowNode>();
-    private edges: UniversalWorkflowEdge[] = [];
+    private nodeMap = new Map<string, IWorkflowNode>();
+    private edges: IUniversalWorkflowEdge[] = [];
     private timestampCounter = 0;
 
     constructor(logger: SimpleLogger = SilentLogger) {
@@ -37,15 +37,15 @@ export class NodeEdgeManager {
      * @param connectionLabel Optional edge label
      */
     addNode(
-        node: Omit<WorkflowNode, 'timestamp'>,
+        node: Omit<IWorkflowNode, 'timestamp'>,
         parentNodeIds?: string | string[],
-        connectionType: WorkflowConnectionType = 'processes',
+        connectionType: TWorkflowConnectionType = 'processes',
         connectionLabel?: string
-    ): WorkflowNode {
-        const nodeWithTimestamp: WorkflowNode = {
+    ): IWorkflowNode {
+        const nodeWithTimestamp: IWorkflowNode = {
             ...node,
             timestamp: this.nextTimestamp()
-        } as WorkflowNode;
+        } as IWorkflowNode;
 
         // Immediate creation without queue
         this.nodeMap.set(nodeWithTimestamp.id, nodeWithTimestamp);
@@ -76,9 +76,9 @@ export class NodeEdgeManager {
     addEdge(
         sourceId: string,
         targetId: string,
-        type: WorkflowConnectionType,
+        type: TWorkflowConnectionType,
         label?: string
-    ): UniversalWorkflowEdge {
+    ): IUniversalWorkflowEdge {
         const sourceNode = this.nodeMap.get(sourceId);
         const targetNode = this.nodeMap.get(targetId);
 
@@ -103,7 +103,7 @@ export class NodeEdgeManager {
 
         const ts = this.nextTimestamp();
         const edgeId = `edge_${sourceId}_${targetId}_${type}_${ts}`;
-        const edge: UniversalWorkflowEdge = {
+        const edge: IUniversalWorkflowEdge = {
             id: edgeId,
             source: sourceId,
             target: targetId,
@@ -121,70 +121,70 @@ export class NodeEdgeManager {
     }
 
     /**
-     * 노드 연결 (기존 노드들을 연결)
+     * Connect nodes (connect existing nodes)
      */
     connectNodes(
-        fromNode: WorkflowNode,
-        toNode: WorkflowNode,
-        type: WorkflowConnectionType,
+        fromNode: IWorkflowNode,
+        toNode: IWorkflowNode,
+        type: TWorkflowConnectionType,
         label?: string
-    ): UniversalWorkflowEdge {
+    ): IUniversalWorkflowEdge {
         return this.addEdge(fromNode.id, toNode.id, type, label);
     }
 
     /**
-     * 노드 존재 확인
+     * Check if a node exists
      */
     hasNode(nodeId: string): boolean {
         return this.nodeMap.has(nodeId);
     }
 
     /**
-     * 엣지 존재 확인
+     * Check if an edge exists
      */
     hasEdge(edgeId: string): boolean {
         return this.edges.some(edge => edge.id === edgeId);
     }
 
     /**
-     * 노드 조회
+     * Get a node by id
      */
-    getNode(nodeId: string): WorkflowNode | undefined {
+    getNode(nodeId: string): IWorkflowNode | undefined {
         return this.nodeMap.get(nodeId);
     }
 
     /**
-     * 엣지 조회
+     * Get an edge by id
      */
-    getEdge(edgeId: string): UniversalWorkflowEdge | undefined {
+    getEdge(edgeId: string): IUniversalWorkflowEdge | undefined {
         return this.edges.find(edge => edge.id === edgeId);
     }
 
     /**
-     * 모든 노드 반환
+     * Get all nodes
      */
-    getAllNodes(): WorkflowNode[] {
+    getAllNodes(): IWorkflowNode[] {
         return Array.from(this.nodeMap.values());
     }
 
     /**
-     * 모든 엣지 반환
+     * Get all edges
      */
-    getAllEdges(): UniversalWorkflowEdge[] {
+    getAllEdges(): IUniversalWorkflowEdge[] {
         return [...this.edges];
     }
 
     /**
-     * 노드 업데이트
+     * Update a node
      */
-    updateNode(nodeId: string, updates: Partial<WorkflowNode>): WorkflowNode | null {
+    updateNode(nodeId: string, updates: Partial<IWorkflowNode>): IWorkflowNode | null {
         const node = this.nodeMap.get(nodeId);
         if (!node) {
             this.logger.warn(`⚠️ [NODE-UPDATE] Node not found: ${nodeId}`);
             return null;
         }
 
-        const updatedNode: WorkflowNode = {
+        const updatedNode: IWorkflowNode = {
             ...node,
             ...updates,
             // Preserve essential fields
@@ -201,7 +201,7 @@ export class NodeEdgeManager {
     /**
      * 엣지 업데이트
      */
-    updateEdge(edgeId: string, updates: Partial<UniversalWorkflowEdge>): UniversalWorkflowEdge | null {
+    updateEdge(edgeId: string, updates: Partial<IUniversalWorkflowEdge>): IUniversalWorkflowEdge | null {
         const edgeIndex = this.edges.findIndex(edge => edge.id === edgeId);
         if (edgeIndex === -1) {
             this.logger.warn(`⚠️ [EDGE-UPDATE] Edge not found: ${edgeId}`);
@@ -209,7 +209,7 @@ export class NodeEdgeManager {
         }
 
         const edge = this.edges[edgeIndex];
-        const updatedEdge: UniversalWorkflowEdge = {
+        const updatedEdge: IUniversalWorkflowEdge = {
             ...edge,
             ...updates,
             // Preserve essential fields
@@ -269,8 +269,8 @@ export class NodeEdgeManager {
      * 특정 노드의 연결된 엣지 조회
      */
     getNodeEdges(nodeId: string): {
-        incoming: UniversalWorkflowEdge[];
-        outgoing: UniversalWorkflowEdge[];
+        incoming: IUniversalWorkflowEdge[];
+        outgoing: IUniversalWorkflowEdge[];
     } {
         const incoming = this.edges.filter(edge => edge.target === nodeId);
         const outgoing = this.edges.filter(edge => edge.source === nodeId);
@@ -377,7 +377,7 @@ export class NodeEdgeManager {
     }
 
     /**
-     * 모든 데이터 정리
+     * Clear all data
      */
     clear(): void {
         this.nodeMap.clear();
@@ -386,11 +386,11 @@ export class NodeEdgeManager {
     }
 
     /**
-     * 워크플로우 데이터 Export
+     * Export workflow data
      */
     exportData(): {
-        nodes: WorkflowNode[];
-        edges: UniversalWorkflowEdge[];
+        nodes: IWorkflowNode[];
+        edges: IUniversalWorkflowEdge[];
         metadata: {
             exportedAt: Date;
             nodeCount: number;

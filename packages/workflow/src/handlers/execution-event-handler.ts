@@ -8,22 +8,22 @@
 import type { SimpleLogger } from '@robota-sdk/agents';
 import { SilentLogger, EXECUTION_EVENTS } from '@robota-sdk/agents';
 import type {
-    EventHandler,
-    EventData,
-    EventProcessingResult,
+    IEventHandler,
+    TEventData,
+    IEventProcessingResult,
     HandlerPriority
 } from '../interfaces/event-handler.js';
-import type { WorkflowNode } from '../interfaces/workflow-node.js';
-import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
+import type { IWorkflowNode } from '../interfaces/workflow-node.js';
+import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
-import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
+import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
 import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
 
 /**
  * ExecutionEventHandler - Handles execution lifecycle events
  */
-export class ExecutionEventHandler implements EventHandler {
+export class ExecutionEventHandler implements IEventHandler {
     readonly name = 'ExecutionEventHandler';
     readonly priority = Priority.HIGHEST; // Execution events are fundamental
     readonly patterns = ['execution.*'];
@@ -49,11 +49,11 @@ export class ExecutionEventHandler implements EventHandler {
         });
     }
 
-    async handle(eventType: string, eventData: EventData): Promise<EventProcessingResult> {
+    async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
         try {
             this.logger.debug(`🔧 [EXECUTION-HANDLER] Processing ${eventType}`, { eventData });
 
-            const updates: WorkflowUpdate[] = [];
+            const updates: TWorkflowUpdate[] = [];
             let success = true;
 
             switch (eventType) {
@@ -87,7 +87,7 @@ export class ExecutionEventHandler implements EventHandler {
                             .join('\u0000') === thinkingScopeKey);
                     if (toolResponses.length === 0) break;
                     const nodeId = `tool_result_${thinkingId}_${Date.now()}`;
-                    const toolResultNode: WorkflowNode = {
+                    const toolResultNode: IWorkflowNode = {
                         id: nodeId,
                         type: WORKFLOW_NODE_TYPES.TOOL_RESULT,
                         level: 2,
@@ -102,10 +102,10 @@ export class ExecutionEventHandler implements EventHandler {
                             extensions: { robota: { originalEvent: eventData, handlerType: 'execution' } }
                         },
                         connections: []
-                    } as unknown as WorkflowNode;
+                    } as IWorkflowNode;
                     updates.push({ action: 'create', node: toolResultNode });
                     for (const tr of toolResponses) {
-                        const edge: WorkflowEdge = {
+                        const edge: IWorkflowEdge = {
                             id: EdgeUtils.generateId(tr.id, nodeId, 'result' as any),
                             source: tr.id,
                             target: nodeId,
@@ -225,7 +225,7 @@ export class ExecutionEventHandler implements EventHandler {
                             };
                         }
 
-                        const edge: WorkflowEdge = {
+                        const edge: IWorkflowEdge = {
                             id: EdgeUtils.generateId(sourceNodeForConnection, userMessageNode.id, edgeType as any),
                             source: sourceNodeForConnection,
                             target: userMessageNode.id,
@@ -278,7 +278,7 @@ export class ExecutionEventHandler implements EventHandler {
     // Node Creation Methods
     // =================================================================
 
-    private createExecutionStartNode(data: EventData): WorkflowNode {
+    private createExecutionStartNode(data: TEventData): IWorkflowNode {
         const nodeId = String(data.executionId);
         const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
         const derivedLevel = Array.isArray(ownerPath) ? ownerPath.length : 0;
@@ -321,7 +321,7 @@ export class ExecutionEventHandler implements EventHandler {
         };
     }
 
-    private createExecutionCompleteNode(data: EventData): WorkflowNode {
+    private createExecutionCompleteNode(data: TEventData): IWorkflowNode {
         const nodeId = `execution_complete_${data.executionId}_${Date.now()}`;
         const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
         const derivedLevel = Array.isArray(ownerPath) ? ownerPath.length : 0;
@@ -365,7 +365,7 @@ export class ExecutionEventHandler implements EventHandler {
         };
     }
 
-    private createExecutionErrorNode(data: EventData): WorkflowNode {
+    private createExecutionErrorNode(data: TEventData): IWorkflowNode {
         const nodeId = `execution_error_${data.executionId}_${Date.now()}`;
         const errorMessage = (data.error instanceof Error ? data.error.message : String(data.error || data.parameters?.error || 'Execution failed'));
         const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
@@ -409,7 +409,7 @@ export class ExecutionEventHandler implements EventHandler {
         };
     }
 
-    private createAssistantMessageStartNode(data: EventData): WorkflowNode {
+    private createAssistantMessageStartNode(data: TEventData): IWorkflowNode {
         const nodeId = `assistant_message_start_${data.executionId}_${Date.now()}`;
         const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
         const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
@@ -449,7 +449,7 @@ export class ExecutionEventHandler implements EventHandler {
         };
     }
 
-    private createAssistantMessageCompleteNode(data: EventData): WorkflowNode {
+    private createAssistantMessageCompleteNode(data: TEventData): IWorkflowNode {
         const nodeId = `assistant_message_complete_${data.executionId}_${Date.now()}`;
         const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
         const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
@@ -501,7 +501,7 @@ export class ExecutionEventHandler implements EventHandler {
         };
     }
 
-    private createUserMessageNode(data: EventData): WorkflowNode {
+    private createUserMessageNode(data: TEventData): IWorkflowNode {
         // Generate unique node ID for each user message to support continued conversations
         const ownerPath = (data as any)?.context?.ownerPath as Array<{ type: string; id: string }> | undefined;
         if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
@@ -566,7 +566,7 @@ export class ExecutionEventHandler implements EventHandler {
         };
     }
 
-    private createUserInputNode(data: EventData): WorkflowNode {
+    private createUserInputNode(data: TEventData): IWorkflowNode {
         const nodeId = `user_input_${data.sourceId}_${Date.now()}`;
         const inputContent = String(data.parameters?.input || data.parameters?.content || 'User input');
         const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;

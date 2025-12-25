@@ -22,7 +22,7 @@ import type {
 export type { TUniversalMessage, IAssistantMessage } from '@robota-sdk/agents';
 
 // Extended AssistantMessage with provider info
-export interface ExtendedAssistantMessage extends IAssistantMessage {
+export interface IExtendedAssistantMessage extends IAssistantMessage {
     provider?: string;
     model?: string;
     usage?: {
@@ -45,7 +45,7 @@ export enum CommunicationProtocol {
 /**
  * Transport layer request format
  */
-export interface ChatRequestBody {
+export interface IChatRequestBody {
     messages: Array<{ role: string; content: string }>;
     provider: string;
     model: string;
@@ -56,17 +56,17 @@ export interface ChatRequestBody {
 }
 
 // Extend the base execution requests with additional fields
-export interface ExtendedChatExecutionRequest extends BaseChatExecutionRequest {
+export interface IExtendedChatExecutionRequest extends BaseChatExecutionRequest {
     temperature?: number;
     maxTokens?: number;
 }
 
-export interface ExtendedStreamExecutionRequest extends BaseStreamExecutionRequest {
+export interface IExtendedStreamExecutionRequest extends BaseStreamExecutionRequest {
     temperature?: number;
     maxTokens?: number;
 }
 
-export interface TransportRequest<TBody = ChatRequestBody> {
+export interface ITransportRequest<TBody = IChatRequestBody> {
     id: string;
     url: string;
     endpoint: string;
@@ -80,7 +80,7 @@ export interface TransportRequest<TBody = ChatRequestBody> {
 /**
  * Transport layer response format
  */
-export interface ChatResponseData {
+export interface IChatResponseData {
     content: string;
     provider?: string;
     model?: string;
@@ -92,7 +92,7 @@ export interface ChatResponseData {
     tools?: Array<Record<string, string>>;
 }
 
-export interface TransportResponse<TData = ChatResponseData> {
+export interface ITransportResponse<TData = IChatResponseData> {
     id: string;
     status: number;
     headers: Record<string, string>;
@@ -103,7 +103,7 @@ export interface TransportResponse<TData = ChatResponseData> {
 /**
  * Remote configuration
  */
-export interface RemoteConfig {
+export interface IRemoteConfig {
     serverUrl: string;
     apiKey?: string;
     protocol?: CommunicationProtocol;
@@ -117,7 +117,7 @@ export interface RemoteConfig {
 /**
  * Health check response
  */
-export interface HealthStatus {
+export interface IHealthStatus {
     status: 'healthy' | 'unhealthy' | 'degraded';
     timestamp: Date;
     version: string;
