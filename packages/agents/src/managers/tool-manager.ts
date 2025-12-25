@@ -1,5 +1,5 @@
-import type { ToolManagerInterface } from '../interfaces/manager';
-import type { ToolSchema } from '../interfaces/provider';
+import type { IToolManager } from '../interfaces/manager';
+import type { IToolSchema } from '../interfaces/provider';
 import type { ToolInterface, ToolExecutor, ToolExecutionData, ToolParameters, ToolExecutionContext } from '../interfaces/tool';
 import { AbstractManager } from '../abstracts/abstract-manager';
 import { ToolRegistry } from '../tools/registry/tool-registry';
@@ -13,7 +13,7 @@ import { logger } from '../utils/logger';
  * Instance-based for isolated tool management
  * @internal
  */
-export class Tools extends AbstractManager implements ToolManagerInterface {
+export class Tools extends AbstractManager implements IToolManager {
     private registry: ToolRegistry;
     private allowedTools?: string[];
 
@@ -41,7 +41,7 @@ export class Tools extends AbstractManager implements ToolManagerInterface {
     /**
      * Register a tool with schema and executor function
      */
-    addTool(schema: ToolSchema, executor: ToolExecutor): void {
+    addTool(schema: IToolSchema, executor: ToolExecutor): void {
         this.ensureInitialized();
 
         const tool = new FunctionTool(schema, executor);
@@ -69,7 +69,7 @@ export class Tools extends AbstractManager implements ToolManagerInterface {
     /**
      * Get tool schema by name
      */
-    getToolSchema(name: string): ToolSchema | undefined {
+    getToolSchema(name: string): IToolSchema | undefined {
         this.ensureInitialized();
         const tool = this.registry.get(name);
         return tool?.schema;
@@ -78,7 +78,7 @@ export class Tools extends AbstractManager implements ToolManagerInterface {
     /**
      * Get all registered tool schemas
      */
-    getTools(): ToolSchema[] {
+    getTools(): IToolSchema[] {
         this.ensureInitialized();
 
         const schemas = this.registry.getSchemas();

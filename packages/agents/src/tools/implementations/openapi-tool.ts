@@ -1,5 +1,5 @@
 import type { ToolInterface, ToolResult, ToolExecutionContext, OpenAPIToolConfig, ToolParameters, ToolParameterValue } from '../../interfaces/tool';
-import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
+import type { IToolSchema, IParameterSchema } from '../../interfaces/provider';
 import type { OpenAPIV3 } from 'openapi-types';
 import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
@@ -19,7 +19,7 @@ type HTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'option
  * @extends AbstractTool<ToolParameters, ToolResult>
  */
 export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implements ToolInterface {
-    readonly schema: ToolSchema;
+    readonly schema: IToolSchema;
     private readonly apiSpec: OpenAPIV3.Document;
     private readonly operationId: string;
     private readonly baseURL: string;
@@ -234,7 +234,7 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
     /**
      * Create tool schema from OpenAPI operation specification
      */
-    private createSchemaFromOpenAPI(): ToolSchema {
+    private createSchemaFromOpenAPI(): IToolSchema {
         const operation = this.findOperation();
         if (!operation) {
             // Fallback schema if operation not found
@@ -250,7 +250,7 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
         }
 
         const { operation: opSpec } = operation;
-        const properties: Record<string, ParameterSchema> = {};
+        const properties: Record<string, IParameterSchema> = {};
         const required: string[] = [];
 
         // Convert OpenAPI parameters to tool schema
@@ -271,7 +271,7 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
                 if (bodySchema.type === 'object' && bodySchema.properties) {
                     Object.assign(properties, bodySchema.properties);
                     // Handle required properties for object schemas
-                    const schemaWithRequired = bodySchema as ParameterSchema & { required?: string[] };
+                    const schemaWithRequired = bodySchema as IParameterSchema & { required?: string[] };
                     if (schemaWithRequired.required) {
                         required.push(...schemaWithRequired.required);
                     }
@@ -279,7 +279,7 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
             }
         }
 
-        const schemaParams: { type: 'object'; properties: Record<string, ParameterSchema>; required?: string[] } = {
+        const schemaParams: { type: 'object'; properties: Record<string, IParameterSchema>; required?: string[] } = {
             type: 'object',
             properties
         };
@@ -298,7 +298,7 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
     /**
      * Convert OpenAPI parameter to tool parameter schema
      */
-    private convertOpenAPIParamToSchema(param: OpenAPIV3.ParameterObject): ParameterSchema {
+    private convertOpenAPIParamToSchema(param: OpenAPIV3.ParameterObject): IParameterSchema {
         const schema = param.schema as OpenAPIV3.SchemaObject;
         return this.convertOpenAPISchemaToParameterSchema(schema);
     }
@@ -306,14 +306,14 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
     /**
      * Convert OpenAPI schema to parameter schema
      */
-    private convertOpenAPISchemaToParameterSchema(schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject): ParameterSchema {
+    private convertOpenAPISchemaToParameterSchema(schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject): IParameterSchema {
         // Handle reference objects
         if ('$ref' in schema) {
             // For now, treat references as generic objects
             return { type: 'object' };
         }
 
-        const result: ParameterSchema = {
+        const result: IParameterSchema = {
             type: this.mapOpenAPIType(schema.type)
         };
 
@@ -368,7 +368,7 @@ export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implem
     /**
      * Map OpenAPI type to JSON schema type
      */
-    private mapOpenAPIType(type: string | undefined): ParameterSchema['type'] {
+    private mapOpenAPIType(type: string | undefined): IParameterSchema['type'] {
         switch (type) {
             case 'string': return 'string';
             case 'number': return 'number';

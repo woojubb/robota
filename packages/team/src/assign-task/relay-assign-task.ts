@@ -1,5 +1,5 @@
 import { Robota, type AgentConfig, bindWithOwnerPath, FunctionTool, RelayMcpTool, type IEventService } from '@robota-sdk/agents';
-import type { TToolParameters, TToolResult, ToolSchema, IOwnerPathSegment } from '@robota-sdk/agents';
+import type { TToolParameters, IToolResult, ToolSchema, IOwnerPathSegment } from '@robota-sdk/agents';
 import templates from './templates.json';
 
 type TemplateEntry = {
@@ -120,7 +120,7 @@ export function createAssignTaskRelayTool(eventService: IEventService): RelayMcp
     return new RelayMcpTool({
         schema: assignTaskSchema,
         eventService,
-        run: async (params: TToolParameters, ctx): Promise<TToolResult> => {
+        run: async (params: TToolParameters, ctx): Promise<IToolResult> => {
             const templateId = typeof params.templateId === 'string' ? params.templateId : '';
             const jobDescription = typeof params.jobDescription === 'string' ? params.jobDescription : '';
             if (!templateId) {

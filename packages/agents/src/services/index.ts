@@ -20,10 +20,10 @@ export type {
 // ToolExecutionService types simplified - complex batch types removed
 
 export type {
-    ConversationServiceInterface,
     ConversationServiceOptions,
-    ConversationContext,
-    ContextOptions
+    IConversationService,
+    IConversationContext,
+    IContextOptions
 } from '../interfaces/service';
 
 export type {

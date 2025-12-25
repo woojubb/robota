@@ -1,7 +1,7 @@
 import type {
-    ExecutorInterface,
-    ChatExecutionRequest,
-    StreamExecutionRequest
+    IExecutor,
+    IChatExecutionRequest,
+    IStreamExecutionRequest
 } from '../interfaces/executor';
 import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
 import type { TLoggerData } from '../interfaces/types';
@@ -20,13 +20,13 @@ import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
  * @example
  * ```typescript
  * export class MyCustomExecutor extends AbstractExecutor {
- *   async executeChat(request: ChatExecutionRequest): Promise<AssistantMessage> {
+ *   async executeChat(request: IChatExecutionRequest): Promise<AssistantMessage> {
  *     return this.withRetry(() => this.performChat(request));
  *   }
  * }
  * ```
  */
-export abstract class AbstractExecutor implements ExecutorInterface {
+export abstract class AbstractExecutor implements IExecutor {
     /**
      * Logger injected via constructor (defaults to abstract logger)
      */
@@ -43,13 +43,13 @@ export abstract class AbstractExecutor implements ExecutorInterface {
      * Execute a chat completion request
      * Must be implemented by concrete executor classes
      */
-    abstract executeChat(request: ChatExecutionRequest): Promise<IAssistantMessage>;
+    abstract executeChat(request: IChatExecutionRequest): Promise<IAssistantMessage>;
 
     /**
      * Execute a streaming chat completion request
      * Optional - can be implemented by concrete executor classes
      */
-    abstract executeChatStream?(request: StreamExecutionRequest): AsyncIterable<TUniversalMessage>;
+    abstract executeChatStream?(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage>;
 
     /**
      * Check if the executor supports tool calling
@@ -168,7 +168,7 @@ export abstract class AbstractExecutor implements ExecutorInterface {
      * @param request - Chat execution request to validate
      * @throws Error if validation fails
      */
-    protected validateRequest(request: ChatExecutionRequest): void {
+    protected validateRequest(request: IChatExecutionRequest): void {
         if (!request.messages || request.messages.length === 0) {
             throw new Error('Request must include at least one message');
         }

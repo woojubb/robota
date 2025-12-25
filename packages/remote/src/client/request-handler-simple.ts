@@ -5,8 +5,8 @@
  */
 
 import type {
-    ChatExecutionRequest,
-    StreamExecutionRequest,
+    IChatExecutionRequest,
+    IStreamExecutionRequest,
     IAssistantMessage,
     TransportRequest,
     TransportResponse,
@@ -16,7 +16,7 @@ import type {
 /**
  * Create transport request for chat execution
  */
-export function createChatTransportRequest(request: ChatExecutionRequest): TransportRequest {
+export function createChatTransportRequest(request: IChatExecutionRequest): TransportRequest {
     return {
         id: generateRequestId(),
         url: '/chat',
@@ -37,7 +37,7 @@ export function createChatTransportRequest(request: ChatExecutionRequest): Trans
 /**
  * Create transport request for stream execution
  */
-export function createStreamTransportRequest(request: StreamExecutionRequest): TransportRequest {
+export function createStreamTransportRequest(request: IStreamExecutionRequest): TransportRequest {
     return {
         id: generateRequestId(),
         url: '/chat/stream',
@@ -70,7 +70,7 @@ export function transformToAssistantMessage(response: TransportResponse<ChatResp
 /**
  * Validate chat execution request
  */
-export function validateChatRequest(request: ChatExecutionRequest): {
+export function validateChatRequest(request: IChatExecutionRequest): {
     valid: boolean;
     errors: string[];
 } {
@@ -97,7 +97,7 @@ export function validateChatRequest(request: ChatExecutionRequest): {
 /**
  * Validate stream execution request
  */
-export function validateStreamRequest(request: StreamExecutionRequest): {
+export function validateStreamRequest(request: IStreamExecutionRequest): {
     valid: boolean;
     errors: string[];
 } {

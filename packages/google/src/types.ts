@@ -1,9 +1,9 @@
-import type { ExecutorInterface } from '@robota-sdk/agents';
+import type { IExecutor } from '@robota-sdk/agents';
 
 /**
  * Valid provider option value types
  */
-export type ProviderOptionValue = string | number | boolean | undefined | null | ExecutorInterface | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
+export type ProviderOptionValue = string | number | boolean | undefined | null | IExecutor | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
 
 /**
  * Base provider options interface
@@ -60,5 +60,5 @@ export interface GoogleProviderOptions extends ProviderOptions {
      * });
      * ```
      */
-    executor?: ExecutorInterface;
+    executor?: IExecutor;
 } 

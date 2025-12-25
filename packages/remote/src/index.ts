@@ -33,10 +33,10 @@ export { SimpleWebSocketTransport as WebSocketTransport } from './transport/webs
 
 // Legacy compatibility exports
 export type {
-    ExecutorInterface,
-    ChatExecutionRequest,
-    StreamExecutionRequest,
+    IExecutor,
+    IChatExecutionRequest,
+    IStreamExecutionRequest,
     TUniversalMessage,
     AssistantMessage,
-    RemoteExecutorConfig
+    IRemoteExecutorConfig
 } from './shared/types'; 

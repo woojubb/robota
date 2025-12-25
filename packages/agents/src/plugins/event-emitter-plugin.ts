@@ -1,5 +1,5 @@
 import { AbstractPlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, type PluginStats, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
-import type { TToolExecutionContext, TToolParameters, TToolResult } from '../interfaces/tool';
+import type { IToolExecutionContext, TToolParameters, IToolResult } from '../interfaces/tool';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 import type { TimerId } from '../utils';
@@ -184,7 +184,7 @@ export interface HierarchicalEventData extends EventData {
         /** Actual input parameters */
         actualParameters?: TToolParameters;
         /** Actual execution result */
-        actualResult?: TToolResult;
+        actualResult?: IToolResult;
     };
 }
 
@@ -377,11 +377,11 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Before tool execution - emits tool.beforeExecute event
      */
-    override async beforeToolExecution(context: BaseExecutionContext, toolData: TToolExecutionContext): Promise<void> {
+    override async beforeToolExecution(context: BaseExecutionContext, toolData: IToolExecutionContext): Promise<void> {
         if (!toolData) {
             return;
         }
-        const toolCalls: TToolExecutionContext[] = [toolData];
+        const toolCalls: IToolExecutionContext[] = [toolData];
 
         for (const toolCall of toolCalls) {
             await this.emit(TOOL_EVENTS_LOCAL.BEFORE, {

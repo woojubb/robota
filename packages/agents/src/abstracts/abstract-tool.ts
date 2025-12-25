@@ -32,8 +32,8 @@
  * ```
  */
 
-import type { ToolInterface, TToolResult, TToolExecutionContext, ParameterValidationResult, TToolParameters } from '../interfaces/tool';
-import type { ToolSchema } from '../interfaces/provider';
+import type { ToolInterface, IToolResult, IToolExecutionContext, ParameterValidationResult, TToolParameters } from '../interfaces/tool';
+import type { IToolSchema } from '../interfaces/provider';
 import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 import type { IEventService } from '../services/event-service';
@@ -72,7 +72,7 @@ export type AbstractToolParameters = TToolParameters;
 /**
  * Tool execution function type with proper parameter constraints
  */
-export type ToolExecutionFunction<TParams = AbstractToolParameters, TResult = TToolResult> = (
+export type ToolExecutionFunction<TParams = AbstractToolParameters, TResult = IToolResult> = (
     parameters: TParams
 ) => Promise<TResult> | TResult;
 
@@ -82,10 +82,10 @@ export type ToolExecutionFunction<TParams = AbstractToolParameters, TResult = TT
  * @template TParams - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)  
  */
-export interface AbstractToolInterface<TParams = AbstractToolParameters, TResult = TToolResult> {
+export interface AbstractToolInterface<TParams = AbstractToolParameters, TResult = IToolResult> {
     name: string;
     description: string;
-    parameters: ToolSchema['parameters'];
+    parameters: IToolSchema['parameters'];
     execute: ToolExecutionFunction<TParams, TResult>;
 }
 
@@ -95,9 +95,9 @@ export interface AbstractToolInterface<TParams = AbstractToolParameters, TResult
  * @template TParameters - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
-export interface TypeSafeToolInterface<TParameters = AbstractToolParameters, TResult = TToolResult> {
-    readonly schema: ToolSchema;
-    execute(parameters: TParameters, context: TToolExecutionContext): Promise<TResult>;
+export interface TypeSafeToolInterface<TParameters = AbstractToolParameters, TResult = IToolResult> {
+    readonly schema: IToolSchema;
+    execute(parameters: TParameters, context: IToolExecutionContext): Promise<TResult>;
     validate(parameters: TParameters): boolean;
     validateParameters(parameters: TParameters): ParameterValidationResult;
     getDescription(): string;
@@ -117,10 +117,10 @@ export interface TypeSafeToolInterface<TParameters = AbstractToolParameters, TRe
  * @template TParameters - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
-export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult = TToolResult>
+export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult = IToolResult>
     implements TypeSafeToolInterface<TParameters, TResult> {
 
-    abstract readonly schema: ToolSchema;
+    abstract readonly schema: IToolSchema;
 
     /**
      * Logger for tool operations
@@ -190,7 +190,7 @@ export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult
      * @param context - Optional execution context
      * @returns Promise resolving to tool result
      */
-    async execute(parameters: TParameters, context: TToolExecutionContext): Promise<TResult> {
+    async execute(parameters: TParameters, context: IToolExecutionContext): Promise<TResult> {
         return await this.executeImpl(parameters, context);
     }
 
@@ -202,7 +202,7 @@ export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult
      * @param context - Optional execution context
      * @returns Promise resolving to tool result
      */
-    protected abstract executeImpl(parameters: TParameters, context: TToolExecutionContext): Promise<TResult>;
+    protected abstract executeImpl(parameters: TParameters, context: IToolExecutionContext): Promise<TResult>;
 
     validate(parameters: TParameters): boolean {
         const required = this.schema.parameters.required || [];
@@ -242,5 +242,5 @@ export abstract class AbstractTool<TParameters = AbstractToolParameters, TResult
  * Legacy tool class for backward compatibility
  * @deprecated Use AbstractTool with type parameters instead
  */
-export abstract class LegacyAbstractTool extends AbstractTool<AbstractToolParameters, TToolResult> implements ToolInterface { }
+export abstract class LegacyAbstractTool extends AbstractTool<AbstractToolParameters, IToolResult> implements ToolInterface { }
 

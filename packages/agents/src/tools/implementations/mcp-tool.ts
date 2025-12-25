@@ -1,5 +1,5 @@
 import type { ToolInterface, ToolResult, ToolExecutionContext, ToolParameters } from '../../interfaces/tool';
-import type { ToolSchema } from '../../interfaces/provider';
+import type { IToolSchema } from '../../interfaces/provider';
 import type { ObjectValue } from '../../interfaces/types';
 import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
@@ -73,11 +73,11 @@ type MCPToolResultData = ObjectValue;
  * @extends AbstractTool<ToolParameters, ToolResult>
  */
 export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements ToolInterface {
-    readonly schema: ToolSchema;
+    readonly schema: IToolSchema;
     private readonly mcpConfig: MCPConfig;
     private connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error' = 'disconnected';
 
-    constructor(config: MCPConfig, schema: ToolSchema, options: AbstractToolOptions = {}) {
+    constructor(config: MCPConfig, schema: IToolSchema, options: AbstractToolOptions = {}) {
         super(options);
         this.mcpConfig = {
             timeout: 30000,

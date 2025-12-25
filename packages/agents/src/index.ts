@@ -1,7 +1,7 @@
 /**
  * @fileoverview Robota SDK Agents Package - Comprehensive AI Agent Framework
  * 
- * 🎯 중앙집중 Node Type 관리 추가: 도메인 중립적 워크플로우 노드 타입 시스템
+ * 🎯 Centralized node type management: domain-neutral workflow node type system
  * 
  * The `@robota-sdk/agents` package provides a complete AI agent framework with support for
  * multiple AI providers, tool calling, plugin systems, and streaming responses. This package
@@ -60,11 +60,11 @@
 export * from './interfaces';
 
 /**
- * 🎯 중앙집중 Node Type 시스템 (외부 커스텀 타입 생성 방지)
- * 
- * 도메인 중립적이고 일관된 워크플로우 노드 타입을 제공합니다.
- * 외부에서 임의의 Node 타입을 생성하는 것을 방지하고,
- * 모든 Node 타입을 이 상수들을 통해 관리합니다.
+ * 🎯 Centralized node type system (prevents arbitrary external custom node types)
+ *
+ * Provides domain-neutral, consistent workflow node types.
+ * Prevents external code from creating arbitrary node types and
+ * centralizes all node types through these constants.
  * 
  * @public
  */
@@ -94,8 +94,8 @@ export * from './utils';
  * @public
  */
 export type {
-    ToolSchema,
-    ProviderOptions
+    IToolSchema,
+    IProviderOptions
 } from './interfaces/provider';
 
 /**
@@ -116,7 +116,7 @@ export type {
  *
  * @public
  */
-export type { TToolParameters, TToolResult, TToolExecutionContext } from './interfaces/tool';
+export type { TToolParameters, IToolResult, IToolExecutionContext } from './interfaces/tool';
 
 /**
  * Universal message format and assistant message used internally by the conversation history manager.
@@ -147,7 +147,7 @@ export {
  *
  * @public
  */
-export type { ProviderRequest, RawProviderResponse } from './interfaces/provider';
+export type { IProviderRequest, IRawProviderResponse } from './interfaces/provider';
 
 /**
  * Abstract AI provider implementation that all AI providers must extend.
@@ -167,11 +167,11 @@ export { AbstractExecutor } from './abstracts/abstract-executor';
 
 // Export executor interfaces
 export type {
-    ExecutorInterface,
-    ChatExecutionRequest,
-    StreamExecutionRequest,
-    LocalExecutorConfig,
-    RemoteExecutorConfig
+    IExecutor,
+    IChatExecutionRequest,
+    IStreamExecutionRequest,
+    ILocalExecutorConfig,
+    IRemoteExecutorConfig,
 } from './interfaces/executor';
 
 
@@ -317,7 +317,7 @@ export type {
  * 
  * @public
  */
-export type { ToolSchema as FunctionSchema } from './interfaces/provider';
+export type { IToolSchema as IFunctionSchema } from './interfaces/provider';
 
 // ===== EVENT SERVICE EXPORTS =====
 /**

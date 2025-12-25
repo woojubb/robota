@@ -1,16 +1,16 @@
 import type { TUniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage, TUniversalMessageMetadata as ConversationContextMetadata } from '../../managers/conversation-history-manager';
-import type { AIProvider, ProviderRequest as BaseProviderRequest, RawProviderResponse as BaseRawProviderResponse } from '../../interfaces/provider';
+import type { IAIProvider, IProviderRequest as BaseProviderRequest, IRawProviderResponse as BaseRawProviderResponse } from '../../interfaces/provider';
 import type { IToolCall } from '../../interfaces/messages';
 import type { ToolExecutionResult } from '../../interfaces/tool';
 import { NetworkError, ProviderError } from '../../utils/errors';
 import { createLogger, Logger } from '../../utils/logger';
 import {
-    ConversationContext,
-    ConversationResponse,
-    StreamingChunk,
+    IConversationContext,
+    IConversationResponse,
+    IStreamingChunk,
     ConversationServiceOptions,
-    ContextOptions,
-    ConversationServiceInterface
+    IContextOptions,
+    IConversationService
 } from '../../interfaces/service';
 
 /**
@@ -27,7 +27,7 @@ const DEFAULT_OPTIONS: Required<ConversationServiceOptions> = {
 /**
  * Provider request configuration with stream property
  */
-interface ProviderRequest extends BaseProviderRequest {
+interface IConversationProviderRequest extends BaseProviderRequest {
     model: string; // Make model required
     stream?: boolean;
 }
@@ -35,12 +35,12 @@ interface ProviderRequest extends BaseProviderRequest {
 /**
  * Use the base raw provider response from provider interface
  */
-type RawProviderResponse = BaseRawProviderResponse;
+type IConversationRawProviderResponse = BaseRawProviderResponse;
 
 /**
  * Raw streaming chunk structure
  */
-interface RawStreamingChunk {
+interface IRawStreamingChunk {
     delta?: string;
     done?: boolean;
     toolCalls?: IToolCall[];
@@ -57,7 +57,7 @@ interface RawStreamingChunk {
  * All methods are pure functions without instance state
  * @internal
  */
-export class ConversationService implements ConversationServiceInterface {
+export class ConversationService implements IConversationService {
 
     /**
      * Prepare conversation context from messages and configuration
@@ -67,9 +67,9 @@ export class ConversationService implements ConversationServiceInterface {
         messages: TUniversalMessage[],
         model: string,
         provider: string,
-        contextOptions: ContextOptions = {},
+        contextOptions: IContextOptions = {},
         serviceOptions: ConversationServiceOptions = {}
-    ): ConversationContext {
+    ): IConversationContext {
         const logger = createLogger('ConversationService');
         return ConversationService.createContext(
             messages,
@@ -86,10 +86,10 @@ export class ConversationService implements ConversationServiceInterface {
      * Stateless operation that handles the full request-response cycle
      */
     async generateResponse(
-        provider: AIProvider,
-        context: ConversationContext,
+        provider: IAIProvider,
+        context: IConversationContext,
         serviceOptions: ConversationServiceOptions = {}
-    ): Promise<ConversationResponse> {
+    ): Promise<IConversationResponse> {
         const logger = createLogger('ConversationService');
         return ConversationService.performResponseGeneration(provider, context, serviceOptions, logger);
     }
@@ -99,10 +99,10 @@ export class ConversationService implements ConversationServiceInterface {
      * Stateless streaming operation
      */
     async* generateStreamingResponse(
-        provider: AIProvider,
-        context: ConversationContext,
+        provider: IAIProvider,
+        context: IConversationContext,
         serviceOptions: ConversationServiceOptions = {}
-    ): AsyncGenerator<StreamingChunk, void, undefined> {
+    ): AsyncGenerator<IStreamingChunk, void, undefined> {
         const logger = createLogger('ConversationService');
         yield* ConversationService.performStreamingResponse(provider, context, serviceOptions, logger);
     }
@@ -111,7 +111,7 @@ export class ConversationService implements ConversationServiceInterface {
      * Validate conversation context
      * Pure validation function
      */
-    validateContext(context: ConversationContext): { isValid: boolean; errors: string[] } {
+    validateContext(context: IConversationContext): { isValid: boolean; errors: string[] } {
         return ConversationService.performContextValidation(context);
     }
 
@@ -126,10 +126,10 @@ export class ConversationService implements ConversationServiceInterface {
         messages: TUniversalMessage[],
         model: string,
         provider: string,
-        contextOptions: ContextOptions,
+        contextOptions: IContextOptions,
         serviceOptions: ConversationServiceOptions,
         logger: Logger
-    ): ConversationContext {
+    ): IConversationContext {
         const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
 
         // Limit history length if configured
@@ -149,7 +149,7 @@ export class ConversationService implements ConversationServiceInterface {
             });
         }
 
-        const context: ConversationContext = {
+        const context: IConversationContext = {
             messages: processedMessages,
             model,
             provider,
@@ -175,11 +175,11 @@ export class ConversationService implements ConversationServiceInterface {
      * Static method for response generation
      */
     private static async performResponseGeneration(
-        provider: AIProvider,
-        context: ConversationContext,
+        provider: IAIProvider,
+        context: IConversationContext,
         serviceOptions: ConversationServiceOptions,
         logger: Logger
-    ): Promise<ConversationResponse> {
+    ): Promise<IConversationResponse> {
         const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
         const startTime = Date.now();
 
@@ -239,11 +239,11 @@ export class ConversationService implements ConversationServiceInterface {
      * Static method for streaming response generation
      */
     private static async* performStreamingResponse(
-        provider: AIProvider,
-        context: ConversationContext,
+        provider: IAIProvider,
+        context: IConversationContext,
         _serviceOptions: ConversationServiceOptions,
         logger: Logger
-    ): AsyncGenerator<StreamingChunk, void, undefined> {
+    ): AsyncGenerator<IStreamingChunk, void, undefined> {
         // Apply defaults for future use - currently not needed but maintains service contract
         const startTime = Date.now();
 
@@ -315,7 +315,7 @@ export class ConversationService implements ConversationServiceInterface {
     /**
      * Static method for context validation
      */
-    private static performContextValidation(context: ConversationContext): { isValid: boolean; errors: string[] } {
+    private static performContextValidation(context: IConversationContext): { isValid: boolean; errors: string[] } {
         const errors: string[] = [];
 
         if (!context.messages || !Array.isArray(context.messages)) {
@@ -360,7 +360,7 @@ export class ConversationService implements ConversationServiceInterface {
     /**
      * Create an assistant message from response
      */
-    createAssistantMessage(response: ConversationResponse, metadata?: Record<string, string | number | boolean>): AssistantMessage {
+    createAssistantMessage(response: IConversationResponse, metadata?: Record<string, string | number | boolean>): AssistantMessage {
         return ConversationService.createAssistantMessageStatic(response, metadata);
     }
 
@@ -391,7 +391,7 @@ export class ConversationService implements ConversationServiceInterface {
         };
     }
 
-    private static createAssistantMessageStatic(response: ConversationResponse, metadata?: Record<string, string | number | boolean>): AssistantMessage {
+    private static createAssistantMessageStatic(response: IConversationResponse, metadata?: Record<string, string | number | boolean>): AssistantMessage {
         const message: AssistantMessage = {
             role: 'assistant',
             content: response.content,
@@ -479,10 +479,10 @@ export class ConversationService implements ConversationServiceInterface {
         return undefined;
     }
 
-    private static createProviderRequest(context: ConversationContext, streaming: boolean = false): ProviderRequest {
+    private static createProviderRequest(context: IConversationContext, streaming: boolean = false): IConversationProviderRequest {
         const metadata = ConversationService.convertToProviderMetadata(context.metadata);
 
-        const request: ProviderRequest = {
+        const request: IConversationProviderRequest = {
             messages: context.messages,
             model: context.model,
             stream: streaming,
@@ -496,10 +496,10 @@ export class ConversationService implements ConversationServiceInterface {
         return request;
     }
 
-    private static processProviderResponse(response: RawProviderResponse): ConversationResponse {
+    private static processProviderResponse(response: IConversationRawProviderResponse): IConversationResponse {
         const usage = ConversationService.convertUsage(response.usage);
 
-        const result: ConversationResponse = {
+        const result: IConversationResponse = {
             content: response.content || '',
             toolCalls: response.toolCalls || [],
             metadata: response.metadata || {},
@@ -510,10 +510,10 @@ export class ConversationService implements ConversationServiceInterface {
         return result;
     }
 
-    private static processStreamingChunk(chunk: RawStreamingChunk): StreamingChunk {
+    private static processStreamingChunk(chunk: IRawStreamingChunk): IStreamingChunk {
         const usage = ConversationService.convertUsage(chunk.usage);
 
-        const result: StreamingChunk = {
+        const result: IStreamingChunk = {
             delta: chunk.delta || '',
             done: chunk.done || false,
             toolCalls: chunk.toolCalls || [],

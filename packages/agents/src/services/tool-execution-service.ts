@@ -1,5 +1,5 @@
-import { TToolExecutionResult, TToolExecutionContext, TToolMetadata } from '../interfaces/tool';
-import type { ToolManagerInterface } from '../interfaces/manager';
+import { IToolExecutionResult, IToolExecutionContext, TToolMetadata } from '../interfaces/tool';
+import type { IToolManager } from '../interfaces/manager';
 import type { TToolParameters } from '../interfaces/tool';
 import type { IEventService, IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
@@ -35,7 +35,7 @@ export interface ToolExecutionBatchContext {
     timeout?: number;
     continueOnError?: boolean;
     maxConcurrency?: number;
-    parentContext?: TToolExecutionContext;
+    parentContext?: IToolExecutionContext;
 }
 
 /**
@@ -43,10 +43,10 @@ export interface ToolExecutionBatchContext {
  * Focuses only on core tool execution without complex hierarchy tracking
  */
 export class ToolExecutionService {
-    private tools: ToolManagerInterface;
+    private tools: IToolManager;
     private logger: SimpleLogger;
 
-    constructor(tools: ToolManagerInterface, logger?: SimpleLogger) {
+    constructor(tools: IToolManager, logger?: SimpleLogger) {
         this.tools = tools;
         this.logger = logger || SilentLogger;
     }
@@ -61,8 +61,8 @@ export class ToolExecutionService {
     async executeTool(
         toolName: string,
         parameters: TToolParameters,
-        context?: TToolExecutionContext
-    ): Promise<TToolExecutionResult> {
+        context?: IToolExecutionContext
+    ): Promise<IToolExecutionResult> {
         this.logger.debug(`Executing tool: ${toolName}`);
 
         try {
@@ -88,7 +88,7 @@ export class ToolExecutionService {
             void _toolName;
             void _parameters;
 
-            const executionContext: TToolExecutionContext = {
+            const executionContext: IToolExecutionContext = {
                 ...restContext,
                 toolName,
                 parameters,
@@ -168,10 +168,10 @@ export class ToolExecutionService {
      * @param batchContext - Batch execution context
      * @returns Promise resolving to tool execution summary
      */
-    async executeTools(batchContext: ToolExecutionBatchContext): Promise<{ results: TToolExecutionResult[], errors: Error[] }> {
+    async executeTools(batchContext: ToolExecutionBatchContext): Promise<{ results: IToolExecutionResult[], errors: Error[] }> {
         this.logger.debug(`Executing ${batchContext.requests.length} tools in ${batchContext.mode} mode`);
 
-        const results: TToolExecutionResult[] = [];
+        const results: IToolExecutionResult[] = [];
         const errors: Error[] = [];
 
         if (batchContext.mode === 'parallel') {

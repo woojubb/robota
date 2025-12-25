@@ -1,4 +1,4 @@
-import type { ToolSchema } from './provider';
+import type { IToolSchema } from './provider';
 import type { IEventService, IOwnerPathSegment } from './event-service';
 import type { TContextData, TLoggerData, TToolParameterValue, TToolParameters, TToolResultData, TUniversalValue } from './types';
 
@@ -32,7 +32,7 @@ export type TToolExecutionData = TToolResultData;
 /**
  * Tool execution result - extended for ToolExecutionData compatibility
  */
-export interface TToolResult {
+export interface IToolResult {
     success: boolean;
     data?: TToolExecutionData;
     error?: string;
@@ -43,7 +43,7 @@ export interface TToolResult {
 /**
  * Enhanced tool execution result with additional metadata
  */
-export interface TToolExecutionResult {
+export interface IToolExecutionResult {
     /** Whether execution was successful */
     success: boolean;
     /** Tool name that was executed */
@@ -69,7 +69,7 @@ export interface TToolExecutionResult {
 // Align Tool ownerPath segments with the canonical ownerPath segment type.
 export type TToolOwnerPathSegment = IOwnerPathSegment;
 
-export interface TToolExecutionContext {
+export interface IToolExecutionContext {
     toolName: string;
     parameters: TToolParameters;
     executionId?: string; // Tool execution ID (typically tool call ID)
@@ -149,7 +149,7 @@ export interface ParameterValidationResult {
  * Generic tool executor function
  */
 export type ToolExecutor<TParams = TToolParameters, TResult = TToolExecutionData> =
-    (parameters: TParams, context?: TToolExecutionContext) => Promise<TResult>;
+    (parameters: TParams, context?: IToolExecutionContext) => Promise<TResult>;
 
 /**
  * OpenAPI specification configuration
@@ -209,12 +209,12 @@ export interface MCPToolConfig {
  */
 export interface ToolInterface {
     /** Tool schema */
-    schema: ToolSchema;
+    schema: IToolSchema;
 
     /**
      * Execute the tool with given parameters
      */
-    execute(parameters: TToolParameters, context?: TToolExecutionContext): Promise<TToolResult>;
+    execute(parameters: TToolParameters, context?: IToolExecutionContext): Promise<IToolResult>;
 
     /**
      * Validate tool parameters
@@ -267,7 +267,7 @@ export interface ToolRegistryInterface {
     /**
      * Get tool schemas
      */
-    getSchemas(): ToolSchema[];
+    getSchemas(): IToolSchema[];
 
     /**
      * Check if tool exists
@@ -287,7 +287,7 @@ export interface ToolFactoryInterface {
     /**
      * Create function tool from schema and function
      */
-    createFunctionTool(schema: ToolSchema, fn: ToolExecutor): FunctionTool;
+    createFunctionTool(schema: IToolSchema, fn: ToolExecutor): FunctionTool;
 
     /**
      * Create tool from OpenAPI specification

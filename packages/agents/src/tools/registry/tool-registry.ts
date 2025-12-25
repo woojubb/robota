@@ -1,5 +1,5 @@
 import type { ToolInterface, ToolRegistryInterface } from '../../interfaces/tool';
-import type { ToolSchema } from '../../interfaces/provider';
+import type { IToolSchema } from '../../interfaces/provider';
 import { ValidationError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 
@@ -69,7 +69,7 @@ export class ToolRegistry implements ToolRegistryInterface {
     /**
      * Get tool schemas
      */
-    getSchemas(): ToolSchema[] {
+    getSchemas(): IToolSchema[] {
         const tools = this.getAll();
 
         // 🔍 [TOOL-FLOW] ToolRegistry.getSchemas() - Extracting schemas from tools
@@ -127,7 +127,7 @@ export class ToolRegistry implements ToolRegistryInterface {
     /**
      * Validate tool schema
      */
-    private validateToolSchema(schema: ToolSchema): void {
+    private validateToolSchema(schema: IToolSchema): void {
         if (!schema.name || typeof schema.name !== 'string') {
             throw new ValidationError('Tool schema must have a valid name');
         }
@@ -146,8 +146,9 @@ export class ToolRegistry implements ToolRegistryInterface {
 
         // Validate parameter properties
         if (schema.parameters.properties) {
-            for (const [propName, propSchema] of Object.entries(schema.parameters.properties)) {
-                if (!propSchema.type) {
+            for (const propName of Object.keys(schema.parameters.properties)) {
+                const propSchema = schema.parameters.properties[propName];
+                if (!propSchema?.type) {
                     throw new ValidationError(`Parameter "${propName}" must have a type`);
                 }
 
