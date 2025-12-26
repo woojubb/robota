@@ -6,10 +6,10 @@
  * Defines the shared contract and helper utilities for all AI provider implementations.
  * Concrete providers should extend this class and inject their own dependencies.
  */
-import type { IToolSchema, IChatOptions, IProviderRequest, IRawProviderResponse } from '../interfaces/provider';
+import type { IAIProvider, IToolSchema, IChatOptions, IProviderRequest, IRawProviderResponse } from '../interfaces/provider';
 import type { IExecutor } from '../interfaces/executor';
 import type { TUniversalMessage } from '../interfaces/messages';
-import { isAssistantMessage } from '../managers/conversation-history-manager';
+import { isAssistantMessage } from '../interfaces/messages';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 
@@ -18,27 +18,6 @@ import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
  * Used for storing logging information in provider operations
  */
 export type ProviderLoggingData = Record<string, string | number | boolean | Date | string[]>;
-
-/**
- * Type-safe AI provider interface with proper generic constraints
- * 
- * @template TConfig - Provider configuration type (defaults to IProviderConfig for type safety)
- * @template TUniversalMessage - Message type (defaults to TUniversalMessage for backward compatibility)
- * @template TResponse - Response type (defaults to TUniversalMessage for backward compatibility)
- */
-export interface IProviderContract<TConfig = IProviderConfig> {
-    readonly name: string;
-    readonly version: string;
-
-    configure?(config: TConfig): Promise<void> | void;
-    chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage>;
-    chatStream?(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage>;
-    generateResponse(payload: IProviderRequest): Promise<IRawProviderResponse>;
-    generateStreamingResponse?(payload: IProviderRequest): AsyncIterable<IRawProviderResponse>;
-    supportsTools(): boolean;
-    validateConfig(): boolean;
-    dispose(): Promise<void>;
-}
 
 /**
  * Provider configuration base interface
@@ -135,7 +114,7 @@ export interface IExecutorAwareProviderConfig {
  * @template TResponse - Response type (defaults to TUniversalMessage for backward compatibility)
  */
 export abstract class AbstractAIProvider<TConfig = IProviderConfig>
-    implements IProviderContract<TConfig> {
+    implements IAIProvider {
     abstract readonly name: string;
     abstract readonly version: string;
     protected config?: TConfig;
