@@ -1,21 +1,21 @@
-import { PerformanceStorage, PerformanceMetrics, AggregatedPerformanceStats } from '../types';
+import { IPerformanceStorage, IPerformanceMetrics, IAggregatedPerformanceStats } from '../types';
 
-export class MemoryPerformanceStorage implements PerformanceStorage {
-    private entries: PerformanceMetrics[] = [];
+export class MemoryPerformanceStorage implements IPerformanceStorage {
+    private entries: IPerformanceMetrics[] = [];
     private maxEntries: number;
 
     constructor(maxEntries: number = 5000) {
         this.maxEntries = maxEntries;
     }
 
-    async save(entry: PerformanceMetrics): Promise<void> {
+    async save(entry: IPerformanceMetrics): Promise<void> {
         if (this.entries.length >= this.maxEntries) {
             this.entries = this.entries.slice(-this.maxEntries + 1);
         }
         this.entries.push({ ...entry });
     }
 
-    async getMetrics(operation?: string, timeRange?: { start: Date; end: Date }): Promise<PerformanceMetrics[]> {
+    async getMetrics(operation?: string, timeRange?: { start: Date; end: Date }): Promise<IPerformanceMetrics[]> {
         let filtered = [...this.entries];
         if (operation) {
             filtered = filtered.filter(entry => entry.operation === operation);
@@ -28,7 +28,7 @@ export class MemoryPerformanceStorage implements PerformanceStorage {
         return filtered;
     }
 
-    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedPerformanceStats> {
+    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedPerformanceStats> {
         const metrics = await this.getMetrics(undefined, timeRange);
 
         if (metrics.length === 0) {

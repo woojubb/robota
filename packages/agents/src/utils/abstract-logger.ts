@@ -8,13 +8,13 @@
  * 
  * ARCHITECTURAL PRINCIPLES:
  * - Top-level abstraction: All loggers implement this interface
- * - Type hierarchy: AbstractLogger > SimpleLogger > concrete implementations
+ * - Type hierarchy: IAbstractLogger > SimpleLogger > concrete implementations
  * - Zero dependencies: Pure type definition
  * - Interface segregation: Focused on logging responsibilities only
  * 
  * TYPE HIERARCHY:
  * ```
- * AbstractLogger (interface) ← Top level
+ * IAbstractLogger (interface) ← Top level
  *     ↓ extends
  * SimpleLogger (type alias) ← Convenience type
  *     ↓ implements
@@ -23,13 +23,13 @@
  * 
  * @example
  * ```typescript
- * // ✅ CORRECT: Type with AbstractLogger
+ * // ✅ CORRECT: Type with IAbstractLogger
  * class MyBaseClass {
- *   constructor(protected logger: AbstractLogger) {}
+ *   constructor(protected logger: IAbstractLogger) {}
  * }
  * 
  * // ✅ CORRECT: Implementation
- * const myLogger: AbstractLogger = {
+ * const myLogger: IAbstractLogger = {
  *   debug: (msg) => console.debug(msg),
  *   // ... other methods
  * };
@@ -45,7 +45,7 @@
  * All logger implementations (SilentLogger, ConsoleLogger, etc.) must
  * implement this interface.
  */
-export interface AbstractLogger {
+export interface IAbstractLogger {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     debug(...args: any[]): void;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,7 +63,7 @@ export interface AbstractLogger {
 /**
  * Default Abstract Logger Implementation (Null Object Pattern)
  * 
- * This const provides the default "do-nothing" implementation of AbstractLogger.
+ * This const provides the default "do-nothing" implementation of IAbstractLogger.
  * Use this in abstract base classes (base-*, abstract-*) as the default logger.
  * 
  * @example
@@ -71,12 +71,12 @@ export interface AbstractLogger {
  * // ✅ CORRECT: Use in abstract/base classes
  * abstract class BaseValidator {
  *   constructor(
- *     protected logger: AbstractLogger = DEFAULT_ABSTRACT_LOGGER
+ *     protected logger: IAbstractLogger = DEFAULT_ABSTRACT_LOGGER
  *   ) {}
  * }
  * ```
  */
-export const DEFAULT_ABSTRACT_LOGGER: AbstractLogger = {
+export const DEFAULT_ABSTRACT_LOGGER: IAbstractLogger = {
     debug: () => { },
     info: () => { },
     warn: () => { },

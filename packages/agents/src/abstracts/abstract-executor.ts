@@ -3,7 +3,7 @@ import type {
     IChatExecutionRequest,
     IStreamExecutionRequest
 } from '../interfaces/executor';
-import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage, IAssistantMessage } from '../interfaces/messages';
 import type { TLoggerData } from '../interfaces/types';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';

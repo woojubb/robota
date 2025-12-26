@@ -62,11 +62,9 @@ export type TToolParameters = Record<string, TToolParameterValue>;
  */
 export type TToolResultData = TUniversalValue;
 
-/**
- * Provider configuration value type - for AI provider configs
- * Note: ProviderConfig is defined in agent.ts to avoid export conflicts
- */
-// NOTE: Provider config value types are owned by the provider axis (`interfaces/provider.ts`).
+// NOTE:
+// Provider config value types are owned by the provider axis (`interfaces/provider.ts`).
+// Avoid defining provider config interfaces in this value axis module.
 // Do not introduce duplicate provider config value types here.
 
 /**

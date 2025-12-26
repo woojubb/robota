@@ -3,7 +3,7 @@ import type {
     IStreamExecutionRequest,
     ILocalExecutorConfig
 } from '../interfaces/executor';
-import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage, IAssistantMessage } from '../interfaces/messages';
 import type { IChatOptions } from '../interfaces/provider';
 import { AbstractExecutor } from '../abstracts/abstract-executor';
 
@@ -34,7 +34,7 @@ export class LocalExecutor extends AbstractExecutor {
     readonly name = 'local';
     readonly version = '1.0.0';
 
-    private providers = new Map<string, AIProviderInstance>();
+    private providers = new Map<string, IAIProviderInstance>();
     private config: Required<ILocalExecutorConfig>;
 
     constructor(config: ILocalExecutorConfig = {}) {
@@ -54,7 +54,7 @@ export class LocalExecutor extends AbstractExecutor {
      * @param name - Provider name (e.g., 'openai', 'anthropic', 'google')
      * @param provider - Provider instance that implements the required chat methods
      */
-    registerProvider(name: string, provider: AIProviderInstance): void {
+    registerProvider(name: string, provider: IAIProviderInstance): void {
         this.providers.set(name, provider);
     }
 
@@ -73,7 +73,7 @@ export class LocalExecutor extends AbstractExecutor {
      * @param name - Provider name
      * @returns Provider instance or undefined if not registered
      */
-    getProvider(name: string): AIProviderInstance | undefined {
+    getProvider(name: string): IAIProviderInstance | undefined {
         return this.providers.get(name);
     }
 
@@ -238,7 +238,7 @@ export class LocalExecutor extends AbstractExecutor {
  * needs to delegate to. It's designed to be compatible with existing BaseAIProvider
  * implementations from @robota-sdk packages.
  */
-export interface AIProviderInstance {
+export interface IAIProviderInstance {
     /** Provider name */
     readonly name?: string;
 

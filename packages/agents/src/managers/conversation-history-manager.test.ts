@@ -9,7 +9,6 @@ import {
     createUserMessage,
     createSystemMessage
 } from './conversation-history-manager';
-import type { ToolMessage } from './conversation-history-manager';
 
 describe('ConversationSession', () => {
     describe('addToolMessageWithId', () => {

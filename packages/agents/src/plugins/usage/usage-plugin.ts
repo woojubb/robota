@@ -1,15 +1,15 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
-import type { EventType, EventData } from '../event-emitter-plugin';
+import type { TEventType, IEventData } from '../event-emitter-plugin';
 import type { TimerId } from '../../utils';
 import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
 import {
-    UsageStats,
-    AggregatedUsageStats,
-    UsagePluginOptions,
-    UsagePluginStats,
-    UsageStorage
+    IUsageStats,
+    IAggregatedUsageStats,
+    IUsagePluginOptions,
+    IUsagePluginStats,
+    IUsageStorage
 } from './types';
 import {
     MemoryUsageStorage,
@@ -22,16 +22,16 @@ import {
  * Plugin for tracking usage statistics
  * Collects and stores usage data including tokens, costs, performance metrics
  */
-export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginStats> {
+export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePluginStats> {
     name = 'UsagePlugin';
     version = '1.0.0';
 
-    private storage: UsageStorage;
-    private pluginOptions: Required<Omit<UsagePluginOptions, 'costRates'>> & { costRates?: Record<string, { input: number; output: number }> };
+    private storage: IUsageStorage;
+    private pluginOptions: Required<Omit<IUsagePluginOptions, 'costRates'>> & { costRates?: Record<string, { input: number; output: number }> };
     private logger: ILogger;
     private aggregationTimer?: TimerId;
 
-    constructor(options: UsagePluginOptions) {
+    constructor(options: IUsagePluginOptions) {
         super();
         this.logger = createLogger('UsagePlugin');
 
@@ -81,7 +81,7 @@ export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginS
     /**
      * Handle module events for usage tracking
      */
-    override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
+    override async onModuleEvent(eventType: TEventType, eventData: IEventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
             const moduleData = eventData.data;
@@ -153,11 +153,11 @@ export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginS
     /**
      * Record usage statistics
      */
-    async recordUsage(usage: Omit<UsageStats, 'timestamp' | 'cost'>): Promise<void> {
+    async recordUsage(usage: Omit<IUsageStats, 'timestamp' | 'cost'>): Promise<void> {
         try {
             const cost = this.pluginOptions.trackCosts ? this.calculateCost(usage.model, usage.tokensUsed) : undefined;
 
-            const entry: UsageStats = {
+            const entry: IUsageStats = {
                 ...usage,
                 timestamp: new Date(),
                 ...(cost && { cost })
@@ -182,7 +182,7 @@ export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginS
     /**
      * Get usage statistics
      */
-    async getUsageStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<UsageStats[]> {
+    async getUsageStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<IUsageStats[]> {
         try {
             return await this.storage.getStats(conversationId, timeRange);
         } catch (error) {
@@ -197,7 +197,7 @@ export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginS
     /**
      * Get aggregated usage statistics
      */
-    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats> {
+    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats> {
         try {
             return await this.storage.getAggregatedStats(timeRange);
         } catch (error) {
@@ -275,7 +275,7 @@ export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginS
     /**
      * Validate plugin options
      */
-    private validateOptions(options: UsagePluginOptions): void {
+    private validateOptions(options: IUsagePluginOptions): void {
         if (!options.strategy) {
             throw new ConfigurationError('Usage tracking strategy is required');
         }
@@ -315,7 +315,7 @@ export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginS
     /**
      * Create storage instance based on strategy
      */
-    private createStorage(): UsageStorage {
+    private createStorage(): IUsageStorage {
         switch (this.pluginOptions.strategy) {
             case 'memory':
                 return new MemoryUsageStorage(this.pluginOptions.maxEntries);

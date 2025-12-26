@@ -8,7 +8,7 @@
  * AbstractLogger) so that concrete modules can inject their own behaviors.
  */
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
-import type { EventExecutionContextData, EventExecutionValue } from '../plugins/event-emitter-plugin';
+import type { IEventExecutionContextData, TEventExecutionValue } from '../plugins/event-emitter-plugin';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
@@ -16,7 +16,7 @@ import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 /**
  * Module execution context for all modules
  */
-export interface ModuleExecutionContext {
+export interface IModuleExecutionContext {
     executionId?: string;
     sessionId?: string;
     userId?: string;
@@ -28,9 +28,9 @@ export interface ModuleExecutionContext {
 /**
  * Module execution result for all modules
  */
-export interface ModuleExecutionResult {
+export interface IModuleExecutionResult {
     success: boolean;
-    data?: ModuleResultData;
+    data?: IModuleResultData;
     error?: Error;
     duration?: number;
     metadata?: Record<string, string | number | boolean | Date>;
@@ -39,14 +39,14 @@ export interface ModuleExecutionResult {
 /**
  * Module result data interface
  */
-export interface ModuleResultData {
+export interface IModuleResultData {
     [key: string]: string | number | boolean | Record<string, string | number | boolean> | undefined;
 }
 
 /**
  * Base module options that all module options should extend
  */
-export interface BaseModuleOptions {
+export interface IBaseModuleOptions {
     /** Whether the module is enabled */
     enabled?: boolean;
     /** Module-specific configuration */
@@ -56,7 +56,7 @@ export interface BaseModuleOptions {
 /**
  * Module capabilities that define what the module can do
  */
-export interface ModuleCapabilities {
+export interface IModuleCapabilities {
     /** List of capabilities this module provides */
     capabilities: string[];
     /** Dependencies on other modules */
@@ -68,7 +68,7 @@ export interface ModuleCapabilities {
 /**
  * Module type descriptor for dynamic type system
  */
-export interface ModuleTypeDescriptor {
+export interface IModuleTypeDescriptor {
     /** Unique type identifier */
     type: string;
     /** Module category */
@@ -118,20 +118,20 @@ export enum ModuleLayer {
 /**
  * Module data interface for introspection
  */
-export interface ModuleData {
+export interface IModuleData {
     name: string;
     version: string;
     type: string;
     enabled: boolean;
     initialized: boolean;
-    capabilities: ModuleCapabilities;
+    capabilities: IModuleCapabilities;
     metadata?: Record<string, string | number | boolean>;
 }
 
 /**
  * Module statistics interface
  */
-export interface ModuleStats {
+export interface IModuleStats {
     enabled: boolean;
     initialized: boolean;
     executionCount: number;
@@ -144,41 +144,41 @@ export interface ModuleStats {
 /**
  * Type-safe module interface with specific type parameters
  * 
- * @template TOptions - Module options type that extends BaseModuleOptions
- * @template TStats - Module statistics type (defaults to ModuleStats)
+ * @template TOptions - Module options type that extends IBaseModuleOptions
+ * @template TStats - Module statistics type (defaults to IModuleStats)
  */
-export interface TypeSafeModuleInterface<TOptions extends BaseModuleOptions = BaseModuleOptions, TStats = ModuleStats> {
+export interface IModuleInterface<TOptions extends IBaseModuleOptions = IBaseModuleOptions, TStats = IModuleStats> {
     name: string;
     version: string;
     enabled: boolean;
 
     initialize(options?: TOptions, eventEmitter?: EventEmitterPlugin): Promise<void>;
     dispose?(): Promise<void>;
-    execute?(context: ModuleExecutionContext): Promise<ModuleExecutionResult>;
-    getModuleType(): ModuleTypeDescriptor;
-    getCapabilities(): ModuleCapabilities;
-    getData?(): ModuleData;
+    execute?(context: IModuleExecutionContext): Promise<IModuleExecutionResult>;
+    getModuleType(): IModuleTypeDescriptor;
+    getCapabilities(): IModuleCapabilities;
+    getData?(): IModuleData;
     getStats?(): TStats;
 }
 
 /**
- * Base module interface extending TypeSafeModuleInterface
+ * Base module interface extending IModuleInterface
  */
-export interface BaseModuleInterface extends TypeSafeModuleInterface<BaseModuleOptions, ModuleStats> { }
+export interface IBaseModuleInterface extends IModuleInterface<IBaseModuleOptions, IModuleStats> { }
 
 /**
  * Module lifecycle hooks
  */
-export interface ModuleHooks {
+export interface IModuleHooks {
     /**
      * Called before module execution
      */
-    beforeExecution?(context: ModuleExecutionContext): Promise<void> | void;
+    beforeExecution?(context: IModuleExecutionContext): Promise<void> | void;
 
     /**
      * Called after module execution
      */
-    afterExecution?(context: ModuleExecutionContext, result: ModuleExecutionResult): Promise<void> | void;
+    afterExecution?(context: IModuleExecutionContext, result: IModuleExecutionResult): Promise<void> | void;
 
     /**
      * Called when module is activated
@@ -193,7 +193,7 @@ export interface ModuleHooks {
     /**
      * Called on module error
      */
-    onError?(error: Error, context?: ModuleExecutionContext): Promise<void> | void;
+    onError?(error: Error, context?: IModuleExecutionContext): Promise<void> | void;
 }
 
 /**
@@ -205,11 +205,11 @@ export interface ModuleHooks {
  * - ✅ Adding a Module should only grant new capabilities or features
  * - ❌ If missing a Module breaks core logic, it must be implemented as an internal class instead
  * 
- * @template TOptions - Module options type that extends BaseModuleOptions
- * @template TStats - Module statistics type (defaults to ModuleStats)
+ * @template TOptions - Module options type that extends IBaseModuleOptions
+ * @template TStats - Module statistics type (defaults to IModuleStats)
  */
-export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseModuleOptions, TStats = ModuleStats>
-    implements TypeSafeModuleInterface<TOptions, TStats>, ModuleHooks {
+export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBaseModuleOptions, TStats = IModuleStats>
+    implements IModuleInterface<TOptions, TStats>, IModuleHooks {
 
     /** Module name */
     abstract readonly name: string;
@@ -247,12 +247,12 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
     /**
      * Get module type descriptor - must be implemented by each module
      */
-    abstract getModuleType(): ModuleTypeDescriptor;
+    abstract getModuleType(): IModuleTypeDescriptor;
 
     /**
      * Get module capabilities - must be implemented by each module
      */
-    abstract getCapabilities(): ModuleCapabilities;
+    abstract getCapabilities(): IModuleCapabilities;
 
     /**
      * Initialize the module with type-safe options and EventEmitter
@@ -285,7 +285,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                 )
             ) : undefined;
 
-            const eventData: ModuleInitializationEventData = {
+            const eventData: IModuleInitializationEventData = {
                 moduleName: this.name,
                 moduleType: this.getModuleType().type,
                 phase: 'start',
@@ -307,7 +307,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
 
             // Emit successful initialization
             if (this.eventEmitter && this.enabled) {
-                const eventData: ModuleInitializationEventData = {
+                const eventData: IModuleInitializationEventData = {
                     moduleName: this.name,
                     moduleType: this.getModuleType().type,
                     phase: 'complete',
@@ -331,7 +331,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
 
             // Emit initialization error
             if (this.eventEmitter) {
-                const eventData: ModuleInitializationEventData = {
+                const eventData: IModuleInitializationEventData = {
                     moduleName: this.name,
                     moduleType: this.getModuleType().type,
                     phase: 'error',
@@ -366,7 +366,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
     /**
      * Execute module functionality
      */
-    async execute(context: ModuleExecutionContext): Promise<ModuleExecutionResult> {
+    async execute(context: IModuleExecutionContext): Promise<IModuleExecutionResult> {
         if (!this.enabled) {
             throw new Error(`Module ${this.name} is disabled`);
         }
@@ -385,7 +385,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
             if (context['userId']) contextData['userId'] = context['userId'];
             if (context['agentName']) contextData['agentName'] = context['agentName'];
 
-            const eventData: ModuleExecutionEventData = {
+            const eventData: IModuleExecutionEventData = {
                 moduleName: this.name,
                 moduleType: this.getModuleType().type,
                 phase: 'start',
@@ -430,7 +430,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                 if (context['userId']) contextData['userId'] = context['userId'];
                 if (context['agentName']) contextData['agentName'] = context['agentName'];
 
-                const eventData: ModuleExecutionEventData = {
+                const eventData: IModuleExecutionEventData = {
                     moduleName: this.name,
                     moduleType: this.getModuleType().type,
                     phase: 'complete',
@@ -457,7 +457,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
             this.stats.errorCount++;
             this.stats.lastActivity = new Date();
 
-            const errorResult: ModuleExecutionResult = {
+            const errorResult: IModuleExecutionResult = {
                 success: false,
                 error: error instanceof Error ? error : new Error(String(error)),
                 duration
@@ -473,7 +473,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                 if (context['userId']) contextData['userId'] = context['userId'];
                 if (context['agentName']) contextData['agentName'] = context['agentName'];
 
-                const eventData: ModuleExecutionEventData = {
+                const eventData: IModuleExecutionEventData = {
                     moduleName: this.name,
                     moduleType: this.getModuleType().type,
                     phase: 'error',
@@ -499,7 +499,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
     /**
      * Custom execution logic - must be implemented by modules that support execution
      */
-    protected async onExecute(_context: ModuleExecutionContext): Promise<ModuleExecutionResult> {
+    protected async onExecute(_context: IModuleExecutionContext): Promise<IModuleExecutionResult> {
         throw new Error(`Module ${this.name} does not implement execute functionality`);
     }
 
@@ -513,7 +513,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
 
         // Emit disposal event
         if (this.eventEmitter && this.initialized) {
-            const eventData: ModuleDisposalEventData = {
+            const eventData: IModuleDisposalEventData = {
                 moduleName: this.name,
                 moduleType: this.getModuleType().type,
                 phase: 'start',
@@ -537,7 +537,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
 
             // Emit successful disposal
             if (this.eventEmitter) {
-                const eventData: ModuleDisposalEventData = {
+                const eventData: IModuleDisposalEventData = {
                     moduleName: this.name,
                     moduleType: this.getModuleType().type,
                     phase: 'complete',
@@ -559,7 +559,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
 
             // Emit disposal error
             if (this.eventEmitter) {
-                const eventData: ModuleDisposalEventData = {
+                const eventData: IModuleDisposalEventData = {
                     moduleName: this.name,
                     moduleType: this.getModuleType().type,
                     phase: 'error',
@@ -624,7 +624,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
     /**
      * Get module data for introspection
      */
-    getData(): ModuleData {
+    getData(): IModuleData {
         return {
             name: this.name,
             version: this.version,
@@ -647,7 +647,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
             ? this.stats.totalExecutionTime / this.stats.executionCount
             : undefined;
 
-        const baseStats: ModuleStats = {
+        const baseStats: IModuleStats = {
             enabled: this.enabled,
             initialized: this.initialized,
             executionCount: this.stats.executionCount,
@@ -681,27 +681,27 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
     }
 
     /**
-     * Convert module event data to EventExecutionContextData format
+     * Convert module event data to IEventExecutionContextData format
      */
-    private convertToEventData(data: ModuleInitializationEventData | ModuleExecutionEventData | ModuleDisposalEventData): EventExecutionContextData {
-        const result: EventExecutionContextData = {};
+    private convertToEventData(data: IModuleInitializationEventData | IModuleExecutionEventData | IModuleDisposalEventData): IEventExecutionContextData {
+        const result: IEventExecutionContextData = {};
 
-        // Convert all properties to EventExecutionContextData compatible format
+        // Convert all properties to IEventExecutionContextData compatible format
         for (const [key, value] of Object.entries(data)) {
             if (value === undefined) continue;
 
             if (key === 'timestamp' && value instanceof Date) {
                 result[key] = value.toISOString();
             } else if (key === 'metadata' && typeof value === 'object' && value !== null) {
-                result[key] = value as Record<string, EventExecutionValue>;
+                result[key] = value as Record<string, TEventExecutionValue>;
             } else if (key === 'context' && typeof value === 'object' && value !== null) {
-                result[key] = value as Record<string, EventExecutionValue>;
+                result[key] = value as Record<string, TEventExecutionValue>;
             } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
                 result[key] = value;
             } else if (Array.isArray(value)) {
                 result[key] = value as string[] | number[] | boolean[];
             } else if (typeof value === 'object' && value !== null) {
-                result[key] = value as Record<string, EventExecutionValue>;
+                result[key] = value as Record<string, TEventExecutionValue>;
             }
         }
 
@@ -709,11 +709,11 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
     }
 
     // Optional lifecycle hooks - modules can override these
-    async beforeExecution?(context: ModuleExecutionContext): Promise<void>;
-    async afterExecution?(context: ModuleExecutionContext, result: ModuleExecutionResult): Promise<void>;
+    async beforeExecution?(context: IModuleExecutionContext): Promise<void>;
+    async afterExecution?(context: IModuleExecutionContext, result: IModuleExecutionResult): Promise<void>;
     async onActivate?(): Promise<void>;
     async onDeactivate?(): Promise<void>;
-    async onError?(error: Error, context?: ModuleExecutionContext): Promise<void>;
+    async onError?(error: Error, context?: IModuleExecutionContext): Promise<void>;
 }
 
 /**
@@ -723,7 +723,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
 /**
  * Base module event data interface
  */
-export interface BaseModuleEventData {
+export interface IBaseModuleEventData {
     moduleName: string;
     moduleType: string;
     timestamp: Date;
@@ -733,7 +733,7 @@ export interface BaseModuleEventData {
 /**
  * Module initialization event data
  */
-export interface ModuleInitializationEventData extends BaseModuleEventData {
+export interface IModuleInitializationEventData extends IBaseModuleEventData {
     phase: 'start' | 'complete' | 'error';
     duration?: number;
     error?: string;
@@ -743,7 +743,7 @@ export interface ModuleInitializationEventData extends BaseModuleEventData {
 /**
  * Module execution event data
  */
-export interface ModuleExecutionEventData extends BaseModuleEventData {
+export interface IModuleExecutionEventData extends IBaseModuleEventData {
     phase: 'start' | 'complete' | 'error';
     executionId: string;
     duration?: number;
@@ -761,7 +761,7 @@ export interface ModuleExecutionEventData extends BaseModuleEventData {
 /**
  * Module disposal event data
  */
-export interface ModuleDisposalEventData extends BaseModuleEventData {
+export interface IModuleDisposalEventData extends IBaseModuleEventData {
     phase: 'start' | 'complete' | 'error';
     duration?: number;
     error?: string;
@@ -771,7 +771,7 @@ export interface ModuleDisposalEventData extends BaseModuleEventData {
 /**
  * Module capability event data (for capability registration/changes)
  */
-export interface ModuleCapabilityEventData extends BaseModuleEventData {
+export interface IModuleCapabilityEventData extends IBaseModuleEventData {
     action: 'registered' | 'updated' | 'removed';
     capabilities: string[];
     dependencies?: string[];
@@ -780,7 +780,7 @@ export interface ModuleCapabilityEventData extends BaseModuleEventData {
 /**
  * Module health event data (for monitoring and diagnostics)
  */
-export interface ModuleHealthEventData extends BaseModuleEventData {
+export interface IModuleHealthEventData extends IBaseModuleEventData {
     status: 'healthy' | 'warning' | 'error' | 'critical';
     metrics: {
         memoryUsage?: number;

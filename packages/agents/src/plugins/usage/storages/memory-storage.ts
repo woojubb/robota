@@ -1,17 +1,17 @@
-import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
+import { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 
 /**
  * Memory storage implementation for usage statistics
  */
-export class MemoryUsageStorage implements UsageStorage {
-    private entries: UsageStats[] = [];
+export class MemoryUsageStorage implements IUsageStorage {
+    private entries: IUsageStats[] = [];
     private maxEntries: number;
 
     constructor(maxEntries: number = 10000) {
         this.maxEntries = maxEntries;
     }
 
-    async save(entry: UsageStats): Promise<void> {
+    async save(entry: IUsageStats): Promise<void> {
         // Remove oldest entries if limit exceeded
         if (this.entries.length >= this.maxEntries) {
             this.entries = this.entries.slice(-this.maxEntries + 1);
@@ -20,7 +20,7 @@ export class MemoryUsageStorage implements UsageStorage {
         this.entries.push({ ...entry });
     }
 
-    async getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<UsageStats[]> {
+    async getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<IUsageStats[]> {
         let filtered = [...this.entries];
 
         if (conversationId) {
@@ -36,10 +36,10 @@ export class MemoryUsageStorage implements UsageStorage {
         return filtered;
     }
 
-    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats> {
+    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats> {
         const stats = await this.getStats(undefined, timeRange);
 
-        const aggregated: AggregatedUsageStats = {
+        const aggregated: IAggregatedUsageStats = {
             totalRequests: stats.length,
             totalTokens: stats.reduce((sum, entry) => sum + entry.tokensUsed.total, 0),
             totalCost: stats.reduce((sum, entry) => sum + (entry.cost?.total || 0), 0),

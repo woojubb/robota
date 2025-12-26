@@ -28,7 +28,7 @@ import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 import type { IToolExecutionContext, TToolParameters } from '../interfaces/tool';
 import type { TToolResultData } from '../interfaces/types';
-import type { ModuleResultData, ModuleExecutionContext } from '../abstracts/abstract-module';
+import type { IModuleResultData, IModuleExecutionContext } from '../abstracts/abstract-module';
 
 /**
  * Reusable type definitions for Robota agent
@@ -1028,10 +1028,10 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * @param context - Execution context
      * @returns Module execution result
      */
-    async executeModule(moduleName: string, context: { executionId?: string; sessionId?: string; userId?: string; metadata?: Record<string, string | number | boolean | Date> }): Promise<{ success: boolean; data?: ModuleResultData; error?: Error; duration?: number }> {
+    async executeModule(moduleName: string, context: { executionId?: string; sessionId?: string; userId?: string; metadata?: Record<string, string | number | boolean | Date> }): Promise<{ success: boolean; data?: IModuleResultData; error?: Error; duration?: number }> {
         await this.ensureFullyInitialized();
 
-        const executionContext: ModuleExecutionContext = {
+        const executionContext: IModuleExecutionContext = {
             agentName: this.name,
             ...(context.executionId && { executionId: context.executionId }),
             ...(context.sessionId && { sessionId: context.sessionId }),

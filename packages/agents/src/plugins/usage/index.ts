@@ -1,10 +1,11 @@
 export { UsagePlugin } from './usage-plugin';
-export {
-    UsageTrackingStrategy,
-    UsageStats,
-    AggregatedUsageStats,
-    UsagePluginOptions,
-    UsageStorage
+export type {
+    TUsageTrackingStrategy,
+    IUsageStats,
+    IAggregatedUsageStats,
+    IUsagePluginOptions,
+    IUsageStorage,
+    IUsagePluginStats
 } from './types';
 export {
     MemoryUsageStorage,

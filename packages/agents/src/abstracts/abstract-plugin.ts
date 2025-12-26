@@ -1,7 +1,7 @@
 import type { IRunOptions } from '../interfaces/agent';
-import type { TUniversalMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage } from '../interfaces/messages';
 import type { TToolParameters, IToolExecutionResult, IToolExecutionContext } from '../interfaces/tool';
-import type { EventEmitterPlugin, EventType, EventData } from '../plugins/event-emitter-plugin';
+import type { EventEmitterPlugin, TEventType, IEventData } from '../plugins/event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 
 /**
@@ -129,7 +129,7 @@ export interface IPluginOptions {
     /** Plugin priority for execution order */
     priority?: PluginPriority | number;
     /** Events to subscribe to from modules */
-    moduleEvents?: EventType[];
+    moduleEvents?: TEventType[];
     /** Whether to subscribe to all module events */
     subscribeToAllModuleEvents?: boolean;
 }
@@ -143,7 +143,7 @@ export interface IPluginData {
     enabled: boolean;
     category: PluginCategory;
     priority: number;
-    subscribedEvents: EventType[];
+    subscribedEvents: TEventType[];
     metadata?: Record<string, string | number | boolean>;
 }
 
@@ -153,7 +153,7 @@ export interface IPluginData {
  * @template TOptions - Plugin options type that extends IPluginOptions
  * @template TStats - Plugin statistics type (defaults to IPluginStats for type safety)
  */
-export interface ITypeSafePlugin<TOptions extends IPluginOptions = IPluginOptions, TStats = IPluginStats> {
+export interface IPluginContract<TOptions extends IPluginOptions = IPluginOptions, TStats = IPluginStats> {
     name: string;
     version: string;
     enabled: boolean;
@@ -168,7 +168,7 @@ export interface ITypeSafePlugin<TOptions extends IPluginOptions = IPluginOption
     // Event subscription methods
     subscribeToModuleEvents?(eventEmitter: EventEmitterPlugin): Promise<void>;
     unsubscribeFromModuleEvents?(eventEmitter: EventEmitterPlugin): Promise<void>;
-    onModuleEvent?(eventType: EventType, eventData: EventData): Promise<void> | void;
+    onModuleEvent?(eventType: TEventType, eventData: IEventData): Promise<void> | void;
 }
 
 /**
@@ -193,9 +193,9 @@ export interface IPluginStats {
 }
 
 /**
- * Plugin interface extending ITypeSafePlugin
+ * Plugin interface extending IPluginContract
  */
-export interface IPlugin extends ITypeSafePlugin<IPluginConfig, IPluginStats> { }
+export interface IPlugin extends IPluginContract<IPluginConfig, IPluginStats> { }
 
 /**
  * Plugin lifecycle hooks
@@ -279,7 +279,7 @@ export interface IPluginHooks {
     /**
      * Called when module events are received
      */
-    onModuleEvent?(eventType: EventType, eventData: EventData): Promise<void> | void;
+    onModuleEvent?(eventType: TEventType, eventData: IEventData): Promise<void> | void;
 }
 
 /**
@@ -296,7 +296,7 @@ export interface IPluginHooks {
  * @template TStats - Plugin statistics type (defaults to IPluginStats for type safety)
  */
 export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOptions, TStats extends IPluginStats = IPluginStats>
-    implements ITypeSafePlugin<TOptions, TStats>, IPluginHooks {
+    implements IPluginContract<TOptions, TStats>, IPluginHooks {
     /** Plugin name */
     abstract readonly name: string;
 
@@ -319,10 +319,10 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
     protected eventEmitter: EventEmitterPlugin | undefined;
 
     /** Subscribed event types */
-    protected subscribedEvents: EventType[] = [];
+    protected subscribedEvents: TEventType[] = [];
 
     /** Event subscription handlers */
-    protected eventHandlers = new Map<EventType, string[]>();
+    protected eventHandlers = new Map<TEventType, string[]>();
 
     /** Plugin statistics */
     protected stats = {
@@ -370,7 +370,7 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
             return;
         }
 
-        const eventsToSubscribe: EventType[] = [];
+        const eventsToSubscribe: TEventType[] = [];
 
         // Subscribe to all module events if requested
         if (this.options.subscribeToAllModuleEvents) {
@@ -394,7 +394,7 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
 
         // Subscribe to events (no deduplication; duplicates must surface for debugging)
         for (const eventType of eventsToSubscribe) {
-            const handlerId = this.eventEmitter.on(eventType, async (eventData: EventData) => {
+            const handlerId = this.eventEmitter.on(eventType, async (eventData: IEventData) => {
                 try {
                     this.stats.moduleEventsReceived++;
                     this.stats.lastActivity = new Date();
@@ -576,5 +576,5 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
     async onStreamingChunk?(chunk: TUniversalMessage): Promise<void>;
     async onError?(error: Error, context?: IPluginErrorContext): Promise<void>;
     async onMessageAdded?(message: TUniversalMessage): Promise<void>;
-    async onModuleEvent?(eventType: EventType, eventData: EventData): Promise<void>;
+    async onModuleEvent?(eventType: TEventType, eventData: IEventData): Promise<void>;
 } 

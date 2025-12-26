@@ -6,7 +6,7 @@
 /**
  * Webhook event types for different lifecycle events
  */
-export type WebhookEventType =
+export type TWebhookEventType =
     | 'execution.start'
     | 'execution.complete'
     | 'execution.error'
@@ -18,7 +18,7 @@ export type WebhookEventType =
 /**
  * Base webhook context data
  */
-export interface WebhookContextData {
+export interface IWebhookContextData {
     executionId?: string | undefined;
     sessionId?: string | undefined;
     userId?: string | undefined;
@@ -27,7 +27,7 @@ export interface WebhookContextData {
 /**
  * Execution result data for webhooks
  */
-export interface WebhookExecutionData {
+export interface IWebhookExecutionData {
     response?: string | undefined;
     duration?: number | undefined;
     tokensUsed?: number | undefined;
@@ -38,16 +38,16 @@ export interface WebhookExecutionData {
 /**
  * Conversation result data for webhooks
  */
-export interface WebhookConversationData {
+export interface IWebhookConversationData {
     response?: string | undefined;
     tokensUsed?: number | undefined;
-    toolCalls?: WebhookToolCallData[] | undefined;
+    toolCalls?: IWebhookToolCallData[] | undefined;
 }
 
 /**
  * Tool call data for webhooks
  */
-export interface WebhookToolCallData {
+export interface IWebhookToolCallData {
     id: string;
     name: string;
     arguments: string;
@@ -57,7 +57,7 @@ export interface WebhookToolCallData {
 /**
  * Tool execution data for webhooks
  */
-export interface WebhookToolData {
+export interface IWebhookToolData {
     name: string;
     id: string;
     success: boolean;
@@ -69,7 +69,7 @@ export interface WebhookToolData {
 /**
  * Error data for webhooks
  */
-export interface WebhookErrorData {
+export interface IWebhookErrorData {
     message: string;
     stack?: string | undefined;
     context?: Record<string, string | number | boolean> | undefined;
@@ -79,22 +79,22 @@ export interface WebhookErrorData {
 /**
  * Complete webhook event data structure
  */
-export interface WebhookEventData extends WebhookContextData {
-    result?: WebhookExecutionData | undefined;
-    conversation?: WebhookConversationData | undefined;
-    tool?: WebhookToolData | undefined;
-    error?: WebhookErrorData | undefined;
+export interface IWebhookEventData extends IWebhookContextData {
+    result?: IWebhookExecutionData | undefined;
+    conversation?: IWebhookConversationData | undefined;
+    tool?: IWebhookToolData | undefined;
+    error?: IWebhookErrorData | undefined;
 }
 
 /**
  * Webhook metadata for additional context
  */
-export type WebhookMetadata = Record<string, string | number | boolean | Date | string[]>;
+export type TWebhookMetadata = Record<string, string | number | boolean | Date | string[]>;
 
 /**
  * Webhook execution context (simplified from base types)
  */
-export interface WebhookExecutionContext {
+export interface IWebhookExecutionContext {
     executionId?: string | undefined;
     sessionId?: string | undefined;
     userId?: string | undefined;
@@ -103,7 +103,7 @@ export interface WebhookExecutionContext {
 /**
  * Webhook execution result (simplified from base types)
  */
-export interface WebhookExecutionResult {
+export interface IWebhookExecutionResult {
     response?: string | undefined;
     content?: string | undefined;
     duration?: number | undefined;
@@ -131,23 +131,23 @@ export interface WebhookExecutionResult {
 /**
  * Webhook payload structure
  */
-export interface WebhookPayload {
-    event: WebhookEventType;
+export interface IWebhookPayload {
+    event: TWebhookEventType;
     timestamp: string;
     executionId?: string;
     sessionId?: string;
     userId?: string;
-    data: WebhookEventData;
-    metadata?: WebhookMetadata;
+    data: IWebhookEventData;
+    metadata?: TWebhookMetadata;
 }
 
 /**
  * Webhook endpoint configuration
  */
-export interface WebhookEndpoint {
+export interface IWebhookEndpoint {
     url: string;
     headers?: Record<string, string>;
-    events?: WebhookEventType[];
+    events?: TWebhookEventType[];
     retries?: number;
     timeout?: number;
     secret?: string;
@@ -158,11 +158,11 @@ import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plug
 /**
  * Webhook plugin configuration options
  */
-export interface WebhookPluginOptions extends IPluginOptions {
+export interface IWebhookPluginOptions extends IPluginOptions {
     /** Webhook endpoints */
-    endpoints: WebhookEndpoint[];
+    endpoints: IWebhookEndpoint[];
     /** Events to send webhooks for */
-    events?: WebhookEventType[];
+    events?: TWebhookEventType[];
     /** Default timeout for webhook requests */
     defaultTimeout?: number;
     /** Default retry attempts */
@@ -178,18 +178,18 @@ export interface WebhookPluginOptions extends IPluginOptions {
         flushInterval: number;
     };
     /** Custom payload transformer */
-    payloadTransformer?: (event: WebhookEventType, data: WebhookEventData) => WebhookEventData;
+    payloadTransformer?: (event: TWebhookEventType, data: IWebhookEventData) => IWebhookEventData;
 }
 
 /**
  * Webhook plugin statistics
  */
-export interface WebhookPluginStats extends IPluginStats {
+export interface IWebhookPluginStats extends IPluginStats {
     endpointCount: number;
     queueLength: number;
     batchQueueLength: number;
     activeConcurrency: number;
-    supportedEvents: WebhookEventType[];
+    supportedEvents: TWebhookEventType[];
     totalSent: number;
     totalErrors: number;
     averageResponseTime: number;
@@ -198,9 +198,9 @@ export interface WebhookPluginStats extends IPluginStats {
 /**
  * Internal webhook request structure
  */
-export interface WebhookRequest {
-    endpoint: WebhookEndpoint;
-    payload: WebhookPayload;
+export interface IWebhookRequest {
+    endpoint: IWebhookEndpoint;
+    payload: IWebhookPayload;
     attempt: number;
     timestamp: Date;
 } 

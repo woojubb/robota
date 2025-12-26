@@ -1,12 +1,12 @@
 /**
  * Performance monitoring strategy types
  */
-export type PerformanceMonitoringStrategy = 'memory' | 'file' | 'prometheus' | 'remote' | 'silent';
+export type TPerformanceMonitoringStrategy = 'memory' | 'file' | 'prometheus' | 'remote' | 'silent';
 
 /**
  * Performance metrics entry
  */
-export interface PerformanceMetrics {
+export interface IPerformanceMetrics {
     executionId?: string;
     conversationId?: string;
     timestamp: Date;
@@ -40,7 +40,7 @@ export interface PerformanceMetrics {
 /**
  * Aggregated performance statistics
  */
-export interface AggregatedPerformanceStats {
+export interface IAggregatedPerformanceStats {
     totalOperations: number;
     averageDuration: number;
     minDuration: number;
@@ -81,9 +81,9 @@ import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plug
 /**
  * Configuration options for performance plugin
  */
-export interface PerformancePluginOptions extends IPluginOptions {
+export interface IPerformancePluginOptions extends IPluginOptions {
     /** Performance monitoring strategy to use */
-    strategy: PerformanceMonitoringStrategy;
+    strategy: TPerformanceMonitoringStrategy;
     /** File path for file strategy */
     filePath?: string;
     /** Remote endpoint for remote strategy */
@@ -115,10 +115,10 @@ export interface PerformancePluginOptions extends IPluginOptions {
 /**
  * Performance storage interface
  */
-export interface PerformanceStorage {
-    save(entry: PerformanceMetrics): Promise<void>;
-    getMetrics(operation?: string, timeRange?: { start: Date; end: Date }): Promise<PerformanceMetrics[]>;
-    getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedPerformanceStats>;
+export interface IPerformanceStorage {
+    save(entry: IPerformanceMetrics): Promise<void>;
+    getMetrics(operation?: string, timeRange?: { start: Date; end: Date }): Promise<IPerformanceMetrics[]>;
+    getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedPerformanceStats>;
     clear(): Promise<void>;
     flush(): Promise<void>;
     close(): Promise<void>;
@@ -127,22 +127,22 @@ export interface PerformanceStorage {
 /**
  * System metrics collector interface
  */
-export interface SystemMetricsCollector {
-    getMemoryUsage(): Promise<PerformanceMetrics['memoryUsage']>;
-    getCPUUsage(): Promise<PerformanceMetrics['cpuUsage']>;
-    getNetworkStats(): Promise<PerformanceMetrics['networkStats']>;
+export interface ISystemMetricsCollector {
+    getMemoryUsage(): Promise<IPerformanceMetrics['memoryUsage']>;
+    getCPUUsage(): Promise<IPerformanceMetrics['cpuUsage']>;
+    getNetworkStats(): Promise<IPerformanceMetrics['networkStats']>;
 }
 
 /**
  * Performance plugin statistics
  */
-export interface PerformancePluginStats extends IPluginStats {
+export interface IPerformancePluginStats extends IPluginStats {
     /** Total number of metrics recorded */
     metricsRecorded: number;
     /** Number of performance threshold violations */
     thresholdViolations: number;
     /** Current monitoring strategy */
-    strategy: PerformanceMonitoringStrategy;
+    strategy: TPerformanceMonitoringStrategy;
     /** Monitoring status */
     monitoring: {
         memory: boolean;

@@ -37,51 +37,51 @@ export const EVENT_EMITTER_EVENTS = {
     TOOL_REALTIME: 'tool.realtime'
 } as const;
 
-export type EventType = typeof EVENT_EMITTER_EVENTS[keyof typeof EVENT_EMITTER_EVENTS];
+export type TEventType = typeof EVENT_EMITTER_EVENTS[keyof typeof EVENT_EMITTER_EVENTS];
 
 /**
  * Valid event data value types
  */
-export type EventDataValue = string | number | boolean | Date | null | undefined | EventDataValue[] | { [key: string]: EventDataValue };
+export type TEventDataValue = string | number | boolean | Date | null | undefined | TEventDataValue[] | { [key: string]: TEventDataValue };
 
 /**
  * Event data structure
  */
-export interface EventData {
-    type: EventType;
+export interface IEventData {
+    type: TEventType;
     timestamp: Date;
     source: string;
-    data?: Record<string, EventDataValue>;
+    data?: Record<string, TEventDataValue>;
     metadata?: {
         executionId?: string;
         conversationId?: string;
         agentId?: string;
         toolName?: string;
-        [key: string]: EventDataValue;
+        [key: string]: TEventDataValue;
     };
 }
 
 /**
  * Event listener function
  */
-export type EventListener = (event: EventData) => void | Promise<void>;
+export type TEventListener = (event: IEventData) => void | Promise<void>;
 
 /**
  * Event handler with metadata
  */
-export interface EventHandler {
+export interface IEventHandler {
     id: string;
-    listener: EventListener;
+    listener: TEventListener;
     once: boolean;
-    filter?: (event: EventData) => boolean;
+    filter?: (event: IEventData) => boolean;
 }
 
 /**
  * Event emitter configuration
  */
-export interface EventEmitterPluginOptions extends IPluginOptions {
+export interface IEventEmitterPluginOptions extends IPluginOptions {
     /** Events to listen for */
-    events?: EventType[];
+    events?: TEventType[];
     /** Maximum number of listeners per event type */
     maxListeners?: number;
     /** Whether to emit events asynchronously */
@@ -89,7 +89,7 @@ export interface EventEmitterPluginOptions extends IPluginOptions {
     /** Whether to catch and log listener errors */
     catchErrors?: boolean;
     /** Custom event filters */
-    filters?: Record<EventType, (event: EventData) => boolean>;
+    filters?: Record<TEventType, (event: IEventData) => boolean>;
     /** Event buffering options */
     buffer?: {
         enabled: boolean;
@@ -101,12 +101,12 @@ export interface EventEmitterPluginOptions extends IPluginOptions {
 /**
  * Event emitter plugin statistics
  */
-export interface EventEmitterPluginStats extends IPluginStats {
+export interface IEventEmitterPluginStats extends IPluginStats {
     totalEventsEmitted: number;
     totalListeners: number;
     activeListeners: number;
     bufferedEvents: number;
     errorCount: number;
     averageEventProcessingTime: number;
-    eventCounts: Record<EventType, number>;
+    eventCounts: Record<TEventType, number>;
 } 

@@ -1,5 +1,5 @@
 import type { IChatOptions, IToolSchema } from './index';
-import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage, IAssistantMessage } from './messages';
 
 /**
  * Request for executing a streaming chat completion through an executor

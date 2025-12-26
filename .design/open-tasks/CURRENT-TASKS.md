@@ -403,6 +403,32 @@
   - [ ] 로컬 개발: warning 허용 여부
   - [ ] CI: error 게이트 여부(“신규 위반 0”만 우선 적용 가능)
 
+#### C) Naming Hygiene (NEW) — `T/I` 전환 후 “중복/오염”을 남기지 않기
+> 배경: `T*`/`I*` 접두어가 붙었는데도 `*Type`, `*Interface`, `TypeSafe*` 같은 용어가 남아있으면
+> 이름이 불필요하게 길어지고, 도메인 개념이 아니라 “타입 시스템 구현 세부”가 계약 표면으로 새어 나옵니다.
+> 따라서 Prefix Phase 3에 **명시적으로 포함**하여, 이후 배치 작업에서 “자연 수렴” 방식으로 제거합니다(일괄 rename 금지).
+
+- [ ] **(C1) `*Type` 접미어 제거 규칙**
+  - 원칙: `type alias`는 이미 `T*`로 구분되므로 `*Type` 접미어는 중복이다.
+  - 예: `WebhookEventType` → `TWebhookEvent` (권장), `TWebhookEventType` 같은 형태는 지양
+  - 적용 방식: “새로 손대는 파일/배치”에서만 점진적으로 변경(대량 churn 금지)
+
+- [ ] **(C2) `*Interface` 접미어 제거 규칙**
+  - 원칙: `interface`는 이미 `I*`로 구분되므로 `*Interface` 접미어는 중복이다.
+  - 예: `ConversationHistoryInterface` → `IConversationHistory`
+
+- [ ] **(C3) `TypeSafe` 키워드 금지 + 정리**
+  - 원칙: `TypeSafe/Typesafe/TYPESAFE`는 도메인 용어가 아니며, 보통 “기존 타입/인터페이스 중복” 또는 “잘못된 추상화”의 신호다.
+  - 처리:
+    - 1) 기존 owner 타입(`interfaces/*`)로 수렴 가능하면 이름/정의 자체를 제거하고 SSOT import로 치환
+    - 2) 정말 별도 계약이 필요하면 “도메인 의미”가 드러나는 이름으로 변경(예: `IProviderContract`, `IToolContract` 등)  
+      (단, 기존 `IAIProvider` 등과 충돌하지 않도록 owner 축을 먼저 확인)
+
+- [ ] **(C4) 스캔 게이트(대소문자 무관 포함)**
+  - [ ] `typesafe` 잔여(대소문자 무관): `rg -i "\\btypesafe\\b" packages`
+  - [ ] `T*Type` 잔여: `rg "\\bT[A-Za-z0-9_]+Type\\b" packages`
+  - [ ] `I*Interface`/`T*Interface` 잔여: `rg "\\bI[A-Za-z0-9_]+Interface\\b|\\bT[A-Za-z0-9_]+Interface\\b" packages`
+
 #### (추가) Auto-generated docs policy (docs/api-reference/**)
 - [ ] `docs/api-reference/**`는 **자동 생성 산출물**이므로 사람이 직접 수정하지 않는다.
 - [ ] 다음 작업에서 “자동 생성임을 명시 + 생성 스크립트/커맨드”가 파일 상단에 남도록 **생성 파이프라인을 수정**한다.

@@ -4,10 +4,10 @@ import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { TimerId } from '../../utils';
 import {
-    ConversationHistoryPluginOptions,
-    ConversationHistoryPluginStats,
-    ConversationHistoryEntry,
-    HistoryStorage
+    IConversationHistoryPluginOptions,
+    IConversationHistoryPluginStats,
+    IConversationHistoryEntry,
+    IHistoryStorage
 } from './types';
 import {
     MemoryHistoryStorage,
@@ -19,18 +19,18 @@ import {
  * Plugin for managing conversation history
  * Saves and loads conversation history using configurable storage strategies
  */
-export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistoryPluginOptions, ConversationHistoryPluginStats> {
+export class ConversationHistoryPlugin extends AbstractPlugin<IConversationHistoryPluginOptions, IConversationHistoryPluginStats> {
     name = 'ConversationHistoryPlugin';
     version = '1.0.0';
 
-    private storage: HistoryStorage;
-    private pluginOptions: Required<ConversationHistoryPluginOptions>;
+    private storage: IHistoryStorage;
+    private pluginOptions: Required<IConversationHistoryPluginOptions>;
     private logger: ILogger;
     private currentConversationId?: string;
     private batchSaveTimer?: TimerId;
     private pendingSaves = new Set<string>();
 
-    constructor(options: ConversationHistoryPluginOptions) {
+    constructor(options: IConversationHistoryPluginOptions) {
         super();
         this.logger = createLogger('ConversationHistoryPlugin');
 
@@ -80,7 +80,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistor
         try {
             this.currentConversationId = conversationId;
 
-            const entry: ConversationHistoryEntry = {
+            const entry: IConversationHistoryEntry = {
                 conversationId,
                 messages: [],
                 startTime: new Date(),
@@ -146,7 +146,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistor
     /**
      * Load conversation history
      */
-    async loadConversation(conversationId: string): Promise<ConversationHistoryEntry | undefined> {
+    async loadConversation(conversationId: string): Promise<IConversationHistoryEntry | undefined> {
         try {
             const entry = await this.storage.load(conversationId);
             this.logger.debug('Loaded conversation', {
@@ -254,7 +254,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistor
     /**
      * Validate plugin options
      */
-    private validateOptions(options: ConversationHistoryPluginOptions): void {
+    private validateOptions(options: IConversationHistoryPluginOptions): void {
         if (!options.storage) {
             throw new ConfigurationError('Storage strategy is required');
         }
@@ -283,7 +283,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistor
     /**
      * Create storage instance based on strategy
      */
-    private createStorage(): HistoryStorage {
+    private createStorage(): IHistoryStorage {
         switch (this.pluginOptions.storage) {
             case 'memory':
                 return new MemoryHistoryStorage(this.pluginOptions.maxConversations);

@@ -1,4 +1,4 @@
-import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
+import { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 import { createLogger, type ILogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
 import type { TimerId } from '../../../utils';
@@ -6,11 +6,11 @@ import type { TimerId } from '../../../utils';
 /**
  * Remote storage implementation for usage statistics with batching
  */
-export class RemoteUsageStorage implements UsageStorage {
+export class RemoteUsageStorage implements IUsageStorage {
     private apiUrl: string;
     private batchSize: number;
     private flushInterval: number;
-    private batch: UsageStats[] = [];
+    private batch: IUsageStats[] = [];
     private timer: TimerId | null = null;
     private logger: ILogger;
 
@@ -30,7 +30,7 @@ export class RemoteUsageStorage implements UsageStorage {
         this.startTimer();
     }
 
-    async save(entry: UsageStats): Promise<void> {
+    async save(entry: IUsageStats): Promise<void> {
         this.batch.push(entry);
 
         if (this.batch.length >= this.batchSize) {
@@ -38,7 +38,7 @@ export class RemoteUsageStorage implements UsageStorage {
         }
     }
 
-    async getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<UsageStats[]> {
+    async getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<IUsageStats[]> {
         try {
             // Remote API call would be implemented here
             this.logger.warn('Remote usage storage not fully implemented yet', {
@@ -57,7 +57,7 @@ export class RemoteUsageStorage implements UsageStorage {
         }
     }
 
-    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats> {
+    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats> {
         try {
             // Remote API call would be implemented here
             this.logger.warn('Remote usage storage not fully implemented yet', {

@@ -128,7 +128,7 @@ export type {
     TUniversalMessage,
     IAssistantMessage,
     TUniversalMessageMetadata
-} from './managers/conversation-history-manager';
+} from './interfaces/messages';
 
 /**
  * Type guards for the canonical TUniversalMessage union.
@@ -162,7 +162,7 @@ export { AbstractAIProvider } from './abstracts/abstract-ai-provider';
  * 
  * @public
  */
-export { LocalExecutor, type AIProviderInstance } from './executors/local-executor';
+export { LocalExecutor, type IAIProviderInstance } from './executors/local-executor';
 export { AbstractExecutor } from './abstracts/abstract-executor';
 
 // Export executor interfaces
@@ -197,7 +197,7 @@ export {
     StderrLogger
 } from './utils/simple-logger';
 
-export { AbstractLogger } from './utils/abstract-logger';
+export { IAbstractLogger } from './utils/abstract-logger';
 
 // ===== PLUGIN SYSTEM EXPORTS =====
 /**
@@ -222,16 +222,18 @@ export * from './plugins/logging';
 export * from './plugins/usage';
 export * from './plugins/performance';
 export * from './plugins/execution';
-export { ErrorHandlingPlugin, ErrorHandlingStrategy, ErrorHandlingPluginOptions } from './plugins/error-handling/index';
+export { ErrorHandlingPlugin, TErrorHandlingStrategy, IErrorHandlingPluginOptions } from './plugins/error-handling/index';
 
 /**
  * Additional specialized plugins for advanced use cases.
  * 
  * @public
  */
-export { LimitsPlugin, LimitsStrategy, LimitsPluginOptions } from './plugins/limits-plugin';
-export { EventEmitterPlugin, EventType, EventData, EventListener, EventEmitterPluginOptions, HierarchicalEventData } from './plugins/event-emitter-plugin';
-export { WebhookPlugin, WebhookEventType, WebhookPayload, WebhookEndpoint, WebhookPluginOptions } from './plugins/webhook';
+export { LimitsPlugin } from './plugins/limits-plugin';
+export type { TLimitsStrategy, ILimitsPluginOptions } from './plugins/limits-plugin';
+export { EventEmitterPlugin, TEventType, IEventData, TEventListener, IEventEmitterPluginOptions, IHierarchicalEventData } from './plugins/event-emitter-plugin';
+export { WebhookPlugin } from './plugins/webhook';
+export type { TWebhookEventType, IWebhookPayload, IWebhookEndpoint, IWebhookPluginOptions } from './plugins/webhook';
 
 // ===== CORE AGENT EXPORTS =====
 /**

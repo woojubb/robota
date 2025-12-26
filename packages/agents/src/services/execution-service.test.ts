@@ -4,7 +4,7 @@ import { ConversationHistory, ConversationSession } from '../managers/conversati
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
-import type { TUniversalMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage } from '../interfaces/messages';
 import type { IAgentConfig } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
 

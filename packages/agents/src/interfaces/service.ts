@@ -3,7 +3,7 @@
  * Defines contracts for stateless service implementations
  */
 
-import type { TUniversalMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage } from './messages';
 import type { IToolSchema, IAIProvider } from './provider';
 import type { TToolResultData } from './types';
 import type { IToolCall } from './messages';
