@@ -1,4 +1,4 @@
-import { LogEntry, LogStorage, LogFormatter } from '../types';
+import type { ILogEntry, ILogStorage, ILogFormatter } from '../types';
 import { JsonLogFormatter } from '../formatters';
 import { createLogger, type ILogger } from '../../../utils/logger';
 import { PluginError } from '../../../utils/errors';
@@ -7,12 +7,12 @@ import type { TimerId } from '../../../utils';
 /**
  * Remote log storage with batching
  */
-export class RemoteLogStorage implements LogStorage {
+export class RemoteLogStorage implements ILogStorage {
     private url: string;
-    private formatter: LogFormatter;
+    private formatter: ILogFormatter;
     private batchSize: number;
     private flushInterval: number;
-    private pendingLogs: LogEntry[] = [];
+    private pendingLogs: ILogEntry[] = [];
     private flushTimer: TimerId | undefined;
     private logger: ILogger;
 
@@ -27,7 +27,7 @@ export class RemoteLogStorage implements LogStorage {
         this.startFlushTimer();
     }
 
-    async write(entry: LogEntry): Promise<void> {
+    async write(entry: ILogEntry): Promise<void> {
         this.pendingLogs.push(entry);
 
         if (this.pendingLogs.length >= this.batchSize) {

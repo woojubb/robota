@@ -6,16 +6,16 @@
  * TODO: Consider unified error context type system across all plugins
  */
 
-import type { ErrorHandlingContextData, ErrorContextAdapter } from './types';
+import type { IErrorHandlingContextData, IErrorContextAdapter } from './types';
 import type { ErrorContextData } from '../../utils/errors';
 
 /**
- * Convert ErrorHandlingContextData to ErrorContextData-compatible format for PluginError
+ * Convert IErrorHandlingContextData to ErrorContextData-compatible format for PluginError
  * REASON: Simple object spread with known properties to avoid index signature conflicts
  * ALTERNATIVES_CONSIDERED: Complex type adapters (unnecessary), Object.assign (verbose), bracket notation (rejected by TS), type assertions (reduces safety)
  * TODO: Consider unified error context type system across all plugins
  */
-export function toErrorContext(context: ErrorHandlingContextData): ErrorContextAdapter {
+export function toErrorContext(context: IErrorHandlingContextData): IErrorContextAdapter {
     return {
         ...(context.executionId && { executionId: context.executionId }),
         ...(context.sessionId && { sessionId: context.sessionId }),
@@ -37,7 +37,7 @@ export function toErrorContext(context: ErrorHandlingContextData): ErrorContextA
  * 5. Type assertions (decreases type safety)
  * TODO: Consider standardized error context interface if patterns emerge
  */
-export function createPluginErrorContext(context: ErrorHandlingContextData, additionalData?: ErrorContextData): ErrorContextData {
+export function createPluginErrorContext(context: IErrorHandlingContextData, additionalData?: ErrorContextData): ErrorContextData {
     return {
         ...toErrorContext(context),
         ...(additionalData && { ...additionalData })

@@ -6,7 +6,7 @@ import { PluginError, ConfigurationError } from '../utils/errors';
 /**
  * Plugin lifecycle events
  */
-export interface PluginLifecycleEvents {
+export interface IPluginLifecycleEvents {
     beforeInitialize?: (plugin: AbstractPlugin) => Promise<void> | void;
     afterInitialize?: (plugin: AbstractPlugin) => Promise<void> | void;
     beforeDestroy?: (plugin: AbstractPlugin) => Promise<void> | void;
@@ -17,7 +17,7 @@ export interface PluginLifecycleEvents {
 /**
  * Plugin dependency definition
  */
-export interface PluginDependency {
+export interface IPluginDependency {
     name: string;
     required: boolean;
     minVersion?: string;
@@ -26,8 +26,8 @@ export interface PluginDependency {
 /**
  * Plugin registration options
  */
-export interface PluginRegistrationOptions {
-    dependencies?: PluginDependency[];
+export interface IPluginRegistrationOptions {
+    dependencies?: IPluginDependency[];
     priority?: number; // Higher number = higher priority
     autoInitialize?: boolean;
 }
@@ -35,7 +35,7 @@ export interface PluginRegistrationOptions {
 /**
  * Plugin status information
  */
-export interface PluginStatus {
+export interface IPluginStatus {
     name: string;
     version?: string;
     enabled: boolean;
@@ -47,11 +47,11 @@ export interface PluginStatus {
 /**
  * Plugins manager interface
  */
-export interface PluginsManagerInterface {
+export interface IPluginsManagerInterface {
     /**
      * Register a plugin with optional configuration
      */
-    register(plugin: AbstractPlugin, options?: PluginRegistrationOptions): Promise<void>;
+    register(plugin: AbstractPlugin, options?: IPluginRegistrationOptions): Promise<void>;
 
     /**
      * Unregister a plugin by name
@@ -91,12 +91,12 @@ export interface PluginsManagerInterface {
     /**
      * Get plugin status
      */
-    getPluginStatus(name: string): PluginStatus | null;
+    getPluginStatus(name: string): IPluginStatus | null;
 
     /**
      * Get all plugin statuses
      */
-    getAllPluginStatuses(): PluginStatus[];
+    getAllPluginStatuses(): IPluginStatus[];
 }
 
 /**
@@ -104,14 +104,14 @@ export interface PluginsManagerInterface {
  * Instance-based for isolation
  * @internal
  */
-export class Plugins extends AbstractManager implements PluginsManagerInterface {
+export class Plugins extends AbstractManager implements IPluginsManagerInterface {
     private plugins = new Map<string, AbstractPlugin>();
-    private pluginOptions = new Map<string, PluginRegistrationOptions>();
+    private pluginOptions = new Map<string, IPluginRegistrationOptions>();
     private initializationOrder: string[] = [];
-    private lifecycleEvents: PluginLifecycleEvents;
+    private lifecycleEvents: IPluginLifecycleEvents;
     private logger: ILogger;
 
-    constructor(lifecycleEvents: PluginLifecycleEvents = {}) {
+    constructor(lifecycleEvents: IPluginLifecycleEvents = {}) {
         super();
         this.lifecycleEvents = lifecycleEvents;
         this.logger = createLogger('Plugins');
@@ -152,7 +152,7 @@ export class Plugins extends AbstractManager implements PluginsManagerInterface 
     /**
      * Register a plugin with optional configuration
      */
-    async register(plugin: AbstractPlugin, options: PluginRegistrationOptions = {}): Promise<void> {
+    async register(plugin: AbstractPlugin, options: IPluginRegistrationOptions = {}): Promise<void> {
         const pluginName = plugin.name;
 
         if (this.plugins.has(pluginName)) {
@@ -297,7 +297,7 @@ export class Plugins extends AbstractManager implements PluginsManagerInterface 
     /**
      * Get plugin status information
      */
-    getPluginStatus(name: string): PluginStatus | null {
+    getPluginStatus(name: string): IPluginStatus | null {
         const plugin = this.plugins.get(name);
         const options = this.pluginOptions.get(name);
 
@@ -319,10 +319,10 @@ export class Plugins extends AbstractManager implements PluginsManagerInterface 
     /**
      * Get all plugin statuses
      */
-    getAllPluginStatuses(): PluginStatus[] {
+    getAllPluginStatuses(): IPluginStatus[] {
         return Array.from(this.plugins.keys())
             .map(name => this.getPluginStatus(name))
-            .filter((status): status is PluginStatus => status !== null);
+            .filter((status): status is IPluginStatus => status !== null);
     }
 
     // ================================
@@ -427,7 +427,7 @@ export class Plugins extends AbstractManager implements PluginsManagerInterface 
     /**
      * Validate plugin dependencies
      */
-    private async validateDependencies(dependencies: PluginDependency[]): Promise<void> {
+    private async validateDependencies(dependencies: IPluginDependency[]): Promise<void> {
         for (const dep of dependencies) {
             if (dep.required && !this.plugins.has(dep.name)) {
                 throw new ConfigurationError(`Required dependency "${dep.name}" is not registered`);

@@ -4,14 +4,14 @@ import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plug
 /**
  * Storage strategy for conversation history
  */
-export type HistoryStorageStrategy = 'memory' | 'file' | 'database';
+export type THistoryStorageStrategy = 'memory' | 'file' | 'database';
 
 /**
  * Configuration options for conversation history plugin
  */
-export interface ConversationHistoryPluginOptions extends IPluginOptions {
+export interface IConversationHistoryPluginOptions extends IPluginOptions {
     /** Storage strategy to use */
-    storage: HistoryStorageStrategy;
+    storage: THistoryStorageStrategy;
     /** Maximum number of conversations to store */
     maxConversations?: number;
     /** Maximum messages per conversation */
@@ -29,7 +29,7 @@ export interface ConversationHistoryPluginOptions extends IPluginOptions {
 /**
  * Conversation history entry
  */
-export interface ConversationHistoryEntry {
+export interface IConversationHistoryEntry {
     conversationId: string;
     messages: TUniversalMessage[];
     startTime: Date;
@@ -40,9 +40,9 @@ export interface ConversationHistoryEntry {
 /**
  * Storage interface for conversation history
  */
-export interface HistoryStorage {
-    save(conversationId: string, entry: ConversationHistoryEntry): Promise<void>;
-    load(conversationId: string): Promise<ConversationHistoryEntry | undefined>;
+export interface IHistoryStorage {
+    save(conversationId: string, entry: IConversationHistoryEntry): Promise<void>;
+    load(conversationId: string): Promise<IConversationHistoryEntry | undefined>;
     list(): Promise<string[]>;
     delete(conversationId: string): Promise<boolean>;
     clear(): Promise<void>;
@@ -51,13 +51,13 @@ export interface HistoryStorage {
 /**
  * Conversation history plugin statistics
  */
-export interface ConversationHistoryPluginStats extends IPluginStats {
+export interface IConversationHistoryPluginStats extends IPluginStats {
     /** Total number of conversations stored */
     totalConversations: number;
     /** Total number of messages stored */
     totalMessages: number;
     /** Storage strategy in use */
-    storageStrategy: HistoryStorageStrategy;
+    storageStrategy: THistoryStorageStrategy;
     /** Last save timestamp */
     lastSaveTime?: Date;
     /** Number of failed saves */

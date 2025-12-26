@@ -12,7 +12,7 @@ const TASK_EVENTS = {
 /**
  * Configuration for execution proxy
  */
-export interface ExecutionProxyConfig {
+export interface IExecutionProxyConfig {
     eventService: IEventService;
     sourceType: 'agent' | 'team' | 'tool';
     sourceId: string;
@@ -32,7 +32,7 @@ export type MetadataExtractor = (target: any, methodName: string, args: any[]) =
 /**
  * Method configuration for proxy
  */
-export interface MethodConfig {
+export interface IMethodConfig {
     startEvent?: string;
     completeEvent?: string;
     errorEvent?: string;
@@ -54,17 +54,17 @@ export interface MethodConfig {
  * - AOP (Aspect-Oriented Programming) pattern
  */
 export class ExecutionProxy<T extends object = object> {
-    private config: ExecutionProxyConfig;
-    private methodConfigs: Map<string, MethodConfig> = new Map();
+    private config: IExecutionProxyConfig;
+    private methodConfigs: Map<string, IMethodConfig> = new Map();
 
-    constructor(config: ExecutionProxyConfig) {
+    constructor(config: IExecutionProxyConfig) {
         this.config = config;
     }
 
     /**
      * Configure specific methods for event emission
      */
-    configureMethod(methodName: string, config: MethodConfig): this {
+    configureMethod(methodName: string, config: IMethodConfig): this {
         this.methodConfigs.set(methodName, config);
         return this;
     }
@@ -271,7 +271,7 @@ export class ExecutionProxy<T extends object = object> {
  */
 export function createExecutionProxy<T extends object>(
     target: T,
-    config: ExecutionProxyConfig
+    config: IExecutionProxyConfig
 ): T {
     const proxy = new ExecutionProxy<T>(config);
     proxy.configureStandardMethods();

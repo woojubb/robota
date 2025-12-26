@@ -2,16 +2,16 @@ import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/
 import { createLogger, type ILogger } from '../../utils/logger';
 import { SimpleLogger, SilentLogger } from '../../utils/simple-logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
-import type { EventType, EventData } from '../event-emitter-plugin';
+import type { TEventType, IEventData } from '../event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
 
 import {
-    LogLevel,
-    LogEntry,
-    LoggingPluginOptions,
-    LoggingPluginStats,
-    LogStorage,
-    LogFormatter
+    TLogLevel,
+    ILogEntry,
+    ILoggingPluginOptions,
+    ILoggingPluginStats,
+    ILogStorage,
+    ILogFormatter
 } from './types';
 import {
     ConsoleLogStorage,
@@ -23,7 +23,7 @@ import {
 /**
  * Logging context data - structured data for log entries
  */
-export interface LoggingContextData extends Record<string, string | number | boolean | Date | undefined> {
+export interface ILoggingContextData extends Record<string, string | number | boolean | Date | undefined> {
     userInput?: string;
     duration?: number;
     toolName?: string;
@@ -42,17 +42,17 @@ export interface LoggingContextData extends Record<string, string | number | boo
  * Plugin for logging agent operations
  * Supports multiple logging strategies: console, file, remote, silent
  */
-export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingPluginStats> {
+export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggingPluginStats> {
     name = 'LoggingPlugin';
     version = '1.0.0';
 
-    private storage: LogStorage;
-    private pluginOptions: Required<Omit<LoggingPluginOptions, 'formatter' | 'logger'>> & { formatter?: LogFormatter; logger?: SimpleLogger };
+    private storage: ILogStorage;
+    private pluginOptions: Required<Omit<ILoggingPluginOptions, 'formatter' | 'logger'>> & { formatter?: ILogFormatter; logger?: SimpleLogger };
     private logger: ILogger;
     private simpleLogger: SimpleLogger;
-    private logLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+    private logLevels: TLogLevel[] = ['debug', 'info', 'warn', 'error'];
 
-    constructor(options: LoggingPluginOptions) {
+    constructor(options: ILoggingPluginOptions) {
         super();
         this.logger = createLogger('LoggingPlugin');
         this.simpleLogger = options.logger || SilentLogger;
@@ -97,7 +97,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
     /**
      * Handle module events for logging
      */
-    override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
+    override async onModuleEvent(eventType: TEventType, eventData: IEventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
             const moduleData = eventData.data;
@@ -209,13 +209,13 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
     /**
      * Log a message
      */
-    async log(level: LogLevel, message: string, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
+    async log(level: TLogLevel, message: string, context?: ILoggingContextData, metadata?: ILogEntry['metadata']): Promise<void> {
         if (!this.shouldLog(level)) {
             return;
         }
 
         try {
-            const entry: LogEntry = {
+            const entry: ILogEntry = {
                 timestamp: new Date(),
                 level,
                 message,
@@ -233,28 +233,28 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
     /**
      * Log debug message
      */
-    async debug(message: string, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
+    async debug(message: string, context?: ILoggingContextData, metadata?: ILogEntry['metadata']): Promise<void> {
         await this.log('debug', message, context, metadata);
     }
 
     /**
      * Log info message
      */
-    async info(message: string, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
+    async info(message: string, context?: ILoggingContextData, metadata?: ILogEntry['metadata']): Promise<void> {
         await this.log('info', message, context, metadata);
     }
 
     /**
      * Log warning message
      */
-    async warn(message: string, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
+    async warn(message: string, context?: ILoggingContextData, metadata?: ILogEntry['metadata']): Promise<void> {
         await this.log('warn', message, context, metadata);
     }
 
     /**
      * Log error message
      */
-    async error(message: string, error?: Error, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
+    async error(message: string, error?: Error, context?: ILoggingContextData, metadata?: ILogEntry['metadata']): Promise<void> {
         const errorContext = {
             ...context,
             ...(error && this.pluginOptions.includeStackTrace ? {
@@ -269,7 +269,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
     /**
      * Log execution start
      */
-    async logExecutionStart(executionId: string, userInput: string, metadata?: LogEntry['metadata']): Promise<void> {
+    async logExecutionStart(executionId: string, userInput: string, metadata?: ILogEntry['metadata']): Promise<void> {
         await this.info('Execution started', { userInput: userInput.substring(0, 100) }, {
             executionId,
             operation: 'execution_start',
@@ -280,7 +280,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
     /**
      * Log execution completion
      */
-    async logExecutionComplete(executionId: string, duration: number, metadata?: LogEntry['metadata']): Promise<void> {
+    async logExecutionComplete(executionId: string, duration: number, metadata?: ILogEntry['metadata']): Promise<void> {
         await this.info('Execution completed', { duration }, {
             executionId,
             operation: 'execution_complete',
@@ -292,16 +292,16 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
     /**
      * Log tool execution
      */
-    async logToolExecution(toolName: string, executionId: string, duration?: number, success?: boolean, metadata?: LogEntry['metadata']): Promise<void> {
+    async logToolExecution(toolName: string, executionId: string, duration?: number, success?: boolean, metadata?: ILogEntry['metadata']): Promise<void> {
         const message = success ? 'Tool executed successfully' : 'Tool execution failed';
-        const level: LogLevel = success ? 'info' : 'error';
+        const level: TLogLevel = success ? 'info' : 'error';
 
         const logMetadata = {
             executionId,
             operation: 'tool_execution',
             ...(duration !== undefined && { duration }),
             ...(metadata && typeof metadata === 'object' ? metadata : {})
-        } as LogEntry['metadata'];
+        } as ILogEntry['metadata'];
 
         await this.log(level, message, { toolName, success: success ?? false }, logMetadata);
     }
@@ -336,7 +336,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
     /**
      * Check if message should be logged based on level
      */
-    private shouldLog(level: LogLevel): boolean {
+    private shouldLog(level: TLogLevel): boolean {
         const currentLevelIndex = this.logLevels.indexOf(this.pluginOptions.level);
         const messageLevelIndex = this.logLevels.indexOf(level);
         return messageLevelIndex >= currentLevelIndex;
@@ -345,7 +345,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
     /**
      * Validate plugin options
      */
-    private validateOptions(options: LoggingPluginOptions): void {
+    private validateOptions(options: ILoggingPluginOptions): void {
         if (!options.strategy) {
             throw new ConfigurationError('Logging strategy is required');
         }
@@ -388,7 +388,7 @@ export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingP
     /**
      * Create storage instance based on strategy
      */
-    private createStorage(): LogStorage {
+    private createStorage(): ILogStorage {
         const formatter = this.pluginOptions.formatter;
 
         switch (this.pluginOptions.strategy) {

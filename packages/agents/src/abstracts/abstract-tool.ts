@@ -34,7 +34,7 @@
 
 import type { IToolInterface, IToolResult, IToolExecutionContext, IParameterValidationResult, TToolParameters } from '../interfaces/tool';
 import type { IToolSchema } from '../interfaces/provider';
-import type { AbstractLogger } from '../utils/abstract-logger';
+import type { IAbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 import type { IEventService } from '../services/event-service';
 
@@ -46,7 +46,7 @@ export interface IAbstractToolOptions {
      * Optional logger for tool operations
      * Defaults to DEFAULT_ABSTRACT_LOGGER if not provided
      */
-    logger?: AbstractLogger;
+    logger?: IAbstractLogger;
 
     /**
      * Optional event service for unified event emission
@@ -86,7 +86,7 @@ export interface IAbstractToolInterface<TParams = TToolParameters, TResult = ITo
  * @template TParameters - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
-export interface ITypeSafeToolInterface<TParameters = TToolParameters, TResult = IToolResult> {
+export interface IToolContract<TParameters = TToolParameters, TResult = IToolResult> {
     readonly schema: IToolSchema;
     execute(parameters: TParameters, context: IToolExecutionContext): Promise<TResult>;
     validate(parameters: TParameters): boolean;
@@ -109,14 +109,14 @@ export interface ITypeSafeToolInterface<TParameters = TToolParameters, TResult =
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
 export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToolResult>
-    implements ITypeSafeToolInterface<TParameters, TResult> {
+    implements IToolContract<TParameters, TResult> {
 
     abstract readonly schema: IToolSchema;
 
     /**
      * Logger for tool operations
      */
-    protected readonly logger: AbstractLogger;
+    protected readonly logger: IAbstractLogger;
 
     /**
      * EventService for direct event emission (optional)

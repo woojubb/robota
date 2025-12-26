@@ -19,7 +19,7 @@ export const MODULE_REGISTRY_EVENTS = {
 /**
  * Module registration options
  */
-export interface ModuleRegistrationOptions {
+export interface IModuleRegistrationOptions {
     /** Whether to initialize the module immediately */
     autoInitialize?: boolean;
     /** Custom initialization options */
@@ -33,7 +33,7 @@ export interface ModuleRegistrationOptions {
 /**
  * Module status information
  */
-export interface ModuleStatus {
+export interface IModuleStatus {
     name: string;
     type: string;
     enabled: boolean;
@@ -49,7 +49,7 @@ export interface ModuleStatus {
 /**
  * Module execution statistics
  */
-export interface ModuleExecutionStats {
+export interface IModuleExecutionStats {
     totalExecutions: number;
     successfulExecutions: number;
     failedExecutions: number;
@@ -72,8 +72,8 @@ export interface ModuleExecutionStats {
 export class ModuleRegistry {
     private modules = new Map<string, AbstractModule>();
     private moduleOptions = new Map<string, BaseModuleOptions>();
-    private moduleStatuses = new Map<string, ModuleStatus>();
-    private moduleStats = new Map<string, ModuleExecutionStats>();
+    private moduleStatuses = new Map<string, IModuleStatus>();
+    private moduleStats = new Map<string, IModuleExecutionStats>();
     private registrationOrder: string[] = [];
     private initializationOrder: string[] = [];
     private typeRegistry: ModuleTypeRegistry;
@@ -96,7 +96,7 @@ export class ModuleRegistry {
      */
     async registerModule(
         module: AbstractModule,
-        options: ModuleRegistrationOptions = {}
+        options: IModuleRegistrationOptions = {}
     ): Promise<void> {
         if (this.isDisposing) {
             throw new ConfigurationError('Cannot register modules during disposal');
@@ -125,7 +125,7 @@ export class ModuleRegistry {
 
         // Create status tracking
         const moduleType = module.getModuleType();
-        const status: ModuleStatus = {
+        const status: IModuleStatus = {
             name: module.name,
             type: moduleType.type,
             enabled: module.isEnabled(),
@@ -435,29 +435,29 @@ export class ModuleRegistry {
     /**
      * Get module status
      */
-    getModuleStatus(moduleName: string): ModuleStatus | null {
+    getModuleStatus(moduleName: string): IModuleStatus | null {
         return this.moduleStatuses.get(moduleName) || null;
     }
 
     /**
      * Get all module statuses
      */
-    getAllModuleStatuses(): ModuleStatus[] {
+    getAllModuleStatuses(): IModuleStatus[] {
         return Array.from(this.moduleStatuses.values());
     }
 
     /**
      * Get module execution statistics
      */
-    getModuleStats(moduleName: string): ModuleExecutionStats | null {
+    getModuleStats(moduleName: string): IModuleExecutionStats | null {
         return this.moduleStats.get(moduleName) || null;
     }
 
     /**
      * Get all module execution statistics
      */
-    getAllModuleStats(): Record<string, ModuleExecutionStats> {
-        const stats: Record<string, ModuleExecutionStats> = {};
+    getAllModuleStats(): Record<string, IModuleExecutionStats> {
+        const stats: Record<string, IModuleExecutionStats> = {};
         for (const [name, moduleStats] of this.moduleStats.entries()) {
             stats[name] = { ...moduleStats };
         }

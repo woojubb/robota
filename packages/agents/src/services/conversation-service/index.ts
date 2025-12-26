@@ -1,6 +1,12 @@
-import type { TUniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage, TUniversalMessageMetadata as ConversationContextMetadata } from '../../managers/conversation-history-manager';
+import type {
+    IAssistantMessage,
+    ISystemMessage,
+    IToolCall,
+    IToolMessage,
+    IUserMessage,
+    TUniversalMessage
+} from '../../interfaces/messages';
 import type { IAIProvider, IProviderRequest, IRawProviderResponse } from '../../interfaces/provider';
-import type { IToolCall } from '../../interfaces/messages';
 import type { TToolResultData } from '../../interfaces/types';
 import { NetworkError, ProviderError } from '../../utils/errors';
 import { createLogger, type ILogger } from '../../utils/logger';
@@ -10,7 +16,8 @@ import {
     IStreamingChunk,
     IConversationServiceOptions,
     IContextOptions,
-    IConversationService
+    IConversationService,
+    type TConversationContextMetadata
 } from '../../interfaces/service';
 
 /**
@@ -349,33 +356,33 @@ export class ConversationService implements IConversationService {
     /**
      * Create a user message
      */
-    createUserMessage(content: string, metadata?: Record<string, string | number | boolean>): UserMessage {
+    createUserMessage(content: string, metadata?: Record<string, string | number | boolean>): IUserMessage {
         return ConversationService.createUserMessageStatic(content, metadata);
     }
 
     /**
      * Create an assistant message from response
      */
-    createAssistantMessage(response: IConversationResponse, metadata?: Record<string, string | number | boolean>): AssistantMessage {
+    createAssistantMessage(response: IConversationResponse, metadata?: Record<string, string | number | boolean>): IAssistantMessage {
         return ConversationService.createAssistantMessageStatic(response, metadata);
     }
 
     /**
      * Create a system message
      */
-    createSystemMessage(content: string, metadata?: Record<string, string | number | boolean>): SystemMessage {
+    createSystemMessage(content: string, metadata?: Record<string, string | number | boolean>): ISystemMessage {
         return ConversationService.createSystemMessageStatic(content, metadata);
     }
 
     /**
      * Create a tool message
      */
-    createToolMessage(toolCallId: string, result: TToolResultData, metadata?: Record<string, string | number | boolean>): ToolMessage {
+    createToolMessage(toolCallId: string, result: TToolResultData, metadata?: Record<string, string | number | boolean>): IToolMessage {
         return ConversationService.createToolMessageStatic(toolCallId, result, metadata);
     }
 
     // Static versions of message creation methods
-    private static createUserMessageStatic(content: string, metadata?: Record<string, string | number | boolean>): UserMessage {
+    private static createUserMessageStatic(content: string, metadata?: Record<string, string | number | boolean>): IUserMessage {
         return {
             role: 'user',
             content,
@@ -387,8 +394,8 @@ export class ConversationService implements IConversationService {
         };
     }
 
-    private static createAssistantMessageStatic(response: IConversationResponse, metadata?: Record<string, string | number | boolean>): AssistantMessage {
-        const message: AssistantMessage = {
+    private static createAssistantMessageStatic(response: IConversationResponse, metadata?: Record<string, string | number | boolean>): IAssistantMessage {
+        const message: IAssistantMessage = {
             role: 'assistant',
             content: response.content,
             timestamp: new Date(),
@@ -407,7 +414,7 @@ export class ConversationService implements IConversationService {
         return message;
     }
 
-    private static createSystemMessageStatic(content: string, metadata?: Record<string, string | number | boolean>): SystemMessage {
+    private static createSystemMessageStatic(content: string, metadata?: Record<string, string | number | boolean>): ISystemMessage {
         return {
             role: 'system',
             content,
@@ -419,7 +426,7 @@ export class ConversationService implements IConversationService {
         };
     }
 
-    private static createToolMessageStatic(toolCallId: string, result: TToolResultData, metadata?: Record<string, string | number | boolean>): ToolMessage {
+    private static createToolMessageStatic(toolCallId: string, result: TToolResultData, metadata?: Record<string, string | number | boolean>): IToolMessage {
         return {
             role: 'tool',
             content: typeof result === 'string' ? result : JSON.stringify(result),
@@ -439,7 +446,7 @@ export class ConversationService implements IConversationService {
     /**
      * Convert complex metadata to simple provider request format
      */
-    private static convertToProviderMetadata(metadata?: ConversationContextMetadata): Record<string, string | number | boolean> | undefined {
+    private static convertToProviderMetadata(metadata?: TConversationContextMetadata): Record<string, string | number | boolean> | undefined {
         if (!metadata) return undefined;
 
         const converted: Record<string, string | number | boolean> = {};

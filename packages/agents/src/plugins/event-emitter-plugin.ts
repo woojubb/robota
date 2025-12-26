@@ -59,7 +59,7 @@ const MODULE_EVENTS = {
  * Event types that can be emitted
  * Enhanced with hierarchical execution tracking events
  */
-export type EventType =
+export type TEventType =
     // 🔄 Existing event types (unchanged for backward compatibility)
     | 'agent.execution_start'
     | 'agent.execution_complete'
@@ -96,7 +96,7 @@ export type EventType =
 /**
  * Basic event execution value types - compatible with IPluginExecutionResult
  */
-export type EventExecutionValue =
+export type TEventExecutionValue =
     | string
     | number
     | boolean
@@ -112,28 +112,28 @@ export type EventExecutionValue =
  * Event execution context data following semantic naming conventions
  * Supports nested structures with proper type safety
  */
-export interface EventExecutionContextData {
+export interface IEventExecutionContextData {
     messageCount?: number | undefined;
-    config?: Record<string, EventExecutionValue> | undefined;
+    config?: Record<string, TEventExecutionValue> | undefined;
     result?: IPluginExecutionResult | undefined;
     duration?: number | undefined;
     tokensUsed?: number | undefined;
     toolsExecuted?: number | undefined;
-    messages?: Record<string, EventExecutionValue>[] | undefined;
+    messages?: Record<string, TEventExecutionValue>[] | undefined;
     response?: string | undefined;
-    toolCalls?: Record<string, EventExecutionValue>[] | undefined;
-    [key: string]: EventExecutionValue | Record<string, EventExecutionValue> | Record<string, EventExecutionValue>[] | IPluginExecutionResult | undefined;
+    toolCalls?: Record<string, TEventExecutionValue>[] | undefined;
+    [key: string]: TEventExecutionValue | Record<string, TEventExecutionValue> | Record<string, TEventExecutionValue>[] | IPluginExecutionResult | undefined;
 }
 
 /**
  * Event metadata following semantic naming conventions
  */
-export type EventEmitterMetadata = Record<string, string | number | boolean | Date | string[] | number[] | undefined>;
+export type TEventEmitterMetadata = Record<string, string | number | boolean | Date | string[] | number[] | undefined>;
 
 /**
  * Plugin execution context for event emitter
  */
-export interface PluginExecutionContext extends IPluginExecutionContext {
+export interface IEventEmitterPluginExecutionContext extends IPluginExecutionContext {
     // Override config to support additional types
 }
 
@@ -142,36 +142,36 @@ export interface PluginExecutionContext extends IPluginExecutionContext {
 /**
  * Plugin execution result for event emitter
  */
-export interface PluginExecutionResult {
+export interface IEventEmitterPluginExecutionResult {
     content?: string;
     response?: string;
     duration?: number;
     tokensUsed?: number;
     toolsExecuted?: number;
-    usage?: Record<string, EventExecutionValue>;
-    toolCalls?: Record<string, EventExecutionValue>[];
-    [key: string]: EventExecutionValue | Record<string, EventExecutionValue> | Record<string, EventExecutionValue>[] | undefined;
+    usage?: Record<string, TEventExecutionValue>;
+    toolCalls?: Record<string, TEventExecutionValue>[];
+    [key: string]: TEventExecutionValue | Record<string, TEventExecutionValue> | Record<string, TEventExecutionValue>[] | undefined;
 }
 
 /**
  * Event data structure
  */
-export interface EventData {
-    type: EventType;
+export interface IEventData {
+    type: TEventType;
     timestamp: Date;
     executionId?: string | undefined;
     sessionId?: string | undefined;
     userId?: string | undefined;
-    data?: EventExecutionContextData | undefined;
+    data?: IEventExecutionContextData | undefined;
     error?: Error | undefined;
-    metadata?: EventEmitterMetadata | undefined;
+    metadata?: TEventEmitterMetadata | undefined;
 }
 
 /**
  * 🆕 Enhanced event data for hierarchical execution tracking
- * Extends EventData with additional fields for parent-child relationships and real-time data
+ * Extends IEventData with additional fields for parent-child relationships and real-time data
  */
-export interface HierarchicalEventData extends EventData {
+export interface IHierarchicalEventData extends IEventData {
     /** Parent execution ID for hierarchical tracking */
     parentExecutionId?: string;
 
@@ -200,24 +200,24 @@ export interface HierarchicalEventData extends EventData {
 /**
  * Event listener function
  */
-export type EventListener = (event: EventData) => void | Promise<void>;
+export type TEventListener = (event: IEventData) => void | Promise<void>;
 
 /**
  * Event handler registration
  */
 interface EventHandler {
     id: string;
-    listener: EventListener;
+    listener: TEventListener;
     once: boolean;
-    filter?: (event: EventData) => boolean;
+    filter?: (event: IEventData) => boolean;
 }
 
 /**
  * Event emitter configuration
  */
-export interface EventEmitterPluginOptions extends IPluginOptions {
+export interface IEventEmitterPluginOptions extends IPluginOptions {
     /** Events to listen for */
-    events?: EventType[];
+    events?: TEventType[];
     /** Maximum number of listeners per event type */
     maxListeners?: number;
     /** Whether to emit events asynchronously */
@@ -225,7 +225,7 @@ export interface EventEmitterPluginOptions extends IPluginOptions {
     /** Whether to catch and log listener errors */
     catchErrors?: boolean;
     /** Custom event filters */
-    filters?: Record<EventType, (event: EventData) => boolean>;
+    filters?: Record<TEventType, (event: IEventData) => boolean>;
     /** Event buffering options */
     buffer?: {
         enabled: boolean;
@@ -237,9 +237,9 @@ export interface EventEmitterPluginOptions extends IPluginOptions {
 /**
  * Event emitter plugin statistics
  */
-export interface EventEmitterPluginStats extends IPluginStats {
-    eventTypes: EventType[];
-    listenerCounts: Record<EventType, number>;
+export interface IEventEmitterPluginStats extends IPluginStats {
+    eventTypes: TEventType[];
+    listenerCounts: Record<TEventType, number>;
     totalListeners: number;
     bufferedEvents: number;
     totalEmitted: number;
@@ -250,19 +250,19 @@ export interface EventEmitterPluginStats extends IPluginStats {
  * Plugin for event detection and propagation
  * Emits events during agent execution lifecycle
  */
-export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions, EventEmitterPluginStats> {
+export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOptions, IEventEmitterPluginStats> {
     name = 'EventEmitterPlugin';
     version = '1.0.0';
 
 
-    private pluginOptions: Required<EventEmitterPluginOptions>;
+    private pluginOptions: Required<IEventEmitterPluginOptions>;
     private logger: ILogger;
-    private handlers = new Map<EventType, EventHandler[]>();
-    private eventBuffer: EventData[] = [];
+    private handlers = new Map<TEventType, EventHandler[]>();
+    private eventBuffer: IEventData[] = [];
     private nextHandlerId = 1;
     private bufferTimer?: TimerId;
 
-    constructor(options: EventEmitterPluginOptions = {}) {
+    constructor(options: IEventEmitterPluginOptions = {}) {
         super();
         this.logger = createLogger('EventEmitterPlugin');
 
@@ -283,7 +283,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
             maxListeners: options.maxListeners ?? 100,
             async: options.async ?? true,
             catchErrors: options.catchErrors ?? true,
-            filters: options.filters ?? {} as Record<EventType, (event: EventData) => boolean>,
+            filters: options.filters ?? {} as Record<TEventType, (event: IEventData) => boolean>,
             buffer: options.buffer ?? {
                 enabled: false,
                 maxSize: 1000,
@@ -355,7 +355,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
                     content: msg.content || '',
                     timestamp: msg.timestamp ? msg.timestamp.toISOString() : new Date().toISOString()
                 })),
-                config: context.config as Record<string, EventExecutionValue>
+                config: context.config as Record<string, TEventExecutionValue>
             }
         });
     }
@@ -470,9 +470,9 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Register event listener
      */
-    on(eventType: EventType, listener: EventListener, options?: {
+    on(eventType: TEventType, listener: TEventListener, options?: {
         once?: boolean;
-        filter?: (event: EventData) => boolean;
+        filter?: (event: IEventData) => boolean;
     }): string {
         const handlerId = `handler_${this.nextHandlerId++}`;
 
@@ -510,7 +510,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Register one-time event listener
      */
-    once(eventType: EventType, listener: EventListener, filter?: (event: EventData) => boolean): string {
+    once(eventType: TEventType, listener: TEventListener, filter?: (event: IEventData) => boolean): string {
         return this.on(eventType, listener, {
             once: true,
             ...(filter && { filter })
@@ -520,7 +520,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Remove event listener
      */
-    off(eventType: EventType, handlerIdOrListener: string | EventListener): boolean {
+    off(eventType: TEventType, handlerIdOrListener: string | TEventListener): boolean {
         const handlers = this.handlers.get(eventType);
         if (!handlers) {
             return false;
@@ -547,12 +547,12 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Emit an event
      */
-    async emit(eventType: EventType, eventData: Partial<EventData> = {}): Promise<void> {
+    async emit(eventType: TEventType, eventData: Partial<IEventData> = {}): Promise<void> {
         if (!this.pluginOptions.events.includes(eventType)) {
             return;
         }
 
-        const event: EventData = {
+        const event: IEventData = {
             type: eventType,
             timestamp: new Date(),
             ...eventData
@@ -576,7 +576,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Process a single event
      */
-    private async processEvent(event: EventData): Promise<void> {
+    private async processEvent(event: IEventData): Promise<void> {
         const handlers = this.handlers.get(event.type);
         if (!handlers || handlers.length === 0) {
             return;
@@ -641,7 +641,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Buffer an event
      */
-    private bufferEvent(event: EventData): void {
+    private bufferEvent(event: IEventData): void {
         this.eventBuffer.push(event);
 
         if (this.eventBuffer.length >= this.pluginOptions.buffer.maxSize) {
@@ -679,9 +679,9 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
     /**
      * Get event emitter statistics
      */
-    override getStats(): EventEmitterPluginStats {
+    override getStats(): IEventEmitterPluginStats {
         const base = super.getStats();
-        const listenerCounts: Record<EventType, number> = {} as Record<EventType, number>;
+        const listenerCounts: Record<TEventType, number> = {} as Record<TEventType, number>;
         let totalListeners = 0;
 
         for (const [eventType, handlers] of this.handlers) {
@@ -727,7 +727,7 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
      * @param options The options to validate.
      * @throws PluginError if options are invalid.
      */
-    private validateOptions(options: EventEmitterPluginOptions): void {
+    private validateOptions(options: IEventEmitterPluginOptions): void {
         if (options.maxListeners !== undefined && options.maxListeners < 0) {
             throw new PluginError(
                 `Invalid maxListeners option: ${options.maxListeners}. Must be a non-negative number.`,

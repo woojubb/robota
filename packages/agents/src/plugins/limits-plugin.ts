@@ -8,16 +8,16 @@ import {
 import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 import type {
-    LimitsStrategy,
-    LimitsPluginOptions,
-    PluginLimitsStatusData,
-    LimitWindow,
-    TokenBucket
+    TLimitsStrategy,
+    ILimitsPluginOptions,
+    TPluginLimitsStatusData,
+    ILimitWindow,
+    ITokenBucket
 } from './limits/types';
 import type { TUniversalMessage } from '../interfaces';
 
 // Re-export types for external use
-export type { LimitsStrategy, LimitsPluginOptions, PluginLimitsStatusData };
+export type { TLimitsStrategy, ILimitsPluginOptions, TPluginLimitsStatusData };
 
 /**
  * Reusable type definitions for limits plugin
@@ -28,7 +28,7 @@ export type { LimitsStrategy, LimitsPluginOptions, PluginLimitsStatusData };
  * Used for processing execution context in limits plugin
  * Extends IPluginExecutionContext for compatibility
  */
-export interface PluginExecutionContext extends IPluginExecutionContext {
+export interface ILimitsPluginExecutionContext extends IPluginExecutionContext {
     config?: {
         model?: string;
         maxTokens?: number;
@@ -41,7 +41,7 @@ export interface PluginExecutionContext extends IPluginExecutionContext {
  * Plugin execution result type
  * Used for processing execution results in limits plugin
  */
-export type PluginExecutionResult = {
+export type TLimitsPluginExecutionResult = {
     tokensUsed?: number;
     cost?: number;
     success?: boolean;
@@ -52,17 +52,17 @@ export type PluginExecutionResult = {
  * Plugin for rate limiting and resource control
  * Enforces limits on token usage, request frequency, and costs
  */
-export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
+export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     name = 'LimitsPlugin';
     version = '1.0.0';
 
-    private pluginOptions: Required<LimitsPluginOptions>;
+    private pluginOptions: Required<ILimitsPluginOptions>;
     private logger: ILogger;
-    private windows = new Map<string, LimitWindow>();
-    private buckets = new Map<string, TokenBucket>();
+    private windows = new Map<string, ILimitWindow>();
+    private buckets = new Map<string, ITokenBucket>();
     private requestCounts = new Map<string, number>();
 
-    constructor(options: LimitsPluginOptions) {
+    constructor(options: ILimitsPluginOptions) {
         super();
         this.logger = createLogger('LimitsPlugin');
 
@@ -176,7 +176,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     /**
      * Token bucket rate limiting
      */
-    private async checkTokenBucket(key: string, context: PluginExecutionContext): Promise<void> {
+    private async checkTokenBucket(key: string, context: ILimitsPluginExecutionContext): Promise<void> {
         const bucket = this.getBucket(key);
         const now = Date.now();
 
@@ -228,7 +228,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     /**
      * Sliding window rate limiting
      */
-    private async checkSlidingWindow(key: string, context: PluginExecutionContext): Promise<void> {
+    private async checkSlidingWindow(key: string, context: ILimitsPluginExecutionContext): Promise<void> {
         const now = Date.now();
         const window = this.getWindow(key);
 
@@ -275,7 +275,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     /**
      * Fixed window rate limiting
      */
-    private async checkFixedWindow(key: string, context: PluginExecutionContext): Promise<void> {
+    private async checkFixedWindow(key: string, context: ILimitsPluginExecutionContext): Promise<void> {
         const now = Date.now();
         const window = this.getWindow(key);
 
@@ -337,7 +337,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     /**
      * Get or create token bucket for key
      */
-    private getBucket(key: string): TokenBucket {
+    private getBucket(key: string): ITokenBucket {
         if (!this.buckets.has(key)) {
             this.buckets.set(key, {
                 tokens: this.pluginOptions.bucketSize,
@@ -353,7 +353,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     /**
      * Get or create window for key
      */
-    private getWindow(key: string): LimitWindow {
+    private getWindow(key: string): ILimitWindow {
         if (!this.windows.has(key)) {
             this.windows.set(key, {
                 count: 0,
@@ -368,14 +368,14 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     /**
      * Generate key for rate limiting (user/session based)
      */
-    private getKey(context: PluginExecutionContext): string {
+    private getKey(context: ILimitsPluginExecutionContext): string {
         return context.userId || context.sessionId || context['executionId'] as string || 'default';
     }
 
     /**
      * Estimate tokens needed for request
      */
-    private estimateTokens(context: PluginExecutionContext): number {
+    private estimateTokens(context: ILimitsPluginExecutionContext): number {
         // Simple estimation - in real implementation, this would be more sophisticated
         const messageLength = context.messages?.reduce((total: number, msg: TUniversalMessage) =>
             total + (msg.content?.length || 0), 0) || 0;
@@ -405,7 +405,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
     /**
  * Validate plugin options
  */
-    private validateOptions(options: LimitsPluginOptions): void {
+    private validateOptions(options: ILimitsPluginOptions): void {
         if (options.strategy === 'none') {
             this.logger.info('LimitsPlugin configured with "none" strategy - no rate limiting will be applied');
             return;
@@ -503,7 +503,7 @@ export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions> {
      * 5. Type assertions (decreases type safety)
      * TODO: Consider specific status interface if patterns emerge
      */
-    getLimitsStatus(key?: string): PluginLimitsStatusData {
+    getLimitsStatus(key?: string): TPluginLimitsStatusData {
         if (key) {
             const bucket = this.buckets.get(key);
             const window = this.windows.get(key);

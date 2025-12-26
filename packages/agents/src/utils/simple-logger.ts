@@ -1,19 +1,19 @@
-import type { AbstractLogger } from './abstract-logger';
+import type { IAbstractLogger } from "./abstract-logger";
 
 /**
- * Simple logger type - convenience alias for AbstractLogger
+ * Simple logger type - convenience alias for IAbstractLogger
  * 
- * This is a type alias that extends AbstractLogger for backward compatibility
- * and convenience. It provides the same interface as AbstractLogger.
+ * This is a type alias that extends IAbstractLogger for backward compatibility
+ * and convenience. It provides the same interface as IAbstractLogger.
  * 
  * TYPE HIERARCHY:
- * AbstractLogger (interface) ← Base type
+ * IAbstractLogger (interface) ← Base type
  *     ↓
  * SimpleLogger (alias) ← This type
  *     ↓
  * SilentLogger, ConsoleLogger (implementations)
  */
-export type SimpleLogger = AbstractLogger;
+export type SimpleLogger = IAbstractLogger;
 
 /**
  * Silent logger that does nothing (concrete implementation)

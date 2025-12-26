@@ -1,17 +1,17 @@
-import { SystemMetricsCollector, PerformanceMetrics } from '../types';
+import { type ISystemMetricsCollector, type IPerformanceMetrics } from '../types';
 import { createLogger, type ILogger } from '../../../utils/logger';
 
 /**
  * Node.js system metrics collector
  */
-export class NodeSystemMetricsCollector implements SystemMetricsCollector {
+export class NodeSystemMetricsCollector implements ISystemMetricsCollector {
     private logger: ILogger;
 
     constructor() {
         this.logger = createLogger('NodeSystemMetricsCollector');
     }
 
-    async getMemoryUsage(): Promise<PerformanceMetrics['memoryUsage']> {
+    async getMemoryUsage(): Promise<IPerformanceMetrics['memoryUsage']> {
         try {
             const memoryUsage = process.memoryUsage();
 
@@ -34,7 +34,7 @@ export class NodeSystemMetricsCollector implements SystemMetricsCollector {
         }
     }
 
-    async getCPUUsage(): Promise<PerformanceMetrics['cpuUsage']> {
+    async getCPUUsage(): Promise<IPerformanceMetrics['cpuUsage']> {
         try {
             const cpuUsage = process.cpuUsage();
 
@@ -53,7 +53,7 @@ export class NodeSystemMetricsCollector implements SystemMetricsCollector {
         }
     }
 
-    async getNetworkStats(): Promise<PerformanceMetrics['networkStats']> {
+    async getNetworkStats(): Promise<IPerformanceMetrics['networkStats']> {
         try {
             // Note: Network stats are not directly available in Node.js without additional monitoring
             // This would typically require integrating with system monitoring tools or libraries

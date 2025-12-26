@@ -7,11 +7,11 @@
 
 // Core types
 export type {
-    ErrorHandlingStrategy,
-    ErrorHandlingContextData,
-    ErrorHandlingPluginOptions,
-    ErrorHandlingPluginStats,
-    ErrorContextAdapter
+    TErrorHandlingStrategy,
+    IErrorHandlingContextData,
+    IErrorHandlingPluginOptions,
+    IErrorHandlingPluginStats,
+    IErrorContextAdapter
 } from './types';
 
 // Context adapter utilities

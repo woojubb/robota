@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { LocalExecutor } from './local-executor';
 import type { AIProviderInstance } from './local-executor';
-import type { TUniversalMessage, IAssistantMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage, IAssistantMessage } from '../interfaces/messages';
 
 describe('LocalExecutor', () => {
     let executor: LocalExecutor;

@@ -1,8 +1,10 @@
 export { LoggingPlugin } from './logging-plugin';
-export {
-    type LoggingPluginOptions,
-    type LoggingStrategy,
-    type LogLevel,
-    type LogEntry,
-    type LogFormatter
+export type {
+    ILoggingPluginOptions,
+    TLoggingStrategy,
+    TLogLevel,
+    ILogEntry,
+    ILogFormatter,
+    ILogStorage,
+    ILoggingPluginStats
 } from './types'; 

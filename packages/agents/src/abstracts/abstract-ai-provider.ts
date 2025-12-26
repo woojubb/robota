@@ -8,7 +8,7 @@
  */
 import type { IToolSchema, IChatOptions, IProviderRequest, IRawProviderResponse } from '../interfaces/provider';
 import type { IExecutor } from '../interfaces/executor';
-import type { TUniversalMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage } from '../interfaces/messages';
 import { isAssistantMessage } from '../managers/conversation-history-manager';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
@@ -22,11 +22,11 @@ export type ProviderLoggingData = Record<string, string | number | boolean | Dat
 /**
  * Type-safe AI provider interface with proper generic constraints
  * 
- * @template TConfig - Provider configuration type (defaults to ProviderConfig for type safety)
+ * @template TConfig - Provider configuration type (defaults to IProviderConfig for type safety)
  * @template TUniversalMessage - Message type (defaults to TUniversalMessage for backward compatibility)
  * @template TResponse - Response type (defaults to TUniversalMessage for backward compatibility)
  */
-export interface TypeSafeAIProvider<TConfig = ProviderConfig> {
+export interface IProviderContract<TConfig = IProviderConfig> {
     readonly name: string;
     readonly version: string;
 
@@ -43,7 +43,7 @@ export interface TypeSafeAIProvider<TConfig = ProviderConfig> {
 /**
  * Provider configuration base interface
  */
-export interface ProviderConfig {
+export interface IProviderConfig {
     apiKey?: string;
     baseUrl?: string;
     timeout?: number;
@@ -53,7 +53,7 @@ export interface ProviderConfig {
 /**
  * Enhanced provider configuration that supports executor injection
  */
-export interface ExecutorAwareProviderConfig {
+export interface IExecutorAwareProviderConfig {
     apiKey?: string;
     baseUrl?: string;
     timeout?: number;
@@ -130,12 +130,12 @@ export interface ExecutorAwareProviderConfig {
  * 
  * ========================================
  * 
- * @template TConfig - Provider configuration type (defaults to ProviderConfig for type safety)
+ * @template TConfig - Provider configuration type (defaults to IProviderConfig for type safety)
  * @template TUniversalMessage - Message type (defaults to TUniversalMessage for backward compatibility)
  * @template TResponse - Response type (defaults to TUniversalMessage for backward compatibility)
  */
-export abstract class AbstractAIProvider<TConfig = ProviderConfig>
-    implements TypeSafeAIProvider<TConfig> {
+export abstract class AbstractAIProvider<TConfig = IProviderConfig>
+    implements IProviderContract<TConfig> {
     abstract readonly name: string;
     abstract readonly version: string;
     protected config?: TConfig;

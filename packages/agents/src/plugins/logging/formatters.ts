@@ -1,10 +1,10 @@
-import { LogEntry, LogFormatter } from './types';
+import type { ILogEntry, ILogFormatter } from './types';
 
 /**
  * Default console formatter
  */
-export class ConsoleLogFormatter implements LogFormatter {
-    format(entry: LogEntry): string {
+export class ConsoleLogFormatter implements ILogFormatter {
+    format(entry: ILogEntry): string {
         const timestamp = entry.timestamp.toISOString();
         const level = entry.level.toUpperCase().padStart(5);
         const contextStr = entry.context ? ` | ${JSON.stringify(entry.context)}` : '';
@@ -16,8 +16,8 @@ export class ConsoleLogFormatter implements LogFormatter {
 /**
  * JSON formatter for file/remote logging
  */
-export class JsonLogFormatter implements LogFormatter {
-    format(entry: LogEntry): string {
+export class JsonLogFormatter implements ILogFormatter {
+    format(entry: ILogEntry): string {
         return JSON.stringify({
             ...entry,
             timestamp: entry.timestamp.toISOString()

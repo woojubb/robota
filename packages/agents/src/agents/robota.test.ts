@@ -8,7 +8,7 @@ import { AbstractTool as BaseTool } from '../abstracts/abstract-tool';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { IToolSchema, IChatOptions } from '../interfaces/provider';
 import type { ToolExecutionContext, ToolParameters, ToolResult } from '../interfaces/tool';
-import type { TUniversalMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage } from '../interfaces/messages';
 
 import { ConfigurationError, ValidationError } from '../utils/errors';
 

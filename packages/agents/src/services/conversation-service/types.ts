@@ -9,12 +9,10 @@
  * Message metadata for conversation context
  * Used for storing additional information with conversation messages
  */
-export type TUniversalMessageMetadata = Record<string, string | number | boolean>;
-
-/**
- * Provider-specific metadata format
- * Used when converting metadata for AI provider APIs
- */
+// NOTE:
+// Do not define or re-export canonical message contracts here.
+// Canonical message metadata is owned by `interfaces/messages.ts`.
+// This file may define provider-specific metadata shapes only.
 export type TProviderMetadata = Record<string, string | number | boolean>;
 
 /**

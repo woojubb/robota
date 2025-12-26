@@ -1,15 +1,15 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
-import type { EventType, EventData } from '../event-emitter-plugin';
+import type { TEventType, IEventData } from '../event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
 import {
-    PerformanceMetrics,
-    AggregatedPerformanceStats,
-    PerformancePluginOptions,
-    PerformancePluginStats,
-    PerformanceStorage,
-    SystemMetricsCollector
+    IPerformanceMetrics,
+    IAggregatedPerformanceStats,
+    IPerformancePluginOptions,
+    IPerformancePluginStats,
+    IPerformanceStorage,
+    ISystemMetricsCollector
 } from './types';
 import { MemoryPerformanceStorage } from './storages/index';
 import { NodeSystemMetricsCollector } from './collectors/system-metrics-collector';
@@ -18,16 +18,16 @@ import { NodeSystemMetricsCollector } from './collectors/system-metrics-collecto
  * Plugin for monitoring performance metrics
  * Collects system and application performance data
  */
-export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, PerformancePluginStats> {
+export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions, IPerformancePluginStats> {
     name = 'PerformancePlugin';
     version = '1.0.0';
 
-    private storage: PerformanceStorage;
-    private metricsCollector: SystemMetricsCollector;
-    private pluginOptions: Required<PerformancePluginOptions>;
+    private storage: IPerformanceStorage;
+    private metricsCollector: ISystemMetricsCollector;
+    private pluginOptions: Required<IPerformancePluginOptions>;
     private logger: ILogger;
 
-    constructor(options: PerformancePluginOptions) {
+    constructor(options: IPerformancePluginOptions) {
         super();
         this.logger = createLogger('PerformancePlugin');
 
@@ -77,7 +77,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
     /**
      * Handle module events for performance monitoring
      */
-    override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
+    override async onModuleEvent(eventType: TEventType, eventData: IEventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
             const moduleData = eventData.data;
@@ -201,13 +201,13 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
     /**
      * Record performance metrics
      */
-    async recordMetrics(metrics: Omit<PerformanceMetrics, 'timestamp' | 'memoryUsage' | 'cpuUsage' | 'networkStats'>): Promise<void> {
+    async recordMetrics(metrics: Omit<IPerformanceMetrics, 'timestamp' | 'memoryUsage' | 'cpuUsage' | 'networkStats'>): Promise<void> {
         try {
             const memoryUsage = this.pluginOptions.monitorMemory ? await this.metricsCollector.getMemoryUsage() : undefined;
             const cpuUsage = this.pluginOptions.monitorCPU ? await this.metricsCollector.getCPUUsage() : undefined;
             const networkStats = this.pluginOptions.monitorNetwork ? await this.metricsCollector.getNetworkStats() : undefined;
 
-            const entry: PerformanceMetrics = {
+            const entry: IPerformanceMetrics = {
                 ...metrics,
                 timestamp: new Date(),
                 ...(memoryUsage && { memoryUsage }),
@@ -243,7 +243,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
     /**
      * Get performance metrics
      */
-    async getMetrics(operation?: string, timeRange?: { start: Date; end: Date }): Promise<PerformanceMetrics[]> {
+    async getMetrics(operation?: string, timeRange?: { start: Date; end: Date }): Promise<IPerformanceMetrics[]> {
         try {
             return await this.storage.getMetrics(operation, timeRange);
         } catch (error) {
@@ -258,7 +258,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
     /**
      * Get aggregated performance statistics
      */
-    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedPerformanceStats> {
+    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedPerformanceStats> {
         try {
             return await this.storage.getAggregatedStats(timeRange);
         } catch (error) {
@@ -297,7 +297,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
         }
     }
 
-    private validateOptions(options: PerformancePluginOptions): void {
+    private validateOptions(options: IPerformancePluginOptions): void {
         if (!options.strategy) {
             throw new ConfigurationError('Performance monitoring strategy is required');
         }
@@ -310,7 +310,7 @@ export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, 
         }
     }
 
-    private createStorage(): PerformanceStorage {
+    private createStorage(): IPerformanceStorage {
         switch (this.pluginOptions.strategy) {
             case 'memory':
                 return new MemoryPerformanceStorage(this.pluginOptions.maxEntries);

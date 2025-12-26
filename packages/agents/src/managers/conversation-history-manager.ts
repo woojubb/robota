@@ -11,18 +11,6 @@ import type {
     IUserMessage
 } from '../interfaces/messages';
 
-export type {
-    IAssistantMessage,
-    IBaseMessage,
-    TUniversalMessageMetadata,
-    TUniversalMessageRole,
-    ISystemMessage,
-    IToolCall,
-    IToolMessage,
-    TUniversalMessage,
-    IUserMessage
-} from '../interfaces/messages';
-
 /**
  * Type guard functions
  */
@@ -205,7 +193,7 @@ export function createToolMessage(
  * 
  * @public
  */
-export interface ConversationHistoryInterface {
+export interface IConversationHistory {
     /**
      * Add a message to conversation history
      * 
@@ -296,7 +284,7 @@ export interface ConversationHistoryInterface {
  * 
  * @public
  */
-export abstract class BaseConversationHistory implements ConversationHistoryInterface {
+export abstract class BaseConversationHistory implements IConversationHistory {
     /** Maximum number of messages to store (0 = unlimited) */
     protected readonly maxMessages: number;
 
@@ -574,12 +562,12 @@ export class PersistentSystemConversationHistory extends BaseConversationHistory
 /**
  * Conversation Session for a single conversation/session with enhanced features
  * 
- * Implements ConversationHistoryInterface with additional features like
+ * Implements IConversationHistory with additional features like
  * duplicate prevention and API format conversion.
  * 
  * @public
  */
-export class ConversationSession implements ConversationHistoryInterface {
+export class ConversationSession implements IConversationHistory {
     private history: SimpleConversationHistory;
 
     constructor(maxMessages: number = 100) {
@@ -669,9 +657,9 @@ export class ConversationSession implements ConversationHistoryInterface {
     /**
      * Get messages formatted for API consumption
      */
-    getMessagesForAPI(): APIMessage[] {
+    getMessagesForAPI(): IProviderApiMessage[] {
         return this.history.getMessages().map(msg => {
-            const apiMsg: APIMessage = {
+            const apiMsg: IProviderApiMessage = {
                 role: msg.role,
                 content: msg.content
             };
@@ -706,7 +694,7 @@ export class ConversationSession implements ConversationHistoryInterface {
 /**
  * API message format for provider consumption
  */
-export interface APIMessage {
+export interface IProviderApiMessage {
     role: string;
     content: string | null;
     tool_calls?: Array<{
@@ -720,7 +708,7 @@ export interface APIMessage {
 /**
  * Configuration options for ConversationHistory manager
  */
-export interface ConversationHistoryOptions {
+export interface IConversationHistoryOptions {
     maxMessagesPerConversation?: number;
     maxConversations?: number;
 }
@@ -739,7 +727,7 @@ export class ConversationHistory {
     private readonly maxMessagesPerConversation: number;
     private readonly maxConversations: number;
 
-    constructor(options: ConversationHistoryOptions = {}) {
+    constructor(options: IConversationHistoryOptions = {}) {
         this.maxMessagesPerConversation = options.maxMessagesPerConversation || 100;
         this.maxConversations = options.maxConversations || 50;
         this.logger = createLogger('ConversationHistory');

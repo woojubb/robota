@@ -14,7 +14,7 @@
 /**
  * Error handling strategy types
  */
-export type ErrorHandlingStrategy = 'simple' | 'circuit-breaker' | 'exponential-backoff' | 'silent';
+export type TErrorHandlingStrategy = 'simple' | 'circuit-breaker' | 'exponential-backoff' | 'silent';
 
 /**
  * Base error context for internal operations
@@ -22,7 +22,7 @@ export type ErrorHandlingStrategy = 'simple' | 'circuit-breaker' | 'exponential-
  * ALTERNATIVES_CONSIDERED: Union types (breaks interface compatibility), explicit undefined (still triggers index signature rules), removing optional properties (breaks existing usage), type assertions (loses safety), intersection types (complex propagation)
  * TODO: Consider unified error context type system across all plugins
  */
-export interface ErrorHandlingContextData {
+export interface IErrorHandlingContextData {
     executionId?: string;
     sessionId?: string;
     userId?: string;
@@ -37,9 +37,9 @@ import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plug
 /**
  * Configuration options for error handling plugin
  */
-export interface ErrorHandlingPluginOptions extends IPluginOptions {
+export interface IErrorHandlingPluginOptions extends IPluginOptions {
     /** Error handling strategy to use */
-    strategy: ErrorHandlingStrategy;
+    strategy: TErrorHandlingStrategy;
     /** Maximum number of retry attempts */
     maxRetries?: number;
     /** Initial delay between retries in milliseconds */
@@ -51,13 +51,13 @@ export interface ErrorHandlingPluginOptions extends IPluginOptions {
     /** Circuit breaker timeout in milliseconds */
     circuitBreakerTimeout?: number;
     /** Custom error handler function */
-    customErrorHandler?: (error: Error, context: ErrorHandlingContextData) => Promise<void>;
+    customErrorHandler?: (error: Error, context: IErrorHandlingContextData) => Promise<void>;
 }
 
 /**
  * Error handling plugin statistics
  */
-export interface ErrorHandlingPluginStats extends IPluginStats {
+export interface IErrorHandlingPluginStats extends IPluginStats {
     failureCount: number;
     circuitBreakerOpen: boolean;
     lastFailureTime: number;
@@ -70,7 +70,7 @@ export interface ErrorHandlingPluginStats extends IPluginStats {
 /**
  * Error context adapter for PluginError compatibility
  */
-export interface ErrorContextAdapter {
+export interface IErrorContextAdapter {
     originalError?: string;
     executionId?: string;
     sessionId?: string;
