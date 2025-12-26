@@ -5,7 +5,7 @@
 ## 패턴 요약
 - **BasePlanner + PlannerContainer**: 모든 Planner가 공통 추상 클래스를 확장하고, Container가 등록/선택을 담당
 - **Tool Registry**: Planner 전용 Tool을 `id → builder` 매핑으로 관리하여 동적 확장을 허용
-- **Event-Driven Hooks**: Planner 실행 상태를 ActionTrackingEventService에 emit 하여 Workflow 시각화와 동일한 이벤트 파이프라인을 사용
+- **Event-Driven Hooks**: Planner 실행 상태를 owner-bound EventService(absolute ownerPath-only)에 emit 하여 Workflow 시각화와 동일한 이벤트 파이프라인을 사용
 - **Dependency Injection**: Planner, Tool, AgentFactory 간 의존성을 생성자 인자로만 주입하여 테스트 용이성 확보
 
 ## 참고

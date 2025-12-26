@@ -15,7 +15,7 @@
    - 모델 프리셋/키/옵션을 서버에서 관리
 4. **ExecutionService Integration**
    - RemoteExecutor가 Workflow Execution과 동일 EventService 계층을 사용
-   - ActionTrackingEventService로 이벤트/경로를 일관되게 추적
+   - owner-bound EventService(absolute ownerPath-only)로 이벤트/경로를 일관되게 추적
 
 ## 데이터 흐름 요약
 User Input → RemoteExecutor → Remote Server → Provider Adapter → LLM → Remote Server → SSE → Playground UI

@@ -37,12 +37,24 @@ interface WorkflowNode {
 
 type WorkflowNodeType =
   | 'user_input'
+  | 'user_message'
+  | 'output'
   | 'agent'
+  | 'tools_container'
+  | 'tool_definition'
   | 'agent_thinking'
   | 'tool_call'
-  | 'tool_response'
+  | 'tool_call_response'
+  | 'response'
   | 'tool_result'
-  | 'final_response';
+  | 'tool_response'
+  | 'error'
+  | 'execution'
+  | 'assistant_message'
+  | 'team_analysis'
+  | 'task'
+  | 'agent_creation'
+  | 'aggregation';
 ```
 - 노드 타입과 연결 타입(processes, executes, spawn, return, result, analyze 등)은 Path-Only 규칙에 맞게 제한된 집합으로 유지
 
@@ -56,7 +68,7 @@ type WorkflowNodeType =
 ## 5. 필수 규칙
 - EventService는 emit 전에 **absolute `context.ownerPath`**를 검증한다(필수/불일치 즉시 throw).
 - 모든 emit/on은 선언형 이벤트 상수를 사용한다 (`EXECUTION_EVENTS`, `TOOL_EVENTS`, `AGENT_EVENTS`)
-- 접두어(prefix) 삽입/변환/검증(`ownerPrefix`) 로직은 금지한다(이벤트명은 상수 그대로 사용).
+- 접두어(prefix) 삽입/변환/검증 로직은 존재하지 않는다(이벤트명은 상수 그대로 사용).
 - WorkflowSubscriber는 Path-Only 규칙을 따르며, 추측/보류/재시도 로직을 포함하지 않는다
 
 ## 6. 참고

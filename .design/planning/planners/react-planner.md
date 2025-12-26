@@ -9,7 +9,7 @@
 
 ## 워크플로우 통합
 - 각 Reason/Act 단계는 `agent_thinking`, `tool_call`, `tool_response` 노드로 매핑되어 Path-Only 규칙을 유지
-- Planner 이벤트는 ActionTrackingEventService를 통해 실행 로그와 통합
+- Planner 이벤트는 owner-bound EventService(absolute ownerPath-only)를 통해 실행 로그와 통합
 
 ---
 

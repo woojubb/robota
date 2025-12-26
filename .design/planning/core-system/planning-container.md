@@ -17,7 +17,7 @@ interface PlannerContainer {
 
 ## 주의사항
 - Container는 Planner 인스턴스를 캐시하지 않고, 요청마다 새 Planner를 생성 (stateful Planner는 자체적으로 상태 관리)
-- Planner가 내보내는 이벤트는 ActionTrackingEventService를 통해 Execution Workflow와 동일하게 기록
+- Planner가 내보내는 이벤트는 owner-bound EventService(absolute ownerPath-only)를 통해 Execution Workflow와 동일하게 기록
 
 ---
 

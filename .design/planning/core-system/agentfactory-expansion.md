@@ -10,7 +10,7 @@
 1. **Config Object**: `{ id, name, defaultModel, tools, metadata, version }`
 2. **ToolFactory 연동**: `ToolConfig[]`를 받아 UnifiedToolFactory로 Tool 인스턴스 생성
 3. **Versioning**: Agent 설정 변경 시 version++ 및 `agent.config_updated` 이벤트 emit
-4. **Validation**: Config 적용 전 Schema Validation + ActionTrackingEventService 로깅
+4. **Validation**: Config 적용 전 Schema Validation + owner-bound EventService(absolute ownerPath-only) 로깅
 
 ---
 

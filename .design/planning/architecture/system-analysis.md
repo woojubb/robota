@@ -8,7 +8,7 @@
 - Planner가 생성한 실행 계획은 AgentFactory를 통해 실제 Agent/Tool 조합으로 전환되어야 함
 
 ## 제약 조건
-- Path-Only/No-Fallback 규칙을 유지 (Planner가 Workflow를 생성할 때도 동일한 검증을 거침)
+- Path-Only/단일 경로 원칙을 유지 (Planner가 Workflow를 생성할 때도 동일한 검증을 거침)
 - Planner가 외부 API를 호출할 경우 RemoteExecutor를 재사용
 - Planner 설정은 JSON 직렬화 가능한 Config Object로 유지 (Agent Config와 유사)
 

@@ -5,7 +5,7 @@
 ## 비전
 - 복수의 Planner 전략(CAMEL/ReAct/Reflection/Sequential)을 하나의 SDK 패키지로 제공
 - Planner가 생성한 실행 계획을 Agent/Tool 실행 파이프라인과 자연스럽게 연결
-- RemoteExecutor/ActionTrackingEventService 인프라 위에서 동일한 Path-Only 규칙을 유지
+- RemoteExecutor/owner-bound EventService(absolute ownerPath-only) 인프라 위에서 동일한 Path-Only 규칙을 유지
 
 ## 단계
 1. **Core Infrastructure**: BasePlanner, PlannerContainer, Planning Tool Registry

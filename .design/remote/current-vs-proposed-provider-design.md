@@ -10,7 +10,7 @@
 ## 제안된 구조
 - 모든 Provider가 `executor` 옵션을 통해 RemoteExecutor에 위임 (`executeViaExecutorOrDirect()`)
 - 모델/키 관리는 Remote Server가 담당, 클라이언트는 user API token만 전달
-- 로깅/추적은 ActionTrackingEventService + Remote Server middleware에서 일원화
+- 로깅/추적은 owner-bound EventService(absolute ownerPath-only) + Remote Server middleware에서 일원화
 
 ## 기대 효과
 - API Key 관리 단일화, 보안 강화

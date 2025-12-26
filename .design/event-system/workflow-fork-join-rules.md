@@ -14,8 +14,8 @@
 2. **원자성(Atomicity)**
    - 하나의 이벤트를 처리하는 동안 필요한 노드·엣지를 모두 생성/연결
    - 후속 이벤트에서 보정하거나 대기/재시도하지 않음
-3. **No Fallback**
-   - `thinking` 또는 `tool_result` 누락 시 즉시 오류로 중단하고, 임시 노드 생성 금지
+3. **단일 경로**
+   - `thinking` 또는 `tool_result` 등 필수 연결 정보가 누락되면 즉시 오류로 중단한다(대체 경로 없음).
 4. **Event Ownership**
    - `execution.*`은 ExecutionService만 emit, Tool/Agent는 해당 접두어 이벤트를 emit하지 않음
    - 모든 emit/on은 상수 기반, 하드코딩 문자열 금지
