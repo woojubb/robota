@@ -15,8 +15,8 @@ const provider = new OpenAIProvider({
   defaultModel: config.defaultModel,
 });
 ```
-- executor가 주어지면 RemoteExecutor 경로를 사용하고, 없으면 기존 direct 호출 fallback (단, 프로덕션에서는 항상 executor 제공)
-- EventService는 `clone({ ownerPrefix: 'tool' })`로 주입하여 도구 이벤트 접두어를 강제
+- executor가 주어지면 executor 경로를 사용하고, 없으면 provider의 direct client 호출을 사용한다(대체 경로라는 용어를 쓰지 않는다).
+- Tool 실행은 `ToolExecutionContext.eventService`(tool-call owner-bound, ownerPath-only)를 주입받아 사용한다(이벤트명은 상수 사용).
 
 ## 효과
 - Provider 테스트를 executor mock으로 대체 가능

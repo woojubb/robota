@@ -42,6 +42,7 @@ import { useToast } from '../../hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
+import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 import type {
     IUniversalWorkflowStructure
 } from '@robota-sdk/workflow';
@@ -67,6 +68,63 @@ interface IWorkflowVisualizationProps {
     toolItems?: IPlaygroundToolMeta[];
     addedToolsByAgent?: Record<string, string[]>;
 }
+
+type TWorkflowVisualizationNodeValue = TUniversalValue | Date | Error | TLoggerData;
+
+interface IWorkflowVisualizationNodeData {
+    label?: string;
+    status?: string;
+    sourceId?: string;
+    conversationId?: string;
+
+    agentNumber?: number;
+    copyNumber?: number;
+
+    aiProvider?: string;
+    tools?: string[];
+    toolCount?: number;
+    availableTools?: string[];
+    toolSlots?: string[];
+
+    memberCount?: number;
+
+    toolName?: string;
+    response?: string;
+
+    systemMessage?: string;
+    defaultModel?: {
+        systemMessage?: string;
+        [key: string]: TUniversalValue | undefined;
+    };
+    extensions?: {
+        robota?: {
+            originalEvent?: {
+                rootExecutionId?: string;
+                parameters?: {
+                    systemMessage?: string;
+                    defaultModel?: { systemMessage?: string;[key: string]: TUniversalValue | undefined };
+                    [key: string]: TUniversalValue | undefined;
+                };
+            };
+        };
+        [platformName: string]: Record<string, TUniversalValue | undefined> | undefined;
+    };
+
+    __addedTools?: IPlaygroundToolMeta[];
+    __onChat?: (agentId: string, nodeData: IWorkflowVisualizationNodeData) => void;
+    __onEdit?: () => void;
+    __onToolDrop?: (agentId: string, tool: IPlaygroundToolMeta) => void;
+
+    [key: string]:
+    | TWorkflowVisualizationNodeValue
+    | IPlaygroundToolMeta[]
+    | ((agentId: string, nodeData: IWorkflowVisualizationNodeData) => void)
+    | (() => void)
+    | ((agentId: string, tool: IPlaygroundToolMeta) => void)
+    | undefined;
+}
+
+type TWorkflowVisualizationNode = Node<IWorkflowVisualizationNodeData>;
 
 // Unified Chat System
 type TChatNodeType = 'agent' | 'response';
@@ -428,7 +486,7 @@ const edgeTypes: EdgeTypes = {
 /**
  * Custom Node Component for Agents
  */
-const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
+const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<TWorkflowVisualizationNode>) => {
     // Status-based icon and badge styling (border now handled by CSS)
     const getStatusStyles = (status?: string) => {
         switch (status) {
@@ -510,10 +568,9 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                             return;
                         }
                         const tool = parsed;
-                        const agentId = (data && (data.sourceId || data.conversationId)) as string | undefined;
-                        const onToolDropUnknown = (data as { __onToolDrop?: unknown }).__onToolDrop;
-                        if (agentId && typeof onToolDropUnknown === 'function') {
-                            (onToolDropUnknown as (agentId: string, tool: IPlaygroundToolMeta) => void)(agentId, tool);
+                        const agentId = data.sourceId ?? data.conversationId;
+                        if (agentId && typeof data.__onToolDrop === 'function') {
+                            data.__onToolDrop(agentId, tool);
                         }
                     } catch { /* ignore */ }
                 }}
@@ -541,7 +598,7 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                         <ChatButton
                             nodeData={data}
                             nodeType="agent"
-                            onChatOpen={(data as any).__onChat}
+                            onChatOpen={data.__onChat}
                         />
                         <Button
                             variant="ghost"
@@ -549,8 +606,8 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                             className="h-6 w-6 p-0"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (typeof (data as any).__onEdit === 'function') {
-                                    (data as any).__onEdit();
+                                if (typeof data.__onEdit === 'function') {
+                                    data.__onEdit();
                                 }
                             }}
                             title="Edit agent"
@@ -579,12 +636,11 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                             </Badge>
                         ) : null;
                     })()}
-                    {Array.isArray((data as { __addedTools?: unknown }).__addedTools) &&
-                        ((data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.length > 0) && (
-                            <Badge variant="secondary" className="text-xs" data-nodrop="true">
-                                +{(data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.length}
-                            </Badge>
-                        )}
+                    {Array.isArray(data.__addedTools) && data.__addedTools.length > 0 && (
+                        <Badge variant="secondary" className="text-xs" data-nodrop="true">
+                            +{data.__addedTools.length}
+                        </Badge>
+                    )}
                 </div>
 
                 {/* Tool preview (from data.tools) */}
@@ -602,21 +658,20 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                 )}
 
                 {/* Added tools overlay (from UI state) */}
-                {Array.isArray((data as { __addedTools?: unknown }).__addedTools) &&
-                    ((data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.length > 0) && (
-                        <div className="flex flex-wrap gap-1 mt-1" data-nodrop="true">
-                            {(data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.slice(0, 4).map((tool) => (
-                                <Badge key={tool.id} variant="outline" className="text-[10px]" data-nodrop="true">
-                                    {tool.name}
-                                </Badge>
-                            ))}
-                            {(data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.length > 4 && (
-                                <span className="text-[10px] text-gray-500" data-nodrop="true">
-                                    +{(data as { __addedTools: IPlaygroundToolMeta[] }).__addedTools.length - 4} more
-                                </span>
-                            )}
-                        </div>
-                    )}
+                {Array.isArray(data.__addedTools) && data.__addedTools.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1" data-nodrop="true">
+                        {data.__addedTools.slice(0, 4).map((tool) => (
+                            <Badge key={tool.id} variant="outline" className="text-[10px]" data-nodrop="true">
+                                {tool.name}
+                            </Badge>
+                        ))}
+                        {data.__addedTools.length > 4 && (
+                            <span className="text-[10px] text-gray-500" data-nodrop="true">
+                                +{data.__addedTools.length - 4} more
+                            </span>
+                        )}
+                    </div>
+                )}
 
                 {/* System Message Preview */}
                 {(() => {
@@ -658,7 +713,7 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
 /**
  * Custom Node Component for Teams
  */
-const TeamNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
+const TeamNode = ({ data, sourcePosition, targetPosition }: NodeProps<TWorkflowVisualizationNode>) => {
     // Status-based styling for teams (border now handled by CSS)
     const getStatusStyles = (status?: string) => {
         switch (status) {
@@ -1049,7 +1104,7 @@ const ToolResultNode = ({ data }: { data: any }) => {
 /**
  * Custom Node Component for Agent Response
  */
-const AgentResponseNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
+const AgentResponseNode = ({ data, sourcePosition, targetPosition }: NodeProps<TWorkflowVisualizationNode>) => {
     return (
         <BaseNodeTemplate
             nodeType="agentResponse"
@@ -1079,7 +1134,7 @@ const AgentResponseNode = ({ data, sourcePosition, targetPosition }: NodeProps<a
 /**
  * Custom Node Component for Tool Calls (Compatibility)
  */
-const LegacyToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
+const ToolCallCompatibilityNode = ({ data, sourcePosition, targetPosition }: NodeProps<TWorkflowVisualizationNode>) => {
     return (
         <BaseNodeTemplate
             nodeType="toolCall"
@@ -1157,7 +1212,7 @@ const nodeTypes = {
     tool_response: ToolResponseNode as any,
     tool_result: ToolResultNode as any,
     agentResponse: AgentResponseNode as any,
-    toolCall: LegacyToolCallNode as any,
+    toolCall: ToolCallCompatibilityNode as any,
     placeholder: PlaceholderNode as any
     // Removed previous user input type
 };
@@ -1685,7 +1740,7 @@ function WorkflowVisualizationContent({
                 }
 
                 // Unified chat handler for all node types
-                const handleUnifiedChat = (agentId: string, nodeData: any) => {
+                const handleUnifiedChat = (agentId: string, nodeData: IWorkflowVisualizationNodeData) => {
                     onAgentNodeClick?.(agentId, nodeData);
                 };
 
@@ -1694,7 +1749,7 @@ function WorkflowVisualizationContent({
                     Array.isArray(toolItems) ? toolItems.map(item => [item.id, item]) : []
                 );
 
-                const isNonEmptyString = (value: unknown): value is string =>
+                const isNonEmptyString = (value: TUniversalValue | undefined): value is string =>
                     typeof value === 'string' && value.length > 0;
 
                 const mapToolIdsToMeta = (toolIds: string[]): IPlaygroundToolMeta[] => {
@@ -1709,7 +1764,7 @@ function WorkflowVisualizationContent({
                 const augmentCallbacks = (list: Node[]): Node[] =>
                     list.map((n) => {
                         if (n.type === 'agent') {
-                            const agentIdCandidate = (n.data as { sourceId?: unknown; conversationId?: unknown } | undefined);
+                            const agentIdCandidate = n.data as IWorkflowVisualizationNodeData;
                             const agentId =
                                 (isNonEmptyString(agentIdCandidate?.sourceId) && agentIdCandidate?.sourceId) ||
                                 (isNonEmptyString(agentIdCandidate?.conversationId) && agentIdCandidate?.conversationId) ||

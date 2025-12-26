@@ -7,7 +7,7 @@
 - **Absolute ownerPath-only**: 이벤트 한 건만 보고도(명시 필드만으로) 관계를 결정할 수 있어야 한다.
   - `path: string[]`는 브릿지 계층이 `context.ownerPath[].id`를 펼친 파생 값이다.
 - **Atomic node+edge**: 한 이벤트 처리에서 필요한 노드/엣지를 동시에 생성한다(지연/보정 금지).
-- **No fallback**: 필요한 path/owner 정보가 없으면 즉시 실패로 설계를 고친다.
+- **단일 경로**: 필요한 path/owner 정보가 없으면 즉시 실패한다(대체 경로 없음).
 
 ## 2) 표준 세그먼트(예시)
 아래는 **예시**이며, `type` 문자열은 open-ended다(고정 enum 아님).

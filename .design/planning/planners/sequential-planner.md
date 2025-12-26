@@ -12,7 +12,7 @@
 
 ## Workflow 통합
 - 각 Sub-task 실행은 기존 Workflow 이벤트(`tool_call`, `agent_thinking`, `tool_result`) 규칙을 그대로 사용
-- Planner는 ExecutionOrchestrator 상태를 ActionTrackingEventService에 emit하여 시각화와 동기화
+- Planner는 ExecutionOrchestrator 상태를 owner-bound EventService(absolute ownerPath-only)에 emit하여 시각화와 동기화
 
 ---
 

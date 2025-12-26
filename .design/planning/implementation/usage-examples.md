@@ -16,7 +16,7 @@ const plan = await planner.createPlan(taskDefinition);
 const result = await planner.executePlan(plan);
 ```
 
-- Planner는 AgentFactory/ToolRegistry를 주입받아 ExecutionPlan을 생성하며, 실행 과정에서 ActionTrackingEventService를 사용해 이벤트를 emit합니다.
+- Planner는 AgentFactory/ToolRegistry를 주입받아 ExecutionPlan을 생성하며, 실행 과정에서 owner-bound EventService(absolute ownerPath-only)를 사용해 이벤트를 emit합니다.
 - 결과는 WorkflowVisualization와 동일한 구조로 기록되므로 예제 26/27 검증 스크립트를 재사용할 수 있습니다.
 
 ---
