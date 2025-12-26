@@ -71,5 +71,28 @@ export interface IToolMessage extends IBaseMessage {
  */
 export type TUniversalMessage = IUserMessage | IAssistantMessage | ISystemMessage | IToolMessage;
 
+/**
+ * Type guards for the canonical TUniversalMessage union.
+ *
+ * NOTE:
+ * - These guards are owned by the `interfaces` layer and must not depend on managers/services.
+ * - Call sites should use these guards instead of importing from manager layers.
+ */
+export function isUserMessage(message: TUniversalMessage): message is IUserMessage {
+    return message.role === 'user';
+}
+
+export function isAssistantMessage(message: TUniversalMessage): message is IAssistantMessage {
+    return message.role === 'assistant';
+}
+
+export function isSystemMessage(message: TUniversalMessage): message is ISystemMessage {
+    return message.role === 'system';
+}
+
+export function isToolMessage(message: TUniversalMessage): message is IToolMessage {
+    return message.role === 'tool';
+}
+
 
 

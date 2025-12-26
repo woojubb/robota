@@ -140,7 +140,7 @@ export {
     isAssistantMessage,
     isSystemMessage,
     isToolMessage
-} from './managers/conversation-history-manager';
+} from './interfaces/messages';
 
 /**
  * Provider request/response types (raw provider boundary).

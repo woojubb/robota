@@ -421,11 +421,11 @@
   - 원칙: `TypeSafe/Typesafe/TYPESAFE`는 도메인 용어가 아니며, 보통 “기존 타입/인터페이스 중복” 또는 “잘못된 추상화”의 신호다.
   - 처리:
     - 1) 기존 owner 타입(`interfaces/*`)로 수렴 가능하면 이름/정의 자체를 제거하고 SSOT import로 치환
-    - 2) 정말 별도 계약이 필요하면 “도메인 의미”가 드러나는 이름으로 변경(예: `IProviderContract`, `IToolContract` 등)  
-      (단, 기존 `IAIProvider` 등과 충돌하지 않도록 owner 축을 먼저 확인)
+    - 2) 정말 별도 계약이 필요하면 “도메인 의미”가 드러나는 이름으로 변경(예: `IProviderAdapter`, `IToolContract` 등)  
+      (단, 기존 owner contract(예: `IAIProvider`)와 중복 의미/중복 책임이 생기지 않도록 먼저 축을 확인)
 
 - [ ] **(C4) 스캔 게이트(대소문자 무관 포함)**
-  - [ ] `typesafe` 잔여(대소문자 무관): `rg -i "\\btypesafe\\b" packages`
+  - [x] `typesafe` 잔여(대소문자 무관): `rg -i "\\btypesafe\\b" packages` (0건 확인)
   - [ ] `T*Type` 잔여: `rg "\\bT[A-Za-z0-9_]+Type\\b" packages`
   - [ ] `I*Interface`/`T*Interface` 잔여: `rg "\\bI[A-Za-z0-9_]+Interface\\b|\\bT[A-Za-z0-9_]+Interface\\b" packages`
 
@@ -519,9 +519,10 @@
   - `TUniversalMessage`가 실질적인 canonical union으로 사용되고 있음(agents 내부 다수 참조).
   - 일부 파일에서는 “manager/service/provider 경계”에서 메시지 타입을 다시 alias/re-export 하는 경향이 있음.
 - **권장 결정(선택 필요)**
-  - [ ] **정식 계약명**을 어디에 둘지 확정:
-    - 옵션 1) `packages/agents/src/interfaces/messages.ts`가 message axis의 유일한 계약 정의(추천: owner가 명확)
-    - 옵션 2) `packages/agents/src/managers/conversation-history-manager.ts`가 canonical message union을 export(현 구조 유지)
+  - [x] **정식 계약명**을 어디에 둘지 확정:
+    - [x] 옵션 1) `packages/agents/src/interfaces/messages.ts`가 message axis의 유일한 계약 정의(추천: owner가 명확)
+    - [ ] 옵션 2) `packages/agents/src/managers/conversation-history-manager.ts`가 canonical message union을 export(현 구조 유지)
+  - [x] Message type guards(`isUserMessage/isAssistantMessage/isSystemMessage/isToolMessage`)도 message axis(interfaces) 소유로 고정하고, manager 경유 export를 제거한다(경로 오염 방지).
   - [ ] `TUniversalMessageRole`만 남기고, alias(`MessageRole` 등)는 public surface에서 제거(또는 내부 전용으로 격리)
 
 #### C) `export type { ... }` re-export 표면(공개 API) 정리
@@ -1229,6 +1230,12 @@ npx tsx utils/verify-workflow-connections.ts | cat
   - `interfaces/agent.ts`: `IAgentInterface` 제거, plugin 제네릭을 `IPluginOptions/IPluginStats`로 수렴
   - `abstract-tool.ts`: `LegacyAbstractTool` 제거
   - `core/robota.ts`: module 이벤트 하드코딩 제거(`EVENT_EMITTER_EVENTS` 상수 사용) + 구버전 인터페이스 의존 제거
+  - 검증: `pnpm --filter @robota-sdk/agents build` PASS
+- 2025-12-26: (Alias Anti-Pattern / SSOT 강화) Provider/Message 축의 “중복 contract”를 제거하고 경로 오염을 차단
+  - `abstract-ai-provider.ts`: `IProviderContract`(중복 contract) 제거 → `AbstractAIProvider implements IAIProvider`로 SSOT 수렴
+  - `interfaces/messages.ts`: message type guards를 interfaces 소유로 추가(SSOT)하고 manager 경유 export 제거
+  - `packages/agents/src/index.ts`: message type guards re-export를 `./interfaces/messages`로 고정
+  - 스캔: `typesafe`(case-insensitive) packages 기준 0건 확인
   - 검증: `pnpm --filter @robota-sdk/agents build` PASS
 
 **다음 단계**:
