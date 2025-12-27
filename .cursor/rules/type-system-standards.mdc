@@ -92,7 +92,7 @@ function process<T extends { id: string }>(data: T): ProcessResult<T>
 - Duplicate `Record<string, ...>` declarations
 - Blind type assertions without validation
 - Over-centralization of feature-specific types
-- Re-declaring contract shapes locally (e.g., `ToolCall`, `ToolCallData`, message unions) instead of importing the canonical type from the owner module
+- Re-declaring contract shapes locally instead of importing the canonical type from the owner module (see `.cursor/rules/ssot-type-ownership.mdc`)
 
 ## 🔒 Immutable Strict Policy (Do not relax)
 

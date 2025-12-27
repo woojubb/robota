@@ -3,46 +3,7 @@ alwaysApply: true
 description: "Problem Solving Process - Root Cause Analysis and Verification (English)"
 ---
 
-# Problem Solving Process - Root Cause Analysis and Verification
+# Problem Solving Process (English)
 
-## Required Sequence (Strict)
-
-Follow this sequence without skipping steps:
-
-### 1) Root Cause Discovery
-- Find the real root cause (not surface symptoms).
-- Use code reading, flow tracing, and log analysis.
-
-### 2) Root Cause Validation (3 independent checks)
-- Can this cause the observed issue?
-- Are there other plausible causes?
-- If fixed, will it fully resolve the issue?
-
-### 3) Fix Options Exploration
-- Explore multiple fixes and compare trade-offs.
-
-### 4) Fix Validation (3 independent checks)
-- Does it remove the root cause?
-- Does it introduce side effects or new rule violations?
-- Does it prevent similar issues from recurring?
-
-### 5) If Validation Fails
-- Return to step (3) and repeat until validation passes.
-
-### 6) Simulation
-- Predict post-change behavior across scenarios.
-- Define concrete success criteria (including rule compliance).
-
-### 7) Explicit Permission to Modify
-- Before applying code edits or executing commands, request explicit approval.
-- Provide a clear summary of intended changes and expected outcomes.
-
-### 8) Execute → Build → Verify
-- Apply the approved change.
-- Build relevant packages (pnpm workspace rules apply).
-- Verify behavior and report results.
-
-## Non-Negotiables
-- No skipping or compressing steps.
-- If a patch fails, do not blindly retry; diagnose the mismatch first.
-- Changes must remain compliant with No-Fallback, Path-Only, and event-constants rules.
+This file intentionally delegates to the canonical rule to avoid duplication:
+- See `.cursor/rules/problem-solving-process.mdc`

@@ -1,0 +1,116 @@
+---
+alwaysApply: true
+description: "SSOT Type Ownership & Contract Surface (Option A: package entrypoint barrels allowed)"
+---
+
+# SSOT Type Ownership & Contract Surface (Option A)
+
+This workspace follows **Owner-based SSOT**: every concept has exactly one owner module/package.
+Consumers should import types from the owner's public surface, not re-declare equivalent shapes.
+
+This rule adopts **Option A**:
+- **Allowed**: package-level barrel exports for public surfaces
+- **Forbidden**: drift (same-shape redeclarations), meaningless aliases, and ambiguous pass-through re-exports
+
+## Definitions
+
+- **Owner module**: the single source file (or tightly scoped folder) where a contract is defined.
+- **Public surface**: what other packages/apps should import from.
+- **Contract type**: exported `interface` / exported `type` used across package boundaries.
+- **Same-shape redeclaration**: a new interface/type that duplicates an existing contract shape under a new name.
+
+## Allowed (Option A)
+
+### 1) Public barrel exports (explicitly allowed)
+
+- **Package entrypoints**: `packages/<pkg>/src/index.ts`
+- **Interface aggregators**: `packages/<pkg>/src/interfaces/index.ts`
+
+These barrels are the **only recommended re-export points** for cross-package consumption.
+
+### 2) Feature-local types
+
+Feature-specific types may live with their feature implementation (feature-first).
+If a type becomes cross-cutting, promote it to an owner module and export it via the package public surface.
+
+## Forbidden (SSOT drift & ambiguity)
+
+### 1) Same-shape redeclarations
+
+If a contract already exists, do **not** create:
+- `ToolCallData`, `ToolCallPayload`, `ToolCallResult` (or similar)
+- Tool-call “variants” that duplicate `IToolCall` shape
+
+Prefer importing the owner type, or referencing an existing type via indexed access when appropriate.
+
+### 2) Meaningless aliases (`type A = B`)
+
+Avoid exporting aliases that do not add semantic meaning, e.g.:
+- `export type TToolResultData = TUniversalValue;`
+- `export type TToolParameterValue = TUniversalValue;`
+
+Instead:
+- use `TUniversalValue` directly, or
+- use a meaningful semantic name if it truly communicates domain meaning and is reused broadly.
+
+### 3) Pass-through contract re-exports from non-owner layers
+
+Avoid re-exporting interface-layer contracts from:
+- `services/*`
+- `managers/*`
+- `handlers/*`
+- `plugins/*` (unless the contract is owned by that plugin feature)
+
+These patterns make ownership ambiguous and reintroduce drift.
+
+## Canonical owner examples
+
+- **Tool call contract**: `packages/agents/src/interfaces/messages.ts` → `IToolCall`
+- **Value axis**: `packages/agents/src/interfaces/types.ts` → `TUniversalValue`, `TLoggerData`
+- **Tool contract axis**: `packages/agents/src/interfaces/tool.ts` → `TToolParameters`, `IToolExecutionContext`, `IToolResult`
+
+## Examples
+
+### ✅ Allowed (Option A: public surface import)
+
+```ts
+import type { IToolCall, TToolParameters } from '@robota-sdk/agents';
+```
+
+### ✅ Allowed (owner reuse via indexed access)
+
+```ts
+// Keep the shape in-sync with the canonical owner without redeclaring it.
+type TToolCalls = import('../abstracts/abstract-plugin').IPluginExecutionResult['toolCalls'];
+```
+
+### ❌ Forbidden (same-shape redeclaration)
+
+```ts
+// Do not create new “ToolCallData” shapes.
+export interface ToolCallData {
+  id: string;
+  name: string;
+  arguments: string;
+}
+```
+
+### ❌ Forbidden (meaningless alias)
+
+```ts
+export type TToolResultData = TUniversalValue;
+```
+
+## Enforcement & review checklist
+
+- [ ] New contracts are defined in an owner module.
+- [ ] Consumers import from the owner's public surface (Option A barrels).
+- [ ] No same-shape redeclarations.
+- [ ] No meaningless aliases.
+- [ ] No pass-through contract re-exports from services/managers/handlers.
+
+## Repository helpers
+
+- `scripts/ssot-scan-declarations.mjs` produces `.design/open-tasks/ssot-duplicate-declarations-v3.json`
+  and should remain the SSOT drift detector (duplicates should stay at 0 for non-test code).
+
