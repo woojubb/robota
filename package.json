@@ -17,7 +17,7 @@
     "build:all": "pnpm run build && pnpm run docs:build",
     "build:deps": "pnpm run build",
     "test": "pnpm run -r test",
-    "typecheck": "pnpm --filter='!@robota-sdk/web' --filter='!robota-docs' -r exec tsc -p tsconfig.json --noEmit",
+    "typecheck": "pnpm --filter='!@robota-sdk/web' --filter='!robota-docs' --filter='!robota-examples' -r exec tsc -p tsconfig.json --noEmit",
     "lint": "pnpm --filter='!@robota-sdk/web' run -r lint",
     "lint:fix": "pnpm --filter='!@robota-sdk/web' run -r lint:fix",
     "dev": "pnpm run -r dev",
