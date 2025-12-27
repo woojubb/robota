@@ -23,7 +23,6 @@ import type {
     TWorkflowUpdateCallback,
     IWorkflowSnapshot
 } from '../interfaces/workflow-builder.js';
-import { NodeEdgeManager } from './node-edge-manager.js';
 import { CoreWorkflowBuilder } from './workflow-builder.js';
 import { AgentEventHandler } from '../handlers/agent-event-handler.js';
 import { ToolEventHandler } from '../handlers/tool-event-handler.js';

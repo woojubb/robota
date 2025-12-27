@@ -26,9 +26,6 @@ NEXT_PUBLIC_PLAYGROUND_API_URL=https://playground-api.robota.dev
 
 # Analytics & Monitoring
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-ABCDEF123
-SENTRY_DSN=https://your_sentry_dsn@sentry.io/project_id
-SENTRY_ORG=your_org
-SENTRY_PROJECT=robota-web
 
 # Environment
 NODE_ENV=production
@@ -127,17 +124,12 @@ npx @next/bundle-analyzer .next
 
 ## Monitoring Setup
 
-### 1. Sentry Error Tracking
-1. Create Sentry project
-2. Add Sentry DSN to environment variables
-3. Install Sentry SDK (already configured)
-
-### 2. Google Analytics
+### 1. Google Analytics
 1. Create GA4 property
 2. Add measurement ID to environment variables
 3. Analytics automatically tracked
 
-### 3. Web Vitals
+### 2. Web Vitals
 - Core Web Vitals automatically tracked
 - Reports sent to Google Analytics
 

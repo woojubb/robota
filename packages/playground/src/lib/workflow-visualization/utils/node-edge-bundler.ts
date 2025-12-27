@@ -134,7 +134,7 @@ export function createTypeBundler(): TCustomBundlerFunction<Node, Edge> {
         const bundles: INodeBundle<Node, Edge>[] = [];
         let bundleIndex = 0;
 
-        Object.entries(typeGroups).forEach(([nodeType, typeNodes]) => {
+        Object.entries(typeGroups).forEach(([_nodeType, typeNodes]) => {
             for (let i = 0; i < typeNodes.length; i += config.bundleSize) {
                 const bundleNodes = typeNodes.slice(i, i + config.bundleSize);
                 const bundleNodeIds = new Set(bundleNodes.map(n => n.id));

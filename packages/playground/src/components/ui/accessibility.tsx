@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { cn } from '../../lib/utils';
 
 // Skip Navigation Links
@@ -71,7 +71,7 @@ export function useFocusManagement() {
         }
     };
 
-    const trapFocus = (containerRef: React.RefObject<HTMLElement>) => {
+    const trapFocus = (containerRef: RefObject<HTMLElement>) => {
         useEffect(() => {
             const container = containerRef.current;
             if (!container) return;
@@ -272,7 +272,6 @@ export function useReducedMotion() {
 export function useFocusVisible() {
     useEffect(() => {
         let hadKeyboardEvent = true;
-        let keyboardThrottleTimeout: NodeJS.Timeout;
 
         const handlePointerDown = () => {
             hadKeyboardEvent = false;

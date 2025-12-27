@@ -308,7 +308,7 @@ export class CodeExecutor {
         // Check for missing semicolons (warning)
         const missingSemicolonLines = lines
             .map((line, index) => ({ line: line.trim(), index }))
-            .filter(({ line, index }) =>
+            .filter(({ line }) =>
                 line.length > 0 &&
                 !line.endsWith(';') &&
                 !line.endsWith('{') &&
@@ -331,14 +331,7 @@ export class CodeExecutor {
         })
     }
 
-    private checkImports(code: string, lines: string[], errors: IErrorInfo[], warnings: IErrorInfo[]) {
-        const requiredImports = [
-            { package: '@robota-sdk/agents', export: 'Robota' },
-            { package: '@robota-sdk/openai', export: 'OpenAIProvider' },
-            { package: '@robota-sdk/anthropic', export: 'AnthropicProvider' },
-            { package: '@robota-sdk/google', export: 'GoogleProvider' }
-        ]
-
+    private checkImports(code: string, _lines: string[], errors: IErrorInfo[], warnings: IErrorInfo[]) {
         // Check if Robota is imported
         if (!code.includes('Robota') && !code.includes('from \'@robota-sdk/agents\'')) {
             errors.push({
@@ -432,7 +425,7 @@ export class CodeExecutor {
         })
     }
 
-    private checkAgentConfig(code: string, lines: string[], errors: IErrorInfo[], warnings: IErrorInfo[]) {
+    private checkAgentConfig(code: string, _lines: string[], errors: IErrorInfo[], warnings: IErrorInfo[]) {
         // Check if Robota is instantiated
         if (!code.includes('new Robota(')) {
             errors.push({
@@ -501,7 +494,7 @@ export class CodeExecutor {
         }
     }
 
-    private checkEnvironmentUsage(code: string, lines: string[], warnings: IErrorInfo[]) {
+    private checkEnvironmentUsage(code: string, _lines: string[], warnings: IErrorInfo[]) {
         // Check for environment variable usage
         const envVarPattern = /process\.env\.(\w+)/g
         const envVars = []
@@ -525,7 +518,7 @@ export class CodeExecutor {
         })
     }
 
-    private validateEnvironment(provider: string, agentConfig: IAgentContext): { errors: IErrorInfo[], warnings: IErrorInfo[] } {
+    private validateEnvironment(provider: string, _agentConfig: IAgentContext): { errors: IErrorInfo[], warnings: IErrorInfo[] } {
         const errors: IErrorInfo[] = []
         const warnings: IErrorInfo[] = []
 
@@ -555,41 +548,6 @@ export class CodeExecutor {
         return { errors, warnings }
     }
 
-    private validateCode(code: string): { valid: boolean; error?: string } {
-        // Basic syntax validation
-        if (!code.trim()) {
-            return { valid: false, error: 'Code cannot be empty' }
-        }
-
-        if (!code.includes('Robota')) {
-            return { valid: false, error: 'Code must include a Robota instance' }
-        }
-
-        if (!code.includes('Provider')) {
-            return { valid: false, error: 'Code must include a Provider (OpenAI, Anthropic, or Google)' }
-        }
-
-        // Check for basic TypeScript syntax errors
-        const commonErrors = [
-            { pattern: /\)\s*{/, message: 'Missing opening brace' },
-            { pattern: /}\s*\)/, message: 'Unexpected closing brace' },
-            {
-                pattern: /\w+\s*\(/, test: (code: string) => {
-                    const openParens = (code.match(/\(/g) || []).length
-                    const closeParens = (code.match(/\)/g) || []).length
-                    return openParens !== closeParens
-                }, message: 'Mismatched parentheses'
-            }
-        ]
-
-        for (const error of commonErrors) {
-            if (error.test ? error.test(code) : error.pattern.test(code)) {
-                return { valid: false, error: error.message }
-            }
-        }
-
-        return { valid: true }
-    }
 
     private parseAgentConfig(code: string): {
         name: string
@@ -651,56 +609,8 @@ export class CodeExecutor {
         return { name, model, tools, systemMessage, plugins }
     }
 
-    private generateExecutionOutput(config: any): string {
-        return `🤖 Robota Agent Execution Summary
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✅ Robota agent "${config.name}" initialized successfully
-🎯 Model: ${config.model}
-🔧 Tools: ${config.tools.length} available
-🔌 Plugins: ${config.plugins.length} active
-${config.systemMessage ? '💬 System message configured' : ''}
 
-${config.tools.length > 0 ? `Available Tools:
-${config.tools.map((tool: any, i: number) => `  ${i + 1}. ${tool.name} - ${tool.description}`).join('\n')}` : ''}
-
-${config.plugins.length > 0 ? `\nActive Plugins:
-${config.plugins.map((plugin: string, i: number) => `  ${i + 1}. ${plugin}`).join('\n')}` : ''}
-
-🚀 Agent is ready for conversation!
-Type a message in the chat to start interacting.`
-    }
-
-    private generateCompiledOutput(config: any): string {
-        return `// Compiled Robota Agent
-const compiledAgent = {
-  model: "${config.model}",
-  tools: [${config.tools.map((t: any) => `"${t.name}"`).join(', ')}],
-  systemMessage: ${config.systemMessage ? `"${config.systemMessage}"` : 'null'},
-  ready: true
-};
-
-export default compiledAgent;`
-    }
-
-    private generateSuccessOutput(config: IAgentContext, provider: string, transformedCode?: string): string {
-        const isRemoteExecution = transformedCode && transformedCode !== transformedCode;
-
-        return `🎉 Agent Initialization Successful!
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✅ Agent initialized with ${provider} provider
-🎯 Model: ${config.model}
-🔧 Tools: ${config.tools.length} available
-${config.systemMessage ? '💬 System message configured' : ''}
-${transformedCode && requiresTransformation(transformedCode) ? '🔐 Using secure RemoteExecutor' : ''}
-
-Available Tools:
-${config.tools.map((tool: any, i: number) => `  ${i + 1}. ${tool.name} - ${tool.description}`).join('\n')}
-
-🚀 Agent is ready for conversation!
-Type a message in the chat to start interacting.`
-    }
 
     private generateCompiledCode(code: string): string {
         return `// Compiled Robota Agent

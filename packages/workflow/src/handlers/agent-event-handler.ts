@@ -461,7 +461,14 @@ export class AgentEventHandler implements IEventHandler {
     }
 
     private findAgentNodeIdForExecutionStart(eventData: TEventData, pathInfo: IPathInfo): string | undefined {
-        const sourceId = typeof eventData?.sourceId !== 'undefined' ? String(eventData.sourceId) : undefined;
+        const sourceId = (() => {
+            const ownerPath = eventData.context.ownerPath;
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) return seg.id;
+            }
+            return undefined;
+        })();
         if (sourceId) {
             const fromMap = this.agentNodeIdMap.get(sourceId);
             if (fromMap) {

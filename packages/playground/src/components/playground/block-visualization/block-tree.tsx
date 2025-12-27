@@ -52,7 +52,7 @@ export const BlockTree: React.FC<IBlockTreeProps> = ({
     blockCollector,
     height = '400px',
     showDebug = false,
-    autoScroll = true,
+    autoScroll: _autoScroll = true,
     onBlockSelect,
     selectedBlockId,
     showControls = true

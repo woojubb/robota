@@ -17,6 +17,7 @@ import {
 import type { IWorkflowData, IWorkflowConfig } from '../interfaces/workflow-converter';
 import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
+import type { TUniversalValue } from '../interfaces/types';
 
 /**
  * Validator options (enabled flag + injected logger).
@@ -274,7 +275,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
      * @param data - Data to check
      * @returns True if validator can handle this data
      */
-    canValidate(data: WorkflowData): data is TWorkflowData {
+    canValidate(data: TWorkflowData): data is TWorkflowData {
         // Basic existence check - subclasses should provide more specific logic
         return data != null;
     }
@@ -574,18 +575,22 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
 
         // Handle known workflow properties
         if (data && typeof data === 'object') {
-            const dataObj = data as any;
-            if (Array.isArray(dataObj.nodes)) {
-                result.nodes = dataObj.nodes.length;
+            const dataObj = data as Record<string, TUniversalValue>;
+            const nodes = dataObj['nodes'];
+            if (Array.isArray(nodes)) {
+                result.nodes = nodes.length;
             }
-            if (Array.isArray(dataObj.edges)) {
-                result.edges = dataObj.edges.length;
+            const edges = dataObj['edges'];
+            if (Array.isArray(edges)) {
+                result.edges = edges.length;
             }
-            if (Array.isArray(dataObj.node)) {
-                result.node = dataObj.node.length;
+            const node = dataObj['node'];
+            if (Array.isArray(node)) {
+                result.node = node.length;
             }
-            if (Array.isArray(dataObj.connections)) {
-                result.connections = dataObj.connections.length;
+            const connections = dataObj['connections'];
+            if (Array.isArray(connections)) {
+                result.connections = connections.length;
             }
         }
 

@@ -121,7 +121,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
         const webhookResult = WebhookTransformer.resultToWebhook(result);
         const eventData = WebhookTransformer.createExecutionData(webhookContext, webhookResult);
 
-        await this.sendWebhook(EXEC_EVENTS.COMPLETE as any, eventData);
+        await this.sendWebhook(EXEC_EVENTS.COMPLETE, eventData);
     }
 
     /**
@@ -132,7 +132,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
         const webhookResult = WebhookTransformer.resultToWebhook(result);
         const eventData = WebhookTransformer.createConversationData(webhookContext, webhookResult);
 
-        await this.sendWebhook(CONV_EVENTS.COMPLETE as any, eventData);
+        await this.sendWebhook(CONV_EVENTS.COMPLETE, eventData);
     }
 
     /**
@@ -160,7 +160,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
                     duration: toolResults.duration
                 };
                 const eventData = WebhookTransformer.createToolData(webhookContext, toolData);
-                await this.sendWebhook(TOOL_EVENTS_LOCAL.EXECUTED as any, eventData);
+                await this.sendWebhook(TOOL_EVENTS_LOCAL.EXECUTED, eventData);
             }
         }
     }

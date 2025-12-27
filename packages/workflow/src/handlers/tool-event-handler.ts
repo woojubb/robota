@@ -5,7 +5,7 @@
  * Based on existing implementation in workflow-event-subscriber.ts
  */
 
-import type { SimpleLogger } from '@robota-sdk/agents';
+import type { IOwnerPathSegment, SimpleLogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import type {
     IEventHandler,
@@ -71,13 +71,13 @@ export class ToolEventHandler implements IEventHandler {
                     }
 
                     const edge: IWorkflowEdge = {
-                        id: EdgeUtils.generateId(pathInfo.parentId, toolCallNode.id, 'executes' as any),
+                        id: EdgeUtils.generateId(pathInfo.parentId, toolCallNode.id, 'executes'),
                         source: pathInfo.parentId,
                         target: toolCallNode.id,
-                        type: 'executes' as any,
+                        type: 'executes',
                         timestamp: Date.now()
-                    } as any;
-                    updates.push({ action: 'create', edge } as any);
+                    };
+                    updates.push({ action: 'create', edge });
                     break;
                 }
 
@@ -107,11 +107,10 @@ export class ToolEventHandler implements IEventHandler {
                     // - the tool call node (default)
                     // - OR the delegated agent response node (when explicitly provided by tool result)
                     const delegatedResponseNodeId = (() => {
-                        const res = (eventData as any)?.result;
+                        const res = eventData.result;
                         if (!res || typeof res !== 'object') return undefined;
-                        const data = (res as any).data;
-                        if (!data || typeof data !== 'object') return undefined;
-                        const id = (data as any).delegatedResponseNodeId;
+                        if (!('delegatedResponseNodeId' in res)) return undefined;
+                        const id = res.delegatedResponseNodeId;
                         return typeof id === 'string' && id.length > 0 ? id : undefined;
                     })();
                     const parentForResponseId: string = delegatedResponseNodeId ?? toolCallId;
@@ -122,13 +121,13 @@ export class ToolEventHandler implements IEventHandler {
 
                     // Atomic edge: parent (response or tool_call) → tool_response ('result')
                     const edgeFromParent: IWorkflowEdge = {
-                        id: EdgeUtils.generateId(parentForResponseId, toolResponseNode.id, 'result' as any),
+                        id: EdgeUtils.generateId(parentForResponseId, toolResponseNode.id, 'result'),
                         source: parentForResponseId,
                         target: toolResponseNode.id,
-                        type: 'result' as any,
+                        type: 'result',
                         timestamp: Date.now()
-                    } as any;
-                    updates.push({ action: 'create', edge: edgeFromParent } as any);
+                    };
+                    updates.push({ action: 'create', edge: edgeFromParent });
 
                     break;
                 }
@@ -168,10 +167,17 @@ export class ToolEventHandler implements IEventHandler {
     // =================================================================
 
     private createToolCallNode(data: TEventData, pathInfo: IPathInfo): IWorkflowNode {
-        const executionId = pathInfo.nodeId || data.executionId || data.sourceId;
-        const nodeId = String(executionId); // Use executionId as node id (parent will reference this directly)
+        const toolCallId = pathInfo.nodeId;
+        const nodeId = toolCallId; // Use toolCallId as node id (parent will reference this directly)
 
-        const toolName = String((data as any)?.toolName || data.parameters?.toolName || data.parameters?.name || 'unknown_tool');
+        const toolName =
+            typeof (data as { toolName?: unknown }).toolName === 'string'
+                ? String((data as { toolName?: string }).toolName)
+                : (typeof data.parameters?.toolName === 'string'
+                    ? data.parameters.toolName
+                    : (typeof data.parameters?.name === 'string'
+                        ? data.parameters.name
+                        : 'unknown_tool'));
         const toolType = this.getToolTypeFromName(toolName);
 
         return {
@@ -181,10 +187,9 @@ export class ToolEventHandler implements IEventHandler {
             status: 'running',
             timestamp: Date.now(),
             data: {
-                sourceId: String(data.sourceId),
+                sourceId: toolCallId,
                 sourceType: 'tool',
-                executionId: String(executionId),
-                parentExecutionId: pathInfo.parentId ?? undefined,
+                executionId: toolCallId,
                 toolName: toolName,
                 label: `${toolName} Call`,
                 description: `Tool call: ${toolName}`,
@@ -207,10 +212,14 @@ export class ToolEventHandler implements IEventHandler {
     }
 
     private createToolCallCompleteNode(data: TEventData): IWorkflowNode {
-        const executionId = data.executionId || data.sourceId;
-        const nodeId = `tool_call_complete_${executionId}`;
+        const toolCallId = this.extractPathInfo(data, 'tool.call_complete').nodeId;
+        const nodeId = `tool_call_complete_${toolCallId}`;
 
-        const toolName = String(data.parameters?.toolName || data.result?.toolName || 'unknown_tool');
+        const toolName = typeof data.parameters?.toolName === 'string'
+            ? data.parameters.toolName
+            : (data.result && typeof data.result === 'object' && 'toolName' in data.result && typeof data.result.toolName === 'string'
+                ? data.result.toolName
+                : 'unknown_tool');
 
         return {
             id: nodeId,
@@ -219,10 +228,9 @@ export class ToolEventHandler implements IEventHandler {
             status: 'completed',
             timestamp: Date.now(),
             data: {
-                sourceId: String(data.sourceId),
+                sourceId: toolCallId,
                 sourceType: 'tool',
-                executionId: String(executionId),
-                parentExecutionId: data.parentExecutionId,
+                executionId: toolCallId,
                 toolName: toolName,
                 label: `${toolName} Complete`,
                 description: `Tool call completed: ${toolName}`,
@@ -245,10 +253,10 @@ export class ToolEventHandler implements IEventHandler {
     }
 
     private createToolCallErrorNode(data: TEventData, pathInfo: IPathInfo): IWorkflowNode {
-        const executionId = pathInfo.nodeId || data.executionId || data.sourceId;
-        const nodeId = `tool_call_error_${executionId}`;
+        const toolCallId = pathInfo.nodeId;
+        const nodeId = `tool_call_error_${toolCallId}`;
 
-        const toolName = String(data.parameters?.toolName || 'unknown_tool');
+        const toolName = typeof data.parameters?.toolName === 'string' ? data.parameters.toolName : 'unknown_tool';
         const errorMessage = (data.error instanceof Error ? data.error.message : String(data.error || data.parameters?.error || 'Tool call failed'));
 
         return {
@@ -258,10 +266,9 @@ export class ToolEventHandler implements IEventHandler {
             status: 'error',
             timestamp: Date.now(),
             data: {
-                sourceId: String(data.sourceId),
+                sourceId: toolCallId,
                 sourceType: 'tool',
-                executionId: String(executionId),
-                parentExecutionId: pathInfo.parentId ?? undefined,
+                executionId: toolCallId,
                 toolName: toolName,
                 label: `${toolName} Error`,
                 description: `Tool call error: ${errorMessage}`,
@@ -292,9 +299,20 @@ export class ToolEventHandler implements IEventHandler {
         }
         const nodeId = `tool_response_call_${toolCallId}`;
 
-        const toolName = String(data.parameters?.toolName || data.result?.toolName || 'unknown_tool');
+        const toolName = typeof data.parameters?.toolName === 'string'
+            ? data.parameters.toolName
+            : (data.result && typeof data.result === 'object' && 'toolName' in data.result && typeof data.result.toolName === 'string'
+                ? data.result.toolName
+                : 'unknown_tool');
         const result = data.result || {};
-        const responseContent = String(result.content || result.output || result.response || 'Tool response');
+        const responseContent = (() => {
+            if (result && typeof result === 'object') {
+                if ('content' in result && typeof result.content === 'string') return result.content;
+                if ('output' in result && typeof result.output === 'string') return result.output;
+                if ('response' in result && typeof result.response === 'string') return result.response;
+            }
+            return 'Tool response';
+        })();
 
         // Path-only: no mappings stored
 
@@ -305,10 +323,9 @@ export class ToolEventHandler implements IEventHandler {
             status: 'completed',
             timestamp: Date.now(),
             data: {
-                sourceId: String(data.sourceId),
+                sourceId: toolCallId,
                 sourceType: 'tool',
-                executionId: String(toolCallId),
-                parentExecutionId: pathInfo.parentId ?? undefined,
+                executionId: toolCallId,
                 toolName: toolName,
                 label: `${toolName} Response`,
                 description: `Tool response from ${toolName}`,
@@ -364,11 +381,11 @@ export class ToolEventHandler implements IEventHandler {
     }
 
     private extractPathInfo(eventData: TEventData, eventLabel: string): IPathInfo {
-        const ownerPath = (eventData as any)?.context?.ownerPath as unknown;
+        const ownerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
         if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
             throw new Error(`[PATH-ONLY] Missing context.ownerPath for ${eventLabel}`);
         }
-        const segments = ownerPath.map((seg: any) => String(seg?.id ?? ''));
+        const segments = ownerPath.map((seg) => String(seg.id ?? ''));
         if (segments.some(s => !s)) {
             throw new Error(`[PATH-ONLY] Invalid context.ownerPath (missing segment id) for ${eventLabel}`);
         }

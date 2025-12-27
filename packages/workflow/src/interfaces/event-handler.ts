@@ -48,21 +48,7 @@ export type TEventData =
          * Path-only: ownerPath-only context.
          * All relationship derivation MUST be done through context.ownerPath, not inferred IDs.
          */
-        context?: IEventContext;
-
-        /**
-         * Compatibility fields (MIGRATION):
-         * These fields may still appear in some event payloads and are used by existing handlers.
-         * Prefer deriving relationships from context.ownerPath rather than relying on these.
-         */
-        sourceType?: string;
-        sourceId?: string;
-        executionId?: string;
-        parentExecutionId?: string;
-        rootExecutionId?: string;
-        executionLevel?: number;
-        path?: string[];
-        parentId?: string;
+        context: IEventContext;
 
         // Event payload (flexible, still domain-neutral)
         parameters?: TContextData;

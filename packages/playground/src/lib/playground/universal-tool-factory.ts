@@ -8,12 +8,7 @@ import {
 import type { TUniversalValue } from '@robota-sdk/agents';
 import { WebLogger } from '../web-logger';
 import type {
-    IBlockDataCollector,
-    IToolHooks
-} from './block-tracking';
-import {
-    createBlockTrackingHooks,
-    createDelegationTrackingHooks
+    IBlockDataCollector
 } from './block-tracking';
 
 /**

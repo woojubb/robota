@@ -79,15 +79,6 @@ const BASE_NODE_DIMENSIONS = {
 };
 
 /**
- * Handle offset corrections for better edge connections
- */
-const HANDLE_OFFSET = {
-    top: 4,    // Offset from top edge for input handles
-    bottom: 4, // Offset from bottom edge for output handles
-    side: 4    // Offset from side edges for side handles
-};
-
-/**
  * Calculate dynamic node height based on content - more flexible sizing
  */
 function calculateNodeHeight(node: Node): number {

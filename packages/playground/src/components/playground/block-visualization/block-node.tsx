@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Play, Pause, AlertCircle, CheckCircle, Clock, Wrench, User, Bot, Settings } from 'lucide-react';
+import { ChevronDown, ChevronRight, Play, AlertCircle, CheckCircle, Clock, Wrench, User, Bot, Settings } from 'lucide-react';
 import { Card, CardContent } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';

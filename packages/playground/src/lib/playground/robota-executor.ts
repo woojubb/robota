@@ -14,7 +14,7 @@
  */
 
 import { Robota } from '@robota-sdk/agents';
-import type { IAIProvider, IChatOptions, IEventService, IToolSchema, TLoggerData, TUniversalMessage, TUniversalValue } from '@robota-sdk/agents';
+import type { IAIProvider, IEventService, IToolSchema, TLoggerData, TUniversalMessage, TUniversalValue } from '@robota-sdk/agents';
 import type { IWorkflowExportStructure, WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import { DefaultExternalWorkflowStore, type IExternalWorkflowStore } from './external-workflow-store';
 import { OpenAIProvider } from '@robota-sdk/openai';

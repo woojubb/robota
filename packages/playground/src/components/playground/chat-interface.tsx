@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, type KeyboardEvent } from 'react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Card, CardContent } from '../ui/card'
@@ -83,7 +83,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: IChatInterfacePro
         }
     }
 
-    const simulateAgentResponse = async (userInput: string): Promise<string> => {
+    const simulateAgentResponse = async (_userInput: string): Promise<string> => {
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000))
 
@@ -98,7 +98,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: IChatInterfacePro
         return responses[Math.floor(Math.random() * responses.length)]
     }
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
             handleSend()

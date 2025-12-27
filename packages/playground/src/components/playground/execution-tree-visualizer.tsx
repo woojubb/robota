@@ -67,7 +67,6 @@ export const ExecutionTreeVisualizer: React.FC<IExecutionTreeVisualizerProps> = 
     blockCollector,
     showDebug = false,
     showProgress = true,
-    autoExpand = true,
     onBlockSelect,
     selectedBlockId,
     blockFilter

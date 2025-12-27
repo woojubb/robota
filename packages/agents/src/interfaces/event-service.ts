@@ -20,11 +20,6 @@ export interface IEventContext {
     ownerId: string;
     ownerPath: IOwnerPathSegment[];
 
-    /** Optional higher-level execution context */
-    rootExecutionId?: string;
-    parentExecutionId?: string;
-    executionId?: string;
-
     /** Optional structured metadata for debugging/observability */
     metadata?: TLoggerData;
 }
@@ -45,12 +40,6 @@ export type TEventExtensionValue = TUniversalValue | TLoggerData | Error | IEven
 export interface IBaseEventData {
     /** Timestamp when the event was emitted. This is required for deterministic ordering. */
     timestamp: Date;
-
-    /** Optional linkage duplication for convenience (primary linkage is always in IEventContext). */
-    executionId?: string;
-    parentExecutionId?: string;
-    rootExecutionId?: string;
-    ownerPath?: IOwnerPathSegment[];
 
     /** Optional structured metadata */
     metadata?: TLoggerData;
@@ -94,7 +83,5 @@ export interface IEventServiceOwnerBinding {
     ownerType: string;
     ownerId: string;
     ownerPath: IOwnerPathSegment[];
-    sourceType: string;
-    sourceId: string;
 }
 

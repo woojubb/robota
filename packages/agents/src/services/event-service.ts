@@ -1,14 +1,3 @@
-import type {
-    IAgentEventData,
-    IBaseEventData,
-    IExecutionEventData,
-    IEventContext,
-    IEventService,
-    IEventServiceOwnerBinding,
-    IOwnerPathSegment,
-    IToolEventData
-} from '../interfaces/event-service';
-
 export type {
     IAgentEventData,
     IBaseEventData,
@@ -19,6 +8,8 @@ export type {
     IOwnerPathSegment,
     IToolEventData
 } from '../interfaces/event-service';
+
+import type { IBaseEventData, IEventContext, IEventService, IEventServiceOwnerBinding } from '../interfaces/event-service';
 
 /**
  * Abstract base for event services.
@@ -75,7 +66,7 @@ export class StructuredEventService extends AbstractEventService {
 }
 
 /**
- * Bind an EventService to an explicit owner path and source identity.
+ * Bind an EventService to an explicit owner path.
  * This is the standard entry point for scoped emission (path-only architecture).
  */
 export function bindWithOwnerPath(base: IEventService, binding: IEventServiceOwnerBinding): IEventService {

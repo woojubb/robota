@@ -19,7 +19,7 @@ import { DefaultConsoleLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import type { IEventService, SimpleLogger } from '@robota-sdk/agents';
 // Import Universal types from their proper location (Feature Ownership principle)
-import type { IUniversalWorkflowStructure, TWorkflowNodeStatus } from '@robota-sdk/workflow';
+import type { IWorkflowExportStructure, TWorkflowNodeStatus } from '@robota-sdk/workflow';
 import { getPlaygroundToolCatalog, type IPlaygroundToolMeta } from '../tools/catalog';
 
 // ===== State Types =====
@@ -54,8 +54,8 @@ export interface IPlaygroundState {
     visualizationData: IVisualizationData | null;
 
     // Workflow state
-    currentWorkflow: IUniversalWorkflowStructure | null;  // Manual Store (deprecated)
-    sdkWorkflow: IUniversalWorkflowStructure | null;      // SDK Store (primary)
+    currentWorkflow: IWorkflowExportStructure | null;  // Manual Store (deprecated)
+    sdkWorkflow: IWorkflowExportStructure | null;      // SDK Store (primary)
     // Execution statistics - now managed by PlaygroundStatisticsPlugin
     executionStats: IPlaygroundExecutionStats;
 
@@ -94,8 +94,8 @@ export type TPlaygroundAction =
     | { type: 'SET_CONVERSATION_HISTORY'; payload: IConversationEvent[] }
     | { type: 'CLEAR_CONVERSATION_HISTORY' }
     | { type: 'SET_EXECUTION_RESULT'; payload: IPlaygroundExecutorResult }
-    | { type: 'SET_CURRENT_WORKFLOW'; payload: IUniversalWorkflowStructure | null }
-    | { type: 'UPDATE_WORKFLOW_FROM_SDK'; payload: IUniversalWorkflowStructure }  // STEP 7.2.2: newly added
+    | { type: 'SET_CURRENT_WORKFLOW'; payload: IWorkflowExportStructure | null }
+    | { type: 'UPDATE_WORKFLOW_FROM_SDK'; payload: IWorkflowExportStructure }  // STEP 7.2.2: newly added
     | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: TWorkflowNodeStatus } }
     | { type: 'SET_TOOL_ITEMS'; payload: IPlaygroundToolMeta[] }
     | { type: 'ADD_TOOL_TO_AGENT_OVERLAY'; payload: { agentId: string; toolId: string } };
@@ -361,7 +361,7 @@ interface IPlaygroundContextValue {
     clearHistory: () => void;
     setAuth: (userId: string, sessionId: string, authToken: string) => void;
     disposeExecutor: () => Promise<void>;
-    setWorkflow: (workflow: IUniversalWorkflowStructure | null) => void;
+    setWorkflow: (workflow: IWorkflowExportStructure | null) => void;
     updateNodeStatus: (nodeId: string, status: TWorkflowNodeStatus) => void;
     setExecuting: (isExecuting: boolean) => void;
     setToolItems: (tools: IPlaygroundToolMeta[]) => void;
@@ -397,7 +397,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
     const executorRef = useRef<PlaygroundExecutor | null>(null);
 
     // Use ref to track the latest workflow state during executeStreamPrompt
-    const currentWorkflowRef = useRef<IUniversalWorkflowStructure | null>(null);
+    const currentWorkflowRef = useRef<IWorkflowExportStructure | null>(null);
 
     // Sync currentWorkflow state with ref
     useEffect(() => {
@@ -437,107 +437,6 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
     useEffect(() => {
         // UI does not manually mutate workflow anymore. SDK is the single source of truth.
     }, [state.executor, state.mode, state.isInitialized]);
-
-    // ===== Event Listener Setup Function =====
-    const setupEventListeners = useCallback(() => {
-        if (!state.executor) {
-            return;
-        }
-
-        // Safe method call: alternative path for eventService access.
-        // Event listeners are disabled because PlaygroundExecutor does not expose eventService access.
-
-
-        // Tool call event listener (generic detection)
-        const handleToolCallStart = (event: any) => {
-            logger.debug('Tool call started', { hasWorkflow: !!currentWorkflowRef.current });
-
-            if (!currentWorkflowRef.current) {
-                logger.warn('No current workflow to update for tool call start');
-                return;
-            }
-
-            const currentWorkflow = currentWorkflowRef.current;
-            const timestamp = new Date();
-
-            // Create Tool Call Node
-            const toolCallNodeId = `tool-call-${event.toolName}-${Date.now()}`;
-            const toolCallNode = {
-                id: toolCallNodeId,
-                type: 'tool',
-                position: { x: 400, y: 150, level: 1, order: currentWorkflow.nodes.length },
-                data: {
-                    label: event.toolName,
-                    parameters: event.parameters,
-                    status: 'running' as const
-                },
-                visualState: { status: 'running' as const },
-                metadata: {
-                    createdAt: timestamp,
-                    updatedAt: timestamp
-                }
-            };
-
-            // Add Tool Call Node
-            const updatedWorkflow = {
-                ...currentWorkflow,
-                nodes: [...currentWorkflow.nodes, toolCallNode],
-                metadata: {
-                    ...currentWorkflow.metadata,
-                    updatedAt: timestamp
-                }
-            };
-
-            currentWorkflowRef.current = updatedWorkflow as any;
-            dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow as any });
-        };
-
-        // Agent Creation Event Listener
-        const handleAgentCreated = (event: any) => {
-            logger.debug('Agent created event detected', { hasWorkflow: !!currentWorkflowRef.current });
-
-            if (!currentWorkflowRef.current) {
-                logger.warn('No current workflow to update for agent created');
-                return;
-            }
-
-            const currentWorkflow = currentWorkflowRef.current;
-            const timestamp = new Date();
-
-            // Create Agent Node
-            const agentNodeId = `agent-${Date.now()}`;
-            const agentNode = {
-                id: agentNodeId,
-                type: 'agent',
-                position: { x: 600, y: 150, level: 2, order: currentWorkflow.nodes.length },
-                data: {
-                    label: event.agentName || 'New Agent',
-                    template: event.template,
-                    status: 'running' as const
-                },
-                visualState: { status: 'running' as const },
-                metadata: {
-                    createdAt: timestamp,
-                    updatedAt: timestamp
-                }
-            };
-
-            // Add Agent Node
-            const updatedWorkflow = {
-                ...currentWorkflow,
-                nodes: [...currentWorkflow.nodes, agentNode],
-                metadata: {
-                    ...currentWorkflow.metadata,
-                    updatedAt: timestamp
-                }
-            };
-
-            currentWorkflowRef.current = updatedWorkflow as any;
-            dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow as any });
-        };
-
-        // Event listeners are disabled because PlaygroundExecutor does not expose eventService access.
-    }, [state.executor]);
 
     // STEP 7.2.3: SDK workflow subscription useEffect
     useEffect(() => {
@@ -709,7 +608,6 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
 
             logger.debug('Executing prompt via real workflow system');
             const timestamp = Date.now();
-            const userInputNodeId = `user-input-${timestamp}`;
 
             const externalStore = state.executor?.getExternalWorkflowStore();
             if (externalStore) {
@@ -848,7 +746,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         // Dispose is handled by setting state.executor to null.
     }, []);
 
-    const setWorkflow = useCallback((workflow: IUniversalWorkflowStructure | null) => {
+    const setWorkflow = useCallback((workflow: IWorkflowExportStructure | null) => {
         if (workflow) {
             dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
         }
@@ -917,7 +815,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
 
     // ===== Context Value =====
 
-    const contextValue: PlaygroundContextValue = {
+    const contextValue: IPlaygroundContextValue = {
         state,
         createAgent,
         addAgentConfig: (config) => dispatch({ type: 'ADD_AGENT_CONFIG', payload: config }),

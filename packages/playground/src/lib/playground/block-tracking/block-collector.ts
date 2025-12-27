@@ -5,7 +5,6 @@ import type {
     TBlockCollectionEvent,
     TBlockCollectionListener,
     IBlockTreeNode,
-    IRealTimeBlockMessage,
     IRealTimeBlockMetadata
 } from './types';
 import { WebLogger } from '../../web-logger';

@@ -1,5 +1,5 @@
-import { Robota, type AgentConfig, bindWithOwnerPath, FunctionTool, RelayMcpTool, type IEventService } from '@robota-sdk/agents';
-import type { TToolParameters, IToolResult, ToolSchema, IOwnerPathSegment } from '@robota-sdk/agents';
+import { Robota, bindWithOwnerPath, FunctionTool, RelayMcpTool, type IEventService } from '@robota-sdk/agents';
+import type { IAgentConfig, IToolSchema, TToolParameters, IToolResult, IOwnerPathSegment } from '@robota-sdk/agents';
 import templates from './templates.json';
 
 type TemplateEntry = {
@@ -12,19 +12,9 @@ type TemplateEntry = {
     systemMessage: string;
 };
 
-type AssignTaskParams = {
-    templateId: string;
-    jobDescription: string;
-    provider?: string;
-    model?: string;
-    temperature?: number;
-    maxTokens?: number;
-    context?: string;
-};
-
 const TEMPLATE_LIST: TemplateEntry[] = templates as TemplateEntry[];
 
-const listTemplateCategoriesSchema: ToolSchema = {
+const listTemplateCategoriesSchema: IToolSchema = {
     name: 'listTemplateCategories',
     description: 'List categories of available assignTask templates',
     parameters: {
@@ -34,7 +24,7 @@ const listTemplateCategoriesSchema: ToolSchema = {
     }
 };
 
-const listTemplatesSchema: ToolSchema = {
+const listTemplatesSchema: IToolSchema = {
     name: 'listTemplates',
     description: 'List available assignTask templates (optional category filter)',
     parameters: {
@@ -49,7 +39,7 @@ const listTemplatesSchema: ToolSchema = {
     }
 };
 
-const getTemplateDetailSchema: ToolSchema = {
+const getTemplateDetailSchema: IToolSchema = {
     name: 'getTemplateDetail',
     description: 'Get details of a specific assignTask template',
     parameters: {
@@ -64,7 +54,7 @@ const getTemplateDetailSchema: ToolSchema = {
     }
 };
 
-const assignTaskSchema: ToolSchema = {
+const assignTaskSchema: IToolSchema = {
     name: 'assignTask',
     description: 'Assign a task to an agent based on a template',
     parameters: {
@@ -155,12 +145,10 @@ export function createAssignTaskRelayTool(eventService: IEventService): RelayMcp
             const agentEventService = bindWithOwnerPath(ctx.baseEventService, {
                 ownerType: 'agent',
                 ownerId: ctx.agentId,
-                ownerPath: agentOwnerPath,
-                sourceType: 'agent',
-                sourceId: ctx.agentId
+                ownerPath: agentOwnerPath
             });
 
-            const agentConfig: AgentConfig = {
+            const agentConfig: IAgentConfig = {
                 name: `assign-${ctx.agentId}`,
                 aiProviders: [], // caller must inject via execution context/manager; left empty here
                 defaultModel: {

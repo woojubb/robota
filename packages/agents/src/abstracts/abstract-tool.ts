@@ -22,8 +22,6 @@
  *   ownerType: 'tool',
  *   ownerId: toolCallId,
  *   ownerPath,
- *   sourceType: 'tool',
- *   sourceId: toolCallId
  * });
  * const tool = new MyTool({ eventService: toolEventService });
  * 
@@ -32,11 +30,11 @@
  * ```
  */
 
-import type { IToolInterface, IToolResult, IToolExecutionContext, IParameterValidationResult, TToolParameters } from '../interfaces/tool';
+import type { IToolResult, IToolExecutionContext, IParameterValidationResult, TToolParameters } from '../interfaces/tool';
 import type { IToolSchema } from '../interfaces/provider';
 import type { IAbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
-import type { IEventService } from '../services/event-service';
+import type { IBaseEventData, IEventService } from '../services/event-service';
 
 /**
  * Options for AbstractTool construction
@@ -167,7 +165,7 @@ export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToo
      * @param eventType - Type of event to emit
      * @param data - Event data
      */
-    protected emitEvent(eventType: string, data: any): void {
+    protected emitEvent(eventType: string, data: IBaseEventData): void {
         if (!this.eventService) {
             // Silent operation - no EventService available
             return;

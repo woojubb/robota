@@ -247,15 +247,18 @@ export class ExecutionProxy<T extends object = object> {
      * Emit event with standard ServiceEventData format
      */
     private emitEvent(eventType: string, additionalData: Partial<IBaseEventData>): void {
+        const baseMetadata = {
+            emitterSourceType: this.config.sourceType,
+            emitterSourceId: this.config.sourceId
+        };
+
         const eventData: IBaseEventData = {
-            sourceType: this.config.sourceType,
-            sourceId: this.config.sourceId,
             timestamp: new Date(),
+            ...(additionalData.metadata ? { metadata: { ...baseMetadata, ...additionalData.metadata } } : { metadata: baseMetadata }),
             ...additionalData
         };
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, generic-constraint
-        this.config.eventService.emit(eventType as any, eventData);
+        this.config.eventService.emit(eventType, eventData);
     }
 
     /**
