@@ -1,4 +1,4 @@
-import type { SimpleLogger, TUniversalValue } from '@robota-sdk/agents';
+import type { ILogger, TUniversalValue } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
 import type {
@@ -16,14 +16,14 @@ import type {
  * to the SDK plugin system; it just stores metrics for the Playground UI.
  */
 export class PlaygroundStatisticsPlugin {
-  private readonly logger: SimpleLogger;
+  private readonly logger: ILogger;
   private readonly options: Required<IPlaygroundStatisticsOptions>;
 
   private metrics: IPlaygroundMetrics;
   private executionHistory: IPlaygroundExecutionResult[] = [];
   private actionHistory: IPlaygroundAction[] = [];
 
-  constructor(options: IPlaygroundStatisticsOptions = {}, logger: SimpleLogger = SilentLogger) {
+  constructor(options: IPlaygroundStatisticsOptions = {}, logger: ILogger = SilentLogger) {
     this.logger = logger;
     this.options = {
       enabled: options.enabled ?? true,

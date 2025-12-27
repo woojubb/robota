@@ -1,6 +1,6 @@
 import type { IPayloadLogger, IPayloadLoggerOptions } from '../interfaces/payload-logger';
-import type { OpenAILogData } from '../types/api-types';
-import { SimpleLogger, DefaultConsoleLogger } from '@robota-sdk/agents';
+import type { IOpenAILogData } from '../types/api-types';
+import { SilentLogger, type ILogger } from '@robota-sdk/agents';
 import { sanitizeOpenAILogData } from './sanitize-openai-log-data';
 
 /**
@@ -28,12 +28,12 @@ import { sanitizeOpenAILogData } from './sanitize-openai-log-data';
 export class ConsolePayloadLogger implements IPayloadLogger {
     private readonly enabled: boolean;
     private readonly includeTimestamp: boolean;
-    private readonly logger: SimpleLogger;
+    private readonly logger: ILogger;
 
     constructor(options: IPayloadLoggerOptions = {}) {
         this.enabled = options.enabled ?? true;
         this.includeTimestamp = options.includeTimestamp ?? true;
-        this.logger = options.logger || DefaultConsoleLogger;
+        this.logger = options.logger || SilentLogger;
     }
 
     /**
@@ -48,7 +48,7 @@ export class ConsolePayloadLogger implements IPayloadLogger {
      * @param payload - The API request payload
      * @param type - Type of request ('chat' or 'stream')
      */
-    async logPayload(payload: OpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {
+    async logPayload(payload: IOpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {
         if (!this.enabled) {
             return;
         }

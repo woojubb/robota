@@ -17,7 +17,7 @@ import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executo
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
 import { ChatInputPanel } from '../../components/playground/chat-input-panel';
 import { Toaster } from '../../components/ui/sonner';
-import type { IEventService, SimpleLogger } from '@robota-sdk/agents';
+import type { IEventService, ILogger } from '@robota-sdk/agents';
 import type { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
@@ -498,7 +498,7 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
 }
 
 export function PlaygroundApp(props: {
-  createEventService: (workflowSubscriber: WorkflowEventSubscriber, logger: SimpleLogger) => IEventService;
+  createEventService: (workflowSubscriber: WorkflowEventSubscriber, logger: ILogger) => IEventService;
 }): React.ReactElement {
   return (
     <>

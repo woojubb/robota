@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { IPayloadLogger } from '../interfaces/payload-logger';
-import type { OpenAILogData } from '../types/api-types';
-import type { SimpleLogger } from '@robota-sdk/agents';
-import { DefaultConsoleLogger } from '@robota-sdk/agents';
+import type { IOpenAILogData } from '../types/api-types';
+import type { ILogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
 import { sanitizeOpenAILogData } from './sanitize-openai-log-data';
 
 /**
@@ -32,18 +32,18 @@ export class FilePayloadLogger implements IPayloadLogger {
     private readonly enabled: boolean;
     private readonly logDir: string;
     private readonly includeTimestamp: boolean;
-    private readonly logger: SimpleLogger;
+    private readonly logger: ILogger;
 
     constructor(options: {
         logDir: string;
         enabled?: boolean;
         includeTimestamp?: boolean;
-        logger?: SimpleLogger;
+        logger?: ILogger;
     }) {
         this.enabled = options.enabled ?? true;
         this.logDir = options.logDir;
         this.includeTimestamp = options.includeTimestamp ?? true;
-        this.logger = options.logger || DefaultConsoleLogger;
+        this.logger = options.logger || SilentLogger;
 
         if (this.enabled) {
             this.ensureLogDirectoryExists();
@@ -62,7 +62,7 @@ export class FilePayloadLogger implements IPayloadLogger {
      * @param payload - The API request payload
      * @param type - Type of request ('chat' or 'stream')
      */
-    async logPayload(payload: OpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {
+    async logPayload(payload: IOpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {
         if (!this.enabled) {
             return;
         }

@@ -10,7 +10,7 @@ import type {
     IWorkflowExportStructure,
     IWorkflowNode
 } from '@robota-sdk/workflow';
-import { SilentLogger, type SimpleLogger } from '@robota-sdk/agents';
+import { SilentLogger, type ILogger } from '@robota-sdk/agents';
 import type {
     IReactFlowData,
     IReactFlowEdge,
@@ -42,9 +42,9 @@ const SDK_TO_REACTFLOW_TYPE_MAP: Record<string, string> = {
  * - No metadata processing (pass through to data)
  */
 export class UniversalToReactFlowConverter {
-    private readonly logger: SimpleLogger;
+    private readonly logger: ILogger;
 
-    constructor(logger: SimpleLogger = SilentLogger) {
+    constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
     }
 

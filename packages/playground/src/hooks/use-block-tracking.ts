@@ -5,14 +5,14 @@ import {
     type TBlockCollectionEvent
 } from '../lib/playground/block-tracking';
 import { UniversalToolFactory } from '../lib/playground/universal-tool-factory';
-import type { IToolSchema, SimpleLogger, TToolExecutor, TUniversalValue } from '@robota-sdk/agents';
+import type { IToolSchema, ILogger, TToolExecutor, TUniversalValue } from '@robota-sdk/agents';
 
 /**
  * Options for useBlockTracking hook
  */
 export interface IUseBlockTrackingOptions {
     /** Logger for block tracking operations */
-    logger?: SimpleLogger;
+    logger?: ILogger;
 
     /** Whether to enable real-time updates */
     enableRealTime?: boolean;
@@ -154,19 +154,19 @@ export function useBlockTracking(options: IUseBlockTrackingOptions = {}): IUseBl
 export function useTrackedTools(blockTracking: IUseBlockTrackingResult) {
     const { toolFactory } = blockTracking;
 
-    const createFunctionTool = useCallback((schema: IToolSchema, executor: TToolExecutor, options: { parentBlockId?: string; level?: number; logger?: SimpleLogger } = {}) => {
+    const createFunctionTool = useCallback((schema: IToolSchema, executor: TToolExecutor, options: { parentBlockId?: string; level?: number; logger?: ILogger } = {}) => {
         return toolFactory.createFunctionTool(schema, executor, options);
     }, [toolFactory]);
 
-    const createOpenAPITool = useCallback((config: Record<string, TUniversalValue>, options: { parentBlockId?: string; level?: number; logger?: SimpleLogger } = {}) => {
+    const createOpenAPITool = useCallback((config: Record<string, TUniversalValue>, options: { parentBlockId?: string; level?: number; logger?: ILogger } = {}) => {
         return toolFactory.createOpenAPITool(config, options);
     }, [toolFactory]);
 
-    const createMCPTool = useCallback((config: Record<string, TUniversalValue>, schema: Record<string, TUniversalValue>, options: { parentBlockId?: string; level?: number; logger?: SimpleLogger } = {}) => {
+    const createMCPTool = useCallback((config: Record<string, TUniversalValue>, schema: Record<string, TUniversalValue>, options: { parentBlockId?: string; level?: number; logger?: ILogger } = {}) => {
         return toolFactory.createMCPTool(config, schema, options);
     }, [toolFactory]);
 
-    const createDelegationTool = useCallback((teamContainer: Record<string, TUniversalValue>, templates: Array<Record<string, TUniversalValue>>, options: { parentBlockId?: string; level?: number; logger?: SimpleLogger } = {}) => {
+    const createDelegationTool = useCallback((teamContainer: Record<string, TUniversalValue>, templates: Array<Record<string, TUniversalValue>>, options: { parentBlockId?: string; level?: number; logger?: ILogger } = {}) => {
         return toolFactory.createDelegationTool(teamContainer, templates, options);
     }, [toolFactory]);
 

@@ -3,7 +3,7 @@ import * as path from 'path';
 import { spawnSync } from 'child_process';
 import { createHash } from 'crypto';
 
-type Strategy = 'hash' | 'sequential';
+type TStrategy = 'hash' | 'sequential';
 
 function printUsage(): void {
     process.stderr.write(
@@ -20,14 +20,14 @@ function printUsage(): void {
     process.stderr.write('\n');
 }
 
-function parseArgs(): { exampleFile: string; scenarioId: string; strategy: Strategy } {
+function parseArgs(): { exampleFile: string; scenarioId: string; strategy: TStrategy } {
     const [, , exampleFile, scenarioId, ...rest] = process.argv;
     if (!exampleFile || !scenarioId) {
         printUsage();
         process.exit(1);
     }
 
-    let strategy: Strategy = 'sequential';
+    let strategy: TStrategy = 'sequential';
     for (const arg of rest) {
         if (arg.startsWith('--strategy=')) {
             const value = arg.slice('--strategy='.length);

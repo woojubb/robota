@@ -1,4 +1,4 @@
-import type { IBaseEventData, IEventContext, IEventService, SimpleLogger } from '@robota-sdk/agents';
+import type { IBaseEventData, IEventContext, IEventService, ILogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
 import type { TEventData } from '../interfaces/event-handler.js';
@@ -20,7 +20,7 @@ export class WorkflowSubscriberEventService implements IEventService {
 
     constructor(
         private readonly subscriber: WorkflowEventSubscriber,
-        private readonly logger: SimpleLogger = SilentLogger
+        private readonly logger: ILogger = SilentLogger
     ) {}
 
     emit(eventType: string, data: IBaseEventData, context?: IEventContext): void {

@@ -8,8 +8,8 @@
  * AbstractLogger) so that concrete modules can inject their own behaviors.
  */
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
-import type { SimpleLogger } from '../utils/simple-logger';
-import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
+import type { ILogger } from '../utils/logger';
+import { SilentLogger } from '../utils/logger';
 import { EVENT_EMITTER_EVENTS, type TEventDataValue } from '../plugins/event-emitter/types';
 
 /**
@@ -229,7 +229,7 @@ export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBase
     protected eventEmitter: EventEmitterPlugin | undefined;
 
     /** Logger instance */
-    protected logger: SimpleLogger;
+    protected logger: ILogger;
 
     /** Execution statistics */
     protected stats = {
@@ -239,7 +239,7 @@ export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBase
         totalExecutionTime: 0
     };
 
-    constructor(logger: SimpleLogger = DEFAULT_ABSTRACT_LOGGER) {
+    constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
     }
 

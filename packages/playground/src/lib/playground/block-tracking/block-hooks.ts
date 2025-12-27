@@ -1,11 +1,11 @@
-import type { IToolExecutionContext, SimpleLogger, TToolParameters, TToolResultData } from '@robota-sdk/agents';
+import type { IToolExecutionContext, ILogger, TToolParameters, TToolResultData } from '@robota-sdk/agents';
 import type {
     IBlockDataCollector,
     IBlockMessage,
     IToolExecutionTrackingData,
     IBlockMetadata
 } from './types';
-import { DefaultConsoleLogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
 
 export interface IToolHooks {
     beforeExecute(toolName: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<void>;
@@ -23,7 +23,7 @@ export interface IToolHooks {
  */
 export function createBlockTrackingHooks(
     blockCollector: IBlockDataCollector,
-    logger: SimpleLogger = DefaultConsoleLogger,
+    logger: ILogger = SilentLogger,
     options: {
         /** Parent block ID for nested tool calls */
         parentBlockId?: string;
@@ -96,7 +96,10 @@ export function createBlockTrackingHooks(
                 activeExecutions.set(executionId, trackingData);
 
             } catch (error) {
-                logger.error('❌ Block tracking beforeExecute error:', error);
+                logger.error(
+                    '❌ Block tracking beforeExecute error:',
+                    error instanceof Error ? error : new Error(String(error))
+                );
             }
         },
 
@@ -181,7 +184,10 @@ export function createBlockTrackingHooks(
                 activeExecutions.delete(executionId);
 
             } catch (error) {
-                logger.error('❌ Block tracking afterExecute error:', error);
+                logger.error(
+                    '❌ Block tracking afterExecute error:',
+                    error instanceof Error ? error : new Error(String(error))
+                );
             }
         },
 
@@ -267,7 +273,10 @@ export function createBlockTrackingHooks(
                 activeExecutions.delete(executionId);
 
             } catch (hookError) {
-                logger.error('❌ Block tracking onError handler error:', hookError);
+                logger.error(
+                    '❌ Block tracking onError handler error:',
+                    hookError instanceof Error ? hookError : new Error(String(hookError))
+                );
             }
         }
     };
@@ -279,7 +288,7 @@ export function createBlockTrackingHooks(
  */
 export function createDelegationTrackingHooks(
     blockCollector: IBlockDataCollector,
-    logger: SimpleLogger = DefaultConsoleLogger,
+    logger: ILogger = SilentLogger,
     options: {
         parentBlockId?: string;
         level?: number;

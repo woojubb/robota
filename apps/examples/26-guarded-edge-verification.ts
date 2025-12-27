@@ -11,7 +11,7 @@ import type {
     IToolSchema,
     TToolParameters
 } from '@robota-sdk/agents';
-import { DefaultConsoleLogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber, WorkflowSubscriberEventService } from '@robota-sdk/workflow';
 
 import { ScenarioStore } from './utils/scenario-store';
@@ -20,12 +20,12 @@ import { createScenarioProviderFromEnv } from './lib/scenario-provider';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-type NonEmptyString = string & { readonly __brand: 'NonEmptyString' };
-const asNonEmptyString = (value: string, label: string): NonEmptyString => {
+type TNonEmptyString = string & { readonly __brand: 'TNonEmptyString' };
+const asNonEmptyString = (value: string, label: string): TNonEmptyString => {
     if (!value) {
         throw new Error(`[EXAMPLES] Missing required ${label}`);
     }
-    return value as NonEmptyString;
+    return value as TNonEmptyString;
 };
 
 const findNearestOwnerId = (ownerPath: IOwnerPathSegment[] | undefined, ownerType: string): string | undefined => {
@@ -113,8 +113,8 @@ async function main(): Promise<void> {
     }
     const provider = scenario.provider;
 
-    const subscriber = new WorkflowEventSubscriber({ logger: DefaultConsoleLogger });
-    const bridge = new WorkflowSubscriberEventService(subscriber, DefaultConsoleLogger);
+    const subscriber = new WorkflowEventSubscriber({ logger: SilentLogger });
+    const bridge = new WorkflowSubscriberEventService(subscriber, SilentLogger);
     const baseEventService: IEventService = bridge;
 
     const rootAgentId = 'agent_0';

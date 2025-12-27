@@ -9,33 +9,33 @@ import {
 } from '../utils/scenario-store';
 import type { ScenarioStep } from '../utils/scenario-store';
 
-type StreamChunkInput = { index: number; delta: TUniversalMessage; timestamp: number };
+type TStreamChunkInput = { index: number; delta: TUniversalMessage; timestamp: number };
 
-type RecordingResponseInput = {
+type TRecordingResponseInput = {
     message?: TUniversalMessage;
     raw?: IRawProviderResponse;
     stream?: StreamChunkInput[];
 };
 
-interface ScenarioMetadata {
+interface IScenarioMetadata {
     scenarioId: string;
     store: ScenarioStore;
     tags?: string[];
 }
 
-export interface ScenarioRecorderOptions extends ScenarioMetadata {
+export interface IScenarioRecorderOptions extends IScenarioMetadata {
     metadata?: Record<string, unknown>;
 }
 
-export interface ScenarioMockProviderOptions extends ScenarioMetadata {
+export interface IScenarioMockProviderOptions extends IScenarioMetadata {
     strategy?: 'hash' | 'sequential';
     providerName?: string;
     providerVersion?: string;
 }
 
-type ScenarioMode = 'record' | 'play' | 'none';
+type TScenarioMode = 'record' | 'play' | 'none';
 
-export interface ScenarioProviderFromEnvOptions {
+export interface IScenarioProviderFromEnvOptions {
     /**
      * Required for record mode. Must be omitted in play mode to avoid accidental real calls.
      */
@@ -54,7 +54,7 @@ export interface ScenarioProviderFromEnvOptions {
     metadata?: Record<string, unknown>;
 }
 
-export type ScenarioProviderFromEnvResult =
+export type TScenarioProviderFromEnvResult =
     | { mode: 'none'; provider: IAIProvider }
     | { mode: 'record'; provider: IAIProvider }
     | { mode: 'play'; provider: IAIProvider; assertNoUnusedSteps: () => Promise<void> };
@@ -99,7 +99,7 @@ function resolveModeFromEnv(): { mode: ScenarioMode; recordId?: string; playId?:
  * - play mode must NOT receive a real delegate provider (refuse to prevent accidental real calls)
  * - play mode can enforce "unused steps" = failure
  */
-export function createScenarioProviderFromEnv(options: ScenarioProviderFromEnvOptions): ScenarioProviderFromEnvResult {
+export function createScenarioProviderFromEnv(options: IScenarioProviderFromEnvOptions): TScenarioProviderFromEnvResult {
     const mode = resolveModeFromEnv();
 
     if (mode.mode === 'record') {

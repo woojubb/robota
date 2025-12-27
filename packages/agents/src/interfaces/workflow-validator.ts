@@ -5,7 +5,7 @@
  * Follows Single Responsibility Principle by focusing only on validation logic.
  */
 
-import type { SimpleLogger } from '../utils/simple-logger';
+import type { ILogger } from '../utils/logger';
 import type { IWorkflowData, IWorkflowConfig, IWorkflowMetadata } from './workflow-converter';
 
 /**
@@ -79,7 +79,7 @@ export interface IValidationOptions {
     includeInfo?: boolean;
 
     /** Custom logger for validation process */
-    logger?: SimpleLogger;
+    logger?: ILogger;
 
     /** Additional validation context */
     context?: IWorkflowMetadata;

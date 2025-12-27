@@ -16,12 +16,12 @@ export type {
 
 export type {
     SessionState,
-    SessionConfig,
-    SessionInfo,
-    ChatInfo,
-    SessionManagerConfig,
-    CreateSessionOptions,
-    CreateChatOptions,
+    ISessionConfig,
+    ISessionInfo,
+    IChatInfo,
+    ISessionManagerConfig,
+    ICreateSessionOptions,
+    ICreateChatOptions,
     IAgent,
     IAgentConfig,
     TUniversalMessage,

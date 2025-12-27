@@ -27,7 +27,7 @@ export interface ILogEntry {
 }
 
 import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
-import type { SimpleLogger } from '../../utils/simple-logger';
+import type { ILogger } from '../../utils/logger';
 
 /**
  * Configuration options for logging plugin
@@ -50,7 +50,7 @@ export interface ILoggingPluginOptions extends IPluginOptions {
     /** Custom log formatter */
     formatter?: ILogFormatter;
     /** Logger instance for internal plugin logging */
-    logger?: SimpleLogger;
+    logger?: ILogger;
     /** Batch size for remote logging */
     batchSize?: number;
     /** Flush interval for batched logging in milliseconds */

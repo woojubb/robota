@@ -21,4 +21,4 @@ export {
 
 // Re-export for convenience
 export type { IToolHooks } from './block-hooks';
-export type { SimpleLogger } from '@robota-sdk/agents';
+export type { ILogger } from '@robota-sdk/agents';

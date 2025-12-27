@@ -8,7 +8,7 @@ import { z } from 'zod';
  * Schema validation input type
  * Used for validating external data inputs before parsing
  */
-export type SchemaValidationInput = Record<string, string | number | boolean | Date | string[] | number[] | boolean[] | null | undefined> | string | number | boolean | null | undefined;
+export type TSchemaValidationInput = Record<string, string | number | boolean | Date | string[] | number[] | boolean[] | null | undefined> | string | number | boolean | null | undefined;
 
 /**
  * Zod schema for validating agent template metadata
@@ -72,7 +72,7 @@ export const AgentTemplateSchema = z.object({
 /**
  * Type for validated agent template
  */
-export type ValidatedAgentTemplate = z.infer<typeof AgentTemplateSchema>;
+export type TValidatedAgentTemplate = z.infer<typeof AgentTemplateSchema>;
 
 /**
  * Validate an agent template
@@ -81,7 +81,7 @@ export type ValidatedAgentTemplate = z.infer<typeof AgentTemplateSchema>;
  * @returns Validated template
  * @throws {z.ZodError} When validation fails
  */
-export function validateAgentTemplate(template: SchemaValidationInput): ValidatedAgentTemplate {
+export function validateAgentTemplate(template: TSchemaValidationInput): TValidatedAgentTemplate {
     return AgentTemplateSchema.parse(template);
 }
 
@@ -91,9 +91,9 @@ export function validateAgentTemplate(template: SchemaValidationInput): Validate
  * @param template - Template to validate
  * @returns Validation result with success flag and data or error
  */
-export function safeValidateAgentTemplate(template: SchemaValidationInput): {
+export function safeValidateAgentTemplate(template: TSchemaValidationInput): {
     success: boolean;
-    data?: ValidatedAgentTemplate;
+    data?: TValidatedAgentTemplate;
     error?: z.ZodError;
 } {
     const result = AgentTemplateSchema.safeParse(template);

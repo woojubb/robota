@@ -7,7 +7,7 @@
  */
 
 import type { IErrorHandlingContextData, IErrorContextAdapter } from './types';
-import type { ErrorContextData } from '../../utils/errors';
+import type { TErrorContextData } from '../../utils/errors';
 
 /**
  * Convert IErrorHandlingContextData to ErrorContextData-compatible format for PluginError
@@ -37,7 +37,7 @@ export function toErrorContext(context: IErrorHandlingContextData): IErrorContex
  * 5. Type assertions (decreases type safety)
  * TODO: Consider standardized error context interface if patterns emerge
  */
-export function createPluginErrorContext(context: IErrorHandlingContextData, additionalData?: ErrorContextData): ErrorContextData {
+export function createPluginErrorContext(context: IErrorHandlingContextData, additionalData?: TErrorContextData): TErrorContextData {
     return {
         ...toErrorContext(context),
         ...(additionalData && { ...additionalData })

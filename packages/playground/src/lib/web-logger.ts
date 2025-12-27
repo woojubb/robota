@@ -1,13 +1,13 @@
-import type { SimpleLogger } from '@robota-sdk/agents';
-import { DefaultConsoleLogger } from '@robota-sdk/agents';
+import type { ILogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
 
 /**
  * Web logger entrypoint for apps/web.
  *
  * IMPORTANT:
- * - Do not use console.* directly in apps/web production code.
- * - Use this logger (or an injected SimpleLogger) instead.
+ * - Do not write to stdio by default (stdio can be used by upstream libraries).
+ * - Inject a logger explicitly if you want debug output.
  */
-export const WebLogger: SimpleLogger = DefaultConsoleLogger;
+export const WebLogger: ILogger = SilentLogger;
 
 

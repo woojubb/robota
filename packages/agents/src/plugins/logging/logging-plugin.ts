@@ -1,6 +1,6 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../../utils/logger';
-import { SimpleLogger, SilentLogger } from '../../utils/simple-logger';
+import { SilentLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { IEventEmitterEventData, TEventName } from '../event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
@@ -47,9 +47,9 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     version = '1.0.0';
 
     private storage: ILogStorage;
-    private pluginOptions: Required<Omit<ILoggingPluginOptions, 'formatter' | 'logger'>> & { formatter?: ILogFormatter; logger?: SimpleLogger };
+    private pluginOptions: Required<Omit<ILoggingPluginOptions, 'formatter' | 'logger'>> & { formatter?: ILogFormatter; logger?: ILogger };
     private logger: ILogger;
-    private simpleLogger: SimpleLogger;
+    private simpleLogger: ILogger;
     private logLevels: TLogLevel[] = ['debug', 'info', 'warn', 'error'];
 
     constructor(options: ILoggingPluginOptions) {
@@ -202,7 +202,10 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
             }
         } catch (error) {
             // Log the error but don't throw to avoid breaking module event processing
-            this.simpleLogger.error(`LoggingPlugin failed to handle module event ${eventName}:`, error);
+            this.simpleLogger.error(
+                `LoggingPlugin failed to handle module event ${eventName}:`,
+                error instanceof Error ? error : new Error(String(error))
+            );
         }
     }
 
@@ -226,7 +229,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
             await this.storage.write(entry);
         } catch (error) {
             // Don't throw errors from logging to avoid infinite loops
-            this.simpleLogger.error('Logging failed:', error);
+            this.simpleLogger.error('Logging failed:', error instanceof Error ? error : new Error(String(error)));
         }
     }
 

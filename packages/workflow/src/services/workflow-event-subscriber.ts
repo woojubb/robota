@@ -7,7 +7,7 @@
  * - Proper event ownership
  */
 
-import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+import { SilentLogger, type ILogger } from '@robota-sdk/agents';
 import type {
     IEventHandler,
     TEventData,
@@ -63,7 +63,7 @@ export interface IWorkflowExportStructure {
  */
 export interface IWorkflowEventSubscriberConfig {
     /** Logger instance for debugging */
-    logger?: SimpleLogger;
+    logger?: ILogger;
 
     /** Maximum number of nodes to retain in memory */
     maxNodes?: number;
@@ -82,7 +82,7 @@ export interface IWorkflowEventSubscriberConfig {
  * WorkflowEventSubscriber - Core workflow event processing system
  */
 export class WorkflowEventSubscriber {
-    private logger: SimpleLogger;
+    private logger: ILogger;
     private workflowBuilder: IExtendedWorkflowBuilder & IWorkflowQuery & IWorkflowPortable;
     private eventHandlers = new Map<string, IEventHandler>();
     private eventSubscribers = new Set<TEventSubscriptionCallback>();
@@ -134,7 +134,10 @@ export class WorkflowEventSubscriber {
 
         this.logger.debug('🏗️ [WORKFLOW-EVENT-SUBSCRIBER] Initialized', {
             handlersCount: this.eventHandlers.size,
-            config: this.config
+            maxNodes: this.config.maxNodes,
+            maxEdges: this.config.maxEdges,
+            enableAutoCleanup: this.config.enableAutoCleanup,
+            configuredHandlers: this.config.eventHandlers.length
         });
     }
 
@@ -151,7 +154,8 @@ export class WorkflowEventSubscriber {
             this.stats.lastEventTime = new Date();
 
             this.logger.debug(`📡 [EVENT-RECEIVED] ${eventType}`, {
-                eventData: typeof eventData === 'object' ? eventData : { value: eventData }
+                eventDataType: typeof eventData,
+                hasEventData: eventData !== undefined && eventData !== null
             });
 
             // Notify event subscribers
@@ -179,7 +183,10 @@ export class WorkflowEventSubscriber {
 
         } catch (error) {
             this.stats.errorsEncountered++;
-            this.logger.error(`❌ [EVENT-PROCESSING-ERROR] Failed to process ${eventType}:`, error);
+            this.logger.error(
+                `❌ [EVENT-PROCESSING-ERROR] Failed to process ${eventType}:`,
+                error instanceof Error ? error : new Error(String(error))
+            );
             // Strict policy: propagate errors to callers to stop further processing
             const strictMsg =
                 `[STRICT-POLICY] Event processing aborted for '${eventType}'. ` +
@@ -261,7 +268,7 @@ export class WorkflowEventSubscriber {
         this.eventHandlers.set(handler.name, handler);
         this.logger.debug(`🔧 [HANDLER-REGISTERED] ${handler.name}`, {
             priority: handler.priority,
-            patterns: handler.patterns
+            patterns: handler.patterns.map((p) => (p instanceof RegExp ? p.toString() : String(p)))
         });
     }
 
@@ -471,7 +478,10 @@ export class WorkflowEventSubscriber {
 
             return result;
         } catch (error) {
-            this.logger.error(`❌ [HANDLER-ERROR] ${handler.name} failed:`, error);
+            this.logger.error(
+                `❌ [HANDLER-ERROR] ${handler.name} failed:`,
+                error instanceof Error ? error : new Error(String(error))
+            );
             return {
                 success: false,
                 updates: [],
@@ -512,7 +522,10 @@ export class WorkflowEventSubscriber {
             try {
                 await this.applyWorkflowUpdate(update);
             } catch (error) {
-                this.logger.error(`❌ [UPDATE-APPLICATION-ERROR] Failed to apply update:`, error);
+                this.logger.error(
+                    '❌ [UPDATE-APPLICATION-ERROR] Failed to apply update:',
+                    error instanceof Error ? error : new Error(String(error))
+                );
                 errors.push(`Failed to apply update: ${error instanceof Error ? error.message : String(error)}`);
                 // Strict policy: stop processing remaining updates immediately
                 break;
@@ -539,7 +552,10 @@ export class WorkflowEventSubscriber {
                     this.notifyWorkflowSnapshotSubscribers(snapshot);
                     this.logger.debug(`📸 [WORKFLOW-SNAPSHOT] Emitted after ${eventType} with ${allUpdates.length} updates`);
                 } catch (error) {
-                    this.logger.error('❌ [WORKFLOW-SNAPSHOT-ERROR] Failed to export workflow snapshot:', error);
+                    this.logger.error(
+                        '❌ [WORKFLOW-SNAPSHOT-ERROR] Failed to export workflow snapshot:',
+                        error instanceof Error ? error : new Error(String(error))
+                    );
                 }
             }
         }
@@ -605,7 +621,10 @@ export class WorkflowEventSubscriber {
             try {
                 callback(eventType, eventData);
             } catch (error) {
-                this.logger.error('❌ [EVENT-SUBSCRIBER-ERROR] Error in event subscriber:', error);
+                this.logger.error(
+                    '❌ [EVENT-SUBSCRIBER-ERROR] Error in event subscriber:',
+                    error instanceof Error ? error : new Error(String(error))
+                );
             }
         });
     }
@@ -617,7 +636,10 @@ export class WorkflowEventSubscriber {
             try {
                 callback(update);
             } catch (error) {
-                this.logger.error('❌ [WORKFLOW-SUBSCRIBER-ERROR] Error in workflow update subscriber:', error);
+                this.logger.error(
+                    '❌ [WORKFLOW-SUBSCRIBER-ERROR] Error in workflow update subscriber:',
+                    error instanceof Error ? error : new Error(String(error))
+                );
             }
         });
     }
@@ -628,7 +650,10 @@ export class WorkflowEventSubscriber {
             try {
                 callback(snapshot);
             } catch (error) {
-                this.logger.error('❌ [WORKFLOW-SNAPSHOT-SUBSCRIBER-ERROR] Error in workflow snapshot subscriber:', error);
+                this.logger.error(
+                    '❌ [WORKFLOW-SNAPSHOT-SUBSCRIBER-ERROR] Error in workflow snapshot subscriber:',
+                    error instanceof Error ? error : new Error(String(error))
+                );
             }
         });
     }

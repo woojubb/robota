@@ -1,7 +1,7 @@
 // Agent Event Handler - Agent domain events processing
 // Migrated from workflow-event-subscriber.ts
 
-import { SimpleLogger, SilentLogger, AGENT_EVENTS, EXECUTION_EVENTS } from '@robota-sdk/agents';
+import { SilentLogger, AGENT_EVENTS, EXECUTION_EVENTS, type ILogger } from '@robota-sdk/agents';
 import type {
     IEventHandler,
     TEventData,
@@ -24,14 +24,14 @@ export class AgentEventHandler implements IEventHandler {
     readonly priority = HandlerPriority.HIGHEST;
     readonly patterns = ['agent.*', EXECUTION_EVENTS.START, EXECUTION_EVENTS.ASSISTANT_MESSAGE_START, EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE];
 
-    private logger: SimpleLogger;
+    private logger: ILogger;
     private agentNodeIdMap = new Map<string, string>(); // sourceId → agentNodeId
     private agentNumberMap = new Map<string, number>(); // sourceId → agentNumber
     // Path-only: do not keep auxiliary mappings for relationship derivation.
     private agentCopyCounters = new Map<number, number>(); // agentNumber → copy counter
     private conversationIdToAgentIdMap = new Map<string, string>(); // conversationId → sourceId
 
-    constructor(logger: SimpleLogger = SilentLogger) {
+    constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
     }
 
@@ -395,7 +395,10 @@ export class AgentEventHandler implements IEventHandler {
             };
 
         } catch (error) {
-            this.logger.error(`❌ [AGENT-HANDLER] Error handling ${eventType}:`, error);
+            this.logger.error(
+                `❌ [AGENT-HANDLER] Error handling ${eventType}:`,
+                error instanceof Error ? error : new Error(String(error))
+            );
             return {
                 success: false,
                 updates: [],

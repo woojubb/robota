@@ -1,7 +1,7 @@
 // Workflow Builder Implementation
 // Core workflow building and management service
 
-import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+import { SilentLogger, type ILogger } from '@robota-sdk/agents';
 import type {
     IExtendedWorkflowBuilder,
     IWorkflowQuery,
@@ -24,7 +24,7 @@ import { WORKFLOW_DEFAULTS, WORKFLOW_CONSTRAINTS } from '../constants/defaults.j
  * Provides comprehensive workflow building and management capabilities
  */
 export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQuery, IWorkflowPortable {
-    private logger: SimpleLogger;
+    private logger: ILogger;
     private nodeEdgeManager: NodeEdgeManager;
     private subscribers: Set<TWorkflowUpdateCallback> = new Set();
     private config: Required<IWorkflowBuilderConfig>;
@@ -37,13 +37,7 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
             validateConnections: config.validateConnections ?? WORKFLOW_DEFAULTS.VALIDATE_CONNECTIONS,
             maxNodes: config.maxNodes ?? WORKFLOW_CONSTRAINTS.MAX_NODES,
             maxEdges: config.maxEdges ?? WORKFLOW_CONSTRAINTS.MAX_EDGES,
-            logger: config.logger ?? {
-                debug: SilentLogger.debug.bind(SilentLogger),
-                info: SilentLogger.info.bind(SilentLogger),
-                warn: SilentLogger.warn.bind(SilentLogger),
-                error: SilentLogger.error.bind(SilentLogger),
-                log: SilentLogger.log.bind(SilentLogger),
-            },
+            logger: config.logger ?? SilentLogger,
         };
 
         this.logger = this.config.logger;
@@ -333,7 +327,10 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
                 successCount++;
             } catch (error) {
                 errorCount++;
-                this.logger.error(`❌ [BATCH-ERROR] Operation ${operation.type} failed:`, error);
+                this.logger.error(
+                    `❌ [BATCH-ERROR] Operation ${operation.type} failed:`,
+                    error instanceof Error ? error : new Error(String(error))
+                );
             }
         }
 
@@ -535,7 +532,7 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
             return true;
 
         } catch (error) {
-            this.logger.error('❌ [IMPORT] Failed to import JSON:', error);
+            this.logger.error('❌ [IMPORT] Failed to import JSON:', error instanceof Error ? error : new Error(String(error)));
             return false;
         }
     }
@@ -578,7 +575,7 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
             return true;
 
         } catch (error) {
-            this.logger.error('❌ [IMPORT] Failed to import universal data:', error);
+            this.logger.error('❌ [IMPORT] Failed to import universal data:', error instanceof Error ? error : new Error(String(error)));
             return false;
         }
     }
@@ -592,7 +589,10 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
             try {
                 callback(update);
             } catch (error) {
-                this.logger.error('❌ [SUBSCRIBER-ERROR] Error in update callback:', error);
+                this.logger.error(
+                    '❌ [SUBSCRIBER-ERROR] Error in update callback:',
+                    error instanceof Error ? error : new Error(String(error))
+                );
             }
         });
     }

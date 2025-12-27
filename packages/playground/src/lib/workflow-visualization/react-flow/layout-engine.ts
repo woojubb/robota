@@ -6,7 +6,7 @@
  */
 
 import type { IUniversalWorkflowNode } from '@robota-sdk/workflow';
-import { SilentLogger, type SimpleLogger } from '@robota-sdk/agents';
+import { SilentLogger, type ILogger } from '@robota-sdk/agents';
 
 /**
  * Simple layout options
@@ -25,9 +25,9 @@ export interface ISimpleLayoutOptions {
  * - Minimal configuration
  */
 export class SimpleReactFlowLayoutHelper {
-    private readonly logger: SimpleLogger;
+    private readonly logger: ILogger;
 
-    constructor(logger: SimpleLogger = SilentLogger) {
+    constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
     }
 

@@ -4,7 +4,7 @@ import type OpenAI from 'openai';
  * OpenAI API Request Parameters
  * Replaces any types with specific OpenAI API structure
  */
-export interface OpenAIChatRequestParams {
+export interface IOpenAIChatRequestParams {
     model: string;
     messages: OpenAI.Chat.ChatCompletionMessageParam[];
     temperature?: number | undefined;
@@ -17,14 +17,14 @@ export interface OpenAIChatRequestParams {
 /**
  * OpenAI API streaming request parameters
  */
-export interface OpenAIStreamRequestParams extends Omit<OpenAIChatRequestParams, 'stream'> {
+export interface IOpenAIStreamRequestParams extends Omit<IOpenAIChatRequestParams, 'stream'> {
     stream: true;
 }
 
 /**
  * OpenAI API tool call structure
  */
-export interface OpenAIToolCall {
+export interface IOpenAIToolCall {
     id: string;
     type: 'function';
     function: {
@@ -36,16 +36,16 @@ export interface OpenAIToolCall {
 /**
  * OpenAI API message structure with tool calls
  */
-export interface OpenAIAssistantMessage {
+export interface IOpenAIAssistantMessage {
     role: 'assistant';
     content: string | null;
-    tool_calls?: OpenAIToolCall[];
+    tool_calls?: IOpenAIToolCall[];
 }
 
 /**
  * OpenAI API tool message structure
  */
-export interface OpenAIToolMessage {
+export interface IOpenAIToolMessage {
     role: 'tool';
     content: string;
     tool_call_id: string;
@@ -54,7 +54,7 @@ export interface OpenAIToolMessage {
 /**
  * OpenAI streaming chunk delta structure
  */
-export interface OpenAIStreamDelta {
+export interface IOpenAIStreamDelta {
     role?: 'assistant';
     content?: string | null;
     tool_calls?: Array<{
@@ -71,14 +71,14 @@ export interface OpenAIStreamDelta {
 /**
  * OpenAI streaming chunk structure
  */
-export interface OpenAIStreamChunk {
+export interface IOpenAIStreamChunk {
     id: string;
     object: 'chat.completion.chunk';
     created: number;
     model: string;
     choices: Array<{
         index: number;
-        delta: OpenAIStreamDelta;
+        delta: IOpenAIStreamDelta;
         finish_reason?: string | null;
     }>;
     usage?: {
@@ -91,7 +91,7 @@ export interface OpenAIStreamChunk {
 /**
  * OpenAI error structure for type-safe error handling
  */
-export interface OpenAIError {
+export interface IOpenAIError {
     message: string;
     type?: string;
     param?: string | null;
@@ -101,7 +101,7 @@ export interface OpenAIError {
 /**
  * Payload logging data structure
  */
-export interface OpenAILogData {
+export interface IOpenAILogData {
     model: string;
     messagesCount: number;
     hasTools: boolean;

@@ -1,7 +1,7 @@
 // NodeEdgeManager - workflow node/edge creation with ordering and integrity
 // Migrated from agents package to workflow package
 
-import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+import { SilentLogger, type ILogger } from '@robota-sdk/agents';
 import type { IUniversalWorkflowEdge } from '../types/universal-types.js';
 import type { IWorkflowNode, TWorkflowConnectionKind } from '../interfaces/workflow-node.js';
 
@@ -15,12 +15,12 @@ import type { IWorkflowNode, TWorkflowConnectionKind } from '../interfaces/workf
  * 4. Fail fast on design errors (no fallback).
  */
 export class NodeEdgeManager {
-    private logger: SimpleLogger;
+    private logger: ILogger;
     private nodeMap = new Map<string, IWorkflowNode>();
     private edges: IUniversalWorkflowEdge[] = [];
     private timestampCounter = 0;
 
-    constructor(logger: SimpleLogger = SilentLogger) {
+    constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
     }
 

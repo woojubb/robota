@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 import { Robota, FunctionTool } from '@robota-sdk/agents';
 import type { IAIProvider, IEventService, IOwnerPathSegment, IToolExecutionContext, IToolSchema, TToolParameters } from '@robota-sdk/agents';
-import { DefaultConsoleLogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber, WorkflowSubscriberEventService } from '@robota-sdk/workflow';
 
 import { ScenarioStore } from './utils/scenario-store';
@@ -86,8 +86,8 @@ async function main(): Promise<void> {
     }
     const provider = scenario.provider;
 
-    const subscriber = new WorkflowEventSubscriber({ logger: DefaultConsoleLogger });
-    const bridge = new WorkflowSubscriberEventService(subscriber, DefaultConsoleLogger);
+    const subscriber = new WorkflowEventSubscriber({ logger: SilentLogger });
+    const bridge = new WorkflowSubscriberEventService(subscriber, SilentLogger);
     const baseEventService: IEventService = bridge;
 
     const rootAgentId = 'agent_0';

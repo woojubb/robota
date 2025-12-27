@@ -5,7 +5,7 @@
  * Based on existing implementation in workflow-event-subscriber.ts
  */
 
-import type { IOwnerPathSegment, SimpleLogger } from '@robota-sdk/agents';
+import type { IOwnerPathSegment, ILogger } from '@robota-sdk/agents';
 import { SilentLogger, EXECUTION_EVENTS } from '@robota-sdk/agents';
 import type {
     IEventHandler,
@@ -27,14 +27,14 @@ export class ExecutionEventHandler implements IEventHandler {
     readonly priority = HandlerPriority.HIGHEST; // Execution events are fundamental
     readonly patterns = ['execution.*'];
 
-    private logger: SimpleLogger;
+    private logger: ILogger;
 
     // Mapping state for execution tracking
     private executionNodeMap = new Map<string, string>(); // executionId → nodeId
     private userMessageNodeMap = new Map<string, string>(); // messageId → nodeId
     private assistantMessageMap = new Map<string, string>(); // executionId → assistantMessageNodeId
 
-    constructor(logger: SimpleLogger = SilentLogger) {
+    constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
     }
 
@@ -50,7 +50,7 @@ export class ExecutionEventHandler implements IEventHandler {
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
         try {
-            this.logger.debug(`🔧 [EXECUTION-HANDLER] Processing ${eventType}`, { eventData });
+            this.logger.debug(`🔧 [EXECUTION-HANDLER] Processing ${eventType}`);
 
             const updates: TWorkflowUpdate[] = [];
             let success = true;
@@ -219,7 +219,10 @@ export class ExecutionEventHandler implements IEventHandler {
             };
 
         } catch (error) {
-            this.logger.error(`❌ [EXECUTION-HANDLER] Error processing ${eventType}:`, error);
+            this.logger.error(
+                `❌ [EXECUTION-HANDLER] Error processing ${eventType}:`,
+                error instanceof Error ? error : new Error(String(error))
+            );
             return {
                 success: false,
                 updates: [],
