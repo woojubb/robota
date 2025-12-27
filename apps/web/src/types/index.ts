@@ -1,3 +1,6 @@
+import type { TUniversalValue } from '@robota-sdk/agents'
+import type { ReactNode } from 'react'
+
 // Theme types
 export type TTheme = 'light' | 'dark' | 'system'
 
@@ -23,11 +26,11 @@ export interface IBrandConfig {
 
 // Layout types
 export interface ILayoutProps {
-    children: React.ReactNode
+    children: ReactNode
 }
 
 // API types
-export interface IApiResponse<T = any> {
+export interface IApiResponse<T = TUniversalValue> {
     success: boolean
     data?: T
     error?: string

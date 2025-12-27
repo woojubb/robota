@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       
-      - name: Build core packages
+      - name: Build packages
         run: pnpm run build:deps
       
       - name: Type check
