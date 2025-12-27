@@ -41,6 +41,9 @@ jobs:
       
       - name: Install dependencies
         run: pnpm install
+
+      - name: Build SDK packages (for type declarations)
+        run: pnpm --filter @robota-sdk/playground... build
       
       - name: Run linting
         run: pnpm --filter @robota-sdk/web run lint
@@ -84,6 +87,9 @@ jobs:
       
       - name: Install dependencies
         run: pnpm install
+
+      - name: Build SDK packages (for type declarations)
+        run: pnpm --filter @robota-sdk/playground... build
       
       - name: Build application
         run: pnpm --filter @robota-sdk/web run build

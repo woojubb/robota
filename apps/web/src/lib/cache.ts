@@ -1,20 +1,22 @@
 /**
  * Simple in-memory cache with TTL support
  */
+import type { TUniversalValue } from '@robota-sdk/agents';
+
 interface IWebCacheEntry<T> {
     data: T;
     timestamp: number;
     ttl: number;
 }
 
-export class SimpleCache {
-    private cache = new Map<string, IWebCacheEntry<any>>();
+export class SimpleCache<TValue extends TUniversalValue = TUniversalValue> {
+    private cache = new Map<string, IWebCacheEntry<TValue>>();
     private defaultTTL = 5 * 60 * 1000; // 5 minutes
 
     /**
      * Get value from cache
      */
-    get<T>(key: string): T | null {
+    get(key: string): TValue | null {
         const entry = this.cache.get(key);
         if (!entry) return null;
 
@@ -30,7 +32,7 @@ export class SimpleCache {
     /**
      * Set value in cache with optional TTL
      */
-    set<T>(key: string, data: T, ttl?: number): void {
+    set(key: string, data: TValue, ttl?: number): void {
         this.cache.set(key, {
             data,
             timestamp: Date.now(),
@@ -74,12 +76,12 @@ export class SimpleCache {
     /**
      * Get or set pattern - if value exists return it, otherwise compute and cache
      */
-    async getOrSet<T>(
+    async getOrSet(
         key: string,
-        factory: () => Promise<T> | T,
+        factory: () => Promise<TValue> | TValue,
         ttl?: number
-    ): Promise<T> {
-        const cached = this.get<T>(key);
+    ): Promise<TValue> {
+        const cached = this.get(key);
         if (cached !== null) {
             return cached;
         }
