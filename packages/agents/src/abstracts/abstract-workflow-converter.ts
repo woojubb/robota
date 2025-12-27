@@ -17,6 +17,7 @@ import type {
 } from '../interfaces/workflow-converter';
 import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
+import type { TUniversalValue } from '../interfaces/types';
 
 /**
  * Converter options (enabled flag + injected logger).
@@ -315,8 +316,8 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
             metadata: {
                 convertedAt: now,
                 processingTime,
-                inputStats: this.getDataStats(input as Record<string, unknown>),
-                outputStats: this.getDataStats(data as Record<string, unknown>),
+                inputStats: this.getDataStats(input as Record<string, TUniversalValue>),
+                outputStats: this.getDataStats(data as Record<string, TUniversalValue>),
                 converter: this.name,
                 version: this.version,
                 // Step 1: ❌ Can't assign IWorkflowConversionOptions to metadata value type directly
@@ -356,7 +357,7 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
             metadata: {
                 convertedAt: now,
                 processingTime,
-                inputStats: this.getDataStats(input as Record<string, unknown>),
+                inputStats: this.getDataStats(input as Record<string, TUniversalValue>),
                 outputStats: { nodeCount: 0, edgeCount: 0 },
                 converter: this.name,
                 version: this.version
@@ -368,7 +369,7 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
      * Extract basic statistics from workflow data
      * Can be overridden by subclasses for specific data formats
      */
-    protected getDataStats(data: Record<string, unknown>): { nodeCount: number; edgeCount: number } {
+    protected getDataStats(data: Record<string, TUniversalValue>): { nodeCount: number; edgeCount: number } {
         if (!data) {
             return { nodeCount: 0, edgeCount: 0 };
         }

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Trash2, Download, Upload, FolderOpen, Calendar, Code, Zap } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Plus, Trash2, Download, Upload, FolderOpen, Calendar, Code } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';

@@ -80,7 +80,7 @@ export function AgentContainerBlock({
     isLeader = false,
     teamRole = 'assistant',
     priority = 0,
-    onAgentChange,
+    onAgentChange: _onAgentChange,
     onRemove,
     onEdit,
     onSetLeader,

@@ -1,7 +1,6 @@
 import { createLogger, type ILogger } from '../utils/logger';
 import type {
     IAssistantMessage,
-    IBaseMessage,
     TUniversalMessageMetadata,
     TUniversalMessageRole,
     ISystemMessage,

@@ -17,15 +17,13 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardHeader } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Switch } from '../ui/switch';
-import { Separator } from '../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import {
     Bot,
@@ -36,7 +34,6 @@ import {
     Copy,
     Trash2,
     Play,
-    Square,
     CheckCircle,
     AlertCircle,
     Info
@@ -66,7 +63,7 @@ export function AgentConfigurationBlock({
     isExecuting = false,
     onConfigChange,
     onExecute,
-    onStop,
+    onStop: _onStop,
     onOpenChat,
     onDuplicate,
     onDelete,

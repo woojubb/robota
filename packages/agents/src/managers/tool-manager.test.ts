@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Tools } from './tool-manager';
 import type { IToolSchema } from '../interfaces/provider';
-import type { ToolParameters } from '../interfaces/tool';
+import type { TToolParameters } from '../interfaces/tool';
 import { ToolExecutionError } from '../utils/errors';
 
 describe('Tools (ToolManager)', () => {
@@ -22,7 +22,7 @@ describe('Tools (ToolManager)', () => {
         }
     };
 
-    const mockExecutor = async (params: ToolParameters) => {
+    const mockExecutor = async (params: TToolParameters) => {
         return `Processed: ${params.input}`;
     };
 
@@ -90,7 +90,7 @@ describe('Tools (ToolManager)', () => {
         });
 
         it('should handle multiple tools', () => {
-            const schema2: ToolSchema = {
+            const schema2: IToolSchema = {
                 name: 'testTool2',
                 description: 'Another test tool',
                 parameters: {
@@ -132,7 +132,7 @@ describe('Tools (ToolManager)', () => {
                 throw new Error('Execution failed');
             };
 
-            const failingSchema: ToolSchema = {
+            const failingSchema: IToolSchema = {
                 name: 'failingTool',
                 description: 'A failing tool',
                 parameters: {
@@ -156,7 +156,7 @@ describe('Tools (ToolManager)', () => {
                 { name: 'tool1', description: 'Tool 1', parameters: { type: 'object', properties: {}, required: [] } },
                 { name: 'tool2', description: 'Tool 2', parameters: { type: 'object', properties: {}, required: [] } },
                 { name: 'tool3', description: 'Tool 3', parameters: { type: 'object', properties: {}, required: [] } }
-            ] as ToolSchema[];
+            ] as IToolSchema[];
 
             schemas.forEach(schema => {
                 toolManager.addTool(schema, async () => 'result');

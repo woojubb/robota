@@ -12,7 +12,6 @@
  */
 
 import type { TToolParameterValue, TToolParameters } from '../../../interfaces/tool';
-import type { IToolSchema } from '../../../interfaces/provider';
 import type { TToolResultData } from '../../../interfaces/types';
 
 /**

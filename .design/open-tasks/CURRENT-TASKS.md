@@ -5,23 +5,9 @@
 
 ---
 
-## 🚨 Priority 0: EventService / ownerPath-only 규칙 마감
-
-- [ ] `buildOwnerContext(ownerType, ownerId, extraSegments?)` 헬퍼 도입 필요성 재평가(필요 시에만 도입)
-- [ ] `BaseEventData` + 파생 타입(Execution/Tool/Agent)을 정의하여 필드를 역할별로 분리(스펙/타입 정리)
-- [ ] ExecutionService payload 최소화 잔여 정리(`execution.start`, `execution.user_message`, `execution.assistant_message_*`)
-- [ ] Tool/Agent emit 단계: payload는 도메인 데이터만 유지하고 계층 정보는 context(ownerPath)로만 전달되도록 정리
-- [ ] Context ownerPath-only 규칙 문서/타입 게이트 확정(파생 가능한 계층 필드는 payload에 두지 않기)
-- [ ] EventService owner-bound 인스턴스 사용 범위 마감
-  - [ ] `ToolExecutionService`/team tool collection 등 남은 주입 지점에서 “owner-bound + 자동 source/timestamp” 규칙으로 수렴
-  - [ ] `sourceType/sourceId` 수동 전달이 남아있다면 제거(단, 이벤트 처리에 필요한 도메인 데이터는 payload로 유지)
-- [ ] 정규화 영향 평가: ownerPath-only/payload 최소화 이후에도 노드/엣지 생성 결과가 동일 규칙으로 유지되는지 검증 기준 확정
-
----
-
 ## 🧪 Priority 0.5: Web 호스트 빌드 게이트
 
-- [ ] 사용자 환경에서 `pnpm --filter robota-web build` 실행 및 통과 확인
+- [x] 사용자 환경에서 `pnpm --filter @robota-sdk/web build` 실행 및 통과 확인
 
 ---
 

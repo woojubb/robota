@@ -3,7 +3,6 @@ import type { IToolSchema, IParameterSchema } from '../../interfaces/provider';
 import type { OpenAPIV3 } from 'openapi-types';
 import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
-import { logger as _logger } from '../../utils/logger';
 
 /**
  * OpenAPI operation method types
@@ -103,7 +102,7 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
      * Execute the actual API call
      * @private
      */
-    private async executeAPICall(parameters: ToolParameters, _context?: ToolExecutionContext) {
+    private async executeAPICall(parameters: TToolParameters, _context?: IToolExecutionContext) {
         // Find the operation in the OpenAPI spec
         const operation = this.findOperation();
         if (!operation) {
@@ -130,11 +129,11 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
     /**
      * Find the operation in the OpenAPI specification
      */
-    private findOperation(): { method: HTTPMethod; path: string; operation: OpenAPIV3.OperationObject } | null {
+    private findOperation(): { method: THTTPMethod; path: string; operation: OpenAPIV3.OperationObject } | null {
         for (const [path, pathItem] of Object.entries(this.apiSpec.paths || {})) {
             if (!pathItem) continue;
 
-            for (const method of ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'] as HTTPMethod[]) {
+            for (const method of ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'] as THTTPMethod[]) {
                 const operation = pathItem[method];
                 if (operation?.operationId === this.operationId) {
                     return { method, path, operation };
@@ -148,9 +147,9 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
      * Build HTTP request configuration from OpenAPI operation and parameters
      */
     private buildRequestConfig(
-        opInfo: { method: HTTPMethod; path: string; operation: OpenAPIV3.OperationObject },
-        parameters: ToolParameters
-    ): { method: HTTPMethod; url: string; headers: Record<string, string>; body?: string } {
+        opInfo: { method: THTTPMethod; path: string; operation: OpenAPIV3.OperationObject },
+        parameters: TToolParameters
+    ): { method: THTTPMethod; url: string; headers: Record<string, string>; body?: string } {
         const { method, path, operation } = opInfo;
 
         let url = this.baseURL + path;
@@ -190,7 +189,7 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
             if (jsonContent) {
                 headers['Content-Type'] = 'application/json';
                 // Extract body parameters (those not in path/query/header)
-                const bodyParams: Record<string, ToolParameterValue> = {};
+                const bodyParams: Record<string, TToolParameterValue> = {};
                 for (const [key, value] of Object.entries(parameters)) {
                     const isParamUsed = params.some(p => p.name === key);
                     if (!isParamUsed) {
@@ -215,7 +214,7 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
             }
         }
 
-        const result: { method: HTTPMethod; url: string; headers: Record<string, string>; body?: string } = {
+        const result: { method: THTTPMethod; url: string; headers: Record<string, string>; body?: string } = {
             method,
             url,
             headers

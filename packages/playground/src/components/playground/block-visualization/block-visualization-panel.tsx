@@ -11,9 +11,7 @@ import {
     AlertTriangle,
     Clock,
     Users,
-    Settings,
-    GitBranch,
-    Code
+    Settings
 } from 'lucide-react';
 import type {
     IBlockMessage,
@@ -65,7 +63,7 @@ const BlockStats: React.FC<IBlockStatsProps> = ({ blockCollector }) => {
         };
     }, [blockCollector]);
 
-    const { total, byType, byState, rootBlocks } = stats;
+    const { total, byState } = stats;
 
     return (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
@@ -181,7 +179,7 @@ const BlockInspectionPanel: React.FC<{
         );
     }
 
-    const { blockMetadata, content, role } = selectedBlock;
+    const { blockMetadata, content } = selectedBlock;
 
     return (
         <div className="p-4 space-y-4">

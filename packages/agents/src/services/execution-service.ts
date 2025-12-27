@@ -5,7 +5,6 @@ import { ToolExecutionService } from './tool-execution-service';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
-import type { IToolExecutionContext } from '../interfaces/tool';
 import { createLogger, type ILogger } from '../utils/logger';
 import { IChatOptions } from '../interfaces/provider';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
@@ -17,7 +16,6 @@ import {
     IOwnerPathSegment,
     IExecutionEventData,
     IToolEventData,
-    bindEventServiceOwner,
     bindWithOwnerPath,
     IBaseEventData
 } from './event-service';
@@ -130,7 +128,7 @@ export class ExecutionService {
         eventService?: IEventService,
         executionContext?: IExecutionContextInjection // 🎯 [CONTEXT-INJECTION] Accept parent context
     ) {
-        this.toolExecutionService = new ToolExecutionService(tools as any);
+        this.toolExecutionService = new ToolExecutionService(tools);
         this.aiProviders = aiProviders;
         this.tools = tools;
         this.conversationHistory = conversationHistory;
@@ -229,19 +227,24 @@ export class ExecutionService {
         // Emit execution start event
         const rootId = fullContext.conversationId || executionId;
 
-        const aiProviderInfo = provider ? {
-            providerName: currentInfo?.provider || 'unknown',
-            model: (provider as any).model || (provider as any).modelName || 'unknown',
-            temperature: (provider as any).temperature || undefined,
-            maxTokens: (provider as any).maxTokens || undefined,
-            apiEndpoint: (provider as any).apiEndpoint || undefined
-        } : null;
+        const aiProviderInfo = provider
+            ? {
+                providerName: currentInfo?.provider || 'unknown',
+                model: config.defaultModel.model,
+                temperature: config.defaultModel.temperature,
+                maxTokens: config.defaultModel.maxTokens
+            }
+            : null;
 
-        const toolsInfo = availableTools.map((tool: any) => ({
-            name: tool.name,
-            description: tool.description || 'No description',
-            parameters: tool.parameters ? Object.keys(tool.parameters.properties || {}) : []
-        }));
+        const toolsInfo = availableTools.map((tool) => {
+            const paramSchema = tool.parameters as { properties?: Record<string, object> } | undefined;
+            const props = paramSchema?.properties;
+            return {
+                name: tool.name,
+                description: tool.description || 'No description',
+                parameters: props && typeof props === 'object' ? Object.keys(props) : []
+            };
+        });
 
         this.emitExecution(
             EXECUTION_EVENTS.START,
@@ -249,7 +252,7 @@ export class ExecutionService {
                 parameters: {
                     input,
                     agentConfiguration: aiProviderInfo,
-                    availableTools: toolsInfo as any,
+                    availableTools: toolsInfo,
                     toolCount: toolsInfo.length,
                     hasTools: toolsInfo.length > 0,
                     systemMessage: config.defaultModel.systemMessage,
@@ -257,17 +260,17 @@ export class ExecutionService {
                     model: config.defaultModel.model,
                     temperature: config.defaultModel.temperature,
                     maxTokens: config.defaultModel.maxTokens
-                } as any,
+                },
                 metadata: {
                     method: 'execute',
                     inputLength: input.length,
                     messageCount: messages.length,
                     aiProvider: aiProviderInfo?.providerName || 'unknown',
                     model: aiProviderInfo?.model || 'unknown',
-                    toolsAvailable: toolsInfo.map((t: any) => t.name),
+                    toolsAvailable: toolsInfo.map((t) => t.name),
                     agentCapabilities: {
                         canUseTools: toolsInfo.length > 0,
-                        supportedActions: toolsInfo.map((t: any) => t.name)
+                        supportedActions: toolsInfo.map((t) => t.name)
                     }
                 }
             },
@@ -365,8 +368,8 @@ export class ExecutionService {
                 throw new Error(`AI provider '${currentInfo.provider}' not found`);
             }
 
-            // Ensure provider has chat method (duck typing check)
-            if (typeof (provider as any).chat !== 'function') {
+            // Provider implements IAIProvider, so chat() must exist.
+            if (typeof provider.chat !== 'function') {
                 throw new Error('Provider must have chat method to support execution');
             }
 
@@ -466,21 +469,23 @@ export class ExecutionService {
                     ctx => bindWithOwnerPath(this.baseEventService, {
                         ownerType: ctx.ownerType ?? 'thinking',
                         ownerId: ctx.ownerId ?? thinkingNodeId,
-                        ownerPath: ctx.ownerPath,
-                        sourceType: 'agent',
-                        sourceId: rootId
+                        ownerPath: ctx.ownerPath
                     })
                 );
 
-                const response = await (provider as any).chat(conversationMessages, chatOptions);
+                const response = await provider.chat(conversationMessages, chatOptions);
+
+                const assistantToolCalls = response.role === 'assistant'
+                    ? (response as IAssistantMessage).toolCalls
+                    : undefined;
 
                 this.logger.debug(`🤖 [ROUND-${currentRound}] Provider response completed`, {
                     executionId,
                     conversationId: fullContext.conversationId,
                     round: currentRound,
                     responseLength: response.content?.length || 0,
-                    hasToolCalls: !!(response as any).toolCalls && (response as any).toolCalls.length > 0,
-                    toolCallsCount: (response as any).toolCalls?.length || 0
+                    hasToolCalls: Array.isArray(assistantToolCalls) && assistantToolCalls.length > 0,
+                    toolCallsCount: Array.isArray(assistantToolCalls) ? assistantToolCalls.length : 0
                 });
 
                 // Call afterProviderCall hook
@@ -588,9 +593,7 @@ export class ExecutionService {
                         ctx => bindWithOwnerPath(this.baseEventService, {
                             ownerType: ctx.ownerType ?? 'response',
                             ownerId: ctx.ownerId ?? `response_${thinkingNodeId}`,
-                            ownerPath: ctx.ownerPath,
-                            sourceType: 'agent',
-                            sourceId: rootId
+                            ownerPath: ctx.ownerPath
                         })
                     );
 
@@ -603,7 +606,7 @@ export class ExecutionService {
 
                 // [ROUND-DEBUG] Continue round: tool calls present
                 this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} CONTINUING - ${assistantResponse.toolCalls.length} tool calls for agent ${fullContext.conversationId}`);
-                this.logger.info(`🔄 [ROUND-DEBUG] Main Agent check: isMainAgent=${!fullContext.conversationId?.includes('copy')}, conversationId=${fullContext.conversationId}`);
+                this.logger.info(`🔄 [ROUND-DEBUG] Agent instance conversationId=${fullContext.conversationId}`);
                 this.logger.debug('Tool calls detected, executing tools', {
                     toolCallCount: assistantResponse.toolCalls.length,
                     round: currentRound,
@@ -722,9 +725,7 @@ export class ExecutionService {
                     ctx => bindWithOwnerPath(this.baseEventService, {
                         ownerType: ctx.ownerType ?? 'thinking',
                         ownerId: ctx.ownerId ?? thinkingNodeId,
-                        ownerPath: ctx.ownerPath,
-                        sourceType: 'agent',
-                        sourceId: rootId
+                        ownerPath: ctx.ownerPath
                     })
                 );
 
@@ -744,9 +745,7 @@ export class ExecutionService {
                     ctx => bindWithOwnerPath(this.baseEventService, {
                         ownerType: ctx.ownerType ?? 'thinking',
                         ownerId: ctx.ownerId ?? thinkingNodeId,
-                        ownerPath: ctx.ownerPath,
-                        sourceType: 'agent',
-                        sourceId: toolResultsRootId
+                        ownerPath: ctx.ownerPath
                     })
                 );
 
@@ -916,8 +915,8 @@ export class ExecutionService {
                 throw new Error(`AI provider '${currentInfo.provider}' not found`);
             }
 
-            // Ensure provider has chatStream method (duck typing check)
-            if (typeof (provider as any).chatStream !== 'function') {
+            // Ensure provider has chatStream method (streaming is optional on IAIProvider)
+            if (typeof provider.chatStream !== 'function') {
                 throw new Error('Provider must have chatStream method to support streaming execution');
             }
 
@@ -941,12 +940,12 @@ export class ExecutionService {
             this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions has tools:', { hasTools: !!chatOptions.tools });
             this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions.tools length:', { length: chatOptions.tools?.length || 0 });
 
-            // Use provider's streaming capability
-            if (!(provider as any).chatStream) {
+            const chatStream = provider.chatStream;
+            if (!chatStream) {
                 throw new Error('Provider does not support streaming');
             }
 
-            const stream = (provider as any).chatStream(conversationMessages, chatOptions);
+            const stream = chatStream.call(provider, conversationMessages, chatOptions);
             let fullResponse = '';
             let toolCalls: IToolCall[] = [];
             let currentToolCallIndex = -1; // Index of the currently active tool call during streaming
@@ -960,8 +959,8 @@ export class ExecutionService {
 
                 // Collect tool calls from streaming chunks (type assertion for AssistantMessage)
                 if (chunk.role === 'assistant') {
-                    const assistantChunk = chunk as any; // Type assertion to handle toolCalls
-                    if (assistantChunk.toolCalls && assistantChunk.toolCalls.length > 0) {
+                    const assistantChunk = chunk as IAssistantMessage;
+                    if (Array.isArray(assistantChunk.toolCalls) && assistantChunk.toolCalls.length > 0) {
                         // Manage tool call state while streaming
                         for (const chunkToolCall of assistantChunk.toolCalls) {
                             if (chunkToolCall.id && chunkToolCall.id !== '') {
@@ -1258,8 +1257,6 @@ export class ExecutionService {
             ownerType: 'tool',
             ownerId,
             ownerPath: ownerPath.map(segment => ({ ...segment })),
-            sourceType: 'tool',
-            sourceId: ownerId
         });
         this.toolEventServices.set(ownerId, scoped);
         return scoped;
@@ -1338,10 +1335,7 @@ export class ExecutionService {
             context => bindWithOwnerPath(this.baseEventService, {
                 ownerType: context.ownerType ?? 'execution',
                 ownerId: context.ownerId ?? executionId,
-                ownerPath: context.ownerPath,
-                // source stays as agent so handlers can map execution events to an agent instance
-                sourceType: 'agent',
-                sourceId: rootId
+                ownerPath: context.ownerPath
             })
         );
     }
@@ -1387,43 +1381,4 @@ export class ExecutionService {
         };
     }
 
-    /**
-     * Extract delegated agent execution ID from tool result
-     * For path.tail in tool.call_response_ready events
-     */
-    private extractDelegatedAgentExecutionId(result: any): string {
-        // CRITICAL: path.tail must be the actual response node ID that was created by the delegated agent
-        // Since assignTask is third-party, we need to find the response node that was created
-        // The response node should have been created by execution.assistant_message_complete from the delegated agent
-
-        // For now, we'll extract from the tool result data structure
-        // The delegated agent's execution should be recorded in the result
-
-        let delegatedExecId = '';
-
-        // Look for execution metadata in different possible locations
-        if (result.result?.metadata?.executionId) {
-            delegatedExecId = String(result.result.metadata.executionId);
-        } else if (result.result?.executionId) {
-            delegatedExecId = String(result.result.executionId);
-        } else if (result.agentExecutionId) {
-            delegatedExecId = String(result.agentExecutionId);
-        } else {
-            // Last resort: log the structure and use tool call ID (will fail validation)
-            this.logger.warn(`[PATH-ONLY] Cannot find delegated agent execution ID in result structure:`, {
-                resultKeys: Object.keys(result),
-                resultResultKeys: result.result ? Object.keys(result.result) : 'no result',
-                resultMetadata: result.result?.metadata
-            });
-            delegatedExecId = String(result.executionId || '');
-        }
-
-        this.logger.debug(`[PATH-ONLY] Extracted delegated agent execution ID: ${delegatedExecId}`, {
-            toolName: result.toolName,
-            toolCallId: result.executionId,
-            delegatedExecId
-        });
-
-        return delegatedExecId;
-    }
 }

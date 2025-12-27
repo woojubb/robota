@@ -3,7 +3,7 @@ import type { IToolManager } from '../interfaces/manager';
 import type { TToolParameters } from '../interfaces/tool';
 import type { IEventService, IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
-import { ToolExecutionError, ValidationError } from '../utils/errors';
+import { ValidationError } from '../utils/errors';
 
 /**
  * ToolExecutionService owned events
@@ -98,7 +98,7 @@ export class ToolExecutionService {
 
             // Execute the tool with full context
             // Context already contains all necessary information including tool call ID
-            const result = await this.tools.executeTool(toolName, parameters as any, executionContext);
+            const result = await this.tools.executeTool(toolName, parameters, executionContext);
 
             this.logger.debug(`Tool execution completed: ${toolName}`);
 
@@ -106,7 +106,7 @@ export class ToolExecutionService {
                 const completeEvent: IToolEventData = {
                     timestamp: new Date(),
                     toolName,
-                    result: result as any
+                    result: result
                 };
                 eventService.emit(TOOL_EVENTS.CALL_COMPLETE, completeEvent);
                 eventService.emit(TOOL_EVENTS.CALL_RESPONSE_READY, completeEvent);
@@ -204,11 +204,10 @@ export class ToolExecutionService {
                 if (result.success) {
                     results.push(result);
                 } else {
-                    errors.push({
-                        executionId: result.executionId,
-                        error: new Error(result.error || 'Unknown error'),
-                        toolName: result.toolName
-                    } as any);
+                    const err = new Error(
+                        `Tool execution failed: toolName=${String(result.toolName)} executionId=${String(result.executionId)} error=${String(result.error || 'Unknown error')}`
+                    );
+                    errors.push(err);
                 }
             });
         } else {
@@ -232,11 +231,10 @@ export class ToolExecutionService {
                         break;
                     }
                 } catch (error) {
-                    errors.push({
-                        executionId: request.executionId,
-                        error: error instanceof Error ? error : new Error(String(error)),
-                        toolName: request.toolName
-                    } as any);
+                    const err = error instanceof Error
+                        ? error
+                        : new Error(String(error));
+                    errors.push(err);
 
                     if (!batchContext.continueOnError) {
                         break;

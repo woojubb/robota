@@ -51,15 +51,14 @@ function buildToolId(name: string): string {
 }
 
 function PlaygroundContent(): React.ReactElement {
-  const { state, setWorkflow, addToolToAgentOverlay, setToolItems } = usePlayground();
+  const { state, addToolToAgentOverlay, setToolItems } = usePlayground();
   const { createAgent, getDefaultAgentConfig } = useRobotaExecution();
-  const { activeModal, isModalOpen, openModal, closeModal } = useModal();
+  const { isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);
   const { toast } = useToast();
 
   // Chat state
   const [chatAgentId, setChatAgentId] = useState<string | null>(null);
-  const [chatNodeData, setChatNodeData] = useState<any>(null);
 
   // Catalog-driven tool list (context-owned)
   const toolItems = state.toolItems;
@@ -124,7 +123,6 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
     WebLogger.debug('Agent node clicked', { nodeId, data });
     // Open chat modal for the selected agent
     setChatAgentId(nodeId);
-    setChatNodeData(data);
     openModal('chat');
   };
 
@@ -476,7 +474,6 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
         isOpen={isModalOpen('chat')}
         onClose={() => {
           setChatAgentId(null);
-          setChatNodeData(null);
           closeModal();
         }}
         title="Chat Input"
@@ -491,7 +488,6 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
           <ChatInputPanel
             onClose={() => {
               setChatAgentId(null);
-              setChatNodeData(null);
               closeModal();
             }}
           />

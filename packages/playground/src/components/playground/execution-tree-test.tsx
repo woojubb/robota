@@ -47,10 +47,6 @@ export const ExecutionTreeTest: React.FC = () => {
         setLastUpdate(Date.now());
     };
 
-    const handleBlockSelect = (block: IRealTimeBlockMessage) => {
-        setSelectedBlock(block);
-    };
-
     const stats = blockCollector.getStats();
 
     return (

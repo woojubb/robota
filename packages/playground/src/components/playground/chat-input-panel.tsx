@@ -16,7 +16,7 @@ interface IChatInputPanelProps {
 }
 
 export function ChatInputPanel({ onClose }: IChatInputPanelProps) {
-    const { executePrompt, executeStreamPrompt, isExecuting } = useRobotaExecution();
+    const { isExecuting } = useRobotaExecution();
     const {
         inputState,
         setValue,
@@ -45,16 +45,6 @@ export function ChatInputPanel({ onClose }: IChatInputPanelProps) {
         } catch (error) {
             WebLogger.error('Failed to load recent prompts', { error: error instanceof Error ? error.message : String(error) });
             setRecentPrompts([]);
-        }
-    }, []);
-
-    // Save recent prompts to localStorage
-    const saveRecentPrompts = useCallback((newPrompts: string[]) => {
-        try {
-            localStorage.setItem(RECENT_PROMPTS_KEY, JSON.stringify(newPrompts));
-            setRecentPrompts(newPrompts);
-        } catch (error) {
-            WebLogger.error('Failed to save recent prompts', { error: error instanceof Error ? error.message : String(error) });
         }
     }, []);
 

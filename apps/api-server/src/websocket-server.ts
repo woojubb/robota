@@ -42,7 +42,7 @@ export class PlaygroundWebSocketServer {
         console.log('🔌 PlaygroundWebSocketServer initialized on /ws/playground');
     }
 
-    private handleConnection(ws: WebSocket, req: IncomingMessage): void {
+    private handleConnection(ws: WebSocket, _req: IncomingMessage): void {
         const clientId = this.generateClientId();
         const client: PlaygroundClient = {
             id: clientId,

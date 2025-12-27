@@ -15,10 +15,8 @@ import {
     IEventService,
     DEFAULT_ABSTRACT_EVENT_SERVICE,
     isDefaultEventService,
-    IEventContext,
     IOwnerPathSegment,
     IAgentEventData,
-    bindEventServiceOwner,
     bindWithOwnerPath
 } from '../services/event-service';
 
@@ -230,9 +228,7 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
         this.agentEventService = bindWithOwnerPath(this.eventService, {
             ownerType: 'agent',
             ownerId: this.conversationId,
-            ownerPath: this.buildOwnerPath(this.config.executionContext),
-            sourceType: 'agent',
-            sourceId: this.conversationId
+            ownerPath: this.buildOwnerPath(this.config.executionContext)
         });
 
         // Store config for async initialization
@@ -253,8 +249,14 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
         // Agent creation event
         const toolNames: string[] = Array.isArray(this.config.tools)
             ? this.config.tools
-                .map((t: any) => t?.schema?.name ?? t?.name ?? t?.toolName)
-                .filter((n: unknown): n is string => typeof n === 'string' && n.length > 0)
+                .map(t => {
+                    const schemaName = t?.schema?.name;
+                    if (typeof schemaName === 'string' && schemaName.length > 0) return schemaName;
+                    const instanceName = (t as { name?: string } | undefined)?.name;
+                    if (typeof instanceName === 'string' && instanceName.length > 0) return instanceName;
+                    return '';
+                })
+                .filter((n): n is string => typeof n === 'string' && n.length > 0)
             : [];
 
         this.emitAgentEvent(AGENT_EVENTS.CREATED, {
@@ -302,7 +304,7 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
                 return result.data;
             };
             this.tools.addTool(tool.schema, toolExecutor);
-            const nm = tool?.schema?.name ?? (tool as any)?.name ?? (tool as any)?.toolName;
+            const nm = tool.schema.name;
             if (typeof nm === 'string' && nm.length > 0) toolNames.push(nm);
         }
 
@@ -334,7 +336,7 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      */
     public async updateConfiguration(patch: Partial<IAgentConfig>): Promise<{ version: number }> {
         if (patch.tools) {
-            return this.updateTools(patch.tools as any);
+            return this.updateTools(patch.tools);
         }
         // Extendable: merge other fields with validation in future
         throw new ConfigurationError('updateConfiguration: only tools patch is supported at this time');
@@ -343,12 +345,16 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
     /**
      * Read-only configuration overview for UI.
      */
-    public async getConfiguration(): Promise<{ version: number; tools: Array<{ name: string; parameters?: string[] }>; updatedAt: number; metadata?: Record<string, unknown> }> {
+    public async getConfiguration(): Promise<{ version: number; tools: Array<{ name: string; parameters?: string[] }>; updatedAt: number; metadata?: TAgentStatsMetadata }> {
         await this.ensureFullyInitialized();
         const schemas = this.tools.getTools();
         const tools = schemas.map(s => ({
             name: s.name,
-            parameters: s.parameters && (s.parameters as any).properties ? Object.keys((s.parameters as any).properties) : undefined
+            parameters: (() => {
+                const params = s.parameters as { properties?: Record<string, object> } | undefined;
+                const props = params?.properties;
+                return props && typeof props === 'object' ? Object.keys(props) : undefined;
+            })()
         }));
         return {
             version: this.configVersion,

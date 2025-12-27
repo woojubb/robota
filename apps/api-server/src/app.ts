@@ -97,7 +97,7 @@ export function createApp(): express.Application {
     app.use('/api/v1/remote', remoteServer.getExpressRouter());
 
     // Root endpoint
-    app.get('/', (req, res) => {
+    app.get('/', (_req, res) => {
         res.json({
             name: 'Robota SDK API Server',
             version: '1.0.0',
@@ -115,7 +115,7 @@ export function createApp(): express.Application {
     });
 
     // WebSocket status endpoint
-    app.get('/api/v1/remote/ws/status', (req, res) => {
+    app.get('/api/v1/remote/ws/status', (_req, res) => {
         if (playgroundWebSocketServer) {
             const stats = playgroundWebSocketServer.getStats();
             res.json({
@@ -136,7 +136,7 @@ export function createApp(): express.Application {
     });
 
     // Global health endpoint
-    app.get('/health', (req, res) => {
+    app.get('/health', (_req, res) => {
         res.json({
             status: 'ok',
             timestamp: new Date().toISOString(),
@@ -156,7 +156,7 @@ export function createApp(): express.Application {
     });
 
     // Error handling
-    app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
         console.error('API Error:', error);
 
         const statusCode = error.statusCode || 500;

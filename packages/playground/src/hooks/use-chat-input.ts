@@ -15,7 +15,7 @@
  * - Keyboard shortcuts and accessibility
  */
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, type RefObject } from 'react';
 import { useRobotaExecution } from './use-robota-execution';
 import { usePlaygroundData } from './use-playground-data';
 import type { IUseBlockTrackingResult } from './use-block-tracking';
@@ -91,7 +91,7 @@ export interface IChatInputHookReturn {
     validateInput: (text: string) => { isValid: boolean; errors: string[] };
 
     // Accessibility and UX
-    inputRef: React.RefObject<HTMLTextAreaElement | null>;
+    inputRef: RefObject<HTMLTextAreaElement | null>;
     focusInput: () => void;
     isInputFocused: boolean;
 
@@ -103,16 +103,12 @@ export interface IChatInputHookReturn {
 
 export function useChatInput(options: IChatInputOptions = {}): IChatInputHookReturn {
     const {
-        blockTracking,
         maxLength = 10000,
-        enableValidation = true,
-        placeholder = "Type your message..."
-    } = options;
+        enableValidation = true } = options;
 
     const {
         executePrompt,
         executeStreamPrompt,
-        lastResult,
         isExecuting,
         clearStreamingResponse
     } = useRobotaExecution();
@@ -167,7 +163,6 @@ export function useChatInput(options: IChatInputOptions = {}): IChatInputHookRet
 
     // Derived state
     const canSend = !isExecuting && inputState.isValid; // Can send when NOT executing and input is valid
-    const isReceivingStream = false; // Simplified for now
 
     // Input control functions
     const setValue = useCallback((value: string) => {

@@ -5,27 +5,26 @@
  * Based on existing implementation in workflow-event-subscriber.ts
  */
 
-import type { SimpleLogger } from '@robota-sdk/agents';
+import type { IOwnerPathSegment, SimpleLogger } from '@robota-sdk/agents';
 import { SilentLogger, EXECUTION_EVENTS } from '@robota-sdk/agents';
 import type {
     IEventHandler,
     TEventData,
     IEventProcessingResult,
-    HandlerPriority
 } from '../interfaces/event-handler.js';
 import type { IWorkflowNode } from '../interfaces/workflow-node.js';
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
-import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
+import { HandlerPriority } from '../interfaces/event-handler.js';
 
 /**
  * ExecutionEventHandler - Handles execution lifecycle events
  */
 export class ExecutionEventHandler implements IEventHandler {
     readonly name = 'ExecutionEventHandler';
-    readonly priority = Priority.HIGHEST; // Execution events are fundamental
+    readonly priority = HandlerPriority.HIGHEST; // Execution events are fundamental
     readonly patterns = ['execution.*'];
 
     private logger: SimpleLogger;
@@ -59,15 +58,8 @@ export class ExecutionEventHandler implements IEventHandler {
             switch (eventType) {
                 case EXECUTION_EVENTS.TOOL_RESULTS_READY: {
                     // Path-only: thinking scope = context.ownerPath (absolute)
-                    const ownerPath = (eventData as any)?.context?.ownerPath as Array<{ type: string; id: string }> | undefined;
-                    if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
-                        return {
-                            success: false,
-                            updates: [],
-                            errors: [`[PATH-ONLY] Missing context.ownerPath for ${EXECUTION_EVENTS.TOOL_RESULTS_READY}`]
-                        };
-                    }
-                    const thinkingId = String(ownerPath[ownerPath.length - 1]?.id || '');
+                    const ownerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
+                    const thinkingId = ownerPath.length > 0 ? String(ownerPath[ownerPath.length - 1].id) : '';
                     if (!thinkingId) {
                         return {
                             success: false,
@@ -78,15 +70,17 @@ export class ExecutionEventHandler implements IEventHandler {
                     const thinkingScopeKey = ownerPath.map(s => String(s.id)).join('\u0000');
 
                     // Collect existing tool_response nodes by checking originalEvent.context.ownerPath prefix match
-                    const nodesAccessor: any = (this as any).subscriber?.getAllNodes?.() || [];
-                    const toolResponses = nodesAccessor.filter((n: any) => n?.type === WORKFLOW_NODE_TYPES.TOOL_RESPONSE &&
-                        Array.isArray(n?.data?.extensions?.robota?.originalEvent?.context?.ownerPath) &&
-                        n.data.extensions.robota.originalEvent.context.ownerPath
-                            .map((s: any) => String(s?.id ?? ''))
-                            .slice(0, -1)
-                            .join('\u0000') === thinkingScopeKey);
+                    const subscriber = (this as { subscriber?: { getAllNodes?: () => IWorkflowNode[] } }).subscriber;
+                    const nodesAccessor = subscriber?.getAllNodes?.() ?? [];
+                    const toolResponses = nodesAccessor.filter((n) => {
+                        if (n?.type !== WORKFLOW_NODE_TYPES.TOOL_RESPONSE) return false;
+                        const op = n?.data?.extensions?.robota?.originalEvent?.context?.ownerPath;
+                        if (!Array.isArray(op) || op.length === 0) return false;
+                        const key = op.map(s => String(s?.id ?? '')).slice(0, -1).join('\u0000');
+                        return key === thinkingScopeKey;
+                    });
                     if (toolResponses.length === 0) break;
-                    const nodeId = `tool_result_${thinkingId}_${Date.now()}`;
+                    const nodeId = `tool_result_${thinkingId}_${eventData.timestamp.getTime()}`;
                     const toolResultNode: IWorkflowNode = {
                         id: nodeId,
                         type: WORKFLOW_NODE_TYPES.TOOL_RESULT,
@@ -94,7 +88,7 @@ export class ExecutionEventHandler implements IEventHandler {
                         status: 'running',
                         timestamp: Date.now(),
                         data: {
-                            sourceId: String((eventData as any)?.sourceId ?? 'execution'),
+                            sourceId: thinkingId,
                             sourceType: 'execution',
                             parentThinkingNodeId: thinkingId,
                             label: 'Tool Result Aggregation',
@@ -102,17 +96,17 @@ export class ExecutionEventHandler implements IEventHandler {
                             extensions: { robota: { originalEvent: eventData, handlerType: 'execution' } }
                         },
                         connections: []
-                    } as IWorkflowNode;
+                    };
                     updates.push({ action: 'create', node: toolResultNode });
                     for (const tr of toolResponses) {
                         const edge: IWorkflowEdge = {
-                            id: EdgeUtils.generateId(tr.id, nodeId, 'result' as any),
+                            id: EdgeUtils.generateId(tr.id, nodeId, 'result'),
                             source: tr.id,
                             target: nodeId,
-                            type: 'result' as any,
+                            type: 'result',
                             timestamp: Date.now()
-                        } as any;
-                        updates.push({ action: 'create', edge } as any);
+                        };
+                        updates.push({ action: 'create', edge });
                     }
                     break;
                 }
@@ -126,7 +120,6 @@ export class ExecutionEventHandler implements IEventHandler {
 
                 case EXECUTION_EVENTS.ERROR:
                     const executionErrorNode = this.createExecutionErrorNode(eventData);
-                    if ((eventData as any).parentId) executionErrorNode.parentId = String((eventData as any).parentId);
                     // [PATH-ONLY] prevId is no longer used; edges are created explicitly
                     updates.push({ action: 'create', node: executionErrorNode });
                     break;
@@ -146,14 +139,7 @@ export class ExecutionEventHandler implements IEventHandler {
 
                 case EXECUTION_EVENTS.USER_MESSAGE:
                     {
-                        const ctxOwnerPath = (eventData as any)?.context?.ownerPath as Array<{ type: string; id: string }> | undefined;
-                        if (!Array.isArray(ctxOwnerPath) || ctxOwnerPath.length === 0) {
-                            return {
-                                success: false,
-                                updates: [],
-                                errors: [`[PATH-ONLY] Missing context.ownerPath for ${EXECUTION_EVENTS.USER_MESSAGE}`]
-                            };
-                        }
+                        const ctxOwnerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
                         const localAgentId = (() => {
                             for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
                                 const seg = ctxOwnerPath[i];
@@ -180,66 +166,39 @@ export class ExecutionEventHandler implements IEventHandler {
                             };
                         }
                         const userMessageNode = this.createUserMessageNode(eventData);
-                        if ((eventData as any).parentId) userMessageNode.parentId = String((eventData as any).parentId);
                         updates.push({ action: 'create', node: userMessageNode });
                         this.userMessageNodeMap.set(localAgentId, userMessageNode.id);
 
-                        // Path-Only connection logic: parentPath based filtering
-                        let sourceNodeForConnection: string | undefined;
-                        let edgeType = 'receives';
+                        // Path-only: connect user_message to the local agent node only (no ordering-based inference).
+                        const subscriber = (this as { subscriber?: { getAllNodes?: () => IWorkflowNode[] } }).subscriber;
+                        const allNodes = subscriber?.getAllNodes?.() ?? [];
+                        const agentNodeForExec = allNodes.find(n => n.type === WORKFLOW_NODE_TYPES.AGENT && String(n.data?.sourceId ?? '') === localAgentId)?.id;
 
-                        const parentPath = localAgentId;
-
-                        // Try to find the most recent response or tool_result node in the same parentPath scope
-                        const allNodes = (this as any).subscriber?.getAllNodes?.() || [];
-                        const candidateSourceNodes = allNodes
-                            .filter((node: any) => {
-                                const op = node?.data?.extensions?.robota?.originalEvent?.context?.ownerPath;
-                                if (!Array.isArray(op) || op.length === 0) return false;
-                                const ids = op.map((s: any) => String(s?.id ?? '')).filter(Boolean);
-                                if (ids.length === 0) return false;
-                                const nodeScope = ids[0];
-                                return (node.type === 'response' || node.type === 'tool_result') && nodeScope === parentPath;
-                            })
-                            .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
-
-                        if (candidateSourceNodes.length > 0) {
-                            sourceNodeForConnection = candidateSourceNodes[0].id;
-                            edgeType = 'continues';
-                        } else {
-                            let agentNodeForExec: string | undefined;
-                            const nodesAccessor: any[] = allNodes;
-                            agentNodeForExec = nodesAccessor.find(n => n.type === 'agent' && n.data?.sourceId === localAgentId)?.id;
-                            sourceNodeForConnection = agentNodeForExec;
-                            edgeType = 'receives';
-                        }
-
-                        if (!sourceNodeForConnection) {
+                        if (!agentNodeForExec) {
                             return {
                                 success: false,
                                 updates: [],
                                 errors: [
                                     `[PATH-ONLY] Missing source node for ${EXECUTION_EVENTS.USER_MESSAGE}. ` +
-                                    `Expected a prior response/tool_result in-scope or an agent node for agentId="${localAgentId}".`
+                                    `Expected an agent node for agentId="${localAgentId}".`
                                 ]
                             };
                         }
 
                         const edge: IWorkflowEdge = {
-                            id: EdgeUtils.generateId(sourceNodeForConnection, userMessageNode.id, edgeType as any),
-                            source: sourceNodeForConnection,
+                            id: EdgeUtils.generateId(agentNodeForExec, userMessageNode.id, 'receives'),
+                            source: agentNodeForExec,
                             target: userMessageNode.id,
-                            type: edgeType,
+                            type: 'receives',
                             timestamp: Date.now()
-                        } as any;
-                        updates.push({ action: 'create', edge } as any);
+                        };
+                        updates.push({ action: 'create', edge });
 
                         break;
                     }
 
                 case 'user.input':
                     const userInputNode = this.createUserInputNode(eventData);
-                    if ((eventData as any).parentId) userInputNode.parentId = String((eventData as any).parentId);
                     // [PATH-ONLY] prevId is no longer used; edges are created explicitly
                     updates.push({ action: 'create', node: userInputNode });
                     break;
@@ -279,12 +238,24 @@ export class ExecutionEventHandler implements IEventHandler {
     // =================================================================
 
     private createExecutionStartNode(data: TEventData): IWorkflowNode {
-        const nodeId = String(data.executionId);
-        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
-        const derivedLevel = Array.isArray(ownerPath) ? ownerPath.length : 0;
-        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
-            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
-            : undefined;
+        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
+        const executionId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
+            }
+            return ownerPath.length > 0 ? ownerPath[ownerPath.length - 1].id : '';
+        })();
+        const agentId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
+            }
+            return '';
+        })();
+        const nodeId = String(executionId);
+        const derivedLevel = ownerPath.length;
+        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
 
         return {
             id: nodeId,
@@ -293,9 +264,9 @@ export class ExecutionEventHandler implements IEventHandler {
             status: 'running',
             timestamp: Date.now(), // Node creation time for ordering
             data: {
-                sourceId: data.sourceId,
+                sourceId: agentId || executionId,
                 sourceType: 'execution',
-                executionId: data.executionId,
+                executionId,
                 // 🎯 Preserve original event timestamp from EventService
                 originalEventTimestamp: data.timestamp, // Original event occurrence time
                 label: 'Execution Start',
@@ -304,7 +275,7 @@ export class ExecutionEventHandler implements IEventHandler {
                 parameters: data.parameters || {},
                 metadata: data.metadata || {},
                 executionInfo: {
-                    executionId: data.executionId,
+                    executionId,
                     startTime: new Date().toISOString(),
                     level: derivedLevel
                 },
@@ -316,18 +287,30 @@ export class ExecutionEventHandler implements IEventHandler {
                     }
                 }
             },
-            parentId: derivedParentId,
+            ...(derivedParentId ? { parentId: derivedParentId } : {}),
             connections: []
         };
     }
 
     private createExecutionCompleteNode(data: TEventData): IWorkflowNode {
-        const nodeId = `execution_complete_${data.executionId}_${Date.now()}`;
-        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
-        const derivedLevel = Array.isArray(ownerPath) ? ownerPath.length : 0;
-        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
-            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
-            : undefined;
+        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
+        const executionId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
+            }
+            return ownerPath.length > 0 ? ownerPath[ownerPath.length - 1].id : '';
+        })();
+        const agentId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
+            }
+            return '';
+        })();
+        const nodeId = `execution_complete_${executionId}_${data.timestamp.getTime()}`;
+        const derivedLevel = ownerPath.length;
+        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
 
         return {
             id: nodeId,
@@ -336,9 +319,9 @@ export class ExecutionEventHandler implements IEventHandler {
             status: 'completed',
             timestamp: Date.now(),
             data: {
-                sourceId: data.sourceId,
+                sourceId: agentId || executionId,
                 sourceType: 'execution',
-                executionId: data.executionId,
+                executionId,
                 label: 'Execution Complete',
                 description: 'Agent execution completed successfully',
                 eventType: data.eventType,
@@ -346,7 +329,7 @@ export class ExecutionEventHandler implements IEventHandler {
                 result: data.result || {},
                 metadata: data.metadata || {},
                 executionInfo: {
-                    executionId: data.executionId,
+                    executionId,
                     endTime: new Date().toISOString(),
                     level: derivedLevel,
                     duration: typeof data.metadata?.duration === 'number' ? data.metadata.duration : 0,
@@ -360,19 +343,31 @@ export class ExecutionEventHandler implements IEventHandler {
                     }
                 }
             },
-            parentId: derivedParentId,
+            ...(derivedParentId ? { parentId: derivedParentId } : {}),
             connections: []
         };
     }
 
     private createExecutionErrorNode(data: TEventData): IWorkflowNode {
-        const nodeId = `execution_error_${data.executionId}_${Date.now()}`;
+        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
+        const executionId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
+            }
+            return ownerPath.length > 0 ? ownerPath[ownerPath.length - 1].id : '';
+        })();
+        const agentId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
+            }
+            return '';
+        })();
+        const nodeId = `execution_error_${executionId}_${data.timestamp.getTime()}`;
         const errorMessage = (data.error instanceof Error ? data.error.message : String(data.error || data.parameters?.error || 'Execution failed'));
-        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
-        const derivedLevel = Array.isArray(ownerPath) ? ownerPath.length : 0;
-        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
-            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
-            : undefined;
+        const derivedLevel = ownerPath.length;
+        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
 
         return {
             id: nodeId,
@@ -381,9 +376,9 @@ export class ExecutionEventHandler implements IEventHandler {
             status: 'error',
             timestamp: Date.now(),
             data: {
-                sourceId: data.sourceId,
+                sourceId: agentId || executionId,
                 sourceType: 'execution',
-                executionId: data.executionId,
+                executionId,
                 label: 'Execution Error',
                 description: `Execution failed: ${errorMessage}`,
                 eventType: data.eventType,
@@ -391,7 +386,7 @@ export class ExecutionEventHandler implements IEventHandler {
                 error: data.error || { message: errorMessage },
                 metadata: data.metadata || {},
                 executionInfo: {
-                    executionId: data.executionId,
+                    executionId,
                     errorTime: new Date().toISOString(),
                     level: derivedLevel,
                     success: false
@@ -404,17 +399,29 @@ export class ExecutionEventHandler implements IEventHandler {
                     }
                 }
             },
-            parentId: derivedParentId,
+            ...(derivedParentId ? { parentId: derivedParentId } : {}),
             connections: []
         };
     }
 
     private createAssistantMessageStartNode(data: TEventData): IWorkflowNode {
-        const nodeId = `assistant_message_start_${data.executionId}_${Date.now()}`;
-        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
-        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
-            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
-            : undefined;
+        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
+        const executionId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
+            }
+            return '';
+        })();
+        const agentId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
+            }
+            return '';
+        })();
+        const nodeId = `assistant_message_start_${executionId}_${data.timestamp.getTime()}`;
+        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
 
         return {
             id: nodeId,
@@ -423,9 +430,9 @@ export class ExecutionEventHandler implements IEventHandler {
             status: 'running',
             timestamp: Date.now(),
             data: {
-                sourceId: data.sourceId,
+                sourceId: agentId || executionId,
                 sourceType: 'execution',
-                executionId: data.executionId,
+                executionId,
                 label: 'Assistant Message Start',
                 description: 'Assistant started generating message',
                 eventType: data.eventType,
@@ -444,18 +451,36 @@ export class ExecutionEventHandler implements IEventHandler {
                     }
                 }
             },
-            parentId: derivedParentId,
+            ...(derivedParentId ? { parentId: derivedParentId } : {}),
             connections: []
         };
     }
 
     private createAssistantMessageCompleteNode(data: TEventData): IWorkflowNode {
-        const nodeId = `assistant_message_complete_${data.executionId}_${Date.now()}`;
-        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
-        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
-            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
-            : undefined;
-        const messageContent = String(data.result?.content || data.parameters?.content || 'Assistant response');
+        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
+        const executionId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
+            }
+            return '';
+        })();
+        const agentId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
+            }
+            return '';
+        })();
+        const nodeId = `assistant_message_complete_${executionId}_${data.timestamp.getTime()}`;
+        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
+        const messageContent = (() => {
+            const r = data.result;
+            if (r && typeof r === 'object' && 'content' in r && typeof r.content === 'string') return r.content;
+            const p = data.parameters;
+            if (p && typeof p.content === 'string') return p.content;
+            return 'Assistant response';
+        })();
         const messageLength = messageContent.length;
 
         return {
@@ -465,9 +490,9 @@ export class ExecutionEventHandler implements IEventHandler {
             status: 'completed',
             timestamp: Date.now(),
             data: {
-                sourceId: data.sourceId,
+                sourceId: agentId || executionId,
                 sourceType: 'execution',
-                executionId: data.executionId,
+                executionId,
                 label: `Assistant Message (${messageLength} chars)`,
                 description: 'Assistant message generation completed',
                 eventType: data.eventType,
@@ -496,14 +521,14 @@ export class ExecutionEventHandler implements IEventHandler {
                     }
                 }
             },
-            parentId: derivedParentId,
+            ...(derivedParentId ? { parentId: derivedParentId } : {}),
             connections: []
         };
     }
 
     private createUserMessageNode(data: TEventData): IWorkflowNode {
         // Generate unique node ID for each user message to support continued conversations
-        const ownerPath = (data as any)?.context?.ownerPath as Array<{ type: string; id: string }> | undefined;
+        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
         if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
             throw new Error('[PATH-ONLY] Missing context.ownerPath for execution.user_message');
         }
@@ -524,14 +549,16 @@ export class ExecutionEventHandler implements IEventHandler {
         if (!agentId || !executionId) {
             throw new Error('[PATH-ONLY] Missing agent/execution segments in context.ownerPath for execution.user_message');
         }
-        const nodeId = `${agentId}_user_${executionId}`;
-        const messageContent = String(
-            (data as any)?.parameters?.input ??
-            (data as any)?.parameters?.userMessageContent ??
-            (data as any)?.parameters?.content ??
-            (data as any)?.parameters?.message ??
-            'User message'
-        );
+        const nodeId = `${agentId}_user_${executionId}_${data.timestamp.getTime()}`;
+        const messageContent = (() => {
+            const p = data.parameters;
+            if (!p) return 'User message';
+            if (typeof p.input === 'string') return p.input;
+            if (typeof p.userMessageContent === 'string') return p.userMessageContent;
+            if (typeof p.content === 'string') return p.content;
+            if (typeof p.message === 'string') return p.message;
+            return 'User message';
+        })();
 
         return {
             id: nodeId,
@@ -549,7 +576,7 @@ export class ExecutionEventHandler implements IEventHandler {
                 parameters: data.parameters || {},
                 metadata: data.metadata || {},
                 messageInfo: {
-                    messageId: agentId,
+                    messageId: nodeId,
                     content: messageContent,
                     length: messageContent.length,
                     timestamp: new Date().toISOString()
@@ -567,12 +594,28 @@ export class ExecutionEventHandler implements IEventHandler {
     }
 
     private createUserInputNode(data: TEventData): IWorkflowNode {
-        const nodeId = `user_input_${data.sourceId}_${Date.now()}`;
-        const inputContent = String(data.parameters?.input || data.parameters?.content || 'User input');
-        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
-        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
-            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
-            : undefined;
+        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
+        const agentId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
+            }
+            return '';
+        })();
+        const executionId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
+            }
+            return '';
+        })();
+        const nodeId = `user_input_${agentId || executionId}_${data.timestamp.getTime()}`;
+        const inputContent = (() => {
+            if (typeof data.parameters?.input === 'string') return data.parameters.input;
+            if (typeof data.parameters?.content === 'string') return data.parameters.content;
+            return 'User input';
+        })();
+        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
 
         return {
             id: nodeId,
@@ -581,16 +624,16 @@ export class ExecutionEventHandler implements IEventHandler {
             status: 'completed',
             timestamp: Date.now(),
             data: {
-                sourceId: data.sourceId,
+                sourceId: agentId || executionId,
                 sourceType: 'user',
-                executionId: data.executionId,
+                executionId,
                 label: 'User Input',
                 description: 'User provided input',
                 eventType: data.eventType,
                 parameters: data.parameters || {},
                 metadata: data.metadata || {},
                 inputInfo: {
-                    inputId: data.sourceId,
+                    inputId: nodeId,
                     content: inputContent,
                     inputType: data.parameters?.inputType || 'text',
                     timestamp: new Date().toISOString()

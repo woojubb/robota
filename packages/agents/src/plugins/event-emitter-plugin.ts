@@ -41,20 +41,6 @@ const PLUGIN_EVENTS = {
     ERROR: 'plugin.error'
 } as const;
 
-const MODULE_EVENTS = {
-    INIT_START: 'module.initialize.start',
-    INIT_COMPLETE: 'module.initialize.complete',
-    INIT_ERROR: 'module.initialize.error',
-    EXEC_START: 'module.execution.start',
-    EXEC_COMPLETE: 'module.execution.complete',
-    EXEC_ERROR: 'module.execution.error',
-    DISPOSE_START: 'module.dispose.start',
-    DISPOSE_COMPLETE: 'module.dispose.complete',
-    DISPOSE_ERROR: 'module.dispose.error',
-    REGISTERED: 'module.registered',
-    UNREGISTERED: 'module.unregistered'
-} as const;
-
 /**
  * Event types that can be emitted
  * Enhanced with hierarchical execution tracking events

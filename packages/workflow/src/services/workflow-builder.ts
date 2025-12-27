@@ -3,7 +3,6 @@
 
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 import type {
-    IWorkflowBuilder,
     IExtendedWorkflowBuilder,
     IWorkflowQuery,
     IWorkflowPortable,
