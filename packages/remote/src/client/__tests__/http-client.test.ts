@@ -328,12 +328,9 @@ describe('HttpClient', () => {
 
             await httpClient.get('/no-body');
 
-            expect(mockFetch).toHaveBeenCalledWith(
-                expect.any(String),
-                expect.objectContaining({
-                    body: undefined
-                })
-            );
+            expect(mockFetch).toHaveBeenCalled();
+            const [, requestInit] = mockFetch.mock.calls[0];
+            expect((requestInit as RequestInit).body).toBeUndefined();
         });
     });
 }); 

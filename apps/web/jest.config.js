@@ -10,8 +10,9 @@ const customJestConfig = {
     setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     testEnvironment: 'jest-environment-jsdom',
     testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
-    moduleNameMapping: {
+    moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
+        '^firebase/(.*)$': '<rootDir>/__mocks__/firebase/$1',
     },
     collectCoverageFrom: [
         'src/**/*.{js,jsx,ts,tsx}',
@@ -28,11 +29,6 @@ const customJestConfig = {
         },
     },
     testTimeout: 10000,
-    // Mock Firebase
-    moduleNameMapping: {
-        '^@/(.*)$': '<rootDir>/src/$1',
-        '^firebase/(.*)$': '<rootDir>/__mocks__/firebase/$1',
-    },
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

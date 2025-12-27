@@ -236,11 +236,18 @@ export class HttpClient {
      */
     private async executeRequest<TResponse>(request: IHttpRequest<TDefaultRequestData> | IHttpRequest<undefined>): Promise<IHttpResponse<TResponse>> {
         try {
-            const fetchResponse = await fetch(request.url, {
+            const requestInit: RequestInit = {
                 method: request.method,
                 headers: request.headers as HeadersInit,
-                body: request.data ? JSON.stringify(request.data) : null
-            });
+            };
+
+            // Only include `body` when request data is explicitly provided.
+            // This preserves type-safety and keeps GET requests truly body-less.
+            if (request.data !== undefined) {
+                requestInit.body = JSON.stringify(request.data);
+            }
+
+            const fetchResponse = await fetch(request.url, requestInit);
 
             if (!fetchResponse.ok) {
                 throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
