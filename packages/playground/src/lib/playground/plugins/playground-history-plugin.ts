@@ -1,7 +1,7 @@
 import type { SimpleLogger, TUniversalValue } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
-export type TPlaygroundEventType =
+export type TPlaygroundEventName =
   | 'user_message'
   | 'assistant_response'
   | 'tool_call_start'
@@ -13,7 +13,7 @@ export type TPlaygroundEventType =
 
 export interface IConversationEvent {
   id: string;
-  type: TPlaygroundEventType;
+  type: TPlaygroundEventName;
   timestamp: Date;
   content?: string;
   agentId?: string;

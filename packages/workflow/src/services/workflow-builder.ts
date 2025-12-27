@@ -13,7 +13,7 @@ import type {
     TWorkflowUpdateCallback,
     IWorkflowBuilderConfig
 } from '../interfaces/workflow-builder.js';
-import type { IWorkflowNode, TWorkflowConnectionType } from '../interfaces/workflow-node.js';
+import type { IWorkflowNode, TWorkflowConnectionKind } from '../interfaces/workflow-node.js';
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import type { IUniversalWorkflowEdge } from '../types/universal-types.js';
 import { NodeEdgeManager } from './node-edge-manager.js';
@@ -602,7 +602,7 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
             id: universalEdge.id,
             source: universalEdge.source,
             target: universalEdge.target,
-            type: universalEdge.type as TWorkflowConnectionType,
+            type: universalEdge.type as TWorkflowConnectionKind,
             label: universalEdge.label,
             description: universalEdge.description,
             sourceHandle: universalEdge.sourceHandle,

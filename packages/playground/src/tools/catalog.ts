@@ -1,4 +1,4 @@
-import type { IEventService, IToolInterface } from '@robota-sdk/agents';
+import type { IEventService, ITool } from '@robota-sdk/agents';
 import { createAssignTaskRelayTool } from '@robota-sdk/team';
 import { CURRENT_TIME_META, createCurrentTimeTool } from './current-time/index';
 import type { IPlaygroundToolMeta } from './types';
@@ -22,7 +22,7 @@ export function getPlaygroundToolCatalog(): IPlaygroundToolMeta[] {
 }
 
 // Static tool registry (id -> factory with eventService injection)
-export const ToolRegistry: Record<string, (eventService: IEventService) => IToolInterface> = {
+export const ToolRegistry: Record<string, (eventService: IEventService) => ITool> = {
     assignTask: (eventService: IEventService) => createAssignTaskRelayTool(eventService),
     'current-time': (_eventService: IEventService) => createCurrentTimeTool()
 };

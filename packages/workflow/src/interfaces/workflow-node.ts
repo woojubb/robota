@@ -1,7 +1,7 @@
 // Workflow Node Interfaces
 // Based on existing implementations in agents package
 
-import type { TWorkflowNodeType } from '../constants/workflow-types.js';
+import type { TWorkflowNodeKind } from '../constants/workflow-types.js';
 import type { IToolResult, IOwnerPathSegment, TContextData, TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
 export type TWorkflowNodeDataExtensionValue = TUniversalValue | Date | Error | TLoggerData | IToolResult | TContextData;
@@ -42,7 +42,7 @@ export type TWorkflowNodeStatus = 'pending' | 'running' | 'completed' | 'error';
  * Connection types between workflow nodes
  * Based on existing WorkflowConnectionType from workflow-event-subscriber
  */
-export type TWorkflowConnectionType =
+export type TWorkflowConnectionKind =
     | 'has_tools'         // Agent → Tools Container
     | 'contains'          // Tools Container → Tool Definition
     | 'receives'          // User Input → Agent
@@ -66,7 +66,7 @@ export type TWorkflowConnectionType =
 export interface IWorkflowConnection {
     fromId: string;
     toId: string;
-    type: TWorkflowConnectionType;
+    type: TWorkflowConnectionKind;
     label?: string;
 }
 
@@ -157,7 +157,7 @@ export interface IWorkflowNodeData {
  */
 export interface IWorkflowNode {
     id: string;
-    type: TWorkflowNodeType;
+    type: TWorkflowNodeKind;
     parentId?: string;
     level: number;
     status: TWorkflowNodeStatus;
@@ -180,7 +180,7 @@ export interface IWorkflowNodeUpdate {
  */
 export interface INodeCreationOptions {
     parentNodeId?: string;
-    connectionType?: TWorkflowConnectionType;
+    connectionType?: TWorkflowConnectionKind;
     connectionLabel?: string;
     autoTimestamp?: boolean;
 }

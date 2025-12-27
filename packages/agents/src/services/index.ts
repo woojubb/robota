@@ -3,7 +3,6 @@ export * from './execution-service';
 export { ToolExecutionService } from './tool-execution-service';
 export { TOOL_EVENTS } from './tool-execution-service';
 export type { IToolExecutionRequest, IToolExecutionBatchContext } from './tool-execution-service';
-export type { TWorkflowNodeType } from '../constants/workflow-node-types';
 // NOTE: Universal workflow builder/converter utilities were removed from @robota-sdk/agents.
 // Ownership is @robota-sdk/workflow. Agents must not depend on workflow to avoid circular package dependencies.
 export * from './conversation-service';

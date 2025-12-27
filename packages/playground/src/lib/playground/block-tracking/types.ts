@@ -3,7 +3,7 @@ import type { IToolCall, IToolExecutionContext, TToolParameters, TToolResultData
 /**
  * Block-specific metadata for visual representation
  */
-export type TBlockType = 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'error' | 'group';
+export type TBlockKind = 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'error' | 'group';
 
 export type TBlockVisualState = 'pending' | 'in_progress' | 'completed' | 'error';
 
@@ -29,7 +29,7 @@ export interface IBlockMetadata {
     id: string;
 
     /** Type of block for visual styling */
-    type: TBlockType;
+    type: TBlockKind;
 
     /** Hierarchical level for nesting */
     level: number;
@@ -85,7 +85,7 @@ export interface IRealTimeBlockMetadata {
     id: string;
 
     /** Type of block for visual styling */
-    type: TBlockType;
+    type: TBlockKind;
 
     /** Hierarchical level for nesting */
     level: number;

@@ -13,6 +13,7 @@ export { HttpClient } from './client/http-client';
 // Atomic Types
 export type { IBasicMessage, IResponseMessage, IRequestMessage, ITokenUsage } from './types/message-types';
 export type { IHttpRequest, IHttpResponse, IHttpError, THttpMethod } from './types/http-types';
+export type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageType } from './types/playground-websocket';
 
 // Pure Utility Functions
 export {

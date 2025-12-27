@@ -2,12 +2,19 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { IncomingMessage } from 'http';
 import { Server } from 'http';
 
-export interface PlaygroundWebSocketMessage {
-    type: 'playground_update' | 'auth' | 'ping' | 'pong';
-    timestamp: string;
-    data?: any;
-    userId?: string;
-    sessionId?: string;
+import type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageType } from '@robota-sdk/remote';
+import type { TUniversalValue } from '@robota-sdk/agents';
+
+function isUniversalObjectValue(value: TUniversalValue): value is Record<string, TUniversalValue> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date);
+}
+
+function isPlaygroundAuthPayload(
+    value: TUniversalValue | undefined
+): value is { userId: string; sessionId: string; token: string } {
+    if (!value) return false;
+    if (!isUniversalObjectValue(value)) return false;
+    return typeof value.userId === 'string' && typeof value.sessionId === 'string' && typeof value.token === 'string';
 }
 
 export interface PlaygroundClient {
@@ -57,7 +64,7 @@ export class PlaygroundWebSocketServer {
         // Set up message handling
         ws.on('message', (data: Buffer) => {
             try {
-                const message: PlaygroundWebSocketMessage = JSON.parse(data.toString());
+                const message: IPlaygroundWebSocketMessage = JSON.parse(data.toString());
                 this.handleMessage(clientId, message);
             } catch (error) {
                 console.error(`❌ Invalid message from ${clientId}:`, error);
@@ -87,7 +94,7 @@ export class PlaygroundWebSocketServer {
         });
     }
 
-    private handleMessage(clientId: string, message: PlaygroundWebSocketMessage): void {
+    private handleMessage(clientId: string, message: IPlaygroundWebSocketMessage): void {
         const client = this.clients.get(clientId);
         if (!client) return;
 
@@ -119,11 +126,15 @@ export class PlaygroundWebSocketServer {
         }
     }
 
-    private handleAuthentication(clientId: string, message: PlaygroundWebSocketMessage): void {
+    private handleAuthentication(clientId: string, message: IPlaygroundWebSocketMessage): void {
         const client = this.clients.get(clientId);
         if (!client) return;
 
-        const { userId, sessionId, token } = message.data || {};
+        if (!isPlaygroundAuthPayload(message.data)) {
+            this.sendError(clientId, 'Invalid auth payload (missing userId/sessionId/token)');
+            return;
+        }
+        const { userId, sessionId, token } = message.data;
 
         if (!userId || !sessionId) {
             this.sendError(clientId, 'Missing userId or sessionId');
@@ -181,7 +192,7 @@ export class PlaygroundWebSocketServer {
         }
     }
 
-    private sendMessage(clientId: string, message: PlaygroundWebSocketMessage): void {
+    private sendMessage(clientId: string, message: IPlaygroundWebSocketMessage): void {
         const client = this.clients.get(clientId);
         if (client && client.ws.readyState === WebSocket.OPEN) {
             try {
@@ -204,7 +215,7 @@ export class PlaygroundWebSocketServer {
         });
     }
 
-    private broadcastToSession(sessionId: string, message: PlaygroundWebSocketMessage, excludeClientId?: string): void {
+    private broadcastToSession(sessionId: string, message: IPlaygroundWebSocketMessage, excludeClientId?: string): void {
         let broadcastCount = 0;
 
         for (const [clientId, client] of this.clients) {
@@ -243,12 +254,13 @@ export class PlaygroundWebSocketServer {
     /**
      * Broadcast a message to all clients of a specific user
      */
-    public broadcastToUser(userId: string, message: Omit<PlaygroundWebSocketMessage, 'timestamp'>): void {
+    public broadcastToUser(userId: string, message: Omit<IPlaygroundWebSocketMessage, 'timestamp'>): void {
         const userSessions = this.userSessions.get(userId);
         if (!userSessions) return;
 
-        const messageWithTimestamp = {
+        const messageWithTimestamp: IPlaygroundWebSocketMessage = {
             ...message,
+            type: message.type as TPlaygroundWebSocketMessageType,
             timestamp: new Date().toISOString()
         };
 

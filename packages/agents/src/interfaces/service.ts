@@ -7,6 +7,8 @@ import type { TUniversalMessage } from './messages';
 import type { IToolSchema, IAIProvider } from './provider';
 import type { TToolResultData } from './types';
 import type { IToolCall } from './messages';
+import type { IOwnerPathSegment, IEventService } from './event-service';
+import type { TToolParameters, TToolMetadata } from './tool';
 
 /**
  * Reusable type definitions for service layer
@@ -43,9 +45,15 @@ export type TResponseMetadata = Record<string, string | number | boolean | Date>
  * Tool execution request
  */
 export interface IToolExecutionRequest {
-    name: string;
-    parameters: TToolExecutionParameters;
+    toolName: string;
+    parameters: TToolParameters;
     executionId?: string;
+    metadata?: TToolMetadata;
+    ownerType?: string;
+    ownerId?: string;
+    ownerPath?: IOwnerPathSegment[];
+    eventService?: IEventService;
+    baseEventService?: IEventService;
 }
 
 /**
@@ -200,7 +208,7 @@ export interface IToolExecutionService {
     /**
      * Execute a single tool
      */
-    executeTool(toolName: string, parameters: TToolExecutionParameters): Promise<TToolResultData>;
+    executeTool(toolName: string, parameters: TToolParameters): Promise<TToolResultData>;
 
     /**
      * Execute multiple tools in parallel

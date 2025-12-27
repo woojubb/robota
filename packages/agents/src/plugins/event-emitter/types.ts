@@ -1,4 +1,3 @@
-import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Event types that can be emitted.
@@ -17,10 +16,15 @@ export const EVENT_EMITTER_EVENTS = {
     TOOL_ERROR: 'tool.error',
     CONVERSATION_START: 'conversation.start',
     CONVERSATION_COMPLETE: 'conversation.complete',
+    CONVERSATION_ERROR: 'conversation.error',
+    AGENT_EXECUTION_START: 'agent.execution_start',
+    AGENT_EXECUTION_COMPLETE: 'agent.execution_complete',
+    AGENT_EXECUTION_ERROR: 'agent.execution_error',
     AGENT_CREATED: 'agent.created',
     AGENT_DESTROYED: 'agent.destroyed',
     PLUGIN_LOADED: 'plugin.loaded',
     PLUGIN_UNLOADED: 'plugin.unloaded',
+    PLUGIN_ERROR: 'plugin.error',
     ERROR_OCCURRED: 'error.occurred',
     WARNING_OCCURRED: 'warning.occurred',
     MODULE_INITIALIZE_START: 'module.initialize.start',
@@ -32,12 +36,15 @@ export const EVENT_EMITTER_EVENTS = {
     MODULE_DISPOSE_START: 'module.dispose.start',
     MODULE_DISPOSE_COMPLETE: 'module.dispose.complete',
     MODULE_DISPOSE_ERROR: 'module.dispose.error',
+    MODULE_REGISTERED: 'module.registered',
+    MODULE_UNREGISTERED: 'module.unregistered',
     EXECUTION_HIERARCHY: 'execution.hierarchy',
     EXECUTION_REALTIME: 'execution.realtime',
-    TOOL_REALTIME: 'tool.realtime'
+    TOOL_REALTIME: 'tool.realtime',
+    CUSTOM: 'custom'
 } as const;
 
-export type TEventType = typeof EVENT_EMITTER_EVENTS[keyof typeof EVENT_EMITTER_EVENTS];
+export type TEventName = typeof EVENT_EMITTER_EVENTS[keyof typeof EVENT_EMITTER_EVENTS];
 
 /**
  * Valid event data value types
@@ -47,66 +54,28 @@ export type TEventDataValue = string | number | boolean | Date | null | undefine
 /**
  * Event data structure
  */
-export interface IEventData {
-    type: TEventType;
+export interface IEventEmitterEventData {
+    type: TEventName;
     timestamp: Date;
-    source: string;
+    executionId?: string;
+    sessionId?: string;
+    userId?: string;
     data?: Record<string, TEventDataValue>;
-    metadata?: {
-        executionId?: string;
-        conversationId?: string;
-        agentId?: string;
-        toolName?: string;
-        [key: string]: TEventDataValue;
-    };
+    error?: Error;
+    metadata?: Record<string, TEventDataValue>;
 }
 
 /**
  * Event listener function
  */
-export type TEventListener = (event: IEventData) => void | Promise<void>;
+export type TEventEmitterListener = (event: IEventEmitterEventData) => void | Promise<void>;
 
 /**
  * Event handler with metadata
  */
-export interface IEventHandler {
+export interface IEventEmitterHandler {
     id: string;
-    listener: TEventListener;
+    listener: TEventEmitterListener;
     once: boolean;
-    filter?: (event: IEventData) => boolean;
+    filter?: (event: IEventEmitterEventData) => boolean;
 }
-
-/**
- * Event emitter configuration
- */
-export interface IEventEmitterPluginOptions extends IPluginOptions {
-    /** Events to listen for */
-    events?: TEventType[];
-    /** Maximum number of listeners per event type */
-    maxListeners?: number;
-    /** Whether to emit events asynchronously */
-    async?: boolean;
-    /** Whether to catch and log listener errors */
-    catchErrors?: boolean;
-    /** Custom event filters */
-    filters?: Record<TEventType, (event: IEventData) => boolean>;
-    /** Event buffering options */
-    buffer?: {
-        enabled: boolean;
-        maxSize: number;
-        flushInterval: number;
-    };
-}
-
-/**
- * Event emitter plugin statistics
- */
-export interface IEventEmitterPluginStats extends IPluginStats {
-    totalEventsEmitted: number;
-    totalListeners: number;
-    activeListeners: number;
-    bufferedEvents: number;
-    errorCount: number;
-    averageEventProcessingTime: number;
-    eventCounts: Record<TEventType, number>;
-} 

@@ -3,6 +3,8 @@
  * Local types for agent functionality - not forced to use base types unless needed for cross-connections
  */
 
+import type { TUniversalMessage } from './messages';
+
 /**
  * Primitive value types - foundation for all other types
  * Extended to include null/undefined for agent contexts
@@ -73,7 +75,8 @@ export type TToolResultData = TUniversalValue;
 export interface IPluginContext {
     input?: string;
     response?: string;
-    messages?: Array<Record<string, TUniversalValue>>;
+    messages?: TUniversalMessage[];
+    responseMessage?: TUniversalMessage;
     metadata?: TMetadata;
     error?: Error;
     executionContext?: TContextData;

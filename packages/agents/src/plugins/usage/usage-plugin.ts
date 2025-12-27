@@ -1,7 +1,7 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
-import type { TEventType, IEventData } from '../event-emitter-plugin';
+import type { IEventEmitterEventData, TEventName } from '../event-emitter-plugin';
 import type { TimerId } from '../../utils';
 import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
 import {
@@ -81,12 +81,12 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
     /**
      * Handle module events for usage tracking
      */
-    override async onModuleEvent(eventType: TEventType, eventData: IEventData): Promise<void> {
+    override async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
             const moduleData = eventData.data;
 
-            switch (eventType) {
+            switch (eventName) {
                 case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE:
                 case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE:
                 case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE:
@@ -108,8 +108,8 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
                             metadata: {
                                 moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                                 moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                                operation: eventType.includes('initialize') ? 'initialization' :
-                                    eventType.includes('execution') ? 'execution' : 'disposal'
+                                operation: eventName.includes('initialize') ? 'initialization' :
+                                    eventName.includes('execution') ? 'execution' : 'disposal'
                             }
                         });
                     }
@@ -136,8 +136,8 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
                             metadata: {
                                 moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                                 moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                                operation: eventType.includes('initialize') ? 'initialization' :
-                                    eventType.includes('execution') ? 'execution' : 'disposal',
+                                operation: eventName.includes('initialize') ? 'initialization' :
+                                    eventName.includes('execution') ? 'execution' : 'disposal',
                                 error: eventData.error?.message || 'unknown error'
                             }
                         });

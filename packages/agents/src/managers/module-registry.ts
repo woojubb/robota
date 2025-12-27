@@ -5,7 +5,7 @@ import {
     IModuleExecutionResult
 } from '../abstracts/abstract-module';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
-import { ModuleTypeRegistry } from './module-type-registry';
+import { ModuleDescriptorRegistry } from './module-type-registry';
 import { createLogger, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 
@@ -76,14 +76,14 @@ export class ModuleRegistry {
     private moduleStats = new Map<string, IModuleExecutionStats>();
     private registrationOrder: string[] = [];
     private initializationOrder: string[] = [];
-    private typeRegistry: ModuleTypeRegistry;
+    private typeRegistry: ModuleDescriptorRegistry;
     private eventEmitter: EventEmitterPlugin | undefined;
     private logger: ILogger;
     private isDisposing = false;
 
     constructor(eventEmitter?: EventEmitterPlugin) {
         this.eventEmitter = eventEmitter;
-        this.typeRegistry = ModuleTypeRegistry.getInstance();
+        this.typeRegistry = ModuleDescriptorRegistry.getInstance();
         this.logger = createLogger('ModuleRegistry');
 
         this.logger.info('ModuleRegistry created', {

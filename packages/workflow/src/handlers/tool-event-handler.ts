@@ -16,9 +16,10 @@ import type { IWorkflowNode } from '../interfaces/workflow-node.js';
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
-import { WORKFLOW_NODE_TYPES, type TWorkflowNodeType } from '../constants/workflow-types.js';
+import { WORKFLOW_NODE_TYPES, type TWorkflowNodeKind } from '../constants/workflow-types.js';
 import { HandlerPriority } from '../interfaces/event-handler.js';
 import { TOOL_EVENTS } from '@robota-sdk/agents';
+import type { IPathInfo } from './path-info.js';
 
 /**
  * ToolEventHandler - Handles tool call and response events
@@ -364,9 +365,9 @@ export class ToolEventHandler implements IEventHandler {
     // Helper Methods
     // =================================================================
 
-    private getToolTypeFromName(toolName: string): TWorkflowNodeType {
+    private getToolTypeFromName(toolName: string): TWorkflowNodeKind {
         // Map tool names to specific node types
-        const toolTypeMap: Record<string, TWorkflowNodeType> = {
+        const toolTypeMap: Record<string, TWorkflowNodeKind> = {
             'assignTask': WORKFLOW_NODE_TYPES.TOOL_CALL,
             'fileRead': WORKFLOW_NODE_TYPES.TOOL_CALL,
             'fileWrite': WORKFLOW_NODE_TYPES.TOOL_CALL,
@@ -438,10 +439,4 @@ export class ToolEventHandler implements IEventHandler {
         // Path-only: no internal state to clear
         this.logger.debug('🧹 [TOOL-HANDLER] Handler state cleared');
     }
-}
-
-interface IPathInfo {
-    segments: string[];
-    nodeId: string;
-    parentId?: string;
 }

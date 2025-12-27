@@ -35,7 +35,7 @@ import type { PlaygroundExecutor } from '../lib/playground/robota-executor';
 import { WebLogger } from '../lib/web-logger';
 import type { TUniversalValue } from '@robota-sdk/agents';
 
-type TPlaygroundActionType = Parameters<PlaygroundExecutor['recordPlaygroundAction']>[0];
+type TPlaygroundActionName = Parameters<PlaygroundExecutor['recordPlaygroundAction']>[0];
 
 /**
  * Hook return type - UI-friendly derived statistics
@@ -66,7 +66,7 @@ export interface IPlaygroundStatisticsHookResult {
     lastUpdated: Date;
 
     // Actions
-    recordAction: (actionType: TPlaygroundActionType, metadata?: Record<string, TUniversalValue>) => Promise<void>;
+    recordAction: (actionName: TPlaygroundActionName, metadata?: Record<string, TUniversalValue>) => Promise<void>;
     recordBlockCreation: (blockType: string, metadata?: Record<string, TUniversalValue>) => Promise<void>;
     resetStatistics: () => void;
 }
@@ -144,11 +144,11 @@ export function usePlaygroundStatistics(): IPlaygroundStatisticsHookResult {
     /**
      * UI action methods (memoized with useCallback)
      */
-    const recordAction = useCallback(async (actionType: TPlaygroundActionType, metadata?: Record<string, TUniversalValue>) => {
+    const recordAction = useCallback(async (actionName: TPlaygroundActionName, metadata?: Record<string, TUniversalValue>) => {
         if (!isExecutorReady) return;
 
         try {
-            await executor.recordPlaygroundAction(actionType, metadata);
+            await executor.recordPlaygroundAction(actionName, metadata);
         } catch (error) {
             WebLogger.warn('Failed to record playground action', { error: error instanceof Error ? error.message : String(error) });
         }

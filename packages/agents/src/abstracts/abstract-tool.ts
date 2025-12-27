@@ -71,7 +71,7 @@ export type TToolExecutionFunction<TParams = TToolParameters, TResult = IToolRes
  * @template TParams - Tool parameters type (defaults to AbstractToolParameters for backward compatibility)
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)  
  */
-export interface IAbstractToolInterface<TParams = TToolParameters, TResult = IToolResult> {
+export interface IAbstractTool<TParams = TToolParameters, TResult = IToolResult> {
     name: string;
     description: string;
     parameters: IToolSchema['parameters'];

@@ -14,7 +14,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export interface CacheEntry {
+export interface IExampleCacheEntry {
     timestamp: number;
     sourceFileHash: string;
     dependencyVersions: Record<string, string>;
@@ -59,7 +59,7 @@ export class CacheManager {
     /**
      * Check if cached result exists and is valid
      */
-    checkCache(cacheKey: string): { isValid: boolean; data?: CacheEntry } {
+    checkCache(cacheKey: string): { isValid: boolean; data?: IExampleCacheEntry } {
         const cacheFile = path.join(this.cacheDir, `${cacheKey}.json`);
 
         if (!fs.existsSync(cacheFile)) {
@@ -68,7 +68,7 @@ export class CacheManager {
         }
 
         try {
-            const cachedData: CacheEntry = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+            const cachedData: IExampleCacheEntry = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
 
             // Check if cache is expired (24 hours)
             const isExpired = Date.now() - cachedData.timestamp > 24 * 60 * 60 * 1000;
@@ -90,7 +90,7 @@ export class CacheManager {
      * Save execution result to cache
      */
     saveToCache(cacheKey: string, result: any, logs: string[]): void {
-        const cacheEntry: CacheEntry = {
+        const cacheEntry: IExampleCacheEntry = {
             timestamp: Date.now(),
             sourceFileHash: '', // Will be filled by generateCacheKey
             dependencyVersions: this.getDependencyVersions(),

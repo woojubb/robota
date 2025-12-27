@@ -19,7 +19,7 @@ export type TParameterDefaultValue = string | number | boolean | null;
 /**
  * JSON Schema primitive types
  */
-export type TJSONSchemaType = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null';
+export type TJSONSchemaKind = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null';
 
 /**
  * JSON Schema enum values
@@ -43,7 +43,7 @@ export interface IToolSchema {
  * Parameter schema for tools
  */
 export interface IParameterSchema {
-    type: TJSONSchemaType;
+    type: TJSONSchemaKind;
     description?: string;
     enum?: TJSONSchemaEnum;
     items?: IParameterSchema;
@@ -225,3 +225,22 @@ export interface IProviderOptions {
     /** Additional provider-specific configuration */
     extra?: Record<string, TProviderConfigValue>;
 } 
+
+/**
+ * Base union for provider option values.
+ *
+ * Purpose:
+ * - Enable provider packages to compose their own option value unions without redefining the primitives.
+ * - Keep the shared axis in @robota-sdk/agents (SSOT).
+ *
+ * Note:
+ * - Provider packages may extend this with provider-specific runtime objects (e.g., OpenAI/Anthropic clients).
+ */
+export type TProviderOptionValueBase =
+    | string
+    | number
+    | boolean
+    | undefined
+    | null
+    | TProviderOptionValueBase[]
+    | { [key: string]: TProviderOptionValueBase };

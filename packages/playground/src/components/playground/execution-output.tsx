@@ -17,11 +17,11 @@ import {
     Play,
     Bug
 } from 'lucide-react'
-import type { IExecutionResult } from '../../lib/playground/code-executor'
+import type { ICodeExecutionResult } from '../../lib/playground/code-executor'
 import { ErrorPanel } from './error-panel'
 
 interface IExecutionOutputProps {
-    result: IExecutionResult
+    result: ICodeExecutionResult
     isRunning: boolean
     onFixSuggestion?: (fix: string) => void
 }

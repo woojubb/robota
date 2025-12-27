@@ -6,7 +6,7 @@
 /**
  * Webhook event types for different lifecycle events
  */
-export type TWebhookEventType =
+export type TWebhookEventName =
     | 'execution.start'
     | 'execution.complete'
     | 'execution.error'
@@ -132,7 +132,7 @@ export interface IWebhookExecutionResult {
  * Webhook payload structure
  */
 export interface IWebhookPayload {
-    event: TWebhookEventType;
+    event: TWebhookEventName;
     timestamp: string;
     executionId?: string;
     sessionId?: string;
@@ -147,7 +147,7 @@ export interface IWebhookPayload {
 export interface IWebhookEndpoint {
     url: string;
     headers?: Record<string, string>;
-    events?: TWebhookEventType[];
+    events?: TWebhookEventName[];
     retries?: number;
     timeout?: number;
     secret?: string;
@@ -162,7 +162,7 @@ export interface IWebhookPluginOptions extends IPluginOptions {
     /** Webhook endpoints */
     endpoints: IWebhookEndpoint[];
     /** Events to send webhooks for */
-    events?: TWebhookEventType[];
+    events?: TWebhookEventName[];
     /** Default timeout for webhook requests */
     defaultTimeout?: number;
     /** Default retry attempts */
@@ -178,7 +178,7 @@ export interface IWebhookPluginOptions extends IPluginOptions {
         flushInterval: number;
     };
     /** Custom payload transformer */
-    payloadTransformer?: (event: TWebhookEventType, data: IWebhookEventData) => IWebhookEventData;
+    payloadTransformer?: (event: TWebhookEventName, data: IWebhookEventData) => IWebhookEventData;
 }
 
 /**
@@ -189,7 +189,7 @@ export interface IWebhookPluginStats extends IPluginStats {
     queueLength: number;
     batchQueueLength: number;
     activeConcurrency: number;
-    supportedEvents: TWebhookEventType[];
+    supportedEvents: TWebhookEventName[];
     totalSent: number;
     totalErrors: number;
     averageResponseTime: number;

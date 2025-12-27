@@ -1,7 +1,7 @@
 import type {
     EventEmitterPlugin,
-    IEventData,
-    IHierarchicalEventData
+    IEventEmitterEventData,
+    IEventEmitterHierarchicalEventData
 } from '@robota-sdk/agents';
 import { EVENT_EMITTER_EVENTS } from '@robota-sdk/agents';
 import type { PlaygroundBlockCollector } from './block-tracking/block-collector';
@@ -52,11 +52,11 @@ export class ExecutionSubscriber {
         this.eventEmitter.on(EVENT_EMITTER_EVENTS.TOOL_ERROR, this.onToolError.bind(this));
 
         // Subscribe to hierarchical events
-        this.eventEmitter.on(EVENT_EMITTER_EVENTS.EXECUTION_HIERARCHY, (eventData: IEventData) => {
-            this.onHierarchyUpdate(eventData as IHierarchicalEventData);
+        this.eventEmitter.on(EVENT_EMITTER_EVENTS.EXECUTION_HIERARCHY, (eventData: IEventEmitterEventData) => {
+            this.onHierarchyUpdate(eventData as IEventEmitterHierarchicalEventData);
         });
-        this.eventEmitter.on(EVENT_EMITTER_EVENTS.EXECUTION_REALTIME, (eventData: IEventData) => {
-            this.onRealtimeUpdate(eventData as IHierarchicalEventData);
+        this.eventEmitter.on(EVENT_EMITTER_EVENTS.EXECUTION_REALTIME, (eventData: IEventEmitterEventData) => {
+            this.onRealtimeUpdate(eventData as IEventEmitterHierarchicalEventData);
         });
         this.eventEmitter.on(EVENT_EMITTER_EVENTS.TOOL_REALTIME, this.onToolRealtimeUpdate.bind(this));
 
@@ -68,11 +68,11 @@ export class ExecutionSubscriber {
     /**
      * Handle tool execution start
      */
-    private onToolStart(eventData: IEventData): void {
+    private onToolStart(eventData: IEventEmitterEventData): void {
         const executionId = eventData.executionId;
         if (!executionId) return;
 
-        const hierarchicalData = eventData as IHierarchicalEventData;
+        const hierarchicalData = eventData as IEventEmitterHierarchicalEventData;
         const toolName = (eventData.data as any)?.toolName || 'unknown_tool';
 
         // Create real-time block metadata
@@ -133,14 +133,14 @@ export class ExecutionSubscriber {
     /**
      * Handle tool execution completion
      */
-    private onToolComplete(eventData: IEventData): void {
+    private onToolComplete(eventData: IEventEmitterEventData): void {
         const executionId = eventData.executionId;
         if (!executionId) return;
 
         const execution = this.activeExecutions.get(executionId);
         if (!execution) return;
 
-        const hierarchicalData = eventData as IHierarchicalEventData;
+        const hierarchicalData = eventData as IEventEmitterHierarchicalEventData;
         const endTime = new Date();
         const actualDuration = endTime.getTime() - execution.startTime.getTime();
 
@@ -162,7 +162,7 @@ export class ExecutionSubscriber {
     /**
      * Handle tool execution error
      */
-    private onToolError(eventData: IEventData): void {
+    private onToolError(eventData: IEventEmitterEventData): void {
         const executionId = eventData.executionId;
         if (!executionId) return;
 
@@ -189,7 +189,7 @@ export class ExecutionSubscriber {
     /**
      * Handle hierarchy updates
      */
-    private onHierarchyUpdate(eventData: IHierarchicalEventData): void {
+    private onHierarchyUpdate(eventData: IEventEmitterHierarchicalEventData): void {
         const executionId = eventData.executionId;
         if (!executionId) return;
 
@@ -214,7 +214,7 @@ export class ExecutionSubscriber {
     /**
      * Handle real-time updates
      */
-    private onRealtimeUpdate(eventData: IHierarchicalEventData): void {
+    private onRealtimeUpdate(eventData: IEventEmitterHierarchicalEventData): void {
         const executionId = eventData.executionId;
         if (!executionId || !eventData.realTimeData) return;
 
@@ -235,7 +235,7 @@ export class ExecutionSubscriber {
     /**
      * Handle tool-specific real-time updates (progress, etc.)
      */
-    private onToolRealtimeUpdate(eventData: IEventData): void {
+    private onToolRealtimeUpdate(eventData: IEventEmitterEventData): void {
         const executionId = eventData.executionId;
         if (!executionId) return;
 
@@ -259,12 +259,12 @@ export class ExecutionSubscriber {
     /**
      * Handle execution start (Team/Agent level)
      */
-    private onExecutionStart(eventData: IEventData): void {
+    private onExecutionStart(eventData: IEventEmitterEventData): void {
         // For Agent/Team level executions, we can create group blocks
         const executionId = eventData.executionId;
         if (!executionId) return;
 
-        const hierarchicalData = eventData as IHierarchicalEventData;
+        const hierarchicalData = eventData as IEventEmitterHierarchicalEventData;
 
         // Only create blocks for Agent/Team level (level 0 or 1)
         if (hierarchicalData.executionLevel !== undefined && hierarchicalData.executionLevel <= 1) {
@@ -308,7 +308,7 @@ export class ExecutionSubscriber {
     /**
      * Handle execution completion (Team/Agent level)
      */
-    private onExecutionComplete(eventData: IEventData): void {
+    private onExecutionComplete(eventData: IEventEmitterEventData): void {
         const executionId = eventData.executionId;
         if (!executionId) return;
 

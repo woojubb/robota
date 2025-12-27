@@ -1,5 +1,5 @@
 import type { IAIProvider, IToolSchema } from './provider';
-import type { IToolInterface, TToolExecutor, IToolExecutionContext, TToolParameters } from './tool';
+import type { ITool, TToolExecutor, IToolExecutionContext, TToolParameters } from './tool';
 import type { TToolResultData } from './types';
 import type { IAgentConfig, IAgent } from './agent';
 
@@ -90,7 +90,7 @@ export interface IToolManager {
     /**
      * Get tool interface by name
      */
-    getTool(name: string): IToolInterface | undefined;
+    getTool(name: string): ITool | undefined;
 
     /**
      * Get tool schema by name

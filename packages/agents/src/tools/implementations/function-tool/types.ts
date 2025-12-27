@@ -42,7 +42,7 @@ export interface IZodSchema {
 /**
  * Parameter type validation options
  */
-export interface IValidationOptions {
+export interface IFunctionToolValidationOptions {
     strict?: boolean;
     allowUnknown?: boolean;
     validateTypes?: boolean;

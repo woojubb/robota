@@ -19,4 +19,4 @@ export const AGENT_EVENTS = {
     CONFIG_UPDATED: 'agent.config_updated'
 } as const;
 
-export type AgentEventType = typeof AGENT_EVENTS[keyof typeof AGENT_EVENTS];
+export type TAgentEvent = typeof AGENT_EVENTS[keyof typeof AGENT_EVENTS];

@@ -18,7 +18,7 @@ import type { TimerId } from '../../utils';
 import { WebhookTransformer } from './transformer';
 import { WebhookHttpClient } from './http-client';
 import type {
-    TWebhookEventType,
+    TWebhookEventName,
     IWebhookEventData,
     TWebhookMetadata,
     IWebhookPayload,
@@ -29,21 +29,21 @@ import type {
 } from './types';
 
 // Local event constants for webhook usage (kept internal to plugin)
-const EXEC_EVENTS: { START: TWebhookEventType; COMPLETE: TWebhookEventType; ERROR: TWebhookEventType } = {
+const EXEC_EVENTS: { START: TWebhookEventName; COMPLETE: TWebhookEventName; ERROR: TWebhookEventName } = {
     START: 'execution.start',
     COMPLETE: 'execution.complete',
     ERROR: 'execution.error'
 } as const;
 
-const CONV_EVENTS: { COMPLETE: TWebhookEventType } = {
+const CONV_EVENTS: { COMPLETE: TWebhookEventName } = {
     COMPLETE: 'conversation.complete'
 } as const;
 
-const TOOL_EVENTS_LOCAL: { EXECUTED: TWebhookEventType } = {
+const TOOL_EVENTS_LOCAL: { EXECUTED: TWebhookEventName } = {
     EXECUTED: 'tool.executed'
 } as const;
 
-const ERROR_EVENTS: { OCCURRED: TWebhookEventType } = {
+const ERROR_EVENTS: { OCCURRED: TWebhookEventName } = {
     OCCURRED: 'error.occurred'
 } as const;
 
@@ -189,7 +189,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
      * Send webhook notification
      */
     async sendWebhook(
-        event: TWebhookEventType,
+        event: TWebhookEventName,
         data: IWebhookEventData,
         metadata?: TWebhookMetadata
     ): Promise<void> {
@@ -284,7 +284,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     /**
      * Get endpoints that should receive the event
      */
-    private getEndpointsForEvent(event: TWebhookEventType): IWebhookEndpoint[] {
+    private getEndpointsForEvent(event: TWebhookEventName): IWebhookEndpoint[] {
         return this.pluginOptions.endpoints.filter(endpoint => {
             if (!endpoint.events || endpoint.events.length === 0) {
                 return true; // No event filter means all events
@@ -337,7 +337,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
             }
 
             if (endpoint.events) {
-                const validEvents: TWebhookEventType[] = [
+                const validEvents: TWebhookEventName[] = [
                     EXEC_EVENTS.START, EXEC_EVENTS.COMPLETE, EXEC_EVENTS.ERROR,
                     CONV_EVENTS.COMPLETE, TOOL_EVENTS_LOCAL.EXECUTED, ERROR_EVENTS.OCCURRED, 'custom'
                 ];

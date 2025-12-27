@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { WebLogger } from '../../lib/web-logger';
 
-interface IUsageStats {
+interface IPlaygroundUsageStats {
     dailyExecutions: number;
     maxConcurrentSessions: number;
     allowedProviders: string[];
@@ -45,7 +45,7 @@ interface IUsageMonitorProps {
 }
 
 export function UsageMonitor({ isVisible, onClose }: IUsageMonitorProps) {
-    const [usage, setUsage] = useState<IUsageStats | null>(null);
+    const [usage, setUsage] = useState<IPlaygroundUsageStats | null>(null);
     const [rateLimit, setRateLimit] = useState<IRateLimitInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
@@ -67,7 +67,7 @@ export function UsageMonitor({ isVisible, onClose }: IUsageMonitorProps) {
             // For now, we'll simulate the data
             await new Promise(resolve => setTimeout(resolve, 500));
 
-            const mockUsage: IUsageStats = {
+            const mockUsage: IPlaygroundUsageStats = {
                 dailyExecutions: 100,
                 maxConcurrentSessions: 1,
                 allowedProviders: ['openai'],

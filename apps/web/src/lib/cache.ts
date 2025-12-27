@@ -1,14 +1,14 @@
 /**
  * Simple in-memory cache with TTL support
  */
-interface CacheEntry<T> {
+interface IWebCacheEntry<T> {
     data: T;
     timestamp: number;
     ttl: number;
 }
 
 export class SimpleCache {
-    private cache = new Map<string, CacheEntry<any>>();
+    private cache = new Map<string, IWebCacheEntry<any>>();
     private defaultTTL = 5 * 60 * 1000; // 5 minutes
 
     /**

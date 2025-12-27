@@ -1,7 +1,7 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
-import type { TEventType, IEventData } from '../event-emitter-plugin';
+import type { IEventEmitterEventData, TEventName } from '../event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
 import {
     IPerformanceMetrics,
@@ -77,12 +77,12 @@ export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions,
     /**
      * Handle module events for performance monitoring
      */
-    override async onModuleEvent(eventType: TEventType, eventData: IEventData): Promise<void> {
+    override async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
             const moduleData = eventData.data;
 
-            switch (eventType) {
+            switch (eventName) {
                 case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START:
                     // Start tracking module initialization performance
                     break;

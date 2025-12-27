@@ -30,7 +30,7 @@ export type TPluginLifecycle =
 /**
  * Plugin configuration interface
  */
-export interface IPluginConfig {
+export interface IWorkflowPluginConfig {
     enabled?: boolean;
     priority?: number;
     options?: Record<string, TWorkflowPluginValue | undefined>;
@@ -41,7 +41,7 @@ export interface IPluginConfig {
 /**
  * Plugin context for lifecycle hooks
  */
-export interface IPluginContext {
+export interface IWorkflowPluginContext {
     // Current workflow state
     nodes: Map<string, IWorkflowNode>;
     edges: Map<string, IWorkflowEdge>;
@@ -71,7 +71,7 @@ export interface IPluginContext {
  */
 export type TPluginHookHandler<TInput = TWorkflowPluginValue, TOutput = TWorkflowPluginValue> = (
     input: TInput,
-    context: IPluginContext
+    context: IWorkflowPluginContext
 ) => Promise<TOutput> | TOutput;
 
 /**
@@ -88,7 +88,7 @@ export interface IWorkflowPlugin {
     /**
      * Plugin configuration
      */
-    config: IPluginConfig;
+    config: IWorkflowPluginConfig;
 
     /**
      * Lifecycle hooks (all optional)
@@ -113,8 +113,8 @@ export interface IWorkflowPlugin {
     /**
      * Plugin lifecycle methods
      */
-    initialize?: (context: IPluginContext) => Promise<void> | void;
-    configure?: (config: IPluginConfig) => void;
+    initialize?: (context: IWorkflowPluginContext) => Promise<void> | void;
+    configure?: (config: IWorkflowPluginConfig) => void;
     destroy?: () => Promise<void> | void;
 
     /**
@@ -187,7 +187,7 @@ export interface IPluginManager {
     /**
      * Configure plugin
      */
-    configurePlugin(name: string, config: IPluginConfig): boolean;
+    configurePlugin(name: string, config: IWorkflowPluginConfig): boolean;
 
     /**
      * Execute hook for all plugins
@@ -195,7 +195,7 @@ export interface IPluginManager {
     executeHook<TInput, TOutput>(
         hookName: TPluginLifecycle,
         input: TInput,
-        context: IPluginContext
+        context: IWorkflowPluginContext
     ): Promise<TOutput>;
 
     /**
@@ -232,7 +232,7 @@ export interface IPluginFactory {
     /**
      * Create plugin instance
      */
-    create(config?: IPluginConfig): IWorkflowPlugin;
+    create(config?: IWorkflowPluginConfig): IWorkflowPlugin;
 
     /**
      * Get plugin metadata
@@ -249,7 +249,7 @@ export interface IPluginFactory {
     /**
      * Validate plugin configuration
      */
-    validateConfig(config: IPluginConfig): {
+    validateConfig(config: IWorkflowPluginConfig): {
         isValid: boolean;
         errors: string[];
     };

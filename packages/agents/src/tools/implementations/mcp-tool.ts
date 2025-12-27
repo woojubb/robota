@@ -1,4 +1,4 @@
-import type { IToolInterface, IToolResult, IToolExecutionContext, TToolParameters } from '../../interfaces/tool';
+import type { ITool, IToolResult, IToolExecutionContext, TToolParameters } from '../../interfaces/tool';
 import type { IToolSchema } from '../../interfaces/provider';
 import type { IUniversalObjectValue } from '../../interfaces/types';
 import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstract-tool';
@@ -71,7 +71,7 @@ type TMCPConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'disco
  * 
  * @extends AbstractTool<TToolParameters, IToolResult>
  */
-export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implements IToolInterface {
+export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implements ITool {
     readonly schema: IToolSchema;
     private readonly mcpConfig: IMCPConfig;
     private connectionStatus: TMCPConnectionStatus = 'disconnected';

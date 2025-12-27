@@ -1,0 +1,213 @@
+{
+  "version": 2,
+  "scannedFiles": 345,
+  "duplicateGroups": 9,
+  "duplicates": [
+    {
+      "name": "MockAIProvider",
+      "count": 3,
+      "occurrences": [
+        {
+          "rawName": "MockAIProvider",
+          "normalizedName": "MockAIProvider",
+          "kind": "class",
+          "file": "packages/agents/src/agents/robota.test.ts",
+          "line": 16,
+          "text": "class MockAIProvider extends AbstractAIProvider {"
+        },
+        {
+          "rawName": "MockAIProvider",
+          "normalizedName": "MockAIProvider",
+          "kind": "class",
+          "file": "packages/agents/src/managers/agent-factory.test.ts",
+          "line": 11,
+          "text": "class MockAIProvider extends AbstractAIProvider {"
+        },
+        {
+          "rawName": "MockAIProvider",
+          "normalizedName": "MockAIProvider",
+          "kind": "class",
+          "file": "packages/agents/src/services/execution-service.test.ts",
+          "line": 31,
+          "text": "class MockAIProvider extends AbstractAIProvider {"
+        }
+      ]
+    },
+    {
+      "name": "AgentFactory",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IAgentFactory",
+          "normalizedName": "AgentFactory",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/manager.ts",
+          "line": 144,
+          "text": "export interface IAgentFactory {"
+        },
+        {
+          "rawName": "AgentFactory",
+          "normalizedName": "AgentFactory",
+          "kind": "class",
+          "file": "packages/agents/src/managers/agent-factory.ts",
+          "line": 58,
+          "text": "export class AgentFactory {"
+        }
+      ]
+    },
+    {
+      "name": "ChatInstance",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "ChatInstance",
+          "normalizedName": "ChatInstance",
+          "kind": "class",
+          "file": "packages/sessions/src/chat/chat-instance.ts",
+          "line": 18,
+          "text": "export class ChatInstance implements IChatInstance {"
+        },
+        {
+          "rawName": "IChatInstance",
+          "normalizedName": "ChatInstance",
+          "kind": "interface",
+          "file": "packages/sessions/src/types/chat.ts",
+          "line": 49,
+          "text": "export interface IChatInstance {"
+        }
+      ]
+    },
+    {
+      "name": "ConversationHistory",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IConversationHistory",
+          "normalizedName": "ConversationHistory",
+          "kind": "interface",
+          "file": "packages/agents/src/managers/conversation-history-manager.ts",
+          "line": 195,
+          "text": "export interface IConversationHistory {"
+        },
+        {
+          "rawName": "ConversationHistory",
+          "normalizedName": "ConversationHistory",
+          "kind": "class",
+          "file": "packages/agents/src/managers/conversation-history-manager.ts",
+          "line": 723,
+          "text": "export class ConversationHistory {"
+        }
+      ]
+    },
+    {
+      "name": "ConversationService",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IConversationService",
+          "normalizedName": "ConversationService",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/service.ts",
+          "line": 164,
+          "text": "export interface IConversationService {"
+        },
+        {
+          "rawName": "ConversationService",
+          "normalizedName": "ConversationService",
+          "kind": "class",
+          "file": "packages/agents/src/services/conversation-service/index.ts",
+          "line": 63,
+          "text": "export class ConversationService implements IConversationService {"
+        }
+      ]
+    },
+    {
+      "name": "ExecutionService",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IExecutionService",
+          "normalizedName": "ExecutionService",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/service.ts",
+          "line": 227,
+          "text": "export interface IExecutionService {"
+        },
+        {
+          "rawName": "ExecutionService",
+          "normalizedName": "ExecutionService",
+          "kind": "class",
+          "file": "packages/agents/src/services/execution-service.ts",
+          "line": 109,
+          "text": "export class ExecutionService {"
+        }
+      ]
+    },
+    {
+      "name": "FunctionTool",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IFunctionTool",
+          "normalizedName": "FunctionTool",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/tool.ts",
+          "line": 233,
+          "text": "export interface IFunctionTool extends IToolInterface {"
+        },
+        {
+          "rawName": "FunctionTool",
+          "normalizedName": "FunctionTool",
+          "kind": "class",
+          "file": "packages/agents/src/tools/implementations/function-tool.ts",
+          "line": 19,
+          "text": "export class FunctionTool extends AbstractTool<TToolParameters, IToolResult> implements IFunctionTool {"
+        }
+      ]
+    },
+    {
+      "name": "ToolExecutionService",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IToolExecutionService",
+          "normalizedName": "ToolExecutionService",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/service.ts",
+          "line": 207,
+          "text": "export interface IToolExecutionService {"
+        },
+        {
+          "rawName": "ToolExecutionService",
+          "normalizedName": "ToolExecutionService",
+          "kind": "class",
+          "file": "packages/agents/src/services/tool-execution-service.ts",
+          "line": 35,
+          "text": "export class ToolExecutionService {"
+        }
+      ]
+    },
+    {
+      "name": "ToolRegistry",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IToolRegistry",
+          "normalizedName": "ToolRegistry",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/tool.ts",
+          "line": 241,
+          "text": "export interface IToolRegistry {"
+        },
+        {
+          "rawName": "ToolRegistry",
+          "normalizedName": "ToolRegistry",
+          "kind": "class",
+          "file": "packages/agents/src/tools/registry/tool-registry.ts",
+          "line": 10,
+          "text": "export class ToolRegistry implements IToolRegistry {"
+        }
+      ]
+    }
+  ]
+}

@@ -187,7 +187,7 @@ export const PLAYGROUND_STATISTICS_EVENTS = {
     SESSION_END: 'playground.session_end',
 } as const;
 
-export type TPlaygroundStatisticsEventType =
+export type TPlaygroundStatisticsEventName =
     | (typeof EXECUTION_EVENTS)[keyof typeof EXECUTION_EVENTS]
     | (typeof PLAYGROUND_STATISTICS_EVENTS)[keyof typeof PLAYGROUND_STATISTICS_EVENTS];
 
@@ -195,7 +195,7 @@ export type TPlaygroundStatisticsEventType =
  * Statistics event data
  */
 export interface IPlaygroundStatisticsEventData {
-    type: TPlaygroundStatisticsEventType;
+    type: TPlaygroundStatisticsEventName;
     timestamp: Date;
     executionId?: string;
     sessionId?: string;

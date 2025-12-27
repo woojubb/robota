@@ -1,7 +1,8 @@
-import { IToolExecutionResult, IToolExecutionContext, TToolMetadata } from '../interfaces/tool';
+import { IToolExecutionResult, IToolExecutionContext } from '../interfaces/tool';
 import type { IToolManager } from '../interfaces/manager';
-import type { TToolParameters } from '../interfaces/tool';
-import type { IEventService, IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
+import type { TToolParameters, TToolMetadata } from '../interfaces/tool';
+import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
+import type { IToolExecutionRequest } from '../interfaces/service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import { ValidationError } from '../utils/errors';
 
@@ -16,18 +17,7 @@ export const TOOL_EVENTS = {
     CALL_RESPONSE_READY: 'tool.call_response_ready'
 } as const;
 
-// Add missing types for ExecutionService compatibility
-export interface IToolExecutionRequest {
-    toolName: string;
-    parameters: TToolParameters;
-    executionId?: string;
-    metadata?: TToolMetadata;
-    ownerType?: string;
-    ownerId?: string;
-    ownerPath?: IOwnerPathSegment[];
-    eventService?: IEventService;
-    baseEventService?: IEventService;
-}
+export type { IToolExecutionRequest };
 
 export interface IToolExecutionBatchContext {
     requests: IToolExecutionRequest[];

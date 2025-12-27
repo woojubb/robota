@@ -12,7 +12,7 @@ import {
 } from './remote-injection';
 import type { IPlaygroundConfig } from './config-validation';
 
-export interface IExecutionResult {
+export interface ICodeExecutionResult {
     success: boolean
     output?: string
     error?: string
@@ -61,7 +61,7 @@ export class CodeExecutor {
         };
     }
 
-    async executeCode(code: string, provider: string): Promise<IExecutionResult> {
+    async executeCode(code: string, provider: string): Promise<ICodeExecutionResult> {
         const startTime = Date.now()
         const logs: string[] = []
         const errors: IErrorInfo[] = []

@@ -68,7 +68,6 @@ export * from './interfaces';
  * 
  * @public
  */
-export * from './constants/workflow-node-types';
 
 /**
  * Abstract base classes that provide common functionality and structure.
@@ -234,9 +233,16 @@ export { ErrorHandlingPlugin, TErrorHandlingStrategy, IErrorHandlingPluginOption
  */
 export { LimitsPlugin } from './plugins/limits-plugin';
 export type { TLimitsStrategy, ILimitsPluginOptions } from './plugins/limits-plugin';
-export { EventEmitterPlugin, TEventType, IEventData, TEventListener, IEventEmitterPluginOptions, IHierarchicalEventData } from './plugins/event-emitter-plugin';
+export {
+    EventEmitterPlugin,
+    TEventName,
+    IEventEmitterEventData,
+    TEventEmitterListener,
+    IEventEmitterPluginOptions,
+    IEventEmitterHierarchicalEventData
+} from './plugins/event-emitter-plugin';
 export { WebhookPlugin } from './plugins/webhook';
-export type { TWebhookEventType, IWebhookPayload, IWebhookEndpoint, IWebhookPluginOptions } from './plugins/webhook';
+export type { TWebhookEventName, IWebhookPayload, IWebhookEndpoint, IWebhookPluginOptions } from './plugins/webhook';
 
 // ===== CORE AGENT EXPORTS =====
 /**

@@ -34,8 +34,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Types for workflow data structure
-interface WorkflowNode {
+// Types for verification input (React Flow export structure)
+interface IVerificationWorkflowNode {
     id: string;
     type: string;
     data: {
@@ -50,7 +50,7 @@ interface WorkflowNode {
     timestamp?: number; // Creation timestamp for sequential order validation
 }
 
-interface WorkflowEdge {
+interface IVerificationWorkflowEdge {
     id: string;
     source: string;
     target: string;
@@ -63,12 +63,12 @@ interface WorkflowEdge {
     timestamp?: number; // Creation timestamp for sequential order validation
 }
 
-interface WorkflowData {
-    nodes: WorkflowNode[];
-    edges: WorkflowEdge[];
+interface IVerificationWorkflowData {
+    nodes: IVerificationWorkflowNode[];
+    edges: IVerificationWorkflowEdge[];
 }
 
-interface RealWorkflowFileData {
+interface IRealWorkflowFileData {
     metadata: {
         createdAt: string;
         updatedAt: string;
@@ -79,10 +79,10 @@ interface RealWorkflowFileData {
         testType: string;
         sourceExample: string;
     };
-    team2: WorkflowData;
+    team2: IVerificationWorkflowData;
 }
 
-interface ValidationResult {
+interface IWorkflowVerificationResult {
     success: boolean;
     totalNodes: number;
     totalEdges: number;
@@ -114,7 +114,7 @@ interface ValidationResult {
 }
 
 class WorkflowConnectionVerifier {
-    private data: WorkflowData | null = null;
+    private data: IVerificationWorkflowData | null = null;
     private dataFilePath: string;
 
     // Configuration for single outgoing connection rule
@@ -145,10 +145,10 @@ class WorkflowConnectionVerifier {
 
             // Check if it's the new format with team2 wrapper
             if (rawData.team2) {
-                this.data = rawData.team2 as WorkflowData;
+                this.data = rawData.team2 as IVerificationWorkflowData;
             } else {
                 // Fallback to direct format
-                this.data = rawData as WorkflowData;
+                this.data = rawData as IVerificationWorkflowData;
             }
 
             // Basic structure validation
@@ -298,7 +298,7 @@ class WorkflowConnectionVerifier {
     /**
      * Perform comprehensive workflow validation
      */
-    public verify(): ValidationResult {
+    public verify(): IWorkflowVerificationResult {
         // Load data
         if (!this.loadWorkflowData() || !this.data) {
             return {
@@ -577,7 +577,7 @@ class WorkflowConnectionVerifier {
     /**
      * Format and display validation results
      */
-    public displayResults(result: ValidationResult): void {
+    public displayResults(result: IWorkflowVerificationResult): void {
         console.log('\n🔍 Workflow Connection Verification');
         console.log('='.repeat(50));
         console.log(`📁 File: ${path.basename(this.dataFilePath)}`);
@@ -917,7 +917,7 @@ class WorkflowConnectionVerifier {
     /**
  * 🔍 순차적 엣지 판별: 같은 경로 내의 순차적 연결인지 확인
  */
-    private isSequentialEdgeInSamePath(edge: WorkflowEdge, pathGroups: Map<string, string[]>): boolean {
+    private isSequentialEdgeInSamePath(edge: IVerificationWorkflowEdge, pathGroups: Map<string, string[]>): boolean {
         // 같은 경로 그룹에서 source → target 순서로 있는지 확인
         for (const [pathId, nodes] of pathGroups.entries()) {
             const sourceIndex = nodes.indexOf(edge.source);
@@ -1021,7 +1021,7 @@ class WorkflowConnectionVerifier {
 
         // Index helpers
         const nodeById = new Map(nodes.map(n => [n.id, n] as const));
-        const edgesFrom = new Map<string, WorkflowEdge[]>();
+        const edgesFrom = new Map<string, IVerificationWorkflowEdge[]>();
         edges.forEach(e => {
             const arr = edgesFrom.get(e.source) || [];
             arr.push(e);
@@ -1049,7 +1049,7 @@ class WorkflowConnectionVerifier {
             }
 
             // 2) tool_result must be created before next agent_thinking (analyze edge target)
-            const analyzeEdges = (edgesFrom.get(tr.id) || []).filter((e: WorkflowEdge) => e.type === 'analyze');
+            const analyzeEdges = (edgesFrom.get(tr.id) || []).filter((e: IVerificationWorkflowEdge) => e.type === 'analyze');
             for (const ae of analyzeEdges) {
                 const nextThinking = nodeById.get(ae.target);
                 if (nextThinking && typeof tr.timestamp === 'number' && typeof nextThinking.timestamp === 'number') {
@@ -1067,7 +1067,7 @@ class WorkflowConnectionVerifier {
      * Check if a tool_response node belongs to the specified thinking by comparing
      * its originalEvent.path parentPath with [root, thinkingId].
      */
-    private belongsToThinking(node: WorkflowNode, thinkingId: string): boolean {
+    private belongsToThinking(node: IVerificationWorkflowNode, thinkingId: string): boolean {
         const pathArr = ((node as any).data?.extensions?.robota?.originalEvent?.path ?? (node as any).data?.path) as unknown;
         if (!Array.isArray(pathArr) || pathArr.length < 2) return false;
         const parentPath = pathArr.slice(0, -1);
@@ -1089,4 +1089,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export { WorkflowConnectionVerifier };
-export type { ValidationResult };
+export type { IWorkflowVerificationResult };

@@ -9,6 +9,7 @@
 
 import { listTemplateCategoriesTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
 import type { IToolExecutionContext, IToolResult, TToolResultData } from '@robota-sdk/agents';
+import type { TemplateSummary, TemplatesListPayload } from './lib/template-payloads';
 
 type CategorySummary = {
     id: string;
@@ -16,19 +17,8 @@ type CategorySummary = {
     description?: string;
 };
 
-type TemplateSummary = {
-    id: string;
-    name: string;
-    description?: string;
-    categoryId?: string;
-};
-
 type CategoriesPayload = {
     categories: CategorySummary[];
-};
-
-type TemplatesListPayload = {
-    templates: TemplateSummary[];
 };
 
 const isObject = (value: TToolResultData): value is Record<string, TToolResultData> => {

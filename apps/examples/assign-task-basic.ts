@@ -10,17 +10,7 @@
 
 import { listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
 import type { IToolExecutionContext, IToolResult, TToolResultData } from '@robota-sdk/agents';
-
-type TemplateSummary = {
-    id: string;
-    name: string;
-    description?: string;
-    categoryId?: string;
-};
-
-type TemplatesListPayload = {
-    templates: TemplateSummary[];
-};
+import type { TemplateSummary, TemplatesListPayload } from './lib/template-payloads';
 
 const isObject = (value: TToolResultData): value is Record<string, TToolResultData> => {
     return typeof value === 'object' && value !== null && !Array.isArray(value);

@@ -127,7 +127,7 @@ interface IWorkflowVisualizationNodeData {
 type TWorkflowVisualizationNode = Node<IWorkflowVisualizationNodeData>;
 
 // Unified Chat System
-type TChatNodeType = 'agent' | 'response';
+type TChatNodeKind = 'agent' | 'response';
 
 function isPlaygroundToolMeta(value: unknown): value is IPlaygroundToolMeta {
     if (!value || typeof value !== 'object') return false;
@@ -142,7 +142,7 @@ function isPlaygroundToolMeta(value: unknown): value is IPlaygroundToolMeta {
 /**
  * Extract Agent ID from node data based on node type
  */
-const extractAgentId = (nodeData: any, nodeType: TChatNodeType): string | null => {
+const extractAgentId = (nodeData: any, nodeType: TChatNodeKind): string | null => {
     if (nodeType === 'agent') {
         return nodeData.sourceId || nodeData.conversationId || null;
     } else if (nodeType === 'response') {
@@ -161,7 +161,7 @@ const ChatButton = ({
     onChatOpen
 }: {
     nodeData: any;
-    nodeType: TChatNodeType;
+    nodeType: TChatNodeKind;
     onChatOpen?: (agentId: string, nodeData: any) => void;
 }) => {
     const handleChatClick = (e: React.MouseEvent) => {
@@ -190,10 +190,10 @@ const ChatButton = ({
 };
 
 // Base Node Template Types
-type TNodeType = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'user_message' | 'agent_thinking' | 'response' | 'tool_call' | 'tool_call_response' | 'tool_response' | 'tool_result';
+type TNodeKind = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'user_message' | 'agent_thinking' | 'response' | 'tool_call' | 'tool_call_response' | 'tool_response' | 'tool_result';
 
 interface INodeTemplateProps {
-    nodeType: TNodeType;
+    nodeType: TNodeKind;
     data: any;
     sourcePosition?: Position;
     targetPosition?: Position;

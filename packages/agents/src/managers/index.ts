@@ -20,7 +20,7 @@ export { Plugins } from './plugins';
 
 // Plugin Types
 export type {
-    IPluginsManagerInterface,
+    IPluginsManager,
     IPluginLifecycleEvents,
     IPluginDependency,
     IPluginRegistrationOptions,

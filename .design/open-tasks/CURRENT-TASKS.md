@@ -1,7 +1,7 @@
-# 현재 작업 목록 (최신 / [ ]만 유지)
+# 현재 작업 목록 (최신)
 
-> 이 문서는 **남은 작업([ ])만** 관리합니다.  
-> 완료된 항목과 “어떻게 업그레이드/마이그레이션 했는지” 기록은 유지하지 않습니다.
+> 이 문서는 **남은 작업([ ])**과 **완료된 작업([x])**을 함께 관리합니다.  
+> “어떻게 업그레이드/마이그레이션 했는지” 같은 장문의 서술은 최소화하고, 체크리스트 중심으로 유지합니다.
 
 ---
 
@@ -13,12 +13,42 @@
 - Path-only / No-fallback / event constants 규칙을 브릿지에서도 동일 적용
 
 ### 작업 항목
-- [ ] 전수조사: Workflow 브릿지/어댑터 후보 목록화(파일/역할/사용처)
-- [ ] 차이점 표 작성: payload shaping / context 요구조건 / timestamp 요구조건
-- [ ] SSOT 위치 확정: `packages/workflow`에 공용 브릿지 1개로 수렴
-- [ ] `packages/playground` → SSOT 교체 후 중복 파일 제거
-- [ ] `apps/examples` → SSOT 교체 후 중복 파일 제거
-- [ ] 빌드 게이트: `pnpm --filter @robota-sdk/workflow build`, `pnpm --filter @robota-sdk/playground build`, `pnpm typecheck`
+- [x] 전수조사: Workflow 브릿지/어댑터 후보 목록화(파일/역할/사용처)
+- [x] 차이점 표 작성: payload shaping / context 요구조건 / timestamp 요구조건
+- [x] SSOT 위치 확정: `packages/workflow`에 공용 브릿지 1개로 수렴
+- [x] `packages/playground` → SSOT 교체 후 중복 파일 제거
+- [x] `apps/examples` → SSOT 교체 후 중복 파일 제거
+- [x] 빌드 게이트: `pnpm --filter @robota-sdk/workflow build`, `pnpm --filter @robota-sdk/playground build`, `pnpm typecheck`
+
+---
+
+## ✅ Priority 0.56: Playground Monaco 자동완성(인텔리센스) 제거
+
+### 목표
+- Playground는 “코드 편집 UI”만 제공하고, Monaco 기반 자동완성/타입 주입/진단 지원은 제공하지 않는다.
+- SSOT 관점에서 SDK 계약을 playground 내부에서 재정의(`declare module`)하는 일을 금지한다.
+
+### 작업 항목
+- [x] `packages/playground/src/components/playground/code-editor.tsx`에서 `addExtraLib` 기반 타입 주입 제거
+- [x] Monaco editor 옵션에서 자동완성/힌트 관련 설정 비활성화
+- [x] (되돌림) packages/*에 추가했던 Monaco 타입 스텁 export 및 파일 제거
+- [x] 빌드/타입체크: `pnpm --filter @robota-sdk/playground build`, `pnpm typecheck`
+
+---
+
+## ✅ Priority 0.57: SSOT 1차 중복 선언 스캐너 + 크로스 패키지 중복 제거
+
+### 목표
+- `apps/**` + `packages/**`의 `class/interface/type` 선언부만 추출하여 “중복 후보”를 1차로 잡는다.
+- I/T 접두어를 제거한 정규화 이름 기준으로 “크로스 패키지(root) 중복”을 우선 제거한다.
+
+### 작업 항목
+- [x] 1차 스캐너 생성 및 결과 저장: `.design/open-tasks/ssot-duplicate-declarations-v2.json`
+- [x] 스캐너 정확도 보정: `import { type X }` 오탐 방지(`type Name =`만 선언으로 취급)
+- [x] 크로스 패키지(root) 중복 그룹 0개 달성 (v2 스캔 기준)
+- [x] 스캐너 v3: 중복 그룹을 “same-kind 중복” vs “contract+implementation 페어(class+interface)”로 분류하여 노이즈 감소
+- [x] 다음 단계: same-kind 중복(비-test)만 0개 달성 (v3 스캔 기준)
+- [ ] 다음 단계: 선언 이름에 `Interface`/`Type`/`TypeSafe` 키워드 포함 현황(접미어+중간 포함) 인벤토리/수치화(v3 report에 포함)
 
 ---
 
@@ -54,6 +84,8 @@
 
 ### Naming Hygiene(점진 적용)
 - [ ] `T*Type`, `I*Interface` 같은 중복 접미어를 점진적으로 제거(손대는 파일부터)
+- [ ] `Interface` / `Type` 키워드가 **접미어뿐 아니라 식별자 중간에 포함된 케이스까지** 포함하여 정리 범위를 확장
+- [ ] (가드) SSOT 통합 작업 진행 중에는 `Interface` / `Type` 키워드가 들어간 신규 타입/인터페이스/클래스명을 **추가로 만들지 않는다**
 - [ ] `TypeSafe` 키워드 사용 금지 및 잔여 정리(손대는 파일부터)
 
 ---
