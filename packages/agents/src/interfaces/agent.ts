@@ -1,7 +1,7 @@
 import type { TProviderConfigValue, IAIProvider } from './provider';
-import type { AbstractPlugin, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
-import type { AbstractTool } from '../abstracts/abstract-tool';
-import type { AbstractModule } from '../abstracts/abstract-module';
+import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
+import type { IModule } from '../abstracts/abstract-module';
+import type { IToolWithEventService } from '../abstracts/abstract-tool';
 import type { TUtilLogLevel } from '../utils/logger';
 import type { TMetadata, TConfigValue } from './types';
 import type { IEventService } from '../services/event-service';
@@ -80,11 +80,11 @@ export interface IAgentConfig {
     };
 
     // Tools and plugins
-    tools?: AbstractTool[];
-    plugins?: Array<AbstractPlugin<IPluginOptions, IPluginStats>>;
+    tools?: Array<IToolWithEventService>;
+    plugins?: Array<IPluginContract<IPluginOptions, IPluginStats>>;
 
     // Modules for extended functionality
-    modules?: AbstractModule[];
+    modules?: IModule[];
 
     // System configuration
     systemMessage?: string;
@@ -255,4 +255,3 @@ export interface IGenerationConfig {
     [key: string]: TConfigValue;
 }
 
- 

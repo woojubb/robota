@@ -1,7 +1,7 @@
 import type { IRunOptions } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { TToolParameters, IToolExecutionResult, IToolExecutionContext } from '../interfaces/tool';
-import type { EventEmitterPlugin, IEventEmitterEventData, TEventName } from '../plugins/event-emitter-plugin';
+import type { IEventEmitterEventData, IEventEmitterPlugin, TEventName } from '../plugins/event-emitter/types';
 import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 
 /**
@@ -166,8 +166,8 @@ export interface IPluginContract<TOptions extends IPluginOptions = IPluginOption
     getStats?(): TStats;
 
     // Event subscription methods
-    subscribeToModuleEvents?(eventEmitter: EventEmitterPlugin): Promise<void>;
-    unsubscribeFromModuleEvents?(eventEmitter: EventEmitterPlugin): Promise<void>;
+    subscribeToModuleEvents?(eventEmitter: IEventEmitterPlugin): Promise<void>;
+    unsubscribeFromModuleEvents?(eventEmitter: IEventEmitterPlugin): Promise<void>;
     onModuleEvent?(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> | void;
 }
 
@@ -316,7 +316,7 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
     protected options: TOptions | undefined;
 
     /** EventEmitter for module event subscription */
-    protected eventEmitter: EventEmitterPlugin | undefined;
+    protected eventEmitter: IEventEmitterPlugin | undefined;
 
     /** Subscribed event types */
     protected subscribedEvents: TEventName[] = [];
@@ -363,7 +363,7 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
     /**
      * Subscribe to module events through EventEmitter
      */
-    async subscribeToModuleEvents(eventEmitter: EventEmitterPlugin): Promise<void> {
+    async subscribeToModuleEvents(eventEmitter: IEventEmitterPlugin): Promise<void> {
         this.eventEmitter = eventEmitter;
 
         if (!this.options) {
@@ -420,7 +420,7 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
     /**
      * Unsubscribe from module events
      */
-    async unsubscribeFromModuleEvents(eventEmitter: EventEmitterPlugin): Promise<void> {
+    async unsubscribeFromModuleEvents(eventEmitter: IEventEmitterPlugin): Promise<void> {
         for (const [eventType, handlerIds] of this.eventHandlers.entries()) {
             for (const handlerId of handlerIds) {
                 eventEmitter.off(eventType, handlerId);

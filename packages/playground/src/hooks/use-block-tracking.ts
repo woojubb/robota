@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import {
     PlaygroundBlockCollector,
+    type IPlaygroundBlockCollector,
     type IBlockMessage,
     type TBlockCollectionEvent
 } from '../lib/playground/block-tracking';
@@ -26,7 +27,7 @@ export interface IUseBlockTrackingOptions {
  */
 export interface IUseBlockTrackingResult {
     /** Block collector instance */
-    blockCollector: PlaygroundBlockCollector;
+    blockCollector: IPlaygroundBlockCollector;
 
     /** Universal tool factory for creating tracked tools */
     toolFactory: UniversalToolFactory;
@@ -35,7 +36,7 @@ export interface IUseBlockTrackingResult {
     blocks: IBlockMessage[];
 
     /** Block statistics */
-    stats: ReturnType<PlaygroundBlockCollector['getStats']>;
+    stats: ReturnType<IPlaygroundBlockCollector['getStats']>;
 
     /** Clear all blocks */
     clearBlocks: () => void;
@@ -59,7 +60,7 @@ export function useBlockTracking(options: IUseBlockTrackingOptions = {}): IUseBl
     } = options;
 
     // Stable references
-    const blockCollectorRef = useRef<PlaygroundBlockCollector | null>(null);
+    const blockCollectorRef = useRef<IPlaygroundBlockCollector | null>(null);
     const toolFactoryRef = useRef<UniversalToolFactory | null>(null);
 
     // State

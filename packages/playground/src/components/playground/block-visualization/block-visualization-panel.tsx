@@ -18,7 +18,6 @@ import type {
     IBlockDataCollector
 } from '../../../lib/playground/block-tracking';
 import { ExecutionTreeDebug } from '../execution-tree-debug';
-import type { PlaygroundBlockCollector } from '../../../lib/playground/block-tracking/block-collector';
 
 /**
  * Props for BlockVisualizationPanel
@@ -340,7 +339,7 @@ export const BlockVisualizationPanel: React.FC<IBlockVisualizationPanelProps> = 
                         <TabsContent value="debug" className="h-full m-0">
                             <div className="h-full overflow-y-auto p-3">
                                 <ExecutionTreeDebug
-                                    blockCollector={blockCollector as PlaygroundBlockCollector}
+                                    blockCollector={blockCollector}
                                     refreshInterval={1000}
                                 />
                             </div>

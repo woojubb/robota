@@ -1,10 +1,10 @@
-import {
-    AbstractModule,
+import type {
     IBaseModuleOptions,
+    IModule,
     IModuleExecutionContext,
     IModuleExecutionResult
 } from '../abstracts/abstract-module';
-import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
+import type { IEventEmitterPlugin } from '../plugins/event-emitter/types';
 import { ModuleDescriptorRegistry } from './module-type-registry';
 import { createLogger, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
@@ -70,18 +70,18 @@ export interface IModuleExecutionStats {
  * - Error handling and recovery
  */
 export class ModuleRegistry {
-    private modules = new Map<string, AbstractModule>();
+    private modules = new Map<string, IModule>();
     private moduleOptions = new Map<string, IBaseModuleOptions>();
     private moduleStatuses = new Map<string, IModuleStatus>();
     private moduleStats = new Map<string, IModuleExecutionStats>();
     private registrationOrder: string[] = [];
     private initializationOrder: string[] = [];
     private typeRegistry: ModuleDescriptorRegistry;
-    private eventEmitter: EventEmitterPlugin | undefined;
+    private eventEmitter: IEventEmitterPlugin | undefined;
     private logger: ILogger;
     private isDisposing = false;
 
-    constructor(eventEmitter?: EventEmitterPlugin) {
+    constructor(eventEmitter?: IEventEmitterPlugin) {
         this.eventEmitter = eventEmitter;
         this.typeRegistry = ModuleDescriptorRegistry.getInstance();
         this.logger = createLogger('ModuleRegistry');
@@ -95,7 +95,7 @@ export class ModuleRegistry {
      * Register a module instance
      */
     async registerModule(
-        module: AbstractModule,
+        module: IModule,
         options: IModuleRegistrationOptions = {}
     ): Promise<void> {
         if (this.isDisposing) {
@@ -391,20 +391,19 @@ export class ModuleRegistry {
     /**
      * Get a module by name
      */
-    getModule<T extends AbstractModule = AbstractModule>(moduleName: string): T | null {
-        const module = this.modules.get(moduleName);
-        return module ? (module as T) : null;
+    getModule(moduleName: string): IModule | null {
+        return this.modules.get(moduleName) ?? null;
     }
 
     /**
      * Get modules by type
      */
-    getModulesByType<T extends AbstractModule = AbstractModule>(moduleType: string): T[] {
-        const modules: T[] = [];
+    getModulesByType(moduleType: string): IModule[] {
+        const modules: IModule[] = [];
 
         for (const module of this.modules.values()) {
             if (module.getModuleType().type === moduleType) {
-                modules.push(module as T);
+                modules.push(module);
             }
         }
 
@@ -414,7 +413,7 @@ export class ModuleRegistry {
     /**
      * Get all registered modules
      */
-    getAllModules(): AbstractModule[] {
+    getAllModules(): IModule[] {
         return Array.from(this.modules.values());
     }
 
@@ -587,7 +586,7 @@ export class ModuleRegistry {
     /**
      * Validate a module before registration
      */
-    private validateModule(module: AbstractModule): void {
+    private validateModule(module: IModule): void {
         if (!module.name || module.name.trim() === '') {
             throw new ConfigurationError('Module name is required');
         }
@@ -619,7 +618,7 @@ export class ModuleRegistry {
     /**
      * Validate module dependencies
      */
-    private async validateModuleDependencies(module: AbstractModule): Promise<void> {
+    private async validateModuleDependencies(module: IModule): Promise<void> {
         const moduleType = module.getModuleType();
 
         if (!moduleType.dependencies || moduleType.dependencies.length === 0) {

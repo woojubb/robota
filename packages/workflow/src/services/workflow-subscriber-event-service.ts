@@ -2,7 +2,7 @@ import type { IBaseEventData, IEventContext, IEventService, ILogger } from '@rob
 import { SilentLogger } from '@robota-sdk/agents';
 
 import type { TEventData } from '../interfaces/event-handler.js';
-import type { WorkflowEventSubscriber } from './workflow-event-subscriber.js';
+import type { IWorkflowEventSubscriber } from './workflow-event-subscriber.js';
 
 /**
  * WorkflowSubscriberEventService
@@ -19,7 +19,7 @@ export class WorkflowSubscriberEventService implements IEventService {
     private tail: Promise<void> = Promise.resolve();
 
     constructor(
-        private readonly subscriber: WorkflowEventSubscriber,
+        private readonly subscriber: IWorkflowEventSubscriber,
         private readonly logger: ILogger = SilentLogger
     ) {}
 

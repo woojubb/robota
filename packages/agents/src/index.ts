@@ -341,6 +341,7 @@ export { RelayMcpTool, type IRelayMcpOptions, type IRelayMcpContext } from './to
 
 // ===== EVENT EMITTER (PLUGIN) EXPORTS =====
 export { EVENT_EMITTER_EVENTS } from './plugins/event-emitter/types';
+export type { IEventEmitterPlugin } from './plugins/event-emitter/types';
 
 // ===== EVENT CONSTANT EXPORTS (PUBLIC) =====
 // NOTE: These are the single source of truth for event names. Do not hardcode strings.

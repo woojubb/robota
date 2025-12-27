@@ -1,6 +1,6 @@
 import { IAgentConfig, IAssistantMessage, IToolMessage, IExecutionContextInjection } from '../interfaces/agent';
 import { IPluginContext, TMetadata } from '../interfaces/types';
-import { AbstractPlugin, type IPluginHooks, type IPluginErrorContext } from '../abstracts/abstract-plugin';
+import type { IPluginContract, IPluginHooks, IPluginOptions, IPluginStats, IPluginErrorContext } from '../abstracts/abstract-plugin';
 import { ToolExecutionService } from './tool-execution-service';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
@@ -111,7 +111,7 @@ export class ExecutionService {
     private aiProviders: IAIProviderManager;
     private tools: IToolManager;
     private conversationHistory: ConversationHistory;
-    private plugins: AbstractPlugin[] = [];
+    private plugins: Array<IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks> = [];
     private logger: ILogger;
     private baseEventService: IEventService;
     private executionContext?: IExecutionContextInjection; // 🎯 [CONTEXT-INJECTION] Parent execution context
@@ -144,11 +144,10 @@ export class ExecutionService {
     /**
      * Register a plugin
      */
-    registerPlugin(plugin: AbstractPlugin): void {
+    registerPlugin(plugin: IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks): void {
         this.plugins.push(plugin);
         this.logger.debug('Plugin registered', {
             pluginName: plugin.name,
-            pluginType: plugin.constructor.name,
             hasBeforeRun: typeof plugin.beforeRun,
             hasAfterRun: typeof plugin.afterRun,
             hasBeforeProviderCall: typeof plugin.beforeProviderCall,
@@ -172,15 +171,14 @@ export class ExecutionService {
     /**
      * Get a plugin by name
      */
-    getPlugin<T extends AbstractPlugin = AbstractPlugin>(pluginName: string): T | null {
-        const plugin = this.plugins.find(p => p.name === pluginName);
-        return plugin as T | null;
+    getPlugin(pluginName: string): (IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks) | null {
+        return this.plugins.find(p => p.name === pluginName) ?? null;
     }
 
     /**
      * Get all registered plugins
      */
-    getPlugins(): AbstractPlugin[] {
+    getPlugins(): Array<IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks> {
         return [...this.plugins];
     }
 
@@ -1155,7 +1153,7 @@ export class ExecutionService {
         for (const plugin of this.plugins) {
             try {
                 // Use type assertion to access the hook methods
-                const pluginWithHooks = plugin as AbstractPlugin & IPluginHooks;
+                const pluginWithHooks = plugin;
 
                 // Call the appropriate hook method with correct parameters
                 switch (hookName) {

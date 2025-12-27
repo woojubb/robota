@@ -7,10 +7,9 @@
  * It only relies on abstract dependencies (EventEmitterPlugin interface and
  * AbstractLogger) so that concrete modules can inject their own behaviors.
  */
-import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import type { ILogger } from '../utils/logger';
 import { SilentLogger } from '../utils/logger';
-import { EVENT_EMITTER_EVENTS, type TEventDataValue } from '../plugins/event-emitter/types';
+import { EVENT_EMITTER_EVENTS, type IEventEmitterPlugin, type TEventDataValue } from '../plugins/event-emitter/types';
 
 /**
  * Module execution context for all modules
@@ -151,13 +150,15 @@ export interface IModule<TOptions extends IBaseModuleOptions = IBaseModuleOption
     version: string;
     enabled: boolean;
 
-    initialize(options?: TOptions, eventEmitter?: EventEmitterPlugin): Promise<void>;
+    initialize(options?: TOptions, eventEmitter?: IEventEmitterPlugin): Promise<void>;
     dispose?(): Promise<void>;
     execute?(context: IModuleExecutionContext): Promise<IModuleExecutionResult>;
     getModuleType(): IModuleDescriptor;
     getCapabilities(): IModuleCapabilities;
     getData?(): IModuleData;
     getStats?(): TStats;
+    isEnabled(): boolean;
+    isInitialized(): boolean;
 }
 
 /**
@@ -226,7 +227,7 @@ export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBase
     protected options: TOptions | undefined;
 
     /** EventEmitter for module events */
-    protected eventEmitter: EventEmitterPlugin | undefined;
+    protected eventEmitter: IEventEmitterPlugin | undefined;
 
     /** Logger instance */
     protected logger: ILogger;
@@ -256,7 +257,7 @@ export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBase
     /**
      * Initialize the module with type-safe options and EventEmitter
      */
-    async initialize(options?: TOptions, eventEmitter?: EventEmitterPlugin): Promise<void> {
+    async initialize(options?: TOptions, eventEmitter?: IEventEmitterPlugin): Promise<void> {
         this.options = options;
         this.eventEmitter = eventEmitter;
 

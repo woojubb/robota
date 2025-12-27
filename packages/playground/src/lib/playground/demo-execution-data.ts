@@ -1,11 +1,11 @@
-import type { PlaygroundBlockCollector } from './block-tracking/block-collector';
+import type { IPlaygroundBlockCollector } from './block-tracking/block-collector';
 import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from './block-tracking/types';
 import { WebLogger } from '../web-logger';
 
 /**
  * Generate demo execution data for testing the tree visualization
  */
-export function generateDemoExecutionData(blockCollector: PlaygroundBlockCollector): void {
+export function generateDemoExecutionData(blockCollector: IPlaygroundBlockCollector): void {
     WebLogger.debug('Generating demo execution data');
 
     const now = new Date();
@@ -284,7 +284,7 @@ I recommend React for larger teams and complex applications, Vue for smaller pro
 /**
  * Generate a second demo scenario - Complex multi-tool execution
  */
-export function generateComplexDemoData(blockCollector: PlaygroundBlockCollector): void {
+export function generateComplexDemoData(blockCollector: IPlaygroundBlockCollector): void {
     WebLogger.debug('Generating complex demo execution data');
 
     const now = new Date();

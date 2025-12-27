@@ -78,6 +78,12 @@ export interface IWorkflowEventSubscriberConfig {
     enableAutoCleanup?: boolean;
 }
 
+export interface IWorkflowEventSubscriber {
+    processEvent(eventType: string, eventData: TEventData): Promise<void>;
+    subscribeToWorkflowSnapshots(callback: (snapshot: IWorkflowExportStructure) => void): () => void;
+    exportWorkflow(): IWorkflowExportStructure;
+}
+
 /**
  * WorkflowEventSubscriber - Core workflow event processing system
  */
