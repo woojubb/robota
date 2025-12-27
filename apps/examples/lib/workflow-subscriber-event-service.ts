@@ -1,4 +1,4 @@
-import type { EventContext, EventService, ServiceEventData, ServiceEventType, SimpleLogger } from '@robota-sdk/agents';
+import type { IBaseEventData, IEventContext, IEventService, SimpleLogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import type { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 
@@ -12,7 +12,7 @@ import type { WorkflowEventSubscriber } from '@robota-sdk/workflow';
  * - Forwards the provided EventContext by attaching it to the event payload.
  * - Does not interpret or hardcode event names (domain-neutral).
  */
-export class WorkflowSubscriberEventService implements EventService {
+export class WorkflowSubscriberEventService implements IEventService {
     private tail: Promise<void> = Promise.resolve();
 
     constructor(
@@ -20,7 +20,10 @@ export class WorkflowSubscriberEventService implements EventService {
         private readonly logger: SimpleLogger = SilentLogger
     ) { }
 
-    emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
+    emit(eventType: string, data: IBaseEventData, context?: IEventContext): void {
+        if (!context) {
+            throw new Error('[PATH-ONLY] Missing EventContext for workflow bridge (context is required).');
+        }
         if (context?.ownerPath?.length) {
             for (const seg of context.ownerPath) {
                 const id = seg?.id;
@@ -32,7 +35,7 @@ export class WorkflowSubscriberEventService implements EventService {
         const payload = {
             eventType,
             ...data,
-            ...(context ? { context } : {})
+            context
         };
 
         this.tail = this.tail

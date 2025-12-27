@@ -6,15 +6,15 @@
  */
 
 import type {
-    IUniversalWorkflowStructure,
-    IUniversalWorkflowNode,
-    IUniversalWorkflowEdge
+    IWorkflowEdge,
+    IWorkflowExportStructure,
+    IWorkflowNode
 } from '@robota-sdk/workflow';
 import { SilentLogger, type SimpleLogger } from '@robota-sdk/agents';
 import type {
-    ReactFlowData,
-    ReactFlowNode,
-    ReactFlowEdge
+    IReactFlowData,
+    IReactFlowEdge,
+    IReactFlowNode
 } from './types';
 
 /**
@@ -52,7 +52,7 @@ export class UniversalToReactFlowConverter {
      * Convert Universal Workflow Structure to React-Flow Data
      * Simple 1:1 transformation with React-Flow responsibility delegation
      */
-    async convert(universal: IUniversalWorkflowStructure): Promise<ReactFlowData> {
+    async convert(universal: IWorkflowExportStructure): Promise<IReactFlowData> {
         this.logger.debug('Converting Universal Workflow to React-Flow format');
 
         try {
@@ -73,7 +73,7 @@ export class UniversalToReactFlowConverter {
      * Convert Universal nodes to React-Flow nodes
      * Pure data transformation with SDK type mapping - styling delegated to React-Flow
      */
-    private convertNodes(universalNodes: IUniversalWorkflowNode[]): ReactFlowNode[] {
+    private convertNodes(universalNodes: IWorkflowNode[]): IReactFlowNode[] {
         return universalNodes.map(universalNode => {
             // Map SDK node type to React-Flow custom node type
             const mappedType = SDK_TO_REACTFLOW_TYPE_MAP[universalNode.type] || universalNode.type || 'default';
@@ -86,8 +86,8 @@ export class UniversalToReactFlowConverter {
                 id: universalNode.id,
                 type: mappedType,
                 position: {
-                    x: universalNode.position?.x || 0,
-                    y: universalNode.position?.y || 0
+                    x: 0,
+                    y: 0
                 },
                 data: {
                     // Pass through all Universal data
@@ -96,7 +96,7 @@ export class UniversalToReactFlowConverter {
                     // Include original SDK type for reference
                     originalType: universalNode.type,
                     // Include visual state for reference
-                    visualState: universalNode.visualState
+                    visualState: universalNode.status
                 }
             };
         });
@@ -106,7 +106,7 @@ export class UniversalToReactFlowConverter {
      * Convert Universal edges to React-Flow edges
      * Pure data transformation - styling delegated to React-Flow
      */
-    private convertEdges(universalEdges: IUniversalWorkflowEdge[]): ReactFlowEdge[] {
+    private convertEdges(universalEdges: IWorkflowEdge[]): IReactFlowEdge[] {
         return universalEdges.map(universalEdge => {
             return {
                 id: universalEdge.id,

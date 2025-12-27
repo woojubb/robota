@@ -15,7 +15,7 @@ import {
     ValidationSeverity
 } from '../interfaces/workflow-validator';
 import type { IWorkflowData, IWorkflowConfig } from '../interfaces/workflow-converter';
-import type { AbstractLogger } from '../utils/abstract-logger';
+import type { IAbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 import type { TUniversalValue } from '../interfaces/types';
 
@@ -27,7 +27,7 @@ export interface IBaseWorkflowValidatorOptions {
     enabled?: boolean;
 
     /** Custom logger instance */
-    logger?: AbstractLogger;
+    logger?: IAbstractLogger;
 
     /** Validator-specific configuration */
     config?: IWorkflowConfig;
@@ -86,7 +86,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     public enabled: boolean;
 
     /** Logger instance with dependency injection */
-    protected readonly logger: AbstractLogger;
+    protected readonly logger: IAbstractLogger;
 
     /** Validator configuration */
     protected readonly config: IWorkflowConfig;

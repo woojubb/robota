@@ -1,11 +1,11 @@
 import { vi } from 'vitest';
 import { LocalExecutor } from './local-executor';
-import type { AIProviderInstance } from './local-executor';
+import type { IAIProviderInstance } from './local-executor';
 import type { TUniversalMessage, IAssistantMessage } from '../interfaces/messages';
 
 describe('LocalExecutor', () => {
     let executor: LocalExecutor;
-    let mockProvider: AIProviderInstance;
+    let mockProvider: IAIProviderInstance;
 
     beforeEach(() => {
         executor = new LocalExecutor();
@@ -190,7 +190,7 @@ describe('LocalExecutor', () => {
 
     describe('Error Handling', () => {
         it('should handle provider without chat method', async () => {
-            const providerWithoutChat: AIProviderInstance = {
+            const providerWithoutChat: IAIProviderInstance = {
                 name: 'incomplete-provider',
                 supportsTools: () => false,
                 validateConfig: () => true
@@ -210,7 +210,7 @@ describe('LocalExecutor', () => {
         });
 
         it('should handle provider without chatStream method', async () => {
-            const providerWithoutStream: AIProviderInstance = {
+            const providerWithoutStream: IAIProviderInstance = {
                 name: 'no-stream-provider',
                 chat: mockProvider.chat!,
                 supportsTools: () => false,

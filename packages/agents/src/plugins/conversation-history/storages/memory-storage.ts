@@ -1,17 +1,17 @@
-import { HistoryStorage, ConversationHistoryEntry } from '../types';
+import type { IHistoryStorage, IConversationHistoryEntry } from '../types';
 
 /**
  * Memory storage implementation
  */
-export class MemoryHistoryStorage implements HistoryStorage {
-    private conversations = new Map<string, ConversationHistoryEntry>();
+export class MemoryHistoryStorage implements IHistoryStorage {
+    private conversations = new Map<string, IConversationHistoryEntry>();
     private maxConversations: number;
 
     constructor(maxConversations: number = 100) {
         this.maxConversations = maxConversations;
     }
 
-    async save(conversationId: string, entry: ConversationHistoryEntry): Promise<void> {
+    async save(conversationId: string, entry: IConversationHistoryEntry): Promise<void> {
         // Remove oldest conversation if limit exceeded
         if (this.conversations.size >= this.maxConversations && !this.conversations.has(conversationId)) {
             const oldestId = this.conversations.keys().next().value;
@@ -23,7 +23,7 @@ export class MemoryHistoryStorage implements HistoryStorage {
         this.conversations.set(conversationId, { ...entry });
     }
 
-    async load(conversationId: string): Promise<ConversationHistoryEntry | undefined> {
+    async load(conversationId: string): Promise<IConversationHistoryEntry | undefined> {
         return this.conversations.get(conversationId);
     }
 

@@ -1,8 +1,8 @@
-// Re-export necessary types from agents
-export type { AgentInterface, AgentConfig, TUniversalMessage, RunOptions } from '@robota-sdk/agents';
+// Re-export necessary types from agents (SSOT)
+export type { IAgent, IAgentConfig, TUniversalMessage, IRunOptions } from '@robota-sdk/agents';
 
 // Import AgentConfig type for local use
-import type { AgentConfig } from '@robota-sdk/agents';
+import type { IAgentConfig } from '@robota-sdk/agents';
 
 export enum SessionState {
     ACTIVE = 'active',
@@ -58,7 +58,7 @@ export interface CreateSessionOptions {
 // Chat creation options
 export interface CreateChatOptions {
     name?: string;
-    agentConfig: AgentConfig;
+    agentConfig: IAgentConfig;
     agentTemplate?: string;
     description?: string;
 } 

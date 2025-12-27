@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import * as fsSync from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
-import type { TUniversalMessage, ChatOptions, RawProviderResponse, TUniversalMessageMetadata } from '@robota-sdk/agents';
+import type { IChatOptions, IRawProviderResponse, TUniversalMessage, TUniversalMessageMetadata } from '@robota-sdk/agents';
 import { isAssistantMessage, isToolMessage, isUserMessage } from '@robota-sdk/agents';
 
 export interface ScenarioStoreOptions {
@@ -29,7 +29,7 @@ export interface ScenarioResponseSnapshot {
     /** Non-stream response payload */
     message?: ScenarioMessageSnapshot;
     /** Raw provider response, if recording generateResponse */
-    raw?: RawProviderResponse;
+    raw?: IRawProviderResponse;
     /** Streamed chunks captured during chatStream */
     stream?: Array<{
         index: number;
@@ -221,7 +221,7 @@ export class ScenarioStore {
 /**
  * Create deterministic hash for scenario lookup
  */
-export function createRequestHash(messages: TUniversalMessage[], options?: ChatOptions): string {
+export function createRequestHash(messages: TUniversalMessage[], options?: IChatOptions): string {
     const payload = stableStringify({
         messages: serializeMessagesForHash(messages),
         options: serializeOptionsForHash(options)
@@ -232,7 +232,7 @@ export function serializeMessages(messages: TUniversalMessage[]): ScenarioMessag
     return messages.map(message => serializeMessage(message));
 }
 
-export function serializeChatOptions(options?: ChatOptions): ScenarioChatOptionsSnapshot | undefined {
+export function serializeChatOptions(options?: IChatOptions): ScenarioChatOptionsSnapshot | undefined {
     if (!options) {
         return undefined;
     }
@@ -326,7 +326,7 @@ export function deserializeMessage(snapshot: ScenarioMessageSnapshot): TUniversa
 
 export function hydrateResponseSnapshot(snapshot: ScenarioResponseSnapshot): {
     message?: TUniversalMessage;
-    raw?: RawProviderResponse;
+    raw?: IRawProviderResponse;
     stream?: Array<{ index: number; delta: TUniversalMessage; timestamp: number }>;
 } {
     return {
@@ -342,7 +342,7 @@ export function hydrateResponseSnapshot(snapshot: ScenarioResponseSnapshot): {
 
 export function serializeResponseSnapshot(response: {
     message?: TUniversalMessage;
-    raw?: RawProviderResponse;
+    raw?: IRawProviderResponse;
     stream?: Array<{ index: number; delta: TUniversalMessage; timestamp: number }>;
 }): ScenarioResponseSnapshot {
     return {
@@ -403,7 +403,7 @@ function serializeMessagesForHash(messages: TUniversalMessage[]): unknown {
     }));
 }
 
-function serializeOptionsForHash(options?: ChatOptions): unknown {
+function serializeOptionsForHash(options?: IChatOptions): unknown {
     if (!options) {
         return undefined;
     }

@@ -10,7 +10,7 @@
  */
 
 import { Robota, LoggingPlugin, UsagePlugin } from '@robota-sdk/agents';
-import type { AgentConfig } from '@robota-sdk/agents';
+import type { IAgentConfig } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
@@ -35,7 +35,7 @@ async function main() {
         // ===== AGENT CONFIGURATION =====
         console.log('⚙️ Creating agent with comprehensive configuration...');
 
-        const config: AgentConfig = {
+        const config: IAgentConfig = {
             name: 'DemoAgent',
             aiProviders: [openaiProvider],
             defaultModel: {
@@ -84,7 +84,9 @@ async function main() {
         console.log('📜 Conversation History:');
         const history = robota.getHistory();
         history.forEach((msg, index) => {
-            console.log(`${index + 1}. [${msg.role}]: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}`);
+            const content = typeof msg.content === 'string' ? msg.content : '';
+            const preview = content.length > 100 ? `${content.substring(0, 100)}...` : content;
+            console.log(`${index + 1}. [${msg.role}]: ${preview}`);
         });
         console.log();
 

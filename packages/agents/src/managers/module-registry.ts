@@ -1,8 +1,8 @@
 import {
     AbstractModule,
-    BaseModuleOptions,
-    ModuleExecutionContext,
-    ModuleExecutionResult
+    IBaseModuleOptions,
+    IModuleExecutionContext,
+    IModuleExecutionResult
 } from '../abstracts/abstract-module';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import { ModuleTypeRegistry } from './module-type-registry';
@@ -23,7 +23,7 @@ export interface IModuleRegistrationOptions {
     /** Whether to initialize the module immediately */
     autoInitialize?: boolean;
     /** Custom initialization options */
-    initOptions?: BaseModuleOptions;
+    initOptions?: IBaseModuleOptions;
     /** Whether to validate dependencies */
     validateDependencies?: boolean;
     /** Custom initialization timeout */
@@ -71,7 +71,7 @@ export interface IModuleExecutionStats {
  */
 export class ModuleRegistry {
     private modules = new Map<string, AbstractModule>();
-    private moduleOptions = new Map<string, BaseModuleOptions>();
+    private moduleOptions = new Map<string, IBaseModuleOptions>();
     private moduleStatuses = new Map<string, IModuleStatus>();
     private moduleStats = new Map<string, IModuleExecutionStats>();
     private registrationOrder: string[] = [];
@@ -338,7 +338,7 @@ export class ModuleRegistry {
     /**
      * Execute a module by name
      */
-    async executeModule(moduleName: string, context: ModuleExecutionContext): Promise<ModuleExecutionResult> {
+    async executeModule(moduleName: string, context: IModuleExecutionContext): Promise<IModuleExecutionResult> {
         const module = this.modules.get(moduleName);
         if (!module) {
             throw new ConfigurationError(`Module '${moduleName}' not found`);

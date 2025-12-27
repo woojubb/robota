@@ -95,7 +95,9 @@ export * from './utils';
  */
 export type {
     IToolSchema,
-    IProviderOptions
+    IProviderOptions,
+    IChatOptions,
+    IAIProvider
 } from './interfaces/provider';
 
 /**
@@ -117,6 +119,7 @@ export type {
  * @public
  */
 export type { TToolParameters, IToolResult, IToolExecutionContext } from './interfaces/tool';
+export type { TToolResultData } from './interfaces/types';
 
 /**
  * Universal message format and assistant message used internally by the conversation history manager.
@@ -309,8 +312,10 @@ export { FunctionTool, createFunctionTool, createZodFunctionTool } from './tools
  * @public
  */
 export type {
+    IAgent,
     IAgentConfig,
-    IAgentTemplate
+    IAgentTemplate,
+    IRunOptions
 } from './interfaces/agent';
 
 /**
@@ -340,6 +345,7 @@ export {
     StructuredEventService,
 } from './services/event-service';
 export type { IEventService } from './services/event-service';
+export type { IBaseEventData } from './services/event-service';
 export { RelayMcpTool, type IRelayMcpOptions, type IRelayMcpContext } from './tools/implementations/relay-mcp-tool';
 
 // ===== EVENT EMITTER (PLUGIN) EXPORTS =====

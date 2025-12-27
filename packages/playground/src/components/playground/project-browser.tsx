@@ -41,6 +41,17 @@ export function ProjectBrowser({ onSelectProject, onCreateNew, currentProjectId 
 
     const { toast } = useToast();
 
+    const handleFilterProviderChange = (value: string) => {
+        if (value === 'all') {
+            setFilterProvider('all');
+            return;
+        }
+        if (value !== 'openai' && value !== 'anthropic' && value !== 'google') {
+            throw new Error(`[PLAYGROUND] Invalid provider filter value: "${value}"`);
+        }
+        setFilterProvider(value);
+    };
+
     useEffect(() => {
         loadProjects();
     }, []);
@@ -295,7 +306,7 @@ export function ProjectBrowser({ onSelectProject, onCreateNew, currentProjectId 
                         <SelectItem value="name">Name</SelectItem>
                     </SelectContent>
                 </Select>
-                <Select value={filterProvider} onValueChange={setFilterProvider}>
+                <Select value={filterProvider} onValueChange={handleFilterProviderChange}>
                     <SelectTrigger className="w-32">
                         <SelectValue />
                     </SelectTrigger>

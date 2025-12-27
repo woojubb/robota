@@ -4,7 +4,7 @@ import type { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { Robota } from '../core/robota';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
-import type { TUniversalMessage } from './conversation-history-manager';
+import type { TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions } from '../interfaces/provider';
 
 // Mock AI Provider for testing

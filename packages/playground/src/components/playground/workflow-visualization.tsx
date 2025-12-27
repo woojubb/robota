@@ -44,7 +44,7 @@ import remarkGfm from 'remark-gfm';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
 import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 import type {
-    IUniversalWorkflowStructure
+    IWorkflowExportStructure
 } from '@robota-sdk/workflow';
 import { UniversalToReactFlowConverter } from '../../lib/workflow-visualization';
 import {
@@ -61,7 +61,7 @@ import {
 } from '../../lib/workflow-visualization/auto-layout';
 
 interface IWorkflowVisualizationProps {
-    workflow?: IUniversalWorkflowStructure;
+    workflow?: IWorkflowExportStructure;
     className?: string;
     onAgentNodeClick?: (nodeId: string, data: any) => void;
     onToolDrop?: (agentId: string, tool: IPlaygroundToolMeta) => void;

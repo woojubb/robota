@@ -5,11 +5,11 @@ export { BlockNode } from './block-node';
 
 // Types
 export type {
-    BlockVisualizationPanelProps
+    IBlockVisualizationPanelProps
 } from './block-visualization-panel';
 export type {
-    BlockTreeProps
+    IBlockTreeProps
 } from './block-tree';
 export type {
-    BlockNodeProps
+    IBlockNodeProps
 } from './block-node'; 

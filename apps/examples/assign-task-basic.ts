@@ -9,7 +9,7 @@
  */
 
 import { listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
-import type { ToolExecutionContext, ToolExecutionData, ToolResult } from '@robota-sdk/agents';
+import type { IToolExecutionContext, IToolResult, TToolResultData } from '@robota-sdk/agents';
 
 type TemplateSummary = {
     id: string;
@@ -22,11 +22,11 @@ type TemplatesListPayload = {
     templates: TemplateSummary[];
 };
 
-const isObject = (value: ToolExecutionData): value is Record<string, ToolExecutionData> => {
+const isObject = (value: TToolResultData): value is Record<string, TToolResultData> => {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
-const isTemplateSummary = (value: ToolExecutionData): value is TemplateSummary => {
+const isTemplateSummary = (value: TToolResultData): value is TemplateSummary => {
     if (!isObject(value)) return false;
     const id = value.id;
     const name = value.name;
@@ -39,7 +39,7 @@ const isTemplateSummary = (value: ToolExecutionData): value is TemplateSummary =
     return true;
 };
 
-const extractTemplatesList = (result: ToolResult): TemplatesListPayload => {
+const extractTemplatesList = (result: IToolResult): TemplatesListPayload => {
     if (!result.success) {
         throw new Error(result.error ?? 'listTemplates failed');
     }
@@ -53,7 +53,7 @@ const extractTemplatesList = (result: ToolResult): TemplatesListPayload => {
     }
     const templates: TemplateSummary[] = [];
     for (const item of templatesValue) {
-        if (!isTemplateSummary(item as ToolExecutionData)) {
+        if (!isTemplateSummary(item as TToolResultData)) {
             throw new Error('listTemplates returned invalid template item');
         }
         templates.push(item as TemplateSummary);
@@ -62,7 +62,7 @@ const extractTemplatesList = (result: ToolResult): TemplatesListPayload => {
 };
 
 async function main() {
-    const listContext: ToolExecutionContext = { toolName: 'listTemplates', parameters: {} };
+    const listContext: IToolExecutionContext = { toolName: 'listTemplates', parameters: {} };
     const listResult = await listTemplatesTool.execute({}, listContext);
     const { templates } = extractTemplatesList(listResult);
     console.log('Templates:', templates);
@@ -73,7 +73,7 @@ async function main() {
         throw new Error('No templates available');
     }
 
-    const detailContext: ToolExecutionContext = {
+    const detailContext: IToolExecutionContext = {
         toolName: 'getTemplateDetail',
         parameters: { templateId: selected.id }
     };
