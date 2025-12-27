@@ -32,43 +32,7 @@ packages/
   - Individual package builds: `pnpm --filter @robota-sdk/<package> build`
   - Full workspace build: `pnpm build`
 
-## Type Naming Conventions (Mandatory)
+## Type System & SSOT (Mandatory)
 
-### Type Aliases
-- Use the **`T` prefix** for TypeScript `type` aliases.
-- Example: `type TWorkflowNodeId = string;`
-
-### Interfaces
-- Use the **`I` prefix** for TypeScript `interface` declarations.
-- Example: `interface IWorkflowValidator { validate(): boolean; }`
-
-### Rationale (Why this exists)
-- **Avoid value/type name collisions**: In TypeScript, runtime values (variables, classes, objects) and compile-time types can share the same name (e.g., `AssistantMessage` as an object vs `AssistantMessage` as a type). Prefixing types (`T*`, `I*`) makes it visually obvious what is a type vs a runtime value.
-- **Reduce cognitive load in reviews**: Readers can instantly spot type-level symbols and contracts without mentally parsing import sources or context.
-- **Prevent drift and duplication**: Clear naming helps enforce “single source of truth” contracts (especially across packages) and discourages re-declaring equivalent shapes locally.
-- **Improve searchability**: `rg "IWorkflow"` and `rg "TWorkflow"` are precise and avoid noise from runtime identifiers.
-
-### Notes
-- This is a **project-wide convention** and should be applied consistently for new code.
-- When touching existing code, prefer migrating names gradually only when it does not create churn or break public APIs.
-
-## Type Ownership & Contract Surface (Mandatory)
-
-### Single Source of Truth (SSOT)
-- Each concept must have exactly one owner module/package that defines it.
-- Non-owner packages must **import from the owner's public exports** and must not re-declare equivalent shapes locally.
-
-### Contract Re-Exports (`export type { ... }`)
-- **Public contract types** may be re-exported only from:
-  - Package entrypoints (e.g., `packages/<pkg>/src/index.ts`)
-  - Interface aggregators (e.g., `packages/<pkg>/src/interfaces/index.ts`)
-- Avoid re-exporting contract types from managers/services/handlers. That pattern makes ownership ambiguous and reintroduces alias drift.
-- Do not expose legacy/compatibility aliases in public surfaces unless explicitly required for compatibility. Prefer exporting canonical `T*`/`I*` names only.
-
-### Tool Call Contract (Hard Rule)
-- The tool call type is owned by `packages/agents/src/interfaces/messages.ts` and must be **`IToolCall` only**.
-- **Prohibited**:
-  - Defining or exporting `ToolCall` (alias or interface) anywhere.
-  - Defining “same-shape” duplicates (e.g., `ToolCallData`) in service or adapter layers.
-- **Required**:
-  - If a layer needs tool calls (responses, streaming chunks, adapters), use `IToolCall[]`.
+- **Type naming (I*/T*)**: see `.cursor/rules/type-system-standards.mdc`
+- **Owner-based SSOT (Option A)**: see `.cursor/rules/ssot-type-ownership.mdc`

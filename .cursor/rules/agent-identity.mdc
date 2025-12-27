@@ -16,6 +16,11 @@ This rule is always applied. It standardizes agent identity and forbids hierarch
 - Identifiers: `agent_0`, `agent_1`, ...
 - Variables: `agentId`, `agentNumber`, `agentNodeId`
 
+## Naming Conventions (Replica / Instance)
+- Prefer **replica/instance** wording over "copy".
+- Suggested IDs:
+  - `agent_0_replica_1`, `agent_1_replica_1`
+
 ## Implementation Requirements
 - Do not compute, store, or pass any field that implies hierarchy among agents (e.g., `mainAgentId`).
 - Execution/UI logic MUST NOT rely on a special agent role. All agents share the same lifecycle and event semantics.
