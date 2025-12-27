@@ -17,6 +17,27 @@ import { SilentLogger } from '@robota-sdk/agents';
 import { HttpClient, type IHttpClientConfig } from './http-client';
 // Simple inline type checking instead of external type guards
 
+function validateChatExecutionRequest(request: IChatExecutionRequest | IStreamExecutionRequest): void {
+    if (!request.messages || request.messages.length === 0) {
+        throw new Error('Messages array is required and cannot be empty');
+    }
+
+    if (!request.provider) {
+        throw new Error('Provider is required');
+    }
+
+    if (!request.model) {
+        throw new Error('Model is required');
+    }
+
+    for (let i = 0; i < request.messages.length; i++) {
+        const msg = request.messages[i];
+        if (typeof msg.role !== 'string' || typeof msg.content !== 'string') {
+            throw new Error(`Invalid message at index ${i}: role and content must be strings`);
+        }
+    }
+}
+
 export interface ISimpleRemoteConfig {
     serverUrl: string;
     userApiKey: string;
@@ -77,6 +98,8 @@ export class SimpleRemoteExecutor implements IExecutor {
      * Execute chat request (IExecutor compatible)
      */
     async executeChat(request: IChatExecutionRequest): Promise<IAssistantMessage> {
+        validateChatExecutionRequest(request);
+
         this.logger.debug('SimpleRemoteExecutor.executeChat called', {
             hasTools: !!request.tools,
             toolsCount: request.tools?.length || 0
@@ -107,6 +130,8 @@ export class SimpleRemoteExecutor implements IExecutor {
      * Execute streaming chat completion
      */
     async *executeChatStream(request: IStreamExecutionRequest): AsyncIterable<TUniversalMessage> {
+        validateChatExecutionRequest(request);
+
         this.logger.debug('[REMOTE-EXECUTOR] executeChatStream called');
 
         // RemoteExecutor.executeChatStream() - Request with tools

@@ -26,7 +26,7 @@
         "build:functions": "tsc -p tsconfig.functions.json",
         "serve:functions": "npm run build:functions && firebase emulators:start --only functions",
         "deploy:functions": "npm run build:functions && firebase deploy --only functions",
-        "test": "vitest",
+        "test": "vitest run --passWithNoTests",
         "lint": "eslint src --ext .ts",
         "clean": "rm -rf dist lib"
     },
