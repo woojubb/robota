@@ -429,5 +429,5 @@ export const UNIVERSAL_EDGE_TYPES = {
 } as const;
 
 // Type exports for convenience
-export type TUniversalNodeType = typeof UNIVERSAL_NODE_TYPES[keyof typeof UNIVERSAL_NODE_TYPES];
-export type TUniversalEdgeType = typeof UNIVERSAL_EDGE_TYPES[keyof typeof UNIVERSAL_EDGE_TYPES];
+export type TUniversalNodeKind = typeof UNIVERSAL_NODE_TYPES[keyof typeof UNIVERSAL_NODE_TYPES];
+export type TUniversalEdgeKind = typeof UNIVERSAL_EDGE_TYPES[keyof typeof UNIVERSAL_EDGE_TYPES];

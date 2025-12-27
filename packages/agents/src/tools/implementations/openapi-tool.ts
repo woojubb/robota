@@ -1,4 +1,4 @@
-import type { IToolInterface, IToolResult, IToolExecutionContext, IOpenAPIToolConfig, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
+import type { ITool, IToolResult, IToolExecutionContext, IOpenAPIToolConfig, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
 import type { IToolSchema, IParameterSchema } from '../../interfaces/provider';
 import type { OpenAPIV3 } from 'openapi-types';
 import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstract-tool';
@@ -14,7 +14,7 @@ type THTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'optio
  * 
  * @extends AbstractTool<ToolParameters, ToolResult>
  */
-export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> implements IToolInterface {
+export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> implements ITool {
     readonly schema: IToolSchema;
     private readonly apiSpec: OpenAPIV3.Document;
     private readonly operationId: string;

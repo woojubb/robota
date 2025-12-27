@@ -1,32 +1,28 @@
-import type { IExecutor } from '@robota-sdk/agents';
+import type { IExecutor, TProviderOptionValueBase } from '@robota-sdk/agents';
 
 /**
  * Valid provider option value types
  */
-export type TProviderOptionValue =
+export type TGoogleProviderOptionValue =
   | string
   | number
   | boolean
   | undefined
   | null
   | IExecutor
-  | TProviderOptionValue[]
-  | { [key: string]: TProviderOptionValue };
-
-/**
- * Base provider options interface
- */
-export interface IProviderOptions {
-    /**
-     * Additional provider-specific options
-     */
-    [key: string]: TProviderOptionValue;
-}
+  | TProviderOptionValueBase
+  | TGoogleProviderOptionValue[]
+  | { [key: string]: TGoogleProviderOptionValue };
 
 /**
  * Google AI Provider options
  */
-export interface IGoogleProviderOptions extends IProviderOptions {
+export interface IGoogleProviderOptions {
+    /**
+     * Additional provider-specific options
+     */
+    [key: string]: TGoogleProviderOptionValue;
+
     /** Google AI API key */
     apiKey: string;
 
@@ -40,7 +36,7 @@ export interface IGoogleProviderOptions extends IProviderOptions {
     /** 
      * Response schema for JSON output (only used when responseMimeType is 'application/json')
      */
-    responseSchema?: Record<string, TProviderOptionValue>;
+    responseSchema?: Record<string, TGoogleProviderOptionValue>;
 
     /**
      * Optional executor for handling AI requests

@@ -1,4 +1,4 @@
-import type { IToolInterface, TToolParameters } from './tool';
+import type { ITool, TToolParameters } from './tool';
 
 /**
  * Execution step definition for tools that support step-by-step progress reporting
@@ -25,7 +25,7 @@ export type TToolProgressCallback = (step: string, progress: number) => void;
 /**
  * 🆕 IProgressReportingTool - Optional interface for tools that can provide their own progress information
  * 
- * This interface extends the standard IToolInterface to allow tools to optionally provide:
+ * This interface extends the standard ITool to allow tools to optionally provide:
  * - Estimated execution duration
  * - Step-by-step execution plans
  * - Real-time progress callbacks
@@ -36,7 +36,7 @@ export type TToolProgressCallback = (step: string, progress: number) => void;
  * - Completely optional - existing tools work unchanged
  * - Tools can self-report progress for better user experience
  */
-export interface IProgressReportingTool extends IToolInterface {
+export interface IProgressReportingTool extends ITool {
     /**
      * Get estimated execution duration for given parameters (optional)
      * 
@@ -79,7 +79,7 @@ export interface IProgressReportingTool extends IToolInterface {
 /**
  * Type guard to check if a tool implements progress reporting
  */
-export function isProgressReportingTool(tool: IToolInterface): tool is IProgressReportingTool {
+export function isProgressReportingTool(tool: ITool): tool is IProgressReportingTool {
     return (
         'getEstimatedDuration' in tool ||
         'getExecutionSteps' in tool ||
@@ -90,7 +90,7 @@ export function isProgressReportingTool(tool: IToolInterface): tool is IProgress
 /**
  * Helper function to safely get estimated duration from any tool
  */
-export function getToolEstimatedDuration(tool: IToolInterface, parameters: TToolParameters): number | undefined {
+export function getToolEstimatedDuration(tool: ITool, parameters: TToolParameters): number | undefined {
     if (isProgressReportingTool(tool) && tool.getEstimatedDuration) {
         return tool.getEstimatedDuration(parameters);
     }
@@ -100,7 +100,7 @@ export function getToolEstimatedDuration(tool: IToolInterface, parameters: TTool
 /**
  * Helper function to safely get execution steps from any tool
  */
-export function getToolExecutionSteps(tool: IToolInterface, parameters: TToolParameters): IToolExecutionStep[] | undefined {
+export function getToolExecutionSteps(tool: ITool, parameters: TToolParameters): IToolExecutionStep[] | undefined {
     if (isProgressReportingTool(tool) && tool.getExecutionSteps) {
         return tool.getExecutionSteps(parameters);
     }
@@ -110,7 +110,7 @@ export function getToolExecutionSteps(tool: IToolInterface, parameters: TToolPar
 /**
  * Helper function to safely set progress callback on any tool
  */
-export function setToolProgressCallback(tool: IToolInterface, callback: TToolProgressCallback): boolean {
+export function setToolProgressCallback(tool: ITool, callback: TToolProgressCallback): boolean {
     if (isProgressReportingTool(tool) && tool.setProgressCallback) {
         tool.setProgressCallback(callback);
         return true;

@@ -47,7 +47,7 @@ export interface IPluginStatus {
 /**
  * Plugins manager interface
  */
-export interface IPluginsManagerInterface {
+export interface IPluginsManager {
     /**
      * Register a plugin with optional configuration
      */
@@ -104,7 +104,7 @@ export interface IPluginsManagerInterface {
  * Instance-based for isolation
  * @internal
  */
-export class Plugins extends AbstractManager implements IPluginsManagerInterface {
+export class Plugins extends AbstractManager implements IPluginsManager {
     private plugins = new Map<string, AbstractPlugin>();
     private pluginOptions = new Map<string, IPluginRegistrationOptions>();
     private initializationOrder: string[] = [];

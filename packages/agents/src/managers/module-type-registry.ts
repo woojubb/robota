@@ -1,5 +1,5 @@
 import {
-    IModuleTypeDescriptor,
+    IModuleDescriptor,
     ModuleCategory,
     ModuleLayer
 } from '../abstracts/abstract-module';
@@ -9,7 +9,7 @@ import { ConfigurationError } from '../utils/errors';
 /**
  * Module type validation result
  */
-export interface IModuleTypeValidationResult {
+export interface IModuleDescriptorValidationResult {
     valid: boolean;
     errors: string[];
     warnings: string[];
@@ -48,30 +48,30 @@ export interface IModuleCompatibilityResult {
  * - Type compatibility validation
  * - Circular dependency detection
  */
-export class ModuleTypeRegistry {
-    private static instance: ModuleTypeRegistry | null = null;
-    private registeredTypes = new Map<string, IModuleTypeDescriptor>();
+export class ModuleDescriptorRegistry {
+    private static instance: ModuleDescriptorRegistry | null = null;
+    private registeredTypes = new Map<string, IModuleDescriptor>();
     private logger: ILogger;
 
     constructor() {
-        this.logger = createLogger('ModuleTypeRegistry');
+        this.logger = createLogger('ModuleDescriptorRegistry');
         this.registerBuiltinTypes();
     }
 
     /**
-     * Get singleton instance of ModuleTypeRegistry
+     * Get singleton instance of ModuleDescriptorRegistry
      */
-    static getInstance(): ModuleTypeRegistry {
-        if (!ModuleTypeRegistry.instance) {
-            ModuleTypeRegistry.instance = new ModuleTypeRegistry();
+    static getInstance(): ModuleDescriptorRegistry {
+        if (!ModuleDescriptorRegistry.instance) {
+            ModuleDescriptorRegistry.instance = new ModuleDescriptorRegistry();
         }
-        return ModuleTypeRegistry.instance;
+        return ModuleDescriptorRegistry.instance;
     }
 
     /**
      * Register a new module type
      */
-    registerType(typeDescriptor: IModuleTypeDescriptor): void {
+    registerType(typeDescriptor: IModuleDescriptor): void {
         // Validate the type descriptor
         const validation = this.validateTypeDescriptor(typeDescriptor);
         if (!validation.valid) {
@@ -127,21 +127,21 @@ export class ModuleTypeRegistry {
     /**
      * Get a registered module type
      */
-    getType(type: string): IModuleTypeDescriptor | null {
+    getType(type: string): IModuleDescriptor | null {
         return this.registeredTypes.get(type) || null;
     }
 
     /**
      * Get all registered module types
      */
-    getAllTypes(): IModuleTypeDescriptor[] {
+    getAllTypes(): IModuleDescriptor[] {
         return Array.from(this.registeredTypes.values());
     }
 
     /**
      * Get module types by category
      */
-    getTypesByCategory(category: ModuleCategory): IModuleTypeDescriptor[] {
+    getTypesByCategory(category: ModuleCategory): IModuleDescriptor[] {
         return Array.from(this.registeredTypes.values())
             .filter(type => type.category === category);
     }
@@ -149,7 +149,7 @@ export class ModuleTypeRegistry {
     /**
      * Get module types by layer
      */
-    getTypesByLayer(layer: ModuleLayer): IModuleTypeDescriptor[] {
+    getTypesByLayer(layer: ModuleLayer): IModuleDescriptor[] {
         return Array.from(this.registeredTypes.values())
             .filter(type => type.layer === layer);
     }
@@ -164,7 +164,7 @@ export class ModuleTypeRegistry {
     /**
      * Validate module type descriptor
      */
-    validateTypeDescriptor(typeDescriptor: IModuleTypeDescriptor): IModuleTypeValidationResult {
+    validateTypeDescriptor(typeDescriptor: IModuleDescriptor): IModuleDescriptorValidationResult {
         const errors: string[] = [];
         const warnings: string[] = [];
 
@@ -235,11 +235,12 @@ export class ModuleTypeRegistry {
             }
         }
 
-        return {
+        const result: IModuleDescriptorValidationResult = {
             valid: errors.length === 0,
             errors,
             warnings
         };
+        return result;
     }
 
     /**

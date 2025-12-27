@@ -18,7 +18,7 @@ interface OpenAIMessage {
     name?: string;
 }
 
-interface AnthropicMessage {
+interface IAnthropicProviderMessage {
     role: 'user' | 'assistant';
     content: string;
 }
@@ -33,7 +33,7 @@ interface GoogleMessage {
 /**
  * Provider message format union type
  */
-type ProviderMessage = OpenAIMessage | AnthropicMessage | GoogleMessage | TUniversalMessage;
+type ProviderMessage = OpenAIMessage | IAnthropicProviderMessage | GoogleMessage | TUniversalMessage;
 
 /**
  * Universal message converter utility
@@ -88,7 +88,7 @@ export class MessageConverter {
     /**
      * Convert to Anthropic format
      */
-    private static toAnthropicFormat(messages: TUniversalMessage[]): AnthropicMessage[] {
+    private static toAnthropicFormat(messages: TUniversalMessage[]): IAnthropicProviderMessage[] {
         // Anthropic has different message structure
         return messages
             .filter(msg => msg.role !== 'system') // System messages handled separately

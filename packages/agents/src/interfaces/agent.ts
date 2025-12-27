@@ -42,7 +42,7 @@ export interface IExecutionContextInjection {
 /**
  * Provider-specific configuration
  */
-export interface IProviderConfig {
+export interface IAgentProviderConfig {
     openai?: {
         apiKey?: string;
         baseURL?: string;
@@ -108,7 +108,7 @@ export interface IAgentConfig {
     };
 
     // Provider-specific configurations
-    providerConfig?: IProviderConfig;
+    providerConfig?: IAgentProviderConfig;
 
     // Execution options
     stream?: boolean;

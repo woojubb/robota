@@ -202,7 +202,7 @@ export interface IMCPToolConfig {
 /**
  * Base tool interface
  */
-export interface IToolInterface {
+export interface ITool {
     /** Tool schema */
     schema: IToolSchema;
 
@@ -230,7 +230,7 @@ export interface IToolInterface {
 /**
  * Function tool implementation
  */
-export interface IFunctionTool extends IToolInterface {
+export interface IFunctionTool extends ITool {
     /** Function to execute */
     fn: TToolExecutor;
 }
@@ -242,7 +242,7 @@ export interface IToolRegistry {
     /**
      * Register a tool
      */
-    register(tool: IToolInterface): void;
+    register(tool: ITool): void;
 
     /**
      * Unregister a tool
@@ -252,12 +252,12 @@ export interface IToolRegistry {
     /**
      * Get tool by name
      */
-    get(name: string): IToolInterface | undefined;
+    get(name: string): ITool | undefined;
 
     /**
      * Get all registered tools
      */
-    getAll(): IToolInterface[];
+    getAll(): ITool[];
 
     /**
      * Get tool schemas
@@ -287,10 +287,10 @@ export interface IToolFactory {
     /**
      * Create tool from OpenAPI specification
      */
-    createOpenAPITool(config: IOpenAPIToolConfig): IToolInterface;
+    createOpenAPITool(config: IOpenAPIToolConfig): ITool;
 
     /**
      * Create MCP tool
      */
-    createMCPTool(config: IMCPToolConfig): IToolInterface;
+    createMCPTool(config: IMCPToolConfig): ITool;
 } 

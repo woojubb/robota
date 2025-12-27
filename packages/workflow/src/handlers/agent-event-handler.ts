@@ -8,11 +8,12 @@ import type {
     IEventProcessingResult
 } from '../interfaces/event-handler.js';
 import { HandlerPriority } from '../interfaces/event-handler.js';
-import type { IWorkflowNode, TWorkflowConnectionType } from '../interfaces/workflow-node.js';
+import type { IWorkflowNode, TWorkflowConnectionKind } from '../interfaces/workflow-node.js';
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
+import type { IPathInfo } from './path-info.js';
 
 /**
  * Agent Event Handler
@@ -82,10 +83,10 @@ export class AgentEventHandler implements IEventHandler {
                     }
 
                     const edge: IWorkflowEdge = {
-                        id: EdgeUtils.generateId(pathInfo.parentId, agentNode.id, 'creates' as TWorkflowConnectionType),
+                        id: EdgeUtils.generateId(pathInfo.parentId, agentNode.id, 'creates' as TWorkflowConnectionKind),
                         source: pathInfo.parentId,
                         target: agentNode.id,
-                        type: 'creates' as TWorkflowConnectionType,
+                        type: 'creates' as TWorkflowConnectionKind,
                         timestamp: Date.now()
                     };
                     updates.push({ action: 'create', edge } as TWorkflowUpdate);
@@ -773,9 +774,3 @@ export class AgentEventHandler implements IEventHandler {
     }
 }
 
-interface IPathInfo {
-    segments: string[];
-    nodeId?: string;
-    parentId?: string;
-    rootId?: string;
-}

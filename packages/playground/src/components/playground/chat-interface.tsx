@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { WebLogger } from '../../lib/web-logger'
 
-interface IChatMessage {
+interface IChatPanelMessage {
     id: string
     role: 'user' | 'assistant'
     content: string
@@ -27,13 +27,13 @@ interface IChatMessage {
     status?: 'sending' | 'sent' | 'error'
 }
 
-interface IChatInterfaceProps {
+interface IChatPanelProps {
     isAgentReady: boolean
     onSendMessage?: (message: string) => Promise<string>
 }
 
-export function ChatInterface({ isAgentReady, onSendMessage }: IChatInterfaceProps) {
-    const [messages, setMessages] = useState<IChatMessage[]>([])
+export function ChatInterface({ isAgentReady, onSendMessage }: IChatPanelProps) {
+    const [messages, setMessages] = useState<IChatPanelMessage[]>([])
     const [input, setInput] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -42,7 +42,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: IChatInterfacePro
     const handleSend = async () => {
         if (!input.trim() || !isAgentReady || isLoading) return
 
-        const userMessage: IChatMessage = {
+        const userMessage: IChatPanelMessage = {
             id: Date.now().toString(),
             role: 'user',
             content: input.trim(),
@@ -60,7 +60,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: IChatInterfacePro
                 ? await onSendMessage(userMessage.content)
                 : await simulateAgentResponse(userMessage.content)
 
-            const assistantMessage: IChatMessage = {
+            const assistantMessage: IChatPanelMessage = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: response,
@@ -70,7 +70,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: IChatInterfacePro
 
             setMessages(prev => [...prev, assistantMessage])
         } catch (error) {
-            const errorMessage: IChatMessage = {
+            const errorMessage: IChatPanelMessage = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: 'Sorry, I encountered an error while processing your message. Please try again.',

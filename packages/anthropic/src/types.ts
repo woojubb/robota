@@ -1,10 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { IExecutor } from '@robota-sdk/agents';
+import type { IExecutor, TProviderOptionValueBase } from '@robota-sdk/agents';
 
 /**
  * Valid provider option value types
  */
-export type TProviderOptionValue =
+export type TAnthropicProviderOptionValue =
   | string
   | number
   | boolean
@@ -12,18 +12,9 @@ export type TProviderOptionValue =
   | null
   | Anthropic
   | IExecutor
-  | TProviderOptionValue[]
-  | { [key: string]: TProviderOptionValue };
-
-/**
- * Base provider options interface
- */
-export interface IProviderOptions {
-    /**
-     * Additional provider-specific options
-     */
-    [key: string]: TProviderOptionValue;
-}
+  | TProviderOptionValueBase
+  | TAnthropicProviderOptionValue[]
+  | { [key: string]: TAnthropicProviderOptionValue };
 
 /**
  * Anthropic provider options
@@ -31,7 +22,12 @@ export interface IProviderOptions {
  * Note: Anthropic API doesn't support response format configuration.
  * JSON output can be requested through prompt instructions.
  */
-export interface IAnthropicProviderOptions extends IProviderOptions {
+export interface IAnthropicProviderOptions {
+    /**
+     * Additional provider-specific options
+     */
+    [key: string]: TAnthropicProviderOptionValue;
+
     /**
      * Anthropic API key (required when client is not provided)
      */

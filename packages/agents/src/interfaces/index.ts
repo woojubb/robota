@@ -25,7 +25,7 @@ export type {
     IAIProvider,
     IToolSchema,
     IParameterSchema,
-    TJSONSchemaType,
+    TJSONSchemaKind,
     TJSONSchemaEnum,
     TParameterDefaultValue,
     IChatOptions,
@@ -34,7 +34,8 @@ export type {
     IRawProviderResponse,
     ITokenUsage,
     IProviderSpecificOptions,
-    TProviderConfigValue
+    TProviderConfigValue,
+    TProviderOptionValueBase
 } from './provider';
 
 export type {
@@ -48,7 +49,7 @@ export type {
 } from './manager';
 
 export type {
-    IToolInterface,
+    ITool,
     IFunctionTool,
     IToolRegistry,
     IToolFactory,

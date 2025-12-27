@@ -14,7 +14,7 @@ import type {
     IWebhookToolData,
     IWebhookErrorData,
     IWebhookToolCallData,
-    TWebhookEventType
+    TWebhookEventName
 } from './types';
 
 /**
@@ -190,7 +190,7 @@ export class WebhookTransformer {
      * Default payload transformer for webhook events
      */
     static defaultPayloadTransformer(
-        _event: TWebhookEventType,
+        _event: TWebhookEventName,
         data: IWebhookEventData
     ): IWebhookEventData {
         // Simply return the data as-is for the default transformer

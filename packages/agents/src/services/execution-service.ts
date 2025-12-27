@@ -1,6 +1,6 @@
 import { IAgentConfig, IAssistantMessage, IToolMessage, IExecutionContextInjection } from '../interfaces/agent';
 import { IPluginContext, TMetadata } from '../interfaces/types';
-import { AbstractPlugin } from '../abstracts/abstract-plugin';
+import { AbstractPlugin, type IPluginHooks, type IPluginErrorContext } from '../abstracts/abstract-plugin';
 import { ToolExecutionService } from './tool-execution-service';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
@@ -94,7 +94,7 @@ interface IHistoryStats {
 /**
  * Plugin statistics type - using a simpler structure
  */
-interface IPluginStats {
+interface IExecutionServicePluginStats {
     pluginCount: number;
     pluginNames: string[];
     historyStats: IHistoryStats;
@@ -414,11 +414,7 @@ export class ExecutionService {
 
                 // Call beforeProviderCall hook
                 await this.callPluginHook('beforeProviderCall', {
-                    messages: conversationMessages.map(msg => ({
-                        role: msg.role,
-                        content: msg.content || '',
-                        timestamp: msg.timestamp?.toISOString() || new Date().toISOString()
-                    }))
+                    messages: conversationMessages
                 });
 
                 this.logger.debug('Sending messages to AI provider', {
@@ -490,12 +486,8 @@ export class ExecutionService {
 
                 // Call afterProviderCall hook
                 await this.callPluginHook('afterProviderCall', {
-                    messages: conversationMessages.map(msg => ({
-                        role: msg.role,
-                        content: msg.content || '',
-                        timestamp: msg.timestamp?.toISOString() || new Date().toISOString()
-                    })),
-                    response: response.content || ''
+                    messages: conversationMessages,
+                    responseMessage: response
                 });
 
                 // Add assistant response to history
@@ -1131,8 +1123,8 @@ export class ExecutionService {
     /**
      * Get execution statistics from plugins
      */
-    async getStats(): Promise<IPluginStats> {
-        const stats: IPluginStats = {
+    async getStats(): Promise<IExecutionServicePluginStats> {
+        const stats: IExecutionServicePluginStats = {
             pluginCount: this.plugins.length,
             pluginNames: this.plugins.map(p => p.name),
             historyStats: this.conversationHistory.getStats()
@@ -1162,15 +1154,6 @@ export class ExecutionService {
     ): Promise<void> {
         for (const plugin of this.plugins) {
             try {
-                // Define proper types for plugin hooks
-                interface IPluginHooks {
-                    beforeRun?: (input: string, options?: TMetadata) => Promise<void> | void;
-                    afterRun?: (input: string, response: string, options?: TMetadata) => Promise<void> | void;
-                    beforeProviderCall?: (messages: Array<{ role: string; content: string; timestamp: string }>) => Promise<void> | void;
-                    afterProviderCall?: (messages: Array<{ role: string; content: string; timestamp: string }>, response: { role: string; content: string; timestamp: Date }) => Promise<void> | void;
-                    onError?: (error: Error, context?: Record<string, string | number | boolean>) => Promise<void> | void;
-                }
-
                 // Use type assertion to access the hook methods
                 const pluginWithHooks = plugin as AbstractPlugin & IPluginHooks;
 
@@ -1188,44 +1171,34 @@ export class ExecutionService {
                         break;
                     case 'beforeProviderCall':
                         if (pluginWithHooks.beforeProviderCall && context.messages) {
-                            // Convert messages to expected format
-                            const formattedMessages = context.messages.map(msg => ({
-                                role: String(msg['role'] || ''),
-                                content: String(msg['content'] || ''),
-                                timestamp: String(msg['timestamp'] || new Date().toISOString())
-                            }));
-                            await pluginWithHooks.beforeProviderCall(formattedMessages);
+                            await pluginWithHooks.beforeProviderCall(context.messages);
                         }
                         break;
                     case 'afterProviderCall':
-                        if (pluginWithHooks.afterProviderCall && context.messages && context.response) {
-                            // Convert messages to expected format
-                            const formattedMessages = context.messages.map(msg => ({
-                                role: String(msg['role'] || ''),
-                                content: String(msg['content'] || ''),
-                                timestamp: String(msg['timestamp'] || new Date().toISOString())
-                            }));
-                            // For afterProviderCall, we need a single response message
-                            const responseMessage = {
-                                role: 'assistant' as const,
-                                content: context.response,
-                                timestamp: new Date()
-                            };
-                            await pluginWithHooks.afterProviderCall(formattedMessages, responseMessage);
+                        if (pluginWithHooks.afterProviderCall && context.messages && context.responseMessage) {
+                            await pluginWithHooks.afterProviderCall(context.messages, context.responseMessage);
                         }
                         break;
                     case 'onError':
                         if (pluginWithHooks.onError && context.error) {
-                            // Convert executionContext to expected format
-                            const errorContext = context.executionContext ?
-                                Object.fromEntries(
-                                    Object.entries(context.executionContext).map(([key, value]) => [
-                                        key,
-                                        typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-                                            ? value
-                                            : String(value)
-                                    ])
-                                ) : undefined;
+                            const errorContext: IPluginErrorContext = {
+                                action: 'execution.error',
+                                metadata: {}
+                            };
+
+                            const executionIdValue = context.executionContext?.['executionId'];
+                            if (typeof executionIdValue === 'string' && executionIdValue.length > 0) {
+                                errorContext.executionId = executionIdValue;
+                            }
+                            const sessionIdValue = context.executionContext?.['sessionId'];
+                            if (typeof sessionIdValue === 'string' && sessionIdValue.length > 0) {
+                                errorContext.sessionId = sessionIdValue;
+                            }
+                            const userIdValue = context.executionContext?.['userId'];
+                            if (typeof userIdValue === 'string' && userIdValue.length > 0) {
+                                errorContext.userId = userIdValue;
+                            }
+
                             await pluginWithHooks.onError(context.error, errorContext);
                         }
                         break;

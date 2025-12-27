@@ -8,10 +8,9 @@
  * AbstractLogger) so that concrete modules can inject their own behaviors.
  */
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
-import type { IEventExecutionContextData, TEventExecutionValue } from '../plugins/event-emitter-plugin';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
-import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
+import { EVENT_EMITTER_EVENTS, type TEventDataValue } from '../plugins/event-emitter/types';
 
 /**
  * Module execution context for all modules
@@ -68,7 +67,7 @@ export interface IModuleCapabilities {
 /**
  * Module type descriptor for dynamic type system
  */
-export interface IModuleTypeDescriptor {
+export interface IModuleDescriptor {
     /** Unique type identifier */
     type: string;
     /** Module category */
@@ -147,7 +146,7 @@ export interface IModuleStats {
  * @template TOptions - Module options type that extends IBaseModuleOptions
  * @template TStats - Module statistics type (defaults to IModuleStats)
  */
-export interface IModuleInterface<TOptions extends IBaseModuleOptions = IBaseModuleOptions, TStats = IModuleStats> {
+export interface IModule<TOptions extends IBaseModuleOptions = IBaseModuleOptions, TStats = IModuleStats> {
     name: string;
     version: string;
     enabled: boolean;
@@ -155,16 +154,16 @@ export interface IModuleInterface<TOptions extends IBaseModuleOptions = IBaseMod
     initialize(options?: TOptions, eventEmitter?: EventEmitterPlugin): Promise<void>;
     dispose?(): Promise<void>;
     execute?(context: IModuleExecutionContext): Promise<IModuleExecutionResult>;
-    getModuleType(): IModuleTypeDescriptor;
+    getModuleType(): IModuleDescriptor;
     getCapabilities(): IModuleCapabilities;
     getData?(): IModuleData;
     getStats?(): TStats;
 }
 
 /**
- * Base module interface extending IModuleInterface
+ * Base module interface extending IModule
  */
-export interface IBaseModuleInterface extends IModuleInterface<IBaseModuleOptions, IModuleStats> { }
+export interface IBaseModule extends IModule<IBaseModuleOptions, IModuleStats> { }
 
 /**
  * Module lifecycle hooks
@@ -209,7 +208,7 @@ export interface IModuleHooks {
  * @template TStats - Module statistics type (defaults to IModuleStats)
  */
 export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBaseModuleOptions, TStats = IModuleStats>
-    implements IModuleInterface<TOptions, TStats>, IModuleHooks {
+    implements IModule<TOptions, TStats>, IModuleHooks {
 
     /** Module name */
     abstract readonly name: string;
@@ -247,7 +246,7 @@ export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBase
     /**
      * Get module type descriptor - must be implemented by each module
      */
-    abstract getModuleType(): IModuleTypeDescriptor;
+    abstract getModuleType(): IModuleDescriptor;
 
     /**
      * Get module capabilities - must be implemented by each module
@@ -681,31 +680,52 @@ export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBase
     }
 
     /**
-     * Convert module event data to IEventExecutionContextData format
+     * Convert module event data to event emitter data payload format.
      */
-    private convertToEventData(data: IModuleInitializationEventData | IModuleExecutionEventData | IModuleDisposalEventData): IEventExecutionContextData {
-        const result: IEventExecutionContextData = {};
+    private convertToEventData(data: IModuleInitializationEventData | IModuleExecutionEventData | IModuleDisposalEventData): Record<string, TEventDataValue> {
+        const payload: Record<string, TEventDataValue> = {
+            moduleName: data.moduleName,
+            moduleType: data.moduleType,
+            timestamp: data.timestamp.toISOString()
+        };
 
-        // Convert all properties to IEventExecutionContextData compatible format
-        for (const [key, value] of Object.entries(data)) {
-            if (value === undefined) continue;
-
-            if (key === 'timestamp' && value instanceof Date) {
-                result[key] = value.toISOString();
-            } else if (key === 'metadata' && typeof value === 'object' && value !== null) {
-                result[key] = value as Record<string, TEventExecutionValue>;
-            } else if (key === 'context' && typeof value === 'object' && value !== null) {
-                result[key] = value as Record<string, TEventExecutionValue>;
-            } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-                result[key] = value;
-            } else if (Array.isArray(value)) {
-                result[key] = value as string[] | number[] | boolean[];
-            } else if (typeof value === 'object' && value !== null) {
-                result[key] = value as Record<string, TEventExecutionValue>;
-            }
+        if (data.metadata) {
+            payload['metadata'] = data.metadata;
         }
 
-        return result;
+        if ('phase' in data) {
+            payload['phase'] = data.phase;
+        }
+        if ('duration' in data && data.duration !== undefined) {
+            payload['duration'] = data.duration;
+        }
+        if ('error' in data && data.error !== undefined) {
+            payload['error'] = data.error;
+        }
+
+        // Initialization-only fields
+        if ('options' in data && data.options) {
+            payload['options'] = data.options;
+        }
+
+        // Execution-only fields
+        if ('executionId' in data) {
+            payload['executionId'] = data.executionId;
+        }
+        if ('success' in data && data.success !== undefined) {
+            payload['success'] = data.success;
+        }
+        if ('inputSize' in data && data.inputSize !== undefined) {
+            payload['inputSize'] = data.inputSize;
+        }
+        if ('outputSize' in data && data.outputSize !== undefined) {
+            payload['outputSize'] = data.outputSize;
+        }
+        if ('context' in data && data.context) {
+            payload['context'] = data.context;
+        }
+
+        return payload;
     }
 
     // Optional lifecycle hooks - modules can override these

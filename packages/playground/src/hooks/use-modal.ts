@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 
-export type TModalType =
+export type TModalKind =
     | 'configuration'
     | 'chat'
     | 'systemStatus'
@@ -12,11 +12,11 @@ export type TModalType =
     | null;
 
 export interface IUseModalReturn {
-    activeModal: TModalType;
-    isModalOpen: (modalType: TModalType) => boolean;
-    openModal: (modalType: TModalType) => void;
+    activeModal: TModalKind;
+    isModalOpen: (modalKind: TModalKind) => boolean;
+    openModal: (modalKind: TModalKind) => void;
     closeModal: () => void;
-    toggleModal: (modalType: TModalType) => void;
+    toggleModal: (modalKind: TModalKind) => void;
 }
 
 /**
@@ -28,25 +28,25 @@ export interface IUseModalReturn {
  * - Easy open/close/toggle functions
  */
 export function useModal(): IUseModalReturn {
-    const [activeModal, setActiveModal] = useState<TModalType>(null);
+    const [activeModal, setActiveModal] = useState<TModalKind>(null);
 
-    const isModalOpen = useCallback((modalType: TModalType) => {
-        return activeModal === modalType;
+    const isModalOpen = useCallback((modalKind: TModalKind) => {
+        return activeModal === modalKind;
     }, [activeModal]);
 
-    const openModal = useCallback((modalType: TModalType) => {
-        setActiveModal(modalType);
+    const openModal = useCallback((modalKind: TModalKind) => {
+        setActiveModal(modalKind);
     }, []);
 
     const closeModal = useCallback(() => {
         setActiveModal(null);
     }, []);
 
-    const toggleModal = useCallback((modalType: TModalType) => {
-        if (activeModal === modalType) {
+    const toggleModal = useCallback((modalKind: TModalKind) => {
+        if (activeModal === modalKind) {
             setActiveModal(null);
         } else {
-            setActiveModal(modalType);
+            setActiveModal(modalKind);
         }
     }, [activeModal]);
 

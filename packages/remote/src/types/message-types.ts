@@ -4,7 +4,10 @@
  * Single responsibility: Define only message-related types
  */
 
-import type { IToolCall } from '@robota-sdk/agents';
+import type { ITokenUsage, IToolCall } from '@robota-sdk/agents';
+
+// SSOT: token usage is owned by @robota-sdk/agents. Re-export for remote package consumers.
+export type { ITokenUsage } from '@robota-sdk/agents';
 
 // Basic message interface
 export interface IBasicMessage {
@@ -25,13 +28,6 @@ export interface IResponseMessage extends IBasicMessage {
     model?: string;
     /** Tool calls made by the assistant (OpenAI tool calling format) */
     toolCalls?: IToolCall[];
-}
-
-// Token usage information
-export interface ITokenUsage {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
 }
 
 // Enhanced response with usage

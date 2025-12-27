@@ -99,12 +99,12 @@ export const WORKFLOW_NODE_TYPES = {
 } as const;
 
 /**
- * TWorkflowNodeType
+ * TWorkflowNodeKind
  *
  * Union type derived from WORKFLOW_NODE_TYPES.
  * Prevents using arbitrary node type strings outside the catalog.
  */
-export type TWorkflowNodeType = typeof WORKFLOW_NODE_TYPES[keyof typeof WORKFLOW_NODE_TYPES];
+export type TWorkflowNodeKind = typeof WORKFLOW_NODE_TYPES[keyof typeof WORKFLOW_NODE_TYPES];
 
 /**
  * Validates a node type string against WORKFLOW_NODE_TYPES.
@@ -112,8 +112,8 @@ export type TWorkflowNodeType = typeof WORKFLOW_NODE_TYPES[keyof typeof WORKFLOW
  * @param nodeType - node type to validate
  * @returns true if nodeType is a valid workflow node type
  */
-export function isValidWorkflowNodeType(nodeType: string): nodeType is TWorkflowNodeType {
-    return Object.values(WORKFLOW_NODE_TYPES).includes(nodeType as TWorkflowNodeType);
+export function isValidWorkflowNodeType(nodeType: string): nodeType is TWorkflowNodeKind {
+    return Object.values(WORKFLOW_NODE_TYPES).includes(nodeType as TWorkflowNodeKind);
 }
 
 /**

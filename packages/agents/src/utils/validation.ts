@@ -3,7 +3,7 @@ import type { IAgentConfig } from '../interfaces/agent';
 /**
  * Validation result interface
  */
-export interface IValidationResult {
+export interface ISimpleValidationResult {
     isValid: boolean;
     errors: string[];
     warnings?: string[];
@@ -16,7 +16,7 @@ export class Validator {
     /**
      * Validate agent configuration
      */
-    static validateAgentConfig(config: Partial<IAgentConfig>): IValidationResult {
+    static validateAgentConfig(config: Partial<IAgentConfig>): ISimpleValidationResult {
         const errors: string[] = [];
         const warnings: string[] = [];
 
@@ -80,7 +80,7 @@ export class Validator {
     /**
      * Validate user input string
      */
-    static validateUserInput(input: string): IValidationResult {
+    static validateUserInput(input: string): ISimpleValidationResult {
         const errors: string[] = [];
         const warnings: string[] = [];
 
@@ -106,7 +106,7 @@ export class Validator {
     /**
      * Validate provider name
      */
-    static validateProviderName(name: string): IValidationResult {
+    static validateProviderName(name: string): ISimpleValidationResult {
         const errors: string[] = [];
 
         if (!name || typeof name !== 'string') {
@@ -126,7 +126,7 @@ export class Validator {
     /**
      * Validate model name
      */
-    static validateModelName(name: string): IValidationResult {
+    static validateModelName(name: string): ISimpleValidationResult {
         const errors: string[] = [];
 
         if (!name || typeof name !== 'string') {
@@ -146,7 +146,7 @@ export class Validator {
     /**
      * Validate API key format (basic check)
      */
-    static validateApiKey(apiKey: string, provider?: string): IValidationResult {
+    static validateApiKey(apiKey: string, provider?: string): ISimpleValidationResult {
         const errors: string[] = [];
         const warnings: string[] = [];
 

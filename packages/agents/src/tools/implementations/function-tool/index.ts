@@ -10,7 +10,7 @@ export type {
     IZodSchema,
     IZodParseResult,
     IZodSchemaDef,
-    IValidationOptions,
+    IFunctionToolValidationOptions,
     ISchemaConversionOptions,
     IFunctionToolExecutionMetadata,
     IFunctionToolResult

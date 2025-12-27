@@ -3,7 +3,7 @@
 
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 import type { IUniversalWorkflowEdge } from '../types/universal-types.js';
-import type { IWorkflowNode, TWorkflowConnectionType } from '../interfaces/workflow-node.js';
+import type { IWorkflowNode, TWorkflowConnectionKind } from '../interfaces/workflow-node.js';
 
 /**
  * NodeEdgeManager - guarantees sequential creation order and edge integrity.
@@ -39,7 +39,7 @@ export class NodeEdgeManager {
     addNode(
         node: Omit<IWorkflowNode, 'timestamp'>,
         parentNodeIds?: string | string[],
-        connectionType: TWorkflowConnectionType = 'processes',
+        connectionType: TWorkflowConnectionKind = 'processes',
         connectionLabel?: string
     ): IWorkflowNode {
         const nodeWithTimestamp: IWorkflowNode = {
@@ -76,7 +76,7 @@ export class NodeEdgeManager {
     addEdge(
         sourceId: string,
         targetId: string,
-        type: TWorkflowConnectionType,
+        type: TWorkflowConnectionKind,
         label?: string
     ): IUniversalWorkflowEdge {
         const sourceNode = this.nodeMap.get(sourceId);
@@ -126,7 +126,7 @@ export class NodeEdgeManager {
     connectNodes(
         fromNode: IWorkflowNode,
         toNode: IWorkflowNode,
-        type: TWorkflowConnectionType,
+        type: TWorkflowConnectionKind,
         label?: string
     ): IUniversalWorkflowEdge {
         return this.addEdge(fromNode.id, toNode.id, type, label);

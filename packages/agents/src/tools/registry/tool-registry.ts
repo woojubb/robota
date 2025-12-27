@@ -1,4 +1,4 @@
-import type { IToolInterface, IToolRegistry } from '../../interfaces/tool';
+import type { ITool, IToolRegistry } from '../../interfaces/tool';
 import type { IToolSchema } from '../../interfaces/provider';
 import { ValidationError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
@@ -8,12 +8,12 @@ import { logger } from '../../utils/logger';
  * Manages tool registration, validation, and retrieval
  */
 export class ToolRegistry implements IToolRegistry {
-    private tools = new Map<string, IToolInterface>();
+    private tools = new Map<string, ITool>();
 
     /**
      * Register a tool
      */
-    register(tool: IToolInterface): void {
+    register(tool: ITool): void {
         if (!tool.schema?.name) {
             throw new ValidationError('Tool must have a valid schema with name');
         }
@@ -55,14 +55,14 @@ export class ToolRegistry implements IToolRegistry {
     /**
      * Get tool by name
      */
-    get(name: string): IToolInterface | undefined {
+    get(name: string): ITool | undefined {
         return this.tools.get(name);
     }
 
     /**
      * Get all registered tools
      */
-    getAll(): IToolInterface[] {
+    getAll(): ITool[] {
         return Array.from(this.tools.values());
     }
 
@@ -112,7 +112,7 @@ export class ToolRegistry implements IToolRegistry {
     /**
      * Get tools by pattern
      */
-    getToolsByPattern(pattern: string | RegExp): IToolInterface[] {
+    getToolsByPattern(pattern: string | RegExp): ITool[] {
         const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
         return this.getAll().filter(tool => regex.test(tool.schema.name));
     }

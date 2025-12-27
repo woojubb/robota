@@ -77,7 +77,7 @@ export interface IPlaygroundExecutionStats {
     successRate: number;
 }
 
-export type TPlaygroundAction =
+export type TPlaygroundReducerAction =
     | { type: 'SET_EXECUTOR'; payload: PlaygroundExecutor | null }
     | { type: 'SET_INITIALIZED'; payload: boolean }
     | { type: 'SET_AGENT_CONFIG'; payload: IPlaygroundAgentConfig | null }
@@ -140,7 +140,7 @@ const initialState: IPlaygroundState = {
 
 // ===== Reducer =====
 
-function playgroundReducer(state: IPlaygroundState, action: TPlaygroundAction): IPlaygroundState {
+function playgroundReducer(state: IPlaygroundState, action: TPlaygroundReducerAction): IPlaygroundState {
     switch (action.type) {
         case 'SET_EXECUTOR':
             return {

@@ -2,7 +2,7 @@ import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/
 import { createLogger, type ILogger } from '../../utils/logger';
 import { SimpleLogger, SilentLogger } from '../../utils/simple-logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
-import type { TEventType, IEventData } from '../event-emitter-plugin';
+import type { IEventEmitterEventData, TEventName } from '../event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
 
 import {
@@ -97,12 +97,12 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     /**
      * Handle module events for logging
      */
-    override async onModuleEvent(eventType: TEventType, eventData: IEventData): Promise<void> {
+    override async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
             const moduleData = eventData.data;
 
-            switch (eventType) {
+            switch (eventName) {
                 case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START:
                     await this.info('Module initialization started', {
                         moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
@@ -202,7 +202,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
             }
         } catch (error) {
             // Log the error but don't throw to avoid breaking module event processing
-            this.simpleLogger.error(`LoggingPlugin failed to handle module event ${eventType}:`, error);
+            this.simpleLogger.error(`LoggingPlugin failed to handle module event ${eventName}:`, error);
         }
     }
 

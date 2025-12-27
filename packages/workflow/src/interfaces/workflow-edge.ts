@@ -1,7 +1,7 @@
 // Workflow Edge Interfaces
 // Based on existing UniversalWorkflowEdge implementation
 
-import type { TWorkflowConnectionType } from './workflow-node.js';
+import type { TWorkflowConnectionKind } from './workflow-node.js';
 import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
 export type TWorkflowEdgeDataExtensionValue = TUniversalValue | Date | Error | TLoggerData;
@@ -12,7 +12,7 @@ export type TWorkflowEdgeDataExtensionValue = TUniversalValue | Date | Error | T
 export interface IEdgeValidationRule {
     sourceNodeType?: string | string[];
     targetNodeType?: string | string[];
-    allowedConnectionTypes?: TWorkflowConnectionType[];
+    allowedConnectionTypes?: TWorkflowConnectionKind[];
     required?: boolean;
     description?: string;
 }
@@ -27,7 +27,7 @@ export interface IWorkflowEdge {
     target: string; // Target node ID
     
     // Connection metadata
-    type: TWorkflowConnectionType; // Connection type
+    type: TWorkflowConnectionKind; // Connection type
     label?: string;
     description?: string;
     
@@ -89,7 +89,7 @@ export interface IWorkflowEdgeUpdate {
 export interface IEdgeQueryFilter {
     sourceId?: string;
     targetId?: string;
-    type?: TWorkflowConnectionType | TWorkflowConnectionType[];
+    type?: TWorkflowConnectionKind | TWorkflowConnectionKind[];
     hidden?: boolean;
     fromTimestamp?: number;
     toTimestamp?: number;
@@ -115,7 +115,7 @@ export class EdgeUtils {
     /**
      * Generate edge ID from source and target
      */
-    static generateId(sourceId: string, targetId: string, type: TWorkflowConnectionType): string {
+    static generateId(sourceId: string, targetId: string, type: TWorkflowConnectionKind): string {
         return `edge_${sourceId}_${targetId}_${type}`;
     }
     

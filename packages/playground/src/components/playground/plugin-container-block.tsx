@@ -66,7 +66,7 @@ export const PLUGIN_PRIORITIES = {
 
 export type TPluginPriority = typeof PLUGIN_PRIORITIES[keyof typeof PLUGIN_PRIORITIES];
 
-export interface IPluginStats extends Record<string, TUniversalValue> {
+export interface IPlaygroundPluginStats extends Record<string, TUniversalValue> {
     calls: number;
     errors: number;
     lastActivity?: Date;
@@ -80,7 +80,7 @@ export interface IPluginBlock {
     category: TPluginCategory;
     priority: TPluginPriority | number;
     options: Record<string, TUniversalValue>;
-    stats: IPluginStats;
+    stats: IPlaygroundPluginStats;
     validationErrors: string[];
 }
 

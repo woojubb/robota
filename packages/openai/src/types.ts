@@ -1,12 +1,12 @@
 import OpenAI from 'openai';
 
 import type { IPayloadLogger } from './interfaces/payload-logger';
-import type { SimpleLogger, IExecutor } from '@robota-sdk/agents';
+import type { IExecutor, SimpleLogger, TProviderOptionValueBase } from '@robota-sdk/agents';
 
 /**
  * Valid provider option value types
  */
-export type TProviderOptionValue =
+export type TOpenAIProviderOptionValue =
   | string
   | number
   | boolean
@@ -16,23 +16,19 @@ export type TProviderOptionValue =
   | IPayloadLogger
   | SimpleLogger
   | IExecutor
-  | TProviderOptionValue[]
-  | { [key: string]: TProviderOptionValue };
-
-/**
- * Base provider options interface
- */
-export interface IProviderOptions {
-  /**
-   * Additional provider-specific options
-   */
-  [key: string]: TProviderOptionValue;
-}
+  | TProviderOptionValueBase
+  | TOpenAIProviderOptionValue[]
+  | { [key: string]: TOpenAIProviderOptionValue };
 
 /**
  * OpenAI provider options
  */
-export interface IOpenAIProviderOptions extends IProviderOptions {
+export interface IOpenAIProviderOptions {
+  /**
+   * Additional provider-specific options
+   */
+  [key: string]: TOpenAIProviderOptionValue;
+
   /**
    * OpenAI API key (required when client is not provided)
    */
@@ -67,7 +63,7 @@ export interface IOpenAIProviderOptions extends IProviderOptions {
   jsonSchema?: {
     name: string;
     description?: string;
-    schema?: Record<string, TProviderOptionValue>;
+    schema?: Record<string, TOpenAIProviderOptionValue>;
     strict?: boolean;
   };
 

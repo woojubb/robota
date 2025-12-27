@@ -1,6 +1,6 @@
 import type { IToolManager } from '../interfaces/manager';
 import type { IToolSchema } from '../interfaces/provider';
-import type { IToolInterface, TToolExecutor, TToolParameters, IToolExecutionContext } from '../interfaces/tool';
+import type { ITool, TToolExecutor, TToolParameters, IToolExecutionContext } from '../interfaces/tool';
 import type { TToolResultData } from '../interfaces/types';
 import { AbstractManager } from '../abstracts/abstract-manager';
 import { ToolRegistry } from '../tools/registry/tool-registry';
@@ -62,7 +62,7 @@ export class Tools extends AbstractManager implements IToolManager {
     /**
      * Get tool interface by name
      */
-    getTool(name: string): IToolInterface | undefined {
+    getTool(name: string): ITool | undefined {
         this.ensureInitialized();
         return this.registry.get(name);
     }
