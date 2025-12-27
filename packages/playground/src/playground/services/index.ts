@@ -3,7 +3,6 @@
 export * from '../../lib/playground/execution-subscriber';
 export * from '../../lib/playground/universal-tool-factory';
 export * from '../../lib/playground/robota-executor';
-export * from '../../lib/playground/workflow-subscriber-event-service';
 
 // Plugins
 export * from '../../lib/playground/plugins/playground-history-plugin';

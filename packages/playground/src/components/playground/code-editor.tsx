@@ -389,146 +389,11 @@ export function CodeEditor({
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
 
-    // Configure TypeScript compiler options
-    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2020,
-      allowNonTsExtensions: true,
-      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-      module: monaco.languages.typescript.ModuleKind.CommonJS,
-      noEmit: true,
-      esModuleInterop: true,
-      jsx: monaco.languages.typescript.JsxEmit.React,
-      reactNamespace: 'React',
-      allowJs: true,
-      typeRoots: ['node_modules/@types']
+    // Monaco IntelliSense is intentionally disabled.
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: true
     })
-
-    // Add Robota SDK type definitions (based on real API)
-    const robotaTypes = `
-        type TUniversalValue =
-          | string
-          | number
-          | boolean
-          | null
-          | undefined
-          | Date
-          | { [key: string]: TUniversalValue }
-          | TUniversalValue[];
-
-        declare module 'openai' {
-          export default class OpenAI {
-            constructor(config: { apiKey: string })
-          }
-        }
-
-        declare module '@anthropic-ai/sdk' {
-          export default class Anthropic {
-            constructor(config: { apiKey: string })
-          }
-        }
-
-        declare module '@robota-sdk/agents' {
-          export interface IAgentConfig {
-            name: string
-            aiProviders: Array<Record<string, TUniversalValue>>
-            defaultModel: {
-              provider: string
-              model: string
-              systemMessage?: string
-            }
-            tools?: Array<Record<string, TUniversalValue>>
-            plugins?: Array<Record<string, TUniversalValue>>
-            logging?: {
-              level: string
-              enabled: boolean
-            }
-          }
-
-          export interface IRunOptions {
-            sessionId?: string
-            userId?: string
-            metadata?: Record<string, TUniversalValue>
-          }
-
-          export interface IToolSchema {
-            type: 'object'
-            properties: Record<string, TUniversalValue>
-            required?: string[]
-          }
-
-          export class Robota {
-            readonly name: string
-            readonly version: string
-            constructor(config: IAgentConfig)
-            run(input: string, options?: IRunOptions): Promise<string>
-            runStream(input: string, options?: IRunOptions): AsyncGenerator<string, void, undefined>
-            getStats(): any
-            getHistory(): any[]
-            destroy(): Promise<void>
-          }
-
-          export class LoggingPlugin {
-            constructor(config: {
-              level?: string
-              enabled?: boolean
-              strategy?: 'console' | 'file' | 'remote'
-            })
-          }
-
-          export class UsagePlugin {
-            constructor(config: {
-              strategy?: 'memory' | 'file' | 'database'
-              trackTokens?: boolean
-              trackCosts?: boolean
-            })
-          }
-
-          export function createFunctionTool<T>(
-            name: string,
-            description: string,
-            schema: ToolSchema,
-            handler: (params: T) => Promise<any>
-          ): any
-        }
-
-        declare module '@robota-sdk/openai' {
-          export class OpenAIProvider {
-            constructor(config: { 
-              client: any
-              model?: string
-              apiKey?: string
-            })
-            readonly name: string
-          }
-        }
-
-        declare module '@robota-sdk/anthropic' {
-          export class AnthropicProvider {
-            constructor(config: { 
-              client: any
-              model?: string
-              apiKey?: string
-            })
-            readonly name: string
-          }
-        }
-
-        declare module '@robota-sdk/google' {
-          export class GoogleProvider {
-            constructor(config: { 
-              client: any
-              model?: string
-              apiKey?: string
-            })
-            readonly name: string
-          }
-        }
-        `
-
-    monaco.languages.typescript.typescriptDefaults.addExtraLib(
-      robotaTypes,
-      'robota-types.d.ts'
-    )
 
     // Configure editor settings
     editor.updateOptions({
@@ -536,12 +401,11 @@ export function CodeEditor({
       tabSize: 2,
       minimap: { enabled: false },
       automaticLayout: true,
-      suggestOnTriggerCharacters: true,
-      quickSuggestions: {
-        other: true,
-        comments: true,
-        strings: true
-      }
+      suggestOnTriggerCharacters: false,
+      quickSuggestions: false,
+      wordBasedSuggestions: 'off',
+      parameterHints: { enabled: false },
+      hover: { enabled: false }
     })
 
     // Add keyboard shortcuts
@@ -589,21 +453,13 @@ export function CodeEditor({
           cursorSmoothCaretAnimation: 'on',
           contextmenu: true,
           mouseWheelZoom: true,
-          quickSuggestions: {
-            other: true,
-            comments: true,
-            strings: true
-          },
-          suggestOnTriggerCharacters: true,
-          acceptSuggestionOnEnter: 'on',
-          tabCompletion: 'on',
-          snippetSuggestions: 'top',
-          parameterHints: {
-            enabled: true
-          },
-          hover: {
-            enabled: true
-          }
+          quickSuggestions: false,
+          suggestOnTriggerCharacters: false,
+          acceptSuggestionOnEnter: 'off',
+          tabCompletion: 'off',
+          snippetSuggestions: 'none',
+          parameterHints: { enabled: false },
+          hover: { enabled: false }
         }}
       />
     </div>

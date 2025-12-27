@@ -19,6 +19,7 @@ export * from './types/universal-types.js';
 export * from './services/node-edge-manager.js';
 export * from './services/workflow-builder.js';
 export * from './services/workflow-event-subscriber.js';
+export * from './services/workflow-subscriber-event-service.js';
 
 // Handlers
 export * from './handlers/agent-event-handler.js';

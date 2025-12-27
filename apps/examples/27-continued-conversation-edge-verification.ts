@@ -5,11 +5,10 @@ import { fileURLToPath } from 'url';
 import { Robota, FunctionTool } from '@robota-sdk/agents';
 import type { IAIProvider, IEventService, IOwnerPathSegment, IToolExecutionContext, IToolSchema, TToolParameters } from '@robota-sdk/agents';
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
-import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
+import { WorkflowEventSubscriber, WorkflowSubscriberEventService } from '@robota-sdk/workflow';
 
 import { ScenarioStore } from './utils/scenario-store';
 import { createScenarioProviderFromEnv } from './lib/scenario-provider';
-import { WorkflowSubscriberEventService } from './lib/workflow-subscriber-event-service';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
