@@ -1,6 +1,6 @@
 import { TUniversalMessage, logger } from '@robota-sdk/agents';
 import type Anthropic from '@anthropic-ai/sdk';
-import type { AnthropicMessage } from '../types/api-types';
+import type { IAnthropicMessage } from '../types/api-types';
 
 /**
  * Anthropic response parser utility
@@ -16,7 +16,7 @@ export class AnthropicResponseParser {
      * @param response - Raw Anthropic API response
      * @returns Standardized universal message
      */
-    static parseResponse(response: AnthropicMessage): TUniversalMessage {
+    static parseResponse(response: IAnthropicMessage): TUniversalMessage {
         try {
             const content = response.content?.[0]?.text || '';
 

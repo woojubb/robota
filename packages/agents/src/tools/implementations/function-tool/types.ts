@@ -11,8 +11,8 @@
  * NOTE: Tool functionality is now integrated into @robota-sdk/agents package
  */
 
-import type { TToolParameterValue, TToolParameters } from '../../../interfaces/tool';
-import type { TToolResultData } from '../../../interfaces/types';
+import type { TToolParameters } from '../../../interfaces/tool';
+import type { TUniversalValue } from '../../../interfaces/types';
 
 /**
  * Zod schema compatibility types
@@ -26,10 +26,10 @@ export interface IZodParseResult {
 export interface IZodSchemaDef {
     typeName?: string;
     innerType?: IZodSchema;
-    checks?: Array<{ kind: string; value?: TToolParameterValue }>;
+    checks?: Array<{ kind: string; value?: TUniversalValue }>;
     shape?: () => Record<string, IZodSchema>;
     type?: IZodSchema;
-    values?: TToolParameterValue[];
+    values?: TUniversalValue[];
     description?: string;
 }
 
@@ -71,6 +71,6 @@ export interface IFunctionToolExecutionMetadata {
  */
 export interface IFunctionToolResult {
     success: boolean;
-    data: TToolResultData;
+    data: TUniversalValue;
     metadata?: IFunctionToolExecutionMetadata;
 }

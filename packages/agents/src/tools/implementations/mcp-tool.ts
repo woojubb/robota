@@ -136,12 +136,13 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
 
         } catch (error) {
             const executionTime = Date.now() - startTime;
+            const safeError = error instanceof Error ? error : new Error(String(error));
 
             this.logger.error(`MCP tool "${toolName}" execution failed`, {
                 toolName,
                 executionTime,
                 connectionStatus: this.connectionStatus,
-                error: error instanceof Error ? error.message : error,
+                error: safeError,
                 parameters
             });
 
@@ -150,9 +151,9 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
             }
 
             throw new ToolExecutionError(
-                `MCP tool execution failed: ${error instanceof Error ? error.message : error}`,
+                `MCP tool execution failed: ${safeError.message}`,
                 toolName,
-                error instanceof Error ? error : new Error(String(error)),
+                safeError,
                 {
                     executionTime,
                     endpoint: this.mcpConfig.endpoint,

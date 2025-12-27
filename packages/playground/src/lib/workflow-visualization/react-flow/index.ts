@@ -64,8 +64,9 @@ export class UniversalToReactFlowConverter {
                 edges
             };
         } catch (error) {
-            this.logger.error('Conversion failed:', error);
-            throw new Error(`React-Flow conversion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            const err = error instanceof Error ? error : new Error(String(error));
+            this.logger.error('Conversion failed:', err);
+            throw new Error(`React-Flow conversion failed: ${err.message}`);
         }
     }
 

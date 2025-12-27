@@ -1,4 +1,4 @@
-import type { IToolCall, IToolExecutionContext, TToolParameters, TToolResultData, TUniversalValue } from '@robota-sdk/agents';
+import type { IToolCall, IToolExecutionContext, TToolParameters, TUniversalValue } from '@robota-sdk/agents';
 
 /**
  * Block-specific metadata for visual representation
@@ -18,7 +18,7 @@ export interface IBlockExecutionContextInfo {
 
 export interface IBlockRenderData {
     parameters?: TToolParameters;
-    result?: TToolResultData;
+    result?: TUniversalValue;
     error?: Error;
     reasoning?: string;
     toolSchema?: Record<string, TUniversalValue>;
@@ -125,7 +125,7 @@ export interface IRealTimeBlockMetadata {
     toolParameters?: TToolParameters;
 
     /** Actual tool execution result */
-    toolResult?: TToolResultData;
+    toolResult?: TUniversalValue;
 
     // 🌳 Hierarchical execution context
 
@@ -216,7 +216,7 @@ export interface IToolExecutionTrackingData {
     context?: IToolExecutionContext;
     startTime: Date;
     endTime?: Date;
-    result?: TToolResultData;
+    result?: TUniversalValue;
     error?: Error;
     executionId: string;
     parentBlockId?: string;

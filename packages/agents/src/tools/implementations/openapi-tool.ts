@@ -1,4 +1,4 @@
-import type { ITool, IToolResult, IToolExecutionContext, IOpenAPIToolConfig, TToolParameters, TToolParameterValue } from '../../interfaces/tool';
+import type { ITool, IToolResult, IToolExecutionContext, IOpenAPIToolConfig, TToolParameters } from '../../interfaces/tool';
 import type { IToolSchema, IParameterSchema } from '../../interfaces/provider';
 import type { OpenAPIV3 } from 'openapi-types';
 import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstract-tool';
@@ -74,10 +74,11 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
             };
 
         } catch (error) {
+            const safeError = error instanceof Error ? error : new Error(String(error));
             this.logger.error(`OpenAPI tool "${toolName}" execution failed`, {
                 toolName,
                 operationId: this.operationId,
-                error: error instanceof Error ? error.message : error,
+                error: safeError,
                 parameters
             });
 
@@ -86,9 +87,9 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
             }
 
             throw new ToolExecutionError(
-                `OpenAPI tool execution failed: ${error instanceof Error ? error.message : error}`,
+                `OpenAPI tool execution failed: ${safeError.message}`,
                 toolName,
-                error instanceof Error ? error : new Error(String(error)),
+                safeError,
                 {
                     operationId: this.operationId,
                     baseURL: this.baseURL,
@@ -189,7 +190,7 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
             if (jsonContent) {
                 headers['Content-Type'] = 'application/json';
                 // Extract body parameters (those not in path/query/header)
-                const bodyParams: Record<string, TToolParameterValue> = {};
+                const bodyParams: TToolParameters = {};
                 for (const [key, value] of Object.entries(parameters)) {
                     const isParamUsed = params.some(p => p.name === key);
                     if (!isParamUsed) {

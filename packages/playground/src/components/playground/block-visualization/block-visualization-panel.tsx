@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import type {
     IBlockMessage,
-    IBlockDataCollector
+    IPlaygroundBlockCollector
 } from '../../../lib/playground/block-tracking';
 import { ExecutionTreeDebug } from '../execution-tree-debug';
 
@@ -24,7 +24,7 @@ import { ExecutionTreeDebug } from '../execution-tree-debug';
  */
 export interface IBlockVisualizationPanelProps {
     /** Block collector instance */
-    blockCollector: IBlockDataCollector;
+    blockCollector: IPlaygroundBlockCollector;
 
     /** Panel height */
     height?: string | number;
@@ -43,7 +43,7 @@ export interface IBlockVisualizationPanelProps {
  * Block Statistics Component
  */
 interface IBlockStatsProps {
-    blockCollector: IBlockDataCollector;
+    blockCollector: IPlaygroundBlockCollector;
 }
 
 const BlockStats: React.FC<IBlockStatsProps> = ({ blockCollector }) => {
@@ -120,7 +120,7 @@ const BlockStats: React.FC<IBlockStatsProps> = ({ blockCollector }) => {
 /**
  * Block Type Breakdown Component
  */
-const BlockTypeBreakdown: React.FC<{ blockCollector: IBlockDataCollector }> = ({ blockCollector }) => {
+const BlockTypeBreakdown: React.FC<{ blockCollector: IPlaygroundBlockCollector }> = ({ blockCollector }) => {
     const [stats, setStats] = useState(blockCollector.getStats());
 
     useEffect(() => {

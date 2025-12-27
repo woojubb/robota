@@ -1,4 +1,4 @@
-import type { IToolExecutionContext, ILogger, TToolParameters, TToolResultData } from '@robota-sdk/agents';
+import type { IToolExecutionContext, ILogger, TToolParameters, TUniversalValue } from '@robota-sdk/agents';
 import type {
     IBlockDataCollector,
     IBlockMessage,
@@ -9,7 +9,7 @@ import { SilentLogger } from '@robota-sdk/agents';
 
 export interface IToolHooks {
     beforeExecute(toolName: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<void>;
-    afterExecute(toolName: string, parameters: TToolParameters, result: TToolResultData, context?: IToolExecutionContext): Promise<void>;
+    afterExecute(toolName: string, parameters: TToolParameters, result: TUniversalValue, context?: IToolExecutionContext): Promise<void>;
     onError(toolName: string, parameters: TToolParameters, error: Error, context?: IToolExecutionContext): Promise<void>;
 }
 
@@ -109,7 +109,7 @@ export function createBlockTrackingHooks(
         async afterExecute(
             toolName: string,
             parameters: TToolParameters,
-            result: TToolResultData,
+            result: TUniversalValue,
             context?: IToolExecutionContext
         ): Promise<void> {
             try {

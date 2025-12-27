@@ -189,7 +189,9 @@ export class ModuleRegistry {
 
         // Dispose the module if initialized
         if (module.isInitialized()) {
-            await module.dispose();
+            if (module.dispose) {
+                await module.dispose();
+            }
         }
 
         // Remove from all tracking structures
@@ -357,6 +359,9 @@ export class ModuleRegistry {
         const startTime = Date.now();
 
         try {
+            if (!module.execute) {
+                throw new ConfigurationError(`Module '${moduleName}' does not support execute()`);
+            }
             const result = await module.execute(context);
 
             // Update success statistics
@@ -486,7 +491,9 @@ export class ModuleRegistry {
             const module = this.modules.get(moduleName);
             if (module && module.isInitialized()) {
                 try {
-                    await module.dispose();
+                    if (module.dispose) {
+                        await module.dispose();
+                    }
 
                     // Update status
                     const status = this.moduleStatuses.get(moduleName);

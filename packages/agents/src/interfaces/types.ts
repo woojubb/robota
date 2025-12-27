@@ -56,13 +56,13 @@ export type TConfigData = Record<string, TConfigValue>;
 /**
  * Tool parameter value type - specific for tool parameters
  */
-export type TToolParameterValue = TUniversalValue;
-export type TToolParameters = Record<string, TToolParameterValue>;
+export type TToolParameters = Record<string, TUniversalValue>;
 
 /**
  * Tool result data type - for tool execution results
  */
-export type TToolResultData = TUniversalValue;
+// NOTE:
+// Tool result values are represented by the canonical TUniversalValue axis.
 
 // NOTE:
 // Provider config value types are owned by the provider axis (`interfaces/provider.ts`).

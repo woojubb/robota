@@ -1,6 +1,6 @@
 import type { IAIProvider, IToolSchema } from './provider';
 import type { ITool, TToolExecutor, IToolExecutionContext, TToolParameters } from './tool';
-import type { TToolResultData } from './types';
+import type { TUniversalValue } from './types';
 import type { IAgentConfig, IAgent } from './agent';
 
 /**
@@ -105,7 +105,7 @@ export interface IToolManager {
     /**
      * Execute a tool
      */
-    executeTool(name: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<TToolResultData>;
+    executeTool(name: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<TUniversalValue>;
 
     /**
      * Check if tool exists

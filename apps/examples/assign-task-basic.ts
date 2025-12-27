@@ -9,14 +9,14 @@
  */
 
 import { listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
-import type { IToolExecutionContext, IToolResult, TToolResultData } from '@robota-sdk/agents';
+import type { IToolExecutionContext, IToolResult, TUniversalValue } from '@robota-sdk/agents';
 import type { TTemplateSummary, TTemplatesListPayload } from './lib/template-payloads';
 
-const isObject = (value: TToolResultData): value is Record<string, TToolResultData> => {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
+const isObject = (value: TUniversalValue): value is Record<string, TUniversalValue> => {
+    return typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date);
 };
 
-const isTemplateSummary = (value: TToolResultData): value is TTemplateSummary => {
+const isTemplateSummary = (value: TUniversalValue): value is TTemplateSummary => {
     if (!isObject(value)) return false;
     const id = value.id;
     const name = value.name;
@@ -43,7 +43,7 @@ const extractTemplatesList = (result: IToolResult): TTemplatesListPayload => {
     }
     const templates: TTemplateSummary[] = [];
     for (const item of templatesValue) {
-        if (!isTemplateSummary(item as TToolResultData)) {
+        if (!isTemplateSummary(item as TUniversalValue)) {
             throw new Error('listTemplates returned invalid template item');
         }
         templates.push(item as TTemplateSummary);

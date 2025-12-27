@@ -17,8 +17,6 @@ export const TOOL_EVENTS = {
     CALL_RESPONSE_READY: 'tool.call_response_ready'
 } as const;
 
-export type { IToolExecutionRequest };
-
 export interface IToolExecutionBatchContext {
     requests: IToolExecutionRequest[];
     mode: 'parallel' | 'sequential';

@@ -57,7 +57,7 @@ function isExecutionError(error: Error): error is IExecutionError {
  * Execution context for service operations
  * Applies Type Deduplication Rule: Use standardized metadata type
  */
-export interface IExecutionContext {
+interface IExecutionContext {
     conversationId?: string;
     sessionId?: string;
     userId?: string;
@@ -71,7 +71,7 @@ export interface IExecutionContext {
 /**
  * Execution result containing the response and execution metadata
  */
-export interface IExecutionResult {
+interface IExecutionResult {
     response: string;
     messages: TUniversalMessage[];
     executionId: string;

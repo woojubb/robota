@@ -5,7 +5,7 @@
 
 import type { TUniversalMessage } from './messages';
 import type { IToolSchema, IAIProvider } from './provider';
-import type { TToolResultData } from './types';
+import type { TUniversalValue } from './types';
 import type { IToolCall } from './messages';
 import type { IOwnerPathSegment, IEventService } from './event-service';
 import type { TToolParameters, TToolMetadata } from './tool';
@@ -208,17 +208,17 @@ export interface IToolExecutionService {
     /**
      * Execute a single tool
      */
-    executeTool(toolName: string, parameters: TToolParameters): Promise<TToolResultData>;
+    executeTool(toolName: string, parameters: TToolParameters): Promise<TUniversalValue>;
 
     /**
      * Execute multiple tools in parallel
      */
-    executeToolsParallel(toolCalls: IToolExecutionRequest[]): Promise<TToolResultData[]>;
+    executeToolsParallel(toolCalls: IToolExecutionRequest[]): Promise<TUniversalValue[]>;
 
     /**
      * Execute multiple tools sequentially
      */
-    executeToolsSequential(toolCalls: IToolExecutionRequest[]): Promise<TToolResultData[]>;
+    executeToolsSequential(toolCalls: IToolExecutionRequest[]): Promise<TUniversalValue[]>;
 }
 
 /**

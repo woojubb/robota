@@ -16,7 +16,7 @@ import type {
     IZodSchema,
     ISchemaConversionOptions
 } from './types';
-import type { TToolParameterValue } from '../../../interfaces/tool';
+import type { TUniversalValue } from '../../../interfaces/types';
 
 /**
  * Convert Zod schema to JSON Schema format with safe undefined handling
@@ -160,7 +160,7 @@ function isRequiredField(typeObj: IZodSchema): boolean {
 /**
  * Safely extract enum values from Zod schema
  */
-export function extractEnumValues(schema: IZodSchema): TToolParameterValue[] {
+export function extractEnumValues(schema: IZodSchema): TUniversalValue[] {
     const typeDef = schema._def;
     if (!typeDef) {
         throw new Error('Zod schema is missing _def; cannot extract enum values.');

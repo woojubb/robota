@@ -35,6 +35,10 @@ async function main() {
         // ===== AGENT CONFIGURATION =====
         console.log('⚙️ Creating agent with comprehensive configuration...');
 
+        const usagePlugin = new UsagePlugin({
+            strategy: 'memory'
+        });
+
         const config: IAgentConfig = {
             name: 'DemoAgent',
             aiProviders: [openaiProvider],
@@ -48,9 +52,7 @@ async function main() {
                     enabled: true,
                     strategy: 'console'
                 }),
-                new UsagePlugin({
-                    strategy: 'memory'
-                })
+                usagePlugin
             ],
             logging: {
                 level: 'info',
@@ -105,19 +107,15 @@ async function main() {
             console.log(`- Plugin: ${plugin.name} (version: ${plugin.version})`);
         });
 
-        // Get usage plugin specifically
-        const usagePlugin = robota.getPlugin<UsagePlugin>('usage-plugin');
-        if (usagePlugin) {
-            console.log('\n📈 Usage Statistics:');
-            const aggregated = await usagePlugin.getAggregatedStats();
-            const avgTokensPerRequest =
-                aggregated.totalRequests > 0 ? aggregated.totalTokens / aggregated.totalRequests : 0;
+        console.log('\n📈 Usage Statistics:');
+        const aggregated = await usagePlugin.getAggregatedStats();
+        const avgTokensPerRequest =
+            aggregated.totalRequests > 0 ? aggregated.totalTokens / aggregated.totalRequests : 0;
 
-            console.log(`- Total Requests: ${aggregated.totalRequests}`);
-            console.log(`- Total Tokens: ${aggregated.totalTokens}`);
-            console.log(`- Total Duration: ${Math.round(aggregated.totalDuration)}ms`);
-            console.log(`- Avg Tokens per Request: ${Math.round(avgTokensPerRequest)}`);
-        }
+        console.log(`- Total Requests: ${aggregated.totalRequests}`);
+        console.log(`- Total Tokens: ${aggregated.totalTokens}`);
+        console.log(`- Total Duration: ${Math.round(aggregated.totalDuration)}ms`);
+        console.log(`- Avg Tokens per Request: ${Math.round(avgTokensPerRequest)}`);
         console.log();
 
         // ===== FINAL STATISTICS =====
