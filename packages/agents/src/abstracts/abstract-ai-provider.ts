@@ -132,9 +132,7 @@ export abstract class AbstractAIProvider<TConfig = IProviderConfig>
         this.config = config;
 
         // Check if config includes executor and set it
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, generic-constraint
         if (config && typeof config === 'object' && 'executor' in config && (config as any).executor) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, generic-constraint
             this.executor = (config as any).executor as IExecutor;
         }
 

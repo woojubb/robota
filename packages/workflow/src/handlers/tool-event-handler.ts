@@ -10,15 +10,14 @@ import { SilentLogger } from '@robota-sdk/agents';
 import type {
     IEventHandler,
     TEventData,
-    IEventProcessingResult,
-    HandlerPriority
+    IEventProcessingResult
 } from '../interfaces/event-handler.js';
 import type { IWorkflowNode } from '../interfaces/workflow-node.js';
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES, type TWorkflowNodeType } from '../constants/workflow-types.js';
-import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
+import { HandlerPriority } from '../interfaces/event-handler.js';
 import { TOOL_EVENTS } from '@robota-sdk/agents';
 
 /**
@@ -26,7 +25,7 @@ import { TOOL_EVENTS } from '@robota-sdk/agents';
  */
 export class ToolEventHandler implements IEventHandler {
     readonly name = 'ToolEventHandler';
-    readonly priority = Priority.HIGH;
+    readonly priority = HandlerPriority.HIGH;
     readonly patterns = ['tool.*'];
 
     private logger: SimpleLogger;

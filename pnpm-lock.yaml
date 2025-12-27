@@ -33,6 +33,9 @@ importers:
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      eslint-plugin-eslint-comments:
+        specifier: ^3.2.0
+        version: 3.2.0(eslint@8.57.1)
       glob:
         specifier: ^10.3.10
         version: 10.4.5

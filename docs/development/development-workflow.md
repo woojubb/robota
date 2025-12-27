@@ -17,7 +17,7 @@ This document outlines the development workflow and processes for the Robota pro
    - Fix critical errors immediately (syntax, type errors)
    - Address warnings that affect functionality
    - Defer style-only warnings to review phase
-   - Use `// eslint-disable-next-line` sparingly with comments explaining why
+   - Do **not** suppress `any/unknown` warnings in shipped source via `eslint-disable` (prohibited by policy). Prefer SSOT types and type guards.
 
 2. **Review Phase**: 
    - Run `pnpm run lint:fix` to auto-fix issues
@@ -111,18 +111,10 @@ pnpm --filter robota-examples run lint:fix
 ### Temporary Lint Overrides
 
 ```typescript
-// Acceptable: External library without types
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const externalLibResult: any = untypedLibrary.method();
-
-// Acceptable: Intentional any for generic utility
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function deepClone<T = any>(obj: T): T {
-    // Implementation needs any for JSON serialization
-}
+// ✅ Acceptable (tests only): any/unknown may be used for mocks
+// NOTE: In shipped source (src/), disabling any/unknown lint rules is prohibited.
 
 // NOT acceptable: Lazy typing
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function processData(data: any): any { // Should define proper types
 ```
 

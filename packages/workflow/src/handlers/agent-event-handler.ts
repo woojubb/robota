@@ -75,7 +75,6 @@ export class AgentEventHandler implements IEventHandler {
                     if (!pathInfo.parentId) {
                         this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
                         {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const subscriber = (this as any).subscriber as { registerNode?: (k: string, id: string) => void } | undefined;
                             subscriber?.registerNode?.(`agentFor:${String(data.sourceId)}`, agentNode.id);
                         }
@@ -94,7 +93,6 @@ export class AgentEventHandler implements IEventHandler {
                     this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
                     // Register for cross-handler reference
                     {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const subscriber = (this as any).subscriber as { registerNode?: (k: string, id: string) => void } | undefined;
                         subscriber?.registerNode?.(`agentFor:${String(data.sourceId)}`, agentNode.id);
                     }

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `@robota-sdk/openai` package implements a complete type-safe integration with OpenAI's API, following the Zero Any Policy and modern TypeScript patterns established in the Robota SDK ecosystem.
+The `@robota-sdk/openai` package implements a type-safe integration with OpenAI's API, following the Controlled Any/Unknown Policy (SSOT-first) and modern TypeScript patterns established in the Robota SDK ecosystem.
 
 ## Architecture
 
@@ -36,14 +36,9 @@ packages/openai/src/
 
 ## Type Safety Implementation
 
-### Zero Any Policy Compliance
+### Controlled Any/Unknown Policy
 
-The OpenAI Provider strictly adheres to the Zero Any Policy:
-
-- **No `any` types**: All types are explicitly defined
-- **Error handling**: Uses `instanceof Error` checks instead of any casting
-- **OpenAI SDK compatibility**: Uses official SDK types directly
-- **Generic constraints**: Proper type parameter constraints throughout
+In shipped source, `any`/`unknown` should be avoided and are reported as warnings. Disabling the related lint rules in `src/` is prohibited; fix types instead (SSOT types, interfaces, and type guards). Tests are exempt.
 
 ### Key Type Patterns
 

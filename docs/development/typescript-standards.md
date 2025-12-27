@@ -2,9 +2,15 @@
 
 Type safety standards and best practices for the Robota SDK v2.0.
 
-## Zero Any/Unknown Policy
+## Controlled Any/Unknown Policy (SSOT-First)
 
-The Robota SDK v2.0 enforces a **Zero Any/Unknown Policy** - complete elimination of `any` and unsafe `unknown` types for maximum type safety.
+The Robota SDK enforces a **Controlled Any/Unknown Policy**:
+
+- `any` / `unknown` are **not categorically forbidden**, but they are treated as a **last resort**.
+- In **shipped source** (`packages/*/src/**`, `apps/*/src/**`), `any`/`unknown` are **warnings** and **must not be suppressed** via `eslint-disable` for the corresponding rules.
+- In **test files** (`**/*.test.*`, `**/*.spec.*`), `any`/`unknown` are allowed for mocks and test ergonomics.
+
+This keeps the codebase aligned with SSOT types and prevents “quick fixes” that bypass type design.
 
 ### Policy Enforcement
 
@@ -20,7 +26,7 @@ interface AgentConfig {
     plugins?: BasePlugin[];
 }
 
-// ❌ Bad: Any types (not allowed)
+// ❌ Bad: Any types (avoid in shipped source; do not suppress via eslint-disable)
 interface BadConfig {
     providers: any;      // Never use any
     options: any;        // Always type explicitly
@@ -59,12 +65,12 @@ function processResponse(response: unknown): string {
 }
 ```
 
-### ESLint Rules for Type Safety
+### ESLint Rules for Type Safety (High-level)
 
 ```json
 {
     "rules": {
-        "@typescript-eslint/no-explicit-any": "error",
+        "@typescript-eslint/no-explicit-any": "warn",
         "@typescript-eslint/no-unsafe-any": "error",
         "@typescript-eslint/no-unsafe-assignment": "error",
         "@typescript-eslint/no-unsafe-call": "error",
@@ -74,6 +80,8 @@ function processResponse(response: unknown): string {
     }
 }
 ```
+
+Note: In shipped source, disabling `@typescript-eslint/no-explicit-any` and `@typescript-eslint/ban-types` is prohibited by lint policy. Fix types instead (SSOT types, proper interfaces, and type guards).
 
 ## Type Definition Standards
 
@@ -445,8 +453,8 @@ type ReturnTypeOf<T> = T extends (...args: unknown[]) => infer R ? R : never;
 
 ### ❌ Don't
 
-1. **Use `any` types**: Completely forbidden in the codebase
-2. **Use `unknown` unsafely**: Always use type guards
+1. **Use `any` as a shortcut**: Avoid in shipped source; use SSOT types and validation
+2. **Use `unknown` without narrowing**: Always narrow with type guards/validators
 3. **Ignore TypeScript errors**: Fix all type errors
 4. **Use function overloads**: Prefer union types
 5. **Mutate readonly data**: Respect immutability

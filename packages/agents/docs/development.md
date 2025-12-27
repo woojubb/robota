@@ -16,14 +16,12 @@
 ### ✅ Phase 8: Test Failure Fixes (Completed)
 - ✅ All tests passing (76 tests, 100% success rate)
 
-### ✅ Phase 9: Complete any/unknown Type Removal (Completed)
-**🎉 December 29, 2024 Completed! Perfect Type Safety Achieved!**
+### ✅ Type Safety Policy (Current)
+The codebase follows a **Controlled Any/Unknown Policy (SSOT-first)**:
 
-**Core Achievements:**
-- ✅ **any/unknown warnings**: 18 → 0 (100% removal achieved!)
-- ✅ **TypeScript Build**: Complete success
-- ✅ **Tests**: 76/76 passing (100% success rate)
-- ✅ **Type Safety**: Maintained strict TypeScript settings
+- In shipped source (`packages/*/src/**`, `apps/*/src/**`), `any`/`unknown` are **warnings** and must not be suppressed by disabling ESLint rules.
+- In test files (`**/*.test.*`, `**/*.spec.*`), `any`/`unknown` may be used for mocks and test ergonomics.
+- Prefer SSOT types and explicit validators/type guards at boundaries.
 
 **Major Improvements:**
 - ✅ **Centralized Type System**: src/interfaces/types.ts completed
@@ -94,7 +92,7 @@ pnpm lint:fix
 ## 🏗️ Development Principles
 
 ### 1. Type Safety First
-- **No any/unknown**: Strict TypeScript enforcement with ESLint rules
+- **Controlled any/unknown**: Warnings in shipped source; suppression is prohibited
 - **Generic Type Parameters**: Use type parameters for reusability
 - **Runtime Validation**: Complement compile-time types with runtime checks
 

@@ -2,8 +2,6 @@
 // Migrated from agents package to workflow package
 
 import type { IWorkflowNode } from '../interfaces/workflow-node.js';
-import type { IWorkflowSnapshot } from '../interfaces/workflow-builder.js';
-import type { TWorkflowNodeType } from '../constants/workflow-types.js';
 import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
 /**

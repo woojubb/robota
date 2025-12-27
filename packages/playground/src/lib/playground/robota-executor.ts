@@ -34,7 +34,6 @@ import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 export type { IVisualizationData, IConversationEvent } from './plugins/playground-history-plugin';
 import { PlaygroundWebSocketClient } from './websocket-client';
 import { RemoteExecutor } from '@robota-sdk/remote';
-import { createBlockTrackingHooks } from './block-tracking/block-hooks';
 import { ToolRegistry } from '../../tools/catalog';
 
 

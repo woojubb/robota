@@ -76,7 +76,6 @@ export class GoogleProvider extends AbstractAIProvider {
         const geminiMessages = this.convertToGeminiFormat(messages);
 
         const result = await model.generateContent({
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             contents: geminiMessages as any, // Google SDK types are complex, using any here
             generationConfig: {
                 temperature: options?.temperature,
@@ -84,7 +83,6 @@ export class GoogleProvider extends AbstractAIProvider {
             },
             ...(options?.tools && {
                 tools: [{
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
                 }]
             })
@@ -125,7 +123,6 @@ export class GoogleProvider extends AbstractAIProvider {
         const geminiMessages = this.convertToGeminiFormat(messages);
 
         const result = await model.generateContentStream({
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             contents: geminiMessages as any, // Google SDK types are complex, using any here
             generationConfig: {
                 temperature: options?.temperature,
@@ -133,7 +130,6 @@ export class GoogleProvider extends AbstractAIProvider {
             },
             ...(options?.tools && {
                 tools: [{
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
                 }]
             })
@@ -175,7 +171,6 @@ export class GoogleProvider extends AbstractAIProvider {
             text?: string;
             functionCall?: {
                 name: string;
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 args: Record<string, any>;
             };
         }>;
@@ -192,7 +187,6 @@ export class GoogleProvider extends AbstractAIProvider {
                     text?: string;
                     functionCall?: {
                         name: string;
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         args: Record<string, any>;
                     };
                 }> = [];
@@ -230,7 +224,6 @@ export class GoogleProvider extends AbstractAIProvider {
     /**
      * Convert Gemini response to TUniversalMessage
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private convertFromGeminiResponse(response: any): TUniversalMessage {
         const candidate = response.candidates?.[0];
         if (!candidate) {
@@ -242,9 +235,7 @@ export class GoogleProvider extends AbstractAIProvider {
             throw new Error('No content in Gemini response');
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const textParts = content.parts.filter((p: any) => p.text).map((p: any) => p.text);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const functionCalls = content.parts.filter((p: any) => p.functionCall);
 
         const result: TUniversalMessage = {
@@ -255,7 +246,6 @@ export class GoogleProvider extends AbstractAIProvider {
 
         if (functionCalls.length > 0) {
             const assistantResult = result as IAssistantMessage;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             assistantResult.toolCalls = functionCalls.map((fc: any) => ({
                 id: this.generateId(),
                 type: 'function' as const,
@@ -284,13 +274,11 @@ export class GoogleProvider extends AbstractAIProvider {
     private convertToolsToGeminiFormat(tools: IToolSchema[]): Array<{
         name: string;
         description: string;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         parameters: Record<string, any>;
     }> {
         return tools.map(tool => ({
             name: tool.name,
             description: tool.description,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             parameters: tool.parameters as Record<string, any>
         }));
     }

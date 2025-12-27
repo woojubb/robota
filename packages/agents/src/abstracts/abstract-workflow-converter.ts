@@ -349,7 +349,6 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
         const processingTime = now.getTime() - startTime;
 
         return {
-            // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint
             data: null as unknown as TOutput, // Type assertion for failed conversion
             success: false,
             errors,
