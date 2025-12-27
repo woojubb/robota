@@ -46,15 +46,10 @@
  * implement this interface.
  */
 export interface IAbstractLogger {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     debug(...args: any[]): void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     info(...args: any[]): void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     warn(...args: any[]): void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     error(...args: any[]): void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     log(...args: any[]): void;
     group?(label?: string): void;
     groupEnd?(): void;

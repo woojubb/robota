@@ -15,12 +15,14 @@
     "project": [
       "./tsconfig.json",
       "./packages/*/tsconfig.json",
-      "./packages/*/tsconfig.test.json"
+      "./packages/*/tsconfig.test.json",
+      "./apps/*/tsconfig.json"
     ],
     "tsconfigRootDir": "."
   },
   "plugins": [
-    "@typescript-eslint"
+    "@typescript-eslint",
+    "eslint-comments"
   ],
   "globals": {
     "NodeJS": "readonly"
@@ -30,22 +32,22 @@
     // CRITICAL POLICY: TYPE SAFETY WITH CONTROLLED FLEXIBILITY
     // ==========================================
     // 🚨 핵심 타입 안전성은 유지, unknown은 조건부 허용 🚨
-    "@typescript-eslint/no-explicit-any": "error", // any 타입 완전 금지
+    "@typescript-eslint/no-explicit-any": "warn", // any 타입은 경고로 유지 (disable로 회피는 금지)
     "@typescript-eslint/ban-types": [
-      "error",
+      "warn",
       {
         "types": {
-          "unknown": "❌ Try specific types, existing types, interfaces first. If impossible: eslint-disable with comment pattern: tried-alternatives, [external-api|runtime-dynamic|third-party|legacy-code|generic-constraint]",
-          "any": "❌ PROHIBITED: Use unknown with type guards instead",
+          "unknown": "❌ Avoid `unknown` in shipped source. Prefer specific unions/interfaces, SSOT types (e.g. TUniversalValue), and type guards at boundaries. Note: disabling this rule in src/ is prohibited; tests are exempt.",
+          "any": "❌ Avoid `any` in shipped source. Prefer specific types/SSOT types, and validate external inputs. Note: disabling no-explicit-any in src/ is prohibited; tests are exempt.",
           "{}": false
         },
         "extendDefaults": true
       }
     ],
     // ==========================================
-    // ✅ 완화: 사용하지 않는 변수를 경고로 변경 (에러 → 경고)
+    // ✅ default: keep packages strict; relax apps via overrides
     "@typescript-eslint/no-unused-vars": [
-      "warn", // error → warn으로 완화
+      "error",
       {
         "argsIgnorePattern": "^_",
         "varsIgnorePattern": "^_",
@@ -92,12 +94,51 @@
   "overrides": [
     {
       "files": [
+        "packages/*/src/**/*",
+        "apps/*/src/**/*"
+      ],
+      "rules": {
+        "eslint-comments/no-restricted-disable": [
+          "error",
+          "@typescript-eslint/no-explicit-any",
+          "@typescript-eslint/ban-types"
+        ]
+      }
+    },
+    {
+      "files": [
+        "apps/**/*"
+      ],
+      "rules": {
+        "no-console": "warn",
+        "@typescript-eslint/no-unused-vars": [
+          "warn",
+          {
+            "argsIgnorePattern": "^_",
+            "varsIgnorePattern": "^_",
+            "ignoreRestSiblings": true,
+            "destructuredArrayIgnorePattern": "^_"
+          }
+        ],
+        "no-unused-vars": "off"
+      }
+    },
+    {
+      "files": [
         "apps/examples/**/*",
         "examples/**/*"
       ],
       "rules": {
-        "no-console": "off",
-        "@typescript-eslint/no-unused-vars": "off",
+        "no-console": "warn",
+        "@typescript-eslint/no-unused-vars": [
+          "warn",
+          {
+            "argsIgnorePattern": "^_",
+            "varsIgnorePattern": "^_",
+            "ignoreRestSiblings": true,
+            "destructuredArrayIgnorePattern": "^_"
+          }
+        ],
         "no-unused-vars": "off"
       }
     },
@@ -120,6 +161,7 @@
         "vi": "readonly"
       },
       "rules": {
+        "eslint-comments/no-restricted-disable": "off",
         "@typescript-eslint/no-unused-vars": "off",
         "no-unused-vars": "off",
         // ==========================================
@@ -151,7 +193,6 @@
   "ignorePatterns": [
     "website/**/*",
     "backup/**/*",
-    "apps/web/**/*",
     "docs/**/*",
     "apps/docs/**/*",
     "dist",

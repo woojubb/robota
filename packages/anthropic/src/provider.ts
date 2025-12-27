@@ -196,7 +196,6 @@ export class AnthropicProvider extends AbstractAIProvider {
                                 arguments: JSON.stringify(tc.function.arguments)
                             }
                         }))
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     } as any;
                 }
 
@@ -235,7 +234,6 @@ export class AnthropicProvider extends AbstractAIProvider {
 
             // Add metadata if available
             if (response.usage) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (result as any).metadata = {
                     inputTokens: response.usage.input_tokens,
                     outputTokens: response.usage.output_tokens,
@@ -244,7 +242,6 @@ export class AnthropicProvider extends AbstractAIProvider {
 
                 // Only add stopReason if it's not null
                 if (response.stop_reason) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     (result as any).metadata['stopReason'] = response.stop_reason;
                 }
             }
@@ -269,7 +266,6 @@ export class AnthropicProvider extends AbstractAIProvider {
             return result;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         throw new Error(`Unsupported content type: ${(content as any).type}`);
     }
 

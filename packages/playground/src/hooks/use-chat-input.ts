@@ -17,7 +17,6 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo, type RefObject } from 'react';
 import { useRobotaExecution } from './use-robota-execution';
-import { usePlaygroundData } from './use-playground-data';
 import type { IUseBlockTrackingResult } from './use-block-tracking';
 import { WebLogger } from '../lib/web-logger';
 import type { TUniversalValue } from '@robota-sdk/agents';
@@ -113,13 +112,10 @@ export function useChatInput(options: IChatInputOptions = {}): IChatInputHookRet
         clearStreamingResponse
     } = useRobotaExecution();
 
-    const { conversationEvents } = usePlaygroundData();
-
     // Input state
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [historyIndex, setHistoryIndex] = useState(-1);
-    const [cursorPosition, setCursorPosition] = useState(0);
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -212,7 +208,6 @@ export function useChatInput(options: IChatInputOptions = {}): IChatInputHookRet
             if (inputRef.current) {
                 const newPosition = start + text.length;
                 inputRef.current.setSelectionRange(newPosition, newPosition);
-                setCursorPosition(newPosition);
             }
         }, 0);
     }, [inputValue, setValue]);
