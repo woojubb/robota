@@ -1,12 +1,12 @@
-export type TemplateSummary = {
+export type TTemplateSummary = {
   id: string;
   name: string;
   description?: string;
   categoryId?: string;
 };
 
-export type TemplatesListPayload = {
-  templates: TemplateSummary[];
+export type TTemplatesListPayload = {
+  templates: TTemplateSummary[];
 };
 
 

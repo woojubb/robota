@@ -1,4 +1,4 @@
-import type { IAIProvider, IChatOptions, IProviderRequest, IRawProviderResponse, TUniversalMessage } from '@robota-sdk/agents';
+import type { IAIProvider, IChatOptions, IProviderRequest, IRawProviderResponse, TUniversalMessage, TUniversalValue } from '@robota-sdk/agents';
 import {
     ScenarioStore,
     createRequestHash,
@@ -7,14 +7,14 @@ import {
     serializeResponseSnapshot,
     hydrateResponseSnapshot
 } from '../utils/scenario-store';
-import type { ScenarioStep } from '../utils/scenario-store';
+import type { IScenarioStep } from '../utils/scenario-store';
 
 type TStreamChunkInput = { index: number; delta: TUniversalMessage; timestamp: number };
 
 type TRecordingResponseInput = {
     message?: TUniversalMessage;
     raw?: IRawProviderResponse;
-    stream?: StreamChunkInput[];
+    stream?: TStreamChunkInput[];
 };
 
 interface IScenarioMetadata {
@@ -24,7 +24,7 @@ interface IScenarioMetadata {
 }
 
 export interface IScenarioRecorderOptions extends IScenarioMetadata {
-    metadata?: Record<string, unknown>;
+    metadata?: Record<string, TUniversalValue>;
 }
 
 export interface IScenarioMockProviderOptions extends IScenarioMetadata {
@@ -51,7 +51,7 @@ export interface IScenarioProviderFromEnvOptions {
     /**
      * Optional metadata recorded alongside steps (record mode only).
      */
-    metadata?: Record<string, unknown>;
+    metadata?: Record<string, TUniversalValue>;
 }
 
 export type TScenarioProviderFromEnvResult =
@@ -66,7 +66,7 @@ function readEnvString(key: string): string | undefined {
     return value.length > 0 ? value : undefined;
 }
 
-function resolveModeFromEnv(): { mode: ScenarioMode; recordId?: string; playId?: string; playStrategy?: 'hash' | 'sequential' } {
+function resolveModeFromEnv(): { mode: TScenarioMode; recordId?: string; playId?: string; playStrategy?: 'hash' | 'sequential' } {
     const recordId = readEnvString('SCENARIO_RECORD_ID');
     const playId = readEnvString('SCENARIO_PLAY_ID');
 
@@ -148,14 +148,14 @@ export function createScenarioProviderFromEnv(options: IScenarioProviderFromEnvO
 /**
  * Create a provider wrapper that records every request/response pair.
  */
-export function createScenarioRecordingProvider(delegate: IAIProvider, options: ScenarioRecorderOptions): IAIProvider {
+export function createScenarioRecordingProvider(delegate: IAIProvider, options: IScenarioRecorderOptions): IAIProvider {
     return new ScenarioRecordingProvider(delegate, options);
 }
 
 /**
  * Create a mock provider that replays previously recorded responses.
  */
-export function createScenarioMockProvider(options: ScenarioMockProviderOptions): IAIProvider {
+export function createScenarioMockProvider(options: IScenarioMockProviderOptions): IAIProvider {
     return new ScenarioMockAIProvider(options);
 }
 
@@ -165,7 +165,7 @@ class ScenarioRecordingProvider implements IAIProvider {
 
     constructor(
         private readonly delegate: IAIProvider,
-        private readonly options: ScenarioRecorderOptions
+        private readonly options: IScenarioRecorderOptions
     ) {
         this.name = delegate.name;
         this.version = delegate.version;
@@ -181,7 +181,7 @@ class ScenarioRecordingProvider implements IAIProvider {
         if (!this.delegate.chatStream) {
             throw new Error(`[ScenarioRecordingProvider] Underlying provider "${this.delegate.name}" does not support streaming`);
         }
-        const chunks: StreamChunkInput[] = [];
+        const chunks: TStreamChunkInput[] = [];
         let index = 0;
         for await (const chunk of this.delegate.chatStream(messages, options)) {
             chunks.push({
@@ -217,12 +217,12 @@ class ScenarioRecordingProvider implements IAIProvider {
         await this.delegate.close?.();
     }
 
-    private async recordStep(messages: TUniversalMessage[], options: IChatOptions | undefined, response: RecordingResponseInput): Promise<void> {
+    private async recordStep(messages: TUniversalMessage[], options: IChatOptions | undefined, response: TRecordingResponseInput): Promise<void> {
         const serializedMessages = serializeMessages(messages);
         const serializedOptions = serializeChatOptions(options);
         const serializedResponse = serializeResponseSnapshot(response);
 
-        const step: ScenarioStep = {
+        const step: IScenarioStep = {
             stepId: `step_${Date.now()}_${Math.random().toString(36).slice(2)}`,
             requestHash: createRequestHash(messages, options),
             request: {
@@ -248,7 +248,7 @@ class ScenarioMockAIProvider implements IAIProvider {
     private pointer = 0;
     private usedStepIds = new Set<string>();
 
-    constructor(private readonly options: ScenarioMockProviderOptions) {
+    constructor(private readonly options: IScenarioMockProviderOptions) {
         this.name = options.providerName ?? 'openai';
         this.version = options.providerVersion ?? 'mock-scenario';
     }
@@ -290,7 +290,7 @@ class ScenarioMockAIProvider implements IAIProvider {
         return true;
     }
 
-    private async resolveStep(messages: TUniversalMessage[], options?: IChatOptions): Promise<ScenarioStep> {
+    private async resolveStep(messages: TUniversalMessage[], options?: IChatOptions): Promise<IScenarioStep> {
         if (this.options.strategy === 'sequential') {
             const steps = await this.options.store.listSteps(this.options.scenarioId);
             if (this.pointer >= steps.length) {

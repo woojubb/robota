@@ -208,23 +208,25 @@ function playgroundReducer(state: IPlaygroundState, action: TPlaygroundReducerAc
             };
 
         case 'SET_EXECUTION_RESULT':
-            // Update execution statistics based on result
-            const newStats: IPlaygroundExecutionStats = {
-                ...state.executionStats,
-                totalExecutions: state.executionStats.totalExecutions + 1,
-                successfulExecutions: state.executionStats.successfulExecutions + (action.payload.success ? 1 : 0),
-                failedExecutions: state.executionStats.failedExecutions + (action.payload.success ? 0 : 1),
-                averageExecutionTime: state.executionStats.totalExecutions > 0
-                    ? (state.executionStats.averageExecutionTime * state.executionStats.totalExecutions + (action.payload.duration || 0)) / (state.executionStats.totalExecutions + 1)
-                    : (action.payload.duration || 0),
-                lastExecutionTime: new Date()
-            };
+            {
+                // Update execution statistics based on result
+                const newStats: IPlaygroundExecutionStats = {
+                    ...state.executionStats,
+                    totalExecutions: state.executionStats.totalExecutions + 1,
+                    successfulExecutions: state.executionStats.successfulExecutions + (action.payload.success ? 1 : 0),
+                    failedExecutions: state.executionStats.failedExecutions + (action.payload.success ? 0 : 1),
+                    averageExecutionTime: state.executionStats.totalExecutions > 0
+                        ? (state.executionStats.averageExecutionTime * state.executionStats.totalExecutions + (action.payload.duration || 0)) / (state.executionStats.totalExecutions + 1)
+                        : (action.payload.duration || 0),
+                    lastExecutionTime: new Date()
+                };
 
-            return {
-                ...state,
-                lastExecutionResult: action.payload,
-                executionStats: newStats
-            };
+                return {
+                    ...state,
+                    lastExecutionResult: action.payload,
+                    executionStats: newStats
+                };
+            }
 
 
 

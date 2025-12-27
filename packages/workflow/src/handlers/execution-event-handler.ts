@@ -119,10 +119,12 @@ export class ExecutionEventHandler implements IEventHandler {
                     break;
 
                 case EXECUTION_EVENTS.ERROR:
-                    const executionErrorNode = this.createExecutionErrorNode(eventData);
-                    // [PATH-ONLY] prevId is no longer used; edges are created explicitly
-                    updates.push({ action: 'create', node: executionErrorNode });
-                    break;
+                    {
+                        const executionErrorNode = this.createExecutionErrorNode(eventData);
+                        // [PATH-ONLY] prevId is no longer used; edges are created explicitly
+                        updates.push({ action: 'create', node: executionErrorNode });
+                        break;
+                    }
 
                 case EXECUTION_EVENTS.ASSISTANT_MESSAGE_START:
                     // AgentEventHandler will create the thinking node; skip assistant_message node
@@ -198,10 +200,12 @@ export class ExecutionEventHandler implements IEventHandler {
                     }
 
                 case 'user.input':
-                    const userInputNode = this.createUserInputNode(eventData);
-                    // [PATH-ONLY] prevId is no longer used; edges are created explicitly
-                    updates.push({ action: 'create', node: userInputNode });
-                    break;
+                    {
+                        const userInputNode = this.createUserInputNode(eventData);
+                        // [PATH-ONLY] prevId is no longer used; edges are created explicitly
+                        updates.push({ action: 'create', node: userInputNode });
+                        break;
+                    }
 
                 default:
                     this.logger.warn(`⚠️ [EXECUTION-HANDLER] Unknown event type: ${eventType}`);

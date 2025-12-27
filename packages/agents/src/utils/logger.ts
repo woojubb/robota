@@ -32,9 +32,6 @@ export interface ILogger {
     log(...args: Array<TUniversalValue | TLoggerData | Error>): void;
     group?(label?: string): void;
     groupEnd?(): void;
-    isDebugEnabled(): boolean;
-    setLevel(level: TUtilLogLevel): void;
-    getLevel(): TUtilLogLevel;
 }
 
 /**
@@ -52,10 +49,6 @@ export const SilentLogger: ILogger = {
     log: () => { },
     group: () => { },
     groupEnd: () => { },
-    isDebugEnabled: () => false,
-    // SilentLogger is intentionally immutable/no-op; level setters are ignored.
-    setLevel: () => { },
-    getLevel: () => 'silent',
 };
 
 /**
@@ -103,28 +96,28 @@ export class ConsoleLogger implements ILogger {
     debug(...args: Array<TUniversalValue | TLoggerData | Error>): void {
         if (this.shouldLog('debug')) {
             const [message, context] = args;
-            this.writeEntry('debug', String(message ?? ''), isLoggerContext(context) ? context : undefined);
+            this.forward('debug', String(message ?? ''), isLoggerContext(context) ? context : undefined);
         }
     }
 
     info(...args: Array<TUniversalValue | TLoggerData | Error>): void {
         if (this.shouldLog('info')) {
             const [message, context] = args;
-            this.writeEntry('info', String(message ?? ''), isLoggerContext(context) ? context : undefined);
+            this.forward('info', String(message ?? ''), isLoggerContext(context) ? context : undefined);
         }
     }
 
     warn(...args: Array<TUniversalValue | TLoggerData | Error>): void {
         if (this.shouldLog('warn')) {
             const [message, context] = args;
-            this.writeEntry('warn', String(message ?? ''), isLoggerContext(context) ? context : undefined);
+            this.forward('warn', String(message ?? ''), isLoggerContext(context) ? context : undefined);
         }
     }
 
     error(...args: Array<TUniversalValue | TLoggerData | Error>): void {
         if (this.shouldLog('error')) {
             const [message, context] = args;
-            this.writeEntry('error', String(message ?? ''), isLoggerContext(context) ? context : undefined);
+            this.forward('error', String(message ?? ''), isLoggerContext(context) ? context : undefined);
         }
     }
 
@@ -133,15 +126,7 @@ export class ConsoleLogger implements ILogger {
         this.info(...args);
     }
 
-    isDebugEnabled(): boolean {
-        return this.shouldLog('debug');
-    }
-
-    setLevel(level: TUtilLogLevel): void {
-        this.level = level;
-    }
-
-    getLevel(): TUtilLogLevel {
+    private getLevel(): TUtilLogLevel {
         return this.level || LoggerConfig.getInstance().getGlobalLevel();
     }
 
@@ -153,7 +138,7 @@ export class ConsoleLogger implements ILogger {
         return levels.indexOf(level) >= levels.indexOf(currentLevel);
     }
 
-    private writeEntry(level: TUtilLogLevel, message: string, context?: TLoggerData): void {
+    private forward(level: TUtilLogLevel, message: string, context?: TLoggerData): void {
         const entry: IUtilLogEntry = {
             timestamp: new Date().toISOString(),
             level,

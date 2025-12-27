@@ -17,26 +17,26 @@ export interface IGoogleModelConfig {
 }
 
 export interface IGoogleGenerateContentRequest {
-    contents: GoogleContent[];
-    tools?: GoogleTool[];
-    systemInstruction?: GoogleContent;
-    generationConfig?: GoogleModelConfig;
+    contents: IGoogleContent[];
+    tools?: IGoogleTool[];
+    systemInstruction?: IGoogleContent;
+    generationConfig?: IGoogleModelConfig;
 }
 
-export interface IGoogleStreamGenerateContentRequest extends GoogleGenerateContentRequest {
+export interface IGoogleStreamGenerateContentRequest extends IGoogleGenerateContentRequest {
     // Streaming uses the same request structure
 }
 
 // Content Types
 export interface IGoogleContent {
-    parts: GooglePart[];
+    parts: IGooglePart[];
     role?: 'user' | 'model';
 }
 
 export interface IGooglePart {
     text?: string;
-    functionCall?: GoogleFunctionCall;
-    functionResponse?: GoogleFunctionResponse;
+    functionCall?: IGoogleFunctionCall;
+    functionResponse?: IGoogleFunctionResponse;
 }
 
 export interface IGoogleFunctionCall {
@@ -51,18 +51,18 @@ export interface IGoogleFunctionResponse {
 
 // Tool Types
 export interface IGoogleTool {
-    functionDeclarations: GoogleFunctionDeclaration[];
+    functionDeclarations: IGoogleFunctionDeclaration[];
 }
 
 export interface IGoogleFunctionDeclaration {
     name: string;
     description?: string;
-    parameters: GoogleFunctionParameters;
+    parameters: IGoogleFunctionParameters;
 }
 
 export interface IGoogleFunctionParameters {
     type: 'object';
-    properties: Record<string, GooglePropertySchema>;
+    properties: Record<string, IGooglePropertySchema>;
     required?: string[];
 }
 
@@ -70,23 +70,23 @@ export interface IGooglePropertySchema {
     type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
     description?: string;
     enum?: string[];
-    items?: GooglePropertySchema;
-    properties?: Record<string, GooglePropertySchema>;
+    items?: IGooglePropertySchema;
+    properties?: Record<string, IGooglePropertySchema>;
 }
 
 // Response Types
 export interface IGoogleGenerateContentResponse {
-    candidates: GoogleCandidate[];
-    promptFeedback?: GooglePromptFeedback;
-    usageMetadata?: GoogleUsageMetadata;
+    candidates: IGoogleCandidate[];
+    promptFeedback?: IGooglePromptFeedback;
+    usageMetadata?: IGoogleUsageMetadata;
 }
 
 export interface IGoogleCandidate {
-    content: GoogleContent;
-    finishReason?: GoogleFinishReason;
+    content: IGoogleContent;
+    finishReason?: TGoogleFinishReason;
     index: number;
-    safetyRatings?: GoogleSafetyRating[];
-    citationMetadata?: GoogleCitationMetadata;
+    safetyRatings?: IGoogleSafetyRating[];
+    citationMetadata?: IGoogleCitationMetadata;
 }
 
 export type TGoogleFinishReason =
@@ -98,8 +98,8 @@ export type TGoogleFinishReason =
     | 'OTHER';
 
 export interface IGoogleSafetyRating {
-    category: GoogleHarmCategory;
-    probability: GoogleHarmProbability;
+    category: TGoogleHarmCategory;
+    probability: TGoogleHarmProbability;
 }
 
 export type TGoogleHarmCategory =
@@ -119,7 +119,7 @@ export type TGoogleHarmProbability =
     | 'HIGH';
 
 export interface IGoogleCitationMetadata {
-    citationSources: GoogleCitationSource[];
+    citationSources: IGoogleCitationSource[];
 }
 
 export interface IGoogleCitationSource {
@@ -130,8 +130,8 @@ export interface IGoogleCitationSource {
 }
 
 export interface IGooglePromptFeedback {
-    blockReason?: GoogleBlockReason;
-    safetyRatings?: GoogleSafetyRating[];
+    blockReason?: TGoogleBlockReason;
+    safetyRatings?: IGoogleSafetyRating[];
 }
 
 export type TGoogleBlockReason =
@@ -147,9 +147,9 @@ export interface IGoogleUsageMetadata {
 
 // Streaming Types
 export interface IGoogleStreamChunk {
-    candidates?: GoogleCandidate[];
-    promptFeedback?: GooglePromptFeedback;
-    usageMetadata?: GoogleUsageMetadata;
+    candidates?: IGoogleCandidate[];
+    promptFeedback?: IGooglePromptFeedback;
+    usageMetadata?: IGoogleUsageMetadata;
 }
 
 // Error Types
@@ -158,7 +158,7 @@ export interface IGoogleError {
         code: number;
         message: string;
         status: string;
-        details?: GoogleErrorDetail[];
+        details?: IGoogleErrorDetail[];
     };
 }
 
@@ -178,7 +178,7 @@ export interface IGoogleLogData {
     maxOutputTokens?: number;
     timestamp: string;
     requestId?: string;
-    usage?: GoogleUsageMetadata;
+    usage?: IGoogleUsageMetadata;
 }
 
 // Tool Call Types for Internal Processing
@@ -193,14 +193,14 @@ export interface IGoogleToolCall {
 
 // Message Conversion Types
 export interface IGoogleMessageConversionResult {
-    contents: GoogleContent[];
-    systemInstruction?: GoogleContent;
+    contents: IGoogleContent[];
+    systemInstruction?: IGoogleContent;
 }
 
 // Stream Context for Managing State
 export interface IGoogleStreamContext {
     currentMessage: string;
-    currentToolCalls: GoogleToolCall[];
+    currentToolCalls: IGoogleToolCall[];
     isComplete: boolean;
-    usage?: GoogleUsageMetadata;
+    usage?: IGoogleUsageMetadata;
 } 

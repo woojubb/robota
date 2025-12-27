@@ -10,11 +10,11 @@ export interface IAnthropicMessage {
     id: string;
     type: 'message';
     role: 'assistant' | 'user';
-    content: AnthropicContent[];
+    content: IAnthropicContent[];
     model: string;
     stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use' | null;
     stop_sequence: string | null;
-    usage: AnthropicUsage;
+    usage: IAnthropicUsage;
 }
 
 export interface IAnthropicContent {
@@ -34,23 +34,23 @@ export interface IAnthropicUsage {
 export interface IAnthropicChatRequestParams {
     model: string;
     max_tokens: number;
-    messages: AnthropicRequestMessage[];
+    messages: IAnthropicRequestMessage[];
     system?: string;
     temperature?: number;
     top_p?: number;
     top_k?: number;
     stop_sequences?: string[];
-    tools?: AnthropicTool[];
+    tools?: IAnthropicTool[];
     stream?: false;
 }
 
-export interface IAnthropicStreamRequestParams extends Omit<AnthropicChatRequestParams, 'stream'> {
+export interface IAnthropicStreamRequestParams extends Omit<IAnthropicChatRequestParams, 'stream'> {
     stream: true;
 }
 
 export interface IAnthropicRequestMessage {
     role: 'user' | 'assistant';
-    content: string | AnthropicRequestContent[];
+    content: string | IAnthropicRequestContent[];
 }
 
 export interface IAnthropicRequestContent {
@@ -69,7 +69,7 @@ export interface IAnthropicTool {
     description?: string;
     input_schema: {
         type: 'object';
-        properties: Record<string, AnthropicToolProperty>;
+        properties: Record<string, IAnthropicToolProperty>;
         required?: string[];
     };
 }
@@ -78,8 +78,8 @@ export interface IAnthropicToolProperty {
     type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
     description?: string;
     enum?: string[];
-    items?: AnthropicToolProperty;
-    properties?: Record<string, AnthropicToolProperty>;
+    items?: IAnthropicToolProperty;
+    properties?: Record<string, IAnthropicToolProperty>;
 }
 
 export interface IAnthropicToolCall {
@@ -92,9 +92,9 @@ export interface IAnthropicToolCall {
 // Streaming Types
 export interface IAnthropicStreamChunk {
     type: 'message_start' | 'message_delta' | 'content_block_start' | 'content_block_delta' | 'content_block_stop' | 'message_stop';
-    message?: Partial<AnthropicMessage>;
-    delta?: AnthropicStreamDelta;
-    content_block?: AnthropicContent;
+    message?: Partial<IAnthropicMessage>;
+    delta?: IAnthropicStreamDelta;
+    content_block?: IAnthropicContent;
     index?: number;
 }
 
@@ -126,20 +126,20 @@ export interface IAnthropicLogData {
     temperature?: number;
     timestamp: string;
     requestId?: string;
-    usage?: AnthropicUsage;
+    usage?: IAnthropicUsage;
 }
 
 // Response Types for Internal Processing
 export interface IAnthropicProviderResponse {
-    message: AnthropicMessage;
-    usage: AnthropicUsage;
+    message: IAnthropicMessage;
+    usage: IAnthropicUsage;
     model: string;
 }
 
 // Stream Handler Types
 export interface IAnthropicStreamContext {
     currentMessage: string;
-    currentToolCalls: AnthropicToolCall[];
+    currentToolCalls: IAnthropicToolCall[];
     isComplete: boolean;
-    usage?: AnthropicUsage;
+    usage?: IAnthropicUsage;
 } 

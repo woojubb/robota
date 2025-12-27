@@ -16,7 +16,6 @@ import {
     EVENT_EMITTER_EVENTS,
     type IEventEmitterEventData,
     type TEventName,
-    type TEventDataValue,
     type TEventEmitterListener
 } from './event-emitter/types';
 

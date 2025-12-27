@@ -9,23 +9,23 @@
 
 import { listTemplateCategoriesTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
 import type { IToolExecutionContext, IToolResult, TToolResultData } from '@robota-sdk/agents';
-import type { TemplateSummary, TemplatesListPayload } from './lib/template-payloads';
+import type { TTemplateSummary, TTemplatesListPayload } from './lib/template-payloads';
 
-type CategorySummary = {
+type TCategorySummary = {
     id: string;
     name: string;
     description?: string;
 };
 
-type CategoriesPayload = {
-    categories: CategorySummary[];
+type TCategoriesPayload = {
+    categories: TCategorySummary[];
 };
 
 const isObject = (value: TToolResultData): value is Record<string, TToolResultData> => {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
-const isCategorySummary = (value: TToolResultData): value is CategorySummary => {
+const isCategorySummary = (value: TToolResultData): value is TCategorySummary => {
     if (!isObject(value)) return false;
     const id = value.id;
     const name = value.name;
@@ -36,7 +36,7 @@ const isCategorySummary = (value: TToolResultData): value is CategorySummary => 
     return true;
 };
 
-const isTemplateSummary = (value: TToolResultData): value is TemplateSummary => {
+const isTemplateSummary = (value: TToolResultData): value is TTemplateSummary => {
     if (!isObject(value)) return false;
     const id = value.id;
     const name = value.name;
@@ -49,7 +49,7 @@ const isTemplateSummary = (value: TToolResultData): value is TemplateSummary => 
     return true;
 };
 
-const extractCategories = (result: IToolResult): CategoriesPayload => {
+const extractCategories = (result: IToolResult): TCategoriesPayload => {
     if (!result.success) {
         throw new Error(result.error ?? 'listTemplateCategories failed');
     }
@@ -61,7 +61,7 @@ const extractCategories = (result: IToolResult): CategoriesPayload => {
     if (!Array.isArray(categoriesValue)) {
         throw new Error('listTemplateCategories returned invalid categories');
     }
-    const categories: CategorySummary[] = [];
+    const categories: TCategorySummary[] = [];
     for (const item of categoriesValue) {
         if (!isCategorySummary(item)) {
             throw new Error('listTemplateCategories returned invalid category item');
@@ -71,7 +71,7 @@ const extractCategories = (result: IToolResult): CategoriesPayload => {
     return { categories };
 };
 
-const extractTemplatesList = (result: IToolResult): TemplatesListPayload => {
+const extractTemplatesList = (result: IToolResult): TTemplatesListPayload => {
     if (!result.success) {
         throw new Error(result.error ?? 'listTemplates failed');
     }
@@ -83,7 +83,7 @@ const extractTemplatesList = (result: IToolResult): TemplatesListPayload => {
     if (!Array.isArray(templatesValue)) {
         throw new Error('listTemplates returned invalid templates');
     }
-    const templates: TemplateSummary[] = [];
+    const templates: TTemplateSummary[] = [];
     for (const item of templatesValue) {
         if (!isTemplateSummary(item)) {
             throw new Error('listTemplates returned invalid template item');

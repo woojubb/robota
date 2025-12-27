@@ -10,13 +10,13 @@
 
 import { listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
 import type { IToolExecutionContext, IToolResult, TToolResultData } from '@robota-sdk/agents';
-import type { TemplateSummary, TemplatesListPayload } from './lib/template-payloads';
+import type { TTemplateSummary, TTemplatesListPayload } from './lib/template-payloads';
 
 const isObject = (value: TToolResultData): value is Record<string, TToolResultData> => {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
-const isTemplateSummary = (value: TToolResultData): value is TemplateSummary => {
+const isTemplateSummary = (value: TToolResultData): value is TTemplateSummary => {
     if (!isObject(value)) return false;
     const id = value.id;
     const name = value.name;
@@ -29,7 +29,7 @@ const isTemplateSummary = (value: TToolResultData): value is TemplateSummary => 
     return true;
 };
 
-const extractTemplatesList = (result: IToolResult): TemplatesListPayload => {
+const extractTemplatesList = (result: IToolResult): TTemplatesListPayload => {
     if (!result.success) {
         throw new Error(result.error ?? 'listTemplates failed');
     }
@@ -41,12 +41,12 @@ const extractTemplatesList = (result: IToolResult): TemplatesListPayload => {
     if (!Array.isArray(templatesValue)) {
         throw new Error('listTemplates returned invalid templates');
     }
-    const templates: TemplateSummary[] = [];
+    const templates: TTemplateSummary[] = [];
     for (const item of templatesValue) {
         if (!isTemplateSummary(item as TToolResultData)) {
             throw new Error('listTemplates returned invalid template item');
         }
-        templates.push(item as TemplateSummary);
+        templates.push(item as TTemplateSummary);
     }
     return { templates };
 };

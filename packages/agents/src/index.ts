@@ -236,7 +236,7 @@ export type { TWebhookEventName, IWebhookPayload, IWebhookEndpoint, IWebhookPlug
  * 
  * @example Basic Usage
  * ```typescript
- * import { Robota, type AgentConfig } from '@robota-sdk/agents';
+ * import { Robota, type TAgentConfig } from '@robota-sdk/agents';
  * 
  * const config: AgentConfig = {
  *   name: 'Assistant',

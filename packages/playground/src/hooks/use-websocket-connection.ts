@@ -88,7 +88,7 @@ export interface IWebSocketConnectionHookReturn {
 }
 
 export function useWebSocketConnection(): IWebSocketConnectionHookReturn {
-    const { state, getConnectionStatus } = usePlayground();
+    const { state, getConnectionStatus, setAuth } = usePlayground();
 
     // Local state
     const [connectionState, setConnectionState] = useState<TConnectionState>('disconnected');
@@ -197,7 +197,6 @@ export function useWebSocketConnection(): IWebSocketConnectionHookReturn {
 
             // Initialize WebSocket through playground context if needed
             if (auth) {
-                const { setAuth } = require('@/contexts/playground-context');
                 setAuth(auth.userId, auth.sessionId, auth.authToken);
             }
 

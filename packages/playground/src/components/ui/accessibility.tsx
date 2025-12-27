@@ -148,15 +148,19 @@ export function KeyboardNavigatable({
                     case 'ArrowDown':
                     case 'ArrowRight':
                         e.preventDefault();
-                        const nextIndex = (currentIndex + 1) % focusableElements.length;
-                        focusableElements[nextIndex]?.focus();
-                        break;
+                        {
+                            const nextIndex = (currentIndex + 1) % focusableElements.length;
+                            focusableElements[nextIndex]?.focus();
+                            break;
+                        }
                     case 'ArrowUp':
                     case 'ArrowLeft':
                         e.preventDefault();
-                        const prevIndex = currentIndex === 0 ? focusableElements.length - 1 : currentIndex - 1;
-                        focusableElements[prevIndex]?.focus();
-                        break;
+                        {
+                            const prevIndex = currentIndex === 0 ? focusableElements.length - 1 : currentIndex - 1;
+                            focusableElements[prevIndex]?.focus();
+                            break;
+                        }
                     case 'Home':
                         e.preventDefault();
                         focusableElements[0]?.focus();
