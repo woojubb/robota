@@ -6,14 +6,14 @@ function printUsage(): void {
     console.log('Example: pnpm scenario play 26-guarded-edge-verification.ts mandatory-delegation --strategy=sequential');
 }
 
-interface ParsedArgs {
+interface IParsedArgs {
     mode: 'record' | 'play';
     exampleFile: string;
     scenarioId: string;
     strategy?: 'hash' | 'sequential';
 }
 
-function parseArgs(): ParsedArgs {
+function parseArgs(): IParsedArgs {
     const [, , modeArg, exampleFile, scenarioId, ...rest] = process.argv;
 
     if (!modeArg || !exampleFile || !scenarioId) {
@@ -26,7 +26,7 @@ function parseArgs(): ParsedArgs {
         process.exit(1);
     }
 
-    const parsed: ParsedArgs = {
+    const parsed: IParsedArgs = {
         mode: modeArg,
         exampleFile,
         scenarioId

@@ -2,10 +2,10 @@ import OpenAI from 'openai';
 import type { TUniversalMessage } from '@robota-sdk/agents';
 import type { IPayloadLogger } from '../interfaces/payload-logger';
 import type {
-    OpenAIChatRequestParams,
-    OpenAIStreamRequestParams
+    IOpenAIChatRequestParams,
+    IOpenAIStreamRequestParams
 } from '../types/api-types';
-import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+import { SilentLogger, type ILogger } from '@robota-sdk/agents';
 import { OpenAIResponseParser } from '../parsers/response-parser';
 
 
@@ -17,13 +17,13 @@ import { OpenAIResponseParser } from '../parsers/response-parser';
  * Extracts streaming logic from the main provider for better modularity.
  */
 export class OpenAIStreamHandler {
-    private readonly logger: SimpleLogger;
+    private readonly logger: ILogger;
     private readonly parser: OpenAIResponseParser;
 
     constructor(
         private readonly client: OpenAI,
         private readonly payloadLogger?: IPayloadLogger,
-        logger?: SimpleLogger
+        logger?: ILogger
     ) {
         this.logger = logger || SilentLogger;
         this.parser = new OpenAIResponseParser(logger);
@@ -35,7 +35,7 @@ export class OpenAIStreamHandler {
      * @param requestParams - OpenAI API request parameters
      * @returns AsyncGenerator yielding universal messages
      */
-    async *handleStream(requestParams: OpenAIStreamRequestParams): AsyncGenerator<TUniversalMessage, void, never> {
+    async *handleStream(requestParams: IOpenAIStreamRequestParams): AsyncGenerator<TUniversalMessage, void, never> {
         try {
             // Log payload for debugging if logger is available
             if (this.payloadLogger?.isEnabled()) {
@@ -84,7 +84,7 @@ export class OpenAIStreamHandler {
      * @param request - Raw request payload from ConversationService
      * @returns AsyncGenerator yielding universal messages
      */
-    async *generateStreamingResponse(request: OpenAIChatRequestParams): AsyncGenerator<TUniversalMessage, void, never> {
+    async *generateStreamingResponse(request: IOpenAIChatRequestParams): AsyncGenerator<TUniversalMessage, void, never> {
         try {
             // Extract parameters from request payload
             const model = request.model;
@@ -94,7 +94,7 @@ export class OpenAIStreamHandler {
             const tools = request.tools;
 
             // Build OpenAI request parameters
-            const requestParams: OpenAIStreamRequestParams = {
+            const requestParams: IOpenAIStreamRequestParams = {
                 model: model || 'gpt-4o-mini',
                 messages,
                 temperature,

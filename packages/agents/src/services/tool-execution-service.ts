@@ -3,7 +3,7 @@ import type { IToolManager } from '../interfaces/manager';
 import type { TToolParameters, TToolMetadata } from '../interfaces/tool';
 import type { IOwnerPathSegment, IToolEventData } from '../interfaces/event-service';
 import type { IToolExecutionRequest } from '../interfaces/service';
-import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
+import { SilentLogger, type ILogger } from '../utils/logger';
 import { ValidationError } from '../utils/errors';
 
 /**
@@ -34,9 +34,9 @@ export interface IToolExecutionBatchContext {
  */
 export class ToolExecutionService {
     private tools: IToolManager;
-    private logger: SimpleLogger;
+    private logger: ILogger;
 
-    constructor(tools: IToolManager, logger: SimpleLogger = SilentLogger) {
+    constructor(tools: IToolManager, logger: ILogger = SilentLogger) {
         this.tools = tools;
         this.logger = logger;
     }

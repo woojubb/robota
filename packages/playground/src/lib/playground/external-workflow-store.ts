@@ -5,7 +5,7 @@
  */
 
 import type { IUniversalWorkflowEdge, IUniversalWorkflowNode } from '@robota-sdk/workflow';
-import { SilentLogger, type SimpleLogger } from '@robota-sdk/agents';
+import { SilentLogger, type ILogger } from '@robota-sdk/agents';
 
 /**
  * External workflow store interface.
@@ -50,10 +50,10 @@ export interface IManualUserInputData {
 export class DefaultExternalWorkflowStore implements IExternalWorkflowStore {
     private nodes: IUniversalWorkflowNode[] = [];
     private edges: IUniversalWorkflowEdge[] = [];
-    private logger: SimpleLogger;
+    private logger: ILogger;
     private updateCallback: (() => Promise<void>) | null = null;
 
-    constructor(logger: SimpleLogger = SilentLogger) {
+    constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
         this.logger.debug('DefaultExternalWorkflowStore initialized');
     }

@@ -1,4 +1,4 @@
-import type { SimpleLogger, TUniversalValue } from '@robota-sdk/agents';
+import type { ILogger, TUniversalValue } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
 export type TPlaygroundEventName =
@@ -38,7 +38,7 @@ export interface IVisualizationData {
 export interface IPlaygroundHistoryPluginOptions {
   maxEvents?: number;
   enableVisualization?: boolean;
-  logger?: SimpleLogger;
+  logger?: ILogger;
 }
 
 /**
@@ -48,7 +48,7 @@ export interface IPlaygroundHistoryPluginOptions {
  * to the SDK plugin system; it just stores events for visualization.
  */
 export class PlaygroundHistoryPlugin {
-  private readonly logger: SimpleLogger;
+  private readonly logger: ILogger;
   private readonly maxEvents: number;
   private readonly enableVisualization: boolean;
 

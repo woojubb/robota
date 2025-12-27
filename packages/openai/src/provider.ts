@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import type { IOpenAIProviderOptions } from './types';
 import type {
-    OpenAIError
+    IOpenAIError
 } from './types/api-types';
 import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
@@ -132,7 +132,7 @@ export class OpenAIProvider extends AbstractAIProvider {
             return this.responseParser.parseResponse(response);
 
         } catch (error) {
-            const openaiError = error as OpenAIError;
+            const openaiError = error as IOpenAIError;
             const errorMessage = openaiError.message || 'OpenAI API request failed';
             throw new Error(`OpenAI chat failed: ${errorMessage}`);
         }
@@ -203,7 +203,7 @@ export class OpenAIProvider extends AbstractAIProvider {
             }
 
         } catch (error) {
-            const openaiError = error as OpenAIError;
+            const openaiError = error as IOpenAIError;
             const errorMessage = openaiError.message || 'OpenAI API request failed';
             throw new Error(`OpenAI stream failed: ${errorMessage}`);
         }

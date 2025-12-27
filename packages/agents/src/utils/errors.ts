@@ -6,13 +6,13 @@
  * Error context data type
  * Used for storing contextual information in error instances
  */
-export type ErrorContextData = Record<string, string | number | boolean | Date | Error | string[] | undefined>;
+export type TErrorContextData = Record<string, string | number | boolean | Date | Error | string[] | undefined>;
 
 /**
  * Error external input type
  * Used for handling external errors from unknown sources
  */
-export type ErrorExternalInput = Error | string | Record<string, string | number | boolean> | null | undefined;
+export type TErrorExternalInput = Error | string | Record<string, string | number | boolean> | null | undefined;
 
 /**
  * Base error class for all Robota errors
@@ -24,7 +24,7 @@ export abstract class RobotaError extends Error {
 
     constructor(
         message: string,
-        public readonly context?: ErrorContextData
+        public readonly context?: TErrorContextData
     ) {
         super(message);
         this.name = this.constructor.name;
@@ -42,7 +42,7 @@ export class ConfigurationError extends RobotaError {
     readonly category = 'user' as const;
     readonly recoverable = false;
 
-    constructor(message: string, context?: ErrorContextData) {
+    constructor(message: string, context?: TErrorContextData) {
         super(`Configuration Error: ${message}`, context);
     }
 }
@@ -55,7 +55,7 @@ export class ValidationError extends RobotaError {
     readonly category = 'user' as const;
     readonly recoverable = false;
 
-    constructor(message: string, public readonly field?: string, context?: ErrorContextData) {
+    constructor(message: string, public readonly field?: string, context?: TErrorContextData) {
         super(`Validation Error: ${message}`, context);
     }
 }
@@ -72,7 +72,7 @@ export class ProviderError extends RobotaError {
         message: string,
         public readonly provider: string,
         public readonly originalError?: Error,
-        context?: ErrorContextData
+        context?: TErrorContextData
     ) {
         super(`Provider Error (${provider}): ${message}`, context);
     }
@@ -89,7 +89,7 @@ export class AuthenticationError extends RobotaError {
     constructor(
         message: string,
         public readonly provider?: string,
-        context?: ErrorContextData
+        context?: TErrorContextData
     ) {
         super(`Authentication Error: ${message}`, context);
     }
@@ -107,7 +107,7 @@ export class RateLimitError extends RobotaError {
         message: string,
         public readonly retryAfter?: number,
         public readonly provider?: string,
-        context?: ErrorContextData
+        context?: TErrorContextData
     ) {
         super(`Rate Limit Error: ${message}`, context);
     }
@@ -124,7 +124,7 @@ export class NetworkError extends RobotaError {
     constructor(
         message: string,
         public readonly originalError?: Error,
-        context?: ErrorContextData
+        context?: TErrorContextData
     ) {
         super(`Network Error: ${message}`, context);
     }
@@ -142,7 +142,7 @@ export class ToolExecutionError extends RobotaError {
         message: string,
         public readonly toolName: string,
         public readonly originalError?: Error,
-        context?: ErrorContextData
+        context?: TErrorContextData
     ) {
         super(`Tool Execution Error (${toolName}): ${message}`, context);
     }
@@ -160,7 +160,7 @@ export class ModelNotAvailableError extends RobotaError {
         model: string,
         provider: string,
         public readonly availableModels?: string[],
-        context?: ErrorContextData
+        context?: TErrorContextData
     ) {
         super(`Model "${model}" is not available for provider "${provider}"`, context);
     }
@@ -174,7 +174,7 @@ export class CircuitBreakerOpenError extends RobotaError {
     readonly category = 'system' as const;
     readonly recoverable = true;
 
-    constructor(message: string = 'Circuit breaker is open', context?: ErrorContextData) {
+    constructor(message: string = 'Circuit breaker is open', context?: TErrorContextData) {
         super(message, context);
     }
 }
@@ -190,7 +190,7 @@ export class PluginError extends RobotaError {
     constructor(
         message: string,
         public readonly pluginName: string,
-        context?: ErrorContextData
+        context?: TErrorContextData
     ) {
         super(`Plugin Error (${pluginName}): ${message}`, context);
     }
@@ -206,7 +206,7 @@ export class StorageError extends RobotaError {
 
     constructor(
         message: string,
-        context?: ErrorContextData
+        context?: TErrorContextData
     ) {
         super(`Storage Error: ${message}`, context);
     }
@@ -239,7 +239,7 @@ export class ErrorUtils {
     /**
  * Create error from unknown value
  */
-    static fromUnknown(error: ErrorExternalInput, defaultMessage = 'An unknown error occurred'): RobotaError {
+    static fromUnknown(error: TErrorExternalInput, defaultMessage = 'An unknown error occurred'): RobotaError {
         if (error instanceof RobotaError) {
             return error;
         }
@@ -256,7 +256,7 @@ export class ErrorUtils {
      * Wrap external errors
      */
     static wrapProviderError(
-        error: ErrorExternalInput,
+        error: TErrorExternalInput,
         provider: string,
         operation: string
     ): ProviderError {

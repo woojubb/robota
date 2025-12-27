@@ -11,7 +11,7 @@ import type {
     IStreamExecutionRequest,
     IChatExecutionRequest,
     IExecutor,
-    SimpleLogger,
+    ILogger,
 } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import { HttpClient, type IHttpClientConfig } from './http-client';
@@ -29,7 +29,7 @@ export interface ISimpleRemoteConfig {
     /** Auto-reconnect WebSocket on disconnect */
     autoReconnect?: boolean;
     /** Logger instance for dependency injection */
-    logger?: SimpleLogger;
+    logger?: ILogger;
 }
 
 export interface ISimpleExecutionRequest {
@@ -47,7 +47,7 @@ export class SimpleRemoteExecutor implements IExecutor {
     readonly version = '1.0.0';
 
     private readonly httpClient: HttpClient;
-    private readonly logger: SimpleLogger;
+    private readonly logger: ILogger;
     private readonly config: ISimpleRemoteConfig;
 
     constructor(config: ISimpleRemoteConfig) {
@@ -141,7 +141,9 @@ export class SimpleRemoteExecutor implements IExecutor {
             }
 
         } catch (error) {
-            this.logger.error?.('Error in executeChatStream', { error });
+            this.logger.error('Error in executeChatStream', {
+                error: error instanceof Error ? error.message : String(error)
+            });
             throw error;
         }
     }

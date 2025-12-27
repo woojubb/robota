@@ -1,5 +1,4 @@
-import type { TLoggerData } from '../interfaces/types';
-import { SimpleLogger, DefaultConsoleLogger } from './simple-logger';
+import type { TLoggerData, TUniversalValue } from '../interfaces/types';
 
 /**
  * Reusable type definitions for logger utility
@@ -26,14 +25,38 @@ export interface IUtilLogEntry {
  * Logger interface
  */
 export interface ILogger {
-    debug(message: string, context?: TLoggerData): void;
-    info(message: string, context?: TLoggerData): void;
-    warn(message: string, context?: TLoggerData): void;
-    error(message: string, context?: TLoggerData): void;
+    debug(...args: Array<TUniversalValue | TLoggerData | Error>): void;
+    info(...args: Array<TUniversalValue | TLoggerData | Error>): void;
+    warn(...args: Array<TUniversalValue | TLoggerData | Error>): void;
+    error(...args: Array<TUniversalValue | TLoggerData | Error>): void;
+    log(...args: Array<TUniversalValue | TLoggerData | Error>): void;
+    group?(label?: string): void;
+    groupEnd?(): void;
     isDebugEnabled(): boolean;
     setLevel(level: TUtilLogLevel): void;
     getLevel(): TUtilLogLevel;
 }
+
+/**
+ * Silent logger that does nothing (Null Object Pattern)
+ *
+ * IMPORTANT:
+ * - This library must not write to stdio by default.
+ * - Inject a real logger explicitly if you want output.
+ */
+export const SilentLogger: ILogger = {
+    debug: () => { },
+    info: () => { },
+    warn: () => { },
+    error: () => { },
+    log: () => { },
+    group: () => { },
+    groupEnd: () => { },
+    isDebugEnabled: () => false,
+    // SilentLogger is intentionally immutable/no-op; level setters are ignored.
+    setLevel: () => { },
+    getLevel: () => 'silent',
+};
 
 /**
  * Global logger configuration
@@ -70,35 +93,44 @@ class LoggerConfig {
 export class ConsoleLogger implements ILogger {
     private level: TUtilLogLevel | null = null; // null means use global level
     private packageName: string;
-    private simpleLogger: SimpleLogger;
+    private sinkLogger: ILogger;
 
-    constructor(packageName: string, logger?: SimpleLogger) {
+    constructor(packageName: string, logger?: ILogger) {
         this.packageName = packageName;
-        this.simpleLogger = logger || DefaultConsoleLogger;
+        this.sinkLogger = logger || SilentLogger;
     }
 
-    debug(message: string, context?: TLoggerData): void {
+    debug(...args: Array<TUniversalValue | TLoggerData | Error>): void {
         if (this.shouldLog('debug')) {
-            this.log('debug', message, context);
+            const [message, context] = args;
+            this.writeEntry('debug', String(message ?? ''), isLoggerContext(context) ? context : undefined);
         }
     }
 
-    info(message: string, context?: TLoggerData): void {
+    info(...args: Array<TUniversalValue | TLoggerData | Error>): void {
         if (this.shouldLog('info')) {
-            this.log('info', message, context);
+            const [message, context] = args;
+            this.writeEntry('info', String(message ?? ''), isLoggerContext(context) ? context : undefined);
         }
     }
 
-    warn(message: string, context?: TLoggerData): void {
+    warn(...args: Array<TUniversalValue | TLoggerData | Error>): void {
         if (this.shouldLog('warn')) {
-            this.log('warn', message, context);
+            const [message, context] = args;
+            this.writeEntry('warn', String(message ?? ''), isLoggerContext(context) ? context : undefined);
         }
     }
 
-    error(message: string, context?: TLoggerData): void {
+    error(...args: Array<TUniversalValue | TLoggerData | Error>): void {
         if (this.shouldLog('error')) {
-            this.log('error', message, context);
+            const [message, context] = args;
+            this.writeEntry('error', String(message ?? ''), isLoggerContext(context) ? context : undefined);
         }
+    }
+
+    log(...args: Array<TUniversalValue | TLoggerData | Error>): void {
+        // Alias for info-level output (when enabled).
+        this.info(...args);
     }
 
     isDebugEnabled(): boolean {
@@ -121,7 +153,7 @@ export class ConsoleLogger implements ILogger {
         return levels.indexOf(level) >= levels.indexOf(currentLevel);
     }
 
-    private log(level: TUtilLogLevel, message: string, context?: TLoggerData): void {
+    private writeEntry(level: TUtilLogLevel, message: string, context?: TLoggerData): void {
         const entry: IUtilLogEntry = {
             timestamp: new Date().toISOString(),
             level,
@@ -131,21 +163,34 @@ export class ConsoleLogger implements ILogger {
         };
 
         const formattedMessage = `[${entry.timestamp}] [${entry.level.toUpperCase()}] [${entry.packageName}] ${entry.message}`;
-
-        if (context && Object.keys(context).length > 0) {
-            const contextStr = JSON.stringify(context, null, 2);
-            this.simpleLogger.log(formattedMessage, '\n', contextStr);
-        } else {
-            this.simpleLogger.log(formattedMessage);
+        switch (level) {
+            case 'debug':
+                this.sinkLogger.debug(formattedMessage, context ?? {});
+                return;
+            case 'info':
+                this.sinkLogger.info(formattedMessage, context ?? {});
+                return;
+            case 'warn':
+                this.sinkLogger.warn(formattedMessage, context ?? {});
+                return;
+            case 'error':
+                this.sinkLogger.error(formattedMessage, context ?? {});
+                return;
+            case 'silent':
+                return;
         }
     }
+}
+
+function isLoggerContext(value: unknown): value is TLoggerData {
+    return typeof value === 'object' && value !== null && !(value instanceof Error) && !(value instanceof Date) && !Array.isArray(value);
 }
 
 /**
  * Create a logger instance for a package
  * @internal
  */
-export function createLogger(packageName: string, logger?: SimpleLogger): ILogger {
+export function createLogger(packageName: string, logger?: ILogger): ILogger {
     return new ConsoleLogger(packageName, logger);
 }
 

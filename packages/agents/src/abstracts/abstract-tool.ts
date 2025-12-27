@@ -32,8 +32,8 @@
 
 import type { IToolResult, IToolExecutionContext, IParameterValidationResult, TToolParameters } from '../interfaces/tool';
 import type { IToolSchema } from '../interfaces/provider';
-import type { IAbstractLogger } from '../utils/abstract-logger';
-import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
+import type { ILogger } from '../utils/logger';
+import { SilentLogger } from '../utils/logger';
 import type { IBaseEventData, IEventService } from '../services/event-service';
 
 /**
@@ -42,9 +42,9 @@ import type { IBaseEventData, IEventService } from '../services/event-service';
 export interface IAbstractToolOptions {
     /**
      * Optional logger for tool operations
-     * Defaults to DEFAULT_ABSTRACT_LOGGER if not provided
+     * Defaults to SilentLogger if not provided
      */
-    logger?: IAbstractLogger;
+    logger?: ILogger;
 
     /**
      * Optional event service for unified event emission
@@ -114,7 +114,7 @@ export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToo
     /**
      * Logger for tool operations
      */
-    protected readonly logger: IAbstractLogger;
+    protected readonly logger: ILogger;
 
     /**
      * EventService for direct event emission (optional)
@@ -135,7 +135,7 @@ export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToo
         // Accept eventService as-is (no wrapping, no transformation)
         // Caller is responsible for providing properly configured EventService
         this.eventService = options.eventService;
-        this.logger = options.logger ?? DEFAULT_ABSTRACT_LOGGER;
+        this.logger = options.logger ?? SilentLogger;
     }
 
     /**

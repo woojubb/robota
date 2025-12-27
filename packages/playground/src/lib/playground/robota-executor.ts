@@ -27,7 +27,7 @@ import {
 } from './plugins/playground-history-plugin';
 import { PlaygroundStatisticsPlugin } from './plugins/playground-statistics-plugin';
 import type { IPlaygroundAction, IPlaygroundMetrics, IPlaygroundExecutionResult as IPlaygroundStatisticsExecutionResult } from '../../types/playground-statistics';
-import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+import { SilentLogger, type ILogger } from '@robota-sdk/agents';
 // ExecutionHierarchyTracker will be added later when exports are fixed
 
 // Re-export types for external use
@@ -135,7 +135,7 @@ export class PlaygroundExecutor {
     // STEP 8.3.1: External Workflow Store
     private externalWorkflowStore: IExternalWorkflowStore;
 
-    private readonly logger: SimpleLogger;
+    private readonly logger: ILogger;
 
     constructor(
         private serverUrl: string,
@@ -143,7 +143,7 @@ export class PlaygroundExecutor {
         options: {
             eventService: IEventService;
             workflowSubscriber: WorkflowEventSubscriber;
-            logger?: SimpleLogger;
+            logger?: ILogger;
         }
     ) {
         // Initialize logger with dependency injection

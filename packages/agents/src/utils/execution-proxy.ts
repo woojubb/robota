@@ -26,7 +26,7 @@ export interface IExecutionProxyConfig {
 /**
  * Metadata extractor function type
  */
-export type MetadataExtractor = (target: any, methodName: string, args: any[]) => Record<string, any>;
+export type TMetadataExtractor = (target: any, methodName: string, args: any[]) => Record<string, any>;
 
 /**
  * Method configuration for proxy
@@ -35,7 +35,7 @@ export interface IMethodConfig {
     startEvent?: string;
     completeEvent?: string;
     errorEvent?: string;
-    extractMetadata?: MetadataExtractor;
+    extractMetadata?: TMetadataExtractor;
     extractResult?: (result: any) => any;
 }
 

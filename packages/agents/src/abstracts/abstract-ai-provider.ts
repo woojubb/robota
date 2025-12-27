@@ -10,14 +10,14 @@ import type { IAIProvider, IToolSchema, IChatOptions, IProviderRequest, IRawProv
 import type { IExecutor } from '../interfaces/executor';
 import type { TUniversalMessage } from '../interfaces/messages';
 import { isAssistantMessage } from '../interfaces/messages';
-import type { SimpleLogger } from '../utils/simple-logger';
-import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
+import type { ILogger } from '../utils/logger';
+import { SilentLogger } from '../utils/logger';
 
 /**
  * Provider logging data type
  * Used for storing logging information in provider operations
  */
-export type ProviderLoggingData = Record<string, string | number | boolean | Date | string[]>;
+export type TProviderLoggingData = Record<string, string | number | boolean | Date | string[]>;
 
 /**
  * Provider configuration base interface
@@ -119,9 +119,9 @@ export abstract class AbstractAIProvider<TConfig = IProviderConfig>
     abstract readonly version: string;
     protected config?: TConfig;
     protected executor?: IExecutor;
-    protected readonly logger: SimpleLogger;
+    protected readonly logger: ILogger;
 
-    constructor(logger: SimpleLogger = DEFAULT_ABSTRACT_LOGGER) {
+    constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
     }
 

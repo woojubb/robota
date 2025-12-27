@@ -3,7 +3,7 @@
 
 import type { IWorkflowNode, IWorkflowNodeUpdate } from './workflow-node.js';
 import type { IWorkflowEdge, IWorkflowEdgeUpdate } from './workflow-edge.js';
-import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
+import type { ILogger, TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
 export type TWorkflowBuilderExtensionValue = TUniversalValue | Date | Error | TLoggerData;
 
@@ -49,13 +49,7 @@ export interface IWorkflowBuilderConfig {
     validateConnections?: boolean;
     maxNodes?: number;
     maxEdges?: number;
-    logger?: {
-        debug: (message: string, ...args: TWorkflowBuilderExtensionValue[]) => void;
-        info: (message: string, ...args: TWorkflowBuilderExtensionValue[]) => void;
-        warn: (message: string, ...args: TWorkflowBuilderExtensionValue[]) => void;
-        error: (message: string, ...args: TWorkflowBuilderExtensionValue[]) => void;
-        log: (message: string, ...args: TWorkflowBuilderExtensionValue[]) => void;
-    };
+    logger?: ILogger;
 }
 
 /**

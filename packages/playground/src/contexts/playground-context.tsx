@@ -15,9 +15,9 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { PlaygroundExecutor, type IPlaygroundExecutorResult, type IPlaygroundAgentConfig, type TPlaygroundMode, type IConversationEvent, type IVisualizationData } from '../lib/playground/robota-executor';
-import { DefaultConsoleLogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
-import type { IEventService, SimpleLogger } from '@robota-sdk/agents';
+import type { IEventService, ILogger } from '@robota-sdk/agents';
 // Import Universal types from their proper location (Feature Ownership principle)
 import type { IWorkflowExportStructure, TWorkflowNodeStatus } from '@robota-sdk/workflow';
 import { getPlaygroundToolCatalog, type IPlaygroundToolMeta } from '../tools/catalog';
@@ -291,7 +291,7 @@ function playgroundReducer(state: IPlaygroundState, action: TPlaygroundReducerAc
             };
 
         case 'UPDATE_WORKFLOW_FROM_SDK':
-            DefaultConsoleLogger.debug('SDK workflow updated (no merge)', {
+            SilentLogger.debug('SDK workflow updated (no merge)', {
                 hasWorkflow: !!action.payload,
                 nodeCount: action.payload?.nodes?.length || 0
             });
@@ -379,11 +379,11 @@ const PlaygroundContext = createContext<IPlaygroundContextValue | undefined>(und
 interface IPlaygroundProviderProps {
     children: ReactNode;
     defaultServerUrl?: string;
-    createEventService: (workflowSubscriber: WorkflowEventSubscriber, logger: SimpleLogger) => IEventService;
+    createEventService: (workflowSubscriber: WorkflowEventSubscriber, logger: ILogger) => IEventService;
 }
 
 export function PlaygroundProvider({ children, defaultServerUrl = '', createEventService }: IPlaygroundProviderProps) {
-    const logger = DefaultConsoleLogger;
+    const logger = SilentLogger;
     logger.debug('PlaygroundProvider rendering', { defaultServerUrl });
 
     const [state, dispatch] = useReducer(playgroundReducer, {

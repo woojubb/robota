@@ -8,7 +8,7 @@
  * @template TOutput - Output workflow data type
  */
 
-import type { SimpleLogger } from '../utils/simple-logger';
+import type { ILogger } from '../utils/logger';
 import type { TConfigValue, TMetadata, TMetadataValue, TUniversalValue } from './types';
 
 /**
@@ -71,7 +71,7 @@ export interface IWorkflowConversionOptions {
     validateOutput?: boolean;
 
     /** Custom logger for conversion process */
-    logger?: SimpleLogger;
+    logger?: ILogger;
 
     /** Additional metadata to include */
     metadata?: IWorkflowMetadata;
@@ -80,7 +80,7 @@ export interface IWorkflowConversionOptions {
     platformOptions?: IWorkflowConfig;
 
     /** Additional dynamic options compatible with TUniversalValue */
-    [key: string]: TUniversalValue | SimpleLogger | IWorkflowMetadata | IWorkflowConfig | undefined;
+    [key: string]: TUniversalValue | ILogger | IWorkflowMetadata | IWorkflowConfig | undefined;
 }
 
 /**

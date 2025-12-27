@@ -5,8 +5,8 @@ import type {
 } from '../interfaces/executor';
 import type { TUniversalMessage, IAssistantMessage } from '../interfaces/messages';
 import type { TLoggerData } from '../interfaces/types';
-import type { SimpleLogger } from '../utils/simple-logger';
-import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
+import type { ILogger } from '../utils/logger';
+import { SilentLogger } from '../utils/logger';
 
 /**
  * @fileoverview Abstract Executor Base Class
@@ -30,9 +30,9 @@ export abstract class AbstractExecutor implements IExecutor {
     /**
      * Logger injected via constructor (defaults to abstract logger)
      */
-    protected readonly logger: SimpleLogger;
+    protected readonly logger: ILogger;
 
-    constructor(logger: SimpleLogger = DEFAULT_ABSTRACT_LOGGER) {
+    constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
     }
 

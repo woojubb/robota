@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import type { SimpleLogger } from '@robota-sdk/agents';
+import type { ILogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import type { IAIProvider, IChatOptions, TUniversalMessage } from '@robota-sdk/agents';
 
@@ -22,7 +22,7 @@ export class RemoteServer {
     private app: express.Application;
     private providers: Map<string, any>;
     private router: express.Router;
-    private readonly logger: SimpleLogger;
+    private readonly logger: ILogger;
 
     constructor(config: IRemoteServerConfig = {}) {
         this.logger = config.logger || SilentLogger;
@@ -55,7 +55,7 @@ export class RemoteServer {
 
             this.logger.info(`🚀 RemoteServer initialized with ${this.providers.size} providers`);
         } catch (error) {
-            this.logger.error('❌ Failed to initialize RemoteServer:', error);
+            this.logger.error('❌ Failed to initialize RemoteServer:', error instanceof Error ? error : new Error(String(error)));
             throw error;
         }
     }
@@ -153,7 +153,7 @@ export class RemoteServer {
                 });
 
             } catch (error) {
-                this.logger.error('Chat execution error:', error);
+                this.logger.error('Chat execution error:', error instanceof Error ? error : new Error(String(error)));
                 res.status(500).json({
                     error: 'Chat execution failed',
                     message: error instanceof Error ? error.message : 'Unknown error'
@@ -240,7 +240,7 @@ export class RemoteServer {
                 }
 
             } catch (error) {
-                this.logger.error('Stream setup error:', error);
+                this.logger.error('Stream setup error:', error instanceof Error ? error : new Error(String(error)));
                 res.status(500).json({
                     error: 'Stream setup failed',
                     message: error instanceof Error ? error.message : 'Unknown error'
@@ -279,5 +279,5 @@ export interface IRemoteServerConfig {
     port?: number;
     enableCors?: boolean;
     enableHelmet?: boolean;
-    logger?: SimpleLogger;
+    logger?: ILogger;
 } 

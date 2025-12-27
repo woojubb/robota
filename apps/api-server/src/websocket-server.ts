@@ -17,7 +17,7 @@ function isPlaygroundAuthPayload(
     return typeof value.userId === 'string' && typeof value.sessionId === 'string' && typeof value.token === 'string';
 }
 
-export interface PlaygroundClient {
+export interface IPlaygroundClient {
     id: string;
     userId?: string;
     sessionId?: string;

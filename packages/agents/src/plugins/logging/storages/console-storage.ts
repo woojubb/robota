@@ -1,17 +1,17 @@
 import type { ILogEntry, ILogStorage, ILogFormatter, TLogLevel } from '../types';
 import { ConsoleLogFormatter } from '../formatters';
-import { SimpleLogger, DefaultConsoleLogger } from '../../../utils/simple-logger';
+import { SilentLogger, type ILogger } from '../../../utils/logger';
 
 /**
  * Console log storage
  */
 export class ConsoleLogStorage implements ILogStorage {
     private formatter: ILogFormatter;
-    private logger: SimpleLogger;
+    private logger: ILogger;
 
-    constructor(formatter?: ILogFormatter, logger?: SimpleLogger) {
+    constructor(formatter?: ILogFormatter, logger?: ILogger) {
         this.formatter = formatter || new ConsoleLogFormatter();
-        this.logger = logger || DefaultConsoleLogger;
+        this.logger = logger || SilentLogger;
     }
 
     async write(entry: ILogEntry): Promise<void> {

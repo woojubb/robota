@@ -71,7 +71,7 @@ export class FunctionTool extends AbstractTool<TToolParameters, IToolResult> imp
         } catch (error) {
             this.logger.error(`Function tool "${toolName}" execution failed`, {
                 toolName,
-                error: error instanceof Error ? error.message : error,
+                error: error instanceof Error ? error.message : String(error),
                 parameters
             });
 
@@ -80,7 +80,7 @@ export class FunctionTool extends AbstractTool<TToolParameters, IToolResult> imp
             }
 
             throw new ToolExecutionError(
-                `Function tool execution failed: ${error instanceof Error ? error.message : error}`,
+                `Function tool execution failed: ${error instanceof Error ? error.message : String(error)}`,
                 toolName,
                 error instanceof Error ? error : new Error(String(error)),
                 {

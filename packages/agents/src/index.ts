@@ -184,22 +184,7 @@ export type {
  * 
  * @public
  */
-export { logger } from './utils/logger';
-
-/**
- * Simple logger interface and implementations for browser compatibility.
- * Used across all packages for consistent logging behavior.
- * 
- * @public
- */
-export {
-    SimpleLogger,
-    SilentLogger,
-    DefaultConsoleLogger,
-    StderrLogger
-} from './utils/simple-logger';
-
-export { IAbstractLogger } from './utils/abstract-logger';
+export { logger, SilentLogger, type ILogger } from './utils/logger';
 
 // ===== PLUGIN SYSTEM EXPORTS =====
 /**

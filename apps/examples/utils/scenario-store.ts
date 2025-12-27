@@ -5,17 +5,17 @@ import path from 'path';
 import type { IChatOptions, IRawProviderResponse, TUniversalMessage, TUniversalMessageMetadata } from '@robota-sdk/agents';
 import { isAssistantMessage, isToolMessage, isUserMessage } from '@robota-sdk/agents';
 
-export interface ScenarioStoreOptions {
+export interface IScenarioStoreOptions {
     baseDir?: string;
 }
 
-export interface ScenarioToolCallSnapshot {
+export interface IScenarioToolCallSnapshot {
     id?: string;
     name?: string;
     arguments?: string;
 }
 
-export interface ScenarioMessageSnapshot {
+export interface IScenarioMessageSnapshot {
     role: TUniversalMessage['role'];
     content: TUniversalMessage['content'];
     name?: string;
@@ -25,7 +25,7 @@ export interface ScenarioMessageSnapshot {
     timestamp: number;
 }
 
-export interface ScenarioResponseSnapshot {
+export interface IScenarioResponseSnapshot {
     /** Non-stream response payload */
     message?: ScenarioMessageSnapshot;
     /** Raw provider response, if recording generateResponse */
@@ -38,13 +38,13 @@ export interface ScenarioResponseSnapshot {
     }>;
 }
 
-export interface ScenarioRequestSnapshot {
+export interface IScenarioRequestSnapshot {
     messages: ScenarioMessageSnapshot[];
     options?: ScenarioChatOptionsSnapshot;
     metadata?: Record<string, unknown>;
 }
 
-export interface ScenarioChatOptionsSnapshot {
+export interface IScenarioChatOptionsSnapshot {
     model?: string;
     temperature?: number;
     maxTokens?: number;
@@ -56,7 +56,7 @@ export interface ScenarioChatOptionsSnapshot {
     tools?: Array<{ name?: string }>;
 }
 
-export interface ScenarioStep {
+export interface IScenarioStep {
     stepId: string;
     requestHash: string;
     request: ScenarioRequestSnapshot;
@@ -69,7 +69,7 @@ export interface ScenarioStep {
     };
 }
 
-export interface ScenarioRecord {
+export interface IScenarioRecord {
     scenarioId: string;
     version: number;
     steps: ScenarioStep[];

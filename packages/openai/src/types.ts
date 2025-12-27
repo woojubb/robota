@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 
 import type { IPayloadLogger } from './interfaces/payload-logger';
-import type { IExecutor, SimpleLogger, TProviderOptionValueBase } from '@robota-sdk/agents';
+import type { IExecutor, ILogger, TProviderOptionValueBase } from '@robota-sdk/agents';
 
 /**
  * Valid provider option value types
@@ -14,7 +14,7 @@ export type TOpenAIProviderOptionValue =
   | null
   | OpenAI
   | IPayloadLogger
-  | SimpleLogger
+  | ILogger
   | IExecutor
   | TProviderOptionValueBase
   | TOpenAIProviderOptionValue[]
@@ -130,5 +130,5 @@ export interface IOpenAIProviderOptions {
    * Logger instance for internal OpenAI provider logging
    * @defaultValue SilentLogger
    */
-  logger?: SimpleLogger;
+  logger?: ILogger;
 } 

@@ -6,7 +6,7 @@
  */
 
 // Anthropic Message Types
-export interface AnthropicMessage {
+export interface IAnthropicMessage {
     id: string;
     type: 'message';
     role: 'assistant' | 'user';
@@ -17,7 +17,7 @@ export interface AnthropicMessage {
     usage: AnthropicUsage;
 }
 
-export interface AnthropicContent {
+export interface IAnthropicContent {
     type: 'text' | 'tool_use';
     text?: string;
     id?: string;
@@ -25,13 +25,13 @@ export interface AnthropicContent {
     input?: Record<string, string | number | boolean | object>;
 }
 
-export interface AnthropicUsage {
+export interface IAnthropicUsage {
     input_tokens: number;
     output_tokens: number;
 }
 
 // Request Types
-export interface AnthropicChatRequestParams {
+export interface IAnthropicChatRequestParams {
     model: string;
     max_tokens: number;
     messages: AnthropicRequestMessage[];
@@ -44,16 +44,16 @@ export interface AnthropicChatRequestParams {
     stream?: false;
 }
 
-export interface AnthropicStreamRequestParams extends Omit<AnthropicChatRequestParams, 'stream'> {
+export interface IAnthropicStreamRequestParams extends Omit<AnthropicChatRequestParams, 'stream'> {
     stream: true;
 }
 
-export interface AnthropicRequestMessage {
+export interface IAnthropicRequestMessage {
     role: 'user' | 'assistant';
     content: string | AnthropicRequestContent[];
 }
 
-export interface AnthropicRequestContent {
+export interface IAnthropicRequestContent {
     type: 'text' | 'tool_use' | 'tool_result';
     text?: string;
     id?: string;
@@ -64,7 +64,7 @@ export interface AnthropicRequestContent {
 }
 
 // Tool Types
-export interface AnthropicTool {
+export interface IAnthropicTool {
     name: string;
     description?: string;
     input_schema: {
@@ -74,7 +74,7 @@ export interface AnthropicTool {
     };
 }
 
-export interface AnthropicToolProperty {
+export interface IAnthropicToolProperty {
     type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
     description?: string;
     enum?: string[];
@@ -82,7 +82,7 @@ export interface AnthropicToolProperty {
     properties?: Record<string, AnthropicToolProperty>;
 }
 
-export interface AnthropicToolCall {
+export interface IAnthropicToolCall {
     id: string;
     type: 'tool_use';
     name: string;
@@ -90,7 +90,7 @@ export interface AnthropicToolCall {
 }
 
 // Streaming Types
-export interface AnthropicStreamChunk {
+export interface IAnthropicStreamChunk {
     type: 'message_start' | 'message_delta' | 'content_block_start' | 'content_block_delta' | 'content_block_stop' | 'message_stop';
     message?: Partial<AnthropicMessage>;
     delta?: AnthropicStreamDelta;
@@ -98,7 +98,7 @@ export interface AnthropicStreamChunk {
     index?: number;
 }
 
-export interface AnthropicStreamDelta {
+export interface IAnthropicStreamDelta {
     type?: 'text_delta' | 'input_json_delta';
     text?: string;
     partial_json?: string;
@@ -107,7 +107,7 @@ export interface AnthropicStreamDelta {
 }
 
 // Error Types
-export interface AnthropicError {
+export interface IAnthropicError {
     type: 'error';
     error: {
         type: 'invalid_request_error' | 'authentication_error' | 'permission_error' | 'not_found_error' | 'rate_limit_error' | 'api_error' | 'overloaded_error';
@@ -118,7 +118,7 @@ export interface AnthropicError {
 }
 
 // Provider Configuration
-export interface AnthropicLogData {
+export interface IAnthropicLogData {
     model: string;
     messagesCount: number;
     hasTools: boolean;
@@ -130,14 +130,14 @@ export interface AnthropicLogData {
 }
 
 // Response Types for Internal Processing
-export interface AnthropicProviderResponse {
+export interface IAnthropicProviderResponse {
     message: AnthropicMessage;
     usage: AnthropicUsage;
     model: string;
 }
 
 // Stream Handler Types
-export interface AnthropicStreamContext {
+export interface IAnthropicStreamContext {
     currentMessage: string;
     currentToolCalls: AnthropicToolCall[];
     isComplete: boolean;

@@ -1,5 +1,5 @@
-import type { OpenAILogData } from '../types/api-types';
-import type { SimpleLogger } from '@robota-sdk/agents';
+import type { IOpenAILogData } from '../types/api-types';
+import type { ILogger } from '@robota-sdk/agents';
 
 /**
  * IPayloadLogger interface for logging OpenAI API payloads
@@ -21,7 +21,7 @@ export interface IPayloadLogger {
      * @param payload - The API request/response payload data
      * @param type - Type of operation ('chat' or 'stream')
      */
-    logPayload(payload: OpenAILogData, type: 'chat' | 'stream'): Promise<void>;
+    logPayload(payload: IOpenAILogData, type: 'chat' | 'stream'): Promise<void>;
 }
 
 /**
@@ -42,7 +42,7 @@ export interface IPayloadLoggerOptions {
 
     /**
      * Logger instance for console output
-     * @defaultValue DefaultConsoleLogger
+     * @defaultValue SilentLogger
      */
-    logger?: SimpleLogger;
+    logger?: ILogger;
 } 

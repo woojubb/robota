@@ -3,7 +3,7 @@ import type { TUniversalMessage } from '../interfaces/agent';
 /**
  * Provider-specific message format types
  */
-interface OpenAIMessage {
+interface IOpenAIMessage {
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string | null;
     tool_calls?: {
@@ -23,7 +23,7 @@ interface IAnthropicProviderMessage {
     content: string;
 }
 
-interface GoogleMessage {
+interface IGoogleProviderMessage {
     role: 'user' | 'model';
     parts: {
         text: string;
@@ -33,7 +33,7 @@ interface GoogleMessage {
 /**
  * Provider message format union type
  */
-type ProviderMessage = OpenAIMessage | IAnthropicProviderMessage | GoogleMessage | TUniversalMessage;
+type TProviderMessage = IOpenAIMessage | IAnthropicProviderMessage | IGoogleProviderMessage | TUniversalMessage;
 
 /**
  * Universal message converter utility
@@ -43,7 +43,7 @@ export class MessageConverter {
     /**
      * Convert messages to provider-specific format
      */
-    static toProviderFormat(messages: TUniversalMessage[], providerName: string): ProviderMessage[] {
+    static toProviderFormat(messages: TUniversalMessage[], providerName: string): TProviderMessage[] {
         switch (providerName.toLowerCase()) {
             case 'openai':
                 return this.toOpenAIFormat(messages);
@@ -59,10 +59,10 @@ export class MessageConverter {
     /**
      * Convert to OpenAI format
      */
-    private static toOpenAIFormat(messages: TUniversalMessage[]): OpenAIMessage[] {
+    private static toOpenAIFormat(messages: TUniversalMessage[]): IOpenAIMessage[] {
         return messages.map(msg => {
-            const baseMessage: OpenAIMessage = {
-                role: msg.role as OpenAIMessage['role'],
+            const baseMessage: IOpenAIMessage = {
+                role: msg.role as IOpenAIMessage['role'],
                 content: msg.content
             };
 
@@ -101,7 +101,7 @@ export class MessageConverter {
     /**
      * Convert to Google format
      */
-    private static toGoogleFormat(messages: TUniversalMessage[]): GoogleMessage[] {
+    private static toGoogleFormat(messages: TUniversalMessage[]): IGoogleProviderMessage[] {
         return messages.map(msg => ({
             role: msg.role === 'assistant' ? 'model' : 'user',
             parts: [{ text: msg.content || '' }]

@@ -15,8 +15,8 @@ import type {
     IWorkflowData,
     IWorkflowConfig
 } from '../interfaces/workflow-converter';
-import type { IAbstractLogger } from '../utils/abstract-logger';
-import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
+import type { ILogger } from '../utils/logger';
+import { SilentLogger } from '../utils/logger';
 import type { TUniversalValue } from '../interfaces/types';
 
 /**
@@ -27,7 +27,7 @@ export interface IBaseWorkflowConverterOptions {
     enabled?: boolean;
 
     /** Custom logger instance */
-    logger?: IAbstractLogger;
+    logger?: ILogger;
 
     /** Converter-specific configuration */
     config?: IWorkflowConfig;
@@ -70,7 +70,7 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
     public enabled: boolean;
 
     /** Logger instance with dependency injection */
-    protected readonly logger: IAbstractLogger;
+    protected readonly logger: ILogger;
 
     /** Converter configuration */
     protected readonly config: IWorkflowConfig;
@@ -90,7 +90,7 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
      */
     constructor(options: IBaseWorkflowConverterOptions = {}) {
         this.enabled = options.enabled ?? true;
-        this.logger = options.logger || DEFAULT_ABSTRACT_LOGGER;
+        this.logger = options.logger || SilentLogger;
         this.config = options.config || {};
 
         this.logger.debug(`${this.constructor.name} initialized`, {
@@ -333,7 +333,7 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
         warnings: string[],
         startTime: number,
         input: TInput,
-        _logger: IAbstractLogger
+        _logger: ILogger
     ): IWorkflowConversionResult<TOutput> {
         const now = new Date();
         const processingTime = now.getTime() - startTime;

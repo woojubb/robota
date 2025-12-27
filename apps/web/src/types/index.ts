@@ -2,32 +2,32 @@
 export type Theme = 'light' | 'dark' | 'system'
 
 // Navigation types
-export interface NavItem {
+export interface INavItem {
     title: string
     href: string
     description?: string
     external?: boolean
 }
 
-export interface NavSection {
+export interface INavSection {
     title: string
     items: NavItem[]
 }
 
 // Brand types
-export interface BrandConfig {
+export interface IBrandConfig {
     name: string
     tagline: string
     description: string
 }
 
 // Layout types
-export interface LayoutProps {
+export interface ILayoutProps {
     children: React.ReactNode
 }
 
 // API types
-export interface ApiResponse<T = any> {
+export interface IApiResponse<T = any> {
     success: boolean
     data?: T
     error?: string

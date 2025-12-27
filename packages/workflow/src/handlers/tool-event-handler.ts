@@ -5,7 +5,7 @@
  * Based on existing implementation in workflow-event-subscriber.ts
  */
 
-import type { IOwnerPathSegment, SimpleLogger } from '@robota-sdk/agents';
+import type { IOwnerPathSegment, ILogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import type {
     IEventHandler,
@@ -29,11 +29,11 @@ export class ToolEventHandler implements IEventHandler {
     readonly priority = HandlerPriority.HIGH;
     readonly patterns = ['tool.*'];
 
-    private logger: SimpleLogger;
+    private logger: ILogger;
 
     // Path-only: internal mappings removed (use path for relationships)
 
-    constructor(logger: SimpleLogger = SilentLogger) {
+    constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
     }
 
@@ -49,7 +49,7 @@ export class ToolEventHandler implements IEventHandler {
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
         try {
-            this.logger.debug(`🔧 [TOOL-HANDLER] Processing ${eventType}`, { eventData });
+            this.logger.debug(`🔧 [TOOL-HANDLER] Processing ${eventType}`);
 
             const updates: TWorkflowUpdate[] = [];
             let success = true;
@@ -148,7 +148,10 @@ export class ToolEventHandler implements IEventHandler {
             };
 
         } catch (error) {
-            this.logger.error(`❌ [TOOL-HANDLER] Error processing ${eventType}:`, error);
+            this.logger.error(
+                `❌ [TOOL-HANDLER] Error processing ${eventType}:`,
+                error instanceof Error ? error : new Error(String(error))
+            );
             return {
                 success: false,
                 updates: [],

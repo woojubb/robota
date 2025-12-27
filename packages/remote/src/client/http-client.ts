@@ -5,7 +5,7 @@
  */
 
 import type { IHttpRequest, IHttpResponse, TDefaultRequestData } from '../types/http-types';
-import type { SimpleLogger } from '@robota-sdk/agents';
+import type { ILogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import type { IBasicMessage, IResponseMessage } from '../types/message-types';
 import {
@@ -21,7 +21,7 @@ export interface IHttpClientConfig {
     baseUrl: string;
     timeout: number;
     headers: Record<string, string>;
-    logger?: SimpleLogger;
+    logger?: ILogger;
 }
 
 /**
@@ -29,7 +29,7 @@ export interface IHttpClientConfig {
  */
 export class HttpClient {
     private config: IHttpClientConfig;
-    private readonly logger: SimpleLogger;
+    private readonly logger: ILogger;
 
     constructor(config: IHttpClientConfig) {
         this.config = config;
