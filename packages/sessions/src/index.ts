@@ -22,10 +22,10 @@ export type {
     SessionManagerConfig,
     CreateSessionOptions,
     CreateChatOptions,
-    AgentInterface,
-    AgentConfig,
+    IAgent,
+    IAgentConfig,
     TUniversalMessage,
-    RunOptions
+    IRunOptions
 } from './types/core';
 
 // Re-export ConversationHistory from agents (unified implementation)

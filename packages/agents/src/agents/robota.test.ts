@@ -7,7 +7,7 @@ import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { AbstractTool as BaseTool } from '../abstracts/abstract-tool';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { IToolSchema, IChatOptions } from '../interfaces/provider';
-import type { ToolExecutionContext, ToolParameters, ToolResult } from '../interfaces/tool';
+import type { IToolExecutionContext, IToolResult, TToolParameters } from '../interfaces/tool';
 import type { TUniversalMessage } from '../interfaces/messages';
 
 import { ConfigurationError, ValidationError } from '../utils/errors';
@@ -79,7 +79,7 @@ class MockTool extends BaseTool {
         };
     }
 
-    protected override async executeImpl(parameters: ToolParameters, _context: ToolExecutionContext): Promise<ToolResult> {
+    protected override async executeImpl(parameters: TToolParameters, _context: IToolExecutionContext): Promise<IToolResult> {
         const inputValue = parameters.input;
         const inputText = typeof inputValue === 'string' ? inputValue : 'no input';
 

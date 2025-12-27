@@ -13,7 +13,7 @@ import {
     LoggingPlugin,
     PerformancePlugin
 } from '@robota-sdk/agents';
-import type { AgentConfig } from '@robota-sdk/agents';
+import type { IAgentConfig } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
@@ -38,7 +38,7 @@ async function main() {
         // ===== AGENT CONFIGURATION FOR STREAMING =====
         console.log('⚙️ Creating agent optimized for streaming...');
 
-        const config: AgentConfig = {
+        const config: IAgentConfig = {
             name: 'StreamingAgent',
             aiProviders: [openaiProvider],
             defaultModel: {

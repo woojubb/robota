@@ -3,7 +3,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 import { Robota, FunctionTool } from '@robota-sdk/agents';
-import type { AIProvider, EventService, OwnerPathSegment, ToolExecutionContext, ToolParameters, ToolExecutionData, ToolSchema } from '@robota-sdk/agents';
+import type { IAIProvider, IEventService, IOwnerPathSegment, IToolExecutionContext, IToolSchema, TToolParameters } from '@robota-sdk/agents';
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 
@@ -22,10 +22,10 @@ const requireNonEmptyEnv = (key: string): string => {
     return value;
 };
 
-const buildAssignTaskTool = (aiProvider: AIProvider): FunctionTool => {
+const buildAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
     let nextChildAgentNumber = 1;
 
-    const schema: ToolSchema = {
+    const schema: IToolSchema = {
         name: 'assignTask',
         description: 'Guarded assignTask: creates a new agent instance and runs the delegated task.',
         parameters: {
@@ -38,7 +38,7 @@ const buildAssignTaskTool = (aiProvider: AIProvider): FunctionTool => {
         }
     };
 
-    return new FunctionTool(schema, async (params: ToolParameters, ctx?: ToolExecutionContext): Promise<ToolExecutionData> => {
+    return new FunctionTool(schema, async (params: TToolParameters, ctx?: IToolExecutionContext) => {
         const jobDescription = typeof params.jobDescription === 'string' ? params.jobDescription : '';
         if (!jobDescription) {
             throw new Error('[GUARDED-ASSIGN-TASK] Missing jobDescription');
@@ -47,7 +47,7 @@ const buildAssignTaskTool = (aiProvider: AIProvider): FunctionTool => {
             throw new Error('[GUARDED-ASSIGN-TASK] Missing context.baseEventService (DI required)');
         }
 
-        const parentOwnerPath: OwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map(segment => ({ ...segment })) : [];
+        const parentOwnerPath: IOwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map(segment => ({ ...segment })) : [];
 
         const childAgentId = `agent_${nextChildAgentNumber}`;
         nextChildAgentNumber += 1;
@@ -89,7 +89,7 @@ async function main(): Promise<void> {
 
     const subscriber = new WorkflowEventSubscriber({ logger: DefaultConsoleLogger });
     const bridge = new WorkflowSubscriberEventService(subscriber, DefaultConsoleLogger);
-    const baseEventService: EventService = bridge;
+    const baseEventService: IEventService = bridge;
 
     const rootAgentId = 'agent_0';
     const assignTaskTool = buildAssignTaskTool(provider);

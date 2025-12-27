@@ -1,5 +1,5 @@
 import {
-    ModuleTypeDescriptor,
+    IModuleTypeDescriptor,
     ModuleCategory,
     ModuleLayer
 } from '../abstracts/abstract-module';
@@ -50,7 +50,7 @@ export interface IModuleCompatibilityResult {
  */
 export class ModuleTypeRegistry {
     private static instance: ModuleTypeRegistry | null = null;
-    private registeredTypes = new Map<string, ModuleTypeDescriptor>();
+    private registeredTypes = new Map<string, IModuleTypeDescriptor>();
     private logger: ILogger;
 
     constructor() {
@@ -71,7 +71,7 @@ export class ModuleTypeRegistry {
     /**
      * Register a new module type
      */
-    registerType(typeDescriptor: ModuleTypeDescriptor): void {
+    registerType(typeDescriptor: IModuleTypeDescriptor): void {
         // Validate the type descriptor
         const validation = this.validateTypeDescriptor(typeDescriptor);
         if (!validation.valid) {
@@ -127,21 +127,21 @@ export class ModuleTypeRegistry {
     /**
      * Get a registered module type
      */
-    getType(type: string): ModuleTypeDescriptor | null {
+    getType(type: string): IModuleTypeDescriptor | null {
         return this.registeredTypes.get(type) || null;
     }
 
     /**
      * Get all registered module types
      */
-    getAllTypes(): ModuleTypeDescriptor[] {
+    getAllTypes(): IModuleTypeDescriptor[] {
         return Array.from(this.registeredTypes.values());
     }
 
     /**
      * Get module types by category
      */
-    getTypesByCategory(category: ModuleCategory): ModuleTypeDescriptor[] {
+    getTypesByCategory(category: ModuleCategory): IModuleTypeDescriptor[] {
         return Array.from(this.registeredTypes.values())
             .filter(type => type.category === category);
     }
@@ -149,7 +149,7 @@ export class ModuleTypeRegistry {
     /**
      * Get module types by layer
      */
-    getTypesByLayer(layer: ModuleLayer): ModuleTypeDescriptor[] {
+    getTypesByLayer(layer: ModuleLayer): IModuleTypeDescriptor[] {
         return Array.from(this.registeredTypes.values())
             .filter(type => type.layer === layer);
     }
@@ -164,7 +164,7 @@ export class ModuleTypeRegistry {
     /**
      * Validate module type descriptor
      */
-    validateTypeDescriptor(typeDescriptor: ModuleTypeDescriptor): IModuleTypeValidationResult {
+    validateTypeDescriptor(typeDescriptor: IModuleTypeDescriptor): IModuleTypeValidationResult {
         const errors: string[] = [];
         const warnings: string[] = [];
 

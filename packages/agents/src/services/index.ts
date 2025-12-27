@@ -26,10 +26,6 @@ export type {
     IContextOptions
 } from '../interfaces/service';
 
-export type {
-    EventService as EventServiceInterface,
-    ServiceEventType,
-    ServiceEventData
-} from './event-service';
+export type { IEventService } from './event-service';
 
 // ExecutionHierarchyTracker types removed

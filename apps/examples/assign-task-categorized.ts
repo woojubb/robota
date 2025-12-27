@@ -8,7 +8,7 @@
  */
 
 import { listTemplateCategoriesTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
-import type { ToolExecutionContext, ToolExecutionData, ToolResult } from '@robota-sdk/agents';
+import type { IToolExecutionContext, IToolResult, TToolResultData } from '@robota-sdk/agents';
 
 type CategorySummary = {
     id: string;
@@ -31,11 +31,11 @@ type TemplatesListPayload = {
     templates: TemplateSummary[];
 };
 
-const isObject = (value: ToolExecutionData): value is Record<string, ToolExecutionData> => {
+const isObject = (value: TToolResultData): value is Record<string, TToolResultData> => {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
-const isCategorySummary = (value: ToolExecutionData): value is CategorySummary => {
+const isCategorySummary = (value: TToolResultData): value is CategorySummary => {
     if (!isObject(value)) return false;
     const id = value.id;
     const name = value.name;
@@ -46,7 +46,7 @@ const isCategorySummary = (value: ToolExecutionData): value is CategorySummary =
     return true;
 };
 
-const isTemplateSummary = (value: ToolExecutionData): value is TemplateSummary => {
+const isTemplateSummary = (value: TToolResultData): value is TemplateSummary => {
     if (!isObject(value)) return false;
     const id = value.id;
     const name = value.name;
@@ -59,7 +59,7 @@ const isTemplateSummary = (value: ToolExecutionData): value is TemplateSummary =
     return true;
 };
 
-const extractCategories = (result: ToolResult): CategoriesPayload => {
+const extractCategories = (result: IToolResult): CategoriesPayload => {
     if (!result.success) {
         throw new Error(result.error ?? 'listTemplateCategories failed');
     }
@@ -81,7 +81,7 @@ const extractCategories = (result: ToolResult): CategoriesPayload => {
     return { categories };
 };
 
-const extractTemplatesList = (result: ToolResult): TemplatesListPayload => {
+const extractTemplatesList = (result: IToolResult): TemplatesListPayload => {
     if (!result.success) {
         throw new Error(result.error ?? 'listTemplates failed');
     }
@@ -104,14 +104,14 @@ const extractTemplatesList = (result: ToolResult): TemplatesListPayload => {
 };
 
 async function main() {
-    const categoriesContext: ToolExecutionContext = { toolName: 'listTemplateCategories', parameters: {} };
+    const categoriesContext: IToolExecutionContext = { toolName: 'listTemplateCategories', parameters: {} };
     const categoriesResult = await listTemplateCategoriesTool.execute({}, categoriesContext);
     const { categories } = extractCategories(categoriesResult);
     console.log('Categories:', categories);
 
     const categoryId = categories[0]?.id;
     const templatesParams = categoryId ? { categoryId } : {};
-    const templatesContext: ToolExecutionContext = { toolName: 'listTemplates', parameters: templatesParams };
+    const templatesContext: IToolExecutionContext = { toolName: 'listTemplates', parameters: templatesParams };
     const templatesResult = await listTemplatesTool.execute(templatesParams, templatesContext);
     const { templates } = extractTemplatesList(templatesResult);
     console.log('Templates:', templates);
@@ -121,7 +121,7 @@ async function main() {
         throw new Error('No templates available');
     }
 
-    const detailContext: ToolExecutionContext = {
+    const detailContext: IToolExecutionContext = {
         toolName: 'getTemplateDetail',
         parameters: { templateId: selected.id }
     };

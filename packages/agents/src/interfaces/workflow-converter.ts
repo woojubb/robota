@@ -100,36 +100,51 @@ export interface IWorkflowConversionResult<TOutput> {
     warnings: string[];
 
     /** Conversion metadata */
-    metadata: {
-        /** Conversion timestamp */
-        convertedAt: Date;
+    metadata: IWorkflowConversionResultMetadata;
+}
 
-        /** Processing time in milliseconds */
-        processingTime: number;
+/**
+ * Workflow conversion metadata.
+ *
+ * IMPORTANT:
+ * - Do NOT intersect this object with `TMetadata`.
+ * - `TMetadata` has an index signature with a restricted value axis (`TMetadataValue`),
+ *   which would force every property on this object to be assignable to `TMetadataValue`.
+ * - Keep structured fields here, and store additional key/value pairs under `extensions`.
+ */
+export interface IWorkflowConversionResultMetadata {
+    /** Conversion timestamp */
+    convertedAt: Date;
 
-        /** Input data statistics */
-        inputStats: {
-            nodeCount: number;
-            edgeCount: number;
-        };
+    /** Processing time in milliseconds */
+    processingTime: number;
 
-        /** Output data statistics */
-        outputStats: {
-            nodeCount: number;
-            edgeCount: number;
-        };
+    /** Input data statistics */
+    inputStats: {
+        nodeCount: number;
+        edgeCount: number;
+    };
 
-        /** Converter name */
-        converter: string;
+    /** Output data statistics */
+    outputStats: {
+        nodeCount: number;
+        edgeCount: number;
+    };
 
-        /** Converter version */
-        version: string;
+    /** Converter name */
+    converter: string;
 
-        /** Additional options */
-        options?: IWorkflowConversionOptions;
+    /** Converter version */
+    version: string;
 
-        /** Additional metadata using TMetadata */
-    } & TMetadata;
+    /** Conversion options (optional, typically gated by includeDebug) */
+    options?: IWorkflowConversionOptions;
+
+    /**
+     * Additional key/value metadata (SSOT axis).
+     * Use this for dynamic metadata, not top-level ad-hoc fields.
+     */
+    extensions?: TMetadata;
 }
 
 /**

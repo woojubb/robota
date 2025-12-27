@@ -5,9 +5,20 @@
 
 ---
 
-## 🧪 Priority 0.5: Web 호스트 빌드 게이트
+## 🔁 Priority 0.55: Workflow 브릿지/어댑터 SSOT 정리 (중복 제거)
 
-- [x] 사용자 환경에서 `pnpm --filter @robota-sdk/web build` 실행 및 통과 확인
+### 목표
+- Workflow 이벤트 브릿지(EventService → WorkflowEventSubscriber)를 단일 구현(SSOT)으로 수렴
+- `apps/examples` / `packages/playground` 중복 제거, 공통은 `packages/workflow`로 이동
+- Path-only / No-fallback / event constants 규칙을 브릿지에서도 동일 적용
+
+### 작업 항목
+- [ ] 전수조사: Workflow 브릿지/어댑터 후보 목록화(파일/역할/사용처)
+- [ ] 차이점 표 작성: payload shaping / context 요구조건 / timestamp 요구조건
+- [ ] SSOT 위치 확정: `packages/workflow`에 공용 브릿지 1개로 수렴
+- [ ] `packages/playground` → SSOT 교체 후 중복 파일 제거
+- [ ] `apps/examples` → SSOT 교체 후 중복 파일 제거
+- [ ] 빌드 게이트: `pnpm --filter @robota-sdk/workflow build`, `pnpm --filter @robota-sdk/playground build`, `pnpm typecheck`
 
 ---
 

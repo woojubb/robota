@@ -1,11 +1,11 @@
-import { HistoryStorage, ConversationHistoryEntry } from '../types';
+import type { IHistoryStorage, IConversationHistoryEntry } from '../types';
 import { createLogger, type ILogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
 
 /**
  * Database storage implementation
  */
-export class DatabaseHistoryStorage implements HistoryStorage {
+export class DatabaseHistoryStorage implements IHistoryStorage {
     private connectionString: string;
     private logger: ILogger;
 
@@ -14,7 +14,7 @@ export class DatabaseHistoryStorage implements HistoryStorage {
         this.logger = createLogger('DatabaseHistoryStorage');
     }
 
-    async save(conversationId: string, _entry: ConversationHistoryEntry): Promise<void> {
+    async save(conversationId: string, _entry: IConversationHistoryEntry): Promise<void> {
         try {
             // Database operations would be implemented here
             this.logger.warn('Database storage not fully implemented yet', {
@@ -29,7 +29,7 @@ export class DatabaseHistoryStorage implements HistoryStorage {
         }
     }
 
-    async load(conversationId: string): Promise<ConversationHistoryEntry | undefined> {
+    async load(conversationId: string): Promise<IConversationHistoryEntry | undefined> {
         try {
             // Database operations would be implemented here
             this.logger.warn('Database storage not fully implemented yet', {

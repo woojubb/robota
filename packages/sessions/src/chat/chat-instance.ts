@@ -1,4 +1,4 @@
-import { Robota, type AgentConfig, type TUniversalMessage } from '@robota-sdk/agents';
+import { Robota, type IAgentConfig, type TUniversalMessage } from '@robota-sdk/agents';
 import type {
     IChatConfig,
     IChatMetadata,
@@ -63,7 +63,7 @@ export class ChatInstance implements IChatInstance {
     /**
      * Update robota configuration
      */
-    async updateRobotaConfig(config: AgentConfig): Promise<void> {
+    async updateRobotaConfig(config: IAgentConfig): Promise<void> {
         try {
             await this.robota.configure(config);
             this.config.robotaConfig = { ...this.config.robotaConfig, ...config };
@@ -76,7 +76,7 @@ export class ChatInstance implements IChatInstance {
     /**
      * Get current robota configuration
      */
-    getRobotaConfig(): AgentConfig {
+    getRobotaConfig(): IAgentConfig {
         return this.config.robotaConfig;
     }
 

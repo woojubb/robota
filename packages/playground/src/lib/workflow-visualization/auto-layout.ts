@@ -6,7 +6,7 @@
 
 import dagre from 'dagre';
 import { Position, type Node, type Edge } from '@xyflow/react';
-import type { IUniversalWorkflowNode, IUniversalWorkflowEdge } from '@robota-sdk/workflow';
+import type { IWorkflowEdge, IWorkflowNode } from '@robota-sdk/workflow';
 
 /**
  * Layout configuration for different workflow types
@@ -417,7 +417,7 @@ export function applyDagreLayout(
  * Convert Universal Workflow Structure to React Flow format with auto layout
  */
 export function convertUniversalToReactFlowWithLayout(
-    workflow: { nodes: IUniversalWorkflowNode[]; edges: IUniversalWorkflowEdge[] },
+    workflow: { nodes: IWorkflowNode[]; edges: IWorkflowEdge[] },
     layoutPreset: keyof typeof LAYOUT_PRESETS = 'vertical'
 ): { nodes: Node[]; edges: Edge[] } {
 

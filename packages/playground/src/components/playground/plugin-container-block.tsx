@@ -95,6 +95,10 @@ export interface IPluginContainerBlockProps {
     maxHeight?: string;
 }
 
+function isPluginCategoryKey(value: string): value is keyof typeof PLUGIN_CATEGORIES {
+    return Object.prototype.hasOwnProperty.call(PLUGIN_CATEGORIES, value);
+}
+
 // Mock plugin definitions for demonstration
 const AVAILABLE_PLUGINS = [
     {
@@ -500,6 +504,16 @@ export function PluginContainerBlock({
 }: IPluginContainerBlockProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState<TPluginCategory | 'all'>('all');
+    const handleFilterCategoryChange = useCallback((value: string) => {
+        if (value === 'all') {
+            setFilterCategory('all');
+            return;
+        }
+        if (!isPluginCategoryKey(value)) {
+            throw new Error(`[PLAYGROUND] Invalid plugin category filter value: "${value}"`);
+        }
+        setFilterCategory(PLUGIN_CATEGORIES[value]);
+    }, []);
     const [showPluginLibrary, setShowPluginLibrary] = useState(false);
 
     // Filter available plugins
@@ -603,7 +617,7 @@ export function PluginContainerBlock({
                                     placeholder="Search plugins..."
                                     className="h-8 text-xs flex-1"
                                 />
-                                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                                <Select value={filterCategory} onValueChange={handleFilterCategoryChange}>
                                     <SelectTrigger className="h-8 w-32 text-xs">
                                         <SelectValue />
                                     </SelectTrigger>

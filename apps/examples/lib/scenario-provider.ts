@@ -1,5 +1,4 @@
-import type { AIProvider, ChatOptions, RawProviderResponse, ProviderRequest } from '@robota-sdk/agents';
-import type { TUniversalMessage } from '@robota-sdk/agents';
+import type { IAIProvider, IChatOptions, IProviderRequest, IRawProviderResponse, TUniversalMessage } from '@robota-sdk/agents';
 import {
     ScenarioStore,
     createRequestHash,
@@ -14,7 +13,7 @@ type StreamChunkInput = { index: number; delta: TUniversalMessage; timestamp: nu
 
 type RecordingResponseInput = {
     message?: TUniversalMessage;
-    raw?: RawProviderResponse;
+    raw?: IRawProviderResponse;
     stream?: StreamChunkInput[];
 };
 
@@ -40,7 +39,7 @@ export interface ScenarioProviderFromEnvOptions {
     /**
      * Required for record mode. Must be omitted in play mode to avoid accidental real calls.
      */
-    delegate?: AIProvider;
+    delegate?: IAIProvider;
     store: ScenarioStore;
     tags?: string[];
     providerName?: string;
@@ -56,9 +55,9 @@ export interface ScenarioProviderFromEnvOptions {
 }
 
 export type ScenarioProviderFromEnvResult =
-    | { mode: 'none'; provider: AIProvider }
-    | { mode: 'record'; provider: AIProvider }
-    | { mode: 'play'; provider: AIProvider; assertNoUnusedSteps: () => Promise<void> };
+    | { mode: 'none'; provider: IAIProvider }
+    | { mode: 'record'; provider: IAIProvider }
+    | { mode: 'play'; provider: IAIProvider; assertNoUnusedSteps: () => Promise<void> };
 
 function readEnvString(key: string): string | undefined {
     const raw = process.env[key];
@@ -149,36 +148,36 @@ export function createScenarioProviderFromEnv(options: ScenarioProviderFromEnvOp
 /**
  * Create a provider wrapper that records every request/response pair.
  */
-export function createScenarioRecordingProvider(delegate: AIProvider, options: ScenarioRecorderOptions): AIProvider {
+export function createScenarioRecordingProvider(delegate: IAIProvider, options: ScenarioRecorderOptions): IAIProvider {
     return new ScenarioRecordingProvider(delegate, options);
 }
 
 /**
  * Create a mock provider that replays previously recorded responses.
  */
-export function createScenarioMockProvider(options: ScenarioMockProviderOptions): AIProvider {
+export function createScenarioMockProvider(options: ScenarioMockProviderOptions): IAIProvider {
     return new ScenarioMockAIProvider(options);
 }
 
-class ScenarioRecordingProvider implements AIProvider {
+class ScenarioRecordingProvider implements IAIProvider {
     readonly name: string;
     readonly version: string;
 
     constructor(
-        private readonly delegate: AIProvider,
+        private readonly delegate: IAIProvider,
         private readonly options: ScenarioRecorderOptions
     ) {
         this.name = delegate.name;
         this.version = delegate.version;
     }
 
-    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         const response = await this.delegate.chat(messages, options);
         await this.recordStep(messages, options, { message: response });
         return response;
     }
 
-    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         if (!this.delegate.chatStream) {
             throw new Error(`[ScenarioRecordingProvider] Underlying provider "${this.delegate.name}" does not support streaming`);
         }
@@ -196,7 +195,7 @@ class ScenarioRecordingProvider implements AIProvider {
         await this.recordStep(messages, options, { stream: chunks });
     }
 
-    async generateResponse(payload: ProviderRequest): Promise<RawProviderResponse> {
+    async generateResponse(payload: IProviderRequest): Promise<IRawProviderResponse> {
         const result = await this.delegate.generateResponse(payload);
         await this.recordStep(payload.messages, { model: payload.model }, { raw: result });
         return result;
@@ -218,7 +217,7 @@ class ScenarioRecordingProvider implements AIProvider {
         await this.delegate.close?.();
     }
 
-    private async recordStep(messages: TUniversalMessage[], options: ChatOptions | undefined, response: RecordingResponseInput): Promise<void> {
+    private async recordStep(messages: TUniversalMessage[], options: IChatOptions | undefined, response: RecordingResponseInput): Promise<void> {
         const serializedMessages = serializeMessages(messages);
         const serializedOptions = serializeChatOptions(options);
         const serializedResponse = serializeResponseSnapshot(response);
@@ -243,7 +242,7 @@ class ScenarioRecordingProvider implements AIProvider {
     }
 }
 
-class ScenarioMockAIProvider implements AIProvider {
+class ScenarioMockAIProvider implements IAIProvider {
     readonly name: string;
     readonly version: string;
     private pointer = 0;
@@ -254,7 +253,7 @@ class ScenarioMockAIProvider implements AIProvider {
         this.version = options.providerVersion ?? 'mock-scenario';
     }
 
-    async chat(messages: TUniversalMessage[], options?: ChatOptions): Promise<TUniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         const step = await this.resolveStep(messages, options);
         const hydrated = hydrateResponseSnapshot(step.response);
         if (!hydrated.message) {
@@ -263,7 +262,7 @@ class ScenarioMockAIProvider implements AIProvider {
         return hydrated.message;
     }
 
-    async *chatStream(messages: TUniversalMessage[], options?: ChatOptions): AsyncIterable<TUniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         const step = await this.resolveStep(messages, options);
         const hydrated = hydrateResponseSnapshot(step.response);
         if (!hydrated.stream) {
@@ -274,7 +273,7 @@ class ScenarioMockAIProvider implements AIProvider {
         }
     }
 
-    async generateResponse(payload: ProviderRequest): Promise<RawProviderResponse> {
+    async generateResponse(payload: IProviderRequest): Promise<IRawProviderResponse> {
         const step = await this.resolveStep(payload.messages, undefined);
         const hydrated = hydrateResponseSnapshot(step.response);
         if (!hydrated.raw) {
@@ -291,7 +290,7 @@ class ScenarioMockAIProvider implements AIProvider {
         return true;
     }
 
-    private async resolveStep(messages: TUniversalMessage[], options?: ChatOptions): Promise<ScenarioStep> {
+    private async resolveStep(messages: TUniversalMessage[], options?: IChatOptions): Promise<ScenarioStep> {
         if (this.options.strategy === 'sequential') {
             const steps = await this.options.store.listSteps(this.options.scenarioId);
             if (this.pointer >= steps.length) {
@@ -339,7 +338,7 @@ class ScenarioMockAIProvider implements AIProvider {
         }
     }
 
-    private debugHashMiss(hash: string, messages: TUniversalMessage[], options?: ChatOptions): void {
+    private debugHashMiss(hash: string, messages: TUniversalMessage[], options?: IChatOptions): void {
         const debugEnabled = process.env.SCENARIO_DEBUG_HASH_MISS === '1' || process.env.SCENARIO_DEBUG_HASH_MISS === 'true';
         if (!debugEnabled) {
             return;

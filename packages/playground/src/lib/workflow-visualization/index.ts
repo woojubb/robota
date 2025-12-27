@@ -14,12 +14,12 @@ export {
 } from './react-flow';
 
 export type {
-    ReactFlowData,
-    ReactFlowNode,
-    ReactFlowEdge,
-    ReactFlowPosition,
-    ReactFlowNodeData,
-    ReactFlowEdgeData
+    IReactFlowData,
+    IReactFlowNode,
+    IReactFlowEdge,
+    IReactFlowPosition,
+    IReactFlowNodeData,
+    IReactFlowEdgeData
 } from './react-flow/types';
 
 export {

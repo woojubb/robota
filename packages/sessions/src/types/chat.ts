@@ -1,6 +1,6 @@
 import type {
     Robota,
-    AgentConfig,
+    IAgentConfig,
     TUniversalMessage
 } from '@robota-sdk/agents';
 
@@ -15,7 +15,7 @@ export type TMessageContent = string;
 export interface IChatConfig {
     chatName?: string;
     description?: string;
-    robotaConfig: AgentConfig; // Required for creating the agent
+    robotaConfig: IAgentConfig; // Required for creating the agent
     agentTemplate?: string; // Optional agent template name
 }
 
@@ -38,9 +38,9 @@ export interface IChatMetadata {
  * Template manager interface for agent templates
  */
 export interface ITemplateManager {
-    getTemplate(name: string): AgentConfig | undefined;
+    getTemplate(name: string): IAgentConfig | undefined;
     listTemplates(): string[];
-    validateTemplate(config: AgentConfig): boolean;
+    validateTemplate(config: IAgentConfig): boolean;
 }
 
 /**
@@ -56,8 +56,8 @@ export interface IChatInstance {
     regenerateResponse(): Promise<string>;
 
     // Configuration
-    updateRobotaConfig(config: AgentConfig): Promise<void>;
-    getRobotaConfig(): AgentConfig;
+    updateRobotaConfig(config: IAgentConfig): Promise<void>;
+    getRobotaConfig(): IAgentConfig;
 
     // Agent Template Support
     upgradeToTemplate?(templateName: string): Promise<void>;

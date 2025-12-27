@@ -405,6 +405,17 @@ export function TemplateGallery({ onSelectTemplate, onClose }: ITemplateGalleryP
     const [selectedTemplate, setSelectedTemplate] = useState<ITemplate | null>(null);
     const { toast } = useToast();
 
+    const handleSelectedProviderChange = (value: string) => {
+        if (value === 'all') {
+            setSelectedProvider('all');
+            return;
+        }
+        if (value !== 'openai' && value !== 'anthropic' && value !== 'google') {
+            throw new Error(`[PLAYGROUND] Invalid provider filter value: "${value}"`);
+        }
+        setSelectedProvider(value);
+    };
+
     const filteredTemplates = templates.filter(template => {
         const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -491,7 +502,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: ITemplateGalleryP
                         <SelectItem value="advanced">Advanced</SelectItem>
                     </SelectContent>
                 </Select>
-                <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                <Select value={selectedProvider} onValueChange={handleSelectedProviderChange}>
                     <SelectTrigger className="w-32">
                         <SelectValue placeholder="Provider" />
                     </SelectTrigger>

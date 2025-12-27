@@ -15,7 +15,7 @@ import type {
     IWorkflowData,
     IWorkflowConfig
 } from '../interfaces/workflow-converter';
-import type { AbstractLogger } from '../utils/abstract-logger';
+import type { IAbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 import type { TUniversalValue } from '../interfaces/types';
 
@@ -27,7 +27,7 @@ export interface IBaseWorkflowConverterOptions {
     enabled?: boolean;
 
     /** Custom logger instance */
-    logger?: AbstractLogger;
+    logger?: IAbstractLogger;
 
     /** Converter-specific configuration */
     config?: IWorkflowConfig;
@@ -70,7 +70,7 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
     public enabled: boolean;
 
     /** Logger instance with dependency injection */
-    protected readonly logger: AbstractLogger;
+    protected readonly logger: IAbstractLogger;
 
     /** Converter configuration */
     protected readonly config: IWorkflowConfig;
@@ -320,17 +320,7 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
                 outputStats: this.getDataStats(data as Record<string, TUniversalValue>),
                 converter: this.name,
                 version: this.version,
-                // Step 1: ❌ Can't assign IWorkflowConversionOptions to metadata value type directly
-                // Step 2: ✅ Use TMetadata/TMetadataValue-compatible structures
-                // Step 3: ✅ Convert to metadata-compatible format with proper types
-                // Step 4: ✅ Preserve type safety while enabling storage
-                ...(options.includeDebug && options ? {
-                    options: {
-                        includeDebug: options.includeDebug as boolean,
-                        validateInput: options.validateInput as boolean,
-                        validateOutput: options.validateOutput as boolean
-                    } as Record<string, boolean>
-                } : {})
+                ...(options.includeDebug ? { options } : {})
             }
         };
     }
@@ -343,13 +333,13 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
         warnings: string[],
         startTime: number,
         input: TInput,
-        _logger: AbstractLogger
+        _logger: IAbstractLogger
     ): IWorkflowConversionResult<TOutput> {
         const now = new Date();
         const processingTime = now.getTime() - startTime;
 
         return {
-            data: null as unknown as TOutput, // Type assertion for failed conversion
+            data: null as never as TOutput,
             success: false,
             errors,
             warnings,
