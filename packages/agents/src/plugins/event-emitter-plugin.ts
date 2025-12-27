@@ -11,7 +11,7 @@ import {
 import type { IToolExecutionContext, TToolParameters, IToolResult } from '../interfaces/tool';
 import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
-import type { TimerId } from '../utils';
+import type { TTimerId } from '../utils';
 import {
     EVENT_EMITTER_EVENTS,
     type IEventEmitterEventData,
@@ -180,7 +180,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     private handlers = new Map<TEventName, IEventEmitterHandlerRegistration[]>();
     private eventBuffer: IEventEmitterEventData[] = [];
     private nextHandlerId = 1;
-    private bufferTimer?: TimerId;
+    private bufferTimer?: TTimerId;
 
     constructor(options: IEventEmitterPluginOptions = {}) {
         super();

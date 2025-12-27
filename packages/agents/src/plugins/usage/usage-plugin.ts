@@ -2,8 +2,9 @@ import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/
 import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { IEventEmitterEventData, TEventName } from '../event-emitter-plugin';
-import type { TimerId } from '../../utils';
+import type { TTimerId } from '../../utils/index';
 import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
+import { startPeriodicTask } from '../../utils/periodic-task';
 import {
     IUsageStats,
     IAggregatedUsageStats,
@@ -29,7 +30,7 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
     private storage: IUsageStorage;
     private pluginOptions: Required<Omit<IUsagePluginOptions, 'costRates'>> & { costRates?: Record<string, { input: number; output: number }> };
     private logger: ILogger;
-    private aggregationTimer?: TimerId;
+    private aggregationTimer?: TTimerId;
 
     constructor(options: IUsagePluginOptions) {
         super();
@@ -341,8 +342,10 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
      * Setup periodic aggregation
      */
     private setupAggregation(): void {
-        this.aggregationTimer = setInterval(async () => {
-            try {
+        this.aggregationTimer = startPeriodicTask(
+            this.logger,
+            { name: 'UsagePlugin.aggregate', intervalMs: this.pluginOptions.aggregationInterval },
+            async () => {
                 const stats = await this.getAggregatedStats();
                 this.logger.debug('Periodic usage aggregation', {
                     totalRequests: stats.totalRequests,
@@ -350,11 +353,7 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
                     totalCost: stats.totalCost,
                     successRate: stats.successRate
                 });
-            } catch (error) {
-                this.logger.error('Error during periodic aggregation', {
-                    error: error instanceof Error ? error.message : String(error)
-                });
             }
-        }, this.pluginOptions.aggregationInterval);
+        );
     }
 } 

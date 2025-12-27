@@ -7,8 +7,8 @@
 
 import { WebLogger } from '../web-logger';
 import type { TUniversalValue } from '@robota-sdk/agents';
-import type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageType } from '@robota-sdk/remote';
-export type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageType } from '@robota-sdk/remote';
+import type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageKind } from '@robota-sdk/remote';
+export type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageKind } from '@robota-sdk/remote';
 
 export interface IPlaygroundConnectionStatus {
     connected: boolean;

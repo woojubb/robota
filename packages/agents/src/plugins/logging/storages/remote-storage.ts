@@ -2,7 +2,8 @@ import type { ILogEntry, ILogStorage, ILogFormatter } from '../types';
 import { JsonLogFormatter } from '../formatters';
 import { createLogger, type ILogger } from '../../../utils/logger';
 import { PluginError } from '../../../utils/errors';
-import type { TimerId } from '../../../utils';
+import type { TTimerId } from '../../../utils';
+import { startPeriodicTask, stopPeriodicTask } from '../../../utils/periodic-task';
 
 /**
  * Remote log storage with batching
@@ -13,7 +14,7 @@ export class RemoteLogStorage implements ILogStorage {
     private batchSize: number;
     private flushInterval: number;
     private pendingLogs: ILogEntry[] = [];
-    private flushTimer: TimerId | undefined;
+    private flushTimer: TTimerId | undefined;
     private logger: ILogger;
 
     constructor(url: string, _options: { timeout?: number } = {}) {
@@ -24,7 +25,9 @@ export class RemoteLogStorage implements ILogStorage {
         this.logger = createLogger('RemoteLogStorage');
 
         // Start flush timer
-        this.startFlushTimer();
+        this.flushTimer = startPeriodicTask(this.logger, { name: 'RemoteLogStorage.flush', intervalMs: this.flushInterval }, async () => {
+            await this.flush();
+        });
     }
 
     async write(entry: ILogEntry): Promise<void> {
@@ -59,23 +62,9 @@ export class RemoteLogStorage implements ILogStorage {
     }
 
     async close(): Promise<void> {
-        if (this.flushTimer) {
-            clearInterval(this.flushTimer);
-            this.flushTimer = undefined;
-        }
+        stopPeriodicTask(this.flushTimer);
+        this.flushTimer = undefined;
 
         await this.flush();
-    }
-
-    private startFlushTimer(): void {
-        this.flushTimer = setInterval(async () => {
-            try {
-                await this.flush();
-            } catch (error) {
-                this.logger.error('Failed to flush logs on timer', {
-                    error: error instanceof Error ? error.message : String(error)
-                });
-            }
-        }, this.flushInterval);
     }
 } 

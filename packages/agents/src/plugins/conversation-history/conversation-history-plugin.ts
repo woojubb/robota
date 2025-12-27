@@ -2,7 +2,8 @@ import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/
 import { TUniversalMessage } from '../../interfaces/agent';
 import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
-import type { TimerId } from '../../utils';
+import type { TTimerId } from '../../utils/index';
+import { startPeriodicTask, stopPeriodicTask } from '../../utils/periodic-task';
 import {
     IConversationHistoryPluginOptions,
     IConversationHistoryPluginStats,
@@ -27,7 +28,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<IConversationHisto
     private pluginOptions: Required<IConversationHistoryPluginOptions>;
     private logger: ILogger;
     private currentConversationId?: string;
-    private batchSaveTimer?: TimerId;
+    private batchSaveTimer?: TTimerId;
     private pendingSaves = new Set<string>();
 
     constructor(options: IConversationHistoryPluginOptions) {
@@ -236,9 +237,8 @@ export class ConversationHistoryPlugin extends AbstractPlugin<IConversationHisto
      */
     async destroy(): Promise<void> {
         try {
-            if (this.batchSaveTimer) {
-                clearInterval(this.batchSaveTimer);
-            }
+            stopPeriodicTask(this.batchSaveTimer);
+            this.batchSaveTimer = undefined;
 
             // Save any pending conversations
             await this.savePending();
@@ -300,14 +300,12 @@ export class ConversationHistoryPlugin extends AbstractPlugin<IConversationHisto
      * Setup batch saving timer
      */
     private setupBatchSaving(): void {
-        this.batchSaveTimer = setInterval(async () => {
-            try {
+        this.batchSaveTimer = startPeriodicTask(
+            this.logger,
+            { name: 'ConversationHistoryPlugin.savePending', intervalMs: this.pluginOptions.saveInterval },
+            async () => {
                 await this.savePending();
-            } catch (error) {
-                this.logger.error('Error during batch save', {
-                    error: error instanceof Error ? error.message : String(error)
-                });
             }
-        }, this.pluginOptions.saveInterval);
+        );
     }
 } 

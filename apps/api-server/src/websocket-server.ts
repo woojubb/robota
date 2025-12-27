@@ -2,7 +2,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { IncomingMessage } from 'http';
 import { Server } from 'http';
 
-import type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageType } from '@robota-sdk/remote';
+import type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageKind } from '@robota-sdk/remote';
 import type { TUniversalValue } from '@robota-sdk/agents';
 
 function isUniversalObjectValue(value: TUniversalValue): value is Record<string, TUniversalValue> {
@@ -260,7 +260,7 @@ export class PlaygroundWebSocketServer {
 
         const messageWithTimestamp: IPlaygroundWebSocketMessage = {
             ...message,
-            type: message.type as TPlaygroundWebSocketMessageType,
+            type: message.type as TPlaygroundWebSocketMessageKind,
             timestamp: new Date().toISOString()
         };
 

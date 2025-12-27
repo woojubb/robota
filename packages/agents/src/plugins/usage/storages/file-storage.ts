@@ -1,6 +1,7 @@
 import { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 import { createLogger, type ILogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
+import { aggregateUsageStats } from '../aggregate-usage-stats';
 
 /**
  * File storage implementation for usage statistics
@@ -57,28 +58,8 @@ export class FileUsageStorage implements IUsageStorage {
 
     async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats> {
         try {
-            // File operations would be implemented here
-            this.logger.warn('File usage storage not fully implemented yet', {
-                filePath: this.filePath,
-                timeRange
-            });
-
-            // Return empty aggregated stats as placeholder
-            return {
-                totalRequests: 0,
-                totalTokens: 0,
-                totalCost: 0,
-                totalDuration: 0,
-                successRate: 0,
-                providerStats: {},
-                modelStats: {},
-                toolStats: {},
-                timeRangeStats: {
-                    startTime: timeRange?.start || new Date(),
-                    endTime: timeRange?.end || new Date(),
-                    period: 'unknown'
-                }
-            };
+            const stats = await this.getStats(undefined, timeRange);
+            return aggregateUsageStats(stats, timeRange);
         } catch (error) {
             throw new StorageError('Failed to get aggregated usage stats from file', {
                 filePath: this.filePath,

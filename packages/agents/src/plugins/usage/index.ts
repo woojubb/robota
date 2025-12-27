@@ -1,4 +1,5 @@
 export { UsagePlugin } from './usage-plugin';
+export { aggregateUsageStats } from './aggregate-usage-stats';
 export type {
     TUsageTrackingStrategy,
     IUsageStats,
