@@ -1,7 +1,7 @@
 import type { IToolManager } from '../interfaces/manager';
 import type { IToolSchema } from '../interfaces/provider';
 import type { ITool, TToolExecutor, TToolParameters, IToolExecutionContext } from '../interfaces/tool';
-import type { TToolResultData } from '../interfaces/types';
+import type { TUniversalValue } from '../interfaces/types';
 import { AbstractManager } from '../abstracts/abstract-manager';
 import { ToolRegistry } from '../tools/registry/tool-registry';
 import { FunctionTool } from '../tools/implementations/function-tool';
@@ -95,7 +95,7 @@ export class Tools extends AbstractManager implements IToolManager {
     /**
      * Execute a tool with parameters
      */
-    async executeTool(name: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<TToolResultData> {
+    async executeTool(name: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<TUniversalValue> {
         this.ensureInitialized();
 
         // Check if tool is allowed

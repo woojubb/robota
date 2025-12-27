@@ -1,9 +1,9 @@
 import type { IToolSchema } from './provider';
 import type { IEventService, IOwnerPathSegment } from './event-service';
-import type { TContextData, TLoggerData, TToolParameters, TToolResultData, TUniversalValue } from './types';
+import type { TContextData, TLoggerData, TToolParameters, TUniversalValue } from './types';
 
 // Re-export canonical tool parameter types from the shared "types" axis.
-export type { TToolParameterValue, TToolParameters } from './types';
+export type { TToolParameters } from './types';
 
 export type TToolContextExtensionValue =
     | TUniversalValue
@@ -12,7 +12,6 @@ export type TToolContextExtensionValue =
     | TLoggerData
     | TContextData
     | TToolParameters
-    | TToolResultData
     | TToolMetadata;
 
 /**
@@ -32,7 +31,7 @@ export type TToolMetadata = Record<string, string | number | boolean | string[] 
  */
 export interface IToolResult {
     success: boolean;
-    data?: TToolResultData;
+    data?: TUniversalValue;
     error?: string;
     metadata?: TToolMetadata;
     [key: string]: TToolContextExtensionValue | undefined;
@@ -47,7 +46,7 @@ export interface IToolExecutionResult {
     /** Tool name that was executed */
     toolName?: string;
     /** Execution result or data */
-    result?: TToolResultData;
+    result?: TUniversalValue;
     /** Error message if execution failed */
     error?: string;
     /** Execution duration in milliseconds */
@@ -143,7 +142,7 @@ export interface IParameterValidationResult {
 /**
  * Generic tool executor function
  */
-export type TToolExecutor<TParams = TToolParameters, TResult = TToolResultData> =
+export type TToolExecutor<TParams = TToolParameters, TResult = TUniversalValue> =
     (parameters: TParams, context?: IToolExecutionContext) => Promise<TResult>;
 
 /**

@@ -8,7 +8,7 @@
  */
 
 import { listTemplateCategoriesTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
-import type { IToolExecutionContext, IToolResult, TToolResultData } from '@robota-sdk/agents';
+import type { IToolExecutionContext, IToolResult, TUniversalValue } from '@robota-sdk/agents';
 import type { TTemplateSummary, TTemplatesListPayload } from './lib/template-payloads';
 
 type TCategorySummary = {
@@ -21,11 +21,11 @@ type TCategoriesPayload = {
     categories: TCategorySummary[];
 };
 
-const isObject = (value: TToolResultData): value is Record<string, TToolResultData> => {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
+const isObject = (value: TUniversalValue): value is Record<string, TUniversalValue> => {
+    return typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date);
 };
 
-const isCategorySummary = (value: TToolResultData): value is TCategorySummary => {
+const isCategorySummary = (value: TUniversalValue): value is TCategorySummary => {
     if (!isObject(value)) return false;
     const id = value.id;
     const name = value.name;
@@ -36,7 +36,7 @@ const isCategorySummary = (value: TToolResultData): value is TCategorySummary =>
     return true;
 };
 
-const isTemplateSummary = (value: TToolResultData): value is TTemplateSummary => {
+const isTemplateSummary = (value: TUniversalValue): value is TTemplateSummary => {
     if (!isObject(value)) return false;
     const id = value.id;
     const name = value.name;

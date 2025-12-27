@@ -111,12 +111,8 @@ export interface IWebhookExecutionResult {
     toolsExecuted?: number | undefined;
     success?: boolean | undefined;
     usage?: { totalTokens?: number | undefined } | undefined;
-    toolCalls?: Array<{
-        id?: string | undefined;
-        name?: string | undefined;
-        arguments?: Record<string, string | number | boolean> | undefined;
-        result?: string | number | boolean | null | undefined;
-    }> | undefined;
+    // SSOT: reuse the canonical toolCalls shape from IPluginExecutionResult.
+    toolCalls?: import('../../abstracts/abstract-plugin').IPluginExecutionResult['toolCalls'];
     results?: Array<{
         toolName?: string | undefined;
         toolId?: string | undefined;

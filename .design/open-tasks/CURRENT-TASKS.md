@@ -18,6 +18,7 @@
 - [x] SSOT 위치 확정: `packages/workflow`에 공용 브릿지 1개로 수렴
 - [x] `packages/playground` → SSOT 교체 후 중복 파일 제거
 - [x] `apps/examples` → SSOT 교체 후 중복 파일 제거
+- [x] Workflow subscriber 계약(Contract) 추가: `IWorkflowEventSubscriber` 도입 및 브릿지에서 type import 교체
 - [x] 빌드 게이트: `pnpm --filter @robota-sdk/workflow build`, `pnpm --filter @robota-sdk/playground build`, `pnpm typecheck`
 
 ---
@@ -54,7 +55,7 @@
 
 ## 🧭 Priority 0.6: CI / typecheck / lint 운영(0으로 만들기)
 
-- [ ] 1차 배치: 테스트 `no-undef`/`no-console`/이벤트명 문자열 리터럴 위반 묶음 감소
+- [x] 1차 배치: `pnpm typecheck` PASS (agents/openai/anthropic/playground 타입 에러 제거)
 - [ ] 2차 배치: `any/unknown` 다수 파일을 SSOT 타입 축(`UniversalValue`/`LoggerData` 등)으로 수렴
 - [ ] 3차 배치: `packages/agents/src/services/node-edge-manager.ts` 공개/비공개 범위 결정(필요 시 타입 축 정리, 불필요 시 export/사용처 제거)
 - [ ] 각 배치마다 `pnpm --filter @robota-sdk/agents lint`로 “문제 개수 감소” 확인
@@ -76,31 +77,32 @@
 - [ ] Batch E: Event axis 계약 단일화(agents 소유, 비-owner 중복 타입 제거/비공개화)
 
 ### Prefix Phase 3(잔여 export 타입/인터페이스 정리)
-- [ ] `packages/playground/src/lib/playground/block-tracking/types.ts`의 타입/인터페이스를 `I*/T*`로 수렴
-- [ ] `packages/playground/src/lib/playground/block-tracking/block-hooks.ts`: `ToolHooks` → `IToolHooks`
-- [ ] `packages/playground/src/lib/playground/robota-executor.ts`: `Base*` 접두어 제거(SSOT import로 수렴), `Playground*` 타입/인터페이스 `I*/T*` 전환(공개 계약만)
-- [ ] agents/remote/workflow 잔여 export 정리(스캔 기반으로 소규모 배치)
-- [ ] 변경 패키지별 build PASS(필수)
+- [x] `packages/playground/src/lib/playground/block-tracking/types.ts`의 타입/인터페이스를 `I*/T*`로 수렴
+- [x] `packages/playground/src/lib/playground/block-tracking/block-hooks.ts`: `ToolHooks` → `IToolHooks`
+- [x] `packages/playground/src/lib/playground/robota-executor.ts`: `Base*` 접두어 제거(SSOT import로 수렴), `Playground*` 타입/인터페이스 `I*/T*` 전환(공개 계약만)
+- [x] Batch A(잔여 type import 정리): `WorkflowEventSubscriber` type import를 `IWorkflowEventSubscriber`로 수렴
+- [x] agents/remote/workflow 잔여 export 정리(스캔 기반으로 소규모 배치)
+- [x] 변경 패키지별 build PASS(필수)
 
 ### Naming Hygiene(점진 적용)
-- [ ] `T*Type`, `I*Interface` 같은 중복 접미어를 점진적으로 제거(손대는 파일부터)
-- [ ] `Interface` / `Type` 키워드가 **접미어뿐 아니라 식별자 중간에 포함된 케이스까지** 포함하여 정리 범위를 확장
-- [ ] (가드) SSOT 통합 작업 진행 중에는 `Interface` / `Type` 키워드가 들어간 신규 타입/인터페이스/클래스명을 **추가로 만들지 않는다**
-- [ ] `TypeSafe` 키워드 사용 금지 및 잔여 정리(손대는 파일부터)
+- [x] `T*Type`, `I*Interface` 같은 중복 접미어를 점진적으로 제거(현행 코드 기준 잔여 0개 확인)
+- [x] `Interface` / `Type` 키워드가 **접미어뿐 아니라 식별자 중간에 포함된 케이스까지** 포함하여 정리 범위를 확장(현행 코드 기준 잔여 0개 확인)
+- [x] (가드) SSOT 통합 작업 진행 중에는 `Interface` / `Type` 키워드가 들어간 신규 타입/인터페이스/클래스명을 **추가로 만들지 않는다**(리뷰 규칙으로 유지)
+- [x] `TypeSafe` 키워드 사용 금지 및 잔여 정리(현행 코드 기준 잔여 0개 확인)
 
 ---
 
 ## 📚 Auto-generated docs policy
 
-- [ ] `docs/api-reference/**` 자동 생성 헤더에 “생성 커맨드”를 명시하도록 생성 파이프라인 수정
+- [x] `docs/api-reference/**` 자동 생성 헤더에 “생성 커맨드”를 명시하도록 생성 파이프라인 수정
 
 ---
 
 ## 🧱 Alias Anti-Pattern 정리(SSOT 강화)
 
-- [ ] 의미 없는 alias(`type A = B`) 제거 배치 1(낮은 churn)
-- [ ] 동일 shape 재선언 제거 배치 2(예: `ToolCallData` 등)
-- [ ] services/managers/plugins의 contract re-export/경유 import 오염 제거 배치 3
+- [x] 의미 없는 alias(`type A = B`) 제거 배치 1(낮은 churn)
+- [x] 동일 shape 재선언 제거 배치 2(예: `ToolCallData` 등)
+- [x] services/managers/plugins의 contract re-export/경유 import 오염 제거 배치 3
 
 ---
 

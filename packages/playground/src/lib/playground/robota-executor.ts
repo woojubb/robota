@@ -15,7 +15,7 @@
 
 import { Robota } from '@robota-sdk/agents';
 import type { IAIProvider, IEventService, IToolSchema, TLoggerData, TUniversalMessage, TUniversalValue } from '@robota-sdk/agents';
-import type { IWorkflowExportStructure, WorkflowEventSubscriber } from '@robota-sdk/workflow';
+import type { IWorkflowEventSubscriber, IWorkflowExportStructure } from '@robota-sdk/workflow';
 import { DefaultExternalWorkflowStore, type IExternalWorkflowStore } from './external-workflow-store';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
@@ -130,7 +130,7 @@ export class PlaygroundExecutor {
     private websocketClient: PlaygroundWebSocketClient | null = null;
 
     // SDK Workflow system
-    private workflowSubscriber: WorkflowEventSubscriber;
+    private workflowSubscriber: IWorkflowEventSubscriber;
 
     // STEP 8.3.1: External Workflow Store
     private externalWorkflowStore: IExternalWorkflowStore;
@@ -142,7 +142,7 @@ export class PlaygroundExecutor {
         private authToken: string,
         options: {
             eventService: IEventService;
-            workflowSubscriber: WorkflowEventSubscriber;
+            workflowSubscriber: IWorkflowEventSubscriber;
             logger?: ILogger;
         }
     ) {

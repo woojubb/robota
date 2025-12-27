@@ -118,7 +118,6 @@ export type {
  * @public
  */
 export type { TToolParameters, IToolResult, IToolExecutionContext } from './interfaces/tool';
-export type { TToolResultData } from './interfaces/types';
 
 /**
  * Universal message format and assistant message used internally by the conversation history manager.

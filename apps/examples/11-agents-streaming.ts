@@ -38,6 +38,12 @@ async function main() {
         // ===== AGENT CONFIGURATION FOR STREAMING =====
         console.log('⚙️ Creating agent optimized for streaming...');
 
+        const performancePlugin = new PerformancePlugin({
+            strategy: 'memory',
+            monitorMemory: true,
+            aggregateStats: true
+        });
+
         const config: IAgentConfig = {
             name: 'StreamingAgent',
             aiProviders: [openaiProvider],
@@ -46,11 +52,7 @@ async function main() {
                 model: 'gpt-3.5-turbo'
             },
             plugins: [
-                new PerformancePlugin({
-                    strategy: 'memory',
-                    monitorMemory: true,
-                    aggregateStats: true
-                }),
+                performancePlugin,
                 new LoggingPlugin({
                     strategy: 'silent',
                     level: 'error',
@@ -95,14 +97,11 @@ async function main() {
 
         // ===== PERFORMANCE MONITORING =====
         console.log('⚡ Performance Metrics:');
-        const performancePlugin = robota.getPlugin<PerformancePlugin>('performance-plugin');
-        if (performancePlugin) {
-            const stats = await performancePlugin.getAggregatedStats();
-            console.log(`- Total operations: ${stats.totalOperations}`);
-            console.log(`- Average duration: ${Math.round(stats.averageDuration)}ms`);
-            if (stats.memoryStats) {
-                console.log(`- Avg heap used: ${Math.round(stats.memoryStats.averageHeapUsed / 1024 / 1024)}MB`);
-            }
+        const stats = await performancePlugin.getAggregatedStats();
+        console.log(`- Total operations: ${stats.totalOperations}`);
+        console.log(`- Average duration: ${Math.round(stats.averageDuration)}ms`);
+        if (stats.memoryStats) {
+            console.log(`- Avg heap used: ${Math.round(stats.memoryStats.averageHeapUsed / 1024 / 1024)}MB`);
         }
         console.log();
 

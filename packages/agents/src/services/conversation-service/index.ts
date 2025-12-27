@@ -7,7 +7,7 @@ import type {
     TUniversalMessage
 } from '../../interfaces/messages';
 import type { IAIProvider, IProviderRequest, IRawProviderResponse } from '../../interfaces/provider';
-import type { TToolResultData } from '../../interfaces/types';
+import type { TUniversalValue } from '../../interfaces/types';
 import { NetworkError, ProviderError } from '../../utils/errors';
 import { createLogger, type ILogger } from '../../utils/logger';
 import {
@@ -377,7 +377,7 @@ export class ConversationService implements IConversationService {
     /**
      * Create a tool message
      */
-    createToolMessage(toolCallId: string, result: TToolResultData, metadata?: Record<string, string | number | boolean>): IToolMessage {
+    createToolMessage(toolCallId: string, result: TUniversalValue, metadata?: Record<string, string | number | boolean>): IToolMessage {
         return ConversationService.createToolMessageStatic(toolCallId, result, metadata);
     }
 
@@ -426,7 +426,7 @@ export class ConversationService implements IConversationService {
         };
     }
 
-    private static createToolMessageStatic(toolCallId: string, result: TToolResultData, metadata?: Record<string, string | number | boolean>): IToolMessage {
+    private static createToolMessageStatic(toolCallId: string, result: TUniversalValue, metadata?: Record<string, string | number | boolean>): IToolMessage {
         return {
             role: 'tool',
             content: typeof result === 'string' ? result : JSON.stringify(result),

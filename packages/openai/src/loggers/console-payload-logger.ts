@@ -54,16 +54,11 @@ export class ConsolePayloadLogger implements IPayloadLogger {
         }
 
         try {
-            const logData = {
-                timestamp: new Date().toISOString(),
-                type,
-                provider: 'openai',
-                payload: sanitizeOpenAILogData(payload)
-            };
+            const sanitizedPayload = sanitizeOpenAILogData(payload);
 
             // Use structured console logging for better browser developer tools integration
             const title = `[OpenAI ${type.toUpperCase()}] API Payload`;
-            const timeInfo = this.includeTimestamp ? ` (${logData.timestamp})` : '';
+            const timeInfo = this.includeTimestamp ? ` (${sanitizedPayload.timestamp})` : '';
 
             // Group related log entries for better organization
             this.logger.group?.(`${title}${timeInfo}`);
@@ -77,7 +72,7 @@ export class ConsolePayloadLogger implements IPayloadLogger {
                 maxTokens: payload.maxTokens
             });
 
-            this.logger.debug('🔍 Full Payload:', logData);
+            this.logger.debug('🔍 Full Payload:', { type, provider: 'openai', ...sanitizedPayload });
 
             this.logger.groupEnd?.();
 
