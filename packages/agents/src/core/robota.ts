@@ -1,7 +1,7 @@
 import { AbstractAgent } from '../abstracts/abstract-agent';
 import { TUniversalMessage, IAgentConfig, IRunOptions, IAgent, IExecutionContextInjection } from '../interfaces/agent';
-import { AbstractPlugin } from '../abstracts/abstract-plugin';
-import { AbstractModule } from '../abstracts/abstract-module';
+import type { IPluginContract, IPluginHooks, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
+import type { IModule } from '../abstracts/abstract-module';
 import { ModuleRegistry } from '../managers/module-registry';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
@@ -21,7 +21,7 @@ import {
 } from '../services/event-service';
 
 
-import { AbstractTool } from '../abstracts/abstract-tool';
+import { AbstractTool, type IToolWithEventService } from '../abstracts/abstract-tool';
 import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 import type { IToolExecutionContext, TToolParameters } from '../interfaces/tool';
@@ -275,11 +275,11 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * Update tools for this agent instance.
      * Rebuilds the Tools registry atomically and emits CONFIG_UPDATED event.
      */
-    public async updateTools(next: AbstractTool[]): Promise<{ version: number }> {
+    public async updateTools(next: Array<IToolWithEventService>): Promise<{ version: number }> {
         await this.ensureFullyInitialized();
 
         if (!Array.isArray(next)) {
-            throw new ConfigurationError('updateTools: next must be an array of AbstractTool');
+            throw new ConfigurationError('updateTools: next must be an array of tools');
         }
 
         // Rebuild tool registry atomically
@@ -288,9 +288,6 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
 
         const toolNames: string[] = [];
         for (const tool of next) {
-            if (!(tool instanceof AbstractTool)) {
-                throw new ConfigurationError('updateTools: all items must be AbstractTool instances');
-            }
             // Inject EventService into AbstractTool if available
             if (this.eventService) {
                 tool.setEventService(this.eventService);
@@ -849,7 +846,7 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * robota.addPlugin(new PerformancePlugin({ trackMemory: true }));
      * ```
      */
-    addPlugin(plugin: AbstractPlugin): void {
+    addPlugin(plugin: IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks): void {
         this.executionService.registerPlugin(plugin);
         this.logger.debug('Plugin added', { pluginName: plugin.name });
     }
@@ -896,8 +893,8 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * }
      * ```
      */
-    getPlugin<T extends AbstractPlugin = AbstractPlugin>(pluginName: string): T | null {
-        return this.executionService.getPlugin<T>(pluginName);
+    getPlugin(pluginName: string): (IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks) | null {
+        return this.executionService.getPlugin(pluginName);
     }
 
     /**
@@ -914,7 +911,7 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * });
      * ```
      */
-    getPlugins(): AbstractPlugin[] {
+    getPlugins(): Array<IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks> {
         return this.executionService.getPlugins();
     }
 
@@ -937,7 +934,7 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * @param module - The module instance to register
      * @param options - Registration options
      */
-    async registerModule(module: AbstractModule, options?: { autoInitialize?: boolean; validateDependencies?: boolean }): Promise<void> {
+    async registerModule(module: IModule, options?: { autoInitialize?: boolean; validateDependencies?: boolean }): Promise<void> {
         await this.ensureFullyInitialized();
 
         await this.moduleRegistry.registerModule(module, {
@@ -975,11 +972,11 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * @param moduleName - Name of the module to retrieve
      * @returns The module instance or null if not found
      */
-    getModule<T extends AbstractModule = AbstractModule>(moduleName: string): T | null {
+    getModule(moduleName: string): IModule | null {
         if (!this.isFullyInitialized) {
             return null;
         }
-        return this.moduleRegistry.getModule<T>(moduleName);
+        return this.moduleRegistry.getModule(moduleName);
     }
 
     /**
@@ -987,18 +984,18 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * @param moduleType - Type of modules to retrieve
      * @returns Array of modules matching the type
      */
-    getModulesByType<T extends AbstractModule = AbstractModule>(moduleType: string): T[] {
+    getModulesByType(moduleType: string): IModule[] {
         if (!this.isFullyInitialized) {
             return [];
         }
-        return this.moduleRegistry.getModulesByType<T>(moduleType);
+        return this.moduleRegistry.getModulesByType(moduleType);
     }
 
     /**
      * Get all registered modules
      * @returns Array of all registered modules
      */
-    getModules(): AbstractModule[] {
+    getModules(): IModule[] {
         if (!this.isFullyInitialized) {
             return [];
         }

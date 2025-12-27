@@ -12,6 +12,7 @@ export type {
 
 // Block collector implementation
 export { PlaygroundBlockCollector } from './block-collector';
+export type { IPlaygroundBlockCollector } from './block-collector';
 
 // Hook creation functions
 export {

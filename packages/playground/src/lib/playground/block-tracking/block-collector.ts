@@ -10,10 +10,24 @@ import type {
 import { WebLogger } from '../../web-logger';
 
 /**
+ * SSOT contract for consumers that only need the collector API.
+ *
+ * IMPORTANT:
+ * - Prefer importing this interface over importing the concrete class as a type.
+ * - The concrete `PlaygroundBlockCollector` implements this contract.
+ */
+export interface IPlaygroundBlockCollector extends IBlockDataCollector {
+    updateRealTimeBlock(blockId: string, updates: Partial<IRealTimeBlockMetadata>): void;
+    getBlock(blockId: string): IBlockMessage | undefined;
+    removeBlock(blockId: string): void;
+    getBlockTree(): IBlockTreeNode[];
+}
+
+/**
  * Playground-specific block collector implementation
  * Manages block collection with React state integration
  */
-export class PlaygroundBlockCollector implements IBlockDataCollector {
+export class PlaygroundBlockCollector implements IPlaygroundBlockCollector {
     private blocks: Map<string, IBlockMessage> = new Map();
     private listeners: Set<TBlockCollectionListener> = new Set();
     private rootBlocks: string[] = [];

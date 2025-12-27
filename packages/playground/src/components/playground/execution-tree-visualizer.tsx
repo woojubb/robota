@@ -15,7 +15,7 @@ import type {
     IRealTimeBlockMessage,
     IRealTimeBlockMetadata
 } from '../../lib/playground/block-tracking/types';
-import type { PlaygroundBlockCollector } from '../../lib/playground/block-tracking/block-collector';
+import type { IPlaygroundBlockCollector } from '../../lib/playground/block-tracking/block-collector';
 
 /**
  * Tree node structure for hierarchical rendering
@@ -31,7 +31,7 @@ interface IExecutionTreeNode {
  */
 export interface IExecutionTreeVisualizerProps {
     /** Block collector containing all execution blocks */
-    blockCollector: PlaygroundBlockCollector;
+    blockCollector: IPlaygroundBlockCollector;
 
     /** Whether to show debug information */
     showDebug?: boolean;

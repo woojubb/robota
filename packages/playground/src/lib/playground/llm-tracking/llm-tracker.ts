@@ -1,4 +1,4 @@
-import type { PlaygroundBlockCollector } from '../block-tracking/block-collector';
+import type { IPlaygroundBlockCollector } from '../block-tracking/block-collector';
 import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from '../block-tracking/types';
 import type { TUniversalValue } from '@robota-sdk/agents';
 
@@ -25,12 +25,12 @@ interface ILLMResponseData {
  * Follows "actual data only" principle - only tracks real LLM responses.
  */
 export class RealTimeLLMTracker {
-    private blockCollector: PlaygroundBlockCollector;
+    private blockCollector: IPlaygroundBlockCollector;
     private trackedResponsesCount = 0;
     private responseCheckInterval?: NodeJS.Timeout;
     private lastHistoryLength = 0;
 
-    constructor(blockCollector: PlaygroundBlockCollector) {
+    constructor(blockCollector: IPlaygroundBlockCollector) {
         this.blockCollector = blockCollector;
     }
 

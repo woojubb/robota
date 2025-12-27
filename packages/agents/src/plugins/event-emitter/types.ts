@@ -71,6 +71,29 @@ export interface IEventEmitterEventData {
 export type TEventEmitterListener = (event: IEventEmitterEventData) => void | Promise<void>;
 
 /**
+ * Console-like interface for the EventEmitterPlugin.
+ *
+ * Use this interface for typing instead of the concrete EventEmitterPlugin class.
+ */
+export interface IEventEmitterPlugin {
+    on(
+        eventType: TEventName,
+        listener: TEventEmitterListener,
+        options?: {
+            once?: boolean;
+            filter?: (event: IEventEmitterEventData) => boolean;
+        }
+    ): string;
+    once(
+        eventType: TEventName,
+        listener: TEventEmitterListener,
+        filter?: (event: IEventEmitterEventData) => boolean
+    ): string;
+    off(eventType: TEventName, handlerIdOrListener: string | TEventEmitterListener): boolean;
+    emit(eventType: TEventName, eventData?: Partial<IEventEmitterEventData>): Promise<void>;
+}
+
+/**
  * Event handler with metadata
  */
 export interface IEventEmitterHandler {

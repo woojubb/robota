@@ -1,10 +1,10 @@
 import type {
-    EventEmitterPlugin,
+    IEventEmitterPlugin,
     IEventEmitterEventData,
     IEventEmitterHierarchicalEventData
 } from '@robota-sdk/agents';
 import { EVENT_EMITTER_EVENTS } from '@robota-sdk/agents';
-import type { PlaygroundBlockCollector } from './block-tracking/block-collector';
+import type { IPlaygroundBlockCollector } from './block-tracking/block-collector';
 import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from './block-tracking/types';
 
 /**
@@ -14,8 +14,8 @@ import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from './block-trac
  * Follows "actual data only" principle - no simulation or fake progress.
  */
 export class ExecutionSubscriber {
-    private blockCollector: PlaygroundBlockCollector;
-    private eventEmitter?: EventEmitterPlugin;
+    private blockCollector: IPlaygroundBlockCollector;
+    private eventEmitter?: IEventEmitterPlugin;
     private unsubscribeFunctions: (() => void)[] = [];
     private activeExecutions = new Map<string, {
         blockId: string;
@@ -28,14 +28,14 @@ export class ExecutionSubscriber {
         };
     }>();
 
-    constructor(blockCollector: PlaygroundBlockCollector) {
+    constructor(blockCollector: IPlaygroundBlockCollector) {
         this.blockCollector = blockCollector;
     }
 
     /**
      * Initialize with EventEmitterPlugin
      */
-    initialize(eventEmitter: EventEmitterPlugin): void {
+    initialize(eventEmitter: IEventEmitterPlugin): void {
         this.eventEmitter = eventEmitter;
         this.subscribeToEvents();
     }

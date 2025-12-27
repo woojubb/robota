@@ -13,7 +13,7 @@ import {
     Play,
     Zap
 } from 'lucide-react';
-import type { PlaygroundBlockCollector } from '../../lib/playground/block-tracking/block-collector';
+import type { IBlockDataCollector } from '../../lib/playground/block-tracking';
 import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from '../../lib/playground/block-tracking/types';
 import { generateDemoExecutionData, generateComplexDemoData } from '../../lib/playground/demo-execution-data';
 import { WebLogger } from '../../lib/web-logger';
@@ -40,7 +40,7 @@ interface IDebugTreeNode {
  */
 export interface IExecutionTreeDebugProps {
     /** Block collector containing all execution blocks */
-    blockCollector: PlaygroundBlockCollector;
+    blockCollector: IBlockDataCollector;
 
     /** Auto-refresh interval in milliseconds */
     refreshInterval?: number;

@@ -94,6 +94,16 @@ export interface IToolContract<TParameters = TToolParameters, TResult = IToolRes
 }
 
 /**
+ * Runtime tool instance contract used by Robota internals.
+ *
+ * Tools passed into Agent configuration must support EventService injection
+ * so Robota can emit unified tool lifecycle events.
+ */
+export interface IToolWithEventService<TParameters = TToolParameters, TResult = IToolResult> extends IToolContract<TParameters, TResult> {
+    setEventService(eventService: IEventService | undefined): void;
+}
+
+/**
  * Abstract base class for tools with type parameter support
  * Provides type-safe parameter handling and result processing
  * 
@@ -107,7 +117,7 @@ export interface IToolContract<TParameters = TToolParameters, TResult = IToolRes
  * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
 export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToolResult>
-    implements IToolContract<TParameters, TResult> {
+    implements IToolWithEventService<TParameters, TResult> {
 
     abstract readonly schema: IToolSchema;
 
