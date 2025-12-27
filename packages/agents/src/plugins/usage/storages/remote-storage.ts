@@ -1,7 +1,9 @@
 import { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 import { createLogger, type ILogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
-import type { TimerId } from '../../../utils';
+import type { TTimerId } from '../../../utils';
+import { aggregateUsageStats } from '../aggregate-usage-stats';
+import { startPeriodicTask, stopPeriodicTask } from '../../../utils/periodic-task';
 
 /**
  * Remote storage implementation for usage statistics with batching
@@ -11,7 +13,7 @@ export class RemoteUsageStorage implements IUsageStorage {
     private batchSize: number;
     private flushInterval: number;
     private batch: IUsageStats[] = [];
-    private timer: TimerId | null = null;
+    private timer: TTimerId | null = null;
     private logger: ILogger;
 
     constructor(
@@ -27,7 +29,9 @@ export class RemoteUsageStorage implements IUsageStorage {
         this.flushInterval = flushInterval;
         this.logger = createLogger('RemoteUsageStorage');
 
-        this.startTimer();
+        this.timer = startPeriodicTask(this.logger, { name: 'RemoteUsageStorage.flush', intervalMs: this.flushInterval }, async () => {
+            await this.flush();
+        });
     }
 
     async save(entry: IUsageStats): Promise<void> {
@@ -59,29 +63,8 @@ export class RemoteUsageStorage implements IUsageStorage {
 
     async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats> {
         try {
-            // Remote API call would be implemented here
-            this.logger.warn('Remote usage storage not fully implemented yet', {
-                endpoint: this.apiUrl,
-                operation: 'getAggregatedStats',
-                timeRange
-            });
-
-            // Return empty aggregated stats as placeholder
-            return {
-                totalRequests: 0,
-                totalTokens: 0,
-                totalCost: 0,
-                totalDuration: 0,
-                successRate: 0,
-                providerStats: {},
-                modelStats: {},
-                toolStats: {},
-                timeRangeStats: {
-                    startTime: timeRange?.start || new Date(),
-                    endTime: timeRange?.end || new Date(),
-                    period: 'unknown'
-                }
-            };
+            const stats = await this.getStats(undefined, timeRange);
+            return aggregateUsageStats(stats, timeRange);
         } catch (error) {
             throw new StorageError('Failed to get aggregated usage stats from remote endpoint', {
                 endpoint: this.apiUrl,
@@ -139,23 +122,9 @@ export class RemoteUsageStorage implements IUsageStorage {
     }
 
     async close(): Promise<void> {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
+        stopPeriodicTask(this.timer);
+        this.timer = null;
 
         await this.flush();
-    }
-
-    private startTimer(): void {
-        this.timer = setInterval(async () => {
-            try {
-                await this.flush();
-            } catch (error) {
-                this.logger.error('Failed to flush usage stats on timer', {
-                    error: error instanceof Error ? error.message : String(error)
-                });
-            }
-        }, this.flushInterval);
     }
 } 

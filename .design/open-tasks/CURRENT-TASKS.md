@@ -48,7 +48,7 @@
 - [x] 크로스 패키지(root) 중복 그룹 0개 달성 (v2 스캔 기준)
 - [x] 스캐너 v3: 중복 그룹을 “same-kind 중복” vs “contract+implementation 페어(class+interface)”로 분류하여 노이즈 감소
 - [x] 다음 단계: same-kind 중복(비-test)만 0개 달성 (v3 스캔 기준)
-- [ ] 다음 단계: 선언 이름에 `Interface`/`Type`/`TypeSafe` 키워드 포함 현황(접미어+중간 포함) 인벤토리/수치화(v3 report에 포함)
+- [x] 다음 단계: 선언 이름에 `Interface`/`Type`/`TypeSafe` 키워드 포함 현황(접미어+중간 포함) 인벤토리/수치화(v3 report에 포함)
 
 ---
 

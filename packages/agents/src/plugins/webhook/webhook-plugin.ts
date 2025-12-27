@@ -13,7 +13,7 @@ import {
 } from '../../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError } from '../../utils/errors';
-import type { TimerId } from '../../utils';
+import type { TTimerId } from '../../utils';
 
 import { WebhookTransformer } from './transformer';
 import { WebhookHttpClient } from './http-client';
@@ -61,7 +61,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     private requestQueue: IWebhookRequest[] = [];
     private batchQueue: IWebhookPayload[] = [];
     private activeConcurrency = 0;
-    private batchTimer?: TimerId;
+    private batchTimer?: TTimerId;
 
     constructor(options: IWebhookPluginOptions) {
         super();

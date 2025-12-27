@@ -143,12 +143,12 @@ fs.writeFileSync('.design/open-tasks/ssot-duplicate-declarations-v3.json', JSON.
 
 console.log(
   `[SSOT-SCAN:v3] scannedFiles=${report.scannedFiles} ` +
-    `dupAll=${report.duplicateGroupsAll} dupNonTest=${report.duplicateGroupsNonTest} ` +
-    `crossRootNonTest=${report.crossRootGroupsNonTest} ssotViolationsNonTest=${report.ssotViolationGroupsNonTest} sameKindNonTest=${report.sameKindGroupsNonTest} ` +
-    `contractImplPairsNonTest=${report.contractImplementationPairsNonTest} ` +
-    `kwInterface=${report.keywordInventoryNonTest.interfaceKeywordCount} ` +
-    `kwType=${report.keywordInventoryNonTest.typeKeywordCount} ` +
-    `kwTypeSafe=${report.keywordInventoryNonTest.typeSafeKeywordCount}`
+  `dupAll=${report.duplicateGroupsAll} dupNonTest=${report.ssotViolationGroupsNonTest} ` +
+  `crossRootNonTest=${report.crossRootGroupsNonTest} sameKindNonTest=${report.sameKindGroupsNonTest} ` +
+  `contractImplPairsNonTest=${report.contractImplementationPairsNonTest} ` +
+  `kwInterface=${report.keywordInventoryNonTest.interfaceKeywordCount} ` +
+  `kwType=${report.keywordInventoryNonTest.typeKeywordCount} ` +
+  `kwTypeSafe=${report.keywordInventoryNonTest.typeSafeKeywordCount}`
 );
 
 

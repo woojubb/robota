@@ -1,6 +1,7 @@
 import type { IPayloadLogger, IPayloadLoggerOptions } from '../interfaces/payload-logger';
 import type { OpenAILogData } from '../types/api-types';
 import { SimpleLogger, DefaultConsoleLogger } from '@robota-sdk/agents';
+import { sanitizeOpenAILogData } from './sanitize-openai-log-data';
 
 /**
  * Console-based payload logger for browser environments
@@ -57,7 +58,7 @@ export class ConsolePayloadLogger implements IPayloadLogger {
                 timestamp: new Date().toISOString(),
                 type,
                 provider: 'openai',
-                payload: this.sanitizePayload(payload)
+                payload: sanitizeOpenAILogData(payload)
             };
 
             // Use structured console logging for better browser developer tools integration
@@ -92,12 +93,5 @@ export class ConsolePayloadLogger implements IPayloadLogger {
      * @param payload - Raw payload object
      * @returns Sanitized payload
      */
-    private sanitizePayload(payload: OpenAILogData): OpenAILogData {
-        // Create a deep copy to avoid modifying original
-        const sanitized = JSON.parse(JSON.stringify(payload)) as OpenAILogData;
-
-        // Remove or mask sensitive data if needed
-        // For now, we keep everything as OpenAI payloads don't contain API keys
-        return sanitized;
-    }
+    // Sanitization intentionally lives in ./sanitize-openai-log-data.ts (SSOT utility).
 } 
