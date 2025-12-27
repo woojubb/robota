@@ -1346,70 +1346,73 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
             );
 
         case 'response':
-            const assistantMessage = data.parameters?.assistantMessage ||
-                data.extensions?.robota?.originalEvent?.parameters?.assistantMessage ||
-                data.assistantMessage ||
-                data.content ||
-                'No response available';
-            return (
-                <div className="space-y-3">
-                    <div className="border-l-4 border-green-500 pl-3">
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">Assistant Response</h3>
-                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-96 overflow-y-auto">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                                    code: ({ children, className }) => (
-                                        <code className={`${className} bg-gray-100 px-1 py-0.5 rounded text-xs`}>
-                                            {children}
-                                        </code>
-                                    ),
-                                    pre: ({ children }) => (
-                                        <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto">
-                                            {children}
-                                        </pre>
-                                    )
-                                }}
-                            >
-                                {assistantMessage}
-                            </ReactMarkdown>
-                        </div>
-                        <div className="flex gap-4 text-xs text-gray-500 mt-2">
-                            {data.parameters?.responseLength && (
-                                <span>Length: {data.parameters.responseLength} characters</span>
-                            )}
-                            {data.parameters?.wordCount && (
-                                <span>Words: {data.parameters.wordCount}</span>
-                            )}
-                            {data.agentNumber > 0 && (
-                                <span>Agent: {data.agentNumber}</span>
-                            )}
+            {
+                const assistantMessage = data.parameters?.assistantMessage ||
+                    data.extensions?.robota?.originalEvent?.parameters?.assistantMessage ||
+                    data.assistantMessage ||
+                    data.content ||
+                    'No response available';
+                return (
+                    <div className="space-y-3">
+                        <div className="border-l-4 border-green-500 pl-3">
+                            <h3 className="text-sm font-medium text-gray-900 mb-2">Assistant Response</h3>
+                            <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-96 overflow-y-auto">
+                                <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                        code: ({ children, className }) => (
+                                            <code className={`${className} bg-gray-100 px-1 py-0.5 rounded text-xs`}>
+                                                {children}
+                                            </code>
+                                        ),
+                                        pre: ({ children }) => (
+                                            <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto">
+                                                {children}
+                                            </pre>
+                                        )
+                                    }}
+                                >
+                                    {assistantMessage}
+                                </ReactMarkdown>
+                            </div>
+                            <div className="flex gap-4 text-xs text-gray-500 mt-2">
+                                {data.parameters?.responseLength && (
+                                    <span>Length: {data.parameters.responseLength} characters</span>
+                                )}
+                                {data.parameters?.wordCount && (
+                                    <span>Words: {data.parameters.wordCount}</span>
+                                )}
+                                {data.agentNumber > 0 && (
+                                    <span>Agent: {data.agentNumber}</span>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            );
+                );
+            }
 
         case 'tool_call_response':
-            const toolName = data.toolName || data.parameters?.toolName || 'Tool';
-            const rawToolResult = data.result?.data ||
-                data.parameters?.result?.data ||
-                data.toolResult ||
-                'No result available';
+            {
+                const toolName = data.toolName || data.parameters?.toolName || 'Tool';
+                const rawToolResult = data.result?.data ||
+                    data.parameters?.result?.data ||
+                    data.toolResult ||
+                    'No result available';
 
-            // Convert object to string if necessary
-            const toolResult = typeof rawToolResult === 'string'
-                ? rawToolResult
-                : JSON.stringify(rawToolResult, null, 2);
+                // Convert object to string if necessary
+                const toolResult = typeof rawToolResult === 'string'
+                    ? rawToolResult
+                    : JSON.stringify(rawToolResult, null, 2);
 
-            const toolSuccess = data.result?.success ||
-                data.parameters?.result?.success ||
-                data.success !== false;
+                const toolSuccess = data.result?.success ||
+                    data.parameters?.result?.success ||
+                    data.success !== false;
 
-            return (
-                <div className="space-y-3">
-                    <div className="border-l-4 border-purple-500 pl-3">
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">Tool Response</h3>
+                return (
+                    <div className="space-y-3">
+                        <div className="border-l-4 border-purple-500 pl-3">
+                            <h3 className="text-sm font-medium text-gray-900 mb-2">Tool Response</h3>
 
                         {/* Tool info */}
                         <div className="flex items-center gap-2 mb-3">
@@ -1438,26 +1441,28 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
                                 <span>Level: {data.parameters.executionLevel}</span>
                             )}
                         </div>
+                        </div>
                     </div>
-                </div>
-            );
+                );
+            }
 
         case 'tool_response':
-            const rawToolResponseData = data.parameters?.result?.data ||
-                data.result?.data ||
-                data.response?.data ||
-                data.content ||
-                'No response available';
+            {
+                const rawToolResponseData = data.parameters?.result?.data ||
+                    data.result?.data ||
+                    data.response?.data ||
+                    data.content ||
+                    'No response available';
 
-            // Convert object to string if necessary for safe rendering
-            const toolResponseData = typeof rawToolResponseData === 'string'
-                ? rawToolResponseData
-                : JSON.stringify(rawToolResponseData, null, 2);
+                // Convert object to string if necessary for safe rendering
+                const toolResponseData = typeof rawToolResponseData === 'string'
+                    ? rawToolResponseData
+                    : JSON.stringify(rawToolResponseData, null, 2);
 
-            return (
-                <div className="space-y-3">
-                    <div className="border-l-4 border-green-500 pl-3">
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">Tool Response</h3>
+                return (
+                    <div className="space-y-3">
+                        <div className="border-l-4 border-green-500 pl-3">
+                            <h3 className="text-sm font-medium text-gray-900 mb-2">Tool Response</h3>
                         <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-96 overflow-y-auto">
                             <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
@@ -1489,23 +1494,26 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
                                 <span>Tool: {data.parameters.toolName}</span>
                             )}
                         </div>
-                    </div>
-                </div>
-            );
-
-        default:
-            // For other node types, show basic info if available
-            const basicInfo = data.description || data.label;
-            if (basicInfo) {
-                return (
-                    <div className="space-y-2">
-                        <div className="text-sm text-gray-700 p-3 bg-gray-50 rounded">
-                            {basicInfo}
                         </div>
                     </div>
                 );
             }
-            return null;
+
+        default:
+            // For other node types, show basic info if available
+            {
+                const basicInfo = data.description || data.label;
+                if (basicInfo) {
+                    return (
+                        <div className="space-y-2">
+                            <div className="text-sm text-gray-700 p-3 bg-gray-50 rounded">
+                                {basicInfo}
+                            </div>
+                        </div>
+                    );
+                }
+                return null;
+            }
     }
 };
 
@@ -2094,7 +2102,11 @@ function WorkflowVisualizationContent({
                                     const tool = JSON.parse(data);
                                     WebLogger.info('Tool dropped', { toolId: tool?.id, toolName: tool?.name });
                                     // Future: create a tool_call node at drop position
-                                } catch { }
+                                } catch (error) {
+                                    WebLogger.warn('Tool drop parse failed', {
+                                        error: error instanceof Error ? error.message : String(error)
+                                    });
+                                }
                             }
                         }}
                     >

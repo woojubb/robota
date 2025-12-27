@@ -318,11 +318,13 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
                         this.removeEdge(operation.data.edgeId);
                         break;
                     default:
-                        // Exhaustiveness check: all operation types must be handled above.
-                        // If this fails, update TWorkflowBatchOperation to include the new case.
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        const _exhaustive: never = operation;
-                        throw new Error('Unhandled batch operation');
+                        {
+                            // Exhaustiveness check: all operation types must be handled above.
+                            // If this fails, update TWorkflowBatchOperation to include the new case.
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                            const _exhaustive: never = operation;
+                            throw new Error('Unhandled batch operation');
+                        }
                 }
                 successCount++;
             } catch (error) {

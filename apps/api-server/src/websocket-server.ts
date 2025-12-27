@@ -32,7 +32,7 @@ export interface IPlaygroundClient {
  */
 export class PlaygroundWebSocketServer {
     private wss: WebSocketServer;
-    private clients = new Map<string, PlaygroundClient>();
+    private clients = new Map<string, IPlaygroundClient>();
     private userSessions = new Map<string, Set<string>>(); // userId -> Set<clientId>
 
     constructor(server: Server) {
@@ -51,7 +51,7 @@ export class PlaygroundWebSocketServer {
 
     private handleConnection(ws: WebSocket, _req: IncomingMessage): void {
         const clientId = this.generateClientId();
-        const client: PlaygroundClient = {
+        const client: IPlaygroundClient = {
             id: clientId,
             ws,
             lastActivity: new Date(),

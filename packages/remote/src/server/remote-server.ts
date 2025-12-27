@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import type { ILogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
-import type { IAIProvider, IChatOptions, TUniversalMessage } from '@robota-sdk/agents';
+import type { IAIProvider } from '@robota-sdk/agents';
 
 /**
  * Server status interface

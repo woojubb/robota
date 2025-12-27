@@ -115,66 +115,70 @@ export function createCurrentTimeTool(): FunctionTool {
                         };
 
                     case 'detailed':
-                        const detailedOptions: Intl.DateTimeFormatOptions = {
-                            timeZone: timezone === 'local' ? undefined : timezone,
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            weekday: 'long',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            timeZoneName: 'long'
-                        };
-
-                        return {
-                            success: true,
-                            detailed: targetDate.toLocaleString('en-US', detailedOptions),
-                            iso: targetDate.toISOString(),
-                            timestamp: targetDate.getTime(),
-                            timezone: timezoneInfo,
-                            weekday: targetDate.toLocaleDateString('en-US', {
-                                weekday: 'long',
-                                timeZone: timezone === 'local' ? undefined : timezone
-                            }),
-                            date: targetDate.toLocaleDateString('en-US', {
+                        {
+                            const detailedOptions: Intl.DateTimeFormatOptions = {
                                 timeZone: timezone === 'local' ? undefined : timezone,
                                 year: 'numeric',
                                 month: 'long',
-                                day: 'numeric'
-                            }),
-                            time: targetDate.toLocaleTimeString('en-US', {
-                                timeZone: timezone === 'local' ? undefined : timezone,
+                                day: 'numeric',
+                                weekday: 'long',
                                 hour: '2-digit',
                                 minute: '2-digit',
-                                second: '2-digit'
-                            })
-                        };
+                                second: '2-digit',
+                                timeZoneName: 'long'
+                            };
+
+                            return {
+                                success: true,
+                                detailed: targetDate.toLocaleString('en-US', detailedOptions),
+                                iso: targetDate.toISOString(),
+                                timestamp: targetDate.getTime(),
+                                timezone: timezoneInfo,
+                                weekday: targetDate.toLocaleDateString('en-US', {
+                                    weekday: 'long',
+                                    timeZone: timezone === 'local' ? undefined : timezone
+                                }),
+                                date: targetDate.toLocaleDateString('en-US', {
+                                    timeZone: timezone === 'local' ? undefined : timezone,
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                }),
+                                time: targetDate.toLocaleTimeString('en-US', {
+                                    timeZone: timezone === 'local' ? undefined : timezone,
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                })
+                            };
+                        }
 
                     case 'readable':
                     default:
-                        const readableOptions: Intl.DateTimeFormatOptions = {
-                            timeZone: timezone === 'local' ? undefined : timezone,
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: true
-                        };
+                        {
+                            const readableOptions: Intl.DateTimeFormatOptions = {
+                                timeZone: timezone === 'local' ? undefined : timezone,
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                            };
 
-                        if (includeWeekday) {
-                            readableOptions.weekday = 'short';
+                            if (includeWeekday) {
+                                readableOptions.weekday = 'short';
+                            }
+
+                            return {
+                                success: true,
+                                time: targetDate.toLocaleString('en-US', readableOptions),
+                                timezone: timezoneInfo,
+                                timestamp: targetDate.getTime(),
+                                iso: targetDate.toISOString()
+                            };
                         }
-
-                        return {
-                            success: true,
-                            time: targetDate.toLocaleString('en-US', readableOptions),
-                            timezone: timezoneInfo,
-                            timestamp: targetDate.getTime(),
-                            iso: targetDate.toISOString()
-                        };
                 }
             } catch (error) {
                 return {

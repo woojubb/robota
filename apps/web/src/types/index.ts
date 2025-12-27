@@ -1,5 +1,5 @@
 // Theme types
-export type Theme = 'light' | 'dark' | 'system'
+export type TTheme = 'light' | 'dark' | 'system'
 
 // Navigation types
 export interface INavItem {
@@ -11,7 +11,7 @@ export interface INavItem {
 
 export interface INavSection {
     title: string
-    items: NavItem[]
+    items: INavItem[]
 }
 
 // Brand types

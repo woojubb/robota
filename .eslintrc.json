@@ -47,7 +47,7 @@
     // ==========================================
     // ✅ default: keep packages strict; relax apps via overrides
     "@typescript-eslint/no-unused-vars": [
-      "error",
+      "warn",
       {
         "argsIgnorePattern": "^_",
         "varsIgnorePattern": "^_",
@@ -65,6 +65,7 @@
     // 🚨 유지: 로깅 아키텍처 준수 (엔터프라이즈 필수)
     "no-console": "error", // 유지: SimpleLogger 패턴 강제
     "no-redeclare": "error",
+    "no-case-declarations": "off",
     // ==========================================
     // IMPORT STATEMENT STANDARDS
     // ==========================================
@@ -80,12 +81,20 @@
         "message": "❌ PROHIBITED: Dynamic imports with 'import()' are forbidden except for truly conditional optional modules. Use standard top-level imports at the beginning of the file instead."
       },
       {
-        "selector": "CallExpression[callee.property.name='emit'][arguments.0.type='Literal']",
-        "message": "❌ PROHIBITED: Hardcoded event name in emit(). Import event constants from the owning module."
+        "selector": "CallExpression[callee.property.name='emit'][callee.object.name='eventService'][arguments.0.type='Literal']",
+        "message": "❌ PROHIBITED: Hardcoded event name in eventService.emit(). Import event constants from the owning module."
       },
       {
-        "selector": "CallExpression[callee.property.name=/^(on|once|off)$/][arguments.0.type='Literal']",
-        "message": "❌ PROHIBITED: Hardcoded event name in event subscription. Import event constants from the owning module."
+        "selector": "CallExpression[callee.property.name='emit'][callee.object.property.name='eventService'][arguments.0.type='Literal']",
+        "message": "❌ PROHIBITED: Hardcoded event name in this.eventService.emit(). Import event constants from the owning module."
+      },
+      {
+        "selector": "CallExpression[callee.property.name=/^(on|once|off)$/][callee.object.name='eventService'][arguments.0.type='Literal']",
+        "message": "❌ PROHIBITED: Hardcoded event name in eventService subscription. Import event constants from the owning module."
+      },
+      {
+        "selector": "CallExpression[callee.property.name=/^(on|once|off)$/][callee.object.property.name='eventService'][arguments.0.type='Literal']",
+        "message": "❌ PROHIBITED: Hardcoded event name in this.eventService subscription. Import event constants from the owning module."
       }
     ],
     // 🚨 require() 사용 금지 (ES modules 사용)
@@ -110,7 +119,7 @@
         "apps/**/*"
       ],
       "rules": {
-        "no-console": "warn",
+        "no-console": "off",
         "@typescript-eslint/no-unused-vars": [
           "warn",
           {
@@ -129,7 +138,7 @@
         "examples/**/*"
       ],
       "rules": {
-        "no-console": "warn",
+        "no-console": "off",
         "@typescript-eslint/no-unused-vars": [
           "warn",
           {

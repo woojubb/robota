@@ -20,27 +20,27 @@ export interface IScenarioMessageSnapshot {
     content: TUniversalMessage['content'];
     name?: string;
     toolCallId?: string;
-    toolCalls?: ScenarioToolCallSnapshot[];
+    toolCalls?: IScenarioToolCallSnapshot[];
     metadata?: TUniversalMessageMetadata;
     timestamp: number;
 }
 
 export interface IScenarioResponseSnapshot {
     /** Non-stream response payload */
-    message?: ScenarioMessageSnapshot;
+    message?: IScenarioMessageSnapshot;
     /** Raw provider response, if recording generateResponse */
     raw?: IRawProviderResponse;
     /** Streamed chunks captured during chatStream */
     stream?: Array<{
         index: number;
-        delta: ScenarioMessageSnapshot;
+        delta: IScenarioMessageSnapshot;
         timestamp: number;
     }>;
 }
 
 export interface IScenarioRequestSnapshot {
-    messages: ScenarioMessageSnapshot[];
-    options?: ScenarioChatOptionsSnapshot;
+    messages: IScenarioMessageSnapshot[];
+    options?: IScenarioChatOptionsSnapshot;
     metadata?: Record<string, unknown>;
 }
 
@@ -59,8 +59,8 @@ export interface IScenarioChatOptionsSnapshot {
 export interface IScenarioStep {
     stepId: string;
     requestHash: string;
-    request: ScenarioRequestSnapshot;
-    response: ScenarioResponseSnapshot;
+    request: IScenarioRequestSnapshot;
+    response: IScenarioResponseSnapshot;
     timestamp: number;
     tags?: string[];
     providerInfo?: {
@@ -72,7 +72,7 @@ export interface IScenarioStep {
 export interface IScenarioRecord {
     scenarioId: string;
     version: number;
-    steps: ScenarioStep[];
+    steps: IScenarioStep[];
 }
 
 const DEFAULT_VERSION = 1;
@@ -83,18 +83,18 @@ export class ScenarioStore {
     private readonly writeLocks = new Map<string, { lockPath: string; fd: number }>();
     private exitHandlerRegistered = false;
 
-    constructor(options?: ScenarioStoreOptions) {
+    constructor(options?: IScenarioStoreOptions) {
         const envBaseDir = process.env.SCENARIO_BASE_DIR;
         this.baseDir = options?.baseDir ?? envBaseDir ?? path.resolve(process.cwd(), 'scenarios');
     }
 
-    async load(scenarioId: string): Promise<ScenarioRecord> {
+    async load(scenarioId: string): Promise<IScenarioRecord> {
         await this.ensureDirectory();
         const targetPath = this.getScenarioPath(scenarioId);
 
         try {
             const raw = await fs.readFile(targetPath, 'utf8');
-            const parsed = JSON.parse(raw) as ScenarioRecord;
+            const parsed = JSON.parse(raw) as IScenarioRecord;
             if (!parsed.steps) {
                 parsed.steps = [];
             }
@@ -111,12 +111,12 @@ export class ScenarioStore {
         }
     }
 
-    async listSteps(scenarioId: string): Promise<ScenarioStep[]> {
+    async listSteps(scenarioId: string): Promise<IScenarioStep[]> {
         const record = await this.load(scenarioId);
         return [...record.steps];
     }
 
-    async appendStep(scenarioId: string, step: ScenarioStep): Promise<void> {
+    async appendStep(scenarioId: string, step: IScenarioStep): Promise<void> {
         this.writeQueue = this.writeQueue.then(async () => {
             await this.ensureWriteLock(scenarioId);
             const record = await this.load(scenarioId);
@@ -126,7 +126,7 @@ export class ScenarioStore {
         return this.writeQueue;
     }
 
-    async findStepByHash(scenarioId: string, requestHash: string): Promise<ScenarioStep | undefined> {
+    async findStepByHash(scenarioId: string, requestHash: string): Promise<IScenarioStep | undefined> {
         const steps = await this.listSteps(scenarioId);
         return steps.find(step => step.requestHash === requestHash);
     }
@@ -212,7 +212,7 @@ export class ScenarioStore {
         await fs.mkdir(this.baseDir, { recursive: true });
     }
 
-    private async saveRecord(record: ScenarioRecord): Promise<void> {
+    private async saveRecord(record: IScenarioRecord): Promise<void> {
         const targetPath = this.getScenarioPath(record.scenarioId);
         await fs.writeFile(targetPath, JSON.stringify(record, null, 2), 'utf8');
     }
@@ -228,15 +228,15 @@ export function createRequestHash(messages: TUniversalMessage[], options?: IChat
     });
     return crypto.createHash('md5').update(payload).digest('hex');
 }
-export function serializeMessages(messages: TUniversalMessage[]): ScenarioMessageSnapshot[] {
+export function serializeMessages(messages: TUniversalMessage[]): IScenarioMessageSnapshot[] {
     return messages.map(message => serializeMessage(message));
 }
 
-export function serializeChatOptions(options?: IChatOptions): ScenarioChatOptionsSnapshot | undefined {
+export function serializeChatOptions(options?: IChatOptions): IScenarioChatOptionsSnapshot | undefined {
     if (!options) {
         return undefined;
     }
-    const snapshot: ScenarioChatOptionsSnapshot = {};
+    const snapshot: IScenarioChatOptionsSnapshot = {};
     if (options.model) snapshot.model = options.model;
     if (typeof options.temperature === 'number') snapshot.temperature = options.temperature;
     if (typeof options.maxTokens === 'number') snapshot.maxTokens = options.maxTokens;
@@ -256,7 +256,7 @@ export function serializeChatOptions(options?: IChatOptions): ScenarioChatOption
     return snapshot;
 }
 
-export function deserializeMessage(snapshot: ScenarioMessageSnapshot): TUniversalMessage {
+export function deserializeMessage(snapshot: IScenarioMessageSnapshot): TUniversalMessage {
     const timestamp = new Date(snapshot.timestamp);
     const metadata = snapshot.metadata ? structuredClone(snapshot.metadata) : undefined;
 
@@ -324,7 +324,7 @@ export function deserializeMessage(snapshot: ScenarioMessageSnapshot): TUniversa
     }
 }
 
-export function hydrateResponseSnapshot(snapshot: ScenarioResponseSnapshot): {
+export function hydrateResponseSnapshot(snapshot: IScenarioResponseSnapshot): {
     message?: TUniversalMessage;
     raw?: IRawProviderResponse;
     stream?: Array<{ index: number; delta: TUniversalMessage; timestamp: number }>;
@@ -344,7 +344,7 @@ export function serializeResponseSnapshot(response: {
     message?: TUniversalMessage;
     raw?: IRawProviderResponse;
     stream?: Array<{ index: number; delta: TUniversalMessage; timestamp: number }>;
-}): ScenarioResponseSnapshot {
+}): IScenarioResponseSnapshot {
     return {
         message: response.message ? serializeMessage(response.message) : undefined,
         raw: response.raw ? structuredClone(response.raw) : undefined,
@@ -356,8 +356,8 @@ export function serializeResponseSnapshot(response: {
     };
 }
 
-function serializeMessage(message: TUniversalMessage): ScenarioMessageSnapshot {
-    const base: ScenarioMessageSnapshot = {
+function serializeMessage(message: TUniversalMessage): IScenarioMessageSnapshot {
+    const base: IScenarioMessageSnapshot = {
         role: message.role,
         content: message.content ?? null,
         metadata: message.metadata ? structuredClone(message.metadata) : undefined,
