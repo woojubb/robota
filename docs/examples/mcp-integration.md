@@ -13,7 +13,7 @@ The MCP integration example shows how to:
 
 ## Source Code
 
-**Location**: `apps/examples/03-integrations/01-mcp-client.ts`
+**Location**: Package-owned examples under `packages/agents/examples/` (MCP examples may be added later)
 
 ## Key Concepts
 
@@ -88,19 +88,9 @@ const response3 = await robota.run('Calculate the average temperature for the ci
    ls -la apps/services/mcp-server.ts
    ```
 
-2. **Navigate to examples directory**:
-   ```bash
-   cd apps/examples
-   ```
-
-3. **Run the MCP integration example**:
-   ```bash
-   # Using bun (recommended)
-   bun run 03-integrations/01-mcp-client.ts
-   
-   # Using pnpm + tsx
-   pnpm tsx 03-integrations/01-mcp-client.ts
-   ```
+2. **Run a package-owned example**:
+   - There is currently no dedicated MCP example script in `packages/*/examples`.
+   - This document remains a conceptual reference until an MCP example is added.
 
 ## Expected Output
 

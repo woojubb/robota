@@ -14,8 +14,7 @@ The provider switching examples show how to:
 ## Source Code
 
 **Locations**: 
-- `apps/examples/01-basic/04-provider-switching.ts` - Full multi-provider switching
-- `apps/examples/01-basic/04-provider-switching-simple.ts` - OpenAI model switching
+- Package-owned examples under `packages/agents/examples/`
 
 ## Key Concepts
 
@@ -114,10 +113,9 @@ async function testHistoryPreservation() {
    GOOGLE_API_KEY=your_google_key
    ```
 
-2. **Run the comprehensive example**:
+2. **Run a package-owned example** (from repo root):
    ```bash
-   cd apps/examples
-   bun run 01-basic/04-provider-switching.ts
+   npx tsx packages/agents/examples/multi-providers.ts
    ```
 
 ### Simple Model Switching Example
@@ -127,10 +125,9 @@ async function testHistoryPreservation() {
    OPENAI_API_KEY=your_openai_key
    ```
 
-2. **Run the simple example**:
+2. **Run a package-owned example** (from repo root):
    ```bash
-   cd apps/examples
-   bun run 01-basic/04-provider-switching-simple.ts
+   npx tsx packages/agents/examples/multi-providers.ts
    ```
 
 ## Expected Output

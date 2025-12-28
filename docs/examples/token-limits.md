@@ -14,8 +14,7 @@ The token and request limits example shows how to:
 ## Source Code
 
 **Locations**: 
-- `apps/examples/01-basic/06-token-and-request-limits.ts` - Comprehensive limits management
-- `apps/examples/01-basic/06-token-and-request-limits-simple.ts` - Basic usage tracking
+- Package-owned examples under `packages/agents/examples/`
 
 ## Key Concepts
 
@@ -275,18 +274,16 @@ class CostTracker {
    OPENAI_API_KEY=your_openai_key_here
    ```
 
-2. **Run the comprehensive example**:
+2. **Run a package-owned example** (from repo root):
    ```bash
-   cd apps/examples
-   bun run 01-basic/06-token-and-request-limits.ts
+   npx tsx packages/agents/examples/execution-analytics.ts
    ```
 
 ### Simple Usage Tracking
 
-1. **Run the simple example**:
+1. **Run a package-owned example** (from repo root):
    ```bash
-   cd apps/examples
-   bun run 01-basic/06-token-and-request-limits-simple.ts
+   npx tsx packages/agents/examples/execution-analytics.ts
    ```
 
 ## Expected Output

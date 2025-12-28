@@ -67,7 +67,7 @@ this.logger.debug(`📊 [PIPELINE] Final workflow: ${this.currentWorkflow.nodes.
 ## 📁 File References
 - Main builder: [packages/agents/src/services/real-time-workflow-builder.ts](mdc:packages/agents/src/services/real-time-workflow-builder.ts)
 - Event subscriber: [packages/agents/src/services/workflow-event-subscriber.ts](mdc:packages/agents/src/services/workflow-event-subscriber.ts)
-- Test example: [apps/examples/26-playground-edge-verification.ts](mdc:apps/examples/26-playground-edge-verification.ts)
+- Test example: [packages/workflow/examples/guarded-edge-verification.ts](mdc:packages/workflow/examples/guarded-edge-verification.ts)
 
 ## 🔄 Cache-Optimized Debugging
 Since Agent Copy system works, use cached results to focus on edge transfer:

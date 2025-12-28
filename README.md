@@ -290,42 +290,16 @@ pnpm install
 
 ## Running Examples
 
-All examples are located in the `apps/examples` directory. Navigate there first:
+Examples are distributed per package under `packages/*/examples` (SSOT ownership).
 
 ```bash
-cd apps/examples
-```
+# Build packages (recommended before running examples)
+pnpm build
 
-### Method 1: Using Package Scripts
-
-```bash
-# Individual examples
-pnpm start:simple-conversation
-pnpm start:using-ai-client
-pnpm start:multi-ai-providers
-pnpm start:provider-switching
-pnpm start:zod-function-provider
-pnpm start:using-tool-providers
-
-# Example groups
-pnpm start:all-basic          # All basic examples
-pnpm start:all-tool-providers # All tool provider examples
-pnpm start:all-examples       # All examples sequentially
-pnpm start:all                # Quick demo
-```
-
-### Method 2: Direct File Execution
-
-```bash
-# With bun (fastest)
-bun run 01-basic/01-simple-conversation.ts
-bun run 01-basic/02-ai-with-tools.ts
-bun run 01-basic/03-multi-ai-providers.ts
-
-# With pnpm + tsx
-pnpm tsx 01-basic/01-simple-conversation.ts
-pnpm tsx 02-functions/01-zod-function-tools.ts
-pnpm tsx 03-integrations/01-mcp-client.ts
+# Run a package-owned example from the repo root
+npx tsx packages/agents/examples/basic-conversation.ts
+npx tsx packages/agents/examples/tool-calling.ts
+npx tsx packages/workflow/examples/guarded-edge-verification.ts
 ```
 
 ## Development

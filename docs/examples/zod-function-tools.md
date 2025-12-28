@@ -13,7 +13,7 @@ The Zod function tools example shows how to:
 
 ## Source Code
 
-**Location**: `apps/examples/02-functions/01-zod-function-tools.ts`
+**Location**: Package-owned examples under `packages/agents/examples/`
 
 ## Key Concepts
 
@@ -131,18 +131,9 @@ const robota = new Robota({
 
 1. **Ensure setup is complete** (see [Setup Guide](./setup.md))
 
-2. **Navigate to examples directory**:
+2. **Run a package-owned example** (from repo root):
    ```bash
-   cd apps/examples
-   ```
-
-3. **Run the example**:
-   ```bash
-   # Using bun (recommended)
-   bun run 02-functions/01-zod-function-tools.ts
-   
-   # Using pnpm + tsx
-   pnpm tsx 02-functions/01-zod-function-tools.ts
+   npx tsx packages/agents/examples/tool-calling.ts
    ```
 
 ## Expected Output

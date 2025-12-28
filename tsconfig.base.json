@@ -29,9 +29,6 @@
             "@/*": [
                 "./*"
             ],
-            "@examples/*": [
-                "./apps/examples/*"
-            ],
             "@docs/*": [
                 "./docs/*"
             ]

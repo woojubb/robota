@@ -44,7 +44,7 @@ pnpm --filter @robota-sdk/agents run lint:fix
 pnpm --filter @robota-sdk/openai run lint:fix
 
 # Examples and apps
-pnpm --filter robota-examples run lint:fix
+pnpm --filter @robota-sdk/agents run lint:fix
 ```
 
 ### Lint Rule Categories
