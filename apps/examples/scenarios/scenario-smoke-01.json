@@ -1,0 +1,41 @@
+{
+  "scenarioId": "scenario-smoke-01",
+  "version": 1,
+  "steps": [
+    {
+      "kind": "provider",
+      "stepId": "step_1766918175719_57805jyd8zn",
+      "requestHash": "16c3939d2f3e5242a44109fee73c6708",
+      "request": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Hi, what is TypeScript?",
+            "metadata": {
+              "executionId": "exec_1766918173944_p1krkpnnv"
+            },
+            "timestamp": 1766918173944
+          }
+        ],
+        "options": {
+          "model": "gpt-3.5-turbo"
+        }
+      },
+      "response": {
+        "message": {
+          "role": "assistant",
+          "content": "TypeScript is a programming language developed by Microsoft that is a superset of JavaScript. It adds static typing and other features to JavaScript, providing developers with improved code quality, better error checking, and enhanced code organization. TypeScript code is compiled into JavaScript code that can be run in any web browser or server environment.",
+          "metadata": {
+            "finishReason": "stop"
+          },
+          "timestamp": 1766918175719
+        }
+      },
+      "timestamp": 1766918175734,
+      "providerInfo": {
+        "name": "openai",
+        "version": "1.0.0"
+      }
+    }
+  ]
+}

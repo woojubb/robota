@@ -21,7 +21,12 @@ function printUsage(): void {
 }
 
 function parseArgs(): { exampleFile: string; scenarioId: string; strategy: TStrategy } {
-    const [, , exampleFile, scenarioId, ...rest] = process.argv;
+    const [, , rawExampleFile, rawScenarioId, ...rest] = process.argv;
+
+    // pnpm convention: `pnpm <script> -- <args...>` passes a literal "--" through.
+    const [exampleFile, scenarioId] =
+        rawExampleFile === '--' ? [rawScenarioId, rest.shift()] : [rawExampleFile, rawScenarioId];
+
     if (!exampleFile || !scenarioId) {
         printUsage();
         process.exit(1);

@@ -5,10 +5,12 @@ import { fileURLToPath } from 'url';
 import { Robota, FunctionTool } from '@robota-sdk/agents';
 import type { IAIProvider, IEventService, IOwnerPathSegment, IToolExecutionContext, IToolSchema, TToolParameters } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import { WorkflowEventSubscriber, WorkflowSubscriberEventService } from '@robota-sdk/workflow';
 
-import { ScenarioStore } from './utils/scenario-store';
-import { createScenarioProviderFromEnv } from './lib/scenario-provider';
+import { ScenarioStore } from './lib/scenario/store';
+import { createScenarioProviderFromEnv } from './lib/scenario/provider';
+import { createScenarioToolWrapper } from './lib/scenario/tool';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +40,7 @@ const buildAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
     };
 
     return new FunctionTool(schema, async (params: TToolParameters, ctx?: IToolExecutionContext) => {
+
         const jobDescription = typeof params.jobDescription === 'string' ? params.jobDescription : '';
         if (!jobDescription) {
             throw new Error('[GUARDED-ASSIGN-TASK] Missing jobDescription');
@@ -50,8 +53,6 @@ const buildAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
 
         const childAgentId = `agent_${nextChildAgentNumber}`;
         nextChildAgentNumber += 1;
-        const delegatedResponseNodeId = `response_thinking_${childAgentId}_round1`;
-
         const extraContext = typeof params.context === 'string' ? params.context : '';
         const prompt = extraContext ? `${jobDescription}\n\nContext: ${extraContext}` : jobDescription;
 
@@ -61,29 +62,41 @@ const buildAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
             aiProviders: [aiProvider],
             defaultModel: {
                 provider: 'openai',
-                model: 'gpt-4o-mini'
+                model: 'gpt-4o-mini',
+                temperature: 0.6
             },
             eventService: ctx.baseEventService,
             executionContext: { ownerPath: parentOwnerPath }
         });
 
         const response = await childAgent.run(prompt);
-        return { response, delegatedAgentId: childAgentId, delegatedResponseNodeId };
+        // Tool message content must be a plain string to match the recorded scenario snapshots.
+        return response;
     });
 };
 
 async function main(): Promise<void> {
     const store = new ScenarioStore({ baseDir: path.resolve(__dirname, 'scenarios') });
 
+    const isPlayMode = Boolean(process.env.SCENARIO_PLAY_ID);
+    const delegate =
+        isPlayMode
+            ? undefined
+            : (() => {
+                const apiKey = process.env.OPENAI_API_KEY;
+                if (!apiKey) {
+                    throw new Error('OPENAI_API_KEY environment variable is required (record/none mode)');
+                }
+                return new OpenAIProvider({ apiKey });
+            })();
+
     const scenario = createScenarioProviderFromEnv({
         store,
+        ...(delegate ? { delegate } : undefined),
         defaultPlayStrategy: 'sequential',
         providerName: 'openai',
         providerVersion: 'mock-scenario'
     });
-    if (scenario.mode !== 'play') {
-        throw new Error(`[GUARD] This example requires scenario playback. Set SCENARIO_PLAY_ID (mode=${scenario.mode}).`);
-    }
     const provider = scenario.provider;
 
     const subscriber = new WorkflowEventSubscriber({ logger: SilentLogger });
@@ -91,7 +104,12 @@ async function main(): Promise<void> {
     const baseEventService: IEventService = bridge;
 
     const rootAgentId = 'agent_0';
-    const assignTaskTool = buildAssignTaskTool(provider);
+    const assignTaskTool = createScenarioToolWrapper(buildAssignTaskTool(provider), {
+        mode: scenario.mode,
+        scenarioId: scenario.mode === 'none' ? undefined : scenario.scenarioId,
+        store,
+        ...(scenario.mode === 'play' ? { onToolCallUsed: scenario.onToolCallUsed } : undefined)
+    });
     const agent = new Robota({
         name: 'GuardedContinuedConversationAgent',
         conversationId: rootAgentId,
@@ -110,7 +128,9 @@ async function main(): Promise<void> {
     await agent.run('First message: delegate one task using assignTask, then respond briefly.');
     await agent.run('Second message: continue based on previous response; do not reset context.');
     await bridge.flush();
-    await scenario.assertNoUnusedSteps();
+    if (scenario.mode === 'play') {
+        await scenario.assertNoUnusedSteps();
+    }
 
     const snapshot = subscriber.getWorkflowSnapshot();
     const nodes = snapshot.nodes;

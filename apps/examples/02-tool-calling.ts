@@ -9,11 +9,21 @@
  */
 
 import { Robota, createFunctionTool } from '@robota-sdk/agents';
+import type { TToolParameters } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+import { ScenarioStore } from './lib/scenario/store';
+import { createScenarioProviderFromEnv } from './lib/scenario/provider';
+import { createScenarioToolWrapper } from './lib/scenario/tool';
 
 // Load environment variables from examples directory
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Define tool functions using createFunctionTool with manual JSON schema
 const calculateTool = createFunctionTool(
@@ -38,7 +48,7 @@ const calculateTool = createFunctionTool(
         },
         required: ['operation', 'a', 'b']
     },
-    async (params) => {
+    async (params: TToolParameters) => {
         const operation = params.operation as string;
         const a = Number(params.a);
         const b = Number(params.b);
@@ -111,27 +121,45 @@ async function main() {
     try {
         console.log('🛠️ Tool Calling Example Started...\n');
 
-        // Validate API key
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            throw new Error('OPENAI_API_KEY environment variable is required');
-        }
+        const store = new ScenarioStore({ baseDir: path.resolve(__dirname, 'scenarios') });
+        const isPlayMode = Boolean(process.env.SCENARIO_PLAY_ID);
 
-        // Create OpenAI provider (simplified)
-        const openaiProvider = new OpenAIProvider({
-            apiKey
+        const delegate =
+            isPlayMode
+                ? undefined
+                : (() => {
+                    const apiKey = process.env.OPENAI_API_KEY;
+                    if (!apiKey) {
+                        throw new Error('OPENAI_API_KEY environment variable is required (record/none mode)');
+                    }
+                    return new OpenAIProvider({ apiKey });
+                })();
+
+        const scenario = createScenarioProviderFromEnv({
+            store,
+            ...(delegate ? { delegate } : undefined),
+            providerName: 'openai',
+            providerVersion: 'scenario',
+            defaultPlayStrategy: 'sequential'
+        });
+
+        const scenarioCalculateTool = createScenarioToolWrapper(calculateTool, {
+            mode: scenario.mode,
+            scenarioId: scenario.mode === 'none' ? undefined : scenario.scenarioId,
+            store,
+            ...(scenario.mode === 'play' ? { onToolCallUsed: scenario.onToolCallUsed } : undefined)
         });
 
         // Create Robota instance with tools using new API
         const robota = new Robota({
             name: 'ToolAgent',
-            aiProviders: [openaiProvider],
+            aiProviders: [scenario.provider],
             defaultModel: {
                 provider: 'openai',
                 model: 'gpt-3.5-turbo',
                 systemMessage: 'You are a helpful assistant that can perform calculations. When using tools, use the results to provide a complete answer.'
             },
-            tools: [calculateTool],
+            tools: [scenarioCalculateTool],
             logging: {
                 level: 'info', // 자세한 로그를 통해 중복 실행 원인 파악
                 enabled: true
@@ -182,6 +210,10 @@ async function main() {
             const toolCallId = 'toolCallId' in msg ? (msg as any).toolCallId : '';
             console.log(`${index + 1}. ${msg.role}: ${content}${toolCalls > 0 ? ` [${toolCalls} tool calls]` : ''}${toolCallId ? ` [toolCallId: ${toolCallId}]` : ''}`);
         });
+
+        if (scenario.mode === 'play') {
+            await scenario.assertNoUnusedSteps();
+        }
 
         console.log('\n✅ Tool Calling Example Completed!');
 

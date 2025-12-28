@@ -12,10 +12,12 @@ import type {
     TToolParameters
 } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import { WorkflowEventSubscriber, WorkflowSubscriberEventService } from '@robota-sdk/workflow';
 
-import { ScenarioStore } from './utils/scenario-store';
-import { createScenarioProviderFromEnv } from './lib/scenario-provider';
+import { ScenarioStore } from './lib/scenario/store';
+import { createScenarioProviderFromEnv } from './lib/scenario/provider';
+import { createScenarioToolWrapper } from './lib/scenario/tool';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,6 +61,7 @@ const buildGuardedAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
     };
 
     return new FunctionTool(schema, async (params: TToolParameters, ctx?: IToolExecutionContext) => {
+
         const jobDescription = typeof params.jobDescription === 'string' ? params.jobDescription : '';
         if (!jobDescription) {
             throw new Error('[GUARDED-ASSIGN-TASK] Missing jobDescription');
@@ -76,10 +79,18 @@ const buildGuardedAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
 
         const childAgentId = `agent_${nextChildAgentNumber}`;
         nextChildAgentNumber += 1;
-        const delegatedResponseNodeId = `response_thinking_${childAgentId}_round1`;
-
         const extraContext = typeof params.context === 'string' ? params.context : '';
-        const prompt = extraContext ? `${jobDescription}\n\nContext: ${extraContext}` : jobDescription;
+        const priority = typeof params.priority === 'string' ? params.priority : '';
+        const prompt =
+            `Task: ${jobDescription}\n\n` +
+            `Context: ${extraContext}\n\n` +
+            `Priority: ${priority}`;
+
+        const agentTemplate = typeof params.agentTemplate === 'string' ? params.agentTemplate : '';
+        const temperature =
+            agentTemplate === 'creative_ideator' ? 0.8
+                : agentTemplate === 'domain_researcher' ? 0.4
+                    : 0.6;
 
         const childAgent = new Robota({
             name: `GuardedDelegatedAgent_${childAgentId}`,
@@ -87,14 +98,16 @@ const buildGuardedAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
             aiProviders: [aiProvider],
             defaultModel: {
                 provider: 'openai',
-                model: 'gpt-4o-mini'
+                model: 'gpt-4o-mini',
+                temperature
             },
             eventService: ctx.baseEventService,
             executionContext: { ownerPath: parentOwnerPath }
         });
 
         const response = await childAgent.run(prompt);
-        return { response, delegatedFrom: parentAgentId, delegatedAgentId: childAgentId, delegatedResponseNodeId };
+        // Tool message content must be a plain string to match the recorded scenario snapshots.
+        return response;
     });
 };
 
@@ -102,15 +115,28 @@ async function main(): Promise<void> {
     // Guard: This example is for refactor validation. It must be deterministic and offline.
     // Use sequential playback to avoid request-hash coupling during refactors.
     const store = new ScenarioStore({ baseDir: path.resolve(__dirname, 'scenarios') });
+
+    const isPlayMode = Boolean(process.env.SCENARIO_PLAY_ID);
+    const delegate =
+        isPlayMode
+            ? undefined
+            : (() => {
+                const apiKey = process.env.OPENAI_API_KEY;
+                if (!apiKey) {
+                    throw new Error('OPENAI_API_KEY environment variable is required (record/none mode)');
+                }
+                return new OpenAIProvider({ apiKey });
+            })();
+
     const scenario = createScenarioProviderFromEnv({
         store,
-        defaultPlayStrategy: 'sequential',
+        ...(delegate ? { delegate } : undefined),
+        // This scenario contains parallel tool calls (two assignTask calls in the same assistant turn).
+        // Sequential playback cannot be deterministic under concurrency, so we default to hash strategy.
+        defaultPlayStrategy: 'hash',
         providerName: 'openai',
         providerVersion: 'mock-scenario'
     });
-    if (scenario.mode !== 'play') {
-        throw new Error(`[GUARD] This example requires scenario playback. Set SCENARIO_PLAY_ID (mode=${scenario.mode}).`);
-    }
     const provider = scenario.provider;
 
     const subscriber = new WorkflowEventSubscriber({ logger: SilentLogger });
@@ -118,7 +144,12 @@ async function main(): Promise<void> {
     const baseEventService: IEventService = bridge;
 
     const rootAgentId = 'agent_0';
-    const assignTaskTool = buildGuardedAssignTaskTool(provider);
+    const assignTaskTool = createScenarioToolWrapper(buildGuardedAssignTaskTool(provider), {
+        mode: scenario.mode,
+        scenarioId: scenario.mode === 'none' ? undefined : scenario.scenarioId,
+        store,
+        ...(scenario.mode === 'play' ? { onToolCallUsed: scenario.onToolCallUsed } : undefined)
+    });
 
     const agent = new Robota({
         name: 'GuardedRootAgent',
@@ -134,14 +165,18 @@ async function main(): Promise<void> {
         executionContext: { ownerPath: [] }
     });
 
+    // Keep the prompt aligned with the recorded scenario to ensure deterministic playback.
     const prompt =
-        'Write a cafe business plan.\n' +
-        'MANDATORY: You MUST delegate market analysis and menu planning using assignTask.\n' +
-        'Do NOT do those parts yourself.';
+        '카페 창업 계획서를 작성해주세요. 🚨 MANDATORY DELEGATION REQUIRED: 다음 두 부분을 반드시 별도의 전문가에게 위임해야 합니다: ' +
+        '1) 시장 분석 (경쟁사, 타겟 고객, 트렌드) - 시장조사 전문가에게 assignTask로 위임 ' +
+        '2) 메뉴 구성 (음료 3개, 디저트 2개, 가격대) - 메뉴기획 전문가에게 assignTask로 위임 ' +
+        'YOU MUST use assignTask tool to delegate these tasks. DO NOT attempt to do the analysis yourself.';
 
     await agent.run(prompt);
     await bridge.flush();
-    await scenario.assertNoUnusedSteps();
+    if (scenario.mode === 'play') {
+        await scenario.assertNoUnusedSteps();
+    }
 
     const snapshot = subscriber.getWorkflowSnapshot();
     const nodes = snapshot.nodes;

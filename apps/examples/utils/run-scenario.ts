@@ -14,7 +14,12 @@ interface IParsedArgs {
 }
 
 function parseArgs(): IParsedArgs {
-    const [, , modeArg, exampleFile, scenarioId, ...rest] = process.argv;
+    const [, , modeArg, rawExampleFile, rawScenarioId, ...rest] = process.argv;
+
+    // pnpm convention: `pnpm <script> -- <args...>` passes a literal "--" through.
+    // Accept both `pnpm scenario play file id` and `pnpm scenario:play -- file id`.
+    const [exampleFile, scenarioId] =
+        rawExampleFile === '--' ? [rawScenarioId, rest.shift()] : [rawExampleFile, rawScenarioId];
 
     if (!modeArg || !exampleFile || !scenarioId) {
         printUsage();

@@ -664,6 +664,14 @@ export class ExecutionService {
                         if (result.toolName) {
                             metadata['toolName'] = result.toolName;
                         }
+                    } else if (result && !result.success) {
+                        // Tool execution failed (result is still present to preserve deterministic ordering)
+                        content = `Error: ${result.error || 'Unknown error'}`;
+                        metadata['success'] = false;
+                        metadata['error'] = result.error || 'Unknown error';
+                        if (result.toolName) {
+                            metadata['toolName'] = result.toolName;
+                        }
                     } else if (error) {
                         // Tool execution failed
                         const execError = error as IExecutionError;
