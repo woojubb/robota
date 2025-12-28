@@ -12,8 +12,8 @@ function printUsage(): void {
             '  pnpm scenario:verify -- <example-file> <scenario-id> [--strategy=hash|sequential]',
             '',
             'Examples:',
-            '  pnpm scenario:verify -- 26-guarded-edge-verification.ts mandatory-delegation --strategy=sequential',
-            '  pnpm scenario:verify -- 27-continued-conversation-edge-verification.ts continued-conversation --strategy=sequential',
+            '  pnpm scenario:verify -- 13-guarded-edge-verification.ts mandatory-delegation --strategy=sequential',
+            '  pnpm scenario:verify -- 15-continued-conversation-edge-verification.ts continued-conversation --strategy=sequential',
             ''
         ].join('\n')
     );

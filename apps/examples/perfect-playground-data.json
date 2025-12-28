@@ -7,7 +7,7 @@
       "totalEdges": 18
     },
     "testType": "example-26-verification",
-    "sourceExample": "26-playground-edge-verification.ts"
+    "sourceExample": "14-playground-edge-verification-deprecated.ts"
   },
   "__workflowType": "UniversalWorkflowStructure",
   "id": "example-26-edge-verification",

@@ -1,5 +1,5 @@
 /**
- * 07-agent-templates.ts
+ * 06-agent-templates.ts
  *
  * Agent Templates Example
  * Demonstrates using different AI providers and models for specialized tasks.
@@ -18,6 +18,13 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+function readEnvString(key: string): string | undefined {
+    const value = process.env[key];
+    if (value === undefined) return undefined;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+}
+
 async function main() {
     try {
         console.log('🎯 Agent Templates Example Started...\n');
@@ -35,8 +42,8 @@ async function main() {
         `);
 
         // Validate API keys
-        const openaiApiKey = process.env.OPENAI_API_KEY;
-        const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+        const openaiApiKey = readEnvString('OPENAI_API_KEY');
+        const anthropicApiKey = readEnvString('ANTHROPIC_API_KEY');
 
         if (!openaiApiKey) {
             throw new Error('OPENAI_API_KEY environment variable is required');
@@ -46,6 +53,11 @@ async function main() {
             throw new Error('ANTHROPIC_API_KEY environment variable is required');
         }
 
+        // NOTE: Keep model configurable because provider model catalogs change over time and
+        // model availability can differ by account. Default to a broadly available model.
+        // Override via ANTHROPIC_MODEL if your account supports a different model.
+        const anthropicModel = readEnvString('ANTHROPIC_MODEL') ?? 'claude-3-haiku-20240307';
+
         // Create providers
         const openaiClient = new OpenAI({ apiKey: openaiApiKey });
         const anthropicClient = new Anthropic({ apiKey: anthropicApiKey });
@@ -53,7 +65,7 @@ async function main() {
         // Research Agent Template (Anthropic Claude)
         const anthropicProvider = new AnthropicProvider({
             client: anthropicClient,
-            model: 'claude-3-5-sonnet-20241022'
+            model: anthropicModel
         });
 
         const researchAgent = new Robota({
@@ -61,7 +73,7 @@ async function main() {
             aiProviders: [anthropicProvider],
             defaultModel: {
                 provider: 'anthropic',
-                model: 'claude-3-5-sonnet-20241022',
+                model: anthropicModel,
                 systemMessage: 'You are a market research and analysis specialist. Focus on data-driven insights, market trends, competitive analysis, and strategic recommendations. Provide detailed, analytical responses.'
             }
         });

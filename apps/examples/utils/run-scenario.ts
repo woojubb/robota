@@ -3,7 +3,7 @@ import path from 'path';
 
 function printUsage(): void {
     console.log('Usage: pnpm scenario <record|play> <example-file> <scenario-id> [--strategy=hash|sequential]');
-    console.log('Example: pnpm scenario play 26-guarded-edge-verification.ts mandatory-delegation --strategy=sequential');
+    console.log('Example: pnpm scenario play 13-guarded-edge-verification.ts mandatory-delegation --strategy=sequential');
 }
 
 interface IParsedArgs {

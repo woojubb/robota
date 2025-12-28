@@ -33,7 +33,7 @@ class WorkflowAutomation {
 
         try {
             // Step 1: Run guarded example to generate workflow data
-            await this.runGuardedExample26();
+            await this.runGuardedExample13();
 
             // Step 2: Verify workflow connections
             await this.verifyConnections();
@@ -48,7 +48,7 @@ class WorkflowAutomation {
         }
     }
 
-    private async runGuardedExample26(): Promise<void> {
+    private async runGuardedExample13(): Promise<void> {
         console.log('📋 Step 1: Running guarded example to generate workflow data...');
 
         const scenarioId = process.env.SCENARIO_PLAY_ID;
@@ -60,7 +60,7 @@ class WorkflowAutomation {
             throw new Error('[GUARD] Missing/invalid SCENARIO_PLAY_STRATEGY. Use "hash" or "sequential".');
         }
 
-        const { stdout, stderr } = await execAsync('npx tsx 26-guarded-edge-verification.ts', {
+        const { stdout, stderr } = await execAsync('npx tsx 13-guarded-edge-verification.ts', {
             cwd: this.examplesDir,
             env: {
                 ...process.env,
