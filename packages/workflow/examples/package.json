@@ -1,0 +1,25 @@
+{
+  "name": "robota-workflow-examples",
+  "private": true,
+  "type": "module",
+  "description": "Package-owned examples for @robota-sdk/workflow (not part of the workspace)",
+  "dependencies": {
+    "@robota-sdk/agents": "link:../../agents",
+    "@robota-sdk/team": "link:../../team",
+    "@robota-sdk/workflow": "link:.."
+  },
+  "devDependencies": {
+    "tsx": "^4.20.3",
+    "typescript": "^5.3.3"
+  },
+  "scripts": {
+    "guarded": "tsx guarded-edge-verification.ts",
+    "continued": "tsx continued-conversation-edge-verification.ts",
+    "verify": "tsx utils/verify-workflow-connections.ts",
+    "scenario": "node utils/run-scenario.ts",
+    "scenario:verify": "node utils/verify-scenario.ts",
+    "migrate:fixtures": "node utils/migrate-scenario-fixtures.mjs"
+  }
+}
+
+
