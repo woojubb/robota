@@ -104,8 +104,8 @@ export class ToolEventHandler implements IEventHandler {
                     }
 
                     // Path-only: tool response is a child of:
-                    // - the tool call node (default)
-                    // - OR the delegated agent response node (when explicitly provided by tool result)
+                    // - the delegated agent response node (preferred, derived via explicit ownerPath)
+                    // - OR an explicitly provided delegated response node id (when present on tool result)
                     const delegatedResponseNodeId = (() => {
                         const res = eventData.result;
                         if (!res || typeof res !== 'object') return undefined;
@@ -113,7 +113,12 @@ export class ToolEventHandler implements IEventHandler {
                         const id = res.delegatedResponseNodeId;
                         return typeof id === 'string' && id.length > 0 ? id : undefined;
                     })();
-                    const parentForResponseId: string = delegatedResponseNodeId ?? toolCallId;
+                    const delegatedResponseFromGraph = this.findLatestResponseNodeIdForToolCall(toolCallId);
+                    // Deterministic parent selection:
+                    // - If a delegated response node exists (delegated agent flow), connect from it (prevents tool_call forks).
+                    // - Otherwise (local tool flow), connect from tool_call node itself.
+                    const parentForResponseId: string =
+                        delegatedResponseNodeId ?? delegatedResponseFromGraph ?? toolCallId;
 
                     // Create tool_response node
                     const toolResponseNode = this.createToolResponseNode(eventData, pathInfo);
@@ -433,6 +438,29 @@ export class ToolEventHandler implements IEventHandler {
             },
             connections: []
         };
+    }
+
+    private findLatestResponseNodeIdForToolCall(toolCallId: string): string | undefined {
+        // Path-only allowed scan: match by explicit ownerPath segment `{ type: 'tool', id: toolCallId }`
+        try {
+            const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
+            let best: { id: string; ts: number } | undefined;
+            for (const node of nodesAccessor) {
+                if (node?.type !== WORKFLOW_NODE_TYPES.RESPONSE) continue;
+                const orig = node?.data?.extensions?.robota?.originalEvent;
+                const ownerPath = orig?.context?.ownerPath;
+                if (!Array.isArray(ownerPath) || ownerPath.length === 0) continue;
+                const matchesToolScope = ownerPath.some((seg: any) => seg?.type === 'tool' && String(seg?.id ?? '') === toolCallId);
+                if (!matchesToolScope) continue;
+                const ts = Number(node?.timestamp || 0);
+                const id = String(node?.id ?? '');
+                if (!id) continue;
+                if (!best || ts > best.ts) best = { id, ts };
+            }
+            return best?.id;
+        } catch {
+            return undefined;
+        }
     }
 
     /**

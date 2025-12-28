@@ -41,36 +41,6 @@
       "providerInfo": { "name": "openai", "version": "mock-scenario" }
     },
     {
-      "stepId": "step_2_child_agent_response",
-      "requestHash": "manual-sequential-2",
-      "request": {
-        "messages": [
-          {
-            "role": "user",
-            "content": "Summarize the key risks for a cafe startup.\n\nContext: Keep it short and actionable.",
-            "metadata": { "executionId": "exec_child_1" },
-            "timestamp": 1700000000200
-          }
-        ],
-        "options": {
-          "model": "gpt-4o-mini",
-          "temperature": 0.6
-        },
-        "metadata": { "example": "27-continued-conversation-edge-verification" }
-      },
-      "response": {
-        "message": {
-          "role": "assistant",
-          "content": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
-          "metadata": { "finishReason": "stop" },
-          "timestamp": 1700000000300
-        }
-      },
-      "timestamp": 1700000000300,
-      "tags": ["example-27", "delegated"],
-      "providerInfo": { "name": "openai", "version": "mock-scenario" }
-    },
-    {
       "stepId": "step_3_root_round1_final",
       "requestHash": "manual-sequential-3",
       "request": {
@@ -96,7 +66,7 @@
           },
           {
             "role": "tool",
-            "content": "Tool result",
+            "content": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
             "toolCallId": "call_assign_1",
             "metadata": { "executionId": "exec_tool_1" },
             "timestamp": 1700000000400
@@ -147,7 +117,7 @@
           },
           {
             "role": "tool",
-            "content": "Tool result",
+            "content": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
             "toolCallId": "call_assign_1",
             "metadata": { "executionId": "exec_tool_1" },
             "timestamp": 1700000000400

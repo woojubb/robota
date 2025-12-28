@@ -17,12 +17,11 @@
         "tools": [
           "assignTask"
         ],
-        "originalEventTimestamp": "2025-12-21T04:52:57.256Z",
+        "originalEventTimestamp": "2025-12-28T09:07:35.190Z",
         "reservedThinkingId": "thinking_agent_0_copy_1",
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "agent.execution_start",
               "parameters": {
                 "tools": [
                   "assignTask"
@@ -31,9 +30,8 @@
                 "model": "gpt-4o-mini",
                 "temperature": 0.6
               },
-              "sourceType": "agent",
-              "sourceId": "agent_0",
-              "timestamp": "2025-12-21T04:52:57.268Z",
+              "eventType": "agent.execution_start",
+              "timestamp": "2025-12-28T09:07:35.204Z",
               "context": {
                 "ownerType": "agent",
                 "ownerId": "agent_0",
@@ -42,10 +40,9 @@
                     "type": "agent",
                     "id": "agent_0"
                   }
-                ],
-                "sourceId": "agent_0",
-                "timestamp": "2025-12-21T04:52:57.268Z"
-              }
+                ]
+              },
+              "sourceId": "agent_0"
             },
             "handlerType": "agent",
             "extra": {
@@ -61,7 +58,7 @@
       "connections": []
     },
     {
-      "id": "agent_0_user_exec_1766292777259_mlhx706l2",
+      "id": "agent_0_user_exec_1766912855191_9j8lai6fe_1766912855191",
       "type": "user_message",
       "level": 0,
       "status": "completed",
@@ -69,7 +66,7 @@
       "data": {
         "sourceId": "agent_0",
         "sourceType": "user",
-        "executionId": "exec_1766292777259_mlhx706l2",
+        "executionId": "exec_1766912855191_9j8lai6fe",
         "label": "User Message",
         "description": "User input message",
         "eventType": "execution.user_message",
@@ -90,15 +87,14 @@
           "estimatedComplexity": "medium"
         },
         "messageInfo": {
-          "messageId": "agent_0",
+          "messageId": "agent_0_user_exec_1766912855191_9j8lai6fe_1766912855191",
           "content": "First message: delegate one task using assignTask, then respond briefly.",
           "length": 72,
-          "timestamp": "2025-12-21T04:52:57.261Z"
+          "timestamp": "2025-12-28T09:07:35.192Z"
         },
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "execution.user_message",
               "parameters": {
                 "input": "First message: delegate one task using assignTask, then respond briefly.",
                 "userPrompt": "First message: delegate one task using assignTask, then respond briefly.",
@@ -115,12 +111,11 @@
                 "containsUrgency": false,
                 "estimatedComplexity": "medium"
               },
-              "sourceType": "agent",
-              "sourceId": "agent_0",
-              "timestamp": "2025-12-21T04:52:57.259Z",
+              "eventType": "execution.user_message",
+              "timestamp": "2025-12-28T09:07:35.191Z",
               "context": {
                 "ownerType": "execution",
-                "ownerId": "exec_1766292777259_mlhx706l2",
+                "ownerId": "exec_1766912855191_9j8lai6fe",
                 "ownerPath": [
                   {
                     "type": "agent",
@@ -128,11 +123,9 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
+                    "id": "exec_1766912855191_9j8lai6fe"
                   }
-                ],
-                "sourceId": "agent_0",
-                "timestamp": "2025-12-21T04:52:57.259Z"
+                ]
               }
             },
             "handlerType": "execution",
@@ -152,16 +145,14 @@
       "timestamp": 4,
       "data": {
         "eventType": "execution.assistant_message_start",
-        "sourceId": "agent_0",
         "sourceType": "agent",
         "agentNumber": 0,
         "label": "Agent 0 Thinking",
         "description": "Agent processing and reasoning",
-        "originalEventTimestamp": "2025-12-21T04:52:57.260Z",
+        "originalEventTimestamp": "2025-12-28T09:07:35.192Z",
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "execution.assistant_message_start",
               "parameters": {
                 "round": 1,
                 "messageCount": 1
@@ -170,9 +161,8 @@
                 "round": 1,
                 "thinkingNodeId": "thinking_agent_0_round1"
               },
-              "sourceType": "agent",
-              "sourceId": "agent_0",
-              "timestamp": "2025-12-21T04:52:57.260Z",
+              "eventType": "execution.assistant_message_start",
+              "timestamp": "2025-12-28T09:07:35.192Z",
               "context": {
                 "ownerType": "thinking",
                 "ownerId": "thinking_agent_0_round1",
@@ -183,22 +173,20 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
+                    "id": "exec_1766912855191_9j8lai6fe"
                   },
                   {
                     "type": "thinking",
                     "id": "thinking_agent_0_round1"
                   }
-                ],
-                "sourceId": "agent_0",
-                "timestamp": "2025-12-21T04:52:57.260Z"
+                ]
               }
             },
             "handlerType": "agent",
             "extra": {
               "ownerPath": [
                 "agent_0",
-                "exec_1766292777259_mlhx706l2",
+                "exec_1766912855191_9j8lai6fe",
                 "thinking_agent_0_round1"
               ],
               "agentNumber": 0
@@ -218,7 +206,6 @@
         "sourceId": "call_assign_1",
         "sourceType": "tool",
         "executionId": "call_assign_1",
-        "parentExecutionId": "thinking_agent_0_round1",
         "toolName": "assignTask",
         "label": "assignTask Call",
         "description": "Tool call: assignTask",
@@ -231,15 +218,13 @@
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "tool.call_start",
               "toolName": "assignTask",
               "parameters": {
                 "jobDescription": "Summarize the key risks for a cafe startup.",
                 "context": "Keep it short and actionable."
               },
-              "sourceType": "tool",
-              "sourceId": "call_assign_1",
-              "timestamp": "2025-12-21T04:52:57.262Z",
+              "eventType": "tool.call_start",
+              "timestamp": "2025-12-28T09:07:35.202Z",
               "context": {
                 "ownerType": "tool",
                 "ownerId": "call_assign_1",
@@ -250,7 +235,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
+                    "id": "exec_1766912855191_9j8lai6fe"
                   },
                   {
                     "type": "thinking",
@@ -260,9 +245,7 @@
                     "type": "tool",
                     "id": "call_assign_1"
                   }
-                ],
-                "sourceId": "call_assign_1",
-                "timestamp": "2025-12-21T04:52:57.262Z"
+                ]
               }
             },
             "handlerType": "tool",
@@ -275,406 +258,27 @@
       "connections": []
     },
     {
-      "id": "agent_1_copy_1",
-      "type": "agent",
-      "level": 5,
-      "status": "running",
-      "timestamp": 8,
-      "data": {
-        "eventType": "agent.created",
-        "sourceId": "agent_1",
-        "sourceType": "agent",
-        "agentNumber": 1,
-        "copyNumber": 1,
-        "label": "Agent 1",
-        "description": "AI Agent instance",
-        "originalEventTimestamp": "2025-12-21T04:52:57.262Z",
-        "reservedThinkingId": "thinking_agent_1_copy_1",
-        "extensions": {
-          "robota": {
-            "originalEvent": {
-              "eventType": "agent.execution_start",
-              "parameters": {
-                "tools": [],
-                "provider": "openai",
-                "model": "gpt-4o-mini"
-              },
-              "sourceType": "agent",
-              "sourceId": "agent_1",
-              "timestamp": "2025-12-21T04:52:57.262Z",
-              "context": {
-                "ownerType": "agent",
-                "ownerId": "agent_1",
-                "ownerPath": [
-                  {
-                    "type": "agent",
-                    "id": "agent_0"
-                  },
-                  {
-                    "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
-                  },
-                  {
-                    "type": "thinking",
-                    "id": "thinking_agent_0_round1"
-                  },
-                  {
-                    "type": "tool",
-                    "id": "call_assign_1"
-                  },
-                  {
-                    "type": "agent",
-                    "id": "agent_1"
-                  }
-                ],
-                "sourceId": "agent_1",
-                "timestamp": "2025-12-21T04:52:57.262Z"
-              }
-            },
-            "handlerType": "agent",
-            "extra": {
-              "ownerPath": [
-                "agent_0",
-                "exec_1766292777259_mlhx706l2",
-                "thinking_agent_0_round1",
-                "call_assign_1",
-                "agent_1"
-              ],
-              "agentNumber": 1
-            }
-          }
-        },
-        "status": "running"
-      },
-      "connections": []
-    },
-    {
-      "id": "agent_1_user_exec_1766292777262_qgbl88vog",
-      "type": "user_message",
-      "level": 0,
-      "status": "completed",
-      "timestamp": 10,
-      "data": {
-        "sourceId": "agent_1",
-        "sourceType": "user",
-        "executionId": "exec_1766292777262_qgbl88vog",
-        "label": "User Message",
-        "description": "User input message",
-        "eventType": "execution.user_message",
-        "parameters": {
-          "input": "Summarize the key risks for a cafe startup.\n\nContext: Keep it short and actionable.",
-          "userPrompt": "Summarize the key risks for a cafe startup.\n\nContext: Keep it short and actionable.",
-          "userMessageContent": "Summarize the key risks for a cafe startup.\n\nContext: Keep it short and actionable.",
-          "messageLength": 83,
-          "wordCount": 14,
-          "characterCount": 83
-        },
-        "metadata": {
-          "messageRole": "user",
-          "inputLength": 83,
-          "messageType": "user_message",
-          "hasQuestions": false,
-          "containsUrgency": false,
-          "estimatedComplexity": "medium"
-        },
-        "messageInfo": {
-          "messageId": "agent_1",
-          "content": "Summarize the key risks for a cafe startup.\n\nContext: Keep it short and actionable.",
-          "length": 83,
-          "timestamp": "2025-12-21T04:52:57.263Z"
-        },
-        "extensions": {
-          "robota": {
-            "originalEvent": {
-              "eventType": "execution.user_message",
-              "parameters": {
-                "input": "Summarize the key risks for a cafe startup.\n\nContext: Keep it short and actionable.",
-                "userPrompt": "Summarize the key risks for a cafe startup.\n\nContext: Keep it short and actionable.",
-                "userMessageContent": "Summarize the key risks for a cafe startup.\n\nContext: Keep it short and actionable.",
-                "messageLength": 83,
-                "wordCount": 14,
-                "characterCount": 83
-              },
-              "metadata": {
-                "messageRole": "user",
-                "inputLength": 83,
-                "messageType": "user_message",
-                "hasQuestions": false,
-                "containsUrgency": false,
-                "estimatedComplexity": "medium"
-              },
-              "sourceType": "agent",
-              "sourceId": "agent_1",
-              "timestamp": "2025-12-21T04:52:57.262Z",
-              "context": {
-                "ownerType": "execution",
-                "ownerId": "exec_1766292777262_qgbl88vog",
-                "ownerPath": [
-                  {
-                    "type": "agent",
-                    "id": "agent_0"
-                  },
-                  {
-                    "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
-                  },
-                  {
-                    "type": "thinking",
-                    "id": "thinking_agent_0_round1"
-                  },
-                  {
-                    "type": "tool",
-                    "id": "call_assign_1"
-                  },
-                  {
-                    "type": "agent",
-                    "id": "agent_1"
-                  },
-                  {
-                    "type": "execution",
-                    "id": "exec_1766292777262_qgbl88vog"
-                  }
-                ],
-                "sourceId": "agent_1",
-                "timestamp": "2025-12-21T04:52:57.262Z"
-              }
-            },
-            "handlerType": "execution",
-            "extra": {
-              "isUserMessage": true
-            }
-          }
-        }
-      },
-      "connections": []
-    },
-    {
-      "id": "thinking_agent_1_round1",
-      "type": "agent_thinking",
-      "level": 7,
-      "status": "running",
-      "timestamp": 12,
-      "data": {
-        "eventType": "execution.assistant_message_start",
-        "sourceId": "agent_1",
-        "sourceType": "agent",
-        "agentNumber": 1,
-        "label": "Agent 1 Thinking",
-        "description": "Agent processing and reasoning",
-        "originalEventTimestamp": "2025-12-21T04:52:57.263Z",
-        "extensions": {
-          "robota": {
-            "originalEvent": {
-              "eventType": "execution.assistant_message_start",
-              "parameters": {
-                "round": 1,
-                "messageCount": 1
-              },
-              "metadata": {
-                "round": 1,
-                "thinkingNodeId": "thinking_agent_1_round1"
-              },
-              "sourceType": "agent",
-              "sourceId": "agent_1",
-              "timestamp": "2025-12-21T04:52:57.263Z",
-              "context": {
-                "ownerType": "thinking",
-                "ownerId": "thinking_agent_1_round1",
-                "ownerPath": [
-                  {
-                    "type": "agent",
-                    "id": "agent_0"
-                  },
-                  {
-                    "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
-                  },
-                  {
-                    "type": "thinking",
-                    "id": "thinking_agent_0_round1"
-                  },
-                  {
-                    "type": "tool",
-                    "id": "call_assign_1"
-                  },
-                  {
-                    "type": "agent",
-                    "id": "agent_1"
-                  },
-                  {
-                    "type": "execution",
-                    "id": "exec_1766292777262_qgbl88vog"
-                  },
-                  {
-                    "type": "thinking",
-                    "id": "thinking_agent_1_round1"
-                  }
-                ],
-                "sourceId": "agent_1",
-                "timestamp": "2025-12-21T04:52:57.263Z"
-              }
-            },
-            "handlerType": "agent",
-            "extra": {
-              "ownerPath": [
-                "agent_0",
-                "exec_1766292777259_mlhx706l2",
-                "thinking_agent_0_round1",
-                "call_assign_1",
-                "agent_1",
-                "exec_1766292777262_qgbl88vog",
-                "thinking_agent_1_round1"
-              ],
-              "agentNumber": 1
-            }
-          }
-        }
-      },
-      "connections": []
-    },
-    {
-      "id": "response_thinking_agent_1_round1",
-      "type": "response",
-      "level": 8,
-      "status": "completed",
-      "timestamp": 14,
-      "data": {
-        "eventType": "execution.assistant_message_complete",
-        "sourceId": "agent_1",
-        "sourceType": "agent",
-        "agentNumber": 1,
-        "label": "Agent 1 Response",
-        "description": "Agent response and output",
-        "response": "",
-        "originalEventTimestamp": "2025-12-21T04:52:57.265Z",
-        "extensions": {
-          "robota": {
-            "originalEvent": {
-              "eventType": "execution.assistant_message_complete",
-              "parameters": {
-                "assistantMessage": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
-                "responseLength": 243,
-                "wordCount": 33,
-                "responseTime": 66292776965,
-                "contentPreview": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buff..."
-              },
-              "result": {
-                "success": true,
-                "data": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentia...",
-                "fullResponse": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
-                "responseMetrics": {
-                  "length": 243,
-                  "estimatedReadTime": 1,
-                  "hasCodeBlocks": false,
-                  "hasLinks": false,
-                  "complexity": "low"
-                }
-              },
-              "metadata": {
-                "executionId": "exec_1766292777262_qgbl88vog",
-                "round": 1,
-                "completed": true,
-                "reason": "no_tool_calls",
-                "responseCharacteristics": {
-                  "hasQuestions": false,
-                  "isError": false,
-                  "isComplete": false,
-                  "containsNumbers": true
-                }
-              },
-              "sourceType": "agent",
-              "sourceId": "agent_1",
-              "timestamp": "2025-12-21T04:52:57.265Z",
-              "context": {
-                "ownerType": "response",
-                "ownerId": "response_thinking_agent_1_round1",
-                "ownerPath": [
-                  {
-                    "type": "agent",
-                    "id": "agent_0"
-                  },
-                  {
-                    "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
-                  },
-                  {
-                    "type": "thinking",
-                    "id": "thinking_agent_0_round1"
-                  },
-                  {
-                    "type": "tool",
-                    "id": "call_assign_1"
-                  },
-                  {
-                    "type": "agent",
-                    "id": "agent_1"
-                  },
-                  {
-                    "type": "execution",
-                    "id": "exec_1766292777262_qgbl88vog"
-                  },
-                  {
-                    "type": "thinking",
-                    "id": "thinking_agent_1_round1"
-                  },
-                  {
-                    "type": "response",
-                    "id": "response_thinking_agent_1_round1"
-                  }
-                ],
-                "sourceId": "agent_1",
-                "timestamp": "2025-12-21T04:52:57.265Z"
-              }
-            },
-            "handlerType": "agent",
-            "extra": {
-              "ownerPath": [
-                "agent_0",
-                "exec_1766292777259_mlhx706l2",
-                "thinking_agent_0_round1",
-                "call_assign_1",
-                "agent_1",
-                "exec_1766292777262_qgbl88vog",
-                "thinking_agent_1_round1",
-                "response_thinking_agent_1_round1"
-              ],
-              "agentNumber": 1
-            }
-          }
-        }
-      },
-      "connections": []
-    },
-    {
       "id": "tool_response_call_call_assign_1",
       "type": "tool_response",
       "level": 2,
       "status": "completed",
-      "timestamp": 16,
+      "timestamp": 8,
       "data": {
         "sourceId": "call_assign_1",
         "sourceType": "tool",
         "executionId": "call_assign_1",
-        "parentExecutionId": "thinking_agent_0_round1",
         "toolName": "unknown_tool",
         "label": "unknown_tool Response",
         "description": "Tool response from unknown_tool",
         "eventType": "tool.call_response_ready",
         "parameters": {},
-        "result": {
-          "success": true,
-          "data": {
-            "response": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
-            "delegatedAgentId": "agent_1",
-            "delegatedResponseNodeId": "response_thinking_agent_1_round1"
-          }
-        },
+        "result": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
         "metadata": {},
         "toolResponse": {
           "toolName": "unknown_tool",
           "content": "Tool response",
           "success": true,
-          "timestamp": "2025-12-21T04:52:57.266Z"
+          "timestamp": "2025-12-28T09:07:35.203Z"
         },
         "responseMetrics": {
           "responseLength": 13,
@@ -684,19 +288,10 @@
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "tool.call_response_ready",
               "toolName": "assignTask",
-              "result": {
-                "success": true,
-                "data": {
-                  "response": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
-                  "delegatedAgentId": "agent_1",
-                  "delegatedResponseNodeId": "response_thinking_agent_1_round1"
-                }
-              },
-              "sourceType": "tool",
-              "sourceId": "call_assign_1",
-              "timestamp": "2025-12-21T04:52:57.265Z",
+              "result": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
+              "eventType": "tool.call_response_ready",
+              "timestamp": "2025-12-28T09:07:35.203Z",
               "context": {
                 "ownerType": "tool",
                 "ownerId": "call_assign_1",
@@ -707,7 +302,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
+                    "id": "exec_1766912855191_9j8lai6fe"
                   },
                   {
                     "type": "thinking",
@@ -717,9 +312,7 @@
                     "type": "tool",
                     "id": "call_assign_1"
                   }
-                ],
-                "sourceId": "call_assign_1",
-                "timestamp": "2025-12-21T04:52:57.265Z"
+                ]
               }
             },
             "handlerType": "tool",
@@ -733,13 +326,13 @@
       "connections": []
     },
     {
-      "id": "tool_result_thinking_agent_0_round1_1766292777266",
+      "id": "tool_result_thinking_agent_0_round1_1766912855203",
       "type": "tool_result",
       "level": 2,
       "status": "running",
-      "timestamp": 18,
+      "timestamp": 10,
       "data": {
-        "sourceId": "agent_0",
+        "sourceId": "thinking_agent_0_round1",
         "sourceType": "execution",
         "parentThinkingNodeId": "thinking_agent_0_round1",
         "label": "Tool Result Aggregation",
@@ -747,13 +340,11 @@
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "execution.tool_results_ready",
               "metadata": {
                 "round": 1
               },
-              "sourceType": "agent",
-              "sourceId": "agent_0",
-              "timestamp": "2025-12-21T04:52:57.266Z",
+              "eventType": "execution.tool_results_ready",
+              "timestamp": "2025-12-28T09:07:35.203Z",
               "context": {
                 "ownerType": "thinking",
                 "ownerId": "thinking_agent_0_round1",
@@ -764,15 +355,13 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
+                    "id": "exec_1766912855191_9j8lai6fe"
                   },
                   {
                     "type": "thinking",
                     "id": "thinking_agent_0_round1"
                   }
-                ],
-                "sourceId": "agent_0",
-                "timestamp": "2025-12-21T04:52:57.266Z"
+                ]
               }
             },
             "handlerType": "execution"
@@ -786,19 +375,17 @@
       "type": "agent_thinking",
       "level": 3,
       "status": "running",
-      "timestamp": 20,
+      "timestamp": 12,
       "data": {
         "eventType": "execution.assistant_message_start",
-        "sourceId": "agent_0",
         "sourceType": "agent",
         "agentNumber": 0,
         "label": "Agent 0 Thinking",
         "description": "Agent processing and reasoning",
-        "originalEventTimestamp": "2025-12-21T04:52:57.266Z",
+        "originalEventTimestamp": "2025-12-28T09:07:35.203Z",
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "execution.assistant_message_start",
               "parameters": {
                 "round": 2,
                 "messageCount": 3
@@ -807,9 +394,8 @@
                 "round": 2,
                 "thinkingNodeId": "thinking_agent_0_round2"
               },
-              "sourceType": "agent",
-              "sourceId": "agent_0",
-              "timestamp": "2025-12-21T04:52:57.266Z",
+              "eventType": "execution.assistant_message_start",
+              "timestamp": "2025-12-28T09:07:35.203Z",
               "context": {
                 "ownerType": "thinking",
                 "ownerId": "thinking_agent_0_round2",
@@ -820,22 +406,20 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
+                    "id": "exec_1766912855191_9j8lai6fe"
                   },
                   {
                     "type": "thinking",
                     "id": "thinking_agent_0_round2"
                   }
-                ],
-                "sourceId": "agent_0",
-                "timestamp": "2025-12-21T04:52:57.266Z"
+                ]
               }
             },
             "handlerType": "agent",
             "extra": {
               "ownerPath": [
                 "agent_0",
-                "exec_1766292777259_mlhx706l2",
+                "exec_1766912855191_9j8lai6fe",
                 "thinking_agent_0_round2"
               ],
               "agentNumber": 0
@@ -850,25 +434,23 @@
       "type": "response",
       "level": 4,
       "status": "completed",
-      "timestamp": 22,
+      "timestamp": 14,
       "data": {
         "eventType": "execution.assistant_message_complete",
-        "sourceId": "agent_0",
         "sourceType": "agent",
         "agentNumber": 0,
         "label": "Agent 0 Response",
         "description": "Agent response and output",
         "response": "",
-        "originalEventTimestamp": "2025-12-21T04:52:57.267Z",
+        "originalEventTimestamp": "2025-12-28T09:07:35.204Z",
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "execution.assistant_message_complete",
               "parameters": {
                 "assistantMessage": "Got it. I delegated the risk analysis and will use it to keep the plan grounded. Next, I’ll outline a minimal launch plan with weekly checkpoints.",
                 "responseLength": 146,
                 "wordCount": 26,
-                "responseTime": 66292776767,
+                "responseTime": 66912854704,
                 "contentPreview": "Got it. I delegated the risk analysis and will use it to keep the plan grounded. Next, I’ll outline a minimal launch plan with weekly checkpoints."
               },
               "result": {
@@ -884,7 +466,7 @@
                 }
               },
               "metadata": {
-                "executionId": "exec_1766292777259_mlhx706l2",
+                "executionId": "exec_1766912855191_9j8lai6fe",
                 "round": 2,
                 "completed": true,
                 "reason": "no_tool_calls",
@@ -895,9 +477,8 @@
                   "containsNumbers": false
                 }
               },
-              "sourceType": "agent",
-              "sourceId": "agent_0",
-              "timestamp": "2025-12-21T04:52:57.267Z",
+              "eventType": "execution.assistant_message_complete",
+              "timestamp": "2025-12-28T09:07:35.204Z",
               "context": {
                 "ownerType": "response",
                 "ownerId": "response_thinking_agent_0_round2",
@@ -908,7 +489,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766292777259_mlhx706l2"
+                    "id": "exec_1766912855191_9j8lai6fe"
                   },
                   {
                     "type": "thinking",
@@ -918,16 +499,14 @@
                     "type": "response",
                     "id": "response_thinking_agent_0_round2"
                   }
-                ],
-                "sourceId": "agent_0",
-                "timestamp": "2025-12-21T04:52:57.267Z"
+                ]
               }
             },
             "handlerType": "agent",
             "extra": {
               "ownerPath": [
                 "agent_0",
-                "exec_1766292777259_mlhx706l2",
+                "exec_1766912855191_9j8lai6fe",
                 "thinking_agent_0_round2",
                 "response_thinking_agent_0_round2"
               ],
@@ -939,15 +518,15 @@
       "connections": []
     },
     {
-      "id": "agent_0_user_exec_1766292777268_ogo38k16d",
+      "id": "agent_0_user_exec_1766912855204_i9xwegzgk_1766912855204",
       "type": "user_message",
       "level": 0,
       "status": "completed",
-      "timestamp": 24,
+      "timestamp": 16,
       "data": {
         "sourceId": "agent_0",
         "sourceType": "user",
-        "executionId": "exec_1766292777268_ogo38k16d",
+        "executionId": "exec_1766912855204_i9xwegzgk",
         "label": "User Message",
         "description": "User input message",
         "eventType": "execution.user_message",
@@ -968,15 +547,14 @@
           "estimatedComplexity": "medium"
         },
         "messageInfo": {
-          "messageId": "agent_0",
+          "messageId": "agent_0_user_exec_1766912855204_i9xwegzgk_1766912855204",
           "content": "Second message: continue based on previous response; do not reset context.",
           "length": 74,
-          "timestamp": "2025-12-21T04:52:57.268Z"
+          "timestamp": "2025-12-28T09:07:35.205Z"
         },
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "execution.user_message",
               "parameters": {
                 "input": "Second message: continue based on previous response; do not reset context.",
                 "userPrompt": "Second message: continue based on previous response; do not reset context.",
@@ -993,12 +571,11 @@
                 "containsUrgency": false,
                 "estimatedComplexity": "medium"
               },
-              "sourceType": "agent",
-              "sourceId": "agent_0",
-              "timestamp": "2025-12-21T04:52:57.268Z",
+              "eventType": "execution.user_message",
+              "timestamp": "2025-12-28T09:07:35.204Z",
               "context": {
                 "ownerType": "execution",
-                "ownerId": "exec_1766292777268_ogo38k16d",
+                "ownerId": "exec_1766912855204_i9xwegzgk",
                 "ownerPath": [
                   {
                     "type": "agent",
@@ -1006,11 +583,9 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766292777268_ogo38k16d"
+                    "id": "exec_1766912855204_i9xwegzgk"
                   }
-                ],
-                "sourceId": "agent_0",
-                "timestamp": "2025-12-21T04:52:57.268Z"
+                ]
               }
             },
             "handlerType": "execution",
@@ -1027,19 +602,17 @@
       "type": "agent_thinking",
       "level": 3,
       "status": "running",
-      "timestamp": 26,
+      "timestamp": 18,
       "data": {
         "eventType": "execution.assistant_message_start",
-        "sourceId": "agent_0",
         "sourceType": "agent",
         "agentNumber": 0,
         "label": "Agent 0 Thinking",
         "description": "Agent processing and reasoning",
-        "originalEventTimestamp": "2025-12-21T04:52:57.268Z",
+        "originalEventTimestamp": "2025-12-28T09:07:35.204Z",
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "execution.assistant_message_start",
               "parameters": {
                 "round": 1,
                 "messageCount": 5
@@ -1048,9 +621,8 @@
                 "round": 1,
                 "thinkingNodeId": "thinking_agent_0_round3"
               },
-              "sourceType": "agent",
-              "sourceId": "agent_0",
-              "timestamp": "2025-12-21T04:52:57.268Z",
+              "eventType": "execution.assistant_message_start",
+              "timestamp": "2025-12-28T09:07:35.204Z",
               "context": {
                 "ownerType": "thinking",
                 "ownerId": "thinking_agent_0_round3",
@@ -1061,22 +633,20 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766292777268_ogo38k16d"
+                    "id": "exec_1766912855204_i9xwegzgk"
                   },
                   {
                     "type": "thinking",
                     "id": "thinking_agent_0_round3"
                   }
-                ],
-                "sourceId": "agent_0",
-                "timestamp": "2025-12-21T04:52:57.268Z"
+                ]
               }
             },
             "handlerType": "agent",
             "extra": {
               "ownerPath": [
                 "agent_0",
-                "exec_1766292777268_ogo38k16d",
+                "exec_1766912855204_i9xwegzgk",
                 "thinking_agent_0_round3"
               ],
               "agentNumber": 0
@@ -1091,25 +661,23 @@
       "type": "response",
       "level": 4,
       "status": "completed",
-      "timestamp": 28,
+      "timestamp": 20,
       "data": {
         "eventType": "execution.assistant_message_complete",
-        "sourceId": "agent_0",
         "sourceType": "agent",
         "agentNumber": 0,
         "label": "Agent 0 Response",
         "description": "Agent response and output",
         "response": "",
-        "originalEventTimestamp": "2025-12-21T04:52:57.269Z",
+        "originalEventTimestamp": "2025-12-28T09:07:35.206Z",
         "extensions": {
           "robota": {
             "originalEvent": {
-              "eventType": "execution.assistant_message_complete",
               "parameters": {
                 "assistantMessage": "Continuation: Week 1 validate location + supplier quotes; Week 2 soft launch with 3 drinks; Week 3 measure margins and adjust; Week 4 marketing push. I’ll keep the delegated risks as constraints throughout.",
                 "responseLength": 206,
                 "wordCount": 33,
-                "responseTime": 66292776569,
+                "responseTime": 66912854505,
                 "contentPreview": "Continuation: Week 1 validate location + supplier quotes; Week 2 soft launch with 3 drinks; Week 3 measure margins and adjust; Week 4 marketing push. I’ll keep the delegated risks as constraints throu..."
               },
               "result": {
@@ -1125,7 +693,7 @@
                 }
               },
               "metadata": {
-                "executionId": "exec_1766292777268_ogo38k16d",
+                "executionId": "exec_1766912855204_i9xwegzgk",
                 "round": 1,
                 "completed": true,
                 "reason": "no_tool_calls",
@@ -1136,9 +704,8 @@
                   "containsNumbers": true
                 }
               },
-              "sourceType": "agent",
-              "sourceId": "agent_0",
-              "timestamp": "2025-12-21T04:52:57.269Z",
+              "eventType": "execution.assistant_message_complete",
+              "timestamp": "2025-12-28T09:07:35.206Z",
               "context": {
                 "ownerType": "response",
                 "ownerId": "response_thinking_agent_0_round3",
@@ -1149,7 +716,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766292777268_ogo38k16d"
+                    "id": "exec_1766912855204_i9xwegzgk"
                   },
                   {
                     "type": "thinking",
@@ -1159,16 +726,14 @@
                     "type": "response",
                     "id": "response_thinking_agent_0_round3"
                   }
-                ],
-                "sourceId": "agent_0",
-                "timestamp": "2025-12-21T04:52:57.269Z"
+                ]
               }
             },
             "handlerType": "agent",
             "extra": {
               "ownerPath": [
                 "agent_0",
-                "exec_1766292777268_ogo38k16d",
+                "exec_1766912855204_i9xwegzgk",
                 "thinking_agent_0_round3",
                 "response_thinking_agent_0_round3"
               ],
@@ -1182,22 +747,22 @@
   ],
   "edges": [
     {
-      "id": "edge_agent_0_copy_1_agent_0_user_exec_1766292777259_mlhx706l2_receives_3",
+      "id": "edge_agent_0_copy_1_agent_0_user_exec_1766912855191_9j8lai6fe_1766912855191_receives_3",
       "source": "agent_0_copy_1",
-      "target": "agent_0_user_exec_1766292777259_mlhx706l2",
+      "target": "agent_0_user_exec_1766912855191_9j8lai6fe_1766912855191",
       "type": "receives",
       "timestamp": 3,
-      "createdAt": "2025-12-21T04:52:57.261Z",
-      "updatedAt": "2025-12-21T04:52:57.261Z"
+      "createdAt": "2025-12-28T09:07:35.193Z",
+      "updatedAt": "2025-12-28T09:07:35.193Z"
     },
     {
-      "id": "edge_agent_0_user_exec_1766292777259_mlhx706l2_thinking_agent_0_round1_processes_5",
-      "source": "agent_0_user_exec_1766292777259_mlhx706l2",
+      "id": "edge_agent_0_user_exec_1766912855191_9j8lai6fe_1766912855191_thinking_agent_0_round1_processes_5",
+      "source": "agent_0_user_exec_1766912855191_9j8lai6fe_1766912855191",
       "target": "thinking_agent_0_round1",
       "type": "processes",
       "timestamp": 5,
-      "createdAt": "2025-12-21T04:52:57.261Z",
-      "updatedAt": "2025-12-21T04:52:57.261Z"
+      "createdAt": "2025-12-28T09:07:35.193Z",
+      "updatedAt": "2025-12-28T09:07:35.193Z"
     },
     {
       "id": "edge_thinking_agent_0_round1_call_assign_1_executes_7",
@@ -1205,107 +770,71 @@
       "target": "call_assign_1",
       "type": "executes",
       "timestamp": 7,
-      "createdAt": "2025-12-21T04:52:57.262Z",
-      "updatedAt": "2025-12-21T04:52:57.262Z"
+      "createdAt": "2025-12-28T09:07:35.202Z",
+      "updatedAt": "2025-12-28T09:07:35.202Z"
     },
     {
-      "id": "edge_call_assign_1_agent_1_copy_1_creates_9",
+      "id": "edge_call_assign_1_tool_response_call_call_assign_1_result_9",
       "source": "call_assign_1",
-      "target": "agent_1_copy_1",
-      "type": "creates",
-      "timestamp": 9,
-      "createdAt": "2025-12-21T04:52:57.263Z",
-      "updatedAt": "2025-12-21T04:52:57.263Z"
-    },
-    {
-      "id": "edge_agent_1_copy_1_agent_1_user_exec_1766292777262_qgbl88vog_receives_11",
-      "source": "agent_1_copy_1",
-      "target": "agent_1_user_exec_1766292777262_qgbl88vog",
-      "type": "receives",
-      "timestamp": 11,
-      "createdAt": "2025-12-21T04:52:57.263Z",
-      "updatedAt": "2025-12-21T04:52:57.263Z"
-    },
-    {
-      "id": "edge_agent_1_user_exec_1766292777262_qgbl88vog_thinking_agent_1_round1_processes_13",
-      "source": "agent_1_user_exec_1766292777262_qgbl88vog",
-      "target": "thinking_agent_1_round1",
-      "type": "processes",
-      "timestamp": 13,
-      "createdAt": "2025-12-21T04:52:57.264Z",
-      "updatedAt": "2025-12-21T04:52:57.264Z"
-    },
-    {
-      "id": "edge_thinking_agent_1_round1_response_thinking_agent_1_round1_return_15",
-      "source": "thinking_agent_1_round1",
-      "target": "response_thinking_agent_1_round1",
-      "type": "return",
-      "timestamp": 15,
-      "createdAt": "2025-12-21T04:52:57.265Z",
-      "updatedAt": "2025-12-21T04:52:57.265Z"
-    },
-    {
-      "id": "edge_response_thinking_agent_1_round1_tool_response_call_call_assign_1_result_17",
-      "source": "response_thinking_agent_1_round1",
       "target": "tool_response_call_call_assign_1",
       "type": "result",
-      "timestamp": 17,
-      "createdAt": "2025-12-21T04:52:57.266Z",
-      "updatedAt": "2025-12-21T04:52:57.266Z"
+      "timestamp": 9,
+      "createdAt": "2025-12-28T09:07:35.203Z",
+      "updatedAt": "2025-12-28T09:07:35.203Z"
     },
     {
-      "id": "edge_tool_response_call_call_assign_1_tool_result_thinking_agent_0_round1_1766292777266_result_19",
+      "id": "edge_tool_response_call_call_assign_1_tool_result_thinking_agent_0_round1_1766912855203_result_11",
       "source": "tool_response_call_call_assign_1",
-      "target": "tool_result_thinking_agent_0_round1_1766292777266",
+      "target": "tool_result_thinking_agent_0_round1_1766912855203",
       "type": "result",
-      "timestamp": 19,
-      "createdAt": "2025-12-21T04:52:57.266Z",
-      "updatedAt": "2025-12-21T04:52:57.266Z"
+      "timestamp": 11,
+      "createdAt": "2025-12-28T09:07:35.203Z",
+      "updatedAt": "2025-12-28T09:07:35.203Z"
     },
     {
-      "id": "edge_tool_result_thinking_agent_0_round1_1766292777266_thinking_agent_0_round2_analyze_21",
-      "source": "tool_result_thinking_agent_0_round1_1766292777266",
+      "id": "edge_tool_result_thinking_agent_0_round1_1766912855203_thinking_agent_0_round2_analyze_13",
+      "source": "tool_result_thinking_agent_0_round1_1766912855203",
       "target": "thinking_agent_0_round2",
       "type": "analyze",
-      "timestamp": 21,
-      "createdAt": "2025-12-21T04:52:57.267Z",
-      "updatedAt": "2025-12-21T04:52:57.267Z"
+      "timestamp": 13,
+      "createdAt": "2025-12-28T09:07:35.203Z",
+      "updatedAt": "2025-12-28T09:07:35.203Z"
     },
     {
-      "id": "edge_thinking_agent_0_round2_response_thinking_agent_0_round2_return_23",
+      "id": "edge_thinking_agent_0_round2_response_thinking_agent_0_round2_return_15",
       "source": "thinking_agent_0_round2",
       "target": "response_thinking_agent_0_round2",
       "type": "return",
-      "timestamp": 23,
-      "createdAt": "2025-12-21T04:52:57.268Z",
-      "updatedAt": "2025-12-21T04:52:57.268Z"
+      "timestamp": 15,
+      "createdAt": "2025-12-28T09:07:35.204Z",
+      "updatedAt": "2025-12-28T09:07:35.204Z"
     },
     {
-      "id": "edge_response_thinking_agent_0_round2_agent_0_user_exec_1766292777268_ogo38k16d_continues_25",
-      "source": "response_thinking_agent_0_round2",
-      "target": "agent_0_user_exec_1766292777268_ogo38k16d",
-      "type": "continues",
-      "timestamp": 25,
-      "createdAt": "2025-12-21T04:52:57.268Z",
-      "updatedAt": "2025-12-21T04:52:57.268Z"
+      "id": "edge_agent_0_copy_1_agent_0_user_exec_1766912855204_i9xwegzgk_1766912855204_receives_17",
+      "source": "agent_0_copy_1",
+      "target": "agent_0_user_exec_1766912855204_i9xwegzgk_1766912855204",
+      "type": "receives",
+      "timestamp": 17,
+      "createdAt": "2025-12-28T09:07:35.205Z",
+      "updatedAt": "2025-12-28T09:07:35.205Z"
     },
     {
-      "id": "edge_agent_0_user_exec_1766292777268_ogo38k16d_thinking_agent_0_round3_processes_27",
-      "source": "agent_0_user_exec_1766292777268_ogo38k16d",
+      "id": "edge_agent_0_user_exec_1766912855204_i9xwegzgk_1766912855204_thinking_agent_0_round3_processes_19",
+      "source": "agent_0_user_exec_1766912855204_i9xwegzgk_1766912855204",
       "target": "thinking_agent_0_round3",
       "type": "processes",
-      "timestamp": 27,
-      "createdAt": "2025-12-21T04:52:57.268Z",
-      "updatedAt": "2025-12-21T04:52:57.268Z"
+      "timestamp": 19,
+      "createdAt": "2025-12-28T09:07:35.205Z",
+      "updatedAt": "2025-12-28T09:07:35.205Z"
     },
     {
-      "id": "edge_thinking_agent_0_round3_response_thinking_agent_0_round3_return_29",
+      "id": "edge_thinking_agent_0_round3_response_thinking_agent_0_round3_return_21",
       "source": "thinking_agent_0_round3",
       "target": "response_thinking_agent_0_round3",
       "type": "return",
-      "timestamp": 29,
-      "createdAt": "2025-12-21T04:52:57.269Z",
-      "updatedAt": "2025-12-21T04:52:57.269Z"
+      "timestamp": 21,
+      "createdAt": "2025-12-28T09:07:35.206Z",
+      "updatedAt": "2025-12-28T09:07:35.206Z"
     }
   ]
 }

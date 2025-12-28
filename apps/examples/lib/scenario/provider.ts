@@ -1,13 +1,15 @@
-import type { IAIProvider, IChatOptions, IProviderRequest, IRawProviderResponse, TUniversalMessage, TUniversalValue } from '@robota-sdk/agents';
-import {
-    ScenarioStore,
-    createRequestHash,
-    serializeMessages,
-    serializeChatOptions,
-    serializeResponseSnapshot,
-    hydrateResponseSnapshot
-} from '../utils/scenario-store';
-import type { IScenarioStep } from '../utils/scenario-store';
+import type {
+    IAIProvider,
+    IChatOptions,
+    IProviderRequest,
+    IRawProviderResponse,
+    TUniversalMessage,
+    TUniversalValue
+} from '@robota-sdk/agents';
+
+import { ScenarioStore, createRequestHash, createRequestHashFromSnapshot, serializeChatOptions, serializeMessages } from './store';
+import { hydrateResponseSnapshot, serializeResponseSnapshot } from './serialize';
+import type { IScenarioProviderStep, TScenarioPlayStrategy } from './types';
 
 type TStreamChunkInput = { index: number; delta: TUniversalMessage; timestamp: number };
 
@@ -28,7 +30,7 @@ export interface IScenarioRecorderOptions extends IScenarioMetadata {
 }
 
 export interface IScenarioMockProviderOptions extends IScenarioMetadata {
-    strategy?: 'hash' | 'sequential';
+    strategy?: TScenarioPlayStrategy;
     providerName?: string;
     providerVersion?: string;
 }
@@ -44,20 +46,31 @@ export interface IScenarioProviderFromEnvOptions {
     tags?: string[];
     providerName?: string;
     providerVersion?: string;
-    /**
-     * Default strategy if SCENARIO_PLAY_STRATEGY is unset.
-     */
-    defaultPlayStrategy?: 'hash' | 'sequential';
-    /**
-     * Optional metadata recorded alongside steps (record mode only).
-     */
+    defaultPlayStrategy?: TScenarioPlayStrategy;
     metadata?: Record<string, TUniversalValue>;
 }
 
 export type TScenarioProviderFromEnvResult =
     | { mode: 'none'; provider: IAIProvider }
-    | { mode: 'record'; provider: IAIProvider }
-    | { mode: 'play'; provider: IAIProvider; assertNoUnusedSteps: () => Promise<void> };
+    | { mode: 'record'; provider: IAIProvider; scenarioId: string }
+    | {
+        mode: 'play';
+        provider: IAIProvider;
+        scenarioId: string;
+        onToolCallUsed: (toolCallId: string) => void;
+        assertNoUnusedSteps: () => Promise<void>;
+    };
+
+function toChatOptionsFromProviderRequest(payload: IProviderRequest): IChatOptions | undefined {
+    const options: IChatOptions = {
+        ...(payload.model !== undefined && { model: payload.model }),
+        ...(payload.temperature !== undefined && { temperature: payload.temperature }),
+        ...(payload.maxTokens !== undefined && { maxTokens: payload.maxTokens }),
+        ...(payload.tools !== undefined && { tools: payload.tools })
+    };
+
+    return Object.keys(options).length > 0 ? options : undefined;
+}
 
 function readEnvString(key: string): string | undefined {
     const raw = process.env[key];
@@ -66,7 +79,7 @@ function readEnvString(key: string): string | undefined {
     return value.length > 0 ? value : undefined;
 }
 
-function resolveModeFromEnv(): { mode: TScenarioMode; recordId?: string; playId?: string; playStrategy?: 'hash' | 'sequential' } {
+function resolveModeFromEnv(): { mode: TScenarioMode; recordId?: string; playId?: string; playStrategy?: TScenarioPlayStrategy } {
     const recordId = readEnvString('SCENARIO_RECORD_ID');
     const playId = readEnvString('SCENARIO_PLAY_ID');
 
@@ -91,14 +104,6 @@ function resolveModeFromEnv(): { mode: TScenarioMode; recordId?: string; playId?
     return { mode: 'none' };
 }
 
-/**
- * Create a scenario-aware provider based on environment variables.
- *
- * Strict rules (No-Fallback / fail-fast):
- * - record mode requires a real delegate provider
- * - play mode must NOT receive a real delegate provider (refuse to prevent accidental real calls)
- * - play mode can enforce "unused steps" = failure
- */
 export function createScenarioProviderFromEnv(options: IScenarioProviderFromEnvOptions): TScenarioProviderFromEnvResult {
     const mode = resolveModeFromEnv();
 
@@ -112,14 +117,21 @@ export function createScenarioProviderFromEnv(options: IScenarioProviderFromEnvO
             tags: options.tags,
             metadata: options.metadata
         });
-        return { mode: 'record', provider };
+        return { mode: 'record', provider, scenarioId: mode.recordId ?? '' };
     }
 
     if (mode.mode === 'play') {
         if (options.delegate) {
             throw new Error('[SCENARIO-GUARD] SCENARIO_PLAY_ID is set. Refusing to accept a delegate provider (no real calls allowed).');
         }
-        const strategy = mode.playStrategy ?? options.defaultPlayStrategy ?? 'sequential';
+        const strategy = mode.playStrategy ?? options.defaultPlayStrategy;
+        if (!strategy) {
+            throw new Error('[SCENARIO-GUARD] Missing play strategy. Set SCENARIO_PLAY_STRATEGY or provide defaultPlayStrategy.');
+        }
+        if (!options.providerName || !options.providerVersion) {
+            throw new Error('[SCENARIO-GUARD] Missing providerName/providerVersion. They must be explicitly provided in play mode.');
+        }
+        const usedToolCallIds = new Set<string>();
         const provider = createScenarioMockProvider({
             scenarioId: mode.playId ?? '',
             store: options.store,
@@ -134,9 +146,25 @@ export function createScenarioProviderFromEnv(options: IScenarioProviderFromEnvO
                 throw new Error('[SCENARIO-GUARD] Internal error: expected ScenarioMockAIProvider in play mode.');
             }
             await provider.assertNoUnusedSteps();
+
+            const toolSteps = await options.store.listToolResultStepsForPlay(mode.playId ?? '');
+            const unusedToolCallIds = Array.from(
+                new Set(toolSteps.map(step => step.toolCallId).filter(id => !usedToolCallIds.has(id)))
+            );
+            if (unusedToolCallIds.length > 0) {
+                const sample = unusedToolCallIds.slice(0, 3).join(', ');
+                throw new Error(
+                    `[SCENARIO-UNUSED] ${unusedToolCallIds.length} unused tool_result toolCallId(s) remain for scenario "${mode.playId ?? ''}". ` +
+                    `Sample: ${sample}`
+                );
+            }
         };
 
-        return { mode: 'play', provider, assertNoUnusedSteps };
+        const onToolCallUsed = (toolCallId: string): void => {
+            usedToolCallIds.add(toolCallId);
+        };
+
+        return { mode: 'play', provider, scenarioId: mode.playId ?? '', onToolCallUsed, assertNoUnusedSteps };
     }
 
     if (!options.delegate) {
@@ -145,16 +173,10 @@ export function createScenarioProviderFromEnv(options: IScenarioProviderFromEnvO
     return { mode: 'none', provider: options.delegate };
 }
 
-/**
- * Create a provider wrapper that records every request/response pair.
- */
 export function createScenarioRecordingProvider(delegate: IAIProvider, options: IScenarioRecorderOptions): IAIProvider {
     return new ScenarioRecordingProvider(delegate, options);
 }
 
-/**
- * Create a mock provider that replays previously recorded responses.
- */
 export function createScenarioMockProvider(options: IScenarioMockProviderOptions): IAIProvider {
     return new ScenarioMockAIProvider(options);
 }
@@ -184,11 +206,7 @@ class ScenarioRecordingProvider implements IAIProvider {
         const chunks: TStreamChunkInput[] = [];
         let index = 0;
         for await (const chunk of this.delegate.chatStream(messages, options)) {
-            chunks.push({
-                index,
-                delta: chunk,
-                timestamp: Date.now()
-            });
+            chunks.push({ index, delta: chunk, timestamp: Date.now() });
             index++;
             yield chunk;
         }
@@ -197,7 +215,8 @@ class ScenarioRecordingProvider implements IAIProvider {
 
     async generateResponse(payload: IProviderRequest): Promise<IRawProviderResponse> {
         const result = await this.delegate.generateResponse(payload);
-        await this.recordStep(payload.messages, { model: payload.model }, { raw: result });
+        const options = toChatOptionsFromProviderRequest(payload);
+        await this.recordStep(payload.messages, options, { raw: result });
         return result;
     }
 
@@ -222,7 +241,8 @@ class ScenarioRecordingProvider implements IAIProvider {
         const serializedOptions = serializeChatOptions(options);
         const serializedResponse = serializeResponseSnapshot(response);
 
-        const step: IScenarioStep = {
+        const step: IScenarioProviderStep = {
+            kind: 'provider',
             stepId: `step_${Date.now()}_${Math.random().toString(36).slice(2)}`,
             requestHash: createRequestHash(messages, options),
             request: {
@@ -249,8 +269,11 @@ class ScenarioMockAIProvider implements IAIProvider {
     private usedStepIds = new Set<string>();
 
     constructor(private readonly options: IScenarioMockProviderOptions) {
-        this.name = options.providerName ?? 'openai';
-        this.version = options.providerVersion ?? 'mock-scenario';
+        if (!options.providerName || !options.providerVersion) {
+            throw new Error('[ScenarioMockAIProvider] providerName and providerVersion are required.');
+        }
+        this.name = options.providerName;
+        this.version = options.providerVersion;
     }
 
     async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
@@ -274,7 +297,8 @@ class ScenarioMockAIProvider implements IAIProvider {
     }
 
     async generateResponse(payload: IProviderRequest): Promise<IRawProviderResponse> {
-        const step = await this.resolveStep(payload.messages, undefined);
+        const options = toChatOptionsFromProviderRequest(payload);
+        const step = await this.resolveStep(payload.messages, options);
         const hydrated = hydrateResponseSnapshot(step.response);
         if (!hydrated.raw) {
             throw new Error('[ScenarioMockAIProvider] Recorded scenario does not include raw response data.');
@@ -290,9 +314,9 @@ class ScenarioMockAIProvider implements IAIProvider {
         return true;
     }
 
-    private async resolveStep(messages: TUniversalMessage[], options?: IChatOptions): Promise<IScenarioStep> {
+    private async resolveStep(messages: TUniversalMessage[], options?: IChatOptions): Promise<IScenarioProviderStep> {
         if (this.options.strategy === 'sequential') {
-            const steps = await this.options.store.listSteps(this.options.scenarioId);
+            const steps = await this.options.store.listProviderStepsForPlay(this.options.scenarioId);
             if (this.pointer >= steps.length) {
                 throw new Error(`[ScenarioMockAIProvider] No more recorded steps available for scenario "${this.options.scenarioId}".`);
             }
@@ -300,15 +324,25 @@ class ScenarioMockAIProvider implements IAIProvider {
             if (!step) {
                 throw new Error(`[ScenarioMockAIProvider] Missing step at index ${this.pointer} for scenario "${this.options.scenarioId}".`);
             }
+
+            const expectedHash = createRequestHashFromSnapshot(step.request);
+            const actualHash = createRequestHash(messages, options);
+            if (expectedHash !== actualHash) {
+                throw new Error(
+                    `[SCENARIO-SEQUENTIAL-MISMATCH] Step at index ${this.pointer} does not match current request. ` +
+                    `ExpectedHash=${expectedHash}, ActualHash=${actualHash}. ` +
+                    `Scenario="${this.options.scenarioId}".`
+                );
+            }
+
             this.pointer += 1;
             this.usedStepIds.add(step.stepId);
             return step;
         }
 
         const hash = createRequestHash(messages, options);
-        const step = await this.options.store.findStepByHash(this.options.scenarioId, hash);
+        const step = await this.options.store.findProviderStepByHashForPlay(this.options.scenarioId, hash);
         if (!step) {
-            this.debugHashMiss(hash, messages, options);
             throw new Error(`[ScenarioMockAIProvider] Unable to find recorded step for hash "${hash}".`);
         }
         this.usedStepIds.add(step.stepId);
@@ -316,7 +350,7 @@ class ScenarioMockAIProvider implements IAIProvider {
     }
 
     async assertNoUnusedSteps(): Promise<void> {
-        const steps = await this.options.store.listSteps(this.options.scenarioId);
+        const steps = await this.options.store.listProviderStepsForPlay(this.options.scenarioId);
         if (this.options.strategy === 'sequential') {
             const unused = steps.length - this.pointer;
             if (unused > 0) {
@@ -336,20 +370,6 @@ class ScenarioMockAIProvider implements IAIProvider {
                 `Sample: ${sample}`
             );
         }
-    }
-
-    private debugHashMiss(hash: string, messages: TUniversalMessage[], options?: IChatOptions): void {
-        const debugEnabled = process.env.SCENARIO_DEBUG_HASH_MISS === '1' || process.env.SCENARIO_DEBUG_HASH_MISS === 'true';
-        if (!debugEnabled) {
-            return;
-        }
-        // eslint-disable-next-line no-console -- Explicit debug output controlled by env flag
-        console.error('[ScenarioMockAIProvider] Hash miss', {
-            scenarioId: this.options.scenarioId,
-            hash,
-            messageCount: messages.length,
-            optionKeys: options ? Object.keys(options) : []
-        });
     }
 }
 

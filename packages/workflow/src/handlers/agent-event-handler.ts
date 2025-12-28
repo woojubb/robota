@@ -25,14 +25,27 @@ export class AgentEventHandler implements IEventHandler {
     readonly patterns = ['agent.*', EXECUTION_EVENTS.START, EXECUTION_EVENTS.ASSISTANT_MESSAGE_START, EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE];
 
     private logger: ILogger;
-    private agentNodeIdMap = new Map<string, string>(); // sourceId → agentNodeId
-    private agentNumberMap = new Map<string, number>(); // sourceId → agentNumber
+    private agentNodeIdMap = new Map<string, string>(); // agentId → agentNodeId
+    private agentNumberMap = new Map<string, number>(); // agentId → agentNumber
     // Path-only: do not keep auxiliary mappings for relationship derivation.
     private agentCopyCounters = new Map<number, number>(); // agentNumber → copy counter
     private conversationIdToAgentIdMap = new Map<string, string>(); // conversationId → sourceId
 
     constructor(logger: ILogger = SilentLogger) {
         this.logger = logger;
+    }
+
+    private findNearestOwnerId(ownerPath: unknown, ownerType: string): string | undefined {
+        if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
+            return undefined;
+        }
+        for (let i = ownerPath.length - 1; i >= 0; i--) {
+            const seg = ownerPath[i] as { type?: unknown; id?: unknown } | undefined;
+            if (seg?.type === ownerType && typeof seg.id === 'string' && seg.id.length > 0) {
+                return seg.id;
+            }
+        }
+        return undefined;
     }
 
     canHandle(eventType: string): boolean {
@@ -50,9 +63,10 @@ export class AgentEventHandler implements IEventHandler {
     ): Promise<IEventProcessingResult> {
         try {
             const data = eventData as any; // Type assertion for flexibility
+            const agentId = this.findNearestOwnerId(data?.context?.ownerPath, 'agent');
 
             this.logger.debug(`🔔 [AGENT-HANDLER] Processing ${eventType}`, {
-                sourceId: data.sourceId,
+                agentId,
                 executionId: data.executionId
             });
 
@@ -63,21 +77,28 @@ export class AgentEventHandler implements IEventHandler {
                 case AGENT_EVENTS.CREATED: {
                     // Create Agent node on creation event and connect via path-only rules
                     const pathInfo = this.extractPathInfo(data, AGENT_EVENTS.CREATED);
-                    const existing = this.agentNodeIdMap.get(String(data.sourceId));
+                    if (!agentId) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [`[PATH-ONLY] Missing agent segment in context.ownerPath for ${AGENT_EVENTS.CREATED}`]
+                        };
+                    }
+                    const existing = this.agentNodeIdMap.get(agentId);
                     if (existing) {
                         break; // Already created for this sourceId
                     }
-                    const agentNode = this.createAgentNode({ ...data }, pathInfo);
-                    const rootId = pathInfo.rootId || String(data.sourceId || '');
+                    const agentNode = this.createAgentNode({ ...data, sourceId: agentId }, pathInfo);
+                    void (pathInfo.rootId || agentId);
 
                     updates.push({ action: 'create', node: agentNode });
                     // Root agent creation can legitimately have no parent segment.
                     // In that case, the agent becomes the start node and later events will connect the flow.
                     if (!pathInfo.parentId) {
-                        this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
+                        this.agentNodeIdMap.set(agentId, agentNode.id);
                         {
                             const subscriber = (this as any).subscriber as { registerNode?: (k: string, id: string) => void } | undefined;
-                            subscriber?.registerNode?.(`agentFor:${String(data.sourceId)}`, agentNode.id);
+                            subscriber?.registerNode?.(`agentFor:${agentId}`, agentNode.id);
                         }
                         break;
                     }
@@ -91,11 +112,11 @@ export class AgentEventHandler implements IEventHandler {
                     };
                     updates.push({ action: 'create', edge } as TWorkflowUpdate);
 
-                    this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
+                    this.agentNodeIdMap.set(agentId, agentNode.id);
                     // Register for cross-handler reference
                     {
                         const subscriber = (this as any).subscriber as { registerNode?: (k: string, id: string) => void } | undefined;
-                        subscriber?.registerNode?.(`agentFor:${String(data.sourceId)}`, agentNode.id);
+                        subscriber?.registerNode?.(`agentFor:${agentId}`, agentNode.id);
                     }
                     break;
                 }
@@ -108,9 +129,8 @@ export class AgentEventHandler implements IEventHandler {
                 }
 
                 case AGENT_EVENTS.EXECUTION_START: {
-                    const sourceId = typeof data?.sourceId !== 'undefined' ? String(data.sourceId) : '';
-                    if (!sourceId) {
-                        this.logger.warn('⚠️ [AGENT-HANDLER] execution_start received without sourceId. Skipping state update.');
+                    if (!agentId) {
+                        this.logger.warn('⚠️ [AGENT-HANDLER] execution_start received without agent segment. Skipping state update.');
                         break;
                     }
 
@@ -122,7 +142,7 @@ export class AgentEventHandler implements IEventHandler {
                             updates.push({ action: 'update', node: updatedNode } as TWorkflowUpdate);
                         }
 
-                        this.agentNodeIdMap.set(sourceId, existingAgentNodeId);
+                        this.agentNodeIdMap.set(agentId, existingAgentNodeId);
                         break;
                     }
 
@@ -147,12 +167,15 @@ export class AgentEventHandler implements IEventHandler {
 
                 case AGENT_EVENTS.CONFIG_UPDATED: {
                     // Update-only: reflect tools/version on the existing agent node
-                    let existingId = this.agentNodeIdMap.get(String(data.sourceId));
+                    if (!agentId) {
+                        break;
+                    }
+                    let existingId = this.agentNodeIdMap.get(agentId);
                     if (!existingId) {
                         // Path-Only allowed scan: find agent node with matching sourceId in explicit fields
                         try {
                             const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
-                            const found = nodesAccessor.find(n => n?.type === WORKFLOW_NODE_TYPES.AGENT && String(n?.data?.sourceId) === String(data.sourceId));
+                            const found = nodesAccessor.find(n => n?.type === WORKFLOW_NODE_TYPES.AGENT && String(n?.data?.sourceId) === agentId);
                             if (found?.id) existingId = String(found.id);
                         } catch { /* ignore */ }
                         if (!existingId) {
@@ -421,7 +444,15 @@ export class AgentEventHandler implements IEventHandler {
     // =================================================================
 
     private createAgentNode(data: any, pathInfo: IPathInfo): IWorkflowNode {
-        const agentNumber = this.assignAgentNumber(String(data.sourceId));
+        const agentKey =
+            typeof data?.sourceId === 'string' && data.sourceId.length > 0
+                ? data.sourceId
+                : this.findNearestOwnerId(data?.context?.ownerPath, 'agent');
+        if (!agentKey) {
+            throw new Error(`[PATH-ONLY] Missing agent segment in context.ownerPath for ${AGENT_EVENTS.CREATED}`);
+        }
+
+        const agentNumber = this.assignAgentNumber(agentKey);
         const copyNumber = this.getNextCopyNumber(agentNumber);
         const agentId = `agent_${agentNumber}_copy_${copyNumber}`;
 
@@ -434,7 +465,7 @@ export class AgentEventHandler implements IEventHandler {
             data: {
                 // Agent nodes are created only by agent.created (no creation on execution.start).
                 eventType: AGENT_EVENTS.CREATED,
-                sourceId: data.sourceId,
+                sourceId: agentKey,
                 sourceType: 'agent',
                 agentNumber: agentNumber,
                 copyNumber: copyNumber,

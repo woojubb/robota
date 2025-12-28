@@ -187,11 +187,11 @@ export class ToolExecutionService {
             );
             const allResults = await Promise.all(promises);
 
-            // Separate successful results from errors
+            // Preserve a result entry for every request (SSOT for toolCallId → result mapping).
+            // ExecutionService depends on `executionId` to add tool messages in the original call order.
             allResults.forEach(result => {
-                if (result.success) {
-                    results.push(result);
-                } else {
+                results.push(result);
+                if (!result.success) {
                     const err = new Error(
                         `Tool execution failed: toolName=${String(result.toolName)} executionId=${String(result.executionId)} error=${String(result.error || 'Unknown error')}`
                     );
@@ -214,6 +214,13 @@ export class ToolExecutionService {
                         baseEventService: request.baseEventService
                     });
                     results.push(result);
+                    if (!result.success) {
+                        errors.push(
+                            new Error(
+                                `Tool execution failed: toolName=${String(result.toolName)} executionId=${String(result.executionId)} error=${String(result.error || 'Unknown error')}`
+                            )
+                        );
+                    }
 
                     if (!result.success && !batchContext.continueOnError) {
                         break;
