@@ -69,9 +69,10 @@ function migrateRecord(record) {
       }
     }
 
+    // Idempotency: allow already-migrated files that already contain tool_result steps.
+    // Only provider steps participate in requestHash normalization and toolCall indexing.
     if (s.kind !== 'provider') {
-      // We only migrate provider-only fixtures here; anything else must be explicit.
-      throw new Error(`[SCENARIO-MIGRATE] Unexpected step.kind "${s.kind}". Expected provider-only fixture input.`);
+      continue;
     }
 
     // Recompute requestHash from snapshot (SSOT: hash algorithm lives in scenario module).
@@ -140,7 +141,9 @@ function migrateRecord(record) {
 }
 
 function main() {
-  const examplesDir = path.resolve(process.cwd(), 'examples');
+  // This script is intended to run from `packages/workflow/examples`.
+  // Use the current working directory as the examples root.
+  const examplesDir = process.cwd();
   const scenariosDir = path.join(examplesDir, 'scenarios');
   const files = ['mandatory-delegation.json', 'continued-conversation.json'];
 
