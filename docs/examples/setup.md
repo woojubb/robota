@@ -67,53 +67,32 @@ GOOGLE_API_KEY=your_google_api_key_here
 
 ## Directory Structure
 
-Understanding the example structure:
+Examples are distributed per package (SSOT ownership). There is no single shared `apps/examples` folder.
 
 ```
 robota/
-├── apps/examples/           # Example source code
-│   ├── 01-basic/           # Basic usage examples
-│   ├── 02-functions/       # Function tool examples
-│   ├── 03-integrations/    # Integration examples
-│   └── 04-sessions/        # Session management examples
 ├── docs/examples/          # This documentation
 └── packages/               # SDK packages
-    ├── core/              # Core SDK
-    ├── tools/             # Tool providers
-    └── sessions/          # Session management
+    ├── agents/
+    │   └── examples/       # @robota-sdk/agents examples
+    ├── openai/
+    │   └── examples/       # @robota-sdk/openai examples
+    ├── team/
+    │   └── examples/       # @robota-sdk/team examples
+    └── workflow/
+        └── examples/       # @robota-sdk/workflow examples
 ```
 
 ## Running Examples
 
 ### Method 1: Direct Execution (Recommended)
 
-Navigate to the examples directory and run TypeScript files directly:
-
 ```bash
-# Navigate to examples
-cd apps/examples
+# Build packages first (recommended)
+pnpm build
 
-# Run with bun (fastest)
-bun run 01-basic/01-simple-conversation.ts
-
-# Or with pnpm + tsx
-pnpm tsx 01-basic/01-simple-conversation.ts
-```
-
-### Method 2: Using Package Scripts
-
-Some examples have predefined npm scripts:
-
-```bash
-cd apps/examples
-
-# Run specific examples
-pnpm start:simple-conversation
-pnpm start:ai-with-tools
-
-# Run example groups
-pnpm start:all-basic
-pnpm start:all-examples
+# Run a package-owned example from the repo root
+pnpm tsx packages/agents/examples/basic-conversation.ts
 ```
 
 ## Verification
@@ -121,8 +100,7 @@ pnpm start:all-examples
 Test your setup with the simplest example:
 
 ```bash
-cd apps/examples
-bun run 01-basic/01-simple-conversation.ts
+pnpm tsx packages/agents/examples/basic-conversation.ts
 ```
 
 Expected output:
@@ -163,10 +141,6 @@ npx tsx 01-basic/01-simple-conversation.ts
 ```bash
 # Build packages first
 pnpm build
-
-# Or run from project root
-cd ../../
-pnpm tsx apps/examples/01-basic/01-simple-conversation.ts
 ```
 
 ### Getting Help
@@ -194,4 +168,4 @@ Once setup is complete, explore the examples:
 | `ANTHROPIC_API_KEY` | No | Anthropic API key for Claude models |
 | `GOOGLE_API_KEY` | No | Google AI API key for Gemini models |
 
-All examples will gracefully handle missing optional API keys by skipping provider-specific demonstrations. 
+Examples should fail fast when required environment variables are missing.

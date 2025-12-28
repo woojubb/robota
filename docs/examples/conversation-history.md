@@ -13,7 +13,7 @@ The conversation history management example shows how to:
 
 ## Source Code
 
-**Location**: `apps/examples/01-basic/05-conversation-history-test.ts`
+**Location**: Package-owned examples under `packages/agents/examples/`
 
 ## Key Concepts
 
@@ -105,18 +105,9 @@ async function testHistoryLimits() {
 
 1. **Ensure setup is complete** (see [Setup Guide](./setup.md))
 
-2. **Navigate to examples directory**:
+2. **Run a package-owned example** (from repo root):
    ```bash
-   cd apps/examples
-   ```
-
-3. **Run the conversation history test**:
-   ```bash
-   # Using bun (recommended)
-   bun run 01-basic/05-conversation-history-test.ts
-   
-   # Using pnpm + tsx
-   pnpm tsx 01-basic/05-conversation-history-test.ts
+   npx tsx packages/agents/examples/basic-conversation.ts
    ```
 
 ## Expected Output

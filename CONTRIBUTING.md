@@ -32,7 +32,7 @@ Robota is designed as a monorepo structure, consisting of the following packages
 - `packages/anthropic`: Anthropic integration
 - `packages/tools`: Tools and utilities
 - `apps/docs`: Documentation website
-- `apps/examples`: Example code
+- `packages/*/examples`: Package-owned example code
 
 ## Developing New Features
 

@@ -71,8 +71,7 @@ pnpm lint
 pnpm format
 
 # Run examples
-cd apps/examples
-pnpm dev
+npx tsx packages/agents/examples/basic-conversation.ts
 ```
 
 ### 3. Testing
@@ -294,7 +293,7 @@ cd packages/agents && pnpm type-check
 ### Community
 - **GitHub Issues**: Bug reports and feature requests
 - **Discussions**: Community support and questions
-- **Examples**: Real-world usage patterns in `/apps/examples`
+- **Examples**: Package-owned usage patterns in `packages/*/examples`
 
 ## Migration from v1.x
 

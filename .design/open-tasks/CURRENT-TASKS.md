@@ -153,20 +153,21 @@
 
 ### 작업 순서(구체)
 #### 0) 현황 고정(인벤토리)
-- [ ] 현재 구현 인벤토리/역할표 최신화
-  - `apps/examples/lib/scenario/provider.ts`: env 기반 provider (Record/Play/Guard)
-  - `apps/examples/lib/scenario/store.ts`: store + hash + lock + assertions
-  - `apps/examples/lib/scenario/serialize.ts`: snapshot serialize/hydrate
-  - `apps/examples/lib/scenario/types.ts`: scenario record format (SSOT)
+- [x] 현재 구현 인벤토리/역할표 최신화
+  - `packages/workflow/src/scenario/provider.ts`: env 기반 provider (Record/Play/Guard)
+  - `packages/workflow/src/scenario/store.ts`: store + hash + lock + assertions
+  - `packages/workflow/src/scenario/serialize.ts`: snapshot serialize/hydrate
+  - `packages/workflow/src/scenario/types.ts`: scenario record format (SSOT)
+  - `packages/workflow/src/scenario/tool.ts`: tool wrapper(record/play)
   - `apps/examples/utils/run-scenario.ts`: CLI(env 세팅 + tsx 실행)
   - `apps/examples/utils/verify-scenario.ts`: guarded 실행 + verify 연결
 
 #### 1) SSOT/Ownership 정리(“시나리오 도메인” 분리)
 - [ ] 시나리오 도메인 폴더로 책임 분리(기능 변화 최소)
-  - [x] `apps/examples/lib/scenario/types.ts` (SSOT: record/step/request/response/strategy/version)
-  - [x] `apps/examples/lib/scenario/serialize.ts` (messages/options/response snapshot serialize + hydrate)
-  - [x] `apps/examples/lib/scenario/store.ts` (load/append/lock/list/find)
-  - [x] `apps/examples/lib/scenario/provider.ts` (recording provider / playback provider / fromEnv)
+  - [x] `packages/workflow/src/scenario/types.ts` (SSOT: record/step/request/response/strategy/version)
+  - [x] `packages/workflow/src/scenario/serialize.ts` (messages/options/response snapshot serialize + hydrate)
+  - [x] `packages/workflow/src/scenario/store.ts` (load/append/lock/list/find)
+  - [x] `packages/workflow/src/scenario/provider.ts` (recording provider / playback provider / fromEnv)
 - [x] 기존 파일에서 re-export/경유 타입이 생기지 않도록 import 경로 정리(Option A 준수: public surface는 필요 시만)
 - [x] Scenario 레이어에서 barrel export(`index.ts` 등) 제거/미사용 확인(모든 소비자는 owner 모듈 직접 import)
 
@@ -185,7 +186,7 @@
 > “Provider만 재생”으로는 tool 결과가 달라져 다음 라운드 입력이 변하고 record→play가 깨진다.  
 > 따라서 play 모드에서는 **tool 결과도 scenario 기록과 동일하게 재생**되어야 한다.
 
-- [ ] (설계) tool record/play는 `@robota-sdk/workflow`가 제공하는 기능으로 구현한다.
+- [x] (설계) tool record/play는 `@robota-sdk/workflow`가 제공하는 기능으로 구현한다.
 - [x] (SSOT) 시나리오 포맷에 `tool.result` step kind를 추가한다(또는 동등한 구조로 “tool I/O”를 기록)
   - 최소 필드(트리거/매칭 키):
     - `toolName` (예: `assignTask`)
@@ -238,9 +239,93 @@
   - env 목록: `SCENARIO_RECORD_ID`, `SCENARIO_PLAY_ID`, `SCENARIO_PLAY_STRATEGY`, `SCENARIO_BASE_DIR`
 
 #### 5) 검증(필수)
+- [x] `pnpm --filter @robota-sdk/workflow build` PASS (subpath export: `@robota-sdk/workflow/scenario`)
 - [x] `pnpm -C apps/examples check-types` PASS
+- [x] (로컬) `11-assign-task-basic.ts` record/play/verify 1회 성공(Scenario가 workflow 제공 기능으로 동작)
 - [ ] (로컬) guarded 시나리오 2개 재생/검증 실행:
   - `pnpm -C apps/examples scenario:play -- 13-guarded-edge-verification.ts mandatory-delegation --strategy=sequential`
   - `pnpm -C apps/examples scenario:verify -- 15-continued-conversation-edge-verification.ts continued-conversation --strategy=sequential`
+
+---
+
+## 🧩 예제 분산 계획(패키지별 “소유 예제”로 SSOT 준수)
+
+### 목표
+- `apps/examples`에 몰려있는 예제를 **각 패키지의 예제로 분산**하여 “소유권(Owner)”을 명확히 한다.
+- 예제는 “공통 샘플”이 아니라 **패키지 고유 기능을 검증/문서화**하는 산출물로 유지한다.
+- SSOT/Ownership 준수:
+  - 예제는 **해당 패키지의 public surface(`src/index.ts` exports)**만 사용한다.
+  - 다른 패키지 내부 구현 파일을 직접 import 하지 않는다.
+  - 동일 기능 예제가 중복되면 “한 곳(Owner)만” 남긴다.
+
+### 디렉터리 규칙(제안)
+- 각 패키지에 `examples/` 디렉터리를 둔다:
+  - `packages/agents/examples/`
+  - `packages/workflow/examples/`
+  - `packages/team/examples/`
+  - `packages/openai/examples/` 등
+- `apps/examples`는 “공통 예제” 폴더가 아니라:
+  - (선택 A) **폐지**하거나,
+  - (선택 B) “통합/데모(Integration)” 전용으로 재정의한다(단, 이 경우도 Owner를 명확히 정의해야 함).
+
+### 실행 계획(단계)
+#### Phase 0) 인벤토리(현황 고정)
+- [x] `apps/examples` 전수 목록화(Owner 1개 지정, 초안)
+  - 예제별 “주 소유 패키지(Owner)”를 1개로 지정한다.
+  - 원칙: 예제의 “핵심 목적(Primary concept)” 기준으로 Owner를 고른다.
+
+| 파일 | Primary concept | Owner(초안) | 비고(이동 시 조치) |
+| --- | --- | --- | --- |
+| `01-basic-conversation.ts` | Robota 기본 대화 | `@robota-sdk/agents` | Scenario 의존 제거 후 agents 예제로 유지(Scenario 데모는 workflow로 분리) |
+| `02-tool-calling.ts` | Tool calling | `@robota-sdk/agents` | Scenario 의존 제거 후 agents 예제로 유지 |
+| `03-multi-providers.ts` | 다중 provider 비교/스위칭 | `@robota-sdk/agents` | 현재 OpenAI만 사용 → 진짜 multi-provider(anthropic/google 포함)로 재정렬 권장 |
+| `04-advanced-features.ts` | LoggingPlugin 등 고급 기능 | `@robota-sdk/agents` | 그대로 이동 |
+| `05-payload-logging.ts` | OpenAI payload logging | `@robota-sdk/openai` | 파일 헤더 번호/이름 불일치 정리 필요 |
+| `06-agent-templates.ts` | “템플릿처럼” 여러 Robota 구성 | `@robota-sdk/agents` | provider 혼합 예제. 필요하면 provider별 예제로 분해 |
+| `07-execution-analytics.ts` | ExecutionAnalyticsPlugin | `@robota-sdk/agents` | `(pluginFromAgent as any)` 제거/타입정리 여지 있음(우선순위 낮음) |
+| `08-debug-openai-stream.ts` | OpenAI streaming chunk/tool-call 관측 | `@robota-sdk/openai` | openai 패키지 예제로 이동 |
+| `09-agents-basic-usage.ts` | agents 기본 사용/플러그인 | `@robota-sdk/agents` | 파일 헤더 번호/이름 불일치 정리 필요 |
+| `10-agents-streaming.ts` | agents streaming | `@robota-sdk/agents` | 그대로 이동 |
+| `11-assign-task-basic.ts` | assignTask 템플릿 조회 | `@robota-sdk/team` | `lib/template-payloads.ts`도 함께 team으로 이동 |
+| `12-assign-task-categorized.ts` | assignTask 카테고리 + 템플릿 | `@robota-sdk/team` | scenario record/play 연동 여부 결정(현재는 live tool 실행) |
+| `13-guarded-edge-verification.ts` | workflow edge 검증(guarded, scenario) | `@robota-sdk/workflow` | workflow/examples로 이동. scenario & verify 유틸도 workflow로 이동 |
+| `15-continued-conversation-edge-verification.ts` | workflow edge 검증(continued conversation) | `@robota-sdk/workflow` | workflow/examples로 이동 |
+| `14-playground-edge-verification-deprecated.ts` | (deprecated) playground 검증 | `@robota-sdk/workflow` | “deprecated/disabled” 정책 확정 후 제거/이동 |
+
+| 유틸/부속 | Owner(초안) | 비고 |
+| --- | --- | --- |
+| `utils/run-scenario.ts` | `@robota-sdk/workflow` | scenario CLI entrypoint. workflow/examples로 이동 권장 |
+| `utils/verify-scenario.ts` | `@robota-sdk/workflow` | scenario verify entrypoint. workflow/examples로 이동 권장 |
+| `utils/verify-workflow-connections.ts` | `@robota-sdk/workflow` | workflow validator. workflow/examples/utils로 이동 권장 |
+| `utils/run-and-verify-workflow.ts` | `apps/web`(또는 `@robota-sdk/workflow`) | web public으로 복사 포함 → “패키지 예제”가 아니라 앱 자동화 스크립트 성격 |
+| `utils/cache-manager.ts`, `utils/cached-executor.ts` | (결정 필요) | 예제 전용 공통 유틸. 패키지별로 복제 vs 별도 dev-tools 패키지 논의 필요 |
+| `lib/template-payloads.ts` | `@robota-sdk/team` | 11/12 전용 타입. team/examples로 이동 |
+| `vitest.config.ts` | (결정 필요) | `apps/examples` 폐지 시 함께 이동/삭제 결정 필요 |
+
+#### Phase 1) 규칙/스캐폴딩(패키지별 실행 경로)
+- [ ] 각 `packages/<pkg>/examples/package.json` 생성 여부 결정
+  - 옵션 1: 패키지 root에서 `npx tsx examples/<file>.ts`로 실행(간단)
+  - 옵션 2: `examples`를 별도 workspace 패키지로 만들고 scripts 제공(무겁지만 명확)
+- [ ] 최소 공통 규칙: 예제는 `npx tsx`로 실행한다(현행 패턴 유지)
+
+#### Phase 2) 이동(Owner 기준, 소규모 배치)
+- [ ] Batch 1: 의존성이 가장 적은 예제부터 이동(agents/openai 등)
+- [ ] Batch 2: workflow 예제 이동
+  - Scenario CLI/유틸은 workflow 소유인지 여부를 확정:
+    - A) `packages/workflow/examples/utils/*`로 이동(권장)
+    - B) `packages/workflow/src/scenario/*`는 유지하고, 실행 유틸만 examples에 둔다
+- [ ] Batch 3: team/remote 등 나머지 이동
+
+#### Phase 3) 문서/인덱스
+- [ ] 각 패키지에 `examples/INDEX.md`(또는 README) 추가
+  - 실행 커맨드, 필요한 env, 목적을 SSOT로 관리
+- [ ] 기존 `apps/examples/INDEX.md`는
+  - (선택 A) 삭제
+  - (선택 B) “통합/데모” 인덱스로 축소
+
+#### Phase 4) CI/타입체크 범위 정리
+- [ ] “예제 타입체크” 범위를 재정의한다
+  - 패키지별로 `pnpm --filter @robota-sdk/<pkg> test` 또는 `typecheck`에 포함할지 결정
+  - 통합 예제가 남는다면, 별도 job(1회)로만 실행(중복 매트릭스 금지)
 
 

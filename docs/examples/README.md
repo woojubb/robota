@@ -220,15 +220,15 @@ All examples are production-ready and demonstrate best practices for building sc
 
 2. **Environment Setup**:
 ```bash
-cd apps/examples
-cp .env.example .env
-   # Edit .env with your API keys
+cd /path/to/robota
+# Set environment variables (or use a root .env)
+# OPENAI_API_KEY=...
    ```
 
 3. **Run Examples**:
    ```bash
 # Run any example
-npx tsx 01-basic-conversation.ts
+npx tsx packages/agents/examples/basic-conversation.ts
 ```
 
 ## 🎯 Quick Feature Overview
@@ -269,29 +269,13 @@ GOOGLE_AI_API_KEY=your_google_key     # For Google AI examples
 ### Individual Examples
 
 ```bash
-# Navigate to examples
-cd apps/examples
-
-# Basic conversation
-npx tsx 01-basic-conversation.ts
-
-# Advanced agents features
-npx tsx 10-agents-basic-usage.ts
-
-# Streaming responses
-npx tsx 11-agents-streaming.ts
-
-# Function calling
-npx tsx 02-tool-calling.ts
-
-# Multi-provider comparison
-npx tsx 03-multi-providers.ts
-
-# Agent templates
-npx tsx 07-agent-templates.ts
-
-# Performance analytics
-npx tsx 08-execution-analytics.ts
+# Package-owned examples (run from repo root)
+npx tsx packages/agents/examples/basic-conversation.ts
+npx tsx packages/agents/examples/tool-calling.ts
+npx tsx packages/agents/examples/multi-providers.ts
+npx tsx packages/openai/examples/payload-logging.ts
+npx tsx packages/team/examples/assign-task-basic.ts
+npx tsx packages/workflow/examples/guarded-edge-verification.ts
 ```
 
 ### Run All Examples

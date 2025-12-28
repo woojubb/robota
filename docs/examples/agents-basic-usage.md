@@ -267,11 +267,8 @@ await robota.destroy();
 ## Running the Example
 
 ```bash
-# Navigate to examples directory
-cd apps/examples
-
 # Run the agents basic usage example
-npx tsx 10-agents-basic-usage.ts
+npx tsx packages/agents/examples/agents-basic-usage.ts
 ```
 
 ## Expected Output

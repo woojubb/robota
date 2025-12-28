@@ -171,73 +171,6 @@ importers:
         specifier: ^1.0.0
         version: 1.6.3(@algolia/client-search@5.34.0)(@types/node@20.19.9)(search-insights@2.17.3)(typescript@5.8.3)
 
-  apps/examples:
-    dependencies:
-      '@anthropic-ai/sdk':
-        specifier: ^0.24.0
-        version: 0.24.3
-      '@google/generative-ai':
-        specifier: ^0.20.0
-        version: 0.20.0
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.11.2
-        version: 1.16.0
-      '@robota-sdk/agents':
-        specifier: workspace:*
-        version: link:../../packages/agents
-      '@robota-sdk/anthropic':
-        specifier: workspace:*
-        version: link:../../packages/anthropic
-      '@robota-sdk/google':
-        specifier: workspace:*
-        version: link:../../packages/google
-      '@robota-sdk/openai':
-        specifier: workspace:*
-        version: link:../../packages/openai
-      '@robota-sdk/remote':
-        specifier: workspace:*
-        version: link:../../packages/remote
-      '@robota-sdk/team':
-        specifier: workspace:*
-        version: link:../../packages/team
-      '@robota-sdk/workflow':
-        specifier: workspace:*
-        version: link:../../packages/workflow
-      axios:
-        specifier: ^1.9.0
-        version: 1.10.0
-      chalk:
-        specifier: ^5.4.1
-        version: 5.4.1
-      dotenv:
-        specifier: ^16.5.0
-        version: 16.6.1
-      openai:
-        specifier: ^4.98.0
-        version: 4.104.0(zod@3.25.76)
-      zod:
-        specifier: ^3.22.0
-        version: 3.25.76
-    devDependencies:
-      '@types/dotenv':
-        specifier: ^8.2.3
-        version: 8.2.3
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.18.0
-        version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: ^6.18.0
-        version: 6.21.0(eslint@8.57.1)(typescript@5.8.3)
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      tsx:
-        specifier: ^4.20.3
-        version: 4.20.3
-      typescript:
-        specifier: ^5.0.0
-        version: 5.8.3
-
   apps/web:
     dependencies:
       '@robota-sdk/agents':
@@ -329,6 +262,12 @@ importers:
         specifier: ^3.24.4
         version: 3.25.76
     devDependencies:
+      '@robota-sdk/anthropic':
+        specifier: workspace:*
+        version: link:../anthropic
+      '@robota-sdk/openai':
+        specifier: workspace:*
+        version: link:../openai
       '@types/swagger-schema-official':
         specifier: ^2.0.25
         version: 2.0.25
@@ -4522,13 +4461,6 @@ packages:
       '@types/ms': 2.1.0
     dev: false
 
-  /@types/dotenv@8.2.3:
-    resolution: {integrity: sha512-g2FXjlDX/cYuc5CiQvyU/6kkbP1JtmGzh0obW50zD7OKeILVL0NSpPWLXVfqoAGQjom2/SLLx9zHq0KXvD6mbw==}
-    deprecated: This is a stub types definition. dotenv provides its own type definitions, so you do not need this installed.
-    dependencies:
-      dotenv: 16.6.1
-    dev: true
-
   /@types/estree-jsx@1.0.5:
     resolution: {integrity: sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg==}
     dependencies:
@@ -5912,16 +5844,6 @@ packages:
     engines: {node: '>=4'}
     dev: true
 
-  /axios@1.10.0:
-    resolution: {integrity: sha512-/1xYAC4MP/HEG+3duIhFr4ZQXR4sQXOIe+o6sdqzeykGLx6Upp/1p8MHqhINOvGeP7xyNHe7tsiJByc4SSVUxw==}
-    dependencies:
-      follow-redirects: 1.15.9
-      form-data: 4.0.4
-      proxy-from-env: 1.1.0
-    transitivePeerDependencies:
-      - debug
-    dev: false
-
   /axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
     engines: {node: '>= 0.4'}
@@ -6224,6 +6146,7 @@ packages:
   /chalk@5.4.1:
     resolution: {integrity: sha512-zgVZuo2WcZgfUEmsn6eO3kINexW8RAE4maiQ8QNs8CtpPCSyMiYsULR3HQYkm3w8FIA3SberyMJMSldGsW+U3w==}
     engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
+    dev: true
 
   /char-regex@1.0.2:
     resolution: {integrity: sha512-kWWXztvZ5SBQV+eRgKFeh8q5sLuZY2+8WUIzlxWVTg+oGwY14qylx1KbKzHd8P6ZYkAg0xyIDU9JMHhyJMZ1jw==}
@@ -6785,6 +6708,7 @@ packages:
   /dotenv@16.6.1:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
     engines: {node: '>=12'}
+    dev: false
 
   /dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -8058,16 +7982,6 @@ packages:
     dependencies:
       tabbable: 6.2.0
     dev: true
-
-  /follow-redirects@1.15.9:
-    resolution: {integrity: sha512-gew4GsXizNgdoRyqmyfMHyAmXsZDk6mHkSxZFCzW9gwlbtOW44CDtYavM+y+72qD/Vq2l550kMF52DT8fOLJqQ==}
-    engines: {node: '>=4.0'}
-    peerDependencies:
-      debug: '*'
-    peerDependenciesMeta:
-      debug:
-        optional: true
-    dev: false
 
   /for-each@0.3.5:
     resolution: {integrity: sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==}
@@ -11442,10 +11356,6 @@ packages:
     dependencies:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
-    dev: false
-
-  /proxy-from-env@1.1.0:
-    resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
     dev: false
 
   /punycode@2.3.1:

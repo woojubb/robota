@@ -1,0 +1,243 @@
+{
+  "scenarioId": "continued-conversation",
+  "version": 1,
+  "steps": [
+    {
+      "stepId": "step_1_root_round1_tool_request",
+      "requestHash": "e8f7eaf00b72dfa4899b5036fd0eafeb",
+      "request": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "First message: delegate one task using assignTask, then respond briefly.",
+            "metadata": {
+              "executionId": "exec_root_round1"
+            },
+            "timestamp": 1700000000001
+          }
+        ],
+        "options": {
+          "model": "gpt-4o-mini",
+          "temperature": 0.6,
+          "tools": [
+            {
+              "name": "assignTask"
+            }
+          ]
+        },
+        "metadata": {
+          "example": "27-continued-conversation-edge-verification"
+        }
+      },
+      "response": {
+        "message": {
+          "role": "assistant",
+          "content": "",
+          "metadata": {
+            "finishReason": "tool_calls"
+          },
+          "toolCalls": [
+            {
+              "id": "call_assign_1",
+              "name": "assignTask",
+              "arguments": "{\"jobDescription\":\"Summarize the key risks for a cafe startup.\",\"context\":\"Keep it short and actionable.\"}"
+            }
+          ],
+          "timestamp": 1700000000100
+        }
+      },
+      "timestamp": 1700000000100,
+      "tags": [
+        "example-27",
+        "round1"
+      ],
+      "providerInfo": {
+        "name": "openai",
+        "version": "mock-scenario"
+      },
+      "kind": "provider"
+    },
+    {
+      "stepId": "step_3_root_round1_final",
+      "requestHash": "3a749c7ed6dc8458a09b40d03c6eb7e2",
+      "request": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "First message: delegate one task using assignTask, then respond briefly.",
+            "metadata": {
+              "executionId": "exec_root_round1"
+            },
+            "timestamp": 1700000000001
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "metadata": {
+              "finishReason": "tool_calls"
+            },
+            "toolCalls": [
+              {
+                "id": "call_assign_1",
+                "name": "assignTask",
+                "arguments": "{\"jobDescription\":\"Summarize the key risks for a cafe startup.\",\"context\":\"Keep it short and actionable.\"}"
+              }
+            ],
+            "timestamp": 1700000000100
+          },
+          {
+            "role": "tool",
+            "content": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
+            "toolCallId": "call_assign_1",
+            "metadata": {
+              "executionId": "exec_tool_1"
+            },
+            "timestamp": 1700000000400
+          }
+        ],
+        "options": {
+          "model": "gpt-4o-mini",
+          "temperature": 0.6,
+          "tools": [
+            {
+              "name": "assignTask"
+            }
+          ]
+        },
+        "metadata": {
+          "example": "27-continued-conversation-edge-verification"
+        }
+      },
+      "response": {
+        "message": {
+          "role": "assistant",
+          "content": "Got it. I delegated the risk analysis and will use it to keep the plan grounded. Next, I’ll outline a minimal launch plan with weekly checkpoints.",
+          "metadata": {
+            "finishReason": "stop"
+          },
+          "timestamp": 1700000000500
+        }
+      },
+      "timestamp": 1700000000500,
+      "tags": [
+        "example-27",
+        "round1"
+      ],
+      "providerInfo": {
+        "name": "openai",
+        "version": "mock-scenario"
+      },
+      "kind": "provider"
+    },
+    {
+      "stepId": "step_4_root_round2_continue",
+      "requestHash": "c9efc37123070e15e27d6a9490964266",
+      "request": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "First message: delegate one task using assignTask, then respond briefly.",
+            "metadata": {
+              "executionId": "exec_root_round1"
+            },
+            "timestamp": 1700000000001
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "metadata": {
+              "finishReason": "tool_calls"
+            },
+            "toolCalls": [
+              {
+                "id": "call_assign_1",
+                "name": "assignTask",
+                "arguments": "{\"jobDescription\":\"Summarize the key risks for a cafe startup.\",\"context\":\"Keep it short and actionable.\"}"
+              }
+            ],
+            "timestamp": 1700000000100
+          },
+          {
+            "role": "tool",
+            "content": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
+            "toolCallId": "call_assign_1",
+            "metadata": {
+              "executionId": "exec_tool_1"
+            },
+            "timestamp": 1700000000400
+          },
+          {
+            "role": "assistant",
+            "content": "Got it. I delegated the risk analysis and will use it to keep the plan grounded. Next, I’ll outline a minimal launch plan with weekly checkpoints.",
+            "metadata": {
+              "finishReason": "stop"
+            },
+            "timestamp": 1700000000500
+          },
+          {
+            "role": "user",
+            "content": "Second message: continue based on previous response; do not reset context.",
+            "metadata": {
+              "executionId": "exec_root_round2"
+            },
+            "timestamp": 1700000000600
+          }
+        ],
+        "options": {
+          "model": "gpt-4o-mini",
+          "temperature": 0.6,
+          "tools": [
+            {
+              "name": "assignTask"
+            }
+          ]
+        },
+        "metadata": {
+          "example": "27-continued-conversation-edge-verification"
+        }
+      },
+      "response": {
+        "message": {
+          "role": "assistant",
+          "content": "Continuation: Week 1 validate location + supplier quotes; Week 2 soft launch with 3 drinks; Week 3 measure margins and adjust; Week 4 marketing push. I’ll keep the delegated risks as constraints throughout.",
+          "metadata": {
+            "finishReason": "stop"
+          },
+          "timestamp": 1700000000700
+        }
+      },
+      "timestamp": 1700000000700,
+      "tags": [
+        "example-27",
+        "round2"
+      ],
+      "providerInfo": {
+        "name": "openai",
+        "version": "mock-scenario"
+      },
+      "kind": "provider"
+    },
+    {
+      "kind": "tool_result",
+      "stepId": "tool_call_assign_1",
+      "toolCallId": "call_assign_1",
+      "toolName": "assignTask",
+      "toolArguments": "{\"jobDescription\":\"Summarize the key risks for a cafe startup.\",\"context\":\"Keep it short and actionable.\"}",
+      "toolMessageContent": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
+      "resultData": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
+      "success": true,
+      "timestamp": 1700000000400
+    },
+    {
+      "kind": "tool_result",
+      "stepId": "tool_call_assign_1",
+      "toolCallId": "call_assign_1",
+      "toolName": "assignTask",
+      "toolArguments": "{\"jobDescription\":\"Summarize the key risks for a cafe startup.\",\"context\":\"Keep it short and actionable.\"}",
+      "toolMessageContent": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
+      "resultData": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
+      "success": true,
+      "timestamp": 1700000000400
+    }
+  ]
+}

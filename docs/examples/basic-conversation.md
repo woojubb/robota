@@ -165,11 +165,8 @@ Always call `destroy()` to properly clean up resources and prevent memory leaks.
 ## Running the Example
 
 ```bash
-# Navigate to the examples directory
-cd apps/examples
-
 # Run the basic conversation example
-npx tsx 01-basic-conversation.ts
+npx tsx packages/agents/examples/basic-conversation.ts
 ```
 
 ## Expected Output

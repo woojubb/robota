@@ -556,7 +556,11 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
 
     /**
      * Initialize the agent if not already done
-     * @internal
+     *
+     * Note: This is a protected lifecycle hook required by AbstractAgent.
+     * Do not mark it as an internal tag, because DTS generation uses `stripInternal`
+     * and would remove this method from the public type surface, breaking the
+     * abstract contract in `.d.ts`.
      */
     protected override async initialize(): Promise<void> {
         await this.ensureFullyInitialized();
