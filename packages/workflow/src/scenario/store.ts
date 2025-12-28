@@ -13,7 +13,7 @@ import type {
     IScenarioRequestSnapshot,
     IScenarioStep,
     IScenarioToolResultStep
-} from './types';
+} from './types.js';
 
 export interface IScenarioStoreOptions {
     baseDir?: string;
@@ -153,6 +153,7 @@ export class ScenarioStore {
         toolName: string;
         toolArguments: string;
         toolMessageContent: string;
+        resultData?: TUniversalValue;
         success: boolean;
         errorMessage?: string;
         tags?: string[];
@@ -164,12 +165,26 @@ export class ScenarioStore {
             toolName: params.toolName,
             toolArguments: params.toolArguments,
             toolMessageContent: params.toolMessageContent,
+            ...(params.resultData !== undefined ? { resultData: params.resultData } : undefined),
             success: params.success,
             ...(params.errorMessage ? { errorMessage: params.errorMessage } : undefined),
             timestamp: Date.now(),
             tags: params.tags
         };
         await this.appendStep(params.scenarioId, step);
+    }
+
+    async assertNoUnusedToolResultsForPlay(scenarioId: string, usedToolCallIds: ReadonlySet<string>): Promise<void> {
+        const toolSteps = await this.listToolResultStepsForPlay(scenarioId);
+        const recordedToolCallIds = Array.from(new Set(toolSteps.map(step => step.toolCallId)));
+        const unused = recordedToolCallIds.filter(id => !usedToolCallIds.has(id));
+        if (unused.length > 0) {
+            const sample = unused.slice(0, 3).join(', ');
+            throw new Error(
+                `[SCENARIO-UNUSED] ${unused.length} unused tool_result toolCallId(s) remain for scenario "${scenarioId}". ` +
+                `Sample: ${sample}`
+            );
+        }
     }
 
     async findToolResultByToolCallIdForPlay(scenarioId: string, toolCallId: string): Promise<IScenarioToolResultStep> {

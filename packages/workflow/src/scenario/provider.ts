@@ -7,9 +7,9 @@ import type {
     TUniversalValue
 } from '@robota-sdk/agents';
 
-import { ScenarioStore, createRequestHash, createRequestHashFromSnapshot, serializeChatOptions, serializeMessages } from './store';
-import { hydrateResponseSnapshot, serializeResponseSnapshot } from './serialize';
-import type { IScenarioProviderStep, TScenarioPlayStrategy } from './types';
+import { ScenarioStore, createRequestHash, createRequestHashFromSnapshot, serializeChatOptions, serializeMessages } from './store.js';
+import { hydrateResponseSnapshot, serializeResponseSnapshot } from './serialize.js';
+import type { IScenarioProviderStep, TScenarioMode, TScenarioPlayStrategy } from './types.js';
 
 type TStreamChunkInput = { index: number; delta: TUniversalMessage; timestamp: number };
 
@@ -34,8 +34,6 @@ export interface IScenarioMockProviderOptions extends IScenarioMetadata {
     providerName?: string;
     providerVersion?: string;
 }
-
-type TScenarioMode = 'record' | 'play' | 'none';
 
 export interface IScenarioProviderFromEnvOptions {
     /**
@@ -146,18 +144,7 @@ export function createScenarioProviderFromEnv(options: IScenarioProviderFromEnvO
                 throw new Error('[SCENARIO-GUARD] Internal error: expected ScenarioMockAIProvider in play mode.');
             }
             await provider.assertNoUnusedSteps();
-
-            const toolSteps = await options.store.listToolResultStepsForPlay(mode.playId ?? '');
-            const unusedToolCallIds = Array.from(
-                new Set(toolSteps.map(step => step.toolCallId).filter(id => !usedToolCallIds.has(id)))
-            );
-            if (unusedToolCallIds.length > 0) {
-                const sample = unusedToolCallIds.slice(0, 3).join(', ');
-                throw new Error(
-                    `[SCENARIO-UNUSED] ${unusedToolCallIds.length} unused tool_result toolCallId(s) remain for scenario "${mode.playId ?? ''}". ` +
-                    `Sample: ${sample}`
-                );
-            }
+            await options.store.assertNoUnusedToolResultsForPlay(mode.playId ?? '', usedToolCallIds);
         };
 
         const onToolCallUsed = (toolCallId: string): void => {

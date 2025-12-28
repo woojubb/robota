@@ -20,7 +20,7 @@ export default defineConfig([
     // Node.js build
     {
         ...baseConfig,
-        entry: ['src/index.ts'],
+        entry: ['src/index.ts', 'src/scenario/index.ts'],
         outDir: 'dist/node',
         format: ['esm', 'cjs'],
         platform: 'node',

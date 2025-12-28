@@ -1,8 +1,8 @@
 import type { ITool, IToolExecutionContext, IToolResult, TToolParameters, TUniversalValue } from '@robota-sdk/agents';
 import { FunctionTool } from '@robota-sdk/agents';
 
-import type { TScenarioMode } from './types';
-import { ScenarioStore, stringifyToolArguments } from './store';
+import type { TScenarioMode } from './types.js';
+import { ScenarioStore, stringifyToolArguments } from './store.js';
 
 interface IScenarioToolWrapperOptions {
     mode: TScenarioMode;
@@ -53,11 +53,15 @@ export function createScenarioToolWrapper(tool: ITool, options: IScenarioToolWra
             if (!toolCallId) {
                 throw new Error('[SCENARIO-TOOL] Missing context.executionId (toolCallId) for tool playback');
             }
+
             const step = await options.store.findToolResultByToolCallIdForPlay(options.scenarioId, toolCallId);
             options.onToolCallUsed?.(toolCallId);
 
             if (step.success) {
-                return step.toolMessageContent;
+                if (step.resultData === undefined) {
+                    throw new Error(`[SCENARIO-TOOL] tool_result step is missing resultData for toolCallId="${toolCallId}"`);
+                }
+                return step.resultData;
             }
 
             const errorMessage = step.errorMessage;
@@ -90,6 +94,7 @@ export function createScenarioToolWrapper(tool: ITool, options: IScenarioToolWra
                 toolName: schema.name,
                 toolArguments,
                 toolMessageContent,
+                ...(result.success ? { resultData: getToolSuccessDataOrThrow(result) } : undefined),
                 success: result.success,
                 ...(result.success ? undefined : { errorMessage: getToolErrorMessageOrThrow(result) }),
                 tags: options.tags
@@ -103,8 +108,7 @@ export function createScenarioToolWrapper(tool: ITool, options: IScenarioToolWra
         if (!result.success) {
             throw new Error(getToolErrorMessageOrThrow(result));
         }
-        // Return a string so downstream tool-message content is deterministic and never depends on falsy handling.
-        return formatToolSuccessContent(getToolSuccessDataOrThrow(result));
+        return getToolSuccessDataOrThrow(result);
     });
 }
 

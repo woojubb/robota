@@ -8,7 +8,7 @@
         "resolveJsonModule": true,
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
-        "moduleResolution": "Node",
+        "moduleResolution": "Bundler",
         "types": [
             "node"
         ],
@@ -21,10 +21,6 @@
             "*": [
                 "node_modules/*",
                 "../../node_modules/*"
-            ],
-            "@robota-sdk/*": [
-                "../../src/*",
-                "../../packages/*"
             ]
         }
     },
