@@ -1,7 +1,7 @@
 import type { IRawProviderResponse, TUniversalMessage } from '@robota-sdk/agents';
 import { isAssistantMessage, isToolMessage, isUserMessage } from '@robota-sdk/agents';
 
-import type { IScenarioMessageSnapshot, IScenarioResponseSnapshot } from './types';
+import type { IScenarioMessageSnapshot, IScenarioResponseSnapshot } from './types.js';
 
 export function deserializeMessage(snapshot: IScenarioMessageSnapshot): TUniversalMessage {
     const timestamp = new Date(snapshot.timestamp);

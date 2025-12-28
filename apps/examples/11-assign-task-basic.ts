@@ -11,6 +11,11 @@
 import { listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
 import type { IToolExecutionContext, IToolResult, TUniversalValue } from '@robota-sdk/agents';
 import type { TTemplateSummary, TTemplatesListPayload } from './lib/template-payloads';
+import { createHash } from 'crypto';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+import { ScenarioStore, stringifyToolArguments, createScenarioToolWrapper } from '@robota-sdk/workflow/scenario';
 
 const isObject = (value: TUniversalValue): value is Record<string, TUniversalValue> => {
     return typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date);
@@ -51,9 +56,55 @@ const extractTemplatesList = (result: IToolResult): TTemplatesListPayload => {
     return { templates };
 };
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function resolveScenarioMode(): { mode: 'record' | 'play' | 'none'; scenarioId?: string } {
+    const recordId = process.env.SCENARIO_RECORD_ID;
+    const playId = process.env.SCENARIO_PLAY_ID;
+    if (recordId && playId) {
+        throw new Error('[SCENARIO-GUARD] Both SCENARIO_RECORD_ID and SCENARIO_PLAY_ID are set. Choose exactly one.');
+    }
+    if (recordId) return { mode: 'record', scenarioId: recordId };
+    if (playId) return { mode: 'play', scenarioId: playId };
+    return { mode: 'none' };
+}
+
+function createDeterministicToolCallId(toolName: string, parameters: Record<string, TUniversalValue>): string {
+    const toolArguments = stringifyToolArguments(parameters);
+    const input = `${toolName}:${toolArguments}`;
+    return createHash('md5').update(input).digest('hex');
+}
+
 async function main() {
-    const listContext: IToolExecutionContext = { toolName: 'listTemplates', parameters: {} };
-    const listResult = await listTemplatesTool.execute({}, listContext);
+    const scenario = resolveScenarioMode();
+    const store = new ScenarioStore({ baseDir: path.resolve(__dirname, 'scenarios') });
+    const usedToolCallIds = new Set<string>();
+
+    const listTool =
+        scenario.mode === 'none'
+            ? listTemplatesTool
+            : createScenarioToolWrapper(listTemplatesTool, {
+                mode: scenario.mode,
+                scenarioId: scenario.scenarioId,
+                store,
+                ...(scenario.mode === 'play' ? { onToolCallUsed: (id) => usedToolCallIds.add(id) } : undefined)
+            });
+
+    const detailTool =
+        scenario.mode === 'none'
+            ? getTemplateDetailTool
+            : createScenarioToolWrapper(getTemplateDetailTool, {
+                mode: scenario.mode,
+                scenarioId: scenario.scenarioId,
+                store,
+                ...(scenario.mode === 'play' ? { onToolCallUsed: (id) => usedToolCallIds.add(id) } : undefined)
+            });
+
+    const listParams = {};
+    const listToolCallId = createDeterministicToolCallId('listTemplates', listParams as Record<string, TUniversalValue>);
+    const listContext: IToolExecutionContext = { toolName: 'listTemplates', parameters: listParams, executionId: listToolCallId };
+    const listResult = await listTool.execute(listParams, listContext);
     const { templates } = extractTemplatesList(listResult);
     console.log('Templates:', templates);
 
@@ -63,11 +114,14 @@ async function main() {
         throw new Error('No templates available');
     }
 
+    const detailParams = { templateId: selected.id };
+    const detailToolCallId = createDeterministicToolCallId('getTemplateDetail', detailParams as Record<string, TUniversalValue>);
     const detailContext: IToolExecutionContext = {
         toolName: 'getTemplateDetail',
-        parameters: { templateId: selected.id }
+        parameters: detailParams,
+        executionId: detailToolCallId
     };
-    const detail = await getTemplateDetailTool.execute({ templateId: selected.id }, detailContext);
+    const detail = await detailTool.execute(detailParams, detailContext);
     if (!detail.success) {
         throw new Error(detail.error ?? 'getTemplateDetail failed');
     }
@@ -83,6 +137,13 @@ async function main() {
     };
 
     console.log('assignTask call shape (not executed):', assignTaskCall);
+
+    if (scenario.mode === 'play') {
+        if (!scenario.scenarioId) {
+            throw new Error('[SCENARIO] Missing scenarioId in play mode');
+        }
+        await store.assertNoUnusedToolResultsForPlay(scenario.scenarioId, usedToolCallIds);
+    }
 }
 
 main().catch((err) => {

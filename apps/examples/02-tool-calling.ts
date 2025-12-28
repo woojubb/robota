@@ -15,9 +15,7 @@ import dotenv from 'dotenv';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
-import { ScenarioStore } from './lib/scenario/store';
-import { createScenarioProviderFromEnv } from './lib/scenario/provider';
-import { createScenarioToolWrapper } from './lib/scenario/tool';
+import { ScenarioStore, createScenarioProviderFromEnv, createScenarioToolWrapper } from '@robota-sdk/workflow/scenario';
 
 // Load environment variables from examples directory
 dotenv.config();

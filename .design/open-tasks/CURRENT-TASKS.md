@@ -109,17 +109,14 @@
 ## 🧪 Scenario/Recorder 확장(필요 시)
 
 ### 절대 규칙(Framework 우선, Scenario는 레이어)
-- Scenario/Recorder는 **프레임워크 위에 구축되는 “examples 레이어 기능”**이다.
-- `packages/*`(agents/workflow/playground 등)의 **기본 구현체는 범용적이어야 하며**, 시나리오에 종속된 정책/형태/예외 처리를 포함하면 안 된다.
-- 따라서 이 작업의 기본 방향은:
-  - **코어(기본 구현체)는 수정하지 않는다**(원칙).
-  - record/play/dummy/wiring은 **apps/examples 레이어에서 wrapper/adapter로만** 구현한다.
+- Scenario/Recorder는 **정식 SDK 기능**으로 제공되어야 하며, `@robota-sdk/workflow`에서 제공한다.
+- `apps/examples`는 시나리오 기능을 “구현”하는 곳이 아니라, **라이브러리 기능을 호출/검증**하는 예제 모음이다.
 
 ### 코어 수정 게이트(불가피할 때만, 사전 검증 필수)
 > 코어를 건드리는 변경은 “가능해서”가 아니라 “SSOT/Ownership 관점에서 타당해서”만 허용된다.
 
 - [ ] (사전) 이 변경이 **Scenario 기능을 위해서만** 필요한가?
-  - YES면 코어 수정 금지 → examples 레이어(wrapper/adapter)로 설계 변경
+  - YES면 변경 금지 → `packages/workflow`의 범용 기능으로 재설계(Scenario 전용 키워드/정책/형태 주입 금지)
   - NO(범용 프레임워크 기능 개선)라면 아래로 진행
 - [ ] (SSOT) 변경되는 계약/타입/이벤트의 **Owner가 코어 패키지에 있는 게 타당한가?**
   - 중복 선언/의미 없는 alias/서비스 경유 re-export(Option A 위반) 금지
@@ -188,8 +185,7 @@
 > “Provider만 재생”으로는 tool 결과가 달라져 다음 라운드 입력이 변하고 record→play가 깨진다.  
 > 따라서 play 모드에서는 **tool 결과도 scenario 기록과 동일하게 재생**되어야 한다.
 
-- [x] (설계) 코어(ExecutionService/ToolExecutionService)는 수정하지 않는다.
-  - tool record/play는 **examples 레이어 wrapper**로만 구현한다.
+- [ ] (설계) tool record/play는 `@robota-sdk/workflow`가 제공하는 기능으로 구현한다.
 - [x] (SSOT) 시나리오 포맷에 `tool.result` step kind를 추가한다(또는 동등한 구조로 “tool I/O”를 기록)
   - 최소 필드(트리거/매칭 키):
     - `toolName` (예: `assignTask`)
@@ -199,14 +195,14 @@
     - tool message로 들어갈 `content`(string)와 필요한 metadata(JSON 안정형)
 - [x] (Record) tool wrapper가 실제 tool 실행 결과를 `tool.result` step으로 append 한다.
   - 구현 위치(예정):
-    - `apps/examples/lib/scenario/tool.ts` (`createScenarioToolWrapper`)
-    - 저장은 `apps/examples/lib/scenario/store.ts` (`appendToolResultStep`)
+    - `packages/workflow/src/scenario/tool.ts` (`createScenarioToolWrapper`)
+    - 저장은 `packages/workflow/src/scenario/store.ts` (`appendToolResultStep`)
 - [x] (Play) play 모드에서 tool 실행을 금지하고, 기록된 tool 결과를 반환한다(실제 tool 실행 금지).
   - 전략:
     - `toolCallId` 기반 조회(명시적 필드): `tool.result` step의 `toolCallId`로 content를 찾는다.
     - 동일 `toolCallId` 다중 기록은 content가 모두 동일할 때만 허용(다르면 ambiguous fail-fast).
   - 구현 위치:
-    - `apps/examples/lib/scenario/store.ts` → `ScenarioStore.findToolResultByToolCallId()` / `findToolMessageContentByToolCallId()`
+    - `packages/workflow/src/scenario/store.ts` → `ScenarioStore.findToolResultByToolCallIdForPlay()` / `findToolMessageContentByToolCallIdForPlay()`
 - [x] (Wiring) 예제에서 record/play 모드에 따라 tools를 교체 주입한다.
   - 예: `createScenarioProviderFromEnv()` 결과의 mode에 따라
     - record/play: `createScenarioToolWrapper(tool, { mode, scenarioId, store })`로 감싼 tool 목록 사용
@@ -218,18 +214,17 @@
   - [x] (필수) 매 호출마다 “recorded request snapshot hash === current request hash” 검증
   - [x] 불일치 시 즉시 실패(조용히 다음 step 소비 금지)
   - [x] 구현 위치:
-    - `apps/examples/lib/scenario/provider.ts` → `ScenarioMockAIProvider.resolveStep()`의 `sequential` 분기
+    - `packages/workflow/src/scenario/provider.ts` → `ScenarioMockAIProvider.resolveStep()`의 `sequential` 분기
 - [x] `hash` 전략: 요청 hash로 step 탐색
   - [x] 0개 매치: 즉시 실패
   - [x] 2개 이상 매치: 즉시 실패(ambiguous). “sequential 사용” 안내 문구
 - [x] (필수) `hash` 전략은 “첫 매치 반환” 금지: 0/1/2+ 매치를 반드시 구분(ambiguous 노출)
   - [x] 구현 위치:
-    - `apps/examples/lib/scenario/store.ts` → `ScenarioStore.findStepsByHash()` + `findStepByHash()`(ambiguous throw)
-    - `apps/examples/lib/scenario/provider.ts` → `ScenarioMockAIProvider.resolveStep()`의 `hash` 분기
+    - `packages/workflow/src/scenario/store.ts` → `ScenarioStore.findProviderStepByHashForPlay()` (ambiguous throw)
+    - `packages/workflow/src/scenario/provider.ts` → `ScenarioMockAIProvider.resolveStep()`의 `hash` 분기
 - [x] (권장) play 모드에서 시나리오 파일이 없으면 즉시 실패(ENOENT → fail-fast)
   - [x] 구현 위치:
-    - `apps/examples/lib/scenario/store.ts` → `ScenarioStore.assertScenarioExistsForPlay()`
-    - `apps/examples/lib/scenario/provider.ts` → `ScenarioMockAIProvider.resolveStep()` (모든 전략 공통)
+    - `packages/workflow/src/scenario/store.ts` → `ScenarioStore.loadForPlay()` (ENOENT throw)
 - [x] 종료 시 `assertNoUnusedSteps()`로 미사용 step 검증(미사용 존재 시 실패)
   - provider step + tool_result step 모두 포함
 

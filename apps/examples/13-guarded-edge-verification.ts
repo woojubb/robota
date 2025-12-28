@@ -15,9 +15,7 @@ import { SilentLogger } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { WorkflowEventSubscriber, WorkflowSubscriberEventService } from '@robota-sdk/workflow';
 
-import { ScenarioStore } from './lib/scenario/store';
-import { createScenarioProviderFromEnv } from './lib/scenario/provider';
-import { createScenarioToolWrapper } from './lib/scenario/tool';
+import { ScenarioStore, createScenarioProviderFromEnv, createScenarioToolWrapper } from '@robota-sdk/workflow/scenario';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

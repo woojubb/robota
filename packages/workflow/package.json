@@ -20,6 +20,17 @@
                 "import": "./dist/node/index.js",
                 "require": "./dist/node/index.cjs"
             }
+        },
+        "./scenario": {
+            "types": "./dist/node/scenario/index.d.ts",
+            "node": {
+                "import": "./dist/node/scenario/index.js",
+                "require": "./dist/node/scenario/index.cjs"
+            },
+            "default": {
+                "import": "./dist/node/scenario/index.js",
+                "require": "./dist/node/scenario/index.cjs"
+            }
         }
     },
     "repository": {

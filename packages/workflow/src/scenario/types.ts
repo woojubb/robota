@@ -75,6 +75,11 @@ export interface IScenarioToolResultStep {
      * The exact content that will be used as the `role:"tool"` message content.
      */
     toolMessageContent: string;
+    /**
+     * Tool execution data that should be returned to the caller in play mode.
+     * Required when success=true.
+     */
+    resultData?: TUniversalValue;
     success: boolean;
     errorMessage?: string;
     timestamp: number;
