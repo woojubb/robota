@@ -7,7 +7,7 @@ description: "Unified execution caching rules (content preserved)"
 
 ## Core Cache Definitions (Current Implementation)
 - **Cache Directory**: `apps/examples/cache/`
-- **Cache File Format**: `{execution-id}-{hash}.json`
+- **Cache File Format**: `{cache-key}-{hash}.json`
 - **Hash Generation**: MD5 of source file content + dependency versions
 - **Cache Expiry**: 24 hours or when source files change
 

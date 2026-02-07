@@ -10,7 +10,7 @@ Use this skill to apply consistent development patterns and architecture princip
 
 ## Error Handling
 - Use proper Error objects (avoid throwing strings).
-- Add type guards for unknown error types.
+- Add guards for unknown error values.
 - Provide actionable error messages.
 - Prefer descriptive errors over arbitrary cleanup.
 - Validate inputs at boundaries with actionable messages.
@@ -21,14 +21,14 @@ Use this skill to apply consistent development patterns and architecture princip
 
 ## Interface Design
 - Segregate interfaces by responsibility.
-- Use constrained generics for type safety.
+- Use constrained generics for safety.
 - Keep contracts minimal and focused.
 
 ## Dependency Direction
 - Lower layers import from higher layers, not the other way around.
 - Avoid lateral imports across same-level modules.
 
-## Type Architecture
+## Data Architecture
 - Prefer composition over inheritance.
 - Use constrained generics to avoid `unknown`.
 - Keep a single source of truth for shared contracts.

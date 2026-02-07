@@ -29,3 +29,8 @@ npx tsx utils/verify-workflow-connections.ts | cat
 - Non-zero exit code from example execution
 - Log contains `[STRICT-POLICY]` or `[EDGE-ORDER-VIOLATION]`
 - Expected output files are missing or empty
+
+## Template Maintenance
+- Keep verification commands in package-specific templates after example migration.
+- Update templates after Phase 2 moves to reflect new example paths.
+- Run guarded verification with the updated template before any verification step.

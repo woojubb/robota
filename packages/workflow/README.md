@@ -14,6 +14,13 @@ The Workflow package provides domain-neutral workflow visualization capabilities
 - **Plugin System**: Extensible architecture for custom workflow components
 - **Graph Management**: Automatic node/edge creation with validation and ordering
 
+## Recent Updates
+- **Unified Workflow Event Bridge**: Single SSOT bridge for workflow event handling.
+- **Scenario Record/Play**: Deterministic record/playback support with strict validation.
+- **Guarded Verification**: Guarded workflow edge verification utilities.
+- **Event Linkage Fixes**: Deterministic linking for local tool playback and agent ownership resolution.
+- **Subscriber Contract**: Workflow subscriber contract standardized with `IWorkflowEventSubscriber`.
+
 ## Installation
 
 ```bash

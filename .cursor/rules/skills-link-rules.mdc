@@ -25,3 +25,7 @@ Do not duplicate guarded verification procedures in rules.
 ## Edge Transfer Debugging Rules
 Debugging guidance and procedures live in the project skill:
 `.cursor/skills/workflow-edge-debugging/SKILL.md`.
+
+## Scenario Change Guard Checklist
+Pre-change guard checklist for scenario modifications lives in the project skill:
+`.cursor/skills/scenario-guard-checklist/SKILL.md`.
