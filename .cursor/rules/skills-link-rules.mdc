@@ -1,0 +1,27 @@
+---
+description: "Rules that delegate to project skills (single source of truth)"
+---
+
+# Skill Delegation Rules
+
+## SDK Usage Patterns
+Single source of truth for Robota SDK usage guidance is the project skill:
+`.cursor/skills/robota-sdk-usage/SKILL.md`.
+
+Do not duplicate SDK usage guidance in rules.
+
+## Plugin Development
+Single source of truth for plugin development guidance is the project skill:
+`.cursor/skills/plugin-development/SKILL.md`.
+
+Do not duplicate plugin development guidance in rules.
+
+## Example Execution → Verification Guard
+Single source of truth for guarded verification procedures is the project skill:
+`.cursor/skills/verification-guard/SKILL.md`.
+
+Do not duplicate guarded verification procedures in rules.
+
+## Edge Transfer Debugging Rules
+Debugging guidance and procedures live in the project skill:
+`.cursor/skills/workflow-edge-debugging/SKILL.md`.

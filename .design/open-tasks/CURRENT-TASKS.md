@@ -329,3 +329,61 @@
   - 통합 예제가 남는다면, 별도 job(1회)로만 실행(중복 매트릭스 금지)
 
 
+---
+
+## 🧭 Rules → Skills 전환 기준 재정립(항목 단위 분리)
+
+### 배경(현재 트렌드 요약)
+- Rules는 항상 적용되어 컨텍스트가 무거워짐 → Skills로 분리하면 필요한 순간에만 호출 가능
+- 절차/가이드형 지식은 Skills가 더 적합 (재사용성과 온디맨드 적용)
+- 강제 규정/금지는 Rules에 유지 (항시 적용 필요)
+
+### Skill 적합성 체크리스트(항목 단위)
+- [ ] 절차형(단계/순서/체크리스트가 명확)
+- [ ] 재사용성(여러 작업에서 반복 사용 가능)
+- [ ] 맥락 의존(특정 상황에서만 필요)
+- [ ] 실행 템플릿/예시 중심(명령어/코드 패턴)
+- [ ] 학습/가이드 성격(“어떻게 하는지” 중심)
+
+### 항목 단위 후보군(이동/유지 구분)
+
+#### `example-execution-caching.mdc`
+- **Skill로 이동**: Cache Structure, Cache Check Process, Cache Commands, Log Analysis Patterns, Development Workflow, Cache Invalidation Triggers
+- **Rules 유지**: 캐시 디렉터리/파일 포맷/해시 정의, “NEVER skip cache check”, “ALWAYS save successful results”, “RESPECT expiry”
+
+#### `example-caching-system.mdc`
+- **Skill로 이동**: 목적/구성/워크플로/명령어/분석 패턴 전체
+- **Rules 유지**: 캐시 키/만료 등 핵심 제약(정의·정책 문장만)
+
+#### `development-efficiency.mdc`
+- **Skill로 이동**: Cache-first 예시 코드, 성능/비용 메트릭, 로깅 예시, 파일 구조/키 전략/에러 처리 가이드
+- **Rules 유지**: “MANDATORY/FORBIDDEN” 강제 규칙 문장만
+
+#### `edge-transfer-debugging.mdc`
+- **Skill로 이동**: Debugging Priority Order, Step-by-step 패치 제안, 성공 기준, 캐시 기반 디버깅 워크플로 전부
+- **Rules 유지**: 없음(순수 플레이북)
+
+#### `plugin-development.mdc`
+- **Skill로 이동**: Documentation 링크, Plugin Categories 분류, 설명 중심 가이드
+- **Rules 유지**: BasePlugin 상속 의무, validateOptions 의무, disable 옵션 필수, PluginError 사용 등 강제 요건
+
+#### `robota-usage-patterns.mdc`
+- **Skill로 이동**: Constructor/Tool 패턴 예시, deprecated 패턴, 마이그레이션 가이드 전부
+- **Rules 유지**: 없음(사용법 중심)
+
+#### `verification-guard.mdc`
+- **Skill로 이동**: 표준 실행 커맨드 템플릿, 파일 참조, 운영 절차
+- **Rules 유지**: Abort Conditions(실패 시 검증 금지) 정책 문장
+
+#### `commit-message-guidelines.mdc`
+- **Skill로 이동**: Examples, Questions to Ask, Common Action Verbs
+- **Rules 유지**: 영어 사용, conventional commit 포맷, 80자 제한, 유효 type 목록, “WHAT 중심”
+
+#### `tailwind-css-only-policy.mdc`
+- **Skill로 이동**: Text truncation 예시/가이드, “When Tailwind Doesn’t Work” 단계
+- **Rules 유지**: inline style 금지, CSS-in-JS 금지 등 절대 금지 규칙
+
+#### `project-structure.mdc`
+- **Skill로 이동**: 빌드/워크플로 커맨드 모음
+- **Rules 유지**: 패키지 구조/보호 설정/SSOT 링크 등 구조 규칙
+

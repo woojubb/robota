@@ -1,0 +1,19 @@
+---
+name: writing-language-guide
+description: Provide language usage guidance for docs and commit messages. Use when deciding documentation language or commit message language.
+---
+
+# Writing Language Guide
+
+## Scope
+Use this skill to apply language usage guidance for documentation and commit messages.
+
+## Documentation Language
+- Use English for documentation by default.
+- Use Korean for documents under `.design/`.
+
+## Commit Message Language
+- Use English for commit messages.
+
+## Notes
+- Keep examples in the target language of the document.

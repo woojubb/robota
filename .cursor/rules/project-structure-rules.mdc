@@ -1,0 +1,59 @@
+---
+alwaysApply: true
+description: "Unified project structure and build rules (content preserved)"
+---
+
+# Project Structure and Build Rules
+
+## Project Structure Standards
+
+### Package Structure
+```
+packages/
+├── agents/          # Core agent functionality
+├── anthropic/       # Anthropic provider
+├── openai/          # OpenAI provider  
+├── google/          # Google provider
+├── sessions/        # Session management
+└── team/           # Team collaboration
+```
+
+### Configuration Files
+- **tsconfig.base.json** - Base TypeScript configuration with strict rules
+- **.eslintrc.json** - Root ESLint configuration with type safety rules
+- Package-specific configs extend the base configuration
+
+### Protected Settings
+- TypeScript strict mode settings are immutable
+- ESLint type safety rules are error-level and immutable
+- Any/unknown type rules cannot be modified
+
+### Development Workflow
+- All code must pass strict TypeScript compilation
+- Zero tolerance for any/unknown types in production code
+- ESLint enforcement at error level for type safety
+- This repository is a **pnpm workspace monorepo**. Follow `.cursor/rules/project-structure-rules.mdc`.
+
+### Type System & SSOT (Mandatory)
+- **Type naming (I*/T*)**: see `.cursor/rules/type-ssot-rules.mdc`
+- **Owner-based SSOT (Option A)**: see `.cursor/rules/type-ssot-rules.mdc`
+
+## pnpm Workspace Monorepo Build Rules
+
+### 🚨 Critical Build Requirements
+
+#### Package Modification → Build Mandatory
+- **ANY** modification to files in `packages/*/src/` **REQUIRES** immediate build
+- **NEVER** skip builds after code changes in packages
+- **ALWAYS** verify build success before proceeding to next steps
+
+### 🚫 Prohibited Practices
+
+- **NEVER** skip builds after package modifications
+- **NEVER** commit code that doesn't build successfully  
+- **NEVER** use temporary workarounds to make builds pass
+- **NEVER** disable TypeScript strict checks to fix builds
+
+### Guidance Location
+Build commands and workflow guidance live in the project skill:
+`.cursor/skills/pnpm-monorepo-build/SKILL.md`.

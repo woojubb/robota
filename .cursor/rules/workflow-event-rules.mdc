@@ -1,0 +1,350 @@
+---
+alwaysApply: true
+description: "Unified workflow and event system rules (content preserved)"
+---
+
+# Workflow and Event Rules
+
+## Event Constants Mandatory - No Hardcoded Event Names
+
+### 🚫 Absolutely Prohibited
+- **Hardcoded event strings** in any code
+- **String literals** for event names in emit() calls
+- **Magic strings** in event handlers or switch cases
+
+```typescript
+// ❌ FORBIDDEN: Hardcoded event names
+this.eventService.emit('assistant.message_complete', data);
+this.eventService.emit('tool_call_start', data);
+case 'execution.start':
+
+// ❌ FORBIDDEN: Mixed patterns
+const eventType = 'user.message'; // hardcoded
+```
+
+### ✅ Mandatory Pattern: Declarative Constants
+
+#### Event Owner Modules Must Export Constants
+Each module that emits events MUST export event constants:
+
+```typescript
+// In ExecutionService module
+export const EXECUTION_EVENTS = {
+    START: 'execution.start',
+    COMPLETE: 'execution.complete',
+    ASSISTANT_MESSAGE_START: 'execution.assistant_message_start',
+    ASSISTANT_MESSAGE_COMPLETE: 'execution.assistant_message_complete',
+    ERROR: 'execution.error'
+} as const;
+
+// In Tool modules  
+export const TOOL_EVENTS = {
+    CALL_START: 'tool.call_start',
+    CALL_COMPLETE: 'tool.call_complete',
+    CALL_ERROR: 'tool.call_error',
+    AGENT_EXECUTION_STARTED: 'tool.agent_execution_started'
+} as const;
+
+// In Agent modules
+export const AGENT_EVENTS = {
+    CREATION_START: 'agent.creation_start',
+    CREATION_COMPLETE: 'agent.creation_complete',
+    EXECUTION_START: 'agent.execution_start',
+    EXECUTION_COMPLETE: 'agent.execution_complete'
+} as const;
+```
+
+#### Event Handlers Must Import Constants
+```typescript
+// ✅ CORRECT: Import and use constants
+import { EXECUTION_EVENTS } from '../services/execution-service';
+import { TOOL_EVENTS } from '../tools/constants';
+import { AGENT_EVENTS } from '../agents/constants';
+
+// Event emission
+this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, data);
+
+// Event handling
+switch (eventType) {
+    case EXECUTION_EVENTS.START:
+        this.handleExecutionStart(data);
+        break;
+    case TOOL_EVENTS.CALL_COMPLETE:
+        this.handleToolCallComplete(data);
+        break;
+}
+```
+
+### 🔧 Event Ownership Clarification
+
+#### Correct Event Ownership by Prefix
+- **`execution.*`** - ExecutionService events (including assistant messages)
+- **`tool.*`** - Tool implementation events  
+- **`agent.*`** - Agent lifecycle events
+- **`task.*`** - Task management events
+- **`team.*`** - Team coordination events
+- **`user.*`** - User interaction events
+
+#### Migration Requirements
+1. **Audit Phase**: Find all hardcoded event strings
+2. **Constant Creation**: Create constants in owning modules
+3. **Import/Export**: Update all event handlers to use imports
+4. **Validation**: Ensure no hardcoded strings remain
+
+### 🚨 Enforcement
+- **Code Review**: Reject any PR with hardcoded event strings
+- **Linting**: Add ESLint rules to catch string literals in emit() calls
+- **Type Safety**: Use const assertions and union types for compile-time checking
+
+### 📋 Benefits
+- **Refactoring Safety**: Change event names in one place
+- **IntelliSense**: IDE autocompletion for event names
+- **Type Safety**: Compile-time validation of event names  
+- **Documentation**: Clear ownership and event catalog
+
+## Event Ownership and Prefix System
+
+### 🎯 Event Prefix Rules
+Each event MUST have a clear prefix indicating its owner:
+
+#### Standard Prefixes
+- **`execution.*`** - Owned by ExecutionService
+  - `execution.start`, `execution.complete`, `execution.error`
+- **`tool.*`** - Owned by Tool implementations
+  - `tool.start`, `tool.complete`, `tool.error`, `tool.agent_execution_started`
+- **`agent.*`** - Owned by Agent instances
+  - `agent.creation_start`, `agent.creation_complete`, `agent.thinking_start`
+- **`assistant.*`** - Owned by LLM/Assistant services
+  - `assistant.message_start`, `assistant.message_complete`
+- **`user.*`** - Owned by User interaction services
+  - `user.message`, `user.input`
+- **`task.*`** - Owned by Task management services
+  - `task.assigned`, `task.completed`, `task.aggregation_start`
+- **`team.*`** - Owned by Team coordination services
+  - `team.analysis_start`, `team.analysis_complete`
+
+### 🚫 Violations
+- **Cross-ownership**: ExecutionService emitting `tool.*` events
+- **Generic prefixes**: Using `event.*` or `workflow.*` without specific ownership
+- **Missing prefixes**: Events without clear ownership indication
+
+### ✅ Implementation Requirements
+- Define event constants in the owning module
+- Export constants for use by event handlers
+- Import specific event constants rather than using string literals
+- Document which component owns each event type
+
+### 🔧 Event Constant Pattern
+```typescript
+// In ExecutionService module
+export const EXECUTION_EVENTS = {
+    START: 'execution.start',
+    COMPLETE: 'execution.complete',
+    ERROR: 'execution.error'
+} as const;
+
+// In event handlers
+import { EXECUTION_EVENTS } from '../services/execution-service';
+this.eventService.on(EXECUTION_EVENTS.START, handler);
+```
+
+### 📋 Migration Guidelines
+- Audit all existing events for proper ownership
+- Move event definitions to owning modules
+- Update event handlers to use imported constants
+- Ensure event prefix matches the emitting component
+
+## Event-Driven Architecture Patterns
+
+This document is an overview. **Authoritative rules** live in:
+- `.cursor/rules/workflow-event-rules.mdc` (this file)
+
+### Event Constants (Mandatory)
+- All event names must be defined as **declarative constants** in the owning module.
+- Event emitters and handlers must **import constants** (no string literals).
+
+```typescript
+// ✅ Correct pattern - event constants
+export const TOOL_EVENTS = {
+  AGENT_CREATION_REQUESTED: 'tool.agent_creation_requested',
+  AGENT_EXECUTION_STARTED: 'tool.agent_execution_started'
+} as const;
+
+export const AGENT_EVENTS = {
+  CREATION_START: 'agent.creation_start',
+  EXECUTION_START: 'agent.execution_start'
+} as const;
+```
+
+### Ownership & Prefix Rules (Summary)
+- `execution.*` → emitted by ExecutionService
+- `tool.*` → emitted by tool implementations / tool execution layer
+- `agent.*` → emitted by agent lifecycle
+- `team.*` → emitted by team coordination layer
+- `task.*` → emitted by task management layer
+
+### Emission Placement (Single Authoritative Sources)
+- Execution lifecycle events are emitted in `ExecutionService` (or an explicitly defined proxy wrapper).
+- Tool call lifecycle events are emitted in the tool execution layer and must call hooks in order: `onStart` → run → `onComplete`/`onError`.
+
+### Handler Neutrality
+- Event handlers must be tool-neutral: do not special-case a specific tool name or assume a tool exists.
+
+## Domain Neutral Architecture and Event Design
+
+### 🚫 Prohibited Concepts
+
+#### Remove "Sub-Agent" Concept
+- **Strictly prohibited**: Any separate "Sub-Agent" concept
+- **Principle**: All agents are equal and share the same lifecycle and interfaces
+- **Reality**: `assignTask` is just a third-party tool that may create an agent incidentally
+
+#### No "Tool as a Bridge"
+- **Strictly prohibited**: `assignTask` acting as a "bridge" layer
+- **Principle**: `assignTask` is only a tool implementation
+- **Constraint**: WorkflowEventSubscriber must not assume `assignTask` exists
+
+### ✅ Correct Design Principles
+
+#### 1. Domain Neutrality
+- **Agent equality**: All agents share the same lifecycle and event semantics
+- **Tool independence**: A tool operates only within its responsibility boundary
+- **Handler neutrality**: Event handlers must not have prior knowledge of specific tools
+
+#### 2. Tool Context Passing
+- **Upstream context allowed**: A tool may pass upstream execution info via context
+- **Tool reads context**: The tool uses context to behave correctly
+- **Execution context fields**: Use explicit fields such as `parentExecutionId`, `executionLevel`
+
+```typescript
+// ✅ Correct pattern - ToolExecutionContext usage
+interface ToolExecutionContext {
+  parentExecutionId?: string;  // Upstream tool_call ID
+  rootExecutionId?: string;    // Root agent execution ID
+  executionLevel?: number;     // Execution level (e.g., Tool=2)
+  executionPath?: string[];    // Execution path
+}
+```
+
+#### 3. Event Emission Rules
+- **Prefix ownership**: Event prefix must match the emitter
+  - `execution.*` → ExecutionService
+  - `tool.*` → Tool or tool execution layer
+  - `agent.*` → Agent
+- **Declarative constants**: Event names must be defined as exported constants
+- **Export/Import**: Handlers must import event constants from the owning module
+
+### 🎯 Implementation Guidelines
+
+#### Standard Flow When a Tool Creates an Agent
+```typescript
+// ✅ Correct pattern
+// 1. Tool creates an agent
+const newAgent = new Robota(config);
+
+// 2. When the agent naturally calls execute(), it emits `execution.start`
+await newAgent.execute(jobDescription, []);
+
+// 3. WorkflowEventSubscriber handles `execution.start` and creates the agent node
+// 4. tool_call → agent edge is created via explicit linkage information
+```
+
+#### Event Constants Definition
+```typescript
+// ✅ Correct pattern - event constants owned by the emitting module
+export const TOOL_EVENTS = {
+  AGENT_CREATION_REQUESTED: 'tool.agent_creation_requested',
+  AGENT_EXECUTION_STARTED: 'tool.agent_execution_started'
+} as const;
+```
+
+### 📋 Validation Checklist
+
+Before implementing, verify:
+- [ ] No "Sub-Agent" concept exists
+- [ ] Tools are not acting as a bridge layer
+- [ ] Event prefix ownership rules are respected
+- [ ] All agents share the same lifecycle
+- [ ] WorkflowEventSubscriber does not assume a specific tool exists
+
+## Path-Only Architecture — Strict Prohibitions and Enforcement
+
+This rule enforces the Path-Only event graph construction with zero tolerance for workarounds. It applies to all code in this workspace.
+
+### Rule Precedence
+- If any guidance conflicts with this document, **this document wins**.
+- In particular, this rule overrides any “always throw/crash” guidance when explicit linkage information is missing:
+  - **Do not fabricate relationships**
+  - **Do not fallback**
+  - **Do not infer**
+  - Stop processing the current event deterministically and let the design be fixed at the source
+
+### Absolute Prohibitions (Hard Ban)
+- No fallback logic, no delays, no waits, no deferred/later linking, no temporary handling
+- No deduplication or suppression layers
+- No ID parsing/regex or naming-convention inference to derive relationships
+  - Do not compute relations from strings like `*_round2`, `call_*`, etc.
+  - Do not split/regex/substring node IDs to “figure out” parents or rounds
+- No auxiliary in-memory state for connection derivation (e.g., "lastX", caches)
+  - Connections must be derived only from the current event’s payload and already-created nodes’ explicit data
+- No hardcoded event names; always use declarative constants exported by the owning module
+- No cross-ownership emission: `agent.*` by Agent, `tool.*` by Tool, `execution.*` by ExecutionService, `team.*` by Team
+- No dynamic imports inside function bodies (must be top-level imports)
+
+### Path-Only Linking Rules
+- Edge creation must be decided solely by:
+  - The current event’s explicit fields (e.g., `eventType`, `path`, `executionId`, `parentExecutionId`, `rootExecutionId`, `metadata`)
+  - Already-created nodes’ explicit fields (e.g., `data.extensions.robota.originalEvent.path`, `data.parentExecutionId`, `data.parentThinkingNodeId`)
+- It is allowed to scan the existing node set to find a matching node based on explicit fields. It is forbidden to infer relations via ID string patterns.
+- If the required explicit information is not present, do not fabricate or guess; emit and return without alternative flows (No-Fallback policy).
+
+### Allowed Read-Only Indices (Subscriber Path Map)
+- A subscriber-provided path map/index MAY be used IF AND ONLY IF all of the following are true:
+  - The index is built strictly from explicit event payload fields (e.g., `path`) and nodes’ explicit fields (e.g., `data.extensions.robota.originalEvent.path`).
+  - Read-only usage: The index is used only for deterministic lookup by explicit keys (full path or explicit IDs), never for storing extra state (e.g., no "lastX").
+  - No inference from ID strings (no regex/splitting/round deduction). Matching must be exact by provided explicit fields.
+  - No waits/retries/fallbacks. If lookup fails, do not connect; return and let upstream design fix the missing explicit information.
+  - The index must not change the meaning of relationships; it is a performance/ergonomics aid equivalent to scanning `getAllNodes()`.
+
+### Event Constants and Ownership
+- Import event constants from owning modules and never hardcode strings.
+- Respect prefixes and ownership strictly:
+  - `execution.*` → ExecutionService
+  - `tool.*` → Tool
+  - `agent.*` → Agent
+  - `team.*` → Team
+
+### Snapshot and Rendering Separation
+- Snapshots are immutable copies of current state; do not merge snapshots with manual stores.
+- Creation/processing/rendering responsibilities must stay separate; UI must not mutate workflow structure.
+
+### File References (for context)
+- Agent handler: [packages/workflow/src/handlers/agent-event-handler.ts](mdc:packages/workflow/src/handlers/agent-event-handler.ts)
+- Execution handler: [packages/workflow/src/handlers/execution-event-handler.ts](mdc:packages/workflow/src/handlers/execution-event-handler.ts)
+- Tool handler: [packages/workflow/src/handlers/tool-event-handler.ts](mdc:packages/workflow/src/handlers/tool-event-handler.ts)
+- Event service: [packages/agents/src/services/event-service.ts](mdc:packages/agents/src/services/event-service.ts)
+
+### Compliance Checklist
+- No ID parsing or regex-based relation inference
+- No auxiliary memory for linking; path-only with explicit fields
+- No fallback/temporary/late linking flows
+- Event constants imported; no string literals for event names
+- Ownership prefixes respected
+
+## Workflow Node Creation Principles
+
+### Core Rules
+- Deterministic linking only; use explicit linkage fields only.
+- No fabricated relations or inference from IDs or naming patterns.
+- No fallback paths when linkage info is missing.
+- No conditional event emission.
+- No waiting or synchronization to emit events.
+
+### 🔧 References
+- NodeEdgeManager: [packages/agents/src/services/node-edge-manager.ts](mdc:packages/agents/src/services/node-edge-manager.ts)
+- WorkflowEventSubscriber: [packages/agents/src/services/workflow-event-subscriber.ts](mdc:packages/agents/src/services/workflow-event-subscriber.ts)
+- TeamContainer: [packages/team/src/team-container.ts](mdc:packages/team/src/team-container.ts)
+
+### Guidance Location
+Workflow node creation guidance and checklists live in:
+`.cursor/skills/workflow-node-guidance/SKILL.md`.
