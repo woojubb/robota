@@ -33,7 +33,7 @@ description: "Unified type system and SSOT rules (content preserved)"
 
 ### Guidance Location
 Type system examples, patterns, and exception justification live in:
-`.cursor/skills/type-system-guidance/SKILL.md`.
+`.cursor/skills/quality-standards/SKILL.md`.
 
 ### 🔒 Immutable Strict Policy (Do not relax)
 
@@ -109,4 +109,4 @@ These patterns make ownership ambiguous and reintroduce drift.
 
 ### Guidance Location
 SSOT examples and usage guidance live in:
-`.cursor/skills/type-system-guidance/SKILL.md`.
+`.cursor/skills/quality-standards/SKILL.md`.

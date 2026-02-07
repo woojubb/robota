@@ -89,6 +89,9 @@ console.log(response);
 - **Function Tools**: Zod schema-based function tool implementation
 - **OpenAPI/MCP Support**: Basic structure for extensibility
 
+## Recent Updates
+- Tool execution results preserve `executionId` mappings for both success and failure to keep deterministic ordering.
+
 ### 🔌 Plugin System
 Eight core plugins with type-safe configuration and BasePluginOptions integration:
 

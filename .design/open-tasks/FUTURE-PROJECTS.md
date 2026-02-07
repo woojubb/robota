@@ -6,6 +6,12 @@
 
 ---
 
+## 🧩 Scenario 전면 분리 재검토 (시기 미정)
+- 필요 시 `@robota-sdk/workflow` 내 시나리오 도메인 전면 분리 재검토
+- 조건: 현행 최소 분리로 SSOT/결정론 문제가 해결되지 않을 때
+
+---
+
 ## 🚀 웹 플랫폼 고도화 (2025-11 ~ 2025-12, 참고)
 - 실시간 워크플로우 컴포넌트(MermaidViewer/WorkflowPanel/AgentBuilder)
 - WebSocket 기반 실시간 동기화

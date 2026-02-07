@@ -1,19 +1,45 @@
 ---
-name: type-system-guidance
-description: Provide type system guidance for naming, reuse strategy, and exception justification for any/unknown. Use when discussing type standards or type safety trade-offs.
+name: quality-standards
+description: Provide quality standards guidance for type system design and quality gate operations (lint/typecheck). Use when enforcing quality checks or discussing type safety trade-offs.
 ---
 
-# Type System Guidance
+# Quality Standards Guidance
 
 ## Scope
-Use this skill to apply type system guidance and justify exceptions.
+Use this skill to apply TypeScript type system guidance and run quality gates.
 
-## Type Naming
+## Quality Gates (Lint/Typecheck)
+1. Identify the affected packages for the change.
+2. Run the package lint target and capture the baseline count.
+3. Apply changes in batches; after each batch, rerun lint.
+4. Confirm the lint count decreases or reaches zero before proceeding.
+5. Run typecheck for the impacted scope when required by the change.
+
+## Batch Quality Gate Checklist
+- Record the lint count before each batch.
+- Do not proceed to the next batch until the count decreases.
+- If the count stalls, re-scope the batch and resolve the root cause.
+
+## Naming Hygiene
+- Avoid redundant suffixes like `Interface` or `Type`.
+- Remove `TypeSafe` naming and similar vanity prefixes.
+- Keep naming consistent with `I*`/`T*` conventions.
+
+## Alias Anti-Pattern Cleanup
+- Remove meaningless aliases like `type A = B`.
+- Eliminate same-shape redeclarations in non-owner modules.
+- Avoid pass-through re-exports from services/managers/plugins.
+
+## SSOT Scanner Usage
+- Use the duplicate-declaration scanner to verify same-kind duplication is zero.
+- Keep scanner output in `.design/open-tasks/` as a reference snapshot.
+
+## TypeScript Type Naming
 - Domain-driven names that reflect business concepts.
 - Use `T*` for type aliases and `I*` for interfaces.
 - Avoid unprefixed contract names that collide with runtime values.
 
-## Type Reuse Strategy
+## TypeScript Type Reuse Strategy
 1. Search for existing types first.
 2. Extend or compose instead of duplicating.
 3. Share cross-cutting contracts only when needed.
@@ -33,24 +59,12 @@ import type { IToolCall, TToolParameters } from '@robota-sdk/agents';
 type TToolCalls = import('../abstracts/abstract-plugin').IPluginExecutionResult['toolCalls'];
 ```
 
-```ts
-export interface ToolCallData {
-  id: string;
-  name: string;
-  arguments: string;
-}
-```
-
-```ts
-export type TToolResultData = TUniversalValue;
-```
-
-## Common Patterns
+## TypeScript Patterns
 - Prefer constrained generics for type safety.
 - Use explicit interfaces for structured data.
 - Use type guards for runtime validation.
 
-## Exception Justification (any/unknown)
+## TypeScript Exception Justification (any/unknown)
 ### Required Steps
 1. Try specific union types.
 2. Try existing interfaces.

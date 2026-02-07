@@ -19,7 +19,7 @@ description: "Unified build integrity and resolution rules (content preserved)"
 ### 🔧 Acceptable Type Handling
 
 Any/unknown justification guidance lives in the project skill:
-`.cursor/skills/type-system-guidance/SKILL.md`.
+`.cursor/skills/quality-standards/SKILL.md`.
 
 ### Guidance Location
 Build error resolution workflow lives in the project skill:

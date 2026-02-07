@@ -57,6 +57,11 @@ const tool = createZodFunctionTool(
 ## Deprecated Tool Pattern
 - `createZodFunctionToolProvider` (use `createZodFunctionTool`)
 
+## Examples Operations
+- Keep a single CLI entrypoint for scenario execution.
+- Maintain package-level example indexes under `examples/INDEX.md`.
+- Ensure example documentation reflects current file names and paths.
+
 ## Checklist
 - [ ] `aiProviders` is an array.
 - [ ] `defaultModel.systemMessage` is used.

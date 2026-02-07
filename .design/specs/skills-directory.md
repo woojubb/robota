@@ -21,9 +21,12 @@ description: "프로젝트 스킬의 분류 기준과 위치를 정의한다"
 ## 네이밍 규칙
 - 소문자 + 하이픈 사용
 - 범용 용어 우선, 특정 디렉터리/파일명 포함 지양
-- 예: `execution-caching`, `execution-cache-ops`, `workflow-edge-debugging`
+- 예: `execution-caching`, `execution-cache-ops`, `workflow-edge-debugging`, `ssot-change-workflow`, `workflow-determinism-guidance`
 
 ## 운영 원칙
 - rules의 강제 규칙은 스킬로 옮기지 않는다.
 - 스킬은 절차/가이드 중심으로 구성한다.
 - 스킬 간 중복이 생기면 통합을 우선 검토한다.
+
+## 상태
+- rules → skills 전환 완료 상태는 문서/스킬/README에 분산 반영한다.

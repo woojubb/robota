@@ -1,0 +1,14 @@
+---
+alwaysApply: true
+description: "Scenario record/play design invariants"
+---
+
+# Scenario Rules
+
+## Design Invariants
+- Mode selection is single-path: `record | play | none` is decided by env; ambiguous state fails immediately.
+- Disallow record/play 동시에 설정; disallow delegate provider injection in play mode.
+- Determinism is prioritized:
+  - Default strategy: `sequential`
+  - `hash` is secondary; ambiguous matches must fail immediately.
+- Scenario file format is defined as JSON-stable and separated from runtime types (e.g., `timestamp: number`).
