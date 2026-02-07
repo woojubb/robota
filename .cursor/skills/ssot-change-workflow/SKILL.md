@@ -29,7 +29,7 @@ Use this skill for SSOT ownership audits and phased example migrations.
 3. Batch 3: move remaining packages (team/remote, etc).
 
 ### Phase 3: Documentation
-1. Maintain package-level `examples/INDEX.md`.
+1. Maintain package-level `examples/README.md`.
 2. Update `apps/examples` docs based on the Phase 0 decision.
 
 ### Phase 4: CI/Quality Check Scope
