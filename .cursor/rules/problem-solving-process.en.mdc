@@ -1,9 +1,0 @@
----
-alwaysApply: true
-description: "Problem Solving Process - Root Cause Analysis and Verification (English)"
----
-
-# Problem Solving Process (English)
-
-This file intentionally delegates to the canonical rule to avoid duplication:
-- See `.cursor/rules/problem-solving-process.mdc`

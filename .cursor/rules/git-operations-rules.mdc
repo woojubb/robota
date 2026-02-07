@@ -1,0 +1,100 @@
+---
+alwaysApply: true
+description: "Unified git operations rules (content preserved)"
+---
+
+# Git Operations Rules
+
+## Commit/Push Operations — Explicit, Per-Action Approval Only
+
+### 🚫 Prohibited Without Explicit Request
+- Running `git commit` or `git push` at any time without the user explicitly requesting it in the current conversation turn
+- Chaining additional commits/pushes after one approved commit/push (no sticky consent)
+
+### ✅ Default Behavior
+- Prepare and apply code edits only; do not commit or push by default
+- It is allowed to run read-only git commands (e.g., `git status`, `git diff`) to report context when helpful
+- Staging (`git add`) should be avoided unless the user asks to prepare a commit; never commit/push without explicit approval
+
+### 🧭 When Commit/Push IS Requested
+1. Confirm the scope (which files/changes) and the commit message
+2. Execute exactly one commit and/or push as requested
+3. Do not run any additional git operations unless explicitly requested again
+
+### 🔒 Branch Safety
+- Respect the branch policy: do not create/switch branches without explicit approval
+- Push only to the current branch unless the user specifies otherwise
+
+### 📝 Commit Message Standard
+- Use English and conventional commits (e.g., `feat(web/playground): split layers`)
+
+## Commit Message Standards
+
+### Language Requirements
+- **ALL commit messages MUST be written in English only**
+- No Korean or other languages allowed
+
+### Format Requirements
+Follow conventional commit format with 80 character limit:
+```
+<type>: <what-was-accomplished> (max 80 chars total)
+```
+
+### Valid Types
+- `feat`: New user-facing feature or capability
+- `fix`: Bug fix that affects user experience  
+- `docs`: Documentation updates
+- `style`: Code formatting (no functional changes)
+- `refactor`: Code restructuring (no new features)
+- `test`: Test additions/improvements
+- `chore`: Build/tooling/dependency updates
+- `perf`: Performance improvements
+
+### Commit Rules
+- Use imperative mood.
+- Use single `-m` flag only, no commit body.
+- Keep title under 80 characters total.
+- Focus on user/developer value, not implementation.
+- Write clear, concise English descriptions.
+
+### Guidance Location
+Examples and guidance live in the project skill:
+`.cursor/skills/commit-message-guidance/SKILL.md`.
+
+### ✅ Examples
+```bash
+# Allowed only after the user explicitly approves in this turn
+git add -A && git commit -m "feat(web/playground): split layers" && git push
+```
+
+### ❌ Anti-Patterns
+- "Previously you approved commits, so I pushed again" → Not allowed
+- "Auto-commit after edits to keep history clean" → Not allowed
+
+## Git Branch Operations — Explicit Approval Required
+
+### 🚫 Prohibited Without User Instruction
+- Creating, switching, renaming, or deleting git branches
+- Commands such as `git checkout -b ...`, `git switch ...`, `git checkout ...` without explicit user approval
+- Any implicit branching workflow (e.g., auto-creating feature branches)
+
+### ✅ Default Behavior
+- Work strictly on the current branch snapshot unless the user instructs otherwise
+- Use only git commands when interacting with the terminal; do not run non-git commands unless the user asks for them
+- Safe operations on the current branch (when asked to save work):
+  - `git add -A`
+  - `git commit -m "type(scope): message"` (conventional commits)
+  - `git push` (to the current branch only)
+
+### 🧭 When Branching IS Requested by the User
+1. Confirm the target branch name and base branch
+2. Create and switch: `git checkout -b <new-branch> <base>`
+3. Perform commits and `git push --set-upstream origin <new-branch>`
+4. Do not switch branches again unless explicitly instructed
+
+### 🛑 Accidental Branch Changes
+- If a branch change occurs without instruction, do NOT attempt further branch operations autonomously
+- Inform the user and await explicit guidance (whether to keep, rename, or switch back)
+
+### 📝 Commit Message Standard
+- Use English and conventional commits (e.g., `feat(web/playground): split layers`)

@@ -1,7 +1,0 @@
----
-alwaysApply: true
----
-# Agent Terminology Standardization
-
-This file is intentionally a minimal pointer to avoid duplication:
-- Canonical terminology policy: `.cursor/rules/agent-identity.mdc`

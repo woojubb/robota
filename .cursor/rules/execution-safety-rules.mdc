@@ -1,0 +1,77 @@
+---
+alwaysApply: true
+description: "Unified execution safety rules (content preserved)"
+---
+
+# Execution Safety Rules
+
+## No Fallback Policy (Strict)
+
+This rule is always applied. Fallback logic is prohibited. There must be a single, correct, verifiable path. Temporary/dummy/shortcut implementations are not allowed.
+
+### Prohibited Patterns
+- Any conditional or branching that silently switches to an alternative path when the primary path fails:
+  - `if (failed) { useAlternative(); }`
+  - `try { primary(); } catch { secondary(); }`
+  - `const result = primary() || fallback();`
+- Masking errors to proceed with alternative flows
+- "Temporary" shims, stubs, or dummy data to “keep things working”
+
+### Required Approach
+1. Root-cause analysis and proper fix in the main path
+2. Single authoritative flow with proper validation and types
+3. If an alternative handling is truly needed, redesign so that it becomes the new main path with clear architectural justification and tests
+
+### Acceptance Criteria
+- No fallback branches in production code
+- Input validation and error propagation are explicit and actionable
+- Types are strict; no `any`/`unknown` without documented justification
+- Event-driven flows follow declared constants; no hardcoded event names
+
+### Code Review Checklist
+- No `try/catch` that swaps to a different implementation
+- No logical OR fallbacks for core behavior
+- Clear errors instead of silent alternatives
+- Tests cover the single correct path
+
+### References
+- Execution and event services: [packages/agents/src/services/execution-service.ts](mdc:packages/agents/src/services/execution-service.ts), [packages/agents/src/services/event-service.ts](mdc:packages/agents/src/services/event-service.ts)
+- Workflow subscriber: [packages/agents/src/services/workflow-event-subscriber.ts](mdc:packages/agents/src/services/workflow-event-subscriber.ts)
+
+## No Duplicate Prevention Anti-Pattern
+
+### 🚫 Prohibited Practices
+- **Never implement duplicate prevention logic** that filters or skips processing
+- **Never add "deduplication" layers** that hide underlying design issues
+- **Never use conditional logic** to prevent "duplicate" events from processing
+
+### ✅ Correct Approach
+- **Design systems that don't generate duplicates** in the first place
+- **Each event should have a single, clear owner** responsible for emitting it
+- **If duplicates occur, treat them as bugs** that must be fixed at the source
+- **Allow duplicates to surface** so they can be properly debugged and resolved
+
+### 🎯 Event Ownership Principle
+- Events must have clear prefixes indicating their owner (e.g., `execution.`, `tool.`, `agent.`)
+- Only the owning component should emit events with its prefix
+- Event handlers should not assume or prevent duplicate emissions
+
+### 🔧 Debugging Benefits
+- Duplicates in output indicate real architectural problems
+- Visible duplicates make debugging easier than hidden prevention logic
+- Root cause analysis requires seeing the actual problem, not masked symptoms
+
+### ❌ Anti-Pattern Example
+```typescript
+// BAD: Hiding duplicates
+if (existingResponses.length > 0) {
+    return; // Skip duplicate
+}
+```
+
+### ✅ Correct Pattern Example
+```typescript
+// GOOD: Let duplicates surface for debugging
+this.workflowLogger.warn(`🐛 [DUPLICATE-DETECTED] Multiple responses for ${sourceId} - investigate root cause`);
+// Continue processing to make the issue visible
+```
