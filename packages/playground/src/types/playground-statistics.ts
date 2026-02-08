@@ -6,7 +6,7 @@
  * - Focused on UI/UX-oriented metrics
  */
 
-import { EXECUTION_EVENTS } from '@robota-sdk/agents';
+import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from '@robota-sdk/agents';
 import type { TUniversalValue } from '@robota-sdk/agents';
 
 // =============================================================================
@@ -178,18 +178,26 @@ export const defaultPlaygroundStatisticsOptions: Required<IPlaygroundStatisticsO
  * Event types for statistics collection
  */
 export const PLAYGROUND_STATISTICS_EVENTS = {
-    UI_INTERACTION: 'playground.ui_interaction',
-    BLOCK_CREATE: 'playground.block_create',
-    BLOCK_EXPAND: 'playground.block_expand',
-    BLOCK_COLLAPSE: 'playground.block_collapse',
-    CONFIG_CHANGE: 'playground.config_change',
-    SESSION_START: 'playground.session_start',
-    SESSION_END: 'playground.session_end',
+    UI_INTERACTION: 'ui_interaction',
+    BLOCK_CREATE: 'block_create',
+    BLOCK_EXPAND: 'block_expand',
+    BLOCK_COLLAPSE: 'block_collapse',
+    CONFIG_CHANGE: 'config_change',
+    SESSION_START: 'session_start',
+    SESSION_END: 'session_end',
 } as const;
 
+export const PLAYGROUND_STATISTICS_EVENT_PREFIX = 'playground' as const;
+
+export type TExecutionEventName =
+    `${typeof EXECUTION_EVENT_PREFIX}.${(typeof EXECUTION_EVENTS)[keyof typeof EXECUTION_EVENTS]}`;
+
+export type TPlaygroundStatisticsEventFullName =
+    `${typeof PLAYGROUND_STATISTICS_EVENT_PREFIX}.${(typeof PLAYGROUND_STATISTICS_EVENTS)[keyof typeof PLAYGROUND_STATISTICS_EVENTS]}`;
+
 export type TPlaygroundStatisticsEventName =
-    | (typeof EXECUTION_EVENTS)[keyof typeof EXECUTION_EVENTS]
-    | (typeof PLAYGROUND_STATISTICS_EVENTS)[keyof typeof PLAYGROUND_STATISTICS_EVENTS];
+    | TExecutionEventName
+    | TPlaygroundStatisticsEventFullName;
 
 /**
  * Statistics event data

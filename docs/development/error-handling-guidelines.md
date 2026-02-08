@@ -270,29 +270,17 @@ class ErrorMonitor {
 
 ## Error Recovery Strategies
 
-### Graceful Degradation
+### Single-Path Error Propagation
 
 ```typescript
-class AgentWithFallback {
+class AgentStrictErrorHandling {
     async run(input: string): Promise<string> {
         try {
             return await this.primaryProvider.chat(input);
         } catch (error) {
-            if (error instanceof ProviderError) {
-                logger.warn('Primary provider failed, trying fallback', { error });
-                try {
-                    return await this.fallbackProvider.chat(input);
-                } catch (fallbackError) {
-                    logger.error('Both providers failed', { error, fallbackError });
-                    return this.generateFallbackResponse(input);
-                }
-            }
+            logger.error('Provider failed', { error });
             throw error;
         }
-    }
-    
-    private generateFallbackResponse(input: string): string {
-        return "I'm experiencing technical difficulties. Please try again later.";
     }
 }
 ```

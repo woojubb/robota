@@ -7,12 +7,24 @@
 
 ## 🧩 Priority 0.7: Type Ownership Audit (SSOT) + Prefix Rollout
 
+- [ ] StructuredEventService: owner prefix 합성 emit 적용(규칙 준수)
+- [ ] └ 세부: 합성 함수 설계/적용, 영향 경로 확인 (예상 2.0h)
+- [ ] local event name 검증: `.` 포함 시 오류 처리
+- [ ] └ 세부: 로컬명 검증 위치 추가 및 오류 메시지 정리 (예상 0.5h)
+- [ ] 사용자/태스크 이벤트 호출부: local name 기준으로 전환
+- [ ] └ 세부: task/user 호출부 로컬명 전환 및 핸들러 교정 (예상 1.5h)
+- [ ] Batch E 실행: Event name ownership 단일화(agents 소유, 비-owner 중복 제거/비공개화)
+- [ ] └ 세부: 하드코딩 탐색 및 상수/emit 통일 (예상 1.5h)
 - [ ] Type ownership audit 인벤토리 작성
+- [ ] └ 세부: 범위 확정 → 수집 루틴 확정 → 표 작성 (예상 2.0h)
 - [ ] Batch A 실행: UI/contexts/hooks 로컬 문자열 유니온 제거(Owner 타입 import로 수렴)
+- [ ] └ 세부: 로컬 유니온 제거 및 Owner 타입 import 정리 (예상 2.0h)
 - [ ] Batch B 실행: Message/Conversation 계약 단일화(Owner 타입으로 수렴)
+- [ ] └ 세부: 계약 단일화 및 중복 제거 (예상 2.0h)
 - [ ] Batch C 실행: Tool contract 단일화(Owner 타입으로 수렴)
+- [ ] └ 세부: Tool contract 타입 단일화 (예상 2.0h)
 - [ ] Batch D 실행: Workflow graph 계약 단일화(Owner 타입 import로 수렴)
-- [ ] Batch E 실행: Event axis 계약 단일화(agents 소유, 비-owner 중복 타입 제거/비공개화)
+- [ ] └ 세부: Workflow graph 계약 단일화 (예상 2.0h)
 
 ## 🧪 Scenario/Recorder 확장(필요 시)
 
@@ -21,16 +33,3 @@
 - [ ] 단일 CLI 진입점 유지: record/play/verify 통합
 - [ ] 병렬 tool call 기본 전략 확정: `hash` 기본
 - [ ] Phase 2 이후 guarded 시나리오 검증 명령 재정의 및 실행(패키지별 템플릿)
-
-## 🧩 예제 분산 계획(패키지별 “소유 예제”로 SSOT 준수)
-
-- [ ] `apps/examples` 역할 결정: 패키지별 소유 예제로 이동(완료)
-- [ ] 예제 실행 경로 스캐폴딩 확정: 패키지별 `examples/package.json` 필요 여부 결정
-- [ ] 예제 이동 Batch 1 실행: 의존성 낮은 예제부터 이동(agents/openai 등)
-- [ ] 예제 이동 Batch 2 실행: workflow 예제 이동 + CLI/유틸 소유 확정
-- [ ] 예제 이동 Batch 3 실행: team/remote 등 나머지 이동
-- [ ] 패키지별 예제 문서 정리: `examples/README.md` 작성
-- [ ] `apps/examples` 문서 정리: 역할 결정에 따라 유지/축소/삭제
-- [ ] 예제 타입체크 범위 재정의: 패키지별 포함 여부 결정 + 통합 job 최소화
-
-

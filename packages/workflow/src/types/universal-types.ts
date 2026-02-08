@@ -149,7 +149,6 @@ export interface IUniversalWorkflowEdge {
     hidden?: boolean;
     conditional?: {
         condition: string;
-        fallbackEdge?: string;
     };
 
     // Platform-specific data
@@ -424,7 +423,6 @@ export const UNIVERSAL_EDGE_TYPES = {
     // Conditional
     SUCCESS: 'success',
     ERROR: 'error',
-    FALLBACK: 'fallback',
     RETRY: 'retry'
 } as const;
 

@@ -638,69 +638,21 @@ class ResilientMCPClient {
 }
 ```
 
-### 2. Tool Call Resilience
+### 2. Tool Call Error Handling (No Fallback)
 ```typescript
-class ResilientMCPToolProvider {
+class StrictMCPToolProvider {
     private mcpClient: ResilientMCPClient;
-    private fallbackResponses: Map<string, any> = new Map();
     
     constructor(mcpClient: ResilientMCPClient) {
         this.mcpClient = mcpClient;
-        this.setupFallbacks();
-    }
-    
-    private setupFallbacks() {
-        // Define fallback responses for common tools
-        this.fallbackResponses.set('calculate', {
-            name: 'calculate',
-            handler: async (args: any) => {
-                // Local calculation fallback
-                const { operation, a, b } = args;
-                switch (operation) {
-                    case 'add': return { result: a + b };
-                    case 'subtract': return { result: a - b };
-                    case 'multiply': return { result: a * b };
-                    case 'divide': return { result: b !== 0 ? a / b : 'Error: Division by zero' };
-                    default: return { error: 'Unknown operation' };
-                }
-            }
-        });
     }
     
     async callTool(name: string, args: any): Promise<any> {
-        try {
-            // Try MCP server first
-            return await this.mcpClient.safeRequest('tools/call', { name, arguments: args });
-        } catch (error) {
-            console.warn(`MCP tool call failed for ${name}, trying fallback:`, error.message);
-            
-            // Try fallback
-            const fallback = this.fallbackResponses.get(name);
-            if (fallback && fallback.handler) {
-                return await fallback.handler(args);
-            }
-            
-            // No fallback available
-            throw new Error(`Tool ${name} unavailable and no fallback defined`);
-        }
+        return await this.mcpClient.safeRequest('tools/call', { name, arguments: args });
     }
     
     async listTools(): Promise<any> {
-        try {
-            const mcpTools = await this.mcpClient.safeRequest('tools/list', {});
-            return mcpTools;
-        } catch (error) {
-            console.warn('Failed to list MCP tools, returning fallback tools:', error.message);
-            
-            // Return fallback tools
-            return {
-                tools: Array.from(this.fallbackResponses.keys()).map(name => ({
-                    name,
-                    description: `Fallback ${name} tool`,
-                    inputSchema: { type: 'object' }
-                }))
-            };
-        }
+        return await this.mcpClient.safeRequest('tools/list', {});
     }
 }
 ```

@@ -240,7 +240,7 @@ export interface IWorkflowPortable {
     importFromJSON(json: string): boolean;
 
     /**
-     * Export to universal format (flat model for compatibility)
+     * Export to universal format (flat model)
      */
     exportToUniversal(): {
         nodes: IWorkflowNode[];

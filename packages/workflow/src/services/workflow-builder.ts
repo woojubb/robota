@@ -541,7 +541,7 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
 
     exportToUniversal() {
         const snapshot = this.getSnapshot();
-        // Flat model export for example/verification/playground compatibility.
+        // Flat model export for example/verification/playground usage.
         return {
             nodes: snapshot.nodes,
             edges: snapshot.edges,
@@ -619,7 +619,12 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
                 extensions: universalEdge.data.extensions,
                 extra: universalEdge.data.extra
             } : undefined,
-            timestamp: universalEdge.timestamp || Date.now(),
+            timestamp: (() => {
+                if (typeof universalEdge.timestamp !== 'number') {
+                    throw new Error('[PATH-ONLY] Missing timestamp on universal edge');
+                }
+                return universalEdge.timestamp;
+            })(),
             createdAt: universalEdge.createdAt,
             updatedAt: universalEdge.updatedAt,
         };

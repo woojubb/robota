@@ -42,6 +42,26 @@ export function isDefaultEventService(service: IEventService): boolean {
 }
 
 /**
+ * Compose a full event name from owner prefix and local name.
+ * Local names must not contain dots.
+ */
+export function composeEventName(ownerType: string, localName: string): string {
+    if (!ownerType || ownerType.trim().length === 0) {
+        throw new Error('[EVENTS] ownerType is required to compose event names.');
+    }
+    if (ownerType.includes('.')) {
+        throw new Error(`[EVENTS] ownerType must not contain '.': "${ownerType}"`);
+    }
+    if (!localName || localName.trim().length === 0) {
+        throw new Error('[EVENTS] local event name is required.');
+    }
+    if (localName.includes('.')) {
+        throw new Error(`[EVENTS] Local event name must not contain '.': "${localName}"`);
+    }
+    return `${ownerType}.${localName}`;
+}
+
+/**
  * A scoped event service that always emits with an owner binding applied.
  */
 export class StructuredEventService extends AbstractEventService {
@@ -55,13 +75,17 @@ export class StructuredEventService extends AbstractEventService {
     }
 
     emit(eventType: string, data: IBaseEventData, context?: IEventContext): void {
+        if (eventType.includes('.')) {
+            throw new Error(`[EVENTS] Local event name must not contain '.': "${eventType}"`);
+        }
         const merged: IEventContext = {
             ...context,
             ownerType: this.binding.ownerType,
             ownerId: this.binding.ownerId,
             ownerPath: this.binding.ownerPath
         };
-        this.base.emit(eventType, data, merged);
+        const fullEventName = composeEventName(this.binding.ownerType, eventType);
+        this.base.emit(fullEventName, data, merged);
     }
 }
 

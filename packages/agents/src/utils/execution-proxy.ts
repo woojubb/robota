@@ -2,12 +2,7 @@ import type { IBaseEventData, IEventService } from '../services/event-service';
 import { EXECUTION_EVENTS } from '../services/execution-service';
 import { TOOL_EVENTS } from '../services/tool-execution-service';
 import { AGENT_EVENTS } from '../agents/constants';
-
-// Local task events kept as constants to avoid magic strings in code
-const TASK_EVENTS = {
-    ASSIGNED: 'task.assigned',
-    COMPLETED: 'task.completed',
-} as const;
+import { TASK_EVENTS } from '../services/task-events';
 
 /**
  * Configuration for execution proxy

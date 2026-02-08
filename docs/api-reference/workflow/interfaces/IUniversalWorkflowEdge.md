@@ -142,7 +142,6 @@ ___
 | Name | Type |
 | :------ | :------ |
 | `condition` | `string` |
-| `fallbackEdge?` | `string` |
 
 #### Defined in
 

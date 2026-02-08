@@ -9,8 +9,9 @@ description: "Unified workflow and event system rules (content preserved)"
 
 ### 🚫 Absolutely Prohibited
 - **Hardcoded event strings** in any code
-- **String literals** for event names in emit() calls
+- **String literals** for full event names in emit() calls
 - **Magic strings** in event handlers or switch cases
+- **Dots in local event names** (local names must not contain `.`)
 
 ```typescript
 // ❌ FORBIDDEN: Hardcoded event names
@@ -25,51 +26,51 @@ const eventType = 'user.message'; // hardcoded
 ### ✅ Mandatory Pattern: Declarative Constants
 
 #### Event Owner Modules Must Export Constants
-Each module that emits events MUST export event constants:
+Each module that emits events MUST export local event name constants (no `.`), and the full event name is composed from owner context + local name:
 
 ```typescript
 // In ExecutionService module
 export const EXECUTION_EVENTS = {
-    START: 'execution.start',
-    COMPLETE: 'execution.complete',
-    ASSISTANT_MESSAGE_START: 'execution.assistant_message_start',
-    ASSISTANT_MESSAGE_COMPLETE: 'execution.assistant_message_complete',
-    ERROR: 'execution.error'
+    START: 'start',
+    COMPLETE: 'complete',
+    ASSISTANT_MESSAGE_START: 'assistant_message_start',
+    ASSISTANT_MESSAGE_COMPLETE: 'assistant_message_complete',
+    ERROR: 'error'
 } as const;
 
-// In Tool modules  
+// In Tool modules
 export const TOOL_EVENTS = {
-    CALL_START: 'tool.call_start',
-    CALL_COMPLETE: 'tool.call_complete',
-    CALL_ERROR: 'tool.call_error',
-    AGENT_EXECUTION_STARTED: 'tool.agent_execution_started'
+    CALL_START: 'call_start',
+    CALL_COMPLETE: 'call_complete',
+    CALL_ERROR: 'call_error',
+    AGENT_EXECUTION_STARTED: 'agent_execution_started'
 } as const;
 
 // In Agent modules
 export const AGENT_EVENTS = {
-    CREATION_START: 'agent.creation_start',
-    CREATION_COMPLETE: 'agent.creation_complete',
-    EXECUTION_START: 'agent.execution_start',
-    EXECUTION_COMPLETE: 'agent.execution_complete'
+    CREATION_START: 'creation_start',
+    CREATION_COMPLETE: 'creation_complete',
+    EXECUTION_START: 'execution_start',
+    EXECUTION_COMPLETE: 'execution_complete'
 } as const;
 ```
 
 #### Event Handlers Must Import Constants
 ```typescript
 // ✅ CORRECT: Import and use constants
-import { EXECUTION_EVENTS } from '../services/execution-service';
-import { TOOL_EVENTS } from '../tools/constants';
-import { AGENT_EVENTS } from '../agents/constants';
+import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX, composeEventName } from '@robota-sdk/agents';
+import { TOOL_EVENTS, TOOL_EVENT_PREFIX } from '@robota-sdk/agents';
+import { AGENT_EVENTS, AGENT_EVENT_PREFIX } from '@robota-sdk/agents';
 
-// Event emission
+// Event emission (local name + owner context)
 this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, data);
 
 // Event handling
 switch (eventType) {
-    case EXECUTION_EVENTS.START:
+    case composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.START):
         this.handleExecutionStart(data);
         break;
-    case TOOL_EVENTS.CALL_COMPLETE:
+    case composeEventName(TOOL_EVENT_PREFIX, TOOL_EVENTS.CALL_COMPLETE):
         this.handleToolCallComplete(data);
         break;
 }
@@ -79,11 +80,18 @@ switch (eventType) {
 
 #### Correct Event Ownership by Prefix
 - **`execution.*`** - ExecutionService events (including assistant messages)
-- **`tool.*`** - Tool implementation events  
+- **`tool.*`** - Tool implementation events
 - **`agent.*`** - Agent lifecycle events
 - **`task.*`** - Task management events
 - **`team.*`** - Team coordination events
 - **`user.*`** - User interaction events
+
+#### Event Name Composition
+- Full event names are composed from **owner prefix** + **local event name**.
+- Local event names must **not** contain `.`.
+- Example: owner `user` + local name `message` → `user.message`.
+- Scope: This composition rule applies to owner-bound `EventService` emissions (execution/tool/agent/user/task/team).
+- Non-owner-bound event systems (e.g., EventEmitterPlugin/WebhookPlugin) may define fully-qualified names and must not pass them into `StructuredEventService`.
 
 #### Migration Requirements
 1. **Audit Phase**: Find all hardcoded event strings
@@ -129,23 +137,23 @@ Each event MUST have a clear prefix indicating its owner:
 - **Missing prefixes**: Events without clear ownership indication
 
 ### ✅ Implementation Requirements
-- Define event constants in the owning module
+- Define local event name constants in the owning module (no `.`)
 - Export constants for use by event handlers
 - Import specific event constants rather than using string literals
-- Document which component owns each event type
+- Document which component owns each event name
 
 ### 🔧 Event Constant Pattern
 ```typescript
 // In ExecutionService module
 export const EXECUTION_EVENTS = {
-    START: 'execution.start',
-    COMPLETE: 'execution.complete',
-    ERROR: 'execution.error'
+    START: 'start',
+    COMPLETE: 'complete',
+    ERROR: 'error'
 } as const;
 
 // In event handlers
-import { EXECUTION_EVENTS } from '../services/execution-service';
-this.eventService.on(EXECUTION_EVENTS.START, handler);
+import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX, composeEventName } from '@robota-sdk/agents';
+this.eventService.on(composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.START), handler);
 ```
 
 ### 📋 Migration Guidelines
@@ -166,13 +174,13 @@ This document is an overview. **Authoritative rules** live in:
 ```typescript
 // ✅ Correct pattern - event constants
 export const TOOL_EVENTS = {
-  AGENT_CREATION_REQUESTED: 'tool.agent_creation_requested',
-  AGENT_EXECUTION_STARTED: 'tool.agent_execution_started'
+  AGENT_CREATION_REQUESTED: 'agent_creation_requested',
+  AGENT_EXECUTION_STARTED: 'agent_execution_started'
 } as const;
 
 export const AGENT_EVENTS = {
-  CREATION_START: 'agent.creation_start',
-  EXECUTION_START: 'agent.execution_start'
+  CREATION_START: 'creation_start',
+  EXECUTION_START: 'execution_start'
 } as const;
 ```
 
@@ -253,8 +261,8 @@ await newAgent.execute(jobDescription, []);
 ```typescript
 // ✅ Correct pattern - event constants owned by the emitting module
 export const TOOL_EVENTS = {
-  AGENT_CREATION_REQUESTED: 'tool.agent_creation_requested',
-  AGENT_EXECUTION_STARTED: 'tool.agent_execution_started'
+  AGENT_CREATION_REQUESTED: 'agent_creation_requested',
+  AGENT_EXECUTION_STARTED: 'agent_execution_started'
 } as const;
 ```
 

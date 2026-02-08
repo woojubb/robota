@@ -24,6 +24,7 @@ ownerPath = [
 - EventService는 단일 owner에 바운드된 인스턴스로 사용한다.
 - emit 전에 `context.ownerPath`가 absolute full path인지 검증한다(필수).
 - 호출부(ExecutionService/Tool/Agent)는 **payload에 도메인 데이터만** 넣는다.
+- 핸들러는 `ownerType + localName` 합성 결과로 이벤트명을 매칭한다.
 
 ## 3) Payload vs Context 규칙
 ### payload에 유지(도메인 데이터)
@@ -44,6 +45,8 @@ ownerPath = [
 
 ## 5) 이벤트 상수 규칙
 - `EXECUTION_EVENTS`, `TOOL_EVENTS`, `AGENT_EVENTS` 등 **소유 모듈의 상수만** 사용한다.
+- **로컬 이벤트명만 정의**한다(점 `.` 금지).
+- full event name은 `ownerType + "." + localName`으로 합성한다.
 - emit/on/switch에서 문자열 리터럴 이벤트명은 금지한다.
 
 ## 6) 시나리오/재생(playback)

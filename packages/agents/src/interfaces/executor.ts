@@ -34,7 +34,7 @@ export interface IStreamExecutionRequest extends IChatExecutionRequest {
  * Implementation patterns:
  * - LocalExecutor: Direct API calls using provider SDKs
  * - RemoteExecutor: HTTP/WebSocket calls to remote server
- * - CacheExecutor: Cached responses with fallback to another executor
+ * - CacheExecutor: Cached responses with explicit error propagation
  * - HybridExecutor: Conditional local/remote execution
  */
 export interface IExecutor {

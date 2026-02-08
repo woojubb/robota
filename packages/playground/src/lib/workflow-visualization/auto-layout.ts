@@ -382,8 +382,10 @@ export function applyDagreLayout(
         const sourcePosition = isHorizontal ? Position.Right : Position.Bottom;
         const targetPosition = isHorizontal ? Position.Left : Position.Top;
 
-        const fallbackCenter = { x: typeof np?.x === 'number' ? np.x : 0, y: typeof np?.y === 'number' ? np.y : 0 };
-        const newCenter = newCenterByNodeId.get(node.id) || fallbackCenter;
+        const newCenter = newCenterByNodeId.get(node.id);
+        if (!newCenter || typeof newCenter.x !== 'number' || typeof newCenter.y !== 'number') {
+            throw new Error('[NO-FALLBACK] Missing layout center for node');
+        }
         const x = newCenter.x - dims.width / 2;
         const y = newCenter.y - dims.height / 2;
 

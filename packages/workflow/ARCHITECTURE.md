@@ -37,10 +37,11 @@ workflow/
 │   ├── workflow-event-subscriber.ts
 │   ├── node-edge-manager.ts
 │   └── real-time-workflow-builder.ts
-├── handlers/           # 도메인별 이벤트 핸들러
-│   ├── agent-handler.ts
-│   ├── team-handler.ts
-│   └── tool-handler.ts
+├── handlers/           # Domain event handlers
+│   ├── agent-event-handler.ts
+│   ├── execution-event-handler.ts
+│   ├── user-event-handler.ts
+│   └── tool-event-handler.ts
 ├── validators/         # 검증 로직
 ├── constants/          # 워크플로우 상수
 └── utils/             # 유틸리티 함수
@@ -76,14 +77,14 @@ packages/agents (EventService + ownerPath context)
 - **구현**: `services/node-edge-manager.ts`
 
 ### 3. EventHandler 시스템 ✅ **완성**
-- **역할**: 도메인별 이벤트 처리 로직 캡슐화
-- **구현체**:
-  - **AgentEventHandler**: `agent.*`, `execution.*` 이벤트 처리
-  - **TeamEventHandler**: `team.*` 이벤트 처리 (팀 협업)
-  - **ToolEventHandler**: `tool.*` 이벤트 처리 (도구 호출)
-  - **ExecutionEventHandler**: 기본 실행/메시지 이벤트 처리
-- **확장**: 커스텀 핸들러 추가 가능
-- **구현**: `handlers/` 디렉토리
+- **Role**: Encapsulate per-domain event handling logic
+- **Implementations**:
+  - **AgentEventHandler**: handles `agent.*`
+  - **ExecutionEventHandler**: handles `execution.*`
+  - **UserEventHandler**: handles `user.*`
+  - **ToolEventHandler**: handles `tool.*`
+- **Extensible**: Custom handlers can be registered
+- **Location**: `handlers/`
 
 ### 4. CoreWorkflowBuilder ✅ **완성**
 - **역할**: 워크플로우 데이터 구조 구축 및 관리
@@ -188,26 +189,42 @@ workflowSubscriber.registerHandler(new CustomEventHandler({
 
 ## 🚀 이벤트 처리 흐름 ✅ **완성된 아키텍처**
 
-1. **이벤트 발생**: 도메인 패키지에서 이벤트 emit
-   - `agent.*`, `team.*`, `tool.*`, `execution.*`, `user.*`
+1. **Event emission**: Domain packages emit events
+  - `agent.*`, `tool.*`, `execution.*`, `user.*`
 
-2. **구독 및 라우팅**: WorkflowEventSubscriber가 수신
+2. **Subscribe & route**: WorkflowEventSubscriber receives events
    - `processEvent(eventType, eventData)` 메서드를 통한 처리
    - 정규화된 EventData 구조로 변환
 
-3. **핸들러 선택**: 우선순위 기반 핸들러 매칭
+3. **Handler selection**: Priority-based matching
    - `canHandle(eventType)` 메서드로 패턴 매칭
    - `priority` 순서로 정렬하여 실행
 
-4. **병렬 처리**: 모든 매칭 핸들러 동시 실행
+4. **Parallel processing**: All matching handlers execute
    - `Promise.allSettled()` 사용
    - 각 핸들러는 `WorkflowUpdate[]` 반환
 
-5. **노드/엣지 적용**: 업데이트 배치 처리
+5. **Apply updates**: Node/edge updates are applied in batch
    - `applyWorkflowUpdate()` 메서드로 순차 적용
    - NodeEdgeManager 및 WorkflowBuilder 업데이트
 
-6. **실시간 알림**: 구독자들에게 변경 알림
+6. **Realtime notification**: Subscribers receive updates
+
+## 🧭 User Events & Execution/User Linking
+
+### User Events (`user.*`)
+- `user.message` → creates a `USER_MESSAGE` node (via `ExecutionNodeBuilder.createUserMessageNode`)
+- `user.input` → creates a `USER_MESSAGE` node with `User Input` labeling (via `ExecutionNodeBuilder.createUserInputNode`)
+- All user events must include `context.ownerPath`. The handler does not infer relationships from IDs.
+
+### Execution/User Linking (`execution.user_message`)
+- `execution.user_message` is execution-scoped and **must** include `ownerPath` segments for both `agent` and `execution`.
+- The handler connects: **agent node → user_message node** using `receives`.
+- The user message node is created only from explicit `ownerPath` fields; no inferred parent linkage is allowed.
+
+### Path-only rule (applies to both)
+- Edges are created only from explicit `ownerPath` segments in the current event payload and existing nodes' explicit fields.
+- If required explicit linkage is missing, the handler returns without fallback.
    - WorkflowUpdateCallback 호출
    - UI 실시간 업데이트 지원
 
@@ -301,16 +318,16 @@ subscriber.registerHandler(new MyCustomHandler(rootEventService));
 - ✅ CoreWorkflowBuilder: 완전한 워크플로우 빌더 구현
 - ✅ Universal Types: 시각화 지원 타입 이동
 
-### Phase 3: 도메인 핸들러 구현 ✅ **완료**
-- ✅ AgentEventHandler: agent.*, execution.* 완전 처리
-- ✅ TeamEventHandler: team.* 모든 이벤트 처리
-- ✅ ToolEventHandler: tool.* 모든 이벤트 처리
-- ✅ ExecutionEventHandler: execution.*, user.* 처리
+### Phase 3: Domain handlers ✅ **완료**
+- ✅ AgentEventHandler: `agent.*`
+- ✅ ToolEventHandler: `tool.*`
+- ✅ ExecutionEventHandler: `execution.*`
+- ✅ UserEventHandler: `user.*`
 
-### Phase 4: WorkflowEventSubscriber 마이그레이션 ✅ **완료**
-- ✅ 새로운 아키텍처 기반 이벤트 구독 시스템
-- ✅ 기존 기능 100% 대체 및 개선
-- ✅ 도메인 중립적 확장 가능한 구조
+### Phase 4: WorkflowEventSubscriber migration ✅ **완료**
+- ✅ New architecture-based event subscription system
+- ✅ Feature parity maintained
+- ✅ Domain-neutral, extensible structure
 
 ### Phase 5: 검증 및 완성 ✅ **완료**
 - ✅ 빌드 성공 (50.17 KB, 타입 정의 53.87 KB)

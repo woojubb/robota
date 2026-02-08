@@ -30,7 +30,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
-// ES module compatibility
+// ES module support
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -1083,7 +1083,7 @@ function main() {
     verifier.displayResults(result);
 }
 
-// Run verification if called directly (ES module compatibility)
+// Run verification if called directly (ES module support)
 if (import.meta.url === `file://${process.argv[1]}`) {
     main();
 }

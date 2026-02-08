@@ -60,7 +60,7 @@ export type TEventData =
         // Workflow processing metadata (handler-level stats, etc.)
         metadata?: TLoggerData;
 
-        // Extensible data (kept for backward compatibility during migration)
+        // Extensible data (reserved for optional extensions)
         [key: string]: TWorkflowEventExtensionValue | undefined;
     };
 

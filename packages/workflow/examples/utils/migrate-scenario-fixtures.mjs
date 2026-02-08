@@ -69,7 +69,7 @@ function migrateRecord(record) {
       }
     }
 
-    // Idempotency: allow already-migrated files that already contain tool_result steps.
+    // Idempotency: allow already-processed files that contain tool_result steps.
     // Only provider steps participate in requestHash normalization and toolCall indexing.
     if (s.kind !== 'provider') {
       continue;
@@ -150,8 +150,8 @@ function main() {
   for (const file of files) {
     const p = path.join(scenariosDir, file);
     const record = loadJson(p);
-    const migrated = migrateRecord(record);
-    writeJson(p, migrated);
+    const result = migrateRecord(record);
+    writeJson(p, result);
     process.stdout.write(`[SCENARIO-MIGRATE] Updated ${p}\n`);
   }
 }

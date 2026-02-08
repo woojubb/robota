@@ -192,7 +192,7 @@ Following the Robota SDK principle of "avoiding ambiguous features":
 Existing Node.js code continues to work unchanged:
 
 ```typescript
-// ✅ This still works (automatic fallback to no logging)
+// ✅ This still works (explicit logging not configured)
 const provider = new OpenAIProvider({
   client: openaiClient
 });
