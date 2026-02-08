@@ -24,10 +24,13 @@ import type {
     IWorkflowSnapshot
 } from '../interfaces/workflow-builder.js';
 import { CoreWorkflowBuilder } from './workflow-builder.js';
-import { AgentEventHandler } from '../handlers/agent-event-handler.js';
-import { ToolEventHandler } from '../handlers/tool-event-handler.js';
-
-import { ExecutionEventHandler } from '../handlers/execution-event-handler.js';
+import { createAgentEventHandlers } from '../handlers/agent-event-handler.js';
+import { createToolEventHandlers } from '../handlers/tool-event-handler.js';
+import { createExecutionEventHandlers } from '../handlers/execution-event-handler.js';
+import { createUserEventHandlers } from '../handlers/user-event-handler.js';
+import type { IWorkflowStateAccess } from '../interfaces/workflow-state-access.js';
+import { AgentNodeBuilder } from '../handlers/builders/agent-node-builder.js';
+import { ExecutionNodeBuilder } from '../handlers/builders/execution-node-builder.js';
 
 /**
  * Event subscription callback for external integrations
@@ -90,6 +93,9 @@ export interface IWorkflowEventSubscriber {
 export class WorkflowEventSubscriber {
     private logger: ILogger;
     private workflowBuilder: IExtendedWorkflowBuilder & IWorkflowQuery & IWorkflowPortable;
+    private stateAccess: IWorkflowStateAccess;
+    private agentNodeBuilder: AgentNodeBuilder;
+    private executionNodeBuilder: ExecutionNodeBuilder;
     private eventHandlers = new Map<string, IEventHandler>();
     private eventSubscribers = new Set<TEventSubscriptionCallback>();
     private workflowUpdateSubscribers = new Set<TWorkflowUpdateCallback>();
@@ -122,6 +128,11 @@ export class WorkflowEventSubscriber {
             maxNodes: this.config.maxNodes,
             maxEdges: this.config.maxEdges
         });
+        this.stateAccess = {
+            getAllNodes: () => this.workflowBuilder.getRawNodes()
+        };
+        this.agentNodeBuilder = new AgentNodeBuilder(this.logger);
+        this.executionNodeBuilder = new ExecutionNodeBuilder();
 
         // Initialize with default handlers
         this.initializeDefaultHandlers();
@@ -371,11 +382,13 @@ export class WorkflowEventSubscriber {
             lastEventTime: new Date()
         };
 
+        this.agentNodeBuilder.clear();
+
         this.logger.debug('🧹 [WORKFLOW-CLEARED] All data cleared');
     }
 
     /**
-     * Export workflow data in flat format for compatibility
+     * Export workflow data in flat format
      */
     exportWorkflow() {
         const data = this.workflowBuilder.exportToUniversal();
@@ -431,16 +444,28 @@ export class WorkflowEventSubscriber {
 
     private initializeDefaultHandlers(): void {
         // Register all default event handlers
-        const agentHandler = new AgentEventHandler(this.logger);
-        const toolHandler = new ToolEventHandler(this.logger);
-        const executionHandler = new ExecutionEventHandler(this.logger);
+        const agentHandlers = createAgentEventHandlers(this.logger, this.stateAccess, this.agentNodeBuilder);
+        const toolHandlers = createToolEventHandlers(this.logger);
+        const executionHandlers = createExecutionEventHandlers(
+            this.logger,
+            this.stateAccess,
+            this.executionNodeBuilder,
+            this.agentNodeBuilder
+        );
+        const userHandlers = createUserEventHandlers(this.logger, this.executionNodeBuilder);
 
-        this.registerEventHandler(agentHandler);
-        this.registerEventHandler(toolHandler);
-        this.registerEventHandler(executionHandler);
+        agentHandlers.forEach(handler => this.registerEventHandler(handler));
+        toolHandlers.forEach(handler => this.registerEventHandler(handler));
+        executionHandlers.forEach(handler => this.registerEventHandler(handler));
+        userHandlers.forEach(handler => this.registerEventHandler(handler));
 
         this.logger.debug('🔧 [DEFAULT-HANDLERS] Initialized all default event handlers', {
-            handlersRegistered: ['AgentEventHandler', 'ToolEventHandler', 'ExecutionEventHandler']
+            handlersRegistered: [
+                ...agentHandlers.map(h => h.name),
+                ...toolHandlers.map(h => h.name),
+                ...executionHandlers.map(h => h.name),
+                ...userHandlers.map(h => h.name)
+            ]
         });
     }
 

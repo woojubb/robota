@@ -43,7 +43,6 @@ export interface IWorkflowEdge {
     hidden?: boolean;
     conditional?: {
         condition: string;
-        fallbackEdge?: string;
     };
     
     // Additional metadata

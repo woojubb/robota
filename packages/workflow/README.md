@@ -9,7 +9,7 @@ The Workflow package provides domain-neutral workflow visualization capabilities
 ## Features
 
 - **Real-time Workflow Building**: Converts events to visual workflow components instantly
-- **Domain-neutral Architecture**: Extensible handler system for different event types
+- **Domain-neutral Architecture**: Extensible handler system for different event names
 - **Type-safe Design**: Full TypeScript support with strict type checking
 - **Plugin System**: Extensible architecture for custom workflow components
 - **Graph Management**: Automatic node/edge creation with validation and ordering

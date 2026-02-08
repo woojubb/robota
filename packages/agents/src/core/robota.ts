@@ -10,7 +10,7 @@ import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
-import { AGENT_EVENTS } from '../agents/constants';
+import { AGENT_EVENTS, AGENT_EVENT_PREFIX } from '../agents/constants';
 import {
     IEventService,
     DEFAULT_ABSTRACT_EVENT_SERVICE,
@@ -371,7 +371,7 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
         };
         // Absolute ownerPath: pass the full path explicitly so downstream subscribers can derive `path` deterministically.
         this.agentEventService.emit(eventType, payload, {
-            ownerType: 'agent',
+            ownerType: AGENT_EVENT_PREFIX,
             ownerId: this.conversationId,
             ownerPath: this.buildOwnerPath(this.config.executionContext)
         });

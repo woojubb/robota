@@ -8,14 +8,16 @@ import { ValidationError } from '../utils/errors';
 
 /**
  * ToolExecutionService owned events
- * All tool lifecycle events must use these constants (no string literals).
+ * Local event names only (no dots). Full names are composed at emit time.
  */
 export const TOOL_EVENTS = {
-    CALL_START: 'tool.call_start',
-    CALL_COMPLETE: 'tool.call_complete',
-    CALL_ERROR: 'tool.call_error',
-    CALL_RESPONSE_READY: 'tool.call_response_ready'
+    CALL_START: 'call_start',
+    CALL_COMPLETE: 'call_complete',
+    CALL_ERROR: 'call_error',
+    CALL_RESPONSE_READY: 'call_response_ready'
 } as const;
+
+export const TOOL_EVENT_PREFIX = 'tool' as const;
 
 export interface IToolExecutionBatchContext {
     requests: IToolExecutionRequest[];

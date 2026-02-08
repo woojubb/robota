@@ -147,7 +147,7 @@ export interface IWorkflowNodeData {
     // Platform extensions (typed, no unknown)
     extensions?: IWorkflowNodeExtensions;
 
-    // Forward-compatible extra fields (typed, no unknown)
+    // Reserved extra fields (typed, no unknown)
     extra?: Record<string, TWorkflowNodeDataExtensionValue>;
 }
 

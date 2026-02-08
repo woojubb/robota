@@ -266,71 +266,73 @@ export abstract class AbstractAIProvider<TConfig = IProviderConfig>
     }
 
     /**
-     * Execute chat via executor if available.
+     * Execute chat via executor.
      *
-     * This helper is meant to be called by subclasses inside their `chat()` implementation.
+     * Subclasses should call this only when an executor is configured.
      */
     protected async executeViaExecutorOrDirect(
         messages: TUniversalMessage[],
         options?: IChatOptions
     ): Promise<TUniversalMessage> {
-        if (this.executor && options?.model) {
-            // Use executor for remote/proxied execution
-            const result = await this.executor.executeChat({
-                messages,
-                options,
-                provider: this.name,
-                model: options.model,
-                ...(options.tools && { tools: options.tools })
-            });
-
-            return result;
+        if (!this.executor) {
+            throw new Error(`Executor is required for ${this.name} provider. Configure an executor or use direct execution path.`);
+        }
+        if (!options?.model) {
+            throw new Error(`Model is required for executor execution in ${this.name} provider.`);
         }
 
-        // Fallback to direct execution - subclasses must implement this
-        throw new Error(`Direct execution not implemented for ${this.name} provider. Either provide an executor or implement direct execution.`);
+        const result = await this.executor.executeChat({
+            messages,
+            options,
+            provider: this.name,
+            model: options.model,
+            ...(options.tools && { tools: options.tools })
+        });
+
+        return result;
     }
 
     /**
-     * Execute streaming chat via executor if available.
+     * Execute streaming chat via executor.
      *
-     * This helper is meant to be called by subclasses inside their `chatStream()` implementation.
+     * Subclasses should call this only when an executor is configured.
      */
     protected async *executeStreamViaExecutorOrDirect(
         messages: TUniversalMessage[],
         options?: IChatOptions
     ): AsyncIterable<TUniversalMessage> {
-        if (this.executor && this.executor.executeChatStream && options?.model) {
-            // 🔍 [TOOL-FLOW] AbstractAIProvider.executeStreamViaExecutorOrDirect() - Preparing executor request
-            this.logger.debug?.(
-                '🔍 [TOOL-FLOW] AbstractAIProvider.executeStreamViaExecutorOrDirect() - Executor request',
-                {
-                    provider: this.name,
-                    model: options.model,
-                    hasTools: !!options.tools,
-                    toolsCount: options.tools?.length || 0,
-                    toolNames: options.tools?.map((t: IToolSchema) => t.name) || []
-                }
-            );
-
-            // Use executor for remote/proxied streaming execution
-            const stream = this.executor.executeChatStream({
-                messages,
-                options,
-                provider: this.name,
-                model: options.model,
-                stream: true,
-                ...(options.tools && { tools: options.tools })
-            });
-
-            for await (const chunk of stream) {
-                yield chunk;
-            }
-            return;
+        if (!this.executor || !this.executor.executeChatStream) {
+            throw new Error(`Streaming executor is required for ${this.name} provider.`);
+        }
+        if (!options?.model) {
+            throw new Error(`Model is required for executor streaming in ${this.name} provider.`);
         }
 
-        // Fallback to direct execution - subclasses must implement this
-        throw new Error(`Direct streaming execution not implemented for ${this.name} provider. Either provide an executor or implement direct streaming execution.`);
+        // 🔍 [TOOL-FLOW] AbstractAIProvider.executeStreamViaExecutorOrDirect() - Preparing executor request
+        this.logger.debug?.(
+            '🔍 [TOOL-FLOW] AbstractAIProvider.executeStreamViaExecutorOrDirect() - Executor request',
+            {
+                provider: this.name,
+                model: options.model,
+                hasTools: !!options.tools,
+                toolsCount: options.tools?.length || 0,
+                toolNames: options.tools?.map((t: IToolSchema) => t.name) || []
+            }
+        );
+
+        const stream = this.executor.executeChatStream({
+            messages,
+            options,
+            provider: this.name,
+            model: options.model,
+            stream: true,
+            ...(options.tools && { tools: options.tools })
+        });
+
+        for await (const chunk of stream) {
+            yield chunk;
+        }
+        return;
     }
 
     /**

@@ -1,227 +1,87 @@
 /**
- * ExecutionEventHandler - Handles execution-related events
- * 
- * Processes execution.* events and creates appropriate workflow nodes
- * Based on existing implementation in workflow-event-subscriber.ts
+ * Execution event processing logic
+ *
+ * Handles execution.* events and creates appropriate workflow nodes.
  */
 
 import type { IOwnerPathSegment, ILogger } from '@robota-sdk/agents';
-import { SilentLogger, EXECUTION_EVENTS } from '@robota-sdk/agents';
+import {
+    SilentLogger,
+    EXECUTION_EVENTS,
+    EXECUTION_EVENT_PREFIX,
+    composeEventName
+} from '@robota-sdk/agents';
 import type {
     IEventHandler,
     TEventData,
-    IEventProcessingResult,
+    IEventProcessingResult
 } from '../interfaces/event-handler.js';
 import type { IWorkflowNode } from '../interfaces/workflow-node.js';
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
-import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
 import { HandlerPriority } from '../interfaces/event-handler.js';
+import type { IWorkflowStateAccess } from '../interfaces/workflow-state-access.js';
+import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
+import { extractPathInfo } from './path-info.js';
+import { ExecutionNodeBuilder } from './builders/execution-node-builder.js';
+import { AgentNodeBuilder } from './builders/agent-node-builder.js';
 
-/**
- * ExecutionEventHandler - Handles execution lifecycle events
- */
-export class ExecutionEventHandler implements IEventHandler {
-    readonly name = 'ExecutionEventHandler';
-    readonly priority = HandlerPriority.HIGHEST; // Execution events are fundamental
-    readonly patterns = ['execution.*'];
+const EXECUTION_EVENT_NAMES = {
+    START: composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.START),
+    COMPLETE: composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.COMPLETE),
+    ERROR: composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.ERROR),
+    ASSISTANT_MESSAGE_START: composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.ASSISTANT_MESSAGE_START),
+    ASSISTANT_MESSAGE_COMPLETE: composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE),
+    USER_MESSAGE: composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.USER_MESSAGE),
+    TOOL_RESULTS_TO_LLM: composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.TOOL_RESULTS_TO_LLM),
+    TOOL_RESULTS_READY: composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.TOOL_RESULTS_READY),
+};
 
+class ExecutionEventLogic {
     private logger: ILogger;
+    private stateAccess: IWorkflowStateAccess;
+    private executionNodeBuilder: ExecutionNodeBuilder;
+    private agentNodeBuilder: AgentNodeBuilder;
 
-    // Mapping state for execution tracking
-    private executionNodeMap = new Map<string, string>(); // executionId → nodeId
-    private userMessageNodeMap = new Map<string, string>(); // messageId → nodeId
-    private assistantMessageMap = new Map<string, string>(); // executionId → assistantMessageNodeId
-
-    constructor(logger: ILogger = SilentLogger) {
+    constructor(
+        logger: ILogger = SilentLogger,
+        stateAccess: IWorkflowStateAccess,
+        executionNodeBuilder: ExecutionNodeBuilder,
+        agentNodeBuilder: AgentNodeBuilder
+    ) {
         this.logger = logger;
-    }
-
-    canHandle(eventType: string): boolean {
-        return this.patterns.some(pattern => {
-            if (pattern.includes('*')) {
-                const prefix = pattern.replace('*', '');
-                return eventType.startsWith(prefix);
-            }
-            return eventType === pattern;
-        });
+        this.stateAccess = stateAccess;
+        this.executionNodeBuilder = executionNodeBuilder;
+        this.agentNodeBuilder = agentNodeBuilder;
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
         try {
             this.logger.debug(`🔧 [EXECUTION-HANDLER] Processing ${eventType}`);
-
-            const updates: TWorkflowUpdate[] = [];
-            let success = true;
-
-            switch (eventType) {
-                case EXECUTION_EVENTS.TOOL_RESULTS_READY: {
-                    // Path-only: thinking scope = context.ownerPath (absolute)
-                    const ownerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
-                    const thinkingId = ownerPath.length > 0 ? String(ownerPath[ownerPath.length - 1].id) : '';
-                    if (!thinkingId) {
-                        return {
-                            success: false,
-                            updates: [],
-                            errors: [`[PATH-ONLY] Invalid context.ownerPath (missing tail id) for ${EXECUTION_EVENTS.TOOL_RESULTS_READY}`]
-                        };
+            const handler = this.getHandler(eventType);
+            if (!handler) {
+                this.logger.warn(`⚠️ [EXECUTION-HANDLER] Unknown event type: ${eventType}`);
+                return {
+                    success: false,
+                    updates: [],
+                    metadata: {
+                        handlerType: 'execution',
+                        eventType,
+                        processed: false
                     }
-                    const thinkingScopeKey = ownerPath.map(s => String(s.id)).join('\u0000');
-
-                    // Collect existing tool_response nodes by checking originalEvent.context.ownerPath prefix match
-                    const subscriber = (this as { subscriber?: { getAllNodes?: () => IWorkflowNode[] } }).subscriber;
-                    const nodesAccessor = subscriber?.getAllNodes?.() ?? [];
-                    const toolResponses = nodesAccessor.filter((n) => {
-                        if (n?.type !== WORKFLOW_NODE_TYPES.TOOL_RESPONSE) return false;
-                        const op = n?.data?.extensions?.robota?.originalEvent?.context?.ownerPath;
-                        if (!Array.isArray(op) || op.length === 0) return false;
-                        const key = op.map(s => String(s?.id ?? '')).slice(0, -1).join('\u0000');
-                        return key === thinkingScopeKey;
-                    });
-                    if (toolResponses.length === 0) break;
-                    const nodeId = `tool_result_${thinkingId}_${eventData.timestamp.getTime()}`;
-                    const toolResultNode: IWorkflowNode = {
-                        id: nodeId,
-                        type: WORKFLOW_NODE_TYPES.TOOL_RESULT,
-                        level: 2,
-                        status: 'running',
-                        timestamp: Date.now(),
-                        data: {
-                            sourceId: thinkingId,
-                            sourceType: 'execution',
-                            parentThinkingNodeId: thinkingId,
-                            label: 'Tool Result Aggregation',
-                            description: 'Aggregating tool call results',
-                            extensions: { robota: { originalEvent: eventData, handlerType: 'execution' } }
-                        },
-                        connections: []
-                    };
-                    updates.push({ action: 'create', node: toolResultNode });
-                    for (const tr of toolResponses) {
-                        const edge: IWorkflowEdge = {
-                            id: EdgeUtils.generateId(tr.id, nodeId, 'result'),
-                            source: tr.id,
-                            target: nodeId,
-                            type: 'result',
-                            timestamp: Date.now()
-                        };
-                        updates.push({ action: 'create', edge });
-                    }
-                    break;
-                }
-                case EXECUTION_EVENTS.START:
-                    // Do not create execution node here; AgentEventHandler creates agent node instead
-                    break;
-
-                case EXECUTION_EVENTS.COMPLETE:
-                    // Do not create a node for execution complete (minimal graph)
-                    break;
-
-                case EXECUTION_EVENTS.ERROR:
-                    {
-                        const executionErrorNode = this.createExecutionErrorNode(eventData);
-                        // [PATH-ONLY] prevId is no longer used; edges are created explicitly
-                        updates.push({ action: 'create', node: executionErrorNode });
-                        break;
-                    }
-
-                case EXECUTION_EVENTS.ASSISTANT_MESSAGE_START:
-                    // AgentEventHandler will create the thinking node; skip assistant_message node
-                    break;
-
-                case EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE:
-                    // AgentEventHandler will create the response node; skip assistant_message node
-                    break;
-
-                case EXECUTION_EVENTS.TOOL_RESULTS_TO_LLM:
-                    // Domain-neutral: delivery event to LLM, no graph mutation required
-                    // Treat as successfully handled to avoid strict-policy aborts
-                    break;
-
-                case EXECUTION_EVENTS.USER_MESSAGE:
-                    {
-                        const ctxOwnerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
-                        const localAgentId = (() => {
-                            for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
-                                const seg = ctxOwnerPath[i];
-                                if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) {
-                                    return seg.id;
-                                }
-                            }
-                            return undefined;
-                        })();
-                        const localExecutionId = (() => {
-                            for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
-                                const seg = ctxOwnerPath[i];
-                                if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) {
-                                    return seg.id;
-                                }
-                            }
-                            return undefined;
-                        })();
-                        if (!localAgentId || !localExecutionId) {
-                            return {
-                                success: false,
-                                updates: [],
-                                errors: [`[PATH-ONLY] Missing agent/execution segments in context.ownerPath for ${EXECUTION_EVENTS.USER_MESSAGE}`]
-                            };
-                        }
-                        const userMessageNode = this.createUserMessageNode(eventData);
-                        updates.push({ action: 'create', node: userMessageNode });
-                        this.userMessageNodeMap.set(localAgentId, userMessageNode.id);
-
-                        // Path-only: connect user_message to the local agent node only (no ordering-based inference).
-                        const subscriber = (this as { subscriber?: { getAllNodes?: () => IWorkflowNode[] } }).subscriber;
-                        const allNodes = subscriber?.getAllNodes?.() ?? [];
-                        const agentNodeForExec = allNodes.find(n => n.type === WORKFLOW_NODE_TYPES.AGENT && String(n.data?.sourceId ?? '') === localAgentId)?.id;
-
-                        if (!agentNodeForExec) {
-                            return {
-                                success: false,
-                                updates: [],
-                                errors: [
-                                    `[PATH-ONLY] Missing source node for ${EXECUTION_EVENTS.USER_MESSAGE}. ` +
-                                    `Expected an agent node for agentId="${localAgentId}".`
-                                ]
-                            };
-                        }
-
-                        const edge: IWorkflowEdge = {
-                            id: EdgeUtils.generateId(agentNodeForExec, userMessageNode.id, 'receives'),
-                            source: agentNodeForExec,
-                            target: userMessageNode.id,
-                            type: 'receives',
-                            timestamp: Date.now()
-                        };
-                        updates.push({ action: 'create', edge });
-
-                        break;
-                    }
-
-                case 'user.input':
-                    {
-                        const userInputNode = this.createUserInputNode(eventData);
-                        // [PATH-ONLY] prevId is no longer used; edges are created explicitly
-                        updates.push({ action: 'create', node: userInputNode });
-                        break;
-                    }
-
-                default:
-                    this.logger.warn(`⚠️ [EXECUTION-HANDLER] Unknown event type: ${eventType}`);
-                    success = false;
+                };
             }
 
+            const result = await handler(eventData);
             return {
-                success,
-                updates,
+                ...result,
                 metadata: {
                     handlerType: 'execution',
                     eventType,
                     processed: true
                 }
             };
-
         } catch (error) {
             this.logger.error(
                 `❌ [EXECUTION-HANDLER] Error processing ${eventType}:`,
@@ -240,458 +100,331 @@ export class ExecutionEventHandler implements IEventHandler {
         }
     }
 
-    // =================================================================
-    // Node Creation Methods
-    // =================================================================
-
-    private createExecutionStartNode(data: TEventData): IWorkflowNode {
-        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
-        const executionId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
-            }
-            return ownerPath.length > 0 ? ownerPath[ownerPath.length - 1].id : '';
-        })();
-        const agentId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
-            }
-            return '';
-        })();
-        const nodeId = String(executionId);
-        const derivedLevel = ownerPath.length;
-        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
-
-        return {
-            id: nodeId,
-            type: WORKFLOW_NODE_TYPES.EXECUTION,
-            level: 0,
-            status: 'running',
-            timestamp: Date.now(), // Node creation time for ordering
-            data: {
-                sourceId: agentId || executionId,
-                sourceType: 'execution',
-                executionId,
-                // 🎯 Preserve original event timestamp from EventService
-                originalEventTimestamp: data.timestamp, // Original event occurrence time
-                label: 'Execution Start',
-                description: 'Agent execution started',
-                eventType: data.eventType,
-                parameters: data.parameters || {},
-                metadata: data.metadata || {},
-                executionInfo: {
-                    executionId,
-                    startTime: new Date().toISOString(),
-                    level: derivedLevel
-                },
-                extensions: {
-                    robota: {
-                        originalEvent: data,
-                        handlerType: 'execution',
-                        extra: { isExecutionStart: true }
-                    }
-                }
-            },
-            ...(derivedParentId ? { parentId: derivedParentId } : {}),
-            connections: []
+    private getHandler(eventType: string): ((data: TEventData) => Promise<IEventProcessingResult>) | undefined {
+        const handlers: Record<string, (data: TEventData) => Promise<IEventProcessingResult>> = {
+            [EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY]: (data) => this.handleToolResultsReady(data),
+            [EXECUTION_EVENT_NAMES.START]: () => this.handleExecutionStart(),
+            [EXECUTION_EVENT_NAMES.COMPLETE]: () => this.handleExecutionComplete(),
+            [EXECUTION_EVENT_NAMES.ERROR]: (data) => this.handleExecutionError(data),
+            [EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START]: (data) => this.handleAssistantMessageStart(data),
+            [EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE]: (data) => this.handleAssistantMessageComplete(data),
+            [EXECUTION_EVENT_NAMES.TOOL_RESULTS_TO_LLM]: () => this.handleToolResultsToLlm(),
+            [EXECUTION_EVENT_NAMES.USER_MESSAGE]: (data) => this.handleUserMessage(data),
         };
+        return handlers[eventType];
     }
 
-    private createExecutionCompleteNode(data: TEventData): IWorkflowNode {
-        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
-        const executionId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
-            }
-            return ownerPath.length > 0 ? ownerPath[ownerPath.length - 1].id : '';
-        })();
-        const agentId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
-            }
-            return '';
-        })();
-        const nodeId = `execution_complete_${executionId}_${data.timestamp.getTime()}`;
-        const derivedLevel = ownerPath.length;
-        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
-
-        return {
-            id: nodeId,
-            type: WORKFLOW_NODE_TYPES.EXECUTION,
-            level: 0,
-            status: 'completed',
-            timestamp: Date.now(),
-            data: {
-                sourceId: agentId || executionId,
-                sourceType: 'execution',
-                executionId,
-                label: 'Execution Complete',
-                description: 'Agent execution completed successfully',
-                eventType: data.eventType,
-                parameters: data.parameters || {},
-                result: data.result || {},
-                metadata: data.metadata || {},
-                executionInfo: {
-                    executionId,
-                    endTime: new Date().toISOString(),
-                    level: derivedLevel,
-                    duration: typeof data.metadata?.duration === 'number' ? data.metadata.duration : 0,
-                    success: true
-                },
-                extensions: {
-                    robota: {
-                        originalEvent: data,
-                        handlerType: 'execution',
-                        extra: { isExecutionComplete: true }
-                    }
-                }
-            },
-            ...(derivedParentId ? { parentId: derivedParentId } : {}),
-            connections: []
-        };
+    private async handleExecutionStart(): Promise<IEventProcessingResult> {
+        return { success: true, updates: [] };
     }
 
-    private createExecutionErrorNode(data: TEventData): IWorkflowNode {
-        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
-        const executionId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
-            }
-            return ownerPath.length > 0 ? ownerPath[ownerPath.length - 1].id : '';
-        })();
-        const agentId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
-            }
-            return '';
-        })();
-        const nodeId = `execution_error_${executionId}_${data.timestamp.getTime()}`;
-        const errorMessage = (data.error instanceof Error ? data.error.message : String(data.error || data.parameters?.error || 'Execution failed'));
-        const derivedLevel = ownerPath.length;
-        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
-
-        return {
-            id: nodeId,
-            type: WORKFLOW_NODE_TYPES.ERROR,
-            level: 0,
-            status: 'error',
-            timestamp: Date.now(),
-            data: {
-                sourceId: agentId || executionId,
-                sourceType: 'execution',
-                executionId,
-                label: 'Execution Error',
-                description: `Execution failed: ${errorMessage}`,
-                eventType: data.eventType,
-                parameters: data.parameters || {},
-                error: data.error || { message: errorMessage },
-                metadata: data.metadata || {},
-                executionInfo: {
-                    executionId,
-                    errorTime: new Date().toISOString(),
-                    level: derivedLevel,
-                    success: false
-                },
-                extensions: {
-                    robota: {
-                        originalEvent: data,
-                        handlerType: 'execution',
-                        extra: { isExecutionError: true }
-                    }
-                }
-            },
-            ...(derivedParentId ? { parentId: derivedParentId } : {}),
-            connections: []
-        };
+    private async handleExecutionComplete(): Promise<IEventProcessingResult> {
+        return { success: true, updates: [] };
     }
 
-    private createAssistantMessageStartNode(data: TEventData): IWorkflowNode {
-        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
-        const executionId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
-            }
-            return '';
-        })();
-        const agentId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
-            }
-            return '';
-        })();
-        const nodeId = `assistant_message_start_${executionId}_${data.timestamp.getTime()}`;
-        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
-
-        return {
-            id: nodeId,
-            type: WORKFLOW_NODE_TYPES.ASSISTANT_MESSAGE,
-            level: 1,
-            status: 'running',
-            timestamp: Date.now(),
-            data: {
-                sourceId: agentId || executionId,
-                sourceType: 'execution',
-                executionId,
-                label: 'Assistant Message Start',
-                description: 'Assistant started generating message',
-                eventType: data.eventType,
-                parameters: data.parameters || {},
-                metadata: data.metadata || {},
-                messageInfo: {
-                    messageId: data.parameters?.messageId || `msg_${Date.now()}`,
-                    startTime: new Date().toISOString(),
-                    isStreaming: data.parameters?.isStreaming || false
-                },
-                extensions: {
-                    robota: {
-                        originalEvent: data,
-                        handlerType: 'execution',
-                        extra: { isAssistantMessage: true }
-                    }
-                }
-            },
-            ...(derivedParentId ? { parentId: derivedParentId } : {}),
-            connections: []
-        };
+    private async handleToolResultsToLlm(): Promise<IEventProcessingResult> {
+        return { success: true, updates: [] };
     }
 
-    private createAssistantMessageCompleteNode(data: TEventData): IWorkflowNode {
-        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
-        const executionId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
-            }
-            return '';
-        })();
-        const agentId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
-            }
-            return '';
-        })();
-        const nodeId = `assistant_message_complete_${executionId}_${data.timestamp.getTime()}`;
-        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
-        const messageContent = (() => {
-            const r = data.result;
-            if (r && typeof r === 'object' && 'content' in r && typeof r.content === 'string') return r.content;
-            const p = data.parameters;
-            if (p && typeof p.content === 'string') return p.content;
-            return 'Assistant response';
-        })();
-        const messageLength = messageContent.length;
-
-        return {
-            id: nodeId,
-            type: WORKFLOW_NODE_TYPES.ASSISTANT_MESSAGE,
-            level: 1,
-            status: 'completed',
-            timestamp: Date.now(),
-            data: {
-                sourceId: agentId || executionId,
-                sourceType: 'execution',
-                executionId,
-                label: `Assistant Message (${messageLength} chars)`,
-                description: 'Assistant message generation completed',
-                eventType: data.eventType,
-                parameters: data.parameters || {},
-                result: data.result || {},
-                metadata: data.metadata || {},
-                messageInfo: {
-                    messageId: data.parameters?.messageId || `msg_${Date.now()}`,
-                    endTime: new Date().toISOString(),
-                    content: messageContent,
-                    length: messageLength,
-                    wordCount: messageContent.split(/\s+/).filter((word: string) => word.length > 0).length
-                },
-                messageMetrics: {
-                    responseTime: typeof data.metadata?.responseTime === 'number' ? data.metadata.responseTime : 0,
-                    tokenCount: typeof data.metadata?.tokenCount === 'number' ? data.metadata.tokenCount : 0,
-                    hasCodeBlocks: /```/.test(messageContent),
-                    hasLinks: /https?:\/\//.test(messageContent),
-                    complexity: messageLength > 1000 ? 'high' : messageLength > 300 ? 'medium' : 'low'
-                },
-                extensions: {
-                    robota: {
-                        originalEvent: data,
-                        handlerType: 'execution',
-                        extra: { isAssistantMessage: true }
-                    }
-                }
-            },
-            ...(derivedParentId ? { parentId: derivedParentId } : {}),
-            connections: []
-        };
-    }
-
-    private createUserMessageNode(data: TEventData): IWorkflowNode {
-        // Generate unique node ID for each user message to support continued conversations
-        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
-        if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
-            throw new Error('[PATH-ONLY] Missing context.ownerPath for execution.user_message');
+    private async handleToolResultsReady(eventData: TEventData): Promise<IEventProcessingResult> {
+        const updates: TWorkflowUpdate[] = [];
+        const ownerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
+        const thinkingId = ownerPath.length > 0 ? String(ownerPath[ownerPath.length - 1].id) : '';
+        if (!thinkingId) {
+            return {
+                success: false,
+                updates: [],
+                errors: [`[PATH-ONLY] Invalid context.ownerPath (missing tail id) for ${EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY}`]
+            };
         }
-        const agentId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) return seg.id;
+        const thinkingScopeKey = ownerPath.map(s => String(s.id)).join('\u0000');
+
+        const nodesAccessor = this.stateAccess.getAllNodes();
+        const toolResponses = nodesAccessor.filter((n) => {
+            if (n?.type !== WORKFLOW_NODE_TYPES.TOOL_RESPONSE) return false;
+            const op = n?.data?.extensions?.robota?.originalEvent?.context?.ownerPath;
+            if (!Array.isArray(op) || op.length === 0) return false;
+            const key = op.map(s => String(s?.id ?? '')).slice(0, -1).join('\u0000');
+            return key === thinkingScopeKey;
+        });
+        if (toolResponses.length === 0) {
+            return { success: true, updates: [] };
+        }
+        const toolResultNode = this.executionNodeBuilder.createToolResultNode(thinkingId, eventData);
+        updates.push({ action: 'create', node: toolResultNode });
+        for (const tr of toolResponses) {
+            const edge: IWorkflowEdge = {
+                id: EdgeUtils.generateId(tr.id, toolResultNode.id, 'result'),
+                source: tr.id,
+                target: toolResultNode.id,
+                type: 'result',
+                timestamp: Date.now()
+            };
+            updates.push({ action: 'create', edge });
+        }
+
+        return { success: true, updates };
+    }
+
+    private async handleExecutionError(eventData: TEventData): Promise<IEventProcessingResult> {
+        const updates: TWorkflowUpdate[] = [];
+        const executionErrorNode = this.executionNodeBuilder.createExecutionErrorNode(eventData);
+        updates.push({ action: 'create', node: executionErrorNode });
+        return { success: true, updates };
+    }
+
+    private async handleUserMessage(eventData: TEventData): Promise<IEventProcessingResult> {
+        const updates: TWorkflowUpdate[] = [];
+        const ctxOwnerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
+        const localAgentId = (() => {
+            for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
+                const seg = ctxOwnerPath[i];
+                if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) {
+                    return seg.id;
+                }
             }
             return undefined;
         })();
-        const executionId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) return seg.id;
+        const localExecutionId = (() => {
+            for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
+                const seg = ctxOwnerPath[i];
+                if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) {
+                    return seg.id;
+                }
             }
             return undefined;
         })();
-        if (!agentId || !executionId) {
-            throw new Error('[PATH-ONLY] Missing agent/execution segments in context.ownerPath for execution.user_message');
+        if (!localAgentId || !localExecutionId) {
+            return {
+                success: false,
+                updates: [],
+                errors: [`[PATH-ONLY] Missing agent/execution segments in context.ownerPath for ${EXECUTION_EVENT_NAMES.USER_MESSAGE}`]
+            };
         }
-        const nodeId = `${agentId}_user_${executionId}_${data.timestamp.getTime()}`;
-        const messageContent = (() => {
-            const p = data.parameters;
-            if (!p) return 'User message';
-            if (typeof p.input === 'string') return p.input;
-            if (typeof p.userMessageContent === 'string') return p.userMessageContent;
-            if (typeof p.content === 'string') return p.content;
-            if (typeof p.message === 'string') return p.message;
-            return 'User message';
-        })();
+        const userMessageNode = this.executionNodeBuilder.createUserMessageNode(eventData);
+        updates.push({ action: 'create', node: userMessageNode });
 
-        return {
-            id: nodeId,
-            type: WORKFLOW_NODE_TYPES.USER_MESSAGE,
-            level: 0,
-            status: 'completed',
-            timestamp: Date.now(),
-            data: {
-                sourceId: agentId,
-                sourceType: 'user',
-                executionId,
-                label: 'User Message',
-                description: 'User input message',
-                eventType: data.eventType,
-                parameters: data.parameters || {},
-                metadata: data.metadata || {},
-                messageInfo: {
-                    messageId: nodeId,
-                    content: messageContent,
-                    length: messageContent.length,
-                    timestamp: new Date().toISOString()
-                },
-                extensions: {
-                    robota: {
-                        originalEvent: data,
-                        handlerType: 'execution',
-                        extra: { isUserMessage: true }
-                    }
-                }
-            },
-            connections: []
+        const allNodes = this.stateAccess.getAllNodes();
+        const agentNodeForExec = allNodes.find(n => n.type === WORKFLOW_NODE_TYPES.AGENT && String(n.data?.sourceId ?? '') === localAgentId)?.id;
+        if (!agentNodeForExec) {
+            return {
+                success: false,
+                updates: [],
+                errors: [
+                    `[PATH-ONLY] Missing source node for ${EXECUTION_EVENT_NAMES.USER_MESSAGE}. ` +
+                    `Expected an agent node for agentId="${localAgentId}".`
+                ]
+            };
+        }
+
+        const edge: IWorkflowEdge = {
+            id: EdgeUtils.generateId(agentNodeForExec, userMessageNode.id, 'receives'),
+            source: agentNodeForExec,
+            target: userMessageNode.id,
+            type: 'receives',
+            timestamp: Date.now()
         };
+        updates.push({ action: 'create', edge });
+
+        return { success: true, updates };
     }
 
-    private createUserInputNode(data: TEventData): IWorkflowNode {
-        const ownerPath: IOwnerPathSegment[] = data.context.ownerPath;
-        const agentId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'agent' && seg.id.length > 0) return seg.id;
-            }
-            return '';
-        })();
-        const executionId = (() => {
-            for (let i = ownerPath.length - 1; i >= 0; i--) {
-                const seg = ownerPath[i];
-                if (seg.type === 'execution' && seg.id.length > 0) return seg.id;
-            }
-            return '';
-        })();
-        const nodeId = `user_input_${agentId || executionId}_${data.timestamp.getTime()}`;
-        const inputContent = (() => {
-            if (typeof data.parameters?.input === 'string') return data.parameters.input;
-            if (typeof data.parameters?.content === 'string') return data.parameters.content;
-            return 'User input';
-        })();
-        const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
+    private async handleAssistantMessageStart(eventData: TEventData): Promise<IEventProcessingResult> {
+        const updates: TWorkflowUpdate[] = [];
+        const pathInfo = extractPathInfo(eventData.context.ownerPath, EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START);
+        const pathThinkingId = pathInfo.nodeId;
 
-        return {
-            id: nodeId,
-            type: WORKFLOW_NODE_TYPES.USER_MESSAGE,
-            level: 0,
-            status: 'completed',
-            timestamp: Date.now(),
-            data: {
-                sourceId: agentId || executionId,
-                sourceType: 'user',
-                executionId,
-                label: 'User Input',
-                description: 'User provided input',
-                eventType: data.eventType,
-                parameters: data.parameters || {},
-                metadata: data.metadata || {},
-                inputInfo: {
-                    inputId: nodeId,
-                    content: inputContent,
-                    inputType: data.parameters?.inputType || 'text',
-                    timestamp: new Date().toISOString()
-                },
-                extensions: {
-                    robota: {
-                        originalEvent: data,
-                        handlerType: 'execution',
-                        extra: { isUserInput: true }
-                    }
-                }
-            },
-            ...(derivedParentId ? { parentId: derivedParentId } : {}),
-            connections: []
+        if (!pathInfo.parentId) {
+            return {
+                success: false,
+                updates: [],
+                errors: [`[PATH-ONLY] Missing parent segment for ${EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START}. Path=${pathInfo.segments.join(' -> ')}`]
+            };
+        }
+        const sourceForThinking = pathInfo.parentId;
+        const typeForThinking: 'processes' = 'processes';
+        const baseTimestamp = Date.now();
+
+        const thinkingNode = this.agentNodeBuilder.createThinkingNode(eventData, pathInfo, baseTimestamp);
+        updates.push({ action: 'create', node: thinkingNode });
+
+        const edge: IWorkflowEdge = {
+            id: EdgeUtils.generateId(sourceForThinking, thinkingNode.id, typeForThinking),
+            source: sourceForThinking,
+            target: thinkingNode.id,
+            type: typeForThinking,
+            timestamp: Date.now()
         };
+        updates.push({ action: 'create', edge });
+
+        return { success: true, updates };
     }
 
-    // =================================================================
-    // Helper Methods
-    // =================================================================
+    private async handleAssistantMessageComplete(eventData: TEventData): Promise<IEventProcessingResult> {
+        const updates: TWorkflowUpdate[] = [];
+        const pathInfo = extractPathInfo(eventData.context.ownerPath, EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE);
+        if (!pathInfo.parentId) {
+            return {
+                success: false,
+                updates: [],
+                errors: [`[PATH-ONLY] Invalid path (missing parent) for ${EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE}: ${pathInfo.segments.join(' -> ')}`]
+            };
+        }
+        const thinkingId = pathInfo.parentId;
+        if (!pathInfo.nodeId) {
+            return {
+                success: false,
+                updates: [],
+                errors: [`[PATH-ONLY] Invalid ownerPath (missing tail id) for ${EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE}`]
+            };
+        }
+        const responseId = pathInfo.nodeId;
 
-    /**
-     * Get execution node ID for a given execution ID
-     */
-    getExecutionNodeId(executionId: string): string | undefined {
-        return this.executionNodeMap.get(executionId);
+        const nodesAccessor = this.stateAccess.getAllNodes();
+        const thinkingExists = nodesAccessor.some(n => n?.id === thinkingId);
+        if (!thinkingExists) {
+            return {
+                success: false,
+                updates: [],
+                errors: [`[PATH-ONLY] thinking node '${thinkingId}' not found. Must be created by ${EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START} first. No fallback creation allowed.`]
+            };
+        }
+
+        const responseNode = this.agentNodeBuilder.createResponseNode(eventData, pathInfo);
+        updates.push({ action: 'create', node: responseNode });
+
+        const edge: IWorkflowEdge = {
+            id: EdgeUtils.generateId(thinkingId, responseId, 'return'),
+            source: thinkingId,
+            target: responseId,
+            type: 'return',
+            timestamp: Date.now()
+        };
+        updates.push({ action: 'create', edge });
+
+        return { success: true, updates };
     }
+}
 
-    /**
-     * Get user message node ID for a given message ID
-     */
-    getUserMessageNodeId(messageId: string): string | undefined {
-        return this.userMessageNodeMap.get(messageId);
+class ExecutionStartHandler implements IEventHandler {
+    readonly name = 'ExecutionStartHandler';
+    readonly priority = HandlerPriority.HIGHEST;
+    readonly patterns = [EXECUTION_EVENT_NAMES.START];
+    constructor(private readonly logic: ExecutionEventLogic) {}
+    canHandle(eventType: string): boolean {
+        return eventType === EXECUTION_EVENT_NAMES.START;
     }
-
-    /**
-     * Get assistant message node ID for a given execution ID
-     */
-    getAssistantMessageNodeId(executionId: string): string | undefined {
-        return this.assistantMessageMap.get(executionId);
+    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
+        return this.logic.handle(EXECUTION_EVENT_NAMES.START, eventData);
     }
+}
 
-    // executionLevel/parentExecutionId removed: use context.ownerPath only.
-
-    /**
-     * Clear handler state (useful for testing and cleanup)
-     */
-    clear(): void {
-        this.executionNodeMap.clear();
-        this.userMessageNodeMap.clear();
-        this.assistantMessageMap.clear();
-        this.logger.debug('🧹 [EXECUTION-HANDLER] Handler state cleared');
+class ExecutionCompleteHandler implements IEventHandler {
+    readonly name = 'ExecutionCompleteHandler';
+    readonly priority = HandlerPriority.HIGHEST;
+    readonly patterns = [EXECUTION_EVENT_NAMES.COMPLETE];
+    constructor(private readonly logic: ExecutionEventLogic) {}
+    canHandle(eventType: string): boolean {
+        return eventType === EXECUTION_EVENT_NAMES.COMPLETE;
     }
+    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
+        return this.logic.handle(EXECUTION_EVENT_NAMES.COMPLETE, eventData);
+    }
+}
+
+class ExecutionErrorHandler implements IEventHandler {
+    readonly name = 'ExecutionErrorHandler';
+    readonly priority = HandlerPriority.HIGHEST;
+    readonly patterns = [EXECUTION_EVENT_NAMES.ERROR];
+    constructor(private readonly logic: ExecutionEventLogic) {}
+    canHandle(eventType: string): boolean {
+        return eventType === EXECUTION_EVENT_NAMES.ERROR;
+    }
+    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
+        return this.logic.handle(EXECUTION_EVENT_NAMES.ERROR, eventData);
+    }
+}
+
+class ExecutionAssistantMessageStartHandler implements IEventHandler {
+    readonly name = 'ExecutionAssistantMessageStartHandler';
+    readonly priority = HandlerPriority.HIGHEST;
+    readonly patterns = [EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START];
+    constructor(private readonly logic: ExecutionEventLogic) {}
+    canHandle(eventType: string): boolean {
+        return eventType === EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START;
+    }
+    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
+        return this.logic.handle(EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START, eventData);
+    }
+}
+
+class ExecutionAssistantMessageCompleteHandler implements IEventHandler {
+    readonly name = 'ExecutionAssistantMessageCompleteHandler';
+    readonly priority = HandlerPriority.HIGHEST;
+    readonly patterns = [EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE];
+    constructor(private readonly logic: ExecutionEventLogic) {}
+    canHandle(eventType: string): boolean {
+        return eventType === EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE;
+    }
+    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
+        return this.logic.handle(EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE, eventData);
+    }
+}
+
+class ExecutionToolResultsToLlmHandler implements IEventHandler {
+    readonly name = 'ExecutionToolResultsToLlmHandler';
+    readonly priority = HandlerPriority.HIGHEST;
+    readonly patterns = [EXECUTION_EVENT_NAMES.TOOL_RESULTS_TO_LLM];
+    constructor(private readonly logic: ExecutionEventLogic) {}
+    canHandle(eventType: string): boolean {
+        return eventType === EXECUTION_EVENT_NAMES.TOOL_RESULTS_TO_LLM;
+    }
+    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
+        return this.logic.handle(EXECUTION_EVENT_NAMES.TOOL_RESULTS_TO_LLM, eventData);
+    }
+}
+
+class ExecutionToolResultsReadyHandler implements IEventHandler {
+    readonly name = 'ExecutionToolResultsReadyHandler';
+    readonly priority = HandlerPriority.HIGHEST;
+    readonly patterns = [EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY];
+    constructor(private readonly logic: ExecutionEventLogic) {}
+    canHandle(eventType: string): boolean {
+        return eventType === EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY;
+    }
+    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
+        return this.logic.handle(EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY, eventData);
+    }
+}
+
+class ExecutionUserMessageHandler implements IEventHandler {
+    readonly name = 'ExecutionUserMessageHandler';
+    readonly priority = HandlerPriority.HIGHEST;
+    readonly patterns = [EXECUTION_EVENT_NAMES.USER_MESSAGE];
+    constructor(private readonly logic: ExecutionEventLogic) {}
+    canHandle(eventType: string): boolean {
+        return eventType === EXECUTION_EVENT_NAMES.USER_MESSAGE;
+    }
+    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
+        return this.logic.handle(EXECUTION_EVENT_NAMES.USER_MESSAGE, eventData);
+    }
+}
+
+export function createExecutionEventHandlers(
+    logger: ILogger = SilentLogger,
+    stateAccess: IWorkflowStateAccess,
+    executionNodeBuilder: ExecutionNodeBuilder,
+    agentNodeBuilder: AgentNodeBuilder
+): IEventHandler[] {
+    const logic = new ExecutionEventLogic(logger, stateAccess, executionNodeBuilder, agentNodeBuilder);
+    return [
+        new ExecutionStartHandler(logic),
+        new ExecutionCompleteHandler(logic),
+        new ExecutionErrorHandler(logic),
+        new ExecutionAssistantMessageStartHandler(logic),
+        new ExecutionAssistantMessageCompleteHandler(logic),
+        new ExecutionToolResultsToLlmHandler(logic),
+        new ExecutionToolResultsReadyHandler(logic),
+        new ExecutionUserMessageHandler(logic),
+    ];
 }

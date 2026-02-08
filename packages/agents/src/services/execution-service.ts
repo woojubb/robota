@@ -1,7 +1,7 @@
 import { IAgentConfig, IAssistantMessage, IToolMessage, IExecutionContextInjection } from '../interfaces/agent';
 import { IPluginContext, TMetadata } from '../interfaces/types';
 import type { IPluginContract, IPluginHooks, IPluginOptions, IPluginStats, IPluginErrorContext } from '../abstracts/abstract-plugin';
-import { ToolExecutionService } from './tool-execution-service';
+import { ToolExecutionService, TOOL_EVENT_PREFIX } from './tool-execution-service';
 import type { IAIProviderManager } from '../interfaces/manager';
 import type { IToolManager } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
@@ -10,7 +10,6 @@ import { IChatOptions } from '../interfaces/provider';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
 import {
     IEventService,
-    DEFAULT_ABSTRACT_EVENT_SERVICE,
     isDefaultEventService,
     IEventContext,
     IOwnerPathSegment,
@@ -23,18 +22,20 @@ import type { IToolExecutionBatchContext } from './tool-execution-service';
 
 /**
  * ExecutionService owned events
- * All events emitted by ExecutionService must use these constants (no string literals).
+ * Local event names only (no dots). Full names are composed at emit time.
  */
 export const EXECUTION_EVENTS = {
-    START: 'execution.start',
-    COMPLETE: 'execution.complete',
-    ERROR: 'execution.error',
-    ASSISTANT_MESSAGE_START: 'execution.assistant_message_start',
-    ASSISTANT_MESSAGE_COMPLETE: 'execution.assistant_message_complete',
-    USER_MESSAGE: 'execution.user_message',
-    TOOL_RESULTS_TO_LLM: 'execution.tool_results_to_llm',
-    TOOL_RESULTS_READY: 'execution.tool_results_ready'
+    START: 'start',
+    COMPLETE: 'complete',
+    ERROR: 'error',
+    ASSISTANT_MESSAGE_START: 'assistant_message_start',
+    ASSISTANT_MESSAGE_COMPLETE: 'assistant_message_complete',
+    USER_MESSAGE: 'user_message',
+    TOOL_RESULTS_TO_LLM: 'tool_results_to_llm',
+    TOOL_RESULTS_READY: 'tool_results_ready'
 } as const;
+
+export const EXECUTION_EVENT_PREFIX = 'execution' as const;
 
 // Step 1: ❌ Can't use Error.executionId (not in Error interface)
 // Step 2: ❌ Can't extend Error interface (TypeScript limitation)  
@@ -134,7 +135,10 @@ export class ExecutionService {
         this.conversationHistory = conversationHistory;
         this.plugins = [];
         this.logger = createLogger('ExecutionService');
-        this.baseEventService = eventService || DEFAULT_ABSTRACT_EVENT_SERVICE;
+        if (!eventService) {
+            throw new Error('[EXECUTION] EventService is required');
+        }
+        this.baseEventService = eventService;
         this.executionContext = executionContext; // 🎯 [CONTEXT-INJECTION] Store parent context
         this.ownerPathBase = this.buildBaseOwnerPath(executionContext);
         this.toolEventServices = new Map();
@@ -195,7 +199,7 @@ export class ExecutionService {
         // Avoid console usage; use injected logger only.
         const executionId = this.generateExecutionId();
         const startTime = new Date();
-        const conversationId = context?.conversationId || executionId;
+        const conversationId = this.requireConversationId(context, 'execute');
 
         const fullContext: IExecutionContext = {
             messages,
@@ -220,26 +224,30 @@ export class ExecutionService {
         // Get current provider info and tools for rich data
         const currentInfo = this.aiProviders.getCurrentProvider();
         const provider = currentInfo ? this.aiProviders.getProvider(currentInfo.provider) : null;
+        if (!currentInfo || !currentInfo.provider || !provider) {
+            throw new Error('[EXECUTION] Provider is required');
+        }
         const availableTools = this.tools.getTools();
 
         // Emit execution start event
-        const rootId = fullContext.conversationId || executionId;
+        const rootId: string = conversationId;
 
-        const aiProviderInfo = provider
-            ? {
-                providerName: currentInfo?.provider || 'unknown',
-                model: config.defaultModel.model,
-                temperature: config.defaultModel.temperature,
-                maxTokens: config.defaultModel.maxTokens
-            }
-            : null;
+        const aiProviderInfo = {
+            providerName: currentInfo.provider,
+            model: config.defaultModel.model,
+            temperature: config.defaultModel.temperature,
+            maxTokens: config.defaultModel.maxTokens
+        };
 
         const toolsInfo = availableTools.map((tool) => {
             const paramSchema = tool.parameters as { properties?: Record<string, object> } | undefined;
             const props = paramSchema?.properties;
+            if (!tool.description || tool.description.length === 0) {
+                throw new Error(`[EXECUTION] Tool "${tool.name}" is missing description`);
+            }
             return {
                 name: tool.name,
-                description: tool.description || 'No description',
+                description: tool.description,
                 parameters: props && typeof props === 'object' ? Object.keys(props) : []
             };
         });
@@ -263,8 +271,8 @@ export class ExecutionService {
                     method: 'execute',
                     inputLength: input.length,
                     messageCount: messages.length,
-                    aiProvider: aiProviderInfo?.providerName || 'unknown',
-                    model: aiProviderInfo?.model || 'unknown',
+                    aiProvider: aiProviderInfo.providerName,
+                    model: aiProviderInfo.model,
                     toolsAvailable: toolsInfo.map((t) => t.name),
                     agentCapabilities: {
                         canUseTools: toolsInfo.length > 0,
@@ -292,7 +300,10 @@ export class ExecutionService {
                     } else if (msg.role === 'system') {
                         conversationSession.addSystemMessage(msg.content, msg.metadata);
                     } else if (msg.role === 'tool') {
-                        const toolName = (msg.metadata?.['toolName'] as string) || 'unknown';
+                        const toolName = msg.metadata?.['toolName'];
+                        if (typeof toolName !== 'string' || toolName.length === 0) {
+                            throw new Error('[EXECUTION] Tool message missing toolName metadata');
+                        }
                         conversationSession.addToolMessageWithId(
                             msg.content,
                             (msg as IToolMessage).toolCallId,
@@ -326,7 +337,7 @@ export class ExecutionService {
             if (shouldAddInput) {
                 conversationSession.addUserMessage(input, { executionId });
 
-                const rootId = fullContext.conversationId || executionId;
+                const rootId: string = conversationId;
                 this.emitExecution(
                     EXECUTION_EVENTS.USER_MESSAGE,
                     {
@@ -355,7 +366,7 @@ export class ExecutionService {
             // Call beforeRun hook on all plugins
             await this.callPluginHook('beforeRun', {
                 input,
-                metadata: (context?.metadata || {}) as TMetadata
+                ...(context?.metadata ? { metadata: context.metadata as TMetadata } : {})
             });
 
             // Use already retrieved provider info from rich data collection above
@@ -389,13 +400,17 @@ export class ExecutionService {
                 });
 
                 // Generate the thinking node id for this round at round start.
-                const rootId = fullContext.conversationId || executionId;
+                const rootId: string = conversationId;
                 // Path-only stable thinking id: conversation-level round (next assistant turn)
-                const assistantMessageCount = (conversationSession.getMessages() || []).filter(m => m.role === 'assistant').length;
+                const historyMessages = conversationSession.getMessages();
+                if (!Array.isArray(historyMessages)) {
+                    throw new Error('[EXECUTION] Conversation messages must be an array');
+                }
+                const assistantMessageCount = historyMessages.filter(m => m.role === 'assistant').length;
                 const thinkingNodeId = `thinking_${rootId}_round${assistantMessageCount + 1}`;
 
                 // Get messages from conversation history
-                const conversationMessages = conversationSession.getMessages();
+                const conversationMessages = historyMessages;
 
                 this.logger.debug('Current conversation messages', {
                     round: currentRound,
@@ -460,11 +475,16 @@ export class ExecutionService {
                         }
                     },
                     () => this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId),
-                    ctx => bindWithOwnerPath(this.baseEventService, {
-                        ownerType: ctx.ownerType ?? 'thinking',
-                        ownerId: ctx.ownerId ?? thinkingNodeId,
-                        ownerPath: ctx.ownerPath
-                    })
+                    ctx => {
+                        if (!ctx.ownerType || !ctx.ownerId) {
+                            throw new Error('[EXECUTION] Missing owner context for thinking event');
+                        }
+                        return bindWithOwnerPath(this.baseEventService, {
+                            ownerType: ctx.ownerType,
+                            ownerId: ctx.ownerId,
+                            ownerPath: ctx.ownerPath
+                        });
+                    }
                 );
 
                 const response = await provider.chat(conversationMessages, chatOptions);
@@ -473,11 +493,17 @@ export class ExecutionService {
                     ? (response as IAssistantMessage).toolCalls
                     : undefined;
 
+                if (typeof response.content !== 'string') {
+                    throw new Error('[EXECUTION] Provider response content is required');
+                }
+                if (assistantToolCalls && !Array.isArray(assistantToolCalls)) {
+                    throw new Error('[EXECUTION] assistant toolCalls must be an array');
+                }
                 this.logger.debug(`🤖 [ROUND-${currentRound}] Provider response completed`, {
                     executionId,
                     conversationId: fullContext.conversationId,
                     round: currentRound,
-                    responseLength: response.content?.length || 0,
+                    responseLength: response.content.length,
                     hasToolCalls: Array.isArray(assistantToolCalls) && assistantToolCalls.length > 0,
                     toolCallsCount: Array.isArray(assistantToolCalls) ? assistantToolCalls.length : 0
                 });
@@ -495,8 +521,14 @@ export class ExecutionService {
                 }
 
                 const assistantResponse = response as IAssistantMessage;
+                if (typeof assistantResponse.content !== 'string') {
+                    throw new Error('[EXECUTION] assistant response content is required');
+                }
+                if (!Array.isArray(assistantResponse.toolCalls)) {
+                    throw new Error('[EXECUTION] assistantResponse.toolCalls must be an array');
+                }
                 conversationSession.addAssistantMessage(
-                    assistantResponse.content ?? null,  // Convert undefined to null for consistency
+                    assistantResponse.content,
                     assistantResponse.toolCalls,
                     {
                         round: currentRound,
@@ -504,24 +536,24 @@ export class ExecutionService {
                     }
                 );
 
-                this.logger.debug(`[RULE-9-DEBUG] Round ${currentRound} response check: toolCalls=${assistantResponse.toolCalls?.length || 0}`, {
+                this.logger.debug(`[RULE-9-DEBUG] Round ${currentRound} response check: toolCalls=${assistantResponse.toolCalls.length}`, {
                     round: currentRound,
-                    hasToolCalls: !!assistantResponse.toolCalls,
-                    toolCallsLength: assistantResponse.toolCalls?.length || 0,
-                    responseContent: assistantResponse.content?.substring(0, 100) + '...'
+                    hasToolCalls: assistantResponse.toolCalls.length > 0,
+                    toolCallsLength: assistantResponse.toolCalls.length,
+                    responseContent: assistantResponse.content.substring(0, 100) + '...'
                 });
 
                 // [ROUND2-DEBUG] Extra diagnostics for Round 2 response
                 if (currentRound === 2) {
                     this.logger.info(`🔍 [ROUND2-DEBUG] Round 2 AI Response for agent ${fullContext.conversationId}:`);
-                    this.logger.info(`🔍 [ROUND2-DEBUG] - Content: ${assistantResponse.content?.substring(0, 200)}...`);
-                    this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Calls: ${assistantResponse.toolCalls?.length || 0}`);
-                    if (assistantResponse.toolCalls && assistantResponse.toolCalls.length > 0) {
+                    this.logger.info(`🔍 [ROUND2-DEBUG] - Content: ${assistantResponse.content.substring(0, 200)}...`);
+                    this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Calls: ${assistantResponse.toolCalls.length}`);
+                    if (assistantResponse.toolCalls.length > 0) {
                         this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Call Details: ${JSON.stringify(assistantResponse.toolCalls.map(tc => ({ id: tc.id, name: tc.function?.name })))}`);
                     }
                 }
 
-                if (!assistantResponse.toolCalls || assistantResponse.toolCalls.length === 0) {
+                if (assistantResponse.toolCalls.length === 0) {
                     // No tools to execute, we're done
                     this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} ENDING - no tool calls for agent ${fullContext.conversationId}`);
                     this.logger.debug(`[AGENT-FLOW-CONTROL] Round ${currentRound} completed - no tool calls, execution finished for agent ${fullContext.conversationId}`);
@@ -530,16 +562,22 @@ export class ExecutionService {
                     this.logger.info(`🔍 [EXECUTION-VERIFICATION] Agent ${fullContext.conversationId} - Round ${currentRound} - No tool calls detected`);
                     this.logger.info(`🔍 [EXECUTION-VERIFICATION] ExecutionContext exists: ${!!this.executionContext}`);
                     if (this.executionContext) {
-                        this.logger.info(`🔍 [EXECUTION-VERIFICATION] Parent ID: ${this.executionContext.parentExecutionId || 'none'}`);
-                        this.logger.info(`🔍 [EXECUTION-VERIFICATION] Execution Level: ${this.executionContext.executionLevel || 'none'}`);
+                        this.logger.info(`🔍 [EXECUTION-VERIFICATION] Parent ID: ${this.executionContext.parentExecutionId}`);
+                        this.logger.info(`🔍 [EXECUTION-VERIFICATION] Execution Level: ${this.executionContext.executionLevel}`);
                     }
 
                     // [EVENT-ORTHODOXY] Emit events consistently; do not conditionally suppress emission.
                     // The handler decides whether to process the event based on context.
                     this.logger.info(`🔧 [EVENT-ORTHODOXY] Emitting assistant_message_complete for Round ${currentRound} completion (no tool calls)`);
 
-                    const responseContent = assistantResponse.content || 'No response';
-                    const responseStartTime = assistantResponse.timestamp || new Date();
+                    if (typeof assistantResponse.content !== 'string' || assistantResponse.content.length === 0) {
+                        throw new Error('[EXECUTION] assistant response content is required');
+                    }
+                    if (!(assistantResponse.timestamp instanceof Date)) {
+                        throw new Error('[EXECUTION] assistant response timestamp is required');
+                    }
+                    const responseContent = assistantResponse.content;
+                    const responseStartTime = assistantResponse.timestamp;
                     const responseDuration = new Date().getTime() - responseStartTime.getTime();
 
                     this.emitWithContext(
@@ -556,7 +594,7 @@ export class ExecutionService {
                             },
                             result: {
                                 success: true,
-                                data: responseContent.substring(0, 100) + '...' || 'Round completed',
+                                data: responseContent.substring(0, 100) + '...',
                                 fullResponse: responseContent,
                                 responseMetrics: {
                                     length: responseContent.length,
@@ -580,11 +618,16 @@ export class ExecutionService {
                             }
                         },
                         () => this.buildResponseOwnerContext(rootId, executionId, thinkingNodeId),
-                        ctx => bindWithOwnerPath(this.baseEventService, {
-                            ownerType: ctx.ownerType ?? 'response',
-                            ownerId: ctx.ownerId ?? `response_${thinkingNodeId}`,
-                            ownerPath: ctx.ownerPath
-                        })
+                        ctx => {
+                            if (!ctx.ownerType || !ctx.ownerId) {
+                                throw new Error('[EXECUTION] Missing owner context for response event');
+                            }
+                            return bindWithOwnerPath(this.baseEventService, {
+                                ownerType: ctx.ownerType,
+                                ownerId: ctx.ownerId,
+                                ownerPath: ctx.ownerPath
+                            });
+                        }
                     );
 
                     this.logger.info(`🔍 [EXECUTION-VERIFICATION] Breaking execution loop - should prevent Round ${currentRound + 1}`);
@@ -605,7 +648,7 @@ export class ExecutionService {
 
                 // Execute tools
                 // Ensure proper ID hierarchy for tool execution
-                const toolRootId = fullContext.conversationId ?? executionId;
+                const toolRootId: string = conversationId;
                 const rootForTools = toolRootId;
                 // Absolute path-only: tool calls must be children of the thinking node (fork point).
                 const toolOwnerPathBase = this.buildThinkingOwnerContext(rootForTools, executionId, thinkingNodeId).ownerPath;
@@ -625,11 +668,16 @@ export class ExecutionService {
                         })
                     }
                 );
-                const toolRequests = toolRequestsBase.map(request => ({
-                    ...request,
-                    eventService: this.ensureToolEventService(request.ownerId ?? request.executionId, request.ownerPath),
-                    baseEventService: this.baseEventService
-                }));
+                const toolRequests = toolRequestsBase.map(request => {
+                    if (!request.ownerId) {
+                        throw new Error('[EXECUTION] Tool request missing ownerId');
+                    }
+                    return {
+                        ...request,
+                        eventService: this.ensureToolEventService(request.ownerId, request.ownerPath),
+                        baseEventService: this.baseEventService
+                    };
+                });
                 const toolContext: IToolExecutionBatchContext = {
                     requests: toolRequests,
                     mode: 'parallel',
@@ -639,13 +687,22 @@ export class ExecutionService {
 
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
 
-                toolsExecuted.push(...toolSummary.results.map(r => r.toolName || 'unknown'));
+                toolsExecuted.push(...toolSummary.results.map(r => {
+                    if (!r.toolName || r.toolName.length === 0) {
+                        throw new Error('[EXECUTION] Tool result missing toolName');
+                    }
+                    return r.toolName;
+                }));
 
                 // Add tool results to history in the order they were called
                 // This ensures proper conversation flow and prevents any duplicate entries
                 for (const toolCall of assistantResponse.toolCalls) {
                     if (!toolCall.id) {
                         throw new Error(`Tool call missing ID: ${JSON.stringify(toolCall)}`);
+                    }
+                    const toolCallName = toolCall.function?.name;
+                    if (!toolCallName || toolCallName.length === 0) {
+                        throw new Error(`[EXECUTION] Tool call "${toolCall.id}" missing function name`);
                     }
 
                     // Find the corresponding result for this tool call
@@ -656,28 +713,41 @@ export class ExecutionService {
                     let metadata: Record<string, string | number | boolean> = { round: currentRound };
 
                     if (result && result.success) {
-                        // Successful tool execution
+                        if (typeof result.result === 'undefined') {
+                            throw new Error('[EXECUTION] Tool result missing result payload');
+                        }
                         content = typeof result.result === 'string'
                             ? result.result
-                            : JSON.stringify(result.result || 'Tool executed successfully');
+                            : JSON.stringify(result.result);
                         metadata['success'] = true;
                         if (result.toolName) {
                             metadata['toolName'] = result.toolName;
                         }
                     } else if (result && !result.success) {
                         // Tool execution failed (result is still present to preserve deterministic ordering)
-                        content = `Error: ${result.error || 'Unknown error'}`;
+                        if (!result.error || result.error.length === 0) {
+                            throw new Error('[EXECUTION] Tool result missing error message');
+                        }
+                        content = `Error: ${result.error}`;
                         metadata['success'] = false;
-                        metadata['error'] = result.error || 'Unknown error';
+                        metadata['error'] = result.error;
                         if (result.toolName) {
                             metadata['toolName'] = result.toolName;
                         }
                     } else if (error) {
                         // Tool execution failed
                         const execError = error as IExecutionError;
-                        content = `Error: ${execError.error?.message || execError.message || 'Unknown error'}`;
+                        const execMessage = (() => {
+                            if (execError.error?.message) return execError.error.message;
+                            if (execError.message) return execError.message;
+                            return '';
+                        })();
+                        if (!execMessage || execMessage.length === 0) {
+                            throw new Error('[EXECUTION] Tool execution error missing message');
+                        }
+                        content = `Error: ${execMessage}`;
                         metadata['success'] = false;
-                        metadata['error'] = execError.error?.message || execError.message || 'Unknown error';
+                        metadata['error'] = execMessage;
                         if (execError.toolName) {
                             metadata['toolName'] = execError.toolName;
                         }
@@ -690,7 +760,7 @@ export class ExecutionService {
                     // This will throw an error if duplicate toolCallId is detected
                     this.logger.debug('Adding tool result to conversation', {
                         toolCallId: toolCall.id,
-                        toolName: toolCall.function?.name,
+                        toolName: toolCallName,
                         content: content.substring(0, 100),
                         round: currentRound,
                         currentHistoryLength: conversationSession.getMessages().length
@@ -699,7 +769,7 @@ export class ExecutionService {
                     conversationSession.addToolMessageWithId(
                         content,
                         toolCall.id,
-                        toolCall.function?.name || 'unknown',
+                        toolCallName,
                         metadata
                     );
 
@@ -711,7 +781,7 @@ export class ExecutionService {
                 }
 
                 // Emit tool results ready (join trigger) and then delivery to LLM
-                const toolResultsRootId = rootId;
+                const toolResultsRootId: string = rootId;
                 this.emitWithContext(
                     EXECUTION_EVENTS.TOOL_RESULTS_READY,
                     {
@@ -720,11 +790,16 @@ export class ExecutionService {
                         }
                     },
                     () => this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId),
-                    ctx => bindWithOwnerPath(this.baseEventService, {
-                        ownerType: ctx.ownerType ?? 'thinking',
-                        ownerId: ctx.ownerId ?? thinkingNodeId,
-                        ownerPath: ctx.ownerPath
-                    })
+                    ctx => {
+                        if (!ctx.ownerType || !ctx.ownerId) {
+                            throw new Error('[EXECUTION] Missing owner context for tool results ready');
+                        }
+                        return bindWithOwnerPath(this.baseEventService, {
+                            ownerType: ctx.ownerType,
+                            ownerId: ctx.ownerId,
+                            ownerPath: ctx.ownerPath
+                        });
+                    }
                 );
 
                 this.emitWithContext(
@@ -735,16 +810,26 @@ export class ExecutionService {
                             round: currentRound
                         },
                         metadata: {
-                            toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
+                            toolsExecuted: toolSummary.results.map(r => {
+                                if (!r.toolName || r.toolName.length === 0) {
+                                    throw new Error('[EXECUTION] Tool result missing toolName');
+                                }
+                                return r.toolName;
+                            }),
                             round: currentRound
                         }
                     },
                     () => this.buildThinkingOwnerContext(toolResultsRootId, executionId, thinkingNodeId),
-                    ctx => bindWithOwnerPath(this.baseEventService, {
-                        ownerType: ctx.ownerType ?? 'thinking',
-                        ownerId: ctx.ownerId ?? thinkingNodeId,
-                        ownerPath: ctx.ownerPath
-                    })
+                    ctx => {
+                        if (!ctx.ownerType || !ctx.ownerId) {
+                            throw new Error('[EXECUTION] Missing owner context for tool results to llm');
+                        }
+                        return bindWithOwnerPath(this.baseEventService, {
+                            ownerType: ctx.ownerType,
+                            ownerId: ctx.ownerId,
+                            ownerPath: ctx.ownerPath
+                        });
+                    }
                 );
 
                 // Continue to next round - let the AI decide if more tools are needed
@@ -767,18 +852,26 @@ export class ExecutionService {
             const lastAssistantMessage = finalMessages
                 .filter(msg => msg.role === 'assistant')
                 .pop();
+            if (!lastAssistantMessage || typeof lastAssistantMessage.content !== 'string' || lastAssistantMessage.content.length === 0) {
+                throw new Error('[EXECUTION] Final assistant message is required');
+            }
 
             const duration = Date.now() - startTime.getTime();
             const result: IExecutionResult = {
-                response: lastAssistantMessage?.content || 'No response generated',
-                messages: finalMessages.map(msg => ({
-                    role: msg.role,
-                    content: msg.content || '',
-                    timestamp: msg.timestamp,
-                    metadata: msg.metadata,
-                    ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
-                    ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {})
-                })) as TUniversalMessage[],
+                response: lastAssistantMessage.content,
+                messages: finalMessages.map(msg => {
+                    if (typeof msg.content !== 'string') {
+                        throw new Error('[EXECUTION] Message content is required');
+                    }
+                    return {
+                        role: msg.role,
+                        content: msg.content,
+                        timestamp: msg.timestamp,
+                        metadata: msg.metadata,
+                        ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
+                        ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {})
+                    };
+                }) as TUniversalMessage[],
                 executionId,
                 duration,
                 tokensUsed: finalMessages
@@ -786,7 +879,11 @@ export class ExecutionService {
                     .reduce((sum, msg) => {
                         const usage = msg.metadata?.['usage'];
                         if (usage && typeof usage === 'object' && 'totalTokens' in usage) {
-                            return sum + (Number(usage.totalTokens) || 0);
+                            const totalTokens = Number(usage.totalTokens);
+                            if (Number.isNaN(totalTokens)) {
+                                throw new Error('[EXECUTION] totalTokens must be a number');
+                            }
+                            return sum + totalTokens;
                         }
                         return sum;
                     }, 0),
@@ -810,7 +907,7 @@ export class ExecutionService {
             // execution.assistant_message_complete emission is handled in the main execution loop.
 
             // Emit execution complete event
-            const rootIdComplete = fullContext.conversationId || executionId;
+            const rootIdComplete = conversationId;
             this.emitExecution(
                 EXECUTION_EVENTS.COMPLETE,
                 {
@@ -860,7 +957,7 @@ export class ExecutionService {
                         // Identity/hierarchy fields are derived from EventContext.ownerPath.
                     }
                 },
-                fullContext.conversationId || executionId,
+                conversationId,
                 executionId
             );
 
@@ -883,12 +980,15 @@ export class ExecutionService {
 
         const executionId = this.generateExecutionId();
         const startTime = Date.now();
-        const streamingConversationId = context?.conversationId || executionId;
+        if (!context?.conversationId || context.conversationId.length === 0) {
+            throw new Error('[EXECUTION] conversationId is required for streaming');
+        }
+        const streamingConversationId = this.requireConversationId(context, 'streaming');
         this.prepareOwnerPathBases(streamingConversationId);
 
         try {
             // Create conversation session for this execution
-            const conversationSession = this.conversationHistory.getConversationSession(context?.conversationId || 'default');
+            const conversationSession = this.conversationHistory.getConversationSession(context.conversationId);
 
             // Add user input to conversation
             if (input) {
@@ -898,7 +998,7 @@ export class ExecutionService {
             // Call beforeRun hook on all plugins
             await this.callPluginHook('beforeRun', {
                 input,
-                metadata: (context?.metadata || {}) as TMetadata
+                ...(context?.metadata ? { metadata: context.metadata as TMetadata } : {})
             });
 
             // Get current provider info
@@ -924,9 +1024,11 @@ export class ExecutionService {
             const conversationMessages = conversationSession.getMessages();
 
             // Create chat options
-            this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools:', { length: config.tools?.length || 0 });
+            const configToolsLength = Array.isArray(config.tools) ? config.tools.length : undefined;
+            this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools:', { length: configToolsLength });
             const toolSchemas = this.tools.getTools();
-            this.logger.debug('🔍 [EXECUTION-SERVICE] this.tools.getTools():', { length: toolSchemas?.length || 0 });
+            const toolSchemasLength = Array.isArray(toolSchemas) ? toolSchemas.length : undefined;
+            this.logger.debug('🔍 [EXECUTION-SERVICE] this.tools.getTools():', { length: toolSchemasLength });
             this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools exists:', { exists: !!config.tools });
             this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools.length > 0:', { hasTools: config.tools && config.tools.length > 0 });
 
@@ -936,7 +1038,8 @@ export class ExecutionService {
             };
 
             this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions has tools:', { hasTools: !!chatOptions.tools });
-            this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions.tools length:', { length: chatOptions.tools?.length || 0 });
+            const chatOptionsToolsLength = Array.isArray(chatOptions.tools) ? chatOptions.tools.length : undefined;
+            this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions.tools length:', { length: chatOptionsToolsLength });
 
             const chatStream = provider.chatStream;
             if (!chatStream) {
@@ -963,25 +1066,42 @@ export class ExecutionService {
                         for (const chunkToolCall of assistantChunk.toolCalls) {
                             if (chunkToolCall.id && chunkToolCall.id !== '') {
                                 // ✅ Tool call id present: start a new tool call
+                                if (!chunkToolCall.type || chunkToolCall.type.length === 0) {
+                                    throw new Error(`[EXECUTION] Tool call "${chunkToolCall.id}" missing type in stream`);
+                                }
+                                if (!chunkToolCall.function?.name || chunkToolCall.function.name.length === 0) {
+                                    throw new Error(`[EXECUTION] Tool call "${chunkToolCall.id}" missing function name in stream`);
+                                }
+                                if (typeof chunkToolCall.function.arguments !== 'string') {
+                                    throw new Error(`[EXECUTION] Tool call "${chunkToolCall.id}" missing arguments in stream`);
+                                }
                                 currentToolCallIndex = toolCalls.length;
                                 toolCalls.push({
                                     id: chunkToolCall.id,
-                                    type: chunkToolCall.type || 'function',
+                                    type: chunkToolCall.type,
                                     function: {
-                                        name: chunkToolCall.function?.name || '',
-                                        arguments: chunkToolCall.function?.arguments || ''
+                                        name: chunkToolCall.function.name,
+                                        arguments: chunkToolCall.function.arguments
                                     }
                                 });
                                 this.logger.debug(`🆕 [TOOL-STREAM] New tool call started: ${chunkToolCall.id} (${chunkToolCall.function?.name})`);
                             } else if (currentToolCallIndex >= 0) {
                                 // ✅ Tool call id missing: append fragments to the current tool call
-                                if (chunkToolCall.function?.name) {
-                                    toolCalls[currentToolCallIndex].function.name += chunkToolCall.function.name;
+                                const hasNameFragment = typeof chunkToolCall.function?.name === 'string' && chunkToolCall.function.name.length > 0;
+                                const hasArgumentsFragment = typeof chunkToolCall.function?.arguments === 'string' && chunkToolCall.function.arguments.length > 0;
+                                if (!hasNameFragment && !hasArgumentsFragment) {
+                                    throw new Error(`[EXECUTION] Tool call fragment missing name/arguments for ${toolCalls[currentToolCallIndex].id}`);
                                 }
-                                if (chunkToolCall.function?.arguments) {
-                                    toolCalls[currentToolCallIndex].function.arguments += chunkToolCall.function.arguments;
+                                if (hasNameFragment) {
+                                    toolCalls[currentToolCallIndex].function.name += chunkToolCall.function!.name;
                                 }
-                                this.logger.debug(`📝 [TOOL-STREAM] Adding fragment to tool ${toolCalls[currentToolCallIndex].id}: "${chunkToolCall.function?.arguments || chunkToolCall.function?.name || ''}"`);
+                                if (hasArgumentsFragment) {
+                                    toolCalls[currentToolCallIndex].function.arguments += chunkToolCall.function!.arguments;
+                                }
+                                const fragmentPreview = hasArgumentsFragment
+                                    ? chunkToolCall.function!.arguments
+                                    : chunkToolCall.function!.name;
+                                this.logger.debug(`📝 [TOOL-STREAM] Adding fragment to tool ${toolCalls[currentToolCallIndex].id}: "${fragmentPreview}"`);
                             }
                         }
                     }
@@ -990,10 +1110,12 @@ export class ExecutionService {
 
             this.logger.debug('🔥 [EXECUTION-SERVICE-STREAM] Stream completed, toolCalls detected:', { count: toolCalls.length });
 
-            // Add assistant response to conversation (with tool calls if any)
+            if (typeof fullResponse !== 'string') {
+                throw new Error('[EXECUTION] Streaming response content is required');
+            }
             conversationSession.addAssistantMessage(
-                fullResponse || null,
-                toolCalls.length > 0 ? toolCalls : undefined,
+                fullResponse,
+                toolCalls,
                 { executionId }
             );
 
@@ -1002,7 +1124,7 @@ export class ExecutionService {
                 this.logger.debug('🔥 [EXECUTION-SERVICE-STREAM] Executing tools:', { tools: toolCalls.map(tc => tc.function.name) });
 
                 // Execute tools with hierarchical context
-                const streamingRootId = context?.conversationId ?? executionId;
+                const streamingRootId = streamingConversationId;
                 // Generate thinking node ID for streaming mode (direct provision)
                 const streamingThinkingNodeId = `thinking_${streamingRootId}_${Date.now()}_${executionId}`;
                 const streamingOwnerPathBase = [...this.buildExecutionOwnerContext(streamingRootId, executionId).ownerPath, { type: 'thinking', id: streamingThinkingNodeId }];
@@ -1024,7 +1146,10 @@ export class ExecutionService {
                 // Add tool results to conversation in the order they were called
                 for (const toolCall of toolCalls) {
                     if (!toolCall.id) {
-                        continue;
+                        throw new Error('[EXECUTION] Tool call missing id in streaming mode');
+                    }
+                    if (!toolCall.function?.name || toolCall.function.name.length === 0) {
+                        throw new Error(`[EXECUTION] Tool call "${toolCall.id}" missing function name in streaming mode`);
                     }
 
                     // Find the corresponding result for this tool call
@@ -1035,10 +1160,12 @@ export class ExecutionService {
                     let metadata: Record<string, string | number | boolean> = { executionId };
 
                     if (result && result.success) {
-                        // Successful tool execution
+                        if (typeof result.result === 'undefined') {
+                            throw new Error('[EXECUTION] Tool result missing result payload in streaming mode');
+                        }
                         content = typeof result.result === 'string'
                             ? result.result
-                            : JSON.stringify(result.result || 'Tool executed successfully');
+                            : JSON.stringify(result.result);
                         metadata['success'] = true;
                         if (result.toolName) {
                             metadata['toolName'] = result.toolName;
@@ -1049,22 +1176,25 @@ export class ExecutionService {
                     } else if (error) {
                         // Tool execution failed
                         const execError = error as IExecutionError;
-                        content = `Error: ${execError.error?.message || execError.message || 'Unknown error'}`;
+                        const execMessage = (() => {
+                            if (execError.error?.message) return execError.error.message;
+                            if (execError.message) return execError.message;
+                            return '';
+                        })();
+                        if (!execMessage || execMessage.length === 0) {
+                            throw new Error('[EXECUTION] Tool execution error missing message in streaming mode');
+                        }
+                        content = `Error: ${execMessage}`;
                         metadata['success'] = false;
-                        metadata['error'] = execError.error?.message || execError.message || 'Unknown error';
+                        metadata['error'] = execMessage;
                         if (execError.toolName) {
                             metadata['toolName'] = execError.toolName;
                         }
 
                         // Yield error as streaming chunk
-                        yield { chunk: `\n[Tool: ${toolCall.function.name} failed: ${execError.error?.message || execError.message || 'Unknown error'}]`, isComplete: false };
+                        yield { chunk: `\n[Tool: ${toolCall.function.name} failed: ${execMessage}]`, isComplete: false };
                     } else {
-                        // Unknown state
-                        content = 'Tool execution completed with unknown result';
-                        metadata['success'] = false;
-
-                        // Yield unknown state as streaming chunk  
-                        yield { chunk: `\n[Tool: ${toolCall.function.name} completed with unknown result]`, isComplete: false };
+                        throw new Error(`[EXECUTION] Missing tool result for tool call "${toolCall.id}" in streaming mode`);
                     }
 
                     // Add tool result to conversation history
@@ -1077,12 +1207,17 @@ export class ExecutionService {
                 }
 
                 // After all tool responses are emitted and recorded, trigger aggregation join
-                const streamingRoot = context?.conversationId || executionId;
+                const streamingRoot = streamingConversationId;
                 this.emitExecution(
                     EXECUTION_EVENTS.TOOL_RESULTS_READY,
                     {
                         metadata: {
-                            toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
+                            toolsExecuted: toolSummary.results.map(r => {
+                                if (!r.toolName || r.toolName.length === 0) {
+                                    throw new Error('[EXECUTION] Tool result missing toolName');
+                                }
+                                return r.toolName;
+                            }),
                             round: 1,
                         }
                     },
@@ -1095,7 +1230,7 @@ export class ExecutionService {
             await this.callPluginHook('afterRun', {
                 input,
                 response: fullResponse,
-                metadata: (context?.metadata || {}) as TMetadata
+                ...(context?.metadata ? { metadata: context.metadata as TMetadata } : {})
             });
 
             yield { chunk: '', isComplete: true };
@@ -1110,7 +1245,7 @@ export class ExecutionService {
             await this.callPluginHook('onError', {
                 input,
                 error: error instanceof Error ? error : new Error(String(error)),
-                metadata: (context?.metadata || {}) as TMetadata
+                ...(context?.metadata ? { metadata: context.metadata as TMetadata } : {})
             });
 
             throw error;
@@ -1233,7 +1368,7 @@ export class ExecutionService {
             return this.toolEventServices.get(ownerId)!;
         }
         const scoped = bindWithOwnerPath(this.baseEventService, {
-            ownerType: 'tool',
+            ownerType: TOOL_EVENT_PREFIX,
             ownerId,
             ownerPath: ownerPath.map(segment => ({ ...segment })),
         });
@@ -1267,7 +1402,7 @@ export class ExecutionService {
         }
         path.push({ type: 'execution', id: executionId });
         return {
-            ownerType: 'execution',
+            ownerType: EXECUTION_EVENT_PREFIX,
             ownerId: executionId,
             ownerPath: path
         };
@@ -1289,7 +1424,7 @@ export class ExecutionService {
         const base = this.buildExecutionOwnerContext(rootId, executionId).ownerPath;
         const path = [...base, { type: 'tool', id: toolCallId }];
         return {
-            ownerType: 'tool',
+            ownerType: TOOL_EVENT_PREFIX,
             ownerId: toolCallId,
             ownerPath: path
         };
@@ -1311,11 +1446,16 @@ export class ExecutionService {
             eventType,
             data,
             () => this.buildExecutionOwnerContext(rootId, executionId),
-            context => bindWithOwnerPath(this.baseEventService, {
-                ownerType: context.ownerType ?? 'execution',
-                ownerId: context.ownerId ?? executionId,
-                ownerPath: context.ownerPath
-            })
+            context => {
+                if (!context.ownerType || !context.ownerId) {
+                    throw new Error('[EXECUTION] Missing owner context for execution event');
+                }
+                return bindWithOwnerPath(this.baseEventService, {
+                    ownerType: context.ownerType,
+                    ownerId: context.ownerId,
+                    ownerPath: context.ownerPath
+                });
+            }
         );
     }
 
@@ -1346,18 +1486,31 @@ export class ExecutionService {
         service.emit(eventType, payload, context);
     }
 
+    private requireConversationId(context: { conversationId?: string } | undefined, label: string): string {
+        if (!context?.conversationId || context.conversationId.length === 0) {
+            throw new Error(`[EXECUTION] conversationId is required for ${label}`);
+        }
+        return context.conversationId;
+    }
+
     /**
      * Convert IExecutionContext to IPluginContext compatible format
      */
     private convertExecutionContextToPluginFormat(context: IExecutionContext): Record<string, string | number | boolean> {
-        return {
-            conversationId: context.conversationId || '',
-            sessionId: context.sessionId || '',
-            userId: context.userId || '',
+        const conversationId = this.requireConversationId(context, 'plugin-context');
+        const payload: Record<string, string | number | boolean> = {
+            conversationId: conversationId,
             executionId: context.executionId,
             startTime: context.startTime.toISOString(),
             messageCount: context.messages.length
         };
+        if (context.sessionId) {
+            payload.sessionId = context.sessionId;
+        }
+        if (context.userId) {
+            payload.userId = context.userId;
+        }
+        return payload;
     }
 
 }

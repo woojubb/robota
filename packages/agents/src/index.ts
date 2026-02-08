@@ -253,9 +253,6 @@ export type { TWebhookEventName, IWebhookPayload, IWebhookEndpoint, IWebhookPlug
  */
 export { Robota } from './core/robota';
 
-// Agent event constants (public API) - used by workflow handlers
-export { AGENT_EVENTS } from './agents/constants';
-
 // ===== PROVIDER COMPATIBILITY NOTICE =====
 /**
  * **Important**: Provider implementations are no longer re-exported to prevent circular dependencies.
@@ -333,6 +330,7 @@ export {
     bindWithOwnerPath,
     DefaultEventService,
     StructuredEventService,
+    composeEventName,
 } from './services/event-service';
 export type { IEventService } from './services/event-service';
 export type { IBaseEventData } from './services/event-service';
@@ -344,8 +342,11 @@ export type { IEventEmitterPlugin } from './plugins/event-emitter/types';
 
 // ===== EVENT CONSTANT EXPORTS (PUBLIC) =====
 // NOTE: These are the single source of truth for event names. Do not hardcode strings.
-export { EXECUTION_EVENTS } from './services/execution-service';
-export { TOOL_EVENTS } from './services/tool-execution-service';
+export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './services/execution-service';
+export { TOOL_EVENTS, TOOL_EVENT_PREFIX } from './services/tool-execution-service';
+export { AGENT_EVENTS, AGENT_EVENT_PREFIX } from './agents/constants';
+export { TASK_EVENTS, TASK_EVENT_PREFIX } from './services/task-events';
+export { USER_EVENTS, USER_EVENT_PREFIX } from './services/user-events';
 
 // NOTE: Workflow builder/converter/visualization utilities were removed from @robota-sdk/agents.
 // Ownership is @robota-sdk/workflow. Agents must not depend on workflow to avoid circular package dependencies.

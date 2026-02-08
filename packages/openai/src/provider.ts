@@ -77,7 +77,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     override async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         this.validateMessages(messages);
 
-        // Try executor first, then fallback to direct execution
+        // Use executor when configured; otherwise use direct execution
         if (this.executor) {
             try {
                 return await this.executeViaExecutorOrDirect(messages, options);

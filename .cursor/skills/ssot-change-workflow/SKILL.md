@@ -12,7 +12,7 @@ Use this skill for SSOT ownership audits and phased example migrations.
 1. Define audit scope (packages/apps, include tests or not).
 2. Define a candidate collection routine for duplicate declarations.
 3. Build an inventory table with owner, consumer, issue category, batch, and summary.
-4. Execute batches in order (UI/contexts/hooks → message/conversation → tool contract → workflow graph → event axis).
+4. Execute batches in order (UI/contexts/hooks → message/conversation → tool contract → workflow graph → event name ownership).
 5. Verify each batch is complete before moving to the next.
 
 ## Example Ownership Migration Workflow

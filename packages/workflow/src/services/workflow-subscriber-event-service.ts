@@ -40,8 +40,8 @@ export class WorkflowSubscriberEventService implements IEventService {
             }
         }
 
-        // Backward compatibility: ignore legacy fields if they were injected into the data bag.
-        const { context: _legacyContext, ownerPath: _legacyOwnerPath, timestamp: _legacyTimestamp, ...rest } = data;
+        // Ignore conflicting envelope fields if they were injected into the data bag.
+        const { context: _context, ownerPath: _ownerPath, timestamp: _timestamp, ...rest } = data;
 
         const payload: TEventData = {
             ...rest,

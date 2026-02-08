@@ -9,7 +9,7 @@ The provider switching examples show how to:
 - Compare responses across multiple providers
 - Maintain conversation history when switching providers
 - Test different models within the same provider
-- Implement graceful fallbacks and error handling
+- Use explicit error handling without fallback paths
 
 ## Source Code
 

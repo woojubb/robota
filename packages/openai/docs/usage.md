@@ -518,9 +518,7 @@ try {
 } catch (error) {
   if (error instanceof Error) {
     console.error('AI request failed:', error.message);
-    
-    // Implement fallback logic
-    const fallbackResponse = await agent.run('Simplified version of the request');
+    throw error;
   }
 }
 ```
@@ -597,24 +595,9 @@ const chooseBestModel = (taskComplexity: 'simple' | 'complex') => {
 ### 3. Error Recovery
 
 ```typescript
-// Implement graceful degradation
-const safeRun = async (prompt: string, maxRetries = 3) => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await agent.run(prompt);
-    } catch (error) {
-      if (attempt === maxRetries) {
-        // Final fallback
-        return { 
-          content: 'I apologize, but I encountered an error processing your request.',
-          metadata: { error: true }
-        };
-      }
-      
-      // Wait before retry
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-    }
-  }
+// Single-path error propagation
+const safeRun = async (prompt: string) => {
+  return await agent.run(prompt);
 };
 ```
 

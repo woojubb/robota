@@ -315,9 +315,9 @@ export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions,
             case 'memory':
                 return new MemoryPerformanceStorage(this.pluginOptions.maxEntries);
             default:
-                // For now, fallback to memory storage for other strategies
-                this.logger.warn(`Strategy '${this.pluginOptions.strategy}' not fully implemented, using memory storage`);
-                return new MemoryPerformanceStorage(this.pluginOptions.maxEntries);
+                throw new ConfigurationError('Performance monitoring strategy is not implemented', {
+                    provided: this.pluginOptions.strategy
+                });
         }
     }
 } 
