@@ -1,4 +1,4 @@
-import type { IBaseEventData, IEventContext, IEventService, ILogger } from '@robota-sdk/agents';
+import type { IBaseEventData, IEventContext, IEventService, ILogger, TEventListener } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
 import type { TEventData } from '../interfaces/event-handler.js';
@@ -17,6 +17,7 @@ import type { IWorkflowEventSubscriber } from './workflow-event-subscriber.js';
  */
 export class WorkflowSubscriberEventService implements IEventService {
     private tail: Promise<void> = Promise.resolve();
+    private listeners = new Set<TEventListener>();
 
     constructor(
         private readonly subscriber: IWorkflowEventSubscriber,
@@ -53,6 +54,7 @@ export class WorkflowSubscriberEventService implements IEventService {
         this.tail = this.tail
             .then(async () => {
                 await this.subscriber.processEvent(String(eventType), payload);
+                this.notifyListeners(String(eventType), data, context);
             })
             .catch((error) => {
                 const err = error instanceof Error ? error : new Error(String(error));
@@ -65,12 +67,26 @@ export class WorkflowSubscriberEventService implements IEventService {
             });
     }
 
+    subscribe(listener: TEventListener): void {
+        this.listeners.add(listener);
+    }
+
+    unsubscribe(listener: TEventListener): void {
+        this.listeners.delete(listener);
+    }
+
     /**
      * Await all queued event processing.
      * Required for deterministic callers that export a snapshot after execution.
      */
     async flush(): Promise<void> {
         await this.tail;
+    }
+
+    private notifyListeners(eventType: string, data: IBaseEventData, context?: IEventContext): void {
+        for (const listener of this.listeners) {
+            listener(eventType, data, context);
+        }
     }
 }
 

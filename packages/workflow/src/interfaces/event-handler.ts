@@ -17,22 +17,6 @@ export type TWorkflowEventExtensionValue =
     | IEventContext;
 
 /**
- * Event handler priority levels
- */
-export enum HandlerPriority {
-    LOWEST = 0,
-    LOW = 25,
-    NORMAL = 50,
-    HIGH = 75,
-    HIGHEST = 100
-}
-
-/**
- * Event pattern matching types
- */
-export type TEventPattern = string | RegExp | ((eventType: string) => boolean);
-
-/**
  * Event data structure (domain-neutral)
  */
 export type TEventData =
@@ -83,18 +67,12 @@ export interface IEventHandler {
      * Handler identification
      */
     readonly name: string;
-    readonly priority: HandlerPriority;
-    readonly patterns: TEventPattern[];
-
-    /**
-     * Check if this handler can process the event
-     */
-    canHandle(eventType: string, eventData?: TEventData): boolean;
+    readonly eventName: string;
 
     /**
      * Process the event and return workflow updates
      */
-    handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult>;
+    handle(eventData: TEventData): Promise<IEventProcessingResult>;
 
     /**
      * Initialize handler (optional)
@@ -138,8 +116,6 @@ export interface IConfigurableEventHandler extends IEventHandler {
  */
 export interface IEventHandlerConfig {
     enabled?: boolean;
-    priority?: HandlerPriority;
-    patterns?: TEventPattern[];
     options?: Record<string, TWorkflowEventExtensionValue | undefined>;
     logger?: {
         debug: (message: string, ...args: TWorkflowEventExtensionValue[]) => void;
@@ -204,7 +180,7 @@ export interface IEventHandlerRegistry {
     /**
      * Get handlers for event type
      */
-    getHandlersForEvent(eventType: string): IEventHandler[];
+    getHandlerForEvent(eventType: string): IEventHandler | undefined;
 
     /**
      * Clear all handlers
@@ -265,34 +241,3 @@ export interface IContextualEventHandler extends IEventHandler {
 /**
  * Utility functions for event handling
  */
-export class EventHandlerUtils {
-    /**
-     * Create event pattern from string with wildcards
-     */
-    static createPattern(pattern: string): RegExp {
-        const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const withWildcards = escaped.replace(/\\\*/g, '.*').replace(/\\\?/g, '.');
-        return new RegExp(`^${withWildcards}$`);
-    }
-
-    /**
-     * Test if event matches pattern
-     */
-    static matchesPattern(eventType: string, pattern: TEventPattern): boolean {
-        if (typeof pattern === 'string') {
-            return pattern === eventType || eventType.startsWith(pattern);
-        } else if (pattern instanceof RegExp) {
-            return pattern.test(eventType);
-        } else if (typeof pattern === 'function') {
-            return pattern(eventType);
-        }
-        return false;
-    }
-
-    /**
-     * Sort handlers by priority (highest first)
-     */
-    static sortHandlersByPriority(handlers: IEventHandler[]): IEventHandler[] {
-        return [...handlers].sort((a, b) => b.priority - a.priority);
-    }
-}

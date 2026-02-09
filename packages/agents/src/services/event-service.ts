@@ -6,17 +6,40 @@ export type {
     IEventService,
     IEventServiceOwnerBinding,
     IOwnerPathSegment,
-    IToolEventData
+    IToolEventData,
+    TEventListener
 } from '../interfaces/event-service';
 
-import type { IBaseEventData, IEventContext, IEventService, IEventServiceOwnerBinding } from '../interfaces/event-service';
+import type {
+    IBaseEventData,
+    IEventContext,
+    IEventService,
+    IEventServiceOwnerBinding,
+    TEventListener
+} from '../interfaces/event-service';
 
 /**
  * Abstract base for event services.
  * Concrete implementations decide how events are delivered.
  */
 export abstract class AbstractEventService implements IEventService {
+    private listeners = new Set<TEventListener>();
+
     abstract emit(eventType: string, data: IBaseEventData, context?: IEventContext): void;
+
+    subscribe(listener: TEventListener): void {
+        this.listeners.add(listener);
+    }
+
+    unsubscribe(listener: TEventListener): void {
+        this.listeners.delete(listener);
+    }
+
+    protected notifyListeners(eventType: string, data: IBaseEventData, context?: IEventContext): void {
+        for (const listener of this.listeners) {
+            listener(eventType, data, context);
+        }
+    }
 }
 
 /**
@@ -87,6 +110,14 @@ export class StructuredEventService extends AbstractEventService {
         const fullEventName = composeEventName(this.binding.ownerType, eventType);
         this.base.emit(fullEventName, data, merged);
     }
+
+    override subscribe(listener: TEventListener): void {
+        this.base.subscribe(listener);
+    }
+
+    override unsubscribe(listener: TEventListener): void {
+        this.base.unsubscribe(listener);
+    }
 }
 
 /**
@@ -103,5 +134,14 @@ export function bindWithOwnerPath(base: IEventService, binding: IEventServiceOwn
  */
 export function bindEventServiceOwner(base: IEventService, binding: IEventServiceOwnerBinding): IEventService {
     return bindWithOwnerPath(base, binding);
+}
+
+/**
+ * Observable EventService that notifies subscribed listeners.
+ */
+export class ObservableEventService extends AbstractEventService {
+    emit(eventType: string, data: IBaseEventData, context?: IEventContext): void {
+        this.notifyListeners(eventType, data, context);
+    }
 }
 

@@ -10,7 +10,6 @@ import {
     AGENT_EVENT_PREFIX,
     composeEventName,
     type ILogger,
-    type IOwnerPathSegment,
     type TContextData
 } from '@robota-sdk/agents';
 import type {
@@ -18,22 +17,19 @@ import type {
     TEventData,
     IEventProcessingResult
 } from '../interfaces/event-handler.js';
-import { HandlerPriority } from '../interfaces/event-handler.js';
 import type {
     IWorkflowNode,
     IWorkflowNodeData,
-    IWorkflowNodeExtensions,
     IWorkflowOriginalEvent,
     TWorkflowConnectionKind,
-    TWorkflowNodeStatus
 } from '../interfaces/workflow-node.js';
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
-import type { IWorkflowStateAccess } from '../interfaces/workflow-state-access.js';
-import { extractPathInfo } from './path-info.js';
+import { extractPathInfo, findOwnerIdByType } from './path-info.js';
 import { AgentNodeBuilder } from './builders/agent-node-builder.js';
+import { type TWorkflowInstanceType, WorkflowInstanceRegistry } from '../services/instance-registry.js';
 
 const AGENT_EVENT_NAMES = {
     CREATED: composeEventName(AGENT_EVENT_PREFIX, AGENT_EVENTS.CREATED),
@@ -46,28 +42,30 @@ const AGENT_EVENT_NAMES = {
 
 class AgentEventLogic {
     private logger: ILogger;
-    private stateAccess: IWorkflowStateAccess;
     private nodeBuilder: AgentNodeBuilder;
+    private instanceRegistry: WorkflowInstanceRegistry;
     private agentNodeIdMap = new Map<string, string>();
 
     constructor(
         logger: ILogger = SilentLogger,
-        stateAccess: IWorkflowStateAccess,
-        nodeBuilder: AgentNodeBuilder
+        nodeBuilder: AgentNodeBuilder,
+        instanceRegistry: WorkflowInstanceRegistry
     ) {
         this.logger = logger;
-        this.stateAccess = stateAccess;
         this.nodeBuilder = nodeBuilder;
+        this.instanceRegistry = instanceRegistry;
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
         try {
-            const agentId = this.findNearestOwnerId(eventData.context.ownerPath, 'agent');
+            const agentId = findOwnerIdByType(eventData.context.ownerPath, 'agent', eventType);
             const executionId = typeof eventData.executionId === 'string' ? eventData.executionId : undefined;
             this.logger.debug(`🔔 [AGENT-HANDLER] Processing ${eventType}`, {
                 agentId,
                 executionId
             });
+
+            this.recordAgentInstance(eventType, agentId, eventData);
 
             const handler = this.getHandler(eventType);
             if (!handler) {
@@ -124,17 +122,13 @@ class AgentEventLogic {
         return handlers[eventType];
     }
 
-    private findNearestOwnerId(ownerPath: IOwnerPathSegment[] | undefined, ownerType: string): string | undefined {
-        if (!ownerPath || ownerPath.length === 0) {
-            return undefined;
+    private recordAgentInstance(eventType: string, agentId: string, eventData: TEventData): void {
+        const instanceType: TWorkflowInstanceType = 'agent';
+        if (eventType === AGENT_EVENT_NAMES.CREATED) {
+            this.instanceRegistry.register(instanceType, agentId, eventData);
+            return;
         }
-        for (let i = ownerPath.length - 1; i >= 0; i--) {
-            const seg = ownerPath[i];
-            if (seg?.type === ownerType && seg.id.length > 0) {
-                return seg.id;
-            }
-        }
-        return undefined;
+        this.instanceRegistry.update(instanceType, agentId, eventData);
     }
 
     private async handleAgentCreated(eventData: TEventData, agentId: string | undefined): Promise<IEventProcessingResult> {
@@ -179,12 +173,10 @@ class AgentEventLogic {
 
         const updates: TWorkflowUpdate[] = [];
         const pathInfo = extractPathInfo(eventData.context.ownerPath, AGENT_EVENT_NAMES.EXECUTION_START);
-        const existingAgentNodeId = this.findAgentNodeIdForExecutionStart(eventData, pathInfo);
+        const existingAgentNodeId = this.findAgentNodeIdForExecutionStart(agentId);
         if (existingAgentNodeId) {
-            const updatedNode = this.buildAgentExecutionStateUpdate(existingAgentNodeId, eventData);
-            if (updatedNode) {
-                updates.push({ action: 'update', node: updatedNode });
-            }
+            const patch = this.buildAgentExecutionStatePatch(eventData);
+            updates.push({ action: 'patch', nodeId: existingAgentNodeId, updates: patch });
 
             this.agentNodeIdMap.set(agentId, existingAgentNodeId);
             return { success: true, updates };
@@ -215,122 +207,50 @@ class AgentEventLogic {
         if (!agentId) {
             return { success: true, updates: [] };
         }
-        let existingId = this.agentNodeIdMap.get(agentId);
-        if (!existingId) {
-            try {
-                const nodesAccessor = this.stateAccess.getAllNodes();
-                const found = nodesAccessor.find(n => n?.type === WORKFLOW_NODE_TYPES.AGENT && String(n?.data?.sourceId) === agentId);
-                if (found?.id) existingId = String(found.id);
-            } catch {
-                // Ignore read errors.
+        const existingId = agentId;
+        const mergedOriginalEvent = this.mergeOriginalEvent(undefined, eventData);
+        const toolsFromEvent = eventData.parameters?.tools;
+        const normalizedTools = this.toStringArrayValue(toolsFromEvent);
+        const dataUpdates: IWorkflowNodeData = {
+            extensions: {
+                robota: {
+                    handlerType: 'agent',
+                    originalEvent: mergedOriginalEvent
+                }
             }
-            if (!existingId) {
-                return { success: true, updates: [] };
-            }
+        };
+        if (normalizedTools) {
+            dataUpdates.tools = normalizedTools;
         }
-        try {
-            const nodesAccessor = this.stateAccess.getAllNodes();
-            const existingNode = nodesAccessor.find(n => String(n?.id) === String(existingId));
-            if (existingNode) {
-                const existingRobota = existingNode.data?.extensions?.robota;
-                const mergedOriginalEvent = this.mergeOriginalEvent(existingRobota?.originalEvent, eventData);
-                const handlerType = existingRobota?.handlerType ?? 'agent';
-
-                const toolsFromEvent = eventData.parameters?.tools;
-                const normalizedTools = this.toStringArrayValue(toolsFromEvent);
-
-                const merged: IWorkflowNode = {
-                    ...existingNode,
-                    timestamp: Date.now(),
-                    data: {
-                        ...(existingNode.data || {}),
-                        extensions: {
-                            robota: {
-                                ...(existingRobota || {}),
-                                handlerType,
-                                originalEvent: mergedOriginalEvent
-                            }
-                        },
-                        tools: normalizedTools ?? existingNode.data?.tools
-                    }
-                };
-                return { success: true, updates: [{ action: 'update', node: merged }] };
-            }
-        } catch {
-            // Ignore read errors.
-        }
+        const patch: Partial<IWorkflowNode> = {
+            timestamp: Date.now(),
+            data: dataUpdates
+        };
+        return { success: true, updates: [{ action: 'patch', nodeId: existingId, updates: patch }] };
 
         return { success: true, updates: [] };
     }
 
-    private findAgentNodeIdForExecutionStart(eventData: TEventData, _pathInfo: { segments: string[] }): string | undefined {
-        const sourceId = this.findNearestOwnerId(eventData.context.ownerPath, 'agent');
-        if (sourceId) {
-            const fromMap = this.agentNodeIdMap.get(sourceId);
-            if (fromMap) {
-                return fromMap;
-            }
-        }
-
-        if (sourceId) {
-            try {
-                const nodesAccessor = this.stateAccess.getAllNodes();
-                const found = nodesAccessor.find(node =>
-                    node?.type === WORKFLOW_NODE_TYPES.AGENT &&
-                    String(node?.data?.sourceId) === sourceId
-                );
-                if (found?.id) {
-                    return String(found.id);
-                }
-            } catch {
-                // Ignore read errors; caller will fail-fast if required.
-            }
-        }
-
-        return undefined;
+    private findAgentNodeIdForExecutionStart(agentId: string | undefined): string | undefined {
+        return agentId;
     }
 
-    private buildAgentExecutionStateUpdate(agentNodeId: string, eventData: TEventData): IWorkflowNode | undefined {
-        const snapshot = this.getNodeSnapshot(agentNodeId);
-        if (!snapshot) {
-            this.logger.warn(`⚠️ [AGENT-HANDLER] Unable to find agent node '${agentNodeId}' for execution_start update.`);
-            return undefined;
-        }
-
+    private buildAgentExecutionStatePatch(eventData: TEventData): Partial<IWorkflowNode> {
         const timestamp = Date.now();
-        const existingExtensions = this.getExtensionsRecord(snapshot);
-        const existingRobotaExtension = this.getRobotaExtension(existingExtensions);
-        const existingOriginalEvent = this.getOriginalEvent(existingRobotaExtension);
-        const mergedOriginalEvent = this.mergeOriginalEvent(existingOriginalEvent, eventData);
-        const statusHistory = this.appendStatusHistory(
-            snapshot.data?.statusHistory,
-            {
-                status: 'running',
-                eventType: AGENT_EVENT_NAMES.EXECUTION_START,
-                timestamp
-            }
-        );
-
+        const mergedOriginalEvent = this.mergeOriginalEvent(undefined, eventData);
         return {
-            ...snapshot,
             status: 'running',
             timestamp,
             data: {
-                ...(snapshot.data || {}),
                 status: 'running',
-                ...(statusHistory ? { statusHistory } : {}),
-                extensions: this.buildUpdatedExtensions(existingExtensions, mergedOriginalEvent, existingRobotaExtension)
+                extensions: {
+                    robota: {
+                        handlerType: 'agent',
+                        originalEvent: mergedOriginalEvent
+                    }
+                }
             }
         };
-    }
-
-    private getNodeSnapshot(nodeId: string): IWorkflowNode | undefined {
-        try {
-            const nodesAccessor = this.stateAccess.getAllNodes();
-            return nodesAccessor.find(node => String(node?.id) === String(nodeId));
-        } catch {
-            return undefined;
-        }
     }
 
     private mergeOriginalEvent(
@@ -376,140 +296,50 @@ class AgentEventLogic {
         return result;
     }
 
-    private getExtensionsRecord(node?: IWorkflowNode): IWorkflowNodeExtensions | undefined {
-        return node?.data?.extensions;
-    }
-
-    private getRobotaExtension(
-        extensions?: IWorkflowNodeExtensions
-    ): IWorkflowNodeExtensions['robota'] | undefined {
-        return extensions?.robota;
-    }
-
-    private getOriginalEvent(robotaExtension?: IWorkflowNodeExtensions['robota']): IWorkflowOriginalEvent | undefined {
-        return robotaExtension?.originalEvent;
-    }
-
-    private buildUpdatedExtensions(
-        existingExtensions: IWorkflowNodeExtensions | undefined,
-        mergedOriginalEvent: IWorkflowOriginalEvent,
-        existingRobotaExtension?: IWorkflowNodeExtensions['robota']
-    ): IWorkflowNodeExtensions {
-        return {
-            ...(existingExtensions || {}),
-            robota: {
-                ...(existingRobotaExtension || {}),
-                handlerType: existingRobotaExtension?.handlerType ?? 'agent',
-                originalEvent: mergedOriginalEvent
-            }
-        };
-    }
-
-    private appendStatusHistory(
-        existingHistory: IWorkflowNodeData['statusHistory'] | undefined,
-        entry: { status: TWorkflowNodeStatus; eventType: string; timestamp: number }
-    ): IWorkflowNodeData['statusHistory'] | undefined {
-        if (Array.isArray(existingHistory)) {
-            return [...existingHistory, entry];
-        }
-        return undefined;
-    }
 
     clear(): void {
         this.agentNodeIdMap.clear();
     }
 }
 
-class AgentCreatedHandler implements IEventHandler {
-    readonly name = 'AgentCreatedHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [AGENT_EVENT_NAMES.CREATED];
-    constructor(private readonly logic: AgentEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === AGENT_EVENT_NAMES.CREATED;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(AGENT_EVENT_NAMES.CREATED, eventData);
-    }
-}
-
-class AgentExecutionStartHandler implements IEventHandler {
-    readonly name = 'AgentExecutionStartHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [AGENT_EVENT_NAMES.EXECUTION_START];
-    constructor(private readonly logic: AgentEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === AGENT_EVENT_NAMES.EXECUTION_START;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(AGENT_EVENT_NAMES.EXECUTION_START, eventData);
-    }
-}
-
-class AgentExecutionCompleteHandler implements IEventHandler {
-    readonly name = 'AgentExecutionCompleteHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [AGENT_EVENT_NAMES.EXECUTION_COMPLETE];
-    constructor(private readonly logic: AgentEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === AGENT_EVENT_NAMES.EXECUTION_COMPLETE;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(AGENT_EVENT_NAMES.EXECUTION_COMPLETE, eventData);
-    }
-}
-
-class AgentExecutionErrorHandler implements IEventHandler {
-    readonly name = 'AgentExecutionErrorHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [AGENT_EVENT_NAMES.EXECUTION_ERROR];
-    constructor(private readonly logic: AgentEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === AGENT_EVENT_NAMES.EXECUTION_ERROR;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(AGENT_EVENT_NAMES.EXECUTION_ERROR, eventData);
-    }
-}
-
-class AgentAggregationCompleteHandler implements IEventHandler {
-    readonly name = 'AgentAggregationCompleteHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [AGENT_EVENT_NAMES.AGGREGATION_COMPLETE];
-    constructor(private readonly logic: AgentEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === AGENT_EVENT_NAMES.AGGREGATION_COMPLETE;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(AGENT_EVENT_NAMES.AGGREGATION_COMPLETE, eventData);
-    }
-}
-
-class AgentConfigUpdatedHandler implements IEventHandler {
-    readonly name = 'AgentConfigUpdatedHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [AGENT_EVENT_NAMES.CONFIG_UPDATED];
-    constructor(private readonly logic: AgentEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === AGENT_EVENT_NAMES.CONFIG_UPDATED;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(AGENT_EVENT_NAMES.CONFIG_UPDATED, eventData);
-    }
-}
-
-export function createAgentEventHandlers(
+export function registerAgentEventHandlers(
+    registerHandler: (handler: IEventHandler) => void,
     logger: ILogger = SilentLogger,
-    stateAccess: IWorkflowStateAccess,
-    nodeBuilder: AgentNodeBuilder
-): IEventHandler[] {
-    const logic = new AgentEventLogic(logger, stateAccess, nodeBuilder);
-    return [
-        new AgentCreatedHandler(logic),
-        new AgentExecutionStartHandler(logic),
-        new AgentExecutionCompleteHandler(logic),
-        new AgentExecutionErrorHandler(logic),
-        new AgentAggregationCompleteHandler(logic),
-        new AgentConfigUpdatedHandler(logic),
+    nodeBuilder: AgentNodeBuilder,
+    instanceRegistry: WorkflowInstanceRegistry
+): void {
+    const logic = new AgentEventLogic(logger, nodeBuilder, instanceRegistry);
+    const handlers: IEventHandler[] = [
+        {
+            name: 'AgentCreatedHandler',
+            eventName: AGENT_EVENT_NAMES.CREATED,
+            handle: (eventData) => logic.handle(AGENT_EVENT_NAMES.CREATED, eventData)
+        },
+        {
+            name: 'AgentExecutionStartHandler',
+            eventName: AGENT_EVENT_NAMES.EXECUTION_START,
+            handle: (eventData) => logic.handle(AGENT_EVENT_NAMES.EXECUTION_START, eventData)
+        },
+        {
+            name: 'AgentExecutionCompleteHandler',
+            eventName: AGENT_EVENT_NAMES.EXECUTION_COMPLETE,
+            handle: (eventData) => logic.handle(AGENT_EVENT_NAMES.EXECUTION_COMPLETE, eventData)
+        },
+        {
+            name: 'AgentExecutionErrorHandler',
+            eventName: AGENT_EVENT_NAMES.EXECUTION_ERROR,
+            handle: (eventData) => logic.handle(AGENT_EVENT_NAMES.EXECUTION_ERROR, eventData)
+        },
+        {
+            name: 'AgentAggregationCompleteHandler',
+            eventName: AGENT_EVENT_NAMES.AGGREGATION_COMPLETE,
+            handle: (eventData) => logic.handle(AGENT_EVENT_NAMES.AGGREGATION_COMPLETE, eventData)
+        },
+        {
+            name: 'AgentConfigUpdatedHandler',
+            eventName: AGENT_EVENT_NAMES.CONFIG_UPDATED,
+            handle: (eventData) => logic.handle(AGENT_EVENT_NAMES.CONFIG_UPDATED, eventData)
+        }
     ];
+    handlers.forEach(registerHandler);
 }

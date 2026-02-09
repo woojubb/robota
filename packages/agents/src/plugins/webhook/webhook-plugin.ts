@@ -11,6 +11,7 @@ import {
     type IPluginExecutionResult,
     type IPluginErrorContext
 } from '../../abstracts/abstract-plugin';
+import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from '../../services/execution-service';
 import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError } from '../../utils/errors';
 import type { TTimerId } from '../../utils';
@@ -30,9 +31,9 @@ import type {
 
 // Local event constants for webhook usage (kept internal to plugin)
 const EXEC_EVENTS: { START: TWebhookEventName; COMPLETE: TWebhookEventName; ERROR: TWebhookEventName } = {
-    START: 'execution.start',
-    COMPLETE: 'execution.complete',
-    ERROR: 'execution.error'
+    START: `${EXECUTION_EVENT_PREFIX}.${EXECUTION_EVENTS.START}`,
+    COMPLETE: `${EXECUTION_EVENT_PREFIX}.${EXECUTION_EVENTS.COMPLETE}`,
+    ERROR: `${EXECUTION_EVENT_PREFIX}.${EXECUTION_EVENTS.ERROR}`
 } as const;
 
 const CONV_EVENTS: { COMPLETE: TWebhookEventName } = {

@@ -313,6 +313,18 @@ export type {
  */
 export type { IToolSchema as IFunctionSchema } from './interfaces/provider';
 
+/**
+ * Event history module contracts (optional service).
+ *
+ * @public
+ */
+export type {
+    IEventHistoryModule,
+    IEventHistoryRecord,
+    IEventHistorySnapshot
+} from './interfaces/history-module';
+export { EventHistoryModule } from './services/history-module';
+
 // ===== EVENT SERVICE EXPORTS =====
 /**
  * EventService - Unified event emission system for Team/Agent/Tool integration.
@@ -330,9 +342,10 @@ export {
     bindWithOwnerPath,
     DefaultEventService,
     StructuredEventService,
+    ObservableEventService,
     composeEventName,
 } from './services/event-service';
-export type { IEventService } from './services/event-service';
+export type { IEventService, TEventListener } from './services/event-service';
 export type { IBaseEventData } from './services/event-service';
 export { RelayMcpTool, type IRelayMcpOptions, type IRelayMcpContext } from './tools/implementations/relay-mcp-tool';
 

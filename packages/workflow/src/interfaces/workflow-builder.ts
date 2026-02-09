@@ -1,7 +1,7 @@
 // Workflow Builder Interfaces
 // Domain-neutral workflow building and management
 
-import type { IWorkflowNode, IWorkflowNodeUpdate } from './workflow-node.js';
+import type { IWorkflowNode, IWorkflowNodeUpdate, IWorkflowNodePatchUpdate } from './workflow-node.js';
 import type { IWorkflowEdge, IWorkflowEdgeUpdate } from './workflow-edge.js';
 import type { ILogger, TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 
@@ -31,7 +31,7 @@ export interface IWorkflowClearUpdate {
     action: 'clear';
 }
 
-export type TWorkflowUpdate = IWorkflowNodeUpdate | IWorkflowEdgeUpdate | IWorkflowClearUpdate;
+export type TWorkflowUpdate = IWorkflowNodeUpdate | IWorkflowNodePatchUpdate | IWorkflowEdgeUpdate | IWorkflowClearUpdate;
 
 export type TWorkflowBatchOperation =
     | { type: 'addNode'; data: Omit<IWorkflowNode, 'timestamp'> }

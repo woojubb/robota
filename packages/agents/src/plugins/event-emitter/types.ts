@@ -1,4 +1,36 @@
 
+import { AGENT_EVENTS, AGENT_EVENT_PREFIX } from '../../agents/constants';
+import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from '../../services/execution-service';
+import { TOOL_EVENTS, TOOL_EVENT_PREFIX } from '../../services/tool-execution-service';
+
+const buildEventName = <TPrefix extends string, TLocal extends string>(
+    prefix: TPrefix,
+    localName: TLocal
+): `${TPrefix}.${TLocal}` => `${prefix}.${localName}`;
+
+const EXECUTION_EVENT_NAMES = {
+    START: buildEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.START),
+    COMPLETE: buildEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.COMPLETE),
+    ERROR: buildEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.ERROR)
+} as const;
+
+const TOOL_EVENT_NAMES = {
+    CALL_START: buildEventName(TOOL_EVENT_PREFIX, TOOL_EVENTS.CALL_START),
+    CALL_COMPLETE: buildEventName(TOOL_EVENT_PREFIX, TOOL_EVENTS.CALL_COMPLETE),
+    CALL_ERROR: buildEventName(TOOL_EVENT_PREFIX, TOOL_EVENTS.CALL_ERROR)
+} as const;
+
+const AGENT_EVENT_NAMES = {
+    EXECUTION_START: buildEventName(AGENT_EVENT_PREFIX, AGENT_EVENTS.EXECUTION_START),
+    EXECUTION_COMPLETE: buildEventName(AGENT_EVENT_PREFIX, AGENT_EVENTS.EXECUTION_COMPLETE),
+    EXECUTION_ERROR: buildEventName(AGENT_EVENT_PREFIX, AGENT_EVENTS.EXECUTION_ERROR),
+    CREATED: buildEventName(AGENT_EVENT_PREFIX, AGENT_EVENTS.CREATED)
+} as const;
+
+type TExecutionEventName = typeof EXECUTION_EVENT_NAMES[keyof typeof EXECUTION_EVENT_NAMES];
+type TToolEventName = typeof TOOL_EVENT_NAMES[keyof typeof TOOL_EVENT_NAMES];
+type TAgentEventName = typeof AGENT_EVENT_NAMES[keyof typeof AGENT_EVENT_NAMES];
+
 /**
  * Event types that can be emitted.
  *
@@ -7,20 +39,20 @@
  * - Import and use EVENT_EMITTER_EVENTS instead.
  */
 export const EVENT_EMITTER_EVENTS = {
-    EXECUTION_START: 'execution.start',
-    EXECUTION_COMPLETE: 'execution.complete',
-    EXECUTION_ERROR: 'execution.error',
+    EXECUTION_START: EXECUTION_EVENT_NAMES.START,
+    EXECUTION_COMPLETE: EXECUTION_EVENT_NAMES.COMPLETE,
+    EXECUTION_ERROR: EXECUTION_EVENT_NAMES.ERROR,
     TOOL_BEFORE_EXECUTE: 'tool.beforeExecute',
     TOOL_AFTER_EXECUTE: 'tool.afterExecute',
     TOOL_SUCCESS: 'tool.success',
-    TOOL_ERROR: 'tool.error',
+    TOOL_ERROR: TOOL_EVENT_NAMES.CALL_ERROR,
     CONVERSATION_START: 'conversation.start',
     CONVERSATION_COMPLETE: 'conversation.complete',
     CONVERSATION_ERROR: 'conversation.error',
-    AGENT_EXECUTION_START: 'agent.execution_start',
-    AGENT_EXECUTION_COMPLETE: 'agent.execution_complete',
-    AGENT_EXECUTION_ERROR: 'agent.execution_error',
-    AGENT_CREATED: 'agent.created',
+    AGENT_EXECUTION_START: AGENT_EVENT_NAMES.EXECUTION_START,
+    AGENT_EXECUTION_COMPLETE: AGENT_EVENT_NAMES.EXECUTION_COMPLETE,
+    AGENT_EXECUTION_ERROR: AGENT_EVENT_NAMES.EXECUTION_ERROR,
+    AGENT_CREATED: AGENT_EVENT_NAMES.CREATED,
     AGENT_DESTROYED: 'agent.destroyed',
     PLUGIN_LOADED: 'plugin.loaded',
     PLUGIN_UNLOADED: 'plugin.unloaded',
@@ -44,7 +76,37 @@ export const EVENT_EMITTER_EVENTS = {
     CUSTOM: 'custom'
 } as const;
 
-export type TEventName = typeof EVENT_EMITTER_EVENTS[keyof typeof EVENT_EMITTER_EVENTS];
+export type TEventName =
+    | TExecutionEventName
+    | TToolEventName
+    | TAgentEventName
+    | 'tool.beforeExecute'
+    | 'tool.afterExecute'
+    | 'tool.success'
+    | 'conversation.start'
+    | 'conversation.complete'
+    | 'conversation.error'
+    | 'agent.destroyed'
+    | 'plugin.loaded'
+    | 'plugin.unloaded'
+    | 'plugin.error'
+    | 'error.occurred'
+    | 'warning.occurred'
+    | 'module.initialize.start'
+    | 'module.initialize.complete'
+    | 'module.initialize.error'
+    | 'module.execution.start'
+    | 'module.execution.complete'
+    | 'module.execution.error'
+    | 'module.dispose.start'
+    | 'module.dispose.complete'
+    | 'module.dispose.error'
+    | 'module.registered'
+    | 'module.unregistered'
+    | 'execution.hierarchy'
+    | 'execution.realtime'
+    | 'tool.realtime'
+    | 'custom';
 
 /**
  * Valid event data value types

@@ -20,12 +20,11 @@ import type { IWorkflowNode } from '../interfaces/workflow-node.js';
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
-import { HandlerPriority } from '../interfaces/event-handler.js';
-import type { IWorkflowStateAccess } from '../interfaces/workflow-state-access.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
-import { extractPathInfo } from './path-info.js';
+import { extractPathInfo, findOwnerIdByType } from './path-info.js';
 import { ExecutionNodeBuilder } from './builders/execution-node-builder.js';
 import { AgentNodeBuilder } from './builders/agent-node-builder.js';
+import { type TWorkflowInstanceType, WorkflowInstanceRegistry } from '../services/instance-registry.js';
 
 const EXECUTION_EVENT_NAMES = {
     START: composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.START),
@@ -40,25 +39,26 @@ const EXECUTION_EVENT_NAMES = {
 
 class ExecutionEventLogic {
     private logger: ILogger;
-    private stateAccess: IWorkflowStateAccess;
     private executionNodeBuilder: ExecutionNodeBuilder;
     private agentNodeBuilder: AgentNodeBuilder;
+    private instanceRegistry: WorkflowInstanceRegistry;
 
     constructor(
         logger: ILogger = SilentLogger,
-        stateAccess: IWorkflowStateAccess,
         executionNodeBuilder: ExecutionNodeBuilder,
-        agentNodeBuilder: AgentNodeBuilder
+        agentNodeBuilder: AgentNodeBuilder,
+        instanceRegistry: WorkflowInstanceRegistry
     ) {
         this.logger = logger;
-        this.stateAccess = stateAccess;
         this.executionNodeBuilder = executionNodeBuilder;
         this.agentNodeBuilder = agentNodeBuilder;
+        this.instanceRegistry = instanceRegistry;
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
         try {
             this.logger.debug(`🔧 [EXECUTION-HANDLER] Processing ${eventType}`);
+            this.recordInstance(eventType, eventData);
             const handler = this.getHandler(eventType);
             if (!handler) {
                 this.logger.warn(`⚠️ [EXECUTION-HANDLER] Unknown event type: ${eventType}`);
@@ -114,6 +114,38 @@ class ExecutionEventLogic {
         return handlers[eventType];
     }
 
+    private recordInstance(eventType: string, eventData: TEventData): void {
+        const ownerPath = eventData.context.ownerPath;
+        if (eventType === EXECUTION_EVENT_NAMES.START) {
+            const executionId = findOwnerIdByType(ownerPath, 'execution', eventType);
+            this.instanceRegistry.register('execution', executionId, eventData);
+            return;
+        }
+        if (eventType === EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START) {
+            const thinkingId = findOwnerIdByType(ownerPath, 'thinking', eventType);
+            this.instanceRegistry.register('thinking', thinkingId, eventData);
+            return;
+        }
+        if (eventType === EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE) {
+            const responseId = findOwnerIdByType(ownerPath, 'response', eventType);
+            this.instanceRegistry.register('response', responseId, eventData);
+            return;
+        }
+        if (eventType === EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY || eventType === EXECUTION_EVENT_NAMES.TOOL_RESULTS_TO_LLM) {
+            const thinkingId = findOwnerIdByType(ownerPath, 'thinking', eventType);
+            this.instanceRegistry.update('thinking', thinkingId, eventData);
+            return;
+        }
+        if (
+            eventType === EXECUTION_EVENT_NAMES.COMPLETE ||
+            eventType === EXECUTION_EVENT_NAMES.ERROR ||
+            eventType === EXECUTION_EVENT_NAMES.USER_MESSAGE
+        ) {
+            const executionId = findOwnerIdByType(ownerPath, 'execution', eventType);
+            this.instanceRegistry.update('execution', executionId, eventData);
+        }
+    }
+
     private async handleExecutionStart(): Promise<IEventProcessingResult> {
         return { success: true, updates: [] };
     }
@@ -137,25 +169,32 @@ class ExecutionEventLogic {
                 errors: [`[PATH-ONLY] Invalid context.ownerPath (missing tail id) for ${EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY}`]
             };
         }
-        const thinkingScopeKey = ownerPath.map(s => String(s.id)).join('\u0000');
-
-        const nodesAccessor = this.stateAccess.getAllNodes();
-        const toolResponses = nodesAccessor.filter((n) => {
-            if (n?.type !== WORKFLOW_NODE_TYPES.TOOL_RESPONSE) return false;
-            const op = n?.data?.extensions?.robota?.originalEvent?.context?.ownerPath;
-            if (!Array.isArray(op) || op.length === 0) return false;
-            const key = op.map(s => String(s?.id ?? '')).slice(0, -1).join('\u0000');
-            return key === thinkingScopeKey;
-        });
-        if (toolResponses.length === 0) {
-            return { success: true, updates: [] };
+        const toolCallIds = (() => {
+            const raw = eventData.parameters?.toolCallIds;
+            if (!Array.isArray(raw)) return undefined;
+            const ids: string[] = [];
+            for (const item of raw) {
+                if (typeof item !== 'string' || item.length === 0) {
+                    return undefined;
+                }
+                ids.push(item);
+            }
+            return ids;
+        })();
+        if (!toolCallIds || toolCallIds.length === 0) {
+            return {
+                success: false,
+                updates: [],
+                errors: [`[PATH-ONLY] Missing toolCallIds for ${EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY}`]
+            };
         }
         const toolResultNode = this.executionNodeBuilder.createToolResultNode(thinkingId, eventData);
         updates.push({ action: 'create', node: toolResultNode });
-        for (const tr of toolResponses) {
+        for (const toolCallId of toolCallIds) {
+            const toolResponseId = `tool_response_call_${toolCallId}`;
             const edge: IWorkflowEdge = {
-                id: EdgeUtils.generateId(tr.id, toolResultNode.id, 'result'),
-                source: tr.id,
+                id: EdgeUtils.generateId(toolResponseId, toolResultNode.id, 'result'),
+                source: toolResponseId,
                 target: toolResultNode.id,
                 type: 'result',
                 timestamp: Date.now()
@@ -204,22 +243,9 @@ class ExecutionEventLogic {
         const userMessageNode = this.executionNodeBuilder.createUserMessageNode(eventData);
         updates.push({ action: 'create', node: userMessageNode });
 
-        const allNodes = this.stateAccess.getAllNodes();
-        const agentNodeForExec = allNodes.find(n => n.type === WORKFLOW_NODE_TYPES.AGENT && String(n.data?.sourceId ?? '') === localAgentId)?.id;
-        if (!agentNodeForExec) {
-            return {
-                success: false,
-                updates: [],
-                errors: [
-                    `[PATH-ONLY] Missing source node for ${EXECUTION_EVENT_NAMES.USER_MESSAGE}. ` +
-                    `Expected an agent node for agentId="${localAgentId}".`
-                ]
-            };
-        }
-
         const edge: IWorkflowEdge = {
-            id: EdgeUtils.generateId(agentNodeForExec, userMessageNode.id, 'receives'),
-            source: agentNodeForExec,
+            id: EdgeUtils.generateId(localAgentId, userMessageNode.id, 'receives'),
+            source: localAgentId,
             target: userMessageNode.id,
             type: 'receives',
             timestamp: Date.now()
@@ -280,16 +306,6 @@ class ExecutionEventLogic {
         }
         const responseId = pathInfo.nodeId;
 
-        const nodesAccessor = this.stateAccess.getAllNodes();
-        const thinkingExists = nodesAccessor.some(n => n?.id === thinkingId);
-        if (!thinkingExists) {
-            return {
-                success: false,
-                updates: [],
-                errors: [`[PATH-ONLY] thinking node '${thinkingId}' not found. Must be created by ${EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START} first. No fallback creation allowed.`]
-            };
-        }
-
         const responseNode = this.agentNodeBuilder.createResponseNode(eventData, pathInfo);
         updates.push({ action: 'create', node: responseNode });
 
@@ -306,125 +322,55 @@ class ExecutionEventLogic {
     }
 }
 
-class ExecutionStartHandler implements IEventHandler {
-    readonly name = 'ExecutionStartHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [EXECUTION_EVENT_NAMES.START];
-    constructor(private readonly logic: ExecutionEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === EXECUTION_EVENT_NAMES.START;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(EXECUTION_EVENT_NAMES.START, eventData);
-    }
-}
-
-class ExecutionCompleteHandler implements IEventHandler {
-    readonly name = 'ExecutionCompleteHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [EXECUTION_EVENT_NAMES.COMPLETE];
-    constructor(private readonly logic: ExecutionEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === EXECUTION_EVENT_NAMES.COMPLETE;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(EXECUTION_EVENT_NAMES.COMPLETE, eventData);
-    }
-}
-
-class ExecutionErrorHandler implements IEventHandler {
-    readonly name = 'ExecutionErrorHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [EXECUTION_EVENT_NAMES.ERROR];
-    constructor(private readonly logic: ExecutionEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === EXECUTION_EVENT_NAMES.ERROR;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(EXECUTION_EVENT_NAMES.ERROR, eventData);
-    }
-}
-
-class ExecutionAssistantMessageStartHandler implements IEventHandler {
-    readonly name = 'ExecutionAssistantMessageStartHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START];
-    constructor(private readonly logic: ExecutionEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START, eventData);
-    }
-}
-
-class ExecutionAssistantMessageCompleteHandler implements IEventHandler {
-    readonly name = 'ExecutionAssistantMessageCompleteHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE];
-    constructor(private readonly logic: ExecutionEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE, eventData);
-    }
-}
-
-class ExecutionToolResultsToLlmHandler implements IEventHandler {
-    readonly name = 'ExecutionToolResultsToLlmHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [EXECUTION_EVENT_NAMES.TOOL_RESULTS_TO_LLM];
-    constructor(private readonly logic: ExecutionEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === EXECUTION_EVENT_NAMES.TOOL_RESULTS_TO_LLM;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(EXECUTION_EVENT_NAMES.TOOL_RESULTS_TO_LLM, eventData);
-    }
-}
-
-class ExecutionToolResultsReadyHandler implements IEventHandler {
-    readonly name = 'ExecutionToolResultsReadyHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY];
-    constructor(private readonly logic: ExecutionEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY, eventData);
-    }
-}
-
-class ExecutionUserMessageHandler implements IEventHandler {
-    readonly name = 'ExecutionUserMessageHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [EXECUTION_EVENT_NAMES.USER_MESSAGE];
-    constructor(private readonly logic: ExecutionEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === EXECUTION_EVENT_NAMES.USER_MESSAGE;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(EXECUTION_EVENT_NAMES.USER_MESSAGE, eventData);
-    }
-}
-
-export function createExecutionEventHandlers(
+export function registerExecutionEventHandlers(
+    registerHandler: (handler: IEventHandler) => void,
     logger: ILogger = SilentLogger,
-    stateAccess: IWorkflowStateAccess,
     executionNodeBuilder: ExecutionNodeBuilder,
-    agentNodeBuilder: AgentNodeBuilder
-): IEventHandler[] {
-    const logic = new ExecutionEventLogic(logger, stateAccess, executionNodeBuilder, agentNodeBuilder);
-    return [
-        new ExecutionStartHandler(logic),
-        new ExecutionCompleteHandler(logic),
-        new ExecutionErrorHandler(logic),
-        new ExecutionAssistantMessageStartHandler(logic),
-        new ExecutionAssistantMessageCompleteHandler(logic),
-        new ExecutionToolResultsToLlmHandler(logic),
-        new ExecutionToolResultsReadyHandler(logic),
-        new ExecutionUserMessageHandler(logic),
+    agentNodeBuilder: AgentNodeBuilder,
+    instanceRegistry: WorkflowInstanceRegistry
+): void {
+    const logic = new ExecutionEventLogic(logger, executionNodeBuilder, agentNodeBuilder, instanceRegistry);
+    const handlers: IEventHandler[] = [
+        {
+            name: 'ExecutionStartHandler',
+            eventName: EXECUTION_EVENT_NAMES.START,
+            handle: (eventData) => logic.handle(EXECUTION_EVENT_NAMES.START, eventData)
+        },
+        {
+            name: 'ExecutionCompleteHandler',
+            eventName: EXECUTION_EVENT_NAMES.COMPLETE,
+            handle: (eventData) => logic.handle(EXECUTION_EVENT_NAMES.COMPLETE, eventData)
+        },
+        {
+            name: 'ExecutionErrorHandler',
+            eventName: EXECUTION_EVENT_NAMES.ERROR,
+            handle: (eventData) => logic.handle(EXECUTION_EVENT_NAMES.ERROR, eventData)
+        },
+        {
+            name: 'ExecutionAssistantMessageStartHandler',
+            eventName: EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START,
+            handle: (eventData) => logic.handle(EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START, eventData)
+        },
+        {
+            name: 'ExecutionAssistantMessageCompleteHandler',
+            eventName: EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE,
+            handle: (eventData) => logic.handle(EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE, eventData)
+        },
+        {
+            name: 'ExecutionToolResultsToLlmHandler',
+            eventName: EXECUTION_EVENT_NAMES.TOOL_RESULTS_TO_LLM,
+            handle: (eventData) => logic.handle(EXECUTION_EVENT_NAMES.TOOL_RESULTS_TO_LLM, eventData)
+        },
+        {
+            name: 'ExecutionToolResultsReadyHandler',
+            eventName: EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY,
+            handle: (eventData) => logic.handle(EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY, eventData)
+        },
+        {
+            name: 'ExecutionUserMessageHandler',
+            eventName: EXECUTION_EVENT_NAMES.USER_MESSAGE,
+            handle: (eventData) => logic.handle(EXECUTION_EVENT_NAMES.USER_MESSAGE, eventData)
+        }
     ];
+    handlers.forEach(registerHandler);
 }

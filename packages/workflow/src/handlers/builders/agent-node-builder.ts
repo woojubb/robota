@@ -18,7 +18,7 @@ export class AgentNodeBuilder {
         const agentKey = sourceId;
         const agentNumber = this.assignAgentNumber(agentKey);
         const copyNumber = this.getNextCopyNumber(agentNumber);
-        const agentId = `agent_${agentNumber}_copy_${copyNumber}`;
+        const agentId = sourceId;
 
         return {
             id: agentId,

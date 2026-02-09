@@ -14,9 +14,9 @@ import type {
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
-import { HandlerPriority } from '../interfaces/event-handler.js';
-import { extractPathInfo } from './path-info.js';
+import { extractPathInfo, findOwnerIdByType } from './path-info.js';
 import { ToolNodeBuilder } from './builders/tool-node-builder.js';
+import { WorkflowInstanceRegistry } from '../services/instance-registry.js';
 
 const TOOL_EVENT_NAMES = {
     CALL_START: composeEventName(TOOL_EVENT_PREFIX, TOOL_EVENTS.CALL_START),
@@ -28,18 +28,22 @@ const TOOL_EVENT_NAMES = {
 class ToolEventLogic {
     private logger: ILogger;
     private nodeBuilder: ToolNodeBuilder;
+    private instanceRegistry: WorkflowInstanceRegistry;
 
     constructor(
         logger: ILogger = SilentLogger,
-        nodeBuilder: ToolNodeBuilder
+        nodeBuilder: ToolNodeBuilder,
+        instanceRegistry: WorkflowInstanceRegistry
     ) {
         this.logger = logger;
         this.nodeBuilder = nodeBuilder;
+        this.instanceRegistry = instanceRegistry;
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
         try {
             this.logger.debug(`🔧 [TOOL-HANDLER] Processing ${eventType}`);
+            this.recordToolInstance(eventType, eventData);
             const handler = this.getHandler(eventType);
             if (!handler) {
                 this.logger.warn(`⚠️ [TOOL-HANDLER] Unknown event type: ${eventType}`);
@@ -89,6 +93,15 @@ class ToolEventLogic {
             [TOOL_EVENT_NAMES.CALL_RESPONSE_READY]: (data) => this.handleCallResponseReady(data),
         };
         return handlers[eventType];
+    }
+
+    private recordToolInstance(eventType: string, eventData: TEventData): void {
+        const toolId = findOwnerIdByType(eventData.context.ownerPath, 'tool', eventType);
+        if (eventType === TOOL_EVENT_NAMES.CALL_START) {
+            this.instanceRegistry.register('tool', toolId, eventData);
+            return;
+        }
+        this.instanceRegistry.update('tool', toolId, eventData);
     }
 
     private async handleCallStart(eventData: TEventData): Promise<IEventProcessingResult> {
@@ -186,67 +199,34 @@ class ToolEventLogic {
     }
 }
 
-class ToolCallStartHandler implements IEventHandler {
-    readonly name = 'ToolCallStartHandler';
-    readonly priority = HandlerPriority.HIGH;
-    readonly patterns = [TOOL_EVENT_NAMES.CALL_START];
-    constructor(private readonly logic: ToolEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === TOOL_EVENT_NAMES.CALL_START;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(TOOL_EVENT_NAMES.CALL_START, eventData);
-    }
-}
-
-class ToolCallCompleteHandler implements IEventHandler {
-    readonly name = 'ToolCallCompleteHandler';
-    readonly priority = HandlerPriority.HIGH;
-    readonly patterns = [TOOL_EVENT_NAMES.CALL_COMPLETE];
-    constructor(private readonly logic: ToolEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === TOOL_EVENT_NAMES.CALL_COMPLETE;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(TOOL_EVENT_NAMES.CALL_COMPLETE, eventData);
-    }
-}
-
-class ToolCallErrorHandler implements IEventHandler {
-    readonly name = 'ToolCallErrorHandler';
-    readonly priority = HandlerPriority.HIGH;
-    readonly patterns = [TOOL_EVENT_NAMES.CALL_ERROR];
-    constructor(private readonly logic: ToolEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === TOOL_EVENT_NAMES.CALL_ERROR;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(TOOL_EVENT_NAMES.CALL_ERROR, eventData);
-    }
-}
-
-class ToolCallResponseReadyHandler implements IEventHandler {
-    readonly name = 'ToolCallResponseReadyHandler';
-    readonly priority = HandlerPriority.HIGH;
-    readonly patterns = [TOOL_EVENT_NAMES.CALL_RESPONSE_READY];
-    constructor(private readonly logic: ToolEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === TOOL_EVENT_NAMES.CALL_RESPONSE_READY;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(TOOL_EVENT_NAMES.CALL_RESPONSE_READY, eventData);
-    }
-}
-
-export function createToolEventHandlers(
-    logger: ILogger = SilentLogger
-): IEventHandler[] {
+export function registerToolEventHandlers(
+    registerHandler: (handler: IEventHandler) => void,
+    logger: ILogger = SilentLogger,
+    instanceRegistry: WorkflowInstanceRegistry
+): void {
     const nodeBuilder = new ToolNodeBuilder();
-    const logic = new ToolEventLogic(logger, nodeBuilder);
-    return [
-        new ToolCallStartHandler(logic),
-        new ToolCallCompleteHandler(logic),
-        new ToolCallErrorHandler(logic),
-        new ToolCallResponseReadyHandler(logic),
+    const logic = new ToolEventLogic(logger, nodeBuilder, instanceRegistry);
+    const handlers: IEventHandler[] = [
+        {
+            name: 'ToolCallStartHandler',
+            eventName: TOOL_EVENT_NAMES.CALL_START,
+            handle: (eventData) => logic.handle(TOOL_EVENT_NAMES.CALL_START, eventData)
+        },
+        {
+            name: 'ToolCallCompleteHandler',
+            eventName: TOOL_EVENT_NAMES.CALL_COMPLETE,
+            handle: (eventData) => logic.handle(TOOL_EVENT_NAMES.CALL_COMPLETE, eventData)
+        },
+        {
+            name: 'ToolCallErrorHandler',
+            eventName: TOOL_EVENT_NAMES.CALL_ERROR,
+            handle: (eventData) => logic.handle(TOOL_EVENT_NAMES.CALL_ERROR, eventData)
+        },
+        {
+            name: 'ToolCallResponseReadyHandler',
+            eventName: TOOL_EVENT_NAMES.CALL_RESPONSE_READY,
+            handle: (eventData) => logic.handle(TOOL_EVENT_NAMES.CALL_RESPONSE_READY, eventData)
+        }
     ];
+    handlers.forEach(registerHandler);
 }

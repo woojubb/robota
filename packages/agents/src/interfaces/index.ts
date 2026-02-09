@@ -71,7 +71,8 @@ export type {
     IExecutionEventData,
     IToolEventData,
     IAgentEventData,
-    IEventServiceOwnerBinding
+    IEventServiceOwnerBinding,
+    TEventListener
 } from './event-service';
 
 // 🆕 Progress reporting interface exports
@@ -112,3 +113,9 @@ export type {
     ILocalExecutorConfig,
     IRemoteExecutorConfig
 } from './executor'; 
+
+export type {
+    IEventHistoryModule,
+    IEventHistoryRecord,
+    IEventHistorySnapshot
+} from './history-module';

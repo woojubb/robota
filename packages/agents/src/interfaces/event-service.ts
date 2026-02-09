@@ -68,12 +68,16 @@ export interface IAgentEventData extends IBaseEventData {
     agentId?: string;
 }
 
+export type TEventListener = (eventType: string, data: IBaseEventData, context?: IEventContext) => void;
+
 /**
  * Minimal EventService contract for emitting events.
  * Subscriptions are handled by dedicated modules (e.g., EventEmitterPlugin), not here.
  */
 export interface IEventService {
     emit(eventType: string, data: IBaseEventData, context?: IEventContext): void;
+    subscribe(listener: TEventListener): void;
+    unsubscribe(listener: TEventListener): void;
 }
 
 /**
