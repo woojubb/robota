@@ -8,7 +8,6 @@ import type { ILogger } from '@robota-sdk/agents';
 import { SilentLogger, USER_EVENTS, USER_EVENT_PREFIX, composeEventName } from '@robota-sdk/agents';
 import type { IEventHandler, TEventData, IEventProcessingResult } from '../interfaces/event-handler.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
-import { HandlerPriority } from '../interfaces/event-handler.js';
 import { ExecutionNodeBuilder } from './builders/execution-node-builder.js';
 
 const USER_EVENT_NAMES = {
@@ -98,36 +97,23 @@ class UserEventLogic {
     }
 }
 
-class UserMessageHandler implements IEventHandler {
-    readonly name = 'UserMessageHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [USER_EVENT_NAMES.MESSAGE];
-    constructor(private readonly logic: UserEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === USER_EVENT_NAMES.MESSAGE;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(USER_EVENT_NAMES.MESSAGE, eventData);
-    }
-}
-
-class UserInputHandler implements IEventHandler {
-    readonly name = 'UserInputHandler';
-    readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = [USER_EVENT_NAMES.INPUT];
-    constructor(private readonly logic: UserEventLogic) {}
-    canHandle(eventType: string): boolean {
-        return eventType === USER_EVENT_NAMES.INPUT;
-    }
-    handle(_eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        return this.logic.handle(USER_EVENT_NAMES.INPUT, eventData);
-    }
-}
-
-export function createUserEventHandlers(
+export function registerUserEventHandlers(
+    registerHandler: (handler: IEventHandler) => void,
     logger: ILogger = SilentLogger,
     nodeBuilder: ExecutionNodeBuilder
-): IEventHandler[] {
+): void {
     const logic = new UserEventLogic(logger, nodeBuilder);
-    return [new UserMessageHandler(logic), new UserInputHandler(logic)];
+    const handlers: IEventHandler[] = [
+        {
+            name: 'UserMessageHandler',
+            eventName: USER_EVENT_NAMES.MESSAGE,
+            handle: (eventData) => logic.handle(USER_EVENT_NAMES.MESSAGE, eventData)
+        },
+        {
+            name: 'UserInputHandler',
+            eventName: USER_EVENT_NAMES.INPUT,
+            handle: (eventData) => logic.handle(USER_EVENT_NAMES.INPUT, eventData)
+        }
+    ];
+    handlers.forEach(registerHandler);
 }

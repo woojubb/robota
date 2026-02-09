@@ -13,7 +13,7 @@ import type {
     TWorkflowUpdateCallback,
     IWorkflowBuilderConfig
 } from '../interfaces/workflow-builder.js';
-import type { IWorkflowNode, TWorkflowConnectionKind } from '../interfaces/workflow-node.js';
+import type { IWorkflowNode, IWorkflowNodeData, IWorkflowNodeExtensions, TWorkflowConnectionKind } from '../interfaces/workflow-node.js';
 import type { IWorkflowEdge } from '../interfaces/workflow-edge.js';
 import type { IUniversalWorkflowEdge } from '../types/universal-types.js';
 import { NodeEdgeManager } from './node-edge-manager.js';
@@ -178,7 +178,10 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
     }
 
     updateNode(nodeId: string, updates: Partial<IWorkflowNode>): IWorkflowNode | null {
-        const updatedNode = this.nodeEdgeManager.updateNode(nodeId, updates);
+        const existing = this.nodeEdgeManager.getNode(nodeId);
+        if (!existing) return null;
+        const merged = this.mergeNode(existing, updates);
+        const updatedNode = this.nodeEdgeManager.updateNode(nodeId, merged);
         if (!updatedNode) return null;
 
         // Notify subscribers
@@ -192,6 +195,59 @@ export class CoreWorkflowBuilder implements IExtendedWorkflowBuilder, IWorkflowQ
         this.logger.debug(`🔄 [UPDATE-NODE] Updated node: ${nodeId}`);
 
         return updatedNode;
+    }
+
+    private mergeNode(existing: IWorkflowNode, updates: Partial<IWorkflowNode>): IWorkflowNode {
+        const mergedData = updates.data
+            ? this.mergeNodeData(existing.data, updates.data)
+            : existing.data;
+        const mergedConnections = updates.connections ?? existing.connections;
+
+        return {
+            ...existing,
+            ...updates,
+            data: mergedData,
+            connections: mergedConnections,
+            id: existing.id,
+            timestamp: existing.timestamp,
+        };
+    }
+
+    private mergeNodeData(existing: IWorkflowNodeData, updates: Partial<IWorkflowNodeData>): IWorkflowNodeData {
+        const mergedExtensions = this.mergeNodeExtensions(existing.extensions, updates.extensions);
+        return {
+            ...existing,
+            ...updates,
+            ...(mergedExtensions ? { extensions: mergedExtensions } : {})
+        };
+    }
+
+    private mergeNodeExtensions(
+        existing?: IWorkflowNodeExtensions,
+        updates?: IWorkflowNodeExtensions
+    ): IWorkflowNodeExtensions | undefined {
+        if (!updates) return existing;
+        const mergedRobota = updates.robota
+            ? {
+                ...(existing?.robota ?? {}),
+                ...updates.robota,
+                ...(
+                    updates.robota.extra || existing?.robota?.extra
+                        ? { extra: { ...(existing?.robota?.extra ?? {}), ...(updates.robota.extra ?? {}) } }
+                        : {}
+                )
+            }
+            : existing?.robota;
+        const mergedOther = updates.other
+            ? { ...(existing?.other ?? {}), ...updates.other }
+            : existing?.other;
+
+        return {
+            ...(existing ?? {}),
+            ...(updates ?? {}),
+            ...(mergedRobota ? { robota: mergedRobota } : {}),
+            ...(mergedOther ? { other: mergedOther } : {}),
+        };
     }
 
     removeNode(nodeId: string): boolean {

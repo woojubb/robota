@@ -1,10 +1,5 @@
 /**
  * WorkflowEventSubscriber - Real-time event subscriber for workflow package
- * 
- * Migrated from agents package with new architecture:
- * - Uses new EventHandler system
- * - Domain-neutral approach
- * - Proper event ownership
  */
 
 import { SilentLogger, type ILogger } from '@robota-sdk/agents';
@@ -24,13 +19,17 @@ import type {
     IWorkflowSnapshot
 } from '../interfaces/workflow-builder.js';
 import { CoreWorkflowBuilder } from './workflow-builder.js';
-import { createAgentEventHandlers } from '../handlers/agent-event-handler.js';
-import { createToolEventHandlers } from '../handlers/tool-event-handler.js';
-import { createExecutionEventHandlers } from '../handlers/execution-event-handler.js';
-import { createUserEventHandlers } from '../handlers/user-event-handler.js';
+import { registerAgentEventHandlers } from '../handlers/agent-event-handler.js';
+import { registerToolEventHandlers } from '../handlers/tool-event-handler.js';
+import { registerExecutionEventHandlers } from '../handlers/execution-event-handler.js';
+import { registerUserEventHandlers } from '../handlers/user-event-handler.js';
 import type { IWorkflowStateAccess } from '../interfaces/workflow-state-access.js';
 import { AgentNodeBuilder } from '../handlers/builders/agent-node-builder.js';
 import { ExecutionNodeBuilder } from '../handlers/builders/execution-node-builder.js';
+import { WorkflowInstanceRegistry } from './instance-registry.js';
+import type { IEventLogStore } from '../interfaces/event-log-store.js';
+import { InMemoryLogStore } from './in-memory-log-store.js';
+import type { TEventLogRecord } from '../interfaces/event-log.js';
 
 /**
  * Event subscription callback for external integrations
@@ -79,6 +78,9 @@ export interface IWorkflowEventSubscriberConfig {
 
     /** Enable automatic node cleanup */
     enableAutoCleanup?: boolean;
+
+    /** Event log store (optional) */
+    eventLogStore?: IEventLogStore;
 }
 
 export interface IWorkflowEventSubscriber {
@@ -96,10 +98,12 @@ export class WorkflowEventSubscriber {
     private stateAccess: IWorkflowStateAccess;
     private agentNodeBuilder: AgentNodeBuilder;
     private executionNodeBuilder: ExecutionNodeBuilder;
+    private instanceRegistry: WorkflowInstanceRegistry;
     private eventHandlers = new Map<string, IEventHandler>();
     private eventSubscribers = new Set<TEventSubscriptionCallback>();
     private workflowUpdateSubscribers = new Set<TWorkflowUpdateCallback>();
     private workflowSnapshotSubscribers = new Set<(snapshot: IWorkflowExportStructure) => void>();
+    private eventLogStore: IEventLogStore;
 
     // Configuration
     private config: Required<IWorkflowEventSubscriberConfig>;
@@ -119,7 +123,8 @@ export class WorkflowEventSubscriber {
             maxNodes: config.maxNodes ?? 1000,
             maxEdges: config.maxEdges ?? 2000,
             eventHandlers: config.eventHandlers ?? [],
-            enableAutoCleanup: config.enableAutoCleanup ?? false
+            enableAutoCleanup: config.enableAutoCleanup ?? false,
+            eventLogStore: config.eventLogStore ?? new InMemoryLogStore()
         };
 
         this.logger = this.config.logger;
@@ -128,11 +133,13 @@ export class WorkflowEventSubscriber {
             maxNodes: this.config.maxNodes,
             maxEdges: this.config.maxEdges
         });
+        this.eventLogStore = this.config.eventLogStore;
         this.stateAccess = {
-            getAllNodes: () => this.workflowBuilder.getRawNodes()
+            getNode: (nodeId: string) => this.workflowBuilder.getNode(nodeId)
         };
         this.agentNodeBuilder = new AgentNodeBuilder(this.logger);
         this.executionNodeBuilder = new ExecutionNodeBuilder();
+        this.instanceRegistry = new WorkflowInstanceRegistry();
 
         // Initialize with default handlers
         this.initializeDefaultHandlers();
@@ -179,21 +186,17 @@ export class WorkflowEventSubscriber {
             this.notifyEventSubscribers(eventType, eventData);
 
             const normalizedEventData: TEventData = eventData;
+            this.appendEventLog(eventType, normalizedEventData);
 
-            // Find and execute handlers
-            const matchingHandlers = this.findMatchingHandlers(eventType);
-
-            if (matchingHandlers.length === 0) {
+            const handler = this.eventHandlers.get(eventType);
+            if (!handler) {
                 this.logger.warn(`⚠️ [NO-HANDLER] No handlers found for event: ${eventType}`);
                 return;
             }
 
-            // Process with all matching handlers
-            const results = await Promise.allSettled(
-                matchingHandlers.map(handler =>
-                    this.executeHandler(handler, eventType, normalizedEventData)
-                )
-            );
+            const results = await Promise.allSettled([
+                this.executeHandler(handler, normalizedEventData)
+            ]);
 
             // Process results and apply updates
             await this.processHandlerResults(eventType, results);
@@ -282,10 +285,15 @@ export class WorkflowEventSubscriber {
     registerEventHandler(handler: IEventHandler): void {
         // Inject back-reference for central registry access (internal use only)
         (handler as { subscriber?: WorkflowEventSubscriber }).subscriber = this;
-        this.eventHandlers.set(handler.name, handler);
+        if (this.eventHandlers.has(handler.eventName)) {
+            throw new Error(
+                `[WORKFLOW-EVENT-SUBSCRIBER] Duplicate handler for event '${handler.eventName}'. ` +
+                `Only one handler is allowed per event name.`
+            );
+        }
+        this.eventHandlers.set(handler.eventName, handler);
         this.logger.debug(`🔧 [HANDLER-REGISTERED] ${handler.name}`, {
-            priority: handler.priority,
-            patterns: handler.patterns.map((p) => (p instanceof RegExp ? p.toString() : String(p)))
+            eventName: handler.eventName
         });
     }
 
@@ -293,7 +301,13 @@ export class WorkflowEventSubscriber {
      * Unregister an event handler
      */
     unregisterEventHandler(handlerName: string): boolean {
-        const removed = this.eventHandlers.delete(handlerName);
+        let removed = false;
+        for (const [eventName, handler] of this.eventHandlers.entries()) {
+            if (handler.name === handlerName || handler.eventName === handlerName) {
+                removed = this.eventHandlers.delete(eventName);
+                break;
+            }
+        }
         if (removed) {
             this.logger.debug(`🔧 [HANDLER-UNREGISTERED] ${handlerName}`);
         }
@@ -383,6 +397,7 @@ export class WorkflowEventSubscriber {
         };
 
         this.agentNodeBuilder.clear();
+        this.instanceRegistry.clear();
 
         this.logger.debug('🧹 [WORKFLOW-CLEARED] All data cleared');
     }
@@ -444,28 +459,28 @@ export class WorkflowEventSubscriber {
 
     private initializeDefaultHandlers(): void {
         // Register all default event handlers
-        const agentHandlers = createAgentEventHandlers(this.logger, this.stateAccess, this.agentNodeBuilder);
-        const toolHandlers = createToolEventHandlers(this.logger);
-        const executionHandlers = createExecutionEventHandlers(
+        registerAgentEventHandlers(
+            this.registerEventHandler.bind(this),
             this.logger,
-            this.stateAccess,
-            this.executionNodeBuilder,
-            this.agentNodeBuilder
+            this.agentNodeBuilder,
+            this.instanceRegistry
         );
-        const userHandlers = createUserEventHandlers(this.logger, this.executionNodeBuilder);
-
-        agentHandlers.forEach(handler => this.registerEventHandler(handler));
-        toolHandlers.forEach(handler => this.registerEventHandler(handler));
-        executionHandlers.forEach(handler => this.registerEventHandler(handler));
-        userHandlers.forEach(handler => this.registerEventHandler(handler));
+        registerToolEventHandlers(
+            this.registerEventHandler.bind(this),
+            this.logger,
+            this.instanceRegistry
+        );
+        registerExecutionEventHandlers(
+            this.registerEventHandler.bind(this),
+            this.logger,
+            this.executionNodeBuilder,
+            this.agentNodeBuilder,
+            this.instanceRegistry
+        );
+        registerUserEventHandlers(this.registerEventHandler.bind(this), this.logger, this.executionNodeBuilder);
 
         this.logger.debug('🔧 [DEFAULT-HANDLERS] Initialized all default event handlers', {
-            handlersRegistered: [
-                ...agentHandlers.map(h => h.name),
-                ...toolHandlers.map(h => h.name),
-                ...executionHandlers.map(h => h.name),
-                ...userHandlers.map(h => h.name)
-            ]
+            handlersRegistered: Array.from(this.eventHandlers.values()).map(h => h.name)
         });
     }
 
@@ -479,28 +494,14 @@ export class WorkflowEventSubscriber {
         return eventData;
     }
 
-    private findMatchingHandlers(eventType: string): IEventHandler[] {
-        const handlers: IEventHandler[] = [];
-
-        for (const handler of this.eventHandlers.values()) {
-            if (handler.canHandle(eventType)) {
-                handlers.push(handler);
-            }
-        }
-
-        // Sort by priority (highest first)
-        return handlers.sort((a, b) => b.priority - a.priority);
-    }
-
     private async executeHandler(
         handler: IEventHandler,
-        eventType: string,
         eventData: TEventData
     ): Promise<IEventProcessingResult> {
         try {
-            this.logger.debug(`🔧 [HANDLER-EXECUTING] ${handler.name} for ${eventType}`);
+            this.logger.debug(`🔧 [HANDLER-EXECUTING] ${handler.name} for ${handler.eventName}`);
 
-            const result = await handler.handle(eventType, eventData);
+            const result = await handler.handle(eventData);
 
             this.logger.debug(`✅ [HANDLER-SUCCESS] ${handler.name}`, {
                 success: result.success,
@@ -519,7 +520,7 @@ export class WorkflowEventSubscriber {
                 errors: [`Handler ${handler.name} failed: ${error instanceof Error ? error.message : String(error)}`],
                 metadata: {
                     handlerName: handler.name,
-                    eventType,
+                    eventType: handler.eventName,
                     error: true
                 }
             };
@@ -616,6 +617,12 @@ export class WorkflowEventSubscriber {
             return;
         }
 
+        if (update.action === 'patch') {
+            this.workflowBuilder.updateNode(update.nodeId, update.updates);
+            this.logger.debug(`🩹 [NODE-PATCHED] ${update.nodeId}`);
+            return;
+        }
+
         if ('edge' in update) {
             if (update.action === 'create') {
                 const { timestamp: _timestamp, ...edgeData } = update.edge;
@@ -687,5 +694,18 @@ export class WorkflowEventSubscriber {
                 );
             }
         });
+    }
+
+    private appendEventLog(eventType: string, eventData: TEventData): void {
+        if (!eventData.context?.ownerPath?.length) {
+            throw new Error(`[EVENT-LOG] Missing ownerPath for ${eventType}`);
+        }
+        const record: TEventLogRecord = {
+            eventName: eventType,
+            timestamp: eventData.timestamp,
+            ownerPath: eventData.context.ownerPath,
+            payload: eventData
+        };
+        this.eventLogStore.append(record);
     }
 }

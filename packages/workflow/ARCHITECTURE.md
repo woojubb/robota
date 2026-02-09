@@ -350,3 +350,9 @@ subscriber.registerHandler(new MyCustomHandler(rootEventService));
 - 하드코딩된 문자열 사용 금지
 - 도메인 중립성 유지
 - 확장성 고려한 설계
+
+## Instance Registry Policy (No-Fallback)
+
+- Instance registry updates are part of event handling in `WorkflowEventSubscriber`.
+- Registration/update failures must throw immediately; no fallback or silent handling.
+- Core services emit events only and remain unaware of registry existence.

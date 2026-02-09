@@ -32,3 +32,20 @@ export function extractPathInfo(ownerPath: IOwnerPathSegment[], contextLabel: st
     return { segments, nodeId, parentId, rootId };
 }
 
+export function findOwnerIdByType(
+    ownerPath: IOwnerPathSegment[],
+    ownerType: string,
+    contextLabel: string
+): string {
+    if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
+        throw new Error(`[PATH-ONLY] Missing context.ownerPath for ${contextLabel}`);
+    }
+    for (let i = ownerPath.length - 1; i >= 0; i--) {
+        const seg = ownerPath[i];
+        if (seg?.type === ownerType && typeof seg.id === 'string' && seg.id.length > 0) {
+            return seg.id;
+        }
+    }
+    throw new Error(`[PATH-ONLY] Missing ownerPath segment type="${ownerType}" for ${contextLabel}`);
+}
+

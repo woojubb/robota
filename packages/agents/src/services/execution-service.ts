@@ -782,9 +782,22 @@ export class ExecutionService {
 
                 // Emit tool results ready (join trigger) and then delivery to LLM
                 const toolResultsRootId: string = rootId;
+                const toolCallIds = assistantResponse.toolCalls.map(toolCall => {
+                    if (!toolCall.id || toolCall.id.length === 0) {
+                        throw new Error('[EXECUTION] Tool call missing id for tool results ready payload');
+                    }
+                    return toolCall.id;
+                });
+                if (toolCallIds.length === 0) {
+                    throw new Error('[EXECUTION] Tool results ready requires toolCallIds');
+                }
                 this.emitWithContext(
                     EXECUTION_EVENTS.TOOL_RESULTS_READY,
                     {
+                        parameters: {
+                            toolCallIds,
+                            round: currentRound
+                        },
                         metadata: {
                             round: currentRound
                         }
@@ -1208,9 +1221,22 @@ export class ExecutionService {
 
                 // After all tool responses are emitted and recorded, trigger aggregation join
                 const streamingRoot = streamingConversationId;
+                const streamingToolCallIds = toolCalls.map(toolCall => {
+                    if (!toolCall.id || toolCall.id.length === 0) {
+                        throw new Error('[EXECUTION] Tool call missing id for streaming tool results ready payload');
+                    }
+                    return toolCall.id;
+                });
+                if (streamingToolCallIds.length === 0) {
+                    throw new Error('[EXECUTION] Tool results ready requires toolCallIds in streaming mode');
+                }
                 this.emitExecution(
                     EXECUTION_EVENTS.TOOL_RESULTS_READY,
                     {
+                        parameters: {
+                            toolCallIds: streamingToolCallIds,
+                            round: 1
+                        },
                         metadata: {
                             toolsExecuted: toolSummary.results.map(r => {
                                 if (!r.toolName || r.toolName.length === 0) {
@@ -1323,7 +1349,7 @@ export class ExecutionService {
                     case 'onError':
                         if (pluginWithHooks.onError && context.error) {
                             const errorContext: IPluginErrorContext = {
-                                action: 'execution.error',
+                                action: `${EXECUTION_EVENT_PREFIX}.${EXECUTION_EVENTS.ERROR}`,
                                 metadata: {}
                             };
 
@@ -1395,6 +1421,12 @@ export class ExecutionService {
     }
 
     private buildExecutionOwnerContext(rootId: string, executionId: string): IEventContext {
+        if (!rootId || rootId.length === 0) {
+            throw new Error('[EXECUTION] Missing rootId for execution owner context');
+        }
+        if (!executionId || executionId.length === 0) {
+            throw new Error('[EXECUTION] Missing executionId for execution owner context');
+        }
         const basePath = this.agentOwnerPathBase.length ? this.agentOwnerPathBase : this.ownerPathBase;
         const path: IOwnerPathSegment[] = [...basePath];
         if (rootId && !path.some(segment => segment.type === 'agent' && segment.id === rootId)) {
@@ -1409,6 +1441,9 @@ export class ExecutionService {
     }
 
     private buildThinkingOwnerContext(rootId: string, executionId: string, thinkingNodeId: string): IEventContext {
+        if (!thinkingNodeId || thinkingNodeId.length === 0) {
+            throw new Error('[EXECUTION] Missing thinkingNodeId for thinking owner context');
+        }
         const base = this.buildExecutionOwnerContext(rootId, executionId).ownerPath;
         const path: IOwnerPathSegment[] = [...base, { type: 'thinking', id: thinkingNodeId }];
         return {
@@ -1421,6 +1456,9 @@ export class ExecutionService {
     private buildToolOwnerContext(rootId: string, executionId: string, toolCallId: string): IEventContext {
         // Tool calls are always children of a specific thinking phase (fork point).
         // The caller must provide an ownerPathBase that already includes `{ type: 'thinking', id }`.
+        if (!toolCallId || toolCallId.length === 0) {
+            throw new Error('[EXECUTION] Missing toolCallId for tool owner context');
+        }
         const base = this.buildExecutionOwnerContext(rootId, executionId).ownerPath;
         const path = [...base, { type: 'tool', id: toolCallId }];
         return {

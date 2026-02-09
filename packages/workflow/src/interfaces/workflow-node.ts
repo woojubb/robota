@@ -175,6 +175,12 @@ export interface IWorkflowNodeUpdate {
     relatedNodes?: IWorkflowNode[]; // Related nodes (connection relationships)
 }
 
+export interface IWorkflowNodePatchUpdate {
+    action: 'patch';
+    nodeId: string;
+    updates: Partial<IWorkflowNode>;
+}
+
 /**
  * Node creation options
  */
