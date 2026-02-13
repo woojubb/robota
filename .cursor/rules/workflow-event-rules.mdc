@@ -306,6 +306,23 @@ This rule enforces the Path-Only event graph construction with zero tolerance fo
 - It is allowed to scan the existing node set to find a matching node based on explicit fields. It is forbidden to infer relations via ID string patterns.
 - If the required explicit information is not present, do not fabricate or guess; emit and return without alternative flows (No-Fallback policy).
 
+### Node/Edge Creation Contract (Authoritative)
+- Node/edge creation decisions MUST be derived only from:
+  - `context.ownerPath` (primary)
+  - explicitly allowed event payload fields declared by the owning event contract
+- Prohibited for relationship decisions:
+  - ad-hoc linkage fields such as `parentAgentId`, `childAgentId`, `delegatingAgentId`, `delegatedAgentId`
+  - any metadata-only fields not declared as linkage contract fields
+- Such fields may exist for UI labels/analytics/debugging, but MUST NOT influence edge source/target or parent-child derivation.
+- If `ownerPath` + explicit contract fields are insufficient, fix emitter contract first (`[STRICT-POLICY][EMITTER-CONTRACT]`).
+
+### Strict Failure Semantics for Workflow Events
+- Workflow event processing must expose failure ownership explicitly:
+  - **`[STRICT-POLICY][EMITTER-CONTRACT]`**: required event contract or path-only data is invalid/missing.
+  - **`[STRICT-POLICY][APPLY-LAYER]`**: node/edge apply failed after valid handler output.
+- Both failure classes must stop processing immediately.
+- Do not blur these classes with generic errors; keep the failure label explicit for root-cause routing.
+
 ### OwnerPath Inheritance Intent (Authoritative)
 - `ownerPath` is the single source of structural context for parent-child relations.
 - Emitters must append exactly one new segment for their current scope on top of inherited `ownerPath`.

@@ -3,6 +3,13 @@ import type {
     IProjectionCacheService,
     IProjectionCacheStats
 } from '../interfaces/projection-cache.js';
+import {
+    AGENT_EVENT_PREFIX,
+    EXECUTION_EVENT_PREFIX,
+    TASK_EVENT_PREFIX,
+    TOOL_EVENT_PREFIX,
+    USER_EVENT_PREFIX
+} from '@robota-sdk/agents';
 
 interface IProjectionCacheEntry<TValue> {
     value: TValue;
@@ -12,8 +19,20 @@ interface IProjectionCacheEntry<TValue> {
 const DEFAULT_POLICY: IProjectionCachePolicy = {
     workflowProjectionTtlMs: 30_000,
     historyProjectionTtlMs: 30_000,
-    workflowInvalidationPrefixes: ['execution.', 'tool.', 'agent.', 'team.', 'user.', 'task.'],
-    historyInvalidationPrefixes: ['execution.', 'tool.', 'agent.', 'team.', 'user.', 'task.']
+    workflowInvalidationPrefixes: [
+        `${EXECUTION_EVENT_PREFIX}.`,
+        `${TOOL_EVENT_PREFIX}.`,
+        `${AGENT_EVENT_PREFIX}.`,
+        `${USER_EVENT_PREFIX}.`,
+        `${TASK_EVENT_PREFIX}.`
+    ],
+    historyInvalidationPrefixes: [
+        `${EXECUTION_EVENT_PREFIX}.`,
+        `${TOOL_EVENT_PREFIX}.`,
+        `${AGENT_EVENT_PREFIX}.`,
+        `${USER_EVENT_PREFIX}.`,
+        `${TASK_EVENT_PREFIX}.`
+    ]
 };
 
 const DEFAULT_STATS = (): IProjectionCacheStats => ({

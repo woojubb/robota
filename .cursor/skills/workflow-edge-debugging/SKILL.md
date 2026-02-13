@@ -58,3 +58,4 @@ Use this skill when the UI workflow graph shows missing connections (e.g., edges
 ## Stop Conditions
 - If explicit linkage fields are missing, stop and fix the upstream event payload.
 - Do not invent or infer relationships; rely only on explicit linkage data.
+- If edge decisions are influenced by metadata-only fields (`parentAgentId`/`childAgentId` etc.), classify as contract violation and stop.

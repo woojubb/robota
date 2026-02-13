@@ -1,4 +1,4 @@
-import { SilentLogger, type ILogger, type IEventHistoryModule, type IEventHistoryRecord } from '@robota-sdk/agents';
+import { SilentLogger, type ILogger, type IEventHistoryModule } from '@robota-sdk/agents';
 import type { IEventHandler } from '../interfaces/event-handler.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
 import type { TEventLogRecord } from '../interfaces/event-log.js';
@@ -8,6 +8,7 @@ import { ExecutionNodeBuilder } from '../handlers/builders/execution-node-builde
 import { WorkflowInstanceRegistry } from './instance-registry.js';
 import { compareEventOrdering } from './event-log-ordering.js';
 import { registerDefaultEventHandlers } from './default-event-handler-registry.js';
+import { toEventDataFromHistory } from './event-record-adapter.js';
 
 export class WorkflowProjection implements IWorkflowProjection {
     private logger: ILogger;
@@ -26,16 +27,20 @@ export class WorkflowProjection implements IWorkflowProjection {
     }
 
     async apply(record: TEventLogRecord): Promise<TWorkflowUpdate[]> {
+        if (!record.context?.ownerPath || record.context.ownerPath.length === 0) {
+            throw new Error(`[WORKFLOW-PROJECTION] Missing ownerPath for ${record.eventName}`);
+        }
         const handler = this.handlers.get(record.eventName);
         if (!handler) {
             throw new Error(`[WORKFLOW-PROJECTION] No handler for event: ${record.eventName}`);
         }
-        if (record.payload.eventType !== record.eventName) {
+        const eventData = toEventDataFromHistory(record);
+        if (eventData.eventType !== record.eventName) {
             throw new Error(
-                `[WORKFLOW-PROJECTION] Event name mismatch: record=${record.eventName} payload=${record.payload.eventType}`
+                `[WORKFLOW-PROJECTION] Event name mismatch: record=${record.eventName} payload=${eventData.eventType}`
             );
         }
-        const result = await handler.handle(record.payload);
+        const result = await handler.handle(eventData);
         return result.updates;
     }
 
@@ -60,8 +65,7 @@ export class WorkflowProjection implements IWorkflowProjection {
         }));
         const updates: TWorkflowUpdate[] = [];
         for (const record of ordered) {
-            const logRecord = this.toEventLogRecord(record);
-            const result = await this.apply(logRecord);
+            const result = await this.apply(record);
             updates.push(...result);
         }
         return updates;
@@ -81,24 +85,5 @@ export class WorkflowProjection implements IWorkflowProjection {
             executionNodeBuilder: this.executionNodeBuilder,
             instanceRegistry: this.instanceRegistry
         });
-    }
-
-    private toEventLogRecord(record: IEventHistoryRecord): TEventLogRecord {
-        const ownerPath = record.context?.ownerPath;
-        if (!ownerPath || ownerPath.length === 0) {
-            throw new Error(`[WORKFLOW-PROJECTION] Missing ownerPath for ${record.eventName}`);
-        }
-        const payload = {
-            ...record.eventData,
-            eventType: record.eventName,
-            timestamp: record.eventData.timestamp,
-            context: record.context
-        };
-        return {
-            eventName: record.eventName,
-            timestamp: record.eventData.timestamp,
-            ownerPath,
-            payload
-        };
     }
 }

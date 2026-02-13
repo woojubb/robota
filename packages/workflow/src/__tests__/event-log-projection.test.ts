@@ -8,16 +8,17 @@ const createdEventName = composeEventName(AGENT_EVENT_PREFIX, AGENT_EVENTS.CREAT
 
 const buildRecord = (agentId: string): TEventLogRecord => {
     const ownerPath: IOwnerPathSegment[] = [{ type: 'agent', id: agentId }];
-    const payload: TEventData = {
+    const eventData: TEventData = {
         eventType: createdEventName,
         timestamp: new Date(0),
         context: { ownerPath }
     };
     return {
         eventName: createdEventName,
-        timestamp: payload.timestamp,
-        ownerPath,
-        payload
+        sequenceId: 1,
+        timestamp: eventData.timestamp,
+        eventData,
+        context: eventData.context
     };
 };
 
@@ -50,7 +51,10 @@ describe('WorkflowProjection', () => {
     it('should throw when ownerPath is missing', async () => {
         const record = buildRecord('agent_1');
         const projection = new WorkflowProjection();
-        const badRecord: TEventLogRecord = { ...record, ownerPath: [] };
+        const badRecord: TEventLogRecord = {
+            ...record,
+            context: { ...record.context, ownerPath: [] }
+        };
 
         await expect(projection.apply(badRecord)).rejects.toThrow('ownerPath');
     });

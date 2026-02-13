@@ -1,6 +1,6 @@
 import type { TUniversalValue } from '@robota-sdk/agents';
 import type { IWorkflowNode } from '../../interfaces/workflow-node.js';
-import { WORKFLOW_NODE_TYPES, type TWorkflowNodeKind } from '../../constants/workflow-types.js';
+import { WORKFLOW_NODE_TYPES } from '../../constants/workflow-types.js';
 import type { TEventData } from '../../interfaces/event-handler.js';
 import type { IPathInfo } from '../path-info.js';
 
@@ -10,11 +10,10 @@ export class ToolNodeBuilder {
         const nodeId = toolCallId;
 
         const toolName = this.getToolName(data);
-        const toolType = this.getToolTypeFromName(toolName);
 
         return {
             id: nodeId,
-            type: toolType,
+            type: WORKFLOW_NODE_TYPES.TOOL_CALL,
             level: 2,
             status: 'running',
             timestamp: Date.now(),
@@ -137,20 +136,6 @@ export class ToolNodeBuilder {
             },
             connections: []
         };
-    }
-
-    private getToolTypeFromName(toolName: string): TWorkflowNodeKind {
-        const toolTypeMap: Record<string, TWorkflowNodeKind> = {
-            'assignTask': WORKFLOW_NODE_TYPES.TOOL_CALL,
-            'fileRead': WORKFLOW_NODE_TYPES.TOOL_CALL,
-            'fileWrite': WORKFLOW_NODE_TYPES.TOOL_CALL,
-            'webSearch': WORKFLOW_NODE_TYPES.TOOL_CALL,
-            'codeExecution': WORKFLOW_NODE_TYPES.TOOL_CALL,
-            'apiCall': WORKFLOW_NODE_TYPES.TOOL_CALL,
-            'dataProcessing': WORKFLOW_NODE_TYPES.TOOL_CALL
-        };
-
-        return toolTypeMap[toolName] || WORKFLOW_NODE_TYPES.TOOL_CALL;
     }
 
     private getToolName(data: TEventData): string {

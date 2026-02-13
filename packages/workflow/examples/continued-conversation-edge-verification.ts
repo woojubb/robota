@@ -40,14 +40,14 @@ const buildAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
 
         const parentOwnerPath: IOwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map(segment => ({ ...segment })) : [];
 
-        const childAgentId = `agent_${nextChildAgentNumber}`;
+        const delegatedAgentId = `agent_${nextChildAgentNumber}`;
         nextChildAgentNumber += 1;
         const extraContext = typeof params.context === 'string' ? params.context : '';
         const prompt = extraContext ? `${jobDescription}\n\nContext: ${extraContext}` : jobDescription;
 
         const childAgent = new Robota({
-            name: `GuardedDelegatedAgent_${childAgentId}`,
-            conversationId: childAgentId,
+            name: `GuardedDelegatedAgent_${delegatedAgentId}`,
+            conversationId: delegatedAgentId,
             aiProviders: [aiProvider],
             defaultModel: {
                 provider: 'openai',

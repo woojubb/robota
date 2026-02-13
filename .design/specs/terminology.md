@@ -54,6 +54,18 @@ description: "프로젝트 전체에서 사용하는 용어와 정의의 단일 
 ### Explicit Linkage Fields
 - **의미**: 연결을 결정하기 위한 **명시적 필드**(예: `executionId`, `parentExecutionId`, `rootExecutionId`, `path`).
 
+### Delegating/Delegated Agent ID
+- **의미**: delegation 관계를 표현하는 메타데이터 필드.
+- **제약**: 그래프 링크(source/target) 결정 근거로는 사용하지 않는다.
+
+### Emitter Contract Failure
+- **표기**: `[STRICT-POLICY][EMITTER-CONTRACT]`
+- **의미**: ownerPath 누락/불일치, 필수 계약 필드 누락, handler contract 실패.
+
+### Apply Layer Failure
+- **표기**: `[STRICT-POLICY][APPLY-LAYER]`
+- **의미**: node/edge 적용 단계(create/update) 실패.
+
 ## 혼용 용어 현황 (유의어 매핑)
 아래 용어는 **현재 혼용되는 표현**이며, 점진적으로 Airflow 기준으로 수렴한다.
 

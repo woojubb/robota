@@ -57,3 +57,4 @@ Use this skill to keep scenario record/play deterministic and reproducible.
 - Model parent-child event structure through `ownerPath` inheritance.
 - Emitters append their segment to inherited `ownerPath`.
 - Do not rely on ad-hoc linkage parameters when `ownerPath` can represent the relation.
+- Treat `parentAgentId`/`childAgentId`-style fields as metadata only; they must not drive node/edge creation decisions.
