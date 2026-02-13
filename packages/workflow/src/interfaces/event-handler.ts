@@ -55,8 +55,6 @@ export interface IEventProcessingResult {
     success: boolean;
     updates: TWorkflowUpdate[];
     errors?: string[];
-    warnings?: string[];
-    metadata?: TLoggerData;
 }
 
 /**

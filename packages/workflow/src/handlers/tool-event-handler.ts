@@ -41,48 +41,13 @@ class ToolEventLogic {
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        try {
-            this.logger.debug(`🔧 [TOOL-HANDLER] Processing ${eventType}`);
-            this.recordToolInstance(eventType, eventData);
-            const handler = this.getHandler(eventType);
-            if (!handler) {
-                this.logger.warn(`⚠️ [TOOL-HANDLER] Unknown event type: ${eventType}`);
-                return {
-                    success: false,
-                    updates: [],
-                    metadata: {
-                        handlerType: 'tool',
-                        eventType,
-                        processed: false
-                    }
-                };
-            }
-
-            const result = await handler(eventData);
-            return {
-                ...result,
-                metadata: {
-                    handlerType: 'tool',
-                    eventType,
-                    processed: true
-                }
-            };
-        } catch (error) {
-            this.logger.error(
-                `❌ [TOOL-HANDLER] Error processing ${eventType}:`,
-                error instanceof Error ? error : new Error(String(error))
-            );
-            return {
-                success: false,
-                updates: [],
-                errors: [`ToolEventHandler failed: ${error instanceof Error ? error.message : String(error)}`],
-                metadata: {
-                    handlerType: 'tool',
-                    eventType,
-                    error: true
-                }
-            };
+        this.logger.debug(`🔧 [TOOL-HANDLER] Processing ${eventType}`);
+        this.recordToolInstance(eventType, eventData);
+        const handler = this.getHandler(eventType);
+        if (!handler) {
+            throw new Error(`[TOOL-HANDLER] Unknown event type: ${eventType}`);
         }
+        return handler(eventData);
     }
 
     private getHandler(eventType: string): ((data: TEventData) => Promise<IEventProcessingResult>) | undefined {

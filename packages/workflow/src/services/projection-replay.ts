@@ -1,6 +1,7 @@
 import type { IEventLogStore } from '../interfaces/event-log-store.js';
 import type { IHistoryProjection, IWorkflowProjection } from '../interfaces/event-projection.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
+import { compareEventOrdering } from './event-log-ordering.js';
 
 export interface IProjectionReplayOptions {
     startSequenceId: number;
@@ -27,7 +28,9 @@ export class ProjectionReplayService {
         if (options.startSequenceId < 1) {
             throw new Error('[PROJECTION-REPLAY] startSequenceId must be >= 1.');
         }
-        const records = this.store.read(options.startSequenceId, options.endSequenceId);
+        const records = this.store
+            .read(options.startSequenceId, options.endSequenceId)
+            .sort((left, right) => compareEventOrdering(left, right));
         const workflowUpdates: TWorkflowUpdate[] = [];
         let historyApplied = 0;
         for (const record of records) {

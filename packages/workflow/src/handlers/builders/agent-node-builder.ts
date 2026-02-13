@@ -99,6 +99,11 @@ export class AgentNodeBuilder {
             if (typeof content === 'string' && content.length > 0) return content;
             const message = (data as { message?: unknown }).message;
             if (typeof message === 'string' && message.length > 0) return message;
+            const params = data.parameters as Record<string, unknown> | undefined;
+            const assistantMessage = params?.['assistantMessage'];
+            if (typeof assistantMessage === 'string' && assistantMessage.length > 0) return assistantMessage;
+            const fullResponse = params?.['fullResponse'];
+            if (typeof fullResponse === 'string' && fullResponse.length > 0) return fullResponse;
             return '';
         })();
         if (!responseContent) {

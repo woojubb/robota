@@ -90,3 +90,5 @@ apps/**/README.md
 
 # Package README files are now preserved and committed to git
 # packages/*/README.md  # REMOVED - README.md files should be included in packages
+
+.pnpm*

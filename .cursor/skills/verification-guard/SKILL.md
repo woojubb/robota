@@ -11,19 +11,23 @@ Use this skill when running example workflows that must abort verification on fa
 ## Guarded Execution Template
 ```bash
 cd /Users/jungyoun/Documents/dev/robota/packages/workflow/examples && \
-FILE=guarded-edge-verification.ts && \
-HASH=$(md5 -q "$FILE") && \
-OUT=cache/guarded-edge-verification-$HASH-guarded.log && \
-echo "▶️ Run example (guarded)..." && \
-STATUS=0; npx tsx "$FILE" > "$OUT" 2>&1 || STATUS=$?; \
-tail -n 160 "$OUT" | cat; \
-if [ "$STATUS" -ne 0 ] || grep -E "\\[STRICT-POLICY\\]|\\[EDGE-ORDER-VIOLATION\\]" "$OUT" >/dev/null; then \
-  echo "❌ Aborting verification (example failed or strict-policy violation)."; \
-  exit ${STATUS:-1}; \
-fi; \
-echo "▶️ Verify..." && \
-npx tsx utils/verify-workflow-connections.ts | cat
+pnpm guarded:verify:template
 ```
+
+## Package Template Commands
+- Guarded example: `pnpm guarded:verify:template`
+- Continued conversation example: `pnpm continued:verify:template`
+- Generic entrypoint: `pnpm scenario:verify -- <example-file> <scenario-id> [--strategy=hash|sequential]`
+
+## Re-record Workflow Scenarios
+- Precondition: `OPENAI_API_KEY` must be set in shell.
+- Re-record (clean overwrite):
+  - `pnpm scenario -- record guarded-edge-verification.ts mandatory-delegation`
+  - `pnpm scenario -- record continued-conversation-edge-verification.ts continued-conversation`
+- Then verify:
+  - `pnpm guarded:verify:template`
+  - `pnpm continued:verify:template`
+- Record mode is authoritative and overwrites the target scenario file before recording to avoid duplicate hash ambiguity.
 
 ## Stop Conditions
 - Non-zero exit code from example execution

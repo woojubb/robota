@@ -18,6 +18,7 @@ import {
     type TEventName,
     type TEventEmitterListener
 } from './event-emitter/types';
+import { InMemoryEventEmitterMetrics, type IEventEmitterMetrics } from './event-emitter/metrics';
 
 export type { TEventName };
 
@@ -151,6 +152,8 @@ export interface IEventEmitterPluginOptions extends IPluginOptions {
         maxSize: number;
         flushInterval: number;
     };
+    /** Metrics collector (optional) */
+    metrics?: IEventEmitterMetrics;
 }
 
 /**
@@ -174,16 +177,18 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     version = '1.0.0';
 
 
-    private pluginOptions: Required<IEventEmitterPluginOptions>;
+    private pluginOptions: Required<Omit<IEventEmitterPluginOptions, 'metrics'>>;
     private logger: ILogger;
     private handlers = new Map<TEventName, IEventEmitterHandlerRegistration[]>();
     private eventBuffer: IEventEmitterEventData[] = [];
     private nextHandlerId = 1;
     private bufferTimer?: TTimerId;
+    private metrics: IEventEmitterMetrics;
 
     constructor(options: IEventEmitterPluginOptions = {}) {
         super();
         this.logger = createLogger('EventEmitterPlugin');
+        this.metrics = options.metrics ?? new InMemoryEventEmitterMetrics();
 
         // Validate options
         this.validateOptions(options);
@@ -483,6 +488,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
         if (globalFilter && !globalFilter(event)) {
             return;
         }
+        this.metrics.incrementEmitted();
 
         // Buffer events if enabled
         if (this.pluginOptions.buffer.enabled) {
@@ -522,39 +528,30 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
             this.off(event.type, handler.id);
         }
 
-        // Execute handlers
-        const promises = handlersToCall.map(async (handler) => {
-            try {
-                if (this.pluginOptions.async) {
-                    await handler.listener(event);
-                } else {
-                    handler.listener(event);
-                }
-            } catch (error) {
-                if (this.pluginOptions.catchErrors) {
-                    this.logger.error('Event handler error', {
-                        eventType: event.type,
-                        handlerId: handler.id,
-                        error: error instanceof Error ? error.message : String(error)
-                    });
-
-                    // Emit plugin error event
-                    await this.emit(EVENT_EMITTER_EVENTS.PLUGIN_ERROR, {
-                        error: error instanceof Error ? error : new Error(String(error)),
-                        data: {
-                            handlerId: handler.id,
-                            originalEventType: event.type,
-                            originalEventExecutionId: event.executionId
-                        }
-                    });
-                } else {
-                    throw error;
-                }
-            }
-        });
-
+        // Execute handlers without fallback path.
         if (this.pluginOptions.async) {
-            await Promise.allSettled(promises);
+            await Promise.all(handlersToCall.map(handler => this.executeHandler(handler, event)));
+            return;
+        }
+
+        for (const handler of handlersToCall) {
+            await this.executeHandler(handler, event);
+        }
+    }
+
+    private async executeHandler(handler: IEventEmitterHandlerRegistration, event: IEventEmitterEventData): Promise<void> {
+        try {
+            await handler.listener(event);
+        } catch (error) {
+            this.metrics.incrementErrors();
+            if (this.pluginOptions.catchErrors) {
+                this.logger.error('Event handler error', {
+                    eventType: event.type,
+                    handlerId: handler.id,
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            }
+            throw error instanceof Error ? error : new Error(String(error));
         }
     }
 
@@ -601,6 +598,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
      */
     override getStats(): IEventEmitterPluginStats {
         const base = super.getStats();
+        const metrics = this.metrics.getSnapshot();
         const listenerCounts: Record<TEventName, number> = {} as Record<TEventName, number>;
         let totalListeners = 0;
 
@@ -615,8 +613,8 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
             listenerCounts,
             totalListeners,
             bufferedEvents: this.eventBuffer.length,
-            totalEmitted: 0, // TODO: Track total emitted events
-            totalErrors: 0 // TODO: Track total listener errors
+            totalEmitted: metrics.totalEmitted,
+            totalErrors: metrics.totalErrors
         };
     }
 

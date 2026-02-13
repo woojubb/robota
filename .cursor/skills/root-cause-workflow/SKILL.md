@@ -35,6 +35,13 @@ Use this skill to diagnose issues and validate fixes with a strict, step-by-step
    - Build relevant packages as required.
    - Verify behavior and report results.
 
+## Checklist Execution Protocol
+1. Write explicit checklist items for the task scope.
+2. Execute one checklist item at a time.
+3. Validate each item with concrete commands (build/test/run/verify).
+4. Mark an item complete only after validation passes.
+5. If validation fails, keep/revert the item as incomplete and continue root-cause correction.
+
 ## Build Error Resolution Addendum
 - Trace build failures to architectural causes.
 - Prefer constraint-based generics and explicit validation over blind casting.

@@ -10,7 +10,6 @@ import {
     AGENT_EVENT_PREFIX,
     composeEventName,
     type ILogger,
-    type TContextData
 } from '@robota-sdk/agents';
 import type {
     IEventHandler,
@@ -57,55 +56,21 @@ class AgentEventLogic {
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        try {
-            const agentId = findOwnerIdByType(eventData.context.ownerPath, 'agent', eventType);
-            const executionId = typeof eventData.executionId === 'string' ? eventData.executionId : undefined;
-            this.logger.debug(`🔔 [AGENT-HANDLER] Processing ${eventType}`, {
-                agentId,
-                executionId
-            });
+        const agentId = findOwnerIdByType(eventData.context.ownerPath, 'agent', eventType);
+        const executionId = typeof eventData.executionId === 'string' ? eventData.executionId : undefined;
+        this.logger.debug(`🔔 [AGENT-HANDLER] Processing ${eventType}`, {
+            agentId,
+            executionId
+        });
 
-            this.recordAgentInstance(eventType, agentId, eventData);
+        this.recordAgentInstance(eventType, agentId, eventData);
 
-            const handler = this.getHandler(eventType);
-            if (!handler) {
-                this.logger.warn(`⚠️ [AGENT-HANDLER] Unhandled event type: ${eventType}`);
-                return {
-                    success: false,
-                    updates: [],
-                    metadata: {
-                        handlerType: 'agent',
-                        eventType,
-                        processed: false
-                    }
-                };
-            }
-
-            const result = await handler(eventData, agentId);
-            return {
-                ...result,
-                metadata: {
-                    handlerType: 'agent',
-                    eventType,
-                    processed: true
-                }
-            };
-        } catch (error) {
-            this.logger.error(
-                `❌ [AGENT-HANDLER] Error handling ${eventType}:`,
-                error instanceof Error ? error : new Error(String(error))
-            );
-            return {
-                success: false,
-                updates: [],
-                errors: [`Error handling ${eventType}: ${error instanceof Error ? error.message : String(error)}`],
-                metadata: {
-                    handlerType: 'agent',
-                    eventType,
-                    error: true
-                }
-            };
+        const handler = this.getHandler(eventType);
+        if (!handler) {
+            throw new Error(`[AGENT-HANDLER] Unhandled event type: ${eventType}`);
         }
+
+        return handler(eventData, agentId);
     }
 
     private getHandler(
@@ -208,14 +173,14 @@ class AgentEventLogic {
             return { success: true, updates: [] };
         }
         const existingId = agentId;
-        const mergedOriginalEvent = this.mergeOriginalEvent(undefined, eventData);
+        const originalEvent = this.toOriginalEvent(eventData);
         const toolsFromEvent = eventData.parameters?.tools;
         const normalizedTools = this.toStringArrayValue(toolsFromEvent);
         const dataUpdates: IWorkflowNodeData = {
             extensions: {
                 robota: {
                     handlerType: 'agent',
-                    originalEvent: mergedOriginalEvent
+                    originalEvent
                 }
             }
         };
@@ -227,8 +192,6 @@ class AgentEventLogic {
             data: dataUpdates
         };
         return { success: true, updates: [{ action: 'patch', nodeId: existingId, updates: patch }] };
-
-        return { success: true, updates: [] };
     }
 
     private findAgentNodeIdForExecutionStart(agentId: string | undefined): string | undefined {
@@ -237,7 +200,7 @@ class AgentEventLogic {
 
     private buildAgentExecutionStatePatch(eventData: TEventData): Partial<IWorkflowNode> {
         const timestamp = Date.now();
-        const mergedOriginalEvent = this.mergeOriginalEvent(undefined, eventData);
+        const originalEvent = this.toOriginalEvent(eventData);
         return {
             status: 'running',
             timestamp,
@@ -246,40 +209,29 @@ class AgentEventLogic {
                 extensions: {
                     robota: {
                         handlerType: 'agent',
-                        originalEvent: mergedOriginalEvent
+                        originalEvent
                     }
                 }
             }
         };
     }
 
-    private mergeOriginalEvent(
-        existingEvent: IWorkflowOriginalEvent | undefined,
-        nextEvent: TEventData
-    ): IWorkflowOriginalEvent {
-        const mergedParameters = this.mergeContextData(existingEvent?.parameters, nextEvent.parameters);
-        const sourceType = typeof nextEvent.sourceType === 'string' ? nextEvent.sourceType : existingEvent?.sourceType;
-        const sourceId = typeof nextEvent.sourceId === 'string' ? nextEvent.sourceId : existingEvent?.sourceId;
-        const path = this.toStringArrayValue(nextEvent.path) ?? existingEvent?.path;
-
+    private toOriginalEvent(nextEvent: TEventData): IWorkflowOriginalEvent {
+        const sourceType = typeof nextEvent.sourceType === 'string' ? nextEvent.sourceType : undefined;
+        const sourceId = typeof nextEvent.sourceId === 'string' ? nextEvent.sourceId : undefined;
+        const path = this.toStringArrayValue(nextEvent.path);
         return {
             eventType: nextEvent.eventType,
             timestamp: nextEvent.timestamp,
             sourceType,
             sourceId,
             path,
-            parameters: mergedParameters,
-            result: nextEvent.result ?? existingEvent?.result,
-            metadata: nextEvent.metadata ?? existingEvent?.metadata,
-            error: nextEvent.error ?? existingEvent?.error,
-            context: nextEvent.context ?? existingEvent?.context
+            parameters: nextEvent.parameters,
+            result: nextEvent.result,
+            metadata: nextEvent.metadata,
+            error: nextEvent.error,
+            context: nextEvent.context
         };
-    }
-
-    private mergeContextData(existing: TContextData | undefined, incoming: TContextData | undefined): TContextData | undefined {
-        if (!existing) return incoming;
-        if (!incoming) return existing;
-        return { ...existing, ...incoming };
     }
 
     private toStringArrayValue(value: TEventData[keyof TEventData] | string[] | undefined): string[] | undefined {

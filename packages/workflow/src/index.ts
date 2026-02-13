@@ -7,6 +7,7 @@ export * from './interfaces/workflow-edge.js';
 export * from './interfaces/workflow-builder.js';
 export * from './interfaces/event-handler.js';
 export * from './interfaces/workflow-plugin.js';
+export * from './interfaces/projection-cache.js';
 
 // Constants
 export * from './constants/workflow-types.js';
@@ -19,7 +20,8 @@ export * from './types/universal-types.js';
 export * from './services/node-edge-manager.js';
 export * from './services/workflow-builder.js';
 export * from './services/workflow-event-subscriber.js';
-export * from './services/workflow-subscriber-event-service.js';
+export * from './services/workflow-event-service-bridge.js';
+export * from './services/projection-cache.js';
 
 // Handlers
 export * from './handlers/agent-event-handler.js';

@@ -7,7 +7,8 @@ import type {
     TUniversalValue
 } from '@robota-sdk/agents';
 
-import { ScenarioStore, createRequestHash, createRequestHashFromSnapshot, serializeChatOptions, serializeMessages } from './store.js';
+import { ScenarioStore } from './store.js';
+import { createRequestHash, createRequestHashFromSnapshot, serializeChatOptions, serializeMessages } from './request-utils.js';
 import { hydrateResponseSnapshot, serializeResponseSnapshot } from './serialize.js';
 import type { IScenarioProviderStep, TScenarioMode, TScenarioPlayStrategy } from './types.js';
 
@@ -330,7 +331,15 @@ class ScenarioMockAIProvider implements IAIProvider {
         const hash = createRequestHash(messages, options);
         const step = await this.options.store.findProviderStepByHashForPlay(this.options.scenarioId, hash);
         if (!step) {
-            throw new Error(`[ScenarioMockAIProvider] Unable to find recorded step for hash "${hash}".`);
+            const steps = await this.options.store.listProviderStepsForPlay(this.options.scenarioId);
+            const sampleHashes = Array.from(new Set(steps.map(candidate => candidate.requestHash))).slice(0, 5);
+            const sampleText = sampleHashes.length > 0 ? sampleHashes.join(', ') : 'none';
+            throw new Error(
+                `[ScenarioMockAIProvider] Unable to find recorded step for hash "${hash}" in scenario "${this.options.scenarioId}". ` +
+                `Strategy="${this.options.strategy ?? 'hash'}". ` +
+                `AvailableSteps=${steps.length}. ` +
+                `RecordedHashSample=${sampleText}.`
+            );
         }
         this.usedStepIds.add(step.stepId);
         return step;

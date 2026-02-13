@@ -15,6 +15,12 @@ Use this skill to apply TypeScript type system guidance and run quality gates.
 4. Confirm the lint count decreases or reaches zero before proceeding.
 5. Run typecheck for the impacted scope when required by the change.
 
+## Boundary Quality Gate
+- Before implementation, classify behavior as `core behavior` vs `side concern`.
+- If side concern, require an interface/module boundary and dependency injection.
+- Block changes that place side concerns directly in core modules as convenience exceptions.
+- Add tests that verify boundary behavior (core semantics unchanged when side concern implementation changes).
+
 ## Batch Quality Gate Checklist
 - Record the lint count before each batch.
 - Do not proceed to the next batch until the count decreases.
