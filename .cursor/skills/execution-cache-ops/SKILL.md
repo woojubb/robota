@@ -5,6 +5,9 @@ description: Provide operational commands for execution caching (clear, stats, c
 
 # Execution Cache Operations
 
+## Rule Anchor
+- `.cursor/rules/execution-caching-rules.mdc`
+
 ## Scope
 Use this skill to manage execution cache operations in a reusable, system-agnostic way.
 

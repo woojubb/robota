@@ -5,6 +5,9 @@ description: Provide Tailwind truncation patterns for single-line and multi-line
 
 # Tailwind Truncation
 
+## Rule Anchor
+- `.cursor/rules/tailwind-css-only-policy.mdc`
+
 ## Scope
 Use this skill for text truncation patterns using Tailwind utilities.
 

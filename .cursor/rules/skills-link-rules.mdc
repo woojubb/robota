@@ -2,30 +2,101 @@
 description: "Rules that delegate to project skills (single source of truth)"
 ---
 
-# Skill Delegation Rules
+# Rule and Skill Boundary
 
-## SDK Usage Patterns
-Single source of truth for Robota SDK usage guidance is the project skill:
-`.cursor/skills/robota-sdk-usage/SKILL.md`.
+## Purpose
+Define a strict boundary between:
+- **Rules**: mandatory constraints and prohibitions.
+- **Skills**: procedural playbooks and implementation workflows.
 
-Do not duplicate SDK usage guidance in rules.
+## Authority and Precedence
+1. Rules are mandatory and always win on conflict.
+2. Skills must not relax or reinterpret rule-level constraints.
+3. If skill text conflicts with a rule, update or remove the skill content immediately.
+4. Keep rules concise (what is allowed/forbidden) and keep skills procedural (how to execute).
 
-## Plugin Development
-Single source of truth for plugin development guidance is the project skill:
-`.cursor/skills/plugin-development/SKILL.md`.
+## Conflict Resolution Protocol
+1. Detect overlap or contradiction.
+2. Preserve mandatory policy in rule files.
+3. Move procedural checklists and examples to the linked skill.
+4. Delete duplicate normative statements from skills when already enforced by rules.
+5. Re-scan rules and skills for conflicting terms (`fallback`, `legacy path`, relaxed typing, inferred linking).
 
-Do not duplicate plugin development guidance in rules.
+## Conflict Scan Commands
+Use these scans before merging documentation changes:
 
-## Example Execution → Verification Guard
-Single source of truth for guarded verification procedures is the project skill:
-`.cursor/skills/verification-guard/SKILL.md`.
+```bash
+rg -n "any/unknown may|no-explicit-any|fallback to|legacy-code|temporary workaround" .cursor/skills .cursor/rules
+rg -n "main agent|sub-agent|parent-agent|child-agent" .cursor/skills .cursor/rules
+rg -n "infer|inference from IDs|regex|naming convention" .cursor/skills .cursor/rules
+```
 
-Do not duplicate guarded verification procedures in rules.
+If a scan finds conflicting guidance, keep the rule-level policy and update the skill text.
 
-## Edge Transfer Debugging Rules
-Debugging guidance and procedures live in the project skill:
-`.cursor/skills/workflow-edge-debugging/SKILL.md`.
+## Rule-to-Skill Mapping
+### Architecture and Development
+- Rule anchor: `.cursor/rules/development-architecture-rules.mdc`
+- Procedural skills:
+  - `.cursor/skills/development-architecture-guidance/SKILL.md`
+  - `.cursor/skills/functional-core-imperative-shell/SKILL.md`
+  - `.cursor/skills/ts-oop-di-patterns/SKILL.md`
+  - `.cursor/skills/hexagonal-architecture-ts/SKILL.md`
+  - `.cursor/skills/effect-style-error-modeling/SKILL.md`
 
-## Scenario Change Guard Checklist
-Pre-change guard checklist for scenario modifications lives in the project skill:
-`.cursor/skills/scenario-guard-checklist/SKILL.md`.
+### Workflow and Event System
+- Rule anchor: `.cursor/rules/workflow-event-rules.mdc`
+- Procedural skills:
+  - `.cursor/skills/workflow-determinism-guidance/SKILL.md`
+  - `.cursor/skills/workflow-node-guidance/SKILL.md`
+  - `.cursor/skills/workflow-edge-debugging/SKILL.md`
+  - `.cursor/skills/cqrs-event-projection-basics/SKILL.md`
+
+### Type and SSOT
+- Rule anchor: `.cursor/rules/type-ssot-rules.mdc`
+- Procedural skill:
+  - `.cursor/skills/quality-standards/SKILL.md`
+
+### Build, Resolution, and Verification Flow
+- Rule anchors:
+  - `.cursor/rules/build-and-resolution-rules.mdc`
+  - `.cursor/rules/project-structure-rules.mdc`
+- Procedural skills:
+  - `.cursor/skills/root-cause-workflow/SKILL.md`
+  - `.cursor/skills/pnpm-monorepo-build/SKILL.md`
+  - `.cursor/skills/verification-guard/SKILL.md`
+  - `.cursor/skills/vitest-testing-strategy/SKILL.md`
+
+### Caching and Examples
+- Rule anchor: `.cursor/rules/execution-caching-rules.mdc`
+- Procedural skills:
+  - `.cursor/skills/execution-caching/SKILL.md`
+  - `.cursor/skills/execution-cache-ops/SKILL.md`
+  - `.cursor/skills/scenario-guard-checklist/SKILL.md`
+
+### Language and Writing
+- Rule anchor: `.cursor/rules/language-rules.mdc`
+- Procedural skill:
+  - `.cursor/skills/writing-language-guide/SKILL.md`
+
+### Git and Commit Operations
+- Rule anchor: `.cursor/rules/git-operations-rules.mdc`
+- Procedural skill:
+  - `.cursor/skills/commit-message-guidance/SKILL.md`
+
+### Styling
+- Rule anchor: `.cursor/rules/tailwind-css-only-policy.mdc`
+- Procedural skill:
+  - `.cursor/skills/tailwind-truncation/SKILL.md`
+
+### SDK and Plugin Usage
+- Rule anchor: `.cursor/rules/skills-link-rules.mdc` (this file)
+- Procedural skills:
+  - `.cursor/skills/robota-sdk-usage/SKILL.md`
+  - `.cursor/skills/plugin-development/SKILL.md`
+  - `.cursor/skills/import-standards/SKILL.md`
+
+## Maintenance Checklist
+- [ ] New mandatory policy is added to a rule file first.
+- [ ] Skills reference rule anchors and avoid duplicating hard prohibitions.
+- [ ] New skills include only procedural content and practical checklists.
+- [ ] Conflicting language is removed immediately when discovered.

@@ -5,6 +5,9 @@ description: Guide a strict root-cause analysis workflow with validation, option
 
 # Root Cause Workflow
 
+## Rule Anchor
+- `.cursor/rules/build-and-resolution-rules.mdc`
+
 ## Scope
 Use this skill to diagnose issues and validate fixes with a strict, step-by-step process.
 

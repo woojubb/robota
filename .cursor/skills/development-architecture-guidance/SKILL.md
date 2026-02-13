@@ -5,6 +5,9 @@ description: Provide unified development and architecture guidance for error han
 
 # Development and Architecture Guidance
 
+## Rule Anchor
+- `.cursor/rules/development-architecture-rules.mdc`
+
 ## Scope
 Use this skill to apply consistent development patterns and architecture principles.
 

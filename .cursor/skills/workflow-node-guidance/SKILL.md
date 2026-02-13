@@ -5,6 +5,10 @@ description: Provide workflow node creation guidance, anti-patterns, and checkli
 
 # Workflow Node Guidance
 
+## Rule Anchor
+- `.cursor/rules/workflow-event-rules.mdc`
+- `.cursor/rules/execution-safety-rules.mdc`
+
 ## Scope
 Use this skill when creating workflow nodes and edges based on explicit linkage data.
 

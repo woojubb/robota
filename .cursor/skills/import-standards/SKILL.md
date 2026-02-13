@@ -5,6 +5,9 @@ description: Provide static import patterns, examples, and review checks. Use wh
 
 # Import Standards
 
+## Rule Anchor
+- `.cursor/rules/development-architecture-rules.mdc`
+
 ## Scope
 Use this skill to apply preferred import patterns and review checklists.
 

@@ -5,6 +5,11 @@ description: Run guarded example verification by aborting on failed execution or
 
 # Verification Guard
 
+## Rule Anchor
+- `.cursor/rules/scenario-rules.mdc`
+- `.cursor/rules/execution-safety-rules.mdc`
+- `.cursor/rules/execution-caching-rules.mdc`
+
 ## Scope
 Use this skill when running example workflows that must abort verification on failure or strict policy violations.
 

@@ -5,6 +5,10 @@ description: Diagnose missing or zero workflow graph edges by following a role-b
 
 # Workflow Edge Debugging
 
+## Rule Anchor
+- `.cursor/rules/workflow-event-rules.mdc`
+- `.cursor/rules/execution-safety-rules.mdc`
+
 ## Scope
 Use this skill when the UI workflow graph shows missing connections (e.g., edges are zero) or when connections are not transferred into the final graph.
 

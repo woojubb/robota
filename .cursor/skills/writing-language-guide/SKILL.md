@@ -5,6 +5,9 @@ description: Provide language usage guidance for docs and commit messages. Use w
 
 # Writing Language Guide
 
+## Rule Anchor
+- `.cursor/rules/language-rules.mdc`
+
 ## Scope
 Use this skill to apply language usage guidance for documentation and commit messages.
 

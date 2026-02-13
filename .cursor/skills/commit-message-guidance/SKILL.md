@@ -5,6 +5,10 @@ description: Provide commit message examples and guidance focused on WHAT change
 
 # Commit Message Guidance
 
+## Rule Anchor
+- `.cursor/rules/git-operations-rules.mdc`
+- `.cursor/rules/language-rules.mdc`
+
 ## Scope
 Use this skill to help craft concise, conventional commit messages that focus on WHAT was accomplished.
 

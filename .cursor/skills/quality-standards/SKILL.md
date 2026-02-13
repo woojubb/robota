@@ -5,6 +5,10 @@ description: Provide quality standards guidance for type system design and quali
 
 # Quality Standards Guidance
 
+## Rule Anchor
+- `.cursor/rules/type-ssot-rules.mdc`
+- `.cursor/rules/build-and-resolution-rules.mdc`
+
 ## Scope
 Use this skill to apply TypeScript type system guidance and run quality gates.
 
@@ -70,26 +74,7 @@ type TToolCalls = import('../abstracts/abstract-plugin').IPluginExecutionResult[
 - Use explicit interfaces for structured data.
 - Use type guards for runtime validation.
 
-## TypeScript Exception Justification (any/unknown)
-### Required Steps
-1. Try specific union types.
-2. Try existing interfaces.
-3. Define a precise interface.
-4. Redesign to avoid `any` or `unknown`.
-
-### Documentation Template
-```typescript
-// VERIFICATION PROCESS:
-// Step 1: Tried specific types - FAILED because [reason]
-// Step 2: Tried existing interfaces - FAILED because [reason]
-// Step 3: Tried custom interface - FAILED because [reason]
-// Step 4: Tried redesign - FAILED because [reason]
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, external-api
-```
-
-### Valid Justifications
-- `external-api`
-- `runtime-dynamic`
-- `third-party`
-- `legacy-code`
-- `generic-constraint`
+## Type Strictness Alignment
+- Follow repository strict policy: do not use `any`, `unknown`, or `{}` in production code.
+- Do not add linter or TypeScript bypass directives for convenience.
+- If typing fails, redesign contracts or module boundaries rather than weakening type safety.

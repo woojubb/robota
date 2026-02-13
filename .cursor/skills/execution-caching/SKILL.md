@@ -5,6 +5,10 @@ description: Provide execution caching workflows to reduce repeated runs and cos
 
 # Execution Caching
 
+## Rule Anchor
+- `.cursor/rules/execution-caching-rules.mdc`
+- `.cursor/rules/execution-safety-rules.mdc`
+
 ## Scope
 Use this skill to design or operate execution caching systems for repeatable runs.
 
