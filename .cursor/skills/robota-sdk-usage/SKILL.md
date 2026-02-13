@@ -5,6 +5,10 @@ description: Guide Robota SDK usage patterns, constructor configuration, and mig
 
 # Robota SDK Usage
 
+## Rule Anchor
+- `.cursor/rules/skills-link-rules.mdc`
+- `.cursor/rules/development-architecture-rules.mdc`
+
 ## Scope
 Use this skill when configuring Robota instances, creating tools, or migrating from deprecated packages.
 

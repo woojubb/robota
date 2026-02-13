@@ -5,6 +5,11 @@ description: Provide a pre-change checklist for scenario-related modifications. 
 
 # Scenario Guard Checklist
 
+## Rule Anchor
+- `.cursor/rules/scenario-rules.mdc`
+- `.cursor/rules/workflow-event-rules.mdc`
+- `.cursor/rules/execution-safety-rules.mdc`
+
 ## Scope
 Use this checklist before making scenario-related changes.
 

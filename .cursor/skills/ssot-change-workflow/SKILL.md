@@ -5,6 +5,10 @@ description: Guide SSOT change workflows for ownership audits and example migrat
 
 # SSOT Change Workflow
 
+## Rule Anchor
+- `.cursor/rules/type-ssot-rules.mdc`
+- `.cursor/rules/build-and-resolution-rules.mdc`
+
 ## Scope
 Use this skill for SSOT ownership audits and phased example migrations.
 

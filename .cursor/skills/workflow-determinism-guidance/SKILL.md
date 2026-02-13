@@ -5,6 +5,11 @@ description: Provide guidance for deterministic scenario record/play behavior, i
 
 # Workflow Determinism Guidance
 
+## Rule Anchor
+- `.cursor/rules/workflow-event-rules.mdc`
+- `.cursor/rules/scenario-rules.mdc`
+- `.cursor/rules/execution-safety-rules.mdc`
+
 ## Scope
 Use this skill to keep scenario record/play deterministic and reproducible.
 

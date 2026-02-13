@@ -5,6 +5,10 @@ description: Provide pnpm monorepo build commands and workflow guidance. Use whe
 
 # pnpm Monorepo Build
 
+## Rule Anchor
+- `.cursor/rules/project-structure-rules.mdc`
+- `.cursor/rules/build-and-resolution-rules.mdc`
+
 ## Scope
 Use this skill to choose the correct pnpm build commands for the workspace.
 

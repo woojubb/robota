@@ -5,6 +5,10 @@ description: Guide plugin development workflows with validation, disable strateg
 
 # Plugin Development
 
+## Rule Anchor
+- `.cursor/rules/development-architecture-rules.mdc`
+- `.cursor/rules/skills-link-rules.mdc`
+
 ## Scope
 Use this skill for designing or updating plugins in the project plugin system.
 
