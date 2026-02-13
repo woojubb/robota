@@ -21,6 +21,7 @@ Define a strict boundary between:
 3. Move procedural checklists and examples to the linked skill.
 4. Delete duplicate normative statements from skills when already enforced by rules.
 5. Re-scan rules and skills for conflicting terms (`fallback`, `legacy path`, relaxed typing, inferred linking).
+6. Re-scan specs and ensure rules/skills/specs describe the same policy surface.
 
 ## Conflict Scan Commands
 Use these scans before merging documentation changes:
@@ -29,9 +30,49 @@ Use these scans before merging documentation changes:
 rg -n "any/unknown may|no-explicit-any|fallback to|legacy-code|temporary workaround" .cursor/skills .cursor/rules
 rg -n "main agent|sub-agent|parent-agent|child-agent" .cursor/skills .cursor/rules
 rg -n "infer|inference from IDs|regex|naming convention" .cursor/skills .cursor/rules
+rg -n "EMITTER-CONTRACT|APPLY-LAYER|Node/Edge Creation Contract|ownerPath|IEventHistoryRecord|TEventLogRecord" .cursor/skills .cursor/rules .design/specs
 ```
 
 If a scan finds conflicting guidance, keep the rule-level policy and update the skill text.
+
+## Rule/Skill-to-Spec Mapping
+Use this map to keep procedural guidance aligned with formal project specs.
+
+### Event/Workflow Domain
+- Specs:
+  - `.design/specs/event-system.md`
+  - `.design/specs/workflow-graph.md`
+  - `.design/specs/terminology.md`
+- Rule anchors:
+  - `.cursor/rules/workflow-event-rules.mdc`
+  - `.cursor/rules/execution-safety-rules.mdc`
+  - `.cursor/rules/path-only-prohibitions.mdc`
+- Skills:
+  - `.cursor/skills/workflow-determinism-guidance/SKILL.md`
+  - `.cursor/skills/workflow-node-guidance/SKILL.md`
+  - `.cursor/skills/workflow-edge-debugging/SKILL.md`
+  - `.cursor/skills/cqrs-event-projection-basics/SKILL.md`
+
+### Type/SSOT Domain
+- Specs:
+  - `.design/specs/type-ownership.md`
+  - `.design/specs/type-ownership-inventory.md`
+- Rule anchors:
+  - `.cursor/rules/type-system-standards.mdc`
+  - `.cursor/rules/ssot-type-ownership.mdc`
+- Skills:
+  - `.cursor/skills/quality-standards/SKILL.md`
+  - `.cursor/skills/ssot-change-workflow/SKILL.md`
+
+### Playground/Host Domain
+- Specs:
+  - `.design/specs/playground.md`
+  - `.design/specs/web-host.md`
+- Rule anchors:
+  - `.cursor/rules/tailwind-css-only-policy.mdc`
+  - `.cursor/rules/agent-identity.mdc`
+- Skills:
+  - `.cursor/skills/tailwind-truncation/SKILL.md`
 
 ## Rule-to-Skill Mapping
 ### Architecture and Development

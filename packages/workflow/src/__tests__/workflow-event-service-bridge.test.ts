@@ -88,4 +88,14 @@ describe('WorkflowEventServiceBridge', () => {
         bridge.emit('execution.error', validData, validContext);
         await expect(bridge.flush()).rejects.toThrow('bridge-failure');
     });
+
+    it('should stop accepting new emits after first async failure', async () => {
+        const bridge = new WorkflowEventServiceBridge(createSubscriber(async () => {
+            throw new Error('bridge-failure');
+        }));
+
+        bridge.emit('execution.error', validData, validContext);
+        await expect(bridge.flush()).rejects.toThrow('bridge-failure');
+        expect(() => bridge.emit('execution.start', validData, validContext)).toThrow('bridge-failure');
+    });
 });

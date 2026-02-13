@@ -42,17 +42,20 @@ class ExecutionEventLogic {
     private executionNodeBuilder: ExecutionNodeBuilder;
     private agentNodeBuilder: AgentNodeBuilder;
     private instanceRegistry: WorkflowInstanceRegistry;
+    private getAllNodes: () => IWorkflowNode[];
 
     constructor(
         logger: ILogger = SilentLogger,
         executionNodeBuilder: ExecutionNodeBuilder,
         agentNodeBuilder: AgentNodeBuilder,
-        instanceRegistry: WorkflowInstanceRegistry
+        instanceRegistry: WorkflowInstanceRegistry,
+        getAllNodes: () => IWorkflowNode[] = () => []
     ) {
         this.logger = logger;
         this.executionNodeBuilder = executionNodeBuilder;
         this.agentNodeBuilder = agentNodeBuilder;
         this.instanceRegistry = instanceRegistry;
+        this.getAllNodes = getAllNodes;
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
@@ -118,7 +121,7 @@ class ExecutionEventLogic {
         const executionNode = this.executionNodeBuilder.createExecutionNode(eventData);
         updates.push({ action: 'create', node: executionNode });
 
-        const parentAgentId = (() => {
+        const delegatingAgentId = (() => {
             for (let i = ownerPath.length - 1; i >= 0; i--) {
                 const seg = ownerPath[i];
                 if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) return seg.id;
@@ -126,7 +129,7 @@ class ExecutionEventLogic {
             return undefined;
         })();
 
-        if (!parentAgentId) {
+        if (!delegatingAgentId) {
             return {
                 success: false,
                 updates: [],
@@ -135,8 +138,8 @@ class ExecutionEventLogic {
         }
 
         const edge: IWorkflowEdge = {
-            id: EdgeUtils.generateId(parentAgentId, executionId, 'executes'),
-            source: parentAgentId,
+            id: EdgeUtils.generateId(delegatingAgentId, executionId, 'executes'),
+            source: delegatingAgentId,
             target: executionId,
             type: 'executes',
             timestamp: Date.now()
@@ -157,7 +160,7 @@ class ExecutionEventLogic {
     private async handleToolResultsReady(eventData: TEventData): Promise<IEventProcessingResult> {
         const updates: TWorkflowUpdate[] = [];
         const ownerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
-        const thinkingId = ownerPath.length > 0 ? String(ownerPath[ownerPath.length - 1].id) : '';
+        const thinkingId = findOwnerIdByType(ownerPath, 'thinking', EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY);
         if (!thinkingId) {
             return {
                 success: false,
@@ -165,32 +168,22 @@ class ExecutionEventLogic {
                 errors: [`[PATH-ONLY] Invalid context.ownerPath (missing tail id) for ${EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY}`]
             };
         }
-        const toolCallIds = (() => {
-            const raw = eventData.parameters?.toolCallIds;
-            if (!Array.isArray(raw)) return undefined;
-            const ids: string[] = [];
-            for (const item of raw) {
-                if (typeof item !== 'string' || item.length === 0) {
-                    return undefined;
-                }
-                ids.push(item);
-            }
-            return ids;
-        })();
-        if (!toolCallIds || toolCallIds.length === 0) {
+        const toolResponseNodes = this.findToolResponseNodesByThinkingId(thinkingId);
+        if (toolResponseNodes.length === 0) {
             return {
                 success: false,
                 updates: [],
-                errors: [`[PATH-ONLY] Missing toolCallIds for ${EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY}`]
+                errors: [
+                    `[PATH-ONLY] Missing tool response nodes derived from ownerPath for ${EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY} thinkingId="${thinkingId}"`
+                ]
             };
         }
         const toolResultNode = this.executionNodeBuilder.createToolResultNode(thinkingId, eventData);
         updates.push({ action: 'create', node: toolResultNode });
-        for (const toolCallId of toolCallIds) {
-            const toolResponseId = `tool_response_call_${toolCallId}`;
+        for (const toolResponseNode of toolResponseNodes) {
             const edge: IWorkflowEdge = {
-                id: EdgeUtils.generateId(toolResponseId, toolResultNode.id, 'result'),
-                source: toolResponseId,
+                id: EdgeUtils.generateId(toolResponseNode.id, toolResultNode.id, 'result'),
+                source: toolResponseNode.id,
                 target: toolResultNode.id,
                 type: 'result',
                 timestamp: Date.now()
@@ -315,6 +308,26 @@ class ExecutionEventLogic {
 
         return { success: true, updates };
     }
+
+    private findToolResponseNodesByThinkingId(thinkingId: string): IWorkflowNode[] {
+        const nodes = this.getAllNodes();
+        const matches: IWorkflowNode[] = [];
+        for (const node of nodes) {
+            if (node.type !== WORKFLOW_NODE_TYPES.TOOL_RESPONSE) {
+                continue;
+            }
+            const ownerPath = node.data.extensions?.robota?.originalEvent?.context?.ownerPath;
+            if (!ownerPath) {
+                continue;
+            }
+            const hasThinkingSegment = ownerPath.some(segment => segment.type === 'thinking' && segment.id === thinkingId);
+            if (!hasThinkingSegment) {
+                continue;
+            }
+            matches.push(node);
+        }
+        return matches;
+    }
 }
 
 export function registerExecutionEventHandlers(
@@ -322,9 +335,10 @@ export function registerExecutionEventHandlers(
     logger: ILogger = SilentLogger,
     executionNodeBuilder: ExecutionNodeBuilder,
     agentNodeBuilder: AgentNodeBuilder,
-    instanceRegistry: WorkflowInstanceRegistry
+    instanceRegistry: WorkflowInstanceRegistry,
+    getAllNodes: () => IWorkflowNode[] = () => []
 ): void {
-    const logic = new ExecutionEventLogic(logger, executionNodeBuilder, agentNodeBuilder, instanceRegistry);
+    const logic = new ExecutionEventLogic(logger, executionNodeBuilder, agentNodeBuilder, instanceRegistry, getAllNodes);
     const handlers: IEventHandler[] = [
         {
             name: 'ExecutionStartHandler',

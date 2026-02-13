@@ -56,3 +56,40 @@ description: "CURRENT-TASKS에서 완료 처리된 항목을 보관한다"
 - [R-02] WorkflowEventServiceBridge 비동기 오류 전파 정책 정리 완료
 - [R-03] 이벤트 핵심 모듈 단위 테스트 추가 완료
 - [R-04] EventEmitterPlugin `getStats()` 실제 카운팅 반영 완료
+
+## 2026-02-08
+
+### Workflow 규칙 정합화 (P0~P2 Phase A) 완료
+- [P0] `agent-event-handler` dedup/silent-success 제거 완료
+- [P0] `workflow-event-service-bridge` 즉시 실패 전파 + 실패 후 emit 차단 테스트 추가 완료
+- [P0] `toolTypeMap` 제거로 handler neutrality 정리 완료
+- [P1] 금지 용어(`parentAgentId`/`childAgentId`)를 `delegating/delegated`로 정리 완료
+- [P1] projection cache 이벤트 prefix 하드코딩 제거(agents 상수 기반) 완료
+- [P1] 미사용 보조 상태/데드코드(`workflow-state`, `workflow-state-access`) 제거 완료
+- [P2-1] `tool_response_call_*` 네이밍 추론 제거 완료 (ownerPath + 기존 노드 explicit data 스캔 방식)
+- [P2-2 Phase A] event record 변환 단일 어댑터화 완료
+  - `event-record-adapter.ts` 신설
+  - `workflow-projection`의 변환 로직 분산 제거
+- [P2] playground 타입 용어 정합성(`delegatingAgentId`) 반영 완료
+
+### 규칙/스킬 정렬 강화 완료
+- `EMITTER-CONTRACT` / `APPLY-LAYER` 실패 분류 규칙 반영
+- `Node/Edge Creation Contract` 용어 및 금지 규칙(메타 필드로 링크 결정 금지) 반영
+- Decision Gate Protocol(중요 선택 시 사용자 선택 후 진행) 스킬 반영
+
+### 검증 완료
+- `@robota-sdk/workflow` 테스트/빌드 통과
+- `@robota-sdk/playground` 빌드 통과
+- workflow scenario verify 템플릿(`guarded`/`continued`) 통과
+- rules/skills 충돌 스캔 재실행 완료
+
+### P2-2 Phase B (조기 착수/완료) - Event Record SSOT 통합
+- 사용자 지시로 Phase B 즉시 착수 후 완료
+- `TEventLogRecord`를 `IEventHistoryRecord` 기반 단일 축으로 통합
+- workflow event-log/store/projection 계약을 `eventData + context.ownerPath + sequenceId` 기준으로 정렬
+- `event-record-adapter`를 record 변환이 아닌 `TEventData` 정규화(no-op 성격)로 축소
+- 검증:
+  - `pnpm --filter @robota-sdk/workflow test` 통과
+  - `pnpm --filter @robota-sdk/workflow build` 통과
+  - `pnpm --filter @robota-sdk/agents build` 통과
+  - `pnpm --filter @robota-sdk/playground build` 통과

@@ -43,7 +43,6 @@ class AgentEventLogic {
     private logger: ILogger;
     private nodeBuilder: AgentNodeBuilder;
     private instanceRegistry: WorkflowInstanceRegistry;
-    private agentNodeIdMap = new Map<string, string>();
 
     constructor(
         logger: ILogger = SilentLogger,
@@ -75,8 +74,8 @@ class AgentEventLogic {
 
     private getHandler(
         eventType: string
-    ): ((data: TEventData, agentId: string | undefined) => Promise<IEventProcessingResult>) | undefined {
-        const handlers: Record<string, (data: TEventData, agentId: string | undefined) => Promise<IEventProcessingResult>> = {
+    ): ((data: TEventData, agentId: string) => Promise<IEventProcessingResult>) | undefined {
+        const handlers: Record<string, (data: TEventData, agentId: string) => Promise<IEventProcessingResult>> = {
             [AGENT_EVENT_NAMES.CREATED]: (data, id) => this.handleAgentCreated(data, id),
             [AGENT_EVENT_NAMES.EXECUTION_START]: (data, id) => this.handleAgentExecutionStart(data, id),
             [AGENT_EVENT_NAMES.EXECUTION_COMPLETE]: () => this.handleAgentExecutionComplete(),
@@ -96,24 +95,12 @@ class AgentEventLogic {
         this.instanceRegistry.update(instanceType, agentId, eventData);
     }
 
-    private async handleAgentCreated(eventData: TEventData, agentId: string | undefined): Promise<IEventProcessingResult> {
+    private async handleAgentCreated(eventData: TEventData, agentId: string): Promise<IEventProcessingResult> {
         const pathInfo = extractPathInfo(eventData.context.ownerPath, AGENT_EVENT_NAMES.CREATED);
-        if (!agentId) {
-            return {
-                success: false,
-                updates: [],
-                errors: [`[PATH-ONLY] Missing agent segment in context.ownerPath for ${AGENT_EVENT_NAMES.CREATED}`]
-            };
-        }
-        const existing = this.agentNodeIdMap.get(agentId);
-        if (existing) {
-            return { success: true, updates: [] };
-        }
         const agentNode = this.nodeBuilder.createAgentNode(eventData, agentId, pathInfo);
         const updates: TWorkflowUpdate[] = [];
         updates.push({ action: 'create', node: agentNode });
         if (!pathInfo.parentId) {
-            this.agentNodeIdMap.set(agentId, agentNode.id);
             return { success: true, updates };
         }
 
@@ -126,24 +113,16 @@ class AgentEventLogic {
         };
         updates.push({ action: 'create', edge });
 
-        this.agentNodeIdMap.set(agentId, agentNode.id);
         return { success: true, updates };
     }
 
-    private async handleAgentExecutionStart(eventData: TEventData, agentId: string | undefined): Promise<IEventProcessingResult> {
-        if (!agentId) {
-            this.logger.warn('⚠️ [AGENT-HANDLER] execution_start received without agent segment. Skipping state update.');
-            return { success: true, updates: [] };
-        }
-
+    private async handleAgentExecutionStart(eventData: TEventData, agentId: string): Promise<IEventProcessingResult> {
         const updates: TWorkflowUpdate[] = [];
         const pathInfo = extractPathInfo(eventData.context.ownerPath, AGENT_EVENT_NAMES.EXECUTION_START);
         const existingAgentNodeId = this.findAgentNodeIdForExecutionStart(agentId);
         if (existingAgentNodeId) {
             const patch = this.buildAgentExecutionStatePatch(eventData);
             updates.push({ action: 'patch', nodeId: existingAgentNodeId, updates: patch });
-
-            this.agentNodeIdMap.set(agentId, existingAgentNodeId);
             return { success: true, updates };
         }
 
@@ -168,10 +147,7 @@ class AgentEventLogic {
         return { success: true, updates: [] };
     }
 
-    private async handleAgentConfigUpdated(eventData: TEventData, agentId: string | undefined): Promise<IEventProcessingResult> {
-        if (!agentId) {
-            return { success: true, updates: [] };
-        }
+    private async handleAgentConfigUpdated(eventData: TEventData, agentId: string): Promise<IEventProcessingResult> {
         const existingId = agentId;
         const originalEvent = this.toOriginalEvent(eventData);
         const toolsFromEvent = eventData.parameters?.tools;
@@ -194,7 +170,7 @@ class AgentEventLogic {
         return { success: true, updates: [{ action: 'patch', nodeId: existingId, updates: patch }] };
     }
 
-    private findAgentNodeIdForExecutionStart(agentId: string | undefined): string | undefined {
+    private findAgentNodeIdForExecutionStart(agentId: string): string | undefined {
         return agentId;
     }
 
@@ -250,7 +226,7 @@ class AgentEventLogic {
 
 
     clear(): void {
-        this.agentNodeIdMap.clear();
+        // No internal mutable dedup state.
     }
 }
 

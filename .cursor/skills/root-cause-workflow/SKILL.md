@@ -15,6 +15,9 @@ Use this skill to diagnose issues and validate fixes with a strict, step-by-step
 1. **Root Cause Discovery**
    - Identify the underlying cause, not just symptoms.
    - Use code reading, flow tracing, and log analysis.
+   - Classify event failures first:
+     - `[EMITTER-CONTRACT]`: event contract/path-only input violation
+     - `[APPLY-LAYER]`: node/edge apply failure after handler result
 2. **Root Cause Validation (3 checks)**
    - Can this cause the observed issue?
    - Are there other plausible causes?
@@ -44,6 +47,15 @@ Use this skill to diagnose issues and validate fixes with a strict, step-by-step
 3. Validate each item with concrete commands (build/test/run/verify).
 4. Mark an item complete only after validation passes.
 5. If validation fails, keep/revert the item as incomplete and continue root-cause correction.
+
+## Decision Gate Protocol (User Choice Required)
+- If an implementation requires a meaningful architectural/policy choice, stop and present options before editing.
+- Explain each option with:
+  - impact on behavior
+  - rule-compliance implications
+  - trade-offs and rollback difficulty
+- Ask the user to choose explicitly, then proceed only with the selected option.
+- Do not silently pick a default when the decision changes runtime semantics.
 
 ## Build Error Resolution Addendum
 - Trace build failures to architectural causes.

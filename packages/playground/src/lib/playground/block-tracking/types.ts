@@ -226,7 +226,7 @@ export interface IToolExecutionTrackingData {
  * Agent delegation tracking data for team scenarios
  */
 export interface IDelegationTrackingData {
-    parentAgentId: string;
+    delegatingAgentId: string;
     delegatedAgentId: string;
     taskDescription: string;
     agentTemplate?: string;

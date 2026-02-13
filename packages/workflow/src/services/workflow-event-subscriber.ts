@@ -19,13 +19,11 @@ import type {
     IWorkflowSnapshot
 } from '../interfaces/workflow-builder.js';
 import { CoreWorkflowBuilder } from './workflow-builder.js';
-import type { IWorkflowStateAccess } from '../interfaces/workflow-state-access.js';
 import { AgentNodeBuilder } from '../handlers/builders/agent-node-builder.js';
 import { ExecutionNodeBuilder } from '../handlers/builders/execution-node-builder.js';
 import { WorkflowInstanceRegistry } from './instance-registry.js';
 import type { IEventLogStore } from '../interfaces/event-log-store.js';
 import { InMemoryLogStore } from './in-memory-log-store.js';
-import type { TEventLogRecord } from '../interfaces/event-log.js';
 import { registerDefaultEventHandlers } from './default-event-handler-registry.js';
 
 /**
@@ -90,9 +88,10 @@ export interface IWorkflowEventSubscriber {
  * WorkflowEventSubscriber - Core workflow event processing system
  */
 export class WorkflowEventSubscriber {
+    private static readonly STRICT_EMITTER_CONTRACT_PREFIX = '[STRICT-POLICY][EMITTER-CONTRACT]';
+    private static readonly STRICT_APPLY_LAYER_PREFIX = '[STRICT-POLICY][APPLY-LAYER]';
     private logger: ILogger;
     private workflowBuilder: IExtendedWorkflowBuilder & IWorkflowQuery & IWorkflowPortable;
-    private stateAccess: IWorkflowStateAccess;
     private agentNodeBuilder: AgentNodeBuilder;
     private executionNodeBuilder: ExecutionNodeBuilder;
     private instanceRegistry: WorkflowInstanceRegistry;
@@ -131,9 +130,6 @@ export class WorkflowEventSubscriber {
             maxEdges: this.config.maxEdges
         });
         this.eventLogStore = this.config.eventLogStore;
-        this.stateAccess = {
-            getNode: (nodeId: string) => this.workflowBuilder.getNode(nodeId)
-        };
         this.agentNodeBuilder = new AgentNodeBuilder(this.logger);
         this.executionNodeBuilder = new ExecutionNodeBuilder();
         this.instanceRegistry = new WorkflowInstanceRegistry();
@@ -197,14 +193,17 @@ export class WorkflowEventSubscriber {
         } catch (error) {
             this.stats.errorsEncountered++;
             const rootError = error instanceof Error ? error : new Error(String(error));
+            if (rootError.message.includes(WorkflowEventSubscriber.STRICT_APPLY_LAYER_PREFIX)) {
+                throw rootError;
+            }
             this.logger.error(
                 `❌ [EVENT-PROCESSING-ERROR] Failed to process ${eventType}:`,
                 rootError
             );
             // Strict policy: propagate errors to callers to stop further processing
             const strictMsg =
-                `[STRICT-POLICY] Event processing aborted for '${eventType}'. ` +
-                `You MUST fix the emitter/handler to respect PATH-ONLY architecture and atomic edge creation. ` +
+                `${WorkflowEventSubscriber.STRICT_EMITTER_CONTRACT_PREFIX} Event processing aborted for '${eventType}'. ` +
+                `Emitter/handler contract is invalid (missing required path-only data or handler contract failure). ` +
                 `No fallback, no waiting, no helper states. Stop masking; correct the design. ` +
                 `Cause="${rootError.message}".`;
             throw new Error(strictMsg);
@@ -458,7 +457,8 @@ export class WorkflowEventSubscriber {
             logger: this.logger,
             agentNodeBuilder: this.agentNodeBuilder,
             executionNodeBuilder: this.executionNodeBuilder,
-            instanceRegistry: this.instanceRegistry
+            instanceRegistry: this.instanceRegistry,
+            getAllNodes: () => this.workflowBuilder.getRawNodes()
         });
 
         this.logger.debug('🔧 [DEFAULT-HANDLERS] Initialized all default event handlers', {
@@ -496,8 +496,8 @@ export class WorkflowEventSubscriber {
         if (!result.success) {
             const errorMessage = result.errors?.join('; ') || `Handler failed for ${eventType}`;
             throw new Error(
-                `[WORKFLOW-EVENT-SUBSCRIBER] ${eventType} failed: ${errorMessage}. ` +
-                `[STRICT-POLICY] Fix the order and path-only linkage.`
+                `${WorkflowEventSubscriber.STRICT_EMITTER_CONTRACT_PREFIX} ${eventType} failed: ${errorMessage}. ` +
+                `Fix the emitter/handler contract and path-only linkage.`
             );
         }
         const errors: string[] = [];
@@ -519,9 +519,9 @@ export class WorkflowEventSubscriber {
 
         if (errors.length > 0) {
             const strictMsg =
-                `[WORKFLOW-EVENT-SUBSCRIBER] ${eventType} failed with ${errors.length} error(s): ${errors.join('; ')}. ` +
-                `[STRICT-POLICY] Fix the order and path-only linkage. Do NOT continue after edge failures. ` +
-                `Atomic node+edge creation is mandatory; redesign the flow rather than adding fallbacks.`;
+                `${WorkflowEventSubscriber.STRICT_APPLY_LAYER_PREFIX} ${eventType} failed with ${errors.length} error(s): ${errors.join('; ')}. ` +
+                `Workflow apply layer failed while creating/updating nodes or edges. ` +
+                `Do NOT continue after edge failures. Atomic node+edge creation is mandatory; redesign the flow rather than adding fallbacks.`;
             throw new Error(strictMsg);
         }
         this.logger.debug(`✅ [EVENT-PROCESSING-SUCCESS] ${eventType} processed successfully`, {
@@ -643,12 +643,11 @@ export class WorkflowEventSubscriber {
         if (!eventData.context?.ownerPath?.length) {
             throw new Error(`[EVENT-LOG] Missing ownerPath for ${eventType}`);
         }
-        const record: TEventLogRecord = {
+        this.eventLogStore.append({
             eventName: eventType,
             timestamp: eventData.timestamp,
-            ownerPath: eventData.context.ownerPath,
-            payload: eventData
-        };
-        this.eventLogStore.append(record);
+            eventData,
+            context: eventData.context
+        });
     }
 }

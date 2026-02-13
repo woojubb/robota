@@ -69,12 +69,12 @@ const buildGuardedAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
         }
 
         const parentOwnerPath: IOwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map(segment => ({ ...segment })) : [];
-        const parentAgentId = findNearestOwnerId(parentOwnerPath, 'agent');
-        if (!parentAgentId) {
+        const delegatingAgentId = findNearestOwnerId(parentOwnerPath, 'agent');
+        if (!delegatingAgentId) {
             throw new Error('[GUARDED-ASSIGN-TASK] Missing parent agent segment in context.ownerPath');
         }
 
-        const childAgentId = `agent_${nextChildAgentNumber}`;
+        const delegatedAgentId = `agent_${nextChildAgentNumber}`;
         nextChildAgentNumber += 1;
         const extraContext = typeof params.context === 'string' ? params.context : '';
         const priority = typeof params.priority === 'string' ? params.priority : '';
@@ -90,8 +90,8 @@ const buildGuardedAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
                     : 0.6;
 
         const childAgent = new Robota({
-            name: `GuardedDelegatedAgent_${childAgentId}`,
-            conversationId: childAgentId,
+            name: `GuardedDelegatedAgent_${delegatedAgentId}`,
+            conversationId: delegatedAgentId,
             aiProviders: [aiProvider],
             defaultModel: {
                 provider: 'openai',

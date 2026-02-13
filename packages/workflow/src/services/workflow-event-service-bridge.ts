@@ -26,6 +26,9 @@ export class WorkflowEventServiceBridge implements IEventService {
     ) {}
 
     emit(eventType: string, data: IBaseEventData, context?: IEventContext): void {
+        if (this.pendingError) {
+            throw this.pendingError;
+        }
         if (!(data.timestamp instanceof Date)) {
             throw new Error(`[PATH-ONLY] Missing or invalid timestamp for eventType=${String(eventType)}`);
         }
@@ -59,7 +62,6 @@ export class WorkflowEventServiceBridge implements IEventService {
             })
             .catch((error) => {
                 const err = error instanceof Error ? error : new Error(String(error));
-                // Strict policy: capture once, surface through flush(), no fallback path.
                 if (!this.pendingError) {
                     this.pendingError = err;
                 }
@@ -67,6 +69,7 @@ export class WorkflowEventServiceBridge implements IEventService {
                     eventType: String(eventType),
                     error: err.message
                 });
+                throw this.pendingError;
             });
     }
 
@@ -83,12 +86,10 @@ export class WorkflowEventServiceBridge implements IEventService {
      * Required for deterministic callers that export a snapshot after execution.
      */
     async flush(): Promise<void> {
-        await this.tail;
         if (this.pendingError) {
-            const err = this.pendingError;
-            this.pendingError = undefined;
-            throw err;
+            throw this.pendingError;
         }
+        await this.tail;
     }
 
     private notifyListeners(eventType: string, data: IBaseEventData, context?: IEventContext): void {

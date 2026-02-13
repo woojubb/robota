@@ -7,6 +7,7 @@ import { registerUserEventHandlers } from '../handlers/user-event-handler.js';
 import { AgentNodeBuilder } from '../handlers/builders/agent-node-builder.js';
 import { ExecutionNodeBuilder } from '../handlers/builders/execution-node-builder.js';
 import { WorkflowInstanceRegistry } from './instance-registry.js';
+import type { IWorkflowNode } from '../interfaces/workflow-node.js';
 
 export interface IDefaultEventHandlerRegistryConfig {
     registerHandler: (handler: IEventHandler) => void;
@@ -14,6 +15,7 @@ export interface IDefaultEventHandlerRegistryConfig {
     agentNodeBuilder: AgentNodeBuilder;
     executionNodeBuilder: ExecutionNodeBuilder;
     instanceRegistry: WorkflowInstanceRegistry;
+    getAllNodes?: () => IWorkflowNode[];
 }
 
 export function registerDefaultEventHandlers(config: IDefaultEventHandlerRegistryConfig): void {
@@ -34,7 +36,8 @@ export function registerDefaultEventHandlers(config: IDefaultEventHandlerRegistr
         logger,
         config.executionNodeBuilder,
         config.agentNodeBuilder,
-        config.instanceRegistry
+        config.instanceRegistry,
+        config.getAllNodes
     );
     registerUserEventHandlers(
         config.registerHandler,
