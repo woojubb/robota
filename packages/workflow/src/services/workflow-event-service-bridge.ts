@@ -5,7 +5,7 @@ import type { TEventData } from '../interfaces/event-handler.js';
 import type { IWorkflowEventSubscriber } from './workflow-event-subscriber.js';
 
 /**
- * WorkflowSubscriberEventService
+ * WorkflowEventServiceBridge
  *
  * Bridges `IEventService.emit(...)` to `WorkflowEventSubscriber.processEvent(...)`.
  *
@@ -15,9 +15,10 @@ import type { IWorkflowEventSubscriber } from './workflow-event-subscriber.js';
  * - Requires timestamp for deterministic ordering.
  * - Does not interpret or hardcode event names (domain-neutral).
  */
-export class WorkflowSubscriberEventService implements IEventService {
+export class WorkflowEventServiceBridge implements IEventService {
     private tail: Promise<void> = Promise.resolve();
     private listeners = new Set<TEventListener>();
+    private pendingError: Error | undefined;
 
     constructor(
         private readonly subscriber: IWorkflowEventSubscriber,
@@ -58,12 +59,14 @@ export class WorkflowSubscriberEventService implements IEventService {
             })
             .catch((error) => {
                 const err = error instanceof Error ? error : new Error(String(error));
-                // Strict policy: surface the error via logger (no fallback path).
-                this.logger.error('WorkflowSubscriberEventService failed to process event', {
+                // Strict policy: capture once, surface through flush(), no fallback path.
+                if (!this.pendingError) {
+                    this.pendingError = err;
+                }
+                this.logger.error('WorkflowEventServiceBridge failed to process event', {
                     eventType: String(eventType),
                     error: err.message
                 });
-                throw err;
             });
     }
 
@@ -81,6 +84,11 @@ export class WorkflowSubscriberEventService implements IEventService {
      */
     async flush(): Promise<void> {
         await this.tail;
+        if (this.pendingError) {
+            const err = this.pendingError;
+            this.pendingError = undefined;
+            throw err;
+        }
     }
 
     private notifyListeners(eventType: string, data: IBaseEventData, context?: IEventContext): void {
@@ -89,5 +97,3 @@ export class WorkflowSubscriberEventService implements IEventService {
         }
     }
 }
-
-

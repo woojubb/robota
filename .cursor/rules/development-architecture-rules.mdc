@@ -27,6 +27,25 @@ Development pattern guidance lives in the project skill:
 - **Temporary Workarounds**: All type errors must be resolved through proper design
 - **Blind Type Assertions**: Use type guards and proper constraints instead
 
+### Responsibility and Authority Boundaries
+- Keep runtime behavior and auxiliary concerns separated by contract.
+- Do not inject unrelated side concerns (metrics, tracing, analytics, formatting helpers) into a core module as an exception.
+- If observability is required, define a dedicated interface/module and inject it; do not couple it to business logic internals.
+- New behavior must match the module's authority. If it does not, move it to the owning module instead of extending the current one.
+- Prefer explicit composition over convenience additions in existing classes.
+
+### Concision and Overengineering Guard
+- Prefer the minimal architecture that preserves correctness and rule compliance.
+- Avoid adding extra layers, wrappers, and policy branches without clear authority boundaries.
+- Remove legacy migration traces once the canonical path is established.
+- Reject designs that require dual paths for "old/new" behavior in runtime flow.
+
+### Review Checklist for Boundaries
+- Does this change add non-core behavior to a core class?
+- Can this be extracted behind an interface and injected?
+- Would removing this extra behavior change the core business semantics?
+- Is ownership clear (single module owns the concern)?
+
 ### Guidance Location
 Architecture guidance lives in the project skill:
 `.cursor/skills/development-architecture-guidance/SKILL.md`.

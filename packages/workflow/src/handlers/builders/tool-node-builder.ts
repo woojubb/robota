@@ -1,3 +1,4 @@
+import type { TUniversalValue } from '@robota-sdk/agents';
 import type { IWorkflowNode } from '../../interfaces/workflow-node.js';
 import { WORKFLOW_NODE_TYPES, type TWorkflowNodeKind } from '../../constants/workflow-types.js';
 import type { TEventData } from '../../interfaces/event-handler.js';
@@ -89,8 +90,8 @@ export class ToolNodeBuilder {
         const nodeId = `tool_response_call_${toolCallId}`;
 
         const toolName = this.getToolName(data);
-        const result = data.result;
-        if (!result || typeof result !== 'object') {
+        const result = data.result as TUniversalValue | undefined;
+        if (typeof result === 'undefined') {
             throw new Error('[PATH-ONLY] Missing tool result object for tool.call_response_ready');
         }
         const responseContent = this.getResponseContent(result);
@@ -172,16 +173,30 @@ export class ToolNodeBuilder {
         throw new Error('[PATH-ONLY] Missing error details for tool.call_error');
     }
 
-    private getResponseContent(result: object): string {
-        if ('content' in result && typeof (result as { content?: unknown }).content === 'string') {
-            return (result as { content?: string }).content as string;
+    private getResponseContent(result: TUniversalValue): string {
+        if (typeof result === 'string') {
+            return result;
         }
-        if ('output' in result && typeof (result as { output?: unknown }).output === 'string') {
-            return (result as { output?: string }).output as string;
+        if (typeof result === 'number' || typeof result === 'boolean') {
+            return String(result);
         }
-        if ('response' in result && typeof (result as { response?: unknown }).response === 'string') {
-            return (result as { response?: string }).response as string;
+        if (result === null) {
+            return 'null';
         }
-        throw new Error('[PATH-ONLY] Missing response content for tool.call_response_ready');
+        if (Array.isArray(result)) {
+            return JSON.stringify(result);
+        }
+
+        const objectResult = result as Record<string, TUniversalValue>;
+        const content = objectResult['content'];
+        if (typeof content === 'string') return content;
+        const output = objectResult['output'];
+        if (typeof output === 'string') return output;
+        const response = objectResult['response'];
+        if (typeof response === 'string') return response;
+        const data = objectResult['data'];
+        if (typeof data === 'string') return data;
+
+        return JSON.stringify(result);
     }
 }

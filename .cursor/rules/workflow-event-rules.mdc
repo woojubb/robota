@@ -306,6 +306,13 @@ This rule enforces the Path-Only event graph construction with zero tolerance fo
 - It is allowed to scan the existing node set to find a matching node based on explicit fields. It is forbidden to infer relations via ID string patterns.
 - If the required explicit information is not present, do not fabricate or guess; emit and return without alternative flows (No-Fallback policy).
 
+### OwnerPath Inheritance Intent (Authoritative)
+- `ownerPath` is the single source of structural context for parent-child relations.
+- Emitters must append exactly one new segment for their current scope on top of inherited `ownerPath`.
+- Handlers must derive linkage from `context.ownerPath` first, not from side-channel fields.
+- Do not introduce ad-hoc parent linkage parameters (e.g., `previous*Id`) when the relation can be represented by `ownerPath`.
+- If `ownerPath` cannot represent the required relation, redesign emission context at the source; do not patch linkage in handlers.
+
 ### Allowed Read-Only Indices (Subscriber Path Map)
 - A subscriber-provided path map/index MAY be used IF AND ONLY IF all of the following are true:
   - The index is built strictly from explicit event payload fields (e.g., `path`) and nodes’ explicit fields (e.g., `data.extensions.robota.originalEvent.path`).

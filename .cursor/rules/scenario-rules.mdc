@@ -9,6 +9,20 @@ description: "Scenario record/play design invariants"
 - Mode selection is single-path: `record | play | none` is decided by env; ambiguous state fails immediately.
 - Disallow record/play 동시에 설정; disallow delegate provider injection in play mode.
 - Determinism is prioritized:
-  - Default strategy: `sequential`
-  - `hash` is secondary; ambiguous matches must fail immediately.
+  - Default strategy: `hash` (authoritative for guarded/parallel workflows)
+  - `sequential` is allowed only when strict request ordering is guaranteed.
+  - Ambiguous matches must fail immediately.
 - Scenario file format is defined as JSON-stable and separated from runtime types (e.g., `timestamp: number`).
+
+## Recording Methodology (Mandatory)
+- Record mode must overwrite the target scenario file before writing new steps.
+- A mixed old/new record is invalid and must be treated as failure.
+- Record mode requires explicit real provider credentials (no mock fallback).
+
+## Verification Completion Criteria
+- Do not mark scenario tasks as complete until all template verifications pass.
+- Required checks:
+  - `record` succeeds for all target scenarios.
+  - `play` succeeds for all target scenarios.
+  - `verify` succeeds with no strict-policy/edge-order violations.
+  - No hash mismatch / ambiguous matches / unused recorded steps.

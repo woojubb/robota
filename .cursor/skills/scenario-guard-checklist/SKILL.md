@@ -17,5 +17,8 @@ Use this checklist before making scenario-related changes.
   - No scenario-only fields, keywords, regex, or inferred logic.
 - [ ] Will the change violate No-Fallback or Path-Only rules?
   - No inferred linkage, delayed linking, alternate paths, or dedup suppression.
+- [ ] Is event parent-child linkage modeled through `context.ownerPath`?
+  - Do not add side-channel linkage fields when ownerPath can encode the relation.
+- [ ] Are scenario records cleanly regenerated (overwrite), not appended to stale records?
 - [ ] If core changes are required, build the affected packages:
   - `pnpm --filter @robota-sdk/* build`

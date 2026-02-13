@@ -19,10 +19,6 @@ import type {
     IWorkflowSnapshot
 } from '../interfaces/workflow-builder.js';
 import { CoreWorkflowBuilder } from './workflow-builder.js';
-import { registerAgentEventHandlers } from '../handlers/agent-event-handler.js';
-import { registerToolEventHandlers } from '../handlers/tool-event-handler.js';
-import { registerExecutionEventHandlers } from '../handlers/execution-event-handler.js';
-import { registerUserEventHandlers } from '../handlers/user-event-handler.js';
 import type { IWorkflowStateAccess } from '../interfaces/workflow-state-access.js';
 import { AgentNodeBuilder } from '../handlers/builders/agent-node-builder.js';
 import { ExecutionNodeBuilder } from '../handlers/builders/execution-node-builder.js';
@@ -30,6 +26,7 @@ import { WorkflowInstanceRegistry } from './instance-registry.js';
 import type { IEventLogStore } from '../interfaces/event-log-store.js';
 import { InMemoryLogStore } from './in-memory-log-store.js';
 import type { TEventLogRecord } from '../interfaces/event-log.js';
+import { registerDefaultEventHandlers } from './default-event-handler-registry.js';
 
 /**
  * Event subscription callback for external integrations
@@ -194,24 +191,22 @@ export class WorkflowEventSubscriber {
                 return;
             }
 
-            const results = await Promise.allSettled([
-                this.executeHandler(handler, normalizedEventData)
-            ]);
-
-            // Process results and apply updates
-            await this.processHandlerResults(eventType, results);
+            const result = await this.executeHandler(handler, normalizedEventData);
+            await this.processHandlerResult(eventType, result);
 
         } catch (error) {
             this.stats.errorsEncountered++;
+            const rootError = error instanceof Error ? error : new Error(String(error));
             this.logger.error(
                 `❌ [EVENT-PROCESSING-ERROR] Failed to process ${eventType}:`,
-                error instanceof Error ? error : new Error(String(error))
+                rootError
             );
             // Strict policy: propagate errors to callers to stop further processing
             const strictMsg =
                 `[STRICT-POLICY] Event processing aborted for '${eventType}'. ` +
                 `You MUST fix the emitter/handler to respect PATH-ONLY architecture and atomic edge creation. ` +
-                `No fallback, no waiting, no helper states. Stop masking; correct the design.`;
+                `No fallback, no waiting, no helper states. Stop masking; correct the design. ` +
+                `Cause="${rootError.message}".`;
             throw new Error(strictMsg);
         }
     }
@@ -458,26 +453,13 @@ export class WorkflowEventSubscriber {
     // =================================================================
 
     private initializeDefaultHandlers(): void {
-        // Register all default event handlers
-        registerAgentEventHandlers(
-            this.registerEventHandler.bind(this),
-            this.logger,
-            this.agentNodeBuilder,
-            this.instanceRegistry
-        );
-        registerToolEventHandlers(
-            this.registerEventHandler.bind(this),
-            this.logger,
-            this.instanceRegistry
-        );
-        registerExecutionEventHandlers(
-            this.registerEventHandler.bind(this),
-            this.logger,
-            this.executionNodeBuilder,
-            this.agentNodeBuilder,
-            this.instanceRegistry
-        );
-        registerUserEventHandlers(this.registerEventHandler.bind(this), this.logger, this.executionNodeBuilder);
+        registerDefaultEventHandlers({
+            registerHandler: this.registerEventHandler.bind(this),
+            logger: this.logger,
+            agentNodeBuilder: this.agentNodeBuilder,
+            executionNodeBuilder: this.executionNodeBuilder,
+            instanceRegistry: this.instanceRegistry
+        });
 
         this.logger.debug('🔧 [DEFAULT-HANDLERS] Initialized all default event handlers', {
             handlersRegistered: Array.from(this.eventHandlers.values()).map(h => h.name)
@@ -498,57 +480,28 @@ export class WorkflowEventSubscriber {
         handler: IEventHandler,
         eventData: TEventData
     ): Promise<IEventProcessingResult> {
-        try {
-            this.logger.debug(`🔧 [HANDLER-EXECUTING] ${handler.name} for ${handler.eventName}`);
-
-            const result = await handler.handle(eventData);
-
-            this.logger.debug(`✅ [HANDLER-SUCCESS] ${handler.name}`, {
-                success: result.success,
-                updatesCount: result.updates.length
-            });
-
-            return result;
-        } catch (error) {
-            this.logger.error(
-                `❌ [HANDLER-ERROR] ${handler.name} failed:`,
-                error instanceof Error ? error : new Error(String(error))
-            );
-            return {
-                success: false,
-                updates: [],
-                errors: [`Handler ${handler.name} failed: ${error instanceof Error ? error.message : String(error)}`],
-                metadata: {
-                    handlerName: handler.name,
-                    eventType: handler.eventName,
-                    error: true
-                }
-            };
-        }
+        this.logger.debug(`🔧 [HANDLER-EXECUTING] ${handler.name} for ${handler.eventName}`);
+        const result = await handler.handle(eventData);
+        this.logger.debug(`✅ [HANDLER-SUCCESS] ${handler.name}`, {
+            success: result.success,
+            updatesCount: result.updates.length
+        });
+        return result;
     }
 
-    private async processHandlerResults(
+    private async processHandlerResult(
         eventType: string,
-        results: PromiseSettledResult<IEventProcessingResult>[]
+        result: IEventProcessingResult
     ): Promise<void> {
-        const successfulResults: IEventProcessingResult[] = [];
+        if (!result.success) {
+            const errorMessage = result.errors?.join('; ') || `Handler failed for ${eventType}`;
+            throw new Error(
+                `[WORKFLOW-EVENT-SUBSCRIBER] ${eventType} failed: ${errorMessage}. ` +
+                `[STRICT-POLICY] Fix the order and path-only linkage.`
+            );
+        }
         const errors: string[] = [];
-
-        // Collect results
-        results.forEach((result, index) => {
-            if (result.status === 'fulfilled') {
-                if (result.value.success) {
-                    successfulResults.push(result.value);
-                } else {
-                    errors.push(...(result.value.errors || [`Handler ${index} failed`]));
-                }
-            } else {
-                errors.push(`Handler ${index} rejected: ${result.reason}`);
-            }
-        });
-
-        // Apply all updates from successful handlers
-        const allUpdates: TWorkflowUpdate[] = successfulResults.flatMap(result => result.updates);
+        const allUpdates: TWorkflowUpdate[] = result.updates;
 
         for (const update of allUpdates) {
             try {
@@ -564,32 +517,22 @@ export class WorkflowEventSubscriber {
             }
         }
 
-        // Log summary
         if (errors.length > 0) {
-            // Strict policy: escalate errors to abort the event processing with guidance
             const strictMsg =
                 `[WORKFLOW-EVENT-SUBSCRIBER] ${eventType} failed with ${errors.length} error(s): ${errors.join('; ')}. ` +
                 `[STRICT-POLICY] Fix the order and path-only linkage. Do NOT continue after edge failures. ` +
                 `Atomic node+edge creation is mandatory; redesign the flow rather than adding fallbacks.`;
             throw new Error(strictMsg);
-        } else {
-            this.logger.debug(`✅ [EVENT-PROCESSING-SUCCESS] ${eventType} processed successfully`, {
-                updatesApplied: allUpdates.length
-            });
+        }
+        this.logger.debug(`✅ [EVENT-PROCESSING-SUCCESS] ${eventType} processed successfully`, {
+            updatesApplied: allUpdates.length
+        });
 
-            // Emit snapshot ONLY after all updates for this event are successfully applied
-            if (this.workflowSnapshotSubscribers.size > 0 && allUpdates.length > 0) {
-                try {
-                    const snapshot = this.exportWorkflow();
-                    this.notifyWorkflowSnapshotSubscribers(snapshot);
-                    this.logger.debug(`📸 [WORKFLOW-SNAPSHOT] Emitted after ${eventType} with ${allUpdates.length} updates`);
-                } catch (error) {
-                    this.logger.error(
-                        '❌ [WORKFLOW-SNAPSHOT-ERROR] Failed to export workflow snapshot:',
-                        error instanceof Error ? error : new Error(String(error))
-                    );
-                }
-            }
+        // Emit snapshot ONLY after all updates for this event are successfully applied
+        if (this.workflowSnapshotSubscribers.size > 0 && allUpdates.length > 0) {
+            const snapshot = this.exportWorkflow();
+            this.notifyWorkflowSnapshotSubscribers(snapshot);
+            this.logger.debug(`📸 [WORKFLOW-SNAPSHOT] Emitted after ${eventType} with ${allUpdates.length} updates`);
         }
     }
 

@@ -406,8 +406,20 @@ export class ExecutionService {
                 if (!Array.isArray(historyMessages)) {
                     throw new Error('[EXECUTION] Conversation messages must be an array');
                 }
-                const assistantMessageCount = historyMessages.filter(m => m.role === 'assistant').length;
+                const assistantMessages = historyMessages.filter(
+                    (message): message is IAssistantMessage => message.role === 'assistant'
+                );
+                const assistantMessageCount = assistantMessages.length;
+                const latestAssistantMessage = assistantMessages.length > 0
+                    ? assistantMessages[assistantMessages.length - 1]
+                    : undefined;
+                const shouldChainFromPreviousToolResult =
+                    Array.isArray(latestAssistantMessage?.toolCalls) &&
+                    latestAssistantMessage.toolCalls.length > 0;
                 const thinkingNodeId = `thinking_${rootId}_round${assistantMessageCount + 1}`;
+                const previousThinkingNodeId = shouldChainFromPreviousToolResult
+                    ? `thinking_${rootId}_round${assistantMessageCount}`
+                    : undefined;
 
                 // Get messages from conversation history
                 const conversationMessages = historyMessages;
@@ -474,7 +486,7 @@ export class ExecutionService {
                             thinkingNodeId
                         }
                     },
-                    () => this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId),
+                    () => this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId, previousThinkingNodeId),
                     ctx => {
                         if (!ctx.ownerType || !ctx.ownerId) {
                             throw new Error('[EXECUTION] Missing owner context for thinking event');
@@ -489,14 +501,14 @@ export class ExecutionService {
 
                 const response = await provider.chat(conversationMessages, chatOptions);
 
-                const assistantToolCalls = response.role === 'assistant'
+                const assistantToolCallsFromResponse = response.role === 'assistant'
                     ? (response as IAssistantMessage).toolCalls
                     : undefined;
 
                 if (typeof response.content !== 'string') {
                     throw new Error('[EXECUTION] Provider response content is required');
                 }
-                if (assistantToolCalls && !Array.isArray(assistantToolCalls)) {
+                if (assistantToolCallsFromResponse && !Array.isArray(assistantToolCallsFromResponse)) {
                     throw new Error('[EXECUTION] assistant toolCalls must be an array');
                 }
                 this.logger.debug(`🤖 [ROUND-${currentRound}] Provider response completed`, {
@@ -504,8 +516,8 @@ export class ExecutionService {
                     conversationId: fullContext.conversationId,
                     round: currentRound,
                     responseLength: response.content.length,
-                    hasToolCalls: Array.isArray(assistantToolCalls) && assistantToolCalls.length > 0,
-                    toolCallsCount: Array.isArray(assistantToolCalls) ? assistantToolCalls.length : 0
+                    hasToolCalls: Array.isArray(assistantToolCallsFromResponse) && assistantToolCallsFromResponse.length > 0,
+                    toolCallsCount: Array.isArray(assistantToolCallsFromResponse) ? assistantToolCallsFromResponse.length : 0
                 });
 
                 // Call afterProviderCall hook
@@ -524,22 +536,23 @@ export class ExecutionService {
                 if (typeof assistantResponse.content !== 'string') {
                     throw new Error('[EXECUTION] assistant response content is required');
                 }
-                if (!Array.isArray(assistantResponse.toolCalls)) {
+                const assistantToolCalls = assistantResponse.toolCalls ?? [];
+                if (!Array.isArray(assistantToolCalls)) {
                     throw new Error('[EXECUTION] assistantResponse.toolCalls must be an array');
                 }
                 conversationSession.addAssistantMessage(
                     assistantResponse.content,
-                    assistantResponse.toolCalls,
+                    assistantToolCalls,
                     {
                         round: currentRound,
                         ...(assistantResponse.metadata?.['usage'] && { usage: assistantResponse.metadata['usage'] })
                     }
                 );
 
-                this.logger.debug(`[RULE-9-DEBUG] Round ${currentRound} response check: toolCalls=${assistantResponse.toolCalls.length}`, {
+                this.logger.debug(`[RULE-9-DEBUG] Round ${currentRound} response check: toolCalls=${assistantToolCalls.length}`, {
                     round: currentRound,
-                    hasToolCalls: assistantResponse.toolCalls.length > 0,
-                    toolCallsLength: assistantResponse.toolCalls.length,
+                    hasToolCalls: assistantToolCalls.length > 0,
+                    toolCallsLength: assistantToolCalls.length,
                     responseContent: assistantResponse.content.substring(0, 100) + '...'
                 });
 
@@ -547,13 +560,13 @@ export class ExecutionService {
                 if (currentRound === 2) {
                     this.logger.info(`🔍 [ROUND2-DEBUG] Round 2 AI Response for agent ${fullContext.conversationId}:`);
                     this.logger.info(`🔍 [ROUND2-DEBUG] - Content: ${assistantResponse.content.substring(0, 200)}...`);
-                    this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Calls: ${assistantResponse.toolCalls.length}`);
-                    if (assistantResponse.toolCalls.length > 0) {
-                        this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Call Details: ${JSON.stringify(assistantResponse.toolCalls.map(tc => ({ id: tc.id, name: tc.function?.name })))}`);
+                    this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Calls: ${assistantToolCalls.length}`);
+                    if (assistantToolCalls.length > 0) {
+                        this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Call Details: ${JSON.stringify(assistantToolCalls.map(tc => ({ id: tc.id, name: tc.function?.name })))}`);
                     }
                 }
 
-                if (assistantResponse.toolCalls.length === 0) {
+                if (assistantToolCalls.length === 0) {
                     // No tools to execute, we're done
                     this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} ENDING - no tool calls for agent ${fullContext.conversationId}`);
                     this.logger.debug(`[AGENT-FLOW-CONTROL] Round ${currentRound} completed - no tool calls, execution finished for agent ${fullContext.conversationId}`);
@@ -617,7 +630,7 @@ export class ExecutionService {
                                 }
                             }
                         },
-                        () => this.buildResponseOwnerContext(rootId, executionId, thinkingNodeId),
+                    () => this.buildResponseOwnerContext(rootId, executionId, thinkingNodeId, previousThinkingNodeId),
                         ctx => {
                             if (!ctx.ownerType || !ctx.ownerId) {
                                 throw new Error('[EXECUTION] Missing owner context for response event');
@@ -638,12 +651,12 @@ export class ExecutionService {
                 }
 
                 // [ROUND-DEBUG] Continue round: tool calls present
-                this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} CONTINUING - ${assistantResponse.toolCalls.length} tool calls for agent ${fullContext.conversationId}`);
+                this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} CONTINUING - ${assistantToolCalls.length} tool calls for agent ${fullContext.conversationId}`);
                 this.logger.info(`🔄 [ROUND-DEBUG] Agent instance conversationId=${fullContext.conversationId}`);
                 this.logger.debug('Tool calls detected, executing tools', {
-                    toolCallCount: assistantResponse.toolCalls.length,
+                    toolCallCount: assistantToolCalls.length,
                     round: currentRound,
-                    toolCalls: assistantResponse.toolCalls.map((tc: IToolCall) => ({ id: tc.id, name: tc.function?.name }))
+                    toolCalls: assistantToolCalls.map((tc: IToolCall) => ({ id: tc.id, name: tc.function?.name }))
                 });
 
                 // Execute tools
@@ -651,11 +664,11 @@ export class ExecutionService {
                 const toolRootId: string = conversationId;
                 const rootForTools = toolRootId;
                 // Absolute path-only: tool calls must be children of the thinking node (fork point).
-                const toolOwnerPathBase = this.buildThinkingOwnerContext(rootForTools, executionId, thinkingNodeId).ownerPath;
-                const expectedCountForBatch = assistantResponse.toolCalls.length;
+                const toolOwnerPathBase = this.buildThinkingOwnerContext(rootForTools, executionId, thinkingNodeId, previousThinkingNodeId).ownerPath;
+                const expectedCountForBatch = assistantToolCalls.length;
                 const batchId = `${thinkingNodeId}`;
                 const toolRequestsBase = this.toolExecutionService.createExecutionRequestsWithContext(
-                    assistantResponse.toolCalls,
+                    assistantToolCalls,
                     {
                         ownerPathBase: toolOwnerPathBase,
                         metadataFactory: toolCall => ({
@@ -696,7 +709,7 @@ export class ExecutionService {
 
                 // Add tool results to history in the order they were called
                 // This ensures proper conversation flow and prevents any duplicate entries
-                for (const toolCall of assistantResponse.toolCalls) {
+                for (const toolCall of assistantToolCalls) {
                     if (!toolCall.id) {
                         throw new Error(`Tool call missing ID: ${JSON.stringify(toolCall)}`);
                     }
@@ -782,7 +795,7 @@ export class ExecutionService {
 
                 // Emit tool results ready (join trigger) and then delivery to LLM
                 const toolResultsRootId: string = rootId;
-                const toolCallIds = assistantResponse.toolCalls.map(toolCall => {
+                const toolCallIds = assistantToolCalls.map(toolCall => {
                     if (!toolCall.id || toolCall.id.length === 0) {
                         throw new Error('[EXECUTION] Tool call missing id for tool results ready payload');
                     }
@@ -802,7 +815,7 @@ export class ExecutionService {
                             round: currentRound
                         }
                     },
-                    () => this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId),
+                    () => this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId, previousThinkingNodeId),
                     ctx => {
                         if (!ctx.ownerType || !ctx.ownerId) {
                             throw new Error('[EXECUTION] Missing owner context for tool results ready');
@@ -832,7 +845,7 @@ export class ExecutionService {
                             round: currentRound
                         }
                     },
-                    () => this.buildThinkingOwnerContext(toolResultsRootId, executionId, thinkingNodeId),
+                    () => this.buildThinkingOwnerContext(toolResultsRootId, executionId, thinkingNodeId, previousThinkingNodeId),
                     ctx => {
                         if (!ctx.ownerType || !ctx.ownerId) {
                             throw new Error('[EXECUTION] Missing owner context for tool results to llm');
@@ -1440,15 +1453,25 @@ export class ExecutionService {
         };
     }
 
-    private buildThinkingOwnerContext(rootId: string, executionId: string, thinkingNodeId: string): IEventContext {
+    private buildThinkingOwnerContext(
+        rootId: string,
+        executionId: string,
+        thinkingNodeId: string,
+        previousThinkingNodeId?: string
+    ): IEventContext {
         if (!thinkingNodeId || thinkingNodeId.length === 0) {
             throw new Error('[EXECUTION] Missing thinkingNodeId for thinking owner context');
         }
         const base = this.buildExecutionOwnerContext(rootId, executionId).ownerPath;
-        const path: IOwnerPathSegment[] = [...base, { type: 'thinking', id: thinkingNodeId }];
+        const path: IOwnerPathSegment[] = [...base];
+        if (previousThinkingNodeId) {
+            path.push({ type: 'thinking', id: previousThinkingNodeId });
+            path.push({ type: 'tool_result', id: `tool_result_${previousThinkingNodeId}` });
+        }
+        path.push({ type: 'thinking', id: thinkingNodeId });
         return {
-            ownerType: 'thinking',
-            ownerId: thinkingNodeId,
+            ownerType: EXECUTION_EVENT_PREFIX,
+            ownerId: executionId,
             ownerPath: path
         };
     }
@@ -1468,13 +1491,18 @@ export class ExecutionService {
         };
     }
 
-    private buildResponseOwnerContext(rootId: string, executionId: string, thinkingNodeId: string): IEventContext {
-        const thinkingPath = this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId).ownerPath;
+    private buildResponseOwnerContext(
+        rootId: string,
+        executionId: string,
+        thinkingNodeId: string,
+        previousThinkingNodeId?: string
+    ): IEventContext {
+        const thinkingPath = this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId, previousThinkingNodeId).ownerPath;
         const responseNodeId = `response_${thinkingNodeId}`;
         const path: IOwnerPathSegment[] = [...thinkingPath, { type: 'response', id: responseNodeId }];
         return {
-            ownerType: 'response',
-            ownerId: responseNodeId,
+            ownerType: EXECUTION_EVENT_PREFIX,
+            ownerId: executionId,
             ownerPath: path
         };
     }

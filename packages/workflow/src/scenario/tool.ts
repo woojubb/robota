@@ -2,7 +2,8 @@ import type { ITool, IToolExecutionContext, IToolResult, TToolParameters, TUnive
 import { FunctionTool } from '@robota-sdk/agents';
 
 import type { TScenarioMode } from './types.js';
-import { ScenarioStore, stringifyToolArguments } from './store.js';
+import { ScenarioStore } from './store.js';
+import { stringifyToolArguments } from './request-utils.js';
 
 interface IScenarioToolWrapperOptions {
     mode: TScenarioMode;
@@ -55,6 +56,18 @@ export function createScenarioToolWrapper(tool: ITool, options: IScenarioToolWra
             }
 
             const step = await options.store.findToolResultByToolCallIdForPlay(options.scenarioId, toolCallId);
+            if (step.toolName !== schema.name) {
+                throw new Error(
+                    `[SCENARIO-TOOL-MISMATCH] Recorded toolName "${step.toolName}" does not match runtime tool "${schema.name}" ` +
+                    `for toolCallId="${toolCallId}".`
+                );
+            }
+            const runtimeToolArguments = stringifyToolArguments(params);
+            if (step.toolArguments !== runtimeToolArguments) {
+                throw new Error(
+                    `[SCENARIO-TOOL-MISMATCH] Recorded toolArguments do not match runtime arguments for toolCallId="${toolCallId}".`
+                );
+            }
             options.onToolCallUsed?.(toolCallId);
 
             if (step.success) {

@@ -1,5 +1,6 @@
 import type { IEventLogSnapshot, IEventLogStore } from '../interfaces/event-log-store.js';
 import type { TEventLogRecord } from '../interfaces/event-log.js';
+import { compareEventOrdering } from './event-log-ordering.js';
 
 export interface IEventLogStoredRecord extends TEventLogRecord {
     sequenceId: number;
@@ -22,7 +23,9 @@ export class InMemoryLogStore implements IEventLogStore {
 
     read(fromSequenceId: number, toSequenceId?: number): TEventLogRecord[] {
         const upper = typeof toSequenceId === 'number' ? toSequenceId : Number.POSITIVE_INFINITY;
-        return this.records.filter(record => record.sequenceId >= fromSequenceId && record.sequenceId <= upper);
+        return this.records
+            .filter(record => record.sequenceId >= fromSequenceId && record.sequenceId <= upper)
+            .sort((left, right) => compareEventOrdering(left, right));
     }
 
     getSnapshot(): IEventLogSnapshot | undefined {

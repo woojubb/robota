@@ -40,3 +40,9 @@ This content serves as the canonical source for the English variant.
 - No skipping or compressing steps.
 - If a patch fails, do not blindly retry; diagnose the mismatch first.
 - Changes must remain compliant with No-Fallback, Path-Only, and event-constants rules.
+
+## Execution Methodology (Checklist-Driven)
+- For multi-step tasks, define explicit checkbox items before implementation.
+- Execute in checklist order; do not start the next item until the current item is verified.
+- Mark `[x]` only after runtime/build verification succeeds for that item.
+- If verification fails, revert the checkbox to `[ ]`, document the exact cause, and continue with root-cause correction.

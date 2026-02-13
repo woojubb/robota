@@ -21,6 +21,7 @@ This rule is always applied. Fallback logic is prohibited. There must be a singl
 1. Root-cause analysis and proper fix in the main path
 2. Single authoritative flow with proper validation and types
 3. If an alternative handling is truly needed, redesign so that it becomes the new main path with clear architectural justification and tests
+4. Keep concern boundaries strict: if new behavior is not part of the module's core authority, move it behind a dedicated interface/module and inject it
 
 ### Acceptance Criteria
 - No fallback branches in production code
@@ -33,6 +34,7 @@ This rule is always applied. Fallback logic is prohibited. There must be a singl
 - No logical OR fallbacks for core behavior
 - Clear errors instead of silent alternatives
 - Tests cover the single correct path
+- No side-concern exceptions added into core modules (metrics/tracing/analytics must be separate and injected)
 
 ### References
 - Execution and event services: [packages/agents/src/services/execution-service.ts](mdc:packages/agents/src/services/execution-service.ts), [packages/agents/src/services/event-service.ts](mdc:packages/agents/src/services/event-service.ts)

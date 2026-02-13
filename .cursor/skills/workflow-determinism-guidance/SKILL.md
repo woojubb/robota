@@ -34,6 +34,7 @@ Use this skill to keep scenario record/play deterministic and reproducible.
 ## CLI Entry Point
 - Keep a single scenario CLI entry point for record/play/verify.
 - Avoid proliferating scripts.
+- In record mode, overwrite the target scenario file before recording.
 
 ## Parallel Tool Call Strategy
 - Default to `hash` strategy for parallel tool calls.
@@ -46,3 +47,8 @@ Use this skill to keep scenario record/play deterministic and reproducible.
 ## Determinism Fix Checks
 - Ensure tool responses can attach to the originating tool call in local playback paths.
 - Ensure agent ownership resolution uses explicit context fields, not inferred IDs.
+
+## OwnerPath-Centric Event Context
+- Model parent-child event structure through `ownerPath` inheritance.
+- Emitters append their segment to inherited `ownerPath`.
+- Do not rely on ad-hoc linkage parameters when `ownerPath` can represent the relation.

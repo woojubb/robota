@@ -25,47 +25,12 @@ class UserEventLogic {
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        try {
-            this.logger.debug(`🔧 [USER-HANDLER] Processing ${eventType}`);
-            const handler = this.getHandler(eventType);
-            if (!handler) {
-                this.logger.warn(`⚠️ [USER-HANDLER] Unknown event type: ${eventType}`);
-                return {
-                    success: false,
-                    updates: [],
-                    metadata: {
-                        handlerType: 'user',
-                        eventType,
-                        processed: false
-                    }
-                };
-            }
-
-            const result = await handler(eventData);
-            return {
-                ...result,
-                metadata: {
-                    handlerType: 'user',
-                    eventType,
-                    processed: true
-                }
-            };
-        } catch (error) {
-            this.logger.error(
-                `❌ [USER-HANDLER] Error processing ${eventType}:`,
-                error instanceof Error ? error : new Error(String(error))
-            );
-            return {
-                success: false,
-                updates: [],
-                errors: [`UserEventHandler failed: ${error instanceof Error ? error.message : String(error)}`],
-                metadata: {
-                    handlerType: 'user',
-                    eventType,
-                    error: true
-                }
-            };
+        this.logger.debug(`🔧 [USER-HANDLER] Processing ${eventType}`);
+        const handler = this.getHandler(eventType);
+        if (!handler) {
+            throw new Error(`[USER-HANDLER] Unknown event type: ${eventType}`);
         }
+        return handler(eventData);
     }
 
     private getHandler(eventType: string): ((data: TEventData) => Promise<IEventProcessingResult>) | undefined {

@@ -56,54 +56,19 @@ class ExecutionEventLogic {
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        try {
-            this.logger.debug(`🔧 [EXECUTION-HANDLER] Processing ${eventType}`);
-            this.recordInstance(eventType, eventData);
-            const handler = this.getHandler(eventType);
-            if (!handler) {
-                this.logger.warn(`⚠️ [EXECUTION-HANDLER] Unknown event type: ${eventType}`);
-                return {
-                    success: false,
-                    updates: [],
-                    metadata: {
-                        handlerType: 'execution',
-                        eventType,
-                        processed: false
-                    }
-                };
-            }
-
-            const result = await handler(eventData);
-            return {
-                ...result,
-                metadata: {
-                    handlerType: 'execution',
-                    eventType,
-                    processed: true
-                }
-            };
-        } catch (error) {
-            this.logger.error(
-                `❌ [EXECUTION-HANDLER] Error processing ${eventType}:`,
-                error instanceof Error ? error : new Error(String(error))
-            );
-            return {
-                success: false,
-                updates: [],
-                errors: [`ExecutionEventHandler failed: ${error instanceof Error ? error.message : String(error)}`],
-                metadata: {
-                    handlerType: 'execution',
-                    eventType,
-                    error: true
-                }
-            };
+        this.logger.debug(`🔧 [EXECUTION-HANDLER] Processing ${eventType}`);
+        this.recordInstance(eventType, eventData);
+        const handler = this.getHandler(eventType);
+        if (!handler) {
+            throw new Error(`[EXECUTION-HANDLER] Unknown event type: ${eventType}`);
         }
+        return handler(eventData);
     }
 
     private getHandler(eventType: string): ((data: TEventData) => Promise<IEventProcessingResult>) | undefined {
         const handlers: Record<string, (data: TEventData) => Promise<IEventProcessingResult>> = {
             [EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY]: (data) => this.handleToolResultsReady(data),
-            [EXECUTION_EVENT_NAMES.START]: () => this.handleExecutionStart(),
+            [EXECUTION_EVENT_NAMES.START]: (data) => this.handleExecutionStart(data),
             [EXECUTION_EVENT_NAMES.COMPLETE]: () => this.handleExecutionComplete(),
             [EXECUTION_EVENT_NAMES.ERROR]: (data) => this.handleExecutionError(data),
             [EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START]: (data) => this.handleAssistantMessageStart(data),
@@ -146,8 +111,39 @@ class ExecutionEventLogic {
         }
     }
 
-    private async handleExecutionStart(): Promise<IEventProcessingResult> {
-        return { success: true, updates: [] };
+    private async handleExecutionStart(eventData: TEventData): Promise<IEventProcessingResult> {
+        const updates: TWorkflowUpdate[] = [];
+        const ownerPath = eventData.context.ownerPath;
+        const executionId = findOwnerIdByType(ownerPath, 'execution', EXECUTION_EVENT_NAMES.START);
+        const executionNode = this.executionNodeBuilder.createExecutionNode(eventData);
+        updates.push({ action: 'create', node: executionNode });
+
+        const parentAgentId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) return seg.id;
+            }
+            return undefined;
+        })();
+
+        if (!parentAgentId) {
+            return {
+                success: false,
+                updates: [],
+                errors: [`[PATH-ONLY] Missing agent segment in context.ownerPath for ${EXECUTION_EVENT_NAMES.START}`]
+            };
+        }
+
+        const edge: IWorkflowEdge = {
+            id: EdgeUtils.generateId(parentAgentId, executionId, 'executes'),
+            source: parentAgentId,
+            target: executionId,
+            type: 'executes',
+            timestamp: Date.now()
+        };
+        updates.push({ action: 'create', edge });
+
+        return { success: true, updates };
     }
 
     private async handleExecutionComplete(): Promise<IEventProcessingResult> {
@@ -258,7 +254,6 @@ class ExecutionEventLogic {
     private async handleAssistantMessageStart(eventData: TEventData): Promise<IEventProcessingResult> {
         const updates: TWorkflowUpdate[] = [];
         const pathInfo = extractPathInfo(eventData.context.ownerPath, EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_START);
-        const pathThinkingId = pathInfo.nodeId;
 
         if (!pathInfo.parentId) {
             return {

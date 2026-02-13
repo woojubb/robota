@@ -210,6 +210,13 @@ workflowSubscriber.registerHandler(new CustomEventHandler({
 
 6. **Realtime notification**: Subscribers receive updates
 
+## Event Log Minimal Recording Policy
+
+- Event log is append-only and records each received event unit as-is.
+- Handlers and projections must not assume missing completion events.
+- No synthetic completion, no inferred linkage, and no fallback correction paths are allowed.
+- Ordering and replay must use explicit fields only (`ownerPath`, `timestamp`, `eventName`, `sequenceId` when available).
+
 ## 🧭 User Events & Execution/User Linking
 
 ### User Events (`user.*`)

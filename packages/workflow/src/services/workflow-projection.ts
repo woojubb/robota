@@ -3,13 +3,11 @@ import type { IEventHandler } from '../interfaces/event-handler.js';
 import type { TWorkflowUpdate } from '../interfaces/workflow-builder.js';
 import type { TEventLogRecord } from '../interfaces/event-log.js';
 import type { IWorkflowProjection } from '../interfaces/event-projection.js';
-import { registerAgentEventHandlers } from '../handlers/agent-event-handler.js';
-import { registerToolEventHandlers } from '../handlers/tool-event-handler.js';
-import { registerExecutionEventHandlers } from '../handlers/execution-event-handler.js';
-import { registerUserEventHandlers } from '../handlers/user-event-handler.js';
 import { AgentNodeBuilder } from '../handlers/builders/agent-node-builder.js';
 import { ExecutionNodeBuilder } from '../handlers/builders/execution-node-builder.js';
 import { WorkflowInstanceRegistry } from './instance-registry.js';
+import { compareEventOrdering } from './event-log-ordering.js';
+import { registerDefaultEventHandlers } from './default-event-handler-registry.js';
 
 export class WorkflowProjection implements IWorkflowProjection {
     private logger: ILogger;
@@ -49,7 +47,17 @@ export class WorkflowProjection implements IWorkflowProjection {
             throw new Error('[WORKFLOW-PROJECTION] fromSequenceId must be >= 1.');
         }
         const records = this.historyModule.read(fromSequenceId, toSequenceId);
-        const ordered = [...records].sort((a, b) => a.sequenceId - b.sequenceId);
+        const ordered = [...records].sort((left, right) => compareEventOrdering({
+            ownerPath: left.context.ownerPath,
+            timestamp: left.timestamp,
+            eventName: left.eventName,
+            sequenceId: left.sequenceId
+        }, {
+            ownerPath: right.context.ownerPath,
+            timestamp: right.timestamp,
+            eventName: right.eventName,
+            sequenceId: right.sequenceId
+        }));
         const updates: TWorkflowUpdate[] = [];
         for (const record of ordered) {
             const logRecord = this.toEventLogRecord(record);
@@ -66,16 +74,13 @@ export class WorkflowProjection implements IWorkflowProjection {
             }
             this.handlers.set(handler.eventName, handler);
         };
-        registerAgentEventHandlers(registerHandler, this.logger, this.agentNodeBuilder, this.instanceRegistry);
-        registerToolEventHandlers(registerHandler, this.logger, this.instanceRegistry);
-        registerExecutionEventHandlers(
+        registerDefaultEventHandlers({
             registerHandler,
-            this.logger,
-            this.executionNodeBuilder,
-            this.agentNodeBuilder,
-            this.instanceRegistry
-        );
-        registerUserEventHandlers(registerHandler, this.logger, this.executionNodeBuilder);
+            logger: this.logger,
+            agentNodeBuilder: this.agentNodeBuilder,
+            executionNodeBuilder: this.executionNodeBuilder,
+            instanceRegistry: this.instanceRegistry
+        });
     }
 
     private toEventLogRecord(record: IEventHistoryRecord): TEventLogRecord {

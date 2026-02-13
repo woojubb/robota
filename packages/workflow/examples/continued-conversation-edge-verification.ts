@@ -5,9 +5,10 @@ import { fileURLToPath } from 'url';
 import { Robota, FunctionTool } from '@robota-sdk/agents';
 import type { IAIProvider, IEventService, IOwnerPathSegment, IToolExecutionContext, IToolSchema, TToolParameters } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
-import { WorkflowEventSubscriber, WorkflowSubscriberEventService } from '@robota-sdk/workflow';
+import { WorkflowEventSubscriber, WorkflowEventServiceBridge } from '@robota-sdk/workflow';
 
-import { ScenarioStore, createScenarioProviderFromEnv, createScenarioToolWrapper } from '@robota-sdk/workflow/scenario';
+import { ScenarioStore, createScenarioToolWrapper } from '@robota-sdk/workflow/scenario';
+import { createOpenAIProviderForRecordFromEnv, createScenarioRuntime } from './utils/scenario-runtime.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,27 +66,25 @@ const buildAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
 
 async function main(): Promise<void> {
     const store = new ScenarioStore({ baseDir: path.resolve(__dirname, 'scenarios') });
-
-    // This example is workflow-owned and intended for deterministic, offline verification.
-    // Require scenario playback to avoid any real provider calls.
-    if (!process.env.SCENARIO_PLAY_ID) {
-        throw new Error('[GUARD] Missing SCENARIO_PLAY_ID. This workflow example only supports scenario play mode.');
-    }
-
-    const scenario = createScenarioProviderFromEnv({
-        store,
-        defaultPlayStrategy: 'sequential',
+    const runtime = createScenarioRuntime({
+        createProviderForRecord: createOpenAIProviderForRecordFromEnv,
         providerName: 'openai',
-        providerVersion: 'mock-scenario'
+        providerVersion: 'mock-scenario',
+        defaultPlayStrategy: 'hash',
+        scenarioOptions: { store }
     });
+    const scenario = runtime.scenario;
     const provider = scenario.provider;
+    const delegatedExecutionProvider = scenario.mode === 'record'
+        ? (runtime.recordDelegateProvider ?? provider)
+        : provider;
 
     const subscriber = new WorkflowEventSubscriber({ logger: SilentLogger });
-    const bridge = new WorkflowSubscriberEventService(subscriber, SilentLogger);
+    const bridge = new WorkflowEventServiceBridge(subscriber, SilentLogger);
     const baseEventService: IEventService = bridge;
 
     const rootAgentId = 'agent_0';
-    const assignTaskTool = createScenarioToolWrapper(buildAssignTaskTool(provider), {
+    const assignTaskTool = createScenarioToolWrapper(buildAssignTaskTool(delegatedExecutionProvider), {
         mode: scenario.mode,
         scenarioId: scenario.mode === 'none' ? undefined : scenario.scenarioId,
         store,

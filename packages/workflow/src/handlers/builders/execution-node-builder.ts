@@ -4,8 +4,43 @@ import { WORKFLOW_NODE_TYPES } from '../../constants/workflow-types.js';
 import type { TEventData } from '../../interfaces/event-handler.js';
 
 export class ExecutionNodeBuilder {
+    createExecutionNode(eventData: TEventData): IWorkflowNode {
+        const ownerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
+        const executionId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) return seg.id;
+            }
+            return '';
+        })();
+        if (!executionId) {
+            throw new Error('[PATH-ONLY] Missing execution segment in context.ownerPath for execution.start');
+        }
+
+        const level = ownerPath.length;
+        return {
+            id: executionId,
+            type: WORKFLOW_NODE_TYPES.EXECUTION,
+            level,
+            status: 'running',
+            timestamp: Date.now(),
+            data: {
+                sourceId: executionId,
+                sourceType: 'execution',
+                executionId,
+                label: 'Execution',
+                description: 'Execution lifecycle node',
+                eventType: eventData.eventType,
+                ...(eventData.parameters ? { parameters: eventData.parameters } : {}),
+                ...(eventData.metadata ? { metadata: eventData.metadata } : {}),
+                extensions: { robota: { originalEvent: eventData, handlerType: 'execution' } }
+            },
+            connections: []
+        };
+    }
+
     createToolResultNode(thinkingId: string, eventData: TEventData): IWorkflowNode {
-        const nodeId = `tool_result_${thinkingId}_${eventData.timestamp.getTime()}`;
+        const nodeId = `tool_result_${thinkingId}`;
         return {
             id: nodeId,
             type: WORKFLOW_NODE_TYPES.TOOL_RESULT,
