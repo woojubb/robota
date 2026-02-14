@@ -29,6 +29,13 @@ This rule is always applied. Fallback logic is prohibited. There must be a singl
 - Types are strict; no `any`/`unknown` without documented justification
 - Event-driven flows follow declared constants; no hardcoded event names
 
+### Terminal Failure Integrity (Strict, Mandatory)
+- A terminal failure state (`failed`, `cancelled`, `upstream_failed`) MUST remain terminal by default.
+- If retry policy is disabled or absent, code MUST NOT move terminal failure back to `queued` or `running`.
+- "Manual diagnostics", "reinject", and "operational convenience" are NOT exceptions by default.
+- Any terminal-to-active transition requires an explicit, separate policy gate that is disabled by default and audited.
+- Prefer creating a new execution identity (e.g., new `dagRunId`) over mutating a failed execution path.
+
 ### Failure Layer Classification (Mandatory)
 - Classify failures into exactly two strict layers:
   1. **`[EMITTER-CONTRACT]`**: event contract violation before or during handler logic
@@ -46,6 +53,7 @@ This rule is always applied. Fallback logic is prohibited. There must be a singl
 - Tests cover the single correct path
 - No side-concern exceptions added into core modules (metrics/tracing/analytics must be separate and injected)
 - Error messages clearly indicate either `[EMITTER-CONTRACT]` or `[APPLY-LAYER]`
+- No terminal-failure-to-active transition unless an explicit policy gate is enabled and tested
 
 ### References
 - Execution and event services: [packages/agents/src/services/execution-service.ts](mdc:packages/agents/src/services/execution-service.ts), [packages/agents/src/services/event-service.ts](mdc:packages/agents/src/services/event-service.ts)

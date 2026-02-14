@@ -167,10 +167,20 @@ Use this map to keep procedural guidance aligned with formal project specs.
 - Procedural skill:
   - `.cursor/skills/architecture-decision-records/SKILL.md`
 
-### DAG System (Future)
+### DAG System
 - Spec: `.design/specs/workflow-dag-development-plan.md`
 - Rule anchors: inherited from Event/Workflow, Type/SSOT, and Architecture sections
-- Procedural skills: `ddd-tactical-patterns`, `state-machine-design`, `contract-testing`, `boundary-validation`, `async-concurrency-patterns`
+- Event boundary:
+  - DAG event layer is independent from workflow/agent/team event streams.
+  - Use `run.*`, `task.*`, `worker.*`, `scheduler.*` for DAG domain events.
+  - Follow safety guards: dedicated event bus, no default cross-bridge, no cross-import of event constants.
+- Procedural skills:
+  - `.cursor/skills/ddd-tactical-patterns/SKILL.md`
+  - `.cursor/skills/state-machine-design/SKILL.md`
+  - `.cursor/skills/contract-testing/SKILL.md`
+  - `.cursor/skills/boundary-validation/SKILL.md`
+  - `.cursor/skills/async-concurrency-patterns/SKILL.md`
+  - `.cursor/skills/architecture-decision-records/SKILL.md`
 
 ## Maintenance Checklist
 - [ ] New mandatory policy is added to a rule file first.

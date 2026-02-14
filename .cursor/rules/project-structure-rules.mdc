@@ -10,13 +10,28 @@ description: "Unified project structure and build rules (content preserved)"
 ### Package Structure
 ```
 packages/
-├── agents/          # Core agent functionality
-├── anthropic/       # Anthropic provider
-├── openai/          # OpenAI provider  
-├── google/          # Google provider
-├── sessions/        # Session management
-└── team/           # Team collaboration
+├── agents/             # Core agent functionality
+├── anthropic/          # Anthropic provider
+├── openai/             # OpenAI provider
+├── google/             # Google provider
+├── sessions/           # Session management
+├── team/               # Team collaboration
+├── workflow/           # Workflow visualization/events
+├── playground/         # Playground UI package
+├── remote/             # Remote execution package
+├── dag-core/           # DAG domain contracts and state rules
+├── dag-runtime/        # DAG orchestration runtime
+├── dag-worker/         # DAG worker execution layer
+├── dag-scheduler/      # DAG scheduler layer
+├── dag-projection/     # DAG projection/read-model layer
+├── dag-api/            # DAG API/composition layer
+└── dag-designer/       # DAG web designer layer
 ```
+
+### DAG Dependency Direction (Mandatory)
+- `dag-core` is the DAG SSOT contract package.
+- `dag-runtime`, `dag-worker`, `dag-scheduler`, `dag-projection`, `dag-api`, and `dag-designer` depend on `dag-core`.
+- `dag-designer` must not import runtime/worker/scheduler implementations directly.
 
 ### Configuration Files
 - **tsconfig.base.json** - Base TypeScript configuration with strict rules
