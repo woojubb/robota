@@ -422,7 +422,223 @@ Fail:
 
 ---
 
-## 15) 즉시 다음 액션
+## 15) 규칙 준수 검토 결과 및 보완 항목
+
+P0 착수 전 기존 rules/skills 전체와 교차 검토한 결과.
+각 항목은 해당 규칙 참조와 함께 결정 사항/미결 사항을 명시한다.
+
+### 15.1 이벤트 프리픽스 충돌 해소 (심각도: 높음)
+
+규칙 참조: `workflow-event-rules.mdc` — Event Ownership by Prefix
+
+#### 문제
+기존 규칙에서 `task.*`는 "Task management events" 소유.
+DAG 시스템의 `TaskRun`과 이름 공간이 충돌한다.
+
+#### 결정 사항
+- DAG 전용 프리픽스 체계 도입:
+  - `dagrun.*` — DAGRun 생명주기 이벤트
+  - `dagtask.*` — TaskRun 생명주기 이벤트
+  - `dagworker.*` — Worker 실행 이벤트
+  - `dagscheduler.*` — Scheduler 트리거 이벤트
+- 기존 `task.*` (team/agent 컨텍스트)와 완전 분리
+- `dag-core`에 이벤트 상수 정의:
+  ```
+  DAG_RUN_EVENTS = { CREATED, RUNNING, SUCCESS, FAILED, CANCELLED } as const
+  DAG_TASK_EVENTS = { QUEUED, RUNNING, SUCCESS, FAILED, UPSTREAM_FAILED, SKIPPED } as const
+  DAG_WORKER_EVENTS = { LEASE_ACQUIRED, HEARTBEAT, LEASE_EXPIRED, EXECUTION_COMPLETE } as const
+  DAG_SCHEDULER_EVENTS = { EVALUATED, TRIGGERED, SKIPPED } as const
+  ```
+- `composeEventName` 유틸리티를 DAG에서도 동일하게 사용할지, 독립 이벤트 버스를 쓸지는 P0에서 결정
+  - 기존 agent EventService와 DAG 이벤트가 같은 버스를 공유하는지 여부가 핵심
+  - v1 권장: DAG 전용 이벤트 버스 (기존 agent와 분리)
+
+### 15.2 v1 어댑터(구현체) 스펙 (심각도: 높음)
+
+규칙 참조: `hexagonal-architecture-ts` SKILL — "Composition root wires ports to adapters"
+
+#### 문제
+포트 인터페이스는 정의되었으나 v1에서 실제 사용할 어댑터가 미정.
+
+#### 결정 사항 (v1 어댑터)
+| 포트 | v1 어댑터 | 비고 |
+|------|----------|------|
+| `IQueuePort` | `InMemoryQueueAdapter` | 단일 프로세스, 분산 미지원 |
+| `ILeasePort` | `InMemoryLeaseAdapter` | 단일 프로세스 lease |
+| `IStoragePort` | `FileSystemStorageAdapter` 또는 `SQLiteStorageAdapter` | P0에서 결정 |
+| `ITaskExecutorPort` | `DirectFunctionExecutor` | JS 함수 직접 호출, worker thread 미사용 |
+| `IClockPort` | `SystemClockAdapter` (`Date.now()` 래퍼) | 테스트 시 `FakeClock` 주입 |
+
+- 모든 v1 어댑터는 `dag-api` composition 모듈에서 주입
+- 어댑터 구현체 위치: 각 구현 패키지 내부 또는 `dag-api/adapters/`
+- 테스트용 mock 어댑터: `dag-core/testing/` 모듈로 제공
+
+### 15.3 에러 분류 체계 (심각도: 높음)
+
+규칙 참조: `execution-safety-rules.mdc` — Failure Layer Classification
+
+#### 문제
+기존 `[EMITTER-CONTRACT]`/`[APPLY-LAYER]` 분류는 workflow 전용.
+DAG 시스템은 더 많은 실패 지점이 있으나 분류가 없다.
+
+#### 결정 사항 — DAG 에러 레이어
+| 레이어 | 태그 | 의미 | 정책 |
+|--------|------|------|------|
+| 정의 검증 | `[DAG-VALIDATION]` | definition 구조/의존 규칙 위반 | 즉시 reject, run 생성 불가 |
+| 상태 전이 | `[STATE-TRANSITION]` | 상태 머신 규칙 위반 (예: running→queued 불가) | 즉시 중단 |
+| Lease 계약 | `[LEASE-CONTRACT]` | lease 만료/중복 실행 계약 위반 | 즉시 중단, requeue 판단 |
+| Dispatch 계약 | `[DISPATCH-CONTRACT]` | queue dispatch 실패 | 즉시 중단, retry 가능 |
+| 실행 오류 | `[TASK-EXECUTION]` | task handler 내부 실패 | retry 정책 적용 후 terminal |
+
+- 모든 에러 메시지에 레이어 태그 포함 필수
+- `Result<T, E>` 패턴 적용: 도메인 함수는 throw 대신 typed result 반환
+  - `effect-style-error-modeling` SKILL 적용
+  - 경계 어댑터에서만 외부 예외를 도메인 에러로 변환
+
+### 15.4 상태 머신 순수성 (심각도: 중간)
+
+규칙 참조: `functional-core-imperative-shell` SKILL
+
+#### 문제
+`DagRunStateMachine`, `TaskRunStateMachine`의 구현 방식이 미명시.
+
+#### 결정 사항
+- 상태 머신은 **순수 함수**로 구현:
+  ```
+  (currentStatus, event) → { newStatus } | { error: TTransitionError }
+  ```
+- side-effect(DB 저장, 이벤트 발행)는 호출자(orchestrator/runner)가 수행
+- 상태 머신 내부에 logger, storage, clock 의존 금지
+- `dag-core`의 상태 머신은 브라우저에서도 실행 가능해야 함 (designer validation 용)
+
+### 15.5 로거 DI 정책 (심각도: 중간)
+
+규칙 참조: `development-architecture-rules.mdc` — "NEVER use console.* directly"
+
+#### 결정 사항
+- 모든 DAG 서비스 클래스에 로거 DI 적용:
+  ```
+  constructor(private readonly logger: SimpleLogger = SilentLogger)
+  ```
+- `dag-core` 포트/상태머신/validator: 로거 불필요 (순수 함수)
+- `dag-runtime/worker/scheduler/projection/api`: 로거 DI 필수
+- `dag-designer`: 브라우저 환경에 맞는 로거 인터페이스 (동일 `SimpleLogger` 계약)
+
+### 15.6 기존 Agent/Task 통합 포인트 (심각도: 중간)
+
+규칙 참조: `agent-identity-rules.mdc`, `development-architecture-rules.mdc`
+
+#### 문제
+DAG Task의 handler로 Robota Agent를 사용할 수 있는지 미정.
+
+#### 결정 사항
+- `ITaskExecutorPort`의 v1 구현은 plain JS 함수 실행만 지원
+- Agent 통합은 v1 범위 제외 (v2+ 후보)
+  - v2 후보: `AgentTaskExecutor` 어댑터가 `ITaskExecutorPort`를 구현
+- `dependsOn`은 data dependency이며 agent hierarchy와 무관함을 명문화
+  - `dependsOn`은 DAG 설계 시 정의하는 "이 노드는 저 노드의 출력이 필요"라는 의미
+  - agent-identity 규칙의 hierarchy 금지와 충돌하지 않음
+
+### 15.7 브라우저/Node 호환성 경계 (심각도: 중간)
+
+규칙 참조: `project-structure-rules.mdc`
+
+#### 문제
+`dag-core`는 designer(브라우저)와 worker(Node) 양쪽에서 사용되나 호환 경계 미상세.
+
+#### 결정 사항
+- `dag-core` 금지 API:
+  - `fs`, `path`, `child_process`, `worker_threads`, `net`, `os` 등 Node-only 모듈
+  - `process.env` 직접 참조 (환경 설정은 composition 레이어에서 주입)
+- `dag-core` tsconfig 제약:
+  - `lib: ["ES2022"]` (DOM 미포함)
+  - Node 전용 `@types/node` 미포함
+- 런타임 분류:
+  - **브라우저 실행 가능**: `dag-core`, `dag-designer`
+  - **Node 전용**: `dag-runtime`, `dag-worker`, `dag-scheduler`, `dag-projection`, `dag-api`
+- `IClockPort`로 시간 추상화: `Date.now()` 직접 사용 금지 (순수성 + 테스트 용이성)
+
+### 15.8 이벤트 스키마 버전 관리 (심각도: 중간)
+
+규칙 참조: `cqrs-event-projection-basics` SKILL — "Event schemas are explicit and version-aware"
+
+#### 결정 사항
+- 모든 DAG 이벤트에 `schemaVersion: number` 필드 포함
+- v1에서는 `schemaVersion: 1` 고정, 하지만 필드 자체는 처음부터 포함
+- projection handler에서 `schemaVersion` 체크 로직 포함:
+  - 알려진 버전만 처리, 미지원 버전은 `[DAG-VALIDATION]` 에러
+- 향후 schema migration은 projection replay 시 version-aware transformer로 처리
+  - v1에서는 구현하지 않되, 확장 포인트만 확보
+
+### 15.9 실행 추적 경로 (ownerPath 대응물) (심각도: 중간)
+
+규칙 참조: `workflow-event-rules.mdc` — OwnerPath Inheritance Intent
+
+#### 문제
+기존 workflow는 `ownerPath`로 계보 추적. DAG에는 이에 대응하는 개념이 미정.
+
+#### 결정 사항
+- DAG 실행 추적 경로: `executionPath` 배열
+  - 형식: `[dagId, dagRunId, nodeId, taskRunId, attempt]`
+  - 모든 이벤트 payload에 `executionPath` 필수 포함
+- 용도:
+  - projection에서 lineage 구성
+  - 로그 상관관계(correlation) 추적
+  - 에러 메시지의 컨텍스트 정보
+- 관계 결정은 `executionPath`와 명시적 계약 필드만 사용
+  - ID 파싱/regex 추론 금지 (기존 path-only 규칙 준수)
+
+### 15.10 테스트 인프라 구체화 (심각도: 낮음)
+
+규칙 참조: `vitest-testing-strategy` SKILL
+
+#### 결정 사항
+- 테스트 프레임워크: Vitest (기존 프로젝트와 동일)
+- 파일 컨벤션: `*.test.ts` (`__tests__/` 디렉터리 또는 소스 옆 배치, P0에서 확정)
+- mock 어댑터:
+  - `dag-core/src/testing/` 모듈에서 mock 어댑터 export
+  - `InMemoryQueuePort`, `InMemoryStoragePort`, `FakeClock` 등
+  - 다른 패키지의 통합 테스트에서 import해 사용
+- Vitest workspace: 기존 `vitest.workspace.ts`에 `dag-*` 패키지 추가
+- 테스트 분류:
+  - 단위: 상태 머신, validator, planning rule (순수 함수 table-driven)
+  - 통합: 어댑터 + 서비스 wiring
+  - E2E: composition root → full flow
+
+### 15.11 pnpm workspace / 빌드 통합 (심각도: 낮음)
+
+규칙 참조: `project-structure-rules.mdc`, `build-and-resolution-rules.mdc`
+
+#### 결정 사항
+- `pnpm-workspace.yaml`에 `packages/dag-*` 추가 (P0 첫 작업)
+- `tsconfig` 구조:
+  - 각 패키지는 `tsconfig.base.json` 상속
+  - `dag-core`는 `lib: ["ES2022"]` (브라우저 호환)
+  - Node 전용 패키지는 `@types/node` 포함
+- 빌드 순서 (dependency chain):
+  1. `dag-core` (최우선)
+  2. `dag-runtime`, `dag-worker`, `dag-scheduler`, `dag-projection` (core 의존)
+  3. `dag-api` (runtime/worker/scheduler/projection 의존)
+  4. `dag-designer` (core + API client만 의존)
+- `project-structure-rules.mdc` 패키지 목록은 P0 완료 후 업데이트
+
+### 15.12 Rules/Skills 문서 업데이트 범위 (심각도: 낮음)
+
+규칙 참조: `skills-link-rules.mdc` — Rule/Skill-to-Spec Mapping
+
+#### 결정 사항
+- P0 완료 시점에 업데이트할 문서:
+  - `project-structure-rules.mdc`: 패키지 목록에 `dag-*` 추가
+  - `workflow-event-rules.mdc`: DAG 이벤트 프리픽스 섹션 추가
+  - `skills-link-rules.mdc`: DAG 도메인 섹션 추가
+- DAG 전용 skill 후보 (필요 시 생성):
+  - `dag-state-machine-guidance`: 상태 전이 설계 가이드
+  - `dag-port-adapter-guide`: 포트/어댑터 구현 가이드
+- 신규 skill은 실제 구현 경험 후 구체화 (P1~P2 시점)
+
+---
+
+## 16) 즉시 다음 액션
 
 1. Gate-1 문서 승인 (v1 포함/제외 확정)
 2. P0 스캐폴딩 착수

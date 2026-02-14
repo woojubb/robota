@@ -32,7 +32,17 @@ Pass 기준:
 
 ## DAG Phase 실행 계획
 
+### P0-pre 규칙 준수 보완 (P0 착수 전)
+- [ ] DAG 이벤트 프리픽스 체계 확정 (dagrun/dagtask/dagworker/dagscheduler)
+- [ ] v1 어댑터 스펙 확정 (InMemory queue/lease, storage 방식 결정)
+- [ ] 에러 분류 체계 확정 (DAG-VALIDATION/STATE-TRANSITION/LEASE-CONTRACT/DISPATCH-CONTRACT/TASK-EXECUTION)
+- [ ] 상태 머신 순수 함수 설계 원칙 확정
+- [ ] 브라우저/Node 호환 경계 확정 (dag-core 금지 API 목록)
+- [ ] executionPath 설계 확정 (ownerPath 대응)
+- [ ] Gate-1 승인 (v1 포함/제외 확정)
+
 ### P0 기반 계약/스캐폴딩
+- [ ] `pnpm-workspace.yaml`에 `packages/dag-*` 추가
 - [ ] `packages/dag-core` 생성
 - [ ] `packages/dag-runtime` 생성
 - [ ] `packages/dag-worker` 생성
@@ -41,6 +51,10 @@ Pass 기준:
 - [ ] `packages/dag-api` 생성
 - [ ] `packages/dag-designer` 생성
 - [ ] core 타입/상수/포트/상태머신 구현
+- [ ] mock 어댑터 모듈 (`dag-core/src/testing/`) 생성
+- [ ] `project-structure-rules.mdc` 패키지 목록 업데이트
+- [ ] `workflow-event-rules.mdc` DAG 이벤트 프리픽스 추가
+- [ ] `skills-link-rules.mdc` DAG 도메인 섹션 추가
 
 완료기준:
 - [ ] `pnpm --filter @robota-sdk/dag-* build` 통과
