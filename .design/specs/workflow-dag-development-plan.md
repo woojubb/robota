@@ -1,356 +1,431 @@
 ---
 title: "Workflow DAG 개발 계획"
-description: "Design-time DAG와 Runtime 실행을 분리한 대규모 워크플로 시스템 구현 계획"
+description: "Airflow 운영모델을 참조한 Robota JS/TS DAG 시스템 개발 계획"
 ---
 
 # Workflow DAG 개발 계획
 
-## 0) 패키지 네이밍/분리 전략 (중요)
+## 1) 비전과 비-목표
 
-### 결론
-- 신규 패키지명은 **`dag`**를 권장한다.
-- 예시: `@robota-sdk/dag`
+### 비전
+- Airflow를 **이식**하는 것이 아니라, 운영 모델을 참조해 Robota에 맞는 DAG 오케스트레이터를 구축한다.
+- 브라우저(디자인/검증/시뮬레이션)와 서버(실행/스케줄/운영)를 분리하고, API 계약으로 약결합한다.
 
-### 이유 (`flow` 대비)
-- `dag`는 엔진의 핵심 제약(비순환 그래프)을 이름 자체로 명확히 고정한다.
-- `flow`는 의미가 넓어(대화 흐름, UI flow, 데이터 flow) 기존 `workflow`/`playground`와 경계가 흐려질 수 있다.
-- Airflow 계열 개념(DAG, DAG Run, Task Instance)과 직접 매핑되어 문서/코드/운영 용어 일관성이 높다.
-
-### 기존 `workflow` 패키지 처리 원칙
-- 기존 `packages/workflow`는 **동결(freeze)** 하고 유지한다.
-- 신규 DAG 개발은 **완전히 별도 패키지**에서 진행한다.
-- 1차 목표는 “교체”가 아니라 “공존 + 점진 전환”이다.
+### 비-목표
+- Python DAG/Operator/Hook 생태계 직접 호환
+- Airflow와 1:1 기능 parity
+- v1에서 분산 운영 기능 전체 제공
 
 ---
 
-## 1) 목표와 배경
+## 2) 최상위 원칙 (고정)
 
-현재 워크플로우는 단일 agent 흐름 중심으로 동작한다.  
-다음 단계에서는 n8n/Airflow 스타일의 **다중 노드 DAG**를 지원하고, 아래 두 축을 명확히 분리한다.
-
-- **Workflow Design 축**: DAG 정의(노드/엣지/입출력 계약) 작성/검증/버전관리
-- **Workflow Execution 축**: DAG Run 생성, 스케줄링, 백그라운드 worker 실행, 상태 추적
-
-핵심 방향:
-- DAG는 정적 정의(불변 버전)로 관리
-- 실행은 worker 기반 비동기 처리
-- UI 시각화(Workflow Graph)와 실행 엔진(Runtime)을 분리
+- **R1. Airflow 이식 금지**: 개념 참조만 허용, 구현은 JS/TS 네이티브로 설계
+- **R2. v1 강제 축소**: 초기 기능은 최소 가치 흐름에 집중
+- **R3. 기능 독립 구현**: runtime/worker/scheduler/projection/designer/api 분리
+- **R4. 조립 레이어 분리**: 기능 조립/주입은 composition 계층에서만 수행
+- **R5. API 약결합**: designer는 버전드 API 계약만 사용
+- **R6. No-Fallback 준수**: 계약 위반은 즉시 실패, 우회 경로 금지
 
 ---
 
-## 2) 범위 정의
+## 3) Airflow 참조 검증 요약
 
-### In Scope
-- DAG Definition 모델 도입 (nodes, edges, I/O schema, defaults)
-- DAG Validation 엔진 (사이클, 필수 입력, 타입 계약, orphan 노드 검사)
-- DAG Run / Task Run 런타임 모델 도입
-- Scheduler + Worker + Queue 기반 실행
-- 상태 저장소 (run/task 상태, 로그, 이벤트, 재시도 이력)
-- 실행 이벤트 스트림 + projection(모니터링/히스토리)
-- Design-time API와 Runtime API 분리
+Airflow 공식 문서 기반 결론:
+- DAG/DagRun/TaskInstance는 도메인 개념
+- Scheduler/Executor/Worker/Queue는 실행 구현체 계층
+- Worker는 선택적/확장 가능한 구성요소
 
-### Out of Scope (1차)
-- 멀티 테넌트 과금/권한 세부 정책
-- 완전한 cron UI 빌더
-- 외부 오케스트레이터(K8s Operator 등) 통합
+적용 결론:
+- `dag-core`는 개념/규칙/인터페이스만 포함
+- runtime/worker/scheduler/projection은 구현체 계층으로 분리
 
----
-
-## 3) 아키텍처 원칙
-
-- **Design/Execution 분리**: DAG 편집 로직이 실행 엔진 내부 상태를 직접 변경하지 않는다.
-- **Single Source of Truth**:
-  - 정의 SSOT: `DAG Definition Store`
-  - 실행 SSOT: `Run/Event Log Store`
-- **No-Fallback**: 계약 필수 필드 누락/위반 시 즉시 실패.
-- **Path-Only/Event Contract 준수**:
-  - 런타임 추적 연결은 명시 필드만 사용
-  - 이벤트명 하드코딩 금지(소유 모듈 상수 사용)
-- **Responsibility Boundary**:
-  - Scheduler/Worker/Queue/Projection 책임 분리
-  - 메트릭/추적은 보조 모듈로 분리 주입
+검증 소스:
+- https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/overview.html
+- https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dag-run.html
+- https://airflow.apache.org/docs/apache-airflow-providers-celery/stable/celery_executor.html
 
 ---
 
-## 4) 목표 시스템 구조 (개념)
+## 4) 패키지 분류 및 책임
 
-- **DAG Design Service**
-  - DAG 생성/수정/검증/버전 발행
-  - 정적 검증: cycle, missing input, invalid edge, type mismatch
+### 4.1 패키지 목록 (확정)
+- `@robota-sdk/dag-core`
+- `@robota-sdk/dag-runtime`
+- `@robota-sdk/dag-worker`
+- `@robota-sdk/dag-scheduler`
+- `@robota-sdk/dag-projection`
+- `@robota-sdk/dag-api`
+- `@robota-sdk/dag-designer`
 
-- **DAG Runtime Service**
-  - DAG Run 생성
-  - 실행 계획(ready task 계산)
-  - Task dispatch 요청 생성
+### 4.2 패키지별 책임
 
-- **Scheduler**
-  - 주기/트리거 기반으로 DAG Run 생성
-  - concurrency limit, backpressure 제어
+#### `dag-core`
+- 타입(Definition/Run/Task), validation, 상태머신, planning rule
+- 포트 인터페이스:
+  - `IQueuePort`, `ILeasePort`, `IStoragePort`, `ITaskExecutorPort`, `IClockPort`
+- 구현체 코드(Queue SDK, worker loop, broker client) 금지
 
-- **Queue Broker**
-  - Task execution message 전달
-  - 재시도 메시지/지연 실행 메시지 지원
+#### `dag-runtime`
+- run orchestration, ready-task planning, dispatch use case
+- 포트 기반 호출만 수행
 
-- **Worker**
-  - Task handler 실행
-  - input resolve -> execute -> output persist -> event emit
-  - 실패 시 정책 기반 retry/terminal-fail 처리
+#### `dag-worker`
+- worker loop, lease heartbeat, retry/backoff, task execution runner
 
-- **Projection/Query Layer**
-  - Event Log 기반으로 Run 상태/히스토리/뷰를 실시간 투영
-  - 운영 대시보드/디버깅 조회 제공
+#### `dag-scheduler`
+- cron/logical date 기반 run 생성
+- catchup/backfill 계산
 
-- **Connection/Credential Service (n8n 참고)**
-  - 노드 실행에 필요한 외부 연결 정보(credential/connection) 분리 관리
-  - DAG 정의에는 credential 식별자만 저장하고, 실제 비밀값은 런타임에만 주입
+#### `dag-projection`
+- event log 기반 run/task/lineage query model 구성
 
-- **Artifact/Log Store (Airflow 참고)**
-  - task 실행 로그/산출물/메타데이터를 run/task 단위로 저장
-  - 재시도/재실행 시 이전 시도 이력과 구분 가능해야 함
+#### `dag-api`
+- design/runtime/operations endpoint
+- auth/validation/permission
+- composition entry (wiring profile)
+
+#### `dag-designer`
+- DAG 편집/검증/publish UX
+- API client 기반 동작
+- 서버 capability 기반 기능 활성/비활성
+
+### 4.3 의존 규칙 (강제)
+- `dag-core`는 최하위 (역의존 없음)
+- 다른 모든 패키지는 core만 공통 의존
+- `dag-designer -> dag-runtime/worker/scheduler` 직접 의존 금지
+- `dag-core -> infra SDK` 의존 금지
+- lateral import/순환 의존 금지
+
+### 4.4 구현체 클래스/인터페이스 명칭 초안
+
+#### `dag-core` (도메인/계약)
+- Interfaces:
+  - `IDagDefinition`, `IDagNodeDefinition`, `IDagRun`, `ITaskRun`
+  - `IQueuePort`, `ILeasePort`, `IStoragePort`, `ITaskExecutorPort`, `IClockPort`
+  - `IRunPlanner`, `ITriggerRuleEvaluator`
+- Classes:
+  - `DagDefinitionValidator`
+  - `DagDependencyResolver`
+  - `TriggerRuleEvaluator`
+  - `DagRunStateMachine`
+  - `TaskRunStateMachine`
+- Constants:
+  - `DAG_RUN_STATUS`, `TASK_RUN_STATUS`
+  - `DAG_EVENTS`, `RUNTIME_EVENTS`, `WORKER_EVENTS`
+
+#### `dag-runtime` (오케스트레이션)
+- Interfaces:
+  - `IRunOrchestrator`, `ITaskDispatcher`, `ITaskPlanner`
+- Classes:
+  - `RunOrchestratorService`
+  - `TaskPlannerService`
+  - `TaskDispatcherService`
+  - `RunCreationService`
+  - `ReadyTaskSelectionService`
+
+#### `dag-worker` (실행기)
+- Interfaces:
+  - `IWorkerLoop`, `ILeaseManager`, `IRetryPolicyEvaluator`
+- Classes:
+  - `WorkerLoopService`
+  - `LeaseHeartbeatService`
+  - `TaskExecutionRunner`
+  - `RetryBackoffPolicy`
+  - `DeadLetterService`
+
+#### `dag-scheduler` (스케줄)
+- Interfaces:
+  - `IScheduleEvaluator`, `IBackfillPlanner`, `ICatchupPlanner`
+- Classes:
+  - `ScheduleEvaluatorService`
+  - `CronScheduleCalculator`
+  - `BackfillService`
+  - `CatchupService`
+  - `ScheduleTriggerService`
+
+#### `dag-projection` (조회 모델)
+- Interfaces:
+  - `IRunProjection`, `ITaskProjection`, `ILineageProjection`
+- Classes:
+  - `RunProjectionService`
+  - `TaskProjectionService`
+  - `LineageProjectionService`
+  - `ProjectionReplayService`
+  - `ProjectionCheckpointService`
+
+#### `dag-api` (조립/노출)
+- Interfaces:
+  - `IDesignApi`, `IRuntimeApi`, `IOperationsApi`
+- Classes:
+  - `DagDesignController`
+  - `DagRuntimeController`
+  - `DagOperationsController`
+  - `DagApiCompositionRoot`
+  - `CapabilityController`
+
+#### `dag-designer` (웹)
+- Interfaces:
+  - `IDesignerApiClient`, `IDesignerCapability`
+- Classes/Components:
+  - `DagDesignerCanvas`
+  - `NodePalettePanel`
+  - `NodeConfigPanel`
+  - `EdgeInspectorPanel`
+  - `DesignerApiClient`
+  - `CapabilityGuardService`
+
+명명 규칙:
+- 서비스 구현체는 `*Service` suffix
+- 상태 전이 객체는 `*StateMachine`
+- 조립 진입점은 `*CompositionRoot`
+- 포트 인터페이스는 `I*Port` 형식 유지
+
+### 4.5 구현체 간 관계 (요약)
+
+#### 구현체별 한 줄 설명
+- `RunOrchestratorService`: DAGRun의 전체 진행 상태를 제어하는 중앙 유스케이스
+- `TaskPlannerService`: 현재 상태에서 실행 가능한 task 집합을 계산
+- `TaskDispatcherService`: 계산된 task를 queue 포트로 전달
+- `WorkerLoopService`: queue를 소비하며 task 실행 사이클을 반복
+- `TaskExecutionRunner`: 단일 task의 실제 실행/결과 반영을 담당
+- `LeaseHeartbeatService`: 실행 중 task lease를 갱신해 중복 실행을 방지
+- `ScheduleEvaluatorService`: 스케줄 규칙을 평가해 run 생성 시점을 결정
+- `BackfillService`/`CatchupService`: 과거 구간 run 생성 정책을 계산
+- `RunProjectionService`/`TaskProjectionService`: event log를 조회용 모델로 변환
+- `DagApiCompositionRoot`: 환경별 구현체를 조립해 API 계층에 주입
+- `DesignerApiClient`: 디자이너에서 백엔드 API를 호출하는 단일 클라이언트
+
+#### 호출/흐름 관계
+1. `ScheduleEvaluatorService` 또는 API 수동 트리거가 DAGRun 생성을 요청
+2. `RunOrchestratorService`가 run을 생성하고 `TaskPlannerService` 호출
+3. `TaskDispatcherService`가 ready task를 queue로 전송
+4. `WorkerLoopService`가 task를 수신하고 `TaskExecutionRunner` 실행
+5. 실행 중 `LeaseHeartbeatService`가 lease를 유지, 실패 시 retry/DLQ 정책 적용
+6. 실행 이벤트는 projection 계층(`RunProjectionService`, `TaskProjectionService`)에 반영
+7. API는 projection을 조회해 상태를 제공, 디자이너는 `DesignerApiClient`로 조회/요청
+
+#### 의존 방향(재확인)
+- `runtime/worker/scheduler/projection/api/designer` -> `dag-core`
+- `dag-designer`는 API 계약에만 의존하고 runtime/worker/scheduler 구현체에는 의존하지 않음
 
 ---
 
-## 5) 데이터 모델 초안
+## 5) 조립 레이어 (Composition Layer)
+
+### 목적
+- 기능 패키지 독립성을 유지하면서 실제 실행 환경(dev/test/prod)을 조립
+
+### 위치
+- 1차: `dag-api` 내부 `composition` 모듈
+- 2차(필요 시): `@robota-sdk/dag-composition`으로 분리
+
+### 책임
+- Queue/Storage/Executor/Clock 구현체 주입
+- 환경 프로파일 관리
+- health/readiness wiring
+
+---
+
+## 6) v1 범위 고정 (Scope Freeze)
+
+### v1 포함
+- DAG 정의 CRUD + validate + publish(version immutability)
+- 수동 run trigger
+- 단일 worker 실행
+- run/task 상태 조회
+- 기본 retry/timeout/lease
+
+### v1 제외
+- 분산 worker autoscaling
+- backfill/catchup 자동화 운영
+- DLQ 운영 UI
+- 고급 scheduler timezone/DST 완전 대응
+- 멀티테넌시 고급 정책
+
+---
+
+## 7) Gate 정의 (Pass/Fail 기준)
+
+### Gate-1: Scope Gate (P0 종료 전)
+의미:
+- v1 포함/제외를 고정하여 개발 범위 변동을 차단
+
+Pass:
+- v1 포함/제외 목록 문서화 및 승인 완료
+- 변경은 RFC 없이 불가
+
+Fail:
+- feature 요청 시 포함/제외 기준이 모호함
+- 팀원이 다른 범위를 전제로 구현 시작
+
+### Gate-2: Time Semantics Gate (P1 종료 전)
+의미:
+- 시간 모델(수동 실행 중심 + logicalDate 저장)을 테스트 가능한 규칙으로 고정
+
+Pass:
+- time policy 문서화(UTC 기준, v1 scheduler 제한)
+- 관련 테스트 케이스 통과
+
+Fail:
+- timezone/DST 기준 미정
+- 동일 입력에서 다른 scheduling 결과 발생
+
+### Gate-3: Execution Guarantee Gate (P2 종료 전)
+의미:
+- 실행 보장 정책을 `at-least-once + idempotency`로 확정
+
+Pass:
+- `runKey/taskRunId` 멱등 처리 테스트 통과
+- lease 만료 재할당 시 중복 부작용 없음
+
+Fail:
+- 중복 실행 방어 기준이 모호함
+- retry/requeue 후 상태 불일치 발생
+
+---
+
+## 8) API 계약 및 약결합 전략
+
+### 8.1 API 버전 전략
+- 모든 외부 계약은 `/v1`로 시작
+- breaking change는 `/v2`로 분리
+
+### 8.2 필수 endpoint (v1)
+
+#### Design API
+- `POST /v1/dag-definitions`
+- `PUT /v1/dag-definitions/:dagId/draft`
+- `POST /v1/dag-definitions/:dagId/validate`
+- `POST /v1/dag-definitions/:dagId/publish`
+
+#### Runtime API
+- `POST /v1/dag-runs`
+- `GET /v1/dag-runs/:dagRunId`
+- `GET /v1/dag-runs/:dagRunId/tasks`
+- `POST /v1/dag-runs/:dagRunId/cancel`
+
+#### Capability API
+- `GET /v1/capabilities`
+  - designer가 지원 기능을 동적으로 확인
+
+### 8.3 Designer 약결합 규칙
+- DB 직접 접근 금지
+- runtime 내부 모듈 직접 import 금지
+- projection API만 조회에 사용
+- 미지원 기능은 UI에서 명시 비활성 처리
+
+---
+
+## 9) 데이터 모델 요약
 
 ### Design-time
 - `DAGDefinition`
-  - `dagId`, `version`, `name`, `description`
-  - `status` (`draft | published | deprecated`)
-  - `nodes: DAGNodeDefinition[]`
-  - `edges: DAGEdgeDefinition[]`
-  - `inputSchema`, `outputSchema`
-  - `createdAt`, `publishedAt`, `updatedAt`
-  - `createdBy`, `updatedBy`
-  - `tags`, `labels`
+  - `dagId`, `version`, `status(draft|published|deprecated)`
+  - `nodes`, `edges`, `inputSchema`, `outputSchema`
 
 - `DAGNodeDefinition`
-  - `nodeId`, `nodeType`
-  - `inputPorts`, `outputPorts`
-  - `config` (handler-specific)
-  - `retryPolicy`, `timeoutMs`, `concurrencyKey`
-  - `dependsOn` (명시적 upstream 목록)
-  - `triggerPolicy` (`all_success | one_success | always | custom`)
-  - `executionPolicy` (`sync | async | external-worker`)
+  - `nodeId`, `nodeType`, `config`
+  - `dependsOn`, `triggerPolicy`, `retryPolicy`, `timeoutMs`
 
 ### Runtime
 - `DAGRun`
-  - `dagRunId`, `dagId`, `version`
-  - `status` (`queued | running | success | failed | cancelled | timed_out`)
-  - `trigger` (manual/schedule/event)
-  - `scheduleRef` (스케줄 기반 실행 시 식별자)
-  - `logicalDate` (Airflow의 logical date 개념)
-  - `runKey` (멱등 생성 키)
-  - `maxActiveTasks`, `priority`
-  - `startedAt`, `endedAt`
+  - `dagRunId`, `dagId`, `version`, `status`
+  - `runKey`, `logicalDate`, `trigger`, `startedAt`, `endedAt`
 
 - `TaskRun`
-  - `taskRunId`, `dagRunId`, `nodeId`
-  - `status` (`ready | queued | leased | running | success | failed | skipped | dead_letter`)
-  - `attempt`, `maxAttempts`
-  - `leaseOwner`, `leaseUntil` (worker lease/heartbeat 관리)
+  - `taskRunId`, `dagRunId`, `nodeId`, `status`
+  - `attempt`, `leaseOwner`, `leaseUntil`
   - `inputSnapshot`, `outputSnapshot`, `error`
-  - `startedAt`, `endedAt`
 
 ---
 
-## 6) 실행 흐름 (요약)
+## 10) 실행 흐름 (v1)
 
-1. Scheduler 또는 API가 `DAGRun` 생성  
-2. Runtime Service가 entry node의 `TaskRun(ready)` 생성  
-3. Queue dispatch -> Worker가 `lease` 획득 후 실행  
-4. Worker가 output 저장 + `task.*`/`execution.*` 이벤트 발행  
-5. Runtime Service가 trigger policy를 평가해 downstream readiness 계산 후 다음 task enqueue  
-6. 모든 terminal 상태 집계 후 DAGRun 종료
-
----
-
-## 7) 실패/재시도/멱등성 정책
-
-- Task 실행 실패:
-  - retryPolicy 내에서는 `queued`로 재등록
-  - 초과 시 `failed` 또는 `dead_letter` terminal
-- DAGRun 종료 조건:
-  - 모든 필수 task 성공 -> `success`
-  - terminal fail 발생 + policy상 중단 -> `failed`
-- 멱등성:
-  - `taskRunId` 기준 중복 실행 방지
-  - `runKey` 기준 DAGRun 중복 생성 방지
-  - 상태 전이는 단방향 유효 전이만 허용
-- Lease/Heartbeat:
-  - worker는 주기적으로 lease 갱신
-  - lease 만료 task는 재할당 가능 상태로 되돌림
-- DLQ(Dead Letter Queue):
-  - 반복 실패 task를 격리 저장
-  - 운영자가 원인 분석 후 재주입 가능
+1. API가 DAG definition version 기준 `DAGRun` 생성
+2. runtime이 entry node `TaskRun(ready)` 생성
+3. queue dispatch
+4. worker가 lease 획득 후 실행
+5. 결과 저장 + event 발행
+6. runtime이 다음 ready task 계산
+7. terminal 집계 후 DAGRun 종료
 
 ---
 
-## 8) API 분리 전략
+## 11) 개발 로드맵 (P0~P4)
 
-### Design API
-- `POST /dag-definitions`
-- `PUT /dag-definitions/:dagId/draft`
-- `POST /dag-definitions/:dagId/validate`
-- `POST /dag-definitions/:dagId/publish`
+### P0 기반 계약/스캐폴딩
+- `dag-*` 패키지 생성
+- core 타입/상수/포트/상태머신 구현
+- 의존 규칙/순환 금지 검증
 
-### Runtime API
-- `POST /dag-runs`
-- `GET /dag-runs/:dagRunId`
-- `GET /dag-runs/:dagRunId/tasks`
-- `POST /dag-runs/:dagRunId/cancel`
-- `POST /dag-runs/:dagRunId/retry-failed`
-- `POST /task-runs/:taskRunId/requeue`
+### P1 Design-time MVP
+- definition CRUD + validate + publish
+- designer validate/publish 연동
+- Gate-2 통과 준비
 
-### Scheduler/Operations API (Airflow 운영성 참고)
-- `POST /schedules`
-- `POST /schedules/:scheduleId/pause`
-- `POST /schedules/:scheduleId/resume`
-- `POST /dag-definitions/:dagId/backfill`
-- `GET /operations/dead-letters`
+### P2 Runtime MVP
+- run orchestration + worker 실행 + retry/lease
+- runtime API 조회/취소
+- Gate-3 통과
 
----
+### P3 Scheduler/확장
+- scheduler 기본 도입
+- backfill/catchup(제한 범위)
+- DLQ 운영 경로
 
-## 9) 단계별 개발 로드맵
-
-### Phase 0 - 계약/모델 확정
-- DAGDefinition/DAGRun/TaskRun 타입 확정
-- 이벤트 상수(owner별) 정의
-- 상태 전이 표준 확정
-- 기존 `workflow`와 신규 `dag` 패키지 경계 계약 확정(의존 금지 규칙 포함)
-
-### Phase 1 - Design-time MVP
-- DAG CRUD + validate
-- 버전 발행(publish) 파이프라인
-- 정적 검증기(cycle/type/input)
-- credential reference 모델/검증 추가
-
-### Phase 2 - Runtime MVP
-- DAGRun 생성
-- Ready queue 계산
-- Worker 단일 프로세스 실행
-- 기본 retry/timeout
-- lease/heartbeat + requeue 구현
-
-### Phase 3 - Scheduler/Worker 확장
-- 스케줄 트리거
-- 분산 worker
-- 동시성 제한/백프레셔
-- backfill/catchup(time window) 실행 지원
-- DLQ + 운영 재주입 도구
-
-### Phase 4 - 관측성/운영성
-- 이벤트 projection 대시보드
-- 실패 분석/재실행 도구
-- 성능 지표/알림
-- run/task lineage 조회 + bottleneck 분석 뷰
+### P4 운영/관측성
+- projection 대시보드
+- lineage/bottleneck 분석
+- 운영 진단/알림 도구
 
 ---
 
-## 10) 의사결정 게이트 (필수 선택 항목)
+## 12) 테스트 전략
 
-대규모 구현 전에 아래 항목은 반드시 선택한다.
+### 단위
+- validator, transition guard, planning rule, retry/backoff
 
-1. **Queue 기술 선택**
-   - 옵션 A: Redis 기반 큐
-   - 옵션 B: DB 기반 큐
-   - 옵션 C: 외부 메시지 브로커
+### 통합
+- API -> runtime -> worker -> projection
+- scheduler -> runtime -> worker
 
-2. **Task 실행 격리 수준**
-   - 옵션 A: 프로세스 내 실행
-   - 옵션 B: worker 프로세스 분리
-   - 옵션 C: 컨테이너 격리 실행
+### E2E
+- designer: create -> validate -> publish -> trigger run
+- run/task 조회/취소/재시도
 
-3. **재시도 기본 정책**
-   - 옵션 A: fixed delay
-   - 옵션 B: exponential backoff
-   - 옵션 C: node별 정책 강제 입력
-
-4. **Projection 저장 전략**
-   - 옵션 A: 메모리 + 스냅샷
-   - 옵션 B: DB materialized view
-   - 옵션 C: 하이브리드
-
-5. **패키지 네이밍 최종 결정**
-   - 옵션 A: `@robota-sdk/dag` (권장)
-   - 옵션 B: `@robota-sdk/flow`
+### 회귀
+- 동일 definition + 동일 input = 동일 output
 
 ---
 
-## 11) 완료 기준 (Definition of Done)
+## 13) 리스크와 완화
 
-- Design-time과 Runtime 코드 경계가 명확히 분리됨
-- 기존 `workflow` 패키지를 수정하지 않고 신규 `dag` 패키지에서 독립 동작
-- DAG static validation이 배포 전/실행 전 모두 동작
-- DAGRun/TaskRun 상태 전이 테스트 통과
-- Worker 실패/재시도/종료 시나리오 테스트 통과
-- 빌드/타입/린트 0 에러
-- 운영 조회 API에서 run/task/event 조회 가능
-
----
-
-## 12) 다음 액션
-
-1. Phase 0 타입 계약 문서 상세화 (`interfaces` 초안)
-2. Queue/Worker 기술 선택 게이트 결정
-3. 신규 패키지 경로 확정: `packages/dag` (기존 `packages/workflow` 동결)
-4. Design-time MVP(Phase 1) 구현 태스크 분해
-5. Runtime MVP(Phase 2) 테스트 시나리오 먼저 작성
+- 상태 불일치:
+  - lease + transition guard + projection consistency check
+- 중복 실행:
+  - runKey/taskRunId 멱등 강제
+- 범위 팽창:
+  - Gate-1 범위 고정 + RFC 변경 프로세스
+- 성능 저하:
+  - projection 분리 + hot-path 인덱스
 
 ---
 
-## 13) n8n/Airflow 참조 기반 보강 포인트
+## 14) 기존 `workflow` 전환 전략
 
-### n8n에서 가져올 점
-- 노드 단위 입출력 계약(JSON payload) + 포트 기반 연결 모델
-- Trigger 노드와 Action 노드 역할 분리
-- Credential/Connection 분리 저장
-- Sub-workflow 호출 패턴(Phase 4 이후)
-
-### Airflow에서 가져올 점
-- DAG Definition(정의)과 DAG Run(실행) 엄격 분리
-- Scheduler 중심의 실행 생성, Worker 중심의 실행 수행
-- logical date / backfill / catchup 운영 모델
-- Pool/Concurrency/priority 기반 리소스 제어
-
-### 그대로 가져오지 않을 점 (Robota 맞춤)
-- Python 중심 DSL/Operator 생태계는 직접 도입하지 않음
-- 지나치게 무거운 중앙 스케줄러 단일 병목 구조는 피하고, 초기에는 단순한 scheduler + queue로 시작
+- Step 1: 기존 `workflow` 동결(유지)
+- Step 2: 신규 기능은 `dag-*`에서만 개발
+- Step 3: feature flag로 workflow/dag 병행 검증
+- Step 4: 안정화 후 기본 엔진을 dag로 전환
+- Step 5: workflow는 read-only 호환 레이어로 축소
 
 ---
 
-## 14) 패키지 구조 제안 (신규)
+## 15) 즉시 다음 액션
 
-`packages/dag/src/`
-- `design/` (definition, validator, publisher)
-- `runtime/` (run-service, task-planner, state-machine)
-- `scheduler/` (cron trigger, backfill, catchup)
-- `worker/` (lease, heartbeat, executor adapter)
-- `queue/` (broker abstraction)
-- `storage/` (definition/run/task/event repositories)
-- `projections/` (run view, task view, lineage view)
-- `interfaces/` (public contracts; SSOT)
-- `index.ts` (public surface)
-
----
-
-## 15) 기존 `workflow`와의 전환 전략
-
-- Step 1: `workflow`는 유지, 신규 기능은 `dag`에서만 개발
-- Step 2: Playground/Web에서 feature flag로 `workflow`/`dag` 렌더 선택
-- Step 3: 동일 시나리오를 양쪽 엔진으로 실행해 결과 비교 검증
-- Step 4: 안정화 후 기본 엔진을 `dag`로 전환
-- Step 5: `workflow`는 read-only 호환 레이어로 축소
-
----
-
-## 16) 리스크와 완화 전략
-
-- **리스크: 스케줄러/워커 상태 불일치**
-  - 완화: lease + heartbeat + state transition guard
-- **리스크: 중복 실행**
-  - 완화: `runKey`/`taskRunId` 멱등 키 강제
-- **리스크: DAG 정의 변경으로 실행 중 충돌**
-  - 완화: 실행은 항상 immutable `version` 참조
-- **리스크: 대량 DAG로 성능 저하**
-  - 완화: projection 분리, pagination, hot-path 인덱스
+1. Gate-1 문서 승인 (v1 포함/제외 확정)
+2. P0 스캐폴딩 착수
+3. core 포트 인터페이스 + 상태머신 우선 구현
+4. mock queue/storage로 P2 전 단계 E2E 준비
 
