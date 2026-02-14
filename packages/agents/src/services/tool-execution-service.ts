@@ -28,6 +28,12 @@ export interface IToolExecutionBatchContext {
     parentContext?: IToolExecutionContext;
 }
 
+interface IRequiredToolExecutionRequestFields {
+    executionId: string;
+    ownerType: string;
+    ownerId: string;
+}
+
 /**
  * Simplified ToolExecutionService
  * Focuses only on core tool execution without complex hierarchy tracking
@@ -39,6 +45,27 @@ export class ToolExecutionService {
     constructor(tools: IToolManager, logger: ILogger = SilentLogger) {
         this.tools = tools;
         this.logger = logger;
+    }
+
+    private requireExecutionRequestFields(request: IToolExecutionRequest): IRequiredToolExecutionRequestFields {
+        if (!request.executionId) {
+            throw new ValidationError('[STRICT-POLICY][EMITTER-CONTRACT] Tool execution request missing executionId');
+        }
+        if (!request.ownerType) {
+            throw new ValidationError(
+                `[STRICT-POLICY][EMITTER-CONTRACT] Tool execution request missing ownerType: executionId=${request.executionId}`
+            );
+        }
+        if (!request.ownerId) {
+            throw new ValidationError(
+                `[STRICT-POLICY][EMITTER-CONTRACT] Tool execution request missing ownerId: executionId=${request.executionId}`
+            );
+        }
+        return {
+            executionId: request.executionId,
+            ownerType: request.ownerType,
+            ownerId: request.ownerId
+        };
     }
 
     /**
@@ -169,47 +196,67 @@ export class ToolExecutionService {
 
         if (batchContext.mode === 'parallel') {
             const promises = batchContext.requests.map(request =>
-                this.executeTool(request.toolName, request.parameters, {
+                (() => {
+                    const required = this.requireExecutionRequestFields(request);
+                    return this.executeTool(request.toolName, request.parameters, {
                     toolName: request.toolName,
                     parameters: request.parameters,
-                    executionId: request.executionId,
-                    ownerType: request.ownerType || 'tool',
-                    ownerId: request.ownerId || request.executionId,
+                    executionId: required.executionId,
+                    ownerType: required.ownerType,
+                    ownerId: required.ownerId,
                     ownerPath: request.ownerPath,
                     metadata: request.metadata,
                     eventService: request.eventService,
                     baseEventService: request.baseEventService
-                }).catch(error => ({
-                    toolName: request.toolName || 'unknown',
-                    result: null,
-                    success: false,
-                    error: error instanceof Error ? error.message : String(error),
-                    executionId: request.executionId || 'unknown'
-                }))
+                    });
+                })()
             );
-            const allResults = await Promise.all(promises);
+            const allResults = await Promise.allSettled(promises);
 
             // Preserve a result entry for every request (SSOT for toolCallId → result mapping).
             // ExecutionService depends on `executionId` to add tool messages in the original call order.
-            allResults.forEach(result => {
-                results.push(result);
-                if (!result.success) {
-                    const err = new Error(
-                        `Tool execution failed: toolName=${String(result.toolName)} executionId=${String(result.executionId)} error=${String(result.error || 'Unknown error')}`
-                    );
-                    errors.push(err);
+            allResults.forEach((settledResult, index) => {
+                const request = batchContext.requests[index];
+                if (!request) {
+                    return;
                 }
+                if (settledResult.status === 'fulfilled') {
+                    const result = settledResult.value;
+                    results.push(result);
+                    if (!result.success) {
+                        const err = new Error(
+                            `Tool execution failed: toolName=${String(result.toolName)} executionId=${String(result.executionId)} error=${String(result.error || 'Unknown error')}`
+                        );
+                        errors.push(err);
+                    }
+                    return;
+                }
+                const err = settledResult.reason instanceof Error
+                    ? settledResult.reason
+                    : new Error(String(settledResult.reason));
+                errors.push(err);
+                results.push({
+                    toolName: request.toolName,
+                    result: null,
+                    success: false,
+                    error: err.message,
+                    executionId: request.executionId
+                });
             });
+            if (errors.length > 0 && !batchContext.continueOnError) {
+                throw errors[0];
+            }
         } else {
             // Sequential execution
             for (const request of batchContext.requests) {
                 try {
+                    const required = this.requireExecutionRequestFields(request);
                     const result = await this.executeTool(request.toolName, request.parameters, {
                         toolName: request.toolName,
                         parameters: request.parameters,
-                        executionId: request.executionId,
-                        ownerType: request.ownerType || 'tool',
-                        ownerId: request.ownerId || request.executionId,
+                        executionId: required.executionId,
+                        ownerType: required.ownerType,
+                        ownerId: required.ownerId,
                         ownerPath: request.ownerPath,
                         metadata: request.metadata,
                         eventService: request.eventService,

@@ -35,7 +35,7 @@ export class AgentNodeBuilder {
                 label: `Agent ${agentNumber}`,
                 description: 'AI Agent instance',
                 ...(Array.isArray(eventData?.parameters?.tools) && eventData.parameters.tools.length > 0
-                    ? { tools: [...eventData.parameters.tools] as string[] }
+                    ? { tools: eventData.parameters.tools.filter((tool): tool is string => typeof tool === 'string') }
                     : {}),
                 originalEventTimestamp: eventData.timestamp,
                 reservedThinkingId: `thinking_${agentId}`,
@@ -95,11 +95,11 @@ export class AgentNodeBuilder {
         const sourceId = agentKey.length > 0 ? agentKey : undefined;
         const responseId = pathInfo.nodeId;
         const responseContent = (() => {
-            const content = (data as { content?: unknown }).content;
+            const content = data.content;
             if (typeof content === 'string' && content.length > 0) return content;
-            const message = (data as { message?: unknown }).message;
+            const message = data.message;
             if (typeof message === 'string' && message.length > 0) return message;
-            const params = data.parameters as Record<string, unknown> | undefined;
+            const params = data.parameters;
             const assistantMessage = params?.['assistantMessage'];
             if (typeof assistantMessage === 'string' && assistantMessage.length > 0) return assistantMessage;
             const fullResponse = params?.['fullResponse'];

@@ -1,4 +1,4 @@
-import { TUniversalMessage } from '../../interfaces/agent';
+import type { TUniversalMessage } from '../../interfaces/messages';
 import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**

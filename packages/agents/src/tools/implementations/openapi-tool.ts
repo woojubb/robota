@@ -234,16 +234,10 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
     private createSchemaFromOpenAPI(): IToolSchema {
         const operation = this.findOperation();
         if (!operation) {
-            // Fallback schema if operation not found
-            return {
-                name: this.operationId,
-                description: `OpenAPI operation: ${this.operationId}`,
-                parameters: {
-                    type: 'object',
-                    properties: {},
-                    required: []
-                }
-            };
+            throw new Error(
+                `[STRICT-POLICY][EMITTER-CONTRACT] OpenAPI operation not found: ${this.operationId}. ` +
+                `Emitter contract must provide a valid operationId present in the OpenAPI document.`
+            );
         }
 
         const { operation: opSpec } = operation;

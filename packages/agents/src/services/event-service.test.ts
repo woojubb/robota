@@ -8,6 +8,7 @@ import {
     ObservableEventService,
     StructuredEventService
 } from './event-service';
+import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './execution-service';
 
 class MockEventService implements IEventService {
     public events: Array<{ eventType: string; data: IBaseEventData; context?: IEventContext }> = [];
@@ -40,6 +41,9 @@ const eventData: IBaseEventData = {
 };
 
 describe('event-service', () => {
+    const executionStartEvent = composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.START);
+    const executionCompleteEvent = composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.COMPLETE);
+
     it('composeEventName should compose owner prefix and local name', () => {
         expect(composeEventName('execution', 'start')).toBe('execution.start');
     });
@@ -63,7 +67,7 @@ describe('event-service', () => {
         service.emit('start', eventData, context);
 
         expect(base.events).toHaveLength(1);
-        expect(base.events[0]?.eventType).toBe('execution.start');
+        expect(base.events[0]?.eventType).toBe(executionStartEvent);
         expect(base.events[0]?.context).toEqual({
             ownerType: 'execution',
             ownerId: 'exec_1',
@@ -85,14 +89,14 @@ describe('event-service', () => {
         a.emit('start', eventData);
         b.emit('complete', eventData);
 
-        expect(base.events.map(item => item.eventType)).toEqual(['execution.start', 'execution.complete']);
+        expect(base.events.map(item => item.eventType)).toEqual([executionStartEvent, executionCompleteEvent]);
     });
 
     it('ObservableEventService should notify subscribed listeners', () => {
         const service = new ObservableEventService();
         const listener = vi.fn();
         service.subscribe(listener);
-        service.emit('execution.start', eventData, {
+        service.emit(executionStartEvent, eventData, {
             ownerType: 'execution',
             ownerId: 'exec_1',
             ownerPath: [{ type: 'execution', id: 'exec_1' }]
@@ -100,12 +104,12 @@ describe('event-service', () => {
 
         expect(listener).toHaveBeenCalledTimes(1);
         service.unsubscribe(listener);
-        service.emit('execution.complete', eventData);
+        service.emit(executionCompleteEvent, eventData);
         expect(listener).toHaveBeenCalledTimes(1);
     });
 
     it('DefaultEventService should be no-op', () => {
         const service = new DefaultEventService();
-        expect(() => service.emit('execution.start', eventData)).not.toThrow();
+        expect(() => service.emit(executionStartEvent, eventData)).not.toThrow();
     });
 });

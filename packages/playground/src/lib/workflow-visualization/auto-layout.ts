@@ -196,15 +196,15 @@ function calculateDynamicRanksep(nodes: Node[], config: ILayoutConfig, useActual
 /**
  * Apply Dagre layout to React Flow nodes and edges
  */
-export function applyDagreLayout(
-    nodes: Node[],
-    edges: Edge[],
+export function applyDagreLayout<TNode extends Node, TEdge extends Edge>(
+    nodes: TNode[],
+    edges: TEdge[],
     config: ILayoutConfig = LAYOUT_PRESETS.vertical,
     useActualDimensions = false
-): { nodes: Node[]; edges: Edge[] } {
+): { nodes: TNode[]; edges: TEdge[] } {
 
     // Keep a copy of the original edges, as we might modify them for layout
-    const originalEdges = [...edges];
+    const originalEdges: TEdge[] = [...edges];
 
     // Create new dagre graph
     const dagreGraph = new dagre.graphlib.Graph();
@@ -374,7 +374,7 @@ export function applyDagreLayout(
     });
 
     // Update node positions based on normalized centers
-    const layoutedNodes: Node[] = nodes.map((node) => {
+    const layoutedNodes: TNode[] = nodes.map((node) => {
         const np = dagreGraph.node(node.id) as { x?: number; y?: number } | undefined;
         const dims = getNodeDimensions(node, useActualDimensions);
 
@@ -451,11 +451,11 @@ export function convertUniversalToReactFlowWithLayout(
  * Apply layout to existing React Flow nodes and edges
  * @deprecated Use applyDagreLayout directly for better control
  */
-export function layoutExistingFlow(
-    nodes: Node[],
-    edges: Edge[],
+export function layoutExistingFlow<TNode extends Node, TEdge extends Edge>(
+    nodes: TNode[],
+    edges: TEdge[],
     layoutPreset: keyof typeof LAYOUT_PRESETS = 'vertical'
-): { nodes: Node[]; edges: Edge[] } {
+): { nodes: TNode[]; edges: TEdge[] } {
     return applyDagreLayout(nodes, edges, LAYOUT_PRESETS[layoutPreset]);
 }
 

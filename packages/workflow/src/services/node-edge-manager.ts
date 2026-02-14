@@ -90,15 +90,17 @@ export class NodeEdgeManager {
             );
         }
 
-        const existingEdge = this.edges.find(edge =>
+        const duplicateEdge = this.edges.find(edge =>
             edge.source === sourceId &&
             edge.target === targetId &&
             edge.type === type
         );
-
-        if (existingEdge) {
-            this.logger.debug(`🔄 [EDGE-DUPLICATE] Edge already exists: ${sourceId} → ${targetId} (${type})`);
-            return existingEdge;
+        if (duplicateEdge) {
+            throw new Error(
+                `[STRICT-POLICY][APPLY-LAYER] Duplicate edge creation attempted: ` +
+                `${sourceId} -> ${targetId} (${type}). ` +
+                `Fix emitter/handler flow to avoid duplicate edge emissions.`
+            );
         }
 
         const ts = this.nextTimestamp();

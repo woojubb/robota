@@ -139,12 +139,12 @@ export class ToolNodeBuilder {
     }
 
     private getToolName(data: TEventData): string {
-        const directName = (data as { toolName?: unknown }).toolName;
+        const directName = data.toolName;
         if (typeof directName === 'string' && directName.length > 0) return directName;
         if (typeof data.parameters?.toolName === 'string' && data.parameters.toolName.length > 0) return data.parameters.toolName;
         if (typeof data.parameters?.name === 'string' && data.parameters.name.length > 0) return data.parameters.name;
-        const resultName = (data.result && typeof data.result === 'object' && 'toolName' in data.result)
-            ? (data.result as { toolName?: unknown }).toolName
+        const resultName = (data.result && typeof data.result === 'object' && !Array.isArray(data.result))
+            ? (data.result as Record<string, TUniversalValue>)['toolName']
             : undefined;
         if (typeof resultName === 'string' && resultName.length > 0) return resultName;
         throw new Error('[PATH-ONLY] Missing toolName for tool event');
@@ -153,7 +153,7 @@ export class ToolNodeBuilder {
     private getErrorMessage(data: TEventData): string {
         if (data.error instanceof Error) return data.error.message;
         if (typeof data.error === 'string' && data.error.length > 0) return data.error;
-        const paramError = (data.parameters as { error?: unknown } | undefined)?.error;
+        const paramError = data.parameters?.error;
         if (typeof paramError === 'string' && paramError.length > 0) return paramError;
         throw new Error('[PATH-ONLY] Missing error details for tool.call_error');
     }

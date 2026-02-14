@@ -11,7 +11,10 @@ import {
     ReactFlow,
     Node,
     Edge,
+    EdgeProps,
     type NodeChange,
+    NodeTypes,
+    NodeMouseHandler,
     Controls,
     MiniMap,
     Background,
@@ -42,9 +45,10 @@ import { useToast } from '../../hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
-import type { TLoggerData, TUniversalValue } from '@robota-sdk/agents';
+import type { IToolResult, TContextData, TLoggerData, TUniversalValue } from '@robota-sdk/agents';
 import type {
-    IWorkflowExportStructure
+    IWorkflowExportStructure,
+    IWorkflowNodeExtensions
 } from '@robota-sdk/workflow';
 import { UniversalToReactFlowConverter } from '../../lib/workflow-visualization';
 import {
@@ -63,7 +67,7 @@ import {
 interface IWorkflowVisualizationProps {
     workflow?: IWorkflowExportStructure;
     className?: string;
-    onAgentNodeClick?: (nodeId: string, data: any) => void;
+    onAgentNodeClick?: (nodeId: string, data: IWorkflowVisualizationNodeData) => void;
     onToolDrop?: (agentId: string, tool: IPlaygroundToolMeta) => void;
     toolItems?: IPlaygroundToolMeta[];
     addedToolsByAgent?: Record<string, string[]>;
@@ -71,11 +75,60 @@ interface IWorkflowVisualizationProps {
 
 type TWorkflowVisualizationNodeValue = TUniversalValue | Date | Error | TLoggerData;
 
+interface IWorkflowVisualizationModelInfo {
+    provider?: string;
+    model?: string;
+    temperature?: number;
+    systemMessage?: string;
+    [key: string]: string | number | boolean | undefined;
+}
+
+interface IWorkflowVisualizationResultData {
+    data?: TUniversalValue;
+    success?: boolean;
+    [key: string]: TUniversalValue | boolean | undefined;
+}
+
+interface IWorkflowVisualizationMetadata {
+    executionId?: string;
+    [key: string]: TUniversalValue | undefined;
+}
+
+interface IWorkflowVisualizationParameters {
+    userPrompt?: string;
+    userMessageContent?: string;
+    assistantMessage?: string;
+    toolName?: string;
+    result?: IWorkflowVisualizationResultData;
+    messageLength?: number;
+    responseLength?: number;
+    wordCount?: number;
+    executionLevel?: number;
+    metadata?: IWorkflowVisualizationMetadata;
+    tools?: string[];
+    systemMessage?: string;
+    defaultModel?: IWorkflowVisualizationModelInfo;
+    [key: string]:
+    | TUniversalValue
+    | IWorkflowVisualizationResultData
+    | IWorkflowVisualizationMetadata
+    | IWorkflowVisualizationModelInfo
+    | string[]
+    | undefined;
+}
+
 interface IWorkflowVisualizationNodeData {
     label?: string;
+    name?: string;
+    description?: string;
     status?: string;
     sourceId?: string;
     conversationId?: string;
+    message?: string;
+    content?: string;
+    userPrompt?: string;
+    userMessageContent?: string;
+    assistantMessage?: string;
 
     agentNumber?: number;
     copyNumber?: number;
@@ -89,22 +142,21 @@ interface IWorkflowVisualizationNodeData {
     memberCount?: number;
 
     toolName?: string;
+    toolResult?: TUniversalValue;
     response?: string;
+    success?: boolean;
+    result?: IWorkflowVisualizationResultData;
+    parameters?: IWorkflowVisualizationParameters;
+    sourcePosition?: Position;
+    targetPosition?: Position;
 
     systemMessage?: string;
-    defaultModel?: {
-        systemMessage?: string;
-        [key: string]: TUniversalValue | undefined;
-    };
+    defaultModel?: IWorkflowVisualizationModelInfo;
     extensions?: {
         robota?: {
             originalEvent?: {
                 rootExecutionId?: string;
-                parameters?: {
-                    systemMessage?: string;
-                    defaultModel?: { systemMessage?: string;[key: string]: TUniversalValue | undefined };
-                    [key: string]: TUniversalValue | undefined;
-                };
+                parameters?: IWorkflowVisualizationParameters;
             };
         };
         [platformName: string]: Record<string, TUniversalValue | undefined> | undefined;
@@ -117,6 +169,12 @@ interface IWorkflowVisualizationNodeData {
 
     [key: string]:
     | TWorkflowVisualizationNodeValue
+    | IToolResult
+    | TContextData
+    | IWorkflowNodeExtensions
+    | IWorkflowVisualizationParameters
+    | IWorkflowVisualizationResultData
+    | IWorkflowVisualizationModelInfo
     | IPlaygroundToolMeta[]
     | ((agentId: string, nodeData: IWorkflowVisualizationNodeData) => void)
     | (() => void)
@@ -125,6 +183,22 @@ interface IWorkflowVisualizationNodeData {
 }
 
 type TWorkflowVisualizationNode = Node<IWorkflowVisualizationNodeData>;
+
+function toText(value: TUniversalValue | undefined, fallback: string): string {
+    if (typeof value === 'string' && value.length > 0) {
+        return value;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
+    }
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+    if (typeof value === 'object' && value !== null) {
+        return JSON.stringify(value, null, 2);
+    }
+    return fallback;
+}
 
 // Unified Chat System
 type TChatNodeKind = 'agent' | 'response';
@@ -139,10 +213,17 @@ function isPlaygroundToolMeta(value: unknown): value is IPlaygroundToolMeta {
     return true;
 }
 
+function getToolsList(nodeData: IWorkflowVisualizationNodeData): string[] {
+    if (!Array.isArray(nodeData.tools)) {
+        return [];
+    }
+    return nodeData.tools.filter((tool): tool is string => typeof tool === 'string');
+}
+
 /**
  * Extract Agent ID from node data based on node type
  */
-const extractAgentId = (nodeData: any, nodeType: TChatNodeKind): string | null => {
+const extractAgentId = (nodeData: IWorkflowVisualizationNodeData, nodeType: TChatNodeKind): string | null => {
     if (nodeType === 'agent') {
         return nodeData.sourceId || nodeData.conversationId || null;
     } else if (nodeType === 'response') {
@@ -160,9 +241,9 @@ const ChatButton = ({
     nodeType,
     onChatOpen
 }: {
-    nodeData: any;
+    nodeData: IWorkflowVisualizationNodeData;
     nodeType: TChatNodeKind;
-    onChatOpen?: (agentId: string, nodeData: any) => void;
+    onChatOpen?: (agentId: string, nodeData: IWorkflowVisualizationNodeData) => void;
 }) => {
     const handleChatClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -194,7 +275,7 @@ type TNodeKind = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'use
 
 interface INodeTemplateProps {
     nodeType: TNodeKind;
-    data: any;
+    data: IWorkflowVisualizationNodeData;
     sourcePosition?: Position;
     targetPosition?: Position;
     children: React.ReactNode;
@@ -254,7 +335,7 @@ const BaseNodeTemplate = ({
 /**
  * Connected Edge (smooth green curve with a subtle outline)
  */
-const ConnectedEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: any) => {
+const ConnectedEdge = ({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps) => {
     const [edgePath] = getBezierPath({
         sourceX,
         sourceY,
@@ -269,20 +350,12 @@ const ConnectedEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition,
         <>
             <BaseEdge
                 path={edgePath}
-                style={{
-                    stroke: '#a7f3d0', // emerald-200 (subtle outline)
-                    strokeWidth: 4,
-                    strokeLinecap: 'round',
-                }}
+                className="stroke-emerald-200 stroke-[4]"
             />
             {/* Main layer (over) */}
             <BaseEdge
                 path={edgePath}
-                style={{
-                    stroke: '#34d399', // emerald-400 (softer green)
-                    strokeWidth: 2,
-                    strokeLinecap: 'round',
-                }}
+                className="stroke-emerald-400 stroke-[2]"
             />
         </>
     );
@@ -291,7 +364,7 @@ const ConnectedEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition,
 /**
  * Missing Edge (red dashed line)
  */
-const MissingEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
+const MissingEdge = ({ sourceX, sourceY, targetX, targetY }: EdgeProps) => {
     const [edgePath] = getStraightPath({
         sourceX,
         sourceY,
@@ -302,11 +375,7 @@ const MissingEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
     return (
         <BaseEdge
             path={edgePath}
-            style={{
-                stroke: '#ef4444', // red-500
-                strokeWidth: 2,
-                strokeDasharray: '5,5',
-            }}
+            className="stroke-red-500 stroke-[2] [stroke-dasharray:5,5]"
         />
     );
 };
@@ -314,7 +383,7 @@ const MissingEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
 /**
  * Domain-neutral Tool Call Edge (orange)
  */
-const ToolCallEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
+const ToolCallEdge = ({ sourceX, sourceY, targetX, targetY }: EdgeProps) => {
     const [edgePath] = getStraightPath({
         sourceX,
         sourceY,
@@ -325,10 +394,7 @@ const ToolCallEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
     return (
         <BaseEdge
             path={edgePath}
-            style={{
-                stroke: '#f97316', // orange-500
-                strokeWidth: 3,
-            }}
+            className="stroke-orange-500 stroke-[3]"
         />
     );
 };
@@ -336,7 +402,7 @@ const ToolCallEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
 /**
  * Recursive agent creation Edge (purple)
  */
-const RecursiveAgentEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
+const RecursiveAgentEdge = ({ sourceX, sourceY, targetX, targetY }: EdgeProps) => {
     const [edgePath] = getStraightPath({
         sourceX,
         sourceY,
@@ -347,11 +413,7 @@ const RecursiveAgentEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => 
     return (
         <BaseEdge
             path={edgePath}
-            style={{
-                stroke: '#8b5cf6', // violet-500
-                strokeWidth: 2,
-                strokeDasharray: '10,5',
-            }}
+            className="stroke-violet-500 stroke-[2] [stroke-dasharray:10,5]"
         />
     );
 };
@@ -368,7 +430,9 @@ const DynamicDagreLayout = ({
     onLayoutComplete?: () => void;
 }) => {
     const { getNodes, getEdges, setNodes } = useReactFlow();
-    const nodeInternals = useStore((state: any) => state.nodeInternals);
+    const nodeInternals = useStore(
+        (state) => (state as unknown as { nodeInternals: Map<string, { width?: number; height?: number }> }).nodeInternals
+    );
     const [hasAppliedLayout, setHasAppliedLayout] = useState(false);
 
     useEffect(() => {
@@ -396,7 +460,7 @@ const DynamicDagreLayout = ({
         // Ensure all nodes have measured dimensions before applying layout.
         const nodesWithDimensions = Array.from(nodeInternals.values());
         const allNodesHaveDimensions = nodesWithDimensions.length > 0 &&
-            nodesWithDimensions.every((node: any) => node.width && node.height);
+            nodesWithDimensions.every((node) => Boolean(node.width) && Boolean(node.height));
 
         if (allNodesHaveDimensions && !hasAppliedLayout && nodes.length > 0) {
             WebLogger.debug('Applying unified Dagre layout with actual node dimensions');
@@ -450,9 +514,9 @@ const DynamicDagreLayout = ({
 
     // Expose a re-layout trigger for external callers
     useEffect(() => {
-        (window as any).__resetDagreLayout = resetLayout;
+        (window as Window & { __resetDagreLayout?: () => void }).__resetDagreLayout = resetLayout;
         return () => {
-            delete (window as any).__resetDagreLayout;
+            delete (window as Window & { __resetDagreLayout?: () => void }).__resetDagreLayout;
         };
     }, [resetLayout]);
 
@@ -625,7 +689,7 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<TWorkflow
                         </Badge>
                     )}
                     {(() => {
-                        const toolsArr = Array.isArray(data.tools) ? (data.tools as string[]) : [];
+                        const toolsArr = getToolsList(data);
                         const computedCount = toolsArr.length > 0
                             ? toolsArr.length
                             : (data.toolCount || (data.availableTools && data.availableTools.length) || (data.toolSlots && data.toolSlots.length) || 0);
@@ -644,15 +708,15 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<TWorkflow
                 </div>
 
                 {/* Tool preview (from data.tools) */}
-                {Array.isArray(data.tools) && (data.tools as string[]).length > 0 && (
+                {getToolsList(data).length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1" data-nodrop="true">
-                        {(data.tools as string[]).slice(0, 3).map((t: string) => (
+                        {getToolsList(data).slice(0, 3).map((t) => (
                             <Badge key={t} variant="outline" className="text-[10px]" data-nodrop="true">
                                 {t}
                             </Badge>
                         ))}
-                        {(data.tools as string[]).length > 3 && (
-                            <span className="text-[10px] text-gray-500" data-nodrop="true">+{(data.tools as string[]).length - 3} more</span>
+                        {getToolsList(data).length > 3 && (
+                            <span className="text-[10px] text-gray-500" data-nodrop="true">+{getToolsList(data).length - 3} more</span>
                         )}
                     </div>
                 )}
@@ -782,7 +846,7 @@ const TeamNode = ({ data, sourcePosition, targetPosition }: NodeProps<TWorkflowV
 /**
  * Custom Node Component for Tools
  */
-const ToolNode = ({ data }: { data: any }) => {
+const ToolNode = ({ data }: { data: IWorkflowVisualizationNodeData }) => {
     return (
         <BaseNodeTemplate
             nodeType="tool"
@@ -805,14 +869,15 @@ const ToolNode = ({ data }: { data: any }) => {
  * Custom Node Component for User Message
  * Minimal display: just the user prompt content
  */
-const UserMessageNode = ({ data }: { data: any }) => {
+const UserMessageNode = ({ data }: { data: IWorkflowVisualizationNodeData }) => {
     // Extract user prompt from multiple possible paths
-    const userPrompt = data.parameters?.userPrompt ||
+    const userPromptCandidate = data.parameters?.userPrompt ||
         data.parameters?.userMessageContent ||
         data.userPrompt ||
         data.userMessageContent ||
         data.message ||
         'No content';
+    const userPrompt = toText(userPromptCandidate, 'No content');
 
     // Truncate content to 80 characters for minimal display
     const maxContentLength = 80;
@@ -850,7 +915,7 @@ const UserMessageNode = ({ data }: { data: any }) => {
 /**
  * Custom Node Component for Agent Thinking
  */
-const AgentThinkingNode = ({ data }: { data: any }) => {
+const AgentThinkingNode = ({ data }: { data: IWorkflowVisualizationNodeData }) => {
     return (
         <BaseNodeTemplate
             nodeType="agent_thinking"
@@ -880,13 +945,14 @@ const AgentThinkingNode = ({ data }: { data: any }) => {
  * Custom Node Component for Response
  * Minimal display: just the assistant message content
  */
-const ResponseNode = ({ data }: { data: any }) => {
+const ResponseNode = ({ data }: { data: IWorkflowVisualizationNodeData }) => {
     // Extract assistant message from multiple possible paths
-    const assistantMessage = data.parameters?.assistantMessage ||
+    const assistantMessageCandidate = data.parameters?.assistantMessage ||
         data.extensions?.robota?.originalEvent?.parameters?.assistantMessage ||
         data.assistantMessage ||
         data.content ||
         'No response';
+    const assistantMessage = toText(assistantMessageCandidate, 'No response');
 
     const agentNumber = data.agentNumber || 0;
 
@@ -920,7 +986,7 @@ const ResponseNode = ({ data }: { data: any }) => {
                         <ChatButton
                             nodeData={data}
                             nodeType="response"
-                            onChatOpen={(data as any).__onChat}
+                            onChatOpen={data.__onChat}
                         />
                     </div>
                 </div>
@@ -937,7 +1003,7 @@ const ResponseNode = ({ data }: { data: any }) => {
 /**
  * Custom Node Component for Tool Call
  */
-const ToolCallNode = ({ data }: { data: any }) => {
+const ToolCallNode = ({ data }: { data: IWorkflowVisualizationNodeData }) => {
     return (
         <BaseNodeTemplate
             nodeType="tool_call"
@@ -967,18 +1033,14 @@ const ToolCallNode = ({ data }: { data: any }) => {
  * Custom Node Component for Tool Call Response
  * Minimal display: tool name and result preview
  */
-const ToolCallResponseNode = ({ data }: { data: any }) => {
+const ToolCallResponseNode = ({ data }: { data: IWorkflowVisualizationNodeData }) => {
     // Extract tool response data from multiple possible paths
     const toolName = data.toolName || data.parameters?.toolName || 'Tool';
     const rawToolResult = data.result?.data ||
         data.parameters?.result?.data ||
         data.toolResult ||
         'No result';
-
-    // Convert object to string if necessary
-    const toolResult = typeof rawToolResult === 'string'
-        ? rawToolResult
-        : JSON.stringify(rawToolResult, null, 2);
+    const toolResult = toText(rawToolResult, 'No result');
 
     const success = data.result?.success ||
         data.parameters?.result?.success ||
@@ -1022,18 +1084,14 @@ const ToolCallResponseNode = ({ data }: { data: any }) => {
  * Custom Node Component for Tool Response
  * Minimal display: just the tool response content (following response node pattern)
  */
-const ToolResponseNode = ({ data }: { data: any }) => {
+const ToolResponseNode = ({ data }: { data: IWorkflowVisualizationNodeData }) => {
     // Extract tool response from multiple possible paths
     const rawToolResponse = data.parameters?.result?.data ||
         data.result?.data ||
-        data.response?.data ||
+        data.response ||
         data.content ||
         'No response';
-
-    // Convert object to string if necessary for safe rendering
-    const toolResponse = typeof rawToolResponse === 'string'
-        ? rawToolResponse
-        : JSON.stringify(rawToolResponse, null, 2);
+    const toolResponse = toText(rawToolResponse, 'No response');
 
     const toolName = data.toolName || data.parameters?.toolName || '';
 
@@ -1075,7 +1133,7 @@ const ToolResponseNode = ({ data }: { data: any }) => {
 /**
  * Custom Node Component for Tool Result
  */
-const ToolResultNode = ({ data }: { data: any }) => {
+const ToolResultNode = ({ data }: { data: IWorkflowVisualizationNodeData }) => {
     return (
         <BaseNodeTemplate
             nodeType="tool_result"
@@ -1173,9 +1231,9 @@ const ToolCallCompatibilityNode = ({ data, sourcePosition, targetPosition }: Nod
  * - Dotted border styling
  * - Minimal content display
  */
-const PlaceholderNode = ({ data }: { data: any }) => {
-    const label = data.label || data.name || 'Placeholder';
-    const description = data.description || data.content || '';
+const PlaceholderNode = ({ data }: { data: IWorkflowVisualizationNodeData }) => {
+    const label = toText(data.label || data.name, 'Placeholder');
+    const description = toText(data.description || data.content, '');
 
     return (
         <div
@@ -1200,25 +1258,25 @@ const PlaceholderNode = ({ data }: { data: any }) => {
 // Removed previous hierarchical node naming - use Agent node type only.
 
 // Node types for React-Flow
-const nodeTypes = {
-    agent: AgentNode as any,
-    team: TeamNode as any,
-    tool: ToolNode as any,
-    user_message: UserMessageNode as any,
-    agent_thinking: AgentThinkingNode as any,
-    response: ResponseNode as any,
-    tool_call: ToolCallNode as any,
-    tool_call_response: ToolCallResponseNode as any,
-    tool_response: ToolResponseNode as any,
-    tool_result: ToolResultNode as any,
-    agentResponse: AgentResponseNode as any,
-    toolCall: ToolCallCompatibilityNode as any,
-    placeholder: PlaceholderNode as any
+const nodeTypes: NodeTypes = {
+    agent: AgentNode,
+    team: TeamNode,
+    tool: ToolNode,
+    user_message: UserMessageNode,
+    agent_thinking: AgentThinkingNode,
+    response: ResponseNode,
+    tool_call: ToolCallNode,
+    tool_call_response: ToolCallResponseNode,
+    tool_response: ToolResponseNode,
+    tool_result: ToolResultNode,
+    agentResponse: AgentResponseNode,
+    toolCall: ToolCallCompatibilityNode,
+    placeholder: PlaceholderNode
     // Removed previous user input type
 };
 
 // Local child component to show Agent details with mock endpoint generation
-const AgentDetailsContent = ({ data, node }: { data: any; node: any }) => {
+const AgentDetailsContent = ({ data, node }: { data: IWorkflowVisualizationNodeData; node: Node<IWorkflowVisualizationNodeData> }) => {
     const [endpoint, setEndpoint] = React.useState<string | null>(null);
     const handleGenerateEndpoint = () => {
         const base = typeof window !== 'undefined' ? window.location.origin : 'https://example.com';
@@ -1229,9 +1287,17 @@ const AgentDetailsContent = ({ data, node }: { data: any; node: any }) => {
         WebLogger.info('Mock API endpoint created', { url });
     };
 
-    const tools: string[] = Array.isArray(data?.tools)
-        ? data.tools
-        : (data?.extensions?.robota?.originalEvent?.parameters?.tools as string[] | undefined) || [];
+    const tools: string[] = (() => {
+        const directTools = getToolsList(data);
+        if (directTools.length > 0) {
+            return directTools;
+        }
+        const parameterTools = data?.extensions?.robota?.originalEvent?.parameters?.tools;
+        if (!Array.isArray(parameterTools)) {
+            return [];
+        }
+        return parameterTools.filter((tool): tool is string => typeof tool === 'string');
+    })();
 
     // Extract system message from various possible locations
     const systemMessage = data?.systemMessage ||
@@ -1252,9 +1318,9 @@ const AgentDetailsContent = ({ data, node }: { data: any; node: any }) => {
                     <div className="mb-3">
                         <h4 className="text-xs font-medium text-gray-700 mb-1">Model</h4>
                         <div className="flex gap-2 text-xs">
-                            <Badge variant="outline">{modelInfo.provider || 'Unknown'}</Badge>
-                            <Badge variant="outline">{modelInfo.model || 'Unknown'}</Badge>
-                            {modelInfo.temperature && (
+                            <Badge variant="outline">{toText(modelInfo.provider, 'Unknown')}</Badge>
+                            <Badge variant="outline">{toText(modelInfo.model, 'Unknown')}</Badge>
+                            {typeof modelInfo.temperature === 'number' && (
                                 <Badge variant="outline">temp: {modelInfo.temperature}</Badge>
                             )}
                         </div>
@@ -1262,7 +1328,7 @@ const AgentDetailsContent = ({ data, node }: { data: any; node: any }) => {
                 )}
 
                 {/* System Message */}
-                {systemMessage && (
+                {typeof systemMessage === 'string' && systemMessage.length > 0 && (
                     <div className="mb-3">
                         <h4 className="text-xs font-medium text-gray-700 mb-1">System Message</h4>
                         <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded overflow-y-auto">
@@ -1313,14 +1379,14 @@ const AgentDetailsContent = ({ data, node }: { data: any; node: any }) => {
 };
 
 // Specialized content rendering for different node types
-const renderNodeContent = (node: Node): React.ReactElement | null => {
-    const data = (node as any).data;
+const renderNodeContent = (node: Node<IWorkflowVisualizationNodeData>): React.ReactElement | null => {
+    const data = node.data;
     const nodeType = String(node.type);
 
     switch (nodeType) {
         case 'agent': {
             return (
-                <AgentDetailsContent data={data} node={node as any} />
+                <AgentDetailsContent data={data} node={node} />
             );
         }
         case 'user_message':
@@ -1329,12 +1395,14 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
                     <div className="border-l-4 border-blue-500 pl-3">
                         <h3 className="text-sm font-medium text-gray-900 mb-2">User Prompt</h3>
                         <div className="text-sm text-gray-800 bg-blue-50 p-3 rounded">
-                            {data.parameters?.userPrompt ||
+                            {toText(
+                                data.parameters?.userPrompt ||
                                 data.parameters?.userMessageContent ||
                                 data.userPrompt ||
                                 data.userMessageContent ||
-                                data.message ||
-                                'No content available'}
+                                data.message,
+                                'No content available'
+                            )}
                         </div>
                         {data.parameters?.messageLength && (
                             <div className="text-xs text-gray-500 mt-2">
@@ -1347,11 +1415,13 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
 
         case 'response':
             {
-                const assistantMessage = data.parameters?.assistantMessage ||
+                const assistantMessage = toText(
+                    data.parameters?.assistantMessage ||
                     data.extensions?.robota?.originalEvent?.parameters?.assistantMessage ||
                     data.assistantMessage ||
-                    data.content ||
-                    'No response available';
+                    data.content,
+                    'No response available'
+                );
                 return (
                     <div className="space-y-3">
                         <div className="border-l-4 border-green-500 pl-3">
@@ -1383,7 +1453,7 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
                                 {data.parameters?.wordCount && (
                                     <span>Words: {data.parameters.wordCount}</span>
                                 )}
-                                {data.agentNumber > 0 && (
+                                {typeof data.agentNumber === 'number' && data.agentNumber > 0 && (
                                     <span>Agent: {data.agentNumber}</span>
                                 )}
                             </div>
@@ -1394,16 +1464,12 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
 
         case 'tool_call_response':
             {
-                const toolName = data.toolName || data.parameters?.toolName || 'Tool';
+                const toolName = toText(data.toolName || data.parameters?.toolName, 'Tool');
                 const rawToolResult = data.result?.data ||
                     data.parameters?.result?.data ||
                     data.toolResult ||
                     'No result available';
-
-                // Convert object to string if necessary
-                const toolResult = typeof rawToolResult === 'string'
-                    ? rawToolResult
-                    : JSON.stringify(rawToolResult, null, 2);
+                const toolResult = toText(rawToolResult, 'No result available');
 
                 const toolSuccess = data.result?.success ||
                     data.parameters?.result?.success ||
@@ -1450,14 +1516,10 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
             {
                 const rawToolResponseData = data.parameters?.result?.data ||
                     data.result?.data ||
-                    data.response?.data ||
+                    data.response ||
                     data.content ||
                     'No response available';
-
-                // Convert object to string if necessary for safe rendering
-                const toolResponseData = typeof rawToolResponseData === 'string'
-                    ? rawToolResponseData
-                    : JSON.stringify(rawToolResponseData, null, 2);
+                const toolResponseData = toText(rawToolResponseData, 'No response available');
 
                 return (
                     <div className="space-y-3">
@@ -1502,7 +1564,7 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
         default:
             // For other node types, show basic info if available
             {
-                const basicInfo = data.description || data.label;
+                const basicInfo = toText(data.description || data.label, '');
                 if (basicInfo) {
                     return (
                         <div className="space-y-2">
@@ -1525,26 +1587,28 @@ function WorkflowVisualizationContent({
     toolItems,
     addedToolsByAgent
 }: IWorkflowVisualizationProps) {
-    const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+    const [nodes, setNodes, onNodesChange] = useNodesState<TWorkflowVisualizationNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [converter] = useState(() => new UniversalToReactFlowConverter());
     const [selectedLayout, setSelectedLayout] = useState<keyof typeof LAYOUT_PRESETS>('compact');
     const [isAutoLayoutEnabled, setIsAutoLayoutEnabled] = useState(true);
     const [currentLayoutConfig, setCurrentLayoutConfig] = useState<ILayoutConfig>(LAYOUT_PRESETS.compact);
-    const { fitView, setCenter, getZoom, getNode, updateNodeInternals } = useReactFlow() as any;
+    const { setCenter, getZoom, getNode } = useReactFlow<TWorkflowVisualizationNode, Edge>();
     const [isInfoOpen, setIsInfoOpen] = useState(false);
-    const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+    const [selectedNode, setSelectedNode] = useState<TWorkflowVisualizationNode | null>(null);
     const { toast } = useToast();
 
     // Centering control state
     const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
     const [layoutReady, setLayoutReady] = useState(false);
     const rafForCenterRef = useRef<number | null>(null);
-    const nodeInternals = useStore((state: any) => state.nodeInternals);
+    const nodeInternals = useStore(
+        (state) => (state as unknown as { nodeInternals: Map<string, { width?: number; height?: number }> }).nodeInternals
+    );
 
     // Progressive Reveal Configuration
     const [isProgressiveRevealEnabled, setIsProgressiveRevealEnabled] = useState(true);
-    const [fullTargetNodes, setFullTargetNodes] = useState<Node[]>([]);
+    const [fullTargetNodes, setFullTargetNodes] = useState<TWorkflowVisualizationNode[]>([]);
     const [fullTargetEdges, setFullTargetEdges] = useState<Edge[]>([]);
     const lastAddedNodeIdRef = useRef<string | null>(null);
     const hasAppliedMeasuredLayoutRef = useRef(false);
@@ -1559,7 +1623,7 @@ function WorkflowVisualizationContent({
     };
 
     // Progressive Reveal Hook
-    const progressiveReveal = useReactFlowProgressiveReveal({
+    const progressiveReveal = useReactFlowProgressiveReveal<TWorkflowVisualizationNode, Edge>({
         nodes: fullTargetNodes,
         edges: fullTargetEdges,
         config: progressiveRevealConfig
@@ -1575,7 +1639,7 @@ function WorkflowVisualizationContent({
 
         // Layout is applied through the DynamicDagreLayout component.
         // setTimeout(() => {
-        //     (window as any).__resetDagreLayout?.();
+        //     (window as Window & { __resetDagreLayout?: () => void }).__resetDagreLayout?.();
         // }, 50);
     }, [nodes.length, selectedLayout]);
 
@@ -1594,20 +1658,23 @@ function WorkflowVisualizationContent({
     }, [nodes, edges, applyAutoLayout]);
 
     // Center the most recently added node when React Flow reports node updates (dimensions/position)
-    const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    const handleNodesChange = useCallback((changes: NodeChange<TWorkflowVisualizationNode>[]) => {
         onNodesChange(changes);
 
         const lastId = lastAddedNodeIdRef.current;
         if (!lastId || !changes || changes.length === 0) return;
 
-        const hasRelevantUpdate = changes.some(
-            (c: any) => c && c.id === lastId && (c.type === 'dimensions' || c.type === 'position')
-        );
+        const hasRelevantUpdate = changes.some((c) => {
+            if (!('id' in c)) {
+                return false;
+            }
+            return c.id === lastId && (c.type === 'dimensions' || c.type === 'position');
+        });
         if (!hasRelevantUpdate) return;
 
         // Use latest RF node (ensures measured width/height and final position)
-        const rfNode = typeof (getNode as any) === 'function' ? (getNode as any)(lastId) : null;
-        if (!rfNode || typeof rfNode?.position?.x !== 'number' || typeof rfNode?.position?.y !== 'number') return;
+        const rfNode = getNode(lastId);
+        if (!rfNode || typeof rfNode.position?.x !== 'number' || typeof rfNode.position?.y !== 'number') return;
 
         const width = rfNode.width ?? rfNode?.data?.actualWidth ?? rfNode?.data?.computedWidth ?? 192;
         const height = rfNode.height ?? rfNode?.data?.actualHeight ?? rfNode?.data?.computedHeight ?? 80;
@@ -1620,7 +1687,7 @@ function WorkflowVisualizationContent({
         setCenter(centerX, centerY, { duration: 600, zoom });
 
         // React only to actual size changes for relayout
-        const hasDimensionChange = changes.some((c: any) => c && c.type === 'dimensions');
+        const hasDimensionChange = changes.some((c) => c.type === 'dimensions');
         if (hasDimensionChange) {
             hasAppliedMeasuredLayoutRef.current = false;
         }
@@ -1639,11 +1706,11 @@ function WorkflowVisualizationContent({
             // Prefer React Flow store node (ensures latest position + measured size)
             const rfNode = typeof getNode === 'function' ? getNode(focusNodeId) : null;
             const positionedNode = rfNode;
-            const pos = (positionedNode as any)?.position;
+            const pos = positionedNode?.position;
 
             // Fallback to computed dimensions if actual not measured yet
-            const width = (rfNode?.width ?? (positionedNode as any)?.data?.actualWidth ?? (positionedNode as any)?.data?.computedWidth ?? 192);
-            const height = (rfNode?.height ?? (positionedNode as any)?.data?.actualHeight ?? (positionedNode as any)?.data?.computedHeight ?? 80);
+            const width = rfNode?.width ?? positionedNode?.data?.actualWidth ?? positionedNode?.data?.computedWidth ?? 192;
+            const height = rfNode?.height ?? positionedNode?.data?.actualHeight ?? positionedNode?.data?.computedHeight ?? 80;
 
             // if (
             //     pos && typeof pos.x === 'number' && typeof pos.y === 'number' &&
@@ -1734,7 +1801,7 @@ function WorkflowVisualizationContent({
                 WebLogger.debug('React Flow data conversion completed');
 
                 // Determine target graph (pre-layout when enabled)
-                let targetNodes: Node[] = reactFlowData.nodes;
+                let targetNodes: TWorkflowVisualizationNode[] = reactFlowData.nodes;
                 let targetEdges: Edge[] = reactFlowData.edges;
 
                 if (isAutoLayoutEnabled && reactFlowData.nodes.length > 0) {
@@ -1769,7 +1836,7 @@ function WorkflowVisualizationContent({
                     return out;
                 };
 
-                const augmentCallbacks = (list: Node[]): Node[] =>
+                const augmentCallbacks = (list: TWorkflowVisualizationNode[]): TWorkflowVisualizationNode[] =>
                     list.map((n) => {
                         if (n.type === 'agent') {
                             const agentIdCandidate = n.data as IWorkflowVisualizationNodeData;
@@ -1939,7 +2006,7 @@ function WorkflowVisualizationContent({
                         return [...prev, progressiveReveal.nodeToAdd!];
                     });
 
-                    // Add new edges if any
+                    // Add new edges if present
                     if (progressiveReveal.edgesToAdd && progressiveReveal.edgesToAdd.length > 0) {
                         setEdges(prev => {
                             const existingEdgeIds = new Set(prev.map(e => e.id));
@@ -1998,7 +2065,7 @@ function WorkflowVisualizationContent({
                         type: updated.type ?? n.type,
                         data: { ...n.data, ...updated.data },
                         position: updated.position ?? n.position
-                    } as Node;
+                    };
                 }
                 return n;
             });
@@ -2011,7 +2078,7 @@ function WorkflowVisualizationContent({
         [setEdges]
     );
 
-    const handleNodeClick = useCallback((_: any, node: Node) => {
+    const handleNodeClick = useCallback<NodeMouseHandler<TWorkflowVisualizationNode>>((_, node) => {
         setSelectedNode(node);
         setIsInfoOpen(true);
     }, []);
@@ -2151,7 +2218,7 @@ function WorkflowVisualizationContent({
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <Badge variant="outline" className="text-xs">{String(selectedNode.type)}</Badge>
-                                    <span className="font-medium">{(selectedNode as any).data?.label || (selectedNode as any).data?.name || 'Node'}</span>
+                                    <span className="font-medium">{selectedNode.data?.label || selectedNode.data?.name || 'Node'}</span>
                                 </div>
                                 <div className="text-xs text-gray-500 font-mono">
                                     {selectedNode.id.substring(0, 8)}...
@@ -2168,7 +2235,7 @@ function WorkflowVisualizationContent({
                                     <span className="text-xs text-gray-500">Click to expand</span>
                                 </summary>
                                 <div className="p-3 text-xs bg-gray-50 max-h-64 overflow-auto">
-                                    <pre className="whitespace-pre-wrap text-gray-700 leading-relaxed">{JSON.stringify((selectedNode as any).data, null, 2)}</pre>
+                                    <pre className="whitespace-pre-wrap text-gray-700 leading-relaxed">{JSON.stringify(selectedNode.data, null, 2)}</pre>
                                 </div>
                             </details>
                         </div>

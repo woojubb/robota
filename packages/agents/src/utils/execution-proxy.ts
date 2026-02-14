@@ -3,6 +3,7 @@ import { EXECUTION_EVENTS } from '../services/execution-service';
 import { TOOL_EVENTS } from '../services/tool-execution-service';
 import { AGENT_EVENTS } from '../agents/constants';
 import { TASK_EVENTS } from '../services/task-events';
+import type { IUniversalObjectValue, TUniversalValue } from '../interfaces/types';
 
 /**
  * Configuration for execution proxy
@@ -21,7 +22,25 @@ export interface IExecutionProxyConfig {
 /**
  * Metadata extractor function type
  */
-export type TMetadataExtractor = (target: any, methodName: string, args: any[]) => Record<string, any>;
+type TExecutionProxyTarget = Record<string, TUniversalValue>;
+type TExecutionProxyArgs = TUniversalValue[];
+
+function asObjectValue(input: TUniversalValue | undefined): IUniversalObjectValue | undefined {
+    if (!input || typeof input !== 'object' || Array.isArray(input) || input instanceof Date) {
+        return undefined;
+    }
+    return input as IUniversalObjectValue;
+}
+
+function getStringLength(input: TUniversalValue | undefined): number {
+    return typeof input === 'string' ? input.length : 0;
+}
+
+export type TMetadataExtractor = (
+    target: TExecutionProxyTarget,
+    methodName: string,
+    args: TExecutionProxyArgs
+) => Record<string, TUniversalValue>;
 
 /**
  * Method configuration for proxy
@@ -31,7 +50,7 @@ export interface IMethodConfig {
     completeEvent?: string;
     errorEvent?: string;
     extractMetadata?: TMetadataExtractor;
-    extractResult?: (result: any) => any;
+    extractResult?: (result: TUniversalValue) => Record<string, TUniversalValue>;
 }
 
 /**
@@ -73,9 +92,9 @@ export class ExecutionProxy<T extends object = object> {
                 completeEvent: AGENT_EVENTS.EXECUTION_COMPLETE,
                 errorEvent: AGENT_EVENTS.EXECUTION_ERROR,
                 extractMetadata: (target, methodName, args) => ({
-                    inputLength: args[0]?.length || 0,
+                    inputLength: getStringLength(args[0]),
                     conversationId: target.conversationId,
-                    options: args[1] || {}
+                    options: asObjectValue(args[1]) || {}
                 }),
                 extractResult: (result) => ({ response: result })
             });
@@ -85,10 +104,10 @@ export class ExecutionProxy<T extends object = object> {
                 completeEvent: AGENT_EVENTS.EXECUTION_COMPLETE,
                 errorEvent: AGENT_EVENTS.EXECUTION_ERROR,
                 extractMetadata: (target, methodName, args) => ({
-                    inputLength: args[0]?.length || 0,
+                    inputLength: getStringLength(args[0]),
                     conversationId: target.conversationId,
                     streaming: true,
-                    options: args[1] || {}
+                    options: asObjectValue(args[1]) || {}
                 })
             });
         }
@@ -100,7 +119,7 @@ export class ExecutionProxy<T extends object = object> {
                 completeEvent: TASK_EVENTS.COMPLETED,
                 errorEvent: EXECUTION_EVENTS.ERROR,
                 extractMetadata: (target, methodName, args) => {
-                    const params = args[0];
+                    const params = asObjectValue(args[0]);
                     return {
                         taskDescription: params?.jobDescription,
                         agentTemplate: params?.agentTemplate,
@@ -109,9 +128,9 @@ export class ExecutionProxy<T extends object = object> {
                     };
                 },
                 extractResult: (result) => ({
-                    result: result?.result,
-                    agentId: result?.agentId,
-                    metadata: result?.metadata
+                    result: asObjectValue(result)?.result,
+                    agentId: asObjectValue(result)?.agentId,
+                    metadata: asObjectValue(result)?.metadata
                 })
             });
 
@@ -134,14 +153,16 @@ export class ExecutionProxy<T extends object = object> {
                 completeEvent: TOOL_EVENTS.CALL_COMPLETE,
                 errorEvent: TOOL_EVENTS.CALL_ERROR,
                 extractMetadata: (target, methodName, args) => ({
-                    toolName: target.schema?.name || target.constructor.name,
+                    toolName: asObjectValue(target.schema)?.name || target.constructor.name,
                     parameters: args[0],
-                    parametersCount: args[0] ? Object.keys(args[0]).length : 0,
+                    parametersCount: asObjectValue(args[0]) ? Object.keys(asObjectValue(args[0]) || {}).length : 0,
                     context: args[1]
                 }),
                 extractResult: (result) => ({
-                    result: typeof result?.data === 'string' ? result.data : JSON.stringify(result?.data),
-                    success: result?.success
+                    result: typeof asObjectValue(result)?.data === 'string'
+                        ? asObjectValue(result)?.data || ''
+                        : JSON.stringify(asObjectValue(result)?.data),
+                    success: asObjectValue(result)?.success
                 })
             });
         }
@@ -156,45 +177,50 @@ export class ExecutionProxy<T extends object = object> {
         return new Proxy(target, {
             get: (target, prop, receiver) => {
                 const originalMethod = Reflect.get(target, prop, receiver);
+                if (typeof prop !== 'string') {
+                    return originalMethod;
+                }
+                const methodName = prop;
 
                 // Only wrap methods that are configured
-                if (typeof originalMethod === 'function' && this.methodConfigs.has(prop as string)) {
-                    const methodConfig = this.methodConfigs.get(prop as string)!;
+                if (typeof originalMethod === 'function' && this.methodConfigs.has(methodName)) {
+                    const methodConfig = this.methodConfigs.get(methodName)!;
 
-                    return async (...args: any[]) => {
+                    return async (...args: TExecutionProxyArgs) => {
                         const startTime = Date.now();
                         const executionId = this.generateExecutionId();
+                        const proxyTarget = target as TExecutionProxyTarget;
 
                         try {
                             // Emit start event
                             if (methodConfig.startEvent) {
-                                const metadata = methodConfig.extractMetadata?.(target, prop as string, args) || {};
+                                const metadata = methodConfig.extractMetadata?.(proxyTarget, methodName, args) || {};
                                 this.emitEvent(methodConfig.startEvent, {
                                     timestamp: new Date(),
                                     metadata: {
                                         ...metadata,
                                         executionId,
-                                        methodName: prop as string,
+                                        methodName,
                                         phase: 'start'
                                     }
                                 });
                             }
 
                             // Execute original method
-                            const result = await originalMethod.apply(target, args);
+                            const result = await originalMethod.apply(target, args) as TUniversalValue;
                             const duration = Date.now() - startTime;
 
                             // Emit complete event
                             if (methodConfig.completeEvent) {
                                 const extractedResult = methodConfig.extractResult?.(result) || {};
-                                const metadata = methodConfig.extractMetadata?.(target, prop as string, args) || {};
+                                const metadata = methodConfig.extractMetadata?.(proxyTarget, methodName, args) || {};
                                 this.emitEvent(methodConfig.completeEvent, {
                                     timestamp: new Date(),
                                     ...extractedResult,
                                     metadata: {
                                         ...metadata,
                                         executionId,
-                                        methodName: prop as string,
+                                        methodName,
                                         duration,
                                         phase: 'complete',
                                         success: true
@@ -209,14 +235,14 @@ export class ExecutionProxy<T extends object = object> {
 
                             // Emit error event
                             if (methodConfig.errorEvent) {
-                                const metadata = methodConfig.extractMetadata?.(target, prop as string, args) || {};
+                                const metadata = methodConfig.extractMetadata?.(proxyTarget, methodName, args) || {};
                                 this.emitEvent(methodConfig.errorEvent, {
                                     timestamp: new Date(),
                                     error: error instanceof Error ? error.message : String(error),
                                     metadata: {
                                         ...metadata,
                                         executionId,
-                                        methodName: prop as string,
+                                        methodName,
                                         duration,
                                         phase: 'error',
                                         errorName: error instanceof Error ? error.name : 'UnknownError',

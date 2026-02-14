@@ -86,8 +86,8 @@ export class ModuleDescriptorRegistry {
             const existingType = this.registeredTypes.get(typeDescriptor.type);
             this.logger.warn('Overriding existing module type', {
                 type: typeDescriptor.type,
-                previousCategory: (existingType?.category || 'unknown') as string,
-                newCategory: typeDescriptor.category as string
+                previousCategory: existingType?.category || 'unknown',
+                newCategory: typeDescriptor.category
             });
         }
 

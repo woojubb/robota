@@ -19,6 +19,14 @@ import type {
 } from '../../../lib/playground/block-tracking';
 import { ExecutionTreeDebug } from '../execution-tree-debug';
 
+function getContainerHeightClass(height: string | number): string {
+    if (height === '100%') return 'h-full';
+    if (height === '400px' || height === 400) return 'h-[400px]';
+    if (height === '600px' || height === 600) return 'h-[600px]';
+    if (height === '800px' || height === 800) return 'h-[800px]';
+    return 'h-[600px]';
+}
+
 /**
  * Props for BlockVisualizationPanel
  */
@@ -271,6 +279,7 @@ export const BlockVisualizationPanel: React.FC<IBlockVisualizationPanelProps> = 
 }) => {
     const [selectedBlock, setSelectedBlock] = useState<IBlockMessage | null>(null);
     const [activeTab, setActiveTab] = useState<string>('tree');
+    const containerHeightClassName = getContainerHeightClass(height);
 
     const handleBlockSelect = useCallback((block: IBlockMessage) => {
         setSelectedBlock(block);
@@ -311,7 +320,7 @@ export const BlockVisualizationPanel: React.FC<IBlockVisualizationPanelProps> = 
                         <TabsTrigger value="inspect">Inspect</TabsTrigger>
                     </TabsList>
 
-                    <div className="flex-1" style={{ height }}>
+                    <div className={`flex-1 ${containerHeightClassName}`}>
                         <TabsContent value="tree" className="h-full m-0">
                             <BlockTree
                                 blockCollector={blockCollector}

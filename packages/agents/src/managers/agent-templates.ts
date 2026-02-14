@@ -204,10 +204,10 @@ export class AgentTemplates {
         models: string[];
     } {
         const templates = this.getTemplates();
-        const categories = [...new Set(templates.map(t => t.category).filter(Boolean))] as string[];
+        const categories = [...new Set(templates.map(t => t.category).filter((category): category is string => typeof category === 'string' && category.length > 0))];
         const tags = [...new Set(templates.flatMap(t => t.tags || []))];
-        const providers = [...new Set(templates.map(t => t.config.defaultModel?.provider).filter(Boolean))] as string[];
-        const models = [...new Set(templates.map(t => t.config.defaultModel?.model).filter(Boolean))] as string[];
+        const providers = [...new Set(templates.map(t => t.config.defaultModel?.provider).filter((provider): provider is string => typeof provider === 'string' && provider.length > 0))];
+        const models = [...new Set(templates.map(t => t.config.defaultModel?.model).filter((model): model is string => typeof model === 'string' && model.length > 0))];
 
         return {
             totalTemplates: templates.length,

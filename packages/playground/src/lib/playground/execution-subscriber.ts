@@ -5,7 +5,8 @@ import type {
 } from '@robota-sdk/agents';
 import { EVENT_EMITTER_EVENTS } from '@robota-sdk/agents';
 import type { IPlaygroundBlockCollector } from './block-tracking/block-collector';
-import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from './block-tracking/types';
+import type { IRealTimeBlockMessage, IRealTimeBlockMetadata, IToolExecutionStepInfo } from './block-tracking/types';
+import type { TUniversalValue } from '@robota-sdk/agents';
 
 /**
  * 🔗 ExecutionSubscriber - Bridges SDK events to Web App BlockCollector
@@ -30,6 +31,37 @@ export class ExecutionSubscriber {
 
     constructor(blockCollector: IPlaygroundBlockCollector) {
         this.blockCollector = blockCollector;
+    }
+
+    private asObjectValue(value: TUniversalValue | undefined): Record<string, TUniversalValue> | undefined {
+        if (!value || typeof value !== 'object' || Array.isArray(value) || value instanceof Date) {
+            return undefined;
+        }
+        return value as Record<string, TUniversalValue>;
+    }
+
+    private parseExecutionSteps(value: TUniversalValue | undefined): IToolExecutionStepInfo[] | undefined {
+        if (!Array.isArray(value)) {
+            return undefined;
+        }
+        const steps: IToolExecutionStepInfo[] = [];
+        value.forEach((entry, index) => {
+            const candidate = this.asObjectValue(entry);
+            const id = candidate?.id;
+            const name = candidate?.name;
+            const estimatedDuration = candidate?.estimatedDuration;
+            const description = candidate?.description;
+            if (typeof id !== 'string' || typeof name !== 'string' || typeof estimatedDuration !== 'number') {
+                return;
+            }
+            steps.push({
+                id,
+                name,
+                estimatedDuration,
+                description: typeof description === 'string' ? description : `Step ${index + 1}`
+            });
+        });
+        return steps.length > 0 ? steps : undefined;
     }
 
     /**
@@ -73,7 +105,10 @@ export class ExecutionSubscriber {
         if (!executionId) return;
 
         const hierarchicalData = eventData as IEventEmitterHierarchicalEventData;
-        const toolName = (eventData.data as any)?.toolName || 'unknown_tool';
+        const toolNameValue = this.asObjectValue(eventData.data)?.toolName;
+        const toolName = typeof toolNameValue === 'string' && toolNameValue.length > 0
+            ? toolNameValue
+            : 'unknown_tool';
 
         // Create real-time block metadata
         const blockMetadata: IRealTimeBlockMetadata = {
@@ -243,14 +278,14 @@ export class ExecutionSubscriber {
         if (!execution) return;
 
         // Update tool-provided data if available
-        const toolData = (eventData.data as any);
+        const toolData = this.asObjectValue(eventData.data);
         if (toolData?.progress !== undefined || toolData?.currentStep) {
             this.blockCollector.updateRealTimeBlock(execution.blockId, {
                 toolProvidedData: {
-                    progress: toolData.progress,
-                    currentStep: toolData.currentStep,
-                    estimatedDuration: toolData.estimatedDuration,
-                    executionSteps: toolData.executionSteps
+                    progress: typeof toolData.progress === 'number' ? toolData.progress : undefined,
+                    currentStep: typeof toolData.currentStep === 'string' ? toolData.currentStep : undefined,
+                    estimatedDuration: typeof toolData.estimatedDuration === 'number' ? toolData.estimatedDuration : undefined,
+                    executionSteps: this.parseExecutionSteps(toolData.executionSteps)
                 }
             });
         }

@@ -18,6 +18,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePlayground } from '../contexts/playground-context';
 import type { TUniversalValue } from '@robota-sdk/agents';
+import { PLAYGROUND_WS_MESSAGE_TYPES } from '../lib/playground/websocket-client';
 
 export type TConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error' | 'reconnecting';
 
@@ -357,7 +358,7 @@ export function useWebSocketConnection(): IWebSocketConnectionHookReturn {
             }, timeout);
 
             // Send ping and wait for pong
-            if (sendMessage({ type: 'ping', timestamp: startTime })) {
+            if (sendMessage({ type: PLAYGROUND_WS_MESSAGE_TYPES.PING, timestamp: startTime })) {
                 // In a real implementation, you'd listen for pong response
                 // For now, simulate a reasonable ping time
                 setTimeout(handlePong, 50 + Math.random() * 100);

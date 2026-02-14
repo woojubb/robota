@@ -93,3 +93,59 @@ description: "CURRENT-TASKS에서 완료 처리된 항목을 보관한다"
   - `pnpm --filter @robota-sdk/workflow build` 통과
   - `pnpm --filter @robota-sdk/agents build` 통과
   - `pnpm --filter @robota-sdk/playground build` 통과
+
+### 규칙 완전 준수 루프 추가 완료 (playground + workflow)
+- `playground` P1 Batch-1b/1c/1d 완료:
+  - `workflow-visualization.tsx`, `playground-context.tsx`, `execution-subscriber`, `tool-container-block`, `template-gallery`, `WorkflowView`, `PlaygroundApp` 타입 정리 및 `any/as any` 제거
+- `playground` P1 Batch-2a/2b/2c/2d/2e 완료:
+  - `workflow-visualization`, `real-time-tool-block`, `block-node`, `plugin-container-block`, `block-visualization-panel`, `block-tree`, `tool-container-block`, `ui/progress`, `ui/sonner`의 inline style 제거(Tailwind-only 정합)
+- `workflow` 예제 검증 유틸 logger DI 전환 완료:
+  - `packages/workflow/examples/utils/verify-workflow-connections.ts`
+  - 검증 출력 경로를 주입형 logger로 통일
+
+### 규칙 준수 루프 재감사 배치 완료 (추가 타입 단층 정리)
+- `agents`:
+  - `packages/agents/src/plugins/limits-plugin.ts`
+    - 모델명/실행키 추출에서 blind assertion 제거 (`as string` 제거)
+  - `packages/agents/src/utils/execution-proxy.ts`
+    - `Proxy` 메서드명 처리에서 `prop as string` 제거, string key 가드로 단일 경로화
+  - `packages/agents/src/managers/module-type-registry.ts`
+    - category 로깅 assertion 제거
+  - `packages/agents/src/managers/agent-templates.ts`
+    - 통계 집계(`categories/providers/models`)에 타입 가드 적용, assertion 제거
+- `workflow`:
+  - `packages/workflow/src/handlers/builders/agent-node-builder.ts`
+    - tools 추출 시 string 필터 기반으로 타입 축소
+  - `packages/workflow/src/handlers/builders/execution-node-builder.ts`
+    - `parameters` 접근 공통 헬퍼(`getStringParam`)로 통합, 다중 assertion 제거
+- `playground`:
+  - `packages/playground/src/lib/playground/remote-injection.ts`
+    - sandbox execute 반환형/console 인자 타입 정리, `any/as any` 제거
+  - `packages/playground/src/lib/playground/code-executor.ts`
+    - compiled code 생성부 `any` 제거
+  - `packages/playground/src/components/playground/workflow-visualization.tsx`
+    - tools 배열 처리 헬퍼 도입, 일부 string assertion 제거
+- 빌드 검증:
+  - `pnpm --filter @robota-sdk/agents build` 통과
+  - `pnpm --filter @robota-sdk/workflow build` 통과
+  - `pnpm --filter @robota-sdk/playground build` 통과
+
+### P2 추가 배치 완료 - workflow-visualization 타입 경계 정리
+- `packages/playground/src/components/playground/workflow-visualization.tsx`
+  - 명시적 데이터 타입 계층 추가:
+    - `IWorkflowVisualizationParameters`
+    - `IWorkflowVisualizationResultData`
+    - `IWorkflowVisualizationModelInfo`
+    - `IWorkflowVisualizationMetadata`
+  - `sourcePosition`/`targetPosition`를 노드 데이터 명시 필드로 선언하여 Handle 위치 타입 불일치 제거
+  - 문자열 렌더링 경로를 `toText()` 헬퍼로 단일화해 union 직접 접근 제거
+  - `NodeChange<TWorkflowVisualizationNode>` 적용으로 노드 변경 이벤트 제네릭 경계 정렬
+- `packages/playground/src/lib/workflow-visualization/react-flow/progressive-reveal-wrapper.ts`
+  - Hook 제네릭화(`TNode extends Node`, `TEdge extends Edge`)로 호출부 데이터 축 유지
+- `packages/playground/src/lib/workflow-visualization/auto-layout.ts`
+  - `applyDagreLayout`/`layoutExistingFlow` 제네릭화로 레이아웃 후 노드 타입 보존
+- 재검증 루프:
+  - 코드 스캔: `any/as any`, inline style, 하드코딩 이벤트명, 금지 용어 재확인
+  - 빌드: `@robota-sdk/agents`, `@robota-sdk/workflow`, `@robota-sdk/playground` 통과
+  - `ReadLints` 기준: 실제 코드 오류 없음
+    - 참고: `@robota-sdk/agents` declaration 파일 미탐지 IDE 진단 1건은 기존 환경성 진단으로 유지

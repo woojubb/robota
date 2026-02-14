@@ -146,6 +146,27 @@ const formatTime = (timestamp?: Date): string => {
     });
 };
 
+const INDENT_MARGIN_CLASSES = [
+    'ml-0',
+    'ml-4',
+    'ml-8',
+    'ml-12',
+    'ml-16',
+    'ml-20',
+    'ml-24',
+    'ml-28',
+    'ml-32'
+] as const;
+
+function getIndentationClasses(level: number): string {
+    const safeLevel = Math.min(Math.max(level, 0), INDENT_MARGIN_CLASSES.length - 1);
+    const marginClass = INDENT_MARGIN_CLASSES[safeLevel];
+    if (safeLevel === 0) {
+        return marginClass;
+    }
+    return `${marginClass} border-l-2 border-gray-200 pl-3`;
+}
+
 /**
  * 🔗 RealTimeToolBlock - Enhanced Tool Execution Visualization
  * 
@@ -205,15 +226,10 @@ export const RealTimeToolBlock: React.FC<IRealTimeToolBlockProps> = ({
         onClick?.(block);
     }, [block, onClick]);
 
-    // Calculate indentation based on hierarchical level
-    const indentationStyle = {
-        marginLeft: `${level * 16}px`,
-        borderLeft: level > 0 ? '2px solid #e5e7eb' : 'none',
-        paddingLeft: level > 0 ? '12px' : '0'
-    };
+    const indentationClasses = getIndentationClasses(level);
 
     return (
-        <div style={indentationStyle} className="relative">
+        <div className={`relative ${indentationClasses}`}>
             {/* Hierarchical connection line */}
             {level > 0 && (
                 <div className="absolute left-0 top-6 w-3 h-0 border-t-2 border-gray-300"></div>

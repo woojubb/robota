@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { IBaseEventData, IEventContext } from '@robota-sdk/agents';
+import {
+    composeEventName,
+    EXECUTION_EVENTS,
+    EXECUTION_EVENT_PREFIX,
+    type IBaseEventData,
+    type IEventContext
+} from '@robota-sdk/agents';
 import type { IWorkflowEventSubscriber } from '../services/workflow-event-subscriber.js';
 import { WorkflowEventServiceBridge } from '../services/workflow-event-service-bridge.js';
 
@@ -12,6 +18,9 @@ const validContext: IEventContext = {
 const validData: IBaseEventData = {
     timestamp: new Date(0)
 };
+
+const EXECUTION_START_EVENT = composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.START);
+const EXECUTION_ERROR_EVENT = composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.ERROR);
 
 function createSubscriber(processEventImpl?: IWorkflowEventSubscriber['processEvent']): IWorkflowEventSubscriber {
     return {
@@ -41,22 +50,22 @@ function createSubscriber(processEventImpl?: IWorkflowEventSubscriber['processEv
 describe('WorkflowEventServiceBridge', () => {
     it('should reject missing timestamp and ownerPath', () => {
         const bridge = new WorkflowEventServiceBridge(createSubscriber());
-        expect(() => bridge.emit('execution.start', { timestamp: 'bad' as unknown as Date }, validContext)).toThrow(
+        expect(() => bridge.emit(EXECUTION_START_EVENT, { timestamp: 'bad' as unknown as Date }, validContext)).toThrow(
             'Missing or invalid timestamp'
         );
-        expect(() => bridge.emit('execution.start', validData)).toThrow('Missing context.ownerPath');
+        expect(() => bridge.emit(EXECUTION_START_EVENT, validData)).toThrow('Missing context.ownerPath');
     });
 
     it('should reject invalid ownerPath segments', () => {
         const bridge = new WorkflowEventServiceBridge(createSubscriber());
         expect(() =>
-            bridge.emit('execution.start', validData, {
+            bridge.emit(EXECUTION_START_EVENT, validData, {
                 ...validContext,
                 ownerPath: [{ type: '', id: 'x' }]
             })
         ).toThrow('missing segment type');
         expect(() =>
-            bridge.emit('execution.start', validData, {
+            bridge.emit(EXECUTION_START_EVENT, validData, {
                 ...validContext,
                 ownerPath: [{ type: 'execution', id: '' }]
             })
@@ -69,7 +78,7 @@ describe('WorkflowEventServiceBridge', () => {
         const listener = vi.fn();
         bridge.subscribe(listener);
 
-        bridge.emit('execution.start', {
+        bridge.emit(EXECUTION_START_EVENT, {
             ...validData,
             context: { ownerType: 'ignored', ownerId: 'ignored', ownerPath: [] }
         }, validContext);
@@ -85,7 +94,7 @@ describe('WorkflowEventServiceBridge', () => {
             throw new Error('bridge-failure');
         }));
 
-        bridge.emit('execution.error', validData, validContext);
+        bridge.emit(EXECUTION_ERROR_EVENT, validData, validContext);
         await expect(bridge.flush()).rejects.toThrow('bridge-failure');
     });
 
@@ -94,8 +103,8 @@ describe('WorkflowEventServiceBridge', () => {
             throw new Error('bridge-failure');
         }));
 
-        bridge.emit('execution.error', validData, validContext);
+        bridge.emit(EXECUTION_ERROR_EVENT, validData, validContext);
         await expect(bridge.flush()).rejects.toThrow('bridge-failure');
-        expect(() => bridge.emit('execution.start', validData, validContext)).toThrow('bridge-failure');
+        expect(() => bridge.emit(EXECUTION_START_EVENT, validData, validContext)).toThrow('bridge-failure');
     });
 });
