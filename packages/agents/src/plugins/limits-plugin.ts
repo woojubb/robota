@@ -14,7 +14,7 @@ import type {
     ILimitWindow,
     ITokenBucket
 } from './limits/types';
-import type { TUniversalMessage } from '../interfaces';
+import type { TUniversalMessage } from '../interfaces/messages';
 
 // Re-export types for external use
 export type { TLimitsStrategy, ILimitsPluginOptions, TPluginLimitsStatusData };
@@ -144,7 +144,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
 
         const key = this.getKey(context);
         const tokensUsed = result?.tokensUsed || 0;
-        const cost = this.pluginOptions.costCalculator(tokensUsed, (context.config?.['model'] as string) || 'unknown');
+        const cost = this.pluginOptions.costCalculator(tokensUsed, this.resolveModelName(context));
 
         try {
             switch (this.pluginOptions.strategy) {
@@ -211,7 +211,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
             );
         }
 
-        const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, context.config?.model || 'unknown');
+        const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, this.resolveModelName(context));
         if (bucket.cost + estimatedCost > this.pluginOptions.maxCost) {
             throw new PluginError(
                 `Cost limit exceeded. Current: $${bucket.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.pluginOptions.maxCost}`,
@@ -236,7 +236,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
         // This is a simplified implementation
         if (now - window.windowStart < this.pluginOptions.timeWindow) {
             const estimatedTokens = this.estimateTokens(context);
-            const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, context.config?.model || 'unknown');
+            const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, this.resolveModelName(context));
 
             if (window.tokens + estimatedTokens > this.pluginOptions.maxTokens) {
                 throw new PluginError(
@@ -288,7 +288,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
         }
 
         const estimatedTokens = this.estimateTokens(context);
-        const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, context.config?.model || 'unknown');
+        const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, this.resolveModelName(context));
 
         if (window.tokens + estimatedTokens > this.pluginOptions.maxTokens) {
             throw new PluginError(
@@ -369,7 +369,12 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
      * Generate key for rate limiting (user/session based)
      */
     private getKey(context: ILimitsPluginExecutionContext): string {
-        return context.userId || context.sessionId || context['executionId'] as string || 'default';
+        return context.userId || context.sessionId || context.executionId || 'default';
+    }
+
+    private resolveModelName(context: IPluginExecutionContext): string {
+        const model = context.config?.model;
+        return typeof model === 'string' && model.length > 0 ? model : 'unknown';
     }
 
     /**

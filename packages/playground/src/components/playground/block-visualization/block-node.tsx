@@ -105,6 +105,18 @@ const formatDuration = (duration?: number) => {
     return `${(duration / 1000).toFixed(1)}s`;
 };
 
+const INDENT_MARGIN_CLASSES = [
+    'ml-0',
+    'ml-4',
+    'ml-8',
+    'ml-12',
+    'ml-16',
+    'ml-20',
+    'ml-24',
+    'ml-28',
+    'ml-32'
+] as const;
+
 /**
  * BlockNode Component
  * Renders a single block with hierarchical structure and visual states
@@ -123,6 +135,7 @@ export const BlockNode: React.FC<IBlockNodeProps> = ({
 
     const hasChildren = blockMetadata.children.length > 0 || children;
     const indentLevel = Math.min(level, 8); // Limit deep nesting
+    const indentClassName = INDENT_MARGIN_CLASSES[indentLevel];
 
     const handleToggleExpand = useCallback(() => {
         const newExpanded = !localExpanded;
@@ -140,8 +153,7 @@ export const BlockNode: React.FC<IBlockNodeProps> = ({
 
     return (
         <div
-            className={`block-node`}
-            style={{ marginLeft: `${indentLevel * 16}px` }}
+            className={`block-node ${indentClassName}`}
         >
             <Collapsible open={localExpanded} onOpenChange={setLocalExpanded}>
                 <Card

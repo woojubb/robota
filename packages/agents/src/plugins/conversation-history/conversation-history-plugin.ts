@@ -1,5 +1,5 @@
 import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
-import { TUniversalMessage } from '../../interfaces/agent';
+import type { TUniversalMessage } from '../../interfaces/messages';
 import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { TTimerId } from '../../utils/index';

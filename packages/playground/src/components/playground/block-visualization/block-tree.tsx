@@ -18,6 +18,14 @@ import type {
     IBlockTreeNode
 } from '../../../lib/playground/block-tracking';
 
+function getTreeHeightClass(height: string | number): string {
+    if (height === '100%') return 'h-full';
+    if (height === '320px' || height === 320) return 'h-80';
+    if (height === '400px' || height === 400) return 'h-[400px]';
+    if (height === '600px' || height === 600) return 'h-[600px]';
+    return 'h-[400px]';
+}
+
 /**
  * Props for BlockTree component
  */
@@ -63,6 +71,7 @@ export const BlockTree: React.FC<IBlockTreeProps> = ({
     );
     const [localShowDebug, setLocalShowDebug] = useState(showDebug);
     const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
+    const treeHeightClassName = getTreeHeightClass(height);
 
     // Update blocks when collector changes
     const updateBlocks = useCallback(() => {
@@ -296,7 +305,7 @@ export const BlockTree: React.FC<IBlockTreeProps> = ({
             )}
 
             {/* Tree Content */}
-            <ScrollArea className="flex-1" style={{ height }}>
+            <ScrollArea className={`flex-1 ${treeHeightClassName}`}>
                 <div className="p-2">
                     {treeNodes.length === 0 ? (
                         <div className="flex items-center justify-center h-32 text-gray-500">

@@ -141,7 +141,7 @@ function convertImportsToGlobals(code: string): string {
     }
   );
 
-  // Remove any remaining import statements
+  // Remove all remaining import statements
   transformedCode = transformedCode.replace(
     /import\s+.*?from\s*['"][^'"]*['"];?\s*/g,
     '// Import removed for playground execution\n'
@@ -465,31 +465,35 @@ if (typeof window !== 'undefined') {
  * Create a sandbox environment for secure code execution
  */
 export function createPlaygroundSandbox(config: IPlaygroundConfig): {
-  execute: (code: string) => Promise<{ result: any; logs: string[] }>;
+  execute: (code: string) => Promise<{ result: TUniversalValue; logs: string[] }>;
   cleanup: () => void;
 } {
   // Capture console output
   const capturedLogs: string[] = [];
+  type TSandboxLogArg = TUniversalValue | Error;
+  const formatLogArg = (arg: TSandboxLogArg): string => {
+    if (arg instanceof Error) {
+      return arg.message;
+    }
+    if (typeof arg === 'object' && arg !== null) {
+      return JSON.stringify(arg, null, 2);
+    }
+    return String(arg);
+  };
 
   // Create isolated context
   const sandbox = {
     console: {
-      log: (...args: any[]) => {
-        const message = args.map(arg =>
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' ');
+      log: (...args: TSandboxLogArg[]) => {
+        const message = args.map((arg) => formatLogArg(arg)).join(' ');
         capturedLogs.push(message);
       },
-      error: (...args: any[]) => {
-        const message = args.map(arg =>
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' ');
+      error: (...args: TSandboxLogArg[]) => {
+        const message = args.map((arg) => formatLogArg(arg)).join(' ');
         capturedLogs.push(`ERROR: ${message}`);
       },
-      warn: (...args: any[]) => {
-        const message = args.map(arg =>
-          typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-        ).join(' ');
+      warn: (...args: TSandboxLogArg[]) => {
+        const message = args.map((arg) => formatLogArg(arg)).join(' ');
         capturedLogs.push(`WARN: ${message}`);
       }
     },
@@ -527,7 +531,7 @@ export function createPlaygroundSandbox(config: IPlaygroundConfig): {
           sandbox.__ROBOTA_PLAYGROUND_EXECUTOR__ = window.__ROBOTA_PLAYGROUND_EXECUTOR__;
         } else {
           // Fallback mock executor
-          sandbox.__ROBOTA_PLAYGROUND_EXECUTOR__ = {
+          const fallbackExecutor: IRemoteExecutor = {
             name: 'mock-remote',
             version: '1.0.0',
             executeChat: async () => ({ role: 'assistant', content: 'Mock response', timestamp: new Date() }),
@@ -535,7 +539,8 @@ export function createPlaygroundSandbox(config: IPlaygroundConfig): {
             supportsTools: () => true,
             validateConfig: () => true,
             dispose: async () => { }
-          } as IRemoteExecutor;
+          };
+          sandbox.__ROBOTA_PLAYGROUND_EXECUTOR__ = fallbackExecutor;
         }
 
         // Transform code for playground execution

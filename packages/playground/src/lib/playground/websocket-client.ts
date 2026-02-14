@@ -10,6 +10,20 @@ import type { TUniversalValue } from '@robota-sdk/agents';
 import type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageKind } from '@robota-sdk/remote';
 export type { IPlaygroundWebSocketMessage, TPlaygroundWebSocketMessageKind } from '@robota-sdk/remote';
 
+export const PLAYGROUND_WS_MESSAGE_TYPES = {
+    PLAYGROUND_UPDATE: 'playground_update',
+    AUTH: 'auth',
+    PING: 'ping',
+    PONG: 'pong'
+} as const;
+
+export const PLAYGROUND_WS_CLIENT_EVENTS = {
+    AUTHENTICATED: 'authenticated',
+    CONNECTION: 'connection',
+    ERROR: 'error',
+    PLAYGROUND_UPDATE: 'playground_update'
+} as const;
+
 export interface IPlaygroundConnectionStatus {
     connected: boolean;
     authenticated: boolean;
@@ -51,7 +65,10 @@ function isPlaygroundWebSocketMessage(value: TUniversalValue): value is IPlaygro
     const timestamp = value.timestamp;
     if (typeof type !== 'string') return false;
     if (typeof timestamp !== 'string') return false;
-    return type === 'playground_update' || type === 'auth' || type === 'ping' || type === 'pong';
+    return type === PLAYGROUND_WS_MESSAGE_TYPES.PLAYGROUND_UPDATE ||
+        type === PLAYGROUND_WS_MESSAGE_TYPES.AUTH ||
+        type === PLAYGROUND_WS_MESSAGE_TYPES.PING ||
+        type === PLAYGROUND_WS_MESSAGE_TYPES.PONG;
 }
 
 /**
@@ -107,20 +124,20 @@ export class PlaygroundWebSocketClient {
                         const authHandler: TPlaygroundWebSocketEventHandler = (payload) => {
                             if ('type' in payload) return;
                             if (!('success' in payload) || typeof payload.success !== 'boolean') return;
-                            this.off('authenticated', authHandler);
+                            this.off(PLAYGROUND_WS_CLIENT_EVENTS.AUTHENTICATED, authHandler);
                             if (payload.success) {
                                 connectionResolve(true);
                                 return;
                             }
                             connectionReject(new Error(payload.error || 'Authentication failed'));
                         };
-                        this.on('authenticated', authHandler);
+                        this.on(PLAYGROUND_WS_CLIENT_EVENTS.AUTHENTICATED, authHandler);
                     } else {
                         // No authentication needed
                         connectionResolve(true);
                     }
 
-                    this.emit('connection', { connected: true });
+                    this.emit(PLAYGROUND_WS_CLIENT_EVENTS.CONNECTION, { connected: true });
                 };
 
                 this.ws.onmessage = (event) => {
@@ -142,7 +159,7 @@ export class PlaygroundWebSocketClient {
                     this.stopPingPong();
 
                     WebLogger.info('Playground WebSocket disconnected', { code: event.code, reason: event.reason });
-                    this.emit('connection', { connected: false });
+                    this.emit(PLAYGROUND_WS_CLIENT_EVENTS.CONNECTION, { connected: false });
 
                     // Attempt reconnection if not intentional
                     if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -153,7 +170,7 @@ export class PlaygroundWebSocketClient {
                 this.ws.onerror = (error) => {
                     WebLogger.error('Playground WebSocket error', { error: error instanceof Error ? error.message : String(error) });
                     this.status.error = 'Connection error';
-                    this.emit('error', { error: 'Connection failed' });
+                    this.emit(PLAYGROUND_WS_CLIENT_EVENTS.ERROR, { error: 'Connection failed' });
                     reject(error);
                 };
 
@@ -193,7 +210,7 @@ export class PlaygroundWebSocketClient {
         }
 
         const authData: Omit<IPlaygroundWebSocketMessage, "timestamp"> = {
-            type: 'auth',
+            type: PLAYGROUND_WS_MESSAGE_TYPES.AUTH,
             data: {
                 userId: this.userId,
                 sessionId: this.sessionId,
@@ -246,7 +263,7 @@ export class PlaygroundWebSocketClient {
      */
     broadcastUpdate(data: TUniversalValue): boolean {
         return this.sendMessage({
-            type: 'playground_update',
+            type: PLAYGROUND_WS_MESSAGE_TYPES.PLAYGROUND_UPDATE,
             data,
             userId: this.userId,
             sessionId: this.sessionId
@@ -286,16 +303,16 @@ export class PlaygroundWebSocketClient {
         this.status.lastActivity = new Date();
 
         switch (message.type) {
-            case 'auth':
+            case PLAYGROUND_WS_MESSAGE_TYPES.AUTH:
                 this.handleAuthResponse(message);
                 break;
 
-            case 'pong':
+            case PLAYGROUND_WS_MESSAGE_TYPES.PONG:
                 // Pong received, connection is healthy
                 break;
 
-            case 'playground_update':
-                this.emit('playground_update', message);
+            case PLAYGROUND_WS_MESSAGE_TYPES.PLAYGROUND_UPDATE:
+                this.emit(PLAYGROUND_WS_CLIENT_EVENTS.PLAYGROUND_UPDATE, message);
                 break;
 
             default:
@@ -329,7 +346,7 @@ export class PlaygroundWebSocketClient {
                 userId: typeof userId === 'string' ? userId : undefined,
                 sessionId: typeof sessionId === 'string' ? sessionId : undefined
             });
-            this.emit('authenticated', {
+            this.emit(PLAYGROUND_WS_CLIENT_EVENTS.AUTHENTICATED, {
                 success: true,
                 userId: typeof userId === 'string' ? userId : undefined,
                 sessionId: typeof sessionId === 'string' ? sessionId : undefined
@@ -338,7 +355,10 @@ export class PlaygroundWebSocketClient {
             this.status.authenticated = false;
             this.status.error = typeof error === 'string' ? error : 'Authentication failed';
             WebLogger.error('Playground WebSocket authentication failed', { error: typeof error === 'string' ? error : 'Authentication failed' });
-            this.emit('authenticated', { success: false, error: typeof error === 'string' ? error : 'Authentication failed' });
+            this.emit(PLAYGROUND_WS_CLIENT_EVENTS.AUTHENTICATED, {
+                success: false,
+                error: typeof error === 'string' ? error : 'Authentication failed'
+            });
         }
     }
 
@@ -375,7 +395,7 @@ export class PlaygroundWebSocketClient {
     private startPingPong(): void {
         this.pingInterval = setInterval(() => {
             if (this.ws?.readyState === WebSocket.OPEN) {
-                this.sendMessage({ type: 'ping' });
+                this.sendMessage({ type: PLAYGROUND_WS_MESSAGE_TYPES.PING });
             }
         }, 30000); // Ping every 30 seconds
     }

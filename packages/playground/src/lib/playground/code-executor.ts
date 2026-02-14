@@ -616,7 +616,7 @@ export class CodeExecutor {
         return `// Compiled Robota Agent
 const compiledAgent = {
   model: "${this.parseAgentConfig(code).model}",
-  tools: [${this.parseAgentConfig(code).tools.map((t: any) => `"${t.name}"`).join(', ')}],
+  tools: [${this.parseAgentConfig(code).tools.map((tool) => `"${tool.name}"`).join(', ')}],
   systemMessage: ${this.parseAgentConfig(code).systemMessage ? `"${this.parseAgentConfig(code).systemMessage}"` : 'null'},
   ready: true
 };

@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const buildAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
-    let nextChildAgentNumber = 1;
+    let nextDelegatedAgentNumber = 1;
 
     const schema: IToolSchema = {
         name: 'assignTask',
@@ -38,14 +38,14 @@ const buildAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
             throw new Error('[GUARDED-ASSIGN-TASK] Missing context.baseEventService (DI required)');
         }
 
-        const parentOwnerPath: IOwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map(segment => ({ ...segment })) : [];
+        const inheritedOwnerPath: IOwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map(segment => ({ ...segment })) : [];
 
-        const delegatedAgentId = `agent_${nextChildAgentNumber}`;
-        nextChildAgentNumber += 1;
+        const delegatedAgentId = `agent_${nextDelegatedAgentNumber}`;
+        nextDelegatedAgentNumber += 1;
         const extraContext = typeof params.context === 'string' ? params.context : '';
         const prompt = extraContext ? `${jobDescription}\n\nContext: ${extraContext}` : jobDescription;
 
-        const childAgent = new Robota({
+        const delegatedAgent = new Robota({
             name: `GuardedDelegatedAgent_${delegatedAgentId}`,
             conversationId: delegatedAgentId,
             aiProviders: [aiProvider],
@@ -55,10 +55,10 @@ const buildAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
                 temperature: 0.6
             },
             eventService: ctx.baseEventService,
-            executionContext: { ownerPath: parentOwnerPath }
+            executionContext: { ownerPath: inheritedOwnerPath }
         });
 
-        const response = await childAgent.run(prompt);
+        const response = await delegatedAgent.run(prompt);
         // Tool message content must be a plain string to match the recorded scenario snapshots.
         return response;
     });
@@ -120,8 +120,7 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
     const err = error instanceof Error ? error : new Error(String(error));
-    // eslint-disable-next-line no-console -- examples CLI entrypoint
-    console.error(err.message);
+    process.stderr.write(`${err.message}\n`);
     process.exit(1);
 });
 

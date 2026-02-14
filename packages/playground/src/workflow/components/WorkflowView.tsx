@@ -2,12 +2,12 @@
 
 import React from 'react';
 import { WorkflowVisualization } from '../../components/playground/workflow-visualization';
-import type { IWorkflowExportStructure } from '@robota-sdk/workflow';
+import type { IWorkflowExportStructure, IWorkflowNodeData } from '@robota-sdk/workflow';
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
 
 interface IWorkflowViewProps {
   workflow?: IWorkflowExportStructure;
-  onAgentNodeClick?: (nodeId: string, data?: any) => void;
+  onAgentNodeClick?: (nodeId: string, data?: IWorkflowNodeData) => void;
   onToolDrop?: (agentId: string, tool: IPlaygroundToolMeta) => Promise<void>;
   toolItems?: IPlaygroundToolMeta[];
   addedToolsByAgent?: Record<string, string[]>;

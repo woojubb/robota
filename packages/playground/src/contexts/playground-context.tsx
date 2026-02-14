@@ -258,12 +258,18 @@ function playgroundReducer(state: IPlaygroundState, action: TPlaygroundReducerAc
             };
 
         case 'UPDATE_VISUALIZATION_DATA':
+            if (!state.visualizationData) {
+                return {
+                    ...state,
+                    visualizationData: action.payload as IVisualizationData
+                };
+            }
             return {
                 ...state,
                 visualizationData: {
                     ...state.visualizationData,
                     ...action.payload
-                } as any
+                }
             };
 
         case 'SET_TOOL_ITEMS':
@@ -538,7 +544,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             }
 
             // Get all events from PlaygroundHistoryPlugin (EventService events)
-            let allEvents: any[] = [];
+            let allEvents: IConversationEvent[] = [];
             if (typeof state.executor.getPlaygroundEvents === 'function') {
                 allEvents = state.executor.getPlaygroundEvents();
             } else {
@@ -558,8 +564,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 }));
             }
 
-            // Use simple dispatch to avoid type errors temporarily
-            (dispatch as any)({ type: 'SET_CONVERSATION_HISTORY', payload: allEvents });
+            dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: allEvents });
 
             // Update visualization data with latest stats from plugin
             let pluginStats = { totalEvents: allEvents.length, totalToolCalls: 0, averageResponseTime: result.duration || 0 };
@@ -654,7 +659,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
 
             // Sync conversation history from executor (central source of truth)
             // Get all events from PlaygroundHistoryPlugin (EventService events)
-            let allEvents: any[] = [];
+            let allEvents: IConversationEvent[] = [];
             if (typeof state.executor.getPlaygroundEvents === 'function') {
                 allEvents = state.executor.getPlaygroundEvents();
             } else {
@@ -673,8 +678,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
                 }));
             }
 
-            // Use simple dispatch to avoid type errors temporarily
-            (dispatch as any)({ type: 'SET_CONVERSATION_HISTORY', payload: allEvents });
+            dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: allEvents });
 
             // Update visualization data with latest stats from plugin
             let pluginStats = { totalEvents: allEvents.length, totalToolCalls: 0, averageResponseTime: 0 };
@@ -731,8 +735,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         dispatch({ type: 'SET_AUTH', payload: { userId, sessionId, authToken } });
 
         if (executorRef.current) {
-            // Update executor auth (if method exists)
-            (executorRef.current as any).updateAuth?.(userId, sessionId, authToken);
+            executorRef.current.updateAuth(userId, sessionId, authToken);
         }
     }, []);
 
@@ -791,7 +794,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
     useEffect(() => {
         if (state.executor) {
             const checkConnection = () => {
-                const isConnected = (state.executor as any).isWebSocketConnected?.() || false;
+                const isConnected = state.executor.isWebSocketConnected();
                 if (isConnected !== state.isWebSocketConnected) {
                     dispatch({ type: 'SET_WEBSOCKET_CONNECTED', payload: isConnected });
                 }

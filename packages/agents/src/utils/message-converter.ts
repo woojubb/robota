@@ -1,4 +1,4 @@
-import type { TUniversalMessage } from '../interfaces/agent';
+import type { TUniversalMessage } from '../interfaces/messages';
 
 /**
  * Provider-specific message format types

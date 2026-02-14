@@ -1262,10 +1262,11 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * ```
      */
     registerTool(tool: AbstractTool): void {
-        // Check if tool is already registered to prevent duplicates
         if (this.tools.hasTool(tool.schema.name)) {
-            this.logger.warn('Tool already registered, skipping', { toolName: tool.schema.name });
-            return;
+            throw new Error(
+                `[STRICT-POLICY][EMITTER-CONTRACT] Duplicate tool registration attempted: ${tool.schema.name}. ` +
+                `Tool registration flow must provide a single authoritative registration path.`
+            );
         }
 
         // Create an adapter to convert IToolResult.data (tool result payload) to the executor return type.

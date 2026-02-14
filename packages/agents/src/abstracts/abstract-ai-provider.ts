@@ -132,11 +132,15 @@ export abstract class AbstractAIProvider<TConfig = IProviderConfig>
         this.config = config;
 
         // Check if config includes executor and set it
-        if (config && typeof config === 'object' && 'executor' in config && (config as any).executor) {
-            this.executor = (config as any).executor as IExecutor;
+        if (this.hasExecutor(config) && config.executor) {
+            this.executor = config.executor;
         }
 
         // Subclasses can override for additional setup
+    }
+
+    private hasExecutor(config: TConfig): config is TConfig & { executor?: IExecutor } {
+        return typeof config === 'object' && config !== null && 'executor' in config;
     }
 
     /**

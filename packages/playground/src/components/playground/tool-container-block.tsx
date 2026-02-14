@@ -36,7 +36,7 @@ import {
     Info,
     Search
 } from 'lucide-react';
-import type { TUniversalValue } from '@robota-sdk/agents';
+import type { IToolSchema, TUniversalValue } from '@robota-sdk/agents';
 import type { IPlaygroundTool } from '../../lib/playground/robota-executor';
 
 export interface IToolBlock {
@@ -94,6 +94,27 @@ const AVAILABLE_TOOLS = [
         }
     }
 ];
+
+function getMaxHeightClass(maxHeight: string): string {
+    if (maxHeight === '240px') return 'max-h-60';
+    if (maxHeight === '320px') return 'max-h-80';
+    if (maxHeight === '400px') return 'max-h-[400px]';
+    if (maxHeight === '480px') return 'max-h-[480px]';
+    return 'max-h-[400px]';
+}
+
+type TToolSchemaParameter = {
+    type: string;
+    description?: string;
+    default?: TUniversalValue;
+};
+
+function getToolSchema(tool: IPlaygroundTool): IToolSchema | undefined {
+    if ('schema' in tool && tool.schema) {
+        return tool.schema;
+    }
+    return undefined;
+}
 
 function ToolParameterInput({
     parameter,
@@ -265,26 +286,26 @@ function IndividualToolBlock({
                             {/* Tool Parameters */}
                             <div className="space-y-2">
                                 <Label className="text-xs font-medium">Parameters</Label>
-                                {Object.entries((toolBlock.tool as any).schema?.parameters?.properties || {}).map(([key, paramConfig]) => (
+                                {Object.entries(getToolSchema(toolBlock.tool)?.parameters?.properties || {}).map(([key, paramConfig]) => (
                                     <div key={key} className="space-y-1">
                                         <div className="flex items-center gap-2">
                                             <Label className="text-xs text-gray-600">
                                                 {key}
-                                                {(toolBlock.tool as any).schema?.parameters?.required?.includes(key) && <span className="text-red-500">*</span>}
+                                                {getToolSchema(toolBlock.tool)?.parameters?.required?.includes(key) && <span className="text-red-500">*</span>}
                                             </Label>
-                                            {(toolBlock.tool as any).schema?.parameters?.required?.includes(key) && (
+                                            {getToolSchema(toolBlock.tool)?.parameters?.required?.includes(key) && (
                                                 <Badge variant="outline" className="text-xs px-1 py-0">
                                                     Required
                                                 </Badge>
                                             )}
                                         </div>
                                         <ToolParameterInput
-                                            parameter={paramConfig as any}
+                                            parameter={paramConfig as TToolSchemaParameter}
                                             value={toolBlock.parameters[key]}
                                             onChange={(value) => handleParameterChange(key, value)}
                                             disabled={!isEditable || !toolBlock.isEnabled}
                                         />
-                                        <p className="text-xs text-gray-400">{(paramConfig as any).description}</p>
+                                        <p className="text-xs text-gray-400">{(paramConfig as TToolSchemaParameter).description}</p>
                                     </div>
                                 ))}
                             </div>
@@ -320,6 +341,7 @@ export function ToolContainerBlock({
 }: IToolContainerBlockProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [showToolLibrary, setShowToolLibrary] = useState(false);
+    const maxHeightClassName = getMaxHeightClass(maxHeight);
 
     // Filter available tools
     const filteredAvailableTools = useMemo(() => {
@@ -444,7 +466,7 @@ export function ToolContainerBlock({
                         )}
                     </div>
                 ) : (
-                    <ScrollArea style={{ maxHeight }} className="w-full">
+                    <ScrollArea className={`w-full ${maxHeightClassName}`}>
                         <div className="space-y-3">
                             {tools.map((toolBlock) => (
                                 <IndividualToolBlock

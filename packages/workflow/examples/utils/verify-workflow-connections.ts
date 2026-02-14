@@ -113,9 +113,25 @@ interface IWorkflowVerificationResult {
     };
 }
 
+interface IVerificationLogger {
+    info(message: string): void;
+    error(message: string): void;
+}
+
+class VerificationCliLogger implements IVerificationLogger {
+    info(message: string): void {
+        process.stdout.write(`${message}\n`);
+    }
+
+    error(message: string): void {
+        process.stderr.write(`${message}\n`);
+    }
+}
+
 class WorkflowConnectionVerifier {
     private data: IVerificationWorkflowData | null = null;
     private dataFilePath: string;
+    private logger: IVerificationLogger;
 
     // Configuration for single outgoing connection rule
     private readonly SINGLE_OUTGOING_NODE_TYPES = ['tool_call'];
@@ -126,14 +142,19 @@ class WorkflowConnectionVerifier {
     // Configuration for agent thinking no end node rule
     private readonly AGENT_THINKING_NO_END_NODE_TYPES = ['agent_thinking'];
 
-    constructor(dataFilePath: string = '../data/real-workflow-data.json') {
+    constructor(
+        dataFilePath: string = '../data/real-workflow-data.json',
+        logger: IVerificationLogger = new VerificationCliLogger()
+    ) {
         this.dataFilePath = path.resolve(__dirname, dataFilePath);
+        this.logger = logger;
     }
 
     /**
      * Load and parse workflow data from JSON file
      */
     private loadWorkflowData(): boolean {
+        const console = { error: this.logger.error.bind(this.logger) };
         try {
             if (!fs.existsSync(this.dataFilePath)) {
                 console.error(`❌ File not found: ${this.dataFilePath}`);
@@ -554,6 +575,7 @@ class WorkflowConnectionVerifier {
      * Display validation rules and criteria
      */
     private displayValidationRules(): void {
+        const console = { log: this.logger.info.bind(this.logger) };
         console.log('📋 Validation Rules (IMMUTABLE):');
         console.log('-'.repeat(50));
         console.log('⚠️  CRITICAL: These rules CANNOT be modified');
@@ -578,6 +600,7 @@ class WorkflowConnectionVerifier {
      * Format and display validation results
      */
     public displayResults(result: IWorkflowVerificationResult): void {
+        const console = { log: this.logger.info.bind(this.logger) };
         console.log('\n🔍 Workflow Connection Verification');
         console.log('='.repeat(50));
         console.log(`📁 File: ${path.basename(this.dataFilePath)}`);

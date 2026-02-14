@@ -18,7 +18,7 @@ import type { IPlaygroundToolMeta } from '../../tools/catalog';
 import { ChatInputPanel } from '../../components/playground/chat-input-panel';
 import { Toaster } from '../../components/ui/sonner';
 import type { IEventService, ILogger } from '@robota-sdk/agents';
-import type { IWorkflowEventSubscriber } from '@robota-sdk/workflow';
+import type { IWorkflowEventSubscriber, IWorkflowNodeData } from '@robota-sdk/workflow';
 import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
 import { ToolRegistry } from '../../tools/catalog';
@@ -119,8 +119,8 @@ KEY PRINCIPLES:
 Your expertise lies in knowing when, how, and how many times to call tools to achieve the best possible outcome.`,
   };
 
-  const handleAgentNodeClick = (nodeId: string, data?: any) => {
-    WebLogger.debug('Agent node clicked', { nodeId, data });
+  const handleAgentNodeClick = (nodeId: string, data?: IWorkflowNodeData) => {
+    WebLogger.debug('Agent node clicked', { nodeId, hasData: Boolean(data) });
     // Open chat modal for the selected agent
     setChatAgentId(nodeId);
     openModal('chat');

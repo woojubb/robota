@@ -4,6 +4,11 @@ import { WORKFLOW_NODE_TYPES } from '../../constants/workflow-types.js';
 import type { TEventData } from '../../interfaces/event-handler.js';
 
 export class ExecutionNodeBuilder {
+    private getStringParam(data: TEventData, key: string): string | undefined {
+        const value = data.parameters?.[key];
+        return typeof value === 'string' && value.length > 0 ? value : undefined;
+    }
+
     createExecutionNode(eventData: TEventData): IWorkflowNode {
         const ownerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
         const executionId = (() => {
@@ -75,9 +80,8 @@ export class ExecutionNodeBuilder {
         const errorMessage = (() => {
             if (data.error instanceof Error) return data.error.message;
             if (typeof data.error === 'string' && data.error.length > 0) return data.error;
-            if (typeof (data.parameters as { error?: string } | undefined)?.error === 'string') {
-                return (data.parameters as { error?: string }).error as string;
-            }
+            const parameterError = this.getStringParam(data, 'error');
+            if (parameterError) return parameterError;
             return '';
         })();
         if (!errorMessage) {
@@ -145,11 +149,14 @@ export class ExecutionNodeBuilder {
         }
         const nodeId = `${agentId}_user_${executionId}_${data.timestamp.getTime()}`;
         const messageContent = (() => {
-            const p = data.parameters;
-            if (typeof (p as { input?: string }).input === 'string') return (p as { input?: string }).input as string;
-            if (typeof (p as { userMessageContent?: string }).userMessageContent === 'string') return (p as { userMessageContent?: string }).userMessageContent as string;
-            if (typeof (p as { content?: string }).content === 'string') return (p as { content?: string }).content as string;
-            if (typeof (p as { message?: string }).message === 'string') return (p as { message?: string }).message as string;
+            const fromInput = this.getStringParam(data, 'input');
+            if (fromInput) return fromInput;
+            const fromUserMessageContent = this.getStringParam(data, 'userMessageContent');
+            if (fromUserMessageContent) return fromUserMessageContent;
+            const fromContent = this.getStringParam(data, 'content');
+            if (fromContent) return fromContent;
+            const fromMessage = this.getStringParam(data, 'message');
+            if (fromMessage) return fromMessage;
             return '';
         })();
         if (!messageContent) {
@@ -210,19 +217,17 @@ export class ExecutionNodeBuilder {
         }
         const nodeId = `user_input_${agentId}_${executionId}_${data.timestamp.getTime()}`;
         const inputContent = (() => {
-            if (typeof (data.parameters as { input?: string } | undefined)?.input === 'string') {
-                return (data.parameters as { input?: string }).input as string;
-            }
-            if (typeof (data.parameters as { content?: string } | undefined)?.content === 'string') {
-                return (data.parameters as { content?: string }).content as string;
-            }
+            const fromInput = this.getStringParam(data, 'input');
+            if (fromInput) return fromInput;
+            const fromContent = this.getStringParam(data, 'content');
+            if (fromContent) return fromContent;
             return '';
         })();
         if (!inputContent) {
             throw new Error('[PATH-ONLY] Missing input content for user.input');
         }
         const derivedParentId = ownerPath.length > 1 ? ownerPath[ownerPath.length - 2].id : undefined;
-        const inputType = (data.parameters as { inputType?: string } | undefined)?.inputType;
+        const inputType = this.getStringParam(data, 'inputType');
 
         return {
             id: nodeId,

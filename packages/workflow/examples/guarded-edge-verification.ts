@@ -40,7 +40,7 @@ const findNearestOwnerId = (ownerPath: IOwnerPathSegment[] | undefined, ownerTyp
 };
 
 const buildGuardedAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
-    let nextChildAgentNumber = 1;
+    let nextDelegatedAgentNumber = 1;
 
     const schema: IToolSchema = {
         name: 'assignTask',
@@ -68,14 +68,13 @@ const buildGuardedAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
             throw new Error('[GUARDED-ASSIGN-TASK] Missing context.baseEventService (DI required)');
         }
 
-        const parentOwnerPath: IOwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map(segment => ({ ...segment })) : [];
-        const delegatingAgentId = findNearestOwnerId(parentOwnerPath, 'agent');
-        if (!delegatingAgentId) {
-            throw new Error('[GUARDED-ASSIGN-TASK] Missing parent agent segment in context.ownerPath');
+        const inheritedOwnerPath: IOwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map(segment => ({ ...segment })) : [];
+        if (!findNearestOwnerId(inheritedOwnerPath, 'agent')) {
+            throw new Error('[GUARDED-ASSIGN-TASK] Missing agent segment in context.ownerPath');
         }
 
-        const delegatedAgentId = `agent_${nextChildAgentNumber}`;
-        nextChildAgentNumber += 1;
+        const delegatedAgentId = `agent_${nextDelegatedAgentNumber}`;
+        nextDelegatedAgentNumber += 1;
         const extraContext = typeof params.context === 'string' ? params.context : '';
         const priority = typeof params.priority === 'string' ? params.priority : '';
         const prompt =
@@ -89,7 +88,7 @@ const buildGuardedAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
                 : agentTemplate === 'domain_researcher' ? 0.4
                     : 0.6;
 
-        const childAgent = new Robota({
+        const delegatedAgent = new Robota({
             name: `GuardedDelegatedAgent_${delegatedAgentId}`,
             conversationId: delegatedAgentId,
             aiProviders: [aiProvider],
@@ -99,10 +98,10 @@ const buildGuardedAssignTaskTool = (aiProvider: IAIProvider): FunctionTool => {
                 temperature
             },
             eventService: ctx.baseEventService,
-            executionContext: { ownerPath: parentOwnerPath }
+            executionContext: { ownerPath: inheritedOwnerPath }
         });
 
-        const response = await childAgent.run(prompt);
+        const response = await delegatedAgent.run(prompt);
         // Tool message content must be a plain string to match the recorded scenario snapshots.
         return response;
     });
@@ -169,8 +168,7 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
     const err = error instanceof Error ? error : new Error(String(error));
-    // eslint-disable-next-line no-console -- examples CLI entrypoint
-    console.error(err.message);
+    process.stderr.write(`${err.message}\n`);
     process.exit(1);
 });
 

@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import {
+    composeEventName,
+    EXECUTION_EVENTS,
+    EXECUTION_EVENT_PREFIX,
+    USER_EVENTS,
+    USER_EVENT_PREFIX
+} from '@robota-sdk/agents';
 import { InMemoryProjectionCache } from '../services/projection-cache.js';
 
 describe('InMemoryProjectionCache', () => {
+    const executionStartEvent = composeEventName(EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS.START);
+    const userMessageEvent = composeEventName(USER_EVENT_PREFIX, USER_EVENTS.MESSAGE);
+
     it('should read written workflow/history cache entries', () => {
         const cache = new InMemoryProjectionCache<{ version: number }, { count: number }>();
         cache.writeWorkflow('workflow:key', { version: 1 });
@@ -31,18 +41,18 @@ describe('InMemoryProjectionCache', () => {
 
     it('should invalidate by configured event prefixes', () => {
         const cache = new InMemoryProjectionCache<{ v: number }, { v: number }>({
-            workflowInvalidationPrefixes: ['execution.'],
-            historyInvalidationPrefixes: ['user.']
+            workflowInvalidationPrefixes: [`${EXECUTION_EVENT_PREFIX}.`],
+            historyInvalidationPrefixes: [`${USER_EVENT_PREFIX}.`]
         });
         cache.writeWorkflow('w', { v: 1 });
         cache.writeHistory('h', { v: 2 });
 
-        const executionInvalidate = cache.invalidateByEventName('execution.start');
+        const executionInvalidate = cache.invalidateByEventName(executionStartEvent);
         expect(executionInvalidate).toEqual({ workflowInvalidated: true, historyInvalidated: false });
         expect(cache.readWorkflow('w')).toBeUndefined();
         expect(cache.readHistory('h')).toEqual({ v: 2 });
 
-        const userInvalidate = cache.invalidateByEventName('user.message');
+        const userInvalidate = cache.invalidateByEventName(userMessageEvent);
         expect(userInvalidate).toEqual({ workflowInvalidated: false, historyInvalidated: true });
         expect(cache.readHistory('h')).toBeUndefined();
     });

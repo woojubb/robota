@@ -314,54 +314,37 @@ export class ExecutionService {
                 });
             }
 
-            // Add system message from config if provided and not already present
-            // This allows for additional system messages during execution but prevents duplicates
+            // Add system message from config in the main execution path.
             if (config.systemMessage) {
-                const existingMessages = conversationSession.getMessages();
-                const hasConfigSystemMessage = existingMessages.some(msg =>
-                    msg.role === 'system' && msg.content === config.systemMessage
-                );
-
-                if (!hasConfigSystemMessage) {
-                    conversationSession.addSystemMessage(config.systemMessage, { executionId });
-                }
+                conversationSession.addSystemMessage(config.systemMessage, { executionId });
             }
 
-            // Only add the current input if it's not already the last message in the conversation
-            const existingMessages = conversationSession.getMessages();
-            const lastMessage = existingMessages[existingMessages.length - 1];
-            const shouldAddInput = !lastMessage ||
-                lastMessage.role !== 'user' ||
-                lastMessage.content !== input;
+            conversationSession.addUserMessage(input, { executionId });
 
-            if (shouldAddInput) {
-                conversationSession.addUserMessage(input, { executionId });
-
-                const rootId: string = conversationId;
-                this.emitExecution(
-                    EXECUTION_EVENTS.USER_MESSAGE,
-                    {
-                        parameters: {
-                            input,
-                            userPrompt: input,
-                            userMessageContent: input,
-                            messageLength: input.length,
-                            wordCount: input.split(/\s+/).filter(word => word.length > 0).length,
-                            characterCount: input.length
-                        },
-                        metadata: {
-                            messageRole: 'user',
-                            inputLength: input.length,
-                            messageType: 'user_message',
-                            hasQuestions: input.includes('?'),
-                            containsUrgency: /urgent|asap|critical|emergency/i.test(input),
-                            estimatedComplexity: input.length > 200 ? 'high' : input.length > 50 ? 'medium' : 'low'
-                        }
+            const rootId: string = conversationId;
+            this.emitExecution(
+                EXECUTION_EVENTS.USER_MESSAGE,
+                {
+                    parameters: {
+                        input,
+                        userPrompt: input,
+                        userMessageContent: input,
+                        messageLength: input.length,
+                        wordCount: input.split(/\s+/).filter(word => word.length > 0).length,
+                        characterCount: input.length
                     },
-                    rootId,
-                    executionId
-                );
-            }
+                    metadata: {
+                        messageRole: 'user',
+                        inputLength: input.length,
+                        messageType: 'user_message',
+                        hasQuestions: input.includes('?'),
+                        containsUrgency: /urgent|asap|critical|emergency/i.test(input),
+                        estimatedComplexity: input.length > 200 ? 'high' : input.length > 50 ? 'medium' : 'low'
+                    }
+                },
+                rootId,
+                executionId
+            );
 
             // Call beforeRun hook on all plugins
             await this.callPluginHook('beforeRun', {

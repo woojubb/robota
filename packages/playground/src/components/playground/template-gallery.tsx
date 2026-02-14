@@ -195,7 +195,7 @@ agent.addTool({
     },
     required: ['data', 'metric']
   },
-  execute: async ({ data, metric }: { data: any[], metric: string }) => {
+  execute: async ({ data, metric }: { data: Array<{ value?: number }>, metric: string }) => {
     // Mock data analysis
     const total = data.length
     const avg = data.reduce((a, b) => a + (b.value || 0), 0) / total

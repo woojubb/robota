@@ -9,16 +9,21 @@ export function serializeMessages(messages: TUniversalMessage[]): IScenarioMessa
 
 export function serializeChatOptions(options?: IChatOptions): IScenarioChatOptionsSnapshot | undefined {
     if (!options) return undefined;
+    const extendedOptions = options as IChatOptions & {
+        topP?: number;
+        presencePenalty?: number;
+        frequencyPenalty?: number;
+    };
     const snapshot: IScenarioChatOptionsSnapshot = {};
     if (options.model) snapshot.model = options.model;
     if (typeof options.temperature === 'number') snapshot.temperature = options.temperature;
     if (typeof options.maxTokens === 'number') snapshot.maxTokens = options.maxTokens;
-    if (typeof (options as Record<string, unknown>).topP === 'number') snapshot.topP = (options as Record<string, number>).topP;
-    if (typeof (options as Record<string, unknown>).presencePenalty === 'number') {
-        snapshot.presencePenalty = (options as Record<string, number>).presencePenalty;
+    if (typeof extendedOptions.topP === 'number') snapshot.topP = extendedOptions.topP;
+    if (typeof extendedOptions.presencePenalty === 'number') {
+        snapshot.presencePenalty = extendedOptions.presencePenalty;
     }
-    if (typeof (options as Record<string, unknown>).frequencyPenalty === 'number') {
-        snapshot.frequencyPenalty = (options as Record<string, number>).frequencyPenalty;
+    if (typeof extendedOptions.frequencyPenalty === 'number') {
+        snapshot.frequencyPenalty = extendedOptions.frequencyPenalty;
     }
     if (typeof options.openai?.stream === 'boolean') {
         snapshot.stream = options.openai.stream;

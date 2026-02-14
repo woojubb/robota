@@ -14,7 +14,17 @@
  */
 
 import { Robota } from '@robota-sdk/agents';
-import type { IAIProvider, IEventService, IToolSchema, TLoggerData, TUniversalMessage, TUniversalValue } from '@robota-sdk/agents';
+import type {
+    IAIProvider,
+    IEventService,
+    IExecutor,
+    IToolExecutionContext,
+    IToolSchema,
+    TLoggerData,
+    TToolParameters,
+    TUniversalMessage,
+    TUniversalValue
+} from '@robota-sdk/agents';
 import type { IWorkflowEventSubscriber, IWorkflowExportStructure } from '@robota-sdk/workflow';
 import { DefaultExternalWorkflowStore, type IExternalWorkflowStore } from './external-workflow-store';
 import { OpenAIProvider } from '@robota-sdk/openai';
@@ -53,6 +63,10 @@ export interface IPlaygroundPlugin {
     readonly version: string;
     initialize(): Promise<void>;
     dispose(): Promise<void>;
+}
+
+interface IPlaygroundToolHookFlags {
+    hooksEnabled: boolean;
 }
 
 // Playground-specific configuration interfaces using Robota-compatible types
@@ -122,6 +136,7 @@ export class PlaygroundExecutor {
     // Team feature removed
     // Registry: rootId(conversationId) → agent instance
     private agentRegistry: Map<string, Robota> = new Map();
+    private agentToolsRegistry: Map<string, FunctionTool[]> = new Map();
 
     // Playground-specific plugins
     private historyPlugin: PlaygroundHistoryPlugin;
@@ -256,23 +271,20 @@ export class PlaygroundExecutor {
         try {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
+            const normalizedTools = this.normalizeTools(config.tools || []);
+            const rootAgentId = config.id || config.name;
 
             this.currentAgent = new Robota({
                 name: config.name,
-                aiProviders: aiProviders as any,
+                aiProviders,
                 defaultModel: config.defaultModel,
-                plugins: [this.historyPlugin as any, this.statisticsPlugin as any],
-                tools: (config.tools || []) as any,
+                tools: normalizedTools,
                 eventService: this.eventService
             });
 
-            // Immediate registry registration with conversationId/root id
-            try {
-                const convId = (this.currentAgent as any).conversationId || config.name;
-                if (typeof convId === 'string') {
-                    this.agentRegistry.set(convId, this.currentAgent);
-                }
-            } catch { /* ignore */ }
+            // Immediate registry registration by root agent id.
+            this.agentRegistry.set(rootAgentId, this.currentAgent);
+            this.agentToolsRegistry.set(rootAgentId, normalizedTools);
 
             this.logger.debug('Agent created');
 
@@ -302,7 +314,10 @@ export class PlaygroundExecutor {
         if (!agent) {
             throw new Error(`updateAgentTools: agent not found for id ${agentId}`);
         }
-        return agent.updateTools(tools as any);
+        const normalizedTools = this.normalizeTools(tools);
+        const result = await agent.updateTools(normalizedTools);
+        this.agentToolsRegistry.set(agentId, normalizedTools);
+        return result;
     }
 
     /**
@@ -316,26 +331,25 @@ export class PlaygroundExecutor {
         if (!agent) {
             throw new Error(`getAgentConfiguration: agent not found for id ${agentId}`);
         }
-        return agent.getConfiguration() as any;
+        return agent.getConfiguration();
     }
 
-    /** Build a simple dummy FunctionTool using JSON schema that returns a fixed or echoed result */
-    private buildDummyTool(name: string, description?: string): any {
+    /** Convert playground tool contract into FunctionTool */
+    private buildFunctionTool(tool: IPlaygroundTool): FunctionTool {
         const schema: IToolSchema = {
-            name,
-            description: description || 'Dummy tool (returns echo) for Playground',
+            name: tool.name,
+            description: tool.description || `Playground tool: ${tool.name}`,
             parameters: {
                 type: 'object',
                 properties: {
                     value: { type: 'string', description: 'Value to echo' }
                 }
             }
-        } as any;
-        const executor = async (params: any) => {
-            const val = params && typeof params.value === 'string' ? params.value : `ok:${name}`;
-            return { success: true, data: val } as any;
         };
-        return new FunctionTool(schema as any, executor as any);
+        const executor = async (params: TToolParameters, context?: IToolExecutionContext): Promise<TUniversalValue> => {
+            return tool.execute(params);
+        };
+        return new FunctionTool(schema, executor);
     }
 
     /** Convenience: from UI card ({ id, name, description }) append tool from registry and update agent */
@@ -346,18 +360,16 @@ export class PlaygroundExecutor {
         }
 
         // Create tool from static ToolRegistry (eventService injected)
-        const factory = (ToolRegistry as any)[card.id];
+        const typedToolRegistry = ToolRegistry as Record<string, ((eventService: IEventService) => FunctionTool) | undefined>;
+        const factory = typedToolRegistry[card.id];
         if (typeof factory !== 'function') {
             throw new Error(`Unknown tool id: ${card.id}`);
         }
 
         const newTool = factory(this.eventService);
-
-        const existing: any[] = ((agent as any).config?.tools as any[]) || [];
-        const result = await agent.updateTools([...
-            existing,
-            newTool
-        ] as any);
+        const existing = this.agentToolsRegistry.get(agentId) || [];
+        const result = await agent.updateTools([...existing, newTool]);
+        this.agentToolsRegistry.set(agentId, [...existing, newTool]);
         return result;
     }
 
@@ -591,8 +603,8 @@ export class PlaygroundExecutor {
     /**
      * Create IToolHooks using EventService for assignTask instrumentation
      */
-    private createEventServiceToolHooks(): any {
-        return { hooksEnabled: true } as any;
+    private createEventServiceToolHooks(): IPlaygroundToolHookFlags {
+        return { hooksEnabled: true };
     }
 
     /**
@@ -807,7 +819,7 @@ export class PlaygroundExecutor {
     /**
      * Create a SimpleRemoteExecutor for browser-based remote execution
      */
-    private createRemoteExecutor(): any {
+    private createRemoteExecutor(): IExecutor {
         if (!this.serverUrl || !this.authToken) {
             throw new Error('Server URL and auth token required for remote executor');
         }
@@ -826,7 +838,7 @@ export class PlaygroundExecutor {
     /**
      * Create AI providers with remote executor injection
      */
-    private createProvidersWithExecutor(): any[] {
+    private createProvidersWithExecutor(): IAIProvider[] {
         const remoteExecutor = this.createRemoteExecutor();
 
         // Explicitly set a model to keep execution deterministic in examples/tests.
@@ -842,6 +854,15 @@ export class PlaygroundExecutor {
         });
 
         return [openaiProvider, anthropicProvider];
+    }
+
+    private normalizeTools(tools: IPlaygroundTool[]): FunctionTool[] {
+        return tools.map(tool => {
+            if (tool instanceof FunctionTool) {
+                return tool;
+            }
+            return this.buildFunctionTool(tool);
+        });
     }
 
     /**
@@ -868,19 +889,22 @@ export class PlaygroundExecutor {
     }
 
     /**
-     * Update authentication (internal configuration)
+     * Update authentication credentials for active realtime transport.
      */
-    private updateAuth(userId: string, sessionId: string, authToken: string): void {
-        // This method is no longer needed as authentication is handled by the remote executor
-        // and WebSocket client.
-        // Keeping it for now, but it will be removed if not used elsewhere.
-        // this.userId = userId;
-        // this.sessionId = sessionId;
-        // this.authToken = authToken;
+    updateAuth(userId: string, sessionId: string, authToken: string): void {
+        if (this.websocketClient) {
+            this.websocketClient.updateAuth(userId, sessionId, authToken);
+        }
+    }
 
-        // if (this.websocketClient) {
-        //     this.websocketClient.updateAuth(userId, sessionId, authToken);
-        // }
+    /**
+     * Read current websocket connection status.
+     */
+    isWebSocketConnected(): boolean {
+        if (!this.websocketClient) {
+            return false;
+        }
+        return this.websocketClient.getStatus().connected;
     }
 }
 

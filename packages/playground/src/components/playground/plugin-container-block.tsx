@@ -23,6 +23,7 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { ScrollArea } from '../ui/scroll-area';
+import { Progress } from '../ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import {
@@ -162,6 +163,14 @@ const CATEGORY_COLORS = {
     SECURITY: 'text-red-600',
     CUSTOM: 'text-gray-600'
 };
+
+function getMaxHeightClass(maxHeight: string): string {
+    if (maxHeight === '240px') return 'max-h-60';
+    if (maxHeight === '320px') return 'max-h-80';
+    if (maxHeight === '400px') return 'max-h-[400px]';
+    if (maxHeight === '480px') return 'max-h-[480px]';
+    return 'max-h-[400px]';
+}
 
 function PluginOptionInput({
     option,
@@ -436,16 +445,12 @@ function IndividualPluginBlock({
                                         <Label className="text-xs">Success Rate</Label>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                            <div
-                                                className="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                                                style={{
-                                                    width: `${pluginBlock.stats.calls > 0 ?
-                                                        ((pluginBlock.stats.calls - pluginBlock.stats.errors) / pluginBlock.stats.calls) * 100 : 0
-                                                        }%`
-                                                }}
-                                            />
-                                        </div>
+                                        <Progress
+                                            value={pluginBlock.stats.calls > 0
+                                                ? ((pluginBlock.stats.calls - pluginBlock.stats.errors) / pluginBlock.stats.calls) * 100
+                                                : 0}
+                                            className="h-2 flex-1"
+                                        />
                                         <span className="text-xs text-gray-600">
                                             {pluginBlock.stats.calls > 0 ?
                                                 Math.round(((pluginBlock.stats.calls - pluginBlock.stats.errors) / pluginBlock.stats.calls) * 100)
@@ -515,6 +520,7 @@ export function PluginContainerBlock({
         setFilterCategory(PLUGIN_CATEGORIES[value]);
     }, []);
     const [showPluginLibrary, setShowPluginLibrary] = useState(false);
+    const maxHeightClassName = getMaxHeightClass(maxHeight);
 
     // Filter available plugins
     const filteredAvailablePlugins = useMemo(() => {
@@ -676,7 +682,7 @@ export function PluginContainerBlock({
                         )}
                     </div>
                 ) : (
-                    <ScrollArea style={{ maxHeight }} className="w-full">
+                    <ScrollArea className={`w-full ${maxHeightClassName}`}>
                         <div className="space-y-3">
                             {plugins
                                 .sort((a, b) => b.priority - a.priority) // Sort by priority (higher first)
