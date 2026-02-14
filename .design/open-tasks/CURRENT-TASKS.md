@@ -5,25 +5,79 @@
 
 ---
 
-## 규칙 완전 준수 루프 (다음 배치)
+## Gate 체크포인트 (필수)
 
-### P2 - 재감사/반복 루프
-- [x] `playground` `workflow-visualization.tsx` 타입 경계 정리
-  - 목표:
-    - 광범위 union(`IWorkflowVisualizationNodeData` 확장 필드) 직접 접근 구간을 헬퍼로 단일화
-    - `parameters/result/response` 접근 시 object/record 가드 경로만 사용
-    - ReactFlow `Node/NodeChange` 제네릭 경계와 로컬 상태 타입 정합성 일치
-  - 완료기준:
-    - 동일 파일 IDE 타입 오류 핵심 축(속성 접근/제네릭 불일치) 정리
-    - `pnpm --filter @robota-sdk/playground build` 통과 유지
+### Gate-1 Scope Freeze (P0 종료 전)
+- [ ] v1 포함/제외 목록 승인 완료
+- [ ] scope 변경 시 RFC 프로세스 적용 규칙 문서화
 
-- [x] 재검증 루프 1회 수행 (`agents/workflow/playground`)
-  - 목표:
-    - no-fallback / no-dedup / path-only / event-constant / strict-type 규칙 재점검
-  - 완료기준:
-    - 신규 위반이 없으면 문서에 “잔여 위반 없음”으로 기록
-    - 신규 위반이 있으면 다음 배치 체크리스트로 즉시 등록
+Pass 기준:
+- [ ] 개발 항목이 v1 포함 범위로만 제한됨
 
-## 현재 잔여 위반
+### Gate-2 Time Semantics (P1 종료 전)
+- [ ] 시간 정책(UTC/logicalDate/수동 실행 우선) 문서 고정
+- [ ] time semantics 테스트 케이스 작성
 
-- 이번 배치 스캔/빌드 기준 잔여 위반 없음
+Pass 기준:
+- [ ] 시간 정책 테스트 통과
+
+### Gate-3 Execution Guarantee (P2 종료 전)
+- [ ] `at-least-once + idempotency(runKey/taskRunId)` 정책 고정
+- [ ] lease 만료/재할당 시나리오 테스트 작성
+
+Pass 기준:
+- [ ] 멱등성/재할당 테스트 통과
+
+---
+
+## DAG Phase 실행 계획
+
+### P0 기반 계약/스캐폴딩
+- [ ] `packages/dag-core` 생성
+- [ ] `packages/dag-runtime` 생성
+- [ ] `packages/dag-worker` 생성
+- [ ] `packages/dag-scheduler` 생성
+- [ ] `packages/dag-projection` 생성
+- [ ] `packages/dag-api` 생성
+- [ ] `packages/dag-designer` 생성
+- [ ] core 타입/상수/포트/상태머신 구현
+
+완료기준:
+- [ ] `pnpm --filter @robota-sdk/dag-* build` 통과
+- [ ] 순환 의존 0건
+- [ ] Gate-1 Pass
+
+### P1 Design-time MVP
+- [ ] DAG definition CRUD + validate + publish 구현
+- [ ] `dag-designer` validate/publish 연동
+- [ ] invalid definition failure 테스트 구현
+
+완료기준:
+- [ ] validate/publish E2E 통과
+- [ ] Gate-2 Pass
+
+### P2 Runtime MVP
+- [ ] run orchestrator + worker loop + retry/timeout/lease 구현
+- [ ] runtime API(trigger/query/cancel) 구현
+- [ ] mock infra 기반 단일 DAGRun E2E 구축
+
+완료기준:
+- [ ] 단일 DAGRun E2E 성공
+- [ ] 실패->retry->terminal 시나리오 통과
+- [ ] Gate-3 Pass
+
+### P3 Scheduler/확장
+- [ ] scheduler 기본 트리거 구현
+- [ ] backfill/catchup(제한 범위) 구현
+- [ ] DLQ/재주입 경로 구현
+
+완료기준:
+- [ ] scheduler 연계 통합 테스트 통과
+
+### P4 관측성/운영성
+- [ ] projection(run/task/lineage) 완성
+- [ ] 운영 조회 API/대시보드 연동
+- [ ] 운영 진단 도구(재실행/실패 분석) 추가
+
+완료기준:
+- [ ] 운영 조회/진단 시나리오 통과
