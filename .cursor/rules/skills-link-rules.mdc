@@ -136,6 +136,42 @@ Use this map to keep procedural guidance aligned with formal project specs.
   - `.cursor/skills/plugin-development/SKILL.md`
   - `.cursor/skills/import-standards/SKILL.md`
 
+### Domain Modeling and State
+- Rule anchors:
+  - `.cursor/rules/development-architecture-rules.mdc`
+  - `.cursor/rules/execution-safety-rules.mdc`
+- Procedural skills:
+  - `.cursor/skills/ddd-tactical-patterns/SKILL.md`
+  - `.cursor/skills/state-machine-design/SKILL.md`
+
+### API Boundaries and Contracts
+- Rule anchors:
+  - `.cursor/rules/type-ssot-rules.mdc`
+  - `.cursor/rules/build-and-resolution-rules.mdc`
+- Procedural skills:
+  - `.cursor/skills/contract-testing/SKILL.md`
+  - `.cursor/skills/boundary-validation/SKILL.md`
+
+### Concurrency and Async Control
+- Rule anchor: `.cursor/rules/execution-safety-rules.mdc`
+- Procedural skill:
+  - `.cursor/skills/async-concurrency-patterns/SKILL.md`
+
+### Versioning and API Surface
+- Rule anchor: `.cursor/rules/project-structure-rules.mdc`
+- Procedural skill:
+  - `.cursor/skills/semver-api-surface/SKILL.md`
+
+### Decision Records
+- Rule anchor: `.cursor/rules/development-architecture-rules.mdc`
+- Procedural skill:
+  - `.cursor/skills/architecture-decision-records/SKILL.md`
+
+### DAG System (Future)
+- Spec: `.design/specs/workflow-dag-development-plan.md`
+- Rule anchors: inherited from Event/Workflow, Type/SSOT, and Architecture sections
+- Procedural skills: `ddd-tactical-patterns`, `state-machine-design`, `contract-testing`, `boundary-validation`, `async-concurrency-patterns`
+
 ## Maintenance Checklist
 - [ ] New mandatory policy is added to a rule file first.
 - [ ] Skills reference rule anchors and avoid duplicating hard prohibitions.
