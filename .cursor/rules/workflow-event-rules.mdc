@@ -191,6 +191,28 @@ export const AGENT_EVENTS = {
 - `team.*` → emitted by team coordination layer
 - `task.*` → emitted by task management layer
 
+### DAG Event System Boundary (Authoritative)
+- DAG events are a separate event layer from workflow/agent/team event streams.
+- DAG events are not compatibility targets for workflow event handlers.
+- DAG event names are domain-centric by layer:
+  - `run.*`
+  - `task.*`
+  - `worker.*`
+  - `scheduler.*`
+- For DAG, local event constants still apply (no hardcoded strings, no `.` in local names).
+
+### DAG Safety Guards (Mandatory)
+1. **Event bus isolation**
+   - DAG must use a dedicated EventService/Emitter instance.
+   - Sharing the same runtime emitter instance with workflow/agent streams is prohibited.
+2. **No default cross-bridge**
+   - In v1, do not add DAG↔workflow event bridge/conversion modules by default.
+   - Any bridge requires explicit ADR approval.
+3. **No cross-import of event constants**
+   - `dag-*` packages must not import workflow/agent event constants (`EXECUTION_EVENTS`, `TOOL_EVENTS`, `AGENT_EVENTS`).
+   - workflow packages must not import DAG event constants.
+   - Violations must fail CI scan.
+
 ### Emission Placement (Single Authoritative Sources)
 - Execution lifecycle events are emitted in `ExecutionService` (or an explicitly defined proxy wrapper).
 - Tool call lifecycle events are emitted in the tool execution layer and must call hooks in order: `onStart` → run → `onComplete`/`onError`.

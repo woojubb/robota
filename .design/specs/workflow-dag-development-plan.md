@@ -263,6 +263,12 @@ Fail:
 의미:
 - 시간 모델(수동 실행 중심 + logicalDate 저장)을 테스트 가능한 규칙으로 고정
 
+정책(고정):
+- 모든 저장 시간은 UTC ISO-8601 (`YYYY-MM-DDTHH:mm:ss.sssZ`) 형식으로 정규화한다.
+- v1에서 scheduler 트리거는 `logicalDate`를 필수로 제공해야 한다.
+- v1에서 manual/api 트리거는 `logicalDate`가 없으면 `requestedAt(현재 UTC)`를 `logicalDate`로 사용한다.
+- timezone/DST 해석은 입력 시점에 UTC로 정규화하여 저장하고, 저장 후에는 UTC 기준만 사용한다.
+
 Pass:
 - time policy 문서화(UTC 기준, v1 scheduler 제한)
 - 관련 테스트 케이스 통과
@@ -294,19 +300,19 @@ Fail:
 ### 8.2 필수 endpoint (v1)
 
 #### Design API
-- `POST /v1/dag-definitions`
-- `PUT /v1/dag-definitions/:dagId/draft`
-- `POST /v1/dag-definitions/:dagId/validate`
-- `POST /v1/dag-definitions/:dagId/publish`
+- `POST /v1/dag/definitions`
+- `PUT /v1/dag/definitions/:dagId/draft`
+- `POST /v1/dag/definitions/:dagId/validate`
+- `POST /v1/dag/definitions/:dagId/publish`
 
 #### Runtime API
-- `POST /v1/dag-runs`
-- `GET /v1/dag-runs/:dagRunId`
-- `GET /v1/dag-runs/:dagRunId/tasks`
-- `POST /v1/dag-runs/:dagRunId/cancel`
+- `POST /v1/dag/runs`
+- `GET /v1/dag/runs/:dagRunId`
+- `GET /v1/dag/runs/:dagRunId/tasks`
+- `POST /v1/dag/runs/:dagRunId/cancel`
 
 #### Capability API
-- `GET /v1/capabilities`
+- `GET /v1/dag/capabilities`
   - designer가 지원 기능을 동적으로 확인
 
 ### 8.3 Designer 약결합 규칙
@@ -427,31 +433,46 @@ Fail:
 P0 착수 전 기존 rules/skills 전체와 교차 검토한 결과.
 각 항목은 해당 규칙 참조와 함께 결정 사항/미결 사항을 명시한다.
 
-### 15.1 이벤트 프리픽스 충돌 해소 (심각도: 높음)
+### 15.1 DAG 이벤트 계층 분리 및 안전장치 3개 (심각도: 높음)
 
 규칙 참조: `workflow-event-rules.mdc` — Event Ownership by Prefix
 
-#### 문제
-기존 규칙에서 `task.*`는 "Task management events" 소유.
-DAG 시스템의 `TaskRun`과 이름 공간이 충돌한다.
+#### 문제 재정의
+기존 workflow 이벤트와 DAG 이벤트는 같은 목적의 이벤트가 아니다.
+- 기존 workflow 이벤트: agent/tool/team 실행 흐름 추적
+- DAG 이벤트: DAGRun/TaskRun/Worker/Scheduler 도메인 상태 전이
+
+즉, 두 이벤트 시스템은 **호환 대상이 아니라 서로 다른 계층**이다.
 
 #### 결정 사항
-- DAG 전용 프리픽스 체계 도입:
-  - `dagrun.*` — DAGRun 생명주기 이벤트
-  - `dagtask.*` — TaskRun 생명주기 이벤트
-  - `dagworker.*` — Worker 실행 이벤트
-  - `dagscheduler.*` — Scheduler 트리거 이벤트
-- 기존 `task.*` (team/agent 컨텍스트)와 완전 분리
+- v1에서 DAG 이벤트 시스템은 기존 workflow 이벤트 시스템과 **완전 분리**한다.
+- 따라서 DAG 이벤트 이름은 `dag-*` 접두어 강제를 기본 전제로 두지 않는다.
+- DAG 이벤트 네임스페이스는 도메인 의미를 직접 반영한다:
+  - `run.*` — DAGRun 생명주기 이벤트
+  - `task.*` — TaskRun 생명주기 이벤트
+  - `worker.*` — Worker 실행 이벤트
+  - `scheduler.*` — Scheduler 트리거 이벤트
 - `dag-core`에 이벤트 상수 정의:
   ```
-  DAG_RUN_EVENTS = { CREATED, RUNNING, SUCCESS, FAILED, CANCELLED } as const
-  DAG_TASK_EVENTS = { QUEUED, RUNNING, SUCCESS, FAILED, UPSTREAM_FAILED, SKIPPED } as const
-  DAG_WORKER_EVENTS = { LEASE_ACQUIRED, HEARTBEAT, LEASE_EXPIRED, EXECUTION_COMPLETE } as const
-  DAG_SCHEDULER_EVENTS = { EVALUATED, TRIGGERED, SKIPPED } as const
+  RUN_EVENTS = { CREATED, RUNNING, SUCCESS, FAILED, CANCELLED } as const
+  TASK_EVENTS = { QUEUED, RUNNING, SUCCESS, FAILED, UPSTREAM_FAILED, SKIPPED } as const
+  WORKER_EVENTS = { LEASE_ACQUIRED, HEARTBEAT, LEASE_EXPIRED, EXECUTION_COMPLETE } as const
+  SCHEDULER_EVENTS = { EVALUATED, TRIGGERED, SKIPPED } as const
   ```
-- `composeEventName` 유틸리티를 DAG에서도 동일하게 사용할지, 독립 이벤트 버스를 쓸지는 P0에서 결정
-  - 기존 agent EventService와 DAG 이벤트가 같은 버스를 공유하는지 여부가 핵심
-  - v1 권장: DAG 전용 이벤트 버스 (기존 agent와 분리)
+
+#### 안전장치 3개 (강제)
+1. **이벤트 버스 분리 고정**
+   - DAG는 DAG 전용 EventService/Emitter 인스턴스를 사용한다.
+   - 기존 workflow/agent/team 이벤트 버스와 shared instance를 금지한다.
+
+2. **경계 브리지 기본 금지**
+   - v1에서 DAG 이벤트를 workflow 이벤트로 변환/브리지하는 모듈을 두지 않는다.
+   - 브리지가 필요해지면 v2에서 별도 ADR로 승인 후 추가한다.
+
+3. **교차 import 금지 + 검증**
+   - `dag-*` 패키지는 workflow 이벤트 상수(`EXECUTION_EVENTS`, `TOOL_EVENTS`, `AGENT_EVENTS`)를 import하지 않는다.
+   - workflow 패키지도 DAG 이벤트 상수를 import하지 않는다.
+   - CI 스캔으로 교차 import가 발견되면 실패 처리한다.
 
 ### 15.2 v1 어댑터(구현체) 스펙 (심각도: 높음)
 
@@ -461,17 +482,26 @@ DAG 시스템의 `TaskRun`과 이름 공간이 충돌한다.
 포트 인터페이스는 정의되었으나 v1에서 실제 사용할 어댑터가 미정.
 
 #### 결정 사항 (v1 어댑터)
-| 포트 | v1 어댑터 | 비고 |
-|------|----------|------|
-| `IQueuePort` | `InMemoryQueueAdapter` | 단일 프로세스, 분산 미지원 |
-| `ILeasePort` | `InMemoryLeaseAdapter` | 단일 프로세스 lease |
-| `IStoragePort` | `FileSystemStorageAdapter` 또는 `SQLiteStorageAdapter` | P0에서 결정 |
-| `ITaskExecutorPort` | `DirectFunctionExecutor` | JS 함수 직접 호출, worker thread 미사용 |
-| `IClockPort` | `SystemClockAdapter` (`Date.now()` 래퍼) | 테스트 시 `FakeClock` 주입 |
+- **원칙**: 모든 Adapter의 기술 스택을 사전 고정하지 않는다.
+- **예외**: 필수 Adapter에 한해서만 기술/구현 전략을 사전 확정한다.
+
+#### 필수 Adapter 사전 확정 항목
+| 포트 | 사전 확정 내용 | 이유 |
+|------|----------------|------|
+| `IStoragePort` | v1 기본 구현을 `SQLiteStorageAdapter`로 고정 | 상태 일관성/트랜잭션/재현 가능한 테스트 확보 |
+| `IClockPort` | `SystemClockAdapter` + 테스트용 `FakeClock` 제공 | 시간 결정론(Time semantics, lease/retry 테스트) 확보 |
+
+#### 비필수 Adapter (기술 스택 미고정)
+| 포트 | v1 요구사항(계약) | 구현 선택 시점 |
+|------|------------------|----------------|
+| `IQueuePort` | enqueue/dequeue/ack 기본 계약 충족 | P0 구현 시 선택 |
+| `ILeasePort` | acquire/renew/release 및 만료 규칙 충족 | P0 구현 시 선택 |
+| `ITaskExecutorPort` | task 입력/출력/에러 계약 충족 | P0 구현 시 선택 |
 
 - 모든 v1 어댑터는 `dag-api` composition 모듈에서 주입
 - 어댑터 구현체 위치: 각 구현 패키지 내부 또는 `dag-api/adapters/`
 - 테스트용 mock 어댑터: `dag-core/testing/` 모듈로 제공
+- P0 완료 조건: 비필수 Adapter는 기술 선택 자체보다 **포트 계약 준수 테스트 통과**를 우선한다
 
 ### 15.3 에러 분류 체계 (심각도: 높음)
 
@@ -479,21 +509,67 @@ DAG 시스템의 `TaskRun`과 이름 공간이 충돌한다.
 
 #### 문제
 기존 `[EMITTER-CONTRACT]`/`[APPLY-LAYER]` 분류는 workflow 전용.
-DAG 시스템은 더 많은 실패 지점이 있으나 분류가 없다.
+DAG 시스템은 더 많은 실패 지점이 있으나, 외부 API/내부 처리/재시도 정책을 함께 다루는 표준 에러 구조가 없다.
 
-#### 결정 사항 — DAG 에러 레이어
-| 레이어 | 태그 | 의미 | 정책 |
-|--------|------|------|------|
-| 정의 검증 | `[DAG-VALIDATION]` | definition 구조/의존 규칙 위반 | 즉시 reject, run 생성 불가 |
-| 상태 전이 | `[STATE-TRANSITION]` | 상태 머신 규칙 위반 (예: running→queued 불가) | 즉시 중단 |
-| Lease 계약 | `[LEASE-CONTRACT]` | lease 만료/중복 실행 계약 위반 | 즉시 중단, requeue 판단 |
-| Dispatch 계약 | `[DISPATCH-CONTRACT]` | queue dispatch 실패 | 즉시 중단, retry 가능 |
-| 실행 오류 | `[TASK-EXECUTION]` | task handler 내부 실패 | retry 정책 적용 후 terminal |
+#### 결정 사항 — 표준형 에러 모델
+- 내부 에러는 **code-first typed error**로 통일한다.
+- 외부 API 응답은 **RFC 7807 Problem Details** 형식으로 통일한다.
+- 레이어 태그는 category(분류)로 유지하되, 분기 기준은 `code`와 `retryable`을 우선한다.
 
-- 모든 에러 메시지에 레이어 태그 포함 필수
+#### 내부 에러 모델 (code-first)
+```ts
+type TErrorCategory =
+  | 'validation'
+  | 'state_transition'
+  | 'lease'
+  | 'dispatch'
+  | 'task_execution';
+
+interface IDagError {
+  code: string;
+  category: TErrorCategory;
+  message: string;
+  retryable: boolean;
+  context?: Record<string, string | number | boolean>;
+}
+```
+
+#### 카테고리/코드/정책
+| 카테고리 | 대표 코드 예시 | retryable | 정책 |
+|----------|----------------|-----------|------|
+| `validation` | `DAG_VALIDATION_INVALID_SCHEMA` | `false` | 즉시 reject, run 생성 불가 |
+| `state_transition` | `DAG_STATE_TRANSITION_INVALID` | `false` | 즉시 중단 |
+| `lease` | `DAG_LEASE_CONTRACT_VIOLATION` | `false` | 즉시 중단 |
+| `dispatch` | `DAG_DISPATCH_UNAVAILABLE` | `true` | 재시도 정책 범위 내 재시도 |
+| `task_execution` | `DAG_TASK_EXECUTION_FAILED` | `true` | retry 정책 적용 후 terminal |
+
+#### 외부 API 에러 모델 (RFC 7807)
+```json
+{
+  "type": "https://robota.dev/problems/dag/state-transition",
+  "title": "Invalid state transition",
+  "status": 409,
+  "detail": "TaskRun cannot transition from running to queued.",
+  "instance": "/v1/dag/runs/run_123/tasks/task_9",
+  "code": "DAG_STATE_TRANSITION_INVALID",
+  "retryable": false,
+  "correlationId": "req-9f2c"
+}
+```
+
+#### API 매핑 기준 (v1)
+| category | HTTP status 기본값 |
+|----------|--------------------|
+| `validation` | `400` |
+| `state_transition` | `409` |
+| `lease` | `409` |
+| `dispatch` | `503` |
+| `task_execution` | `500` |
+
 - `Result<T, E>` 패턴 적용: 도메인 함수는 throw 대신 typed result 반환
   - `effect-style-error-modeling` SKILL 적용
   - 경계 어댑터에서만 외부 예외를 도메인 에러로 변환
+- 모든 실패 로그/메트릭은 최소한 `code`, `category`, `retryable`를 포함한다.
 
 ### 15.4 상태 머신 순수성 (심각도: 중간)
 
