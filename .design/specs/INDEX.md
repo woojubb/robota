@@ -12,5 +12,6 @@
 - `type-ownership-inventory.md`: 타입 소유권 감사 인벤토리(범위/검사 기준/결과)
 - `terminology.md`: 프로젝트 용어 SSOT(실패 분류, linkage 용어 포함)
 - `skills-directory.md`: rules/skills 분리 운영 기준
+- `workflow-dag-development-plan.md`: DAG Design/Execution 분리 + Scheduler/Worker 기반 대규모 개발 계획
 
 
