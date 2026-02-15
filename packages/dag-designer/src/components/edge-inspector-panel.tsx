@@ -1,5 +1,10 @@
-import type { ReactElement } from 'react';
-import type { IDagDefinition, IDagEdgeDefinition } from '@robota-sdk/dag-core';
+import { useState, type ReactElement } from 'react';
+import type {
+    IDagDefinition,
+    IDagEdgeDefinition,
+    IEdgeBinding,
+    IPortDefinition
+} from '@robota-sdk/dag-core';
 
 export interface IEdgeInspectorPanelProps {
     definition: IDagDefinition;
@@ -11,7 +16,55 @@ function edgeId(edge: IDagEdgeDefinition): string {
     return `${edge.from}->${edge.to}`;
 }
 
+function findPortByKey(ports: IPortDefinition[], key: string): IPortDefinition | undefined {
+    return ports.find((port) => port.key === key);
+}
+
+function validateBindings(
+    definition: IDagDefinition,
+    selectedEdge: IDagEdgeDefinition,
+    outputPorts: IPortDefinition[],
+    inputPorts: IPortDefinition[],
+    bindings: IEdgeBinding[]
+): string | undefined {
+    if (bindings.length === 0) {
+        return 'At least one binding is required for an edge.';
+    }
+
+    const usedInputInEdge = new Set<string>();
+    const usedInputInOtherEdges = new Set<string>(
+        definition.edges
+            .filter((edge) => edge.to === selectedEdge.to && edgeId(edge) !== edgeId(selectedEdge))
+            .flatMap((edge) => (edge.bindings ?? []).map((binding) => binding.inputKey))
+    );
+
+    for (const binding of bindings) {
+        const outputPort = findPortByKey(outputPorts, binding.outputKey);
+        if (!outputPort) {
+            return `Output key "${binding.outputKey}" was not found on source node.`;
+        }
+        const inputPort = findPortByKey(inputPorts, binding.inputKey);
+        if (!inputPort) {
+            return `Input key "${binding.inputKey}" was not found on target node.`;
+        }
+        if (outputPort.type !== inputPort.type) {
+            return `Type mismatch: "${binding.outputKey}"(${outputPort.type}) -> "${binding.inputKey}"(${inputPort.type}).`;
+        }
+        if (usedInputInEdge.has(binding.inputKey)) {
+            return `Duplicate input key "${binding.inputKey}" in the same edge is not allowed.`;
+        }
+        usedInputInEdge.add(binding.inputKey);
+        if (usedInputInOtherEdges.has(binding.inputKey)) {
+            return `Input key "${binding.inputKey}" conflicts with another upstream edge.`;
+        }
+    }
+
+    return undefined;
+}
+
 export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElement {
+    const [operationError, setOperationError] = useState<string | undefined>(undefined);
+
     if (!props.selectedEdgeId) {
         return (
             <div className="rounded border border-gray-300 p-3">
@@ -39,13 +92,34 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
     const sortedOutputPorts = [...outputPorts].sort((left, right) => (left.order ?? 9999) - (right.order ?? 9999));
     const sortedInputPorts = [...inputPorts].sort((left, right) => (left.order ?? 9999) - (right.order ?? 9999));
 
+    const updateEdgeWithValidation = (nextBindings: IEdgeBinding[]): void => {
+        const validationError = validateBindings(
+            props.definition,
+            selectedEdge,
+            sortedOutputPorts,
+            sortedInputPorts,
+            nextBindings
+        );
+        if (validationError) {
+            setOperationError(validationError);
+            return;
+        }
+        setOperationError(undefined);
+        props.onUpdateEdge({
+            ...selectedEdge,
+            bindings: nextBindings
+        });
+    };
+
     const addBinding = (): void => {
         if (sortedOutputPorts.length === 0 || sortedInputPorts.length === 0) {
+            setOperationError('Cannot add binding: source or target node has no ports.');
             return;
         }
         const firstOutput = sortedOutputPorts[0];
         const firstInput = sortedInputPorts[0];
         if (!firstOutput || !firstInput) {
+            setOperationError('Cannot add binding: source or target port was not found.');
             return;
         }
 
@@ -53,11 +127,7 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
             outputKey: firstOutput.key,
             inputKey: firstInput.key
         }];
-
-        props.onUpdateEdge({
-            ...selectedEdge,
-            bindings: nextBindings
-        });
+        updateEdgeWithValidation(nextBindings);
     };
 
     const updateBinding = (
@@ -73,19 +143,13 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
         nextBindings[index] = direction === 'output'
             ? { ...binding, outputKey: nextKey }
             : { ...binding, inputKey: nextKey };
-        props.onUpdateEdge({
-            ...selectedEdge,
-            bindings: nextBindings
-        });
+        updateEdgeWithValidation(nextBindings);
     };
 
     const removeBinding = (index: number): void => {
         const nextBindings = [...(selectedEdge.bindings ?? [])];
         nextBindings.splice(index, 1);
-        props.onUpdateEdge({
-            ...selectedEdge,
-            bindings: nextBindings
-        });
+        updateEdgeWithValidation(nextBindings);
     };
 
     return (
@@ -94,6 +158,11 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
             <div className="text-xs text-gray-500">
                 {selectedEdge.from} {'->'} {selectedEdge.to}
             </div>
+            {operationError ? (
+                <div className="rounded border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700">
+                    {operationError}
+                </div>
+            ) : null}
             <button
                 type="button"
                 className="rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"

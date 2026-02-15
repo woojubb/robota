@@ -5,6 +5,8 @@ export * from './contracts/designer-api.js';
 export * from './client/designer-api-client.js';
 export * from './lifecycle/preview-engine.js';
 export * from './components/dag-designer-canvas.js';
+export * from './components/dag-binding-edge.js';
+export * from './components/dag-node-view.js';
 export * from './components/node-explorer-panel.js';
 export * from './components/node-config-panel.js';
 export * from './components/edge-inspector-panel.js';
