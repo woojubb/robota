@@ -2,12 +2,17 @@ import { useCallback, useEffect, useMemo, useState, type ReactElement } from 're
 import {
     addEdge,
     Background,
-    Controls,
     type Connection,
+    ConnectionMode,
+    ConnectionLineType,
+    Controls,
     type Edge,
+    type EdgeTypes,
     type EdgeMouseHandler,
     type Node,
+    type NodeTypes,
     type NodeMouseHandler,
+    type XYPosition,
     ReactFlow,
     useEdgesState,
     useNodesState
@@ -23,6 +28,8 @@ import type {
     TResult
 } from '@robota-sdk/dag-core';
 import { EdgeInspectorPanel } from './edge-inspector-panel.js';
+import { DagBindingEdge, type IDagBindingEdgeData } from './dag-binding-edge.js';
+import { DagNodeView, type IDagNodeViewData, type TDagCanvasNode } from './dag-node-view.js';
 import { NodeConfigPanel } from './node-config-panel.js';
 import { NodeExplorerPanel } from './node-explorer-panel.js';
 import { runDefinitionPreview, type IPreviewResult } from '../lifecycle/preview-engine.js';
@@ -34,22 +41,69 @@ export interface IDagDesignerCanvasProps {
     onDefinitionChange: (definition: IDagDefinition) => void;
     onPreviewResult?: (result: TResult<IPreviewResult, IDagError>) => void;
     initialInput?: TPortPayload;
+    className?: string;
 }
 
-function toNode(nodeDefinition: IDagNodeDefinition, index: number): Node {
+function toNode(
+    nodeDefinition: IDagNodeDefinition,
+    index: number,
+    positionOverride?: XYPosition
+): TDagCanvasNode {
     return {
         id: nodeDefinition.nodeId,
-        type: 'default',
-        data: { label: `${nodeDefinition.nodeId} (${nodeDefinition.nodeType})` },
-        position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 }
+        type: 'dag-node',
+        dragHandle: '.dag-node-drag-handle',
+        data: {
+            label: nodeDefinition.nodeId,
+            nodeType: nodeDefinition.nodeType,
+            inputs: nodeDefinition.inputs,
+            outputs: nodeDefinition.outputs
+        } satisfies IDagNodeViewData,
+        position: positionOverride ?? { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 }
     };
 }
 
-function toEdge(edgeDefinition: IDagEdgeDefinition): Edge {
+function formatBindingLabel(edgeDefinition: IDagEdgeDefinition): string {
+    const bindings = edgeDefinition.bindings ?? [];
+    if (bindings.length === 0) {
+        return 'no-binding';
+    }
+    const rendered = bindings
+        .slice(0, 2)
+        .map((binding) => `${binding.outputKey} -> ${binding.inputKey}`);
+    if (bindings.length > 2) {
+        rendered.push(`+${bindings.length - 2} more`);
+    }
+    return rendered.join(', ');
+}
+
+function formatBindingFullLabel(edgeDefinition: IDagEdgeDefinition): string {
+    const bindings = edgeDefinition.bindings ?? [];
+    if (bindings.length === 0) {
+        return 'no-binding';
+    }
+    return bindings.map((binding) => `${binding.outputKey} -> ${binding.inputKey}`).join('\n');
+}
+
+function toEdge(
+    edgeDefinition: IDagEdgeDefinition,
+    onSelectEdge: (edgeId: string) => void
+): Edge {
+    const firstBinding = edgeDefinition.bindings?.[0];
+    const hasBinding = Boolean(firstBinding);
     return {
         id: `${edgeDefinition.from}->${edgeDefinition.to}`,
+        type: 'binding-edge',
         source: edgeDefinition.from,
-        target: edgeDefinition.to
+        target: edgeDefinition.to,
+        sourceHandle: firstBinding?.outputKey,
+        targetHandle: firstBinding?.inputKey,
+        data: {
+            shortLabel: formatBindingLabel(edgeDefinition),
+            fullLabel: formatBindingFullLabel(edgeDefinition),
+            hasBinding,
+            onSelectEdge
+        } satisfies IDagBindingEdgeData
     };
 }
 
@@ -142,14 +196,40 @@ function computeBindingErrors(definition: IDagDefinition): string[] {
 }
 
 export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement {
+    const nodeTypes = useMemo<NodeTypes>(() => ({ 'dag-node': DagNodeView }), []);
+    const edgeTypes = useMemo<EdgeTypes>(() => ({ 'binding-edge': DagBindingEdge }), []);
     const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined);
     const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>(undefined);
+    const [connectError, setConnectError] = useState<string | undefined>(undefined);
     const bindingErrors = useMemo(() => computeBindingErrors(props.definition), [props.definition]);
 
+    const selectEdgeById = useCallback((edgeId: string): void => {
+        setSelectedEdgeId(edgeId);
+        setSelectedNodeId(undefined);
+    }, []);
+
     const initialNodes = useMemo(() => props.definition.nodes.map((node, index) => toNode(node, index)), [props.definition.nodes]);
-    const initialEdges = useMemo(() => props.definition.edges.map(toEdge), [props.definition.edges]);
+    const initialEdges = useMemo(
+        () => props.definition.edges.map((edge) => toEdge(edge, selectEdgeById)),
+        [props.definition.edges, selectEdgeById]
+    );
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+    useEffect(() => {
+        setNodes((currentNodes) => {
+            const positionByNodeId = new Map<string, XYPosition>(
+                currentNodes.map((node) => [node.id, node.position])
+            );
+            return props.definition.nodes.map((node, index) => (
+                toNode(node, index, positionByNodeId.get(node.nodeId))
+            ));
+        });
+    }, [props.definition.nodes, setNodes]);
+
+    useEffect(() => {
+        setEdges(props.definition.edges.map((edge) => toEdge(edge, selectEdgeById)));
+    }, [props.definition.edges, setEdges, selectEdgeById]);
     const onNodeClick: NodeMouseHandler = (_event, node): void => {
         setSelectedNodeId(node.id);
         setSelectedEdgeId(undefined);
@@ -174,15 +254,37 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
     }, [props.definition, props.onDefinitionChange]);
 
     const onConnect = (connection: Connection): void => {
-        if (!connection.source || !connection.target) {
+        if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) {
+            setConnectError('Connection rejected: source/target handles are required.');
             return;
         }
 
-        const nextEdges = addEdge({
-            id: `${connection.source}->${connection.target}`,
-            source: connection.source,
-            target: connection.target
-        }, edges);
+        const existingEdgeIndex = props.definition.edges.findIndex(
+            (edge) => edge.from === connection.source && edge.to === connection.target
+        );
+        if (existingEdgeIndex >= 0) {
+            setConnectError(`Connection rejected: edge ${connection.source}->${connection.target} already exists.`);
+            return;
+        }
+        setConnectError(undefined);
+
+        const nextEdges = addEdge(
+            {
+                id: `${connection.source}->${connection.target}`,
+                type: 'binding-edge',
+                source: connection.source,
+                target: connection.target,
+                sourceHandle: connection.sourceHandle,
+                targetHandle: connection.targetHandle,
+                data: {
+                    shortLabel: `${connection.sourceHandle} -> ${connection.targetHandle}`,
+                    fullLabel: `${connection.sourceHandle} -> ${connection.targetHandle}`,
+                    hasBinding: true,
+                    onSelectEdge: selectEdgeById
+                } satisfies IDagBindingEdgeData
+            },
+            edges
+        );
         setEdges(nextEdges);
 
         const sourceNode = props.definition.nodes.find((node) => node.nodeId === connection.source);
@@ -199,6 +301,11 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             };
         });
 
+        const newBinding = {
+            outputKey: connection.sourceHandle,
+            inputKey: connection.targetHandle
+        };
+
         props.onDefinitionChange({
             ...props.definition,
             nodes: nextNodes,
@@ -207,7 +314,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 {
                     from: connection.source,
                     to: connection.target,
-                    bindings: []
+                    bindings: [newBinding]
                 }
             ]
         });
@@ -259,10 +366,12 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
     };
 
     return (
-        <div className="grid h-[760px] grid-cols-[260px_1fr_320px] gap-4">
-            <NodeExplorerPanel manifests={props.manifests} onAddNode={handleAddNode} />
-            <div className="rounded border border-gray-300">
-                <div className="flex items-center justify-between border-b border-gray-300 px-3 py-2">
+        <div className={`grid min-h-0 grid-cols-1 gap-4 lg:grid-cols-[260px_1fr_320px] ${props.className ?? 'h-[760px]'}`}>
+            <div className="min-h-0 overflow-auto rounded border border-gray-200 lg:w-[260px] lg:min-w-[260px] lg:max-w-[260px] lg:border-0">
+                <NodeExplorerPanel manifests={props.manifests} onAddNode={handleAddNode} />
+            </div>
+            <div className="flex min-h-[420px] flex-col overflow-hidden rounded border border-gray-300">
+                <div className="relative z-10 flex shrink-0 items-center justify-between border-b border-gray-300 bg-white px-3 py-2">
                     <h2 className="text-sm font-semibold">DAG Canvas</h2>
                     <button
                         type="button"
@@ -274,28 +383,46 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                     </button>
                 </div>
                 {bindingErrors.length > 0 ? (
-                    <div className="border-b border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+                    <div className="relative z-10 shrink-0 border-b border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
                         <div className="font-medium">Blocking Binding Errors</div>
                         {bindingErrors.map((error) => (
                             <div key={error}>- {error}</div>
                         ))}
                     </div>
                 ) : null}
-                <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    onConnect={onConnect}
-                    onNodeClick={onNodeClick}
-                    onEdgeClick={onEdgeClick}
-                    fitView
-                >
-                    <Background />
-                    <Controls />
-                </ReactFlow>
+                {connectError ? (
+                    <div className="relative z-10 shrink-0 border-b border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+                        <div className="font-medium">Connection Rejected</div>
+                        <div>- {connectError}</div>
+                    </div>
+                ) : null}
+                <div className="min-h-0 flex-1 overflow-hidden">
+                    <ReactFlow
+                        className="h-full"
+                        nodes={nodes}
+                        edges={edges}
+                        nodeTypes={nodeTypes}
+                        edgeTypes={edgeTypes}
+                        nodesConnectable
+                        connectionMode={ConnectionMode.Strict}
+                        onNodesChange={onNodesChange}
+                        onEdgesChange={onEdgesChange}
+                        onConnect={onConnect}
+                        onNodeClick={onNodeClick}
+                        onEdgeClick={onEdgeClick}
+                        panOnDrag={false}
+                        panOnScroll
+                        connectionLineType={ConnectionLineType.Bezier}
+                        connectionLineStyle={{ stroke: '#2563eb', strokeWidth: 2 }}
+                        fitView
+                        fitViewOptions={{ padding: 0.2 }}
+                    >
+                        <Background />
+                        <Controls />
+                    </ReactFlow>
+                </div>
             </div>
-            <div className="flex h-full flex-col gap-4">
+            <div className="flex min-h-0 flex-col gap-4 overflow-auto">
                 <NodeConfigPanel node={selectedNode} onUpdateNode={updateNode} />
                 <EdgeInspectorPanel
                     definition={props.definition}
