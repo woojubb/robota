@@ -46,6 +46,22 @@ function createSampleDefinition(): IDagDefinition {
         ],
         config: {},
       },
+      {
+        nodeId: "transform_1",
+        nodeType: "transform",
+        dependsOn: [],
+        inputs: [
+          { key: "text", label: "Text", order: 0, type: "string", required: false },
+          { key: "data", label: "Data", order: 1, type: "object", required: false },
+        ],
+        outputs: [
+          { key: "text", label: "Text", order: 0, type: "string", required: false },
+          { key: "data", label: "Data", order: 1, type: "object", required: false },
+        ],
+        config: {
+          prefix: "demo",
+        },
+      },
     ],
     edges: [
       {
