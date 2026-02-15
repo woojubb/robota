@@ -204,3 +204,70 @@ description: "CURRENT-TASKS에서 완료 처리된 항목을 보관한다"
 - `.design/specs/dag-local-run-and-build-guide.md`
 - `.design/specs/dag-local-run-build-validation-log.md`
 - `.design/specs/workflow-dag-development-plan.md` (P-Doc 결과 섹션 업데이트)
+
+### DAG Designer 조합형/훅 API/오버레이 레이아웃 정리 완료
+- 조합형 컴포넌트 확장 완료:
+  - `DagDesigner.Root/Canvas/NodeExplorer/Inspector`
+  - 세부 분리 컴포넌트 `DagDesigner.NodeConfig`, `DagDesigner.EdgeInspector` 추가
+- Node Explorer UI 개선 완료:
+  - 카테고리 탭(Tabs) 기반 탐색으로 전환
+- 훅 API 계층 추가 완료:
+  - `useDagDesignerState`, `useDagDesignerActions`
+  - `useDagDesignApi`(create/update/validate/publish/load/list/catalog)
+- web host 연동 정리 완료:
+  - `apps/web`에서 `DesignerApiClient` 직접 호출 제거
+  - 훅 기반 액션 호출로 전환
+- 레이아웃 정리 완료:
+  - 캔버스 풀 스크린 + 상단 컴팩트 헤더
+  - 좌/우 패널 플로팅 토글
+  - controls 오버레이(공간 비점유) 전환
+  - 우측 `Node Config` + `Edge Inspector`를 단일 레이아웃 컨테이너로 정리
+- 검증:
+  - `pnpm --filter @robota-sdk/dag-designer build` 통과
+  - `pnpm --filter @robota-sdk/web build` 통과
+  - `/dag-designer` 스모크(Create/Validate/Publish/Preview) 확인
+
+### DAG 노드 패키지 분리 마이그레이션 완료 (dag-nodes)
+- 노드 패키지 구조 전환 완료:
+  - 물리 경로: `packages/dag-nodes/<slug>`
+  - 패키지명: `@robota-sdk/dag-node-<slug>`
+- 초기 분리 패키지 완료:
+  - `dag-node-input`, `dag-node-transform`, `dag-node-llm-text`
+  - `dag-node-image-loader`, `dag-node-image-source`, `dag-node-ok-emitter`
+- 하드 컷오버 완료:
+  - `dag-core` 기본 노드 내장 manifest/handler 생성 경로 제거
+  - `apps/api-server`가 `@robota-sdk/dag-node-*` 직접 import로 bootstrap 조합
+  - `dag-designer` preview도 동일 노드 패키지 조합 경로로 전환
+- 검증:
+  - `pnpm --filter \"@robota-sdk/dag-node-*\" build` 통과
+  - `pnpm --filter @robota-sdk/dag-core build` 통과
+  - `pnpm --filter @robota-sdk/dag-designer build` 통과
+  - `pnpm --filter @robota-sdk/dag-api build` 통과
+  - `pnpm --filter @robota-sdk/api-server build` 통과
+  - `GET /v1/dag/nodes` 노드 목록 응답 확인
+  - bootstrap/run/process-once 스모크 확인
+
+### DAG Node Definition 책임 정렬 완료 (SSOT)
+- `IDagNodeDefinition`을 노드 타입 원본 계약으로 고정:
+  - `nodeType`, `displayName`, `category`
+  - `inputs`, `outputs`
+  - `configSchemaDefinition`
+  - `taskHandler`
+- 노드 패키지에서 `buildManifest()` 제거:
+  - `packages/dag-nodes/input`
+  - `packages/dag-nodes/transform`
+  - `packages/dag-nodes/llm-text`
+  - `packages/dag-nodes/image-loader`
+  - `packages/dag-nodes/image-source`
+  - `packages/dag-nodes/ok-emitter`
+- 중앙 조립부 단일화:
+  - `buildNodeDefinitionAssembly()`에서만 `configSchemaDefinition -> configSchema(JSON Schema) -> INodeManifest` 파생
+- 문서 정합성 반영:
+  - `dag-local-node-store-spec.md`에 `IDagNodeDefinition` 인스턴스 + 중앙 assembly 규칙 명시
+  - `workflow-dag-development-plan.md`의 완료/비정합 계획 정리
+- 검증:
+  - `pnpm --filter @robota-sdk/dag-core build` 통과
+  - `pnpm --filter \"@robota-sdk/dag-node-*\" build` 통과
+  - `pnpm --filter @robota-sdk/dag-designer build` 통과
+  - `pnpm --filter @robota-sdk/api-server build` 통과
+  - `GET /v1/dag/nodes` 스모크 통과

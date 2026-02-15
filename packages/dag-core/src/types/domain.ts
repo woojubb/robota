@@ -1,6 +1,8 @@
 export type TDagDefinitionStatus = 'draft' | 'published' | 'deprecated';
 export type TPortValueType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'binary';
 export type TBinaryKind = 'image' | 'video' | 'audio' | 'file';
+export type TNodeConfigValue = string | number | boolean | null;
+export type TNodeConfigRecord = Record<string, TNodeConfigValue>;
 
 export type TDagRunStatus =
     | 'created'
@@ -33,13 +35,48 @@ export interface IPortDefinition {
     mimeTypes?: string[];
 }
 
+export interface IBinaryPortPreset {
+    binaryKind: TBinaryKind;
+    mimeTypes: readonly string[];
+}
+
+export const BINARY_PORT_PRESETS = {
+    IMAGE_PNG: { binaryKind: 'image', mimeTypes: ['image/png'] },
+    IMAGE_COMMON: { binaryKind: 'image', mimeTypes: ['image/png', 'image/jpeg', 'image/webp'] },
+    VIDEO_MP4: { binaryKind: 'video', mimeTypes: ['video/mp4'] },
+    AUDIO_MPEG: { binaryKind: 'audio', mimeTypes: ['audio/mpeg'] },
+    FILE_GENERIC: { binaryKind: 'file', mimeTypes: [] }
+} as const;
+
+export interface IBinaryPortDefinitionInput {
+    key: string;
+    label?: string;
+    order?: number;
+    required: boolean;
+    description?: string;
+    preset: IBinaryPortPreset;
+}
+
+export function createBinaryPortDefinition(input: IBinaryPortDefinitionInput): IPortDefinition {
+    return {
+        key: input.key,
+        label: input.label,
+        order: input.order,
+        type: 'binary',
+        required: input.required,
+        description: input.description,
+        binaryKind: input.preset.binaryKind,
+        mimeTypes: [...input.preset.mimeTypes]
+    };
+}
+
 export interface INodeManifest {
     nodeType: string;
     displayName: string;
     category: string;
     inputs: IPortDefinition[];
     outputs: IPortDefinition[];
-    configSchema?: string;
+    configSchema?: object;
     deprecated?: boolean;
 }
 
@@ -49,14 +86,14 @@ export interface ICostPolicy {
     costPolicyVersion: number;
 }
 
-export interface IDagNodeDefinition {
+export interface IDagNode {
     nodeId: string;
     nodeType: string;
     dependsOn: string[];
     triggerPolicy?: string;
     retryPolicy?: string;
     timeoutMs?: number;
-    config: Record<string, string | number | boolean | null>;
+    config: TNodeConfigRecord;
     inputs: IPortDefinition[];
     outputs: IPortDefinition[];
     costPolicy?: ICostPolicy;
@@ -77,7 +114,7 @@ export interface IDagDefinition {
     dagId: string;
     version: number;
     status: TDagDefinitionStatus;
-    nodes: IDagNodeDefinition[];
+    nodes: IDagNode[];
     edges: IDagEdgeDefinition[];
     costPolicy?: ICostPolicy;
     inputSchema?: string;

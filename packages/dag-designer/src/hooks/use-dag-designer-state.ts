@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type {
     IDagDefinition,
     IDagEdgeDefinition,
-    IDagNodeDefinition,
+    IDagNode,
     INodeManifest,
     TPortPayload
 } from '@robota-sdk/dag-core';
@@ -23,7 +23,7 @@ export interface IDagDesignerState {
 export interface IDagDesignerActions {
     updateDefinition: (definition: IDagDefinition) => void;
     addNodeFromManifest: (manifest: INodeManifest) => void;
-    updateNode: (node: IDagNodeDefinition) => void;
+    updateNode: (node: IDagNode) => void;
     updateEdge: (edge: IDagEdgeDefinition) => void;
     setSelection: (selection: { nodeId?: string; edgeId?: string }) => void;
     setConnectError: (error: string | undefined) => void;

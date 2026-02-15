@@ -2,14 +2,14 @@ import type { ReactElement } from 'react';
 import {
     buildValidationError,
     type IDagError,
-    type IDagNodeDefinition,
+    type IDagNode,
     type IPortDefinition,
     type TPortValueType
 } from '@robota-sdk/dag-core';
 
 export interface INodeConfigPanelProps {
-    node?: IDagNodeDefinition;
-    onUpdateNode: (nextNode: IDagNodeDefinition) => void;
+    node?: IDagNode;
+    onUpdateNode: (nextNode: IDagNode) => void;
     onNodeValidationError?: (error: IDagError) => void;
 }
 

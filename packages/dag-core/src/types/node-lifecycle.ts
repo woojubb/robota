@@ -1,7 +1,8 @@
 import type { TPortPayload } from '../interfaces/ports.js';
 import type { IDagError } from './error.js';
 import type { TResult } from './result.js';
-import type { IDagNodeDefinition, INodeManifest } from './domain.js';
+import type { IDagNode, INodeManifest } from './domain.js';
+import { buildConfigSchema } from '../utils/node-descriptor.js';
 
 export interface ICostEstimate {
     estimatedCostUsd: number;
@@ -12,7 +13,7 @@ export interface INodeExecutionContext {
     dagId: string;
     dagRunId: string;
     taskRunId: string;
-    nodeDefinition: IDagNodeDefinition;
+    nodeDefinition: IDagNode;
     nodeManifest: INodeManifest;
     attempt: number;
     executionPath: string[];
@@ -68,6 +69,42 @@ export interface INodeTaskHandler {
 export interface INodeTaskHandlerRegistry {
     getHandler(nodeType: string): INodeTaskHandler | undefined;
     listNodeTypes(): string[];
+}
+
+export interface IDagNodeDefinition {
+    nodeType: string;
+    displayName: string;
+    category: string;
+    inputs: INodeManifest['inputs'];
+    outputs: INodeManifest['outputs'];
+    configSchemaDefinition: unknown;
+    taskHandler: INodeTaskHandler;
+}
+
+export interface INodeDefinitionAssembly {
+    manifests: INodeManifest[];
+    handlersByType: Record<string, INodeTaskHandler>;
+}
+
+export function buildNodeDefinitionAssembly(nodeDefinitions: IDagNodeDefinition[]): INodeDefinitionAssembly {
+    const manifests: INodeManifest[] = [];
+    const handlersByType: Record<string, INodeTaskHandler> = {};
+    for (const nodeDefinition of nodeDefinitions) {
+        const manifest: INodeManifest = {
+            nodeType: nodeDefinition.nodeType,
+            displayName: nodeDefinition.displayName,
+            category: nodeDefinition.category,
+            inputs: nodeDefinition.inputs,
+            outputs: nodeDefinition.outputs,
+            configSchema: buildConfigSchema(nodeDefinition.configSchemaDefinition)
+        };
+        manifests.push(manifest);
+        handlersByType[manifest.nodeType] = nodeDefinition.taskHandler;
+    }
+    return {
+        manifests,
+        handlersByType
+    };
 }
 
 export interface IRunCostPolicyEvaluator {
