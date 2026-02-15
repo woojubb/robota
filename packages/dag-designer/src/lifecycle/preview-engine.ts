@@ -1,15 +1,24 @@
 import {
+    buildNodeDefinitionAssembly,
     NodeLifecycleRunner,
     RunCostPolicyEvaluator,
+    type IDagNodeDefinition,
+    StaticNodeLifecycleFactory,
+    StaticNodeManifestRegistry,
+    StaticNodeTaskHandlerRegistry,
     buildValidationError,
-    createDefaultNodeLifecycleFactory,
-    createDefaultNodeManifestRegistry,
     type IDagDefinition,
     type IDagError,
     type INodeExecutionResult,
     type TPortPayload,
     type TResult
 } from '@robota-sdk/dag-core';
+import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
+import { TransformNodeDefinition } from '@robota-sdk/dag-node-transform';
+import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
+import { ImageLoaderNodeDefinition } from '@robota-sdk/dag-node-image-loader';
+import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
+import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
 
 export interface IPreviewNodeTrace {
     nodeId: string;
@@ -234,8 +243,19 @@ export async function runDefinitionPreview(
         return sorted;
     }
 
-    const manifestRegistry = createDefaultNodeManifestRegistry();
-    const lifecycleFactory = createDefaultNodeLifecycleFactory();
+    const nodeDefinitions: IDagNodeDefinition[] = [
+        new InputNodeDefinition(),
+        new TransformNodeDefinition(),
+        new LlmTextNodeDefinition(),
+        new ImageLoaderNodeDefinition(),
+        new ImageSourceNodeDefinition(),
+        new OkEmitterNodeDefinition()
+    ];
+    const nodeDefinitionAssembly = buildNodeDefinitionAssembly(nodeDefinitions);
+    const manifestRegistry = new StaticNodeManifestRegistry(nodeDefinitionAssembly.manifests);
+    const lifecycleFactory = new StaticNodeLifecycleFactory(
+        new StaticNodeTaskHandlerRegistry(nodeDefinitionAssembly.handlersByType)
+    );
     const lifecycleRunner = new NodeLifecycleRunner(lifecycleFactory, new RunCostPolicyEvaluator());
     const nodeStateById = new Map<string, IPreviewNodeTerminalState>();
     const traces: IPreviewNodeTrace[] = [];

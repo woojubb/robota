@@ -1,117 +1,10 @@
 import type { INodeManifest } from '../types/domain.js';
 import type { INodeManifestRegistry } from '../types/node-lifecycle.js';
 
-const DEFAULT_MANIFESTS: INodeManifest[] = [
-    {
-        nodeType: 'input',
-        displayName: 'Input',
-        category: 'Core',
-        inputs: [],
-        outputs: [
-            { key: 'text', label: 'Text', order: 0, type: 'string', required: false },
-            { key: 'data', label: 'Data', order: 1, type: 'object', required: false }
-        ],
-        configSchema: '{"type":"object","properties":{}}'
-    },
-    {
-        nodeType: 'transform',
-        displayName: 'Transform',
-        category: 'Core',
-        inputs: [
-            { key: 'text', label: 'Text', order: 0, type: 'string', required: false },
-            { key: 'data', label: 'Data', order: 1, type: 'object', required: false }
-        ],
-        outputs: [
-            { key: 'text', label: 'Text', order: 0, type: 'string', required: false },
-            { key: 'data', label: 'Data', order: 1, type: 'object', required: false }
-        ],
-        configSchema: '{"type":"object","properties":{"prefix":{"type":"string"}}}'
-    },
-    {
-        nodeType: 'llm-text',
-        displayName: 'LLM Text',
-        category: 'AI',
-        inputs: [
-            { key: 'prompt', label: 'Prompt', order: 0, type: 'string', required: true }
-        ],
-        outputs: [
-            { key: 'completion', label: 'Completion', order: 0, type: 'string', required: true }
-        ],
-        configSchema: '{"type":"object","properties":{"model":{"type":"string"},"baseCostUsd":{"type":"number"}}}'
-    },
-    {
-        nodeType: 'image-loader',
-        displayName: 'Image Loader',
-        category: 'Media',
-        inputs: [
-            { key: 'uri', label: 'Source URI', order: 0, type: 'string', required: true }
-        ],
-        outputs: [
-            {
-                key: 'image',
-                label: 'Image',
-                order: 0,
-                type: 'binary',
-                required: true,
-                binaryKind: 'image',
-                mimeTypes: ['image/png', 'image/jpeg', 'image/webp']
-            }
-        ],
-        configSchema: '{"type":"object","properties":{}}'
-    },
-    {
-        nodeType: 'image-source',
-        displayName: 'Image Source',
-        category: 'Test',
-        inputs: [],
-        outputs: [
-            {
-                key: 'image',
-                label: 'Image',
-                order: 0,
-                type: 'binary',
-                required: true,
-                description: 'Test image output',
-                binaryKind: 'image',
-                mimeTypes: ['image/png']
-            }
-        ],
-        configSchema: '{"type":"object","properties":{"uri":{"type":"string"},"mimeType":{"type":"string"}}}'
-    },
-    {
-        nodeType: 'ok-emitter',
-        displayName: 'OK Emitter',
-        category: 'Test',
-        inputs: [
-            {
-                key: 'image',
-                label: 'Image Input',
-                order: 0,
-                type: 'binary',
-                required: true,
-                description: 'Binary image from upstream',
-                binaryKind: 'image',
-                mimeTypes: ['image/png']
-            }
-        ],
-        outputs: [
-            {
-                key: 'status',
-                label: 'Status',
-                order: 0,
-                type: 'string',
-                required: true,
-                description: 'Execution status'
-            }
-        ],
-        configSchema: '{"type":"object","properties":{}}'
-    }
-];
-
 export class StaticNodeManifestRegistry implements INodeManifestRegistry {
     private readonly manifestByType = new Map<string, INodeManifest>();
 
-    public constructor(manifests: INodeManifest[] = DEFAULT_MANIFESTS) {
+    public constructor(manifests: INodeManifest[]) {
         for (const manifest of manifests) {
             this.manifestByType.set(manifest.nodeType, manifest);
         }
@@ -124,8 +17,4 @@ export class StaticNodeManifestRegistry implements INodeManifestRegistry {
     public listManifests(): INodeManifest[] {
         return [...this.manifestByType.values()];
     }
-}
-
-export function createDefaultNodeManifestRegistry(): StaticNodeManifestRegistry {
-    return new StaticNodeManifestRegistry();
 }

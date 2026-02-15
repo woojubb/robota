@@ -30,7 +30,7 @@ import type {
     IDagDefinition,
     IDagEdgeDefinition,
     IDagError,
-    IDagNodeDefinition,
+    IDagNode,
     INodeManifest,
     IPortDefinition,
     TPortPayload,
@@ -68,7 +68,7 @@ export interface IDagDesignerContextValue {
     setConnectError: (error: string | undefined) => void;
     bindingErrors: string[];
     addNodeFromManifest: (manifest: INodeManifest) => void;
-    updateNode: (nextNode: IDagNodeDefinition) => void;
+    updateNode: (nextNode: IDagNode) => void;
     updateEdge: (nextEdge: IDagEdgeDefinition) => void;
 }
 
@@ -83,7 +83,7 @@ export function useDagDesignerContext(): IDagDesignerContextValue {
 }
 
 function toNode(
-    nodeDefinition: IDagNodeDefinition,
+    nodeDefinition: IDagNode,
     index: number,
     positionOverride?: XYPosition
 ): TDagCanvasNode {
@@ -162,7 +162,7 @@ function hasSameEdgeShape(nextEdges: Edge[], currentEdges: IDagEdgeDefinition[])
     return nextEdges.every((edge) => currentEdgeIds.has(`${edge.source}->${edge.target}`));
 }
 
-function createNodeFromManifest(manifest: INodeManifest, index: number): IDagNodeDefinition {
+function createNodeFromManifest(manifest: INodeManifest, index: number): IDagNode {
     return {
         nodeId: `${manifest.nodeType}_${index + 1}`,
         nodeType: manifest.nodeType,
@@ -267,7 +267,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         });
     }, [props.definition, props.onDefinitionChange]);
 
-    const updateNode = useCallback((nextNode: IDagNodeDefinition): void => {
+    const updateNode = useCallback((nextNode: IDagNode): void => {
         props.onDefinitionChange({
             ...props.definition,
             nodes: props.definition.nodes.map((node) => node.nodeId === nextNode.nodeId ? nextNode : node)

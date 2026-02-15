@@ -35,6 +35,12 @@
     "dependencies": {
         "@robota-sdk/dag-api": "workspace:*",
         "@robota-sdk/dag-core": "workspace:*",
+        "@robota-sdk/dag-node-image-loader": "workspace:*",
+        "@robota-sdk/dag-node-image-source": "workspace:*",
+        "@robota-sdk/dag-node-input": "workspace:*",
+        "@robota-sdk/dag-node-llm-text": "workspace:*",
+        "@robota-sdk/dag-node-ok-emitter": "workspace:*",
+        "@robota-sdk/dag-node-transform": "workspace:*",
         "@robota-sdk/agents": "workspace:*",
         "@robota-sdk/anthropic": "workspace:*",
         "@robota-sdk/google": "workspace:*",

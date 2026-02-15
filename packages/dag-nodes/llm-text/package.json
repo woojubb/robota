@@ -1,7 +1,7 @@
 {
-  "name": "@robota-sdk/dag-designer",
+  "name": "@robota-sdk/dag-node-llm-text",
   "version": "0.1.0",
-  "description": "Web designer layer for Robota DAG",
+  "description": "DAG llm-text node for Robota",
   "type": "module",
   "main": "dist/node/index.js",
   "module": "dist/node/index.mjs",
@@ -23,24 +23,15 @@
     }
   },
   "files": [
-    "dist",
-    "README.md"
+    "dist"
   ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
     "dev": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --watch",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
-    "lint": "eslint src --ext .ts,.tsx"
+    "lint": "eslint src --ext .ts"
   },
-  "keywords": [
-    "robota",
-    "dag",
-    "designer",
-    "web",
-    "typescript",
-    "sdk"
-  ],
   "author": "Robota SDK Team",
   "license": "MIT",
   "engines": {
@@ -48,26 +39,14 @@
   },
   "dependencies": {
     "@robota-sdk/dag-core": "workspace:*",
-    "@robota-sdk/dag-node-image-loader": "workspace:*",
-    "@robota-sdk/dag-node-image-source": "workspace:*",
-    "@robota-sdk/dag-node-input": "workspace:*",
-    "@robota-sdk/dag-node-llm-text": "workspace:*",
-    "@robota-sdk/dag-node-ok-emitter": "workspace:*",
-    "@robota-sdk/dag-node-transform": "workspace:*",
-    "@xyflow/react": "^12.8.2"
+    "zod": "^3.24.4"
   },
   "devDependencies": {
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "typescript": "^5.3.3",
     "vitest": "^1.6.1"
-  },
-  "peerDependencies": {
-    "react": ">=19",
-    "react-dom": ">=19"
   },
   "publishConfig": {
     "access": "public"

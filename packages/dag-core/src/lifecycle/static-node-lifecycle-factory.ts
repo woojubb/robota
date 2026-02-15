@@ -3,10 +3,11 @@ import type { TResult } from '../types/result.js';
 import type {
     INodeLifecycle,
     INodeLifecycleFactory,
-    INodeTaskHandlerRegistry
+    INodeTaskHandlerRegistry,
+    INodeTaskHandler
 } from '../types/node-lifecycle.js';
 import { buildValidationError } from '../utils/error-builders.js';
-import { createDefaultNodeTaskHandlerRegistry } from './default-node-task-handlers.js';
+import { StaticNodeTaskHandlerRegistry } from './default-node-task-handlers.js';
 import { RegisteredNodeLifecycle } from './registered-node-lifecycle.js';
 
 export class StaticNodeLifecycleFactory implements INodeLifecycleFactory {
@@ -33,6 +34,8 @@ export class StaticNodeLifecycleFactory implements INodeLifecycleFactory {
     }
 }
 
-export function createDefaultNodeLifecycleFactory(): StaticNodeLifecycleFactory {
-    return new StaticNodeLifecycleFactory(createDefaultNodeTaskHandlerRegistry());
+export function createStaticNodeLifecycleFactory(
+    handlersByType: Record<string, INodeTaskHandler>
+): StaticNodeLifecycleFactory {
+    return new StaticNodeLifecycleFactory(new StaticNodeTaskHandlerRegistry(handlersByType));
 }

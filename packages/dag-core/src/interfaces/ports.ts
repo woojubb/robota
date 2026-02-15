@@ -1,6 +1,6 @@
 import type {
     ICostPolicy,
-    IDagNodeDefinition,
+    IDagNode,
     IDagDefinition,
     IDagRun,
     ITaskRun,
@@ -94,7 +94,7 @@ export interface ITaskExecutionInput {
     attempt: number;
     executionPath: string[];
     input: TPortPayload;
-    nodeDefinition?: IDagNodeDefinition;
+    nodeDefinition?: IDagNode;
     costPolicy?: ICostPolicy;
     currentTotalCostUsd?: number;
 }

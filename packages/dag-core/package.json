@@ -46,6 +46,10 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "dependencies": {
+    "zod": "^3.24.4",
+    "zod-to-json-schema": "^3.24.6"
+  },
   "devDependencies": {
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
