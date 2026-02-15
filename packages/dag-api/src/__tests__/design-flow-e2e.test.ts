@@ -10,20 +10,56 @@ function createDefinition(): IDagDefinition {
         status: 'draft',
         nodes: [
             {
-                nodeId: 'input',
-                nodeType: 'input',
+                nodeId: 'image_source_1',
+                nodeType: 'image-source',
                 dependsOn: [],
-                config: {}
+                config: {},
+                inputs: [],
+                outputs: [
+                    {
+                        key: 'image',
+                        label: 'Image',
+                        order: 0,
+                        type: 'binary',
+                        binaryKind: 'image',
+                        mimeTypes: ['image/png'],
+                        required: true
+                    }
+                ]
             },
             {
-                nodeId: 'processor',
-                nodeType: 'processor',
-                dependsOn: ['input'],
-                config: {}
+                nodeId: 'ok_emitter_1',
+                nodeType: 'ok-emitter',
+                dependsOn: ['image_source_1'],
+                config: {},
+                inputs: [
+                    {
+                        key: 'image',
+                        label: 'Image',
+                        order: 0,
+                        type: 'binary',
+                        binaryKind: 'image',
+                        mimeTypes: ['image/png'],
+                        required: true
+                    }
+                ],
+                outputs: [
+                    {
+                        key: 'status',
+                        label: 'Status',
+                        order: 0,
+                        type: 'string',
+                        required: true
+                    }
+                ]
             }
         ],
         edges: [
-            { from: 'input', to: 'processor' }
+            {
+                from: 'image_source_1',
+                to: 'ok_emitter_1',
+                bindings: [{ outputKey: 'image', inputKey: 'image' }]
+            }
         ]
     };
 }
@@ -93,5 +129,67 @@ describe('Dag design flow E2E', () => {
 
         expect(validated.errors.some((error) => error.code === 'DAG_VALIDATION_EMPTY_NODES')).toBe(true);
         expect(validated.errors.every((error) => error.status === 400)).toBe(true);
+    });
+
+    it('supports list and dagId-based load flow', async () => {
+        const storage = new InMemoryStoragePort();
+        const controller = new DagDesignController(new DagDefinitionService(storage));
+        const definition = createDefinition();
+
+        const created = await controller.createDefinition({
+            definition,
+            correlationId: 'corr-e2e-list-create'
+        });
+        expect(created.ok).toBe(true);
+        if (!created.ok) {
+            return;
+        }
+
+        const listed = await controller.listDefinitions({
+            correlationId: 'corr-e2e-list'
+        });
+        expect(listed.ok).toBe(true);
+        if (!listed.ok) {
+            return;
+        }
+        expect(listed.data.items.some((item) => item.dagId === definition.dagId)).toBe(true);
+
+        const loadedByDagId = await controller.getDefinition({
+            dagId: definition.dagId,
+            correlationId: 'corr-e2e-load'
+        });
+        expect(loadedByDagId.ok).toBe(true);
+        if (!loadedByDagId.ok) {
+            return;
+        }
+        expect(loadedByDagId.data.definition.dagId).toBe(definition.dagId);
+    });
+
+    it('blocks validate for invalid binding without fallback', async () => {
+        const storage = new InMemoryStoragePort();
+        const controller = new DagDesignController(new DagDefinitionService(storage));
+        const definition = createDefinition();
+        definition.edges[0] = {
+            from: 'image_source_1',
+            to: 'ok_emitter_1',
+            bindings: [{ outputKey: 'image', inputKey: 'status' }]
+        };
+
+        const created = await controller.createDefinition({
+            definition,
+            correlationId: 'corr-e2e-invalid-binding-create'
+        });
+        expect(created.ok).toBe(true);
+
+        const validated = await controller.validateDefinition({
+            dagId: definition.dagId,
+            version: definition.version,
+            correlationId: 'corr-e2e-invalid-binding-validate'
+        });
+        expect(validated.ok).toBe(false);
+        if (validated.ok) {
+            return;
+        }
+        expect(validated.errors.some((error) => error.code === 'DAG_VALIDATION_BINDING_INPUT_NOT_FOUND')).toBe(true);
     });
 });

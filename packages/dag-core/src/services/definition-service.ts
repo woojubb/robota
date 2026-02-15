@@ -39,6 +39,25 @@ export class DagDefinitionService {
         return this.storage.getDefinition(dagId, version);
     }
 
+    public async getDefinitionByDagId(dagId: string, version?: number): Promise<IDagDefinition | undefined> {
+        if (typeof version === 'number') {
+            return this.storage.getDefinition(dagId, version);
+        }
+
+        const byDagId = await this.storage.listDefinitionsByDagId(dagId);
+        if (byDagId.length === 0) {
+            return undefined;
+        }
+        return byDagId[byDagId.length - 1];
+    }
+
+    public async listDefinitions(dagId?: string): Promise<IDagDefinition[]> {
+        if (typeof dagId === 'string' && dagId.trim().length > 0) {
+            return this.storage.listDefinitionsByDagId(dagId);
+        }
+        return this.storage.listDefinitions();
+    }
+
     public async updateDraft(definition: IDagDefinition): Promise<TResult<IDagDefinition, IDagError[]>> {
         const existing = await this.storage.getDefinition(definition.dagId, definition.version);
         if (!existing) {

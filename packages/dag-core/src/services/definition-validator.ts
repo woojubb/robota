@@ -162,6 +162,28 @@ export class DagDefinitionValidator {
             }
         }
 
+        const hasOkEmitterNode = definition.nodes.some((node) => node.nodeType === 'ok-emitter');
+        if (hasOkEmitterNode) {
+            const entryNodes = definition.nodes.filter((node) => node.dependsOn.length === 0);
+            if (entryNodes.length !== 1) {
+                errors.push(
+                    buildValidationError(
+                        'DAG_VALIDATION_TEST_ENTRY_NODE_COUNT_INVALID',
+                        'Test DAG with ok-emitter must have exactly one entry node',
+                        { entryNodeCount: entryNodes.length }
+                    )
+                );
+            } else if (entryNodes[0]?.nodeType !== 'image-source') {
+                errors.push(
+                    buildValidationError(
+                        'DAG_VALIDATION_TEST_ENTRY_NODE_TYPE_INVALID',
+                        'Test DAG entry node must be image-source when ok-emitter exists',
+                        { entryNodeType: entryNodes[0]?.nodeType }
+                    )
+                );
+            }
+        }
+
         for (const edge of definition.edges) {
             if (!nodeIdSet.has(edge.from)) {
                 errors.push(
@@ -183,63 +205,108 @@ export class DagDefinitionValidator {
                 );
             }
 
-            if (edge.bindings && edge.bindings.length > 0) {
-                const fromNode = nodeById.get(edge.from);
-                const toNode = nodeById.get(edge.to);
-                if (!fromNode || !toNode) {
-                    continue;
+            if (!edge.bindings || edge.bindings.length === 0) {
+                errors.push(
+                    buildValidationError(
+                        'DAG_VALIDATION_BINDING_REQUIRED',
+                        'Each edge must define at least one binding',
+                        { from: edge.from, to: edge.to }
+                    )
+                );
+                continue;
+            }
+
+            const fromNode = nodeById.get(edge.from);
+            const toNode = nodeById.get(edge.to);
+            if (!fromNode || !toNode) {
+                continue;
+            }
+
+            const outputPorts = fromNode.outputs ?? [];
+            const inputPorts = toNode.inputs ?? [];
+            const inputKeysInEdge = new Set<string>();
+
+            for (const binding of edge.bindings) {
+                const outputPort = findPort(outputPorts, binding.outputKey);
+                if (!outputPort) {
+                    errors.push(
+                        buildValidationError(
+                            'DAG_VALIDATION_BINDING_OUTPUT_NOT_FOUND',
+                            'binding.outputKey must reference an existing output port',
+                            {
+                                from: edge.from,
+                                outputKey: binding.outputKey
+                            }
+                        )
+                    );
                 }
 
-                const outputPorts = fromNode.outputs ?? [];
-                const inputPorts = toNode.inputs ?? [];
+                const inputPort = findPort(inputPorts, binding.inputKey);
+                if (!inputPort) {
+                    errors.push(
+                        buildValidationError(
+                            'DAG_VALIDATION_BINDING_INPUT_NOT_FOUND',
+                            'binding.inputKey must reference an existing input port',
+                            {
+                                to: edge.to,
+                                inputKey: binding.inputKey
+                            }
+                        )
+                    );
+                }
 
-                for (const binding of edge.bindings) {
-                    const outputPort = findPort(outputPorts, binding.outputKey);
-                    if (!outputPort) {
-                        errors.push(
-                            buildValidationError(
-                                'DAG_VALIDATION_BINDING_OUTPUT_NOT_FOUND',
-                                'binding.outputKey must reference an existing output port',
-                                {
-                                    from: edge.from,
-                                    outputKey: binding.outputKey
-                                }
-                            )
-                        );
-                    }
+                if (inputKeysInEdge.has(binding.inputKey)) {
+                    errors.push(
+                        buildValidationError(
+                            'DAG_VALIDATION_BINDING_INPUT_KEY_DUPLICATE',
+                            'Each edge must not map multiple outputs to the same inputKey',
+                            { to: edge.to, inputKey: binding.inputKey }
+                        )
+                    );
+                } else {
+                    inputKeysInEdge.add(binding.inputKey);
+                }
 
-                    const inputPort = findPort(inputPorts, binding.inputKey);
-                    if (!inputPort) {
-                        errors.push(
-                            buildValidationError(
-                                'DAG_VALIDATION_BINDING_INPUT_NOT_FOUND',
-                                'binding.inputKey must reference an existing input port',
-                                {
-                                    to: edge.to,
-                                    inputKey: binding.inputKey
-                                }
-                            )
-                        );
-                    }
-
-                    if (outputPort && inputPort && !isPortTypeCompatible(outputPort, inputPort)) {
-                        errors.push(
-                            buildValidationError(
-                                'DAG_VALIDATION_BINDING_TYPE_MISMATCH',
-                                'binding port types must match',
-                                {
-                                    from: edge.from,
-                                    to: edge.to,
-                                    outputKey: binding.outputKey,
-                                    inputKey: binding.inputKey,
-                                    outputType: outputPort.type,
-                                    inputType: inputPort.type
-                                }
-                            )
-                        );
-                    }
+                if (outputPort && inputPort && !isPortTypeCompatible(outputPort, inputPort)) {
+                    errors.push(
+                        buildValidationError(
+                            'DAG_VALIDATION_BINDING_TYPE_MISMATCH',
+                            'binding port types must match',
+                            {
+                                from: edge.from,
+                                to: edge.to,
+                                outputKey: binding.outputKey,
+                                inputKey: binding.inputKey,
+                                outputType: outputPort.type,
+                                inputType: inputPort.type
+                            }
+                        )
+                    );
                 }
             }
+        }
+
+        const usedInputKeysByTarget = new Map<string, Set<string>>();
+        for (const edge of definition.edges) {
+            if (!edge.bindings) {
+                continue;
+            }
+            const key = edge.to;
+            const used = usedInputKeysByTarget.get(key) ?? new Set<string>();
+            for (const binding of edge.bindings) {
+                if (used.has(binding.inputKey)) {
+                    errors.push(
+                        buildValidationError(
+                            'DAG_VALIDATION_BINDING_INPUT_KEY_CONFLICT',
+                            'Multiple upstream edges map to the same inputKey',
+                            { to: edge.to, inputKey: binding.inputKey }
+                        )
+                    );
+                } else {
+                    used.add(binding.inputKey);
+                }
+            }
+            usedInputKeysByTarget.set(key, used);
         }
 
         const outgoingEdges = new Map<string, string[]>();

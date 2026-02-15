@@ -4,9 +4,15 @@ import { useMemo, useState } from "react";
 import {
   DagDesignerCanvas,
   DesignerApiClient,
+  type IDefinitionListItem,
   type IPreviewResult,
 } from "@robota-sdk/dag-designer";
-import type { IDagDefinition, IDagError, TResult } from "@robota-sdk/dag-core";
+import {
+  DagDefinitionValidator,
+  type IDagDefinition,
+  type IDagError,
+  type TResult,
+} from "@robota-sdk/dag-core";
 
 function createSampleDefinition(): IDagDefinition {
   return {
@@ -15,34 +21,37 @@ function createSampleDefinition(): IDagDefinition {
     status: "draft",
     nodes: [
       {
-        nodeId: "entry",
-        nodeType: "input",
+        nodeId: "image_source_1",
+        nodeType: "image-source",
         dependsOn: [],
         inputs: [],
         outputs: [
-          { key: "prompt", type: "string", required: true },
+          { key: "image", label: "Image", order: 0, type: "binary", required: true, binaryKind: "image", mimeTypes: ["image/png"] },
         ],
-        config: {},
+        config: {
+          uri: "file://sample-image.png",
+          mimeType: "image/png",
+        },
       },
       {
-        nodeId: "llm",
-        nodeType: "llm-text",
-        dependsOn: ["entry"],
+        nodeId: "ok_emitter_1",
+        nodeType: "ok-emitter",
+        dependsOn: ["image_source_1"],
         inputs: [
-          { key: "prompt", type: "string", required: true },
+          { key: "image", label: "Image", order: 0, type: "binary", required: true, binaryKind: "image", mimeTypes: ["image/png"] },
         ],
         outputs: [
-          { key: "completion", type: "string", required: true },
+          { key: "status", label: "Status", order: 0, type: "string", required: true },
         ],
         config: {},
       },
     ],
     edges: [
       {
-        from: "entry",
-        to: "llm",
+        from: "image_source_1",
+        to: "ok_emitter_1",
         bindings: [
-          { outputKey: "prompt", inputKey: "prompt" },
+          { outputKey: "image", inputKey: "image" },
         ],
       },
     ],
@@ -62,6 +71,19 @@ export default function DagDesignerPage() {
   const [version, setVersion] = useState<number>(1);
   const [definition, setDefinition] = useState<IDagDefinition>(createSampleDefinition());
   const [draftCreated, setDraftCreated] = useState<boolean>(false);
+  const [definitionList, setDefinitionList] = useState<IDefinitionListItem[]>([]);
+  const [selectedListDagId, setSelectedListDagId] = useState<string>("");
+  const bindingBlockingErrors = useMemo(() => {
+    const validated = DagDefinitionValidator.validate(definition);
+    if (validated.ok) {
+      return [];
+    }
+    if ("error" in validated) {
+      return validated.error.filter((error) => error.code.startsWith("DAG_VALIDATION_BINDING_"));
+    }
+    return [];
+  }, [definition]);
+  const hasBindingBlockingError = bindingBlockingErrors.length > 0;
 
   const syncDefinitionIdentity = (nextDagId: string, nextVersion: number): void => {
     setDefinition((current) => ({
@@ -72,6 +94,10 @@ export default function DagDesignerPage() {
   };
 
   const createDraft = async (): Promise<void> => {
+    if (hasBindingBlockingError) {
+      setLog(`Create blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
+      return;
+    }
     const created = await client.createDefinition({
       definition,
       correlationId: "web-dag-create",
@@ -89,6 +115,10 @@ export default function DagDesignerPage() {
   };
 
   const updateDraft = async (): Promise<void> => {
+    if (hasBindingBlockingError) {
+      setLog(`Update blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
+      return;
+    }
     const updated = await client.updateDraft({
       dagId,
       version,
@@ -107,6 +137,10 @@ export default function DagDesignerPage() {
   };
 
   const validateDraft = async (): Promise<void> => {
+    if (hasBindingBlockingError) {
+      setLog(`Validate blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
+      return;
+    }
     const validated = await client.validateDefinition({
       dagId,
       version,
@@ -124,6 +158,10 @@ export default function DagDesignerPage() {
   };
 
   const publishDraft = async (): Promise<void> => {
+    if (hasBindingBlockingError) {
+      setLog(`Publish blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
+      return;
+    }
     const published = await client.publishDefinition({
       dagId,
       version,
@@ -150,6 +188,67 @@ export default function DagDesignerPage() {
       return;
     }
     setLog("Preview failed: UNKNOWN_ERROR");
+  };
+
+  const loadByDagId = async (): Promise<void> => {
+    const loaded = await client.getDefinition({
+      dagId,
+      version,
+      correlationId: "web-dag-load",
+    });
+    if (loaded.ok) {
+      setDefinition(loaded.value);
+      setDagId(loaded.value.dagId);
+      setVersion(loaded.value.version);
+      setDraftCreated(loaded.value.status === "draft");
+      setLog(`Load success: ${loaded.value.dagId}:${loaded.value.version}`);
+      return;
+    }
+    if ("error" in loaded) {
+      setLog(`Load failed: ${loaded.error[0]?.code}`);
+      return;
+    }
+    setLog("Load failed: UNKNOWN_ERROR");
+  };
+
+  const refreshDefinitionList = async (): Promise<void> => {
+    const listed = await client.listDefinitions({
+      correlationId: "web-dag-list",
+    });
+    if (listed.ok) {
+      setDefinitionList(listed.value);
+      setLog(`List success: count=${listed.value.length}`);
+      return;
+    }
+    if ("error" in listed) {
+      setLog(`List failed: ${listed.error[0]?.code}`);
+      return;
+    }
+    setLog("List failed: UNKNOWN_ERROR");
+  };
+
+  const loadFromSelectedList = async (): Promise<void> => {
+    if (selectedListDagId.trim().length === 0) {
+      setLog("Load from list failed: EMPTY_DAG_ID");
+      return;
+    }
+    const loaded = await client.getDefinition({
+      dagId: selectedListDagId,
+      correlationId: "web-dag-load-from-list",
+    });
+    if (loaded.ok) {
+      setDefinition(loaded.value);
+      setDagId(loaded.value.dagId);
+      setVersion(loaded.value.version);
+      setDraftCreated(loaded.value.status === "draft");
+      setLog(`Load from list success: ${loaded.value.dagId}:${loaded.value.version}`);
+      return;
+    }
+    if ("error" in loaded) {
+      setLog(`Load from list failed: ${loaded.error[0]?.code}`);
+      return;
+    }
+    setLog("Load from list failed: UNKNOWN_ERROR");
   };
 
   return (
@@ -189,29 +288,84 @@ export default function DagDesignerPage() {
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <button className="rounded bg-black px-4 py-2 text-sm text-white" onClick={createDraft}>
+        <button
+          className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={createDraft}
+          disabled={hasBindingBlockingError}
+        >
           Create Draft
         </button>
         <button
           className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
           onClick={updateDraft}
-          disabled={!draftCreated}
+          disabled={!draftCreated || hasBindingBlockingError}
         >
           Update Draft
         </button>
-        <button className="rounded bg-black px-4 py-2 text-sm text-white" onClick={validateDraft}>
+        <button
+          className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={validateDraft}
+          disabled={hasBindingBlockingError}
+        >
           Validate
         </button>
-        <button className="rounded bg-black px-4 py-2 text-sm text-white" onClick={publishDraft}>
+        <button
+          className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={publishDraft}
+          disabled={hasBindingBlockingError}
+        >
           Publish
         </button>
+        <button
+          className="rounded bg-black px-4 py-2 text-sm text-white"
+          onClick={loadByDagId}
+        >
+          Load by DAG ID
+        </button>
+        <button
+          className="rounded bg-black px-4 py-2 text-sm text-white"
+          onClick={refreshDefinitionList}
+        >
+          Refresh DAG List
+        </button>
       </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
+        <select
+          className="rounded border border-gray-300 px-3 py-2 font-mono text-sm"
+          value={selectedListDagId}
+          onChange={(event) => setSelectedListDagId(event.target.value)}
+        >
+          <option value="">Select DAG from list</option>
+          {definitionList.map((item) => (
+            <option key={item.dagId} value={item.dagId}>
+              {item.dagId} (latest={item.latestVersion}, statuses={item.statuses.join(",")})
+            </option>
+          ))}
+        </select>
+        <button
+          className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={loadFromSelectedList}
+          disabled={selectedListDagId.trim().length === 0}
+        >
+          Load Selected DAG
+        </button>
+      </div>
+
+      {hasBindingBlockingError ? (
+        <div className="rounded border border-red-300 bg-red-50 px-4 py-3 text-xs text-red-800">
+          <p className="mb-1 font-semibold">Blocking Binding Errors</p>
+          {bindingBlockingErrors.map((error) => (
+            <p key={`${error.code}-${error.message}`}>- {error.code}: {error.message}</p>
+          ))}
+        </div>
+      ) : null}
 
       <DagDesignerCanvas
         definition={definition}
         onDefinitionChange={setDefinition}
         onPreviewResult={onPreviewResult}
-        initialInput={{ prompt: "hello world" }}
+        initialInput={{}}
       />
 
       <div className="rounded border border-gray-300 bg-gray-50 p-4">

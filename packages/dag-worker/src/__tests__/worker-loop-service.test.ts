@@ -62,6 +62,8 @@ function createDefinitionForRun(dagRun: IDagRun): IDagDefinition {
                 nodeId: 'entry',
                 nodeType: 'input',
                 dependsOn: [],
+                inputs: [],
+                outputs: [{ key: 'done', type: 'boolean', required: false }],
                 config: {}
             }
         ],
@@ -430,16 +432,20 @@ describe('WorkerLoopService', () => {
                     nodeId: 'entry',
                     nodeType: 'input',
                     dependsOn: [],
+                    inputs: [],
+                    outputs: [{ key: 'nextInput', type: 'string', required: false }],
                     config: {}
                 },
                 {
                     nodeId: 'next',
                     nodeType: 'processor',
                     dependsOn: ['entry'],
+                    inputs: [{ key: 'nextInput', type: 'string', required: false }],
+                    outputs: [{ key: 'done', type: 'boolean', required: false }],
                     config: {}
                 }
             ],
-            edges: [{ from: 'entry', to: 'next' }]
+            edges: [{ from: 'entry', to: 'next', bindings: [{ outputKey: 'nextInput', inputKey: 'nextInput' }] }]
         });
         await storage.createDagRun(dagRun);
         await storage.createTaskRun(taskRun);

@@ -36,6 +36,23 @@ export interface IPublishDefinitionRequest {
     correlationId?: string;
 }
 
+export interface IGetDefinitionRequest {
+    dagId: string;
+    version?: number;
+    correlationId?: string;
+}
+
+export interface IListDefinitionsRequest {
+    dagId?: string;
+    correlationId?: string;
+}
+
+export interface IDefinitionListItem {
+    dagId: string;
+    latestVersion: number;
+    statuses: IDagDefinition['status'][];
+}
+
 export type IDesignApiSuccess<TData> = IApiSuccess<TData>;
 export type IDesignApiFailure = IApiFailure<IProblemDetails>;
 export type TDesignApiResponse<TData> = TApiResponse<TData, IProblemDetails>;

@@ -11,6 +11,7 @@ import {
     type ILeasePort,
     type IQueueMessage,
     type IQueuePort,
+    type ITaskRun,
     type IStoragePort,
     type ITaskExecutionInput,
     type ITaskExecutorPort,
@@ -111,6 +112,7 @@ export class WorkerLoopService {
             return this.failAfterAck(message.messageId, startTransition.error);
         }
         await this.storage.updateTaskRunStatus(taskRun.taskRunId, startTransition.value.nextStatus);
+        await this.storage.saveTaskRunSnapshots(taskRun.taskRunId, JSON.stringify(message.payload));
 
         const dagRun = await this.storage.getDagRun(message.dagRunId);
         if (!dagRun) {
@@ -183,6 +185,7 @@ export class WorkerLoopService {
         }
 
         await this.storage.updateTaskRunStatus(taskRunId, completeTransition.value.nextStatus);
+        await this.storage.saveTaskRunSnapshots(taskRunId, undefined, JSON.stringify(output));
 
         const dispatched = await this.dispatchDownstreamReadyTasks(dagRun, message.nodeId, output);
         if (!dispatched.ok) {
@@ -344,7 +347,7 @@ export class WorkerLoopService {
     private async dispatchDownstreamReadyTasks(
         dagRun: IDagRun,
         completedNodeId: string,
-        output: TPortPayload
+        _output: TPortPayload
     ): Promise<TResult<void, IDagError>> {
         const definition = await this.storage.getDefinition(dagRun.dagId, dagRun.version);
         if (!definition) {
@@ -392,12 +395,16 @@ export class WorkerLoopService {
                 attempt: 1
             });
 
+            const nextPayloadResult = this.buildDownstreamPayload(definition, allTaskRuns, downstreamNode.nodeId);
+            if (!nextPayloadResult.ok) {
+                return nextPayloadResult;
+            }
             const nextPayload: TPortPayload = downstreamNode.timeoutMs
                 ? {
-                    ...output,
+                    ...nextPayloadResult.value,
                     timeoutMs: downstreamNode.timeoutMs
                 }
-                : output;
+                : nextPayloadResult.value;
 
             const nextMessage: IQueueMessage = {
                 messageId: `${nextTaskRunId}:message:1`,
@@ -445,6 +452,106 @@ export class WorkerLoopService {
             ok: true,
             value: undefined
         };
+    }
+
+    private buildDownstreamPayload(
+        definition: NonNullable<Awaited<ReturnType<IStoragePort['getDefinition']>>>,
+        taskRuns: ITaskRun[],
+        downstreamNodeId: string
+    ): TResult<TPortPayload, IDagError> {
+        const incomingEdges = definition.edges.filter((edge) => edge.to === downstreamNodeId);
+        if (incomingEdges.length === 0) {
+            return {
+                ok: true,
+                value: {}
+            };
+        }
+
+        const payload: TPortPayload = {};
+        for (const edge of incomingEdges) {
+            if (!edge.bindings || edge.bindings.length === 0) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_BINDING_REQUIRED',
+                        'Incoming edge must define at least one binding',
+                        { from: edge.from, to: edge.to }
+                    )
+                };
+            }
+
+            const upstreamTask = taskRuns.find((taskRun) => taskRun.nodeId === edge.from && taskRun.status === 'success');
+            if (!upstreamTask || !upstreamTask.outputSnapshot) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_UPSTREAM_OUTPUT_MISSING',
+                        'Upstream output snapshot is missing for binding dispatch',
+                        { from: edge.from, to: edge.to }
+                    )
+                };
+            }
+
+            let upstreamOutput: TPortPayload;
+            try {
+                const parsed = JSON.parse(upstreamTask.outputSnapshot);
+                if (!this.isPortPayload(parsed)) {
+                    return {
+                        ok: false,
+                        error: buildValidationError(
+                            'DAG_VALIDATION_UPSTREAM_OUTPUT_INVALID',
+                            'Upstream output snapshot has invalid payload shape',
+                            { from: edge.from, to: edge.to }
+                        )
+                    };
+                }
+                upstreamOutput = parsed;
+            } catch {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_UPSTREAM_OUTPUT_PARSE_FAILED',
+                        'Failed to parse upstream output snapshot',
+                        { from: edge.from, to: edge.to }
+                    )
+                };
+            }
+
+            for (const binding of edge.bindings) {
+                const outputValue = upstreamOutput[binding.outputKey];
+                if (typeof outputValue === 'undefined') {
+                    return {
+                        ok: false,
+                        error: buildValidationError(
+                            'DAG_VALIDATION_BINDING_OUTPUT_KEY_MISSING',
+                            'Binding outputKey was not found in upstream output',
+                            { from: edge.from, outputKey: binding.outputKey }
+                        )
+                    };
+                }
+
+                if (typeof payload[binding.inputKey] !== 'undefined') {
+                    return {
+                        ok: false,
+                        error: buildValidationError(
+                            'DAG_VALIDATION_BINDING_INPUT_KEY_CONFLICT',
+                            'Multiple bindings target the same input key',
+                            { to: edge.to, inputKey: binding.inputKey }
+                        )
+                    };
+                }
+                payload[binding.inputKey] = outputValue;
+            }
+        }
+
+        return {
+            ok: true,
+            value: payload
+        };
+    }
+
+    private isPortPayload(input: unknown): input is TPortPayload {
+        return typeof input === 'object' && input !== null && !Array.isArray(input);
     }
 
     private async enqueueDeadLetter(

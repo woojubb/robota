@@ -1036,3 +1036,48 @@ DAG Task의 handler로 Robota Agent를 사용할 수 있는지 미정.
   - P-Doc-3 완료
   - Gate-Doc-4 통과
 
+### 17.21 Node Lifecycle / Multi-Port 계약 고정 (신규)
+
+#### 배경
+- 기존 디자이너 중심의 노드 실행 원형은 서버/디자이너 공통 사용 구조에 맞지 않는다.
+- 노드는 역할(LLM/변환/이미지/기타)을 고정하지 않고, 입력/출력 포트 계약을 가진 실행 유닛이어야 한다.
+
+#### 고정 정책
+- 노드 기본 실행 계약은 `dag-core`에만 둔다.
+  - `INodeLifecycle`, `INodeTaskHandler`, `INodeTaskHandlerRegistry`, `NodeLifecycleRunner`
+- `dag-designer`는 UI/편집/preview orchestration만 담당하며, 실행 계약 자체를 소유하지 않는다.
+- 모든 노드는 `inputs[]`, `outputs[]`를 필수로 가진다.
+  - 각 포트는 `key`, `type`, `required`를 기본으로 가지며 `label`, `order`, `description`을 추가 메타데이터로 허용한다.
+  - 포트 타입은 v1에서 `string | number | boolean | object | array | binary`를 지원한다.
+
+#### 데이터 연결 규칙
+- `edge.bindings[]`로 `outputKey -> inputKey`를 명시적으로 선언한다.
+- 바인딩 누락/불일치/타입 불일치는 validation 실패로 처리한다.
+- 자동 캐스팅/자동 매핑/자동 복구는 금지한다(no-fallback).
+
+#### 노드 코드 접근 규칙
+- 노드 핸들러는 포트 키 기반 접근을 사용한다.
+  - 예: `getInput('prompt')`, `requireInput('image')`, `setOutput('completion', value)`
+- 포트 키는 디자이너 노출/코드 접근/바인딩의 단일 식별자(SSOT)로 취급한다.
+
+### 17.22 후속 구현 트랙 (Designer Port Authoring)
+
+#### 목적
+- 디자이너에서 노드 포트를 조회만 하는 수준을 넘어, 입력/출력 포트를 직접 추가/수정/삭제할 수 있게 확장한다.
+
+#### 작업 항목
+- Port Editor UI:
+  - `inputs[]` / `outputs[]`에 대해 add/remove/edit 제공
+  - 필드: `key`, `label`, `order`, `type`, `required`, `description`
+- Validation UX:
+  - 키 중복, 빈 키, 잘못된 order를 즉시 표시
+  - 저장 전 validator 결과를 UI에 매핑해 가시화
+- Edge Sync:
+  - 포트 키 변경/삭제 시 해당 edge bindings 영향 분석 및 명시적 경고
+  - 자동 수정은 하지 않고 사용자가 재매핑하도록 유도(no-fallback)
+
+#### 완료 기준
+- 디자이너에서 포트 구조를 편집하고 draft 저장/validate/publish까지 성공
+- 포트 변경이 edge bindings 및 preview 결과에 반영
+- 잘못된 포트 계약은 즉시 검증 오류로 표시
+

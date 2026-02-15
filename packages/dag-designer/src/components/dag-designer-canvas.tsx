@@ -18,6 +18,7 @@ import type {
     IDagError,
     IDagNodeDefinition,
     INodeManifest,
+    IPortDefinition,
     TPortPayload,
     TResult
 } from '@robota-sdk/dag-core';
@@ -60,6 +61,15 @@ function toDefinitionEdge(edge: Edge): IDagEdgeDefinition {
     };
 }
 
+function hasSameEdgeShape(nextEdges: Edge[], currentEdges: IDagEdgeDefinition[]): boolean {
+    if (nextEdges.length !== currentEdges.length) {
+        return false;
+    }
+
+    const currentEdgeIds = new Set(currentEdges.map((edge) => `${edge.from}->${edge.to}`));
+    return nextEdges.every((edge) => currentEdgeIds.has(`${edge.source}->${edge.target}`));
+}
+
 function createNodeFromManifest(manifest: INodeManifest, index: number): IDagNodeDefinition {
     return {
         nodeId: `${manifest.nodeType}_${index + 1}`,
@@ -71,10 +81,71 @@ function createNodeFromManifest(manifest: INodeManifest, index: number): IDagNod
     };
 }
 
+function findPort(ports: IPortDefinition[], key: string): IPortDefinition | undefined {
+    return ports.find((port) => port.key === key);
+}
+
+function computeBindingErrors(definition: IDagDefinition): string[] {
+    const errors: string[] = [];
+    const usedInputKeysByTarget = new Map<string, Set<string>>();
+    for (const edge of definition.edges) {
+        const fromNode = definition.nodes.find((node) => node.nodeId === edge.from);
+        const toNode = definition.nodes.find((node) => node.nodeId === edge.to);
+        if (!fromNode || !toNode) {
+            errors.push(`Edge ${edge.from}->${edge.to}: source or target node is missing.`);
+            continue;
+        }
+        if (!edge.bindings || edge.bindings.length === 0) {
+            errors.push(`Edge ${edge.from}->${edge.to}: bindings are empty.`);
+            continue;
+        }
+
+        const usedInEdge = new Set<string>();
+        for (const binding of edge.bindings) {
+            const outputPort = findPort(fromNode.outputs, binding.outputKey);
+            if (!outputPort) {
+                errors.push(
+                    `Edge ${edge.from}->${edge.to}: output key "${binding.outputKey}" was removed or not found.`
+                );
+            }
+            const inputPort = findPort(toNode.inputs, binding.inputKey);
+            if (!inputPort) {
+                errors.push(
+                    `Edge ${edge.from}->${edge.to}: input key "${binding.inputKey}" was removed or not found.`
+                );
+            }
+            if (outputPort && inputPort && outputPort.type !== inputPort.type) {
+                errors.push(
+                    `Edge ${edge.from}->${edge.to}: type mismatch "${binding.outputKey}"(${outputPort.type}) -> "${binding.inputKey}"(${inputPort.type}).`
+                );
+            }
+            if (usedInEdge.has(binding.inputKey)) {
+                errors.push(
+                    `Edge ${edge.from}->${edge.to}: duplicate input key "${binding.inputKey}" in same edge.`
+                );
+            } else {
+                usedInEdge.add(binding.inputKey);
+            }
+
+            const usedByTarget = usedInputKeysByTarget.get(edge.to) ?? new Set<string>();
+            if (usedByTarget.has(binding.inputKey)) {
+                errors.push(
+                    `Edge ${edge.from}->${edge.to}: input key "${binding.inputKey}" conflicts with another upstream edge.`
+                );
+            } else {
+                usedByTarget.add(binding.inputKey);
+                usedInputKeysByTarget.set(edge.to, usedByTarget);
+            }
+        }
+    }
+    return errors;
+}
+
 export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement {
     const manifests = useMemo(() => createDefaultNodeManifestRegistry().listManifests(), []);
     const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined);
     const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>(undefined);
+    const bindingErrors = useMemo(() => computeBindingErrors(props.definition), [props.definition]);
 
     const initialNodes = useMemo(() => props.definition.nodes.map((node, index) => toNode(node, index)), [props.definition.nodes]);
     const initialEdges = useMemo(() => props.definition.edges.map(toEdge), [props.definition.edges]);
@@ -90,6 +161,9 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
     };
 
     const updateDefinitionByEdges = useCallback((nextEdges: Edge[]): void => {
+        if (hasSameEdgeShape(nextEdges, props.definition.edges)) {
+            return;
+        }
         const currentEdgesById = new Map(props.definition.edges.map((edge) => [`${edge.from}->${edge.to}`, edge]));
         props.onDefinitionChange({
             ...props.definition,
@@ -113,7 +187,6 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         setEdges(nextEdges);
 
         const sourceNode = props.definition.nodes.find((node) => node.nodeId === connection.source);
-        const targetNode = props.definition.nodes.find((node) => node.nodeId === connection.target);
         const nextNodes = props.definition.nodes.map((node) => {
             if (node.nodeId !== connection.target || !sourceNode) {
                 return node;
@@ -135,9 +208,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 {
                     from: connection.source,
                     to: connection.target,
-                    bindings: sourceNode?.outputs?.[0] && targetNode?.inputs?.[0]
-                        ? [{ outputKey: sourceNode.outputs[0].key, inputKey: targetNode.inputs[0].key }]
-                        : []
+                    bindings: []
                 }
             ]
         });
@@ -175,7 +246,12 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         });
     };
 
+    const canRunPreview = bindingErrors.length === 0;
+
     const runPreview = async (): Promise<void> => {
+        if (!canRunPreview) {
+            return;
+        }
         const previewResult = await runDefinitionPreview(
             props.definition,
             props.initialInput ?? {}
@@ -191,12 +267,21 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                     <h2 className="text-sm font-semibold">DAG Canvas</h2>
                     <button
                         type="button"
-                        className="rounded border border-gray-300 px-3 py-1 text-xs hover:bg-gray-50"
+                        className="rounded border border-gray-300 px-3 py-1 text-xs hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={runPreview}
+                        disabled={!canRunPreview}
                     >
                         Run Preview
                     </button>
                 </div>
+                {bindingErrors.length > 0 ? (
+                    <div className="border-b border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+                        <div className="font-medium">Blocking Binding Errors</div>
+                        {bindingErrors.map((error) => (
+                            <div key={error}>- {error}</div>
+                        ))}
+                    </div>
+                ) : null}
                 <ReactFlow
                     nodes={nodes}
                     edges={edges}

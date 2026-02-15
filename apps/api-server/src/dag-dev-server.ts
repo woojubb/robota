@@ -38,6 +38,14 @@ interface IUpdateDraftBody {
     definition: IDagDefinition;
 }
 
+interface IGetDefinitionQuery {
+    version?: string;
+}
+
+interface IListDefinitionsQuery {
+    dagId?: string;
+}
+
 function createSampleDefinition(dagId: string, version: number): IDagDefinition {
     return {
         dagId,
@@ -45,20 +53,55 @@ function createSampleDefinition(dagId: string, version: number): IDagDefinition 
         status: 'draft',
         nodes: [
             {
-                nodeId: 'entry',
-                nodeType: 'input',
+                nodeId: 'image_source_1',
+                nodeType: 'image-source',
                 dependsOn: [],
-                config: {}
+                inputs: [],
+                outputs: [
+                    {
+                        key: 'image',
+                        label: 'Image',
+                        order: 0,
+                        type: 'binary',
+                        required: true,
+                        binaryKind: 'image',
+                        mimeTypes: ['image/png']
+                    }
+                ],
+                config: {
+                    uri: 'file://sample-image.png',
+                    mimeType: 'image/png'
+                }
             },
             {
-                nodeId: 'processor',
-                nodeType: 'processor',
-                dependsOn: ['entry'],
+                nodeId: 'ok_emitter_1',
+                nodeType: 'ok-emitter',
+                dependsOn: ['image_source_1'],
+                inputs: [
+                    {
+                        key: 'image',
+                        label: 'Image',
+                        order: 0,
+                        type: 'binary',
+                        required: true,
+                        binaryKind: 'image',
+                        mimeTypes: ['image/png']
+                    }
+                ],
+                outputs: [
+                    { key: 'status', label: 'Status', order: 0, type: 'string', required: true }
+                ],
                 config: {}
             }
         ],
         edges: [
-            { from: 'entry', to: 'processor' }
+            {
+                from: 'image_source_1',
+                to: 'ok_emitter_1',
+                bindings: [
+                    { outputKey: 'image', inputKey: 'image' }
+                ]
+            }
         ]
     };
 }
@@ -199,6 +242,33 @@ async function startDagDevServer(): Promise<void> {
             correlationId: 'dag-dev-design-publish'
         });
         res.status(published.status).json(published);
+    });
+
+    app.get('/v1/dag/definitions/:dagId', async (
+        req: Request<{ dagId: string }, unknown, unknown, IGetDefinitionQuery>,
+        res: Response
+    ) => {
+        const versionValue = req.query.version;
+        const parsedVersion = typeof versionValue === 'string' && versionValue.trim().length > 0
+            ? Number.parseInt(versionValue, 10)
+            : undefined;
+        const definition = await controllers.design.getDefinition({
+            dagId: req.params.dagId,
+            version: Number.isFinite(parsedVersion) ? parsedVersion : undefined,
+            correlationId: 'dag-dev-design-get'
+        });
+        res.status(definition.status).json(definition);
+    });
+
+    app.get('/v1/dag/definitions', async (
+        req: Request<unknown, unknown, unknown, IListDefinitionsQuery>,
+        res: Response
+    ) => {
+        const listed = await controllers.design.listDefinitions({
+            dagId: req.query.dagId,
+            correlationId: 'dag-dev-design-list'
+        });
+        res.status(listed.status).json(listed);
     });
 
     app.post('/v1/dag/dev/runs', async (req: Request<unknown, unknown, ITriggerRequestBody>, res: Response) => {

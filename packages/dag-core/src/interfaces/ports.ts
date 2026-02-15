@@ -65,6 +65,8 @@ export interface ILeasePort {
 export interface IStoragePort {
     saveDefinition(definition: IDagDefinition): Promise<void>;
     getDefinition(dagId: string, version: number): Promise<IDagDefinition | undefined>;
+    listDefinitions(): Promise<IDagDefinition[]>;
+    listDefinitionsByDagId(dagId: string): Promise<IDagDefinition[]>;
     getLatestPublishedDefinition(dagId: string): Promise<IDagDefinition | undefined>;
 
     createDagRun(dagRun: IDagRun): Promise<void>;
@@ -76,6 +78,11 @@ export interface IStoragePort {
     getTaskRun(taskRunId: string): Promise<ITaskRun | undefined>;
     listTaskRunsByDagRunId(dagRunId: string): Promise<ITaskRun[]>;
     updateTaskRunStatus(taskRunId: string, status: TTaskRunStatus, error?: IDagError): Promise<void>;
+    saveTaskRunSnapshots(
+        taskRunId: string,
+        inputSnapshot?: string,
+        outputSnapshot?: string
+    ): Promise<void>;
     incrementTaskAttempt(taskRunId: string): Promise<void>;
 }
 

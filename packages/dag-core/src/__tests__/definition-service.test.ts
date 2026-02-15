@@ -11,20 +11,61 @@ function createValidDefinition(): IDagDefinition {
         status: 'draft',
         nodes: [
             {
-                nodeId: 'node-a',
-                nodeType: 'input',
+                nodeId: 'node-a-image-source',
+                nodeType: 'image-source',
                 dependsOn: [],
-                config: {}
+                inputs: [],
+                outputs: [
+                    {
+                        key: 'image',
+                        label: 'Image',
+                        order: 0,
+                        type: 'binary',
+                        binaryKind: 'image',
+                        mimeTypes: ['image/png'],
+                        required: true
+                    }
+                ],
+                config: {
+                    uri: 'file://sample.png',
+                    mimeType: 'image/png'
+                }
             },
             {
-                nodeId: 'node-b',
-                nodeType: 'processor',
-                dependsOn: ['node-a'],
+                nodeId: 'node-b-ok-emitter',
+                nodeType: 'ok-emitter',
+                dependsOn: ['node-a-image-source'],
+                inputs: [
+                    {
+                        key: 'image',
+                        label: 'Image',
+                        order: 0,
+                        type: 'binary',
+                        binaryKind: 'image',
+                        mimeTypes: ['image/png'],
+                        required: true
+                    }
+                ],
+                outputs: [
+                    {
+                        key: 'status',
+                        label: 'Status',
+                        order: 0,
+                        type: 'string',
+                        required: true
+                    }
+                ],
                 config: {}
             }
         ],
         edges: [
-            { from: 'node-a', to: 'node-b' }
+            {
+                from: 'node-a-image-source',
+                to: 'node-b-ok-emitter',
+                bindings: [
+                    { outputKey: 'image', inputKey: 'image' }
+                ]
+            }
         ]
     };
 }
@@ -34,7 +75,7 @@ describe('DagDefinitionValidator', () => {
         const definition = createValidDefinition();
         definition.nodes[1] = {
             ...definition.nodes[1],
-            nodeId: 'node-a'
+            nodeId: 'node-a-image-source'
         };
 
         const validated = DagDefinitionValidator.validate(definition);
@@ -49,7 +90,13 @@ describe('DagDefinitionValidator', () => {
 
     it('returns validation error for cycle', () => {
         const definition = createValidDefinition();
-        definition.edges.push({ from: 'node-b', to: 'node-a' });
+        definition.edges.push({
+            from: 'node-b-ok-emitter',
+            to: 'node-a-image-source',
+            bindings: [
+                { outputKey: 'status', inputKey: 'image' }
+            ]
+        });
 
         const validated = DagDefinitionValidator.validate(definition);
 
@@ -99,8 +146,18 @@ describe('DagDefinitionService', () => {
                 {
                     nodeId: 'node-c',
                     nodeType: 'output',
-                    dependsOn: ['node-b'],
-                    config: {}
+                    dependsOn: ['node-b-ok-emitter'],
+                    config: {},
+                    inputs: [
+                        {
+                            key: 'status',
+                            label: 'Status',
+                            order: 0,
+                            type: 'string',
+                            required: true
+                        }
+                    ],
+                    outputs: []
                 }
             ]
         });
