@@ -36,6 +36,12 @@ function toNodeExecutionResult(nodeId: string, nodeType: string, input: TPortPay
     };
 }
 
+interface IPreviewNodeTerminalState {
+    status: 'success' | 'failed';
+    output?: TPortPayload;
+    error?: IDagError;
+}
+
 function topologicalSort(definition: IDagDefinition): TResult<string[], IDagError> {
     const inDegree = new Map<string, number>();
     const adjacency = new Map<string, string[]>();
@@ -118,11 +124,11 @@ function topologicalSort(definition: IDagDefinition): TResult<string[], IDagErro
 
 function buildNodeInput(
     definition: IDagDefinition,
-    nodeId: string,
+    nodeDefinition: IDagDefinition['nodes'][number],
     initialInput: TPortPayload,
-    outputByNodeId: Map<string, TPortPayload>
+    nodeStateById: Map<string, IPreviewNodeTerminalState>
 ): TResult<TPortPayload, IDagError> {
-    const incomingEdges = definition.edges.filter((edge) => edge.to === nodeId);
+    const incomingEdges = definition.edges.filter((edge) => edge.to === nodeDefinition.nodeId);
     if (incomingEdges.length === 0) {
         return {
             ok: true,
@@ -132,14 +138,14 @@ function buildNodeInput(
 
     const merged: TPortPayload = {};
     for (const edge of incomingEdges) {
-        const upstreamOutput = outputByNodeId.get(edge.from);
-        if (!upstreamOutput) {
+        const upstreamState = nodeStateById.get(edge.from);
+        if (!upstreamState) {
             return {
                 ok: false,
                 error: buildValidationError(
-                    'DAG_VALIDATION_PREVIEW_UPSTREAM_OUTPUT_MISSING',
-                    'Upstream output is missing for incoming edge',
-                    { from: edge.from, to: edge.to }
+                    'DAG_VALIDATION_PREVIEW_UPSTREAM_STATE_MISSING',
+                    'Upstream node terminal state is missing for incoming edge',
+                    { from: edge.from, to: nodeDefinition.nodeId }
                 )
             };
         }
@@ -156,6 +162,48 @@ function buildNodeInput(
         }
 
         for (const binding of edge.bindings) {
+            const targetPort = nodeDefinition.inputs.find((port) => port.key === binding.inputKey);
+            if (!targetPort) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_PREVIEW_BINDING_INPUT_NOT_FOUND',
+                        'binding.inputKey was not found in target node input ports',
+                        { to: nodeDefinition.nodeId, inputKey: binding.inputKey }
+                    )
+                };
+            }
+
+            if (upstreamState.status === 'failed') {
+                if (targetPort.required) {
+                    return {
+                        ok: false,
+                        error: buildValidationError(
+                            'DAG_VALIDATION_PREVIEW_REQUIRED_INPUT_UPSTREAM_FAILED',
+                            'Required input is connected but upstream node failed',
+                            {
+                                from: edge.from,
+                                to: nodeDefinition.nodeId,
+                                inputKey: binding.inputKey
+                            }
+                        )
+                    };
+                }
+                continue;
+            }
+
+            const upstreamOutput = upstreamState.output;
+            if (!upstreamOutput) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_PREVIEW_UPSTREAM_OUTPUT_MISSING',
+                        'Upstream output is missing for successful upstream node',
+                        { from: edge.from, to: nodeDefinition.nodeId }
+                    )
+                };
+            }
+
             const upstreamValue = upstreamOutput[binding.outputKey];
             if (typeof upstreamValue === 'undefined') {
                 return {
@@ -189,9 +237,10 @@ export async function runDefinitionPreview(
     const manifestRegistry = createDefaultNodeManifestRegistry();
     const lifecycleFactory = createDefaultNodeLifecycleFactory();
     const lifecycleRunner = new NodeLifecycleRunner(lifecycleFactory, new RunCostPolicyEvaluator());
-    const outputByNodeId = new Map<string, TPortPayload>();
+    const nodeStateById = new Map<string, IPreviewNodeTerminalState>();
     const traces: IPreviewNodeTrace[] = [];
     let totalCostUsd = 0;
+    let firstExecutionFailure: IDagError | undefined;
 
     for (const nodeId of sorted.value) {
         const nodeDefinition = definition.nodes.find((node) => node.nodeId === nodeId);
@@ -218,7 +267,7 @@ export async function runDefinitionPreview(
             };
         }
 
-        const inputResult = buildNodeInput(definition, nodeId, initialInput, outputByNodeId);
+        const inputResult = buildNodeInput(definition, nodeDefinition, initialInput, nodeStateById);
         if (!inputResult.ok) {
             return inputResult;
         }
@@ -244,12 +293,29 @@ export async function runDefinitionPreview(
             }
         });
         if (!executed.ok) {
-            return executed;
+            nodeStateById.set(nodeId, {
+                status: 'failed',
+                error: executed.error
+            });
+            if (!firstExecutionFailure) {
+                firstExecutionFailure = executed.error;
+            }
+            continue;
         }
 
         totalCostUsd = executed.value.totalCostUsd;
-        outputByNodeId.set(nodeId, executed.value.output);
+        nodeStateById.set(nodeId, {
+            status: 'success',
+            output: executed.value.output
+        });
         traces.push(toNodeExecutionResult(nodeId, nodeDefinition.nodeType, inputResult.value, executed.value));
+    }
+
+    if (firstExecutionFailure) {
+        return {
+            ok: false,
+            error: firstExecutionFailure
+        };
     }
 
     return {

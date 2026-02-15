@@ -44,7 +44,9 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                                 />
                                 <div className="leading-tight">
                                     <div className="text-[10px] font-medium text-gray-700">{port.label ?? port.key}</div>
-                                    <div className="text-[9px] text-gray-500">{port.key} · {port.type}</div>
+                                    <div className="text-[9px] text-gray-500">
+                                        {port.key} · {port.type} · {port.required ? 'required' : 'optional'}
+                                    </div>
                                 </div>
                             </div>
                         ))
@@ -68,7 +70,9 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                                 />
                                 <div className="leading-tight">
                                     <div className="text-[10px] font-medium text-gray-700">{port.label ?? port.key}</div>
-                                    <div className="text-[9px] text-gray-500">{port.key} · {port.type}</div>
+                                    <div className="text-[9px] text-gray-500">
+                                        {port.key} · {port.type} · {port.required ? 'required' : 'optional'}
+                                    </div>
                                 </div>
                             </div>
                         ))
