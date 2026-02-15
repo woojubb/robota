@@ -1,8 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DesignerApiClient } from "@robota-sdk/dag-designer";
-import type { IDagDefinition } from "@robota-sdk/dag-core";
+import {
+  DagDesignerCanvas,
+  DesignerApiClient,
+  type IPreviewResult,
+} from "@robota-sdk/dag-designer";
+import type { IDagDefinition, IDagError, TResult } from "@robota-sdk/dag-core";
 
 function createSampleDefinition(): IDagDefinition {
   return {
@@ -14,16 +18,39 @@ function createSampleDefinition(): IDagDefinition {
         nodeId: "entry",
         nodeType: "input",
         dependsOn: [],
+        inputs: [],
+        outputs: [
+          { key: "prompt", type: "string", required: true },
+        ],
         config: {},
       },
       {
-        nodeId: "processor",
-        nodeType: "processor",
+        nodeId: "llm",
+        nodeType: "llm-text",
         dependsOn: ["entry"],
+        inputs: [
+          { key: "prompt", type: "string", required: true },
+        ],
+        outputs: [
+          { key: "completion", type: "string", required: true },
+        ],
         config: {},
       },
     ],
-    edges: [{ from: "entry", to: "processor" }],
+    edges: [
+      {
+        from: "entry",
+        to: "llm",
+        bindings: [
+          { outputKey: "prompt", inputKey: "prompt" },
+        ],
+      },
+    ],
+    costPolicy: {
+      runCostLimitUsd: 0.01,
+      costCurrency: "USD",
+      costPolicyVersion: 1,
+    },
   };
 }
 
@@ -33,18 +60,25 @@ export default function DagDesignerPage() {
   const [log, setLog] = useState<string>("Ready");
   const [dagId, setDagId] = useState<string>("dag-web-sample");
   const [version, setVersion] = useState<number>(1);
+  const [definition, setDefinition] = useState<IDagDefinition>(createSampleDefinition());
+  const [draftCreated, setDraftCreated] = useState<boolean>(false);
+
+  const syncDefinitionIdentity = (nextDagId: string, nextVersion: number): void => {
+    setDefinition((current) => ({
+      ...current,
+      dagId: nextDagId,
+      version: nextVersion,
+    }));
+  };
 
   const createDraft = async (): Promise<void> => {
-    const definition = createSampleDefinition();
-    definition.dagId = dagId;
-    definition.version = version;
-
     const created = await client.createDefinition({
       definition,
       correlationId: "web-dag-create",
     });
     if (created.ok) {
       setLog(`Create success: ${created.value.dagId}:${created.value.version}`);
+      setDraftCreated(true);
       return;
     }
     if ("error" in created) {
@@ -52,6 +86,24 @@ export default function DagDesignerPage() {
       return;
     }
     setLog("Create failed: UNKNOWN_ERROR");
+  };
+
+  const updateDraft = async (): Promise<void> => {
+    const updated = await client.updateDraft({
+      dagId,
+      version,
+      definition,
+      correlationId: "web-dag-update",
+    });
+    if (updated.ok) {
+      setLog(`Update success: ${updated.value.dagId}:${updated.value.version}`);
+      return;
+    }
+    if ("error" in updated) {
+      setLog(`Update failed: ${updated.error[0]?.code}`);
+      return;
+    }
+    setLog("Update failed: UNKNOWN_ERROR");
   };
 
   const validateDraft = async (): Promise<void> => {
@@ -88,8 +140,20 @@ export default function DagDesignerPage() {
     setLog("Publish failed: UNKNOWN_ERROR");
   };
 
+  const onPreviewResult = (result: TResult<IPreviewResult, IDagError>): void => {
+    if (result.ok) {
+      setLog(`Preview success: totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}`);
+      return;
+    }
+    if ("error" in result) {
+      setLog(`Preview failed: ${result.error.code}`);
+      return;
+    }
+    setLog("Preview failed: UNKNOWN_ERROR");
+  };
+
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-6 py-8">
+    <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col gap-6 px-6 py-8">
       <h1 className="text-2xl font-semibold">DAG Designer Host (Web)</h1>
       <p className="text-sm text-gray-600">
         Base URL: <span className="font-mono">{baseUrl}</span>
@@ -101,7 +165,11 @@ export default function DagDesignerPage() {
           <input
             className="rounded border border-gray-300 px-3 py-2 font-mono"
             value={dagId}
-            onChange={(event) => setDagId(event.target.value)}
+            onChange={(event) => {
+              const nextDagId = event.target.value;
+              setDagId(nextDagId);
+              syncDefinitionIdentity(nextDagId, version);
+            }}
           />
         </label>
         <label className="flex flex-col gap-2 text-sm">
@@ -111,7 +179,11 @@ export default function DagDesignerPage() {
             type="number"
             min={1}
             value={version}
-            onChange={(event) => setVersion(Number(event.target.value))}
+            onChange={(event) => {
+              const nextVersion = Number(event.target.value);
+              setVersion(nextVersion);
+              syncDefinitionIdentity(dagId, nextVersion);
+            }}
           />
         </label>
       </div>
@@ -120,6 +192,13 @@ export default function DagDesignerPage() {
         <button className="rounded bg-black px-4 py-2 text-sm text-white" onClick={createDraft}>
           Create Draft
         </button>
+        <button
+          className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={updateDraft}
+          disabled={!draftCreated}
+        >
+          Update Draft
+        </button>
         <button className="rounded bg-black px-4 py-2 text-sm text-white" onClick={validateDraft}>
           Validate
         </button>
@@ -127,6 +206,13 @@ export default function DagDesignerPage() {
           Publish
         </button>
       </div>
+
+      <DagDesignerCanvas
+        definition={definition}
+        onDefinitionChange={setDefinition}
+        onPreviewResult={onPreviewResult}
+        initialInput={{ prompt: "hello world" }}
+      />
 
       <div className="rounded border border-gray-300 bg-gray-50 p-4">
         <p className="mb-2 text-sm font-medium">Latest Result</p>

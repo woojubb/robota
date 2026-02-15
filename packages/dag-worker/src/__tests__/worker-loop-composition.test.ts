@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     FakeClockPort,
+    type IDagDefinition,
     InMemoryLeasePort,
     InMemoryQueuePort,
     InMemoryStoragePort,
@@ -51,6 +52,23 @@ function createQueuedTaskFixture() {
     return { dagRun, taskRun, message };
 }
 
+function createDefinitionForRun(dagRun: IDagRun): IDagDefinition {
+    return {
+        dagId: dagRun.dagId,
+        version: dagRun.version,
+        status: 'published',
+        nodes: [
+            {
+                nodeId: 'entry',
+                nodeType: 'input',
+                dependsOn: [],
+                config: {}
+            }
+        ],
+        edges: []
+    };
+}
+
 describe('createWorkerLoopService', () => {
     it('uses fail-fast retry policy by default', async () => {
         const storage = new InMemoryStoragePort();
@@ -59,6 +77,7 @@ describe('createWorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
+        await storage.saveDefinition(createDefinitionForRun(dagRun));
         await storage.createDagRun(dagRun);
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);

@@ -6,10 +6,14 @@
     "composite": false,
     "declaration": true,
     "declarationMap": true,
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
+    "types": ["react", "react-dom"]
   },
   "include": [
-    "src/**/*"
+    "src/**/*.ts",
+    "src/**/*.tsx"
   ],
   "exclude": [
     "dist",

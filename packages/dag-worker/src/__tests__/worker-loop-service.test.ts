@@ -254,6 +254,7 @@ describe('WorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
+        await storage.saveDefinition(createDefinitionForRun(dagRun));
         await storage.createDagRun(dagRun);
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
@@ -369,6 +370,7 @@ describe('WorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
+        await storage.saveDefinition(createDefinitionForRun(dagRun));
         await storage.createDagRun(dagRun);
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
