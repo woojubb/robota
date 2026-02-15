@@ -15,11 +15,6 @@ function sortPorts(ports: IPortDefinition[]): IPortDefinition[] {
     return [...ports].sort((left, right) => (left.order ?? 9999) - (right.order ?? 9999));
 }
 
-function renderPortLabel(port: IPortDefinition): string {
-    const displayLabel = port.label ?? port.key;
-    return `${displayLabel} (${port.key}) (${port.type})`;
-}
-
 export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
     const inputs = sortPorts(props.data.inputs);
     const outputs = sortPorts(props.data.outputs);
@@ -37,7 +32,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                         <div className="px-3 text-[11px] text-gray-400">No inputs</div>
                     ) : (
                         inputs.map((port) => (
-                            <div key={`input-${port.key}`} className="relative px-3 pl-6 text-[11px] text-gray-700">
+                            <div key={`input-${port.key}`} className="relative px-3 pl-6">
                                 <Handle
                                     type="target"
                                     position={Position.Left}
@@ -47,7 +42,10 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                                     isConnectableEnd
                                     className="!h-3 !w-3"
                                 />
-                                {renderPortLabel(port)}
+                                <div className="leading-tight">
+                                    <div className="text-[10px] font-medium text-gray-700">{port.label ?? port.key}</div>
+                                    <div className="text-[9px] text-gray-500">{port.key} · {port.type}</div>
+                                </div>
                             </div>
                         ))
                     )}
@@ -58,7 +56,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                         <div className="px-3 text-right text-[11px] text-gray-400">No outputs</div>
                     ) : (
                         outputs.map((port) => (
-                            <div key={`output-${port.key}`} className="relative px-3 pr-6 text-right text-[11px] text-gray-700">
+                            <div key={`output-${port.key}`} className="relative px-3 pr-6 text-right">
                                 <Handle
                                     type="source"
                                     position={Position.Right}
@@ -68,7 +66,10 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                                     isConnectableEnd={false}
                                     className="!h-3 !w-3"
                                 />
-                                {renderPortLabel(port)}
+                                <div className="leading-tight">
+                                    <div className="text-[10px] font-medium text-gray-700">{port.label ?? port.key}</div>
+                                    <div className="text-[9px] text-gray-500">{port.key} · {port.type}</div>
+                                </div>
                             </div>
                         ))
                     )}
