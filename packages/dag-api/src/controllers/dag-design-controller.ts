@@ -1,4 +1,4 @@
-import { type DagDefinitionService, type IDagDefinition, type IDagError, type INodeManifest, type TResult } from '@robota-sdk/dag-core';
+import { type DagDefinitionService, type IDagDefinition, type INodeManifest } from '@robota-sdk/dag-core';
 import type {
     ICreateDefinitionRequest,
     IDefinitionListItem,
@@ -7,7 +7,6 @@ import type {
     IListDefinitionsRequest,
     IListNodeCatalogRequest,
     IPublishDefinitionRequest,
-    IReloadNodeCatalogRequest,
     TDesignApiResponse,
     IUpdateDraftRequest,
     IValidateDefinitionRequest
@@ -17,7 +16,6 @@ import { buildValidationError } from '@robota-sdk/dag-core';
 
 export interface INodeCatalogService {
     listManifests(): Promise<INodeManifest[]>;
-    reload(): Promise<TResult<{ loadedCount: number }, IDagError>>;
     hasNodeType(nodeType: string): boolean;
 }
 
@@ -274,46 +272,4 @@ export class DagDesignController {
         };
     }
 
-    public async reloadNodeCatalog(
-        request: IReloadNodeCatalogRequest
-    ): Promise<TDesignApiResponse<{ loadedCount: number }>> {
-        if (!this.nodeCatalogService) {
-            const error = buildValidationError(
-                'DAG_VALIDATION_NODE_CATALOG_NOT_CONFIGURED',
-                'Node catalog service is not configured'
-            );
-            return {
-                ok: false,
-                status: 400,
-                errors: [
-                    toProblemDetails(
-                        error,
-                        '/v1/dag/nodes/reload',
-                        request.correlationId
-                    )
-                ]
-            };
-        }
-
-        const reloaded = await this.nodeCatalogService.reload();
-        if (!reloaded.ok) {
-            return {
-                ok: false,
-                status: 400,
-                errors: [
-                    toProblemDetails(
-                        reloaded.error,
-                        '/v1/dag/nodes/reload',
-                        request.correlationId
-                    )
-                ]
-            };
-        }
-
-        return {
-            ok: true,
-            status: 200,
-            data: { loadedCount: reloaded.value.loadedCount }
-        };
-    }
 }

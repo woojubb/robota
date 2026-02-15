@@ -60,7 +60,6 @@ export interface IDesignerApiClient {
     getDefinition(input: IGetDefinitionInput): Promise<TResult<IDagDefinition, IProblemDetails[]>>;
     listDefinitions(input?: IListDefinitionsInput): Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>>;
-    reloadNodeCatalog(): Promise<TResult<{ loadedCount: number }, IProblemDetails[]>>;
 }
 
 export interface IDesignerApiClientConfig {
