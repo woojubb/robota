@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  DagDesignerCanvas,
-  DesignerApiClient,
+  DagDesigner,
+  useDagDesignApi,
   type IDefinitionListItem,
   type IPreviewResult,
 } from "@robota-sdk/dag-designer";
@@ -49,7 +49,7 @@ function createSampleDefinition(): IDagDefinition {
       {
         nodeId: "transform_1",
         nodeType: "transform",
-        dependsOn: [],
+        dependsOn: ["ok_emitter_1"],
         inputs: [
           { key: "text", label: "Text", order: 0, type: "string", required: false },
           { key: "data", label: "Data", order: 1, type: "object", required: false },
@@ -71,6 +71,13 @@ function createSampleDefinition(): IDagDefinition {
           { outputKey: "image", inputKey: "image" },
         ],
       },
+      {
+        from: "ok_emitter_1",
+        to: "transform_1",
+        bindings: [
+          { outputKey: "status", inputKey: "text" },
+        ],
+      },
     ],
     costPolicy: {
       runCostLimitUsd: 0.01,
@@ -82,7 +89,7 @@ function createSampleDefinition(): IDagDefinition {
 
 export default function DagDesignerPage() {
   const baseUrl = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
-  const client = useMemo(() => new DesignerApiClient({ baseUrl }), [baseUrl]);
+  const designApi = useDagDesignApi({ baseUrl });
   const [log, setLog] = useState<string>("Ready");
   const [dagId, setDagId] = useState<string>("dag-web-sample");
   const [version, setVersion] = useState<number>(1);
@@ -91,6 +98,9 @@ export default function DagDesignerPage() {
   const [catalogNodes, setCatalogNodes] = useState<INodeManifest[]>([]);
   const [definitionList, setDefinitionList] = useState<IDefinitionListItem[]>([]);
   const [selectedListDagId, setSelectedListDagId] = useState<string>("");
+  const [isCommandBarOpen, setIsCommandBarOpen] = useState<boolean>(false);
+  const [isNodeExplorerOpen, setIsNodeExplorerOpen] = useState<boolean>(true);
+  const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
   const bindingBlockingErrors = useMemo(() => {
     const validated = DagDefinitionValidator.validate(definition);
     if (validated.ok) {
@@ -116,7 +126,7 @@ export default function DagDesignerPage() {
       setLog(`Create blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
       return;
     }
-    const created = await client.createDefinition({
+    const created = await designApi.createDraft({
       definition,
       correlationId: "web-dag-create",
     });
@@ -137,7 +147,7 @@ export default function DagDesignerPage() {
       setLog(`Update blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
       return;
     }
-    const updated = await client.updateDraft({
+    const updated = await designApi.updateDraft({
       dagId,
       version,
       definition,
@@ -159,7 +169,7 @@ export default function DagDesignerPage() {
       setLog(`Validate blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
       return;
     }
-    const validated = await client.validateDefinition({
+    const validated = await designApi.validate({
       dagId,
       version,
       correlationId: "web-dag-validate",
@@ -180,7 +190,7 @@ export default function DagDesignerPage() {
       setLog(`Publish blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
       return;
     }
-    const published = await client.publishDefinition({
+    const published = await designApi.publish({
       dagId,
       version,
       correlationId: "web-dag-publish",
@@ -209,7 +219,7 @@ export default function DagDesignerPage() {
   };
 
   const refreshNodeCatalog = async (): Promise<void> => {
-    const listed = await client.listNodeCatalog();
+    const listed = await designApi.listNodeCatalog();
     if (listed.ok) {
       setCatalogNodes(listed.value);
       setLog(`Node catalog refresh success: count=${listed.value.length}`);
@@ -222,31 +232,12 @@ export default function DagDesignerPage() {
     setLog("Node catalog refresh failed: UNKNOWN_ERROR");
   };
 
-  const reloadNodeCatalog = async (): Promise<void> => {
-    const reloaded = await client.reloadNodeCatalog();
-    if (!reloaded.ok) {
-      if ("error" in reloaded) {
-        setLog(`Node catalog reload failed: ${reloaded.error[0]?.code}`);
-        return;
-      }
-      setLog("Node catalog reload failed: UNKNOWN_ERROR");
-      return;
-    }
-    const refreshed = await client.listNodeCatalog();
-    if (refreshed.ok) {
-      setCatalogNodes(refreshed.value);
-      setLog(`Node catalog reloaded: loaded=${reloaded.value.loadedCount}, visible=${refreshed.value.length}`);
-      return;
-    }
-    setLog(`Node catalog reloaded but list failed`);
-  };
-
   useEffect(() => {
     void refreshNodeCatalog();
   }, []);
 
   const loadByDagId = async (): Promise<void> => {
-    const loaded = await client.getDefinition({
+    const loaded = await designApi.load({
       dagId,
       version,
       correlationId: "web-dag-load",
@@ -267,7 +258,7 @@ export default function DagDesignerPage() {
   };
 
   const refreshDefinitionList = async (): Promise<void> => {
-    const listed = await client.listDefinitions({
+    const listed = await designApi.list({
       correlationId: "web-dag-list",
     });
     if (listed.ok) {
@@ -287,7 +278,7 @@ export default function DagDesignerPage() {
       setLog("Load from list failed: EMPTY_DAG_ID");
       return;
     }
-    const loaded = await client.getDefinition({
+    const loaded = await designApi.load({
       dagId: selectedListDagId,
       correlationId: "web-dag-load-from-list",
     });
@@ -307,141 +298,191 @@ export default function DagDesignerPage() {
   };
 
   return (
-    <div className="mx-auto flex h-screen w-full max-w-[1600px] flex-col gap-4 overflow-hidden px-4 py-4 md:px-6 md:py-6">
-      <h1 className="shrink-0 text-2xl font-semibold">DAG Designer Host (Web)</h1>
-      <p className="shrink-0 text-sm text-gray-600">
-        Base URL: <span className="font-mono">{baseUrl}</span>
-      </p>
-
-      <div className="shrink-0 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <label className="flex flex-col gap-2 text-sm">
-          DAG ID
-          <input
-            className="rounded border border-gray-300 px-3 py-2 font-mono"
-            value={dagId}
-            onChange={(event) => {
-              const nextDagId = event.target.value;
-              setDagId(nextDagId);
-              syncDefinitionIdentity(nextDagId, version);
-            }}
-          />
-        </label>
-        <label className="flex flex-col gap-2 text-sm">
-          Version
-          <input
-            className="rounded border border-gray-300 px-3 py-2 font-mono"
-            type="number"
-            min={1}
-            value={version}
-            onChange={(event) => {
-              const nextVersion = Number(event.target.value);
-              setVersion(nextVersion);
-              syncDefinitionIdentity(dagId, nextVersion);
-            }}
-          />
-        </label>
-      </div>
-
-      <div className="shrink-0 flex flex-wrap gap-2 md:gap-3">
-        <button
-          className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={createDraft}
-          disabled={hasBindingBlockingError}
-        >
-          Create Draft
-        </button>
-        <button
-          className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={updateDraft}
-          disabled={!draftCreated || hasBindingBlockingError}
-        >
-          Update Draft
-        </button>
-        <button
-          className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={validateDraft}
-          disabled={hasBindingBlockingError}
-        >
-          Validate
-        </button>
-        <button
-          className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={publishDraft}
-          disabled={hasBindingBlockingError}
-        >
-          Publish
-        </button>
-        <button
-          className="rounded bg-black px-4 py-2 text-sm text-white"
-          onClick={loadByDagId}
-        >
-          Load by DAG ID
-        </button>
-        <button
-          className="rounded bg-black px-4 py-2 text-sm text-white"
-          onClick={refreshDefinitionList}
-        >
-          Refresh DAG List
-        </button>
-        <button
-          className="rounded bg-black px-4 py-2 text-sm text-white"
-          onClick={refreshNodeCatalog}
-        >
-          Refresh Node Catalog
-        </button>
-        <button
-          className="rounded bg-black px-4 py-2 text-sm text-white"
-          onClick={reloadNodeCatalog}
-        >
-          Reload Node Store
-        </button>
-      </div>
-
-      <div className="shrink-0 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
-        <select
-          className="rounded border border-gray-300 px-3 py-2 font-mono text-sm"
-          value={selectedListDagId}
-          onChange={(event) => setSelectedListDagId(event.target.value)}
-        >
-          <option value="">Select DAG from list</option>
-          {definitionList.map((item) => (
-            <option key={item.dagId} value={item.dagId}>
-              {item.dagId} (latest={item.latestVersion}, statuses={item.statuses.join(",")})
-            </option>
-          ))}
-        </select>
-        <button
-          className="rounded bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={loadFromSelectedList}
-          disabled={selectedListDagId.trim().length === 0}
-        >
-          Load Selected DAG
-        </button>
-      </div>
-
-      {hasBindingBlockingError ? (
-        <div className="shrink-0 rounded border border-red-300 bg-red-50 px-4 py-3 text-xs text-red-800">
-          <p className="mb-1 font-semibold">Blocking Binding Errors</p>
-          {bindingBlockingErrors.map((error) => (
-            <p key={`${error.code}-${error.message}`}>- {error.code}: {error.message}</p>
-          ))}
+    <div className="relative h-screen w-screen overflow-hidden bg-white">
+      <header className="absolute inset-x-0 top-0 z-40 flex h-9 items-center justify-between border-b border-gray-300 bg-white/95 px-3 backdrop-blur-sm">
+        <div className="min-w-0 text-xs font-semibold text-gray-800">DAG Designer</div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] shadow-sm hover:bg-gray-50"
+            onClick={() => setIsCommandBarOpen((current) => !current)}
+          >
+            {isCommandBarOpen ? "Hide Controls" : "Show Controls"}
+          </button>
+          <button
+            type="button"
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] shadow-sm hover:bg-gray-50"
+            onClick={() => setIsNodeExplorerOpen((current) => !current)}
+          >
+            {isNodeExplorerOpen ? "Hide Explorer" : "Show Explorer"}
+          </button>
+          <button
+            type="button"
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] shadow-sm hover:bg-gray-50"
+            onClick={() => setIsInspectorOpen((current) => !current)}
+          >
+            {isInspectorOpen ? "Hide Inspector" : "Show Inspector"}
+          </button>
         </div>
-      ) : null}
+      </header>
 
-      <div className="min-h-0 flex-1">
-        <DagDesignerCanvas
+      <div className="absolute inset-0 pt-9">
+        <DagDesigner.Root
           definition={definition}
           manifests={catalogNodes}
           onDefinitionChange={setDefinition}
           onPreviewResult={onPreviewResult}
           initialInput={{}}
-          className="h-full min-h-[680px]"
-        />
-      </div>
+          className="relative h-full w-full overflow-hidden"
+        >
+          <DagDesigner.Canvas className="h-full w-full" />
 
-      <div className="shrink-0 rounded border border-gray-300 bg-gray-50 p-4">
-        <p className="mb-2 text-sm font-medium">Latest Result</p>
-        <pre className="max-h-24 overflow-auto text-xs">{log}</pre>
+          {isCommandBarOpen ? (
+            <div className="pointer-events-auto absolute left-1/2 top-2 z-30 w-[min(96vw,1100px)] -translate-x-1/2 rounded border border-gray-300 bg-white/95 p-3 shadow-lg backdrop-blur-sm">
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_auto]">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <label className="flex flex-col gap-2 text-xs">
+                    DAG ID
+                    <input
+                      className="rounded border border-gray-300 px-3 py-2 font-mono text-xs"
+                      value={dagId}
+                      onChange={(event) => {
+                        const nextDagId = event.target.value;
+                        setDagId(nextDagId);
+                        syncDefinitionIdentity(nextDagId, version);
+                      }}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-xs">
+                    Version
+                    <input
+                      className="rounded border border-gray-300 px-3 py-2 font-mono text-xs"
+                      type="number"
+                      min={1}
+                      value={version}
+                      onChange={(event) => {
+                        const nextVersion = Number(event.target.value);
+                        setVersion(nextVersion);
+                        syncDefinitionIdentity(dagId, nextVersion);
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="flex flex-wrap items-end justify-start gap-2 xl:justify-end">
+                  <button
+                    className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={createDraft}
+                    disabled={hasBindingBlockingError}
+                  >
+                    Create Draft
+                  </button>
+                  <button
+                    className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={updateDraft}
+                    disabled={!draftCreated || hasBindingBlockingError}
+                  >
+                    Update Draft
+                  </button>
+                  <button
+                    className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={validateDraft}
+                    disabled={hasBindingBlockingError}
+                  >
+                    Validate
+                  </button>
+                  <button
+                    className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={publishDraft}
+                    disabled={hasBindingBlockingError}
+                  >
+                    Publish
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[auto_auto_1fr_auto]">
+                <button
+                  className="rounded border border-gray-300 bg-white px-3 py-2 text-xs hover:bg-gray-50"
+                  onClick={loadByDagId}
+                >
+                  Load by DAG ID
+                </button>
+                <button
+                  className="rounded border border-gray-300 bg-white px-3 py-2 text-xs hover:bg-gray-50"
+                  onClick={refreshDefinitionList}
+                >
+                  Refresh DAG List
+                </button>
+                <select
+                  className="rounded border border-gray-300 px-3 py-2 font-mono text-xs"
+                  value={selectedListDagId}
+                  onChange={(event) => setSelectedListDagId(event.target.value)}
+                >
+                  <option value="">Select DAG from list</option>
+                  {definitionList.map((item) => (
+                    <option key={item.dagId} value={item.dagId}>
+                      {item.dagId} (latest={item.latestVersion}, statuses={item.statuses.join(",")})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={loadFromSelectedList}
+                  disabled={selectedListDagId.trim().length === 0}
+                >
+                  Load Selected DAG
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {hasBindingBlockingError ? (
+            <div className="pointer-events-auto absolute left-1/2 top-2 z-30 w-[min(96vw,1100px)] -translate-x-1/2 rounded border border-red-300 bg-red-50 px-4 py-2 text-xs text-red-800 shadow-md">
+              <p className="mb-1 font-semibold">Blocking Binding Errors</p>
+              {bindingBlockingErrors.map((error) => (
+                <p key={`${error.code}-${error.message}`}>- {error.code}: {error.message}</p>
+              ))}
+            </div>
+          ) : null}
+
+          {isNodeExplorerOpen ? (
+            <div className="absolute bottom-0 left-0 top-0 z-20 w-[320px]">
+              <div className="flex h-full min-h-0 flex-col rounded-none border-r border-gray-300 bg-white/95 shadow-lg backdrop-blur-sm">
+                <div className="flex items-center justify-between border-b border-gray-300 px-3 py-2">
+                  <span className="text-xs font-semibold text-gray-700">Node Catalog</span>
+                  <button
+                    type="button"
+                    className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] hover:bg-gray-50"
+                    onClick={refreshNodeCatalog}
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 p-2">
+                  <DagDesigner.NodeExplorer className="h-full border-0 p-0" />
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isInspectorOpen ? (
+            <div className="absolute bottom-0 right-0 top-0 z-20 w-[380px]">
+              <div className="h-full overflow-auto border-l border-gray-300 bg-white/95 shadow-lg backdrop-blur-sm">
+                <div className="flex flex-col gap-2 p-2">
+                  <DagDesigner.NodeConfig />
+                  <DagDesigner.EdgeInspector />
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 w-[min(96vw,800px)] -translate-x-1/2">
+            <div className="pointer-events-auto rounded border border-gray-300 bg-white/95 px-3 py-2 shadow-lg backdrop-blur-sm">
+              <p className="mb-1 text-xs font-medium">Latest Result</p>
+              <pre className="max-h-20 overflow-auto text-xs">{log}</pre>
+            </div>
+          </div>
+        </DagDesigner.Root>
       </div>
     </div>
   );

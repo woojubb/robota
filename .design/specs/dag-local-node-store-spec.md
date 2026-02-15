@@ -1,92 +1,54 @@
-# DAG Local Node Store 규격 (v1)
+# DAG Node Delivery 규격 (Bundle-first)
+
+## 상태
+
+- 이 문서는 기존 로컬 폴더 스캔 모델을 대체한다.
+- `ROBOTA_NODE_STORE_DIR`, 폴더 스캔, `POST /v1/dag/nodes/reload`는 사용하지 않는다.
 
 ## 목적
 
-- v1에서는 Marketplace 연동 없이 로컬 폴더의 노드 패키지만 로드/사용한다.
-- 노드 목록 갱신은 자동 반영하지 않고, 명시적 reload API 호출로만 수행한다.
+- Lambda/Container 배포에서 노드 집합의 재현성과 안정성을 확보한다.
+- 런타임 파일시스템 의존 없이 빌드된 아티팩트만으로 노드를 로드한다.
 
-## 경로 규칙
+## 기본 원칙
 
-- Node Store 루트 경로:
-  1. `ROBOTA_NODE_STORE_DIR` 환경변수
-  2. 미설정 시 `./.robota/nodes/`
+- 노드 카탈로그는 번들된 manifest 집합으로만 구성한다.
+- 런타임 동적 설치/동적 스캔/자동 리로드를 금지한다.
+- 서버 초기화 시 노드 목록과 라이프사이클 팩토리를 명시적 파라미터로 주입한다.
 
-- 디렉토리 구조:
-  - `<storeRoot>/<publisher>/<nodeType>/<version>/`
+## 서버 초기화 계약
 
-## 패키지 파일 규격
+권장 부트스트랩 형태:
 
-각 버전 폴더는 아래 파일을 포함해야 한다.
-
-- `manifest.json` (필수)
-- `dist/handler.js` 또는 동등 entry 파일 (v1에서는 로더 확장 포인트로 예약)
-- `README.md` (선택)
-
-`manifest.json` 필수 최소 필드:
-
-- `nodeType: string`
-- `displayName: string`
-- `category: string`
-- `inputs: IPortDefinition[]`
-- `outputs: IPortDefinition[]`
-
-## SSOT 설계
-
-### SSOT-1: 노드 계약 SSOT
-
-- 위치: 각 노드의 `manifest.json`
-- 포함: 입출력 포트/노드 계약/기술 메타정보
-
-### SSOT-2: 운영 노출 SSOT
-
-- 위치: `<storeRoot>/collection.json`
-- 포함: 노출/비노출/활성화/카테고리 오버라이드
-
-중복 금지 원칙:
-
-- 운영 제어 필드(enable/disable/hidden)는 `manifest.json`에 두지 않는다.
-- 계약 필드는 `collection.json`에 두지 않는다.
-
-## collection.json 규격 (v1)
-
-```json
-{
-  "nodes": {
-    "image-source": {
-      "enabled": true,
-      "hidden": false,
-      "category": "My Local Nodes"
-    },
-    "ok-emitter": {
-      "enabled": false
-    }
-  }
-}
+```ts
+createDagServer({
+  nodeManifests,
+  nodeCatalogService,
+  nodeLifecycleFactory
+});
 ```
 
-## Reload 동작 규칙
+필수 규칙:
 
-- `POST /v1/dag/nodes/reload` 호출 시에만 폴더 재스캔
-- reload는 아래 순서만 수행:
-  1. Node Store 폴더 스캔
-  2. manifest 파싱/검증
-  3. collection metadata 적용
-  4. 최종 인덱스 스냅샷 교체
+- `nodeManifests`는 빌드 시점에 확정된 값이어야 한다.
+- `nodeCatalogService`는 in-memory/static registry 기반이어야 한다.
+- 엔트리포인트를 환경별로 분기하지 않는다. 단일 서버 부트스트랩 계약을 사용하고 주입 값/인프라 설정만 달라야 한다.
 
-금지:
-
-- 파일 변경 자동 감지 후 자동 갱신
-- reload 실패 시 조용한 무시
-
-## API 계약 (v1)
+## API 계약
 
 - `GET /v1/dag/nodes`
-  - 현재 인덱스 기준 노드 목록 반환
+  - 현재 번들된 노드 목록 반환
 - `POST /v1/dag/nodes/reload`
-  - 재스캔 수행 후 `loadedCount` 반환
+  - 엔드포인트 자체를 제공하지 않는다 (삭제)
+
+## 배포 모델
+
+- Dev: workspace 패키지 빌드 결과를 사용
+- Prod(Container): 이미지 빌드 시 노드 패키지 포함
+- Lambda: 별도 DAG 엔트리 추가 없이 동일 부트스트랩을 사용하고 배포 어댑터에서 동일 프로세스를 감싼다
 
 ## no-fallback 정책
 
-- manifest 누락/파싱 실패/스키마 위반은 즉시 실패
-- nodeType 미등록 상태에서 validate/publish는 즉시 실패
-- 자동 대체 핸들러/자동 복구/자동 매핑 금지
+- 미등록 nodeType은 validate/publish에서 즉시 실패
+- 런타임 재스캔으로 문제를 우회하지 않는다
+- 배포 단위는 항상 재빌드/재배포로 처리한다

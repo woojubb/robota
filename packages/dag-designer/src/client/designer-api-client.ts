@@ -18,7 +18,6 @@ interface ILooseDesignerPayload {
         definition?: IDagDefinition;
         items?: IDefinitionListItem[];
         nodes?: INodeManifest[];
-        loadedCount?: number;
     };
     errors?: IProblemDetails[];
 }
@@ -160,25 +159,6 @@ export class DesignerApiClient implements IDesignerApiClient {
             return {
                 ok: true,
                 value: nodes
-            };
-        }
-        return {
-            ok: false,
-            error: [createContractViolationProblem(200, path)]
-        };
-    }
-
-    public async reloadNodeCatalog(): Promise<TResult<{ loadedCount: number }, IProblemDetails[]>> {
-        const path = '/v1/dag/nodes/reload';
-        const payloadResult = await this.requestPayload(path, 'POST', undefined);
-        if (!payloadResult.ok) {
-            return payloadResult;
-        }
-        const loadedCount = payloadResult.value.data?.loadedCount;
-        if (typeof loadedCount === 'number') {
-            return {
-                ok: true,
-                value: { loadedCount }
             };
         }
         return {
