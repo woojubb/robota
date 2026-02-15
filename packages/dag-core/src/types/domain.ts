@@ -1,4 +1,6 @@
 export type TDagDefinitionStatus = 'draft' | 'published' | 'deprecated';
+export type TPortValueType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'binary';
+export type TBinaryKind = 'image' | 'video' | 'audio' | 'file';
 
 export type TDagRunStatus =
     | 'created'
@@ -20,6 +22,33 @@ export type TTaskRunStatus =
 
 export type TDagTriggerType = 'manual' | 'scheduled' | 'api';
 
+export interface IPortDefinition {
+    key: string;
+    label?: string;
+    order?: number;
+    type: TPortValueType;
+    required: boolean;
+    description?: string;
+    binaryKind?: TBinaryKind;
+    mimeTypes?: string[];
+}
+
+export interface INodeManifest {
+    nodeType: string;
+    displayName: string;
+    category: string;
+    inputs: IPortDefinition[];
+    outputs: IPortDefinition[];
+    configSchema?: string;
+    deprecated?: boolean;
+}
+
+export interface ICostPolicy {
+    runCostLimitUsd: number;
+    costCurrency: 'USD';
+    costPolicyVersion: number;
+}
+
 export interface IDagNodeDefinition {
     nodeId: string;
     nodeType: string;
@@ -28,6 +57,20 @@ export interface IDagNodeDefinition {
     retryPolicy?: string;
     timeoutMs?: number;
     config: Record<string, string | number | boolean | null>;
+    inputs: IPortDefinition[];
+    outputs: IPortDefinition[];
+    costPolicy?: ICostPolicy;
+}
+
+export interface IEdgeBinding {
+    outputKey: string;
+    inputKey: string;
+}
+
+export interface IDagEdgeDefinition {
+    from: string;
+    to: string;
+    bindings?: IEdgeBinding[];
 }
 
 export interface IDagDefinition {
@@ -35,10 +78,8 @@ export interface IDagDefinition {
     version: number;
     status: TDagDefinitionStatus;
     nodes: IDagNodeDefinition[];
-    edges: Array<{
-        from: string;
-        to: string;
-    }>;
+    edges: IDagEdgeDefinition[];
+    costPolicy?: ICostPolicy;
     inputSchema?: string;
     outputSchema?: string;
 }

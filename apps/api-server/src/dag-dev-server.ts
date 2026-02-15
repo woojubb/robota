@@ -2,11 +2,13 @@ import dotenv from 'dotenv';
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import {
+    LifecycleTaskExecutorPort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     InMemoryStoragePort,
-    MockTaskExecutorPort,
     SystemClockPort,
+    createDefaultNodeLifecycleFactory,
+    createDefaultNodeManifestRegistry,
     type IDagDefinition,
     type TPortPayload
 } from '@robota-sdk/dag-core';
@@ -75,7 +77,9 @@ async function startDagDevServer(): Promise<void> {
     const deadLetterQueue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
     const clock = new SystemClockPort();
-    const executor = new MockTaskExecutorPort();
+    const manifestRegistry = createDefaultNodeManifestRegistry();
+    const lifecycleFactory = createDefaultNodeLifecycleFactory();
+    const executor = new LifecycleTaskExecutorPort(manifestRegistry, lifecycleFactory);
 
     const controllers = createDagControllerComposition(
         {

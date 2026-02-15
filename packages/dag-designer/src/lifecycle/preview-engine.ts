@@ -1,0 +1,262 @@
+import {
+    NodeLifecycleRunner,
+    RunCostPolicyEvaluator,
+    buildValidationError,
+    createDefaultNodeLifecycleFactory,
+    createDefaultNodeManifestRegistry,
+    type IDagDefinition,
+    type IDagError,
+    type INodeExecutionResult,
+    type TPortPayload,
+    type TResult
+} from '@robota-sdk/dag-core';
+
+export interface IPreviewNodeTrace {
+    nodeId: string;
+    nodeType: string;
+    input: TPortPayload;
+    output: TPortPayload;
+    estimatedCostUsd: number;
+    totalCostUsd: number;
+}
+
+export interface IPreviewResult {
+    traces: IPreviewNodeTrace[];
+    totalCostUsd: number;
+}
+
+function toNodeExecutionResult(nodeId: string, nodeType: string, input: TPortPayload, result: INodeExecutionResult): IPreviewNodeTrace {
+    return {
+        nodeId,
+        nodeType,
+        input,
+        output: result.output,
+        estimatedCostUsd: result.estimatedCostUsd,
+        totalCostUsd: result.totalCostUsd
+    };
+}
+
+function topologicalSort(definition: IDagDefinition): TResult<string[], IDagError> {
+    const inDegree = new Map<string, number>();
+    const adjacency = new Map<string, string[]>();
+
+    for (const node of definition.nodes) {
+        inDegree.set(node.nodeId, 0);
+        adjacency.set(node.nodeId, []);
+    }
+
+    for (const edge of definition.edges) {
+        const current = inDegree.get(edge.to);
+        if (typeof current !== 'number') {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_EDGE_TO_NOT_FOUND',
+                    'edge.to must reference an existing node',
+                    { to: edge.to }
+                )
+            };
+        }
+        inDegree.set(edge.to, current + 1);
+        const list = adjacency.get(edge.from);
+        if (!list) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_EDGE_FROM_NOT_FOUND',
+                    'edge.from must reference an existing node',
+                    { from: edge.from }
+                )
+            };
+        }
+        list.push(edge.to);
+    }
+
+    const queue: string[] = [];
+    for (const [nodeId, degree] of inDegree.entries()) {
+        if (degree === 0) {
+            queue.push(nodeId);
+        }
+    }
+
+    const ordered: string[] = [];
+    while (queue.length > 0) {
+        const nodeId = queue.shift();
+        if (!nodeId) {
+            continue;
+        }
+        ordered.push(nodeId);
+        const nextNodes = adjacency.get(nodeId) ?? [];
+        for (const nextNodeId of nextNodes) {
+            const degree = inDegree.get(nextNodeId);
+            if (typeof degree !== 'number') {
+                continue;
+            }
+            const nextDegree = degree - 1;
+            inDegree.set(nextNodeId, nextDegree);
+            if (nextDegree === 0) {
+                queue.push(nextNodeId);
+            }
+        }
+    }
+
+    if (ordered.length !== definition.nodes.length) {
+        return {
+            ok: false,
+            error: buildValidationError(
+                'DAG_VALIDATION_CYCLE_DETECTED',
+                'DAG must not contain cycles'
+            )
+        };
+    }
+
+    return {
+        ok: true,
+        value: ordered
+    };
+}
+
+function buildNodeInput(
+    definition: IDagDefinition,
+    nodeId: string,
+    initialInput: TPortPayload,
+    outputByNodeId: Map<string, TPortPayload>
+): TResult<TPortPayload, IDagError> {
+    const incomingEdges = definition.edges.filter((edge) => edge.to === nodeId);
+    if (incomingEdges.length === 0) {
+        return {
+            ok: true,
+            value: initialInput
+        };
+    }
+
+    const merged: TPortPayload = {};
+    for (const edge of incomingEdges) {
+        const upstreamOutput = outputByNodeId.get(edge.from);
+        if (!upstreamOutput) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_PREVIEW_UPSTREAM_OUTPUT_MISSING',
+                    'Upstream output is missing for incoming edge',
+                    { from: edge.from, to: edge.to }
+                )
+            };
+        }
+
+        if (!edge.bindings || edge.bindings.length === 0) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_PREVIEW_BINDING_REQUIRED',
+                    'Edge bindings are required when node has incoming edges',
+                    { from: edge.from, to: edge.to }
+                )
+            };
+        }
+
+        for (const binding of edge.bindings) {
+            const upstreamValue = upstreamOutput[binding.outputKey];
+            if (typeof upstreamValue === 'undefined') {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_PREVIEW_BINDING_OUTPUT_MISSING',
+                        'binding.outputKey was not found in upstream output',
+                        { from: edge.from, outputKey: binding.outputKey }
+                    )
+                };
+            }
+            merged[binding.inputKey] = upstreamValue;
+        }
+    }
+
+    return {
+        ok: true,
+        value: merged
+    };
+}
+
+export async function runDefinitionPreview(
+    definition: IDagDefinition,
+    initialInput: TPortPayload
+): Promise<TResult<IPreviewResult, IDagError>> {
+    const sorted = topologicalSort(definition);
+    if (!sorted.ok) {
+        return sorted;
+    }
+
+    const manifestRegistry = createDefaultNodeManifestRegistry();
+    const lifecycleFactory = createDefaultNodeLifecycleFactory();
+    const lifecycleRunner = new NodeLifecycleRunner(lifecycleFactory, new RunCostPolicyEvaluator());
+    const outputByNodeId = new Map<string, TPortPayload>();
+    const traces: IPreviewNodeTrace[] = [];
+    let totalCostUsd = 0;
+
+    for (const nodeId of sorted.value) {
+        const nodeDefinition = definition.nodes.find((node) => node.nodeId === nodeId);
+        if (!nodeDefinition) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_NODE_NOT_FOUND',
+                    'Node was not found while running preview',
+                    { nodeId }
+                )
+            };
+        }
+
+        const nodeManifest = manifestRegistry.getManifest(nodeDefinition.nodeType);
+        if (!nodeManifest) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_NODE_MANIFEST_NOT_FOUND',
+                    'Node manifest is not registered for preview',
+                    { nodeType: nodeDefinition.nodeType }
+                )
+            };
+        }
+
+        const inputResult = buildNodeInput(definition, nodeId, initialInput, outputByNodeId);
+        if (!inputResult.ok) {
+            return inputResult;
+        }
+
+        const executed = await lifecycleRunner.runNode({
+            input: inputResult.value,
+            context: {
+                dagId: definition.dagId,
+                dagRunId: `preview:${definition.dagId}:${definition.version}`,
+                taskRunId: `preview:${nodeId}`,
+                nodeDefinition,
+                nodeManifest,
+                attempt: 1,
+                executionPath: [
+                    `dagId:${definition.dagId}`,
+                    `dagRunId:preview:${definition.dagId}:${definition.version}`,
+                    `nodeId:${nodeId}`,
+                    `taskRunId:preview:${nodeId}`,
+                    'attempt:1'
+                ],
+                runCostLimitUsd: definition.costPolicy?.runCostLimitUsd,
+                currentTotalCostUsd: totalCostUsd
+            }
+        });
+        if (!executed.ok) {
+            return executed;
+        }
+
+        totalCostUsd = executed.value.totalCostUsd;
+        outputByNodeId.set(nodeId, executed.value.output);
+        traces.push(toNodeExecutionResult(nodeId, nodeDefinition.nodeType, inputResult.value, executed.value));
+    }
+
+    return {
+        ok: true,
+        value: {
+            traces,
+            totalCostUsd
+        }
+    };
+}

@@ -1,4 +1,4 @@
-import type { IDagDefinition } from '../types/domain.js';
+import type { IDagDefinition, IPortDefinition } from '../types/domain.js';
 import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
 import { buildValidationError } from '../utils/error-builders.js';
@@ -66,6 +66,7 @@ export class DagDefinitionValidator {
         }
 
         const nodeIdSet = new Set<string>();
+        const nodeById = new Map<string, IDagDefinition['nodes'][number]>();
         for (const node of definition.nodes) {
             if (node.nodeId.trim().length === 0) {
                 errors.push(
@@ -86,6 +87,79 @@ export class DagDefinitionValidator {
             }
 
             nodeIdSet.add(node.nodeId);
+            nodeById.set(node.nodeId, node);
+
+            if (node.inputs) {
+                const inputKeys = new Set<string>();
+                for (const port of node.inputs) {
+                    if (port.key.trim().length === 0) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_EMPTY_INPUT_KEY',
+                                'input port key must not be empty',
+                                { nodeId: node.nodeId }
+                            )
+                        );
+                        continue;
+                    }
+                    if (typeof port.order === 'number' && (!Number.isInteger(port.order) || port.order < 0)) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_INVALID_INPUT_ORDER',
+                                'input port order must be a non-negative integer',
+                                { nodeId: node.nodeId, key: port.key, order: port.order }
+                            )
+                        );
+                    }
+                    if (inputKeys.has(port.key)) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_DUPLICATE_INPUT_KEY',
+                                'input port key must be unique in a node',
+                                { nodeId: node.nodeId, key: port.key }
+                            )
+                        );
+                        continue;
+                    }
+                    inputKeys.add(port.key);
+                }
+            }
+
+            if (node.outputs) {
+                const outputKeys = new Set<string>();
+                for (const port of node.outputs) {
+                    if (port.key.trim().length === 0) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_EMPTY_OUTPUT_KEY',
+                                'output port key must not be empty',
+                                { nodeId: node.nodeId }
+                            )
+                        );
+                        continue;
+                    }
+                    if (typeof port.order === 'number' && (!Number.isInteger(port.order) || port.order < 0)) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_INVALID_OUTPUT_ORDER',
+                                'output port order must be a non-negative integer',
+                                { nodeId: node.nodeId, key: port.key, order: port.order }
+                            )
+                        );
+                    }
+                    if (outputKeys.has(port.key)) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_DUPLICATE_OUTPUT_KEY',
+                                'output port key must be unique in a node',
+                                { nodeId: node.nodeId, key: port.key }
+                            )
+                        );
+                        continue;
+                    }
+                    outputKeys.add(port.key);
+                }
+            }
         }
 
         for (const edge of definition.edges) {
@@ -108,6 +182,64 @@ export class DagDefinitionValidator {
                     )
                 );
             }
+
+            if (edge.bindings && edge.bindings.length > 0) {
+                const fromNode = nodeById.get(edge.from);
+                const toNode = nodeById.get(edge.to);
+                if (!fromNode || !toNode) {
+                    continue;
+                }
+
+                const outputPorts = fromNode.outputs ?? [];
+                const inputPorts = toNode.inputs ?? [];
+
+                for (const binding of edge.bindings) {
+                    const outputPort = findPort(outputPorts, binding.outputKey);
+                    if (!outputPort) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_BINDING_OUTPUT_NOT_FOUND',
+                                'binding.outputKey must reference an existing output port',
+                                {
+                                    from: edge.from,
+                                    outputKey: binding.outputKey
+                                }
+                            )
+                        );
+                    }
+
+                    const inputPort = findPort(inputPorts, binding.inputKey);
+                    if (!inputPort) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_BINDING_INPUT_NOT_FOUND',
+                                'binding.inputKey must reference an existing input port',
+                                {
+                                    to: edge.to,
+                                    inputKey: binding.inputKey
+                                }
+                            )
+                        );
+                    }
+
+                    if (outputPort && inputPort && !isPortTypeCompatible(outputPort, inputPort)) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_BINDING_TYPE_MISMATCH',
+                                'binding port types must match',
+                                {
+                                    from: edge.from,
+                                    to: edge.to,
+                                    outputKey: binding.outputKey,
+                                    inputKey: binding.inputKey,
+                                    outputType: outputPort.type,
+                                    inputType: inputPort.type
+                                }
+                            )
+                        );
+                    }
+                }
+            }
         }
 
         const outgoingEdges = new Map<string, string[]>();
@@ -124,6 +256,27 @@ export class DagDefinitionValidator {
             );
         }
 
+        if (definition.costPolicy) {
+            if (definition.costPolicy.runCostLimitUsd <= 0) {
+                errors.push(
+                    buildValidationError(
+                        'DAG_VALIDATION_INVALID_COST_LIMIT',
+                        'costPolicy.runCostLimitUsd must be positive',
+                        { runCostLimitUsd: definition.costPolicy.runCostLimitUsd }
+                    )
+                );
+            }
+            if (definition.costPolicy.costPolicyVersion <= 0) {
+                errors.push(
+                    buildValidationError(
+                        'DAG_VALIDATION_INVALID_COST_POLICY_VERSION',
+                        'costPolicy.costPolicyVersion must be positive',
+                        { costPolicyVersion: definition.costPolicy.costPolicyVersion }
+                    )
+                );
+            }
+        }
+
         if (errors.length > 0) {
             return {
                 ok: false,
@@ -136,4 +289,36 @@ export class DagDefinitionValidator {
             value: definition
         };
     }
+}
+
+function findPort(ports: IPortDefinition[], key: string): IPortDefinition | undefined {
+    return ports.find((port) => port.key === key);
+}
+
+function isPortTypeCompatible(outputPort: IPortDefinition, inputPort: IPortDefinition): boolean {
+    if (outputPort.type !== inputPort.type) {
+        return false;
+    }
+
+    if (outputPort.type !== 'binary' || inputPort.type !== 'binary') {
+        return true;
+    }
+
+    if (!outputPort.binaryKind || !inputPort.binaryKind) {
+        return true;
+    }
+
+    if (outputPort.binaryKind !== inputPort.binaryKind) {
+        return false;
+    }
+
+    if (!inputPort.mimeTypes || inputPort.mimeTypes.length === 0) {
+        return true;
+    }
+
+    if (!outputPort.mimeTypes || outputPort.mimeTypes.length === 0) {
+        return false;
+    }
+
+    return outputPort.mimeTypes.some((mimeType) => inputPort.mimeTypes?.includes(mimeType));
 }

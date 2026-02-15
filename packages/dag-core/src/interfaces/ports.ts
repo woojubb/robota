@@ -1,4 +1,6 @@
 import type {
+    ICostPolicy,
+    IDagNodeDefinition,
     IDagDefinition,
     IDagRun,
     ITaskRun,
@@ -8,7 +10,25 @@ import type {
 import type { IDagError } from '../types/error.js';
 
 export type TPortPrimitive = string | number | boolean | null;
-export type TPortPayload = Record<string, TPortPrimitive>;
+export type TPortBinaryKind = 'image' | 'video' | 'audio' | 'file';
+
+export interface IPortBinaryValue {
+    kind: TPortBinaryKind;
+    mimeType: string;
+    uri: string;
+    sizeBytes?: number;
+}
+
+export type TPortObjectValue = Record<string, TPortPrimitive>;
+export type TPortArrayValue = TPortPrimitive[];
+
+export type TPortValue =
+    | TPortPrimitive
+    | IPortBinaryValue
+    | TPortArrayValue
+    | TPortObjectValue;
+
+export type TPortPayload = Record<string, TPortValue>;
 
 export interface IQueueMessage {
     messageId: string;
@@ -67,6 +87,9 @@ export interface ITaskExecutionInput {
     attempt: number;
     executionPath: string[];
     input: TPortPayload;
+    nodeDefinition?: IDagNodeDefinition;
+    costPolicy?: ICostPolicy;
+    currentTotalCostUsd?: number;
 }
 
 export interface ITaskExecutionSuccess {

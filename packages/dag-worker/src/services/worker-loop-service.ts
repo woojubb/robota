@@ -124,6 +124,30 @@ export class WorkerLoopService {
             );
         }
 
+        const definition = await this.storage.getDefinition(dagRun.dagId, dagRun.version);
+        if (!definition) {
+            return this.failAfterAck(
+                message.messageId,
+                buildValidationError(
+                    'DAG_VALIDATION_DEFINITION_NOT_FOUND',
+                    'Definition not found for task execution',
+                    { dagId: dagRun.dagId, version: dagRun.version }
+                )
+            );
+        }
+
+        const nodeDefinition = definition.nodes.find((node) => node.nodeId === message.nodeId);
+        if (!nodeDefinition) {
+            return this.failAfterAck(
+                message.messageId,
+                buildValidationError(
+                    'DAG_VALIDATION_NODE_NOT_FOUND',
+                    'Node definition not found for task execution',
+                    { nodeId: message.nodeId, dagId: dagRun.dagId, version: dagRun.version }
+                )
+            );
+        }
+
         const executionInput: ITaskExecutionInput = {
             dagId: dagRun.dagId,
             dagRunId: message.dagRunId,
@@ -131,7 +155,10 @@ export class WorkerLoopService {
             nodeId: message.nodeId,
             attempt: message.attempt,
             executionPath: message.executionPath,
-            input: message.payload
+            input: message.payload,
+            nodeDefinition,
+            costPolicy: definition.costPolicy,
+            currentTotalCostUsd: 0
         };
 
         const timeoutMs = this.resolveTimeoutMs(message);
