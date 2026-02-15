@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@robota-sdk/agents": "workspace:^",
+    "@robota-sdk/dag-core": "workspace:^",
+    "@robota-sdk/dag-designer": "workspace:^",
     "@robota-sdk/playground": "workspace:^",
     "@robota-sdk/workflow": "workspace:^",
     "@xyflow/react": "^12.8.2",

@@ -72,6 +72,12 @@ importers:
       '@robota-sdk/anthropic':
         specifier: workspace:*
         version: link:../../packages/anthropic
+      '@robota-sdk/dag-api':
+        specifier: workspace:*
+        version: link:../../packages/dag-api
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../../packages/dag-core
       '@robota-sdk/google':
         specifier: workspace:*
         version: link:../../packages/google
@@ -176,6 +182,12 @@ importers:
       '@robota-sdk/agents':
         specifier: workspace:^
         version: link:../../packages/agents
+      '@robota-sdk/dag-core':
+        specifier: workspace:^
+        version: link:../../packages/dag-core
+      '@robota-sdk/dag-designer':
+        specifier: workspace:^
+        version: link:../../packages/dag-designer
       '@robota-sdk/playground':
         specifier: workspace:^
         version: link:../../packages/playground

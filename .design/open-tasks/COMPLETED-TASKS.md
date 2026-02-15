@@ -149,3 +149,58 @@ description: "CURRENT-TASKS에서 완료 처리된 항목을 보관한다"
   - 빌드: `@robota-sdk/agents`, `@robota-sdk/workflow`, `@robota-sdk/playground` 통과
   - `ReadLints` 기준: 실제 코드 오류 없음
     - 참고: `@robota-sdk/agents` declaration 파일 미탐지 IDE 진단 1건은 기존 환경성 진단으로 유지
+
+## 2026-02-14
+
+### DAG 구현/검증/구조개선 완료
+- Gate-1/2/3 기준 포함한 DAG v1 범위(P0-pre~P4) 전체 구현 완료
+- `dag-core/runtime/worker/scheduler/projection/api/designer` 패키지 스캐폴딩 및 핵심 기능 구현 완료
+- no-fallback 강화:
+  - fail-fast 기본값(`retryEnabled=false`) 고정
+  - diagnostics reinject 정책 게이트(`reinjectEnabled=false` default) 적용
+  - rerunKey 기반 rerun identity 분리 적용
+- Critical 보완 완료:
+  - downstream dispatch 구현
+  - DLQ reinject 시 상태 복구 전이 반영
+  - terminal 재활성화 차단 E2E 검증
+- Complexity 축소(Phase 1) 완료:
+  - 에러 빌더 공통화
+  - ProblemDetails/API contracts 공통화
+  - `replaceAttemptSegment` 유틸 공통화
+  - `queuedTaskRunIds` -> `taskRunIds` 정합성 반영
+- 구조 단순화(Phase 2) 완료:
+  - controller 내부 service 생성 제거 + composition DI 일원화
+  - `WorkerLoopService.processOnce` 경로 분해(success/failure/retry/finalize)
+  - observability dashboard 중복 조회 제거(`buildDashboardProjection` 도입)
+- 검증:
+  - 관련 DAG 패키지 빌드/테스트 전체 통과
+  - 변경 파일 lint 에러 없음
+
+## 2026-02-15
+
+### DAG 로컬 실행/문서화 트랙 완료 (P-Doc)
+- P-Doc-0 완료:
+  - 실행 진입점 `apps/api-server` 확정
+  - 웹 host 전략 `apps/web` 확장 확정
+  - no-fallback/실패 처리 고정 문구 확정
+- P-Doc-1 완료:
+  - `apps/api-server` DAG dev 엔트리(`dag:dev`, `dag:start`) 구현
+  - `apps/web` `/dag-designer` host 경로 및 `DesignerApiClient` 연동 구현
+  - 환경변수 요구사항 정리:
+    - `apps/api-server/.env.example` (`DAG_DEV_PORT`)
+    - `apps/web/.env.dag.example`
+- P-Doc-2 완료:
+  - build/test/dev/start 표준 명령표 확정
+  - 실검증 및 로그 문서화 완료
+  - `pnpm --filter '@robota-sdk/dag-*' test` 간헐 실패 이슈를 순차 실행 표준으로 정리
+- P-Doc-3 완료:
+  - 사용자 가이드 초안 작성
+  - 문서 단독 재현 라운드 수행(Browser MCP 포함)
+  - 증거 링크 정리 및 완료 선언
+- Gate-Doc:
+  - Gate-Doc-1/2/3/4 전체 통과
+
+### 문서 산출물
+- `.design/specs/dag-local-run-and-build-guide.md`
+- `.design/specs/dag-local-run-build-validation-log.md`
+- `.design/specs/workflow-dag-development-plan.md` (P-Doc 결과 섹션 업데이트)
