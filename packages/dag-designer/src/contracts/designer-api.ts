@@ -1,4 +1,4 @@
-import type { IDagDefinition, TResult } from '@robota-sdk/dag-core';
+import type { IDagDefinition, INodeManifest, TResult } from '@robota-sdk/dag-core';
 
 export interface IProblemDetails {
     type: string;
@@ -59,6 +59,8 @@ export interface IDesignerApiClient {
     publishDefinition(input: IPublishDefinitionInput): Promise<TResult<IDagDefinition, IProblemDetails[]>>;
     getDefinition(input: IGetDefinitionInput): Promise<TResult<IDagDefinition, IProblemDetails[]>>;
     listDefinitions(input?: IListDefinitionsInput): Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
+    listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>>;
+    reloadNodeCatalog(): Promise<TResult<{ loadedCount: number }, IProblemDetails[]>>;
 }
 
 export interface IDesignerApiClientConfig {

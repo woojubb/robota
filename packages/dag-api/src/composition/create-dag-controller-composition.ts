@@ -15,7 +15,7 @@ import {
     DagDiagnosticsController,
     type IDiagnosticsPolicy
 } from '../controllers/dag-diagnostics-controller.js';
-import { DagDesignController } from '../controllers/dag-design-controller.js';
+import { DagDesignController, type INodeCatalogService } from '../controllers/dag-design-controller.js';
 import { DagObservabilityController } from '../controllers/dag-observability-controller.js';
 import { DagRuntimeController } from '../controllers/dag-runtime-controller.js';
 
@@ -28,6 +28,7 @@ export interface IDagControllerCompositionDependencies {
 
 export interface IDagControllerCompositionOptions {
     diagnosticsPolicy?: IDiagnosticsPolicy;
+    nodeCatalogService?: INodeCatalogService;
 }
 
 export interface IDagControllerComposition {
@@ -58,7 +59,7 @@ export function createDagControllerComposition(
     );
 
     return {
-        design: new DagDesignController(definitionService),
+        design: new DagDesignController(definitionService, options?.nodeCatalogService),
         runtime: new DagRuntimeController(runOrchestrator, runQuery, runCancel),
         observability: new DagObservabilityController(projectionService),
         diagnostics: new DagDiagnosticsController(

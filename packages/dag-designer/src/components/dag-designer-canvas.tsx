@@ -22,7 +22,6 @@ import type {
     TPortPayload,
     TResult
 } from '@robota-sdk/dag-core';
-import { createDefaultNodeManifestRegistry } from '@robota-sdk/dag-core';
 import { EdgeInspectorPanel } from './edge-inspector-panel.js';
 import { NodeConfigPanel } from './node-config-panel.js';
 import { NodeExplorerPanel } from './node-explorer-panel.js';
@@ -31,6 +30,7 @@ import '@xyflow/react/dist/style.css';
 
 export interface IDagDesignerCanvasProps {
     definition: IDagDefinition;
+    manifests: INodeManifest[];
     onDefinitionChange: (definition: IDagDefinition) => void;
     onPreviewResult?: (result: TResult<IPreviewResult, IDagError>) => void;
     initialInput?: TPortPayload;
@@ -142,7 +142,6 @@ function computeBindingErrors(definition: IDagDefinition): string[] {
 }
 
 export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement {
-    const manifests = useMemo(() => createDefaultNodeManifestRegistry().listManifests(), []);
     const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined);
     const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>(undefined);
     const bindingErrors = useMemo(() => computeBindingErrors(props.definition), [props.definition]);
@@ -261,7 +260,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
 
     return (
         <div className="grid h-[760px] grid-cols-[260px_1fr_320px] gap-4">
-            <NodeExplorerPanel manifests={manifests} onAddNode={handleAddNode} />
+            <NodeExplorerPanel manifests={props.manifests} onAddNode={handleAddNode} />
             <div className="rounded border border-gray-300">
                 <div className="flex items-center justify-between border-b border-gray-300 px-3 py-2">
                     <h2 className="text-sm font-semibold">DAG Canvas</h2>

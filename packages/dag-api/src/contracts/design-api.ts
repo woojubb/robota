@@ -53,6 +53,14 @@ export interface IDefinitionListItem {
     statuses: IDagDefinition['status'][];
 }
 
+export interface IListNodeCatalogRequest {
+    correlationId?: string;
+}
+
+export interface IReloadNodeCatalogRequest {
+    correlationId?: string;
+}
+
 export type IDesignApiSuccess<TData> = IApiSuccess<TData>;
 export type IDesignApiFailure = IApiFailure<IProblemDetails>;
 export type TDesignApiResponse<TData> = TApiResponse<TData, IProblemDetails>;

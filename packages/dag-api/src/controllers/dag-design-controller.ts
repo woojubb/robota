@@ -1,11 +1,13 @@
-import { type DagDefinitionService, type IDagDefinition } from '@robota-sdk/dag-core';
+import { type DagDefinitionService, type IDagDefinition, type IDagError, type INodeManifest, type TResult } from '@robota-sdk/dag-core';
 import type {
     ICreateDefinitionRequest,
     IDefinitionListItem,
     IDefinitionValidationResult,
     IGetDefinitionRequest,
     IListDefinitionsRequest,
+    IListNodeCatalogRequest,
     IPublishDefinitionRequest,
+    IReloadNodeCatalogRequest,
     TDesignApiResponse,
     IUpdateDraftRequest,
     IValidateDefinitionRequest
@@ -13,8 +15,17 @@ import type {
 import { toProblemDetails } from '../contracts/design-api.js';
 import { buildValidationError } from '@robota-sdk/dag-core';
 
+export interface INodeCatalogService {
+    listManifests(): Promise<INodeManifest[]>;
+    reload(): Promise<TResult<{ loadedCount: number }, IDagError>>;
+    hasNodeType(nodeType: string): boolean;
+}
+
 export class DagDesignController {
-    public constructor(private readonly definitionService: DagDefinitionService) {}
+    public constructor(
+        private readonly definitionService: DagDefinitionService,
+        private readonly nodeCatalogService?: INodeCatalogService
+    ) {}
 
     public async createDefinition(
         request: ICreateDefinitionRequest
@@ -74,6 +85,48 @@ export class DagDesignController {
     public async validateDefinition(
         request: IValidateDefinitionRequest
     ): Promise<TDesignApiResponse<IDefinitionValidationResult>> {
+        if (this.nodeCatalogService) {
+            const existing = await this.definitionService.getDefinitionByDagId(request.dagId, request.version);
+            if (!existing) {
+                const notFound = buildValidationError(
+                    'DAG_VALIDATION_DEFINITION_NOT_FOUND',
+                    'Definition does not exist',
+                    { dagId: request.dagId, version: request.version }
+                );
+                return {
+                    ok: false,
+                    status: 400,
+                    errors: [
+                        toProblemDetails(
+                            notFound,
+                            `/v1/dag/definitions/${request.dagId}/versions/${request.version}/validate`,
+                            request.correlationId
+                        )
+                    ]
+                };
+            }
+            for (const node of existing.nodes) {
+                if (!this.nodeCatalogService.hasNodeType(node.nodeType)) {
+                    const nodeTypeError = buildValidationError(
+                        'DAG_VALIDATION_NODE_TYPE_NOT_REGISTERED',
+                        'Node type is not registered in node catalog',
+                        { nodeType: node.nodeType, nodeId: node.nodeId }
+                    );
+                    return {
+                        ok: false,
+                        status: 400,
+                        errors: [
+                            toProblemDetails(
+                                nodeTypeError,
+                                `/v1/dag/definitions/${request.dagId}/versions/${request.version}/validate`,
+                                request.correlationId
+                            )
+                        ]
+                    };
+                }
+            }
+        }
+
         const validated = await this.definitionService.validate(request.dagId, request.version);
         if (!validated.ok) {
             return {
@@ -190,6 +243,77 @@ export class DagDesignController {
             data: {
                 items: [...listItemByDagId.values()].sort((a, b) => a.dagId.localeCompare(b.dagId))
             }
+        };
+    }
+
+    public async listNodeCatalog(
+        request: IListNodeCatalogRequest
+    ): Promise<TDesignApiResponse<{ nodes: INodeManifest[] }>> {
+        if (!this.nodeCatalogService) {
+            const error = buildValidationError(
+                'DAG_VALIDATION_NODE_CATALOG_NOT_CONFIGURED',
+                'Node catalog service is not configured'
+            );
+            return {
+                ok: false,
+                status: 400,
+                errors: [
+                    toProblemDetails(
+                        error,
+                        '/v1/dag/nodes',
+                        request.correlationId
+                    )
+                ]
+            };
+        }
+        const nodes = await this.nodeCatalogService.listManifests();
+        return {
+            ok: true,
+            status: 200,
+            data: { nodes }
+        };
+    }
+
+    public async reloadNodeCatalog(
+        request: IReloadNodeCatalogRequest
+    ): Promise<TDesignApiResponse<{ loadedCount: number }>> {
+        if (!this.nodeCatalogService) {
+            const error = buildValidationError(
+                'DAG_VALIDATION_NODE_CATALOG_NOT_CONFIGURED',
+                'Node catalog service is not configured'
+            );
+            return {
+                ok: false,
+                status: 400,
+                errors: [
+                    toProblemDetails(
+                        error,
+                        '/v1/dag/nodes/reload',
+                        request.correlationId
+                    )
+                ]
+            };
+        }
+
+        const reloaded = await this.nodeCatalogService.reload();
+        if (!reloaded.ok) {
+            return {
+                ok: false,
+                status: 400,
+                errors: [
+                    toProblemDetails(
+                        reloaded.error,
+                        '/v1/dag/nodes/reload',
+                        request.correlationId
+                    )
+                ]
+            };
+        }
+
+        return {
+            ok: true,
+            status: 200,
+            data: { loadedCount: reloaded.value.loadedCount }
         };
     }
 }

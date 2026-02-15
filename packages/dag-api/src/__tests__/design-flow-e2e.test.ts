@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DagDefinitionService, InMemoryStoragePort } from '@robota-sdk/dag-core';
-import type { IDagDefinition } from '@robota-sdk/dag-core';
-import { DagDesignController } from '../controllers/dag-design-controller.js';
+import type { IDagDefinition, IDagError, INodeManifest, TResult } from '@robota-sdk/dag-core';
+import { DagDesignController, type INodeCatalogService } from '../controllers/dag-design-controller.js';
 
 function createDefinition(): IDagDefinition {
     return {
@@ -191,5 +191,73 @@ describe('Dag design flow E2E', () => {
             return;
         }
         expect(validated.errors.some((error) => error.code === 'DAG_VALIDATION_BINDING_INPUT_NOT_FOUND')).toBe(true);
+    });
+
+    it('lists and reloads node catalog from injected service', async () => {
+        const storage = new InMemoryStoragePort();
+        const baseManifests: INodeManifest[] = [
+            {
+                nodeType: 'image-source',
+                displayName: 'Image Source',
+                category: 'Test',
+                inputs: [],
+                outputs: [{ key: 'image', type: 'binary', required: true, binaryKind: 'image' }]
+            }
+        ];
+        const nodeCatalogService: INodeCatalogService = {
+            hasNodeType: (nodeType: string) => baseManifests.some((manifest) => manifest.nodeType === nodeType),
+            listManifests: async () => baseManifests,
+            reload: async (): Promise<TResult<{ loadedCount: number }, IDagError>> => ({
+                ok: true,
+                value: { loadedCount: baseManifests.length }
+            })
+        };
+        const controller = new DagDesignController(new DagDefinitionService(storage), nodeCatalogService);
+
+        const listed = await controller.listNodeCatalog({ correlationId: 'corr-node-list' });
+        expect(listed.ok).toBe(true);
+        if (!listed.ok) {
+            return;
+        }
+        expect(listed.data.nodes.length).toBe(1);
+        expect(listed.data.nodes[0]?.nodeType).toBe('image-source');
+
+        const reloaded = await controller.reloadNodeCatalog({ correlationId: 'corr-node-reload' });
+        expect(reloaded.ok).toBe(true);
+        if (!reloaded.ok) {
+            return;
+        }
+        expect(reloaded.data.loadedCount).toBe(1);
+    });
+
+    it('fails validate when node type is not in node catalog', async () => {
+        const storage = new InMemoryStoragePort();
+        const nodeCatalogService: INodeCatalogService = {
+            hasNodeType: (nodeType: string) => nodeType === 'image-source',
+            listManifests: async () => [],
+            reload: async (): Promise<TResult<{ loadedCount: number }, IDagError>> => ({
+                ok: true,
+                value: { loadedCount: 0 }
+            })
+        };
+        const controller = new DagDesignController(new DagDefinitionService(storage), nodeCatalogService);
+        const definition = createDefinition();
+
+        const created = await controller.createDefinition({
+            definition,
+            correlationId: 'corr-node-type-create'
+        });
+        expect(created.ok).toBe(true);
+
+        const validated = await controller.validateDefinition({
+            dagId: definition.dagId,
+            version: definition.version,
+            correlationId: 'corr-node-type-validate'
+        });
+        expect(validated.ok).toBe(false);
+        if (validated.ok) {
+            return;
+        }
+        expect(validated.errors.some((error) => error.code === 'DAG_VALIDATION_NODE_TYPE_NOT_REGISTERED')).toBe(true);
     });
 });
