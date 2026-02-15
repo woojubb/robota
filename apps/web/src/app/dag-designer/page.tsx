@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DagDesignerCanvas,
   DesignerApiClient,
@@ -11,6 +11,7 @@ import {
   DagDefinitionValidator,
   type IDagDefinition,
   type IDagError,
+  type INodeManifest,
   type TResult,
 } from "@robota-sdk/dag-core";
 
@@ -71,6 +72,7 @@ export default function DagDesignerPage() {
   const [version, setVersion] = useState<number>(1);
   const [definition, setDefinition] = useState<IDagDefinition>(createSampleDefinition());
   const [draftCreated, setDraftCreated] = useState<boolean>(false);
+  const [catalogNodes, setCatalogNodes] = useState<INodeManifest[]>([]);
   const [definitionList, setDefinitionList] = useState<IDefinitionListItem[]>([]);
   const [selectedListDagId, setSelectedListDagId] = useState<string>("");
   const bindingBlockingErrors = useMemo(() => {
@@ -189,6 +191,43 @@ export default function DagDesignerPage() {
     }
     setLog("Preview failed: UNKNOWN_ERROR");
   };
+
+  const refreshNodeCatalog = async (): Promise<void> => {
+    const listed = await client.listNodeCatalog();
+    if (listed.ok) {
+      setCatalogNodes(listed.value);
+      setLog(`Node catalog refresh success: count=${listed.value.length}`);
+      return;
+    }
+    if ("error" in listed) {
+      setLog(`Node catalog refresh failed: ${listed.error[0]?.code}`);
+      return;
+    }
+    setLog("Node catalog refresh failed: UNKNOWN_ERROR");
+  };
+
+  const reloadNodeCatalog = async (): Promise<void> => {
+    const reloaded = await client.reloadNodeCatalog();
+    if (!reloaded.ok) {
+      if ("error" in reloaded) {
+        setLog(`Node catalog reload failed: ${reloaded.error[0]?.code}`);
+        return;
+      }
+      setLog("Node catalog reload failed: UNKNOWN_ERROR");
+      return;
+    }
+    const refreshed = await client.listNodeCatalog();
+    if (refreshed.ok) {
+      setCatalogNodes(refreshed.value);
+      setLog(`Node catalog reloaded: loaded=${reloaded.value.loadedCount}, visible=${refreshed.value.length}`);
+      return;
+    }
+    setLog(`Node catalog reloaded but list failed`);
+  };
+
+  useEffect(() => {
+    void refreshNodeCatalog();
+  }, []);
 
   const loadByDagId = async (): Promise<void> => {
     const loaded = await client.getDefinition({
@@ -328,6 +367,18 @@ export default function DagDesignerPage() {
         >
           Refresh DAG List
         </button>
+        <button
+          className="rounded bg-black px-4 py-2 text-sm text-white"
+          onClick={refreshNodeCatalog}
+        >
+          Refresh Node Catalog
+        </button>
+        <button
+          className="rounded bg-black px-4 py-2 text-sm text-white"
+          onClick={reloadNodeCatalog}
+        >
+          Reload Node Store
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
@@ -363,6 +414,7 @@ export default function DagDesignerPage() {
 
       <DagDesignerCanvas
         definition={definition}
+        manifests={catalogNodes}
         onDefinitionChange={setDefinition}
         onPreviewResult={onPreviewResult}
         initialInput={{}}

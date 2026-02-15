@@ -1,4 +1,4 @@
-import type { IDagDefinition, TResult } from '@robota-sdk/dag-core';
+import type { IDagDefinition, INodeManifest, TResult } from '@robota-sdk/dag-core';
 import type {
     ICreateDefinitionInput,
     IDefinitionListItem,
@@ -17,6 +17,8 @@ interface ILooseDesignerPayload {
     data?: {
         definition?: IDagDefinition;
         items?: IDefinitionListItem[];
+        nodes?: INodeManifest[];
+        loadedCount?: number;
     };
     errors?: IProblemDetails[];
 }
@@ -54,6 +56,16 @@ function hasValidDefinitionListItems(items: IDefinitionListItem[]): boolean {
         typeof item.dagId === 'string'
         && typeof item.latestVersion === 'number'
         && Array.isArray(item.statuses)
+    );
+}
+
+function hasValidNodeManifests(nodes: INodeManifest[]): boolean {
+    return nodes.every((node) =>
+        typeof node.nodeType === 'string'
+        && typeof node.displayName === 'string'
+        && typeof node.category === 'string'
+        && Array.isArray(node.inputs)
+        && Array.isArray(node.outputs)
     );
 }
 
@@ -131,6 +143,44 @@ export class DesignerApiClient implements IDesignerApiClient {
             };
         }
 
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public async listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>> {
+        const path = '/v1/dag/nodes';
+        const payloadResult = await this.requestPayload(path, 'GET', undefined);
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const nodes = payloadResult.value.data?.nodes;
+        if (Array.isArray(nodes) && hasValidNodeManifests(nodes)) {
+            return {
+                ok: true,
+                value: nodes
+            };
+        }
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public async reloadNodeCatalog(): Promise<TResult<{ loadedCount: number }, IProblemDetails[]>> {
+        const path = '/v1/dag/nodes/reload';
+        const payloadResult = await this.requestPayload(path, 'POST', undefined);
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const loadedCount = payloadResult.value.data?.loadedCount;
+        if (typeof loadedCount === 'number') {
+            return {
+                ok: true,
+                value: { loadedCount }
+            };
+        }
         return {
             ok: false,
             error: [createContractViolationProblem(200, path)]

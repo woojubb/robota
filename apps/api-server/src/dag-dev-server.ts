@@ -16,6 +16,7 @@ import {
     createDagControllerComposition,
     createDagExecutionComposition
 } from '@robota-sdk/dag-api';
+import { LocalNodeCatalogService } from './services/local-node-catalog-service.js';
 
 dotenv.config();
 
@@ -123,6 +124,11 @@ async function startDagDevServer(): Promise<void> {
     const manifestRegistry = createDefaultNodeManifestRegistry();
     const lifecycleFactory = createDefaultNodeLifecycleFactory();
     const executor = new LifecycleTaskExecutorPort(manifestRegistry, lifecycleFactory);
+    const nodeCatalogService = new LocalNodeCatalogService();
+    const initialReload = await nodeCatalogService.reload();
+    if (!initialReload.ok) {
+        process.stderr.write(`Node catalog initial reload failed: ${initialReload.error.code}\n`);
+    }
 
     const controllers = createDagControllerComposition(
         {
@@ -134,7 +140,8 @@ async function startDagDevServer(): Promise<void> {
         {
             diagnosticsPolicy: {
                 reinjectEnabled: false
-            }
+            },
+            nodeCatalogService
         }
     );
     const execution = createDagExecutionComposition(
@@ -242,6 +249,20 @@ async function startDagDevServer(): Promise<void> {
             correlationId: 'dag-dev-design-publish'
         });
         res.status(published.status).json(published);
+    });
+
+    app.get('/v1/dag/nodes', async (_req: Request, res: Response) => {
+        const listed = await controllers.design.listNodeCatalog({
+            correlationId: 'dag-dev-nodes-list'
+        });
+        res.status(listed.status).json(listed);
+    });
+
+    app.post('/v1/dag/nodes/reload', async (_req: Request, res: Response) => {
+        const reloaded = await controllers.design.reloadNodeCatalog({
+            correlationId: 'dag-dev-nodes-reload'
+        });
+        res.status(reloaded.status).json(reloaded);
     });
 
     app.get('/v1/dag/definitions/:dagId', async (
