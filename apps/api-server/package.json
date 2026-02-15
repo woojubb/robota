@@ -21,7 +21,9 @@
     },
     "scripts": {
         "dev": "tsx watch src/server.ts",
+        "dag:dev": "tsx watch src/dag-dev-server.ts",
         "start": "node dist/server.js",
+        "dag:start": "node dist/dag-dev-server.js",
         "build": "tsup",
         "build:functions": "tsc -p tsconfig.functions.json",
         "serve:functions": "npm run build:functions && firebase emulators:start --only functions",
@@ -31,6 +33,8 @@
         "clean": "rm -rf dist lib"
     },
     "dependencies": {
+        "@robota-sdk/dag-api": "workspace:*",
+        "@robota-sdk/dag-core": "workspace:*",
         "@robota-sdk/agents": "workspace:*",
         "@robota-sdk/anthropic": "workspace:*",
         "@robota-sdk/google": "workspace:*",

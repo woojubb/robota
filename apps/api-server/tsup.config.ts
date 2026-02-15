@@ -14,7 +14,7 @@ export default defineConfig([
     // Main application build
     {
         ...baseConfig,
-        entry: ['src/index.ts', 'src/server.ts', 'src/app.ts'],
+        entry: ['src/index.ts', 'src/server.ts', 'src/app.ts', 'src/dag-dev-server.ts'],
         outDir: 'dist',
         format: ['cjs'],
         platform: 'node',

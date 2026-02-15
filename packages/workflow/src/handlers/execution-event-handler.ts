@@ -1,6 +1,6 @@
 /**
  * Execution event processing logic
- *
+ * 
  * Handles execution.* events and creates appropriate workflow nodes.
  */
 
@@ -59,7 +59,7 @@ class ExecutionEventLogic {
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        this.logger.debug(`🔧 [EXECUTION-HANDLER] Processing ${eventType}`);
+            this.logger.debug(`🔧 [EXECUTION-HANDLER] Processing ${eventType}`);
         this.recordInstance(eventType, eventData);
         const handler = this.getHandler(eventType);
         if (!handler) {
@@ -115,7 +115,7 @@ class ExecutionEventLogic {
     }
 
     private async handleExecutionStart(eventData: TEventData): Promise<IEventProcessingResult> {
-        const updates: TWorkflowUpdate[] = [];
+            const updates: TWorkflowUpdate[] = [];
         const ownerPath = eventData.context.ownerPath;
         const executionId = findOwnerIdByType(ownerPath, 'execution', EXECUTION_EVENT_NAMES.START);
         const executionNode = this.executionNodeBuilder.createExecutionNode(eventData);
@@ -159,12 +159,12 @@ class ExecutionEventLogic {
 
     private async handleToolResultsReady(eventData: TEventData): Promise<IEventProcessingResult> {
         const updates: TWorkflowUpdate[] = [];
-        const ownerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
+                    const ownerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
         const thinkingId = findOwnerIdByType(ownerPath, 'thinking', EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY);
-        if (!thinkingId) {
-            return {
-                success: false,
-                updates: [],
+                    if (!thinkingId) {
+                        return {
+                            success: false,
+                            updates: [],
                 errors: [`[PATH-ONLY] Invalid context.ownerPath (missing tail id) for ${EXECUTION_EVENT_NAMES.TOOL_RESULTS_READY}`]
             };
         }
@@ -179,17 +179,17 @@ class ExecutionEventLogic {
             };
         }
         const toolResultNode = this.executionNodeBuilder.createToolResultNode(thinkingId, eventData);
-        updates.push({ action: 'create', node: toolResultNode });
+                    updates.push({ action: 'create', node: toolResultNode });
         for (const toolResponseNode of toolResponseNodes) {
-            const edge: IWorkflowEdge = {
+                        const edge: IWorkflowEdge = {
                 id: EdgeUtils.generateId(toolResponseNode.id, toolResultNode.id, 'result'),
                 source: toolResponseNode.id,
                 target: toolResultNode.id,
-                type: 'result',
-                timestamp: Date.now()
-            };
-            updates.push({ action: 'create', edge });
-        }
+                            type: 'result',
+                            timestamp: Date.now()
+                        };
+                        updates.push({ action: 'create', edge });
+                    }
 
         return { success: true, updates };
     }
@@ -197,49 +197,49 @@ class ExecutionEventLogic {
     private async handleExecutionError(eventData: TEventData): Promise<IEventProcessingResult> {
         const updates: TWorkflowUpdate[] = [];
         const executionErrorNode = this.executionNodeBuilder.createExecutionErrorNode(eventData);
-        updates.push({ action: 'create', node: executionErrorNode });
+                        updates.push({ action: 'create', node: executionErrorNode });
         return { success: true, updates };
     }
 
     private async handleUserMessage(eventData: TEventData): Promise<IEventProcessingResult> {
         const updates: TWorkflowUpdate[] = [];
-        const ctxOwnerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
-        const localAgentId = (() => {
-            for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
-                const seg = ctxOwnerPath[i];
-                if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) {
-                    return seg.id;
-                }
-            }
-            return undefined;
-        })();
-        const localExecutionId = (() => {
-            for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
-                const seg = ctxOwnerPath[i];
-                if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) {
-                    return seg.id;
-                }
-            }
-            return undefined;
-        })();
-        if (!localAgentId || !localExecutionId) {
-            return {
-                success: false,
-                updates: [],
+                        const ctxOwnerPath: IOwnerPathSegment[] = eventData.context.ownerPath;
+                        const localAgentId = (() => {
+                            for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
+                                const seg = ctxOwnerPath[i];
+                                if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) {
+                                    return seg.id;
+                                }
+                            }
+                            return undefined;
+                        })();
+                        const localExecutionId = (() => {
+                            for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
+                                const seg = ctxOwnerPath[i];
+                                if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) {
+                                    return seg.id;
+                                }
+                            }
+                            return undefined;
+                        })();
+                        if (!localAgentId || !localExecutionId) {
+                            return {
+                                success: false,
+                                updates: [],
                 errors: [`[PATH-ONLY] Missing agent/execution segments in context.ownerPath for ${EXECUTION_EVENT_NAMES.USER_MESSAGE}`]
-            };
-        }
+                            };
+                        }
         const userMessageNode = this.executionNodeBuilder.createUserMessageNode(eventData);
-        updates.push({ action: 'create', node: userMessageNode });
+                        updates.push({ action: 'create', node: userMessageNode });
 
-        const edge: IWorkflowEdge = {
+                        const edge: IWorkflowEdge = {
             id: EdgeUtils.generateId(localAgentId, userMessageNode.id, 'receives'),
             source: localAgentId,
-            target: userMessageNode.id,
-            type: 'receives',
-            timestamp: Date.now()
-        };
-        updates.push({ action: 'create', edge });
+                            target: userMessageNode.id,
+                            type: 'receives',
+                            timestamp: Date.now()
+                        };
+                        updates.push({ action: 'create', edge });
 
         return { success: true, updates };
     }
@@ -278,7 +278,7 @@ class ExecutionEventLogic {
         const updates: TWorkflowUpdate[] = [];
         const pathInfo = extractPathInfo(eventData.context.ownerPath, EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE);
         if (!pathInfo.parentId) {
-            return {
+        return {
                 success: false,
                 updates: [],
                 errors: [`[PATH-ONLY] Invalid path (missing parent) for ${EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE}: ${pathInfo.segments.join(' -> ')}`]
@@ -286,7 +286,7 @@ class ExecutionEventLogic {
         }
         const thinkingId = pathInfo.parentId;
         if (!pathInfo.nodeId) {
-            return {
+        return {
                 success: false,
                 updates: [],
                 errors: [`[PATH-ONLY] Invalid ownerPath (missing tail id) for ${EXECUTION_EVENT_NAMES.ASSISTANT_MESSAGE_COMPLETE}`]
