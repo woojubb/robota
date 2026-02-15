@@ -6,7 +6,7 @@ import type {
     INodeTaskHandler,
     INodeTaskHandlerRegistry
 } from '../types/node-lifecycle.js';
-import type { TPortPayload } from '../interfaces/ports.js';
+import type { IPortBinaryValue, TPortPayload } from '../interfaces/ports.js';
 import { NodeIoAccessor } from './node-io-accessor.js';
 
 export class InputNodeTaskHandler implements INodeTaskHandler {
@@ -114,6 +114,97 @@ export class LlmTextNodeTaskHandler implements INodeTaskHandler {
     }
 }
 
+function isBinaryImageValue(value: unknown): value is IPortBinaryValue {
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
+
+    const record = value as Record<string, unknown>;
+    return record.kind === 'image'
+        && typeof record.mimeType === 'string'
+        && typeof record.uri === 'string';
+}
+
+export class ImageSourceNodeTaskHandler implements INodeTaskHandler {
+    public async estimateCost(): Promise<TResult<{ estimatedCostUsd: number }, IDagError>> {
+        return { ok: true, value: { estimatedCostUsd: 0 } };
+    }
+
+    public async execute(_input: TPortPayload, context: INodeExecutionContext): Promise<TResult<TPortPayload, IDagError>> {
+        const uriValue = context.nodeDefinition.config.uri;
+        if (typeof uriValue !== 'string' || uriValue.trim().length === 0) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_IMAGE_SOURCE_URI_REQUIRED',
+                    'Image source node requires a non-empty config.uri',
+                    { nodeId: context.nodeDefinition.nodeId }
+                )
+            };
+        }
+
+        const mimeTypeValue = context.nodeDefinition.config.mimeType;
+        const mimeType = typeof mimeTypeValue === 'string' && mimeTypeValue.trim().length > 0
+            ? mimeTypeValue
+            : 'image/png';
+
+        return {
+            ok: true,
+            value: {
+                image: {
+                    kind: 'image',
+                    mimeType,
+                    uri: uriValue
+                }
+            }
+        };
+    }
+}
+
+export class OkEmitterNodeTaskHandler implements INodeTaskHandler {
+    public async validateInput(input: TPortPayload, context: INodeExecutionContext): Promise<TResult<void, IDagError>> {
+        const image = input.image;
+        if (!isBinaryImageValue(image)) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_OK_EMITTER_IMAGE_REQUIRED',
+                    'OK emitter node requires an image binary input',
+                    { nodeId: context.nodeDefinition.nodeId }
+                )
+            };
+        }
+        return { ok: true, value: undefined };
+    }
+
+    public async estimateCost(): Promise<TResult<{ estimatedCostUsd: number }, IDagError>> {
+        return { ok: true, value: { estimatedCostUsd: 0 } };
+    }
+
+    public async execute(input: TPortPayload, context: INodeExecutionContext): Promise<TResult<TPortPayload, IDagError>> {
+        const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
+        const requiredImage = io.requireInput('image');
+        if (!requiredImage.ok) {
+            return requiredImage;
+        }
+        if (!isBinaryImageValue(requiredImage.value)) {
+            return {
+                ok: false,
+                error: buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_OK_EMITTER_IMAGE_INVALID',
+                    'OK emitter execution requires image binary input',
+                    false
+                )
+            };
+        }
+        io.setOutput('status', 'ok');
+        return {
+            ok: true,
+            value: io.toOutput()
+        };
+    }
+}
+
 export class StaticNodeTaskHandlerRegistry implements INodeTaskHandlerRegistry {
     public constructor(private readonly handlersByType: Record<string, INodeTaskHandler>) {}
 
@@ -130,6 +221,8 @@ export function createDefaultNodeTaskHandlerRegistry(): StaticNodeTaskHandlerReg
     return new StaticNodeTaskHandlerRegistry({
         input: new InputNodeTaskHandler(),
         transform: new TransformNodeTaskHandler(),
-        'llm-text': new LlmTextNodeTaskHandler()
+        'llm-text': new LlmTextNodeTaskHandler(),
+        'image-source': new ImageSourceNodeTaskHandler(),
+        'ok-emitter': new OkEmitterNodeTaskHandler()
     });
 }

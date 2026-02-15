@@ -1,8 +1,11 @@
 import type { IDagDefinition, TResult } from '@robota-sdk/dag-core';
 import type {
     ICreateDefinitionInput,
+    IDefinitionListItem,
     IDesignerApiClient,
     IDesignerApiClientConfig,
+    IGetDefinitionInput,
+    IListDefinitionsInput,
     IProblemDetails,
     IPublishDefinitionInput,
     IUpdateDraftInput,
@@ -13,6 +16,7 @@ interface ILooseDesignerPayload {
     ok?: boolean;
     data?: {
         definition?: IDagDefinition;
+        items?: IDefinitionListItem[];
     };
     errors?: IProblemDetails[];
 }
@@ -42,6 +46,14 @@ function hasValidProblemDetails(errors: IProblemDetails[]): boolean {
         typeof error.instance === 'string' &&
         typeof error.code === 'string' &&
         typeof error.retryable === 'boolean'
+    );
+}
+
+function hasValidDefinitionListItems(items: IDefinitionListItem[]): boolean {
+    return items.every((item) =>
+        typeof item.dagId === 'string'
+        && typeof item.latestVersion === 'number'
+        && Array.isArray(item.statuses)
     );
 }
 
@@ -91,12 +103,69 @@ export class DesignerApiClient implements IDesignerApiClient {
         );
     }
 
+    public async getDefinition(input: IGetDefinitionInput): Promise<TResult<IDagDefinition, IProblemDetails[]>> {
+        const versionQuery = typeof input.version === 'number' ? `?version=${input.version}` : '';
+        return this.requestDefinition(
+            `/v1/dag/definitions/${input.dagId}${versionQuery}`,
+            'GET',
+            undefined,
+            input.correlationId
+        );
+    }
+
+    public async listDefinitions(input?: IListDefinitionsInput): Promise<TResult<IDefinitionListItem[], IProblemDetails[]>> {
+        const dagIdQuery = typeof input?.dagId === 'string' && input.dagId.trim().length > 0
+            ? `?dagId=${encodeURIComponent(input.dagId)}`
+            : '';
+        const path = `/v1/dag/definitions${dagIdQuery}`;
+        const payloadResult = await this.requestPayload(path, 'GET', undefined, input?.correlationId);
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+
+        const payload = payloadResult.value;
+        if (Array.isArray(payload.data?.items) && hasValidDefinitionListItems(payload.data.items)) {
+            return {
+                ok: true,
+                value: payload.data.items
+            };
+        }
+
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
     private async requestDefinition(
         path: string,
-        method: 'POST' | 'PUT',
+        method: 'GET' | 'POST' | 'PUT',
         body: string | undefined,
         correlationId?: string
     ): Promise<TResult<IDagDefinition, IProblemDetails[]>> {
+        const payloadResult = await this.requestPayload(path, method, body, correlationId);
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        if (payloadResult.value.data?.definition) {
+            return {
+                ok: true,
+                value: payloadResult.value.data.definition
+            };
+        }
+
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    private async requestPayload(
+        path: string,
+        method: 'GET' | 'POST' | 'PUT',
+        body: string | undefined,
+        correlationId?: string
+    ): Promise<TResult<ILooseDesignerPayload, IProblemDetails[]>> {
         const url = `${this.baseUrl}${path}`;
         const response = await fetch(url, {
             method,
@@ -108,10 +177,10 @@ export class DesignerApiClient implements IDesignerApiClient {
         });
 
         const payload = (await response.json()) as ILooseDesignerPayload;
-        if (response.ok && payload.ok === true && payload.data?.definition) {
+        if (response.ok && payload.ok === true) {
             return {
                 ok: true,
-                value: payload.data.definition
+                value: payload
             };
         }
 

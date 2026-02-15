@@ -58,6 +58,53 @@ const DEFAULT_MANIFESTS: INodeManifest[] = [
             }
         ],
         configSchema: '{"type":"object","properties":{}}'
+    },
+    {
+        nodeType: 'image-source',
+        displayName: 'Image Source',
+        category: 'Test',
+        inputs: [],
+        outputs: [
+            {
+                key: 'image',
+                label: 'Image',
+                order: 0,
+                type: 'binary',
+                required: true,
+                description: 'Test image output',
+                binaryKind: 'image',
+                mimeTypes: ['image/png']
+            }
+        ],
+        configSchema: '{"type":"object","properties":{"uri":{"type":"string"},"mimeType":{"type":"string"}}}'
+    },
+    {
+        nodeType: 'ok-emitter',
+        displayName: 'OK Emitter',
+        category: 'Test',
+        inputs: [
+            {
+                key: 'image',
+                label: 'Image Input',
+                order: 0,
+                type: 'binary',
+                required: true,
+                description: 'Binary image from upstream',
+                binaryKind: 'image',
+                mimeTypes: ['image/png']
+            }
+        ],
+        outputs: [
+            {
+                key: 'status',
+                label: 'Status',
+                order: 0,
+                type: 'string',
+                required: true,
+                description: 'Execution status'
+            }
+        ],
+        configSchema: '{"type":"object","properties":{}}'
     }
 ];
 

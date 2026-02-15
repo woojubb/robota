@@ -35,6 +35,17 @@ export class InMemoryStoragePort implements IStoragePort {
         return this.definitions.get(definitionKey);
     }
 
+    public async listDefinitions(): Promise<IDagDefinition[]> {
+        return [...this.definitions.values()]
+            .sort((a, b) => a.dagId.localeCompare(b.dagId) || a.version - b.version);
+    }
+
+    public async listDefinitionsByDagId(dagId: string): Promise<IDagDefinition[]> {
+        return [...this.definitions.values()]
+            .filter((definition) => definition.dagId === dagId)
+            .sort((a, b) => a.version - b.version);
+    }
+
     public async getLatestPublishedDefinition(dagId: string): Promise<IDagDefinition | undefined> {
         const latestVersion = this.latestPublishedVersionByDagId.get(dagId);
         if (!latestVersion) {
@@ -114,6 +125,27 @@ export class InMemoryStoragePort implements IStoragePort {
                 status,
                 errorCode: error?.code,
                 errorMessage: error?.message
+            };
+
+            this.taskRuns.set(taskRunKey, next);
+            return;
+        }
+    }
+
+    public async saveTaskRunSnapshots(
+        taskRunId: string,
+        inputSnapshot?: string,
+        outputSnapshot?: string
+    ): Promise<void> {
+        for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
+            if (taskRun.taskRunId !== taskRunId) {
+                continue;
+            }
+
+            const next: ITaskRun = {
+                ...taskRun,
+                inputSnapshot: typeof inputSnapshot === 'string' ? inputSnapshot : taskRun.inputSnapshot,
+                outputSnapshot: typeof outputSnapshot === 'string' ? outputSnapshot : taskRun.outputSnapshot
             };
 
             this.taskRuns.set(taskRunKey, next);

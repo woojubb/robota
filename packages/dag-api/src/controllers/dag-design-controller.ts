@@ -1,13 +1,17 @@
 import { type DagDefinitionService, type IDagDefinition } from '@robota-sdk/dag-core';
 import type {
     ICreateDefinitionRequest,
+    IDefinitionListItem,
     IDefinitionValidationResult,
+    IGetDefinitionRequest,
+    IListDefinitionsRequest,
     IPublishDefinitionRequest,
     TDesignApiResponse,
     IUpdateDraftRequest,
     IValidateDefinitionRequest
 } from '../contracts/design-api.js';
 import { toProblemDetails } from '../contracts/design-api.js';
+import { buildValidationError } from '@robota-sdk/dag-core';
 
 export class DagDesignController {
     public constructor(private readonly definitionService: DagDefinitionService) {}
@@ -119,6 +123,72 @@ export class DagDesignController {
             data: {
                 definitionId: `${published.value.dagId}:${published.value.version}`,
                 definition: published.value
+            }
+        };
+    }
+
+    public async getDefinition(
+        request: IGetDefinitionRequest
+    ): Promise<TDesignApiResponse<{ definition: IDagDefinition }>> {
+        const definition = await this.definitionService.getDefinitionByDagId(request.dagId, request.version);
+        if (!definition) {
+            const error = buildValidationError(
+                'DAG_VALIDATION_DEFINITION_NOT_FOUND',
+                'Definition does not exist',
+                { dagId: request.dagId, version: request.version ?? 'latest' }
+            );
+            return {
+                ok: false,
+                status: 400,
+                errors: [
+                    toProblemDetails(
+                        error,
+                        `/v1/dag/definitions/${request.dagId}${typeof request.version === 'number' ? `?version=${request.version}` : ''}`,
+                        request.correlationId
+                    )
+                ]
+            };
+        }
+
+        return {
+            ok: true,
+            status: 200,
+            data: { definition }
+        };
+    }
+
+    public async listDefinitions(
+        request: IListDefinitionsRequest
+    ): Promise<TDesignApiResponse<{ items: IDefinitionListItem[] }>> {
+        const definitions = await this.definitionService.listDefinitions(request.dagId);
+        const listItemByDagId = new Map<string, IDefinitionListItem>();
+
+        for (const definition of definitions) {
+            const existing = listItemByDagId.get(definition.dagId);
+            if (!existing) {
+                listItemByDagId.set(definition.dagId, {
+                    dagId: definition.dagId,
+                    latestVersion: definition.version,
+                    statuses: [definition.status]
+                });
+                continue;
+            }
+
+            const nextStatuses = existing.statuses.includes(definition.status)
+                ? existing.statuses
+                : [...existing.statuses, definition.status];
+            listItemByDagId.set(definition.dagId, {
+                dagId: definition.dagId,
+                latestVersion: Math.max(existing.latestVersion, definition.version),
+                statuses: nextStatuses
+            });
+        }
+
+        return {
+            ok: true,
+            status: 200,
+            data: {
+                items: [...listItemByDagId.values()].sort((a, b) => a.dagId.localeCompare(b.dagId))
             }
         };
     }
