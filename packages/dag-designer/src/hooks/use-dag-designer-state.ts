@@ -13,6 +13,7 @@ import { useDagDesignerContext } from '../components/dag-designer-canvas.js';
 export interface IDagDesignerState {
     definition: IDagDefinition;
     manifests: INodeManifest[];
+    previewResult?: IPreviewResult;
     initialInput?: TPortPayload;
     selectedNodeId?: string;
     selectedEdgeId?: string;
@@ -35,6 +36,7 @@ export function useDagDesignerState(): IDagDesignerState {
     return useMemo(() => ({
         definition: context.definition,
         manifests: context.manifests,
+        previewResult: context.previewResult,
         initialInput: context.initialInput,
         selectedNodeId: context.selectedNodeId,
         selectedEdgeId: context.selectedEdgeId,
@@ -46,6 +48,7 @@ export function useDagDesignerState(): IDagDesignerState {
         context.definition,
         context.initialInput,
         context.manifests,
+        context.previewResult,
         context.selectedEdgeId,
         context.selectedNodeId
     ]);

@@ -4,7 +4,7 @@
 
 ## 1) 단일 소스
 - 남은 작업 목록: `open-tasks/CURRENT-TASKS.md` (남은 작업([ ])만)
-- 정식 스펙: `specs/INDEX.md`
+- 정식 스펙: 각 패키지/앱의 `docs/SPEC.md` (예: `packages/dag-core/docs/SPEC.md`, `apps/web/docs/SPEC.md`)
 - 장기 구상: `future/INDEX.md`
 
 ## 2) 작성 규칙

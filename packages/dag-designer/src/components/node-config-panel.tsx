@@ -1,18 +1,51 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import {
     buildValidationError,
+    type IDagDefinition,
     type IDagError,
     type IDagNode,
+    type INodeManifest,
     type IPortDefinition,
     type TNodeConfigRecord,
-    type TNodeConfigValue,
-    type TPortValueType
+    type TNodeConfigValue
 } from '@robota-sdk/dag-core';
+import {
+    getConnectedBindingCountForPort,
+    type TPortDirection
+} from './port-editor-utils.js';
+import { extractConfigDefaultsFromSchema } from './schema-defaults.js';
 
 export interface INodeConfigPanelProps {
     node?: IDagNode;
+    definition?: IDagDefinition;
+    manifest?: INodeManifest;
+    assetUploadBaseUrl?: string;
+    bindingCleanupMessage?: string;
     onUpdateNode: (nextNode: IDagNode) => void;
     onNodeValidationError?: (error: IDagError) => void;
+}
+
+interface IJsonSchemaObject {
+    properties?: Record<string, unknown>;
+    required?: string[];
+}
+
+interface IJsonSchemaProperty {
+    type?: string;
+    enum?: unknown[];
+    oneOf?: unknown[];
+    anyOf?: unknown[];
+    description?: string;
+    default?: unknown;
+}
+
+interface IAssetUploadResponse {
+    ok?: boolean;
+    data?: {
+        asset?: {
+            assetId?: string;
+        };
+    };
 }
 
 function isNodeConfigValue(value: unknown): value is TNodeConfigValue {
@@ -52,6 +85,10 @@ function isNodeConfigRecord(value: unknown): value is TNodeConfigRecord {
 
 export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
     const node = props.node;
+    const [uploadingFieldKey, setUploadingFieldKey] = useState<string | undefined>(undefined);
+    const [uploadStatusByField, setUploadStatusByField] = useState<Record<string, string>>({});
+    const [isAdvancedJsonOpen, setIsAdvancedJsonOpen] = useState<boolean>(false);
+
     if (!node) {
         return (
             <div className="rounded border border-gray-300 p-3">
@@ -74,7 +111,6 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 );
                 return;
             }
-
             props.onUpdateNode({
                 ...node,
                 config: parsed
@@ -90,178 +126,432 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         }
     };
 
-    const updateReferenceConfig = (
-        nextReferenceType: 'asset' | 'uri',
-        nextValue: string
-    ): void => {
-        const nextConfig: TNodeConfigRecord = {
-            ...node.config,
-            referenceType: nextReferenceType
-        };
-        if (nextReferenceType === 'asset') {
-            nextConfig.assetId = nextValue;
-            delete nextConfig.uri;
-            delete nextConfig.asset;
-            return props.onUpdateNode({
-                ...node,
-                config: nextConfig
-            });
+    const updateConfigValue = (key: string, value: TNodeConfigValue | undefined): void => {
+        const nextConfig: TNodeConfigRecord = { ...node.config };
+        if (typeof value === 'undefined') {
+            delete nextConfig[key];
+        } else {
+            nextConfig[key] = value;
         }
-
-        nextConfig.uri = nextValue;
-        delete nextConfig.assetId;
-        delete nextConfig.asset;
         props.onUpdateNode({
             ...node,
             config: nextConfig
         });
     };
 
-    const updatePorts = (direction: 'inputs' | 'outputs', nextPorts: IPortDefinition[]): void => {
+    const updateAssetIdWithXor = (key: string, assetId: string): void => {
+        const nextConfig: TNodeConfigRecord = {
+            ...node.config,
+            [key]: assetId,
+            referenceType: 'asset'
+        };
+        if ('uri' in nextConfig) {
+            delete nextConfig.uri;
+        }
         props.onUpdateNode({
             ...node,
-            [direction]: nextPorts
+            config: nextConfig
         });
     };
 
-    const addPort = (direction: 'inputs' | 'outputs'): void => {
-        const currentPorts = direction === 'inputs' ? node.inputs : node.outputs;
-        const nextPort: IPortDefinition = {
-            key: `${direction === 'inputs' ? 'input' : 'output'}_${currentPorts.length + 1}`,
-            label: `${direction === 'inputs' ? 'Input' : 'Output'} ${currentPorts.length + 1}`,
-            order: currentPorts.length,
-            type: 'string',
-            required: false
-        };
-        updatePorts(direction, [...currentPorts, nextPort]);
-    };
-
-    const removePort = (direction: 'inputs' | 'outputs', index: number): void => {
-        const currentPorts = direction === 'inputs' ? node.inputs : node.outputs;
-        const nextPorts = [...currentPorts];
-        nextPorts.splice(index, 1);
-        updatePorts(direction, nextPorts.map((port, order) => ({ ...port, order })));
-    };
-
-    const updatePortField = (
-        direction: 'inputs' | 'outputs',
-        index: number,
-        updater: (port: IPortDefinition) => IPortDefinition
-    ): void => {
-        const currentPorts = direction === 'inputs' ? node.inputs : node.outputs;
-        const nextPorts = currentPorts.map((port, cursor) => (
-            cursor === index ? updater(port) : port
-        ));
-        updatePorts(direction, nextPorts);
-    };
-
-    const renderPortEditor = (direction: 'inputs' | 'outputs', ports: IPortDefinition[]): ReactElement => (
-        <div className="flex flex-col gap-2 rounded border border-gray-200 p-2">
-            <div className="flex items-center justify-between">
-                <div className="text-xs font-medium">{direction === 'inputs' ? 'Inputs' : 'Outputs'}</div>
-                <button
-                    type="button"
-                    className="rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
-                    onClick={() => addPort(direction)}
-                >
-                    Add Port
-                </button>
-            </div>
-            {ports.length === 0 ? (
-                <div className="text-xs text-gray-500">No ports defined.</div>
-            ) : (
-                ports.map((port, index) => (
-                    <div key={`${direction}:${port.key}:${index}`} className="grid grid-cols-12 gap-2 rounded border border-gray-200 p-2">
-                        <input
-                            className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs"
-                            value={port.key}
-                            onChange={(event) => updatePortField(direction, index, (current) => ({
-                                ...current,
-                                key: event.target.value
-                            }))}
-                            placeholder="key"
-                        />
-                        <input
-                            className="col-span-3 rounded border border-gray-300 px-2 py-1 text-xs"
-                            value={port.label ?? ''}
-                            onChange={(event) => updatePortField(direction, index, (current) => ({
-                                ...current,
-                                label: event.target.value
-                            }))}
-                            placeholder="label"
-                        />
-                        <select
-                            className="col-span-2 rounded border border-gray-300 px-2 py-1 text-xs"
-                            value={port.type}
-                            onChange={(event) => updatePortField(direction, index, (current) => ({
-                                ...current,
-                                type: event.target.value as TPortValueType
-                            }))}
-                        >
-                            <option value="string">string</option>
-                            <option value="number">number</option>
-                            <option value="boolean">boolean</option>
-                            <option value="object">object</option>
-                            <option value="array">array</option>
-                            <option value="binary">binary</option>
-                        </select>
-                        <input
-                            className="col-span-1 rounded border border-gray-300 px-2 py-1 text-xs"
-                            type="number"
-                            min={0}
-                            value={port.order ?? index}
-                            onChange={(event) => updatePortField(direction, index, (current) => ({
-                                ...current,
-                                order: Number(event.target.value)
-                            }))}
-                        />
-                        <label className="col-span-2 flex items-center justify-center gap-1 rounded border border-gray-300 px-2 py-1 text-xs">
-                            <input
-                                type="checkbox"
-                                checked={port.required}
-                                onChange={(event) => updatePortField(direction, index, (current) => ({
-                                    ...current,
-                                    required: event.target.checked
-                                }))}
-                            />
-                            required
-                        </label>
-                        <button
-                            type="button"
-                            className="col-span-1 rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
-                            onClick={() => removePort(direction, index)}
-                        >
-                            x
-                        </button>
-                        <input
-                            className="col-span-12 rounded border border-gray-300 px-2 py-1 text-xs"
-                            value={port.description ?? ''}
-                            onChange={(event) => updatePortField(direction, index, (current) => ({
-                                ...current,
-                                description: event.target.value
-                            }))}
-                            placeholder="description"
-                        />
-                    </div>
-                ))
-            )}
-        </div>
+    const toBase64 = async (file: File): Promise<string> => (
+        new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                if (typeof reader.result !== 'string') {
+                    reject(new Error('Failed to read file'));
+                    return;
+                }
+                const delimiterIndex = reader.result.indexOf(',');
+                if (delimiterIndex < 0) {
+                    reject(new Error('Invalid data URL format'));
+                    return;
+                }
+                resolve(reader.result.slice(delimiterIndex + 1));
+            };
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsDataURL(file);
+        })
     );
 
-    const sortedInputs = [...node.inputs].sort((left, right) => (left.order ?? 9999) - (right.order ?? 9999));
-    const sortedOutputs = [...node.outputs].sort((left, right) => (left.order ?? 9999) - (right.order ?? 9999));
-    const supportsReferenceConfig = node.nodeType === 'image-source' || node.nodeType === 'image-loader';
-    const referenceType = node.config.referenceType === 'asset' || node.config.referenceType === 'uri'
-        ? node.config.referenceType
+    const handleAssetUpload = async (key: string, file: File): Promise<void> => {
+        if (typeof props.assetUploadBaseUrl !== 'string' || props.assetUploadBaseUrl.trim().length === 0) {
+            props.onNodeValidationError?.(
+                buildValidationError(
+                    'DAG_VALIDATION_ASSET_UPLOAD_BASE_URL_REQUIRED',
+                    'assetUploadBaseUrl is required for config file upload',
+                    { nodeId: node.nodeId, field: key }
+                )
+            );
+            return;
+        }
+        const normalizedBaseUrl = props.assetUploadBaseUrl.endsWith('/')
+            ? props.assetUploadBaseUrl.slice(0, -1)
+            : props.assetUploadBaseUrl;
+
+        setUploadingFieldKey(key);
+        setUploadStatusByField((current) => ({
+            ...current,
+            [key]: `Uploading ${file.name}...`
+        }));
+        try {
+            const base64Data = await toBase64(file);
+            const response = await fetch(`${normalizedBaseUrl}/v1/dag/assets`, {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    mediaType: file.type,
+                    base64Data
+                })
+            });
+            const payload = (await response.json()) as IAssetUploadResponse;
+            const uploadedAssetId = payload.data?.asset?.assetId;
+            if (!response.ok || payload.ok !== true || typeof uploadedAssetId !== 'string' || uploadedAssetId.trim().length === 0) {
+                props.onNodeValidationError?.(
+                    buildValidationError(
+                        'DAG_VALIDATION_ASSET_UPLOAD_FAILED',
+                        'Asset upload failed',
+                        { nodeId: node.nodeId, field: key }
+                    )
+                );
+                setUploadStatusByField((current) => ({
+                    ...current,
+                    [key]: 'Upload failed'
+                }));
+                return;
+            }
+            updateAssetIdWithXor(key, uploadedAssetId);
+            setUploadStatusByField((current) => ({
+                ...current,
+                [key]: `Uploaded: ${uploadedAssetId}`
+            }));
+        } catch {
+            props.onNodeValidationError?.(
+                buildValidationError(
+                    'DAG_VALIDATION_ASSET_UPLOAD_EXCEPTION',
+                    'Asset upload failed due to network or payload error',
+                    { nodeId: node.nodeId, field: key }
+                )
+            );
+            setUploadStatusByField((current) => ({
+                ...current,
+                [key]: 'Upload failed'
+            }));
+        } finally {
+            setUploadingFieldKey(undefined);
+        }
+    };
+
+    const getConnectedCount = (direction: TPortDirection, portKey: string): number => (
+        getConnectedBindingCountForPort(props.definition, node.nodeId, direction, portKey)
+    );
+
+    const schemaRoot = (
+        typeof props.manifest?.configSchema === 'object' &&
+        props.manifest?.configSchema !== null
+    )
+        ? (props.manifest.configSchema as IJsonSchemaObject)
         : undefined;
-    const assetId = typeof node.config.assetId === 'string' ? node.config.assetId : '';
-    const uri = typeof node.config.uri === 'string' ? node.config.uri : '';
-    const hasAssetId = assetId.trim().length > 0;
-    const hasUri = uri.trim().length > 0;
-    const xorValid = hasAssetId !== hasUri;
-    const referenceTypeConsistent = referenceType
-        ? ((referenceType === 'asset' && hasAssetId && !hasUri) || (referenceType === 'uri' && hasUri && !hasAssetId))
-        : xorValid;
+    const schemaDefaults = extractConfigDefaultsFromSchema(props.manifest?.configSchema);
+    const schemaProperties = schemaRoot?.properties ?? {};
+    const requiredSet = new Set<string>(schemaRoot?.required ?? []);
+
+    const renderSchemaField = (key: string, propertySchemaRaw: unknown): ReactElement => {
+        const propertySchema = (
+            typeof propertySchemaRaw === 'object' && propertySchemaRaw !== null
+        )
+            ? (propertySchemaRaw as IJsonSchemaProperty)
+            : {};
+        const label = key;
+        const currentValue = node.config[key];
+        const schemaDefaultValue = schemaDefaults[key];
+        const effectiveValue = typeof currentValue === 'undefined' ? schemaDefaultValue : currentValue;
+        const enumValues = Array.isArray(propertySchema.enum)
+            ? propertySchema.enum.filter((value): value is string => typeof value === 'string')
+            : [];
+        const hasUnionSchema = Array.isArray(propertySchema.oneOf) || Array.isArray(propertySchema.anyOf);
+        const isRequired = requiredSet.has(key);
+        const schemaType = propertySchema.type;
+        const fieldDescription = typeof propertySchema.description === 'string'
+            ? propertySchema.description
+            : undefined;
+        const isAssetIdField = key.toLowerCase().endsWith('assetid');
+        const fieldLabel = (
+            <div className="col-span-4 text-xs font-medium text-gray-700">
+                {label}
+                {isRequired ? ' *' : ''}
+                {fieldDescription ? (
+                    <div className="mt-1 text-[11px] font-normal text-gray-500">{fieldDescription}</div>
+                ) : null}
+            </div>
+        );
+
+        if (enumValues.length > 0) {
+            const selectedValue = typeof effectiveValue === 'string' ? effectiveValue : '';
+            return (
+                <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+                    {fieldLabel}
+                    <div className="col-span-8">
+                        <select
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                            value={selectedValue}
+                            onChange={(event) => {
+                                const nextValue = event.target.value;
+                                updateConfigValue(key, nextValue.length > 0 ? nextValue : undefined);
+                            }}
+                        >
+                            <option value="">(empty)</option>
+                            {enumValues.map((value) => (
+                                <option key={`${key}:${value}`} value={value}>{value}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            );
+        }
+
+        if (hasUnionSchema || schemaType === 'object' || schemaType === 'array') {
+            const rawValue = typeof effectiveValue === 'undefined' ? '' : JSON.stringify(effectiveValue, null, 2);
+            return (
+                <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+                    {fieldLabel}
+                    <div className="col-span-8">
+                        <textarea
+                            className="min-h-[90px] w-full rounded border border-gray-300 px-2 py-1 font-mono text-xs"
+                            value={rawValue}
+                            onChange={(event) => {
+                                const nextValue = event.target.value;
+                                if (nextValue.trim().length === 0) {
+                                    updateConfigValue(key, undefined);
+                                    return;
+                                }
+                                try {
+                                    const parsed = JSON.parse(nextValue);
+                                    if (!isNodeConfigValue(parsed)) {
+                                        props.onNodeValidationError?.(
+                                            buildValidationError(
+                                                'DAG_VALIDATION_NODE_CONFIG_FIELD_INVALID',
+                                                `Config field "${key}" must be valid JSON value`,
+                                                { nodeId: node.nodeId }
+                                            )
+                                        );
+                                        return;
+                                    }
+                                    updateConfigValue(key, parsed);
+                                } catch {
+                                    props.onNodeValidationError?.(
+                                        buildValidationError(
+                                            'DAG_VALIDATION_NODE_CONFIG_FIELD_PARSE_FAILED',
+                                            `Config field "${key}" must be valid JSON`,
+                                            { nodeId: node.nodeId }
+                                        )
+                                    );
+                                }
+                            }}
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        if (schemaType === 'boolean') {
+            return (
+                <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+                    {fieldLabel}
+                    <div className="col-span-8">
+                        <label className="inline-flex items-center gap-2 rounded border border-gray-300 px-2 py-2 text-xs">
+                            <input
+                                type="checkbox"
+                                checked={effectiveValue === true}
+                                onChange={(event) => updateConfigValue(key, event.target.checked)}
+                            />
+                            <span>Enabled</span>
+                        </label>
+                    </div>
+                </div>
+            );
+        }
+
+        if (schemaType === 'number' || schemaType === 'integer') {
+            const inputValue = typeof effectiveValue === 'number' ? String(effectiveValue) : '';
+            return (
+                <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+                    {fieldLabel}
+                    <div className="col-span-8">
+                        <input
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                            type="number"
+                            value={inputValue}
+                            onChange={(event) => {
+                                const nextValue = event.target.value;
+                                if (nextValue.trim().length === 0) {
+                                    updateConfigValue(key, undefined);
+                                    return;
+                                }
+                                const parsed = Number(nextValue);
+                                if (!Number.isFinite(parsed)) {
+                                    props.onNodeValidationError?.(
+                                        buildValidationError(
+                                            'DAG_VALIDATION_NODE_CONFIG_NUMBER_INVALID',
+                                            `Config field "${key}" must be a valid number`,
+                                            { nodeId: node.nodeId }
+                                        )
+                                    );
+                                    return;
+                                }
+                                updateConfigValue(key, schemaType === 'integer' ? Math.trunc(parsed) : parsed);
+                            }}
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        const textValue = typeof effectiveValue === 'string' ? effectiveValue : '';
+        return (
+            <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+                {fieldLabel}
+                <div className="col-span-8 space-y-2">
+                    <input
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                        value={textValue}
+                        onChange={(event) => {
+                            const nextValue = event.target.value;
+                            updateConfigValue(key, nextValue.length > 0 ? nextValue : undefined);
+                        }}
+                    />
+                    {isAssetIdField ? (
+                        <div className="rounded border border-gray-200 bg-gray-50 p-2">
+                            <div className="mb-2 text-[11px] text-gray-600">
+                                Upload file to asset store and set `{key}` automatically.
+                            </div>
+                            <input
+                                type="file"
+                                className="block w-full text-xs"
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    if (!file) {
+                                        return;
+                                    }
+                                    void handleAssetUpload(key, file);
+                                    event.target.value = '';
+                                }}
+                            />
+                            {uploadStatusByField[key] ? (
+                                <div className="mt-2 text-[11px] text-gray-600">{uploadStatusByField[key]}</div>
+                            ) : null}
+                            {uploadingFieldKey === key ? (
+                                <div className="mt-1 text-[11px] text-gray-500">Uploading...</div>
+                            ) : null}
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+        );
+    };
+
+    const renderPortSection = (
+        direction: TPortDirection,
+        ports: IPortDefinition[]
+    ): ReactElement => {
+        const title = direction === 'inputs' ? 'Inputs' : 'Outputs';
+        return (
+            <section className="rounded border border-gray-200 p-2">
+                <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-xs font-semibold">{title}</h3>
+                        <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">{ports.length}</span>
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    {ports.length === 0 ? (
+                        <div className="rounded border border-dashed border-gray-300 p-3 text-xs text-gray-500">
+                            No ports defined in this node type.
+                        </div>
+                    ) : ports.map((port, index) => {
+                        const connectedCount = getConnectedCount(direction, port.key);
+
+                        return (
+                            <article key={`${direction}-${index}-${port.key}`} className="rounded border border-gray-200 p-2">
+                                <div className="mb-2 flex items-center justify-between">
+                                    <span className="text-xs font-medium">Port {index + 1}</span>
+                                    <span className="text-[11px] text-gray-500">
+                                        Connected bindings: {connectedCount}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-12 items-center gap-2">
+                                    <label className="col-span-4 text-xs font-medium text-gray-700">Label</label>
+                                    <div className="col-span-8">
+                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
+                                            {port.label ?? '-'}
+                                        </div>
+                                    </div>
+
+                                    <label className="col-span-4 text-xs font-medium text-gray-700">Key</label>
+                                    <div className="col-span-8">
+                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
+                                            {port.key}
+                                        </div>
+                                    </div>
+
+                                    <label className="col-span-4 text-xs font-medium text-gray-700">Type</label>
+                                    <div className="col-span-8">
+                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
+                                            {port.type}
+                                        </div>
+                                    </div>
+
+                                    <label className="col-span-4 text-xs font-medium text-gray-700">Required</label>
+                                    <div className="col-span-8">
+                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
+                                            {port.required ? 'Required' : 'Optional'}
+                                        </div>
+                                    </div>
+
+                                    <label className="col-span-4 text-xs font-medium text-gray-700">Order</label>
+                                    <div className="col-span-8">
+                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
+                                            {typeof port.order === 'number' ? port.order : '-'}
+                                        </div>
+                                    </div>
+
+                                    <label className="col-span-4 text-xs font-medium text-gray-700">Description</label>
+                                    <div className="col-span-8">
+                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
+                                            {port.description ?? '-'}
+                                        </div>
+                                    </div>
+
+                                    {port.type === 'binary' ? (
+                                        <>
+                                            <label className="col-span-4 text-xs font-medium text-gray-700">Binary Kind</label>
+                                            <div className="col-span-8">
+                                                <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
+                                                    {port.binaryKind ?? '-'}
+                                                </div>
+                                            </div>
+
+                                            <label className="col-span-4 text-xs font-medium text-gray-700">Mime Types</label>
+                                            <div className="col-span-8">
+                                                <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
+                                                    {Array.isArray(port.mimeTypes) && port.mimeTypes.length > 0 ? port.mimeTypes.join(', ') : '-'}
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : null}
+                                </div>
+                            </article>
+                        );
+                    })}
+                </div>
+            </section>
+        );
+    };
 
     return (
         <div className="flex h-full flex-col gap-3 rounded border border-gray-300 p-3">
@@ -270,100 +560,53 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 <div>nodeId: {node.nodeId}</div>
                 <div>nodeType: {node.nodeType}</div>
             </div>
-            <label className="flex flex-col gap-2 text-xs">
-                Config (JSON)
-                <textarea
-                    className="min-h-[180px] rounded border border-gray-300 px-2 py-2 font-mono text-xs"
-                    value={JSON.stringify(node.config, null, 2)}
-                    onChange={(event) => updateConfigByText(event.target.value)}
-                />
-            </label>
-            {supportsReferenceConfig ? (
-                <div className="flex flex-col gap-2 rounded border border-gray-200 p-2 text-xs">
-                    <div className="font-medium">Reference Config</div>
-                    <div className="grid grid-cols-1 gap-2">
-                        <label className="flex flex-col gap-1">
-                            referenceType
-                            <select
-                                className="rounded border border-gray-300 px-2 py-1 text-xs"
-                                value={referenceType ?? ''}
-                                onChange={(event) => {
-                                    const nextType = event.target.value === 'asset' || event.target.value === 'uri'
-                                        ? event.target.value
-                                        : undefined;
-                                    if (!nextType) {
-                                        const nextConfig: TNodeConfigRecord = { ...node.config };
-                                        delete nextConfig.referenceType;
-                                        delete nextConfig.assetId;
-                                        delete nextConfig.uri;
-                                        delete nextConfig.asset;
-                                        props.onUpdateNode({ ...node, config: nextConfig });
-                                        return;
-                                    }
-                                    updateReferenceConfig(nextType, nextType === 'asset' ? assetId : uri);
-                                }}
-                            >
-                                <option value="">(select)</option>
-                                <option value="asset">asset</option>
-                                <option value="uri">uri</option>
-                            </select>
-                        </label>
-                        {referenceType === 'asset' ? (
-                            <label className="flex flex-col gap-1">
-                                assetId
-                                <input
-                                    className="rounded border border-gray-300 px-2 py-1 text-xs"
-                                    value={assetId}
-                                    onChange={(event) => updateReferenceConfig('asset', event.target.value)}
-                                    placeholder="asset-id"
-                                />
-                            </label>
-                        ) : null}
-                        {referenceType === 'uri' ? (
-                            <label className="flex flex-col gap-1">
-                                uri
-                                <input
-                                    className="rounded border border-gray-300 px-2 py-1 text-xs"
-                                    value={uri}
-                                    onChange={(event) => updateReferenceConfig('uri', event.target.value)}
-                                    placeholder="https://... or file://..."
-                                />
-                            </label>
-                        ) : null}
-                    </div>
-                    {!xorValid ? (
-                        <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-red-700">
-                            Exactly one of `assetId` or `uri` must be provided.
-                        </div>
-                    ) : null}
-                    {!referenceTypeConsistent ? (
-                        <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-red-700">
-                            `referenceType` and value are inconsistent.
-                        </div>
-                    ) : null}
+
+            {props.bindingCleanupMessage ? (
+                <div className="rounded border border-amber-300 bg-amber-50 px-2 py-2 text-xs text-amber-800">
+                    {props.bindingCleanupMessage}
                 </div>
             ) : null}
-            <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded border border-gray-200 p-2">
-                    <div className="font-medium">Inputs</div>
-                    {sortedInputs.map((port) => (
-                        <div key={port.key}>
-                            {(port.label ?? port.key)} ({port.key}) : {port.type}
-                        </div>
+
+            {Object.keys(schemaProperties).length > 0 ? (
+                <div className="grid grid-cols-1 gap-2 rounded border border-gray-200 p-2">
+                    <div className="text-xs font-medium">Config Form</div>
+                    {Object.entries(schemaProperties).map(([key, propertySchema]) => (
+                        renderSchemaField(key, propertySchema)
                     ))}
                 </div>
-                <div className="rounded border border-gray-200 p-2">
-                    <div className="font-medium">Outputs</div>
-                    {sortedOutputs.map((port) => (
-                        <div key={port.key}>
-                            {(port.label ?? port.key)} ({port.key}) : {port.type}
-                        </div>
-                    ))}
+            ) : null}
+
+            {renderPortSection(
+                'inputs',
+                node.inputs
+            )}
+
+            {renderPortSection(
+                'outputs',
+                node.outputs
+            )}
+
+            <div className="rounded border border-gray-200 p-2">
+                <div className="flex items-center justify-between">
+                    <div className="text-xs font-medium">Advanced JSON</div>
+                    <button
+                        type="button"
+                        className="rounded border border-gray-300 px-2 py-1 text-[11px] hover:bg-gray-50"
+                        onClick={() => setIsAdvancedJsonOpen((current) => !current)}
+                    >
+                        {isAdvancedJsonOpen ? 'Hide' : 'Show'}
+                    </button>
                 </div>
-            </div>
-            <div className="grid grid-cols-1 gap-2">
-                {renderPortEditor('inputs', node.inputs)}
-                {renderPortEditor('outputs', node.outputs)}
+                {isAdvancedJsonOpen ? (
+                    <label className="mt-2 flex flex-col gap-2 text-xs">
+                        Config JSON
+                        <textarea
+                            className="min-h-[180px] rounded border border-gray-300 px-2 py-2 font-mono text-xs"
+                            value={JSON.stringify(node.config, null, 2)}
+                            onChange={(event) => updateConfigByText(event.target.value)}
+                        />
+                    </label>
+                ) : null}
             </div>
         </div>
     );

@@ -133,9 +133,7 @@ const agent = new Robota({
 ```
 
 #### Plugin Documentation
-- **[Plugin Behaviors](plugin-automatic-behaviors.md)**: Detailed documentation of all automatic behaviors and default policies
-- **[Configuration Examples](plugin-configuration-examples.md)**: Comprehensive examples for each plugin including disable options
-- **[Best Practices](plugin-best-practices.md)**: Guidelines for plugin configuration and performance optimization
+- **[Plugin Guide](../../packages/agents/docs/PLUGINS.md)**: Unified behavior and configuration guidance
 
 ### 🔒 Type Safety Features
 - **Generic Type Parameters**: `BaseAgent<TConfig, TContext, TMessage>`

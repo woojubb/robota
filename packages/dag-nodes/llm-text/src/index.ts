@@ -238,9 +238,9 @@ export class LlmTextNodeDefinition implements IDagNodeDefinition {
     public readonly configSchemaDefinition = z.object({
         provider: z.string().optional(),
         model: z.string().optional(),
-        temperature: z.number().optional(),
+        temperature: z.number().default(0.2),
         maxTokens: z.number().int().positive().optional(),
-        baseCostUsd: z.number().optional()
+        baseCostUsd: z.number().default(0)
     });
     public readonly taskHandler: LlmTextNodeTaskHandler;
 
