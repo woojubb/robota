@@ -27,15 +27,17 @@ import {
     useEdgesState,
     useNodesState
 } from '@xyflow/react';
-import type {
-    IDagDefinition,
-    IDagEdgeDefinition,
-    IDagError,
-    IDagNode,
-    INodeManifest,
-    IPortDefinition,
-    TPortPayload,
-    TResult
+import {
+    buildValidationError,
+    type IDagDefinition,
+    type IDagEdgeDefinition,
+    type IDagError,
+    type IDagNode,
+    type INodeManifest,
+    type IPortDefinition,
+    type TRunProgressEvent,
+    type TPortPayload,
+    type TResult
 } from '@robota-sdk/dag-core';
 import { EdgeInspectorPanel } from './edge-inspector-panel.js';
 import { DagBindingEdge, type IDagBindingEdgeData } from './dag-binding-edge.js';
@@ -44,8 +46,25 @@ import { NodeConfigPanel } from './node-config-panel.js';
 import { NodeIoTracePanel } from './node-io-trace-panel.js';
 import { NodeExplorerPanel } from './node-explorer-panel.js';
 import { reconcileNodePortsAndEdges, summarizeRemovedBindings } from './port-editor-utils.js';
-import { runDefinitionPreview, type IPreviewResult, type IPreviewRunOptions } from '../lifecycle/preview-engine.js';
+import type { IPreviewResult } from '../contracts/designer-api.js';
 import '@xyflow/react/dist/style.css';
+
+export type TNodeExecutionStatus = 'idle' | 'running' | 'success' | 'failed';
+
+export interface IRunProgressState {
+    activeDagRunId?: string;
+    runStatus: 'idle' | 'running' | 'success' | 'failed';
+    nodeStatusByNodeId: Record<string, TNodeExecutionStatus>;
+    currentNodeId?: string;
+    failedNodeId?: string;
+    completedTaskCount: number;
+    latestEventType?: TRunProgressEvent['eventType'];
+}
+
+export interface IRunPreviewProgressHooks {
+    onRunStarted: (dagRunId: string) => void;
+    onRunProgressEvent: (event: TRunProgressEvent) => void;
+}
 
 export interface IDagDesignerRootProps {
     definition: IDagDefinition;
@@ -53,8 +72,11 @@ export interface IDagDesignerRootProps {
     onDefinitionChange: (definition: IDagDefinition) => void;
     assetUploadBaseUrl?: string;
     onPreviewResult?: (result: TResult<IPreviewResult, IDagError>) => void;
+    onRunPreview?: (input: {
+        definition: IDagDefinition;
+        input: TPortPayload;
+    }, hooks?: IRunPreviewProgressHooks) => Promise<TResult<IPreviewResult, IDagError>>;
     initialInput?: TPortPayload;
-    previewRunOptions?: IPreviewRunOptions;
     children: ReactNode;
     className?: string;
 }
@@ -65,24 +87,102 @@ export interface IDagDesignerContextValue {
     onDefinitionChange: (definition: IDagDefinition) => void;
     assetUploadBaseUrl?: string;
     onPreviewResult?: (result: TResult<IPreviewResult, IDagError>) => void;
+    onRunPreview?: (input: {
+        definition: IDagDefinition;
+        input: TPortPayload;
+    }, hooks?: IRunPreviewProgressHooks) => Promise<TResult<IPreviewResult, IDagError>>;
     initialInput?: TPortPayload;
-    previewRunOptions?: IPreviewRunOptions;
     selectedNodeId?: string;
     selectedEdgeId?: string;
     connectError?: string;
     bindingCleanupMessage?: string;
     previewResult?: IPreviewResult;
+    runProgress: IRunProgressState;
     setSelectedNodeId: (nodeId: string | undefined) => void;
     setSelectedEdgeId: (edgeId: string | undefined) => void;
     setConnectError: (error: string | undefined) => void;
     setPreviewResult: (result: IPreviewResult | undefined) => void;
+    resetRunProgress: () => void;
+    setActiveDagRunId: (dagRunId: string) => void;
+    applyRunProgressEvent: (event: TRunProgressEvent) => void;
     bindingErrors: string[];
     addNodeFromManifest: (manifest: INodeManifest) => void;
     updateNode: (nextNode: IDagNode) => void;
     updateEdge: (nextEdge: IDagEdgeDefinition) => void;
+    removeEdgeById: (edgeId: string) => void;
 }
 
 const DagDesignerContext = createContext<IDagDesignerContextValue | undefined>(undefined);
+
+const INITIAL_RUN_PROGRESS_STATE: IRunProgressState = {
+    runStatus: 'idle',
+    nodeStatusByNodeId: {},
+    completedTaskCount: 0
+};
+const MIN_RUNNING_DISPLAY_DURATION_MS = 400;
+
+function applyRunProgressEventToState(
+    currentState: IRunProgressState,
+    event: TRunProgressEvent
+): IRunProgressState {
+    const nextNodeStatusByNodeId = { ...currentState.nodeStatusByNodeId };
+    if (event.eventType === 'task.started') {
+        nextNodeStatusByNodeId[event.nodeId] = 'running';
+        return {
+            ...currentState,
+            activeDagRunId: currentState.activeDagRunId ?? event.dagRunId,
+            runStatus: 'running',
+            nodeStatusByNodeId: nextNodeStatusByNodeId,
+            currentNodeId: event.nodeId,
+            latestEventType: event.eventType
+        };
+    }
+    if (event.eventType === 'task.completed') {
+        nextNodeStatusByNodeId[event.nodeId] = 'success';
+        return {
+            ...currentState,
+            activeDagRunId: currentState.activeDagRunId ?? event.dagRunId,
+            runStatus: currentState.runStatus === 'failed' ? 'failed' : 'running',
+            nodeStatusByNodeId: nextNodeStatusByNodeId,
+            completedTaskCount: currentState.completedTaskCount + 1,
+            latestEventType: event.eventType
+        };
+    }
+    if (event.eventType === 'task.failed') {
+        nextNodeStatusByNodeId[event.nodeId] = 'failed';
+        return {
+            ...currentState,
+            activeDagRunId: currentState.activeDagRunId ?? event.dagRunId,
+            runStatus: 'failed',
+            nodeStatusByNodeId: nextNodeStatusByNodeId,
+            currentNodeId: event.nodeId,
+            failedNodeId: event.nodeId,
+            latestEventType: event.eventType
+        };
+    }
+    if (event.eventType === 'execution.started') {
+        return {
+            ...currentState,
+            activeDagRunId: event.dagRunId,
+            runStatus: 'running',
+            latestEventType: event.eventType
+        };
+    }
+    if (event.eventType === 'execution.completed') {
+        return {
+            ...currentState,
+            activeDagRunId: event.dagRunId,
+            runStatus: 'success',
+            latestEventType: event.eventType
+        };
+    }
+    return {
+        ...currentState,
+        activeDagRunId: event.dagRunId,
+        runStatus: 'failed',
+        latestEventType: event.eventType
+    };
+}
 
 export function useDagDesignerContext(): IDagDesignerContextValue {
     const context = useContext(DagDesignerContext);
@@ -95,6 +195,7 @@ export function useDagDesignerContext(): IDagDesignerContextValue {
 function toNode(
     nodeDefinition: IDagNode,
     index: number,
+    executionStatus: TNodeExecutionStatus,
     positionOverride?: XYPosition
 ): TDagCanvasNode {
     return {
@@ -105,7 +206,8 @@ function toNode(
             label: nodeDefinition.nodeId,
             nodeType: nodeDefinition.nodeType,
             inputs: nodeDefinition.inputs,
-            outputs: nodeDefinition.outputs
+            outputs: nodeDefinition.outputs,
+            executionStatus
         } satisfies IDagNodeViewData,
         position: positionOverride ?? { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 }
     };
@@ -161,10 +263,13 @@ function hasSameCanvasNodeState(currentNodes: Node[], nextNodes: Node[]): boolea
     }
     return currentNodes.every((currentNode, index) => {
         const nextNode = nextNodes[index];
+        const currentExecutionStatus = (currentNode.data as { executionStatus?: TNodeExecutionStatus } | undefined)?.executionStatus ?? 'idle';
+        const nextExecutionStatus = (nextNode.data as { executionStatus?: TNodeExecutionStatus } | undefined)?.executionStatus ?? 'idle';
         return (
             currentNode.id === nextNode.id &&
             currentNode.position.x === nextNode.position.x &&
-            currentNode.position.y === nextNode.position.y
+            currentNode.position.y === nextNode.position.y &&
+            currentExecutionStatus === nextExecutionStatus
         );
     });
 }
@@ -254,6 +359,22 @@ function computeBindingErrors(definition: IDagDefinition): string[] {
     return errors;
 }
 
+function recomputeNodeDependencies(
+    nodes: IDagDefinition['nodes'],
+    edges: IDagDefinition['edges']
+): IDagDefinition['nodes'] {
+    const upstreamNodeIdsByTarget = new Map<string, Set<string>>();
+    for (const edge of edges) {
+        const upstreamNodeIds = upstreamNodeIdsByTarget.get(edge.to) ?? new Set<string>();
+        upstreamNodeIds.add(edge.from);
+        upstreamNodeIdsByTarget.set(edge.to, upstreamNodeIds);
+    }
+    return nodes.map((node) => ({
+        ...node,
+        dependsOn: [...(upstreamNodeIdsByTarget.get(node.nodeId) ?? new Set<string>())]
+    }));
+}
+
 export interface IDagDesignerCanvasProps {
     className?: string;
 }
@@ -278,41 +399,142 @@ export interface IDagDesignerNodeIoTraceProps {
     className?: string;
 }
 
+export interface IDagDesignerRunProgressSummaryProps {
+    className?: string;
+}
+
 export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined);
     const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>(undefined);
     const [connectError, setConnectError] = useState<string | undefined>(undefined);
     const [bindingCleanupMessage, setBindingCleanupMessage] = useState<string | undefined>(undefined);
     const [previewResult, setPreviewResult] = useState<IPreviewResult | undefined>(undefined);
+    const [runProgress, setRunProgress] = useState<IRunProgressState>(INITIAL_RUN_PROGRESS_STATE);
+    const nodeRunningSinceRef = useRef<Map<string, number>>(new Map());
+    const pendingStatusTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
     const bindingErrors = useMemo(() => computeBindingErrors(props.definition), [props.definition]);
+
+    const clearPendingStatusTimers = useCallback((): void => {
+        for (const timerId of pendingStatusTimersRef.current.values()) {
+            clearTimeout(timerId);
+        }
+        pendingStatusTimersRef.current.clear();
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            clearPendingStatusTimers();
+            nodeRunningSinceRef.current.clear();
+        };
+    }, [clearPendingStatusTimers]);
+
+    const resetRunProgress = useCallback((): void => {
+        clearPendingStatusTimers();
+        nodeRunningSinceRef.current.clear();
+        setRunProgress(INITIAL_RUN_PROGRESS_STATE);
+    }, [clearPendingStatusTimers]);
+
+    const setActiveDagRunId = useCallback((dagRunId: string): void => {
+        clearPendingStatusTimers();
+        nodeRunningSinceRef.current.clear();
+        setRunProgress({
+            activeDagRunId: dagRunId,
+            runStatus: 'running',
+            nodeStatusByNodeId: {},
+            completedTaskCount: 0
+        });
+    }, [clearPendingStatusTimers]);
+
+    const applyRunProgressEvent = useCallback((event: TRunProgressEvent): void => {
+        setRunProgress((currentState) => {
+            if (currentState.activeDagRunId && currentState.activeDagRunId !== event.dagRunId) {
+                return currentState;
+            }
+            if (event.eventType === 'task.started') {
+                nodeRunningSinceRef.current.set(event.nodeId, Date.now());
+                const existingTimer = pendingStatusTimersRef.current.get(event.nodeId);
+                if (existingTimer) {
+                    clearTimeout(existingTimer);
+                    pendingStatusTimersRef.current.delete(event.nodeId);
+                }
+                return applyRunProgressEventToState(currentState, event);
+            }
+            if (event.eventType === 'task.completed' || event.eventType === 'task.failed') {
+                const runningSince = nodeRunningSinceRef.current.get(event.nodeId);
+                const elapsedMs = typeof runningSince === 'number' ? Date.now() - runningSince : MIN_RUNNING_DISPLAY_DURATION_MS;
+                const remainingMs = Math.max(0, MIN_RUNNING_DISPLAY_DURATION_MS - elapsedMs);
+                if (remainingMs > 0) {
+                    const existingTimer = pendingStatusTimersRef.current.get(event.nodeId);
+                    if (existingTimer) {
+                        clearTimeout(existingTimer);
+                    }
+                    const timerId = setTimeout(() => {
+                        pendingStatusTimersRef.current.delete(event.nodeId);
+                        nodeRunningSinceRef.current.delete(event.nodeId);
+                        setRunProgress((stateAtTimer) => {
+                            if (stateAtTimer.activeDagRunId && stateAtTimer.activeDagRunId !== event.dagRunId) {
+                                return stateAtTimer;
+                            }
+                            return applyRunProgressEventToState(stateAtTimer, event);
+                        });
+                    }, remainingMs);
+                    pendingStatusTimersRef.current.set(event.nodeId, timerId);
+                    return currentState;
+                }
+                nodeRunningSinceRef.current.delete(event.nodeId);
+                pendingStatusTimersRef.current.delete(event.nodeId);
+            }
+            return applyRunProgressEventToState(currentState, event);
+        });
+    }, []);
 
     const addNodeFromManifest = useCallback((manifest: INodeManifest): void => {
         const nextNode = createNodeFromManifest(manifest, props.definition.nodes.length);
         setBindingCleanupMessage(undefined);
         setPreviewResult(undefined);
+        resetRunProgress();
         props.onDefinitionChange({
             ...props.definition,
             nodes: [...props.definition.nodes, nextNode]
         });
-    }, [props.definition, props.onDefinitionChange]);
+    }, [props.definition, props.onDefinitionChange, resetRunProgress]);
 
     const updateNode = useCallback((nextNode: IDagNode): void => {
         const reconciled = reconcileNodePortsAndEdges(props.definition, nextNode);
         setBindingCleanupMessage(summarizeRemovedBindings(reconciled.removedBindings));
         setPreviewResult(undefined);
+        resetRunProgress();
         props.onDefinitionChange(reconciled.nextDefinition);
-    }, [props.definition, props.onDefinitionChange]);
+    }, [props.definition, props.onDefinitionChange, resetRunProgress]);
 
     const updateEdge = useCallback((nextEdge: IDagEdgeDefinition): void => {
         setBindingCleanupMessage(undefined);
         setPreviewResult(undefined);
+        resetRunProgress();
         props.onDefinitionChange({
             ...props.definition,
             edges: props.definition.edges.map((edge) => (
                 edge.from === nextEdge.from && edge.to === nextEdge.to ? nextEdge : edge
             ))
         });
-    }, [props.definition, props.onDefinitionChange]);
+    }, [props.definition, props.onDefinitionChange, resetRunProgress]);
+
+    const removeEdgeById = useCallback((edgeId: string): void => {
+        const nextEdges = props.definition.edges.filter((edge) => `${edge.from}->${edge.to}` !== edgeId);
+        if (nextEdges.length === props.definition.edges.length) {
+            return;
+        }
+        setBindingCleanupMessage(undefined);
+        setPreviewResult(undefined);
+        resetRunProgress();
+        setSelectedEdgeId(undefined);
+        const nextNodes = recomputeNodeDependencies(props.definition.nodes, nextEdges);
+        props.onDefinitionChange({
+            ...props.definition,
+            nodes: nextNodes,
+            edges: nextEdges
+        });
+    }, [props.definition, props.onDefinitionChange, resetRunProgress]);
 
     const contextValue = useMemo<IDagDesignerContextValue>(() => ({
         definition: props.definition,
@@ -320,38 +542,48 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         onDefinitionChange: props.onDefinitionChange,
         assetUploadBaseUrl: props.assetUploadBaseUrl,
         onPreviewResult: props.onPreviewResult,
+        onRunPreview: props.onRunPreview,
         initialInput: props.initialInput,
-                previewRunOptions: props.previewRunOptions,
         selectedNodeId,
         selectedEdgeId,
         connectError,
         bindingCleanupMessage,
         previewResult,
+        runProgress,
         setSelectedNodeId,
         setSelectedEdgeId,
         setConnectError,
         setPreviewResult,
+        resetRunProgress,
+        setActiveDagRunId,
+        applyRunProgressEvent,
         bindingErrors,
         addNodeFromManifest,
         updateNode,
-        updateEdge
+        updateEdge,
+        removeEdgeById
     }), [
         props.definition,
         props.manifests,
         props.onDefinitionChange,
         props.assetUploadBaseUrl,
         props.onPreviewResult,
+        props.onRunPreview,
         props.initialInput,
-        props.previewRunOptions,
         selectedNodeId,
         selectedEdgeId,
         connectError,
         bindingCleanupMessage,
         previewResult,
+        runProgress,
         bindingErrors,
+        resetRunProgress,
+        setActiveDagRunId,
+        applyRunProgressEvent,
         addNodeFromManifest,
         updateNode,
-        updateEdge
+        updateEdge,
+        removeEdgeById
     ]);
 
     return (
@@ -375,8 +607,12 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
     }, [context.setSelectedEdgeId, context.setSelectedNodeId]);
 
     const initialNodes = useMemo(
-        () => context.definition.nodes.map((node, index) => toNode(node, index)),
-        [context.definition.nodes]
+        () => context.definition.nodes.map((node, index) => toNode(
+            node,
+            index,
+            context.runProgress.nodeStatusByNodeId[node.nodeId] ?? 'idle'
+        )),
+        [context.definition.nodes, context.runProgress.nodeStatusByNodeId]
     );
     const initialEdges = useMemo(
         () => context.definition.edges.map((edge) => toEdge(edge, selectEdgeById)),
@@ -392,14 +628,19 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 currentNodes.map((node) => [node.id, node.position])
             );
             const mappedNodes = context.definition.nodes.map((node, index) => (
-                toNode(node, index, positionByNodeId.get(node.nodeId))
+                toNode(
+                    node,
+                    index,
+                    context.runProgress.nodeStatusByNodeId[node.nodeId] ?? 'idle',
+                    positionByNodeId.get(node.nodeId)
+                )
             ));
             if (hasSameCanvasNodeState(currentNodes, mappedNodes)) {
                 return currentNodes;
             }
             return mappedNodes;
         });
-    }, [context.definition.nodes, setNodes]);
+    }, [context.definition.nodes, context.runProgress.nodeStatusByNodeId, setNodes]);
 
     useEffect(() => {
         const mappedEdges = context.definition.edges.map((edge) => toEdge(edge, selectEdgeById));
@@ -419,6 +660,37 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         context.setSelectedEdgeId(edge.id);
         context.setSelectedNodeId(undefined);
     };
+
+    const isEditableTarget = (target: EventTarget | null): boolean => {
+        if (!(target instanceof HTMLElement)) {
+            return false;
+        }
+        const tagName = target.tagName.toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
+            return true;
+        }
+        return target.isContentEditable;
+    };
+
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent): void => {
+            if (event.key !== 'Delete' && event.key !== 'Backspace') {
+                return;
+            }
+            if (!context.selectedEdgeId) {
+                return;
+            }
+            if (isEditableTarget(event.target)) {
+                return;
+            }
+            event.preventDefault();
+            context.removeEdgeById(context.selectedEdgeId);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => {
+            window.removeEventListener('keydown', onKeyDown);
+        };
+    }, [context.removeEdgeById, context.selectedEdgeId]);
 
     const onConnect = (connection: Connection): void => {
         if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) {
@@ -486,6 +758,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             ]
         });
         context.setPreviewResult(undefined);
+        context.resetRunProgress();
     };
 
     useEffect(() => {
@@ -500,13 +773,24 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         if (!canRunPreview || isPreviewRunning) {
             return;
         }
+        context.resetRunProgress();
         setIsPreviewRunning(true);
         try {
-            const previewResult = await runDefinitionPreview(
-                context.definition,
-                context.initialInput ?? {},
-                context.previewRunOptions
-            );
+            const previewResult = context.onRunPreview
+                ? await context.onRunPreview({
+                    definition: context.definition,
+                    input: context.initialInput ?? {}
+                }, {
+                    onRunStarted: context.setActiveDagRunId,
+                    onRunProgressEvent: context.applyRunProgressEvent
+                })
+                : {
+                    ok: false as const,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_PREVIEW_RUNNER_NOT_CONFIGURED',
+                        'Preview runner is not configured.'
+                    )
+                };
             context.setPreviewResult(previewResult.ok ? previewResult.value : undefined);
             context.onPreviewResult?.(previewResult);
         } finally {
@@ -623,6 +907,7 @@ export function DagDesignerEdgeInspector(props: IDagDesignerEdgeInspectorProps):
                 definition={context.definition}
                 selectedEdgeId={context.selectedEdgeId}
                 onUpdateEdge={context.updateEdge}
+                onDeleteEdge={context.removeEdgeById}
             />
         </div>
     );
@@ -635,7 +920,29 @@ export function DagDesignerNodeIoTrace(props: IDagDesignerNodeIoTraceProps): Rea
             <NodeIoTracePanel
                 previewResult={context.previewResult}
                 selectedNodeId={context.selectedNodeId}
+                selectedNodeExecutionStatus={
+                    context.selectedNodeId
+                        ? context.runProgress.nodeStatusByNodeId[context.selectedNodeId]
+                        : undefined
+                }
             />
+        </div>
+    );
+}
+
+export function DagDesignerRunProgressSummary(props: IDagDesignerRunProgressSummaryProps): ReactElement {
+    const context = useDagDesignerContext();
+    const state = context.runProgress;
+    const runningNodeCount = Object.values(state.nodeStatusByNodeId).filter((status) => status === 'running').length;
+    const failedNodeCount = Object.values(state.nodeStatusByNodeId).filter((status) => status === 'failed').length;
+    const successNodeCount = Object.values(state.nodeStatusByNodeId).filter((status) => status === 'success').length;
+    const summaryText = state.activeDagRunId
+        ? `run=${state.activeDagRunId} status=${state.runStatus} running=${runningNodeCount} success=${successNodeCount} failed=${failedNodeCount} completed=${state.completedTaskCount}`
+        : 'run=none status=idle';
+
+    return (
+        <div className={`text-xs ${props.className ?? ''}`}>
+            {summaryText}
         </div>
     );
 }
@@ -647,5 +954,6 @@ export const DagDesigner = {
     Inspector: DagDesignerInspector,
     NodeConfig: DagDesignerNodeConfig,
     NodeIoTrace: DagDesignerNodeIoTrace,
-    EdgeInspector: DagDesignerEdgeInspector
+    EdgeInspector: DagDesignerEdgeInspector,
+    RunProgressSummary: DagDesignerRunProgressSummary
 } as const;

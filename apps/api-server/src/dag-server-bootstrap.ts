@@ -2,29 +2,36 @@ import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import path from 'node:path';
 import {
+    EXECUTION_PROGRESS_EVENTS,
     LifecycleTaskExecutorPort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     InMemoryStoragePort,
     SystemClockPort,
+    TASK_EVENTS,
+    TASK_PROGRESS_EVENTS,
     type IAssetReference,
     type IDagDefinition,
     type INodeLifecycleFactory,
     type INodeManifest,
     type INodeManifestRegistry,
+    type TRunProgressEvent,
     type TPortPayload
 } from '@robota-sdk/dag-core';
 import type { ILlmTextCompletionClient } from '@robota-sdk/dag-node-llm-text';
 import {
     createDagControllerComposition,
     createDagExecutionComposition,
+    toProblemDetails,
     type INodeCatalogService
 } from '@robota-sdk/dag-api';
 import { LocalFsAssetStore, type IStoredAssetMetadata } from './services/local-fs-asset-store.js';
 import { AssetAwareTaskExecutorPort } from './services/asset-aware-task-executor.js';
+import { DagPreviewService } from './services/dag-preview-service.js';
 
 interface ITriggerRequestBody {
     dagId: string;
+    version?: number;
     input?: TPortPayload;
     logicalDate?: string;
 }
@@ -64,10 +71,58 @@ interface IPreviewLlmCompleteBody {
     maxTokens?: number;
 }
 
+interface IPreviewDefinitionBody {
+    definition: IDagDefinition;
+    input?: TPortPayload;
+}
+
+interface IPreviewRunParams {
+    dagRunId: string;
+}
+
+interface IDeleteDefinitionArtifactsQuery {
+    version?: string;
+}
+
 interface IAssetValidationError {
     code: string;
     detail: string;
     retryable: false;
+}
+
+function resolveDefaultWorkerTimeoutMs(): number {
+    const raw = process.env.DAG_DEFAULT_TIMEOUT_MS;
+    if (typeof raw === 'undefined' || raw.trim().length === 0) {
+        return 30_000;
+    }
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error('DAG_DEFAULT_TIMEOUT_MS must be a positive integer when provided.');
+    }
+    return parsed;
+}
+
+function toPreviewProblemDetails(
+    error: IAssetValidationError,
+    instance: string
+): {
+    type: string;
+    title: string;
+    status: number;
+    detail: string;
+    instance: string;
+    code: string;
+    retryable: boolean;
+} {
+    return {
+        type: 'https://robota.dev/problems/dag/validation',
+        title: 'DAG validation failed',
+        status: 400,
+        detail: error.detail,
+        instance,
+        code: error.code,
+        retryable: error.retryable
+    };
 }
 
 export interface IDagServerBootstrapOptions {
@@ -280,6 +335,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     const assetStore = new LocalFsAssetStore(assetStoreRoot);
     await assetStore.initialize();
     const executor = new AssetAwareTaskExecutorPort(lifecycleExecutor, assetStore);
+    const defaultWorkerTimeoutMs = resolveDefaultWorkerTimeoutMs();
 
     const controllers = createDagControllerComposition(
         {
@@ -310,12 +366,28 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
                 leaseDurationMs: 30_000,
                 visibilityTimeoutMs: 30_000,
                 maxAttempts: 1,
-                defaultTimeoutMs: 5_000,
+                defaultTimeoutMs: defaultWorkerTimeoutMs,
                 retryEnabled: false,
                 deadLetterEnabled: true
             }
         }
     );
+    const dagPreviewService = new DagPreviewService({
+        storage,
+        execution,
+        clock
+    });
+    const sseClientsByDagRunId = new Map<string, Set<Response>>();
+    execution.runProgressEventBus.subscribe((event: TRunProgressEvent) => {
+        const clients = sseClientsByDagRunId.get(event.dagRunId);
+        if (!clients || clients.size === 0) {
+            return;
+        }
+        const payload = JSON.stringify({ event });
+        for (const client of clients) {
+            client.write(`data: ${payload}\n\n`);
+        }
+    });
 
     app.get('/health', (_req: Request, res: Response) => {
         res.json({
@@ -443,6 +515,158 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             correlationId: 'dag-dev-nodes-list'
         });
         res.status(listed.status).json(listed);
+    });
+
+    app.post('/v1/dag/dev/preview/runs', async (
+        req: Request<unknown, unknown, IPreviewDefinitionBody>,
+        res: Response
+    ) => {
+        const previewInstance = '/v1/dag/dev/preview/runs';
+        const definition = req.body?.definition;
+        if (!definition || typeof definition !== 'object') {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    toPreviewProblemDetails(
+                        {
+                            code: 'DAG_VALIDATION_PREVIEW_DEFINITION_REQUIRED',
+                            detail: 'definition is required',
+                            retryable: false
+                        },
+                        previewInstance
+                    )
+                ]
+            });
+            return;
+        }
+        const input = req.body?.input;
+        if (typeof input !== 'undefined' && (typeof input !== 'object' || input === null)) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    toPreviewProblemDetails(
+                        {
+                            code: 'DAG_VALIDATION_PREVIEW_INPUT_INVALID',
+                            detail: 'input must be an object when provided',
+                            retryable: false
+                        },
+                        previewInstance
+                    )
+                ]
+            });
+            return;
+        }
+        const assetValidationErrors = await validateAssetReferences(definition, assetStore);
+        if (assetValidationErrors.length > 0) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: assetValidationErrors.map((error) => toPreviewProblemDetails(error, previewInstance))
+            });
+            return;
+        }
+        const started = await dagPreviewService.startRun(definition, input ?? {});
+        if (!started.ok) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [toProblemDetails(started.error, previewInstance)]
+            });
+            return;
+        }
+        res.status(201).json({
+            ok: true,
+            status: 201,
+            data: {
+                dagRunId: started.value.dagRunId
+            }
+        });
+    });
+
+    app.get('/v1/dag/dev/preview/runs/:dagRunId/result', async (
+        req: Request<IPreviewRunParams>,
+        res: Response
+    ) => {
+        const instance = `/v1/dag/dev/preview/runs/${req.params.dagRunId}/result`;
+        const result = await dagPreviewService.getRunPreviewResult(req.params.dagRunId);
+        if (!result.ok) {
+            const problem = toProblemDetails(result.error, instance);
+            const statusCode = result.error.code === 'DAG_VALIDATION_PREVIEW_RUN_NOT_TERMINAL' ? 409 : 400;
+            res.status(statusCode).json({
+                ok: false,
+                status: statusCode,
+                errors: [problem]
+            });
+            return;
+        }
+        res.status(200).json({
+            ok: true,
+            status: 200,
+            data: {
+                preview: result.value
+            }
+        });
+    });
+
+    app.delete('/v1/dag/dev/runs/:dagRunId', async (req: Request<{ dagRunId: string }>, res: Response) => {
+        const deleted = await dagPreviewService.deleteRunArtifacts(req.params.dagRunId);
+        if (!deleted.ok) {
+            res.status(404).json({
+                ok: false,
+                status: 404,
+                errors: [deleted.error]
+            });
+            return;
+        }
+        res.status(200).json({
+            ok: true,
+            status: 200,
+            data: deleted.value
+        });
+    });
+
+    app.delete('/v1/dag/dev/definitions/:dagId', async (
+        req: Request<{ dagId: string }, unknown, unknown, IDeleteDefinitionArtifactsQuery>,
+        res: Response
+    ) => {
+        const versionValue = req.query.version;
+        const parsedVersion = typeof versionValue === 'string' && versionValue.trim().length > 0
+            ? Number.parseInt(versionValue, 10)
+            : undefined;
+        const version = Number.isFinite(parsedVersion) ? parsedVersion : undefined;
+        const deleted = await dagPreviewService.deleteDefinitionArtifacts(req.params.dagId, version);
+        if (!deleted.ok) {
+            res.status(404).json({
+                ok: false,
+                status: 404,
+                errors: [deleted.error]
+            });
+            return;
+        }
+        res.status(200).json({
+            ok: true,
+            status: 200,
+            data: deleted.value
+        });
+    });
+
+    app.delete('/v1/dag/dev/preview-copies', async (_req: Request, res: Response) => {
+        const deleted = await dagPreviewService.deletePreviewCopyArtifacts();
+        if (!deleted.ok) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [deleted.error]
+            });
+            return;
+        }
+        res.status(200).json({
+            ok: true,
+            status: 200,
+            data: deleted.value
+        });
     });
 
     app.post('/v1/dag/dev/llm-text/complete', async (
@@ -738,12 +962,123 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
 
         const triggered = await controllers.runtime.triggerRun({
             dagId: req.body.dagId,
+            version: req.body.version,
             trigger: 'manual',
             logicalDate: req.body.logicalDate,
             input: req.body.input ?? {},
             correlationId: 'dag-dev-trigger'
         });
         res.status(triggered.status).json(triggered);
+    });
+
+    app.get('/v1/dag/dev/runs/:dagRunId/events', async (req: Request<{ dagRunId: string }>, res: Response) => {
+        const dagRunId = req.params.dagRunId;
+        const emitSseEvent = (event: TRunProgressEvent): void => {
+            const payload = JSON.stringify({ event });
+            res.write(`data: ${payload}\n\n`);
+        };
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+        res.write(':\n\n');
+
+        const keepAliveTimer = setInterval(() => {
+            res.write(':\n\n');
+        }, 15_000);
+        const clients = sseClientsByDagRunId.get(dagRunId) ?? new Set<Response>();
+        clients.add(res);
+        sseClientsByDagRunId.set(dagRunId, clients);
+
+        const queried = await execution.runQuery.getRun(dagRunId);
+        if (queried.ok) {
+            const snapshotDagRun = queried.value.dagRun;
+            for (const taskRun of queried.value.taskRuns) {
+                if (
+                    taskRun.status === TASK_EVENTS.RUNNING
+                    || taskRun.status === TASK_EVENTS.SUCCESS
+                    || taskRun.status === TASK_EVENTS.FAILED
+                    || taskRun.status === TASK_EVENTS.UPSTREAM_FAILED
+                    || taskRun.status === TASK_EVENTS.CANCELLED
+                ) {
+                    emitSseEvent({
+                        dagRunId,
+                        eventType: TASK_PROGRESS_EVENTS.STARTED,
+                        occurredAt: clock.nowIso(),
+                        taskRunId: taskRun.taskRunId,
+                        nodeId: taskRun.nodeId
+                    });
+                }
+                if (taskRun.status === TASK_EVENTS.SUCCESS) {
+                    emitSseEvent({
+                        dagRunId,
+                        eventType: TASK_PROGRESS_EVENTS.COMPLETED,
+                        occurredAt: clock.nowIso(),
+                        taskRunId: taskRun.taskRunId,
+                        nodeId: taskRun.nodeId
+                    });
+                }
+                if (
+                    taskRun.status === TASK_EVENTS.FAILED
+                    || taskRun.status === TASK_EVENTS.UPSTREAM_FAILED
+                    || taskRun.status === TASK_EVENTS.CANCELLED
+                ) {
+                    emitSseEvent({
+                        dagRunId,
+                        eventType: TASK_PROGRESS_EVENTS.FAILED,
+                        occurredAt: clock.nowIso(),
+                        taskRunId: taskRun.taskRunId,
+                        nodeId: taskRun.nodeId,
+                        error: {
+                            code: taskRun.errorCode ?? 'DAG_TASK_EXECUTION_FAILED',
+                            category: 'task_execution',
+                            message: taskRun.errorMessage ?? `Task finished with status ${taskRun.status}.`,
+                            retryable: false
+                        }
+                    });
+                }
+            }
+            if (snapshotDagRun.status === 'success') {
+                emitSseEvent({
+                    dagRunId,
+                    eventType: EXECUTION_PROGRESS_EVENTS.COMPLETED,
+                    occurredAt: clock.nowIso()
+                });
+            } else if (snapshotDagRun.status === 'failed' || snapshotDagRun.status === 'cancelled') {
+                emitSseEvent({
+                    dagRunId,
+                    eventType: EXECUTION_PROGRESS_EVENTS.FAILED,
+                    occurredAt: clock.nowIso(),
+                    error: {
+                        code: 'DAG_RUN_FAILED',
+                        category: 'task_execution',
+                        message: `Run is already in terminal status: ${snapshotDagRun.status}`,
+                        retryable: false,
+                        context: { dagRunId, status: snapshotDagRun.status }
+                    }
+                });
+            } else if (snapshotDagRun.status === 'queued' || snapshotDagRun.status === 'running') {
+                emitSseEvent({
+                    dagRunId,
+                    eventType: EXECUTION_PROGRESS_EVENTS.STARTED,
+                    occurredAt: clock.nowIso(),
+                    dagId: snapshotDagRun.dagId,
+                    version: snapshotDagRun.version
+                });
+            }
+        }
+
+        req.on('close', () => {
+            clearInterval(keepAliveTimer);
+            const subscribedClients = sseClientsByDagRunId.get(dagRunId);
+            if (!subscribedClients) {
+                return;
+            }
+            subscribedClients.delete(res);
+            if (subscribedClients.size === 0) {
+                sseClientsByDagRunId.delete(dagRunId);
+            }
+        });
     });
 
     app.post('/v1/dag/dev/workers/process-once', async (_req: Request, res: Response) => {

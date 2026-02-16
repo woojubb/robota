@@ -47,7 +47,9 @@ export class AssetAwareTaskExecutorPort implements ITaskExecutorPort {
         const output = await this.mapBinaryOutputsToAssetReferences(result.output);
         return {
             ok: true,
-            output
+            output,
+            estimatedCostUsd: result.estimatedCostUsd,
+            totalCostUsd: result.totalCostUsd
         };
     }
 

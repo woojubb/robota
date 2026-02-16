@@ -12,5 +12,6 @@ export * from './controllers/dag-observability-controller.js';
 export * from './controllers/dag-runtime-controller.js';
 export * from './composition/create-dag-controller-composition.js';
 export * from './composition/create-dag-execution-composition.js';
+export * from './composition/run-progress-event-bus.js';
 
 export const DAG_API_PACKAGE_NAME = '@robota-sdk/dag-api';

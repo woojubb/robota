@@ -1,13 +1,17 @@
-import type { IDagDefinition, INodeManifest, TResult } from '@robota-sdk/dag-core';
+import type { IDagDefinition, INodeManifest, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
 import type {
     ICreateDefinitionInput,
     IDefinitionListItem,
+    IGetPreviewRunResultInput,
+    IPreviewResult,
     IDesignerApiClient,
     IDesignerApiClientConfig,
     IGetDefinitionInput,
     IListDefinitionsInput,
     IProblemDetails,
     IPublishDefinitionInput,
+    IStartPreviewRunInput,
+    ITriggerRunInput,
     IUpdateDraftInput,
     IValidateDefinitionInput
 } from '../contracts/designer-api.js';
@@ -18,8 +22,14 @@ interface ILooseDesignerPayload {
         definition?: IDagDefinition;
         items?: IDefinitionListItem[];
         nodes?: INodeManifest[];
+        dagRunId?: string;
+        preview?: IPreviewResult;
     };
     errors?: IProblemDetails[];
+}
+
+interface IRunProgressEnvelope {
+    event?: TRunProgressEvent;
 }
 
 function createContractViolationProblem(status: number, instance: string): IProblemDetails {
@@ -65,6 +75,24 @@ function hasValidNodeManifests(nodes: INodeManifest[]): boolean {
         && typeof node.category === 'string'
         && Array.isArray(node.inputs)
         && Array.isArray(node.outputs)
+    );
+}
+
+function hasValidPreviewResult(preview: IPreviewResult): boolean {
+    if (
+        typeof preview.dagRunId !== 'string'
+        || !Array.isArray(preview.traces)
+        || typeof preview.totalCostUsd !== 'number'
+    ) {
+        return false;
+    }
+    return preview.traces.every((trace) =>
+        typeof trace.nodeId === 'string' &&
+        typeof trace.nodeType === 'string' &&
+        typeof trace.input === 'object' && trace.input !== null &&
+        typeof trace.output === 'object' && trace.output !== null &&
+        typeof trace.estimatedCostUsd === 'number' &&
+        typeof trace.totalCostUsd === 'number'
     );
 }
 
@@ -164,6 +192,118 @@ export class DesignerApiClient implements IDesignerApiClient {
         return {
             ok: false,
             error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public async startPreviewRun(input: IStartPreviewRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
+        const path = '/v1/dag/dev/preview/runs';
+        const payloadResult = await this.requestPayload(
+            path,
+            'POST',
+            JSON.stringify({
+                definition: input.definition,
+                input: input.input ?? {}
+            }),
+            input.correlationId
+        );
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const dagRunId = payloadResult.value.data?.dagRunId;
+        if (typeof dagRunId === 'string' && dagRunId.length > 0) {
+            return {
+                ok: true,
+                value: { dagRunId }
+            };
+        }
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public async getPreviewRunResult(input: IGetPreviewRunResultInput): Promise<TResult<IPreviewResult, IProblemDetails[]>> {
+        const path = `/v1/dag/dev/preview/runs/${input.dagRunId}/result`;
+        const payloadResult = await this.requestPayload(
+            path,
+            'GET',
+            undefined,
+            input.correlationId
+        );
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const preview = payloadResult.value.data?.preview;
+        if (preview && hasValidPreviewResult(preview)) {
+            return {
+                ok: true,
+                value: preview
+            };
+        }
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public async triggerRun(input: ITriggerRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
+        const path = '/v1/dag/dev/runs';
+        const payloadResult = await this.requestPayload(
+            path,
+            'POST',
+            JSON.stringify({
+                dagId: input.dagId,
+                version: input.version,
+                input: input.input ?? {},
+                logicalDate: input.logicalDate
+            }),
+            input.correlationId
+        );
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const dagRunId = payloadResult.value.data?.dagRunId;
+        if (typeof dagRunId === 'string' && dagRunId.length > 0) {
+            return {
+                ok: true,
+                value: { dagRunId }
+            };
+        }
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public subscribeRunProgress(input: {
+        dagRunId: string;
+        onEvent: (event: TRunProgressEvent) => void;
+        onError?: (error: Error) => void;
+    }): () => void {
+        if (typeof EventSource === 'undefined') {
+            input.onError?.(new Error('EventSource is not available in this environment.'));
+            return () => {
+                return;
+            };
+        }
+        const path = `/v1/dag/dev/runs/${encodeURIComponent(input.dagRunId)}/events`;
+        const eventSource = new EventSource(`${this.baseUrl}${path}`);
+        eventSource.onmessage = (event) => {
+            try {
+                const parsed = JSON.parse(event.data) as IRunProgressEnvelope;
+                if (!parsed.event) {
+                    return;
+                }
+                input.onEvent(parsed.event);
+            } catch {
+                input.onError?.(new Error('Failed to parse run progress event payload.'));
+            }
+        };
+        eventSource.onerror = () => {
+            input.onError?.(new Error('Run progress stream disconnected.'));
+        };
+        return () => {
+            eventSource.close();
         };
     }
 

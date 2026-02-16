@@ -153,6 +153,7 @@ export interface IDagRun {
     dagId: string;
     version: number;
     status: TDagRunStatus;
+    definitionSnapshot?: string;
     runKey: string;
     logicalDate: string;
     trigger: TDagTriggerType;
@@ -170,6 +171,8 @@ export interface ITaskRun {
     leaseUntil?: string;
     inputSnapshot?: string;
     outputSnapshot?: string;
+    estimatedCostUsd?: number;
+    totalCostUsd?: number;
     errorCode?: string;
     errorMessage?: string;
 }

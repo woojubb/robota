@@ -10,6 +10,7 @@ export interface IEdgeInspectorPanelProps {
     definition: IDagDefinition;
     selectedEdgeId?: string;
     onUpdateEdge: (edge: IDagEdgeDefinition) => void;
+    onDeleteEdge: (edgeId: string) => void;
 }
 
 function edgeId(edge: IDagEdgeDefinition): string {
@@ -169,6 +170,13 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
                 onClick={addBinding}
             >
                 Add Binding
+            </button>
+            <button
+                type="button"
+                className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                onClick={() => props.onDeleteEdge(edgeId(selectedEdge))}
+            >
+                Delete Edge
             </button>
             <div className="flex flex-col gap-2">
                 {(selectedEdge.bindings ?? []).map((binding, index) => (
