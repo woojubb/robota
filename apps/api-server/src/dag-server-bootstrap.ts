@@ -14,6 +14,7 @@ import {
     type INodeManifestRegistry,
     type TPortPayload
 } from '@robota-sdk/dag-core';
+import type { ILlmTextCompletionClient } from '@robota-sdk/dag-node-llm-text';
 import {
     createDagControllerComposition,
     createDagExecutionComposition,
@@ -55,6 +56,14 @@ interface ICreateAssetBody {
     base64Data: string;
 }
 
+interface IPreviewLlmCompleteBody {
+    prompt: string;
+    provider?: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+}
+
 interface IAssetValidationError {
     code: string;
     detail: string;
@@ -65,6 +74,7 @@ export interface IDagServerBootstrapOptions {
     nodeManifests: INodeManifest[];
     nodeLifecycleFactory: INodeLifecycleFactory;
     nodeCatalogService: INodeCatalogService;
+    llmCompletionClient?: ILlmTextCompletionClient;
     port?: number;
 }
 
@@ -433,6 +443,111 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             correlationId: 'dag-dev-nodes-list'
         });
         res.status(listed.status).json(listed);
+    });
+
+    app.post('/v1/dag/dev/llm-text/complete', async (
+        req: Request<unknown, unknown, IPreviewLlmCompleteBody>,
+        res: Response
+    ) => {
+        const llmCompletionClient = options.llmCompletionClient;
+        if (!llmCompletionClient) {
+            res.status(500).json({
+                ok: false,
+                status: 500,
+                errors: [
+                    {
+                        code: 'DAG_VALIDATION_PREVIEW_LLM_CLIENT_NOT_CONFIGURED',
+                        detail: 'LLM completion client is not configured on API server.',
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
+        const { prompt, temperature, maxTokens } = req.body ?? {};
+        if (typeof prompt !== 'string' || prompt.trim().length === 0) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    {
+                        code: 'DAG_VALIDATION_LLM_PROMPT_REQUIRED',
+                        detail: 'prompt is required',
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
+        if (typeof temperature !== 'undefined' && typeof temperature !== 'number') {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    {
+                        code: 'DAG_VALIDATION_LLM_TEMPERATURE_INVALID',
+                        detail: 'temperature must be a number when provided',
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
+        if (typeof maxTokens !== 'undefined' && typeof maxTokens !== 'number') {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    {
+                        code: 'DAG_VALIDATION_LLM_MAXTOKENS_INVALID',
+                        detail: 'maxTokens must be a number when provided',
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
+        const provider = typeof req.body?.provider === 'string' && req.body.provider.trim().length > 0
+            ? req.body.provider
+            : undefined;
+        const model = typeof req.body?.model === 'string' && req.body.model.trim().length > 0
+            ? req.body.model
+            : undefined;
+        const resolvedSelectionResult = llmCompletionClient.resolveModelSelection({
+            provider,
+            model
+        });
+        if (!resolvedSelectionResult.ok) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [resolvedSelectionResult.error]
+            });
+            return;
+        }
+        const completionResult = await llmCompletionClient.generateCompletion({
+            prompt,
+            provider: resolvedSelectionResult.value.provider,
+            model: resolvedSelectionResult.value.model,
+            temperature,
+            maxTokens
+        });
+        if (!completionResult.ok) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [completionResult.error]
+            });
+            return;
+        }
+        res.status(200).json({
+            ok: true,
+            status: 200,
+            data: {
+                completion: completionResult.value,
+                modelSelection: resolvedSelectionResult.value
+            }
+        });
     });
 
     app.post('/v1/dag/assets', async (

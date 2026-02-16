@@ -18,10 +18,16 @@ function sortPorts(ports: IPortDefinition[]): IPortDefinition[] {
 export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
     const inputs = sortPorts(props.data.inputs);
     const outputs = sortPorts(props.data.outputs);
+    const rootClassName = props.selected
+        ? 'min-w-[280px] rounded border border-blue-500 bg-blue-50/30 text-xs shadow-md ring-2 ring-blue-200'
+        : 'min-w-[280px] rounded border border-gray-300 bg-white text-xs shadow-sm';
+    const headerClassName = props.selected
+        ? 'dag-node-drag-handle cursor-move border-b border-blue-300 bg-blue-50 px-3 py-2'
+        : 'dag-node-drag-handle cursor-move border-b border-gray-300 bg-gray-50 px-3 py-2';
 
     return (
-        <div className="min-w-[280px] rounded border border-gray-300 bg-white text-xs shadow-sm">
-            <div className="dag-node-drag-handle cursor-move border-b border-gray-300 bg-gray-50 px-3 py-2">
+        <div className={rootClassName}>
+            <div className={headerClassName}>
                 <div className="font-semibold">{props.data.label}</div>
                 <div className="text-[11px] text-gray-500">{props.data.nodeType}</div>
             </div>

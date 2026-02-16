@@ -4,6 +4,7 @@ import {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
     type ReactElement,
     type ReactNode
@@ -40,16 +41,20 @@ import { EdgeInspectorPanel } from './edge-inspector-panel.js';
 import { DagBindingEdge, type IDagBindingEdgeData } from './dag-binding-edge.js';
 import { DagNodeView, type IDagNodeViewData, type TDagCanvasNode } from './dag-node-view.js';
 import { NodeConfigPanel } from './node-config-panel.js';
+import { NodeIoTracePanel } from './node-io-trace-panel.js';
 import { NodeExplorerPanel } from './node-explorer-panel.js';
-import { runDefinitionPreview, type IPreviewResult } from '../lifecycle/preview-engine.js';
+import { reconcileNodePortsAndEdges, summarizeRemovedBindings } from './port-editor-utils.js';
+import { runDefinitionPreview, type IPreviewResult, type IPreviewRunOptions } from '../lifecycle/preview-engine.js';
 import '@xyflow/react/dist/style.css';
 
 export interface IDagDesignerRootProps {
     definition: IDagDefinition;
     manifests: INodeManifest[];
     onDefinitionChange: (definition: IDagDefinition) => void;
+    assetUploadBaseUrl?: string;
     onPreviewResult?: (result: TResult<IPreviewResult, IDagError>) => void;
     initialInput?: TPortPayload;
+    previewRunOptions?: IPreviewRunOptions;
     children: ReactNode;
     className?: string;
 }
@@ -58,14 +63,19 @@ export interface IDagDesignerContextValue {
     definition: IDagDefinition;
     manifests: INodeManifest[];
     onDefinitionChange: (definition: IDagDefinition) => void;
+    assetUploadBaseUrl?: string;
     onPreviewResult?: (result: TResult<IPreviewResult, IDagError>) => void;
     initialInput?: TPortPayload;
+    previewRunOptions?: IPreviewRunOptions;
     selectedNodeId?: string;
     selectedEdgeId?: string;
     connectError?: string;
+    bindingCleanupMessage?: string;
+    previewResult?: IPreviewResult;
     setSelectedNodeId: (nodeId: string | undefined) => void;
     setSelectedEdgeId: (edgeId: string | undefined) => void;
     setConnectError: (error: string | undefined) => void;
+    setPreviewResult: (result: IPreviewResult | undefined) => void;
     bindingErrors: string[];
     addNodeFromManifest: (manifest: INodeManifest) => void;
     updateNode: (nextNode: IDagNode) => void;
@@ -145,21 +155,32 @@ function toEdge(
     };
 }
 
-function toDefinitionEdge(edge: Edge): IDagEdgeDefinition {
-    return {
-        from: edge.source,
-        to: edge.target,
-        bindings: []
-    };
-}
-
-function hasSameEdgeShape(nextEdges: Edge[], currentEdges: IDagEdgeDefinition[]): boolean {
-    if (nextEdges.length !== currentEdges.length) {
+function hasSameCanvasNodeState(currentNodes: Node[], nextNodes: Node[]): boolean {
+    if (currentNodes.length !== nextNodes.length) {
         return false;
     }
+    return currentNodes.every((currentNode, index) => {
+        const nextNode = nextNodes[index];
+        return (
+            currentNode.id === nextNode.id &&
+            currentNode.position.x === nextNode.position.x &&
+            currentNode.position.y === nextNode.position.y
+        );
+    });
+}
 
-    const currentEdgeIds = new Set(currentEdges.map((edge) => `${edge.from}->${edge.to}`));
-    return nextEdges.every((edge) => currentEdgeIds.has(`${edge.source}->${edge.target}`));
+function hasSameCanvasEdgeState(currentEdges: Edge[], nextEdges: Edge[]): boolean {
+    if (currentEdges.length !== nextEdges.length) {
+        return false;
+    }
+    return currentEdges.every((currentEdge, index) => {
+        const nextEdge = nextEdges[index];
+        return (
+            currentEdge.id === nextEdge.id &&
+            currentEdge.source === nextEdge.source &&
+            currentEdge.target === nextEdge.target
+        );
+    });
 }
 
 function createNodeFromManifest(manifest: INodeManifest, index: number): IDagNode {
@@ -253,14 +274,22 @@ export interface IDagDesignerEdgeInspectorProps {
     className?: string;
 }
 
+export interface IDagDesignerNodeIoTraceProps {
+    className?: string;
+}
+
 export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined);
     const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>(undefined);
     const [connectError, setConnectError] = useState<string | undefined>(undefined);
+    const [bindingCleanupMessage, setBindingCleanupMessage] = useState<string | undefined>(undefined);
+    const [previewResult, setPreviewResult] = useState<IPreviewResult | undefined>(undefined);
     const bindingErrors = useMemo(() => computeBindingErrors(props.definition), [props.definition]);
 
     const addNodeFromManifest = useCallback((manifest: INodeManifest): void => {
         const nextNode = createNodeFromManifest(manifest, props.definition.nodes.length);
+        setBindingCleanupMessage(undefined);
+        setPreviewResult(undefined);
         props.onDefinitionChange({
             ...props.definition,
             nodes: [...props.definition.nodes, nextNode]
@@ -268,13 +297,15 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     }, [props.definition, props.onDefinitionChange]);
 
     const updateNode = useCallback((nextNode: IDagNode): void => {
-        props.onDefinitionChange({
-            ...props.definition,
-            nodes: props.definition.nodes.map((node) => node.nodeId === nextNode.nodeId ? nextNode : node)
-        });
+        const reconciled = reconcileNodePortsAndEdges(props.definition, nextNode);
+        setBindingCleanupMessage(summarizeRemovedBindings(reconciled.removedBindings));
+        setPreviewResult(undefined);
+        props.onDefinitionChange(reconciled.nextDefinition);
     }, [props.definition, props.onDefinitionChange]);
 
     const updateEdge = useCallback((nextEdge: IDagEdgeDefinition): void => {
+        setBindingCleanupMessage(undefined);
+        setPreviewResult(undefined);
         props.onDefinitionChange({
             ...props.definition,
             edges: props.definition.edges.map((edge) => (
@@ -287,14 +318,19 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         definition: props.definition,
         manifests: props.manifests,
         onDefinitionChange: props.onDefinitionChange,
+        assetUploadBaseUrl: props.assetUploadBaseUrl,
         onPreviewResult: props.onPreviewResult,
         initialInput: props.initialInput,
+                previewRunOptions: props.previewRunOptions,
         selectedNodeId,
         selectedEdgeId,
         connectError,
+        bindingCleanupMessage,
+        previewResult,
         setSelectedNodeId,
         setSelectedEdgeId,
         setConnectError,
+        setPreviewResult,
         bindingErrors,
         addNodeFromManifest,
         updateNode,
@@ -303,11 +339,15 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         props.definition,
         props.manifests,
         props.onDefinitionChange,
+        props.assetUploadBaseUrl,
         props.onPreviewResult,
         props.initialInput,
+        props.previewRunOptions,
         selectedNodeId,
         selectedEdgeId,
         connectError,
+        bindingCleanupMessage,
+        previewResult,
         bindingErrors,
         addNodeFromManifest,
         updateNode,
@@ -325,13 +365,14 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
 
 export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement {
     const context = useDagDesignerContext();
+    const isSyncingEdgesFromDefinitionRef = useRef<boolean>(false);
     const nodeTypes = useMemo<NodeTypes>(() => ({ 'dag-node': DagNodeView }), []);
     const edgeTypes = useMemo<EdgeTypes>(() => ({ 'binding-edge': DagBindingEdge }), []);
 
     const selectEdgeById = useCallback((edgeId: string): void => {
         context.setSelectedEdgeId(edgeId);
         context.setSelectedNodeId(undefined);
-    }, [context]);
+    }, [context.setSelectedEdgeId, context.setSelectedNodeId]);
 
     const initialNodes = useMemo(
         () => context.definition.nodes.map((node, index) => toNode(node, index)),
@@ -343,20 +384,32 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
     );
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const [isPreviewRunning, setIsPreviewRunning] = useState<boolean>(false);
 
     useEffect(() => {
         setNodes((currentNodes) => {
             const positionByNodeId = new Map<string, XYPosition>(
                 currentNodes.map((node) => [node.id, node.position])
             );
-            return context.definition.nodes.map((node, index) => (
+            const mappedNodes = context.definition.nodes.map((node, index) => (
                 toNode(node, index, positionByNodeId.get(node.nodeId))
             ));
+            if (hasSameCanvasNodeState(currentNodes, mappedNodes)) {
+                return currentNodes;
+            }
+            return mappedNodes;
         });
     }, [context.definition.nodes, setNodes]);
 
     useEffect(() => {
-        setEdges(context.definition.edges.map((edge) => toEdge(edge, selectEdgeById)));
+        const mappedEdges = context.definition.edges.map((edge) => toEdge(edge, selectEdgeById));
+        setEdges((currentEdges) => {
+            if (hasSameCanvasEdgeState(currentEdges, mappedEdges)) {
+                return currentEdges;
+            }
+            isSyncingEdgesFromDefinitionRef.current = true;
+            return mappedEdges;
+        });
     }, [context.definition.edges, setEdges, selectEdgeById]);
     const onNodeClick: NodeMouseHandler = (_event, node): void => {
         context.setSelectedNodeId(node.id);
@@ -366,20 +419,6 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         context.setSelectedEdgeId(edge.id);
         context.setSelectedNodeId(undefined);
     };
-
-    const updateDefinitionByEdges = useCallback((nextEdges: Edge[]): void => {
-        if (hasSameEdgeShape(nextEdges, context.definition.edges)) {
-            return;
-        }
-        const currentEdgesById = new Map(context.definition.edges.map((edge) => [`${edge.from}->${edge.to}`, edge]));
-        context.onDefinitionChange({
-            ...context.definition,
-            edges: nextEdges.map((edge) => {
-                const existing = currentEdgesById.get(edge.id);
-                return existing ?? toDefinitionEdge(edge);
-            })
-        });
-    }, [context.definition, context.onDefinitionChange]);
 
     const onConnect = (connection: Connection): void => {
         if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) {
@@ -446,23 +485,33 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 }
             ]
         });
+        context.setPreviewResult(undefined);
     };
 
     useEffect(() => {
-        updateDefinitionByEdges(edges);
-    }, [edges, updateDefinitionByEdges]);
+        if (isSyncingEdgesFromDefinitionRef.current) {
+            isSyncingEdgesFromDefinitionRef.current = false;
+        }
+    }, [edges]);
 
     const canRunPreview = context.bindingErrors.length === 0;
 
     const runPreview = async (): Promise<void> => {
-        if (!canRunPreview) {
+        if (!canRunPreview || isPreviewRunning) {
             return;
         }
-        const previewResult = await runDefinitionPreview(
-            context.definition,
-            context.initialInput ?? {}
-        );
-        context.onPreviewResult?.(previewResult);
+        setIsPreviewRunning(true);
+        try {
+            const previewResult = await runDefinitionPreview(
+                context.definition,
+                context.initialInput ?? {},
+                context.previewRunOptions
+            );
+            context.setPreviewResult(previewResult.ok ? previewResult.value : undefined);
+            context.onPreviewResult?.(previewResult);
+        } finally {
+            setIsPreviewRunning(false);
+        }
     };
 
     return (
@@ -473,9 +522,9 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                     type="button"
                     className="rounded border border-gray-300 px-3 py-1 text-xs hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={runPreview}
-                    disabled={!canRunPreview}
+                    disabled={!canRunPreview || isPreviewRunning}
                 >
-                    Run Preview
+                    {isPreviewRunning ? 'Running Preview...' : 'Run Preview'}
                 </button>
             </div>
             {context.bindingErrors.length > 0 ? (
@@ -490,6 +539,12 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 <div className="relative z-10 shrink-0 border-b border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
                     <div className="font-medium">Connection Rejected</div>
                     <div>- {context.connectError}</div>
+                </div>
+            ) : null}
+            {context.bindingCleanupMessage ? (
+                <div className="relative z-10 shrink-0 border-b border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <div className="font-medium">Port Update Applied</div>
+                    <div>- {context.bindingCleanupMessage}</div>
                 </div>
             ) : null}
             <div className="min-h-0 flex-1 overflow-hidden">
@@ -511,7 +566,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                     connectionLineType={ConnectionLineType.Bezier}
                     connectionLineStyle={{ stroke: '#2563eb', strokeWidth: 2 }}
                     fitView
-                    fitViewOptions={{ padding: 0.2 }}
+                    fitViewOptions={{ padding: 0.35, maxZoom: 0.8 }}
                 >
                     <Background />
                     <Controls />
@@ -536,6 +591,7 @@ export function DagDesignerInspector(props: IDagDesignerInspectorProps): ReactEl
     return (
         <div className={`flex min-h-0 flex-col gap-4 overflow-auto ${props.className ?? ''}`}>
             <DagDesignerNodeConfig />
+            <DagDesignerNodeIoTrace />
             <DagDesignerEdgeInspector />
         </div>
     );
@@ -544,9 +600,17 @@ export function DagDesignerInspector(props: IDagDesignerInspectorProps): ReactEl
 export function DagDesignerNodeConfig(props: IDagDesignerNodeConfigProps): ReactElement {
     const context = useDagDesignerContext();
     const selectedNode = context.definition.nodes.find((node) => node.nodeId === context.selectedNodeId);
+    const selectedManifest = context.manifests.find((manifest) => manifest.nodeType === selectedNode?.nodeType);
     return (
         <div className={props.className ?? ''}>
-            <NodeConfigPanel node={selectedNode} onUpdateNode={context.updateNode} />
+            <NodeConfigPanel
+                node={selectedNode}
+                definition={context.definition}
+                manifest={selectedManifest}
+                assetUploadBaseUrl={context.assetUploadBaseUrl}
+                bindingCleanupMessage={context.bindingCleanupMessage}
+                onUpdateNode={context.updateNode}
+            />
         </div>
     );
 }
@@ -564,11 +628,24 @@ export function DagDesignerEdgeInspector(props: IDagDesignerEdgeInspectorProps):
     );
 }
 
+export function DagDesignerNodeIoTrace(props: IDagDesignerNodeIoTraceProps): ReactElement {
+    const context = useDagDesignerContext();
+    return (
+        <div className={props.className ?? ''}>
+            <NodeIoTracePanel
+                previewResult={context.previewResult}
+                selectedNodeId={context.selectedNodeId}
+            />
+        </div>
+    );
+}
+
 export const DagDesigner = {
     Root: DagDesignerRoot,
     Canvas: DagDesignerCanvas,
     NodeExplorer: DagDesignerNodeExplorer,
     Inspector: DagDesignerInspector,
     NodeConfig: DagDesignerNodeConfig,
+    NodeIoTrace: DagDesignerNodeIoTrace,
     EdgeInspector: DagDesignerEdgeInspector
 } as const;

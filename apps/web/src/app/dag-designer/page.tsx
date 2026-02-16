@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   DagDesigner,
+  createRemoteLlmCompletionClient,
   useDagDesignApi,
   type IDefinitionListItem,
   type IPreviewResult,
@@ -25,6 +26,10 @@ import {
 export default function DagDesignerPage() {
   const baseUrl = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
   const designApi = useDagDesignApi({ baseUrl });
+  const previewLlmCompletionClient = useMemo(
+    () => createRemoteLlmCompletionClient({ baseUrl }),
+    [baseUrl]
+  );
   const [log, setLog] = useState<string>("Ready");
   const [dagId, setDagId] = useState<string>("dag-web-sample");
   const [version, setVersion] = useState<number>(1);
@@ -150,7 +155,17 @@ export default function DagDesignerPage() {
 
   const onPreviewResult = (result: TResult<IPreviewResult, IDagError>): void => {
     if (result.ok) {
-      setLog(`Preview success: totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}`);
+      const latestTrace = result.value.traces[result.value.traces.length - 1];
+      const latestLlmTrace = [...result.value.traces]
+        .reverse()
+        .find((trace) => trace.nodeType === "llm-text");
+      const latestNodeId = latestTrace ? latestTrace.nodeId : "none";
+      const latestInputText = latestTrace ? JSON.stringify(latestTrace.input) : "{}";
+      const latestOutputText = latestTrace ? JSON.stringify(latestTrace.output) : "{}";
+      const latestLlmOutputText = latestLlmTrace ? JSON.stringify(latestLlmTrace.output) : "{}";
+      setLog(
+        `Preview success: totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}, latestNode=${latestNodeId}, latestInput=${latestInputText}, latestOutput=${latestOutputText}, latestLlmOutput=${latestLlmOutputText}`
+      );
       return;
     }
     if ("error" in result) {
@@ -292,7 +307,9 @@ export default function DagDesignerPage() {
           definition={definition}
           manifests={catalogNodes}
           onDefinitionChange={setDefinition}
+          assetUploadBaseUrl={baseUrl}
           onPreviewResult={onPreviewResult}
+          previewRunOptions={{ llmCompletionClient: previewLlmCompletionClient }}
           initialInput={{}}
           className="relative h-full w-full overflow-hidden"
         >
@@ -426,8 +443,8 @@ export default function DagDesignerPage() {
           {hasBindingBlockingError ? (
             <div className="pointer-events-auto absolute left-1/2 top-2 z-30 w-[min(96vw,1100px)] -translate-x-1/2 rounded border border-red-300 bg-red-50 px-4 py-2 text-xs text-red-800 shadow-md">
               <p className="mb-1 font-semibold">Blocking Binding Errors</p>
-              {bindingBlockingErrors.map((error) => (
-                <p key={`${error.code}-${error.message}`}>- {error.code}: {error.message}</p>
+              {bindingBlockingErrors.map((error, index) => (
+                <p key={`${error.code}-${error.message}-${index}`}>- {error.code}: {error.message}</p>
               ))}
             </div>
           ) : null}

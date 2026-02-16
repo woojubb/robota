@@ -201,9 +201,9 @@ description: "CURRENT-TASKS에서 완료 처리된 항목을 보관한다"
   - Gate-Doc-1/2/3/4 전체 통과
 
 ### 문서 산출물
-- `.design/specs/dag-local-run-and-build-guide.md`
-- `.design/specs/dag-local-run-build-validation-log.md`
-- `.design/specs/workflow-dag-development-plan.md` (P-Doc 결과 섹션 업데이트)
+- `apps/api-server/docs/SPEC.md`
+- `apps/web/docs/SPEC.md`
+- `packages/dag-core/docs/SPEC.md` (DAG 계층 스펙 분산 기준)
 
 ### DAG Designer 조합형/훅 API/오버레이 레이아웃 정리 완료
 - 조합형 컴포넌트 확장 완료:
@@ -264,10 +264,27 @@ description: "CURRENT-TASKS에서 완료 처리된 항목을 보관한다"
   - `buildNodeDefinitionAssembly()`에서만 `configSchemaDefinition -> configSchema(JSON Schema) -> INodeManifest` 파생
 - 문서 정합성 반영:
   - `dag-local-node-store-spec.md`에 `IDagNodeDefinition` 인스턴스 + 중앙 assembly 규칙 명시
-  - `workflow-dag-development-plan.md`의 완료/비정합 계획 정리
+  - DAG 계층 분산 스펙(`packages/dag-*/docs/SPEC.md`, `apps/*/docs/SPEC.md`) 기준으로 완료/비정합 계획 정리
 - 검증:
   - `pnpm --filter @robota-sdk/dag-core build` 통과
   - `pnpm --filter \"@robota-sdk/dag-node-*\" build` 통과
   - `pnpm --filter @robota-sdk/dag-designer build` 통과
   - `pnpm --filter @robota-sdk/api-server build` 통과
   - `GET /v1/dag/nodes` 스모크 통과
+
+## 2026-02-16
+
+### DAG Designer Preview 경로 정합화 완료
+- `Run Preview`의 LLM 호출 경로를 로컬 mock(`preview:*`)에서 API 서버 기반 실제 LLM completion 경로로 전환 완료
+- API 서버에 preview 전용 엔드포인트 추가:
+  - `POST /v1/dag/dev/llm-text/complete`
+- 디자이너 프리뷰 엔진에 원격 LLM 클라이언트 주입 경로 추가:
+  - `createRemoteLlmCompletionClient`
+  - `runDefinitionPreview(..., options.llmCompletionClient)`
+- `text-output` 노드가 입력 텍스트를 최종 출력으로 명시 반환하도록 정리 완료
+- `/dag-designer`의 `Latest Result` 로그에 `latestLlmOutput` 표시 추가 완료
+- 검증:
+  - `pnpm --filter @robota-sdk/dag-designer build` 통과
+  - `pnpm --filter @robota-sdk/api-server build` 통과
+  - `pnpm --filter @robota-sdk/web build` 통과
+  - preview LLM endpoint 실호출 및 completion 응답 확인

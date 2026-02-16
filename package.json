@@ -28,6 +28,7 @@
     "docs:dev": "pnpm --filter robota-docs run dev",
     "docs:build": "node scripts/prepare-docs.js",
     "docs:preview": "pnpm --filter robota-docs run preview",
+    "docs:validate-structure": "node scripts/validate-package-docs-structure.mjs",
     "web:dev": "pnpm --filter @robota-sdk/web run dev",
     "web:build": "pnpm --filter @robota-sdk/web run build",
     "web:start": "pnpm --filter @robota-sdk/web run start",

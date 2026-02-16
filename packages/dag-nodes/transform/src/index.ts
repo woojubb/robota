@@ -58,7 +58,7 @@ export class TransformNodeDefinition implements IDagNodeDefinition {
         { key: 'data', label: 'Data', order: 1, type: 'object', required: false }
     ];
     public readonly configSchemaDefinition = z.object({
-        prefix: z.string().optional()
+        prefix: z.string().default('')
     });
     public readonly taskHandler = new TransformNodeTaskHandler();
 }

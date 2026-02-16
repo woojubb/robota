@@ -25,6 +25,24 @@ import {
 import { ImageLoaderNodeDefinition } from '@robota-sdk/dag-node-image-loader';
 import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
 import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
+import { TextOutputNodeDefinition } from '@robota-sdk/dag-node-text-output';
+
+interface IPreviewProblemDetails {
+    code: string;
+    detail: string;
+}
+
+interface IPreviewLlmCompletePayload {
+    ok?: boolean;
+    data?: {
+        completion?: string;
+    };
+    errors?: IPreviewProblemDetails[];
+}
+
+export interface IPreviewRemoteLlmCompletionClientOptions {
+    baseUrl: string;
+}
 
 class PreviewLlmTextCompletionClient implements ILlmTextCompletionClient {
     public resolveModelSelection(selection: ILlmTextModelSelection): TResult<ILlmTextResolvedModelSelection, IDagError> {
@@ -45,6 +63,67 @@ class PreviewLlmTextCompletionClient implements ILlmTextCompletionClient {
     }
 }
 
+function normalizeBaseUrl(baseUrl: string): string {
+    return baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+}
+
+export function createRemoteLlmCompletionClient(
+    options: IPreviewRemoteLlmCompletionClientOptions
+): ILlmTextCompletionClient {
+    const normalizedBaseUrl = normalizeBaseUrl(options.baseUrl);
+    return {
+        resolveModelSelection(selection: ILlmTextModelSelection): TResult<ILlmTextResolvedModelSelection, IDagError> {
+            return {
+                ok: true,
+                value: {
+                    provider: selection.provider ?? '',
+                    model: selection.model ?? ''
+                }
+            };
+        },
+        async generateCompletion(request: ILlmTextGenerationRequest): Promise<TResult<string, IDagError>> {
+            const response = await fetch(`${normalizedBaseUrl}/v1/dag/dev/llm-text/complete`, {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: request.prompt,
+                    provider: request.provider,
+                    model: request.model,
+                    temperature: request.temperature,
+                    maxTokens: request.maxTokens
+                })
+            });
+            const payload = (await response.json()) as IPreviewLlmCompletePayload;
+            if (!response.ok) {
+                const firstError = payload.errors?.[0];
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        firstError?.code ?? 'DAG_VALIDATION_PREVIEW_REMOTE_LLM_FAILED',
+                        firstError?.detail ?? 'Remote LLM preview completion failed.'
+                    )
+                };
+            }
+            const completion = payload.data?.completion;
+            if (typeof completion !== 'string') {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_PREVIEW_REMOTE_LLM_INVALID_RESPONSE',
+                        'Remote LLM preview returned an invalid completion payload.'
+                    )
+                };
+            }
+            return {
+                ok: true,
+                value: completion
+            };
+        }
+    };
+}
+
 export interface IPreviewNodeTrace {
     nodeId: string;
     nodeType: string;
@@ -57,6 +136,10 @@ export interface IPreviewNodeTrace {
 export interface IPreviewResult {
     traces: IPreviewNodeTrace[];
     totalCostUsd: number;
+}
+
+export interface IPreviewRunOptions {
+    llmCompletionClient?: ILlmTextCompletionClient;
 }
 
 function toNodeExecutionResult(nodeId: string, nodeType: string, input: TPortPayload, result: INodeExecutionResult): IPreviewNodeTrace {
@@ -261,7 +344,8 @@ function buildNodeInput(
 
 export async function runDefinitionPreview(
     definition: IDagDefinition,
-    initialInput: TPortPayload
+    initialInput: TPortPayload,
+    options?: IPreviewRunOptions
 ): Promise<TResult<IPreviewResult, IDagError>> {
     const sorted = topologicalSort(definition);
     if (!sorted.ok) {
@@ -272,8 +356,9 @@ export async function runDefinitionPreview(
         new InputNodeDefinition(),
         new TransformNodeDefinition(),
         new LlmTextNodeDefinition({
-            completionClient: new PreviewLlmTextCompletionClient()
+            completionClient: options?.llmCompletionClient ?? new PreviewLlmTextCompletionClient()
         }),
+        new TextOutputNodeDefinition(),
         new ImageLoaderNodeDefinition(),
         new ImageSourceNodeDefinition(),
         new OkEmitterNodeDefinition()

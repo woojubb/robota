@@ -12,5 +12,6 @@ export * from './components/dag-node-view.js';
 export * from './components/node-explorer-panel.js';
 export * from './components/node-config-panel.js';
 export * from './components/edge-inspector-panel.js';
+export * from './components/node-io-trace-panel.js';
 
 export const DAG_DESIGNER_PACKAGE_NAME = '@robota-sdk/dag-designer';

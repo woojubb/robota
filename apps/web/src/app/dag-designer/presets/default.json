@@ -2,7 +2,7 @@
   "metadata": {
     "templateId": "default",
     "name": "Quick LLM Text Flow",
-    "description": "Use this when testing prompt-to-completion flow quickly with a ready-to-run LLM pipeline."
+    "description": "Use this when testing prompt-to-completion flow quickly with an explicit text output terminal node."
   },
   "definition": {
     "dagId": "dag-template-default",
@@ -20,10 +20,12 @@
             "label": "Text",
             "order": 0,
             "type": "string",
-            "required": false
+            "required": true
           }
         ],
-        "config": {}
+        "config": {
+          "text": "Write a short greeting for a new user."
+        }
       },
       {
         "nodeId": "llm_text_1",
@@ -56,8 +58,8 @@
         }
       },
       {
-        "nodeId": "transform_1",
-        "nodeType": "transform",
+        "nodeId": "text_output_1",
+        "nodeType": "text-output",
         "dependsOn": [
           "llm_text_1"
         ],
@@ -67,14 +69,7 @@
             "label": "Text",
             "order": 0,
             "type": "string",
-            "required": false
-          },
-          {
-            "key": "data",
-            "label": "Data",
-            "order": 1,
-            "type": "object",
-            "required": false
+            "required": true
           }
         ],
         "outputs": [
@@ -83,19 +78,10 @@
             "label": "Text",
             "order": 0,
             "type": "string",
-            "required": false
-          },
-          {
-            "key": "data",
-            "label": "Data",
-            "order": 1,
-            "type": "object",
-            "required": false
+            "required": true
           }
         ],
-        "config": {
-          "prefix": "demo"
-        }
+        "config": {}
       }
     ],
     "edges": [
@@ -111,7 +97,7 @@
       },
       {
         "from": "llm_text_1",
-        "to": "transform_1",
+        "to": "text_output_1",
         "bindings": [
           {
             "outputKey": "completion",

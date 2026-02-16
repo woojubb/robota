@@ -49,12 +49,10 @@ const { nodes, edges } = subscriber.getWorkflowData();
 
 ## Documentation
 
-- [Architecture](./ARCHITECTURE.md) - Detailed architectural design
-- [Development Plan](./DEVELOPMENT_PLAN.md) - Development roadmap and tasks
-
-## Development Status
-
-🚧 **In Development** - This package is currently under active development.
+- [Docs Index](./docs/README.md) - Package documentation entrypoint
+- [Specification](./docs/SPEC.md) - Package rules and scope
+- [Architecture](./docs/ARCHITECTURE.md) - Architectural design
+- [Development Guide](./docs/DEVELOPMENT.md) - Contribution and maintenance guide
 
 ## License
 
