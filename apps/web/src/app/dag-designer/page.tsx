@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   DagDesigner,
-  createRemoteLlmCompletionClient,
   useDagDesignApi,
   type IDefinitionListItem,
+  type IRunPreviewProgressHooks,
   type IPreviewResult,
 } from "@robota-sdk/dag-designer";
 import {
@@ -13,6 +13,7 @@ import {
   type IDagDefinition,
   type IDagError,
   type INodeManifest,
+  type TPortPayload,
   type TResult,
 } from "@robota-sdk/dag-core";
 import {
@@ -26,10 +27,6 @@ import {
 export default function DagDesignerPage() {
   const baseUrl = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
   const designApi = useDagDesignApi({ baseUrl });
-  const previewLlmCompletionClient = useMemo(
-    () => createRemoteLlmCompletionClient({ baseUrl }),
-    [baseUrl]
-  );
   const [log, setLog] = useState<string>("Ready");
   const [dagId, setDagId] = useState<string>("dag-web-sample");
   const [version, setVersion] = useState<number>(1);
@@ -59,6 +56,13 @@ export default function DagDesignerPage() {
     return [];
   }, [definition]);
   const hasBindingBlockingError = bindingBlockingErrors.length > 0;
+
+  const toDagError = (code?: string): IDagError => ({
+    code: code ?? "DAG_VALIDATION_PREVIEW_UNKNOWN",
+    category: "validation",
+    message: "Preview request failed.",
+    retryable: false,
+  });
 
   const syncDefinitionIdentity = (nextDagId: string, nextVersion: number): void => {
     setDefinition((current) => ({
@@ -164,7 +168,7 @@ export default function DagDesignerPage() {
       const latestOutputText = latestTrace ? JSON.stringify(latestTrace.output) : "{}";
       const latestLlmOutputText = latestLlmTrace ? JSON.stringify(latestLlmTrace.output) : "{}";
       setLog(
-        `Preview success: totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}, latestNode=${latestNodeId}, latestInput=${latestInputText}, latestOutput=${latestOutputText}, latestLlmOutput=${latestLlmOutputText}`
+        `Preview success: dagRunId=${result.value.dagRunId}, totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}, latestNode=${latestNodeId}, latestInput=${latestInputText}, latestOutput=${latestOutputText}, latestLlmOutput=${latestLlmOutputText}`
       );
       return;
     }
@@ -173,6 +177,110 @@ export default function DagDesignerPage() {
       return;
     }
     setLog("Preview failed: UNKNOWN_ERROR");
+  };
+
+  const runPreviewOnServer = async (input: {
+    definition: IDagDefinition;
+    input: TPortPayload;
+  }, hooks?: IRunPreviewProgressHooks): Promise<TResult<IPreviewResult, IDagError>> => {
+    const logRunProgressEvent = (event: { eventType: string; dagRunId: string }): void => {
+      if (typeof window === "undefined") {
+        return;
+      }
+      window.console.info("[DAG_RUN_PROGRESS_EVENT]", event);
+    };
+
+    const started = await designApi.startPreviewRun({
+      definition: input.definition,
+      input: input.input,
+      correlationId: "web-dag-preview-start",
+    });
+    if ("error" in started) {
+      return {
+        ok: false,
+        error: toDagError(started.error[0]?.code),
+      };
+    }
+    hooks?.onRunStarted(started.value.dagRunId);
+
+    let hasTerminalEvent = false;
+    const waitForTerminalEvent = new Promise<void>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error("DAG_VALIDATION_PREVIEW_RUN_EVENT_TIMEOUT"));
+      }, 120000);
+      const markDone = (): void => {
+        if (hasTerminalEvent) {
+          return;
+        }
+        hasTerminalEvent = true;
+        clearTimeout(timeoutId);
+        resolve();
+      };
+      const markError = (error: Error): void => {
+        if (hasTerminalEvent) {
+          return;
+        }
+        hasTerminalEvent = true;
+        clearTimeout(timeoutId);
+        reject(error);
+      };
+      const unsubscribe = designApi.subscribeRunProgress({
+        dagRunId: started.value.dagRunId,
+        onEvent: (event) => {
+          logRunProgressEvent(event);
+          hooks?.onRunProgressEvent(event);
+          if (event.eventType === "execution.completed" || event.eventType === "execution.failed") {
+            unsubscribe();
+            markDone();
+          }
+        },
+        onError: () => {
+          if (typeof window !== "undefined") {
+            window.console.error("[DAG_RUN_PROGRESS_EVENT_STREAM_ERROR]", {
+              dagRunId: started.value.dagRunId
+            });
+          }
+          unsubscribe();
+          markError(new Error("DAG_VALIDATION_PREVIEW_RUN_EVENT_STREAM_FAILED"));
+        },
+      });
+    });
+    try {
+      await waitForTerminalEvent;
+    } catch (error) {
+      return {
+        ok: false,
+        error: toDagError(error instanceof Error ? error.message : "DAG_VALIDATION_PREVIEW_RUN_EVENT_FAILED"),
+      };
+    }
+
+    // After terminal event, allow a short bounded retry window for persistence/read visibility.
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const result = await designApi.getPreviewRunResult({
+        dagRunId: started.value.dagRunId,
+        correlationId: "web-dag-preview-result",
+      });
+      if ("value" in result) {
+        return {
+          ok: true,
+          value: result.value,
+        };
+      }
+      const firstCode = result.error[0]?.code;
+      if (firstCode && firstCode !== "DAG_VALIDATION_PREVIEW_RUN_NOT_TERMINAL") {
+        return {
+          ok: false,
+          error: toDagError(firstCode),
+        };
+      }
+      await new Promise<void>((resolve) => {
+        setTimeout(() => resolve(), 100);
+      });
+    }
+    return {
+      ok: false,
+      error: toDagError("DAG_VALIDATION_PREVIEW_RUN_RESULT_TIMEOUT"),
+    };
   };
 
   const refreshNodeCatalog = async (): Promise<void> => {
@@ -309,7 +417,7 @@ export default function DagDesignerPage() {
           onDefinitionChange={setDefinition}
           assetUploadBaseUrl={baseUrl}
           onPreviewResult={onPreviewResult}
-          previewRunOptions={{ llmCompletionClient: previewLlmCompletionClient }}
+          onRunPreview={runPreviewOnServer}
           initialInput={{}}
           className="relative h-full w-full overflow-hidden"
         >
@@ -474,6 +582,7 @@ export default function DagDesignerPage() {
               <div className="h-full overflow-auto border-l border-gray-300 bg-white/95 shadow-lg backdrop-blur-sm">
                 <div className="flex flex-col gap-2 p-2">
                   <DagDesigner.NodeConfig />
+                  <DagDesigner.NodeIoTrace />
                   <DagDesigner.EdgeInspector />
                 </div>
               </div>
@@ -483,6 +592,7 @@ export default function DagDesignerPage() {
           <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 w-[min(96vw,800px)] -translate-x-1/2">
             <div className="pointer-events-auto rounded border border-gray-300 bg-white/95 px-3 py-2 shadow-lg backdrop-blur-sm">
               <p className="mb-1 text-xs font-medium">Latest Result</p>
+              <DagDesigner.RunProgressSummary className="mb-1 font-mono text-[11px] text-gray-700" />
               <pre className="max-h-20 overflow-auto text-xs">{log}</pre>
             </div>
           </div>

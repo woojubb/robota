@@ -1,11 +1,18 @@
 import { useMemo } from 'react';
-import type { IDagDefinition, INodeManifest, TResult } from '@robota-sdk/dag-core';
+import type {
+    IDagDefinition,
+    INodeManifest,
+    TResult,
+    TPortPayload,
+    TRunProgressEvent
+} from '@robota-sdk/dag-core';
 import {
     DesignerApiClient
 } from '../client/designer-api-client.js';
 import type {
     IDefinitionListItem,
     IDesignerApiClient,
+    IPreviewResult,
     IProblemDetails
 } from '../contracts/designer-api.js';
 
@@ -45,6 +52,27 @@ export interface IUseDagDesignApi {
         correlationId?: string;
     }) => Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog: () => Promise<TResult<INodeManifest[], IProblemDetails[]>>;
+    startPreviewRun: (input: {
+        definition: IDagDefinition;
+        input?: TPortPayload;
+        correlationId?: string;
+    }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    getPreviewRunResult: (input: {
+        dagRunId: string;
+        correlationId?: string;
+    }) => Promise<TResult<IPreviewResult, IProblemDetails[]>>;
+    triggerRun: (input: {
+        dagId: string;
+        version?: number;
+        input?: TPortPayload;
+        logicalDate?: string;
+        correlationId?: string;
+    }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    subscribeRunProgress: (input: {
+        dagRunId: string;
+        onEvent: (event: TRunProgressEvent) => void;
+        onError?: (error: Error) => void;
+    }) => () => void;
 }
 
 export function useDagDesignApi(options: IUseDagDesignApiOptions): IUseDagDesignApi {
@@ -88,6 +116,23 @@ export function useDagDesignApi(options: IUseDagDesignApiOptions): IUseDagDesign
             dagId: input?.dagId,
             correlationId: input?.correlationId
         }),
-        listNodeCatalog: async () => client.listNodeCatalog()
+        listNodeCatalog: async () => client.listNodeCatalog(),
+        startPreviewRun: async (input) => client.startPreviewRun({
+            definition: input.definition,
+            input: input.input,
+            correlationId: input.correlationId
+        }),
+        getPreviewRunResult: async (input) => client.getPreviewRunResult({
+            dagRunId: input.dagRunId,
+            correlationId: input.correlationId
+        }),
+        triggerRun: async (input) => client.triggerRun({
+            dagId: input.dagId,
+            version: input.version,
+            input: input.input,
+            logicalDate: input.logicalDate,
+            correlationId: input.correlationId
+        }),
+        subscribeRunProgress: (input) => client.subscribeRunProgress(input)
     }), [client]);
 }

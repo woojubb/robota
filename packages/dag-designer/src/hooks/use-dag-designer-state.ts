@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 import type {
     IDagDefinition,
     IDagEdgeDefinition,
+    IDagError,
     IDagNode,
     INodeManifest,
-    TPortPayload
+    TPortPayload,
+    TResult
 } from '@robota-sdk/dag-core';
-import type { IPreviewResult } from '../lifecycle/preview-engine.js';
-import type { IDagError, TResult } from '@robota-sdk/dag-core';
+import type { IPreviewResult } from '../contracts/designer-api.js';
+import type { IRunProgressState } from '../components/dag-designer-canvas.js';
 import { useDagDesignerContext } from '../components/dag-designer-canvas.js';
 
 export interface IDagDesignerState {
@@ -19,6 +21,7 @@ export interface IDagDesignerState {
     selectedEdgeId?: string;
     connectError?: string;
     bindingErrors: string[];
+    runProgress: IRunProgressState;
 }
 
 export interface IDagDesignerActions {
@@ -41,7 +44,8 @@ export function useDagDesignerState(): IDagDesignerState {
         selectedNodeId: context.selectedNodeId,
         selectedEdgeId: context.selectedEdgeId,
         connectError: context.connectError,
-        bindingErrors: context.bindingErrors
+        bindingErrors: context.bindingErrors,
+        runProgress: context.runProgress
     }), [
         context.bindingErrors,
         context.connectError,
@@ -49,6 +53,7 @@ export function useDagDesignerState(): IDagDesignerState {
         context.initialInput,
         context.manifests,
         context.previewResult,
+        context.runProgress,
         context.selectedEdgeId,
         context.selectedNodeId
     ]);

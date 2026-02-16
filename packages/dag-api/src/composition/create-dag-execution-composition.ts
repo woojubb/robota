@@ -15,6 +15,7 @@ import {
     type IWorkerLoopPolicyOptions,
     type WorkerLoopService
 } from '@robota-sdk/dag-worker';
+import { RunProgressEventBus, type IRunProgressEventBus } from './run-progress-event-bus.js';
 
 export interface IDagExecutionCompositionDependencies {
     storage: IStoragePort;
@@ -34,16 +35,19 @@ export interface IDagExecutionComposition {
     runQuery: RunQueryService;
     runCancel: RunCancelService;
     workerLoop: WorkerLoopService;
+    runProgressEventBus: IRunProgressEventBus;
 }
 
 export function createDagExecutionComposition(
     dependencies: IDagExecutionCompositionDependencies,
     options: IDagExecutionCompositionOptions
 ): IDagExecutionComposition {
+    const runProgressEventBus = new RunProgressEventBus();
     const runOrchestrator = new RunOrchestratorService(
         dependencies.storage,
         dependencies.queue,
-        dependencies.clock
+        dependencies.clock,
+        runProgressEventBus
     );
     const runQuery = new RunQueryService(dependencies.storage);
     const runCancel = new RunCancelService(dependencies.storage, dependencies.clock);
@@ -55,7 +59,8 @@ export function createDagExecutionComposition(
             deadLetterQueue: dependencies.deadLetterQueue,
             lease: dependencies.lease,
             executor: dependencies.executor,
-            clock: dependencies.clock
+            clock: dependencies.clock,
+            runProgressEventReporter: runProgressEventBus
         },
         {
             ...options.worker,
@@ -67,6 +72,7 @@ export function createDagExecutionComposition(
         runOrchestrator,
         runQuery,
         runCancel,
-        workerLoop
+        workerLoop,
+        runProgressEventBus
     };
 }

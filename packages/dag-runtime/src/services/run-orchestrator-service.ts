@@ -1,10 +1,12 @@
 import {
+    EXECUTION_PROGRESS_EVENTS,
     DagRunStateMachine,
     TimeSemanticsService,
     buildDispatchError,
     buildValidationError,
     type IClockPort,
     type IDagError,
+    type IRunProgressEventReporter,
     type IQueueMessage,
     type IQueuePort,
     type IStoragePort,
@@ -36,7 +38,8 @@ export class RunOrchestratorService {
     public constructor(
         private readonly storage: IStoragePort,
         private readonly queue: IQueuePort,
-        private readonly clock: IClockPort
+        private readonly clock: IClockPort,
+        private readonly runProgressEventReporter?: IRunProgressEventReporter
     ) {
         this.timeSemanticsService = new TimeSemanticsService(clock);
     }
@@ -98,6 +101,7 @@ export class RunOrchestratorService {
             dagId: definition.dagId,
             version: definition.version,
             status: 'created',
+            definitionSnapshot: JSON.stringify(definition),
             runKey,
             logicalDate: resolvedTime.value.logicalDate,
             trigger: input.trigger,
@@ -171,6 +175,13 @@ export class RunOrchestratorService {
             return runningTransition;
         }
         await this.storage.updateDagRunStatus(dagRunId, runningTransition.value.nextStatus);
+        this.runProgressEventReporter?.publish({
+            dagRunId,
+            eventType: EXECUTION_PROGRESS_EVENTS.STARTED,
+            occurredAt: this.clock.nowIso(),
+            dagId: definition.dagId,
+            version: definition.version
+        });
 
         return {
             ok: true,

@@ -411,18 +411,30 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         }
 
         const textValue = typeof effectiveValue === 'string' ? effectiveValue : '';
+        const useTextareaForText = schemaType === 'string' && !isAssetIdField;
         return (
             <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
                 {fieldLabel}
                 <div className="col-span-8 space-y-2">
-                    <input
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                        value={textValue}
-                        onChange={(event) => {
-                            const nextValue = event.target.value;
-                            updateConfigValue(key, nextValue.length > 0 ? nextValue : undefined);
-                        }}
-                    />
+                    {useTextareaForText ? (
+                        <textarea
+                            className="min-h-[90px] w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                            value={textValue}
+                            onChange={(event) => {
+                                const nextValue = event.target.value;
+                                updateConfigValue(key, nextValue.length > 0 ? nextValue : undefined);
+                            }}
+                        />
+                    ) : (
+                        <input
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                            value={textValue}
+                            onChange={(event) => {
+                                const nextValue = event.target.value;
+                                updateConfigValue(key, nextValue.length > 0 ? nextValue : undefined);
+                            }}
+                        />
+                    )}
                     {isAssetIdField ? (
                         <div className="rounded border border-gray-200 bg-gray-50 p-2">
                             <div className="mb-2 text-[11px] text-gray-600">

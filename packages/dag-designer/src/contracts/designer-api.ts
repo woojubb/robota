@@ -1,4 +1,10 @@
-import type { IDagDefinition, INodeManifest, TResult } from '@robota-sdk/dag-core';
+import type {
+    IDagDefinition,
+    INodeManifest,
+    TResult,
+    TPortPayload,
+    TRunProgressEvent
+} from '@robota-sdk/dag-core';
 
 export interface IProblemDetails {
     type: string;
@@ -46,6 +52,40 @@ export interface IListDefinitionsInput {
     correlationId?: string;
 }
 
+export interface IPreviewNodeTrace {
+    nodeId: string;
+    nodeType: string;
+    input: TPortPayload;
+    output: TPortPayload;
+    estimatedCostUsd: number;
+    totalCostUsd: number;
+}
+
+export interface IPreviewResult {
+    dagRunId: string;
+    traces: IPreviewNodeTrace[];
+    totalCostUsd: number;
+}
+
+export interface IStartPreviewRunInput {
+    definition: IDagDefinition;
+    input?: TPortPayload;
+    correlationId?: string;
+}
+
+export interface IGetPreviewRunResultInput {
+    dagRunId: string;
+    correlationId?: string;
+}
+
+export interface ITriggerRunInput {
+    dagId: string;
+    version?: number;
+    input?: TPortPayload;
+    logicalDate?: string;
+    correlationId?: string;
+}
+
 export interface IDefinitionListItem {
     dagId: string;
     latestVersion: number;
@@ -60,6 +100,14 @@ export interface IDesignerApiClient {
     getDefinition(input: IGetDefinitionInput): Promise<TResult<IDagDefinition, IProblemDetails[]>>;
     listDefinitions(input?: IListDefinitionsInput): Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>>;
+    startPreviewRun(input: IStartPreviewRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    getPreviewRunResult(input: IGetPreviewRunResultInput): Promise<TResult<IPreviewResult, IProblemDetails[]>>;
+    triggerRun(input: ITriggerRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    subscribeRunProgress: (input: {
+        dagRunId: string;
+        onEvent: (event: TRunProgressEvent) => void;
+        onError?: (error: Error) => void;
+    }) => () => void;
 }
 
 export interface IDesignerApiClientConfig {

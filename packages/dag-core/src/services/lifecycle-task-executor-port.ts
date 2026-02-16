@@ -68,7 +68,9 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
 
         return {
             ok: true,
-            output: executed.value.output
+            output: executed.value.output,
+            estimatedCostUsd: executed.value.estimatedCostUsd,
+            totalCostUsd: executed.value.totalCostUsd
         };
     }
 }

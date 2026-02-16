@@ -41,6 +41,7 @@
         "@robota-sdk/dag-node-llm-text": "workspace:*",
         "@robota-sdk/dag-node-ok-emitter": "workspace:*",
         "@robota-sdk/dag-node-text-output": "workspace:*",
+        "@robota-sdk/dag-node-text-template": "workspace:*",
         "@robota-sdk/dag-node-transform": "workspace:*",
         "@robota-sdk/agents": "workspace:*",
         "@robota-sdk/anthropic": "workspace:*",

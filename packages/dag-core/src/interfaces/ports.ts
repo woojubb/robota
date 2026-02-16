@@ -74,19 +74,25 @@ export interface IStoragePort {
 
     createDagRun(dagRun: IDagRun): Promise<void>;
     getDagRun(dagRunId: string): Promise<IDagRun | undefined>;
+    listDagRuns(): Promise<IDagRun[]>;
     getDagRunByRunKey(runKey: string): Promise<IDagRun | undefined>;
     updateDagRunStatus(dagRunId: string, status: TDagRunStatus, endedAt?: string): Promise<void>;
+    deleteDagRun(dagRunId: string): Promise<void>;
 
     createTaskRun(taskRun: ITaskRun): Promise<void>;
     getTaskRun(taskRunId: string): Promise<ITaskRun | undefined>;
     listTaskRunsByDagRunId(dagRunId: string): Promise<ITaskRun[]>;
+    deleteTaskRunsByDagRunId(dagRunId: string): Promise<void>;
     updateTaskRunStatus(taskRunId: string, status: TTaskRunStatus, error?: IDagError): Promise<void>;
     saveTaskRunSnapshots(
         taskRunId: string,
         inputSnapshot?: string,
-        outputSnapshot?: string
+        outputSnapshot?: string,
+        estimatedCostUsd?: number,
+        totalCostUsd?: number
     ): Promise<void>;
     incrementTaskAttempt(taskRunId: string): Promise<void>;
+    deleteDefinition(dagId: string, version: number): Promise<void>;
 }
 
 export interface ITaskExecutionInput {
@@ -105,6 +111,8 @@ export interface ITaskExecutionInput {
 export interface ITaskExecutionSuccess {
     ok: true;
     output: TPortPayload;
+    estimatedCostUsd?: number;
+    totalCostUsd?: number;
 }
 
 export interface ITaskExecutionFailure {

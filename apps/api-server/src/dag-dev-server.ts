@@ -12,6 +12,7 @@ import { ImageLoaderNodeDefinition } from '@robota-sdk/dag-node-image-loader';
 import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
 import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
 import { TextOutputNodeDefinition } from '@robota-sdk/dag-node-text-output';
+import { TextTemplateNodeDefinition } from '@robota-sdk/dag-node-text-template';
 import { BundledNodeCatalogService } from './services/bundled-node-catalog-service.js';
 import { createRobotaLlmCompletionClientFromEnv } from './services/robota-llm-completion-client.js';
 import { startDagServer } from './dag-server-bootstrap.js';
@@ -26,6 +27,7 @@ const defaultNodeDefinitions: IDagNodeDefinition[] = [
     new LlmTextNodeDefinition({
         completionClient: llmCompletionClient
     }),
+    new TextTemplateNodeDefinition(),
     new TextOutputNodeDefinition(),
     new ImageLoaderNodeDefinition(),
     new ImageSourceNodeDefinition(),

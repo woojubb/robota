@@ -1,9 +1,11 @@
 import type { ReactElement } from 'react';
-import type { IPreviewResult } from '../lifecycle/preview-engine.js';
+import type { IPreviewResult } from '../contracts/designer-api.js';
+import type { TNodeExecutionStatus } from './dag-designer-canvas.js';
 
 export interface INodeIoTracePanelProps {
     previewResult?: IPreviewResult;
     selectedNodeId?: string;
+    selectedNodeExecutionStatus?: TNodeExecutionStatus;
     className?: string;
 }
 
@@ -47,16 +49,19 @@ export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
                         <div>
                             estimatedCostUsd={selectedTrace.estimatedCostUsd.toFixed(6)} / totalCostUsd={selectedTrace.totalCostUsd.toFixed(6)}
                         </div>
+                        <div>
+                            status={props.selectedNodeExecutionStatus ?? 'idle'}
+                        </div>
                     </div>
                     <div>
                         <div className="mb-1 font-medium text-gray-700">Input</div>
-                        <pre className="max-h-40 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px]">
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-2 text-[11px]">
                             {stringifyPayload(selectedTrace.input)}
                         </pre>
                     </div>
                     <div>
                         <div className="mb-1 font-medium text-gray-700">Output</div>
-                        <pre className="max-h-40 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px]">
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-2 text-[11px]">
                             {stringifyPayload(selectedTrace.output)}
                         </pre>
                     </div>
