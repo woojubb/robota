@@ -1,0 +1,13 @@
+{
+  "defaultTemplateId": "default",
+  "templates": [
+    {
+      "templateId": "blank",
+      "documentFile": "blank.json"
+    },
+    {
+      "templateId": "default",
+      "documentFile": "default.json"
+    }
+  ]
+}

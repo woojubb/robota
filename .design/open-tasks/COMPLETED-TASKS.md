@@ -149,3 +149,142 @@ description: "CURRENT-TASKS에서 완료 처리된 항목을 보관한다"
   - 빌드: `@robota-sdk/agents`, `@robota-sdk/workflow`, `@robota-sdk/playground` 통과
   - `ReadLints` 기준: 실제 코드 오류 없음
     - 참고: `@robota-sdk/agents` declaration 파일 미탐지 IDE 진단 1건은 기존 환경성 진단으로 유지
+
+## 2026-02-14
+
+### DAG 구현/검증/구조개선 완료
+- Gate-1/2/3 기준 포함한 DAG v1 범위(P0-pre~P4) 전체 구현 완료
+- `dag-core/runtime/worker/scheduler/projection/api/designer` 패키지 스캐폴딩 및 핵심 기능 구현 완료
+- no-fallback 강화:
+  - fail-fast 기본값(`retryEnabled=false`) 고정
+  - diagnostics reinject 정책 게이트(`reinjectEnabled=false` default) 적용
+  - rerunKey 기반 rerun identity 분리 적용
+- Critical 보완 완료:
+  - downstream dispatch 구현
+  - DLQ reinject 시 상태 복구 전이 반영
+  - terminal 재활성화 차단 E2E 검증
+- Complexity 축소(Phase 1) 완료:
+  - 에러 빌더 공통화
+  - ProblemDetails/API contracts 공통화
+  - `replaceAttemptSegment` 유틸 공통화
+  - `queuedTaskRunIds` -> `taskRunIds` 정합성 반영
+- 구조 단순화(Phase 2) 완료:
+  - controller 내부 service 생성 제거 + composition DI 일원화
+  - `WorkerLoopService.processOnce` 경로 분해(success/failure/retry/finalize)
+  - observability dashboard 중복 조회 제거(`buildDashboardProjection` 도입)
+- 검증:
+  - 관련 DAG 패키지 빌드/테스트 전체 통과
+  - 변경 파일 lint 에러 없음
+
+## 2026-02-15
+
+### DAG 로컬 실행/문서화 트랙 완료 (P-Doc)
+- P-Doc-0 완료:
+  - 실행 진입점 `apps/api-server` 확정
+  - 웹 host 전략 `apps/web` 확장 확정
+  - no-fallback/실패 처리 고정 문구 확정
+- P-Doc-1 완료:
+  - `apps/api-server` DAG dev 엔트리(`dag:dev`, `dag:start`) 구현
+  - `apps/web` `/dag-designer` host 경로 및 `DesignerApiClient` 연동 구현
+  - 환경변수 요구사항 정리:
+    - `apps/api-server/.env.example` (`DAG_DEV_PORT`)
+    - `apps/web/.env.dag.example`
+- P-Doc-2 완료:
+  - build/test/dev/start 표준 명령표 확정
+  - 실검증 및 로그 문서화 완료
+  - `pnpm --filter '@robota-sdk/dag-*' test` 간헐 실패 이슈를 순차 실행 표준으로 정리
+- P-Doc-3 완료:
+  - 사용자 가이드 초안 작성
+  - 문서 단독 재현 라운드 수행(Browser MCP 포함)
+  - 증거 링크 정리 및 완료 선언
+- Gate-Doc:
+  - Gate-Doc-1/2/3/4 전체 통과
+
+### 문서 산출물
+- `apps/api-server/docs/SPEC.md`
+- `apps/web/docs/SPEC.md`
+- `packages/dag-core/docs/SPEC.md` (DAG 계층 스펙 분산 기준)
+
+### DAG Designer 조합형/훅 API/오버레이 레이아웃 정리 완료
+- 조합형 컴포넌트 확장 완료:
+  - `DagDesigner.Root/Canvas/NodeExplorer/Inspector`
+  - 세부 분리 컴포넌트 `DagDesigner.NodeConfig`, `DagDesigner.EdgeInspector` 추가
+- Node Explorer UI 개선 완료:
+  - 카테고리 탭(Tabs) 기반 탐색으로 전환
+- 훅 API 계층 추가 완료:
+  - `useDagDesignerState`, `useDagDesignerActions`
+  - `useDagDesignApi`(create/update/validate/publish/load/list/catalog)
+- web host 연동 정리 완료:
+  - `apps/web`에서 `DesignerApiClient` 직접 호출 제거
+  - 훅 기반 액션 호출로 전환
+- 레이아웃 정리 완료:
+  - 캔버스 풀 스크린 + 상단 컴팩트 헤더
+  - 좌/우 패널 플로팅 토글
+  - controls 오버레이(공간 비점유) 전환
+  - 우측 `Node Config` + `Edge Inspector`를 단일 레이아웃 컨테이너로 정리
+- 검증:
+  - `pnpm --filter @robota-sdk/dag-designer build` 통과
+  - `pnpm --filter @robota-sdk/web build` 통과
+  - `/dag-designer` 스모크(Create/Validate/Publish/Preview) 확인
+
+### DAG 노드 패키지 분리 마이그레이션 완료 (dag-nodes)
+- 노드 패키지 구조 전환 완료:
+  - 물리 경로: `packages/dag-nodes/<slug>`
+  - 패키지명: `@robota-sdk/dag-node-<slug>`
+- 초기 분리 패키지 완료:
+  - `dag-node-input`, `dag-node-transform`, `dag-node-llm-text`
+  - `dag-node-image-loader`, `dag-node-image-source`, `dag-node-ok-emitter`
+- 하드 컷오버 완료:
+  - `dag-core` 기본 노드 내장 manifest/handler 생성 경로 제거
+  - `apps/api-server`가 `@robota-sdk/dag-node-*` 직접 import로 bootstrap 조합
+  - `dag-designer` preview도 동일 노드 패키지 조합 경로로 전환
+- 검증:
+  - `pnpm --filter \"@robota-sdk/dag-node-*\" build` 통과
+  - `pnpm --filter @robota-sdk/dag-core build` 통과
+  - `pnpm --filter @robota-sdk/dag-designer build` 통과
+  - `pnpm --filter @robota-sdk/dag-api build` 통과
+  - `pnpm --filter @robota-sdk/api-server build` 통과
+  - `GET /v1/dag/nodes` 노드 목록 응답 확인
+  - bootstrap/run/process-once 스모크 확인
+
+### DAG Node Definition 책임 정렬 완료 (SSOT)
+- `IDagNodeDefinition`을 노드 타입 원본 계약으로 고정:
+  - `nodeType`, `displayName`, `category`
+  - `inputs`, `outputs`
+  - `configSchemaDefinition`
+  - `taskHandler`
+- 노드 패키지에서 `buildManifest()` 제거:
+  - `packages/dag-nodes/input`
+  - `packages/dag-nodes/transform`
+  - `packages/dag-nodes/llm-text`
+  - `packages/dag-nodes/image-loader`
+  - `packages/dag-nodes/image-source`
+  - `packages/dag-nodes/ok-emitter`
+- 중앙 조립부 단일화:
+  - `buildNodeDefinitionAssembly()`에서만 `configSchemaDefinition -> configSchema(JSON Schema) -> INodeManifest` 파생
+- 문서 정합성 반영:
+  - `dag-local-node-store-spec.md`에 `IDagNodeDefinition` 인스턴스 + 중앙 assembly 규칙 명시
+  - DAG 계층 분산 스펙(`packages/dag-*/docs/SPEC.md`, `apps/*/docs/SPEC.md`) 기준으로 완료/비정합 계획 정리
+- 검증:
+  - `pnpm --filter @robota-sdk/dag-core build` 통과
+  - `pnpm --filter \"@robota-sdk/dag-node-*\" build` 통과
+  - `pnpm --filter @robota-sdk/dag-designer build` 통과
+  - `pnpm --filter @robota-sdk/api-server build` 통과
+  - `GET /v1/dag/nodes` 스모크 통과
+
+## 2026-02-16
+
+### DAG Designer Preview 경로 정합화 완료
+- `Run Preview`의 LLM 호출 경로를 로컬 mock(`preview:*`)에서 API 서버 기반 실제 LLM completion 경로로 전환 완료
+- API 서버에 preview 전용 엔드포인트 추가:
+  - `POST /v1/dag/dev/llm-text/complete`
+- 디자이너 프리뷰 엔진에 원격 LLM 클라이언트 주입 경로 추가:
+  - `createRemoteLlmCompletionClient`
+  - `runDefinitionPreview(..., options.llmCompletionClient)`
+- `text-output` 노드가 입력 텍스트를 최종 출력으로 명시 반환하도록 정리 완료
+- `/dag-designer`의 `Latest Result` 로그에 `latestLlmOutput` 표시 추가 완료
+- 검증:
+  - `pnpm --filter @robota-sdk/dag-designer build` 통과
+  - `pnpm --filter @robota-sdk/api-server build` 통과
+  - `pnpm --filter @robota-sdk/web build` 통과
+  - preview LLM endpoint 실호출 및 completion 응답 확인

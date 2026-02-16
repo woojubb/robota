@@ -39,5 +39,4 @@ Use this skill for designing or updating plugins in the project plugin system.
 - [ ] Configuration examples are documented.
 
 ## References
-- Plugin behaviors: `packages/agents/docs/plugin-automatic-behaviors.md`
-- Configuration examples: `packages/agents/docs/plugin-configuration-examples.md`
+- Plugin guide: `packages/agents/docs/PLUGINS.md`

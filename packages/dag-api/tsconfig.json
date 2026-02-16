@@ -1,0 +1,35 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "composite": false,
+    "declaration": true,
+    "declarationMap": true,
+    "downlevelIteration": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ],
+  "references": [
+    {
+      "path": "../dag-core"
+    },
+    {
+      "path": "../dag-runtime"
+    },
+    {
+      "path": "../dag-worker"
+    },
+    {
+      "path": "../dag-scheduler"
+    },
+    {
+      "path": "../dag-projection"
+    }
+  ]
+}
