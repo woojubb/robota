@@ -12,14 +12,19 @@ import { ImageLoaderNodeDefinition } from '@robota-sdk/dag-node-image-loader';
 import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
 import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
 import { BundledNodeCatalogService } from './services/bundled-node-catalog-service.js';
+import { createRobotaLlmCompletionClientFromEnv } from './services/robota-llm-completion-client.js';
 import { startDagServer } from './dag-server-bootstrap.js';
 
 dotenv.config();
 
+const llmCompletionClient = createRobotaLlmCompletionClientFromEnv();
+
 const defaultNodeDefinitions: IDagNodeDefinition[] = [
     new InputNodeDefinition(),
     new TransformNodeDefinition(),
-    new LlmTextNodeDefinition(),
+    new LlmTextNodeDefinition({
+        completionClient: llmCompletionClient
+    }),
     new ImageLoaderNodeDefinition(),
     new ImageSourceNodeDefinition(),
     new OkEmitterNodeDefinition()

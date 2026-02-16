@@ -20,6 +20,12 @@
 - 노드 설정 스키마 SSOT는 내부 `configSchemaDefinition`으로 관리한다.
 - 외부(API/디자이너) 노출 형식은 JSON Schema object(`configSchema`)로 통일한다.
 - JSON Schema는 수동 작성하지 않고 Zod에서 자동 생성한다.
+- 자산 저장소는 storage-agnostic으로 설계한다(특정 벤더 고정 금지).
+- 초기 구현은 `local-fs`를 사용하되, 접근은 API 경유로만 허용한다.
+- DAG 정의에는 파일 본문을 저장하지 않고 reference(`asset` 또는 `uri`)만 저장한다.
+- reference는 `asset`/`uri`를 독립 지원하되 동시에 설정하지 않는다(XOR).
+- 노드 실행 결과의 binary output은 실행 경계에서 자산 레퍼런스로 정규화한다.
+  - raw URI output -> asset 저장(reference) -> downstream에는 `asset://<assetId>` 전달
 
 ## 서버 초기화 계약
 
@@ -44,6 +50,12 @@ createDagServer({
 
 - `GET /v1/dag/nodes`
   - 현재 번들된 노드 목록 반환
+- `POST /v1/dag/assets`
+  - base64 업로드를 받아 자산 저장 후 `assetId` reference 반환
+- `GET /v1/dag/assets/:assetId`
+  - 자산 메타데이터 조회
+- `GET /v1/dag/assets/:assetId/content`
+  - 자산 원본 콘텐츠 조회
 - `POST /v1/dag/nodes/reload`
   - 엔드포인트 자체를 제공하지 않는다 (삭제)
 
