@@ -1,11 +1,13 @@
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
+import path from 'node:path';
 import {
     LifecycleTaskExecutorPort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     InMemoryStoragePort,
     SystemClockPort,
+    type IAssetReference,
     type IDagDefinition,
     type INodeLifecycleFactory,
     type INodeManifest,
@@ -17,6 +19,8 @@ import {
     createDagExecutionComposition,
     type INodeCatalogService
 } from '@robota-sdk/dag-api';
+import { LocalFsAssetStore, type IStoredAssetMetadata } from './services/local-fs-asset-store.js';
+import { AssetAwareTaskExecutorPort } from './services/asset-aware-task-executor.js';
 
 interface ITriggerRequestBody {
     dagId: string;
@@ -45,11 +49,133 @@ interface IListDefinitionsQuery {
     dagId?: string;
 }
 
+interface ICreateAssetBody {
+    fileName: string;
+    mediaType: string;
+    base64Data: string;
+}
+
+interface IAssetValidationError {
+    code: string;
+    detail: string;
+    retryable: false;
+}
+
 export interface IDagServerBootstrapOptions {
     nodeManifests: INodeManifest[];
     nodeLifecycleFactory: INodeLifecycleFactory;
     nodeCatalogService: INodeCatalogService;
     port?: number;
+}
+
+function toAssetReference(metadata: IStoredAssetMetadata, contentUri: string): IAssetReference {
+    return {
+        referenceType: 'asset',
+        assetId: metadata.assetId,
+        mediaType: metadata.mediaType,
+        uri: contentUri,
+        name: metadata.fileName,
+        sizeBytes: metadata.sizeBytes
+    };
+}
+
+function getAssetContentUri(req: Request, assetId: string): string {
+    return `${req.protocol}://${req.get('host')}/v1/dag/assets/${assetId}/content`;
+}
+
+async function validateAssetReferences(
+    definition: IDagDefinition,
+    assetStore: LocalFsAssetStore
+): Promise<IAssetValidationError[]> {
+    const errors: IAssetValidationError[] = [];
+    for (const node of definition.nodes) {
+        const config = node.config;
+        const assetValue = config.asset;
+        if (typeof assetValue === 'object' && assetValue !== null && 'referenceType' in assetValue) {
+            const referenceType = assetValue.referenceType;
+            const hasAssetId = 'assetId' in assetValue && typeof assetValue.assetId === 'string' && assetValue.assetId.trim().length > 0;
+            const hasUri = 'uri' in assetValue && typeof assetValue.uri === 'string' && assetValue.uri.trim().length > 0;
+            if (hasAssetId === hasUri) {
+                errors.push({
+                    code: 'DAG_VALIDATION_ASSET_REFERENCE_XOR_REQUIRED',
+                    detail: `Node ${node.nodeId} config.asset must provide exactly one of assetId or uri`,
+                    retryable: false
+                });
+                continue;
+            }
+            if (referenceType === 'asset' && !hasAssetId) {
+                errors.push({
+                    code: 'DAG_VALIDATION_ASSET_REFERENCE_TYPE_ASSET_REQUIRES_ASSET_ID',
+                    detail: `Node ${node.nodeId} config.asset referenceType asset requires assetId`,
+                    retryable: false
+                });
+                continue;
+            }
+            if (referenceType === 'uri' && !hasUri) {
+                errors.push({
+                    code: 'DAG_VALIDATION_ASSET_REFERENCE_TYPE_URI_REQUIRES_URI',
+                    detail: `Node ${node.nodeId} config.asset referenceType uri requires uri`,
+                    retryable: false
+                });
+                continue;
+            }
+            if (hasAssetId) {
+                const metadata = await assetStore.getMetadata(assetValue.assetId);
+                if (!metadata) {
+                    errors.push({
+                        code: 'DAG_VALIDATION_ASSET_REFERENCE_NOT_FOUND',
+                        detail: `Node ${node.nodeId} references unknown assetId: ${assetValue.assetId}`,
+                        retryable: false
+                    });
+                }
+            }
+            continue;
+        }
+
+        const referenceType = config.referenceType;
+        const assetId = config.assetId;
+        const uri = config.uri;
+        const hasAssetId = typeof assetId === 'string' && assetId.trim().length > 0;
+        const hasUri = typeof uri === 'string' && uri.trim().length > 0;
+        if (!hasAssetId && !hasUri) {
+            continue;
+        }
+        if (hasAssetId === hasUri) {
+            errors.push({
+                code: 'DAG_VALIDATION_ASSET_REFERENCE_XOR_REQUIRED',
+                detail: `Node ${node.nodeId} config must provide exactly one of assetId or uri`,
+                retryable: false
+            });
+            continue;
+        }
+        if (referenceType === 'asset' && !hasAssetId) {
+            errors.push({
+                code: 'DAG_VALIDATION_ASSET_REFERENCE_TYPE_ASSET_REQUIRES_ASSET_ID',
+                detail: `Node ${node.nodeId} referenceType asset requires assetId`,
+                retryable: false
+            });
+            continue;
+        }
+        if (referenceType === 'uri' && !hasUri) {
+            errors.push({
+                code: 'DAG_VALIDATION_ASSET_REFERENCE_TYPE_URI_REQUIRES_URI',
+                detail: `Node ${node.nodeId} referenceType uri requires uri`,
+                retryable: false
+            });
+            continue;
+        }
+        if (hasAssetId) {
+            const metadata = await assetStore.getMetadata(assetId);
+            if (!metadata) {
+                errors.push({
+                    code: 'DAG_VALIDATION_ASSET_REFERENCE_NOT_FOUND',
+                    detail: `Node ${node.nodeId} references unknown assetId: ${assetId}`,
+                    retryable: false
+                });
+            }
+        }
+    }
+    return errors;
 }
 
 function createManifestRegistryFromManifests(manifests: INodeManifest[]): INodeManifestRegistry {
@@ -137,7 +263,13 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     const lease = new InMemoryLeasePort();
     const clock = new SystemClockPort();
     const manifestRegistry = createManifestRegistryFromManifests(options.nodeManifests);
-    const executor = new LifecycleTaskExecutorPort(manifestRegistry, options.nodeLifecycleFactory);
+    const lifecycleExecutor = new LifecycleTaskExecutorPort(manifestRegistry, options.nodeLifecycleFactory);
+    const assetStoreRoot = process.env.ASSET_STORAGE_ROOT
+        ? path.resolve(process.env.ASSET_STORAGE_ROOT)
+        : path.resolve(process.cwd(), '.local-assets');
+    const assetStore = new LocalFsAssetStore(assetStoreRoot);
+    await assetStore.initialize();
+    const executor = new AssetAwareTaskExecutorPort(lifecycleExecutor, assetStore);
 
     const controllers = createDagControllerComposition(
         {
@@ -216,6 +348,15 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     });
 
     app.post('/v1/dag/definitions', async (req: Request<unknown, unknown, ICreateDefinitionBody>, res: Response) => {
+        const assetValidationErrors = await validateAssetReferences(req.body.definition, assetStore);
+        if (assetValidationErrors.length > 0) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: assetValidationErrors
+            });
+            return;
+        }
         const created = await controllers.design.createDefinition({
             definition: req.body.definition,
             correlationId: 'dag-dev-design-create'
@@ -227,6 +368,15 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         req: Request<{ dagId: string }, unknown, IUpdateDraftBody>,
         res: Response
     ) => {
+        const assetValidationErrors = await validateAssetReferences(req.body.definition, assetStore);
+        if (assetValidationErrors.length > 0) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: assetValidationErrors
+            });
+            return;
+        }
         const updated = await controllers.design.updateDraft({
             dagId: req.params.dagId,
             version: req.body.version,
@@ -240,6 +390,24 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         req: Request<{ dagId: string }, unknown, IVersionBody>,
         res: Response
     ) => {
+        const existing = await controllers.design.getDefinition({
+            dagId: req.params.dagId,
+            version: req.body.version,
+            correlationId: 'dag-dev-design-get-for-asset-validate'
+        });
+        if (!existing.ok) {
+            res.status(existing.status).json(existing);
+            return;
+        }
+        const assetValidationErrors = await validateAssetReferences(existing.data.definition, assetStore);
+        if (assetValidationErrors.length > 0) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: assetValidationErrors
+            });
+            return;
+        }
         const validated = await controllers.design.validateDefinition({
             dagId: req.params.dagId,
             version: req.body.version,
@@ -265,6 +433,149 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             correlationId: 'dag-dev-nodes-list'
         });
         res.status(listed.status).json(listed);
+    });
+
+    app.post('/v1/dag/assets', async (
+        req: Request<unknown, unknown, ICreateAssetBody>,
+        res: Response
+    ) => {
+        const body = req.body;
+        if (!body || typeof body.fileName !== 'string' || body.fileName.trim().length === 0) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    {
+                        code: 'DAG_VALIDATION_ASSET_FILENAME_REQUIRED',
+                        detail: 'fileName is required',
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
+        if (typeof body.mediaType !== 'string' || body.mediaType.trim().length === 0) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    {
+                        code: 'DAG_VALIDATION_ASSET_MEDIATYPE_REQUIRED',
+                        detail: 'mediaType is required',
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
+        if (typeof body.base64Data !== 'string' || body.base64Data.trim().length === 0) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    {
+                        code: 'DAG_VALIDATION_ASSET_BASE64_REQUIRED',
+                        detail: 'base64Data is required',
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
+
+        try {
+            const content = Buffer.from(body.base64Data, 'base64');
+            if (content.byteLength === 0) {
+                res.status(400).json({
+                    ok: false,
+                    status: 400,
+                    errors: [
+                        {
+                            code: 'DAG_VALIDATION_ASSET_EMPTY_CONTENT',
+                            detail: 'Decoded asset content must not be empty',
+                            retryable: false
+                        }
+                    ]
+                });
+                return;
+            }
+            const metadata = await assetStore.save({
+                fileName: body.fileName,
+                mediaType: body.mediaType,
+                content
+            });
+            res.status(201).json({
+                ok: true,
+                status: 201,
+                data: {
+                    asset: toAssetReference(metadata, getAssetContentUri(req, metadata.assetId))
+                }
+            });
+        } catch {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    {
+                        code: 'DAG_VALIDATION_ASSET_BASE64_INVALID',
+                        detail: 'base64Data must be a valid base64 encoded string',
+                        retryable: false
+                    }
+                ]
+            });
+        }
+    });
+
+    app.get('/v1/dag/assets/:assetId', async (
+        req: Request<{ assetId: string }>,
+        res: Response
+    ) => {
+        const metadata = await assetStore.getMetadata(req.params.assetId);
+        if (!metadata) {
+            res.status(404).json({
+                ok: false,
+                status: 404,
+                errors: [
+                    {
+                        code: 'DAG_ASSET_NOT_FOUND',
+                        detail: `Asset not found: ${req.params.assetId}`,
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
+        res.status(200).json({
+            ok: true,
+            status: 200,
+            data: {
+                asset: toAssetReference(metadata, getAssetContentUri(req, metadata.assetId))
+            }
+        });
+    });
+
+    app.get('/v1/dag/assets/:assetId/content', async (
+        req: Request<{ assetId: string }>,
+        res: Response
+    ) => {
+        const contentResult = await assetStore.getContent(req.params.assetId);
+        if (!contentResult) {
+            res.status(404).json({
+                ok: false,
+                status: 404,
+                errors: [
+                    {
+                        code: 'DAG_ASSET_NOT_FOUND',
+                        detail: `Asset not found: ${req.params.assetId}`,
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
+        res.setHeader('Content-Type', contentResult.metadata.mediaType);
+        res.setHeader('Content-Disposition', `inline; filename="${contentResult.metadata.fileName}"`);
+        contentResult.stream.pipe(res);
     });
 
     app.get('/v1/dag/definitions/:dagId', async (

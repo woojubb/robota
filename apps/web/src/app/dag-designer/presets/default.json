@@ -1,0 +1,129 @@
+{
+  "metadata": {
+    "templateId": "default",
+    "name": "Quick LLM Text Flow",
+    "description": "Use this when testing prompt-to-completion flow quickly with a ready-to-run LLM pipeline."
+  },
+  "definition": {
+    "dagId": "dag-template-default",
+    "version": 1,
+    "status": "draft",
+    "nodes": [
+      {
+        "nodeId": "input_1",
+        "nodeType": "input",
+        "dependsOn": [],
+        "inputs": [],
+        "outputs": [
+          {
+            "key": "text",
+            "label": "Text",
+            "order": 0,
+            "type": "string",
+            "required": false
+          }
+        ],
+        "config": {}
+      },
+      {
+        "nodeId": "llm_text_1",
+        "nodeType": "llm-text",
+        "dependsOn": [
+          "input_1"
+        ],
+        "inputs": [
+          {
+            "key": "prompt",
+            "label": "Prompt",
+            "order": 0,
+            "type": "string",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "key": "completion",
+            "label": "Completion",
+            "order": 0,
+            "type": "string",
+            "required": true
+          }
+        ],
+        "config": {
+          "provider": "openai",
+          "model": "gpt-4o-mini",
+          "temperature": 0.2
+        }
+      },
+      {
+        "nodeId": "transform_1",
+        "nodeType": "transform",
+        "dependsOn": [
+          "llm_text_1"
+        ],
+        "inputs": [
+          {
+            "key": "text",
+            "label": "Text",
+            "order": 0,
+            "type": "string",
+            "required": false
+          },
+          {
+            "key": "data",
+            "label": "Data",
+            "order": 1,
+            "type": "object",
+            "required": false
+          }
+        ],
+        "outputs": [
+          {
+            "key": "text",
+            "label": "Text",
+            "order": 0,
+            "type": "string",
+            "required": false
+          },
+          {
+            "key": "data",
+            "label": "Data",
+            "order": 1,
+            "type": "object",
+            "required": false
+          }
+        ],
+        "config": {
+          "prefix": "demo"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "input_1",
+        "to": "llm_text_1",
+        "bindings": [
+          {
+            "outputKey": "text",
+            "inputKey": "prompt"
+          }
+        ]
+      },
+      {
+        "from": "llm_text_1",
+        "to": "transform_1",
+        "bindings": [
+          {
+            "outputKey": "completion",
+            "inputKey": "text"
+          }
+        ]
+      }
+    ],
+    "costPolicy": {
+      "runCostLimitUsd": 0.01,
+      "costCurrency": "USD",
+      "costPolicyVersion": 1
+    }
+  }
+}

@@ -11,11 +11,14 @@ import type { IDagError } from '../types/error.js';
 
 export type TPortPrimitive = string | number | boolean | null;
 export type TPortBinaryKind = 'image' | 'video' | 'audio' | 'file';
+export type TBinaryReferenceType = 'asset' | 'uri';
 
 export interface IPortBinaryValue {
     kind: TPortBinaryKind;
     mimeType: string;
     uri: string;
+    referenceType?: TBinaryReferenceType;
+    assetId?: string;
     sizeBytes?: number;
 }
 

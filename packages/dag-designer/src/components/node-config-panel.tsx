@@ -4,6 +4,8 @@ import {
     type IDagError,
     type IDagNode,
     type IPortDefinition,
+    type TNodeConfigRecord,
+    type TNodeConfigValue,
     type TPortValueType
 } from '@robota-sdk/dag-core';
 
@@ -11,6 +13,41 @@ export interface INodeConfigPanelProps {
     node?: IDagNode;
     onUpdateNode: (nextNode: IDagNode) => void;
     onNodeValidationError?: (error: IDagError) => void;
+}
+
+function isNodeConfigValue(value: unknown): value is TNodeConfigValue {
+    if (
+        typeof value === 'string'
+        || typeof value === 'number'
+        || typeof value === 'boolean'
+        || value === null
+    ) {
+        return true;
+    }
+    if (Array.isArray(value)) {
+        return value.every((item) => isNodeConfigValue(item));
+    }
+    if (typeof value !== 'object') {
+        return false;
+    }
+    for (const item of Object.values(value)) {
+        if (!isNodeConfigValue(item)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function isNodeConfigRecord(value: unknown): value is TNodeConfigRecord {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        return false;
+    }
+    for (const item of Object.values(value)) {
+        if (!isNodeConfigValue(item)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
@@ -27,7 +64,7 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
     const updateConfigByText = (rawJson: string): void => {
         try {
             const parsed = JSON.parse(rawJson);
-            if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+            if (!isNodeConfigRecord(parsed)) {
                 props.onNodeValidationError?.(
                     buildValidationError(
                         'DAG_VALIDATION_NODE_CONFIG_INVALID_SHAPE',
@@ -38,20 +75,9 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 return;
             }
 
-            const normalized: Record<string, string | number | boolean | null> = {};
-            for (const [key, value] of Object.entries(parsed)) {
-                if (
-                    typeof value === 'string'
-                    || typeof value === 'number'
-                    || typeof value === 'boolean'
-                    || value === null
-                ) {
-                    normalized[key] = value;
-                }
-            }
             props.onUpdateNode({
                 ...node,
-                config: normalized
+                config: parsed
             });
         } catch {
             props.onNodeValidationError?.(
@@ -62,6 +88,33 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 )
             );
         }
+    };
+
+    const updateReferenceConfig = (
+        nextReferenceType: 'asset' | 'uri',
+        nextValue: string
+    ): void => {
+        const nextConfig: TNodeConfigRecord = {
+            ...node.config,
+            referenceType: nextReferenceType
+        };
+        if (nextReferenceType === 'asset') {
+            nextConfig.assetId = nextValue;
+            delete nextConfig.uri;
+            delete nextConfig.asset;
+            return props.onUpdateNode({
+                ...node,
+                config: nextConfig
+            });
+        }
+
+        nextConfig.uri = nextValue;
+        delete nextConfig.assetId;
+        delete nextConfig.asset;
+        props.onUpdateNode({
+            ...node,
+            config: nextConfig
+        });
     };
 
     const updatePorts = (direction: 'inputs' | 'outputs', nextPorts: IPortDefinition[]): void => {
@@ -197,6 +250,18 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
 
     const sortedInputs = [...node.inputs].sort((left, right) => (left.order ?? 9999) - (right.order ?? 9999));
     const sortedOutputs = [...node.outputs].sort((left, right) => (left.order ?? 9999) - (right.order ?? 9999));
+    const supportsReferenceConfig = node.nodeType === 'image-source' || node.nodeType === 'image-loader';
+    const referenceType = node.config.referenceType === 'asset' || node.config.referenceType === 'uri'
+        ? node.config.referenceType
+        : undefined;
+    const assetId = typeof node.config.assetId === 'string' ? node.config.assetId : '';
+    const uri = typeof node.config.uri === 'string' ? node.config.uri : '';
+    const hasAssetId = assetId.trim().length > 0;
+    const hasUri = uri.trim().length > 0;
+    const xorValid = hasAssetId !== hasUri;
+    const referenceTypeConsistent = referenceType
+        ? ((referenceType === 'asset' && hasAssetId && !hasUri) || (referenceType === 'uri' && hasUri && !hasAssetId))
+        : xorValid;
 
     return (
         <div className="flex h-full flex-col gap-3 rounded border border-gray-300 p-3">
@@ -213,6 +278,71 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                     onChange={(event) => updateConfigByText(event.target.value)}
                 />
             </label>
+            {supportsReferenceConfig ? (
+                <div className="flex flex-col gap-2 rounded border border-gray-200 p-2 text-xs">
+                    <div className="font-medium">Reference Config</div>
+                    <div className="grid grid-cols-1 gap-2">
+                        <label className="flex flex-col gap-1">
+                            referenceType
+                            <select
+                                className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                value={referenceType ?? ''}
+                                onChange={(event) => {
+                                    const nextType = event.target.value === 'asset' || event.target.value === 'uri'
+                                        ? event.target.value
+                                        : undefined;
+                                    if (!nextType) {
+                                        const nextConfig: TNodeConfigRecord = { ...node.config };
+                                        delete nextConfig.referenceType;
+                                        delete nextConfig.assetId;
+                                        delete nextConfig.uri;
+                                        delete nextConfig.asset;
+                                        props.onUpdateNode({ ...node, config: nextConfig });
+                                        return;
+                                    }
+                                    updateReferenceConfig(nextType, nextType === 'asset' ? assetId : uri);
+                                }}
+                            >
+                                <option value="">(select)</option>
+                                <option value="asset">asset</option>
+                                <option value="uri">uri</option>
+                            </select>
+                        </label>
+                        {referenceType === 'asset' ? (
+                            <label className="flex flex-col gap-1">
+                                assetId
+                                <input
+                                    className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                    value={assetId}
+                                    onChange={(event) => updateReferenceConfig('asset', event.target.value)}
+                                    placeholder="asset-id"
+                                />
+                            </label>
+                        ) : null}
+                        {referenceType === 'uri' ? (
+                            <label className="flex flex-col gap-1">
+                                uri
+                                <input
+                                    className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                    value={uri}
+                                    onChange={(event) => updateReferenceConfig('uri', event.target.value)}
+                                    placeholder="https://... or file://..."
+                                />
+                            </label>
+                        ) : null}
+                    </div>
+                    {!xorValid ? (
+                        <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-red-700">
+                            Exactly one of `assetId` or `uri` must be provided.
+                        </div>
+                    ) : null}
+                    {!referenceTypeConsistent ? (
+                        <div className="rounded border border-red-200 bg-red-50 px-2 py-1 text-red-700">
+                            `referenceType` and value are inconsistent.
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded border border-gray-200 p-2">
                     <div className="font-medium">Inputs</div>

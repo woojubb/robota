@@ -1,8 +1,35 @@
 export type TDagDefinitionStatus = 'draft' | 'published' | 'deprecated';
 export type TPortValueType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'binary';
 export type TBinaryKind = 'image' | 'video' | 'audio' | 'file';
-export type TNodeConfigValue = string | number | boolean | null;
-export type TNodeConfigRecord = Record<string, TNodeConfigValue>;
+export type TNodeConfigPrimitive = string | number | boolean | null;
+export interface INodeConfigObject {
+    [key: string]: TNodeConfigValue;
+}
+export type TNodeConfigValue = TNodeConfigPrimitive | INodeConfigObject | TNodeConfigValue[];
+export type TNodeConfigRecord = INodeConfigObject;
+
+export type TAssetReferenceType = 'asset' | 'uri';
+
+export interface IAssetReferenceBase {
+    referenceType: TAssetReferenceType;
+    mediaType?: string;
+    name?: string;
+    sizeBytes?: number;
+}
+
+export interface IAssetReferenceByAssetId extends IAssetReferenceBase {
+    referenceType: 'asset';
+    assetId: string;
+    uri?: never;
+}
+
+export interface IAssetReferenceByUri extends IAssetReferenceBase {
+    referenceType: 'uri';
+    uri: string;
+    assetId?: never;
+}
+
+export type IAssetReference = IAssetReferenceByAssetId | IAssetReferenceByUri;
 
 export type TDagRunStatus =
     | 'created'

@@ -14,78 +14,13 @@ import {
   type INodeManifest,
   type TResult,
 } from "@robota-sdk/dag-core";
-
-function createSampleDefinition(): IDagDefinition {
-  return {
-    dagId: "dag-web-sample",
-    version: 1,
-    status: "draft",
-    nodes: [
-      {
-        nodeId: "image_source_1",
-        nodeType: "image-source",
-        dependsOn: [],
-        inputs: [],
-        outputs: [
-          { key: "image", label: "Image", order: 0, type: "binary", required: true, binaryKind: "image", mimeTypes: ["image/png"] },
-        ],
-        config: {
-          uri: "file://sample-image.png",
-          mimeType: "image/png",
-        },
-      },
-      {
-        nodeId: "ok_emitter_1",
-        nodeType: "ok-emitter",
-        dependsOn: ["image_source_1"],
-        inputs: [
-          { key: "image", label: "Image", order: 0, type: "binary", required: true, binaryKind: "image", mimeTypes: ["image/png"] },
-        ],
-        outputs: [
-          { key: "status", label: "Status", order: 0, type: "string", required: true },
-        ],
-        config: {},
-      },
-      {
-        nodeId: "transform_1",
-        nodeType: "transform",
-        dependsOn: ["ok_emitter_1"],
-        inputs: [
-          { key: "text", label: "Text", order: 0, type: "string", required: false },
-          { key: "data", label: "Data", order: 1, type: "object", required: false },
-        ],
-        outputs: [
-          { key: "text", label: "Text", order: 0, type: "string", required: false },
-          { key: "data", label: "Data", order: 1, type: "object", required: false },
-        ],
-        config: {
-          prefix: "demo",
-        },
-      },
-    ],
-    edges: [
-      {
-        from: "image_source_1",
-        to: "ok_emitter_1",
-        bindings: [
-          { outputKey: "image", inputKey: "image" },
-        ],
-      },
-      {
-        from: "ok_emitter_1",
-        to: "transform_1",
-        bindings: [
-          { outputKey: "status", inputKey: "text" },
-        ],
-      },
-    ],
-    costPolicy: {
-      runCostLimitUsd: 0.01,
-      costCurrency: "USD",
-      costPolicyVersion: 1,
-    },
-  };
-}
+import {
+  buildDagTemplate,
+  DEFAULT_DAG_TEMPLATE_KEY,
+  getDagTemplatePreset,
+  listDagTemplatePresets,
+  type TDagTemplateKey,
+} from "./templates";
 
 export default function DagDesignerPage() {
   const baseUrl = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
@@ -93,14 +28,21 @@ export default function DagDesignerPage() {
   const [log, setLog] = useState<string>("Ready");
   const [dagId, setDagId] = useState<string>("dag-web-sample");
   const [version, setVersion] = useState<number>(1);
-  const [definition, setDefinition] = useState<IDagDefinition>(createSampleDefinition());
+  const [definition, setDefinition] = useState<IDagDefinition>(
+    buildDagTemplate("blank", { dagId: "dag-web-sample", version: 1 })
+  );
+  const [templateInjectedOnInit, setTemplateInjectedOnInit] = useState<boolean>(false);
   const [draftCreated, setDraftCreated] = useState<boolean>(false);
   const [catalogNodes, setCatalogNodes] = useState<INodeManifest[]>([]);
   const [definitionList, setDefinitionList] = useState<IDefinitionListItem[]>([]);
   const [selectedListDagId, setSelectedListDagId] = useState<string>("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<TDagTemplateKey>(DEFAULT_DAG_TEMPLATE_KEY);
   const [isCommandBarOpen, setIsCommandBarOpen] = useState<boolean>(false);
   const [isNodeExplorerOpen, setIsNodeExplorerOpen] = useState<boolean>(true);
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
+  const templateMetadataList = listDagTemplatePresets();
+  const defaultTemplatePreset = getDagTemplatePreset(DEFAULT_DAG_TEMPLATE_KEY);
+  const selectedTemplatePreset = getDagTemplatePreset(selectedTemplateId);
   const bindingBlockingErrors = useMemo(() => {
     const validated = DagDefinitionValidator.validate(definition);
     if (validated.ok) {
@@ -236,6 +178,25 @@ export default function DagDesignerPage() {
     void refreshNodeCatalog();
   }, []);
 
+  useEffect(() => {
+    if (templateInjectedOnInit) {
+      return;
+    }
+    if (definition.nodes.length > 0) {
+      return;
+    }
+    const nextDefinition = buildDagTemplate(DEFAULT_DAG_TEMPLATE_KEY, { dagId, version });
+    setDefinition(nextDefinition);
+    setTemplateInjectedOnInit(true);
+    setLog(`Template injected on init: ${defaultTemplatePreset.metadata.name}`);
+  }, [dagId, definition.nodes.length, templateInjectedOnInit, version]);
+
+  const applySelectedTemplate = (): void => {
+    const nextDefinition = buildDagTemplate(selectedTemplateId, { dagId, version });
+    setDefinition(nextDefinition);
+    setLog(`Template applied: ${selectedTemplatePreset.metadata.name} (${dagId}:${version})`);
+  };
+
   const loadByDagId = async (): Promise<void> => {
     const loaded = await designApi.load({
       dagId,
@@ -369,6 +330,32 @@ export default function DagDesignerPage() {
                   </label>
                 </div>
                 <div className="flex flex-wrap items-end justify-start gap-2 xl:justify-end">
+                  <label className="flex min-w-[240px] flex-col gap-1 text-xs">
+                    Template
+                    <select
+                      className="rounded border border-gray-300 px-3 py-2 font-mono text-xs"
+                      value={selectedTemplateId}
+                      onChange={(event) => setSelectedTemplateId(event.target.value as TDagTemplateKey)}
+                    >
+                      {templateMetadataList.map((template) => (
+                        <option key={template.templateId} value={template.templateId}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-[11px] leading-4 text-gray-600">
+                      {selectedTemplatePreset.metadata.description}
+                    </span>
+                    <span className="text-[11px] leading-4 text-gray-500">
+                      templateId: {selectedTemplatePreset.metadata.templateId}
+                    </span>
+                  </label>
+                  <button
+                    className="rounded border border-gray-300 bg-white px-3 py-2 text-xs hover:bg-gray-50"
+                    onClick={applySelectedTemplate}
+                  >
+                    Apply Template
+                  </button>
                   <button
                     className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={createDraft}

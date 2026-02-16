@@ -15,10 +15,35 @@ import {
 } from '@robota-sdk/dag-core';
 import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
 import { TransformNodeDefinition } from '@robota-sdk/dag-node-transform';
-import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
+import {
+    LlmTextNodeDefinition,
+    type ILlmTextCompletionClient,
+    type ILlmTextGenerationRequest,
+    type ILlmTextModelSelection,
+    type ILlmTextResolvedModelSelection
+} from '@robota-sdk/dag-node-llm-text';
 import { ImageLoaderNodeDefinition } from '@robota-sdk/dag-node-image-loader';
 import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
 import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
+
+class PreviewLlmTextCompletionClient implements ILlmTextCompletionClient {
+    public resolveModelSelection(selection: ILlmTextModelSelection): TResult<ILlmTextResolvedModelSelection, IDagError> {
+        return {
+            ok: true,
+            value: {
+                provider: selection.provider ?? 'preview',
+                model: selection.model ?? 'preview-model'
+            }
+        };
+    }
+
+    public async generateCompletion(request: ILlmTextGenerationRequest): Promise<TResult<string, IDagError>> {
+        return {
+            ok: true,
+            value: `preview:${request.prompt}`
+        };
+    }
+}
 
 export interface IPreviewNodeTrace {
     nodeId: string;
@@ -246,7 +271,9 @@ export async function runDefinitionPreview(
     const nodeDefinitions: IDagNodeDefinition[] = [
         new InputNodeDefinition(),
         new TransformNodeDefinition(),
-        new LlmTextNodeDefinition(),
+        new LlmTextNodeDefinition({
+            completionClient: new PreviewLlmTextCompletionClient()
+        }),
         new ImageLoaderNodeDefinition(),
         new ImageSourceNodeDefinition(),
         new OkEmitterNodeDefinition()
