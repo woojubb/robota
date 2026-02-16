@@ -99,18 +99,18 @@ class AgentEventLogic {
         const pathInfo = extractPathInfo(eventData.context.ownerPath, AGENT_EVENT_NAMES.CREATED);
         const agentNode = this.nodeBuilder.createAgentNode(eventData, agentId, pathInfo);
         const updates: TWorkflowUpdate[] = [];
-        updates.push({ action: 'create', node: agentNode });
-        if (!pathInfo.parentId) {
+                    updates.push({ action: 'create', node: agentNode });
+                    if (!pathInfo.parentId) {
             return { success: true, updates };
-        }
+                    }
 
-        const edge: IWorkflowEdge = {
-            id: EdgeUtils.generateId(pathInfo.parentId, agentNode.id, 'creates' as TWorkflowConnectionKind),
-            source: pathInfo.parentId,
-            target: agentNode.id,
-            type: 'creates' as TWorkflowConnectionKind,
-            timestamp: Date.now()
-        };
+                    const edge: IWorkflowEdge = {
+                        id: EdgeUtils.generateId(pathInfo.parentId, agentNode.id, 'creates' as TWorkflowConnectionKind),
+                        source: pathInfo.parentId,
+                        target: agentNode.id,
+                        type: 'creates' as TWorkflowConnectionKind,
+                        timestamp: Date.now()
+                    };
         updates.push({ action: 'create', edge });
 
         return { success: true, updates };
@@ -120,16 +120,16 @@ class AgentEventLogic {
         const updates: TWorkflowUpdate[] = [];
         const pathInfo = extractPathInfo(eventData.context.ownerPath, AGENT_EVENT_NAMES.EXECUTION_START);
         const existingAgentNodeId = this.findAgentNodeIdForExecutionStart(agentId);
-        if (existingAgentNodeId) {
+                    if (existingAgentNodeId) {
             const patch = this.buildAgentExecutionStatePatch(eventData);
             updates.push({ action: 'patch', nodeId: existingAgentNodeId, updates: patch });
             return { success: true, updates };
-        }
+                    }
 
-        return {
-            success: false,
-            updates: [],
-            errors: [
+                    return {
+                        success: false,
+                        updates: [],
+                        errors: [
                 `[PATH-ONLY] Missing agent node for ${AGENT_EVENT_NAMES.EXECUTION_START} path=${pathInfo.segments.join(' -> ')}`
             ]
         };
@@ -153,8 +153,8 @@ class AgentEventLogic {
         const toolsFromEvent = eventData.parameters?.tools;
         const normalizedTools = this.toStringArrayValue(toolsFromEvent);
         const dataUpdates: IWorkflowNodeData = {
-            extensions: {
-                robota: {
+                                    extensions: {
+                                        robota: {
                     handlerType: 'agent',
                     originalEvent
                 }

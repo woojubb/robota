@@ -19,6 +19,7 @@ description: Models success and failure explicitly in TypeScript using Result or
 2. Return a typed result from domain operations.
 3. Convert external exceptions into domain error variants at boundaries.
 4. Keep one canonical error path per use case.
+5. Preserve terminal failure integrity: do not convert terminal failure into active processing unless a separately gated policy explicitly allows it.
 
 ## Minimal Result Shape
 ```ts
@@ -33,6 +34,7 @@ type Result<T, E> =
 3. Wrap external calls in boundary adapters and map exceptions.
 4. Compose operations by checking `ok` and returning early on failure.
 5. Convert final `Result` to transport response (HTTP/event/log) once.
+6. If a reprocess path is required, model it as a separately authorized policy path (disabled by default), not as implicit fallback.
 
 ## Reference Skeleton
 ```ts
@@ -53,8 +55,10 @@ async function createUser(input: Input, deps: Deps): Promise<Result<User, Create
 - [ ] Boundary adapters map third-party errors once.
 - [ ] Callers handle `ok: false` explicitly.
 - [ ] Logs and responses derive from typed error values.
+- [ ] Terminal failure is not converted to queued/running without explicit policy gate.
 
 ## Anti-Patterns
 - Catching everything and returning generic fallback success.
 - Throwing raw strings or unknown objects from domain logic.
 - Mixing `throw` and `Result` randomly in one flow.
+- Re-queuing failed work silently because "operations need convenience".
