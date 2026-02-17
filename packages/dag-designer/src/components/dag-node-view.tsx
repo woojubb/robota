@@ -2,6 +2,8 @@ import type { ReactElement } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { IPortDefinition } from '@robota-sdk/dag-core';
 import type { TNodeExecutionStatus } from './dag-designer-canvas.js';
+import type { IRunNodeTrace } from '../contracts/designer-api.js';
+import { NodeIoViewer } from './node-io-viewer.js';
 
 export interface IDagNodeViewData extends Record<string, unknown> {
     label: string;
@@ -9,6 +11,9 @@ export interface IDagNodeViewData extends Record<string, unknown> {
     inputs: IPortDefinition[];
     outputs: IPortDefinition[];
     executionStatus?: TNodeExecutionStatus;
+    latestTrace?: IRunNodeTrace;
+    assetBaseUrl?: string;
+    traceSignature?: string;
 }
 
 export type TDagCanvasNode = Node<IDagNodeViewData, 'dag-node'>;
@@ -50,6 +55,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                         : 'border-gray-300 bg-gray-50'
     ].join(' ');
     const executionStatusClassName = 'bg-transparent text-gray-700';
+    const latestTrace = props.data.latestTrace;
 
     return (
         <div className={rootClassName}>
@@ -116,6 +122,15 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                     )}
                 </div>
             </div>
+            {latestTrace ? (
+                <NodeIoViewer
+                    input={latestTrace.input}
+                    output={latestTrace.output}
+                    assetBaseUrl={props.data.assetBaseUrl}
+                />
+            ) : (
+                <div className="nodrag border-t border-gray-200 px-3 py-2 text-[10px] text-gray-400">No run data yet</div>
+            )}
         </div>
     );
 }

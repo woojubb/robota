@@ -180,13 +180,13 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const initialSelectedNodeId = useMemo(() => {
     const nodeIds = new Set(definition.nodes.map((node) => node.nodeId));
-    const isGeminiTemplateGraph = nodeIds.has("input_1")
-      && nodeIds.has("image_loader_1")
-      && nodeIds.has("gemini_image_edit_1");
+    const isGeminiTemplateGraph = nodeIds.has("image_source_a_1")
+      && nodeIds.has("image_source_b_1")
+      && nodeIds.has("gemini_image_compose_1");
     if (!isGeminiTemplateGraph) {
       return undefined;
     }
-    return "input_1";
+    return "image_source_a_1";
   }, [definition.nodes]);
 
   const showActionToast = useCallback((message: string, type: IActionToastState["type"]): void => {

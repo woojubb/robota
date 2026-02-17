@@ -9,6 +9,7 @@ import {
 import type { TUniversalMessage } from '@robota-sdk/agents';
 import type {
     IGeminiImageClient,
+    IGeminiImageComposeRequest,
     IGeminiImageEditRequest
 } from '@robota-sdk/dag-node-gemini-image-edit';
 import { LocalFsAssetStore } from './local-fs-asset-store.js';
@@ -61,6 +62,34 @@ function resolveImageInlinePart(message: TUniversalMessage): { data: string; mim
     return undefined;
 }
 
+async function readAssetAsInlineImagePart(
+    assetStore: LocalFsAssetStore,
+    assetId: string,
+    notFoundCode: string,
+    notFoundDetail: string
+): Promise<TResult<{ type: 'image_inline'; data: string; mimeType: string }, IDagError>> {
+    const content = await assetStore.getContent(assetId);
+    if (!content) {
+        return {
+            ok: false,
+            error: buildValidationError(
+                notFoundCode,
+                notFoundDetail,
+                { assetId }
+            )
+        };
+    }
+    const inputBuffer = await readStreamToBuffer(content.stream);
+    return {
+        ok: true,
+        value: {
+            type: 'image_inline',
+            data: inputBuffer.toString('base64'),
+            mimeType: content.metadata.mediaType
+        }
+    };
+}
+
 export class RobotaGeminiImageClient implements IGeminiImageClient {
     private readonly provider?: GoogleProvider;
     private readonly assetStore: LocalFsAssetStore;
@@ -101,29 +130,21 @@ export class RobotaGeminiImageClient implements IGeminiImageClient {
             };
         }
 
-        const inputContent = await this.assetStore.getContent(request.inputAssetId);
-        if (!inputContent) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_GEMINI_IMAGE_INPUT_ASSET_NOT_FOUND',
-                    'Input image asset was not found or is not binary content',
-                    { assetId: request.inputAssetId }
-                )
-            };
+        const inputPartResult = await readAssetAsInlineImagePart(
+            this.assetStore,
+            request.inputAssetId,
+            'DAG_VALIDATION_GEMINI_IMAGE_INPUT_ASSET_NOT_FOUND',
+            'Input image asset was not found or is not binary content'
+        );
+        if (!inputPartResult.ok) {
+            return inputPartResult;
         }
-        const inputBuffer = await readStreamToBuffer(inputContent.stream);
-        const inputBase64 = inputBuffer.toString('base64');
 
         const userMessage: TUniversalMessage = {
             role: 'user',
             content: request.prompt,
             parts: [
-                {
-                    type: 'image_inline',
-                    data: inputBase64,
-                    mimeType: inputContent.metadata.mediaType
-                },
+                inputPartResult.value,
                 {
                     type: 'text',
                     text: request.prompt
@@ -175,6 +196,110 @@ export class RobotaGeminiImageClient implements IGeminiImageClient {
                 error: buildTaskExecutionError(
                     'DAG_TASK_EXECUTION_GEMINI_IMAGE_EDIT_FAILED',
                     error instanceof Error ? error.message : 'Gemini image edit failed',
+                    true,
+                    { model: selectedModel }
+                )
+            };
+        }
+    }
+
+    public async composeImages(request: IGeminiImageComposeRequest): Promise<TResult<IPortBinaryValue, IDagError>> {
+        if (!this.provider) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_GEMINI_API_KEY_REQUIRED',
+                    'GEMINI_API_KEY must be configured for Gemini image node runtime'
+                )
+            };
+        }
+        const selectedModel = request.model.trim().length > 0 ? request.model : this.defaultModel;
+        if (this.allowedModels.length > 0 && !this.allowedModels.includes(selectedModel)) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_GEMINI_IMAGE_MODEL_NOT_ALLOWED',
+                    'Selected Gemini image model is not allowed in DAG runtime',
+                    { model: selectedModel }
+                )
+            };
+        }
+
+        const firstInputPartResult = await readAssetAsInlineImagePart(
+            this.assetStore,
+            request.firstInputAssetId,
+            'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_A_ASSET_NOT_FOUND',
+            'Image A asset was not found or is not binary content'
+        );
+        if (!firstInputPartResult.ok) {
+            return firstInputPartResult;
+        }
+        const secondInputPartResult = await readAssetAsInlineImagePart(
+            this.assetStore,
+            request.secondInputAssetId,
+            'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_B_ASSET_NOT_FOUND',
+            'Image B asset was not found or is not binary content'
+        );
+        if (!secondInputPartResult.ok) {
+            return secondInputPartResult;
+        }
+
+        const userMessage: TUniversalMessage = {
+            role: 'user',
+            content: request.prompt,
+            parts: [
+                firstInputPartResult.value,
+                secondInputPartResult.value,
+                {
+                    type: 'text',
+                    text: request.prompt
+                }
+            ],
+            timestamp: new Date()
+        };
+
+        try {
+            const responseMessage = await this.provider.chat([userMessage], {
+                model: selectedModel,
+                google: {
+                    responseModalities: ['TEXT', 'IMAGE']
+                }
+            });
+            const generatedImagePart = resolveImageInlinePart(responseMessage);
+            if (!generatedImagePart) {
+                return {
+                    ok: false,
+                    error: buildTaskExecutionError(
+                        'DAG_TASK_EXECUTION_GEMINI_IMAGE_RESPONSE_MISSING_IMAGE',
+                        'Gemini image response did not include image data',
+                        false,
+                        { model: selectedModel }
+                    )
+                };
+            }
+            const outputBuffer = Buffer.from(generatedImagePart.data, 'base64');
+            const metadata = await this.assetStore.save({
+                fileName: `gemini-image-compose-${Date.now()}.bin`,
+                mediaType: generatedImagePart.mimeType,
+                content: outputBuffer
+            });
+            return {
+                ok: true,
+                value: {
+                    kind: 'image',
+                    mimeType: metadata.mediaType,
+                    uri: `asset://${metadata.assetId}`,
+                    referenceType: 'asset',
+                    assetId: metadata.assetId,
+                    sizeBytes: metadata.sizeBytes
+                }
+            };
+        } catch (error) {
+            return {
+                ok: false,
+                error: buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_GEMINI_IMAGE_COMPOSE_FAILED',
+                    error instanceof Error ? error.message : 'Gemini image compose failed',
                     true,
                     { model: selectedModel }
                 )
