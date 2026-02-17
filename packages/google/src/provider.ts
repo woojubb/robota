@@ -5,7 +5,11 @@ import type {
     TUniversalMessage,
     IChatOptions,
     IToolSchema,
-    IAssistantMessage
+    IAssistantMessage,
+    IUserMessage,
+    ISystemMessage,
+    IToolMessage,
+    TUniversalMessagePart
 } from '@robota-sdk/agents';
 
 
@@ -56,39 +60,50 @@ export class GoogleProvider extends AbstractAIProvider {
             try {
                 return await this.executeViaExecutorOrDirect(messages, options);
             } catch (error) {
+                this.logger.error('Google Provider executor chat error:', error instanceof Error ? error.message : String(error));
                 throw error;
             }
         }
 
-        // Direct execution with Google client
-        if (!this.client) {
-            throw new Error('Google client not available. Either provide apiKey or use an executor.');
+        try {
+            // Direct execution with Google client
+            if (!this.client) {
+                throw new Error('Google client not available. Either provide apiKey or use an executor.');
+            }
+
+            if (!options?.model) {
+                throw new Error('Model is required in IChatOptions. Please specify a model in defaultModel configuration.');
+            }
+
+            const model = this.client.getGenerativeModel({
+                model: options.model as string
+            });
+
+            const geminiMessages = this.convertToGeminiFormat(messages);
+
+            const result = await model.generateContent({
+                contents: geminiMessages as any, // Google SDK types are complex, using any here
+                generationConfig: this.buildGenerationConfig(messages, options),
+                ...(options?.tools && {
+                    tools: [{
+                        functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
+                    }]
+                })
+            });
+
+            const convertedResponse = this.convertFromGeminiResponse(result.response);
+            const responseModalities = this.buildResponseModalities(messages, options);
+            if (
+                responseModalities.includes('IMAGE')
+                && !this.hasImagePart(convertedResponse.parts)
+            ) {
+                throw new Error('Gemini response did not include an image part while IMAGE modality was requested.');
+            }
+            return convertedResponse;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
+            throw new Error(`Google chat failed: ${errorMessage}`);
         }
-
-        if (!options?.model) {
-            throw new Error('Model is required in IChatOptions. Please specify a model in defaultModel configuration.');
-        }
-
-        const model = this.client.getGenerativeModel({
-            model: options.model as string
-        });
-
-        const geminiMessages = this.convertToGeminiFormat(messages);
-
-        const result = await model.generateContent({
-            contents: geminiMessages as any, // Google SDK types are complex, using any here
-            generationConfig: {
-                temperature: options?.temperature,
-                maxOutputTokens: options?.maxTokens
-            },
-            ...(options?.tools && {
-                tools: [{
-                    functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
-                }]
-            })
-        });
-
-        return this.convertFromGeminiResponse(result.response);
     }
 
     /**
@@ -96,54 +111,61 @@ export class GoogleProvider extends AbstractAIProvider {
      */
     override async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         this.validateMessages(messages);
-
         // Use executor when configured; otherwise use direct execution
         if (this.executor) {
             try {
                 yield* this.executeStreamViaExecutorOrDirect(messages, options);
                 return;
             } catch (error) {
+                this.logger.error('Google Provider executor stream error:', error instanceof Error ? error.message : String(error));
                 throw error;
             }
         }
 
-        // Direct execution with Google client
-        if (!this.client) {
-            throw new Error('Google client not available. Either provide apiKey or use an executor.');
-        }
-
-        if (!options?.model) {
-            throw new Error('Model is required in IChatOptions. Please specify a model in defaultModel configuration.');
-        }
-
-        const model = this.client.getGenerativeModel({
-            model: options.model as string
-        });
-
-        const geminiMessages = this.convertToGeminiFormat(messages);
-
-        const result = await model.generateContentStream({
-            contents: geminiMessages as any, // Google SDK types are complex, using any here
-            generationConfig: {
-                temperature: options?.temperature,
-                maxOutputTokens: options?.maxTokens
-            },
-            ...(options?.tools && {
-                tools: [{
-                    functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
-                }]
-            })
-        });
-
-        for await (const chunk of result.stream) {
-            const text = chunk.text();
-            if (text) {
-                yield {
-                    role: 'assistant',
-                    content: text,
-                    timestamp: new Date()
-                };
+        try {
+            const responseModalities = this.buildResponseModalities(messages, options);
+            if (responseModalities.includes('IMAGE')) {
+                throw new Error('Google provider does not support streaming image modality responses.');
             }
+
+            // Direct execution with Google client
+            if (!this.client) {
+                throw new Error('Google client not available. Either provide apiKey or use an executor.');
+            }
+
+            if (!options?.model) {
+                throw new Error('Model is required in IChatOptions. Please specify a model in defaultModel configuration.');
+            }
+
+            const model = this.client.getGenerativeModel({
+                model: options.model as string
+            });
+
+            const geminiMessages = this.convertToGeminiFormat(messages);
+
+            const result = await model.generateContentStream({
+                contents: geminiMessages as any, // Google SDK types are complex, using any here
+                generationConfig: this.buildGenerationConfig(messages, options),
+                ...(options?.tools && {
+                    tools: [{
+                        functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
+                    }]
+                })
+            });
+
+            for await (const chunk of result.stream) {
+                const text = chunk.text();
+                if (text) {
+                    yield {
+                        role: 'assistant',
+                        content: text,
+                        timestamp: new Date()
+                    };
+                }
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
+            throw new Error(`Google stream failed: ${errorMessage}`);
         }
     }
 
@@ -169,6 +191,10 @@ export class GoogleProvider extends AbstractAIProvider {
         role: 'user' | 'model';
         parts: Array<{
             text?: string;
+            inlineData?: {
+                mimeType: string;
+                data: string;
+            };
             functionCall?: {
                 name: string;
                 args: Record<string, any>;
@@ -179,12 +205,16 @@ export class GoogleProvider extends AbstractAIProvider {
             if (msg.role === 'user') {
                 return {
                     role: 'user' as const,
-                    parts: [{ text: msg.content || '' }]
+                    parts: this.mapMessagePartsToGeminiParts(msg as IUserMessage)
                 };
             } else if (msg.role === 'assistant') {
                 const assistantMsg = msg as IAssistantMessage;
                 const parts: Array<{
                     text?: string;
+                    inlineData?: {
+                        mimeType: string;
+                        data: string;
+                    };
                     functionCall?: {
                         name: string;
                         args: Record<string, any>;
@@ -192,7 +222,11 @@ export class GoogleProvider extends AbstractAIProvider {
                 }> = [];
 
                 // Google allows content with function calls
-                if (assistantMsg.content) {
+                const mappedAssistantParts = this.mapMessagePartsToGeminiParts(assistantMsg);
+                for (const mappedPart of mappedAssistantParts) {
+                    parts.push(mappedPart);
+                }
+                if (parts.length === 0 && assistantMsg.content) {
                     parts.push({ text: assistantMsg.content });
                 }
 
@@ -211,11 +245,22 @@ export class GoogleProvider extends AbstractAIProvider {
                     role: 'model' as const,
                     parts
                 };
-            } else {
-                // System messages
+            } else if (msg.role === 'tool') {
+                const toolMessage = msg as IToolMessage;
                 return {
                     role: 'user' as const,
-                    parts: [{ text: `System: ${msg.content || ''}` }]
+                    parts: this.mapMessagePartsToGeminiParts(toolMessage)
+                };
+            } else {
+                // System messages
+                const systemMessage = msg as ISystemMessage;
+                const systemParts = this.mapMessagePartsToGeminiParts(systemMessage);
+                if (systemParts.length === 0) {
+                    systemParts.push({ text: `System: ${systemMessage.content || ''}` });
+                }
+                return {
+                    role: 'user' as const,
+                    parts: systemParts
                 };
             }
         });
@@ -235,12 +280,37 @@ export class GoogleProvider extends AbstractAIProvider {
             throw new Error('No content in Gemini response');
         }
 
-        const textParts = content.parts.filter((p: any) => p.text).map((p: any) => p.text);
+        const textParts = content.parts.filter((p: any) => typeof p.text === 'string').map((p: any) => p.text);
+        const imageParts = content.parts.filter((p: any) =>
+            (p.inlineData && typeof p.inlineData.data === 'string' && typeof p.inlineData.mimeType === 'string')
+            || (p.inline_data && typeof p.inline_data.data === 'string' && typeof p.inline_data.mime_type === 'string')
+        );
         const functionCalls = content.parts.filter((p: any) => p.functionCall);
+
+        const messageParts: TUniversalMessagePart[] = [];
+        for (const textPart of textParts) {
+            messageParts.push({
+                type: 'text',
+                text: textPart
+            });
+        }
+        for (const imagePart of imageParts) {
+            const inlineData = imagePart.inlineData
+                ?? {
+                    data: imagePart.inline_data.data,
+                    mimeType: imagePart.inline_data.mime_type
+                };
+            messageParts.push({
+                type: 'image_inline',
+                data: inlineData.data,
+                mimeType: inlineData.mimeType
+            });
+        }
 
         const result: TUniversalMessage = {
             role: 'assistant',
-            content: textParts.join('') || '',
+            content: textParts.length > 0 ? textParts.join('') : null,
+            parts: messageParts,
             timestamp: new Date()
         };
 
@@ -288,5 +358,101 @@ export class GoogleProvider extends AbstractAIProvider {
      */
     private generateId(): string {
         return `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    private mapMessagePartsToGeminiParts(message: IUserMessage | IAssistantMessage | ISystemMessage | IToolMessage): Array<{
+        text?: string;
+        inlineData?: {
+            mimeType: string;
+            data: string;
+        };
+    }> {
+        const parts: Array<{
+            text?: string;
+            inlineData?: {
+                mimeType: string;
+                data: string;
+            };
+        }> = [];
+        const messageParts = message.parts ?? [];
+        for (const part of messageParts) {
+            if (part.type === 'text') {
+                parts.push({ text: part.text });
+                continue;
+            }
+            if (part.type === 'image_inline') {
+                parts.push({
+                    inlineData: {
+                        mimeType: part.mimeType,
+                        data: part.data
+                    }
+                });
+                continue;
+            }
+            throw new Error(`Google provider does not support image URI parts directly: ${part.uri}`);
+        }
+        if (parts.length === 0 && typeof message.content === 'string' && message.content.length > 0) {
+            parts.push({ text: message.content });
+        }
+        return parts;
+    }
+
+    private hasImagePart(parts: TUniversalMessagePart[] | undefined): boolean {
+        if (!parts) {
+            return false;
+        }
+        return parts.some((part) => part.type === 'image_inline' || part.type === 'image_uri');
+    }
+
+    private buildResponseModalities(messages: TUniversalMessage[], options?: IChatOptions): Array<'TEXT' | 'IMAGE'> {
+        const optionModalities = options?.google?.responseModalities;
+        if (optionModalities && optionModalities.length > 0) {
+            return optionModalities;
+        }
+        const hasImageInput = messages.some((message) => this.hasImagePart(message.parts));
+        if (hasImageInput) {
+            return ['TEXT', 'IMAGE'];
+        }
+        const defaultModalities = this.options.defaultResponseModalities;
+        if (defaultModalities && defaultModalities.length > 0) {
+            return defaultModalities;
+        }
+        return ['TEXT'];
+    }
+
+    private isImageCapableModel(model: string): boolean {
+        const configuredImageModels = this.options.imageCapableModels;
+        if (configuredImageModels && configuredImageModels.length > 0) {
+            return configuredImageModels.includes(model);
+        }
+        return model.includes('image');
+    }
+
+    private buildGenerationConfig(messages: TUniversalMessage[], options?: IChatOptions): {
+        temperature?: number;
+        maxOutputTokens?: number;
+        responseModalities?: Array<'TEXT' | 'IMAGE'>;
+    } {
+        const responseModalities = this.buildResponseModalities(messages, options);
+        if (!options?.model) {
+            return {
+                temperature: options?.temperature,
+                maxOutputTokens: options?.maxTokens,
+                responseModalities
+            };
+        }
+        if (
+            responseModalities.includes('IMAGE')
+            && !this.isImageCapableModel(options.model)
+        ) {
+            throw new Error(
+                `Selected model "${options.model}" is not configured as image-capable for Google provider.`
+            );
+        }
+        return {
+            temperature: options?.temperature,
+            maxOutputTokens: options?.maxTokens,
+            responseModalities
+        };
     }
 } 
