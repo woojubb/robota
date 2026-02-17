@@ -28,6 +28,8 @@ import {
     useNodesState
 } from '@xyflow/react';
 import {
+    EXECUTION_PROGRESS_EVENTS,
+    TASK_PROGRESS_EVENTS,
     buildValidationError,
     type IDagDefinition,
     type IDagEdgeDefinition,
@@ -127,7 +129,7 @@ function applyRunProgressEventToState(
     event: TRunProgressEvent
 ): IRunProgressState {
     const nextNodeStatusByNodeId = { ...currentState.nodeStatusByNodeId };
-    if (event.eventType === 'task.started') {
+    if (event.eventType === TASK_PROGRESS_EVENTS.STARTED) {
         nextNodeStatusByNodeId[event.nodeId] = 'running';
         return {
             ...currentState,
@@ -138,7 +140,7 @@ function applyRunProgressEventToState(
             latestEventType: event.eventType
         };
     }
-    if (event.eventType === 'task.completed') {
+    if (event.eventType === TASK_PROGRESS_EVENTS.COMPLETED) {
         nextNodeStatusByNodeId[event.nodeId] = 'success';
         return {
             ...currentState,
@@ -149,7 +151,7 @@ function applyRunProgressEventToState(
             latestEventType: event.eventType
         };
     }
-    if (event.eventType === 'task.failed') {
+    if (event.eventType === TASK_PROGRESS_EVENTS.FAILED) {
         nextNodeStatusByNodeId[event.nodeId] = 'failed';
         return {
             ...currentState,
@@ -161,7 +163,7 @@ function applyRunProgressEventToState(
             latestEventType: event.eventType
         };
     }
-    if (event.eventType === 'execution.started') {
+    if (event.eventType === EXECUTION_PROGRESS_EVENTS.STARTED) {
         return {
             ...currentState,
             activeDagRunId: event.dagRunId,
@@ -169,7 +171,7 @@ function applyRunProgressEventToState(
             latestEventType: event.eventType
         };
     }
-    if (event.eventType === 'execution.completed') {
+    if (event.eventType === EXECUTION_PROGRESS_EVENTS.COMPLETED) {
         return {
             ...currentState,
             activeDagRunId: event.dagRunId,
@@ -451,7 +453,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
             if (currentState.activeDagRunId && currentState.activeDagRunId !== event.dagRunId) {
                 return currentState;
             }
-            if (event.eventType === 'task.started') {
+            if (event.eventType === TASK_PROGRESS_EVENTS.STARTED) {
                 nodeRunningSinceRef.current.set(event.nodeId, Date.now());
                 const existingTimer = pendingStatusTimersRef.current.get(event.nodeId);
                 if (existingTimer) {
@@ -460,7 +462,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
                 }
                 return applyRunProgressEventToState(currentState, event);
             }
-            if (event.eventType === 'task.completed' || event.eventType === 'task.failed') {
+            if (event.eventType === TASK_PROGRESS_EVENTS.COMPLETED || event.eventType === TASK_PROGRESS_EVENTS.FAILED) {
                 const runningSince = nodeRunningSinceRef.current.get(event.nodeId);
                 const elapsedMs = typeof runningSince === 'number' ? Date.now() - runningSince : MIN_RUNNING_DISPLAY_DURATION_MS;
                 const remainingMs = Math.max(0, MIN_RUNNING_DISPLAY_DURATION_MS - elapsedMs);
