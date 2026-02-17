@@ -12,8 +12,6 @@ import type {
     IPublishDefinitionInput,
     IStartPreviewRunInput,
     IStartPreviewRunExecutionInput,
-    IStartRunExecutionInput,
-    ITriggerRunInput,
     IUpdateDraftInput,
     IValidateDefinitionInput
 } from '../contracts/designer-api.js';
@@ -266,61 +264,6 @@ export class DesignerApiClient implements IDesignerApiClient {
             return {
                 ok: true,
                 value: preview
-            };
-        }
-        return {
-            ok: false,
-            error: [createContractViolationProblem(200, path)]
-        };
-    }
-
-    public async triggerRun(input: ITriggerRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
-        const path = '/v1/dag/dev/runs';
-        const payloadResult = await this.requestPayload(
-            path,
-            'POST',
-            JSON.stringify({
-                dagId: input.dagId,
-                version: input.version,
-                input: input.input ?? {},
-                logicalDate: input.logicalDate
-            }),
-            input.correlationId
-        );
-        if (!payloadResult.ok) {
-            return payloadResult;
-        }
-        const dagRunId = payloadResult.value.data?.dagRunId;
-        if (typeof dagRunId === 'string' && dagRunId.length > 0) {
-            return {
-                ok: true,
-                value: { dagRunId }
-            };
-        }
-        return {
-            ok: false,
-            error: [createContractViolationProblem(200, path)]
-        };
-    }
-
-    public async startRunExecution(
-        input: IStartRunExecutionInput
-    ): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
-        const path = `/v1/dag/dev/runs/${input.dagRunId}/start`;
-        const payloadResult = await this.requestPayload(
-            path,
-            'POST',
-            JSON.stringify({}),
-            input.correlationId
-        );
-        if (!payloadResult.ok) {
-            return payloadResult;
-        }
-        const dagRunId = payloadResult.value.data?.dagRunId;
-        if (typeof dagRunId === 'string' && dagRunId.length > 0) {
-            return {
-                ok: true,
-                value: { dagRunId }
             };
         }
         return {

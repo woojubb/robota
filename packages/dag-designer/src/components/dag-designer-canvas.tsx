@@ -30,7 +30,6 @@ import {
 import {
     EXECUTION_PROGRESS_EVENTS,
     TASK_PROGRESS_EVENTS,
-    buildValidationError,
     type IDagDefinition,
     type IDagEdgeDefinition,
     type IDagError,
@@ -212,7 +211,9 @@ function toNode(
             outputs: nodeDefinition.outputs,
             executionStatus
         } satisfies IDagNodeViewData,
-        position: positionOverride ?? { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 }
+        position: positionOverride
+            ?? nodeDefinition.position
+            ?? { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 }
     };
 }
 
@@ -295,6 +296,7 @@ function createNodeFromManifest(manifest: INodeManifest, index: number): IDagNod
     return {
         nodeId: `${manifest.nodeType}_${index + 1}`,
         nodeType: manifest.nodeType,
+        position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 },
         dependsOn: [],
         config: {},
         inputs: manifest.inputs,
@@ -644,7 +646,6 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
     );
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-    const [isPreviewRunning, setIsPreviewRunning] = useState<boolean>(false);
 
     useEffect(() => {
         setNodes((currentNodes) => {
@@ -683,6 +684,38 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
     const onEdgeClick: EdgeMouseHandler = (_event, edge): void => {
         context.setSelectedEdgeId(edge.id);
         context.setSelectedNodeId(undefined);
+    };
+    const onNodeDragStop: NodeMouseHandler = (_event, node): void => {
+        const originalNode = context.definition.nodes.find((definitionNode) => definitionNode.nodeId === node.id);
+        if (!originalNode) {
+            return;
+        }
+        const currentPosition = originalNode.position;
+        const hasChanged = (
+            !currentPosition
+            || currentPosition.x !== node.position.x
+            || currentPosition.y !== node.position.y
+        );
+        if (!hasChanged) {
+            return;
+        }
+        const nextNodes = context.definition.nodes.map((definitionNode) => (
+            definitionNode.nodeId === node.id
+                ? {
+                    ...definitionNode,
+                    position: {
+                        x: node.position.x,
+                        y: node.position.y
+                    }
+                }
+                : definitionNode
+        ));
+        context.onDefinitionChange({
+            ...context.definition,
+            nodes: nextNodes
+        });
+        context.setPreviewResult(undefined);
+        context.resetRunProgress();
     };
 
     const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -797,50 +830,8 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         }
     }, [edges]);
 
-    const canRunPreview = context.bindingErrors.length === 0;
-
-    const runPreview = async (): Promise<void> => {
-        if (!canRunPreview || isPreviewRunning) {
-            return;
-        }
-        context.resetRunProgress();
-        setIsPreviewRunning(true);
-        try {
-            const previewResult = context.onRunPreview
-                ? await context.onRunPreview({
-                    definition: context.definition,
-                    input: context.initialInput ?? {}
-                }, {
-                    onRunStarted: context.setActiveDagRunId,
-                    onRunProgressEvent: context.applyRunProgressEvent
-                })
-                : {
-                    ok: false as const,
-                    error: buildValidationError(
-                        'DAG_VALIDATION_PREVIEW_RUNNER_NOT_CONFIGURED',
-                        'Preview runner is not configured.'
-                    )
-                };
-            context.setPreviewResult(previewResult.ok ? previewResult.value : undefined);
-            context.onPreviewResult?.(previewResult);
-        } finally {
-            setIsPreviewRunning(false);
-        }
-    };
-
     return (
         <div className={`flex min-h-[420px] flex-col overflow-hidden rounded border border-gray-300 ${props.className ?? ''}`}>
-            <div className="relative z-10 flex shrink-0 items-center justify-between border-b border-gray-300 bg-white px-3 py-2">
-                <h2 className="text-sm font-semibold">DAG Canvas</h2>
-                <button
-                    type="button"
-                    className="rounded border border-gray-300 px-3 py-1 text-xs hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    onClick={runPreview}
-                    disabled={!canRunPreview || isPreviewRunning}
-                >
-                    {isPreviewRunning ? 'Running Preview...' : 'Run Preview'}
-                </button>
-            </div>
             {context.bindingErrors.length > 0 ? (
                 <div className="relative z-10 shrink-0 border-b border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
                     <div className="font-medium">Blocking Binding Errors</div>
@@ -875,10 +866,10 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                     onConnect={onConnect}
                     onNodeClick={onNodeClick}
                     onEdgeClick={onEdgeClick}
+                    onNodeDragStop={onNodeDragStop}
                     panOnDrag={false}
                     panOnScroll
                     connectionLineType={ConnectionLineType.Bezier}
-                    connectionLineStyle={{ stroke: '#2563eb', strokeWidth: 2 }}
                     fitView
                     fitViewOptions={{ padding: 0.35, maxZoom: 0.8 }}
                 >

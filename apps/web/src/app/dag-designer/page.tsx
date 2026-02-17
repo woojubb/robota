@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useDagDesignApi, type IDefinitionListItem } from "@robota-sdk/dag-designer";
 import type { IDagDefinition } from "@robota-sdk/dag-core";
-import { buildDagTemplate, DEFAULT_DAG_TEMPLATE_KEY } from "./templates";
+import {
+  buildDagTemplate,
+  DEFAULT_DAG_TEMPLATE_KEY,
+  listDagTemplatePresets,
+  type TDagTemplateKey,
+} from "./templates";
 
 function buildAutoDagId(): string {
   return `dag-${Date.now()}`;
@@ -19,6 +24,8 @@ export default function DagDesignerListPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<TDagTemplateKey>(DEFAULT_DAG_TEMPLATE_KEY);
+  const templateMetadataList = listDagTemplatePresets();
   const sortedItems = useMemo(
     () => [...items]
       .filter((item) => !item.dagId.startsWith("preview-copy:"))
@@ -49,7 +56,7 @@ export default function DagDesignerListPage() {
     }
     setIsCreating(true);
     const dagId = buildAutoDagId();
-    const definition: IDagDefinition = buildDagTemplate(DEFAULT_DAG_TEMPLATE_KEY, { dagId, version: 1 });
+    const definition: IDagDefinition = buildDagTemplate(selectedTemplateId, { dagId, version: 1 });
     const created = await designApi.createDraft({
       definition,
       correlationId: "web-dag-list-create",
@@ -68,6 +75,21 @@ export default function DagDesignerListPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-gray-800">DAG List</h1>
           <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <span>Template</span>
+              <select
+                className="rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+                value={selectedTemplateId}
+                onChange={(event) => setSelectedTemplateId(event.target.value as TDagTemplateKey)}
+                disabled={isCreating}
+              >
+                {templateMetadataList.map((template) => (
+                  <option key={template.templateId} value={template.templateId}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
               className="rounded border border-gray-300 bg-white px-3 py-2 text-xs hover:bg-gray-50"
