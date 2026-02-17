@@ -567,18 +567,41 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             });
             return;
         }
-        const started = await dagPreviewService.startRun(definition, input ?? {});
-        if (!started.ok) {
+        const created = await dagPreviewService.createRun(definition, input ?? {});
+        if (!created.ok) {
             res.status(400).json({
                 ok: false,
                 status: 400,
-                errors: [toProblemDetails(started.error, previewInstance)]
+                errors: [toProblemDetails(created.error, previewInstance)]
             });
             return;
         }
         res.status(201).json({
             ok: true,
             status: 201,
+            data: {
+                dagRunId: created.value.dagRunId
+            }
+        });
+    });
+
+    app.post('/v1/dag/dev/preview/runs/:dagRunId/start', async (
+        req: Request<IPreviewRunParams>,
+        res: Response
+    ) => {
+        const instance = `/v1/dag/dev/preview/runs/${req.params.dagRunId}/start`;
+        const started = await dagPreviewService.startRunById(req.params.dagRunId);
+        if (!started.ok) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [toProblemDetails(started.error, instance)]
+            });
+            return;
+        }
+        res.status(202).json({
+            ok: true,
+            status: 202,
             data: {
                 dagRunId: started.value.dagRunId
             }
@@ -960,15 +983,49 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             return;
         }
 
-        const triggered = await controllers.runtime.triggerRun({
+        const created = await execution.runOrchestrator.createRun({
             dagId: req.body.dagId,
             version: req.body.version,
             trigger: 'manual',
             logicalDate: req.body.logicalDate,
-            input: req.body.input ?? {},
-            correlationId: 'dag-dev-trigger'
+            input: req.body.input ?? {}
         });
-        res.status(triggered.status).json(triggered);
+        if (!created.ok) {
+            const problem = toProblemDetails(created.error, '/v1/dag/dev/runs');
+            res.status(problem.status).json({
+                ok: false,
+                status: problem.status,
+                errors: [problem]
+            });
+            return;
+        }
+        res.status(201).json({
+            ok: true,
+            status: 201,
+            data: {
+                dagRunId: created.value.dagRunId
+            }
+        });
+    });
+
+    app.post('/v1/dag/dev/runs/:dagRunId/start', async (req: Request<{ dagRunId: string }>, res: Response) => {
+        const started = await execution.runOrchestrator.startCreatedRun(req.params.dagRunId);
+        if (!started.ok) {
+            const problem = toProblemDetails(started.error, `/v1/dag/dev/runs/${req.params.dagRunId}/start`);
+            res.status(problem.status).json({
+                ok: false,
+                status: problem.status,
+                errors: [problem]
+            });
+            return;
+        }
+        res.status(202).json({
+            ok: true,
+            status: 202,
+            data: {
+                dagRunId: started.value.dagRunId
+            }
+        });
     });
 
     app.get('/v1/dag/dev/runs/:dagRunId/events', async (req: Request<{ dagRunId: string }>, res: Response) => {

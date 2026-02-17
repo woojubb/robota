@@ -154,6 +154,7 @@ export interface IDagRun {
     version: number;
     status: TDagRunStatus;
     definitionSnapshot?: string;
+    inputSnapshot?: string;
     runKey: string;
     logicalDate: string;
     trigger: TDagTriggerType;

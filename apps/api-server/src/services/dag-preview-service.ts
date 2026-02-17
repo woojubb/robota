@@ -46,7 +46,7 @@ export class DagPreviewService {
         this.definitionService = new DagDefinitionService(options.storage);
     }
 
-    public async startRun(
+    public async createRun(
         definition: IDagDefinition,
         input: TPortPayload
     ): Promise<TResult<{ dagRunId: string }, IDagError>> {
@@ -66,24 +66,38 @@ export class DagPreviewService {
             };
         }
 
-        const started = await this.execution.runOrchestrator.startRun({
+        const createdRun = await this.execution.runOrchestrator.createRun({
             dagId: copiedDefinition.dagId,
             version: copiedDefinition.version,
             trigger: 'manual',
             input
         });
+        if (!createdRun.ok) {
+            return {
+                ok: false,
+                error: createdRun.error
+            };
+        }
+        return {
+            ok: true,
+            value: {
+                dagRunId: createdRun.value.dagRunId
+            }
+        };
+    }
+
+    public async startRunById(dagRunId: string): Promise<TResult<{ dagRunId: string }, IDagError>> {
+        const started = await this.execution.runOrchestrator.startCreatedRun(dagRunId);
         if (!started.ok) {
             return {
                 ok: false,
                 error: started.error
             };
         }
-        void this.processRunUntilTerminal(started.value.dagRunId);
+        void this.processRunUntilTerminal(dagRunId);
         return {
             ok: true,
-            value: {
-                dagRunId: started.value.dagRunId
-            }
+            value: { dagRunId }
         };
     }
 

@@ -78,11 +78,21 @@ export interface IGetPreviewRunResultInput {
     correlationId?: string;
 }
 
+export interface IStartPreviewRunExecutionInput {
+    dagRunId: string;
+    correlationId?: string;
+}
+
 export interface ITriggerRunInput {
     dagId: string;
     version?: number;
     input?: TPortPayload;
     logicalDate?: string;
+    correlationId?: string;
+}
+
+export interface IStartRunExecutionInput {
+    dagRunId: string;
     correlationId?: string;
 }
 
@@ -101,8 +111,10 @@ export interface IDesignerApiClient {
     listDefinitions(input?: IListDefinitionsInput): Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>>;
     startPreviewRun(input: IStartPreviewRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    startPreviewRunExecution(input: IStartPreviewRunExecutionInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
     getPreviewRunResult(input: IGetPreviewRunResultInput): Promise<TResult<IPreviewResult, IProblemDetails[]>>;
     triggerRun(input: ITriggerRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    startRunExecution(input: IStartRunExecutionInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
     subscribeRunProgress: (input: {
         dagRunId: string;
         onEvent: (event: TRunProgressEvent) => void;

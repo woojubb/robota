@@ -57,6 +57,10 @@ export interface IUseDagDesignApi {
         input?: TPortPayload;
         correlationId?: string;
     }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    startPreviewRunExecution: (input: {
+        dagRunId: string;
+        correlationId?: string;
+    }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
     getPreviewRunResult: (input: {
         dagRunId: string;
         correlationId?: string;
@@ -66,6 +70,10 @@ export interface IUseDagDesignApi {
         version?: number;
         input?: TPortPayload;
         logicalDate?: string;
+        correlationId?: string;
+    }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    startRunExecution: (input: {
+        dagRunId: string;
         correlationId?: string;
     }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
     subscribeRunProgress: (input: {
@@ -122,6 +130,10 @@ export function useDagDesignApi(options: IUseDagDesignApiOptions): IUseDagDesign
             input: input.input,
             correlationId: input.correlationId
         }),
+        startPreviewRunExecution: async (input) => client.startPreviewRunExecution({
+            dagRunId: input.dagRunId,
+            correlationId: input.correlationId
+        }),
         getPreviewRunResult: async (input) => client.getPreviewRunResult({
             dagRunId: input.dagRunId,
             correlationId: input.correlationId
@@ -131,6 +143,10 @@ export function useDagDesignApi(options: IUseDagDesignApiOptions): IUseDagDesign
             version: input.version,
             input: input.input,
             logicalDate: input.logicalDate,
+            correlationId: input.correlationId
+        }),
+        startRunExecution: async (input) => client.startRunExecution({
+            dagRunId: input.dagRunId,
             correlationId: input.correlationId
         }),
         subscribeRunProgress: (input) => client.subscribeRunProgress(input)

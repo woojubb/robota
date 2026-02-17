@@ -11,6 +11,8 @@ import type {
     IProblemDetails,
     IPublishDefinitionInput,
     IStartPreviewRunInput,
+    IStartPreviewRunExecutionInput,
+    IStartRunExecutionInput,
     ITriggerRunInput,
     IUpdateDraftInput,
     IValidateDefinitionInput
@@ -222,6 +224,32 @@ export class DesignerApiClient implements IDesignerApiClient {
         };
     }
 
+    public async startPreviewRunExecution(
+        input: IStartPreviewRunExecutionInput
+    ): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
+        const path = `/v1/dag/dev/preview/runs/${input.dagRunId}/start`;
+        const payloadResult = await this.requestPayload(
+            path,
+            'POST',
+            JSON.stringify({}),
+            input.correlationId
+        );
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const dagRunId = payloadResult.value.data?.dagRunId;
+        if (typeof dagRunId === 'string' && dagRunId.length > 0) {
+            return {
+                ok: true,
+                value: { dagRunId }
+            };
+        }
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
     public async getPreviewRunResult(input: IGetPreviewRunResultInput): Promise<TResult<IPreviewResult, IProblemDetails[]>> {
         const path = `/v1/dag/dev/preview/runs/${input.dagRunId}/result`;
         const payloadResult = await this.requestPayload(
@@ -257,6 +285,32 @@ export class DesignerApiClient implements IDesignerApiClient {
                 input: input.input ?? {},
                 logicalDate: input.logicalDate
             }),
+            input.correlationId
+        );
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const dagRunId = payloadResult.value.data?.dagRunId;
+        if (typeof dagRunId === 'string' && dagRunId.length > 0) {
+            return {
+                ok: true,
+                value: { dagRunId }
+            };
+        }
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public async startRunExecution(
+        input: IStartRunExecutionInput
+    ): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
+        const path = `/v1/dag/dev/runs/${input.dagRunId}/start`;
+        const payloadResult = await this.requestPayload(
+            path,
+            'POST',
+            JSON.stringify({}),
             input.correlationId
         );
         if (!payloadResult.ok) {
