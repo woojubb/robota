@@ -26,6 +26,7 @@ export default function DagDesignerListPage() {
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<TDagTemplateKey>(DEFAULT_DAG_TEMPLATE_KEY);
   const templateMetadataList = listDagTemplatePresets();
+  const selectedTemplate = templateMetadataList.find((template) => template.templateId === selectedTemplateId);
   const sortedItems = useMemo(
     () => [...items]
       .filter((item) => !item.dagId.startsWith("run-copy:"))
@@ -112,6 +113,12 @@ export default function DagDesignerListPage() {
             </button>
           </div>
         </div>
+        {selectedTemplate ? (
+          <div className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+            <span className="font-semibold text-gray-800">{selectedTemplate.name}</span>
+            <span className="ml-2">{selectedTemplate.description}</span>
+          </div>
+        ) : null}
 
         {errorMessage.length > 0 ? (
           <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{errorMessage}</div>

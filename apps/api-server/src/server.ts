@@ -1,10 +1,13 @@
 import dotenv from 'dotenv';
+import path from 'node:path';
 import { createApp, setPlaygroundWebSocketServer } from './app';
 import { PlaygroundWebSocketServer } from './websocket-server';
 import { createServer } from 'http';
 
 // Load environment variables
-dotenv.config();
+dotenv.config({
+    path: path.resolve(process.cwd(), '.env')
+});
 
 /**
  * Standalone server entry point

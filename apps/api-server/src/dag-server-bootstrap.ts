@@ -95,6 +95,14 @@ function resolveDefaultWorkerTimeoutMs(): number {
     return parsed;
 }
 
+function resolveRequestBodyLimit(): string {
+    const raw = process.env.DAG_REQUEST_BODY_LIMIT;
+    if (typeof raw === 'undefined' || raw.trim().length === 0) {
+        return '15mb';
+    }
+    return raw.trim();
+}
+
 function toRunProblemDetails(
     error: IAssetValidationError,
     instance: string
@@ -108,7 +116,7 @@ function toRunProblemDetails(
     retryable: boolean;
 } {
     return {
-        type: 'https://robota.dev/problems/dag/validation',
+        type: 'urn:robota:problems:dag:validation',
         title: 'DAG validation failed',
         status: 400,
         detail: error.detail,
@@ -313,7 +321,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Correlation-Id']
     }));
-    app.use(express.json({ limit: '2mb' }));
+    app.use(express.json({ limit: resolveRequestBodyLimit() }));
 
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();

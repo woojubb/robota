@@ -1,0 +1,138 @@
+{
+  "metadata": {
+    "templateId": "gemini-image-edit",
+    "name": "Gemini Image Edit Flow",
+    "description": "Create an image edit DAG with input -> image-loader -> gemini-image-edit. Upload an image first, then set input_1.text to that assetId."
+  },
+  "definition": {
+    "dagId": "dag-template-gemini-image-edit",
+    "version": 1,
+    "status": "draft",
+    "nodes": [
+      {
+        "nodeId": "input_1",
+        "nodeType": "input",
+        "dependsOn": [],
+        "inputs": [],
+        "outputs": [
+          {
+            "key": "text",
+            "label": "Text",
+            "order": 0,
+            "type": "string",
+            "required": true
+          }
+        ],
+        "config": {
+          "text": "REPLACE_WITH_ASSET_ID"
+        }
+      },
+      {
+        "nodeId": "image_loader_1",
+        "nodeType": "image-loader",
+        "dependsOn": [
+          "input_1"
+        ],
+        "inputs": [
+          {
+            "key": "assetId",
+            "label": "Asset ID",
+            "order": 0,
+            "type": "string",
+            "required": false
+          },
+          {
+            "key": "uri",
+            "label": "Source URI",
+            "order": 1,
+            "type": "string",
+            "required": false
+          }
+        ],
+        "outputs": [
+          {
+            "key": "image",
+            "label": "Image",
+            "order": 0,
+            "type": "binary",
+            "required": true,
+            "binaryKind": "image",
+            "mimeTypes": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ]
+          }
+        ],
+        "config": {}
+      },
+      {
+        "nodeId": "gemini_image_edit_1",
+        "nodeType": "gemini-image-edit",
+        "dependsOn": [
+          "image_loader_1"
+        ],
+        "inputs": [
+          {
+            "key": "image",
+            "label": "Image",
+            "order": 0,
+            "type": "binary",
+            "required": true,
+            "binaryKind": "image",
+            "mimeTypes": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "key": "image",
+            "label": "Image",
+            "order": 0,
+            "type": "binary",
+            "required": true,
+            "binaryKind": "image",
+            "mimeTypes": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ]
+          }
+        ],
+        "config": {
+          "prompt": "Convert this image into clean manga ink style."
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "input_1",
+        "to": "image_loader_1",
+        "bindings": [
+          {
+            "outputKey": "text",
+            "inputKey": "assetId"
+          }
+        ]
+      },
+      {
+        "from": "image_loader_1",
+        "to": "gemini_image_edit_1",
+        "bindings": [
+          {
+            "outputKey": "image",
+            "inputKey": "image"
+          }
+        ]
+      }
+    ],
+    "costPolicy": {
+      "runCostLimitUsd": 0.2,
+      "costCurrency": "USD",
+      "costPolicyVersion": 1
+    }
+  }
+}
