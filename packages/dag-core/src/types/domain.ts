@@ -116,6 +116,7 @@ export interface ICostPolicy {
 export interface IDagNode {
     nodeId: string;
     nodeType: string;
+    position?: { x: number; y: number };
     dependsOn: string[];
     triggerPolicy?: string;
     retryPolicy?: string;
