@@ -109,6 +109,7 @@ export interface IDagDesignerContextValue {
     addNodeFromManifest: (manifest: INodeManifest) => void;
     updateNode: (nextNode: IDagNode) => void;
     updateEdge: (nextEdge: IDagEdgeDefinition) => void;
+    removeNodeById: (nodeId: string) => void;
     removeEdgeById: (edgeId: string) => void;
 }
 
@@ -536,6 +537,25 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         });
     }, [props.definition, props.onDefinitionChange, resetRunProgress]);
 
+    const removeNodeById = useCallback((nodeId: string): void => {
+        const nextNodes = props.definition.nodes.filter((node) => node.nodeId !== nodeId);
+        if (nextNodes.length === props.definition.nodes.length) {
+            return;
+        }
+        const nextEdges = props.definition.edges.filter((edge) => edge.from !== nodeId && edge.to !== nodeId);
+        const reconciledNodes = recomputeNodeDependencies(nextNodes, nextEdges);
+        setBindingCleanupMessage(undefined);
+        setPreviewResult(undefined);
+        resetRunProgress();
+        setSelectedNodeId(undefined);
+        setSelectedEdgeId(undefined);
+        props.onDefinitionChange({
+            ...props.definition,
+            nodes: reconciledNodes,
+            edges: nextEdges
+        });
+    }, [props.definition, props.onDefinitionChange, resetRunProgress]);
+
     const contextValue = useMemo<IDagDesignerContextValue>(() => ({
         definition: props.definition,
         manifests: props.manifests,
@@ -561,6 +581,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         addNodeFromManifest,
         updateNode,
         updateEdge,
+        removeNodeById,
         removeEdgeById
     }), [
         props.definition,
@@ -583,6 +604,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         addNodeFromManifest,
         updateNode,
         updateEdge,
+        removeNodeById,
         removeEdgeById
     ]);
 
@@ -677,20 +699,26 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             if (event.key !== 'Delete' && event.key !== 'Backspace') {
                 return;
             }
-            if (!context.selectedEdgeId) {
-                return;
-            }
             if (isEditableTarget(event.target)) {
                 return;
             }
+            if (!context.selectedEdgeId && !context.selectedNodeId) {
+                return;
+            }
             event.preventDefault();
-            context.removeEdgeById(context.selectedEdgeId);
+            if (context.selectedEdgeId) {
+                context.removeEdgeById(context.selectedEdgeId);
+                return;
+            }
+            if (context.selectedNodeId) {
+                context.removeNodeById(context.selectedNodeId);
+            }
         };
         window.addEventListener('keydown', onKeyDown);
         return () => {
             window.removeEventListener('keydown', onKeyDown);
         };
-    }, [context.removeEdgeById, context.selectedEdgeId]);
+    }, [context.removeEdgeById, context.removeNodeById, context.selectedEdgeId, context.selectedNodeId]);
 
     const onConnect = (connection: Connection): void => {
         if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) {
