@@ -14,7 +14,10 @@ import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
 import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
 import { TextOutputNodeDefinition } from '@robota-sdk/dag-node-text-output';
 import { TextTemplateNodeDefinition } from '@robota-sdk/dag-node-text-template';
-import { GeminiImageEditNodeDefinition } from '@robota-sdk/dag-node-gemini-image-edit';
+import {
+    GeminiImageComposeNodeDefinition,
+    GeminiImageEditNodeDefinition
+} from '@robota-sdk/dag-node-gemini-image-edit';
 import { BundledNodeCatalogService } from './services/bundled-node-catalog-service.js';
 import { createRobotaLlmCompletionClientFromEnv } from './services/robota-llm-completion-client.js';
 import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
@@ -46,6 +49,9 @@ async function bootstrapDagDevServer(): Promise<void> {
         new ImageLoaderNodeDefinition(),
         new ImageSourceNodeDefinition(),
         new GeminiImageEditNodeDefinition({
+            imageClient: geminiImageClient
+        }),
+        new GeminiImageComposeNodeDefinition({
             imageClient: geminiImageClient
         }),
         new OkEmitterNodeDefinition()

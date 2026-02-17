@@ -198,8 +198,17 @@ function toNode(
     nodeDefinition: IDagNode,
     index: number,
     executionStatus: TNodeExecutionStatus,
+    latestTrace?: IRunResult['traces'][number],
+    assetBaseUrl?: string,
     positionOverride?: XYPosition
 ): TDagCanvasNode {
+    const traceSignature = latestTrace
+        ? JSON.stringify({
+            nodeId: latestTrace.nodeId,
+            input: latestTrace.input,
+            output: latestTrace.output
+        })
+        : undefined;
     return {
         id: nodeDefinition.nodeId,
         type: 'dag-node',
@@ -209,7 +218,10 @@ function toNode(
             nodeType: nodeDefinition.nodeType,
             inputs: nodeDefinition.inputs,
             outputs: nodeDefinition.outputs,
-            executionStatus
+            executionStatus,
+            latestTrace,
+            assetBaseUrl,
+            traceSignature
         } satisfies IDagNodeViewData,
         position: positionOverride
             ?? nodeDefinition.position
@@ -269,11 +281,14 @@ function hasSameCanvasNodeState(currentNodes: Node[], nextNodes: Node[]): boolea
         const nextNode = nextNodes[index];
         const currentExecutionStatus = (currentNode.data as { executionStatus?: TNodeExecutionStatus } | undefined)?.executionStatus ?? 'idle';
         const nextExecutionStatus = (nextNode.data as { executionStatus?: TNodeExecutionStatus } | undefined)?.executionStatus ?? 'idle';
+        const currentTraceSignature = (currentNode.data as { traceSignature?: string } | undefined)?.traceSignature;
+        const nextTraceSignature = (nextNode.data as { traceSignature?: string } | undefined)?.traceSignature;
         return (
             currentNode.id === nextNode.id &&
             currentNode.position.x === nextNode.position.x &&
             currentNode.position.y === nextNode.position.y &&
-            currentExecutionStatus === nextExecutionStatus
+            currentExecutionStatus === nextExecutionStatus &&
+            currentTraceSignature === nextTraceSignature
         );
     });
 }
@@ -496,7 +511,6 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const addNodeFromManifest = useCallback((manifest: INodeManifest): void => {
         const nextNode = createNodeFromManifest(manifest, props.definition.nodes.length);
         setBindingCleanupMessage(undefined);
-        setRunResult(undefined);
         resetRunProgress();
         props.onDefinitionChange({
             ...props.definition,
@@ -507,14 +521,12 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const updateNode = useCallback((nextNode: IDagNode): void => {
         const reconciled = reconcileNodePortsAndEdges(props.definition, nextNode);
         setBindingCleanupMessage(summarizeRemovedBindings(reconciled.removedBindings));
-        setRunResult(undefined);
         resetRunProgress();
         props.onDefinitionChange(reconciled.nextDefinition);
     }, [props.definition, props.onDefinitionChange, resetRunProgress]);
 
     const updateEdge = useCallback((nextEdge: IDagEdgeDefinition): void => {
         setBindingCleanupMessage(undefined);
-        setRunResult(undefined);
         resetRunProgress();
         props.onDefinitionChange({
             ...props.definition,
@@ -530,7 +542,6 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
             return;
         }
         setBindingCleanupMessage(undefined);
-        setRunResult(undefined);
         resetRunProgress();
         setSelectedEdgeId(undefined);
         const nextNodes = recomputeNodeDependencies(props.definition.nodes, nextEdges);
@@ -549,7 +560,6 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         const nextEdges = props.definition.edges.filter((edge) => edge.from !== nodeId && edge.to !== nodeId);
         const reconciledNodes = recomputeNodeDependencies(nextNodes, nextEdges);
         setBindingCleanupMessage(undefined);
-        setRunResult(undefined);
         resetRunProgress();
         setSelectedNodeId(undefined);
         setSelectedEdgeId(undefined);
@@ -632,13 +642,27 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         context.setSelectedNodeId(undefined);
     }, [context.setSelectedEdgeId, context.setSelectedNodeId]);
 
+    const latestTraceByNodeId = useMemo(() => {
+        const map = new Map<string, IRunResult['traces'][number]>();
+        const traces = context.runResult?.traces ?? [];
+        for (let index = traces.length - 1; index >= 0; index -= 1) {
+            const trace = traces[index];
+            if (!map.has(trace.nodeId)) {
+                map.set(trace.nodeId, trace);
+            }
+        }
+        return map;
+    }, [context.runResult]);
+
     const initialNodes = useMemo(
         () => context.definition.nodes.map((node, index) => toNode(
             node,
             index,
-            context.runProgress.nodeStatusByNodeId[node.nodeId] ?? 'idle'
+            context.runProgress.nodeStatusByNodeId[node.nodeId] ?? 'idle',
+            latestTraceByNodeId.get(node.nodeId),
+            context.assetUploadBaseUrl
         )),
-        [context.definition.nodes, context.runProgress.nodeStatusByNodeId]
+        [context.assetUploadBaseUrl, context.definition.nodes, context.runProgress.nodeStatusByNodeId, latestTraceByNodeId]
     );
     const initialEdges = useMemo(
         () => context.definition.edges.map((edge) => toEdge(edge, selectEdgeById)),
@@ -657,6 +681,8 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                     node,
                     index,
                     context.runProgress.nodeStatusByNodeId[node.nodeId] ?? 'idle',
+                    latestTraceByNodeId.get(node.nodeId),
+                    context.assetUploadBaseUrl,
                     positionByNodeId.get(node.nodeId)
                 )
             ));
@@ -665,7 +691,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             }
             return mappedNodes;
         });
-    }, [context.definition.nodes, context.runProgress.nodeStatusByNodeId, setNodes]);
+    }, [context.assetUploadBaseUrl, context.definition.nodes, context.runProgress.nodeStatusByNodeId, latestTraceByNodeId, setNodes]);
 
     useEffect(() => {
         const mappedEdges = context.definition.edges.map((edge) => toEdge(edge, selectEdgeById));
@@ -714,7 +740,6 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             ...context.definition,
             nodes: nextNodes
         });
-        context.setRunResult(undefined);
         context.resetRunProgress();
     };
 
@@ -820,7 +845,6 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 }
             ]
         });
-        context.setRunResult(undefined);
         context.resetRunProgress();
     };
 

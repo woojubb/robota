@@ -9,6 +9,7 @@ export * from './hooks/use-dag-design-api.js';
 export * from './components/dag-designer-canvas.js';
 export * from './components/dag-binding-edge.js';
 export * from './components/dag-node-view.js';
+export * from './components/node-io-viewer.js';
 export * from './components/node-explorer-panel.js';
 export * from './components/node-config-panel.js';
 export * from './components/edge-inspector-panel.js';
