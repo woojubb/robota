@@ -161,7 +161,7 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
             </div>
             {operationError ? (
                 <div className="rounded border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700">
-                    {operationError}
+                    Edit validation error: {operationError}
                 </div>
             ) : null}
             <button

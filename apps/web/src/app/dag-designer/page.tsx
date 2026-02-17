@@ -28,7 +28,7 @@ export default function DagDesignerListPage() {
   const templateMetadataList = listDagTemplatePresets();
   const sortedItems = useMemo(
     () => [...items]
-      .filter((item) => !item.dagId.startsWith("preview-copy:"))
+      .filter((item) => !item.dagId.startsWith("run-copy:"))
       .sort((left, right) => left.dagId.localeCompare(right.dagId)),
     [items]
   );

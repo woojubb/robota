@@ -3,7 +3,7 @@
 
 export * from './contracts/designer-api.js';
 export * from './client/designer-api-client.js';
-export * from './lifecycle/preview-engine.js';
+export * from './lifecycle/run-engine.js';
 export * from './hooks/use-dag-designer-state.js';
 export * from './hooks/use-dag-design-api.js';
 export * from './components/dag-designer-canvas.js';

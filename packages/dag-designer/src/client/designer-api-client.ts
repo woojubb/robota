@@ -1,17 +1,17 @@
 import type { IDagDefinition, INodeManifest, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
 import type {
+    ICreateRunInput,
     ICreateDefinitionInput,
     IDefinitionListItem,
-    IGetPreviewRunResultInput,
-    IPreviewResult,
+    IGetRunResultInput,
+    IRunResult,
     IDesignerApiClient,
     IDesignerApiClientConfig,
     IGetDefinitionInput,
     IListDefinitionsInput,
     IProblemDetails,
     IPublishDefinitionInput,
-    IStartPreviewRunInput,
-    IStartPreviewRunExecutionInput,
+    IStartRunInput,
     IUpdateDraftInput,
     IValidateDefinitionInput
 } from '../contracts/designer-api.js';
@@ -23,7 +23,7 @@ interface ILooseDesignerPayload {
         items?: IDefinitionListItem[];
         nodes?: INodeManifest[];
         dagRunId?: string;
-        preview?: IPreviewResult;
+        run?: IRunResult;
     };
     errors?: IProblemDetails[];
 }
@@ -78,15 +78,15 @@ function hasValidNodeManifests(nodes: INodeManifest[]): boolean {
     );
 }
 
-function hasValidPreviewResult(preview: IPreviewResult): boolean {
+function hasValidRunResult(run: IRunResult): boolean {
     if (
-        typeof preview.dagRunId !== 'string'
-        || !Array.isArray(preview.traces)
-        || typeof preview.totalCostUsd !== 'number'
+        typeof run.dagRunId !== 'string'
+        || !Array.isArray(run.traces)
+        || typeof run.totalCostUsd !== 'number'
     ) {
         return false;
     }
-    return preview.traces.every((trace) =>
+    return run.traces.every((trace) =>
         typeof trace.nodeId === 'string' &&
         typeof trace.nodeType === 'string' &&
         typeof trace.input === 'object' && trace.input !== null &&
@@ -195,8 +195,8 @@ export class DesignerApiClient implements IDesignerApiClient {
         };
     }
 
-    public async startPreviewRun(input: IStartPreviewRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
-        const path = '/v1/dag/dev/preview/runs';
+    public async createRun(input: ICreateRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
+        const path = '/v1/dag/runs';
         const payloadResult = await this.requestPayload(
             path,
             'POST',
@@ -222,10 +222,10 @@ export class DesignerApiClient implements IDesignerApiClient {
         };
     }
 
-    public async startPreviewRunExecution(
-        input: IStartPreviewRunExecutionInput
+    public async startRun(
+        input: IStartRunInput
     ): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
-        const path = `/v1/dag/dev/preview/runs/${input.dagRunId}/start`;
+        const path = `/v1/dag/runs/${input.dagRunId}/start`;
         const payloadResult = await this.requestPayload(
             path,
             'POST',
@@ -248,8 +248,8 @@ export class DesignerApiClient implements IDesignerApiClient {
         };
     }
 
-    public async getPreviewRunResult(input: IGetPreviewRunResultInput): Promise<TResult<IPreviewResult, IProblemDetails[]>> {
-        const path = `/v1/dag/dev/preview/runs/${input.dagRunId}/result`;
+    public async getRunResult(input: IGetRunResultInput): Promise<TResult<IRunResult, IProblemDetails[]>> {
+        const path = `/v1/dag/runs/${input.dagRunId}/result`;
         const payloadResult = await this.requestPayload(
             path,
             'GET',
@@ -259,11 +259,11 @@ export class DesignerApiClient implements IDesignerApiClient {
         if (!payloadResult.ok) {
             return payloadResult;
         }
-        const preview = payloadResult.value.data?.preview;
-        if (preview && hasValidPreviewResult(preview)) {
+        const run = payloadResult.value.data?.run;
+        if (run && hasValidRunResult(run)) {
             return {
                 ok: true,
-                value: preview
+                value: run
             };
         }
         return {
@@ -283,7 +283,7 @@ export class DesignerApiClient implements IDesignerApiClient {
                 return;
             };
         }
-        const path = `/v1/dag/dev/runs/${encodeURIComponent(input.dagRunId)}/events`;
+        const path = `/v1/dag/runs/${encodeURIComponent(input.dagRunId)}/events`;
         const eventSource = new EventSource(`${this.baseUrl}${path}`);
         eventSource.onmessage = (event) => {
             try {

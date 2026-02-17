@@ -8,14 +8,14 @@ import type {
     TPortPayload,
     TResult
 } from '@robota-sdk/dag-core';
-import type { IPreviewResult } from '../contracts/designer-api.js';
+import type { IRunResult } from '../contracts/designer-api.js';
 import type { IRunProgressState } from '../components/dag-designer-canvas.js';
 import { useDagDesignerContext } from '../components/dag-designer-canvas.js';
 
 export interface IDagDesignerState {
     definition: IDagDefinition;
     manifests: INodeManifest[];
-    previewResult?: IPreviewResult;
+    runResult?: IRunResult;
     initialInput?: TPortPayload;
     selectedNodeId?: string;
     selectedEdgeId?: string;
@@ -31,7 +31,7 @@ export interface IDagDesignerActions {
     updateEdge: (edge: IDagEdgeDefinition) => void;
     setSelection: (selection: { nodeId?: string; edgeId?: string }) => void;
     setConnectError: (error: string | undefined) => void;
-    onPreviewResult?: (result: TResult<IPreviewResult, IDagError>) => void;
+    onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
 }
 
 export function useDagDesignerState(): IDagDesignerState {
@@ -39,7 +39,7 @@ export function useDagDesignerState(): IDagDesignerState {
     return useMemo(() => ({
         definition: context.definition,
         manifests: context.manifests,
-        previewResult: context.previewResult,
+        runResult: context.runResult,
         initialInput: context.initialInput,
         selectedNodeId: context.selectedNodeId,
         selectedEdgeId: context.selectedEdgeId,
@@ -52,7 +52,7 @@ export function useDagDesignerState(): IDagDesignerState {
         context.definition,
         context.initialInput,
         context.manifests,
-        context.previewResult,
+        context.runResult,
         context.runProgress,
         context.selectedEdgeId,
         context.selectedNodeId
@@ -71,11 +71,11 @@ export function useDagDesignerActions(): IDagDesignerActions {
             context.setSelectedEdgeId(selection.edgeId);
         },
         setConnectError: context.setConnectError,
-        onPreviewResult: context.onPreviewResult
+        onRunResult: context.onRunResult
     }), [
         context.addNodeFromManifest,
         context.onDefinitionChange,
-        context.onPreviewResult,
+        context.onRunResult,
         context.setConnectError,
         context.setSelectedEdgeId,
         context.setSelectedNodeId,

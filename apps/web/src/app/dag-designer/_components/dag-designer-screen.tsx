@@ -6,8 +6,8 @@ import {
   DagDesigner,
   useDagDesignApi,
   useDagDesignerContext,
-  type IRunPreviewProgressHooks,
-  type IPreviewResult,
+  type IRunProgressHooks,
+  type IRunResult,
 } from "@robota-sdk/dag-designer";
 import {
   EXECUTION_PROGRESS_EVENTS,
@@ -28,24 +28,27 @@ export interface IDagDesignerScreenProps {
 
 interface IDagHeaderActionBarProps {
   hasBindingBlockingError: boolean;
+  disabledReason?: string;
+  isSaving: boolean;
+  isPublishing: boolean;
   onSave: () => Promise<void>;
-  onValidate: () => Promise<void>;
   onPublish: () => Promise<void>;
 }
 
 function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
   const context = useDagDesignerContext();
   const [isRunStarting, setIsRunStarting] = useState<boolean>(false);
+  const isActionBlocked = props.hasBindingBlockingError;
 
   const run = async (): Promise<void> => {
-    if (props.hasBindingBlockingError || isRunStarting) {
+    if (isActionBlocked || isRunStarting) {
       return;
     }
     setIsRunStarting(true);
     context.resetRunProgress();
     try {
-      const runResult = context.onRunPreview
-        ? await context.onRunPreview({
+      const runResult = context.onRun
+        ? await context.onRun({
           definition: context.definition,
           input: context.initialInput ?? {}
         }, {
@@ -55,39 +58,78 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
         : {
           ok: false as const,
           error: {
-            code: "DAG_VALIDATION_PREVIEW_RUNNER_NOT_CONFIGURED",
+            code: "DAG_VALIDATION_RUNNER_NOT_CONFIGURED",
             category: "validation" as const,
             message: "Run handler is not configured.",
             retryable: false
           }
         };
-      context.setPreviewResult(runResult.ok ? runResult.value : undefined);
-      context.onPreviewResult?.(runResult);
+      context.setRunResult(runResult.ok ? runResult.value : undefined);
+      context.onRunResult?.(runResult);
     } finally {
       setIsRunStarting(false);
     }
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <button className="rounded bg-black px-3 py-2 text-xs text-white" onClick={() => void props.onSave()} disabled={props.hasBindingBlockingError}>
-        Save Changes
-      </button>
-      <button className="rounded bg-black px-3 py-2 text-xs text-white" onClick={() => void props.onValidate()} disabled={props.hasBindingBlockingError}>
-        Validate
-      </button>
-      <button className="rounded bg-black px-3 py-2 text-xs text-white" onClick={() => void props.onPublish()} disabled={props.hasBindingBlockingError}>
-        Publish
-      </button>
-      <button
-        className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
-        onClick={() => void run()}
-        disabled={props.hasBindingBlockingError || isRunStarting}
-      >
-        {isRunStarting ? "Running..." : "Run"}
-      </button>
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <button
+          className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => void props.onSave()}
+          disabled={isActionBlocked || props.isSaving}
+          title={isActionBlocked ? props.disabledReason : undefined}
+        >
+          {props.isSaving ? "Saving..." : "Save Changes"}
+        </button>
+        <button
+          className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => void props.onPublish()}
+          disabled={isActionBlocked || props.isPublishing}
+          title={isActionBlocked ? props.disabledReason : undefined}
+        >
+          {props.isPublishing ? "Publishing..." : "Publish"}
+        </button>
+        <button
+          className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => void run()}
+          disabled={isActionBlocked || isRunStarting}
+          title={isActionBlocked ? props.disabledReason : undefined}
+        >
+          {isRunStarting ? "Running..." : "Run"}
+        </button>
+      </div>
+      {isActionBlocked && props.disabledReason ? (
+        <div className="text-[11px] text-red-600">{props.disabledReason}</div>
+      ) : null}
     </div>
   );
+}
+
+interface IActionToastState {
+  message: string;
+  type: "success" | "error" | "info";
+}
+
+function getActionButtonDisabledReason(bindingBlockingErrors: IDagError[]): string | undefined {
+  const firstError = bindingBlockingErrors[0];
+  if (!firstError) {
+    return undefined;
+  }
+  if (firstError.code.startsWith("DAG_VALIDATION_BINDING_")) {
+    return "Blocked: fix binding errors before action.";
+  }
+  return `Blocked: ${firstError.code}`;
+}
+
+function getToastClassName(type: IActionToastState["type"]): string {
+  if (type === "success") {
+    return "border-green-300 bg-green-50 text-green-700";
+  }
+  if (type === "error") {
+    return "border-red-300 bg-red-50 text-red-700";
+  }
+  return "border-gray-300 bg-gray-50 text-gray-700";
 }
 
 export function DagDesignerScreen(props: IDagDesignerScreenProps) {
@@ -105,6 +147,30 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   const [catalogNodes, setCatalogNodes] = useState<INodeManifest[]>([]);
   const [isNodeExplorerOpen, setIsNodeExplorerOpen] = useState<boolean>(true);
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isPublishing, setIsPublishing] = useState<boolean>(false);
+  const [actionToast, setActionToast] = useState<IActionToastState | undefined>(undefined);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const showActionToast = useCallback((message: string, type: IActionToastState["type"]): void => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = undefined;
+    }
+    setActionToast({ message, type });
+    toastTimerRef.current = setTimeout(() => {
+      setActionToast(undefined);
+      toastTimerRef.current = undefined;
+    }, 2500);
+  }, []);
+
+  useEffect(() => (
+    () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    }
+  ), []);
 
   const bindingBlockingErrors = useMemo(() => {
     const validated = DagDefinitionValidator.validate(definition);
@@ -117,113 +183,123 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     return [];
   }, [definition]);
   const hasBindingBlockingError = bindingBlockingErrors.length > 0;
+  const actionButtonDisabledReason = useMemo(
+    () => getActionButtonDisabledReason(bindingBlockingErrors),
+    [bindingBlockingErrors]
+  );
   const applyDefinitionChange = useCallback((nextDefinition: IDagDefinition): void => {
     definitionRef.current = nextDefinition;
     setDefinition(nextDefinition);
   }, []);
 
   const toDagError = (code?: string): IDagError => ({
-    code: code ?? "DAG_VALIDATION_PREVIEW_UNKNOWN",
+    code: code ?? "DAG_VALIDATION_RUN_UNKNOWN",
     category: "validation",
-    message: "Preview request failed.",
+    message: "Run request failed.",
     retryable: false,
   });
 
   const saveDefinition = async (): Promise<void> => {
     if (hasBindingBlockingError) {
       setLog(`Save blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
+      showActionToast(actionButtonDisabledReason ?? "Save blocked.", "error");
       return;
     }
-    const saved = draftCreated
-      ? await designApi.updateDraft({
+    if (isSaving) {
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const nextDefinition: IDagDefinition = {
+        ...definitionRef.current,
         dagId,
-        version,
-        definition: definitionRef.current,
-        correlationId: "web-dag-update",
-      })
-      : await designApi.createDraft({
-        definition: definitionRef.current,
+        version: version + 1,
+        status: "draft",
+      };
+      const saved = await designApi.createDraft({
+        definition: nextDefinition,
         correlationId: "web-dag-create",
       });
 
-    if (saved.ok) {
-      setDagId(saved.value.dagId);
-      setVersion(saved.value.version);
-      setDraftCreated(saved.value.status === "draft");
-      setLog(`Save success: ${saved.value.dagId}:${saved.value.version}`);
-      return;
+      if (saved.ok) {
+        applyDefinitionChange(saved.value);
+        setDagId(saved.value.dagId);
+        setVersion(saved.value.version);
+        setDraftCreated(saved.value.status === "draft");
+        setLog(`Save success: ${saved.value.dagId}:${saved.value.version} (working version)`);
+        showActionToast("Saved.", "success");
+        return;
+      }
+      if ("error" in saved) {
+        setLog(`Save failed: ${saved.error[0]?.code}`);
+        showActionToast("Save failed.", "error");
+        return;
+      }
+      setLog("Save failed: UNKNOWN_ERROR");
+      showActionToast("Save failed.", "error");
+    } finally {
+      setIsSaving(false);
     }
-    if ("error" in saved) {
-      setLog(`Save failed: ${saved.error[0]?.code}`);
-      return;
-    }
-    setLog("Save failed: UNKNOWN_ERROR");
-  };
-
-  const validateDraft = async (): Promise<void> => {
-    if (hasBindingBlockingError) {
-      setLog(`Validate blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
-      return;
-    }
-    const validated = await designApi.validate({
-      dagId,
-      version,
-      correlationId: "web-dag-validate",
-    });
-    if (validated.ok) {
-      setLog(`Validate success: ${validated.value.dagId}:${validated.value.version}`);
-      return;
-    }
-    if ("error" in validated) {
-      setLog(`Validate failed: ${validated.error[0]?.code}`);
-      return;
-    }
-    setLog("Validate failed: UNKNOWN_ERROR");
   };
 
   const publishDraft = async (): Promise<void> => {
     if (hasBindingBlockingError) {
       setLog(`Publish blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
+      showActionToast(actionButtonDisabledReason ?? "Publish blocked.", "error");
       return;
     }
-    const published = await designApi.publish({
-      dagId,
-      version,
-      correlationId: "web-dag-publish",
-    });
-    if (published.ok) {
-      setLog(`Publish success: ${published.value.dagId}:${published.value.version}`);
+    if (isPublishing) {
       return;
     }
-    if ("error" in published) {
-      setLog(`Publish failed: ${published.error[0]?.code}`);
-      return;
+    setIsPublishing(true);
+    try {
+      const published = await designApi.publish({
+        dagId,
+        version,
+        correlationId: "web-dag-publish",
+      });
+      if (published.ok) {
+        setLog(`Publish success: ${published.value.dagId}:${published.value.version} (published snapshot)`);
+        showActionToast("Published.", "success");
+        return;
+      }
+      if ("error" in published) {
+        setLog(`Publish failed: ${published.error[0]?.code}`);
+        showActionToast("Publish failed.", "error");
+        return;
+      }
+      setLog("Publish failed: UNKNOWN_ERROR");
+      showActionToast("Publish failed.", "error");
+    } finally {
+      setIsPublishing(false);
     }
-    setLog("Publish failed: UNKNOWN_ERROR");
   };
 
-  const onRunResult = (result: TResult<IPreviewResult, IDagError>): void => {
+  const onRunResult = (result: TResult<IRunResult, IDagError>): void => {
     if (result.ok) {
       setLog(
         `Run success: dagRunId=${result.value.dagRunId}, totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}`
       );
+      showActionToast("Run completed.", "success");
       return;
     }
     if ("error" in result) {
       setLog(`Run failed: ${result.error.code}`);
+      showActionToast("Run failed.", "error");
       return;
     }
     setLog("Run failed: UNKNOWN_ERROR");
+    showActionToast("Run failed.", "error");
   };
 
   const runOnServer = async (input: {
     definition: IDagDefinition;
     input: TPortPayload;
-  }, hooks?: IRunPreviewProgressHooks): Promise<TResult<IPreviewResult, IDagError>> => {
-    const started = await designApi.startPreviewRun({
+  }, hooks?: IRunProgressHooks): Promise<TResult<IRunResult, IDagError>> => {
+    const started = await designApi.createRun({
       definition: input.definition,
       input: input.input,
-      correlationId: "web-dag-preview-start",
+      correlationId: "web-dag-run-create",
     });
     if ("error" in started) {
       return { ok: false, error: toDagError(started.error[0]?.code) };
@@ -231,7 +307,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     hooks?.onRunStarted(started.value.dagRunId);
     let unsubscribe: (() => void) | undefined;
     const waitForTerminalEvent = new Promise<void>((resolve, reject) => {
-      const timeoutId = setTimeout(() => reject(new Error("DAG_VALIDATION_PREVIEW_RUN_EVENT_TIMEOUT")), 120000);
+      const timeoutId = setTimeout(() => reject(new Error("DAG_VALIDATION_RUN_EVENT_TIMEOUT")), 120000);
       unsubscribe = designApi.subscribeRunProgress({
         dagRunId: started.value.dagRunId,
         onEvent: (event) => {
@@ -248,13 +324,13 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
         onError: () => {
           clearTimeout(timeoutId);
           unsubscribe?.();
-          reject(new Error("DAG_VALIDATION_PREVIEW_RUN_EVENT_STREAM_FAILED"));
+          reject(new Error("DAG_VALIDATION_RUN_EVENT_STREAM_FAILED"));
         },
       });
     });
-    const startExecution = await designApi.startPreviewRunExecution({
+    const startExecution = await designApi.startRun({
       dagRunId: started.value.dagRunId,
-      correlationId: "web-dag-preview-start-execution",
+      correlationId: "web-dag-run-start",
     });
     if ("error" in startExecution) {
       unsubscribe?.();
@@ -265,12 +341,12 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     } catch (error) {
       return {
         ok: false,
-        error: toDagError(error instanceof Error ? error.message : "DAG_VALIDATION_PREVIEW_RUN_EVENT_FAILED"),
+        error: toDagError(error instanceof Error ? error.message : "DAG_VALIDATION_RUN_EVENT_FAILED"),
       };
     }
-    const result = await designApi.getPreviewRunResult({
+    const result = await designApi.getRunResult({
       dagRunId: started.value.dagRunId,
-      correlationId: "web-dag-preview-result",
+      correlationId: "web-dag-run-result",
     });
     if ("value" in result) {
       return { ok: true, value: result.value };
@@ -337,8 +413,8 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
           manifests={catalogNodes}
           onDefinitionChange={applyDefinitionChange}
           assetUploadBaseUrl={baseUrl}
-          onPreviewResult={onRunResult}
-          onRunPreview={runOnServer}
+          onRunResult={onRunResult}
+          onRun={runOnServer}
           initialInput={{}}
           className="relative h-full w-full overflow-hidden"
         >
@@ -365,8 +441,10 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
                 </button>
                 <DagHeaderActionBar
                   hasBindingBlockingError={hasBindingBlockingError}
+                  disabledReason={actionButtonDisabledReason}
+                  isSaving={isSaving}
+                  isPublishing={isPublishing}
                   onSave={saveDefinition}
-                  onValidate={validateDraft}
                   onPublish={publishDraft}
                 />
               </div>
@@ -414,6 +492,13 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
                   <pre className="max-h-20 overflow-auto text-xs">{log}</pre>
                 </div>
               </div>
+              {actionToast ? (
+                <div className="pointer-events-none absolute right-3 top-3 z-50">
+                  <div className={`rounded border px-3 py-2 text-xs shadow ${getToastClassName(actionToast.type)}`}>
+                    {actionToast.message}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </DagDesigner.Root>

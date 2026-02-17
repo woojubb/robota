@@ -1,8 +1,6 @@
 import { useState, type ReactElement } from 'react';
 import {
-    buildValidationError,
     type IDagDefinition,
-    type IDagError,
     type IDagNode,
     type INodeManifest,
     type IPortDefinition,
@@ -22,7 +20,6 @@ export interface INodeConfigPanelProps {
     assetUploadBaseUrl?: string;
     bindingCleanupMessage?: string;
     onUpdateNode: (nextNode: IDagNode) => void;
-    onNodeValidationError?: (error: IDagError) => void;
 }
 
 interface IJsonSchemaObject {
@@ -88,6 +85,15 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
     const [uploadingFieldKey, setUploadingFieldKey] = useState<string | undefined>(undefined);
     const [uploadStatusByField, setUploadStatusByField] = useState<Record<string, string>>({});
     const [isAdvancedJsonOpen, setIsAdvancedJsonOpen] = useState<boolean>(false);
+    const [inlineValidationError, setInlineValidationError] = useState<string | undefined>(undefined);
+
+    const reportValidationError = (message: string): void => {
+        setInlineValidationError(message);
+    };
+
+    const clearValidationError = (): void => {
+        setInlineValidationError(undefined);
+    };
 
     if (!node) {
         return (
@@ -102,26 +108,19 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         try {
             const parsed = JSON.parse(rawJson);
             if (!isNodeConfigRecord(parsed)) {
-                props.onNodeValidationError?.(
-                    buildValidationError(
-                        'DAG_VALIDATION_NODE_CONFIG_INVALID_SHAPE',
-                        'Node config must be a JSON object',
-                        { nodeId: node.nodeId }
-                    )
+                reportValidationError(
+                    'Config JSON must be an object (key-value pairs).'
                 );
                 return;
             }
+            clearValidationError();
             props.onUpdateNode({
                 ...node,
                 config: parsed
             });
         } catch {
-            props.onNodeValidationError?.(
-                buildValidationError(
-                    'DAG_VALIDATION_NODE_CONFIG_PARSE_FAILED',
-                    'Failed to parse node config JSON',
-                    { nodeId: node.nodeId }
-                )
+            reportValidationError(
+                'Config JSON is invalid. Please fix JSON syntax.'
             );
         }
     };
@@ -133,6 +132,7 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         } else {
             nextConfig[key] = value;
         }
+        clearValidationError();
         props.onUpdateNode({
             ...node,
             config: nextConfig
@@ -148,6 +148,7 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         if ('uri' in nextConfig) {
             delete nextConfig.uri;
         }
+        clearValidationError();
         props.onUpdateNode({
             ...node,
             config: nextConfig
@@ -176,12 +177,8 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
 
     const handleAssetUpload = async (key: string, file: File): Promise<void> => {
         if (typeof props.assetUploadBaseUrl !== 'string' || props.assetUploadBaseUrl.trim().length === 0) {
-            props.onNodeValidationError?.(
-                buildValidationError(
-                    'DAG_VALIDATION_ASSET_UPLOAD_BASE_URL_REQUIRED',
-                    'assetUploadBaseUrl is required for config file upload',
-                    { nodeId: node.nodeId, field: key }
-                )
+            reportValidationError(
+                'Asset upload is not configured for this environment.'
             );
             return;
         }
@@ -210,12 +207,8 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
             const payload = (await response.json()) as IAssetUploadResponse;
             const uploadedAssetId = payload.data?.asset?.assetId;
             if (!response.ok || payload.ok !== true || typeof uploadedAssetId !== 'string' || uploadedAssetId.trim().length === 0) {
-                props.onNodeValidationError?.(
-                    buildValidationError(
-                        'DAG_VALIDATION_ASSET_UPLOAD_FAILED',
-                        'Asset upload failed',
-                        { nodeId: node.nodeId, field: key }
-                    )
+                reportValidationError(
+                    'Asset upload failed. Please try again.'
                 );
                 setUploadStatusByField((current) => ({
                     ...current,
@@ -224,17 +217,14 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 return;
             }
             updateAssetIdWithXor(key, uploadedAssetId);
+            clearValidationError();
             setUploadStatusByField((current) => ({
                 ...current,
                 [key]: `Uploaded: ${uploadedAssetId}`
             }));
         } catch {
-            props.onNodeValidationError?.(
-                buildValidationError(
-                    'DAG_VALIDATION_ASSET_UPLOAD_EXCEPTION',
-                    'Asset upload failed due to network or payload error',
-                    { nodeId: node.nodeId, field: key }
-                )
+            reportValidationError(
+                'Asset upload failed due to network or payload error.'
             );
             setUploadStatusByField((current) => ({
                 ...current,
@@ -331,23 +321,15 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                                 try {
                                     const parsed = JSON.parse(nextValue);
                                     if (!isNodeConfigValue(parsed)) {
-                                        props.onNodeValidationError?.(
-                                            buildValidationError(
-                                                'DAG_VALIDATION_NODE_CONFIG_FIELD_INVALID',
-                                                `Config field "${key}" must be valid JSON value`,
-                                                { nodeId: node.nodeId }
-                                            )
+                                        reportValidationError(
+                                            `Config field "${key}" has an invalid JSON value.`
                                         );
                                         return;
                                     }
                                     updateConfigValue(key, parsed);
                                 } catch {
-                                    props.onNodeValidationError?.(
-                                        buildValidationError(
-                                            'DAG_VALIDATION_NODE_CONFIG_FIELD_PARSE_FAILED',
-                                            `Config field "${key}" must be valid JSON`,
-                                            { nodeId: node.nodeId }
-                                        )
+                                    reportValidationError(
+                                        `Config field "${key}" contains invalid JSON syntax.`
                                     );
                                 }
                             }}
@@ -393,12 +375,8 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                                 }
                                 const parsed = Number(nextValue);
                                 if (!Number.isFinite(parsed)) {
-                                    props.onNodeValidationError?.(
-                                        buildValidationError(
-                                            'DAG_VALIDATION_NODE_CONFIG_NUMBER_INVALID',
-                                            `Config field "${key}" must be a valid number`,
-                                            { nodeId: node.nodeId }
-                                        )
+                                    reportValidationError(
+                                        `Config field "${key}" must be a valid number.`
                                     );
                                     return;
                                 }
@@ -572,6 +550,11 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 <div>nodeId: {node.nodeId}</div>
                 <div>nodeType: {node.nodeType}</div>
             </div>
+            {inlineValidationError ? (
+                <div className="rounded border border-red-300 bg-red-50 px-2 py-2 text-xs text-red-700">
+                    {inlineValidationError}
+                </div>
+            ) : null}
 
             {props.bindingCleanupMessage ? (
                 <div className="rounded border border-amber-300 bg-amber-50 px-2 py-2 text-xs text-amber-800">
