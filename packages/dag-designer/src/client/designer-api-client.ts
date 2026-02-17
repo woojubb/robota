@@ -34,7 +34,7 @@ interface IRunProgressEnvelope {
 
 function createContractViolationProblem(status: number, instance: string): IProblemDetails {
     return {
-        type: 'https://robota.dev/problems/dag/contract',
+        type: 'urn:robota:problems:dag:contract',
         title: 'Invalid API response contract',
         status,
         detail: 'Response payload does not match designer API contract.',

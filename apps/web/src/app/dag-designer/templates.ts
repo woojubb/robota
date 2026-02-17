@@ -2,8 +2,9 @@ import type { IDagDefinition } from "@robota-sdk/dag-core";
 import templateCatalogDocument from "./presets/index.json";
 import blankTemplatePresetDocument from "./presets/blank.json";
 import defaultTemplatePresetDocument from "./presets/default.json";
+import geminiImageEditTemplatePresetDocument from "./presets/gemini-image-edit.json";
 
-export type TDagTemplateKey = "blank" | "default";
+export type TDagTemplateKey = "blank" | "default" | "gemini-image-edit";
 
 export interface IDagTemplateContext {
   dagId: string;
@@ -36,6 +37,7 @@ const TEMPLATE_CATALOG = templateCatalogDocument as ITemplateCatalogDocument;
 const TEMPLATE_DOCUMENTS_BY_FILE: Record<string, IDagTemplatePreset> = {
   "blank.json": blankTemplatePresetDocument as IDagTemplatePreset,
   "default.json": defaultTemplatePresetDocument as IDagTemplatePreset,
+  "gemini-image-edit.json": geminiImageEditTemplatePresetDocument as IDagTemplatePreset,
 };
 
 function buildTemplateRegistryFromCatalog(catalog: ITemplateCatalogDocument): Record<TDagTemplateKey, IDagTemplatePreset> {

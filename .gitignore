@@ -92,3 +92,5 @@ apps/**/README.md
 # packages/*/README.md  # REMOVED - README.md files should be included in packages
 
 .pnpm*
+
+.local-assets

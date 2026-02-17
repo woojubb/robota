@@ -111,6 +111,33 @@ interface IActionToastState {
   type: "success" | "error" | "info";
 }
 
+interface IInitialNodeSelectionEffectProps {
+  nodeId?: string;
+}
+
+function InitialNodeSelectionEffect(props: IInitialNodeSelectionEffectProps): null {
+  const context = useDagDesignerContext();
+  const initializedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (initializedRef.current) {
+      return;
+    }
+    if (typeof props.nodeId !== "string") {
+      return;
+    }
+    const nodeExists = context.definition.nodes.some((node) => node.nodeId === props.nodeId);
+    if (!nodeExists) {
+      return;
+    }
+    context.setSelectedEdgeId(undefined);
+    context.setSelectedNodeId(props.nodeId);
+    initializedRef.current = true;
+  }, [context, props.nodeId]);
+
+  return null;
+}
+
 function getActionButtonDisabledReason(bindingBlockingErrors: IDagError[]): string | undefined {
   const firstError = bindingBlockingErrors[0];
   if (!firstError) {
@@ -151,6 +178,16 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [actionToast, setActionToast] = useState<IActionToastState | undefined>(undefined);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const initialSelectedNodeId = useMemo(() => {
+    const nodeIds = new Set(definition.nodes.map((node) => node.nodeId));
+    const isGeminiTemplateGraph = nodeIds.has("input_1")
+      && nodeIds.has("image_loader_1")
+      && nodeIds.has("gemini_image_edit_1");
+    if (!isGeminiTemplateGraph) {
+      return undefined;
+    }
+    return "input_1";
+  }, [definition.nodes]);
 
   const showActionToast = useCallback((message: string, type: IActionToastState["type"]): void => {
     if (toastTimerRef.current) {
@@ -418,6 +455,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
           initialInput={{}}
           className="relative h-full w-full overflow-hidden"
         >
+          <InitialNodeSelectionEffect nodeId={initialSelectedNodeId} />
           <div className="flex h-full min-h-0 flex-col">
             <header className="z-40 flex h-9 shrink-0 items-center justify-between border-b border-gray-300 bg-white/95 px-3 backdrop-blur-sm">
               <div className="min-w-0 text-xs font-semibold text-gray-800">DAG Designer: {dagId}</div>

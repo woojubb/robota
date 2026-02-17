@@ -8,6 +8,10 @@
     {
       "templateId": "default",
       "documentFile": "default.json"
+    },
+    {
+      "templateId": "gemini-image-edit",
+      "documentFile": "gemini-image-edit.json"
     }
   ]
 }
