@@ -2,15 +2,15 @@
 
 ## Scope
 - Hosts DAG development APIs and runtime bootstrap composition.
-- Provides local development endpoints for design/runtime/preview flows.
-- `POST /v1/dag/dev/preview` is a thin adapter over persisted runtime flow:
+- Provides local development endpoints for design/runtime/run flows.
+- `POST /v1/dag/runs` stores a temporary run definition snapshot and creates a run:
   - stores a DAG definition copy snapshot
-  - triggers runtime execution
-  - queries terminal run state and maps task snapshots to preview traces
+  - starts runtime execution via `/v1/dag/runs/:dagRunId/start`
+  - queries terminal run state and maps task snapshots to run traces
 - Provides manual cleanup APIs for persisted artifacts:
-  - `DELETE /v1/dag/dev/runs/:dagRunId`
+  - `DELETE /v1/dag/runs/:dagRunId`
   - `DELETE /v1/dag/dev/definitions/:dagId?version=...`
-  - `DELETE /v1/dag/dev/preview-copies`
+  - `DELETE /v1/dag/runs/temporary-copies`
 
 ## Boundaries
 - Host-level composition only.

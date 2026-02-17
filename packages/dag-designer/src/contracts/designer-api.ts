@@ -52,7 +52,7 @@ export interface IListDefinitionsInput {
     correlationId?: string;
 }
 
-export interface IPreviewNodeTrace {
+export interface IRunNodeTrace {
     nodeId: string;
     nodeType: string;
     input: TPortPayload;
@@ -61,24 +61,24 @@ export interface IPreviewNodeTrace {
     totalCostUsd: number;
 }
 
-export interface IPreviewResult {
+export interface IRunResult {
     dagRunId: string;
-    traces: IPreviewNodeTrace[];
+    traces: IRunNodeTrace[];
     totalCostUsd: number;
 }
 
-export interface IStartPreviewRunInput {
+export interface ICreateRunInput {
     definition: IDagDefinition;
     input?: TPortPayload;
     correlationId?: string;
 }
 
-export interface IGetPreviewRunResultInput {
+export interface IGetRunResultInput {
     dagRunId: string;
     correlationId?: string;
 }
 
-export interface IStartPreviewRunExecutionInput {
+export interface IStartRunInput {
     dagRunId: string;
     correlationId?: string;
 }
@@ -97,9 +97,9 @@ export interface IDesignerApiClient {
     getDefinition(input: IGetDefinitionInput): Promise<TResult<IDagDefinition, IProblemDetails[]>>;
     listDefinitions(input?: IListDefinitionsInput): Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>>;
-    startPreviewRun(input: IStartPreviewRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
-    startPreviewRunExecution(input: IStartPreviewRunExecutionInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
-    getPreviewRunResult(input: IGetPreviewRunResultInput): Promise<TResult<IPreviewResult, IProblemDetails[]>>;
+    createRun(input: ICreateRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    startRun(input: IStartRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    getRunResult(input: IGetRunResultInput): Promise<TResult<IRunResult, IProblemDetails[]>>;
     subscribeRunProgress: (input: {
         dagRunId: string;
         onEvent: (event: TRunProgressEvent) => void;

@@ -1,4 +1,4 @@
 export type {
-    IPreviewNodeTrace,
-    IPreviewResult
+    IRunNodeTrace,
+    IRunResult
 } from '../contracts/designer-api.js';

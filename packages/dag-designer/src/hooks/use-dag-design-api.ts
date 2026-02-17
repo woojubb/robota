@@ -12,7 +12,7 @@ import {
 import type {
     IDefinitionListItem,
     IDesignerApiClient,
-    IPreviewResult,
+    IRunResult,
     IProblemDetails
 } from '../contracts/designer-api.js';
 
@@ -52,19 +52,19 @@ export interface IUseDagDesignApi {
         correlationId?: string;
     }) => Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog: () => Promise<TResult<INodeManifest[], IProblemDetails[]>>;
-    startPreviewRun: (input: {
+    createRun: (input: {
         definition: IDagDefinition;
         input?: TPortPayload;
         correlationId?: string;
     }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
-    startPreviewRunExecution: (input: {
+    startRun: (input: {
         dagRunId: string;
         correlationId?: string;
     }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
-    getPreviewRunResult: (input: {
+    getRunResult: (input: {
         dagRunId: string;
         correlationId?: string;
-    }) => Promise<TResult<IPreviewResult, IProblemDetails[]>>;
+    }) => Promise<TResult<IRunResult, IProblemDetails[]>>;
     subscribeRunProgress: (input: {
         dagRunId: string;
         onEvent: (event: TRunProgressEvent) => void;
@@ -114,16 +114,16 @@ export function useDagDesignApi(options: IUseDagDesignApiOptions): IUseDagDesign
             correlationId: input?.correlationId
         }),
         listNodeCatalog: async () => client.listNodeCatalog(),
-        startPreviewRun: async (input) => client.startPreviewRun({
+        createRun: async (input) => client.createRun({
             definition: input.definition,
             input: input.input,
             correlationId: input.correlationId
         }),
-        startPreviewRunExecution: async (input) => client.startPreviewRunExecution({
+        startRun: async (input) => client.startRun({
             dagRunId: input.dagRunId,
             correlationId: input.correlationId
         }),
-        getPreviewRunResult: async (input) => client.getPreviewRunResult({
+        getRunResult: async (input) => client.getRunResult({
             dagRunId: input.dagRunId,
             correlationId: input.correlationId
         }),

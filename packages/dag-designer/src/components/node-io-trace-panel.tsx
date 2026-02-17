@@ -1,9 +1,9 @@
 import type { ReactElement } from 'react';
-import type { IPreviewResult } from '../contracts/designer-api.js';
+import type { IRunResult } from '../contracts/designer-api.js';
 import type { TNodeExecutionStatus } from './dag-designer-canvas.js';
 
 export interface INodeIoTracePanelProps {
-    previewResult?: IPreviewResult;
+    runResult?: IRunResult;
     selectedNodeId?: string;
     selectedNodeExecutionStatus?: TNodeExecutionStatus;
     className?: string;
@@ -14,8 +14,8 @@ function stringifyPayload(value: unknown): string {
 }
 
 export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
-    const traces = props.previewResult?.traces ?? [];
-    let selectedTrace = undefined as IPreviewResult['traces'][number] | undefined;
+    const traces = props.runResult?.traces ?? [];
+    let selectedTrace = undefined as IRunResult['traces'][number] | undefined;
     if (typeof props.selectedNodeId === 'string') {
         for (let index = traces.length - 1; index >= 0; index -= 1) {
             const trace = traces[index];
@@ -34,10 +34,10 @@ export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
                     {traces.length} trace(s)
                 </span>
             </div>
-            {!props.previewResult ? (
-                <p className="text-xs text-gray-500">Run Preview to inspect node input/output payloads.</p>
+            {!props.runResult ? (
+                <p className="text-xs text-gray-500">Run to inspect node input/output payloads.</p>
             ) : null}
-            {props.previewResult && traces.length === 0 ? (
+            {props.runResult && traces.length === 0 ? (
                 <p className="text-xs text-gray-500">No trace data available.</p>
             ) : null}
 

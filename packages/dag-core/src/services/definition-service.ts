@@ -48,6 +48,10 @@ export class DagDefinitionService {
         if (byDagId.length === 0) {
             return undefined;
         }
+        const draftDefinitions = byDagId.filter((definition) => definition.status === 'draft');
+        if (draftDefinitions.length > 0) {
+            return draftDefinitions[draftDefinitions.length - 1];
+        }
         return byDagId[byDagId.length - 1];
     }
 
@@ -149,8 +153,14 @@ export class DagDefinitionService {
             return validated;
         }
 
+        const byDagId = await this.storage.listDefinitionsByDagId(dagId);
+        const latestVersion = byDagId.reduce((currentMax, definition) => (
+            definition.version > currentMax ? definition.version : currentMax
+        ), 0);
+
         const published: IDagDefinition = {
             ...existing,
+            version: latestVersion + 1,
             status: 'published'
         };
 

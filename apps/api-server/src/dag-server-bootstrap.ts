@@ -27,14 +27,7 @@ import {
 } from '@robota-sdk/dag-api';
 import { LocalFsAssetStore, type IStoredAssetMetadata } from './services/local-fs-asset-store.js';
 import { AssetAwareTaskExecutorPort } from './services/asset-aware-task-executor.js';
-import { DagPreviewService } from './services/dag-preview-service.js';
-
-interface ITriggerRequestBody {
-    dagId: string;
-    version?: number;
-    input?: TPortPayload;
-    logicalDate?: string;
-}
+import { DagRunService } from './services/dag-preview-service.js';
 
 interface IVersionBody {
     version: number;
@@ -63,7 +56,7 @@ interface ICreateAssetBody {
     base64Data: string;
 }
 
-interface IPreviewLlmCompleteBody {
+interface ILlmCompleteBody {
     prompt: string;
     provider?: string;
     model?: string;
@@ -71,12 +64,12 @@ interface IPreviewLlmCompleteBody {
     maxTokens?: number;
 }
 
-interface IPreviewDefinitionBody {
+interface ICreateRunBody {
     definition: IDagDefinition;
     input?: TPortPayload;
 }
 
-interface IPreviewRunParams {
+interface IRunParams {
     dagRunId: string;
 }
 
@@ -102,7 +95,7 @@ function resolveDefaultWorkerTimeoutMs(): number {
     return parsed;
 }
 
-function toPreviewProblemDetails(
+function toRunProblemDetails(
     error: IAssetValidationError,
     instance: string
 ): {
@@ -372,7 +365,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             }
         }
     );
-    const dagPreviewService = new DagPreviewService({
+    const dagRunService = new DagRunService({
         storage,
         execution,
         clock
@@ -517,24 +510,24 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         res.status(listed.status).json(listed);
     });
 
-    app.post('/v1/dag/dev/preview/runs', async (
-        req: Request<unknown, unknown, IPreviewDefinitionBody>,
+    app.post('/v1/dag/runs', async (
+        req: Request<unknown, unknown, ICreateRunBody>,
         res: Response
     ) => {
-        const previewInstance = '/v1/dag/dev/preview/runs';
+        const runInstance = '/v1/dag/runs';
         const definition = req.body?.definition;
         if (!definition || typeof definition !== 'object') {
             res.status(400).json({
                 ok: false,
                 status: 400,
                 errors: [
-                    toPreviewProblemDetails(
+                    toRunProblemDetails(
                         {
-                            code: 'DAG_VALIDATION_PREVIEW_DEFINITION_REQUIRED',
+                            code: 'DAG_VALIDATION_RUN_DEFINITION_REQUIRED',
                             detail: 'definition is required',
                             retryable: false
                         },
-                        previewInstance
+                        runInstance
                     )
                 ]
             });
@@ -546,13 +539,13 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
                 ok: false,
                 status: 400,
                 errors: [
-                    toPreviewProblemDetails(
+                    toRunProblemDetails(
                         {
-                            code: 'DAG_VALIDATION_PREVIEW_INPUT_INVALID',
+                            code: 'DAG_VALIDATION_RUN_INPUT_INVALID',
                             detail: 'input must be an object when provided',
                             retryable: false
                         },
-                        previewInstance
+                        runInstance
                     )
                 ]
             });
@@ -563,16 +556,16 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             res.status(400).json({
                 ok: false,
                 status: 400,
-                errors: assetValidationErrors.map((error) => toPreviewProblemDetails(error, previewInstance))
+                errors: assetValidationErrors.map((error) => toRunProblemDetails(error, runInstance))
             });
             return;
         }
-        const created = await dagPreviewService.createRun(definition, input ?? {});
+        const created = await dagRunService.createRun(definition, input ?? {});
         if (!created.ok) {
             res.status(400).json({
                 ok: false,
                 status: 400,
-                errors: [toProblemDetails(created.error, previewInstance)]
+                errors: [toProblemDetails(created.error, runInstance)]
             });
             return;
         }
@@ -585,12 +578,12 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         });
     });
 
-    app.post('/v1/dag/dev/preview/runs/:dagRunId/start', async (
-        req: Request<IPreviewRunParams>,
+    app.post('/v1/dag/runs/:dagRunId/start', async (
+        req: Request<IRunParams>,
         res: Response
     ) => {
-        const instance = `/v1/dag/dev/preview/runs/${req.params.dagRunId}/start`;
-        const started = await dagPreviewService.startRunById(req.params.dagRunId);
+        const instance = `/v1/dag/runs/${req.params.dagRunId}/start`;
+        const started = await dagRunService.startRunById(req.params.dagRunId);
         if (!started.ok) {
             res.status(400).json({
                 ok: false,
@@ -608,15 +601,15 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         });
     });
 
-    app.get('/v1/dag/dev/preview/runs/:dagRunId/result', async (
-        req: Request<IPreviewRunParams>,
+    app.get('/v1/dag/runs/:dagRunId/result', async (
+        req: Request<IRunParams>,
         res: Response
     ) => {
-        const instance = `/v1/dag/dev/preview/runs/${req.params.dagRunId}/result`;
-        const result = await dagPreviewService.getRunPreviewResult(req.params.dagRunId);
+        const instance = `/v1/dag/runs/${req.params.dagRunId}/result`;
+        const result = await dagRunService.getRunResult(req.params.dagRunId);
         if (!result.ok) {
             const problem = toProblemDetails(result.error, instance);
-            const statusCode = result.error.code === 'DAG_VALIDATION_PREVIEW_RUN_NOT_TERMINAL' ? 409 : 400;
+            const statusCode = result.error.code === 'DAG_VALIDATION_RUN_NOT_TERMINAL' ? 409 : 400;
             res.status(statusCode).json({
                 ok: false,
                 status: statusCode,
@@ -628,13 +621,13 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             ok: true,
             status: 200,
             data: {
-                preview: result.value
+                run: result.value
             }
         });
     });
 
-    app.delete('/v1/dag/dev/runs/:dagRunId', async (req: Request<{ dagRunId: string }>, res: Response) => {
-        const deleted = await dagPreviewService.deleteRunArtifacts(req.params.dagRunId);
+    app.delete('/v1/dag/runs/:dagRunId', async (req: Request<{ dagRunId: string }>, res: Response) => {
+        const deleted = await dagRunService.deleteRunArtifacts(req.params.dagRunId);
         if (!deleted.ok) {
             res.status(404).json({
                 ok: false,
@@ -659,7 +652,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             ? Number.parseInt(versionValue, 10)
             : undefined;
         const version = Number.isFinite(parsedVersion) ? parsedVersion : undefined;
-        const deleted = await dagPreviewService.deleteDefinitionArtifacts(req.params.dagId, version);
+        const deleted = await dagRunService.deleteDefinitionArtifacts(req.params.dagId, version);
         if (!deleted.ok) {
             res.status(404).json({
                 ok: false,
@@ -675,8 +668,8 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         });
     });
 
-    app.delete('/v1/dag/dev/preview-copies', async (_req: Request, res: Response) => {
-        const deleted = await dagPreviewService.deletePreviewCopyArtifacts();
+    app.delete('/v1/dag/runs/temporary-copies', async (_req: Request, res: Response) => {
+        const deleted = await dagRunService.deleteRunCopyArtifacts();
         if (!deleted.ok) {
             res.status(400).json({
                 ok: false,
@@ -693,7 +686,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     });
 
     app.post('/v1/dag/dev/llm-text/complete', async (
-        req: Request<unknown, unknown, IPreviewLlmCompleteBody>,
+        req: Request<unknown, unknown, ILlmCompleteBody>,
         res: Response
     ) => {
         const llmCompletionClient = options.llmCompletionClient;
@@ -703,7 +696,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
                 status: 500,
                 errors: [
                     {
-                        code: 'DAG_VALIDATION_PREVIEW_LLM_CLIENT_NOT_CONFIGURED',
+                        code: 'DAG_VALIDATION_LLM_CLIENT_NOT_CONFIGURED',
                         detail: 'LLM completion client is not configured on API server.',
                         retryable: false
                     }
@@ -967,68 +960,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         res.status(listed.status).json(listed);
     });
 
-    app.post('/v1/dag/dev/runs', async (req: Request<unknown, unknown, ITriggerRequestBody>, res: Response) => {
-        if (!req.body || typeof req.body.dagId !== 'string' || req.body.dagId.trim().length === 0) {
-            res.status(400).json({
-                ok: false,
-                status: 400,
-                errors: [
-                    {
-                        code: 'DAG_VALIDATION_EMPTY_DAG_ID',
-                        detail: 'dagId is required',
-                        retryable: false
-                    }
-                ]
-            });
-            return;
-        }
-
-        const created = await execution.runOrchestrator.createRun({
-            dagId: req.body.dagId,
-            version: req.body.version,
-            trigger: 'manual',
-            logicalDate: req.body.logicalDate,
-            input: req.body.input ?? {}
-        });
-        if (!created.ok) {
-            const problem = toProblemDetails(created.error, '/v1/dag/dev/runs');
-            res.status(problem.status).json({
-                ok: false,
-                status: problem.status,
-                errors: [problem]
-            });
-            return;
-        }
-        res.status(201).json({
-            ok: true,
-            status: 201,
-            data: {
-                dagRunId: created.value.dagRunId
-            }
-        });
-    });
-
-    app.post('/v1/dag/dev/runs/:dagRunId/start', async (req: Request<{ dagRunId: string }>, res: Response) => {
-        const started = await execution.runOrchestrator.startCreatedRun(req.params.dagRunId);
-        if (!started.ok) {
-            const problem = toProblemDetails(started.error, `/v1/dag/dev/runs/${req.params.dagRunId}/start`);
-            res.status(problem.status).json({
-                ok: false,
-                status: problem.status,
-                errors: [problem]
-            });
-            return;
-        }
-        res.status(202).json({
-            ok: true,
-            status: 202,
-            data: {
-                dagRunId: started.value.dagRunId
-            }
-        });
-    });
-
-    app.get('/v1/dag/dev/runs/:dagRunId/events', async (req: Request<{ dagRunId: string }>, res: Response) => {
+    app.get('/v1/dag/runs/:dagRunId/events', async (req: Request<{ dagRunId: string }>, res: Response) => {
         const dagRunId = req.params.dagRunId;
         const emitSseEvent = (event: TRunProgressEvent): void => {
             const payload = JSON.stringify({ event });
@@ -1155,7 +1087,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         });
     });
 
-    app.get('/v1/dag/dev/runs/:dagRunId', async (req: Request<{ dagRunId: string }>, res: Response) => {
+    app.get('/v1/dag/runs/:dagRunId', async (req: Request<{ dagRunId: string }>, res: Response) => {
         const queried = await controllers.runtime.queryRun({
             dagRunId: req.params.dagRunId,
             correlationId: 'dag-dev-query-run'

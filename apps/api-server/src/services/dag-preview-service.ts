@@ -12,7 +12,7 @@ import {
 } from '@robota-sdk/dag-core';
 import type { IDagExecutionComposition } from '@robota-sdk/dag-api';
 
-export interface IPreviewNodeTrace {
+export interface IRunNodeTrace {
     nodeId: string;
     nodeType: string;
     input: TPortPayload;
@@ -21,25 +21,25 @@ export interface IPreviewNodeTrace {
     totalCostUsd: number;
 }
 
-export interface IPreviewResult {
+export interface IRunResult {
     dagRunId: string;
-    traces: IPreviewNodeTrace[];
+    traces: IRunNodeTrace[];
     totalCostUsd: number;
 }
 
-export interface IDagPreviewServiceOptions {
+export interface IDagRunServiceOptions {
     storage: IStoragePort;
     execution: IDagExecutionComposition;
     clock: IClockPort;
 }
 
-export class DagPreviewService {
+export class DagRunService {
     private readonly definitionService: DagDefinitionService;
     private readonly execution: IDagExecutionComposition;
     private readonly storage: IStoragePort;
     private readonly clock: IClockPort;
 
-    constructor(options: IDagPreviewServiceOptions) {
+    constructor(options: IDagRunServiceOptions) {
         this.storage = options.storage;
         this.execution = options.execution;
         this.clock = options.clock;
@@ -50,7 +50,7 @@ export class DagPreviewService {
         definition: IDagDefinition,
         input: TPortPayload
     ): Promise<TResult<{ dagRunId: string }, IDagError>> {
-        const copiedDefinition = this.createPreviewDefinitionCopy(definition);
+        const copiedDefinition = this.createRunDefinitionCopy(definition);
         const createdDraft = await this.definitionService.createDraft(copiedDefinition);
         if (!createdDraft.ok) {
             return {
@@ -67,8 +67,8 @@ export class DagPreviewService {
         }
 
         const createdRun = await this.execution.runOrchestrator.createRun({
-            dagId: copiedDefinition.dagId,
-            version: copiedDefinition.version,
+            dagId: publishedResult.value.dagId,
+            version: publishedResult.value.version,
             trigger: 'manual',
             input
         });
@@ -101,7 +101,7 @@ export class DagPreviewService {
         };
     }
 
-    public async getRunPreviewResult(dagRunId: string): Promise<TResult<IPreviewResult, IDagError>> {
+    public async getRunResult(dagRunId: string): Promise<TResult<IRunResult, IDagError>> {
         const queryResult = await this.execution.runQuery.getRun(dagRunId);
         if (!queryResult.ok) {
             return queryResult;
@@ -112,8 +112,8 @@ export class DagPreviewService {
             return {
                 ok: false,
                 error: buildValidationError(
-                    'DAG_VALIDATION_PREVIEW_RUN_NOT_TERMINAL',
-                    'Preview run is not in a terminal state yet',
+                    'DAG_VALIDATION_RUN_NOT_TERMINAL',
+                    'Run is not in a terminal state yet',
                     {
                         dagRunId,
                         status: dagRunStatus
@@ -124,7 +124,7 @@ export class DagPreviewService {
         if (dagRunStatus !== 'success') {
             return this.buildFailedRunError(queryResult.value);
         }
-        return this.mapRunQueryToPreviewResult(queryResult.value);
+        return this.mapRunQueryToRunResult(queryResult.value);
     }
 
     public async deleteRunArtifacts(dagRunId: string): Promise<TResult<{ deletedTaskRunCount: number }, IDagError>> {
@@ -176,14 +176,14 @@ export class DagPreviewService {
         return this.deleteArtifactsForDefinitions(targetDefinitions);
     }
 
-    public async deletePreviewCopyArtifacts(): Promise<TResult<{
+    public async deleteRunCopyArtifacts(): Promise<TResult<{
         deletedDefinitionCount: number;
         deletedDagRunCount: number;
         deletedTaskRunCount: number;
     }, IDagError>> {
         const definitions = await this.storage.listDefinitions();
-        const previewDefinitions = definitions.filter((definition) => definition.dagId.startsWith('preview-copy:'));
-        if (previewDefinitions.length === 0) {
+        const runCopyDefinitions = definitions.filter((definition) => definition.dagId.startsWith('run-copy:'));
+        if (runCopyDefinitions.length === 0) {
             return {
                 ok: true,
                 value: {
@@ -193,15 +193,15 @@ export class DagPreviewService {
                 }
             };
         }
-        return this.deleteArtifactsForDefinitions(previewDefinitions);
+        return this.deleteArtifactsForDefinitions(runCopyDefinitions);
     }
 
-    private createPreviewDefinitionCopy(definition: IDagDefinition): IDagDefinition {
+    private createRunDefinitionCopy(definition: IDagDefinition): IDagDefinition {
         const timestamp = this.clock.nowEpochMs();
         const randomSuffix = Math.floor(Math.random() * 10000);
         return {
             ...definition,
-            dagId: `preview-copy:${definition.dagId}:${timestamp}:${randomSuffix}`,
+            dagId: `run-copy:${definition.dagId}:${timestamp}:${randomSuffix}`,
             version: 1,
             status: 'draft'
         };
@@ -227,9 +227,9 @@ export class DagPreviewService {
         }
     }
 
-    private mapRunQueryToPreviewResult(
+    private mapRunQueryToRunResult(
         query: { dagRun: IDagRun; taskRuns: ITaskRun[] }
-    ): TResult<IPreviewResult, IDagError> {
+    ): TResult<IRunResult, IDagError> {
         const definitionResult = this.parseDefinitionSnapshot(query.dagRun);
         if (!definitionResult.ok) {
             return definitionResult;
@@ -248,7 +248,7 @@ export class DagPreviewService {
                 return a.taskRunId.localeCompare(b.taskRunId);
             });
 
-        const traces: IPreviewNodeTrace[] = [];
+        const traces: IRunNodeTrace[] = [];
         let maxTotalCostUsd = 0;
         for (const taskRun of successfulTaskRuns) {
             const nodeType = nodeTypeByNodeId.get(taskRun.nodeId);
@@ -256,8 +256,8 @@ export class DagPreviewService {
                 return {
                     ok: false,
                     error: buildValidationError(
-                        'DAG_VALIDATION_PREVIEW_TRACE_NODE_TYPE_NOT_FOUND',
-                        'Node type was not found while mapping preview traces',
+                        'DAG_VALIDATION_RUN_TRACE_NODE_TYPE_NOT_FOUND',
+                        'Node type was not found while mapping run traces',
                         { nodeId: taskRun.nodeId, dagRunId: query.dagRun.dagRunId }
                     )
                 };
@@ -266,8 +266,8 @@ export class DagPreviewService {
                 return {
                     ok: false,
                     error: buildValidationError(
-                        'DAG_VALIDATION_PREVIEW_TRACE_SNAPSHOT_MISSING',
-                        'TaskRun snapshots are required to build preview traces',
+                        'DAG_VALIDATION_RUN_TRACE_SNAPSHOT_MISSING',
+                        'TaskRun snapshots are required to build run traces',
                         { taskRunId: taskRun.taskRunId }
                     )
                 };
@@ -284,8 +284,8 @@ export class DagPreviewService {
                 return {
                     ok: false,
                     error: buildValidationError(
-                        'DAG_VALIDATION_PREVIEW_TRACE_COST_MISSING',
-                        'TaskRun cost fields are required to build preview traces',
+                        'DAG_VALIDATION_RUN_TRACE_COST_MISSING',
+                        'TaskRun cost fields are required to build run traces',
                         { taskRunId: taskRun.taskRunId }
                     )
                 };
@@ -363,7 +363,7 @@ export class DagPreviewService {
                 return {
                     ok: false,
                     error: buildValidationError(
-                        'DAG_VALIDATION_PREVIEW_TRACE_SNAPSHOT_INVALID',
+                        'DAG_VALIDATION_RUN_TRACE_SNAPSHOT_INVALID',
                         `${snapshotType} snapshot has invalid payload shape`,
                         { taskRunId, snapshotType }
                     )
@@ -377,7 +377,7 @@ export class DagPreviewService {
             return {
                 ok: false,
                 error: buildValidationError(
-                    'DAG_VALIDATION_PREVIEW_TRACE_SNAPSHOT_PARSE_FAILED',
+                    'DAG_VALIDATION_RUN_TRACE_SNAPSHOT_PARSE_FAILED',
                     `Failed to parse ${snapshotType} snapshot`,
                     { taskRunId, snapshotType }
                 )
@@ -399,7 +399,7 @@ export class DagPreviewService {
             return {
                 ok: false,
                 error: buildValidationError(
-                    'DAG_VALIDATION_PREVIEW_RUN_FAILED_WITHOUT_TASK',
+                    'DAG_VALIDATION_RUN_FAILED_WITHOUT_TASK',
                     'Run finished with failure status but no failed task run was found',
                     { dagRunId: query.dagRun.dagRunId, dagRunStatus: query.dagRun.status }
                 )
@@ -409,7 +409,7 @@ export class DagPreviewService {
             return {
                 ok: false,
                 error: buildValidationError(
-                    'DAG_VALIDATION_PREVIEW_RUN_FAILURE_DETAILS_MISSING',
+                    'DAG_VALIDATION_RUN_FAILURE_DETAILS_MISSING',
                     'Failed task run is missing error details',
                     { dagRunId: query.dagRun.dagRunId, taskRunId: failedTaskRun.taskRunId }
                 )

@@ -47,7 +47,7 @@ import { NodeConfigPanel } from './node-config-panel.js';
 import { NodeIoTracePanel } from './node-io-trace-panel.js';
 import { NodeExplorerPanel } from './node-explorer-panel.js';
 import { reconcileNodePortsAndEdges, summarizeRemovedBindings } from './port-editor-utils.js';
-import type { IPreviewResult } from '../contracts/designer-api.js';
+import type { IRunResult } from '../contracts/designer-api.js';
 import '@xyflow/react/dist/style.css';
 
 export type TNodeExecutionStatus = 'idle' | 'running' | 'success' | 'failed';
@@ -62,7 +62,7 @@ export interface IRunProgressState {
     latestEventType?: TRunProgressEvent['eventType'];
 }
 
-export interface IRunPreviewProgressHooks {
+export interface IRunProgressHooks {
     onRunStarted: (dagRunId: string) => void;
     onRunProgressEvent: (event: TRunProgressEvent) => void;
 }
@@ -72,11 +72,11 @@ export interface IDagDesignerRootProps {
     manifests: INodeManifest[];
     onDefinitionChange: (definition: IDagDefinition) => void;
     assetUploadBaseUrl?: string;
-    onPreviewResult?: (result: TResult<IPreviewResult, IDagError>) => void;
-    onRunPreview?: (input: {
+    onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
+    onRun?: (input: {
         definition: IDagDefinition;
         input: TPortPayload;
-    }, hooks?: IRunPreviewProgressHooks) => Promise<TResult<IPreviewResult, IDagError>>;
+    }, hooks?: IRunProgressHooks) => Promise<TResult<IRunResult, IDagError>>;
     initialInput?: TPortPayload;
     children: ReactNode;
     className?: string;
@@ -87,22 +87,22 @@ export interface IDagDesignerContextValue {
     manifests: INodeManifest[];
     onDefinitionChange: (definition: IDagDefinition) => void;
     assetUploadBaseUrl?: string;
-    onPreviewResult?: (result: TResult<IPreviewResult, IDagError>) => void;
-    onRunPreview?: (input: {
+    onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
+    onRun?: (input: {
         definition: IDagDefinition;
         input: TPortPayload;
-    }, hooks?: IRunPreviewProgressHooks) => Promise<TResult<IPreviewResult, IDagError>>;
+    }, hooks?: IRunProgressHooks) => Promise<TResult<IRunResult, IDagError>>;
     initialInput?: TPortPayload;
     selectedNodeId?: string;
     selectedEdgeId?: string;
     connectError?: string;
     bindingCleanupMessage?: string;
-    previewResult?: IPreviewResult;
+    runResult?: IRunResult;
     runProgress: IRunProgressState;
     setSelectedNodeId: (nodeId: string | undefined) => void;
     setSelectedEdgeId: (edgeId: string | undefined) => void;
     setConnectError: (error: string | undefined) => void;
-    setPreviewResult: (result: IPreviewResult | undefined) => void;
+    setRunResult: (result: IRunResult | undefined) => void;
     resetRunProgress: () => void;
     setActiveDagRunId: (dagRunId: string) => void;
     applyRunProgressEvent: (event: TRunProgressEvent) => void;
@@ -413,7 +413,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>(undefined);
     const [connectError, setConnectError] = useState<string | undefined>(undefined);
     const [bindingCleanupMessage, setBindingCleanupMessage] = useState<string | undefined>(undefined);
-    const [previewResult, setPreviewResult] = useState<IPreviewResult | undefined>(undefined);
+    const [runResult, setRunResult] = useState<IRunResult | undefined>(undefined);
     const [runProgress, setRunProgress] = useState<IRunProgressState>(INITIAL_RUN_PROGRESS_STATE);
     const nodeRunningSinceRef = useRef<Map<string, number>>(new Map());
     const pendingStatusTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -496,7 +496,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const addNodeFromManifest = useCallback((manifest: INodeManifest): void => {
         const nextNode = createNodeFromManifest(manifest, props.definition.nodes.length);
         setBindingCleanupMessage(undefined);
-        setPreviewResult(undefined);
+        setRunResult(undefined);
         resetRunProgress();
         props.onDefinitionChange({
             ...props.definition,
@@ -507,14 +507,14 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const updateNode = useCallback((nextNode: IDagNode): void => {
         const reconciled = reconcileNodePortsAndEdges(props.definition, nextNode);
         setBindingCleanupMessage(summarizeRemovedBindings(reconciled.removedBindings));
-        setPreviewResult(undefined);
+        setRunResult(undefined);
         resetRunProgress();
         props.onDefinitionChange(reconciled.nextDefinition);
     }, [props.definition, props.onDefinitionChange, resetRunProgress]);
 
     const updateEdge = useCallback((nextEdge: IDagEdgeDefinition): void => {
         setBindingCleanupMessage(undefined);
-        setPreviewResult(undefined);
+        setRunResult(undefined);
         resetRunProgress();
         props.onDefinitionChange({
             ...props.definition,
@@ -530,7 +530,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
             return;
         }
         setBindingCleanupMessage(undefined);
-        setPreviewResult(undefined);
+        setRunResult(undefined);
         resetRunProgress();
         setSelectedEdgeId(undefined);
         const nextNodes = recomputeNodeDependencies(props.definition.nodes, nextEdges);
@@ -549,7 +549,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         const nextEdges = props.definition.edges.filter((edge) => edge.from !== nodeId && edge.to !== nodeId);
         const reconciledNodes = recomputeNodeDependencies(nextNodes, nextEdges);
         setBindingCleanupMessage(undefined);
-        setPreviewResult(undefined);
+        setRunResult(undefined);
         resetRunProgress();
         setSelectedNodeId(undefined);
         setSelectedEdgeId(undefined);
@@ -565,19 +565,19 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         manifests: props.manifests,
         onDefinitionChange: props.onDefinitionChange,
         assetUploadBaseUrl: props.assetUploadBaseUrl,
-        onPreviewResult: props.onPreviewResult,
-        onRunPreview: props.onRunPreview,
+        onRunResult: props.onRunResult,
+        onRun: props.onRun,
         initialInput: props.initialInput,
         selectedNodeId,
         selectedEdgeId,
         connectError,
         bindingCleanupMessage,
-        previewResult,
+        runResult,
         runProgress,
         setSelectedNodeId,
         setSelectedEdgeId,
         setConnectError,
-        setPreviewResult,
+        setRunResult,
         resetRunProgress,
         setActiveDagRunId,
         applyRunProgressEvent,
@@ -592,14 +592,14 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         props.manifests,
         props.onDefinitionChange,
         props.assetUploadBaseUrl,
-        props.onPreviewResult,
-        props.onRunPreview,
+        props.onRunResult,
+        props.onRun,
         props.initialInput,
         selectedNodeId,
         selectedEdgeId,
         connectError,
         bindingCleanupMessage,
-        previewResult,
+        runResult,
         runProgress,
         bindingErrors,
         resetRunProgress,
@@ -714,7 +714,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             ...context.definition,
             nodes: nextNodes
         });
-        context.setPreviewResult(undefined);
+        context.setRunResult(undefined);
         context.resetRunProgress();
     };
 
@@ -820,7 +820,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 }
             ]
         });
-        context.setPreviewResult(undefined);
+        context.setRunResult(undefined);
         context.resetRunProgress();
     };
 
@@ -834,7 +834,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         <div className={`flex min-h-[420px] flex-col overflow-hidden rounded border border-gray-300 ${props.className ?? ''}`}>
             {context.bindingErrors.length > 0 ? (
                 <div className="relative z-10 shrink-0 border-b border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
-                    <div className="font-medium">Blocking Binding Errors</div>
+                    <div className="font-medium">Blocking Binding Errors (from recent edits)</div>
                     {context.bindingErrors.map((error) => (
                         <div key={error}>- {error}</div>
                     ))}
@@ -939,7 +939,7 @@ export function DagDesignerNodeIoTrace(props: IDagDesignerNodeIoTraceProps): Rea
     return (
         <div className={props.className ?? ''}>
             <NodeIoTracePanel
-                previewResult={context.previewResult}
+                runResult={context.runResult}
                 selectedNodeId={context.selectedNodeId}
                 selectedNodeExecutionStatus={
                     context.selectedNodeId

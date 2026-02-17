@@ -29,10 +29,10 @@ curl -s -o /tmp/api_health.txt -w "%{http_code}" http://localhost:3011/health
 curl -s -o /tmp/dag_nodes.txt -w "%{http_code}" http://localhost:3011/v1/dag/nodes
 ```
 
-Preview smoke example:
+Run smoke example:
 
 ```bash
-node -e "fetch('http://localhost:3011/v1/dag/dev/preview',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({definition:YOUR_DEFINITION,input:{}})}).then(async r=>{console.log('status',r.status); console.log(await r.text());})"
+node -e "fetch('http://localhost:3011/v1/dag/runs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({definition:YOUR_DEFINITION,input:{}})}).then(async r=>{const t=await r.text(); console.log('create status',r.status,t); const o=JSON.parse(t); return fetch('http://localhost:3011/v1/dag/runs/'+o.data.dagRunId+'/start',{method:'POST'}).then(async s=>console.log('start status',s.status,await s.text()));})"
 ```
 
 ## 5) UI Smoke Examples
