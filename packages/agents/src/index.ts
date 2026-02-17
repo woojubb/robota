@@ -128,7 +128,11 @@ export type { TToolParameters, IToolResult, IToolExecutionContext } from './inte
 export type {
     TUniversalMessage,
     IAssistantMessage,
-    TUniversalMessageMetadata
+    TUniversalMessageMetadata,
+    ITextMessagePart,
+    IInlineImageMessagePart,
+    IUriImageMessagePart,
+    TUniversalMessagePart
 } from './interfaces/messages';
 
 /**

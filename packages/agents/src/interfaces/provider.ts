@@ -128,6 +128,7 @@ export interface IProviderSpecificOptions {
             category: string;
             threshold: string;
         }>;
+        responseModalities?: Array<'TEXT' | 'IMAGE'>;
         topP?: number;
         topK?: number;
     };

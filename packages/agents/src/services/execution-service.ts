@@ -294,11 +294,16 @@ export class ExecutionService {
                 // This preserves the original order including multiple system messages
                 messages.forEach(msg => {
                     if (msg.role === 'user') {
-                        conversationSession.addUserMessage(msg.content, msg.metadata);
+                        conversationSession.addUserMessage(msg.content, msg.metadata, msg.parts);
                     } else if (msg.role === 'assistant') {
-                        conversationSession.addAssistantMessage(msg.content, (msg as IAssistantMessage).toolCalls, msg.metadata);
+                        conversationSession.addAssistantMessage(
+                            msg.content,
+                            (msg as IAssistantMessage).toolCalls,
+                            msg.metadata,
+                            msg.parts
+                        );
                     } else if (msg.role === 'system') {
-                        conversationSession.addSystemMessage(msg.content, msg.metadata);
+                        conversationSession.addSystemMessage(msg.content, msg.metadata, msg.parts);
                     } else if (msg.role === 'tool') {
                         const toolName = msg.metadata?.['toolName'];
                         if (typeof toolName !== 'string' || toolName.length === 0) {
@@ -308,7 +313,8 @@ export class ExecutionService {
                             msg.content,
                             (msg as IToolMessage).toolCallId,
                             toolName,
-                            msg.metadata
+                            msg.metadata,
+                            msg.parts
                         );
                     }
                 });
