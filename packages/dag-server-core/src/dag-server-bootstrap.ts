@@ -1,6 +1,5 @@
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
-import path from 'node:path';
 import {
     EXECUTION_PROGRESS_EVENTS,
     LifecycleTaskExecutorPort,
@@ -10,7 +9,6 @@ import {
     SystemClockPort,
     TASK_EVENTS,
     TASK_PROGRESS_EVENTS,
-    type IAssetReference,
     type IDagDefinition,
     type INodeLifecycleFactory,
     type INodeManifest,
@@ -25,9 +23,22 @@ import {
     toProblemDetails,
     type INodeCatalogService
 } from '@robota-sdk/dag-api';
-import { LocalFsAssetStore, type IStoredAssetMetadata } from './services/local-fs-asset-store.js';
-import { AssetAwareTaskExecutorPort } from './services/asset-aware-task-executor.js';
-import { DagRunService } from './services/dag-preview-service.js';
+import type { IAssetStore, IStoredAssetMetadata } from './asset-store-contract.js';
+
+/**
+ * API response shape for asset endpoints; includes content URI.
+ * Differs from dag-core IAssetReference which disallows uri when referenceType is 'asset'.
+ */
+interface IAssetApiResponse {
+    referenceType: 'asset';
+    assetId: string;
+    mediaType: string;
+    uri: string;
+    name?: string;
+    sizeBytes?: number;
+}
+import { AssetAwareTaskExecutorPort } from './asset-aware-task-executor.js';
+import { DagRunService } from './dag-run-service.js';
 
 interface IVersionBody {
     version: number;
@@ -83,26 +94,6 @@ interface IAssetValidationError {
     retryable: false;
 }
 
-function resolveDefaultWorkerTimeoutMs(): number {
-    const raw = process.env.DAG_DEFAULT_TIMEOUT_MS;
-    if (typeof raw === 'undefined' || raw.trim().length === 0) {
-        return 30_000;
-    }
-    const parsed = Number.parseInt(raw, 10);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-        throw new Error('DAG_DEFAULT_TIMEOUT_MS must be a positive integer when provided.');
-    }
-    return parsed;
-}
-
-function resolveRequestBodyLimit(): string {
-    const raw = process.env.DAG_REQUEST_BODY_LIMIT;
-    if (typeof raw === 'undefined' || raw.trim().length === 0) {
-        return '15mb';
-    }
-    return raw.trim();
-}
-
 function parseTaskRunPayloadSnapshot(snapshot: string | undefined): TPortPayload | undefined {
     if (typeof snapshot !== 'string' || snapshot.length === 0) {
         return undefined;
@@ -137,11 +128,20 @@ export interface IDagServerBootstrapOptions {
     nodeManifests: INodeManifest[];
     nodeLifecycleFactory: INodeLifecycleFactory;
     nodeCatalogService: INodeCatalogService;
+    assetStore: IAssetStore;
     llmCompletionClient?: ILlmTextCompletionClient;
     port?: number;
+    corsOrigins?: string[];
+    requestBodyLimit?: string;
+    defaultWorkerTimeoutMs?: number;
 }
 
-function toAssetReference(metadata: IStoredAssetMetadata, contentUri: string): IAssetReference {
+const DEFAULT_PORT = 3011;
+const DEFAULT_CORS_ORIGINS = ['http://localhost:3000'];
+const DEFAULT_REQUEST_BODY_LIMIT = '15mb';
+const DEFAULT_WORKER_TIMEOUT_MS = 30_000;
+
+function toAssetReference(metadata: IStoredAssetMetadata, contentUri: string): IAssetApiResponse {
     return {
         referenceType: 'asset',
         assetId: metadata.assetId,
@@ -152,13 +152,13 @@ function toAssetReference(metadata: IStoredAssetMetadata, contentUri: string): I
     };
 }
 
-function getAssetContentUri(req: Request, assetId: string): string {
+function getAssetContentUri(req: { protocol: string; get(name: string): string | undefined }, assetId: string): string {
     return `${req.protocol}://${req.get('host')}/v1/dag/assets/${assetId}/content`;
 }
 
 async function validateAssetReferences(
     definition: IDagDefinition,
-    assetStore: LocalFsAssetStore
+    assetStore: IAssetStore
 ): Promise<IAssetValidationError[]> {
     const errors: IAssetValidationError[] = [];
     for (const node of definition.nodes) {
@@ -192,7 +192,7 @@ async function validateAssetReferences(
                 });
                 continue;
             }
-            if (hasAssetId) {
+            if (hasAssetId && typeof assetValue.assetId === 'string') {
                 const metadata = await assetStore.getMetadata(assetValue.assetId);
                 if (!metadata) {
                     errors.push({
@@ -206,8 +206,8 @@ async function validateAssetReferences(
         }
 
         const referenceType = config.referenceType;
-        const assetId = config.assetId;
-        const uri = config.uri;
+        const assetId = typeof config.assetId === 'string' ? config.assetId : undefined;
+        const uri = typeof config.uri === 'string' ? config.uri : undefined;
         const hasAssetId = typeof assetId === 'string' && assetId.trim().length > 0;
         const hasUri = typeof uri === 'string' && uri.trim().length > 0;
         if (!hasAssetId && !hasUri) {
@@ -237,7 +237,7 @@ async function validateAssetReferences(
             });
             continue;
         }
-        if (hasAssetId) {
+        if (hasAssetId && typeof assetId === 'string') {
             const metadata = await assetStore.getMetadata(assetId);
             if (!metadata) {
                 errors.push({
@@ -322,13 +322,23 @@ function createSampleDefinition(dagId: string, version: number): IDagDefinition 
 }
 
 export async function startDagServer(options: IDagServerBootstrapOptions): Promise<void> {
+    const corsOrigins = options.corsOrigins ?? DEFAULT_CORS_ORIGINS;
+    const requestBodyLimit = options.requestBodyLimit ?? DEFAULT_REQUEST_BODY_LIMIT;
+    const defaultWorkerTimeoutMs = options.defaultWorkerTimeoutMs ?? DEFAULT_WORKER_TIMEOUT_MS;
+    const port = options.port ?? DEFAULT_PORT;
+
+    const assetStore = options.assetStore;
+    if (assetStore.initialize) {
+        await assetStore.initialize();
+    }
+
     const app = express();
     app.use(cors({
-        origin: process.env.CORS_ORIGINS?.split(',') ?? ['http://localhost:3000'],
+        origin: corsOrigins,
         methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Correlation-Id']
     }));
-    app.use(express.json({ limit: resolveRequestBodyLimit() }));
+    app.use(express.json({ limit: requestBodyLimit }));
 
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
@@ -337,13 +347,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     const clock = new SystemClockPort();
     const manifestRegistry = createManifestRegistryFromManifests(options.nodeManifests);
     const lifecycleExecutor = new LifecycleTaskExecutorPort(manifestRegistry, options.nodeLifecycleFactory);
-    const assetStoreRoot = process.env.ASSET_STORAGE_ROOT
-        ? path.resolve(process.env.ASSET_STORAGE_ROOT)
-        : path.resolve(process.cwd(), '.local-assets');
-    const assetStore = new LocalFsAssetStore(assetStoreRoot);
-    await assetStore.initialize();
     const executor = new AssetAwareTaskExecutorPort(lifecycleExecutor, assetStore);
-    const defaultWorkerTimeoutMs = resolveDefaultWorkerTimeoutMs();
 
     const controllers = createDagControllerComposition(
         {
@@ -1125,7 +1129,6 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         res.status(dashboard.status).json(dashboard);
     });
 
-    const port = options.port ?? Number.parseInt(process.env.DAG_DEV_PORT ?? '3011', 10);
     app.listen(port, () => {
         process.stdout.write(`DAG dev server started at http://localhost:${port}\n`);
     });

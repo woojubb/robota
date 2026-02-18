@@ -5,7 +5,7 @@ import type {
     TPortPayload,
     TTaskExecutionResult
 } from '@robota-sdk/dag-core';
-import { LocalFsAssetStore } from './local-fs-asset-store.js';
+import type { IAssetStore } from './asset-store-contract.js';
 
 function isBinaryValue(value: TPortPayload[string]): value is IPortBinaryValue {
     if (typeof value !== 'object' || value === null) {
@@ -36,7 +36,7 @@ function parseAssetIdFromUri(uri: string): string | undefined {
 export class AssetAwareTaskExecutorPort implements ITaskExecutorPort {
     public constructor(
         private readonly delegate: ITaskExecutorPort,
-        private readonly assetStore: LocalFsAssetStore
+        private readonly assetStore: IAssetStore
     ) {}
 
     public async execute(input: ITaskExecutionInput): Promise<TTaskExecutionResult> {

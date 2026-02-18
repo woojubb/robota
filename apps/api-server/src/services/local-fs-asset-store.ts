@@ -2,32 +2,17 @@ import { createReadStream, existsSync } from 'node:fs';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import type {
+    IAssetStore,
+    IStoredAssetMetadata,
+    ICreateAssetInput,
+    ICreateAssetReferenceInput,
+    IAssetContentResult
+} from '@robota-sdk/dag-server-core';
 
-export interface IStoredAssetMetadata {
-    assetId: string;
-    fileName: string;
-    mediaType: string;
-    sizeBytes: number;
-    createdAt: string;
-    sourceUri?: string;
-    binaryKind?: 'image' | 'video' | 'audio' | 'file';
-}
+export type { IStoredAssetMetadata } from '@robota-sdk/dag-server-core';
 
-export interface ICreateAssetInput {
-    fileName: string;
-    mediaType: string;
-    content: Buffer;
-}
-
-export interface ICreateAssetReferenceInput {
-    fileName: string;
-    mediaType: string;
-    sourceUri: string;
-    binaryKind: 'image' | 'video' | 'audio' | 'file';
-    sizeBytes?: number;
-}
-
-export class LocalFsAssetStore {
+export class LocalFsAssetStore implements IAssetStore {
     private readonly rootDir: string;
 
     public constructor(rootDir: string) {
@@ -83,7 +68,7 @@ export class LocalFsAssetStore {
         return JSON.parse(metadataText) as IStoredAssetMetadata;
     }
 
-    public async getContent(assetId: string): Promise<{ stream: NodeJS.ReadableStream; metadata: IStoredAssetMetadata } | undefined> {
+    public async getContent(assetId: string): Promise<IAssetContentResult | undefined> {
         const metadata = await this.getMetadata(assetId);
         if (!metadata) {
             return undefined;
