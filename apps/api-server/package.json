@@ -35,6 +35,7 @@
     "dependencies": {
         "@robota-sdk/dag-api": "workspace:*",
         "@robota-sdk/dag-core": "workspace:*",
+        "@robota-sdk/dag-server-core": "workspace:*",
         "@robota-sdk/dag-node-image-loader": "workspace:*",
         "@robota-sdk/dag-node-image-source": "workspace:*",
         "@robota-sdk/dag-node-gemini-image-edit": "workspace:*",

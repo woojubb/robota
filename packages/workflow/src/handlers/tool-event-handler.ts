@@ -1,6 +1,6 @@
 /**
  * Tool event processing logic
- *
+ * 
  * Processes tool events and creates appropriate workflow nodes.
  */
 
@@ -41,7 +41,7 @@ class ToolEventLogic {
     }
 
     async handle(eventType: string, eventData: TEventData): Promise<IEventProcessingResult> {
-        this.logger.debug(`🔧 [TOOL-HANDLER] Processing ${eventType}`);
+            this.logger.debug(`🔧 [TOOL-HANDLER] Processing ${eventType}`);
         this.recordToolInstance(eventType, eventData);
         const handler = this.getHandler(eventType);
         if (!handler) {
@@ -70,29 +70,29 @@ class ToolEventLogic {
     }
 
     private async handleCallStart(eventData: TEventData): Promise<IEventProcessingResult> {
-        const updates: TWorkflowUpdate[] = [];
+            const updates: TWorkflowUpdate[] = [];
         const pathInfo = extractPathInfo(eventData.context.ownerPath, TOOL_EVENT_NAMES.CALL_START);
         const toolCallNode = this.nodeBuilder.createToolCallNode(eventData, pathInfo);
-        updates.push({ action: 'create', node: toolCallNode });
+                    updates.push({ action: 'create', node: toolCallNode });
 
-        if (!pathInfo.parentId) {
-            return {
-                success: false,
-                updates: [],
-                errors: [
+                    if (!pathInfo.parentId) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [
                     `[PATH-ONLY] Missing parent segment for ${TOOL_EVENT_NAMES.CALL_START}. Path=${pathInfo.segments.join(' -> ')}`
-                ]
-            };
-        }
+                            ]
+                        };
+                    }
 
-        const edge: IWorkflowEdge = {
-            id: EdgeUtils.generateId(pathInfo.parentId, toolCallNode.id, 'executes'),
-            source: pathInfo.parentId,
-            target: toolCallNode.id,
-            type: 'executes',
-            timestamp: Date.now()
-        };
-        updates.push({ action: 'create', edge });
+                    const edge: IWorkflowEdge = {
+                        id: EdgeUtils.generateId(pathInfo.parentId, toolCallNode.id, 'executes'),
+                        source: pathInfo.parentId,
+                        target: toolCallNode.id,
+                        type: 'executes',
+                        timestamp: Date.now()
+                    };
+                    updates.push({ action: 'create', edge });
 
         return {
             success: true,
@@ -111,7 +111,7 @@ class ToolEventLogic {
         const updates: TWorkflowUpdate[] = [];
         const pathInfo = extractPathInfo(eventData.context.ownerPath, TOOL_EVENT_NAMES.CALL_ERROR);
         const toolErrorNode = this.nodeBuilder.createToolCallErrorNode(eventData, pathInfo);
-        updates.push({ action: 'create', node: toolErrorNode });
+                    updates.push({ action: 'create', node: toolErrorNode });
 
         return {
             success: true,
@@ -122,36 +122,36 @@ class ToolEventLogic {
     private async handleCallResponseReady(eventData: TEventData): Promise<IEventProcessingResult> {
         const updates: TWorkflowUpdate[] = [];
         const pathInfo = extractPathInfo(eventData.context.ownerPath, TOOL_EVENT_NAMES.CALL_RESPONSE_READY);
-        const toolCallId = pathInfo.nodeId;
-        if (!toolCallId) {
-            return {
-                success: false,
-                updates: [],
+                    const toolCallId = pathInfo.nodeId;
+                    if (!toolCallId) {
+                        return {
+                            success: false,
+                            updates: [],
                 errors: [`[PATH-ONLY] Empty path.tail for ${TOOL_EVENT_NAMES.CALL_RESPONSE_READY}.`]
-            };
-        }
+                        };
+                    }
 
-        const delegatedResponseNodeId = (() => {
-            const res = eventData.result;
-            if (!res || typeof res !== 'object') return undefined;
-            if (!('delegatedResponseNodeId' in res)) return undefined;
-            const id = res.delegatedResponseNodeId;
-            return typeof id === 'string' && id.length > 0 ? id : undefined;
-        })();
-        const parentForResponseId: string =
+                    const delegatedResponseNodeId = (() => {
+                        const res = eventData.result;
+                        if (!res || typeof res !== 'object') return undefined;
+                        if (!('delegatedResponseNodeId' in res)) return undefined;
+                        const id = res.delegatedResponseNodeId;
+                        return typeof id === 'string' && id.length > 0 ? id : undefined;
+                    })();
+                    const parentForResponseId: string =
             delegatedResponseNodeId ?? toolCallId;
 
         const toolResponseNode = this.nodeBuilder.createToolResponseNode(eventData, pathInfo);
-        updates.push({ action: 'create', node: toolResponseNode });
+                    updates.push({ action: 'create', node: toolResponseNode });
 
-        const edgeFromParent: IWorkflowEdge = {
-            id: EdgeUtils.generateId(parentForResponseId, toolResponseNode.id, 'result'),
-            source: parentForResponseId,
-            target: toolResponseNode.id,
-            type: 'result',
-            timestamp: Date.now()
-        };
-        updates.push({ action: 'create', edge: edgeFromParent });
+                    const edgeFromParent: IWorkflowEdge = {
+                        id: EdgeUtils.generateId(parentForResponseId, toolResponseNode.id, 'result'),
+                        source: parentForResponseId,
+                        target: toolResponseNode.id,
+                        type: 'result',
+                        timestamp: Date.now()
+                    };
+                    updates.push({ action: 'create', edge: edgeFromParent });
 
         return {
             success: true,

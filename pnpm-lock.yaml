@@ -105,6 +105,9 @@ importers:
       '@robota-sdk/dag-node-transform':
         specifier: workspace:*
         version: link:../../packages/dag-nodes/transform
+      '@robota-sdk/dag-server-core':
+        specifier: workspace:*
+        version: link:../../packages/dag-server-core
       '@robota-sdk/google':
         specifier: workspace:*
         version: link:../../packages/google
@@ -761,6 +764,46 @@ importers:
         specifier: workspace:*
         version: link:../dag-worker
     devDependencies:
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.20.3)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/dag-server-core:
+    dependencies:
+      '@robota-sdk/dag-api':
+        specifier: workspace:*
+        version: link:../dag-api
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
+      '@robota-sdk/dag-node-llm-text':
+        specifier: workspace:*
+        version: link:../dag-nodes/llm-text
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.5
+      express:
+        specifier: ^4.18.2
+        version: 4.21.2
+    devDependencies:
+      '@types/cors':
+        specifier: ^2.8.17
+        version: 2.8.19
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.23
       eslint:
         specifier: ^8.56.0
         version: 8.57.1

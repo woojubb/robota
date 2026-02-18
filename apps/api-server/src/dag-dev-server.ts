@@ -18,15 +18,57 @@ import {
     GeminiImageComposeNodeDefinition,
     GeminiImageEditNodeDefinition
 } from '@robota-sdk/dag-node-gemini-image-edit';
-import { BundledNodeCatalogService } from './services/bundled-node-catalog-service.js';
+import {
+    startDagServer,
+    BundledNodeCatalogService
+} from '@robota-sdk/dag-server-core';
 import { createRobotaLlmCompletionClientFromEnv } from './services/robota-llm-completion-client.js';
 import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
 import { createRobotaGeminiImageClientFromEnv } from './services/robota-gemini-image-client.js';
-import { startDagServer } from './dag-server-bootstrap.js';
 
 dotenv.config({
     path: path.resolve(process.cwd(), '.env')
 });
+
+function parseCorsOrigins(): string[] {
+    const raw = process.env.CORS_ORIGINS;
+    if (typeof raw === 'undefined' || raw.trim().length === 0) {
+        return ['http://localhost:3000'];
+    }
+    return raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
+function resolveRequestBodyLimit(): string {
+    const raw = process.env.DAG_REQUEST_BODY_LIMIT;
+    if (typeof raw === 'undefined' || raw.trim().length === 0) {
+        return '15mb';
+    }
+    return raw.trim();
+}
+
+function resolveDefaultWorkerTimeoutMs(): number {
+    const raw = process.env.DAG_DEFAULT_TIMEOUT_MS;
+    if (typeof raw === 'undefined' || raw.trim().length === 0) {
+        return 30_000;
+    }
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error('DAG_DEFAULT_TIMEOUT_MS must be a positive integer when provided.');
+    }
+    return parsed;
+}
+
+function resolvePort(): number {
+    const raw = process.env.DAG_DEV_PORT;
+    if (typeof raw === 'undefined' || raw.trim().length === 0) {
+        return 3011;
+    }
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error('DAG_DEV_PORT must be a positive integer when provided.');
+    }
+    return parsed;
+}
 
 async function bootstrapDagDevServer(): Promise<void> {
     const llmCompletionClient = createRobotaLlmCompletionClientFromEnv();
@@ -66,7 +108,12 @@ async function bootstrapDagDevServer(): Promise<void> {
         nodeManifests: defaultNodeDefinitionAssembly.manifests,
         nodeLifecycleFactory: defaultLifecycleFactory,
         nodeCatalogService: defaultNodeCatalogService,
-        llmCompletionClient
+        assetStore,
+        llmCompletionClient,
+        port: resolvePort(),
+        corsOrigins: parseCorsOrigins(),
+        requestBodyLimit: resolveRequestBodyLimit(),
+        defaultWorkerTimeoutMs: resolveDefaultWorkerTimeoutMs()
     });
 }
 
