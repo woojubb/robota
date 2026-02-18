@@ -38,17 +38,11 @@ If a scan finds conflicting guidance, keep the rule-level policy and update the 
 ## Rule/Skill-to-Spec Mapping
 Use this map to keep procedural guidance aligned with formal project specs.
 
-### Event/Workflow Domain
-- Specs:
-  - `packages/workflow/docs/SPEC.md`
+### Event Domain
 - Rule anchors:
-  - `.cursor/rules/workflow-event-rules.mdc`
   - `.cursor/rules/execution-safety-rules.mdc`
   - `.cursor/rules/path-only-prohibitions.mdc`
 - Skills:
-  - `.cursor/skills/workflow-determinism-guidance/SKILL.md`
-  - `.cursor/skills/workflow-node-guidance/SKILL.md`
-  - `.cursor/skills/workflow-edge-debugging/SKILL.md`
   - `.cursor/skills/cqrs-event-projection-basics/SKILL.md`
 
 ### Type/SSOT Domain
@@ -82,12 +76,11 @@ Use this map to keep procedural guidance aligned with formal project specs.
   - `.cursor/skills/hexagonal-architecture-ts/SKILL.md`
   - `.cursor/skills/effect-style-error-modeling/SKILL.md`
 
-### Workflow and Event System
-- Rule anchor: `.cursor/rules/workflow-event-rules.mdc`
+### Event System
+- Rule anchors:
+  - `.cursor/rules/execution-safety-rules.mdc`
+  - `.cursor/rules/path-only-prohibitions.mdc`
 - Procedural skills:
-  - `.cursor/skills/workflow-determinism-guidance/SKILL.md`
-  - `.cursor/skills/workflow-node-guidance/SKILL.md`
-  - `.cursor/skills/workflow-edge-debugging/SKILL.md`
   - `.cursor/skills/cqrs-event-projection-basics/SKILL.md`
 
 ### Type and SSOT

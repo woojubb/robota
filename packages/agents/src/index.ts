@@ -368,7 +368,7 @@ export { TASK_EVENTS, TASK_EVENT_PREFIX } from './services/task-events';
 export { USER_EVENTS, USER_EVENT_PREFIX } from './services/user-events';
 
 // NOTE: Workflow builder/converter/visualization utilities were removed from @robota-sdk/agents.
-// Ownership is @robota-sdk/workflow. Agents must not depend on workflow to avoid circular package dependencies.
+// Keep workflow concerns outside of the agents package to avoid cross-domain coupling.
 
 // Workflow Converter Interfaces
 export type {
@@ -389,7 +389,7 @@ export type {
 } from './interfaces/workflow-validator';
 
 // NOTE: Universal workflow conversion/validation/layout/visualization exports were removed from @robota-sdk/agents.
-// Ownership is @robota-sdk/workflow. Agents must not depend on workflow to avoid circular package dependencies.
+// Keep workflow concerns outside of the agents package to avoid cross-domain coupling.
 
 // EventServiceHookFactory removed - simplified architecture
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';

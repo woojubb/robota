@@ -15,11 +15,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { PlaygroundExecutor, type IPlaygroundExecutorResult, type IPlaygroundAgentConfig, type TPlaygroundMode, type IConversationEvent, type IVisualizationData } from '../lib/playground/robota-executor';
-import { SilentLogger } from '@robota-sdk/agents';
-import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
-import type { IEventService, ILogger } from '@robota-sdk/agents';
-// Import Universal types from their proper location (Feature Ownership principle)
-import type { IWorkflowExportStructure, TWorkflowNodeStatus } from '@robota-sdk/workflow';
+import { DefaultEventService, SilentLogger } from '@robota-sdk/agents';
 import { getPlaygroundToolCatalog, type IPlaygroundToolMeta } from '../tools/catalog';
 
 // ===== State Types =====
@@ -53,9 +49,6 @@ export interface IPlaygroundState {
     error: string | null;
     visualizationData: IVisualizationData | null;
 
-    // Workflow state
-    currentWorkflow: IWorkflowExportStructure | null;  // Manual Store (deprecated)
-    sdkWorkflow: IWorkflowExportStructure | null;      // SDK Store (primary)
     // Execution statistics - now managed by PlaygroundStatisticsPlugin
     executionStats: IPlaygroundExecutionStats;
 
@@ -94,9 +87,6 @@ export type TPlaygroundReducerAction =
     | { type: 'SET_CONVERSATION_HISTORY'; payload: IConversationEvent[] }
     | { type: 'CLEAR_CONVERSATION_HISTORY' }
     | { type: 'SET_EXECUTION_RESULT'; payload: IPlaygroundExecutorResult }
-    | { type: 'SET_CURRENT_WORKFLOW'; payload: IWorkflowExportStructure | null }
-    | { type: 'UPDATE_WORKFLOW_FROM_SDK'; payload: IWorkflowExportStructure }  // STEP 7.2.2: newly added
-    | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: TWorkflowNodeStatus } }
     | { type: 'SET_TOOL_ITEMS'; payload: IPlaygroundToolMeta[] }
     | { type: 'ADD_TOOL_TO_AGENT_OVERLAY'; payload: { agentId: string; toolId: string } };
 
@@ -119,8 +109,6 @@ const initialState: IPlaygroundState = {
     isLoading: false,
     error: null,
     visualizationData: null,
-    currentWorkflow: null,  // Manual Store (deprecated)
-    sdkWorkflow: null,      // SDK Store (primary)
     // Execution Statistics - Now managed by PlaygroundStatisticsPlugin
     executionStats: {
         totalExecutions: 0,
@@ -290,65 +278,6 @@ function playgroundReducer(state: IPlaygroundState, action: TPlaygroundReducerAc
                 }
             };
         }
-
-
-        case 'SET_CURRENT_WORKFLOW':
-            return {
-                ...state,
-                currentWorkflow: action.payload
-            };
-
-        case 'UPDATE_WORKFLOW_FROM_SDK':
-            SilentLogger.debug('SDK workflow updated (no merge)', {
-                hasWorkflow: !!action.payload,
-                nodeCount: action.payload?.nodes?.length || 0
-            });
-            // UI state updates
-            if (typeof document !== 'undefined') {
-                const nodesCountElement = document.getElementById('workflow-nodes-count');
-                const lastUpdateElement = document.getElementById('last-workflow-update');
-                if (nodesCountElement) nodesCountElement.textContent = String(action.payload?.nodes?.length || 0);
-                if (lastUpdateElement) lastUpdateElement.textContent = new Date().toLocaleTimeString();
-
-                // Tool call and agent counts
-                const toolCallsElement = document.getElementById('tool-calls-count');
-                const agentsElement = document.getElementById('agents-created-count');
-                if (action.payload?.nodes) {
-                    const toolCallNodes = action.payload.nodes.filter(node => node.type === 'tool_call');
-                    const agentNodes = action.payload.nodes.filter(node => node.type === 'agent');
-                    if (toolCallsElement) toolCallsElement.textContent = String(toolCallNodes.length);
-                    if (agentsElement) agentsElement.textContent = String(agentNodes.length);
-                }
-            }
-            return {
-                ...state,
-                sdkWorkflow: action.payload  // STEP 10.1: Update SDK store only (merge removed)
-            };
-
-        case 'UPDATE_NODE_STATUS':
-            if (!state.currentWorkflow) {
-                return state;
-            }
-
-            return {
-                ...state,
-                currentWorkflow: {
-                    ...state.currentWorkflow,
-                    nodes: state.currentWorkflow.nodes.map(node =>
-                        node.id === action.payload.nodeId
-                            ? {
-                                ...node,
-                                status: action.payload.status,
-                                data: {
-                                    ...node.data,
-                                    status: action.payload.status
-                                }
-                            }
-                            : node
-                    )
-                }
-            };
-
         default:
             return state;
     }
@@ -369,8 +298,6 @@ interface IPlaygroundContextValue {
     clearHistory: () => void;
     setAuth: (userId: string, sessionId: string, authToken: string) => void;
     disposeExecutor: () => Promise<void>;
-    setWorkflow: (workflow: IWorkflowExportStructure | null) => void;
-    updateNodeStatus: (nodeId: string, status: TWorkflowNodeStatus) => void;
     setExecuting: (isExecuting: boolean) => void;
     setToolItems: (tools: IPlaygroundToolMeta[]) => void;
     addToolToAgentOverlay: (agentId: string, toolId: string) => void;
@@ -387,10 +314,9 @@ const PlaygroundContext = createContext<IPlaygroundContextValue | undefined>(und
 interface IPlaygroundProviderProps {
     children: ReactNode;
     defaultServerUrl?: string;
-    createEventService: (workflowSubscriber: WorkflowEventSubscriber, logger: ILogger) => IEventService;
 }
 
-export function PlaygroundProvider({ children, defaultServerUrl = '', createEventService }: IPlaygroundProviderProps) {
+export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygroundProviderProps) {
     const logger = SilentLogger;
     logger.debug('PlaygroundProvider rendering', { defaultServerUrl });
 
@@ -404,14 +330,6 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
     // Use ref to track executor for cleanup without causing re-renders
     const executorRef = useRef<PlaygroundExecutor | null>(null);
 
-    // Use ref to track the latest workflow state during executeStreamPrompt
-    const currentWorkflowRef = useRef<IWorkflowExportStructure | null>(null);
-
-    // Sync currentWorkflow state with ref
-    useEffect(() => {
-        currentWorkflowRef.current = state.currentWorkflow;
-    }, [state.currentWorkflow]);
-
     // Auto-initialize executor on mount
     useEffect(() => {
         logger.debug('Executor init effect triggered', { hasExecutor: !!state.executor, defaultServerUrl });
@@ -419,12 +337,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             try {
                 logger.debug('Creating PlaygroundExecutor');
 
-                const workflowSubscriber = new WorkflowEventSubscriber({ logger });
-                const eventService = createEventService(workflowSubscriber, logger);
+                const eventService = new DefaultEventService();
 
                 const executor = new PlaygroundExecutor(defaultServerUrl, 'playground-token', {
                     logger,
-                    workflowSubscriber,
                     eventService
                 });
 
@@ -445,57 +361,6 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
     useEffect(() => {
         // UI does not manually mutate workflow anymore. SDK is the single source of truth.
     }, [state.executor, state.mode, state.isInitialized]);
-
-    // STEP 7.2.3: SDK workflow subscription useEffect
-    useEffect(() => {
-        logger.debug('Setting up SDK workflow subscription');
-
-        // UI state update: connecting
-        const statusElement = document.getElementById('sdk-subscription-status');
-        if (statusElement) statusElement.textContent = 'Connecting...';
-
-        if (!state.executor?.subscribeToWorkflowUpdates) {
-            logger.debug('No workflow subscription available');
-            if (statusElement) statusElement.textContent = 'Not Available';
-            return;
-        }
-
-        logger.debug('Setting up workflow subscription');
-
-        // Configure SDK subscription
-        state.executor.subscribeToWorkflowUpdates((workflow) => {
-            logger.debug('Workflow update received', { hasWorkflow: !!workflow });
-            dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
-        });
-
-        // UI state update: connected
-        if (statusElement) statusElement.textContent = 'Connected';
-        logger.debug('SDK subscription setup completed');
-
-    }, [state.executor, state.isInitialized]);
-
-    // STEP 7.2.4: Initial workflow load useEffect
-    useEffect(() => {
-        if (!state.executor?.getCurrentWorkflow) return;
-
-        logger.debug('Loading initial workflow');
-
-        const loadInitialWorkflow = async () => {
-            try {
-                const workflow = await state.executor?.getCurrentWorkflow();
-                logger.debug('Initial workflow loaded', { hasWorkflow: !!workflow });
-                if (workflow && workflow.nodes.length > 0) {
-                    dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
-                }
-            } catch (error) {
-                logger.warn('Failed to load initial workflow', {
-                    error: error instanceof Error ? error.message : String(error)
-                });
-            }
-        };
-
-        loadInitialWorkflow();
-    }, [state.executor, state.isInitialized]);
 
     // ===== Executor Management =====
 
@@ -616,22 +481,6 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
             logger.debug('Executing prompt via real workflow system');
             const timestamp = Date.now();
 
-            const externalStore = state.executor?.getExternalWorkflowStore();
-            if (externalStore) {
-                // Removed manual user message node creation. The event system creates nodes.
-                logger.debug('User input processing (no artificial node creation)');
-                // Removed manual node/edge creation logic.
-
-                // Removed manual edge creation logic.
-
-                // Removed manual edge append logic.
-                // Unused code path removed.
-            } else {
-                logger.warn('External Store not available');
-            }
-
-            // SDK owns workflow updates; no manual node status mutation
-
             // Record UI interaction - streaming chat send
             if (typeof state.executor.recordPlaygroundAction === 'function') {
                 await state.executor.recordPlaygroundAction('chat_send', {
@@ -722,7 +571,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         } finally {
             dispatch({ type: 'SET_EXECUTING', payload: false });
         }
-    }, [state.executor, state.isInitialized, state.visualizationData, state.mode, state.currentWorkflow]);
+    }, [state.executor, state.isInitialized, state.visualizationData, state.mode]);
 
     const clearHistory = useCallback(() => {
         if (state.executor && state.isInitialized) {
@@ -751,22 +600,12 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         // Dispose is handled by setting state.executor to null.
     }, []);
 
-    const setWorkflow = useCallback((workflow: IWorkflowExportStructure | null) => {
-        if (workflow) {
-            dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
-        }
-    }, []);
-
     const setToolItems = useCallback((tools: IPlaygroundToolMeta[]) => {
         dispatch({ type: 'SET_TOOL_ITEMS', payload: tools });
     }, []);
 
     const addToolToAgentOverlay = useCallback((agentId: string, toolId: string) => {
         dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId } });
-    }, []);
-
-    const updateNodeStatus = useCallback((nodeId: string, status: TWorkflowNodeStatus) => {
-        dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId, status } });
     }, []);
 
     const setExecuting = useCallback((isExecuting: boolean) => {
@@ -830,8 +669,6 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         clearHistory,
         setAuth,
         disposeExecutor,
-        setWorkflow,
-        updateNodeStatus,
         setExecuting,
         setToolItems,
         addToolToAgentOverlay,
