@@ -44,7 +44,6 @@ const assignTask = createAssignTaskRelayTool(toolEventService);
 // - ctx.ownerPath (absolute ownerPath including the tool segment)
 // - ctx.agentId (delegated agent id)
 //
-// See packages/workflow/examples/guarded-edge-verification.ts for a fully guarded, scenario-playback execution.
 ```
 
 ## Notes

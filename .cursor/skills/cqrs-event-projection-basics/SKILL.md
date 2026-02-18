@@ -6,7 +6,6 @@ description: Applies practical CQRS and event projection fundamentals in TypeScr
 # CQRS + Event Projection Basics
 
 ## Rule Anchor
-- `.cursor/rules/workflow-event-rules.mdc`
 - `.cursor/rules/execution-safety-rules.mdc`
 
 ## Use This Skill When
