@@ -8,20 +8,13 @@ import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { GoogleProvider } from '@robota-sdk/google';
 import { registerRemoteServerRoutes } from '@robota-sdk/remote-server-core';
 import { PlaygroundWebSocketServer } from './websocket-server';
+import { resolveApiDocsEnabled } from './utils/env-flags.js';
 
 // Global WebSocket server instance (will be initialized in server.ts)
 export let playgroundWebSocketServer: PlaygroundWebSocketServer | null = null;
 
 export function setPlaygroundWebSocketServer(server: PlaygroundWebSocketServer): void {
     playgroundWebSocketServer = server;
-}
-
-function isApiDocsEnabled(rawValue: string | undefined): boolean {
-    if (typeof rawValue !== 'string') {
-        return true;
-    }
-    const normalized = rawValue.trim().toLowerCase();
-    return normalized !== '0' && normalized !== 'false' && normalized !== 'off';
 }
 
 /**
@@ -89,7 +82,7 @@ export function createApp(): express.Application {
     const remoteRuntime = registerRemoteServerRoutes({
         app,
         providers,
-        apiDocsEnabled: isApiDocsEnabled(process.env.API_DOCS_ENABLED),
+        apiDocsEnabled: resolveApiDocsEnabled(process.env.API_DOCS_ENABLED),
         logger: {
             debug: (message: string, ...data: unknown[]) => console.log(`[DEBUG] ${message}`, ...data),
             info: (message: string, ...data: unknown[]) => console.log(`[INFO] ${message}`, ...data),
@@ -99,7 +92,7 @@ export function createApp(): express.Application {
         }
     });
 
-    if (isApiDocsEnabled(process.env.API_DOCS_ENABLED)) {
+    if (resolveApiDocsEnabled(process.env.API_DOCS_ENABLED)) {
         app.get('/docs', (_req, res) => {
             res.status(200).json({
                 title: 'Robota API Docs',

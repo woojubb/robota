@@ -296,6 +296,8 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
         correlationId: "web-dag-publish",
       });
       if (published.ok) {
+        setDagId(published.value.dagId);
+        setVersion(published.value.version);
         setLog(`Publish success: ${published.value.dagId}:${published.value.version} (published snapshot)`);
         showActionToast("Published.", "success");
         return;
