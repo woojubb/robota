@@ -103,6 +103,13 @@ function resolveRequestBodyLimit(): string {
     return raw.trim();
 }
 
+function parseTaskRunPayloadSnapshot(snapshot: string | undefined): TPortPayload | undefined {
+    if (typeof snapshot !== 'string' || snapshot.length === 0) {
+        return undefined;
+    }
+    return JSON.parse(snapshot) as TPortPayload;
+}
+
 function toRunProblemDetails(
     error: IAssetValidationError,
     instance: string
@@ -991,6 +998,8 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         if (queried.ok) {
             const snapshotDagRun = queried.value.dagRun;
             for (const taskRun of queried.value.taskRuns) {
+                const input = parseTaskRunPayloadSnapshot(taskRun.inputSnapshot);
+                const output = parseTaskRunPayloadSnapshot(taskRun.outputSnapshot);
                 if (
                     taskRun.status === TASK_EVENTS.RUNNING
                     || taskRun.status === TASK_EVENTS.SUCCESS
@@ -1003,7 +1012,8 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
                         eventType: TASK_PROGRESS_EVENTS.STARTED,
                         occurredAt: clock.nowIso(),
                         taskRunId: taskRun.taskRunId,
-                        nodeId: taskRun.nodeId
+                        nodeId: taskRun.nodeId,
+                        input
                     });
                 }
                 if (taskRun.status === TASK_EVENTS.SUCCESS) {
@@ -1012,7 +1022,9 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
                         eventType: TASK_PROGRESS_EVENTS.COMPLETED,
                         occurredAt: clock.nowIso(),
                         taskRunId: taskRun.taskRunId,
-                        nodeId: taskRun.nodeId
+                        nodeId: taskRun.nodeId,
+                        input,
+                        output
                     });
                 }
                 if (
@@ -1026,6 +1038,8 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
                         occurredAt: clock.nowIso(),
                         taskRunId: taskRun.taskRunId,
                         nodeId: taskRun.nodeId,
+                        input,
+                        output,
                         error: {
                             code: taskRun.errorCode ?? 'DAG_TASK_EXECUTION_FAILED',
                             category: 'task_execution',

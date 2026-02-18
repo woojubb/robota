@@ -122,7 +122,8 @@ export class WorkerLoopService {
             eventType: TASK_PROGRESS_EVENTS.STARTED,
             occurredAt: this.clock.nowIso(),
             taskRunId: taskRun.taskRunId,
-            nodeId: message.nodeId
+            nodeId: message.nodeId,
+            input: message.payload
         });
         await this.storage.saveTaskRunSnapshots(taskRun.taskRunId, JSON.stringify(message.payload));
 
@@ -216,7 +217,9 @@ export class WorkerLoopService {
             eventType: TASK_PROGRESS_EVENTS.COMPLETED,
             occurredAt: this.clock.nowIso(),
             taskRunId,
-            nodeId: message.nodeId
+            nodeId: message.nodeId,
+            input: message.payload,
+            output
         });
 
         const dispatched = await this.dispatchDownstreamReadyTasks(dagRun, definition, message.nodeId, output);
@@ -249,6 +252,7 @@ export class WorkerLoopService {
             occurredAt: this.clock.nowIso(),
             taskRunId,
             nodeId: message.nodeId,
+            input: message.payload,
             error
         });
 

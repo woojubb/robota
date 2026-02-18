@@ -42,7 +42,12 @@ import {
 } from '@robota-sdk/dag-core';
 import { EdgeInspectorPanel } from './edge-inspector-panel.js';
 import { DagBindingEdge, type IDagBindingEdgeData } from './dag-binding-edge.js';
-import { DagNodeView, type IDagNodeViewData, type TDagCanvasNode } from './dag-node-view.js';
+import {
+    DagNodeView,
+    type IDagNodeIoTrace,
+    type IDagNodeViewData,
+    type TDagCanvasNode
+} from './dag-node-view.js';
 import { NodeConfigPanel } from './node-config-panel.js';
 import { NodeIoTracePanel } from './node-io-trace-panel.js';
 import { NodeExplorerPanel } from './node-explorer-panel.js';
@@ -52,12 +57,14 @@ import '@xyflow/react/dist/style.css';
 
 export type TNodeExecutionStatus = 'idle' | 'running' | 'success' | 'failed';
 
+interface INodeUiState {
+    executionStatus: TNodeExecutionStatus;
+    isSelected: boolean;
+}
+
 export interface IRunProgressState {
     activeDagRunId?: string;
     runStatus: 'idle' | 'running' | 'success' | 'failed';
-    nodeStatusByNodeId: Record<string, TNodeExecutionStatus>;
-    currentNodeId?: string;
-    failedNodeId?: string;
     completedTaskCount: number;
     latestEventType?: TRunProgressEvent['eventType'];
 }
@@ -98,6 +105,8 @@ export interface IDagDesignerContextValue {
     connectError?: string;
     bindingCleanupMessage?: string;
     runResult?: IRunResult;
+    liveNodeTraceByNodeId: Record<string, IDagNodeIoTrace>;
+    nodeUiStateByNodeId: Record<string, INodeUiState>;
     runProgress: IRunProgressState;
     setSelectedNodeId: (nodeId: string | undefined) => void;
     setSelectedEdgeId: (edgeId: string | undefined) => void;
@@ -118,7 +127,6 @@ const DagDesignerContext = createContext<IDagDesignerContextValue | undefined>(u
 
 const INITIAL_RUN_PROGRESS_STATE: IRunProgressState = {
     runStatus: 'idle',
-    nodeStatusByNodeId: {},
     completedTaskCount: 0
 };
 const MIN_RUNNING_DISPLAY_DURATION_MS = 400;
@@ -127,38 +135,28 @@ function applyRunProgressEventToState(
     currentState: IRunProgressState,
     event: TRunProgressEvent
 ): IRunProgressState {
-    const nextNodeStatusByNodeId = { ...currentState.nodeStatusByNodeId };
     if (event.eventType === TASK_PROGRESS_EVENTS.STARTED) {
-        nextNodeStatusByNodeId[event.nodeId] = 'running';
         return {
             ...currentState,
             activeDagRunId: currentState.activeDagRunId ?? event.dagRunId,
             runStatus: 'running',
-            nodeStatusByNodeId: nextNodeStatusByNodeId,
-            currentNodeId: event.nodeId,
             latestEventType: event.eventType
         };
     }
     if (event.eventType === TASK_PROGRESS_EVENTS.COMPLETED) {
-        nextNodeStatusByNodeId[event.nodeId] = 'success';
         return {
             ...currentState,
             activeDagRunId: currentState.activeDagRunId ?? event.dagRunId,
             runStatus: currentState.runStatus === 'failed' ? 'failed' : 'running',
-            nodeStatusByNodeId: nextNodeStatusByNodeId,
             completedTaskCount: currentState.completedTaskCount + 1,
             latestEventType: event.eventType
         };
     }
     if (event.eventType === TASK_PROGRESS_EVENTS.FAILED) {
-        nextNodeStatusByNodeId[event.nodeId] = 'failed';
         return {
             ...currentState,
             activeDagRunId: currentState.activeDagRunId ?? event.dagRunId,
             runStatus: 'failed',
-            nodeStatusByNodeId: nextNodeStatusByNodeId,
-            currentNodeId: event.nodeId,
-            failedNodeId: event.nodeId,
             latestEventType: event.eventType
         };
     }
@@ -197,8 +195,8 @@ export function useDagDesignerContext(): IDagDesignerContextValue {
 function toNode(
     nodeDefinition: IDagNode,
     index: number,
-    executionStatus: TNodeExecutionStatus,
-    latestTrace?: IRunResult['traces'][number],
+    nodeUiState: INodeUiState | undefined,
+    latestTrace?: IDagNodeIoTrace,
     assetBaseUrl?: string,
     positionOverride?: XYPosition
 ): TDagCanvasNode {
@@ -218,7 +216,8 @@ function toNode(
             nodeType: nodeDefinition.nodeType,
             inputs: nodeDefinition.inputs,
             outputs: nodeDefinition.outputs,
-            executionStatus,
+            executionStatus: nodeUiState?.executionStatus ?? 'idle',
+            isSelected: nodeUiState?.isSelected ?? false,
             latestTrace,
             assetBaseUrl,
             traceSignature
@@ -281,6 +280,8 @@ function hasSameCanvasNodeState(currentNodes: Node[], nextNodes: Node[]): boolea
         const nextNode = nextNodes[index];
         const currentExecutionStatus = (currentNode.data as { executionStatus?: TNodeExecutionStatus } | undefined)?.executionStatus ?? 'idle';
         const nextExecutionStatus = (nextNode.data as { executionStatus?: TNodeExecutionStatus } | undefined)?.executionStatus ?? 'idle';
+        const currentSelected = (currentNode.data as { isSelected?: boolean } | undefined)?.isSelected ?? false;
+        const nextSelected = (nextNode.data as { isSelected?: boolean } | undefined)?.isSelected ?? false;
         const currentTraceSignature = (currentNode.data as { traceSignature?: string } | undefined)?.traceSignature;
         const nextTraceSignature = (nextNode.data as { traceSignature?: string } | undefined)?.traceSignature;
         return (
@@ -288,6 +289,7 @@ function hasSameCanvasNodeState(currentNodes: Node[], nextNodes: Node[]): boolea
             currentNode.position.x === nextNode.position.x &&
             currentNode.position.y === nextNode.position.y &&
             currentExecutionStatus === nextExecutionStatus &&
+            currentSelected === nextSelected &&
             currentTraceSignature === nextTraceSignature
         );
     });
@@ -424,12 +426,35 @@ export interface IDagDesignerRunProgressSummaryProps {
 }
 
 export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
-    const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>(undefined);
-    const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>(undefined);
+    const [selectedNodeId, setSelectedNodeIdState] = useState<string | undefined>(undefined);
+    const [selectedEdgeId, setSelectedEdgeIdState] = useState<string | undefined>(undefined);
     const [connectError, setConnectError] = useState<string | undefined>(undefined);
     const [bindingCleanupMessage, setBindingCleanupMessage] = useState<string | undefined>(undefined);
     const [runResult, setRunResult] = useState<IRunResult | undefined>(undefined);
+    const [liveNodeTraceByNodeId, setLiveNodeTraceByNodeId] = useState<Record<string, IDagNodeIoTrace>>({});
+    const [nodeUiStateByNodeId, setNodeUiStateByNodeId] = useState<Record<string, INodeUiState>>({});
     const [runProgress, setRunProgress] = useState<IRunProgressState>(INITIAL_RUN_PROGRESS_STATE);
+    useEffect(() => {
+        setNodeUiStateByNodeId((currentState) => {
+            const nextState: Record<string, INodeUiState> = {};
+            for (const node of props.definition.nodes) {
+                const existingState = currentState[node.nodeId];
+                nextState[node.nodeId] = {
+                    executionStatus: existingState?.executionStatus ?? 'idle',
+                    isSelected: existingState?.isSelected ?? false
+                };
+            }
+            return nextState;
+        });
+        setSelectedNodeIdState((currentNodeId) => {
+            if (!currentNodeId) {
+                return currentNodeId;
+            }
+            const isExistingNode = props.definition.nodes.some((node) => node.nodeId === currentNodeId);
+            return isExistingNode ? currentNodeId : undefined;
+        });
+    }, [props.definition.nodes]);
+
     const nodeRunningSinceRef = useRef<Map<string, number>>(new Map());
     const pendingStatusTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
     const bindingErrors = useMemo(() => computeBindingErrors(props.definition), [props.definition]);
@@ -448,24 +473,104 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         };
     }, [clearPendingStatusTimers]);
 
+    useEffect(() => {
+        const traces = runResult?.traces ?? [];
+        if (traces.length === 0) {
+            return;
+        }
+        setLiveNodeTraceByNodeId((currentTraceByNodeId) => {
+            const nextTraceByNodeId: Record<string, IDagNodeIoTrace> = { ...currentTraceByNodeId };
+            for (const trace of traces) {
+                nextTraceByNodeId[trace.nodeId] = {
+                    nodeId: trace.nodeId,
+                    input: trace.input,
+                    output: trace.output
+                };
+            }
+            return nextTraceByNodeId;
+        });
+    }, [runResult]);
+
     const resetRunProgress = useCallback((): void => {
         clearPendingStatusTimers();
         nodeRunningSinceRef.current.clear();
         setRunProgress(INITIAL_RUN_PROGRESS_STATE);
     }, [clearPendingStatusTimers]);
 
+    const setSelectedNodeId = useCallback((nodeId: string | undefined): void => {
+        setSelectedNodeIdState(nodeId);
+        setNodeUiStateByNodeId((currentState) => {
+            const nextState: Record<string, INodeUiState> = {};
+            for (const [currentNodeId, nodeState] of Object.entries(currentState)) {
+                nextState[currentNodeId] = {
+                    ...nodeState,
+                    isSelected: typeof nodeId === 'string' && currentNodeId === nodeId
+                };
+            }
+            return nextState;
+        });
+    }, []);
+
+    const setSelectedEdgeId = useCallback((edgeId: string | undefined): void => {
+        setSelectedEdgeIdState(edgeId);
+    }, []);
+
     const setActiveDagRunId = useCallback((dagRunId: string): void => {
         clearPendingStatusTimers();
         nodeRunningSinceRef.current.clear();
+        setLiveNodeTraceByNodeId({});
+        setNodeUiStateByNodeId((currentState) => {
+            const nextState: Record<string, INodeUiState> = {};
+            for (const node of props.definition.nodes) {
+                const existingState = currentState[node.nodeId];
+                nextState[node.nodeId] = {
+                    executionStatus: 'idle',
+                    isSelected: existingState?.isSelected ?? false
+                };
+            }
+            return nextState;
+        });
         setRunProgress({
             activeDagRunId: dagRunId,
             runStatus: 'running',
-            nodeStatusByNodeId: {},
             completedTaskCount: 0
         });
-    }, [clearPendingStatusTimers]);
+    }, [clearPendingStatusTimers, props.definition.nodes]);
 
     const applyRunProgressEvent = useCallback((event: TRunProgressEvent): void => {
+        if (
+            event.eventType === TASK_PROGRESS_EVENTS.STARTED
+            || event.eventType === TASK_PROGRESS_EVENTS.COMPLETED
+            || event.eventType === TASK_PROGRESS_EVENTS.FAILED
+        ) {
+            const executionStatus = event.eventType === TASK_PROGRESS_EVENTS.STARTED
+                ? 'running'
+                : event.eventType === TASK_PROGRESS_EVENTS.COMPLETED
+                    ? 'success'
+                    : 'failed';
+            setNodeUiStateByNodeId((currentState) => {
+                const existingState = currentState[event.nodeId];
+                return {
+                    ...currentState,
+                    [event.nodeId]: {
+                        executionStatus,
+                        isSelected: existingState?.isSelected ?? false
+                    }
+                };
+            });
+            setLiveNodeTraceByNodeId((currentTraceByNodeId) => {
+                const currentTrace = currentTraceByNodeId[event.nodeId];
+                const nextTrace: IDagNodeIoTrace = {
+                    nodeId: event.nodeId,
+                    input: event.input ?? currentTrace?.input,
+                    output: event.output ?? currentTrace?.output
+                };
+                return {
+                    ...currentTraceByNodeId,
+                    [event.nodeId]: nextTrace
+                };
+            });
+        }
         setRunProgress((currentState) => {
             if (currentState.activeDagRunId && currentState.activeDagRunId !== event.dagRunId) {
                 return currentState;
@@ -583,6 +688,8 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         connectError,
         bindingCleanupMessage,
         runResult,
+        liveNodeTraceByNodeId,
+        nodeUiStateByNodeId,
         runProgress,
         setSelectedNodeId,
         setSelectedEdgeId,
@@ -610,6 +717,8 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         connectError,
         bindingCleanupMessage,
         runResult,
+        liveNodeTraceByNodeId,
+        nodeUiStateByNodeId,
         runProgress,
         bindingErrors,
         resetRunProgress,
@@ -643,26 +752,22 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
     }, [context.setSelectedEdgeId, context.setSelectedNodeId]);
 
     const latestTraceByNodeId = useMemo(() => {
-        const map = new Map<string, IRunResult['traces'][number]>();
-        const traces = context.runResult?.traces ?? [];
-        for (let index = traces.length - 1; index >= 0; index -= 1) {
-            const trace = traces[index];
-            if (!map.has(trace.nodeId)) {
-                map.set(trace.nodeId, trace);
-            }
+        const map = new Map<string, IDagNodeIoTrace>();
+        for (const trace of Object.values(context.liveNodeTraceByNodeId)) {
+            map.set(trace.nodeId, trace);
         }
         return map;
-    }, [context.runResult]);
+    }, [context.liveNodeTraceByNodeId]);
 
     const initialNodes = useMemo(
         () => context.definition.nodes.map((node, index) => toNode(
             node,
             index,
-            context.runProgress.nodeStatusByNodeId[node.nodeId] ?? 'idle',
+            context.nodeUiStateByNodeId[node.nodeId],
             latestTraceByNodeId.get(node.nodeId),
             context.assetUploadBaseUrl
         )),
-        [context.assetUploadBaseUrl, context.definition.nodes, context.runProgress.nodeStatusByNodeId, latestTraceByNodeId]
+        [context.assetUploadBaseUrl, context.definition.nodes, context.nodeUiStateByNodeId, latestTraceByNodeId]
     );
     const initialEdges = useMemo(
         () => context.definition.edges.map((edge) => toEdge(edge, selectEdgeById)),
@@ -680,7 +785,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 toNode(
                     node,
                     index,
-                    context.runProgress.nodeStatusByNodeId[node.nodeId] ?? 'idle',
+                    context.nodeUiStateByNodeId[node.nodeId],
                     latestTraceByNodeId.get(node.nodeId),
                     context.assetUploadBaseUrl,
                     positionByNodeId.get(node.nodeId)
@@ -691,7 +796,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             }
             return mappedNodes;
         });
-    }, [context.assetUploadBaseUrl, context.definition.nodes, context.runProgress.nodeStatusByNodeId, latestTraceByNodeId, setNodes]);
+    }, [context.assetUploadBaseUrl, context.definition.nodes, context.nodeUiStateByNodeId, latestTraceByNodeId, setNodes]);
 
     useEffect(() => {
         const mappedEdges = context.definition.edges.map((edge) => toEdge(edge, selectEdgeById));
@@ -890,6 +995,10 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                     onConnect={onConnect}
                     onNodeClick={onNodeClick}
                     onEdgeClick={onEdgeClick}
+                    onPaneClick={() => {
+                        context.setSelectedNodeId(undefined);
+                        context.setSelectedEdgeId(undefined);
+                    }}
                     onNodeDragStop={onNodeDragStop}
                     panOnDrag={false}
                     panOnScroll
@@ -963,11 +1072,11 @@ export function DagDesignerNodeIoTrace(props: IDagDesignerNodeIoTraceProps): Rea
     return (
         <div className={props.className ?? ''}>
             <NodeIoTracePanel
-                runResult={context.runResult}
+                traces={Object.values(context.liveNodeTraceByNodeId)}
                 selectedNodeId={context.selectedNodeId}
                 selectedNodeExecutionStatus={
                     context.selectedNodeId
-                        ? context.runProgress.nodeStatusByNodeId[context.selectedNodeId]
+                        ? context.nodeUiStateByNodeId[context.selectedNodeId]?.executionStatus
                         : undefined
                 }
             />
@@ -978,9 +1087,9 @@ export function DagDesignerNodeIoTrace(props: IDagDesignerNodeIoTraceProps): Rea
 export function DagDesignerRunProgressSummary(props: IDagDesignerRunProgressSummaryProps): ReactElement {
     const context = useDagDesignerContext();
     const state = context.runProgress;
-    const runningNodeCount = Object.values(state.nodeStatusByNodeId).filter((status) => status === 'running').length;
-    const failedNodeCount = Object.values(state.nodeStatusByNodeId).filter((status) => status === 'failed').length;
-    const successNodeCount = Object.values(state.nodeStatusByNodeId).filter((status) => status === 'success').length;
+    const runningNodeCount = Object.values(context.nodeUiStateByNodeId).filter((nodeState) => nodeState.executionStatus === 'running').length;
+    const failedNodeCount = Object.values(context.nodeUiStateByNodeId).filter((nodeState) => nodeState.executionStatus === 'failed').length;
+    const successNodeCount = Object.values(context.nodeUiStateByNodeId).filter((nodeState) => nodeState.executionStatus === 'success').length;
     const summaryText = state.activeDagRunId
         ? `run=${state.activeDagRunId} status=${state.runStatus} running=${runningNodeCount} success=${successNodeCount} failed=${failedNodeCount} completed=${state.completedTaskCount}`
         : 'run=none status=idle';
