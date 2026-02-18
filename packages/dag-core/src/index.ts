@@ -5,6 +5,7 @@ export * from './types/domain.js';
 export * from './types/node-lifecycle.js';
 export * from './types/error.js';
 export * from './types/result.js';
+export * from './types/run-progress.js';
 export * from './interfaces/ports.js';
 export * from './constants/status.js';
 export * from './constants/events.js';

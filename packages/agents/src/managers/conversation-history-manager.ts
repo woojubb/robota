@@ -7,7 +7,8 @@ import type {
     IToolCall,
     IToolMessage,
     TUniversalMessage,
-    IUserMessage
+    IUserMessage,
+    TUniversalMessagePart
 } from '../interfaces/messages';
 
 /**
@@ -68,7 +69,7 @@ export function isToolMessage(message: TUniversalMessage): message is IToolMessa
  */
 export function createUserMessage(
     content: string,
-    options?: { name?: string; metadata?: TUniversalMessageMetadata }
+    options?: { name?: string; metadata?: TUniversalMessageMetadata; parts?: TUniversalMessagePart[] }
 ): IUserMessage {
     const message: IUserMessage = {
         role: 'user',
@@ -82,6 +83,9 @@ export function createUserMessage(
 
     if (options?.metadata) {
         message.metadata = options.metadata;
+    }
+    if (options?.parts) {
+        message.parts = options.parts;
     }
 
     return message;
@@ -100,6 +104,7 @@ export function createAssistantMessage(
     options?: {
         toolCalls?: IToolCall[];
         metadata?: TUniversalMessageMetadata;
+        parts?: TUniversalMessagePart[];
     }
 ): IAssistantMessage {
     const message: IAssistantMessage = {
@@ -115,6 +120,9 @@ export function createAssistantMessage(
     if (options?.metadata) {
         message.metadata = options.metadata;
     }
+    if (options?.parts) {
+        message.parts = options.parts;
+    }
 
     return message;
 }
@@ -129,7 +137,7 @@ export function createAssistantMessage(
  */
 export function createSystemMessage(
     content: string,
-    options?: { name?: string; metadata?: TUniversalMessageMetadata }
+    options?: { name?: string; metadata?: TUniversalMessageMetadata; parts?: TUniversalMessagePart[] }
 ): ISystemMessage {
     const message: ISystemMessage = {
         role: 'system',
@@ -143,6 +151,9 @@ export function createSystemMessage(
 
     if (options?.metadata) {
         message.metadata = options.metadata;
+    }
+    if (options?.parts) {
+        message.parts = options.parts;
     }
 
     return message;
@@ -162,6 +173,7 @@ export function createToolMessage(
         toolCallId: string;
         name?: string;
         metadata?: TUniversalMessageMetadata;
+        parts?: TUniversalMessagePart[];
     }
 ): IToolMessage {
     const message: IToolMessage = {
@@ -177,6 +189,9 @@ export function createToolMessage(
 
     if (options.metadata) {
         message.metadata = options.metadata;
+    }
+    if (options.parts) {
+        message.parts = options.parts;
     }
 
     return message;
@@ -206,7 +221,7 @@ export interface IConversationHistory {
      * @param content - User message content
      * @param metadata - Optional metadata
      */
-    addUserMessage(content: string, metadata?: TUniversalMessageMetadata): void;
+    addUserMessage(content: string, metadata?: TUniversalMessageMetadata, parts?: TUniversalMessagePart[]): void;
 
     /**
      * Add assistant message (convenience method)
@@ -218,7 +233,8 @@ export interface IConversationHistory {
     addAssistantMessage(
         content: string | null,
         toolCalls?: IToolCall[],
-        metadata?: TUniversalMessageMetadata
+        metadata?: TUniversalMessageMetadata,
+        parts?: TUniversalMessagePart[]
     ): void;
 
     /**
@@ -227,7 +243,7 @@ export interface IConversationHistory {
      * @param content - System instruction content
      * @param metadata - Optional metadata
      */
-    addSystemMessage(content: string, metadata?: TUniversalMessageMetadata): void;
+    addSystemMessage(content: string, metadata?: TUniversalMessageMetadata, parts?: TUniversalMessagePart[]): void;
 
     /**
      * Add tool execution result message with tool call ID (for tool calling format)
@@ -237,7 +253,13 @@ export interface IConversationHistory {
      * @param toolName - Name of the tool that was executed
      * @param metadata - Optional metadata
      */
-    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: TUniversalMessageMetadata): void;
+    addToolMessageWithId(
+        content: string,
+        toolCallId: string,
+        toolName: string,
+        metadata?: TUniversalMessageMetadata,
+        parts?: TUniversalMessagePart[]
+    ): void;
 
     /**
      * Get all messages in chronological order
@@ -298,10 +320,13 @@ export abstract class BaseConversationHistory implements IConversationHistory {
     abstract getMessageCount(): number;
 
     // Common convenience methods with shared implementation
-    addUserMessage(content: string, metadata?: TUniversalMessageMetadata): void {
-        const options: { name?: string; metadata?: TUniversalMessageMetadata } = {};
+    addUserMessage(content: string, metadata?: TUniversalMessageMetadata, parts?: TUniversalMessagePart[]): void {
+        const options: { name?: string; metadata?: TUniversalMessageMetadata; parts?: TUniversalMessagePart[] } = {};
         if (metadata) {
             options.metadata = metadata;
+        }
+        if (parts) {
+            options.parts = parts;
         }
         const message = createUserMessage(content, options);
         this.addMessage(message);
@@ -310,11 +335,13 @@ export abstract class BaseConversationHistory implements IConversationHistory {
     addAssistantMessage(
         content: string | null,
         toolCalls?: IToolCall[],
-        metadata?: TUniversalMessageMetadata
+        metadata?: TUniversalMessageMetadata,
+        parts?: TUniversalMessagePart[]
     ): void {
         const options: {
             toolCalls?: IToolCall[];
             metadata?: TUniversalMessageMetadata;
+            parts?: TUniversalMessagePart[];
         } = {};
         if (toolCalls) {
             options.toolCalls = toolCalls;
@@ -322,30 +349,46 @@ export abstract class BaseConversationHistory implements IConversationHistory {
         if (metadata) {
             options.metadata = metadata;
         }
+        if (parts) {
+            options.parts = parts;
+        }
         const message = createAssistantMessage(content, options);
         this.addMessage(message);
     }
 
-    addSystemMessage(content: string, metadata?: TUniversalMessageMetadata): void {
-        const options: { name?: string; metadata?: TUniversalMessageMetadata } = {};
+    addSystemMessage(content: string, metadata?: TUniversalMessageMetadata, parts?: TUniversalMessagePart[]): void {
+        const options: { name?: string; metadata?: TUniversalMessageMetadata; parts?: TUniversalMessagePart[] } = {};
         if (metadata) {
             options.metadata = metadata;
+        }
+        if (parts) {
+            options.parts = parts;
         }
         const message = createSystemMessage(content, options);
         this.addMessage(message);
     }
 
-    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: TUniversalMessageMetadata): void {
+    addToolMessageWithId(
+        content: string,
+        toolCallId: string,
+        toolName: string,
+        metadata?: TUniversalMessageMetadata,
+        parts?: TUniversalMessagePart[]
+    ): void {
         const options: {
             toolCallId: string;
             name?: string;
             metadata?: TUniversalMessageMetadata;
+            parts?: TUniversalMessagePart[];
         } = {
             toolCallId,
             name: toolName
         };
         if (metadata) {
             options.metadata = metadata;
+        }
+        if (parts) {
+            options.parts = parts;
         }
         const message = createToolMessage(content, options);
         this.addMessage(message);
@@ -583,8 +626,8 @@ export class ConversationSession implements IConversationHistory {
     /**
      * Add user message
      */
-    addUserMessage(content: string, metadata?: TUniversalMessageMetadata): void {
-        this.history.addUserMessage(content, metadata);
+    addUserMessage(content: string, metadata?: TUniversalMessageMetadata, parts?: TUniversalMessagePart[]): void {
+        this.history.addUserMessage(content, metadata, parts);
     }
 
     /**
@@ -593,23 +636,30 @@ export class ConversationSession implements IConversationHistory {
     addAssistantMessage(
         content: string | null,
         toolCalls?: IToolCall[],
-        metadata?: TUniversalMessageMetadata
+        metadata?: TUniversalMessageMetadata,
+        parts?: TUniversalMessagePart[]
     ): void {
-        this.history.addAssistantMessage(content, toolCalls, metadata);
+        this.history.addAssistantMessage(content, toolCalls, metadata, parts);
     }
 
     /**
      * Add system message
      */
-    addSystemMessage(content: string, metadata?: TUniversalMessageMetadata): void {
-        this.history.addSystemMessage(content, metadata);
+    addSystemMessage(content: string, metadata?: TUniversalMessageMetadata, parts?: TUniversalMessagePart[]): void {
+        this.history.addSystemMessage(content, metadata, parts);
     }
 
     /**
      * Add tool result message
      */
-    addToolMessage(content: string, toolCallId: string, toolName?: string, metadata?: TUniversalMessageMetadata): void {
-        this.history.addToolMessageWithId(content, toolCallId, toolName || 'unknown', metadata);
+    addToolMessage(
+        content: string,
+        toolCallId: string,
+        toolName?: string,
+        metadata?: TUniversalMessageMetadata,
+        parts?: TUniversalMessagePart[]
+    ): void {
+        this.history.addToolMessageWithId(content, toolCallId, toolName || 'unknown', metadata, parts);
     }
 
     /**
@@ -618,7 +668,13 @@ export class ConversationSession implements IConversationHistory {
      * 
      * Throws error if a tool message with the same toolCallId already exists.
      */
-    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: TUniversalMessageMetadata): void {
+    addToolMessageWithId(
+        content: string,
+        toolCallId: string,
+        toolName: string,
+        metadata?: TUniversalMessageMetadata,
+        parts?: TUniversalMessagePart[]
+    ): void {
         // Check if a tool message with this toolCallId already exists
         const existingToolMessage = this.history.getMessages().find(
             msg => msg.role === 'tool' && isToolMessage(msg) && msg.toolCallId === toolCallId
@@ -629,7 +685,7 @@ export class ConversationSession implements IConversationHistory {
             throw new Error(`Duplicate tool message detected for toolCallId: ${toolCallId}. Tool messages must have unique toolCallIds.`);
         }
 
-        this.history.addToolMessageWithId(content, toolCallId, toolName, metadata);
+        this.history.addToolMessageWithId(content, toolCallId, toolName, metadata, parts);
     }
 
     /**

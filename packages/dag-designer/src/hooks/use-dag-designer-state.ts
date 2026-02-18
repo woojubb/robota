@@ -2,23 +2,26 @@ import { useMemo } from 'react';
 import type {
     IDagDefinition,
     IDagEdgeDefinition,
+    IDagError,
     IDagNode,
     INodeManifest,
-    TPortPayload
+    TPortPayload,
+    TResult
 } from '@robota-sdk/dag-core';
-import type { IPreviewResult } from '../lifecycle/preview-engine.js';
-import type { IDagError, TResult } from '@robota-sdk/dag-core';
+import type { IRunResult } from '../contracts/designer-api.js';
+import type { IRunProgressState } from '../components/dag-designer-canvas.js';
 import { useDagDesignerContext } from '../components/dag-designer-canvas.js';
 
 export interface IDagDesignerState {
     definition: IDagDefinition;
     manifests: INodeManifest[];
-    previewResult?: IPreviewResult;
+    runResult?: IRunResult;
     initialInput?: TPortPayload;
     selectedNodeId?: string;
     selectedEdgeId?: string;
     connectError?: string;
     bindingErrors: string[];
+    runProgress: IRunProgressState;
 }
 
 export interface IDagDesignerActions {
@@ -28,7 +31,7 @@ export interface IDagDesignerActions {
     updateEdge: (edge: IDagEdgeDefinition) => void;
     setSelection: (selection: { nodeId?: string; edgeId?: string }) => void;
     setConnectError: (error: string | undefined) => void;
-    onPreviewResult?: (result: TResult<IPreviewResult, IDagError>) => void;
+    onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
 }
 
 export function useDagDesignerState(): IDagDesignerState {
@@ -36,19 +39,21 @@ export function useDagDesignerState(): IDagDesignerState {
     return useMemo(() => ({
         definition: context.definition,
         manifests: context.manifests,
-        previewResult: context.previewResult,
+        runResult: context.runResult,
         initialInput: context.initialInput,
         selectedNodeId: context.selectedNodeId,
         selectedEdgeId: context.selectedEdgeId,
         connectError: context.connectError,
-        bindingErrors: context.bindingErrors
+        bindingErrors: context.bindingErrors,
+        runProgress: context.runProgress
     }), [
         context.bindingErrors,
         context.connectError,
         context.definition,
         context.initialInput,
         context.manifests,
-        context.previewResult,
+        context.runResult,
+        context.runProgress,
         context.selectedEdgeId,
         context.selectedNodeId
     ]);
@@ -66,11 +71,11 @@ export function useDagDesignerActions(): IDagDesignerActions {
             context.setSelectedEdgeId(selection.edgeId);
         },
         setConnectError: context.setConnectError,
-        onPreviewResult: context.onPreviewResult
+        onRunResult: context.onRunResult
     }), [
         context.addNodeFromManifest,
         context.onDefinitionChange,
-        context.onPreviewResult,
+        context.onRunResult,
         context.setConnectError,
         context.setSelectedEdgeId,
         context.setSelectedNodeId,

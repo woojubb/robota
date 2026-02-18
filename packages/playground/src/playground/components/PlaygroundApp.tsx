@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { WorkflowView } from '../../workflow';
 import { PlaygroundProvider, usePlayground } from '../../contexts/playground-context';
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { useModal } from '../../hooks/use-modal';
@@ -17,8 +16,6 @@ import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executo
 import type { IPlaygroundToolMeta } from '../../tools/catalog';
 import { ChatInputPanel } from '../../components/playground/chat-input-panel';
 import { Toaster } from '../../components/ui/sonner';
-import type { IEventService, ILogger } from '@robota-sdk/agents';
-import type { IWorkflowEventSubscriber, IWorkflowNodeData } from '@robota-sdk/workflow';
 import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
 import { ToolRegistry } from '../../tools/catalog';
@@ -119,57 +116,6 @@ KEY PRINCIPLES:
 Your expertise lies in knowing when, how, and how many times to call tools to achieve the best possible outcome.`,
   };
 
-  const handleAgentNodeClick = (nodeId: string, data?: IWorkflowNodeData) => {
-    WebLogger.debug('Agent node clicked', { nodeId, hasData: Boolean(data) });
-    // Open chat modal for the selected agent
-    setChatAgentId(nodeId);
-    openModal('chat');
-  };
-
-  const handleToolDrop = async (agentId: string, tool: IPlaygroundToolMeta) => {
-    WebLogger.debug('Tool dropped on agent', { agentId, toolId: tool.id, toolName: tool.name });
-    try {
-      const isRegistered = Object.prototype.hasOwnProperty.call(ToolRegistry, tool.id);
-
-      // UI-only tools are allowed (overlay only). Registered tools additionally update runtime via executor.
-      if (!isRegistered) {
-        addToolToAgentOverlay(agentId, tool.id);
-        toast({
-          title: 'Tool added (UI only)',
-          description: `${tool.name} was added to the overlay for agent ${agentId}.`,
-          variant: 'default',
-        });
-        return;
-      }
-
-      // Use PlaygroundExecutor to update agent tools (registered tools only)
-      if (!state.executor) {
-        throw new Error('Executor not initialized');
-      }
-
-      const result = await state.executor.updateAgentToolsFromCard(agentId, {
-        id: tool.id,
-        name: tool.name,
-        description: tool.description
-      });
-      WebLogger.info('Tool successfully added to agent', { agentId, toolId: tool.id, result });
-      addToolToAgentOverlay(agentId, tool.id);
-
-      toast({
-        title: 'Tool added',
-        description: `${tool.name} was added to agent ${agentId}.`,
-        variant: 'default',
-      });
-    } catch (error) {
-      WebLogger.error('Failed to add tool to agent', { agentId, error: error instanceof Error ? error.message : String(error) });
-      toast({
-        title: 'Failed to add tool',
-        description: error instanceof Error ? error.message : String(error),
-        variant: 'destructive',
-      });
-    }
-  };
-
   const handleOpenAddTool = () => {
     setToolDraft({ name: '', description: '' });
     openModal('addTool');
@@ -241,16 +187,22 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
 
       {/* Main content with sidebar layout */}
       <main className="flex-1 overflow-hidden flex">
-        {/* Center Column - Workflow Visualization */}
+        {/* Center Column - Playground Runtime Panel */}
         <div className="flex-1 h-full">
           {state.isInitialized ? (
-            <WorkflowView
-              workflow={state.sdkWorkflow || undefined}
-              onAgentNodeClick={handleAgentNodeClick}
-              onToolDrop={handleToolDrop}
-              toolItems={toolItems}
-              addedToolsByAgent={state.addedToolsByAgent}
-            />
+            <div className="h-full w-full p-4">
+              <div className="h-full rounded border border-gray-200 bg-white p-4">
+                <h2 className="mb-2 text-sm font-semibold text-gray-800">Playground Runtime</h2>
+                <p className="text-xs text-gray-600">
+                  Workflow graph visualization has been removed from playground. Use DAG designer for graph workflows.
+                </p>
+                <div className="mt-4 rounded border border-gray-100 bg-gray-50 p-3 text-xs text-gray-700">
+                  <div>Mode: {state.mode}</div>
+                  <div>Executor: {state.executor ? "Ready" : "Not Ready"}</div>
+                  <div>WebSocket: {state.isWebSocketConnected ? "Connected" : "Disconnected"}</div>
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="p-4 text-sm text-muted-foreground">Initializing playground...</div>
           )}
@@ -498,12 +450,12 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
 }
 
 export function PlaygroundApp(props: {
-  createEventService: (workflowSubscriber: IWorkflowEventSubscriber, logger: ILogger) => IEventService;
+  defaultServerUrl?: string;
 }): React.ReactElement {
   return (
     <>
       <Toaster />
-      <PlaygroundProvider defaultServerUrl="ws://localhost:3001/ws" createEventService={props.createEventService}>
+      <PlaygroundProvider defaultServerUrl={props.defaultServerUrl ?? "ws://localhost:3001/ws"}>
         <PlaygroundContent />
       </PlaygroundProvider>
     </>

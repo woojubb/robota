@@ -55,12 +55,28 @@ export class InMemoryStoragePort implements IStoragePort {
         return this.definitions.get(`${dagId}:${latestVersion}`);
     }
 
+    public async deleteDefinition(dagId: string, version: number): Promise<void> {
+        this.definitions.delete(`${dagId}:${version}`);
+        const publishedDefinitions = [...this.definitions.values()]
+            .filter((definition) => definition.dagId === dagId && definition.status === 'published')
+            .sort((a, b) => a.version - b.version);
+        if (publishedDefinitions.length === 0) {
+            this.latestPublishedVersionByDagId.delete(dagId);
+            return;
+        }
+        this.latestPublishedVersionByDagId.set(dagId, publishedDefinitions[publishedDefinitions.length - 1].version);
+    }
+
     public async createDagRun(dagRun: IDagRun): Promise<void> {
         this.dagRuns.set(dagRun.dagRunId, dagRun);
     }
 
     public async getDagRun(dagRunId: string): Promise<IDagRun | undefined> {
         return this.dagRuns.get(dagRunId);
+    }
+
+    public async listDagRuns(): Promise<IDagRun[]> {
+        return [...this.dagRuns.values()].sort((a, b) => a.dagRunId.localeCompare(b.dagRunId));
     }
 
     public async getDagRunByRunKey(runKey: string): Promise<IDagRun | undefined> {
@@ -86,6 +102,10 @@ export class InMemoryStoragePort implements IStoragePort {
         };
 
         this.dagRuns.set(dagRunId, next);
+    }
+
+    public async deleteDagRun(dagRunId: string): Promise<void> {
+        this.dagRuns.delete(dagRunId);
     }
 
     public async createTaskRun(taskRun: ITaskRun): Promise<void> {
@@ -114,6 +134,14 @@ export class InMemoryStoragePort implements IStoragePort {
         return results;
     }
 
+    public async deleteTaskRunsByDagRunId(dagRunId: string): Promise<void> {
+        for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
+            if (taskRun.dagRunId === dagRunId) {
+                this.taskRuns.delete(taskRunKey);
+            }
+        }
+    }
+
     public async updateTaskRunStatus(taskRunId: string, status: TTaskRunStatus, error?: IDagError): Promise<void> {
         for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
             if (taskRun.taskRunId !== taskRunId) {
@@ -135,7 +163,9 @@ export class InMemoryStoragePort implements IStoragePort {
     public async saveTaskRunSnapshots(
         taskRunId: string,
         inputSnapshot?: string,
-        outputSnapshot?: string
+        outputSnapshot?: string,
+        estimatedCostUsd?: number,
+        totalCostUsd?: number
     ): Promise<void> {
         for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
             if (taskRun.taskRunId !== taskRunId) {
@@ -145,7 +175,9 @@ export class InMemoryStoragePort implements IStoragePort {
             const next: ITaskRun = {
                 ...taskRun,
                 inputSnapshot: typeof inputSnapshot === 'string' ? inputSnapshot : taskRun.inputSnapshot,
-                outputSnapshot: typeof outputSnapshot === 'string' ? outputSnapshot : taskRun.outputSnapshot
+                outputSnapshot: typeof outputSnapshot === 'string' ? outputSnapshot : taskRun.outputSnapshot,
+                estimatedCostUsd: typeof estimatedCostUsd === 'number' ? estimatedCostUsd : taskRun.estimatedCostUsd,
+                totalCostUsd: typeof totalCostUsd === 'number' ? totalCostUsd : taskRun.totalCostUsd
             };
 
             this.taskRuns.set(taskRunKey, next);

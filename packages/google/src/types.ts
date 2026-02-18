@@ -39,6 +39,18 @@ export interface IGoogleProviderOptions {
     responseSchema?: Record<string, TGoogleProviderOptionValue>;
 
     /**
+     * Optional default response modalities for Gemini generation config.
+     * Example: ['TEXT', 'IMAGE']
+     */
+    defaultResponseModalities?: Array<'TEXT' | 'IMAGE'>;
+
+    /**
+     * Optional allowlist of models that support image generation/editing.
+     * If not provided, provider validates using model name heuristics.
+     */
+    imageCapableModels?: string[];
+
+    /**
      * Optional executor for handling AI requests
      * 
      * When provided, the provider will delegate all chat operations to this executor

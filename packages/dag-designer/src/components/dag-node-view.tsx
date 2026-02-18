@@ -1,12 +1,25 @@
 import type { ReactElement } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import type { IPortDefinition } from '@robota-sdk/dag-core';
+import type { IPortDefinition, TPortPayload } from '@robota-sdk/dag-core';
+import type { TNodeExecutionStatus } from './dag-designer-canvas.js';
+import { NodeIoViewer } from './node-io-viewer.js';
+
+export interface IDagNodeIoTrace {
+    nodeId: string;
+    input?: TPortPayload;
+    output?: TPortPayload;
+}
 
 export interface IDagNodeViewData extends Record<string, unknown> {
     label: string;
     nodeType: string;
     inputs: IPortDefinition[];
     outputs: IPortDefinition[];
+    executionStatus?: TNodeExecutionStatus;
+    isSelected?: boolean;
+    latestTrace?: IDagNodeIoTrace;
+    assetBaseUrl?: string;
+    traceSignature?: string;
 }
 
 export type TDagCanvasNode = Node<IDagNodeViewData, 'dag-node'>;
@@ -18,17 +31,48 @@ function sortPorts(ports: IPortDefinition[]): IPortDefinition[] {
 export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
     const inputs = sortPorts(props.data.inputs);
     const outputs = sortPorts(props.data.outputs);
-    const rootClassName = props.selected
-        ? 'min-w-[280px] rounded border border-blue-500 bg-blue-50/30 text-xs shadow-md ring-2 ring-blue-200'
-        : 'min-w-[280px] rounded border border-gray-300 bg-white text-xs shadow-sm';
-    const headerClassName = props.selected
-        ? 'dag-node-drag-handle cursor-move border-b border-blue-300 bg-blue-50 px-3 py-2'
-        : 'dag-node-drag-handle cursor-move border-b border-gray-300 bg-gray-50 px-3 py-2';
+    const executionStatus = props.data.executionStatus ?? 'idle';
+    const isSelected = props.data.isSelected ?? false;
+    const statusRootClassName = executionStatus === 'running'
+        ? 'border-blue-500 bg-blue-50/95'
+        : executionStatus === 'success'
+            ? 'border-emerald-500 bg-emerald-50/95'
+            : executionStatus === 'failed'
+                ? 'border-red-500 bg-red-50/95'
+                : 'border-gray-300 bg-white';
+    const selectedRingClassName = isSelected
+        ? 'ring-2 ring-blue-300 shadow-md'
+        : 'shadow-sm';
+    const rootClassName = [
+        'min-w-[280px] rounded border text-xs transform-gpu',
+        'transition-[background-color,border-color,box-shadow,transform] duration-500 ease-out',
+        statusRootClassName,
+        selectedRingClassName
+    ].join(' ');
+    const headerClassName = [
+        'dag-node-drag-handle cursor-move border-b px-3 py-2',
+        executionStatus === 'running'
+            ? 'border-blue-300 bg-blue-100/70'
+            : executionStatus === 'success'
+                ? 'border-emerald-300 bg-emerald-100/70'
+                : executionStatus === 'failed'
+                    ? 'border-red-300 bg-red-100/70'
+                    : isSelected
+                        ? 'border-blue-300 bg-blue-50'
+                        : 'border-gray-300 bg-gray-50'
+    ].join(' ');
+    const executionStatusClassName = 'bg-transparent text-gray-700';
+    const latestTrace = props.data.latestTrace;
 
     return (
         <div className={rootClassName}>
             <div className={headerClassName}>
-                <div className="font-semibold">{props.data.label}</div>
+                <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold">{props.data.label}</div>
+                    <span className={`rounded px-2 py-0.5 text-[10px] font-medium ${executionStatusClassName}`}>
+                        {executionStatus}
+                    </span>
+                </div>
                 <div className="text-[11px] text-gray-500">{props.data.nodeType}</div>
             </div>
             <div className="grid grid-cols-2 gap-3 py-3">
@@ -85,6 +129,15 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                     )}
                 </div>
             </div>
+            {latestTrace ? (
+                <NodeIoViewer
+                    input={latestTrace.input}
+                    output={latestTrace.output}
+                    assetBaseUrl={props.data.assetBaseUrl}
+                />
+            ) : (
+                <div className="nodrag border-t border-gray-200 px-3 py-2 text-[10px] text-gray-400">No run data yet</div>
+            )}
         </div>
     );
 }
