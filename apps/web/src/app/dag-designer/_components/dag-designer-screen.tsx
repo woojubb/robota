@@ -170,7 +170,6 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   );
   const definitionRef = useRef<IDagDefinition>(definition);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
-  const [draftCreated, setDraftCreated] = useState<boolean>(false);
   const [catalogNodes, setCatalogNodes] = useState<INodeManifest[]>([]);
   const [isNodeExplorerOpen, setIsNodeExplorerOpen] = useState<boolean>(true);
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
@@ -262,7 +261,6 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
         applyDefinitionChange(saved.value);
         setDagId(saved.value.dagId);
         setVersion(saved.value.version);
-        setDraftCreated(saved.value.status === "draft");
         setLog(`Save success: ${saved.value.dagId}:${saved.value.version} (working version)`);
         showActionToast("Saved.", "success");
         return;
@@ -455,7 +453,6 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
         applyDefinitionChange(loaded.value);
         setDagId(loaded.value.dagId);
         setVersion(loaded.value.version);
-        setDraftCreated(loaded.value.status === "draft");
         setLog(`Load success: ${loaded.value.dagId}:${loaded.value.version}`);
         setLoadState("ready");
         return;
