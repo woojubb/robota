@@ -139,4 +139,70 @@ describe('RunOrchestratorService', () => {
         const secondMessage = await queue.dequeue('worker-1', 1_000);
         expect(secondMessage).toBeUndefined();
     });
+
+    it('starts existing created run without creating duplicate run id', async () => {
+        const storage = new InMemoryStoragePort();
+        const queue = new InMemoryQueuePort();
+        const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+        await storage.saveDefinition(createPublishedDefinition());
+        const service = new RunOrchestratorService(storage, queue, clock);
+
+        const created = await service.createRun({
+            dagId: 'dag-runtime-test',
+            trigger: 'manual',
+            input: { seed: 'v2' }
+        });
+        expect(created.ok).toBe(true);
+        if (!created.ok) {
+            return;
+        }
+        expect(created.value.status).toBe('created');
+
+        const started = await service.startRun({
+            dagId: 'dag-runtime-test',
+            trigger: 'manual',
+            input: { seed: 'v2' }
+        });
+        expect(started.ok).toBe(true);
+        if (!started.ok) {
+            return;
+        }
+
+        expect(started.value.dagRunId).toBe(created.value.dagRunId);
+        const queuedMessage = await queue.dequeue('worker-1', 1_000);
+        expect(queuedMessage?.dagRunId).toBe(created.value.dagRunId);
+    });
+
+    it('treats startCreatedRun as idempotent for already running run', async () => {
+        const storage = new InMemoryStoragePort();
+        const queue = new InMemoryQueuePort();
+        const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+        await storage.saveDefinition(createPublishedDefinition());
+        const service = new RunOrchestratorService(storage, queue, clock);
+
+        const started = await service.startRun({
+            dagId: 'dag-runtime-test',
+            trigger: 'manual',
+            input: { seed: 'v3' }
+        });
+        expect(started.ok).toBe(true);
+        if (!started.ok) {
+            return;
+        }
+
+        const second = await service.startCreatedRun(started.value.dagRunId);
+        expect(second.ok).toBe(true);
+        if (!second.ok) {
+            return;
+        }
+
+        expect(second.value.dagRunId).toBe(started.value.dagRunId);
+        expect(second.value.taskRunIds).toEqual(started.value.taskRunIds);
+        const firstMessage = await queue.dequeue('worker-1', 1_000);
+        expect(firstMessage?.dagRunId).toBe(started.value.dagRunId);
+        const secondMessage = await queue.dequeue('worker-1', 1_000);
+        expect(secondMessage).toBeUndefined();
+    });
 });

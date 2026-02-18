@@ -15,3 +15,4 @@
 ## Boundaries
 - Host-level composition only.
 - Core package contracts remain in DAG packages.
+- `.local-assets/` is local runtime data only and must never be committed.

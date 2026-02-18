@@ -345,8 +345,22 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     }
     hooks?.onRunStarted(started.value.dagRunId);
     let unsubscribe: (() => void) | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const cleanupRunSubscription = (): void => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = undefined;
+      }
+    };
     const waitForTerminalEvent = new Promise<void>((resolve, reject) => {
-      const timeoutId = setTimeout(() => reject(new Error("DAG_VALIDATION_RUN_EVENT_TIMEOUT")), 120000);
+      timeoutId = setTimeout(() => {
+        cleanupRunSubscription();
+        reject(new Error("DAG_VALIDATION_RUN_EVENT_TIMEOUT"));
+      }, 120000);
       unsubscribe = designApi.subscribeRunProgress({
         dagRunId: started.value.dagRunId,
         maxReconnectAttempts: 5,
@@ -357,14 +371,12 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
             event.eventType === EXECUTION_PROGRESS_EVENTS.COMPLETED
             || event.eventType === EXECUTION_PROGRESS_EVENTS.FAILED
           ) {
-            clearTimeout(timeoutId);
-            unsubscribe?.();
+            cleanupRunSubscription();
             resolve();
           }
         },
         onError: () => {
-          clearTimeout(timeoutId);
-          unsubscribe?.();
+          cleanupRunSubscription();
           reject(new Error("DAG_VALIDATION_RUN_EVENT_STREAM_FAILED"));
         },
       });
@@ -374,17 +386,19 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
       correlationId: "web-dag-run-start",
     });
     if ("error" in startExecution) {
-      unsubscribe?.();
+      cleanupRunSubscription();
       return { ok: false, error: toDagError(startExecution.error[0]?.code) };
     }
     try {
       await waitForTerminalEvent;
     } catch (error) {
+      cleanupRunSubscription();
       return {
         ok: false,
         error: toDagError(error instanceof Error ? error.message : "DAG_VALIDATION_RUN_EVENT_FAILED"),
       };
     }
+    cleanupRunSubscription();
     const result = await designApi.getRunResult({
       dagRunId: started.value.dagRunId,
       correlationId: "web-dag-run-result:0",
