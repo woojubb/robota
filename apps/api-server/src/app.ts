@@ -2,10 +2,11 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { RemoteServer } from '@robota-sdk/remote/server';
+import type { IAIProvider } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { GoogleProvider } from '@robota-sdk/google';
+import { registerRemoteServerRoutes } from '@robota-sdk/remote-server-core';
 import { PlaygroundWebSocketServer } from './websocket-server';
 
 // Global WebSocket server instance (will be initialized in server.ts)
@@ -13,6 +14,14 @@ export let playgroundWebSocketServer: PlaygroundWebSocketServer | null = null;
 
 export function setPlaygroundWebSocketServer(server: PlaygroundWebSocketServer): void {
     playgroundWebSocketServer = server;
+}
+
+function isApiDocsEnabled(rawValue: string | undefined): boolean {
+    if (typeof rawValue !== 'string') {
+        return true;
+    }
+    const normalized = rawValue.trim().toLowerCase();
+    return normalized !== '0' && normalized !== 'false' && normalized !== 'off';
 }
 
 /**
@@ -56,21 +65,8 @@ export function createApp(): express.Application {
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-    // Initialize RemoteServer with console logger for debugging
-    const remoteServer = new RemoteServer({
-        enableCors: true,
-        enableHelmet: false, // Already using helmet above
-        logger: {
-            debug: (msg: string, ...args: any[]) => console.log(`[DEBUG] ${msg}`, ...args),
-            info: (msg: string, ...args: any[]) => console.log(`[INFO] ${msg}`, ...args),
-            warn: (msg: string, ...args: any[]) => console.log(`[WARN] ${msg}`, ...args),
-            error: (msg: string, ...args: any[]) => console.log(`[ERROR] ${msg}`, ...args),
-            log: (msg: string, ...args: any[]) => console.log(`[LOG] ${msg}`, ...args)
-        }
-    });
-
     // Initialize providers based on available API keys
-    const providers: Record<string, any> = {};
+    const providers: Record<string, IAIProvider> = {};
 
     if (process.env.OPENAI_API_KEY) {
         providers.openai = new OpenAIProvider({
@@ -90,11 +86,30 @@ export function createApp(): express.Application {
         });
     }
 
-    // Initialize server with providers
-    remoteServer.initialize(providers).catch(console.error);
+    const remoteRuntime = registerRemoteServerRoutes({
+        app,
+        providers,
+        apiDocsEnabled: isApiDocsEnabled(process.env.API_DOCS_ENABLED),
+        logger: {
+            debug: (message: string, ...data: unknown[]) => console.log(`[DEBUG] ${message}`, ...data),
+            info: (message: string, ...data: unknown[]) => console.log(`[INFO] ${message}`, ...data),
+            warn: (message: string, ...data: unknown[]) => console.log(`[WARN] ${message}`, ...data),
+            error: (message: string, ...data: unknown[]) => console.log(`[ERROR] ${message}`, ...data),
+            log: (message: string, ...data: unknown[]) => console.log(`[LOG] ${message}`, ...data)
+        }
+    });
 
-    // Mount remote API routes
-    app.use('/api/v1/remote', remoteServer.getExpressRouter());
+    if (isApiDocsEnabled(process.env.API_DOCS_ENABLED)) {
+        app.get('/docs', (_req, res) => {
+            res.status(200).json({
+                title: 'Robota API Docs',
+                documents: {
+                    remoteOpenApi: '/docs/remote.json',
+                    remoteSwaggerUi: '/docs/remote'
+                }
+            });
+        });
+    }
 
     // Root endpoint
     app.get('/', (_req, res) => {
@@ -110,7 +125,7 @@ export function createApp(): express.Application {
                 stream: '/api/v1/remote/stream',
                 capabilities: '/api/v1/remote/providers/:provider/capabilities'
             },
-            status: remoteServer.getStatus()
+            status: remoteRuntime.getStatus()
         });
     });
 
@@ -156,15 +171,25 @@ export function createApp(): express.Application {
     });
 
     // Error handling
-    app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
         console.error('API Error:', error);
-
-        const statusCode = error.statusCode || 500;
+        const statusCode = typeof error === 'object'
+            && error !== null
+            && 'statusCode' in error
+            && typeof (error as { statusCode?: unknown }).statusCode === 'number'
+            ? (error as { statusCode: number }).statusCode
+            : 500;
         const isProduction = process.env.NODE_ENV === 'production';
+        const errorMessage = typeof error === 'object'
+            && error !== null
+            && 'message' in error
+            && typeof (error as { message?: unknown }).message === 'string'
+            ? (error as { message: string }).message
+            : 'Unknown error';
 
         res.status(statusCode).json({
             error: {
-                message: isProduction && statusCode === 500 ? 'Internal Server Error' : error.message,
+                message: isProduction && statusCode === 500 ? 'Internal Server Error' : errorMessage,
                 status: statusCode,
                 timestamp: new Date().toISOString()
             }

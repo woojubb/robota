@@ -1,7 +1,7 @@
 {
-  "name": "@robota-sdk/dag-server-core",
+  "name": "@robota-sdk/remote-server-core",
   "version": "0.1.0",
-  "description": "Reusable DAG server bootstrap and runtime for Robota",
+  "description": "Reusable Remote API server routes for Robota",
   "type": "module",
   "main": "dist/node/index.js",
   "module": "dist/node/index.mjs",
@@ -19,7 +19,10 @@
       }
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
     "dev": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --watch",
@@ -27,22 +30,26 @@
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src --ext .ts"
   },
-  "keywords": ["robota", "dag", "server", "bootstrap", "typescript", "sdk"],
+  "keywords": [
+    "robota",
+    "remote",
+    "api",
+    "openapi",
+    "typescript",
+    "sdk"
+  ],
   "author": "Robota SDK Team",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@robota-sdk/dag-api": "workspace:*",
-    "@robota-sdk/dag-core": "workspace:*",
-    "@robota-sdk/dag-node-llm-text": "workspace:*",
-    "cors": "^2.8.5",
+    "@robota-sdk/agents": "workspace:*",
+    "@robota-sdk/remote": "workspace:*",
     "express": "^4.18.2",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/swagger-ui-express": "^4.1.8",
     "eslint": "^8.56.0",
