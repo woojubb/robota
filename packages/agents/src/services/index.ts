@@ -4,7 +4,7 @@ export { ToolExecutionService } from './tool-execution-service';
 export { TOOL_EVENTS } from './tool-execution-service';
 export type { IToolExecutionBatchContext } from './tool-execution-service';
 // NOTE: Universal workflow builder/converter utilities were removed from @robota-sdk/agents.
-// Ownership is @robota-sdk/workflow. Agents must not depend on workflow to avoid circular package dependencies.
+// Keep workflow concerns outside of the agents package to avoid cross-domain coupling.
 export * from './conversation-service';
 export * from './event-service';
 // execution-hierarchy-tracker removed
