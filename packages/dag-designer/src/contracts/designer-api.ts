@@ -104,6 +104,8 @@ export interface IDesignerApiClient {
         dagRunId: string;
         onEvent: (event: TRunProgressEvent) => void;
         onError?: (error: Error) => void;
+        maxReconnectAttempts?: number;
+        initialReconnectDelayMs?: number;
     }) => () => void;
 }
 

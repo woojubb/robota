@@ -190,7 +190,7 @@ export class DagDesignController {
             );
             return {
                 ok: false,
-                status: 400,
+                status: 404,
                 errors: [
                     toProblemDetails(
                         error,

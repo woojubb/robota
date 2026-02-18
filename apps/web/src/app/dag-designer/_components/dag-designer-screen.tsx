@@ -333,6 +333,8 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     definition: IDagDefinition;
     input: TPortPayload;
   }, hooks?: IRunProgressHooks): Promise<TResult<IRunResult, IDagError>> => {
+    const waitFor = async (ms: number): Promise<void> =>
+      new Promise((resolve) => setTimeout(resolve, ms));
     const started = await designApi.createRun({
       definition: input.definition,
       input: input.input,
@@ -347,6 +349,8 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
       const timeoutId = setTimeout(() => reject(new Error("DAG_VALIDATION_RUN_EVENT_TIMEOUT")), 120000);
       unsubscribe = designApi.subscribeRunProgress({
         dagRunId: started.value.dagRunId,
+        maxReconnectAttempts: 5,
+        initialReconnectDelayMs: 500,
         onEvent: (event) => {
           hooks?.onRunProgressEvent(event);
           if (
@@ -383,12 +387,32 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     }
     const result = await designApi.getRunResult({
       dagRunId: started.value.dagRunId,
-      correlationId: "web-dag-run-result",
+      correlationId: "web-dag-run-result:0",
     });
     if ("value" in result) {
       return { ok: true, value: result.value };
     }
-    return { ok: false, error: toDagError(result.error[0]?.code) };
+    const shouldRetryInitial = result.error[0]?.code === "DAG_VALIDATION_RUN_NOT_TERMINAL" || result.error[0]?.retryable === true;
+    if (!shouldRetryInitial) {
+      return { ok: false, error: toDagError(result.error[0]?.code) };
+    }
+    const maxAttempts = 7;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      await waitFor(Math.min(4000, 250 * (2 ** attempt)));
+      const nextResult = await designApi.getRunResult({
+        dagRunId: started.value.dagRunId,
+        correlationId: `web-dag-run-result:${attempt}`,
+      });
+      if ("value" in nextResult) {
+        return { ok: true, value: nextResult.value };
+      }
+      const retryable = nextResult.error[0]?.code === "DAG_VALIDATION_RUN_NOT_TERMINAL"
+        || nextResult.error[0]?.retryable === true;
+      if (!retryable) {
+        return { ok: false, error: toDagError(nextResult.error[0]?.code) };
+      }
+    }
+    return { ok: false, error: toDagError("DAG_VALIDATION_RUN_NOT_TERMINAL") };
   };
 
   const refreshNodeCatalog = async (): Promise<void> => {

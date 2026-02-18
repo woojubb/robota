@@ -137,12 +137,26 @@ export interface IDagServerBootstrapOptions {
     requestBodyLimit?: string;
     defaultWorkerTimeoutMs?: number;
     apiDocsEnabled?: boolean;
+    sseKeepAliveMs?: number;
 }
 
 const DEFAULT_PORT = 3011;
 const DEFAULT_CORS_ORIGINS = ['http://localhost:3000'];
 const DEFAULT_REQUEST_BODY_LIMIT = '15mb';
 const DEFAULT_WORKER_TIMEOUT_MS = 30_000;
+const DEFAULT_SSE_KEEP_ALIVE_MS = 15_000;
+
+function createCorrelationId(scope: string): string {
+    return `${scope}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function resolveCorrelationId(req: { get(name: string): string | undefined }, scope: string): string {
+    const headerValue = req.get('x-correlation-id');
+    if (typeof headerValue === 'string' && headerValue.trim().length > 0) {
+        return headerValue.trim();
+    }
+    return createCorrelationId(scope);
+}
 
 function toAssetReference(metadata: IStoredAssetMetadata, contentUri: string): IAssetApiResponse {
     return {
@@ -328,6 +342,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     const corsOrigins = options.corsOrigins ?? DEFAULT_CORS_ORIGINS;
     const requestBodyLimit = options.requestBodyLimit ?? DEFAULT_REQUEST_BODY_LIMIT;
     const defaultWorkerTimeoutMs = options.defaultWorkerTimeoutMs ?? DEFAULT_WORKER_TIMEOUT_MS;
+    const sseKeepAliveMs = options.sseKeepAliveMs ?? DEFAULT_SSE_KEEP_ALIVE_MS;
     const port = options.port ?? DEFAULT_PORT;
 
     const assetStore = options.assetStore;
@@ -436,7 +451,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         const definition = createSampleDefinition('dag-dev-sample', 1);
         const created = await controllers.design.createDefinition({
             definition,
-            correlationId: 'dag-dev-bootstrap-create'
+            correlationId: createCorrelationId('dag-dev-bootstrap-create')
         });
         if (!created.ok) {
             res.status(created.status).json(created);
@@ -446,7 +461,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         const published = await controllers.design.publishDefinition({
             dagId: definition.dagId,
             version: definition.version,
-            correlationId: 'dag-dev-bootstrap-publish'
+            correlationId: createCorrelationId('dag-dev-bootstrap-publish')
         });
         if (!published.ok) {
             res.status(published.status).json(published);
@@ -465,6 +480,20 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     });
 
     app.post('/v1/dag/definitions', async (req: Request<unknown, unknown, ICreateDefinitionBody>, res: Response) => {
+        if (!req.body || typeof req.body.definition !== 'object' || req.body.definition === null) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    {
+                        code: 'DAG_VALIDATION_DEFINITION_REQUIRED',
+                        detail: 'definition is required',
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
         const assetValidationErrors = await validateAssetReferences(req.body.definition, assetStore);
         if (assetValidationErrors.length > 0) {
             res.status(400).json({
@@ -476,7 +505,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         }
         const created = await controllers.design.createDefinition({
             definition: req.body.definition,
-            correlationId: 'dag-dev-design-create'
+            correlationId: resolveCorrelationId(req, 'dag-dev-design-create')
         });
         res.status(created.status).json(created);
     });
@@ -485,6 +514,20 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         req: Request<{ dagId: string }, unknown, IUpdateDraftBody>,
         res: Response
     ) => {
+        if (!req.body || typeof req.body.definition !== 'object' || req.body.definition === null) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [
+                    {
+                        code: 'DAG_VALIDATION_DEFINITION_REQUIRED',
+                        detail: 'definition is required',
+                        retryable: false
+                    }
+                ]
+            });
+            return;
+        }
         const assetValidationErrors = await validateAssetReferences(req.body.definition, assetStore);
         if (assetValidationErrors.length > 0) {
             res.status(400).json({
@@ -498,7 +541,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             dagId: req.params.dagId,
             version: req.body.version,
             definition: req.body.definition,
-            correlationId: 'dag-dev-design-update'
+            correlationId: resolveCorrelationId(req, 'dag-dev-design-update')
         });
         res.status(updated.status).json(updated);
     });
@@ -510,7 +553,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         const existing = await controllers.design.getDefinition({
             dagId: req.params.dagId,
             version: req.body.version,
-            correlationId: 'dag-dev-design-get-for-asset-validate'
+            correlationId: resolveCorrelationId(req, 'dag-dev-design-get-for-asset-validate')
         });
         if (!existing.ok) {
             res.status(existing.status).json(existing);
@@ -528,7 +571,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         const validated = await controllers.design.validateDefinition({
             dagId: req.params.dagId,
             version: req.body.version,
-            correlationId: 'dag-dev-design-validate'
+            correlationId: resolveCorrelationId(req, 'dag-dev-design-validate')
         });
         res.status(validated.status).json(validated);
     });
@@ -540,14 +583,14 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         const published = await controllers.design.publishDefinition({
             dagId: req.params.dagId,
             version: req.body.version,
-            correlationId: 'dag-dev-design-publish'
+            correlationId: resolveCorrelationId(req, 'dag-dev-design-publish')
         });
         res.status(published.status).json(published);
     });
 
     app.get('/v1/dag/nodes', async (_req: Request, res: Response) => {
         const listed = await controllers.design.listNodeCatalog({
-            correlationId: 'dag-dev-nodes-list'
+            correlationId: createCorrelationId('dag-dev-nodes-list')
         });
         res.status(listed.status).json(listed);
     });
@@ -908,14 +951,17 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
                     asset: toAssetReference(metadata, getAssetContentUri(req, metadata.assetId))
                 }
             });
-        } catch {
+        } catch (error) {
+            const detail = error instanceof Error && error.message.trim().length > 0
+                ? `base64Data processing failed: ${error.message}`
+                : 'base64Data must be a valid base64 encoded string';
             res.status(400).json({
                 ok: false,
                 status: 400,
                 errors: [
                     {
                         code: 'DAG_VALIDATION_ASSET_BASE64_INVALID',
-                        detail: 'base64Data must be a valid base64 encoded string',
+                        detail,
                         retryable: false
                     }
                 ]
@@ -986,7 +1032,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         const definition = await controllers.design.getDefinition({
             dagId: req.params.dagId,
             version: Number.isFinite(parsedVersion) ? parsedVersion : undefined,
-            correlationId: 'dag-dev-design-get'
+            correlationId: resolveCorrelationId(req, 'dag-dev-design-get')
         });
         res.status(definition.status).json(definition);
     });
@@ -997,7 +1043,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     ) => {
         const listed = await controllers.design.listDefinitions({
             dagId: req.query.dagId,
-            correlationId: 'dag-dev-design-list'
+            correlationId: resolveCorrelationId(req, 'dag-dev-design-list')
         });
         res.status(listed.status).json(listed);
     });
@@ -1016,10 +1062,21 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
 
         const keepAliveTimer = setInterval(() => {
             res.write(':\n\n');
-        }, 15_000);
+        }, sseKeepAliveMs);
         const clients = sseClientsByDagRunId.get(dagRunId) ?? new Set<Response>();
         clients.add(res);
         sseClientsByDagRunId.set(dagRunId, clients);
+
+        const releaseClient = (): void => {
+            const subscribedClients = sseClientsByDagRunId.get(dagRunId);
+            if (!subscribedClients) {
+                return;
+            }
+            subscribedClients.delete(res);
+            if (subscribedClients.size === 0) {
+                sseClientsByDagRunId.delete(dagRunId);
+            }
+        };
 
         const queried = await execution.runQuery.getRun(dagRunId);
         if (queried.ok) {
@@ -1104,18 +1161,28 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
                     version: snapshotDagRun.version
                 });
             }
+        } else {
+            emitSseEvent({
+                dagRunId,
+                eventType: EXECUTION_PROGRESS_EVENTS.FAILED,
+                occurredAt: clock.nowIso(),
+                error: {
+                    code: queried.error.code,
+                    category: queried.error.category,
+                    message: queried.error.message,
+                    retryable: queried.error.retryable,
+                    context: queried.error.context
+                }
+            });
+            clearInterval(keepAliveTimer);
+            releaseClient();
+            res.end();
+            return;
         }
 
         req.on('close', () => {
             clearInterval(keepAliveTimer);
-            const subscribedClients = sseClientsByDagRunId.get(dagRunId);
-            if (!subscribedClients) {
-                return;
-            }
-            subscribedClients.delete(res);
-            if (subscribedClients.size === 0) {
-                sseClientsByDagRunId.delete(dagRunId);
-            }
+            releaseClient();
         });
     });
 
@@ -1139,7 +1206,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     app.get('/v1/dag/runs/:dagRunId', async (req: Request<{ dagRunId: string }>, res: Response) => {
         const queried = await controllers.runtime.queryRun({
             dagRunId: req.params.dagRunId,
-            correlationId: 'dag-dev-query-run'
+            correlationId: resolveCorrelationId(req, 'dag-dev-query-run')
         });
         res.status(queried.status).json(queried);
     });
@@ -1147,7 +1214,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     app.get('/v1/dag/dev/observability/:dagRunId/dashboard', async (req: Request<{ dagRunId: string }>, res: Response) => {
         const dashboard = await controllers.observability.queryDashboard({
             dagRunId: req.params.dagRunId,
-            correlationId: 'dag-dev-dashboard'
+            correlationId: resolveCorrelationId(req, 'dag-dev-dashboard')
         });
         res.status(dashboard.status).json(dashboard);
     });

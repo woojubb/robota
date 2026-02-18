@@ -57,14 +57,21 @@ export class DagRuntimeController {
     ): Promise<TRuntimeApiResponse<{ dagRun: IDagRun; taskRuns: ITaskRun[] }>> {
         const queried = await this.runQuery.getRun(request.dagRunId);
         if (!queried.ok) {
-            const problem = toRuntimeProblemDetails(
+            const rawProblem = toRuntimeProblemDetails(
                 queried.error,
                 `/v1/dag/runs/${request.dagRunId}`,
                 request.correlationId
             );
+            const status = queried.error.code.endsWith('_NOT_FOUND')
+                ? 404
+                : rawProblem.status;
+            const problem = {
+                ...rawProblem,
+                status
+            };
             return {
                 ok: false,
-                status: problem.status === 400 ? 404 : problem.status,
+                status,
                 errors: [problem]
             };
         }
