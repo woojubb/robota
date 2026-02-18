@@ -1,9 +1,14 @@
 import type { ReactElement } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import type { IPortDefinition } from '@robota-sdk/dag-core';
+import type { IPortDefinition, TPortPayload } from '@robota-sdk/dag-core';
 import type { TNodeExecutionStatus } from './dag-designer-canvas.js';
-import type { IRunNodeTrace } from '../contracts/designer-api.js';
 import { NodeIoViewer } from './node-io-viewer.js';
+
+export interface IDagNodeIoTrace {
+    nodeId: string;
+    input?: TPortPayload;
+    output?: TPortPayload;
+}
 
 export interface IDagNodeViewData extends Record<string, unknown> {
     label: string;
@@ -11,7 +16,8 @@ export interface IDagNodeViewData extends Record<string, unknown> {
     inputs: IPortDefinition[];
     outputs: IPortDefinition[];
     executionStatus?: TNodeExecutionStatus;
-    latestTrace?: IRunNodeTrace;
+    isSelected?: boolean;
+    latestTrace?: IDagNodeIoTrace;
     assetBaseUrl?: string;
     traceSignature?: string;
 }
@@ -26,6 +32,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
     const inputs = sortPorts(props.data.inputs);
     const outputs = sortPorts(props.data.outputs);
     const executionStatus = props.data.executionStatus ?? 'idle';
+    const isSelected = props.data.isSelected ?? false;
     const statusRootClassName = executionStatus === 'running'
         ? 'border-blue-500 bg-blue-50/95'
         : executionStatus === 'success'
@@ -33,7 +40,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
             : executionStatus === 'failed'
                 ? 'border-red-500 bg-red-50/95'
                 : 'border-gray-300 bg-white';
-    const selectedRingClassName = props.selected
+    const selectedRingClassName = isSelected
         ? 'ring-2 ring-blue-300 shadow-md'
         : 'shadow-sm';
     const rootClassName = [
@@ -50,7 +57,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                 ? 'border-emerald-300 bg-emerald-100/70'
                 : executionStatus === 'failed'
                     ? 'border-red-300 bg-red-100/70'
-                    : props.selected
+                    : isSelected
                         ? 'border-blue-300 bg-blue-50'
                         : 'border-gray-300 bg-gray-50'
     ].join(' ');

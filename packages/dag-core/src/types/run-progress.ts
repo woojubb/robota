@@ -1,3 +1,4 @@
+import type { TPortPayload } from '../interfaces/ports.js';
 import type { IDagError } from './error.js';
 
 export type TRunProgressEventType =
@@ -33,12 +34,16 @@ export interface ITaskStartedProgressEvent extends IRunProgressEventBase {
     eventType: 'task.started';
     taskRunId: string;
     nodeId: string;
+    input?: TPortPayload;
+    output?: TPortPayload;
 }
 
 export interface ITaskCompletedProgressEvent extends IRunProgressEventBase {
     eventType: 'task.completed';
     taskRunId: string;
     nodeId: string;
+    input?: TPortPayload;
+    output?: TPortPayload;
 }
 
 export interface ITaskFailedProgressEvent extends IRunProgressEventBase {
@@ -46,6 +51,8 @@ export interface ITaskFailedProgressEvent extends IRunProgressEventBase {
     taskRunId: string;
     nodeId: string;
     error: IDagError;
+    input?: TPortPayload;
+    output?: TPortPayload;
 }
 
 export type TRunProgressEvent =

@@ -1,9 +1,9 @@
 import type { ReactElement } from 'react';
-import type { IRunResult } from '../contracts/designer-api.js';
+import type { IDagNodeIoTrace } from './dag-node-view.js';
 import type { TNodeExecutionStatus } from './dag-designer-canvas.js';
 
 export interface INodeIoTracePanelProps {
-    runResult?: IRunResult;
+    traces: IDagNodeIoTrace[];
     selectedNodeId?: string;
     selectedNodeExecutionStatus?: TNodeExecutionStatus;
     className?: string;
@@ -14,8 +14,8 @@ function stringifyPayload(value: unknown): string {
 }
 
 export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
-    const traces = props.runResult?.traces ?? [];
-    let selectedTrace = undefined as IRunResult['traces'][number] | undefined;
+    const traces = props.traces;
+    let selectedTrace = undefined as IDagNodeIoTrace | undefined;
     if (typeof props.selectedNodeId === 'string') {
         for (let index = traces.length - 1; index >= 0; index -= 1) {
             const trace = traces[index];
@@ -34,21 +34,15 @@ export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
                     {traces.length} trace(s)
                 </span>
             </div>
-            {!props.runResult ? (
+            {traces.length === 0 ? (
                 <p className="text-xs text-gray-500">Run to inspect node input/output payloads.</p>
-            ) : null}
-            {props.runResult && traces.length === 0 ? (
-                <p className="text-xs text-gray-500">No trace data available.</p>
             ) : null}
 
             {selectedTrace ? (
                 <div className="space-y-2 text-xs">
                     <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1">
                         <div className="font-medium">Selected Node</div>
-                        <div>{selectedTrace.nodeId} ({selectedTrace.nodeType})</div>
-                        <div>
-                            estimatedCostUsd={selectedTrace.estimatedCostUsd.toFixed(6)} / totalCostUsd={selectedTrace.totalCostUsd.toFixed(6)}
-                        </div>
+                        <div>{selectedTrace.nodeId}</div>
                         <div>
                             status={props.selectedNodeExecutionStatus ?? 'idle'}
                         </div>
@@ -72,8 +66,8 @@ export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
                 <div className="space-y-1 text-xs">
                     <div className="font-medium text-gray-700">Latest Traces</div>
                     {traces.map((trace) => (
-                        <div key={`${trace.nodeId}:${trace.nodeType}`} className="rounded border border-gray-200 px-2 py-1">
-                            {trace.nodeId} ({trace.nodeType}) - output keys: {Object.keys(trace.output).join(', ') || '(none)'}
+                        <div key={trace.nodeId} className="rounded border border-gray-200 px-2 py-1">
+                            {trace.nodeId} - output keys: {Object.keys(trace.output ?? {}).join(', ') || '(none)'}
                         </div>
                     ))}
                 </div>
