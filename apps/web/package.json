@@ -20,7 +20,6 @@
     "@robota-sdk/dag-core": "workspace:^",
     "@robota-sdk/dag-designer": "workspace:^",
     "@robota-sdk/playground": "workspace:^",
-    "@robota-sdk/workflow": "workspace:^",
     "@xyflow/react": "^12.8.2",
     "next": "15.4.1",
     "react": "19.1.0",

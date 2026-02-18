@@ -1,13 +1,17 @@
-import type { IDagDefinition, INodeManifest, TResult } from '@robota-sdk/dag-core';
+import type { IDagDefinition, INodeManifest, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
 import type {
+    ICreateRunInput,
     ICreateDefinitionInput,
     IDefinitionListItem,
+    IGetRunResultInput,
+    IRunResult,
     IDesignerApiClient,
     IDesignerApiClientConfig,
     IGetDefinitionInput,
     IListDefinitionsInput,
     IProblemDetails,
     IPublishDefinitionInput,
+    IStartRunInput,
     IUpdateDraftInput,
     IValidateDefinitionInput
 } from '../contracts/designer-api.js';
@@ -18,13 +22,19 @@ interface ILooseDesignerPayload {
         definition?: IDagDefinition;
         items?: IDefinitionListItem[];
         nodes?: INodeManifest[];
+        dagRunId?: string;
+        run?: IRunResult;
     };
     errors?: IProblemDetails[];
 }
 
+interface IRunProgressEnvelope {
+    event?: TRunProgressEvent;
+}
+
 function createContractViolationProblem(status: number, instance: string): IProblemDetails {
     return {
-        type: 'https://robota.dev/problems/dag/contract',
+        type: 'urn:robota:problems:dag:contract',
         title: 'Invalid API response contract',
         status,
         detail: 'Response payload does not match designer API contract.',
@@ -65,6 +75,24 @@ function hasValidNodeManifests(nodes: INodeManifest[]): boolean {
         && typeof node.category === 'string'
         && Array.isArray(node.inputs)
         && Array.isArray(node.outputs)
+    );
+}
+
+function hasValidRunResult(run: IRunResult): boolean {
+    if (
+        typeof run.dagRunId !== 'string'
+        || !Array.isArray(run.traces)
+        || typeof run.totalCostUsd !== 'number'
+    ) {
+        return false;
+    }
+    return run.traces.every((trace) =>
+        typeof trace.nodeId === 'string' &&
+        typeof trace.nodeType === 'string' &&
+        typeof trace.input === 'object' && trace.input !== null &&
+        typeof trace.output === 'object' && trace.output !== null &&
+        typeof trace.estimatedCostUsd === 'number' &&
+        typeof trace.totalCostUsd === 'number'
     );
 }
 
@@ -164,6 +192,169 @@ export class DesignerApiClient implements IDesignerApiClient {
         return {
             ok: false,
             error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public async createRun(input: ICreateRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
+        const path = '/v1/dag/runs';
+        const payloadResult = await this.requestPayload(
+            path,
+            'POST',
+            JSON.stringify({
+                definition: input.definition,
+                input: input.input ?? {}
+            }),
+            input.correlationId
+        );
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const dagRunId = payloadResult.value.data?.dagRunId;
+        if (typeof dagRunId === 'string' && dagRunId.length > 0) {
+            return {
+                ok: true,
+                value: { dagRunId }
+            };
+        }
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public async startRun(
+        input: IStartRunInput
+    ): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
+        const path = `/v1/dag/runs/${input.dagRunId}/start`;
+        const payloadResult = await this.requestPayload(
+            path,
+            'POST',
+            JSON.stringify({}),
+            input.correlationId
+        );
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const dagRunId = payloadResult.value.data?.dagRunId;
+        if (typeof dagRunId === 'string' && dagRunId.length > 0) {
+            return {
+                ok: true,
+                value: { dagRunId }
+            };
+        }
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public async getRunResult(input: IGetRunResultInput): Promise<TResult<IRunResult, IProblemDetails[]>> {
+        const path = `/v1/dag/runs/${input.dagRunId}/result`;
+        const payloadResult = await this.requestPayload(
+            path,
+            'GET',
+            undefined,
+            input.correlationId
+        );
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const run = payloadResult.value.data?.run;
+        if (run && hasValidRunResult(run)) {
+            return {
+                ok: true,
+                value: run
+            };
+        }
+        return {
+            ok: false,
+            error: [createContractViolationProblem(200, path)]
+        };
+    }
+
+    public subscribeRunProgress(input: {
+        dagRunId: string;
+        onEvent: (event: TRunProgressEvent) => void;
+        onError?: (error: Error) => void;
+        maxReconnectAttempts?: number;
+        initialReconnectDelayMs?: number;
+    }): () => void {
+        if (typeof EventSource === 'undefined') {
+            input.onError?.(new Error('EventSource is not available in this environment.'));
+            return () => {
+                return;
+            };
+        }
+        const path = `/v1/dag/runs/${encodeURIComponent(input.dagRunId)}/events`;
+        const maxReconnectAttempts = input.maxReconnectAttempts ?? 5;
+        const initialReconnectDelayMs = input.initialReconnectDelayMs ?? 500;
+        let reconnectAttempt = 0;
+        let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+        let reconnectScheduled = false;
+        let closed = false;
+        let eventSource: EventSource | undefined;
+
+        const clearReconnectTimer = (): void => {
+            if (!reconnectTimer) {
+                return;
+            }
+            clearTimeout(reconnectTimer);
+            reconnectTimer = undefined;
+            reconnectScheduled = false;
+        };
+
+        const connect = (): void => {
+            if (closed) {
+                return;
+            }
+            const nextEventSource = new EventSource(`${this.baseUrl}${path}`);
+            eventSource = nextEventSource;
+            reconnectScheduled = false;
+            nextEventSource.onopen = () => {
+                reconnectAttempt = 0;
+            };
+            nextEventSource.onmessage = (event) => {
+                try {
+                    const parsed = JSON.parse(event.data) as IRunProgressEnvelope;
+                    if (!parsed.event) {
+                        return;
+                    }
+                    input.onEvent(parsed.event);
+                } catch {
+                    input.onError?.(new Error('Failed to parse run progress event payload.'));
+                }
+            };
+            nextEventSource.onerror = () => {
+                if (closed) {
+                    return;
+                }
+                if (eventSource !== nextEventSource) {
+                    return;
+                }
+                nextEventSource.close();
+                if (reconnectScheduled) {
+                    return;
+                }
+                if (reconnectAttempt >= maxReconnectAttempts) {
+                    input.onError?.(new Error('Run progress stream disconnected.'));
+                    return;
+                }
+                const delay = initialReconnectDelayMs * (2 ** reconnectAttempt);
+                reconnectAttempt += 1;
+                clearReconnectTimer();
+                reconnectScheduled = true;
+                reconnectTimer = setTimeout(() => {
+                    connect();
+                }, delay);
+            };
+        };
+
+        connect();
+
+        return () => {
+            closed = true;
+            clearReconnectTimer();
+            eventSource?.close();
         };
     }
 

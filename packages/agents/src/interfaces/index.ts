@@ -18,7 +18,11 @@ export type {
     IAssistantMessage,
     ISystemMessage,
     IToolMessage,
-    IToolCall
+    IToolCall,
+    ITextMessagePart,
+    IInlineImageMessagePart,
+    IUriImageMessagePart,
+    TUniversalMessagePart
 } from './messages';
 
 export type {

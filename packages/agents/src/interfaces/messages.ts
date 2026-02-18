@@ -19,6 +19,28 @@ export type TUniversalMessageRole = 'user' | 'assistant' | 'system' | 'tool';
 export type TUniversalMessageMetadata = Record<string, string | number | boolean | Date | string[] | number[]>;
 
 /**
+ * Universal multimodal message part contracts.
+ */
+export interface ITextMessagePart {
+    type: 'text';
+    text: string;
+}
+
+export interface IInlineImageMessagePart {
+    type: 'image_inline';
+    mimeType: string;
+    data: string;
+}
+
+export interface IUriImageMessagePart {
+    type: 'image_uri';
+    uri: string;
+    mimeType?: string;
+}
+
+export type TUniversalMessagePart = ITextMessagePart | IInlineImageMessagePart | IUriImageMessagePart;
+
+/**
  * Tool call (OpenAI tool calling format).
  */
 export interface IToolCall {
@@ -43,6 +65,7 @@ export interface IBaseMessage {
 export interface IUserMessage extends IBaseMessage {
     role: 'user';
     content: string;
+    parts?: TUniversalMessagePart[];
     name?: string;
 }
 
@@ -50,18 +73,21 @@ export interface IAssistantMessage extends IBaseMessage {
     role: 'assistant';
     /** Assistant response content (can be null when making tool calls) */
     content: string | null;
+    parts?: TUniversalMessagePart[];
     toolCalls?: IToolCall[];
 }
 
 export interface ISystemMessage extends IBaseMessage {
     role: 'system';
     content: string;
+    parts?: TUniversalMessagePart[];
     name?: string;
 }
 
 export interface IToolMessage extends IBaseMessage {
     role: 'tool';
     content: string;
+    parts?: TUniversalMessagePart[];
     toolCallId: string;
     name?: string;
 }

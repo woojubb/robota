@@ -79,8 +79,6 @@ robota/
     │   └── examples/       # @robota-sdk/openai examples
     ├── team/
     │   └── examples/       # @robota-sdk/team examples
-    └── workflow/
-        └── examples/       # @robota-sdk/workflow examples
 ```
 
 ## Running Examples

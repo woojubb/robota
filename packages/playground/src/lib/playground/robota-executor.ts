@@ -25,8 +25,6 @@ import type {
     TUniversalMessage,
     TUniversalValue
 } from '@robota-sdk/agents';
-import type { IWorkflowEventSubscriber, IWorkflowExportStructure } from '@robota-sdk/workflow';
-import { DefaultExternalWorkflowStore, type IExternalWorkflowStore } from './external-workflow-store';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { FunctionTool } from '@robota-sdk/agents';
@@ -144,12 +142,6 @@ export class PlaygroundExecutor {
     private eventService: IEventService;
     private websocketClient: PlaygroundWebSocketClient | null = null;
 
-    // SDK Workflow system
-    private workflowSubscriber: IWorkflowEventSubscriber;
-
-    // STEP 8.3.1: External Workflow Store
-    private externalWorkflowStore: IExternalWorkflowStore;
-
     private readonly logger: ILogger;
 
     constructor(
@@ -157,7 +149,6 @@ export class PlaygroundExecutor {
         private authToken: string,
         options: {
             eventService: IEventService;
-            workflowSubscriber: IWorkflowEventSubscriber;
             logger?: ILogger;
         }
     ) {
@@ -184,59 +175,12 @@ export class PlaygroundExecutor {
             errorRateThreshold: 10 // 10%
         });
 
-        // Injected workflow subscriber + event service (single DI path)
-        this.workflowSubscriber = options.workflowSubscriber;
+        // Injected event service
         this.eventService = options.eventService;
-        this.logger.debug('PlaygroundExecutor initialized with injected IEventService and WorkflowEventSubscriber');
-
-        // STEP 8.3.2: Create ExternalWorkflowStore
-        this.externalWorkflowStore = new DefaultExternalWorkflowStore(this.logger);
-        this.logger.debug('ExternalWorkflowStore created');
-
-        // Subscribe to workflow snapshots (SDK source of truth)
-        this.setupWorkflowSubscription();
+        this.logger.debug('PlaygroundExecutor initialized with injected IEventService');
 
         // PlaygroundExecutor is ready immediately
         // WebSocket will be connected lazily when needed
-    }
-
-    /**
-     * Subscribe to workflow snapshots (SDK source of truth).
-     */
-    private setupWorkflowSubscription(): void {
-        let snapCount = 0;
-        // Subscribe to snapshots emitted AFTER each applied update
-        this.workflowSubscriber.subscribeToWorkflowSnapshots((snapshot: IWorkflowExportStructure) => {
-            if (!snapshot) return;
-            snapCount++;
-            this.logger.debug(`Workflow snapshot received (${snapCount})`, {
-                nodeCount: snapshot.nodes?.length ?? 0,
-                edgeCount: snapshot.edges?.length ?? 0
-            });
-            if (this.uiUpdateCallback) {
-                this.uiUpdateCallback(snapshot);
-            }
-        });
-
-        this.logger.debug('Workflow snapshot subscription setup completed');
-    }
-
-    // UI update callback storage
-    private uiUpdateCallback: ((workflow: IWorkflowExportStructure) => void) | null = null;
-
-    /**
-     * Allows the Playground UI to subscribe to workflow updates.
-     */
-    subscribeToWorkflowUpdates(callback: (workflow: IWorkflowExportStructure) => void): void {
-        this.logger.debug('Playground UI subscribed to workflow updates');
-        this.uiUpdateCallback = callback;
-    }
-
-    /**
-     * Get current workflow snapshot.
-     */
-    getCurrentWorkflow(): IWorkflowExportStructure {
-        return this.workflowSubscriber.exportWorkflow();
     }
 
     /**
@@ -880,13 +824,6 @@ export class PlaygroundExecutor {
     }
 
 
-
-    /**
-     * STEP 8.3.3: Get External Workflow Store for manual node management
-     */
-    getExternalWorkflowStore(): IExternalWorkflowStore {
-        return this.externalWorkflowStore;
-    }
 
     /**
      * Update authentication credentials for active realtime transport.

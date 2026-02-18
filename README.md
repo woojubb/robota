@@ -299,7 +299,6 @@ pnpm build
 # Run a package-owned example from the repo root
 npx tsx packages/agents/examples/basic-conversation.ts
 npx tsx packages/agents/examples/tool-calling.ts
-npx tsx packages/workflow/examples/guarded-edge-verification.ts
 ```
 
 ## Development

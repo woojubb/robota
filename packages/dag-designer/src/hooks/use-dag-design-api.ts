@@ -1,11 +1,18 @@
 import { useMemo } from 'react';
-import type { IDagDefinition, INodeManifest, TResult } from '@robota-sdk/dag-core';
+import type {
+    IDagDefinition,
+    INodeManifest,
+    TResult,
+    TPortPayload,
+    TRunProgressEvent
+} from '@robota-sdk/dag-core';
 import {
     DesignerApiClient
 } from '../client/designer-api-client.js';
 import type {
     IDefinitionListItem,
     IDesignerApiClient,
+    IRunResult,
     IProblemDetails
 } from '../contracts/designer-api.js';
 
@@ -45,6 +52,26 @@ export interface IUseDagDesignApi {
         correlationId?: string;
     }) => Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog: () => Promise<TResult<INodeManifest[], IProblemDetails[]>>;
+    createRun: (input: {
+        definition: IDagDefinition;
+        input?: TPortPayload;
+        correlationId?: string;
+    }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    startRun: (input: {
+        dagRunId: string;
+        correlationId?: string;
+    }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    getRunResult: (input: {
+        dagRunId: string;
+        correlationId?: string;
+    }) => Promise<TResult<IRunResult, IProblemDetails[]>>;
+    subscribeRunProgress: (input: {
+        dagRunId: string;
+        onEvent: (event: TRunProgressEvent) => void;
+        onError?: (error: Error) => void;
+        maxReconnectAttempts?: number;
+        initialReconnectDelayMs?: number;
+    }) => () => void;
 }
 
 export function useDagDesignApi(options: IUseDagDesignApiOptions): IUseDagDesignApi {
@@ -88,6 +115,20 @@ export function useDagDesignApi(options: IUseDagDesignApiOptions): IUseDagDesign
             dagId: input?.dagId,
             correlationId: input?.correlationId
         }),
-        listNodeCatalog: async () => client.listNodeCatalog()
+        listNodeCatalog: async () => client.listNodeCatalog(),
+        createRun: async (input) => client.createRun({
+            definition: input.definition,
+            input: input.input,
+            correlationId: input.correlationId
+        }),
+        startRun: async (input) => client.startRun({
+            dagRunId: input.dagRunId,
+            correlationId: input.correlationId
+        }),
+        getRunResult: async (input) => client.getRunResult({
+            dagRunId: input.dagRunId,
+            correlationId: input.correlationId
+        }),
+        subscribeRunProgress: (input) => client.subscribeRunProgress(input)
     }), [client]);
 }

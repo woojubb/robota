@@ -1,0 +1,185 @@
+{
+  "metadata": {
+    "templateId": "gemini-image-edit",
+    "name": "Gemini Image Compose Flow",
+    "description": "Create a compose DAG with two image-source nodes feeding gemini-image-compose. Set each source asset reference in Node Config, then run."
+  },
+  "definition": {
+    "dagId": "dag-template-gemini-image-edit",
+    "version": 1,
+    "status": "draft",
+    "nodes": [
+      {
+        "nodeId": "image_source_a_1",
+        "nodeType": "image-source",
+        "dependsOn": [],
+        "inputs": [],
+        "outputs": [
+          {
+            "key": "image",
+            "label": "Image",
+            "order": 0,
+            "type": "binary",
+            "required": true,
+            "binaryKind": "image",
+            "mimeTypes": [
+              "image/png"
+            ]
+          }
+        ],
+        "config": {}
+      },
+      {
+        "nodeId": "image_source_b_1",
+        "nodeType": "image-source",
+        "dependsOn": [],
+        "inputs": [],
+        "outputs": [
+          {
+            "key": "image",
+            "label": "Image",
+            "order": 0,
+            "type": "binary",
+            "required": true,
+            "binaryKind": "image",
+            "mimeTypes": [
+              "image/png"
+            ]
+          }
+        ],
+        "config": {}
+      },
+      {
+        "nodeId": "gemini_image_compose_1",
+        "nodeType": "gemini-image-compose",
+        "dependsOn": [
+          "image_source_a_1",
+          "image_source_b_1"
+        ],
+        "inputs": [
+          {
+            "key": "imageA",
+            "label": "Image A",
+            "order": 0,
+            "type": "binary",
+            "required": true,
+            "binaryKind": "image",
+            "mimeTypes": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ]
+          },
+          {
+            "key": "imageB",
+            "label": "Image B",
+            "order": 1,
+            "type": "binary",
+            "required": true,
+            "binaryKind": "image",
+            "mimeTypes": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "key": "image",
+            "label": "Image",
+            "order": 0,
+            "type": "binary",
+            "required": true,
+            "binaryKind": "image",
+            "mimeTypes": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ]
+          }
+        ],
+        "config": {
+          "prompt": "캐릭터 스타일에 맞게 이미지를 합성해서 새 캐릭터 이미지를 만들어줘."
+        }
+      },
+      {
+        "nodeId": "gemini_image_edit_1",
+        "nodeType": "gemini-image-edit",
+        "dependsOn": [
+          "gemini_image_compose_1"
+        ],
+        "inputs": [
+          {
+            "key": "image",
+            "label": "Image",
+            "order": 0,
+            "type": "binary",
+            "required": true,
+            "binaryKind": "image",
+            "mimeTypes": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "key": "image",
+            "label": "Image",
+            "order": 0,
+            "type": "binary",
+            "required": true,
+            "binaryKind": "image",
+            "mimeTypes": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ]
+          }
+        ],
+        "config": {
+          "prompt": "이 캐릭터를 이용해서 4컷 웹툰을 그려줘"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "image_source_a_1",
+        "to": "gemini_image_compose_1",
+        "bindings": [
+          {
+            "outputKey": "image",
+            "inputKey": "imageA"
+          }
+        ]
+      },
+      {
+        "from": "image_source_b_1",
+        "to": "gemini_image_compose_1",
+        "bindings": [
+          {
+            "outputKey": "image",
+            "inputKey": "imageB"
+          }
+        ]
+      },
+      {
+        "from": "gemini_image_compose_1",
+        "to": "gemini_image_edit_1",
+        "bindings": [
+          {
+            "outputKey": "image",
+            "inputKey": "image"
+          }
+        ]
+      }
+    ],
+    "costPolicy": {
+      "runCostLimitUsd": 0.2,
+      "costCurrency": "USD",
+      "costPolicyVersion": 1
+    }
+  }
+}

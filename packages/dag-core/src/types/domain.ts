@@ -116,6 +116,7 @@ export interface ICostPolicy {
 export interface IDagNode {
     nodeId: string;
     nodeType: string;
+    position?: { x: number; y: number };
     dependsOn: string[];
     triggerPolicy?: string;
     retryPolicy?: string;
@@ -153,6 +154,8 @@ export interface IDagRun {
     dagId: string;
     version: number;
     status: TDagRunStatus;
+    definitionSnapshot?: string;
+    inputSnapshot?: string;
     runKey: string;
     logicalDate: string;
     trigger: TDagTriggerType;
@@ -170,6 +173,8 @@ export interface ITaskRun {
     leaseUntil?: string;
     inputSnapshot?: string;
     outputSnapshot?: string;
+    estimatedCostUsd?: number;
+    totalCostUsd?: number;
     errorCode?: string;
     errorMessage?: string;
 }

@@ -1,4 +1,6 @@
 import {
+    EXECUTION_PROGRESS_EVENTS,
+    TASK_PROGRESS_EVENTS,
     DagRunStateMachine,
     TaskRunStateMachine,
     buildDispatchError,
@@ -6,6 +8,7 @@ import {
     buildTaskExecutionError,
     buildValidationError,
     type IClockPort,
+    type IDagDefinition,
     type IDagRun,
     type IDagError,
     type ILeasePort,
@@ -15,6 +18,7 @@ import {
     type IStoragePort,
     type ITaskExecutionInput,
     type ITaskExecutorPort,
+    type IRunProgressEventReporter,
     type TPortPayload,
     type TResult
 } from '@robota-sdk/dag-core';
@@ -52,6 +56,13 @@ function buildTimeoutError(
     );
 }
 
+function resolveErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message.trim().length > 0) {
+        return error.message;
+    }
+    return 'Unknown error';
+}
+
 export class WorkerLoopService {
     public constructor(
         private readonly storage: IStoragePort,
@@ -59,7 +70,8 @@ export class WorkerLoopService {
         private readonly lease: ILeasePort,
         private readonly executor: ITaskExecutorPort,
         private readonly clock: IClockPort,
-        private readonly options: IWorkerLoopOptions
+        private readonly options: IWorkerLoopOptions,
+        private readonly runProgressEventReporter?: IRunProgressEventReporter
     ) {}
 
     public async processOnce(): Promise<TResult<IWorkerLoopResult, IDagError>> {
@@ -112,6 +124,14 @@ export class WorkerLoopService {
             return this.failAfterAck(message.messageId, startTransition.error);
         }
         await this.storage.updateTaskRunStatus(taskRun.taskRunId, startTransition.value.nextStatus);
+        this.runProgressEventReporter?.publish({
+            dagRunId: message.dagRunId,
+            eventType: TASK_PROGRESS_EVENTS.STARTED,
+            occurredAt: this.clock.nowIso(),
+            taskRunId: taskRun.taskRunId,
+            nodeId: message.nodeId,
+            input: message.payload
+        });
         await this.storage.saveTaskRunSnapshots(taskRun.taskRunId, JSON.stringify(message.payload));
 
         const dagRun = await this.storage.getDagRun(message.dagRunId);
@@ -126,17 +146,11 @@ export class WorkerLoopService {
             );
         }
 
-        const definition = await this.storage.getDefinition(dagRun.dagId, dagRun.version);
-        if (!definition) {
-            return this.failAfterAck(
-                message.messageId,
-                buildValidationError(
-                    'DAG_VALIDATION_DEFINITION_NOT_FOUND',
-                    'Definition not found for task execution',
-                    { dagId: dagRun.dagId, version: dagRun.version }
-                )
-            );
+        const definitionResult = this.parseDefinitionSnapshot(dagRun, message.dagRunId);
+        if (!definitionResult.ok) {
+            return this.failAfterAck(message.messageId, definitionResult.error);
         }
+        const definition = definitionResult.value;
 
         const nodeDefinition = definition.nodes.find((node) => node.nodeId === message.nodeId);
         if (!nodeDefinition) {
@@ -150,6 +164,8 @@ export class WorkerLoopService {
             );
         }
 
+        const allTaskRunsForCost = await this.storage.listTaskRunsByDagRunId(message.dagRunId);
+        const currentTotalCostUsd = this.resolveCurrentTotalCostUsd(allTaskRunsForCost);
         const executionInput: ITaskExecutionInput = {
             dagId: dagRun.dagId,
             dagRunId: message.dagRunId,
@@ -160,14 +176,22 @@ export class WorkerLoopService {
             input: message.payload,
             nodeDefinition,
             costPolicy: definition.costPolicy,
-            currentTotalCostUsd: 0
+            currentTotalCostUsd
         };
 
         const timeoutMs = this.resolveTimeoutMs(message);
         const executionResult = await this.executeWithTimeout(executionInput, timeoutMs, message.taskRunId);
 
         if (executionResult.ok) {
-            return this.handleSuccessPath(message, taskRun.taskRunId, dagRun, executionResult.output);
+            return this.handleSuccessPath(
+                message,
+                taskRun.taskRunId,
+                dagRun,
+                definition,
+                executionResult.output,
+                executionResult.estimatedCostUsd,
+                executionResult.totalCostUsd
+            );
         }
 
         return this.handleFailurePath(message, taskRun.taskRunId, executionResult.error);
@@ -177,7 +201,10 @@ export class WorkerLoopService {
         message: IQueueMessage,
         taskRunId: string,
         dagRun: IDagRun,
-        output: TPortPayload
+        definition: IDagDefinition,
+        output: TPortPayload,
+        estimatedCostUsd?: number,
+        totalCostUsd?: number
     ): Promise<TResult<IWorkerLoopResult, IDagError>> {
         const completeTransition = TaskRunStateMachine.transition('running', 'COMPLETE_SUCCESS');
         if (!completeTransition.ok) {
@@ -185,9 +212,24 @@ export class WorkerLoopService {
         }
 
         await this.storage.updateTaskRunStatus(taskRunId, completeTransition.value.nextStatus);
-        await this.storage.saveTaskRunSnapshots(taskRunId, undefined, JSON.stringify(output));
+        await this.storage.saveTaskRunSnapshots(
+            taskRunId,
+            undefined,
+            JSON.stringify(output),
+            estimatedCostUsd,
+            totalCostUsd
+        );
+        this.runProgressEventReporter?.publish({
+            dagRunId: message.dagRunId,
+            eventType: TASK_PROGRESS_EVENTS.COMPLETED,
+            occurredAt: this.clock.nowIso(),
+            taskRunId,
+            nodeId: message.nodeId,
+            input: message.payload,
+            output
+        });
 
-        const dispatched = await this.dispatchDownstreamReadyTasks(dagRun, message.nodeId, output);
+        const dispatched = await this.dispatchDownstreamReadyTasks(dagRun, definition, message.nodeId, output);
         if (!dispatched.ok) {
             return this.failAfterAck(message.messageId, dispatched.error);
         }
@@ -211,6 +253,15 @@ export class WorkerLoopService {
         }
 
         await this.storage.updateTaskRunStatus(taskRunId, failTransition.value.nextStatus, error);
+        this.runProgressEventReporter?.publish({
+            dagRunId: message.dagRunId,
+            eventType: TASK_PROGRESS_EVENTS.FAILED,
+            occurredAt: this.clock.nowIso(),
+            taskRunId,
+            nodeId: message.nodeId,
+            input: message.payload,
+            error
+        });
 
         const shouldRetry = this.options.retryEnabled && error.retryable && message.attempt < this.options.maxAttempts;
         if (!shouldRetry) {
@@ -247,13 +298,17 @@ export class WorkerLoopService {
 
         try {
             await this.queue.enqueue(nextMessage);
-        } catch {
+        } catch (error) {
             return this.failAfterAck(
                 message.messageId,
                 buildDispatchError(
                     'DAG_DISPATCH_ENQUEUE_RETRY_FAILED',
                     'Failed to enqueue retry message',
-                    { taskRunId, attempt: nextMessage.attempt }
+                    {
+                        taskRunId,
+                        attempt: nextMessage.attempt,
+                        errorMessage: resolveErrorMessage(error)
+                    }
                 )
             );
         }
@@ -325,7 +380,7 @@ export class WorkerLoopService {
                     clearTimeout(timeoutId);
                     resolve(result);
                 })
-                .catch(() => {
+                .catch((error) => {
                     if (settled) {
                         return;
                     }
@@ -337,7 +392,10 @@ export class WorkerLoopService {
                             'DAG_TASK_EXECUTION_EXCEPTION',
                             'Task executor threw an exception',
                             true,
-                            { taskRunId }
+                            {
+                                taskRunId,
+                                errorMessage: resolveErrorMessage(error)
+                            }
                         )
                     });
                 });
@@ -346,24 +404,10 @@ export class WorkerLoopService {
 
     private async dispatchDownstreamReadyTasks(
         dagRun: IDagRun,
+        definition: IDagDefinition,
         completedNodeId: string,
         _output: TPortPayload
     ): Promise<TResult<void, IDagError>> {
-        const definition = await this.storage.getDefinition(dagRun.dagId, dagRun.version);
-        if (!definition) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_DEFINITION_NOT_FOUND',
-                    'Definition not found for downstream dispatch',
-                    {
-                        dagId: dagRun.dagId,
-                        version: dagRun.version
-                    }
-                )
-            };
-        }
-
         const downstreamNodes = definition.nodes.filter((node) => node.dependsOn.includes(completedNodeId));
         if (downstreamNodes.length === 0) {
             return {
@@ -425,7 +469,7 @@ export class WorkerLoopService {
 
             try {
                 await this.queue.enqueue(nextMessage);
-            } catch {
+            } catch (error) {
                 return {
                     ok: false,
                     error: buildDispatchError(
@@ -433,7 +477,8 @@ export class WorkerLoopService {
                         'Failed to enqueue downstream task',
                         {
                             dagRunId: dagRun.dagRunId,
-                            nodeId: downstreamNode.nodeId
+                            nodeId: downstreamNode.nodeId,
+                            errorMessage: resolveErrorMessage(error)
                         }
                     )
                 };
@@ -455,7 +500,7 @@ export class WorkerLoopService {
     }
 
     private buildDownstreamPayload(
-        definition: NonNullable<Awaited<ReturnType<IStoragePort['getDefinition']>>>,
+        definition: IDagDefinition,
         taskRuns: ITaskRun[],
         downstreamNodeId: string
     ): TResult<TPortPayload, IDagError> {
@@ -506,13 +551,17 @@ export class WorkerLoopService {
                     };
                 }
                 upstreamOutput = parsed;
-            } catch {
+            } catch (error) {
                 return {
                     ok: false,
                     error: buildValidationError(
                         'DAG_VALIDATION_UPSTREAM_OUTPUT_PARSE_FAILED',
                         'Failed to parse upstream output snapshot',
-                        { from: edge.from, to: edge.to }
+                        {
+                            from: edge.from,
+                            to: edge.to,
+                            errorMessage: resolveErrorMessage(error)
+                        }
                     )
                 };
             }
@@ -554,6 +603,64 @@ export class WorkerLoopService {
         return typeof input === 'object' && input !== null && !Array.isArray(input);
     }
 
+    private resolveCurrentTotalCostUsd(taskRuns: ITaskRun[]): number {
+        let currentTotalCostUsd = 0;
+        for (const taskRun of taskRuns) {
+            if (typeof taskRun.totalCostUsd !== 'number') {
+                continue;
+            }
+            if (taskRun.totalCostUsd > currentTotalCostUsd) {
+                currentTotalCostUsd = taskRun.totalCostUsd;
+            }
+        }
+        return currentTotalCostUsd;
+    }
+
+    private parseDefinitionSnapshot(
+        dagRun: IDagRun,
+        dagRunId: string
+    ): TResult<IDagDefinition, IDagError> {
+        if (typeof dagRun.definitionSnapshot !== 'string' || dagRun.definitionSnapshot.trim().length === 0) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_DEFINITION_SNAPSHOT_MISSING',
+                    'DagRun definition snapshot is missing',
+                    { dagRunId }
+                )
+            };
+        }
+        try {
+            const parsed = JSON.parse(dagRun.definitionSnapshot);
+            if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID',
+                        'DagRun definition snapshot has invalid shape',
+                        { dagRunId }
+                    )
+                };
+            }
+            return {
+                ok: true,
+                value: parsed as IDagDefinition
+            };
+        } catch (error) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_DEFINITION_SNAPSHOT_PARSE_FAILED',
+                    'Failed to parse DagRun definition snapshot',
+                    {
+                        dagRunId,
+                        errorMessage: resolveErrorMessage(error)
+                    }
+                )
+            };
+        }
+    }
+
     private async enqueueDeadLetter(
         message: IQueueMessage,
         error: IDagError
@@ -587,7 +694,7 @@ export class WorkerLoopService {
                 ok: true,
                 value: undefined
             };
-        } catch {
+        } catch (error) {
             return {
                 ok: false,
                 error: buildDispatchError(
@@ -595,7 +702,8 @@ export class WorkerLoopService {
                     'Failed to enqueue dead letter message',
                     {
                         taskRunId: message.taskRunId,
-                        originalMessageId: message.messageId
+                        originalMessageId: message.messageId,
+                        errorMessage: resolveErrorMessage(error)
                     }
                 )
             };
@@ -651,6 +759,45 @@ export class WorkerLoopService {
             transition.value.nextStatus,
             this.clock.nowIso()
         );
+        if (hasFailure) {
+            const failedTaskRun = taskRuns.find((taskRun) =>
+                taskRun.status === 'failed'
+                || taskRun.status === 'upstream_failed'
+                || taskRun.status === 'cancelled'
+            );
+            const failedError = (
+                typeof failedTaskRun?.errorCode === 'string'
+                && typeof failedTaskRun.errorMessage === 'string'
+            )
+                ? buildTaskExecutionError(
+                    failedTaskRun.errorCode,
+                    failedTaskRun.errorMessage,
+                    false,
+                    {
+                        dagRunId,
+                        taskRunId: failedTaskRun.taskRunId,
+                        nodeId: failedTaskRun.nodeId
+                    }
+                )
+                : buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_FAILED',
+                    'Run completed with failure.',
+                    false,
+                    { dagRunId }
+                );
+            this.runProgressEventReporter?.publish({
+                dagRunId,
+                eventType: EXECUTION_PROGRESS_EVENTS.FAILED,
+                occurredAt: this.clock.nowIso(),
+                error: failedError
+            });
+        } else {
+            this.runProgressEventReporter?.publish({
+                dagRunId,
+                eventType: EXECUTION_PROGRESS_EVENTS.COMPLETED,
+                occurredAt: this.clock.nowIso()
+            });
+        }
         return {
             ok: true,
             value: undefined

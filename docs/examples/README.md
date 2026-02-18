@@ -275,7 +275,6 @@ npx tsx packages/agents/examples/tool-calling.ts
 npx tsx packages/agents/examples/multi-providers.ts
 npx tsx packages/openai/examples/payload-logging.ts
 npx tsx packages/team/examples/assign-task-basic.ts
-npx tsx packages/workflow/examples/guarded-edge-verification.ts
 ```
 
 ### Run All Examples

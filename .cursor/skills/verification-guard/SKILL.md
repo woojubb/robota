@@ -15,23 +15,18 @@ Use this skill when running example workflows that must abort verification on fa
 
 ## Guarded Execution Template
 ```bash
-cd /Users/jungyoun/Documents/dev/robota/packages/workflow/examples && \
-pnpm guarded:verify:template
+pnpm scenario:verify -- <example-file> <scenario-id> [--strategy=hash|sequential]
 ```
 
 ## Package Template Commands
-- Guarded example: `pnpm guarded:verify:template`
-- Continued conversation example: `pnpm continued:verify:template`
 - Generic entrypoint: `pnpm scenario:verify -- <example-file> <scenario-id> [--strategy=hash|sequential]`
 
 ## Re-record Workflow Scenarios
 - Precondition: `OPENAI_API_KEY` must be set in shell.
 - Re-record (clean overwrite):
-  - `pnpm scenario -- record guarded-edge-verification.ts mandatory-delegation`
-  - `pnpm scenario -- record continued-conversation-edge-verification.ts continued-conversation`
+  - `pnpm scenario -- record <example-file> <scenario-id>`
 - Then verify:
-  - `pnpm guarded:verify:template`
-  - `pnpm continued:verify:template`
+  - `pnpm scenario:verify -- <example-file> <scenario-id>`
 - Record mode is authoritative and overwrites the target scenario file before recording to avoid duplicate hash ambiguity.
 
 ## Stop Conditions

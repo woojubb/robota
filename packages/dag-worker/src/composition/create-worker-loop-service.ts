@@ -2,6 +2,7 @@ import type {
     IClockPort,
     ILeasePort,
     IQueuePort,
+    IRunProgressEventReporter,
     IStoragePort,
     ITaskExecutorPort
 } from '@robota-sdk/dag-core';
@@ -14,6 +15,7 @@ export interface IWorkerLoopDependencies {
     lease: ILeasePort;
     executor: ITaskExecutorPort;
     clock: IClockPort;
+    runProgressEventReporter?: IRunProgressEventReporter;
 }
 
 export interface IWorkerLoopPolicyOptions extends Omit<IWorkerLoopOptions, 'retryEnabled'> {
@@ -38,6 +40,7 @@ export function createWorkerLoopService(
         dependencies.lease,
         dependencies.executor,
         dependencies.clock,
-        resolvedOptions
+        resolvedOptions,
+        dependencies.runProgressEventReporter
     );
 }

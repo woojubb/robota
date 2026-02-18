@@ -1,9 +1,11 @@
 import type { ReactElement } from 'react';
-import type { IPreviewResult } from '../lifecycle/preview-engine.js';
+import type { IDagNodeIoTrace } from './dag-node-view.js';
+import type { TNodeExecutionStatus } from './dag-designer-canvas.js';
 
 export interface INodeIoTracePanelProps {
-    previewResult?: IPreviewResult;
+    traces: IDagNodeIoTrace[];
     selectedNodeId?: string;
+    selectedNodeExecutionStatus?: TNodeExecutionStatus;
     className?: string;
 }
 
@@ -12,8 +14,8 @@ function stringifyPayload(value: unknown): string {
 }
 
 export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
-    const traces = props.previewResult?.traces ?? [];
-    let selectedTrace = undefined as IPreviewResult['traces'][number] | undefined;
+    const traces = props.traces;
+    let selectedTrace = undefined as IDagNodeIoTrace | undefined;
     if (typeof props.selectedNodeId === 'string') {
         for (let index = traces.length - 1; index >= 0; index -= 1) {
             const trace = traces[index];
@@ -32,31 +34,28 @@ export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
                     {traces.length} trace(s)
                 </span>
             </div>
-            {!props.previewResult ? (
-                <p className="text-xs text-gray-500">Run Preview to inspect node input/output payloads.</p>
-            ) : null}
-            {props.previewResult && traces.length === 0 ? (
-                <p className="text-xs text-gray-500">No trace data available.</p>
+            {traces.length === 0 ? (
+                <p className="text-xs text-gray-500">Run to inspect node input/output payloads.</p>
             ) : null}
 
             {selectedTrace ? (
                 <div className="space-y-2 text-xs">
                     <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1">
                         <div className="font-medium">Selected Node</div>
-                        <div>{selectedTrace.nodeId} ({selectedTrace.nodeType})</div>
+                        <div>{selectedTrace.nodeId}</div>
                         <div>
-                            estimatedCostUsd={selectedTrace.estimatedCostUsd.toFixed(6)} / totalCostUsd={selectedTrace.totalCostUsd.toFixed(6)}
+                            status={props.selectedNodeExecutionStatus ?? 'idle'}
                         </div>
                     </div>
                     <div>
                         <div className="mb-1 font-medium text-gray-700">Input</div>
-                        <pre className="max-h-40 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px]">
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-2 text-[11px]">
                             {stringifyPayload(selectedTrace.input)}
                         </pre>
                     </div>
                     <div>
                         <div className="mb-1 font-medium text-gray-700">Output</div>
-                        <pre className="max-h-40 overflow-auto rounded border border-gray-200 bg-gray-50 p-2 text-[11px]">
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-2 text-[11px]">
                             {stringifyPayload(selectedTrace.output)}
                         </pre>
                     </div>
@@ -67,8 +66,8 @@ export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
                 <div className="space-y-1 text-xs">
                     <div className="font-medium text-gray-700">Latest Traces</div>
                     {traces.map((trace) => (
-                        <div key={`${trace.nodeId}:${trace.nodeType}`} className="rounded border border-gray-200 px-2 py-1">
-                            {trace.nodeId} ({trace.nodeType}) - output keys: {Object.keys(trace.output).join(', ') || '(none)'}
+                        <div key={trace.nodeId} className="rounded border border-gray-200 px-2 py-1">
+                            {trace.nodeId} - output keys: {Object.keys(trace.output ?? {}).join(', ') || '(none)'}
                         </div>
                     ))}
                 </div>
