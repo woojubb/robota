@@ -25,6 +25,7 @@ import {
 import { createRobotaLlmCompletionClientFromEnv } from './services/robota-llm-completion-client.js';
 import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
 import { createRobotaGeminiImageClientFromEnv } from './services/robota-gemini-image-client.js';
+import { resolveApiDocsEnabled } from './utils/env-flags.js';
 
 dotenv.config({
     path: path.resolve(process.cwd(), '.env')
@@ -68,15 +69,6 @@ function resolvePort(): number {
         throw new Error('DAG_DEV_PORT must be a positive integer when provided.');
     }
     return parsed;
-}
-
-function resolveApiDocsEnabled(): boolean {
-    const raw = process.env.API_DOCS_ENABLED;
-    if (typeof raw !== 'string') {
-        return true;
-    }
-    const normalized = raw.trim().toLowerCase();
-    return normalized !== '0' && normalized !== 'false' && normalized !== 'off';
 }
 
 function resolveSseKeepAliveMs(): number {
@@ -135,7 +127,7 @@ async function bootstrapDagDevServer(): Promise<void> {
         corsOrigins: parseCorsOrigins(),
         requestBodyLimit: resolveRequestBodyLimit(),
         defaultWorkerTimeoutMs: resolveDefaultWorkerTimeoutMs(),
-        apiDocsEnabled: resolveApiDocsEnabled(),
+        apiDocsEnabled: resolveApiDocsEnabled(process.env.API_DOCS_ENABLED),
         sseKeepAliveMs: resolveSseKeepAliveMs()
     });
 }
