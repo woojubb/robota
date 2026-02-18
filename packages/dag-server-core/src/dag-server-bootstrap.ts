@@ -1,5 +1,6 @@
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import {
     EXECUTION_PROGRESS_EVENTS,
     LifecycleTaskExecutorPort,
@@ -24,6 +25,7 @@ import {
     type INodeCatalogService
 } from '@robota-sdk/dag-api';
 import type { IAssetStore, IStoredAssetMetadata } from './asset-store-contract.js';
+import { DAG_OPENAPI_DOCUMENT } from './docs/openapi-dag.js';
 
 /**
  * API response shape for asset endpoints; includes content URI.
@@ -134,6 +136,7 @@ export interface IDagServerBootstrapOptions {
     corsOrigins?: string[];
     requestBodyLimit?: string;
     defaultWorkerTimeoutMs?: number;
+    apiDocsEnabled?: boolean;
 }
 
 const DEFAULT_PORT = 3011;
@@ -408,6 +411,26 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             timestamp: new Date().toISOString()
         });
     });
+
+    if (options.apiDocsEnabled !== false) {
+        app.get('/docs/dag.json', (_req: Request, res: Response) => {
+            res.status(200).json(DAG_OPENAPI_DOCUMENT);
+        });
+        app.use(
+            '/docs/dag',
+            swaggerUi.serve,
+            swaggerUi.setup(DAG_OPENAPI_DOCUMENT)
+        );
+        app.get('/docs', (_req: Request, res: Response) => {
+            res.status(200).json({
+                title: 'Robota API Docs',
+                documents: {
+                    dagOpenApi: '/docs/dag.json',
+                    dagSwaggerUi: '/docs/dag'
+                }
+            });
+        });
+    }
 
     app.post('/v1/dag/dev/bootstrap', async (_req: Request, res: Response) => {
         const definition = createSampleDefinition('dag-dev-sample', 1);

@@ -19,9 +19,18 @@ await startDagServer({
   port: 3011,
   corsOrigins: ['http://localhost:3000'],
   requestBodyLimit: '15mb',
-  defaultWorkerTimeoutMs: 30_000
+  defaultWorkerTimeoutMs: 30_000,
+  apiDocsEnabled: true
 });
 ```
+
+## Docs routes
+
+When `apiDocsEnabled` is true (default), the server exposes:
+
+- `GET /docs/dag.json` - DAG OpenAPI document
+- `GET /docs/dag` - Swagger UI for DAG APIs
+- `GET /docs` - Docs index payload
 
 ## Asset store contract
 
@@ -32,3 +41,4 @@ Implement `IAssetStore` with `save`, `saveReference`, `getMetadata`, and `getCon
 - `startDagServer`, `IDagServerBootstrapOptions`
 - `IAssetStore`, `IStoredAssetMetadata`, `ICreateAssetInput`, `ICreateAssetReferenceInput`, `IAssetContentResult`
 - `AssetAwareTaskExecutorPort`, `DagRunService`, `BundledNodeCatalogService`
+- `DAG_OPENAPI_DOCUMENT`

@@ -17,3 +17,4 @@ export {
     type IRunNodeTrace
 } from './dag-run-service.js';
 export { BundledNodeCatalogService } from './bundled-node-catalog-service.js';
+export { DAG_OPENAPI_DOCUMENT } from './docs/openapi-dag.js';

@@ -70,6 +70,15 @@ function resolvePort(): number {
     return parsed;
 }
 
+function resolveApiDocsEnabled(): boolean {
+    const raw = process.env.API_DOCS_ENABLED;
+    if (typeof raw !== 'string') {
+        return true;
+    }
+    const normalized = raw.trim().toLowerCase();
+    return normalized !== '0' && normalized !== 'false' && normalized !== 'off';
+}
+
 async function bootstrapDagDevServer(): Promise<void> {
     const llmCompletionClient = createRobotaLlmCompletionClientFromEnv();
     const assetStoreRoot = process.env.ASSET_STORAGE_ROOT
@@ -113,7 +122,8 @@ async function bootstrapDagDevServer(): Promise<void> {
         port: resolvePort(),
         corsOrigins: parseCorsOrigins(),
         requestBodyLimit: resolveRequestBodyLimit(),
-        defaultWorkerTimeoutMs: resolveDefaultWorkerTimeoutMs()
+        defaultWorkerTimeoutMs: resolveDefaultWorkerTimeoutMs(),
+        apiDocsEnabled: resolveApiDocsEnabled()
     });
 }
 
