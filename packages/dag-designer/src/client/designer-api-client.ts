@@ -276,6 +276,8 @@ export class DesignerApiClient implements IDesignerApiClient {
         dagRunId: string;
         onEvent: (event: TRunProgressEvent) => void;
         onError?: (error: Error) => void;
+        maxReconnectAttempts?: number;
+        initialReconnectDelayMs?: number;
     }): () => void {
         if (typeof EventSource === 'undefined') {
             input.onError?.(new Error('EventSource is not available in this environment.'));
@@ -284,23 +286,75 @@ export class DesignerApiClient implements IDesignerApiClient {
             };
         }
         const path = `/v1/dag/runs/${encodeURIComponent(input.dagRunId)}/events`;
-        const eventSource = new EventSource(`${this.baseUrl}${path}`);
-        eventSource.onmessage = (event) => {
-            try {
-                const parsed = JSON.parse(event.data) as IRunProgressEnvelope;
-                if (!parsed.event) {
+        const maxReconnectAttempts = input.maxReconnectAttempts ?? 5;
+        const initialReconnectDelayMs = input.initialReconnectDelayMs ?? 500;
+        let reconnectAttempt = 0;
+        let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+        let reconnectScheduled = false;
+        let closed = false;
+        let eventSource: EventSource | undefined;
+
+        const clearReconnectTimer = (): void => {
+            if (!reconnectTimer) {
+                return;
+            }
+            clearTimeout(reconnectTimer);
+            reconnectTimer = undefined;
+            reconnectScheduled = false;
+        };
+
+        const connect = (): void => {
+            if (closed) {
+                return;
+            }
+            const nextEventSource = new EventSource(`${this.baseUrl}${path}`);
+            eventSource = nextEventSource;
+            reconnectScheduled = false;
+            nextEventSource.onopen = () => {
+                reconnectAttempt = 0;
+            };
+            nextEventSource.onmessage = (event) => {
+                try {
+                    const parsed = JSON.parse(event.data) as IRunProgressEnvelope;
+                    if (!parsed.event) {
+                        return;
+                    }
+                    input.onEvent(parsed.event);
+                } catch {
+                    input.onError?.(new Error('Failed to parse run progress event payload.'));
+                }
+            };
+            nextEventSource.onerror = () => {
+                if (closed) {
                     return;
                 }
-                input.onEvent(parsed.event);
-            } catch {
-                input.onError?.(new Error('Failed to parse run progress event payload.'));
-            }
+                if (eventSource !== nextEventSource) {
+                    return;
+                }
+                nextEventSource.close();
+                if (reconnectScheduled) {
+                    return;
+                }
+                if (reconnectAttempt >= maxReconnectAttempts) {
+                    input.onError?.(new Error('Run progress stream disconnected.'));
+                    return;
+                }
+                const delay = initialReconnectDelayMs * (2 ** reconnectAttempt);
+                reconnectAttempt += 1;
+                clearReconnectTimer();
+                reconnectScheduled = true;
+                reconnectTimer = setTimeout(() => {
+                    connect();
+                }, delay);
+            };
         };
-        eventSource.onerror = () => {
-            input.onError?.(new Error('Run progress stream disconnected.'));
-        };
+
+        connect();
+
         return () => {
-            eventSource.close();
+            closed = true;
+            clearReconnectTimer();
+            eventSource?.close();
         };
     }
 

@@ -56,6 +56,13 @@ function buildTimeoutError(
     );
 }
 
+function resolveErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message.trim().length > 0) {
+        return error.message;
+    }
+    return 'Unknown error';
+}
+
 export class WorkerLoopService {
     public constructor(
         private readonly storage: IStoragePort,
@@ -291,13 +298,17 @@ export class WorkerLoopService {
 
         try {
             await this.queue.enqueue(nextMessage);
-        } catch {
+        } catch (error) {
             return this.failAfterAck(
                 message.messageId,
                 buildDispatchError(
                     'DAG_DISPATCH_ENQUEUE_RETRY_FAILED',
                     'Failed to enqueue retry message',
-                    { taskRunId, attempt: nextMessage.attempt }
+                    {
+                        taskRunId,
+                        attempt: nextMessage.attempt,
+                        errorMessage: resolveErrorMessage(error)
+                    }
                 )
             );
         }
@@ -369,7 +380,7 @@ export class WorkerLoopService {
                     clearTimeout(timeoutId);
                     resolve(result);
                 })
-                .catch(() => {
+                .catch((error) => {
                     if (settled) {
                         return;
                     }
@@ -381,7 +392,10 @@ export class WorkerLoopService {
                             'DAG_TASK_EXECUTION_EXCEPTION',
                             'Task executor threw an exception',
                             true,
-                            { taskRunId }
+                            {
+                                taskRunId,
+                                errorMessage: resolveErrorMessage(error)
+                            }
                         )
                     });
                 });
@@ -455,7 +469,7 @@ export class WorkerLoopService {
 
             try {
                 await this.queue.enqueue(nextMessage);
-            } catch {
+            } catch (error) {
                 return {
                     ok: false,
                     error: buildDispatchError(
@@ -463,7 +477,8 @@ export class WorkerLoopService {
                         'Failed to enqueue downstream task',
                         {
                             dagRunId: dagRun.dagRunId,
-                            nodeId: downstreamNode.nodeId
+                            nodeId: downstreamNode.nodeId,
+                            errorMessage: resolveErrorMessage(error)
                         }
                     )
                 };
@@ -536,13 +551,17 @@ export class WorkerLoopService {
                     };
                 }
                 upstreamOutput = parsed;
-            } catch {
+            } catch (error) {
                 return {
                     ok: false,
                     error: buildValidationError(
                         'DAG_VALIDATION_UPSTREAM_OUTPUT_PARSE_FAILED',
                         'Failed to parse upstream output snapshot',
-                        { from: edge.from, to: edge.to }
+                        {
+                            from: edge.from,
+                            to: edge.to,
+                            errorMessage: resolveErrorMessage(error)
+                        }
                     )
                 };
             }
@@ -627,13 +646,16 @@ export class WorkerLoopService {
                 ok: true,
                 value: parsed as IDagDefinition
             };
-        } catch {
+        } catch (error) {
             return {
                 ok: false,
                 error: buildValidationError(
                     'DAG_VALIDATION_DEFINITION_SNAPSHOT_PARSE_FAILED',
                     'Failed to parse DagRun definition snapshot',
-                    { dagRunId }
+                    {
+                        dagRunId,
+                        errorMessage: resolveErrorMessage(error)
+                    }
                 )
             };
         }
@@ -672,7 +694,7 @@ export class WorkerLoopService {
                 ok: true,
                 value: undefined
             };
-        } catch {
+        } catch (error) {
             return {
                 ok: false,
                 error: buildDispatchError(
@@ -680,7 +702,8 @@ export class WorkerLoopService {
                     'Failed to enqueue dead letter message',
                     {
                         taskRunId: message.taskRunId,
-                        originalMessageId: message.messageId
+                        originalMessageId: message.messageId,
+                        errorMessage: resolveErrorMessage(error)
                     }
                 )
             };

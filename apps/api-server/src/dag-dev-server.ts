@@ -79,6 +79,18 @@ function resolveApiDocsEnabled(): boolean {
     return normalized !== '0' && normalized !== 'false' && normalized !== 'off';
 }
 
+function resolveSseKeepAliveMs(): number {
+    const raw = process.env.DAG_SSE_KEEPALIVE_MS;
+    if (typeof raw === 'undefined' || raw.trim().length === 0) {
+        return 15_000;
+    }
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error('DAG_SSE_KEEPALIVE_MS must be a positive integer when provided.');
+    }
+    return parsed;
+}
+
 async function bootstrapDagDevServer(): Promise<void> {
     const llmCompletionClient = createRobotaLlmCompletionClientFromEnv();
     const assetStoreRoot = process.env.ASSET_STORAGE_ROOT
@@ -123,7 +135,8 @@ async function bootstrapDagDevServer(): Promise<void> {
         corsOrigins: parseCorsOrigins(),
         requestBodyLimit: resolveRequestBodyLimit(),
         defaultWorkerTimeoutMs: resolveDefaultWorkerTimeoutMs(),
-        apiDocsEnabled: resolveApiDocsEnabled()
+        apiDocsEnabled: resolveApiDocsEnabled(),
+        sseKeepAliveMs: resolveSseKeepAliveMs()
     });
 }
 
