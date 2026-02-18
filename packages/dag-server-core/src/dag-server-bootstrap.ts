@@ -414,8 +414,15 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             return;
         }
         const payload = JSON.stringify({ event });
-        for (const client of clients) {
-            client.write(`data: ${payload}\n\n`);
+        for (const client of [...clients]) {
+            try {
+                client.write(`data: ${payload}\n\n`);
+            } catch {
+                clients.delete(client);
+            }
+        }
+        if (clients.size === 0) {
+            sseClientsByDagRunId.delete(event.dagRunId);
         }
     });
 
@@ -601,7 +608,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     ) => {
         const runInstance = '/v1/dag/runs';
         const definition = req.body?.definition;
-        if (!definition || typeof definition !== 'object') {
+        if (!definition || typeof definition !== 'object' || Array.isArray(definition)) {
             res.status(400).json({
                 ok: false,
                 status: 400,
@@ -619,7 +626,10 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
             return;
         }
         const input = req.body?.input;
-        if (typeof input !== 'undefined' && (typeof input !== 'object' || input === null)) {
+        if (
+            typeof input !== 'undefined'
+            && (typeof input !== 'object' || input === null || Array.isArray(input))
+        ) {
             res.status(400).json({
                 ok: false,
                 status: 400,
@@ -733,10 +743,40 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         res: Response
     ) => {
         const versionValue = req.query.version;
-        const parsedVersion = typeof versionValue === 'string' && versionValue.trim().length > 0
-            ? Number.parseInt(versionValue, 10)
-            : undefined;
-        const version = Number.isFinite(parsedVersion) ? parsedVersion : undefined;
+        let version: number | undefined;
+        if (typeof versionValue === 'string' && versionValue.trim().length > 0) {
+            const normalizedVersion = versionValue.trim();
+            if (!/^\d+$/.test(normalizedVersion)) {
+                res.status(400).json({
+                    ok: false,
+                    status: 400,
+                    errors: [
+                        {
+                            code: 'DAG_VALIDATION_VERSION_QUERY_INVALID',
+                            detail: 'version query must be a positive integer when provided',
+                            retryable: false
+                        }
+                    ]
+                });
+                return;
+            }
+            const parsedVersion = Number.parseInt(normalizedVersion, 10);
+            if (!Number.isSafeInteger(parsedVersion) || parsedVersion <= 0) {
+                res.status(400).json({
+                    ok: false,
+                    status: 400,
+                    errors: [
+                        {
+                            code: 'DAG_VALIDATION_VERSION_QUERY_INVALID',
+                            detail: 'version query must be a positive integer when provided',
+                            retryable: false
+                        }
+                    ]
+                });
+                return;
+            }
+            version = parsedVersion;
+        }
         const deleted = await dagRunService.deleteDefinitionArtifacts(req.params.dagId, version);
         if (!deleted.ok) {
             res.status(404).json({

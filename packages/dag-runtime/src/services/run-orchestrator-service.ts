@@ -145,13 +145,16 @@ export class RunOrchestratorService {
             };
         }
         if (dagRun.status !== 'created') {
+            const existingTaskRuns = await this.storage.listTaskRunsByDagRunId(dagRunId);
             return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_DAG_RUN_NOT_STARTABLE',
-                    'Only created runs can be started',
-                    { dagRunId, status: dagRun.status }
-                )
+                ok: true,
+                value: {
+                    dagRunId,
+                    dagId: dagRun.dagId,
+                    version: dagRun.version,
+                    logicalDate: dagRun.logicalDate,
+                    taskRunIds: existingTaskRuns.map((taskRun) => taskRun.taskRunId)
+                }
             };
         }
         if (typeof dagRun.definitionSnapshot !== 'string' || dagRun.definitionSnapshot.trim().length === 0) {
@@ -281,7 +284,20 @@ export class RunOrchestratorService {
         if (!created.ok) {
             return created;
         }
-        return this.startCreatedRun(created.value.dagRunId);
+        if (created.value.status === 'created') {
+            return this.startCreatedRun(created.value.dagRunId);
+        }
+        const existingTaskRuns = await this.storage.listTaskRunsByDagRunId(created.value.dagRunId);
+        return {
+            ok: true,
+            value: {
+                dagRunId: created.value.dagRunId,
+                dagId: created.value.dagId,
+                version: created.value.version,
+                logicalDate: created.value.logicalDate,
+                taskRunIds: existingTaskRuns.map((taskRun) => taskRun.taskRunId)
+            }
+        };
     }
 
     private parsePortPayload(input: string): TResult<TPortPayload, IDagError> {

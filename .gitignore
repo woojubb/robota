@@ -94,3 +94,4 @@ apps/**/README.md
 .pnpm*
 
 .local-assets
+apps/api-server/.local-assets/

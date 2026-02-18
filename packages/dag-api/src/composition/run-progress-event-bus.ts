@@ -11,8 +11,12 @@ export class RunProgressEventBus implements IRunProgressEventBus {
     private readonly listeners = new Set<TRunProgressEventListener>();
 
     public publish(event: TRunProgressEvent): void {
-        for (const listener of this.listeners) {
-            listener(event);
+        for (const listener of [...this.listeners]) {
+            try {
+                listener(event);
+            } catch {
+                this.listeners.delete(listener);
+            }
         }
     }
 
