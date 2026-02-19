@@ -2,6 +2,7 @@ import { createReadStream, existsSync } from 'node:fs';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import type {
     IAssetStore,
     IStoredAssetMetadata,
@@ -74,7 +75,14 @@ export class LocalFsAssetStore implements IAssetStore {
             return undefined;
         }
         if (typeof metadata.sourceUri === 'string' && metadata.sourceUri.trim().length > 0) {
-            return undefined;
+            const response = await fetch(metadata.sourceUri);
+            if (!response.ok || !response.body) {
+                return undefined;
+            }
+            return {
+                stream: Readable.fromWeb(response.body as globalThis.ReadableStream<Uint8Array>),
+                metadata
+            };
         }
         const binaryPath = this.buildBinaryPath(assetId);
         if (!existsSync(binaryPath)) {

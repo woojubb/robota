@@ -46,6 +46,7 @@ function renderBinary(
 ): ReactElement {
     const resolvedUri = resolveRenderableUri(binary, assetBaseUrl);
     const isImage = binary.kind === 'image';
+    const isVideo = binary.kind === 'video';
     return (
         <div className="flex flex-col gap-1 rounded border border-gray-200 bg-gray-50 p-2">
             <div className="text-[10px] text-gray-600">{binary.kind} · {binary.mimeType}</div>
@@ -61,6 +62,17 @@ function renderBinary(
                         className="max-h-40 w-full rounded object-contain"
                     />
                 </button>
+            ) : null}
+            {isVideo ? (
+                <div className="rounded border border-gray-300 bg-black p-1">
+                    <video
+                        controls
+                        preload="metadata"
+                        className="max-h-56 w-full rounded object-contain"
+                    >
+                        <source src={resolvedUri} type={binary.mimeType} />
+                    </video>
+                </div>
             ) : null}
             <a href={resolvedUri} target="_blank" rel="noreferrer" className="break-all text-[10px] text-blue-600 underline">
                 {binary.uri}

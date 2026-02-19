@@ -25,9 +25,19 @@ const provider = new BytedanceProvider({
 
 const job = await provider.createVideo({
   prompt: 'A cinematic aerial drone shot of a neon city at night.',
-  model: 'seedance-2.0'
+  model: 'seedance-1-5-pro-251215'
 });
 ```
+
+## ModelArk Environment
+
+```bash
+BYTEDANCE_API_KEY=your_modelark_api_key
+BYTEDANCE_BASE_URL=https://ark.ap-southeast.bytepluses.com/api/v3
+DAG_SEEDANCE_DEFAULT_MODEL=seedance-1-5-pro-251215
+```
+
+`BYTEDANCE_BASE_URL` must include `/api/v3` and must not include task path suffix.
 
 ## Notes
 
