@@ -176,6 +176,7 @@ Use this map to keep procedural guidance aligned with formal project specs.
   - Use `run.*`, `task.*`, `worker.*`, `scheduler.*` for DAG domain events.
   - Follow safety guards: dedicated event bus, no default cross-bridge, no cross-import of event constants.
 - Procedural skills:
+  - `.cursor/skills/dag-node-standard/SKILL.md`
   - `.cursor/skills/ddd-tactical-patterns/SKILL.md`
   - `.cursor/skills/state-machine-design/SKILL.md`
   - `.cursor/skills/contract-testing/SKILL.md`
