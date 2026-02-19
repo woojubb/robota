@@ -22,7 +22,9 @@ function createPublishedDefinition(): IDagDefinition {
                 nodeId: 'entry',
                 nodeType: 'input',
                 dependsOn: [],
-                config: {}
+                config: {},
+                inputs: [],
+                outputs: []
             }
         ],
         edges: []

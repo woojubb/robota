@@ -1,6 +1,7 @@
 import {
     EXECUTION_PROGRESS_EVENTS,
     DagRunStateMachine,
+    TaskRunStateMachine,
     TimeSemanticsService,
     buildDispatchError,
     buildValidationError,
@@ -107,18 +108,47 @@ export class RunOrchestratorService {
 
         const dagRunId = this.generateDagRunId(definition.dagId, resolvedTime.value.logicalDate, input.rerunKey);
 
-        await this.storage.createDagRun({
-            dagRunId,
-            dagId: definition.dagId,
-            version: definition.version,
-            status: 'created',
-            definitionSnapshot: JSON.stringify(definition),
-            inputSnapshot: JSON.stringify(input.input),
-            runKey,
-            logicalDate: resolvedTime.value.logicalDate,
-            trigger: input.trigger,
-            startedAt: this.clock.nowIso()
-        });
+        try {
+            await this.storage.createDagRun({
+                dagRunId,
+                dagId: definition.dagId,
+                version: definition.version,
+                status: 'created',
+                definitionSnapshot: JSON.stringify(definition),
+                inputSnapshot: JSON.stringify(input.input),
+                runKey,
+                logicalDate: resolvedTime.value.logicalDate,
+                trigger: input.trigger,
+                startedAt: this.clock.nowIso()
+            });
+        } catch (error) {
+            const racedRun = await this.storage.getDagRunByRunKey(runKey);
+            if (racedRun) {
+                return {
+                    ok: true,
+                    value: {
+                        dagRunId: racedRun.dagRunId,
+                        dagId: racedRun.dagId,
+                        version: racedRun.version,
+                        logicalDate: racedRun.logicalDate,
+                        status: racedRun.status
+                    }
+                };
+            }
+            return {
+                ok: false,
+                error: buildDispatchError(
+                    'DAG_DISPATCH_DAG_RUN_CREATE_FAILED',
+                    'Failed to create DagRun',
+                    {
+                        dagId: definition.dagId,
+                        version: definition.version,
+                        runKey,
+                        errorMessage: this.resolveErrorMessage(error instanceof Error ? error : undefined)
+                    }
+                )
+            };
+        }
 
         return {
             ok: true,
@@ -191,13 +221,6 @@ export class RunOrchestratorService {
             };
         }
         const input = parsedInput.value;
-
-        const queuedTransition = DagRunStateMachine.transition('created', 'QUEUE');
-        if (!queuedTransition.ok) {
-            return queuedTransition;
-        }
-        await this.storage.updateDagRunStatus(dagRunId, queuedTransition.value.nextStatus);
-
         const entryNodes = definition.nodes.filter((node) => node.dependsOn.length === 0);
         if (entryNodes.length === 0) {
             return {
@@ -209,6 +232,24 @@ export class RunOrchestratorService {
                 )
             };
         }
+
+        const queuedTransition = DagRunStateMachine.transition('created', 'QUEUE');
+        if (!queuedTransition.ok) {
+            return queuedTransition;
+        }
+        await this.storage.updateDagRunStatus(dagRunId, queuedTransition.value.nextStatus);
+        const runningTransition = DagRunStateMachine.transition('queued', 'START');
+        if (!runningTransition.ok) {
+            return runningTransition;
+        }
+        await this.storage.updateDagRunStatus(dagRunId, runningTransition.value.nextStatus);
+        this.runProgressEventReporter?.publish({
+            dagRunId,
+            eventType: EXECUTION_PROGRESS_EVENTS.STARTED,
+            occurredAt: this.clock.nowIso(),
+            dagId: definition.dagId,
+            version: definition.version
+        });
 
         const taskRunIds: string[] = [];
         for (const node of entryNodes) {
@@ -242,30 +283,41 @@ export class RunOrchestratorService {
 
             try {
                 await this.queue.enqueue(message);
-            } catch {
+            } catch (error) {
+                const dispatchError = buildDispatchError(
+                    'DAG_DISPATCH_ENQUEUE_FAILED',
+                    'Failed to enqueue entry task',
+                    {
+                        dagRunId,
+                        taskRunId,
+                        nodeId: node.nodeId,
+                        errorMessage: this.resolveErrorMessage(error instanceof Error ? error : undefined)
+                    }
+                );
+                const cancelledTaskTransition = TaskRunStateMachine.transition('queued', 'CANCEL');
+                if (cancelledTaskTransition.ok) {
+                    await this.storage.updateTaskRunStatus(taskRunId, cancelledTaskTransition.value.nextStatus, dispatchError);
+                }
+                const failedRunTransition = DagRunStateMachine.transition('running', 'COMPLETE_FAILURE');
+                if (failedRunTransition.ok) {
+                    await this.storage.updateDagRunStatus(
+                        dagRunId,
+                        failedRunTransition.value.nextStatus,
+                        this.clock.nowIso()
+                    );
+                    this.runProgressEventReporter?.publish({
+                        dagRunId,
+                        eventType: EXECUTION_PROGRESS_EVENTS.FAILED,
+                        occurredAt: this.clock.nowIso(),
+                        error: dispatchError
+                    });
+                }
                 return {
                     ok: false,
-                    error: buildDispatchError(
-                        'DAG_DISPATCH_ENQUEUE_FAILED',
-                        'Failed to enqueue entry task',
-                        { dagRunId, taskRunId, nodeId: node.nodeId }
-                    )
+                    error: dispatchError
                 };
             }
         }
-
-        const runningTransition = DagRunStateMachine.transition('queued', 'START');
-        if (!runningTransition.ok) {
-            return runningTransition;
-        }
-        await this.storage.updateDagRunStatus(dagRunId, runningTransition.value.nextStatus);
-        this.runProgressEventReporter?.publish({
-            dagRunId,
-            eventType: EXECUTION_PROGRESS_EVENTS.STARTED,
-            occurredAt: this.clock.nowIso(),
-            dagId: definition.dagId,
-            version: definition.version
-        });
 
         return {
             ok: true,
@@ -366,5 +418,12 @@ export class RunOrchestratorService {
         return rerunKey
             ? `${dagId}:run:${logicalEpochMs}:rerun:${rerunKey}`
             : `${dagId}:run:${logicalEpochMs}`;
+    }
+
+    private resolveErrorMessage(error: Error | undefined): string {
+        if (error instanceof Error && error.message.trim().length > 0) {
+            return error.message;
+        }
+        return 'Unknown enqueue error';
     }
 }

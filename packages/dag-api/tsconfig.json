@@ -14,22 +14,5 @@
   "exclude": [
     "dist",
     "node_modules"
-  ],
-  "references": [
-    {
-      "path": "../dag-core"
-    },
-    {
-      "path": "../dag-runtime"
-    },
-    {
-      "path": "../dag-worker"
-    },
-    {
-      "path": "../dag-scheduler"
-    },
-    {
-      "path": "../dag-projection"
-    }
   ]
 }

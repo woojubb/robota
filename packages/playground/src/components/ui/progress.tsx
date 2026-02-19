@@ -29,7 +29,7 @@ const INDICATOR_TRANSLATE_CLASSES = {
     100: "translate-x-0",
 } as const
 
-function getIndicatorTranslateClass(value?: number): string {
+function getIndicatorTranslateClass(value?: number | null): string {
     const raw = typeof value === "number" ? value : 0
     const bounded = Math.max(0, Math.min(100, raw))
     const rounded = Math.round(bounded / 5) * 5 as keyof typeof INDICATOR_TRANSLATE_CLASSES

@@ -62,7 +62,9 @@ function createDefinitionForRun(dagRun: IDagRun): IDagDefinition {
                 nodeId: 'entry',
                 nodeType: 'input',
                 dependsOn: [],
-                config: {}
+                config: {},
+                inputs: [],
+                outputs: []
             }
         ],
         edges: []
@@ -77,8 +79,9 @@ describe('createWorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
-        await storage.saveDefinition(createDefinitionForRun(dagRun));
-        await storage.createDagRun(dagRun);
+        const definition = createDefinitionForRun(dagRun);
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
 

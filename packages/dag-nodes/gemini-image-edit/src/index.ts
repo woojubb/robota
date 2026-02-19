@@ -119,13 +119,34 @@ class GeminiImageEditNodeTaskHandler {
             };
         }
 
-        const promptValue = context.nodeDefinition.config.prompt;
-        if (typeof promptValue !== 'string' || promptValue.trim().length === 0) {
+        const promptInputResult = io.requireInput('prompt');
+        if (!promptInputResult.ok) {
             return {
                 ok: false,
                 error: buildValidationError(
                     'DAG_VALIDATION_GEMINI_IMAGE_PROMPT_REQUIRED',
-                    'Gemini image node requires non-empty config prompt',
+                    'Gemini image node requires non-empty input prompt',
+                    { nodeId: context.nodeDefinition.nodeId }
+                )
+            };
+        }
+        if (typeof promptInputResult.value !== 'string') {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_GEMINI_IMAGE_PROMPT_REQUIRED',
+                    'Gemini image node input prompt must be string',
+                    { nodeId: context.nodeDefinition.nodeId }
+                )
+            };
+        }
+        const promptValue = promptInputResult.value.trim();
+        if (promptValue.length === 0) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_GEMINI_IMAGE_PROMPT_REQUIRED',
+                    'Gemini image node requires non-empty input prompt',
                     { nodeId: context.nodeDefinition.nodeId }
                 )
             };
@@ -183,7 +204,8 @@ export class GeminiImageEditNodeDefinition implements IDagNodeDefinition {
             order: 0,
             required: true,
             preset: BINARY_PORT_PRESETS.IMAGE_COMMON
-        })
+        }),
+        { key: 'prompt', label: 'Prompt', order: 1, type: 'string', required: true }
     ];
     public readonly outputs: IDagNodeDefinition['outputs'] = [
         createBinaryPortDefinition({
@@ -195,7 +217,6 @@ export class GeminiImageEditNodeDefinition implements IDagNodeDefinition {
         })
     ];
     public readonly configSchemaDefinition = z.object({
-        prompt: z.string().min(1),
         model: z.string().default(DEFAULT_GEMINI_IMAGE_MODEL),
         baseCostUsd: z.number().default(0.01)
     });
@@ -282,13 +303,34 @@ class GeminiImageComposeNodeTaskHandler {
             };
         }
 
-        const promptValue = context.nodeDefinition.config.prompt;
-        if (typeof promptValue !== 'string' || promptValue.trim().length === 0) {
+        const promptInputResult = io.requireInput('prompt');
+        if (!promptInputResult.ok) {
             return {
                 ok: false,
                 error: buildValidationError(
                     'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_PROMPT_REQUIRED',
-                    'Gemini image compose node requires non-empty config prompt',
+                    'Gemini image compose node requires non-empty input prompt',
+                    { nodeId: context.nodeDefinition.nodeId }
+                )
+            };
+        }
+        if (typeof promptInputResult.value !== 'string') {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_PROMPT_REQUIRED',
+                    'Gemini image compose node input prompt must be string',
+                    { nodeId: context.nodeDefinition.nodeId }
+                )
+            };
+        }
+        const promptValue = promptInputResult.value.trim();
+        if (promptValue.length === 0) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_PROMPT_REQUIRED',
+                    'Gemini image compose node requires non-empty input prompt',
                     { nodeId: context.nodeDefinition.nodeId }
                 )
             };
@@ -354,7 +396,8 @@ export class GeminiImageComposeNodeDefinition implements IDagNodeDefinition {
             order: 1,
             required: true,
             preset: BINARY_PORT_PRESETS.IMAGE_COMMON
-        })
+        }),
+        { key: 'prompt', label: 'Prompt', order: 2, type: 'string', required: true }
     ];
     public readonly outputs: IDagNodeDefinition['outputs'] = [
         createBinaryPortDefinition({
@@ -366,7 +409,6 @@ export class GeminiImageComposeNodeDefinition implements IDagNodeDefinition {
         })
     ];
     public readonly configSchemaDefinition = z.object({
-        prompt: z.string().min(1),
         model: z.string().default(DEFAULT_GEMINI_IMAGE_MODEL),
         baseCostUsd: z.number().default(0.015)
     });

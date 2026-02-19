@@ -17,7 +17,9 @@ function createPublishedDefinition(dagId: string): IDagDefinition {
                 nodeId: 'entry',
                 nodeType: 'input',
                 dependsOn: [],
-                config: {}
+                config: {},
+                inputs: [],
+                outputs: []
             }
         ],
         edges: []

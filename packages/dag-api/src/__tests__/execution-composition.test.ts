@@ -17,13 +17,14 @@ function createPublishedDefinition(): IDagDefinition {
         nodes: [
             {
                 nodeId: 'entry',
-                type: 'task',
+                nodeType: 'task',
                 dependsOn: [],
-                config: {}
+                config: {},
+                inputs: [],
+                outputs: []
             }
         ],
-        createdAt: '2026-02-14T03:00:00.000Z',
-        updatedAt: '2026-02-14T03:00:00.000Z'
+        edges: []
     };
 }
 

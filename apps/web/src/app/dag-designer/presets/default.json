@@ -107,7 +107,7 @@
       }
     ],
     "costPolicy": {
-      "runCostLimitUsd": 0.01,
+      "runCostLimitUsd": 10,
       "costCurrency": "USD",
       "costPolicyVersion": 1
     }

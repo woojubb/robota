@@ -96,11 +96,55 @@ interface IAssetValidationError {
     retryable: false;
 }
 
-function parseTaskRunPayloadSnapshot(snapshot: string | undefined): TPortPayload | undefined {
+function buildVersionQueryValidationError(): IAssetValidationError {
+    return {
+        code: 'DAG_VALIDATION_VERSION_QUERY_INVALID',
+        detail: 'version query must be a positive integer when provided',
+        retryable: false
+    };
+}
+
+export type TVersionQueryParseResult =
+    | { ok: true; value: number | undefined }
+    | { ok: false; error: IAssetValidationError };
+
+export function parseOptionalPositiveIntegerQuery(value: string | undefined): TVersionQueryParseResult {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+        return { ok: true, value: undefined };
+    }
+    const normalizedValue = value.trim();
+    if (!/^\d+$/.test(normalizedValue)) {
+        return {
+            ok: false,
+            error: buildVersionQueryValidationError()
+        };
+    }
+    const parsedValue = Number.parseInt(normalizedValue, 10);
+    if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+        return {
+            ok: false,
+            error: buildVersionQueryValidationError()
+        };
+    }
+    return {
+        ok: true,
+        value: parsedValue
+    };
+}
+
+export function parseTaskRunPayloadSnapshot(snapshot: string | undefined): TPortPayload | undefined {
     if (typeof snapshot !== 'string' || snapshot.length === 0) {
         return undefined;
     }
-    return JSON.parse(snapshot) as TPortPayload;
+    try {
+        const parsed = JSON.parse(snapshot);
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+            return undefined;
+        }
+        return parsed as TPortPayload;
+    } catch {
+        return undefined;
+    }
 }
 
 function toRunProblemDetails(
@@ -742,41 +786,16 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         req: Request<{ dagId: string }, unknown, unknown, IDeleteDefinitionArtifactsQuery>,
         res: Response
     ) => {
-        const versionValue = req.query.version;
-        let version: number | undefined;
-        if (typeof versionValue === 'string' && versionValue.trim().length > 0) {
-            const normalizedVersion = versionValue.trim();
-            if (!/^\d+$/.test(normalizedVersion)) {
-                res.status(400).json({
-                    ok: false,
-                    status: 400,
-                    errors: [
-                        {
-                            code: 'DAG_VALIDATION_VERSION_QUERY_INVALID',
-                            detail: 'version query must be a positive integer when provided',
-                            retryable: false
-                        }
-                    ]
-                });
-                return;
-            }
-            const parsedVersion = Number.parseInt(normalizedVersion, 10);
-            if (!Number.isSafeInteger(parsedVersion) || parsedVersion <= 0) {
-                res.status(400).json({
-                    ok: false,
-                    status: 400,
-                    errors: [
-                        {
-                            code: 'DAG_VALIDATION_VERSION_QUERY_INVALID',
-                            detail: 'version query must be a positive integer when provided',
-                            retryable: false
-                        }
-                    ]
-                });
-                return;
-            }
-            version = parsedVersion;
+        const parsedVersionResult = parseOptionalPositiveIntegerQuery(req.query.version);
+        if (!parsedVersionResult.ok) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [parsedVersionResult.error]
+            });
+            return;
         }
+        const version = parsedVersionResult.value;
         const deleted = await dagRunService.deleteDefinitionArtifacts(req.params.dagId, version);
         if (!deleted.ok) {
             res.status(404).json({
@@ -1065,13 +1084,18 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
         req: Request<{ dagId: string }, unknown, unknown, IGetDefinitionQuery>,
         res: Response
     ) => {
-        const versionValue = req.query.version;
-        const parsedVersion = typeof versionValue === 'string' && versionValue.trim().length > 0
-            ? Number.parseInt(versionValue, 10)
-            : undefined;
+        const parsedVersionResult = parseOptionalPositiveIntegerQuery(req.query.version);
+        if (!parsedVersionResult.ok) {
+            res.status(400).json({
+                ok: false,
+                status: 400,
+                errors: [parsedVersionResult.error]
+            });
+            return;
+        }
         const definition = await controllers.design.getDefinition({
             dagId: req.params.dagId,
-            version: Number.isFinite(parsedVersion) ? parsedVersion : undefined,
+            version: parsedVersionResult.value,
             correlationId: resolveCorrelationId(req, 'dag-dev-design-get')
         });
         res.status(definition.status).json(definition);
