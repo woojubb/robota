@@ -1,0 +1,43 @@
+---
+alwaysApply: true
+description: "Mandatory standards for implementing DAG node definitions"
+---
+
+# DAG Node Implementation Rules
+
+## Purpose
+Enforce a single, standard way to implement DAG nodes so validation and execution behavior stays consistent across all node packages.
+
+## Non-Negotiable Rules
+- Every new node definition class in `packages/dag-nodes/**/src/index.ts` MUST extend `AbstractNodeDefinition`.
+- Node config validation MUST be handled through `configSchemaDefinition` + base-class runtime parse flow.
+- Node logic MUST use typed `config` from `estimateCostWithConfig(...)` and `executeWithConfig(...)`.
+- Do not read `context.nodeDefinition.config.*` directly inside node execution paths.
+- List-binary inputs MUST be validated with `NodeIoAccessor.requireInputBinaryList(...)`.
+- Do not manually read list-handle keys like `images[0]`, `images[1]` in node code.
+- Single binary inputs MUST use `NodeIoAccessor.requireInputBinary(...)`.
+- String/array input checks MUST use `NodeIoAccessor` helpers (`requireInputString`, `requireInputArray`, etc.).
+- Cost computation MUST be implemented via `estimateCostWithConfig(...)` override in node definition classes.
+- Do not implement ad-hoc handler classes that bypass the abstract node lifecycle.
+
+## Validation Ownership
+- `configSchemaDefinition` owns config shape and cross-field constraints.
+- `AbstractNodeDefinition` owns runtime config parse and error mapping.
+- `NodeIoAccessor` owns payload type guards and list/input utility validation.
+- Node implementations own only feature/business rules and provider/runtime orchestration.
+
+## Duplication Policy
+- If the same validation pattern appears in two or more nodes, move it to `dag-core` helpers.
+- Do not copy-paste `typeof`/trim/minItems validation blocks across node files when an accessor/helper can own it.
+
+## Error Contract
+- Validation failures must use `DAG_VALIDATION_*` codes.
+- Execution/provider failures must use `DAG_TASK_EXECUTION_*` codes.
+- Keep failure categories and retryability aligned with existing DAG error conventions.
+
+## Build Requirement
+- After any change in `packages/dag-core/src/` or `packages/dag-nodes/*/src/`, run package builds before finishing work.
+
+## Guidance Location
+Procedural implementation workflow and templates live in:
+`.cursor/skills/dag-node-standard/SKILL.md`
