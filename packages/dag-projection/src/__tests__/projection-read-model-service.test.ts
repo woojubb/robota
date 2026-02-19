@@ -17,13 +17,17 @@ function createDefinition(): IDagDefinition {
                 nodeId: 'entry',
                 nodeType: 'input',
                 dependsOn: [],
-                config: {}
+                config: {},
+                inputs: [],
+                outputs: []
             },
             {
                 nodeId: 'next',
                 nodeType: 'processor',
                 dependsOn: ['entry'],
-                config: {}
+                config: {},
+                inputs: [],
+                outputs: []
             }
         ],
         edges: [

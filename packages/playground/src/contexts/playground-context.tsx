@@ -632,8 +632,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
     // Monitor WebSocket connection status
     useEffect(() => {
         if (state.executor) {
+            const executor = state.executor;
             const checkConnection = () => {
-                const isConnected = state.executor.isWebSocketConnected();
+                const isConnected = executor.isWebSocketConnected();
                 if (isConnected !== state.isWebSocketConnected) {
                     dispatch({ type: 'SET_WEBSOCKET_CONNECTED', payload: isConnected });
                 }

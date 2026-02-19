@@ -104,8 +104,9 @@ describe('WorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
-        await storage.saveDefinition(createDefinitionForRun(dagRun));
-        await storage.createDagRun(dagRun);
+        const definition = createDefinitionForRun(dagRun);
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
 
@@ -139,8 +140,9 @@ describe('WorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
-        await storage.saveDefinition(createDefinitionForRun(dagRun));
-        await storage.createDagRun(dagRun);
+        const definition = createDefinitionForRun(dagRun);
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
 
@@ -178,8 +180,9 @@ describe('WorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
-        await storage.saveDefinition(createDefinitionForRun(dagRun));
-        await storage.createDagRun(dagRun);
+        const definition = createDefinitionForRun(dagRun);
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
 
@@ -217,8 +220,9 @@ describe('WorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
-        await storage.saveDefinition(createDefinitionForRun(dagRun));
-        await storage.createDagRun(dagRun);
+        const definition = createDefinitionForRun(dagRun);
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
 
@@ -256,8 +260,9 @@ describe('WorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
-        await storage.saveDefinition(createDefinitionForRun(dagRun));
-        await storage.createDagRun(dagRun);
+        const definition = createDefinitionForRun(dagRun);
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
 
@@ -316,8 +321,9 @@ describe('WorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
-        await storage.saveDefinition(createDefinitionForRun(dagRun));
-        await storage.createDagRun(dagRun);
+        const definition = createDefinitionForRun(dagRun);
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
 
@@ -372,8 +378,9 @@ describe('WorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
-        await storage.saveDefinition(createDefinitionForRun(dagRun));
-        await storage.createDagRun(dagRun);
+        const definition = createDefinitionForRun(dagRun);
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
 
@@ -423,7 +430,7 @@ describe('WorkerLoopService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
         const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
-        await storage.saveDefinition({
+        const definition: IDagDefinition = {
             dagId: dagRun.dagId,
             version: dagRun.version,
             status: 'published',
@@ -446,8 +453,9 @@ describe('WorkerLoopService', () => {
                 }
             ],
             edges: [{ from: 'entry', to: 'next', bindings: [{ outputKey: 'nextInput', inputKey: 'nextInput' }] }]
-        });
-        await storage.createDagRun(dagRun);
+        };
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
         await storage.createTaskRun(taskRun);
         await queue.enqueue(message);
 

@@ -3,7 +3,10 @@ import {
     FakeClockPort,
     InMemoryQueuePort,
     InMemoryStoragePort,
-    type IDagDefinition
+    type IDagRun,
+    type IDagDefinition,
+    type IQueueMessage,
+    type IQueuePort
 } from '@robota-sdk/dag-core';
 import { RunOrchestratorService } from '../services/run-orchestrator-service.js';
 
@@ -17,19 +20,127 @@ function createPublishedDefinition(): IDagDefinition {
                 nodeId: 'entry',
                 nodeType: 'input',
                 dependsOn: [],
-                config: {}
+                config: {},
+                inputs: [],
+                outputs: []
             },
             {
                 nodeId: 'next',
                 nodeType: 'processor',
                 dependsOn: ['entry'],
-                config: {}
+                config: {},
+                inputs: [],
+                outputs: []
             }
         ],
         edges: [
             { from: 'entry', to: 'next' }
         ]
     };
+}
+
+function createPublishedDefinitionWithTwoEntries(): IDagDefinition {
+    return {
+        dagId: 'dag-runtime-test-two-entries',
+        version: 1,
+        status: 'published',
+        nodes: [
+            {
+                nodeId: 'entry-a',
+                nodeType: 'input',
+                dependsOn: [],
+                config: {},
+                inputs: [],
+                outputs: []
+            },
+            {
+                nodeId: 'entry-b',
+                nodeType: 'input',
+                dependsOn: [],
+                config: {},
+                inputs: [],
+                outputs: []
+            },
+            {
+                nodeId: 'join',
+                nodeType: 'processor',
+                dependsOn: ['entry-a', 'entry-b'],
+                config: {},
+                inputs: [],
+                outputs: []
+            }
+        ],
+        edges: [
+            { from: 'entry-a', to: 'join' },
+            { from: 'entry-b', to: 'join' }
+        ]
+    };
+}
+
+function createPublishedDefinitionWithoutEntryNode(): IDagDefinition {
+    return {
+        dagId: 'dag-runtime-test-no-entry',
+        version: 1,
+        status: 'published',
+        nodes: [
+            {
+                nodeId: 'a',
+                nodeType: 'processor',
+                dependsOn: ['b'],
+                config: {},
+                inputs: [],
+                outputs: []
+            },
+            {
+                nodeId: 'b',
+                nodeType: 'processor',
+                dependsOn: ['a'],
+                config: {},
+                inputs: [],
+                outputs: []
+            }
+        ],
+        edges: [
+            { from: 'a', to: 'b' },
+            { from: 'b', to: 'a' }
+        ]
+    };
+}
+
+class FailingQueuePort implements IQueuePort {
+    private enqueueCount = 0;
+    private readonly pendingQueue: IQueueMessage[] = [];
+
+    public constructor(private readonly failAtCount: number) {}
+
+    public async enqueue(message: IQueueMessage): Promise<void> {
+        this.enqueueCount += 1;
+        if (this.enqueueCount === this.failAtCount) {
+            throw new Error('forced enqueue failure');
+        }
+        this.pendingQueue.push(message);
+    }
+
+    public async dequeue(_workerId: string, _visibilityTimeoutMs: number): Promise<IQueueMessage | undefined> {
+        return this.pendingQueue.shift();
+    }
+
+    public async ack(_messageId: string): Promise<void> {}
+
+    public async nack(_messageId: string): Promise<void> {}
+}
+
+class RacyDagRunStoragePort extends InMemoryStoragePort {
+    private hasInjectedRacyRun = false;
+
+    public override async createDagRun(dagRun: IDagRun): Promise<void> {
+        if (!this.hasInjectedRacyRun) {
+            this.hasInjectedRacyRun = true;
+            await super.createDagRun(dagRun);
+            throw new Error('duplicate dag run key');
+        }
+        await super.createDagRun(dagRun);
+    }
 }
 
 describe('RunOrchestratorService', () => {
@@ -204,5 +315,82 @@ describe('RunOrchestratorService', () => {
         expect(firstMessage?.dagRunId).toBe(started.value.dagRunId);
         const secondMessage = await queue.dequeue('worker-1', 1_000);
         expect(secondMessage).toBeUndefined();
+    });
+
+    it('keeps run in created state when definition has no entry node', async () => {
+        const storage = new InMemoryStoragePort();
+        const queue = new InMemoryQueuePort();
+        const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+        await storage.saveDefinition(createPublishedDefinitionWithoutEntryNode());
+        const service = new RunOrchestratorService(storage, queue, clock);
+
+        const started = await service.startRun({
+            dagId: 'dag-runtime-test-no-entry',
+            trigger: 'manual',
+            input: {}
+        });
+
+        expect(started.ok).toBe(false);
+        if (started.ok) {
+            return;
+        }
+        expect(started.error.code).toBe('DAG_VALIDATION_NO_ENTRY_NODE');
+
+        const run = (await storage.listDagRuns()).find((item) => item.dagId === 'dag-runtime-test-no-entry');
+        expect(run?.status).toBe('created');
+    });
+
+    it('marks run failed when enqueue fails during start', async () => {
+        const storage = new InMemoryStoragePort();
+        const queue = new FailingQueuePort(2);
+        const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+        await storage.saveDefinition(createPublishedDefinitionWithTwoEntries());
+        const service = new RunOrchestratorService(storage, queue, clock);
+
+        const started = await service.startRun({
+            dagId: 'dag-runtime-test-two-entries',
+            trigger: 'manual',
+            input: { seed: 'v4' }
+        });
+
+        expect(started.ok).toBe(false);
+        if (started.ok) {
+            return;
+        }
+        expect(started.error.code).toBe('DAG_DISPATCH_ENQUEUE_FAILED');
+
+        const run = (await storage.listDagRuns()).find((item) => item.dagId === 'dag-runtime-test-two-entries');
+        expect(run?.status).toBe('failed');
+        expect(run?.endedAt).toBe('2026-02-14T02:00:00.000Z');
+
+        if (!run) {
+            return;
+        }
+        const failedTaskRun = await storage.getTaskRun(`${run.dagRunId}:entry-b:attempt:1`);
+        expect(failedTaskRun?.status).toBe('cancelled');
+        expect(failedTaskRun?.errorCode).toBe('DAG_DISPATCH_ENQUEUE_FAILED');
+    });
+
+    it('returns existing run when createDagRun races with concurrent writer', async () => {
+        const storage = new RacyDagRunStoragePort();
+        const queue = new InMemoryQueuePort();
+        const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+        await storage.saveDefinition(createPublishedDefinition());
+        const service = new RunOrchestratorService(storage, queue, clock);
+
+        const created = await service.createRun({
+            dagId: 'dag-runtime-test',
+            trigger: 'manual',
+            input: { seed: 'race-case' }
+        });
+
+        expect(created.ok).toBe(true);
+        if (!created.ok) {
+            return;
+        }
+        expect(created.value.status).toBe('created');
     });
 });

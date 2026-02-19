@@ -53,6 +53,7 @@ import { ToolRegistry } from '../../tools/catalog';
 export interface IPlaygroundTool {
     readonly name: string;
     readonly description: string;
+    readonly schema?: IToolSchema;
     execute(params: TUniversalValue): Promise<TUniversalValue>;
 }
 

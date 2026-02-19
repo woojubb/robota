@@ -50,11 +50,48 @@
         "config": {}
       },
       {
+        "nodeId": "compose_prompt_1",
+        "nodeType": "input",
+        "dependsOn": [],
+        "inputs": [],
+        "outputs": [
+          {
+            "key": "text",
+            "label": "Text",
+            "order": 0,
+            "type": "string",
+            "required": true
+          }
+        ],
+        "config": {
+          "text": "캐릭터 스타일에 맞게 이미지를 합성해서 새 캐릭터 이미지를 만들어줘."
+        }
+      },
+      {
+        "nodeId": "edit_prompt_1",
+        "nodeType": "input",
+        "dependsOn": [],
+        "inputs": [],
+        "outputs": [
+          {
+            "key": "text",
+            "label": "Text",
+            "order": 0,
+            "type": "string",
+            "required": true
+          }
+        ],
+        "config": {
+          "text": "이 캐릭터를 이용해서 4컷 웹툰을 그려줘"
+        }
+      },
+      {
         "nodeId": "gemini_image_compose_1",
         "nodeType": "gemini-image-compose",
         "dependsOn": [
           "image_source_a_1",
-          "image_source_b_1"
+          "image_source_b_1",
+          "compose_prompt_1"
         ],
         "inputs": [
           {
@@ -82,6 +119,13 @@
               "image/jpeg",
               "image/webp"
             ]
+          },
+          {
+            "key": "prompt",
+            "label": "Prompt",
+            "order": 2,
+            "type": "string",
+            "required": true
           }
         ],
         "outputs": [
@@ -99,15 +143,14 @@
             ]
           }
         ],
-        "config": {
-          "prompt": "캐릭터 스타일에 맞게 이미지를 합성해서 새 캐릭터 이미지를 만들어줘."
-        }
+        "config": {}
       },
       {
         "nodeId": "gemini_image_edit_1",
         "nodeType": "gemini-image-edit",
         "dependsOn": [
-          "gemini_image_compose_1"
+          "gemini_image_compose_1",
+          "edit_prompt_1"
         ],
         "inputs": [
           {
@@ -122,6 +165,13 @@
               "image/jpeg",
               "image/webp"
             ]
+          },
+          {
+            "key": "prompt",
+            "label": "Prompt",
+            "order": 1,
+            "type": "string",
+            "required": true
           }
         ],
         "outputs": [
@@ -139,9 +189,7 @@
             ]
           }
         ],
-        "config": {
-          "prompt": "이 캐릭터를 이용해서 4컷 웹툰을 그려줘"
-        }
+        "config": {}
       }
     ],
     "edges": [
@@ -166,6 +214,16 @@
         ]
       },
       {
+        "from": "compose_prompt_1",
+        "to": "gemini_image_compose_1",
+        "bindings": [
+          {
+            "outputKey": "text",
+            "inputKey": "prompt"
+          }
+        ]
+      },
+      {
         "from": "gemini_image_compose_1",
         "to": "gemini_image_edit_1",
         "bindings": [
@@ -174,10 +232,20 @@
             "inputKey": "image"
           }
         ]
+      },
+      {
+        "from": "edit_prompt_1",
+        "to": "gemini_image_edit_1",
+        "bindings": [
+          {
+            "outputKey": "text",
+            "inputKey": "prompt"
+          }
+        ]
       }
     ],
     "costPolicy": {
-      "runCostLimitUsd": 0.2,
+      "runCostLimitUsd": 10,
       "costCurrency": "USD",
       "costPolicyVersion": 1
     }
