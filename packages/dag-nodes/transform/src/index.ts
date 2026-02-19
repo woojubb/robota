@@ -1,17 +1,39 @@
 import {
+    AbstractNodeDefinition,
     NodeIoAccessor,
     buildValidationError,
+    type ICostEstimate,
+    type IDagError,
     type IDagNodeDefinition,
     type INodeExecutionContext,
-    type ICostEstimate,
-    type TPortPayload,
     type TResult,
-    type IDagError
+    type TPortPayload
 } from '@robota-sdk/dag-core';
 import { z } from 'zod';
 
-class TransformNodeTaskHandler {
-    public async validateInput(input: TPortPayload, context: INodeExecutionContext): Promise<TResult<void, IDagError>> {
+const TransformNodeConfigSchema = z.object({
+    prefix: z.string().default('')
+});
+
+export class TransformNodeDefinition extends AbstractNodeDefinition<typeof TransformNodeConfigSchema> {
+    public readonly nodeType = 'transform';
+    public readonly displayName = 'Transform';
+    public readonly category = 'Core';
+    public readonly inputs: IDagNodeDefinition['inputs'] = [
+        { key: 'text', label: 'Text', order: 0, type: 'string', required: false },
+        { key: 'data', label: 'Data', order: 1, type: 'object', required: false }
+    ];
+    public readonly outputs: IDagNodeDefinition['outputs'] = [
+        { key: 'text', label: 'Text', order: 0, type: 'string', required: false },
+        { key: 'data', label: 'Data', order: 1, type: 'object', required: false }
+    ];
+    public readonly configSchemaDefinition = TransformNodeConfigSchema;
+
+    protected override async validateInputWithConfig(
+        input: TPortPayload,
+        context: INodeExecutionContext,
+        _config: z.output<typeof TransformNodeConfigSchema>
+    ): Promise<TResult<void, IDagError>> {
         if (Object.keys(input).length === 0) {
             return {
                 ok: false,
@@ -25,17 +47,19 @@ class TransformNodeTaskHandler {
         return { ok: true, value: undefined };
     }
 
-    public async estimateCost(): Promise<TResult<ICostEstimate, IDagError>> {
+    public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
         return { ok: true, value: { estimatedCostUsd: 0.0001 } };
     }
 
-    public async execute(input: TPortPayload, context: INodeExecutionContext): Promise<TResult<TPortPayload, IDagError>> {
+    protected override async executeWithConfig(
+        input: TPortPayload,
+        context: INodeExecutionContext,
+        config: z.output<typeof TransformNodeConfigSchema>
+    ): Promise<TResult<TPortPayload, IDagError>> {
         const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
-        const prefixValue = context.nodeDefinition.config.prefix;
-        const prefix = typeof prefixValue === 'string' ? prefixValue : '';
         const textValue = io.getInput('text');
         if (typeof textValue === 'string') {
-            io.setOutput('text', `${prefix}${textValue}`);
+            io.setOutput('text', `${config.prefix}${textValue}`);
         } else {
             for (const [key, value] of Object.entries(input)) {
                 io.setOutput(key, value);
@@ -43,22 +67,4 @@ class TransformNodeTaskHandler {
         }
         return { ok: true, value: io.toOutput() };
     }
-}
-
-export class TransformNodeDefinition implements IDagNodeDefinition {
-    public readonly nodeType = 'transform';
-    public readonly displayName = 'Transform';
-    public readonly category = 'Core';
-    public readonly inputs: IDagNodeDefinition['inputs'] = [
-        { key: 'text', label: 'Text', order: 0, type: 'string', required: false },
-        { key: 'data', label: 'Data', order: 1, type: 'object', required: false }
-    ];
-    public readonly outputs: IDagNodeDefinition['outputs'] = [
-        { key: 'text', label: 'Text', order: 0, type: 'string', required: false },
-        { key: 'data', label: 'Data', order: 1, type: 'object', required: false }
-    ];
-    public readonly configSchemaDefinition = z.object({
-        prefix: z.string().default('')
-    });
-    public readonly taskHandler = new TransformNodeTaskHandler();
 }

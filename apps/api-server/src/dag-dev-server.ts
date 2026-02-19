@@ -8,7 +8,7 @@ import {
 } from '@robota-sdk/dag-core';
 import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
 import { TransformNodeDefinition } from '@robota-sdk/dag-node-transform';
-import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
+import { LlmTextOpenAiNodeDefinition } from '@robota-sdk/dag-node-llm-text-openai';
 import { ImageLoaderNodeDefinition } from '@robota-sdk/dag-node-image-loader';
 import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
 import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
@@ -24,10 +24,7 @@ import {
     BundledNodeCatalogService,
     FileStoragePort
 } from '@robota-sdk/dag-server-core';
-import { createRobotaLlmCompletionClientFromEnv } from './services/robota-llm-completion-client.js';
 import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
-import { createRobotaGeminiImageClientFromEnv } from './services/robota-gemini-image-client.js';
-import { createRobotaSeedanceVideoClientFromEnv } from './services/robota-seedance-video-client.js';
 import { resolveApiDocsEnabled } from './utils/env-flags.js';
 
 dotenv.config({
@@ -95,7 +92,6 @@ function resolveDagStorageRoot(): string {
 }
 
 async function bootstrapDagDevServer(): Promise<void> {
-    const llmCompletionClient = createRobotaLlmCompletionClientFromEnv();
     const assetStoreRoot = process.env.ASSET_STORAGE_ROOT
         ? path.resolve(process.env.ASSET_STORAGE_ROOT)
         : path.resolve(process.cwd(), '.local-assets');
@@ -103,28 +99,17 @@ async function bootstrapDagDevServer(): Promise<void> {
     await assetStore.initialize();
     const storage = new FileStoragePort(resolveDagStorageRoot());
 
-    const geminiImageClient = createRobotaGeminiImageClientFromEnv(assetStore);
-    const seedanceVideoClient = createRobotaSeedanceVideoClientFromEnv(assetStore);
-
     const defaultNodeDefinitions: IDagNodeDefinition[] = [
         new InputNodeDefinition(),
         new TransformNodeDefinition(),
-        new LlmTextNodeDefinition({
-            completionClient: llmCompletionClient
-        }),
+        new LlmTextOpenAiNodeDefinition(),
         new TextTemplateNodeDefinition(),
         new TextOutputNodeDefinition(),
         new ImageLoaderNodeDefinition(),
         new ImageSourceNodeDefinition(),
-        new GeminiImageEditNodeDefinition({
-            imageClient: geminiImageClient
-        }),
-        new GeminiImageComposeNodeDefinition({
-            imageClient: geminiImageClient
-        }),
-        new SeedanceVideoNodeDefinition({
-            videoClient: seedanceVideoClient
-        }),
+        new GeminiImageEditNodeDefinition(),
+        new GeminiImageComposeNodeDefinition(),
+        new SeedanceVideoNodeDefinition(),
         new OkEmitterNodeDefinition()
     ];
     const defaultNodeDefinitionAssembly = buildNodeDefinitionAssembly(defaultNodeDefinitions);
@@ -139,7 +124,6 @@ async function bootstrapDagDevServer(): Promise<void> {
         nodeCatalogService: defaultNodeCatalogService,
         assetStore,
         storage,
-        llmCompletionClient,
         port: resolvePort(),
         corsOrigins: parseCorsOrigins(),
         requestBodyLimit: resolveRequestBodyLimit(),

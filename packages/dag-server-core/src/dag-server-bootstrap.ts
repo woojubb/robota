@@ -18,7 +18,6 @@ import {
     type TRunProgressEvent,
     type TPortPayload
 } from '@robota-sdk/dag-core';
-import type { ILlmTextCompletionClient } from '@robota-sdk/dag-node-llm-text';
 import {
     createDagControllerComposition,
     createDagExecutionComposition,
@@ -76,6 +75,20 @@ interface ILlmCompleteBody {
     model?: string;
     temperature?: number;
     maxTokens?: number;
+}
+
+interface ILlmRuntimeClient {
+    resolveModelSelection(selection: {
+        provider?: string;
+        model?: string;
+    }): TResult<{ provider: string; model: string }, IDagError>;
+    generateCompletion(request: {
+        provider: string;
+        model: string;
+        prompt: string;
+        temperature?: number;
+        maxTokens?: number;
+    }): Promise<TResult<string, IDagError>>;
 }
 
 interface ICreateRunBody {
@@ -177,7 +190,7 @@ export interface IDagServerBootstrapOptions {
     nodeCatalogService: INodeCatalogService;
     assetStore: IAssetStore;
     storage?: IStoragePort;
-    llmCompletionClient?: ILlmTextCompletionClient;
+    llmCompletionClient?: ILlmRuntimeClient;
     port?: number;
     corsOrigins?: string[];
     requestBodyLimit?: string;

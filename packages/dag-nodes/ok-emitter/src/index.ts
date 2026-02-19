@@ -1,4 +1,5 @@
 import {
+    AbstractNodeDefinition,
     BINARY_PORT_PRESETS,
     NodeIoAccessor,
     buildTaskExecutionError,
@@ -6,8 +7,8 @@ import {
     createBinaryPortDefinition,
     type ICostEstimate,
     type IDagNodeDefinition,
-    type INodeExecutionContext,
     type IDagError,
+    type INodeExecutionContext,
     type TResult,
     type TPortPayload
 } from '@robota-sdk/dag-core';
@@ -26,50 +27,9 @@ function isImageBinary(input: TPortPayload): boolean {
         && typeof image.uri === 'string';
 }
 
-class OkEmitterNodeTaskHandler {
-    public async validateInput(input: TPortPayload, context: INodeExecutionContext): Promise<TResult<void, IDagError>> {
-        if (!isImageBinary(input)) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_OK_EMITTER_IMAGE_REQUIRED',
-                    'OK emitter node requires an image binary input',
-                    { nodeId: context.nodeDefinition.nodeId }
-                )
-            };
-        }
-        return { ok: true, value: undefined };
-    }
+const OkEmitterConfigSchema = z.object({});
 
-    public async estimateCost(): Promise<TResult<ICostEstimate, IDagError>> {
-        return { ok: true, value: { estimatedCostUsd: 0 } };
-    }
-
-    public async execute(input: TPortPayload): Promise<TResult<TPortPayload, IDagError>> {
-        const io = new NodeIoAccessor(input, 'ok-emitter');
-        const requiredImage = io.requireInput('image');
-        if (!requiredImage.ok) {
-            return requiredImage;
-        }
-        if (!isImageBinary({ image: requiredImage.value })) {
-            return {
-                ok: false,
-                error: buildTaskExecutionError(
-                    'DAG_TASK_EXECUTION_OK_EMITTER_IMAGE_INVALID',
-                    'OK emitter execution requires image binary input',
-                    false
-                )
-            };
-        }
-        io.setOutput('status', 'ok');
-        return {
-            ok: true,
-            value: io.toOutput()
-        };
-    }
-}
-
-export class OkEmitterNodeDefinition implements IDagNodeDefinition {
+export class OkEmitterNodeDefinition extends AbstractNodeDefinition<typeof OkEmitterConfigSchema> {
     public readonly nodeType = 'ok-emitter';
     public readonly displayName = 'OK Emitter';
     public readonly category = 'Test';
@@ -93,6 +53,54 @@ export class OkEmitterNodeDefinition implements IDagNodeDefinition {
             description: 'Execution status'
         }
     ];
-    public readonly configSchemaDefinition = z.object({});
-    public readonly taskHandler = new OkEmitterNodeTaskHandler();
+    public readonly configSchemaDefinition = OkEmitterConfigSchema;
+
+    protected override async validateInputWithConfig(
+        input: TPortPayload,
+        context: INodeExecutionContext,
+        _config: z.output<typeof OkEmitterConfigSchema>
+    ): Promise<TResult<void, IDagError>> {
+        if (!isImageBinary(input)) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_OK_EMITTER_IMAGE_REQUIRED',
+                    'OK emitter node requires an image binary input',
+                    { nodeId: context.nodeDefinition.nodeId }
+                )
+            };
+        }
+        return { ok: true, value: undefined };
+    }
+
+    public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
+        return { ok: true, value: { estimatedCostUsd: 0 } };
+    }
+
+    protected override async executeWithConfig(
+        input: TPortPayload,
+        _context: INodeExecutionContext,
+        _config: z.output<typeof OkEmitterConfigSchema>
+    ): Promise<TResult<TPortPayload, IDagError>> {
+        const io = new NodeIoAccessor(input, 'ok-emitter');
+        const requiredImage = io.requireInput('image');
+        if (!requiredImage.ok) {
+            return requiredImage;
+        }
+        if (!isImageBinary({ image: requiredImage.value })) {
+            return {
+                ok: false,
+                error: buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_OK_EMITTER_IMAGE_INVALID',
+                    'OK emitter execution requires image binary input',
+                    false
+                )
+            };
+        }
+        io.setOutput('status', 'ok');
+        return {
+            ok: true,
+            value: io.toOutput()
+        };
+    }
 }

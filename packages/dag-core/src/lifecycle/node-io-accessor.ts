@@ -1,4 +1,5 @@
 import { buildValidationError } from '../utils/error-builders.js';
+import { parseListPortHandleKey } from '../types/domain.js';
 import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
 import type { TPortPayload, TPortValue } from '../interfaces/ports.js';
@@ -31,6 +32,231 @@ export class NodeIoAccessor {
             ok: true,
             value
         };
+    }
+
+    public requireInputString(key: string): TResult<string, IDagError> {
+        const inputResult = this.requireInput(key);
+        if (!inputResult.ok) {
+            return inputResult;
+        }
+        if (typeof inputResult.value !== 'string') {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH',
+                    'Node input key must be string',
+                    { nodeId: this.nodeId, key, expectedType: 'string' }
+                )
+            };
+        }
+        return {
+            ok: true,
+            value: inputResult.value
+        };
+    }
+
+    public requireInputArray(key: string): TResult<TPortValue[], IDagError> {
+        const directValue = this.getInput(key);
+        if (Array.isArray(directValue)) {
+            return {
+                ok: true,
+                value: directValue
+            };
+        }
+        const listHandleValues = this.collectListHandleValues(key);
+        if (listHandleValues) {
+            return {
+                ok: true,
+                value: listHandleValues
+            };
+        }
+        if (typeof directValue === 'undefined') {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_NODE_INPUT_MISSING',
+                    'Node input key is missing',
+                    { nodeId: this.nodeId, key }
+                )
+            };
+        }
+        return {
+            ok: false,
+            error: buildValidationError(
+                'DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH',
+                'Node input key must be array',
+                { nodeId: this.nodeId, key, expectedType: 'array' }
+            )
+        };
+    }
+
+    public requireInputBinary(
+        key: string,
+        kind?: 'image' | 'video' | 'audio' | 'file'
+    ): TResult<{
+        kind: 'image' | 'video' | 'audio' | 'file';
+        mimeType: string;
+        uri: string;
+        referenceType?: 'asset' | 'uri';
+        assetId?: string;
+        sizeBytes?: number;
+    }, IDagError> {
+        const inputResult = this.requireInput(key);
+        if (!inputResult.ok) {
+            return inputResult;
+        }
+        return this.parseBinaryValue(inputResult.value, key, kind);
+    }
+
+    public requireInputBinaryList(
+        key: string,
+        kind?: 'image' | 'video' | 'audio' | 'file',
+        options?: { minItems?: number; maxItems?: number }
+    ): TResult<Array<{
+        kind: 'image' | 'video' | 'audio' | 'file';
+        mimeType: string;
+        uri: string;
+        referenceType?: 'asset' | 'uri';
+        assetId?: string;
+        sizeBytes?: number;
+    }>, IDagError> {
+        const arrayResult = this.requireInputArray(key);
+        if (!arrayResult.ok) {
+            return arrayResult;
+        }
+        const values = arrayResult.value;
+        if (typeof options?.minItems === 'number' && values.length < options.minItems) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_NODE_INPUT_MIN_ITEMS_NOT_SATISFIED',
+                    'Node input list does not satisfy minItems',
+                    { nodeId: this.nodeId, key, minItems: options.minItems, actualItems: values.length }
+                )
+            };
+        }
+        if (typeof options?.maxItems === 'number' && values.length > options.maxItems) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_NODE_INPUT_MAX_ITEMS_EXCEEDED',
+                    'Node input list exceeds maxItems',
+                    { nodeId: this.nodeId, key, maxItems: options.maxItems, actualItems: values.length }
+                )
+            };
+        }
+        const parsedValues: Array<{
+            kind: 'image' | 'video' | 'audio' | 'file';
+            mimeType: string;
+            uri: string;
+            referenceType?: 'asset' | 'uri';
+            assetId?: string;
+            sizeBytes?: number;
+        }> = [];
+        for (const [index, value] of values.entries()) {
+            const parsedResult = this.parseBinaryValue(value, `${key}[${index}]`, kind);
+            if (!parsedResult.ok) {
+                return parsedResult;
+            }
+            parsedValues.push(parsedResult.value);
+        }
+        return {
+            ok: true,
+            value: parsedValues
+        };
+    }
+
+    private parseBinaryValue(
+        rawValue: TPortValue,
+        key: string,
+        kind?: 'image' | 'video' | 'audio' | 'file'
+    ): TResult<{
+        kind: 'image' | 'video' | 'audio' | 'file';
+        mimeType: string;
+        uri: string;
+        referenceType?: 'asset' | 'uri';
+        assetId?: string;
+        sizeBytes?: number;
+    }, IDagError> {
+        if (typeof rawValue !== 'object' || rawValue === null || Array.isArray(rawValue)) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH',
+                    'Node input key must be binary payload object',
+                    { nodeId: this.nodeId, key, expectedType: 'binary' }
+                )
+            };
+        }
+        const value = rawValue as {
+            kind?: unknown;
+            mimeType?: unknown;
+            uri?: unknown;
+            referenceType?: unknown;
+            assetId?: unknown;
+            sizeBytes?: unknown;
+        };
+        const validKind = value.kind === 'image' || value.kind === 'video' || value.kind === 'audio' || value.kind === 'file';
+        if (!validKind || typeof value.mimeType !== 'string' || typeof value.uri !== 'string') {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH',
+                    'Node input key must be valid binary payload',
+                    { nodeId: this.nodeId, key, expectedType: 'binary' }
+                )
+            };
+        }
+        const binaryKind = value.kind as 'image' | 'video' | 'audio' | 'file';
+        if (kind && binaryKind !== kind) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH',
+                    'Node input binary kind does not match expected kind',
+                    { nodeId: this.nodeId, key, expectedKind: kind, actualKind: binaryKind }
+                )
+            };
+        }
+        return {
+            ok: true,
+            value: {
+                kind: binaryKind,
+                mimeType: value.mimeType,
+                uri: value.uri,
+                referenceType: value.referenceType === 'asset' || value.referenceType === 'uri' ? value.referenceType : undefined,
+                assetId: typeof value.assetId === 'string' ? value.assetId : undefined,
+                sizeBytes: typeof value.sizeBytes === 'number' ? value.sizeBytes : undefined
+            }
+        };
+    }
+
+    private collectListHandleValues(portKey: string): TPortValue[] | undefined {
+        const valuesByIndex = new Map<number, TPortValue>();
+        for (const [handleKey, value] of Object.entries(this.input)) {
+            const parsed = parseListPortHandleKey(handleKey);
+            if (!parsed || parsed.portKey !== portKey) {
+                continue;
+            }
+            valuesByIndex.set(parsed.index, value);
+        }
+        if (valuesByIndex.size === 0) {
+            return undefined;
+        }
+        const sortedIndices = [...valuesByIndex.keys()].sort((a, b) => a - b);
+        const expectedLength = sortedIndices[sortedIndices.length - 1] + 1;
+        if (sortedIndices.length !== expectedLength) {
+            return undefined;
+        }
+        const collected: TPortValue[] = [];
+        for (let index = 0; index < expectedLength; index += 1) {
+            const value = valuesByIndex.get(index);
+            if (typeof value === 'undefined') {
+                return undefined;
+            }
+            collected.push(value);
+        }
+        return collected;
     }
 
     public setOutput(key: string, value: TPortValue): void {

@@ -1,4 +1,5 @@
 import {
+    AbstractNodeDefinition,
     BINARY_PORT_PRESETS,
     NodeIoAccessor,
     buildTaskExecutionError,
@@ -12,93 +13,383 @@ import {
     type TResult,
     type TPortPayload
 } from '@robota-sdk/dag-core';
+import { BytedanceProvider } from '@robota-sdk/bytedance';
+import type {
+    IVideoGenerationProvider,
+    IVideoJobSnapshot,
+    TImageInputSource
+} from '@robota-sdk/agents';
 import { z } from 'zod';
 
-export interface ISeedanceVideoRequest {
-    prompt: string;
-    model: string;
-    inputImages?: IPortBinaryValue[];
-    durationSeconds?: number;
-    aspectRatio?: string;
-    seed?: number;
-    pollIntervalMs: number;
-    pollTimeoutMs: number;
-}
-
-export interface ISeedanceVideoClient {
-    generateVideo(request: ISeedanceVideoRequest): Promise<TResult<IPortBinaryValue, IDagError>>;
-}
-
 export interface ISeedanceVideoNodeDefinitionOptions {
-    videoClient: ISeedanceVideoClient;
+    defaultModel?: string;
+    allowedModels?: string[];
+    baseUrl?: string;
+    apiKey?: string;
 }
 
 const DEFAULT_SEEDANCE_MODEL = 'seedance-1-5-pro-251215';
 const DEFAULT_BASE_COST_USD = 0.08;
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
 const DEFAULT_POLL_TIMEOUT_MS = 180_000;
+const DEFAULT_DAG_DEV_PORT = 3011;
 
-function isImageBinaryValue(value: TPortPayload[string] | undefined): value is IPortBinaryValue {
-    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-        return false;
+const SeedanceVideoConfigSchema = z.object({
+    model: z.string().default(DEFAULT_SEEDANCE_MODEL),
+    durationSeconds: z.number().positive().optional(),
+    aspectRatio: z.string().optional(),
+    seed: z.number().int().optional(),
+    pollIntervalMs: z.number().int().positive().default(DEFAULT_POLL_INTERVAL_MS),
+    pollTimeoutMs: z.number().int().positive().default(DEFAULT_POLL_TIMEOUT_MS),
+    baseCostUsd: z.number().default(DEFAULT_BASE_COST_USD)
+});
+
+function parseCsv(value: string | undefined): string[] {
+    if (typeof value !== 'string') {
+        return [];
     }
-    return (
-        'kind' in value
-        && value.kind === 'image'
-        && 'mimeType' in value
-        && typeof value.mimeType === 'string'
-        && 'uri' in value
-        && typeof value.uri === 'string'
-    );
+    return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
 }
 
-class SeedanceVideoNodeTaskHandler {
-    private readonly videoClient: ISeedanceVideoClient;
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
 
-    public constructor(videoClient: ISeedanceVideoClient) {
-        this.videoClient = videoClient;
+function parseAssetIdFromAssetUri(uri: string): string | undefined {
+    if (!uri.startsWith('asset://')) {
+        return undefined;
     }
+    const rawAssetId = uri.slice('asset://'.length).trim();
+    return rawAssetId.length > 0 ? rawAssetId : undefined;
+}
 
-    public async estimateCost(input: TPortPayload, context: INodeExecutionContext): Promise<TResult<ICostEstimate, IDagError>> {
-        const baseCostValue = context.nodeDefinition.config.baseCostUsd;
-        if (typeof baseCostValue !== 'undefined' && typeof baseCostValue !== 'number') {
+function toAssetContentUrl(assetId: string): string {
+    const runtimeBaseUrl = process.env.DAG_RUNTIME_BASE_URL?.trim();
+    if (runtimeBaseUrl && runtimeBaseUrl.length > 0) {
+        return `${runtimeBaseUrl.replace(/\/$/, '')}/v1/dag/assets/${assetId}/content`;
+    }
+    const portRaw = process.env.DAG_DEV_PORT;
+    const portParsed = typeof portRaw === 'string' ? Number.parseInt(portRaw, 10) : Number.NaN;
+    const port = Number.isFinite(portParsed) && portParsed > 0 ? portParsed : DEFAULT_DAG_DEV_PORT;
+    return `http://127.0.0.1:${port}/v1/dag/assets/${assetId}/content`;
+}
+
+function toOutputVideo(output: IVideoJobSnapshot['output']): TResult<IPortBinaryValue, IDagError> {
+    if (!output) {
+        return {
+            ok: false,
+            error: buildTaskExecutionError(
+                'DAG_TASK_EXECUTION_SEEDANCE_OUTPUT_MISSING',
+                'Seedance completed without output video reference',
+                false
+            )
+        };
+    }
+    const mimeType = typeof output.mimeType === 'string' && output.mimeType.trim().length > 0
+        ? output.mimeType
+        : 'video/mp4';
+    if (output.kind === 'asset') {
+        if (typeof output.assetId !== 'string' || output.assetId.trim().length === 0) {
             return {
                 ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_SEEDANCE_BASE_COST_INVALID',
-                    'baseCostUsd must be a number when configured',
-                    { nodeId: context.nodeDefinition.nodeId }
+                error: buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_SEEDANCE_OUTPUT_ASSET_INVALID',
+                    'Seedance output asset reference is missing assetId',
+                    false
                 )
             };
         }
+        return {
+            ok: true,
+            value: {
+                kind: 'video',
+                mimeType,
+                uri: `asset://${output.assetId}`,
+                referenceType: 'asset',
+                assetId: output.assetId,
+                sizeBytes: output.bytes
+            }
+        };
+    }
+    if (typeof output.uri !== 'string' || output.uri.trim().length === 0) {
+        return {
+            ok: false,
+            error: buildTaskExecutionError(
+                'DAG_TASK_EXECUTION_SEEDANCE_OUTPUT_URI_INVALID',
+                'Seedance output uri reference is missing uri',
+                false
+            )
+        };
+    }
+    return {
+        ok: true,
+        value: {
+            kind: 'video',
+            mimeType,
+            uri: output.uri,
+            referenceType: 'uri',
+            sizeBytes: output.bytes
+        }
+    };
+}
+
+class SeedanceVideoRuntime {
+    private readonly provider?: IVideoGenerationProvider;
+    private readonly defaultModel: string;
+    private readonly allowedModels: string[];
+
+    public constructor(options?: ISeedanceVideoNodeDefinitionOptions) {
+        const apiKey = options?.apiKey ?? process.env.BYTEDANCE_API_KEY ?? process.env.ARK_API_KEY;
+        const baseUrl = options?.baseUrl ?? process.env.BYTEDANCE_BASE_URL;
+        const defaultModelRaw = options?.defaultModel ?? process.env.DAG_SEEDANCE_DEFAULT_MODEL;
+        const allowedModelsRaw = options?.allowedModels ?? parseCsv(process.env.DAG_SEEDANCE_ALLOWED_MODELS);
+        this.defaultModel = typeof defaultModelRaw === 'string' && defaultModelRaw.trim().length > 0
+            ? defaultModelRaw.trim()
+            : DEFAULT_SEEDANCE_MODEL;
+        this.allowedModels = Array.isArray(allowedModelsRaw) && allowedModelsRaw.length > 0
+            ? allowedModelsRaw
+            : [this.defaultModel];
+        if (typeof apiKey === 'string' && apiKey.trim().length > 0 && typeof baseUrl === 'string' && baseUrl.trim().length > 0) {
+            this.provider = new BytedanceProvider({
+                apiKey: apiKey.trim(),
+                baseUrl: baseUrl.trim()
+            });
+        }
+    }
+
+    private async resolveImageInputSource(image: IPortBinaryValue): Promise<TResult<TImageInputSource, IDagError>> {
+        const explicitAssetId = typeof image.assetId === 'string' && image.assetId.trim().length > 0
+            ? image.assetId.trim()
+            : undefined;
+        const uriAssetId = parseAssetIdFromAssetUri(image.uri);
+        const assetId = explicitAssetId ?? uriAssetId;
+        if (typeof assetId === 'string') {
+            const response = await fetch(toAssetContentUrl(assetId));
+            if (!response.ok || !response.body) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_SEEDANCE_IMAGE_ASSET_NOT_FOUND',
+                        'Seedance image asset was not found',
+                        { assetId }
+                    )
+                };
+            }
+            const mimeType = response.headers.get('content-type');
+            if (typeof mimeType !== 'string' || !mimeType.startsWith('image/')) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_SEEDANCE_IMAGE_MEDIA_TYPE_INVALID',
+                        'Seedance image asset must resolve to image media type',
+                        { assetId, mimeType: mimeType ?? 'missing' }
+                    )
+                };
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            return {
+                ok: true,
+                value: {
+                    kind: 'inline',
+                    mimeType,
+                    data: Buffer.from(arrayBuffer).toString('base64')
+                }
+            };
+        }
+        if (image.uri.startsWith('http://') || image.uri.startsWith('https://')) {
+            return {
+                ok: true,
+                value: {
+                    kind: 'uri',
+                    uri: image.uri,
+                    mimeType: image.mimeType
+                }
+            };
+        }
+        return {
+            ok: false,
+            error: buildValidationError(
+                'DAG_VALIDATION_SEEDANCE_IMAGE_REFERENCE_UNSUPPORTED',
+                'Seedance image input must reference asset://, http://, or https:// URI',
+                { uri: image.uri }
+            )
+        };
+    }
+
+    public async generateVideo(request: {
+        prompt: string;
+        model: string;
+        inputImages?: IPortBinaryValue[];
+        durationSeconds?: number;
+        aspectRatio?: string;
+        seed?: number;
+        pollIntervalMs: number;
+        pollTimeoutMs: number;
+    }): Promise<TResult<IPortBinaryValue, IDagError>> {
+        if (!this.provider) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_BYTEDANCE_CONFIG_REQUIRED',
+                    'BYTEDANCE_API_KEY(or ARK_API_KEY) and BYTEDANCE_BASE_URL must be configured for Seedance runtime'
+                )
+            };
+        }
+        const selectedModel = request.model.trim().length > 0 ? request.model.trim() : this.defaultModel;
+        if (this.allowedModels.length > 0 && !this.allowedModels.includes(selectedModel)) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_SEEDANCE_MODEL_NOT_ALLOWED',
+                    'Selected Seedance model is not allowed in DAG runtime',
+                    { model: selectedModel }
+                )
+            };
+        }
+        const prompt = request.prompt.trim();
+        if (prompt.length === 0) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_SEEDANCE_PROMPT_REQUIRED',
+                    'Seedance prompt must be non-empty'
+                )
+            };
+        }
+        const inputImages: TImageInputSource[] = [];
+        if (Array.isArray(request.inputImages) && request.inputImages.length > 0) {
+            for (const [index, image] of request.inputImages.entries()) {
+                const imageSourceResult = await this.resolveImageInputSource(image);
+                if (!imageSourceResult.ok) {
+                    return {
+                        ok: false,
+                        error: buildValidationError(
+                            imageSourceResult.error.code,
+                            imageSourceResult.error.message,
+                            { index, ...imageSourceResult.error.context }
+                        )
+                    };
+                }
+                inputImages.push(imageSourceResult.value);
+            }
+        }
+
+        const acceptedResult = await this.provider.createVideo({
+            prompt,
+            model: selectedModel,
+            durationSeconds: request.durationSeconds,
+            aspectRatio: request.aspectRatio,
+            seed: request.seed,
+            inputImages: inputImages.length > 0 ? inputImages : undefined
+        });
+        if (!acceptedResult.ok) {
+            return {
+                ok: false,
+                error: buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_SEEDANCE_CREATE_FAILED',
+                    acceptedResult.error.message,
+                    false,
+                    { code: acceptedResult.error.code, model: selectedModel }
+                )
+            };
+        }
+        const deadlineEpochMs = Date.now() + request.pollTimeoutMs;
+
+        while (true) {
+            const snapshotResult = await this.provider.getVideoJob(acceptedResult.value.jobId);
+            if (!snapshotResult.ok) {
+                return {
+                    ok: false,
+                    error: buildTaskExecutionError(
+                        'DAG_TASK_EXECUTION_SEEDANCE_POLL_FAILED',
+                        snapshotResult.error.message,
+                        false,
+                        { code: snapshotResult.error.code, jobId: acceptedResult.value.jobId }
+                    )
+                };
+            }
+            const snapshot = snapshotResult.value;
+            if (snapshot.status === 'succeeded') {
+                return toOutputVideo(snapshot.output);
+            }
+            if (snapshot.status === 'failed') {
+                const failedMessage = snapshot.error?.message ?? 'Seedance job failed without explicit error message';
+                return {
+                    ok: false,
+                    error: buildTaskExecutionError(
+                        'DAG_TASK_EXECUTION_SEEDANCE_JOB_FAILED',
+                        failedMessage,
+                        false,
+                        { jobId: snapshot.jobId, status: snapshot.status }
+                    )
+                };
+            }
+            if (snapshot.status === 'cancelled') {
+                return {
+                    ok: false,
+                    error: buildTaskExecutionError(
+                        'DAG_TASK_EXECUTION_SEEDANCE_JOB_CANCELLED',
+                        'Seedance job was cancelled before completion',
+                        false,
+                        { jobId: snapshot.jobId, status: snapshot.status }
+                    )
+                };
+            }
+            if (Date.now() >= deadlineEpochMs) {
+                return {
+                    ok: false,
+                    error: buildTaskExecutionError(
+                        'DAG_TASK_EXECUTION_SEEDANCE_TIMEOUT',
+                        'Seedance video generation timed out',
+                        true,
+                        { jobId: snapshot.jobId, pollTimeoutMs: request.pollTimeoutMs }
+                    )
+                };
+            }
+            await sleep(request.pollIntervalMs);
+        }
+    }
+}
+
+class SeedanceVideoNodeTaskHandler {
+    private readonly runtime: SeedanceVideoRuntime;
+
+    public constructor(options?: ISeedanceVideoNodeDefinitionOptions) {
+        this.runtime = new SeedanceVideoRuntime(options);
+    }
+
+    public async estimateCost(
+        input: TPortPayload,
+        _context: INodeExecutionContext,
+        config: z.output<typeof SeedanceVideoConfigSchema>
+    ): Promise<TResult<ICostEstimate, IDagError>> {
         const imagesInput = input.images;
         const imageSurcharge = Array.isArray(imagesInput) && imagesInput.length > 0 ? 0.02 : 0;
-        const estimatedCostUsd = (typeof baseCostValue === 'number' ? baseCostValue : DEFAULT_BASE_COST_USD) + imageSurcharge;
+        const estimatedCostUsd = config.baseCostUsd + imageSurcharge;
         return {
             ok: true,
             value: { estimatedCostUsd }
         };
     }
 
-    public async execute(input: TPortPayload, context: INodeExecutionContext): Promise<TResult<TPortPayload, IDagError>> {
+    public async execute(
+        input: TPortPayload,
+        context: INodeExecutionContext,
+        config: z.output<typeof SeedanceVideoConfigSchema>
+    ): Promise<TResult<TPortPayload, IDagError>> {
         const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
-        const promptInputResult = io.requireInput('prompt');
+        const promptInputResult = io.requireInputString('prompt');
         if (!promptInputResult.ok) {
             return {
                 ok: false,
                 error: buildValidationError(
                     'DAG_VALIDATION_SEEDANCE_PROMPT_REQUIRED',
                     'Seedance node requires non-empty input prompt',
-                    { nodeId: context.nodeDefinition.nodeId }
-                )
-            };
-        }
-        if (typeof promptInputResult.value !== 'string') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_SEEDANCE_PROMPT_REQUIRED',
-                    'Seedance node input prompt must be string',
                     { nodeId: context.nodeDefinition.nodeId }
                 )
             };
@@ -118,7 +409,8 @@ class SeedanceVideoNodeTaskHandler {
         const imagesInputValue = io.getInput('images');
         let resolvedImages: IPortBinaryValue[] | undefined;
         if (typeof imagesInputValue !== 'undefined') {
-            if (!Array.isArray(imagesInputValue)) {
+            const parsedImagesResult = io.requireInputBinaryList('images', 'image', { minItems: 1 });
+            if (!parsedImagesResult.ok) {
                 return {
                     ok: false,
                     error: buildValidationError(
@@ -128,113 +420,24 @@ class SeedanceVideoNodeTaskHandler {
                     )
                 };
             }
-            const parsedImages: IPortBinaryValue[] = [];
-            for (const [index, imageValue] of imagesInputValue.entries()) {
-                if (!isImageBinaryValue(imageValue)) {
-                    return {
-                        ok: false,
-                        error: buildValidationError(
-                            'DAG_VALIDATION_SEEDANCE_IMAGES_INVALID',
-                            'Seedance node input images must be binary image payload array',
-                            { nodeId: context.nodeDefinition.nodeId, index }
-                        )
-                    };
-                }
-                parsedImages.push(imageValue);
-            }
-            if (parsedImages.length === 0) {
-                return {
-                    ok: false,
-                    error: buildValidationError(
-                        'DAG_VALIDATION_SEEDANCE_IMAGES_INVALID',
-                        'Seedance node input images must include at least one item when provided',
-                        { nodeId: context.nodeDefinition.nodeId }
-                    )
-                };
-            }
-            resolvedImages = parsedImages;
+            resolvedImages = parsedImagesResult.value;
         }
 
-        const modelValue = context.nodeDefinition.config.model;
-        if (typeof modelValue !== 'undefined' && typeof modelValue !== 'string') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_SEEDANCE_MODEL_INVALID',
-                    'Seedance node config model must be string when configured',
-                    { nodeId: context.nodeDefinition.nodeId }
-                )
-            };
-        }
-        const resolvedModel = typeof modelValue === 'string' && modelValue.trim().length > 0
-            ? modelValue
+        const resolvedModel = typeof config.model === 'string' && config.model.trim().length > 0
+            ? config.model
             : DEFAULT_SEEDANCE_MODEL;
 
-        const durationSeconds = context.nodeDefinition.config.durationSeconds;
-        if (typeof durationSeconds !== 'undefined' && typeof durationSeconds !== 'number') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_SEEDANCE_DURATION_INVALID',
-                    'durationSeconds must be a number when configured',
-                    { nodeId: context.nodeDefinition.nodeId }
-                )
-            };
-        }
-        const aspectRatio = context.nodeDefinition.config.aspectRatio;
-        if (typeof aspectRatio !== 'undefined' && typeof aspectRatio !== 'string') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_SEEDANCE_ASPECT_RATIO_INVALID',
-                    'aspectRatio must be a string when configured',
-                    { nodeId: context.nodeDefinition.nodeId }
-                )
-            };
-        }
-        const seed = context.nodeDefinition.config.seed;
-        if (typeof seed !== 'undefined' && typeof seed !== 'number') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_SEEDANCE_SEED_INVALID',
-                    'seed must be a number when configured',
-                    { nodeId: context.nodeDefinition.nodeId }
-                )
-            };
-        }
-        const pollIntervalMs = context.nodeDefinition.config.pollIntervalMs;
-        if (typeof pollIntervalMs !== 'undefined' && typeof pollIntervalMs !== 'number') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_SEEDANCE_POLL_INTERVAL_INVALID',
-                    'pollIntervalMs must be a number when configured',
-                    { nodeId: context.nodeDefinition.nodeId }
-                )
-            };
-        }
-        const pollTimeoutMs = context.nodeDefinition.config.pollTimeoutMs;
-        if (typeof pollTimeoutMs !== 'undefined' && typeof pollTimeoutMs !== 'number') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_SEEDANCE_POLL_TIMEOUT_INVALID',
-                    'pollTimeoutMs must be a number when configured',
-                    { nodeId: context.nodeDefinition.nodeId }
-                )
-            };
-        }
-
-        const videoResult = await this.videoClient.generateVideo({
+        const videoResult = await this.runtime.generateVideo({
             prompt: promptValue,
             model: resolvedModel,
             inputImages: resolvedImages,
-            durationSeconds: typeof durationSeconds === 'number' ? durationSeconds : undefined,
-            aspectRatio: typeof aspectRatio === 'string' && aspectRatio.trim().length > 0 ? aspectRatio.trim() : undefined,
-            seed: typeof seed === 'number' ? seed : undefined,
-            pollIntervalMs: typeof pollIntervalMs === 'number' ? pollIntervalMs : DEFAULT_POLL_INTERVAL_MS,
-            pollTimeoutMs: typeof pollTimeoutMs === 'number' ? pollTimeoutMs : DEFAULT_POLL_TIMEOUT_MS
+            durationSeconds: config.durationSeconds,
+            aspectRatio: typeof config.aspectRatio === 'string' && config.aspectRatio.trim().length > 0
+                ? config.aspectRatio.trim()
+                : undefined,
+            seed: config.seed,
+            pollIntervalMs: config.pollIntervalMs,
+            pollTimeoutMs: config.pollTimeoutMs
         });
         if (!videoResult.ok) {
             return videoResult;
@@ -258,7 +461,7 @@ class SeedanceVideoNodeTaskHandler {
     }
 }
 
-export class SeedanceVideoNodeDefinition implements IDagNodeDefinition {
+export class SeedanceVideoNodeDefinition extends AbstractNodeDefinition<typeof SeedanceVideoConfigSchema> {
     public readonly nodeType = 'seedance-video';
     public readonly displayName = 'Seedance Video';
     public readonly category = 'AI';
@@ -283,18 +486,27 @@ export class SeedanceVideoNodeDefinition implements IDagNodeDefinition {
             preset: BINARY_PORT_PRESETS.VIDEO_MP4
         })
     ];
-    public readonly configSchemaDefinition = z.object({
-        model: z.string().default(DEFAULT_SEEDANCE_MODEL),
-        durationSeconds: z.number().positive().optional(),
-        aspectRatio: z.string().optional(),
-        seed: z.number().int().optional(),
-        pollIntervalMs: z.number().int().positive().default(DEFAULT_POLL_INTERVAL_MS),
-        pollTimeoutMs: z.number().int().positive().default(DEFAULT_POLL_TIMEOUT_MS),
-        baseCostUsd: z.number().default(DEFAULT_BASE_COST_USD)
-    });
-    public readonly taskHandler: SeedanceVideoNodeTaskHandler;
+    public readonly configSchemaDefinition = SeedanceVideoConfigSchema;
+    private readonly taskExecutor: SeedanceVideoNodeTaskHandler;
 
-    public constructor(options: ISeedanceVideoNodeDefinitionOptions) {
-        this.taskHandler = new SeedanceVideoNodeTaskHandler(options.videoClient);
+    public constructor(options?: ISeedanceVideoNodeDefinitionOptions) {
+        super();
+        this.taskExecutor = new SeedanceVideoNodeTaskHandler(options);
+    }
+
+    public override async estimateCostWithConfig(
+        input: TPortPayload,
+        context: INodeExecutionContext,
+        config: z.output<typeof SeedanceVideoConfigSchema>
+    ): Promise<TResult<ICostEstimate, IDagError>> {
+        return this.taskExecutor.estimateCost(input, context, config);
+    }
+
+    protected override async executeWithConfig(
+        input: TPortPayload,
+        context: INodeExecutionContext,
+        config: z.output<typeof SeedanceVideoConfigSchema>
+    ): Promise<TResult<TPortPayload, IDagError>> {
+        return this.taskExecutor.execute(input, context, config);
     }
 }

@@ -93,6 +93,16 @@ export class DagDefinitionValidator {
             nodeIdSet.add(node.nodeId);
             nodeById.set(node.nodeId, node);
 
+            if (node.nodeType === 'llm-text') {
+                errors.push(
+                    buildValidationError(
+                        'DAG_VALIDATION_NODE_TYPE_REMOVED',
+                        'nodeType llm-text has been removed. Use llm-text-openai instead.',
+                        { nodeId: node.nodeId, nodeType: node.nodeType, replacementNodeType: 'llm-text-openai' }
+                    )
+                );
+            }
+
             if (node.inputs) {
                 const inputKeys = new Set<string>();
                 for (const port of node.inputs) {

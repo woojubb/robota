@@ -1,12 +1,13 @@
 import {
+    AbstractNodeDefinition,
     BINARY_PORT_PRESETS,
     buildValidationError,
     createBinaryPortDefinition,
     type IAssetReference,
     type ICostEstimate,
     type IDagNodeDefinition,
-    type INodeExecutionContext,
     type IDagError,
+    type INodeExecutionContext,
     type TResult,
     type TPortPayload
 } from '@robota-sdk/dag-core';
@@ -25,13 +26,81 @@ function isAssetReference(value: unknown): value is IAssetReference {
     return 'uri' in value && typeof value.uri === 'string' && value.uri.trim().length > 0;
 }
 
-class ImageSourceNodeTaskHandler {
-    public async estimateCost(): Promise<TResult<ICostEstimate, IDagError>> {
+const ImageSourceConfigSchema = z.object({
+    asset: z.union([
+        z.object({
+            referenceType: z.literal('asset'),
+            assetId: z.string().min(1),
+            mediaType: z.string().optional(),
+            name: z.string().optional(),
+            sizeBytes: z.number().nonnegative().optional()
+        }),
+        z.object({
+            referenceType: z.literal('uri'),
+            uri: z.string().min(1),
+            mediaType: z.string().optional(),
+            name: z.string().optional(),
+            sizeBytes: z.number().nonnegative().optional()
+        })
+    ]).optional(),
+    referenceType: z.enum(['asset', 'uri']).optional(),
+    assetId: z.string().min(1).optional(),
+    uri: z.string().min(1).optional(),
+    mimeType: z.string().optional()
+}).superRefine((config, ctx) => {
+    if (typeof config.asset !== 'undefined') {
+        return;
+    }
+    const hasAssetId = typeof config.assetId === 'string' && config.assetId.trim().length > 0;
+    const hasUri = typeof config.uri === 'string' && config.uri.trim().length > 0;
+    if (hasAssetId === hasUri) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Exactly one of assetId or uri must be provided.'
+        });
+        return;
+    }
+    if (config.referenceType === 'asset' && !hasAssetId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'referenceType asset requires assetId.'
+        });
+    }
+    if (config.referenceType === 'uri' && !hasUri) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'referenceType uri requires uri.'
+        });
+    }
+});
+
+export class ImageSourceNodeDefinition extends AbstractNodeDefinition<typeof ImageSourceConfigSchema> {
+    public readonly nodeType = 'image-source';
+    public readonly displayName = 'Image Source';
+    public readonly category = 'Test';
+    public readonly inputs: IDagNodeDefinition['inputs'] = [];
+    public readonly outputs: IDagNodeDefinition['outputs'] = [
+        createBinaryPortDefinition({
+            key: 'image',
+            label: 'Image',
+            order: 0,
+            required: true,
+            description: 'Test image output',
+            preset: BINARY_PORT_PRESETS.IMAGE_PNG
+        })
+    ];
+    public readonly configSchemaDefinition = ImageSourceConfigSchema;
+
+    public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
         return { ok: true, value: { estimatedCostUsd: 0 } };
     }
 
-    public async execute(_input: TPortPayload, context: INodeExecutionContext): Promise<TResult<TPortPayload, IDagError>> {
-        const assetReferenceValue = context.nodeDefinition.config.asset;
+    protected override async executeWithConfig(
+        _input: TPortPayload,
+        context: INodeExecutionContext,
+        config: z.output<typeof ImageSourceConfigSchema>
+    ): Promise<TResult<TPortPayload, IDagError>> {
+        const assetReferenceValue = config.asset;
         if (isAssetReference(assetReferenceValue)) {
             const mediaType = typeof assetReferenceValue.mediaType === 'string' && assetReferenceValue.mediaType.trim().length > 0
                 ? assetReferenceValue.mediaType
@@ -63,15 +132,15 @@ class ImageSourceNodeTaskHandler {
             };
         }
 
-        const referenceTypeValue = context.nodeDefinition.config.referenceType;
-        const assetIdValue = context.nodeDefinition.config.assetId;
+        const referenceTypeValue = config.referenceType;
+        const assetIdValue = config.assetId;
         if (
             referenceTypeValue === 'asset'
             && typeof assetIdValue === 'string'
             && assetIdValue.trim().length > 0
         ) {
-            const mediaType = typeof context.nodeDefinition.config.mimeType === 'string'
-                ? context.nodeDefinition.config.mimeType
+            const mediaType = typeof config.mimeType === 'string'
+                ? config.mimeType
                 : 'image/png';
             return {
                 ok: true,
@@ -87,7 +156,7 @@ class ImageSourceNodeTaskHandler {
             };
         }
 
-        const uriValue = context.nodeDefinition.config.uri;
+        const uriValue = config.uri;
         if (typeof uriValue !== 'string' || uriValue.trim().length === 0) {
             return {
                 ok: false,
@@ -116,69 +185,4 @@ class ImageSourceNodeTaskHandler {
             }
         };
     }
-}
-
-export class ImageSourceNodeDefinition implements IDagNodeDefinition {
-    public readonly nodeType = 'image-source';
-    public readonly displayName = 'Image Source';
-    public readonly category = 'Test';
-    public readonly inputs = [];
-    public readonly outputs = [
-        createBinaryPortDefinition({
-            key: 'image',
-            label: 'Image',
-            order: 0,
-            required: true,
-            description: 'Test image output',
-            preset: BINARY_PORT_PRESETS.IMAGE_PNG
-        })
-    ];
-    public readonly configSchemaDefinition = z.object({
-        asset: z.union([
-            z.object({
-                referenceType: z.literal('asset'),
-                assetId: z.string().min(1),
-                mediaType: z.string().optional(),
-                name: z.string().optional(),
-                sizeBytes: z.number().nonnegative().optional()
-            }),
-            z.object({
-                referenceType: z.literal('uri'),
-                uri: z.string().min(1),
-                mediaType: z.string().optional(),
-                name: z.string().optional(),
-                sizeBytes: z.number().nonnegative().optional()
-            })
-        ]).optional(),
-        referenceType: z.enum(['asset', 'uri']).optional(),
-        assetId: z.string().min(1).optional(),
-        uri: z.string().min(1).optional(),
-        mimeType: z.string().optional()
-    }).superRefine((config, ctx) => {
-        if (typeof config.asset !== 'undefined') {
-            return;
-        }
-        const hasAssetId = typeof config.assetId === 'string' && config.assetId.trim().length > 0;
-        const hasUri = typeof config.uri === 'string' && config.uri.trim().length > 0;
-        if (hasAssetId === hasUri) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'Exactly one of assetId or uri must be provided.'
-            });
-            return;
-        }
-        if (config.referenceType === 'asset' && !hasAssetId) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'referenceType asset requires assetId.'
-            });
-        }
-        if (config.referenceType === 'uri' && !hasUri) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'referenceType uri requires uri.'
-            });
-        }
-    });
-    public readonly taskHandler = new ImageSourceNodeTaskHandler();
 }

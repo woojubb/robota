@@ -36,7 +36,6 @@
   "dependencies": {
     "@robota-sdk/dag-api": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
-    "@robota-sdk/dag-node-llm-text": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "swagger-ui-express": "^5.0.1"

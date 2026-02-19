@@ -33,7 +33,7 @@
       },
       {
         "nodeId": "llm_text_1",
-        "nodeType": "llm-text",
+        "nodeType": "llm-text-openai",
         "position": {
           "x": 520,
           "y": 220
