@@ -21,7 +21,8 @@ import {
 import { SeedanceVideoNodeDefinition } from '@robota-sdk/dag-node-seedance-video';
 import {
     startDagServer,
-    BundledNodeCatalogService
+    BundledNodeCatalogService,
+    FileStoragePort
 } from '@robota-sdk/dag-server-core';
 import { createRobotaLlmCompletionClientFromEnv } from './services/robota-llm-completion-client.js';
 import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
@@ -85,6 +86,14 @@ function resolveSseKeepAliveMs(): number {
     return parsed;
 }
 
+function resolveDagStorageRoot(): string {
+    const raw = process.env.DAG_STORAGE_ROOT;
+    if (typeof raw === 'string' && raw.trim().length > 0) {
+        return path.resolve(raw.trim());
+    }
+    return path.resolve(process.cwd(), '.dag-storage');
+}
+
 async function bootstrapDagDevServer(): Promise<void> {
     const llmCompletionClient = createRobotaLlmCompletionClientFromEnv();
     const assetStoreRoot = process.env.ASSET_STORAGE_ROOT
@@ -92,6 +101,7 @@ async function bootstrapDagDevServer(): Promise<void> {
         : path.resolve(process.cwd(), '.local-assets');
     const assetStore = new LocalFsAssetStore(assetStoreRoot);
     await assetStore.initialize();
+    const storage = new FileStoragePort(resolveDagStorageRoot());
 
     const geminiImageClient = createRobotaGeminiImageClientFromEnv(assetStore);
     const seedanceVideoClient = createRobotaSeedanceVideoClientFromEnv(assetStore);
@@ -128,6 +138,7 @@ async function bootstrapDagDevServer(): Promise<void> {
         nodeLifecycleFactory: defaultLifecycleFactory,
         nodeCatalogService: defaultNodeCatalogService,
         assetStore,
+        storage,
         llmCompletionClient,
         port: resolvePort(),
         corsOrigins: parseCorsOrigins(),

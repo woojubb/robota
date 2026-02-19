@@ -12,6 +12,10 @@
       {
         "nodeId": "image_source_a_1",
         "nodeType": "image-source",
+        "position": {
+          "x": 120,
+          "y": 80
+        },
         "dependsOn": [],
         "inputs": [],
         "outputs": [
@@ -32,6 +36,10 @@
       {
         "nodeId": "image_source_b_1",
         "nodeType": "image-source",
+        "position": {
+          "x": 120,
+          "y": 260
+        },
         "dependsOn": [],
         "inputs": [],
         "outputs": [
@@ -52,6 +60,10 @@
       {
         "nodeId": "compose_prompt_1",
         "nodeType": "input",
+        "position": {
+          "x": 120,
+          "y": 440
+        },
         "dependsOn": [],
         "inputs": [],
         "outputs": [
@@ -70,6 +82,10 @@
       {
         "nodeId": "video_prompt_1",
         "nodeType": "input",
+        "position": {
+          "x": 620,
+          "y": 500
+        },
         "dependsOn": [],
         "inputs": [],
         "outputs": [
@@ -88,6 +104,10 @@
       {
         "nodeId": "gemini_image_compose_1",
         "nodeType": "gemini-image-compose",
+        "position": {
+          "x": 620,
+          "y": 220
+        },
         "dependsOn": [
           "image_source_a_1",
           "image_source_b_1",
@@ -137,6 +157,10 @@
       {
         "nodeId": "seedance_video_1",
         "nodeType": "seedance-video",
+        "position": {
+          "x": 1080,
+          "y": 360
+        },
         "dependsOn": [
           "gemini_image_compose_1",
           "video_prompt_1"

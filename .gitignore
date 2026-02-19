@@ -95,3 +95,4 @@ apps/**/README.md
 
 .local-assets
 apps/api-server/.local-assets/
+apps/api-server/.dag-storage/

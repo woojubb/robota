@@ -10,6 +10,7 @@ export {
     type IAssetContentResult
 } from './asset-store-contract.js';
 export { AssetAwareTaskExecutorPort } from './asset-aware-task-executor.js';
+export { FileStoragePort } from './file-storage-port.js';
 export {
     DagRunService,
     type IDagRunServiceOptions,
