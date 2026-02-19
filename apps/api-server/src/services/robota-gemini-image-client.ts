@@ -6,7 +6,7 @@ import {
     type IPortBinaryValue,
     type TResult
 } from '@robota-sdk/dag-core';
-import type { TUniversalMessage } from '@robota-sdk/agents';
+import type { IImageGenerationProvider, IMediaOutputRef } from '@robota-sdk/agents';
 import type {
     IGeminiImageClient,
     IGeminiImageComposeRequest,
@@ -49,19 +49,6 @@ async function readStreamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer
     return Buffer.concat(chunks);
 }
 
-function resolveImageInlinePart(message: TUniversalMessage): { data: string; mimeType: string } | undefined {
-    const parts = message.parts ?? [];
-    for (const part of parts) {
-        if (part.type === 'image_inline') {
-            return {
-                data: part.data,
-                mimeType: part.mimeType
-            };
-        }
-    }
-    return undefined;
-}
-
 async function readAssetAsInlineImagePart(
     assetStore: LocalFsAssetStore,
     assetId: string,
@@ -90,8 +77,100 @@ async function readAssetAsInlineImagePart(
     };
 }
 
+function parseDataUri(uri: string): { mimeType: string; data: string } | undefined {
+    const commaIndex = uri.indexOf(',');
+    if (commaIndex < 0) {
+        return undefined;
+    }
+    const header = uri.slice(0, commaIndex);
+    const payload = uri.slice(commaIndex + 1);
+    if (!header.startsWith('data:') || !header.endsWith(';base64')) {
+        return undefined;
+    }
+    const mimeType = header.replace('data:', '').replace(';base64', '').trim();
+    if (mimeType.length === 0 || payload.trim().length === 0) {
+        return undefined;
+    }
+    return {
+        mimeType,
+        data: payload
+    };
+}
+
+async function resolveProviderOutputToPortBinaryValue(
+    output: IMediaOutputRef,
+    assetStore: LocalFsAssetStore,
+    fileNamePrefix: string
+): Promise<TResult<IPortBinaryValue, IDagError>> {
+    if (output.kind === 'asset') {
+        if (typeof output.assetId !== 'string' || output.assetId.trim().length === 0) {
+            return {
+                ok: false,
+                error: buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_ASSET_INVALID',
+                    'Provider returned asset output without valid assetId',
+                    false
+                )
+            };
+        }
+        const resolvedMimeType = typeof output.mimeType === 'string' && output.mimeType.trim().length > 0
+            ? output.mimeType
+            : 'application/octet-stream';
+        return {
+            ok: true,
+            value: {
+                kind: 'image',
+                mimeType: resolvedMimeType,
+                uri: `asset://${output.assetId}`,
+                referenceType: 'asset',
+                assetId: output.assetId,
+                sizeBytes: output.bytes
+            }
+        };
+    }
+    if (typeof output.uri !== 'string') {
+        return {
+            ok: false,
+            error: buildTaskExecutionError(
+                'DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_URI_MISSING',
+                'Provider returned uri output without uri value',
+                false
+            )
+        };
+    }
+    const parsedDataUri = parseDataUri(output.uri);
+    if (!parsedDataUri) {
+        return {
+            ok: false,
+            error: buildTaskExecutionError(
+                'DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_URI_UNSUPPORTED',
+                'Provider uri output must be a base64 data URI in API server Gemini runtime',
+                false,
+                { uri: output.uri.slice(0, 64) }
+            )
+        };
+    }
+    const outputBuffer = Buffer.from(parsedDataUri.data, 'base64');
+    const metadata = await assetStore.save({
+        fileName: `${fileNamePrefix}-${Date.now()}.bin`,
+        mediaType: parsedDataUri.mimeType,
+        content: outputBuffer
+    });
+    return {
+        ok: true,
+        value: {
+            kind: 'image',
+            mimeType: metadata.mediaType,
+            uri: `asset://${metadata.assetId}`,
+            referenceType: 'asset',
+            assetId: metadata.assetId,
+            sizeBytes: metadata.sizeBytes
+        }
+    };
+}
+
 export class RobotaGeminiImageClient implements IGeminiImageClient {
-    private readonly provider?: GoogleProvider;
+    private readonly provider?: IImageGenerationProvider;
     private readonly assetStore: LocalFsAssetStore;
     private readonly defaultModel: string;
     private readonly allowedModels: string[];
@@ -118,6 +197,16 @@ export class RobotaGeminiImageClient implements IGeminiImageClient {
                 )
             };
         }
+        if (typeof this.provider.editImage !== 'function') {
+            return {
+                ok: false,
+                error: buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_GEMINI_IMAGE_EDIT_UNSUPPORTED',
+                    'Configured image provider does not support editImage operation',
+                    false
+                )
+            };
+        }
         const selectedModel = request.model.trim().length > 0 ? request.model : this.defaultModel;
         if (this.allowedModels.length > 0 && !this.allowedModels.includes(selectedModel)) {
             return {
@@ -140,28 +229,29 @@ export class RobotaGeminiImageClient implements IGeminiImageClient {
             return inputPartResult;
         }
 
-        const userMessage: TUniversalMessage = {
-            role: 'user',
-            content: request.prompt,
-            parts: [
-                inputPartResult.value,
-                {
-                    type: 'text',
-                    text: request.prompt
-                }
-            ],
-            timestamp: new Date()
-        };
-
         try {
-            const responseMessage = await this.provider.chat([userMessage], {
-                model: selectedModel,
-                google: {
-                    responseModalities: ['TEXT', 'IMAGE']
-                }
+            const imageEditResult = await this.provider.editImage({
+                image: {
+                    kind: 'inline',
+                    mimeType: inputPartResult.value.mimeType,
+                    data: inputPartResult.value.data
+                },
+                prompt: request.prompt,
+                model: selectedModel
             });
-            const generatedImagePart = resolveImageInlinePart(responseMessage);
-            if (!generatedImagePart) {
+            if (!imageEditResult.ok) {
+                return {
+                    ok: false,
+                    error: buildTaskExecutionError(
+                        'DAG_TASK_EXECUTION_GEMINI_IMAGE_EDIT_FAILED',
+                        imageEditResult.error.message,
+                        false,
+                        { code: imageEditResult.error.code, model: selectedModel }
+                    )
+                };
+            }
+            const firstOutput = imageEditResult.value.outputs[0];
+            if (!firstOutput) {
                 return {
                     ok: false,
                     error: buildTaskExecutionError(
@@ -172,24 +262,7 @@ export class RobotaGeminiImageClient implements IGeminiImageClient {
                     )
                 };
             }
-
-            const outputBuffer = Buffer.from(generatedImagePart.data, 'base64');
-            const metadata = await this.assetStore.save({
-                fileName: `gemini-image-${Date.now()}.bin`,
-                mediaType: generatedImagePart.mimeType,
-                content: outputBuffer
-            });
-            return {
-                ok: true,
-                value: {
-                    kind: 'image',
-                    mimeType: metadata.mediaType,
-                    uri: `asset://${metadata.assetId}`,
-                    referenceType: 'asset',
-                    assetId: metadata.assetId,
-                    sizeBytes: metadata.sizeBytes
-                }
-            };
+            return resolveProviderOutputToPortBinaryValue(firstOutput, this.assetStore, 'gemini-image');
         } catch (error) {
             return {
                 ok: false,
@@ -213,6 +286,16 @@ export class RobotaGeminiImageClient implements IGeminiImageClient {
                 )
             };
         }
+        if (typeof this.provider.composeImage !== 'function') {
+            return {
+                ok: false,
+                error: buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_GEMINI_IMAGE_COMPOSE_UNSUPPORTED',
+                    'Configured image provider does not support composeImage operation',
+                    false
+                )
+            };
+        }
         const selectedModel = request.model.trim().length > 0 ? request.model : this.defaultModel;
         if (this.allowedModels.length > 0 && !this.allowedModels.includes(selectedModel)) {
             return {
@@ -224,49 +307,59 @@ export class RobotaGeminiImageClient implements IGeminiImageClient {
                 )
             };
         }
-
-        const firstInputPartResult = await readAssetAsInlineImagePart(
-            this.assetStore,
-            request.firstInputAssetId,
-            'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_A_ASSET_NOT_FOUND',
-            'Image A asset was not found or is not binary content'
-        );
-        if (!firstInputPartResult.ok) {
-            return firstInputPartResult;
+        if (!Array.isArray(request.inputAssetIds) || request.inputAssetIds.length < 2) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGES_MIN_ITEMS',
+                    'Gemini image compose requires at least two input asset ids'
+                )
+            };
         }
-        const secondInputPartResult = await readAssetAsInlineImagePart(
-            this.assetStore,
-            request.secondInputAssetId,
-            'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_B_ASSET_NOT_FOUND',
-            'Image B asset was not found or is not binary content'
-        );
-        if (!secondInputPartResult.ok) {
-            return secondInputPartResult;
+        const composeImages: Array<{ kind: 'inline'; mimeType: string; data: string }> = [];
+        for (const [index, inputAssetId] of request.inputAssetIds.entries()) {
+            const inputPartResult = await readAssetAsInlineImagePart(
+                this.assetStore,
+                inputAssetId,
+                'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_ASSET_NOT_FOUND',
+                'Compose image asset was not found or is not binary content'
+            );
+            if (!inputPartResult.ok) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_ASSET_NOT_FOUND',
+                        'Compose image asset was not found or is not binary content',
+                        { index, assetId: inputAssetId }
+                    )
+                };
+            }
+            composeImages.push({
+                kind: 'inline',
+                mimeType: inputPartResult.value.mimeType,
+                data: inputPartResult.value.data
+            });
         }
-
-        const userMessage: TUniversalMessage = {
-            role: 'user',
-            content: request.prompt,
-            parts: [
-                firstInputPartResult.value,
-                secondInputPartResult.value,
-                {
-                    type: 'text',
-                    text: request.prompt
-                }
-            ],
-            timestamp: new Date()
-        };
 
         try {
-            const responseMessage = await this.provider.chat([userMessage], {
-                model: selectedModel,
-                google: {
-                    responseModalities: ['TEXT', 'IMAGE']
-                }
+            const composeResult = await this.provider.composeImage({
+                images: composeImages,
+                prompt: request.prompt,
+                model: selectedModel
             });
-            const generatedImagePart = resolveImageInlinePart(responseMessage);
-            if (!generatedImagePart) {
+            if (!composeResult.ok) {
+                return {
+                    ok: false,
+                    error: buildTaskExecutionError(
+                        'DAG_TASK_EXECUTION_GEMINI_IMAGE_COMPOSE_FAILED',
+                        composeResult.error.message,
+                        false,
+                        { code: composeResult.error.code, model: selectedModel }
+                    )
+                };
+            }
+            const firstOutput = composeResult.value.outputs[0];
+            if (!firstOutput) {
                 return {
                     ok: false,
                     error: buildTaskExecutionError(
@@ -277,23 +370,7 @@ export class RobotaGeminiImageClient implements IGeminiImageClient {
                     )
                 };
             }
-            const outputBuffer = Buffer.from(generatedImagePart.data, 'base64');
-            const metadata = await this.assetStore.save({
-                fileName: `gemini-image-compose-${Date.now()}.bin`,
-                mediaType: generatedImagePart.mimeType,
-                content: outputBuffer
-            });
-            return {
-                ok: true,
-                value: {
-                    kind: 'image',
-                    mimeType: metadata.mediaType,
-                    uri: `asset://${metadata.assetId}`,
-                    referenceType: 'asset',
-                    assetId: metadata.assetId,
-                    sizeBytes: metadata.sizeBytes
-                }
-            };
+            return resolveProviderOutputToPortBinaryValue(firstOutput, this.assetStore, 'gemini-image-compose');
         } catch (error) {
             return {
                 ok: false,

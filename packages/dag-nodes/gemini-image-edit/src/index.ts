@@ -21,8 +21,7 @@ export interface IGeminiImageEditRequest {
 }
 
 export interface IGeminiImageComposeRequest {
-    firstInputAssetId: string;
-    secondInputAssetId: string;
+    inputAssetIds: string[];
     prompt: string;
     model: string;
 }
@@ -252,55 +251,54 @@ class GeminiImageComposeNodeTaskHandler {
 
     public async execute(input: TPortPayload, context: INodeExecutionContext): Promise<TResult<TPortPayload, IDagError>> {
         const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
-        const firstImageInputResult = io.requireInput('imageA');
-        if (!firstImageInputResult.ok) {
-            return firstImageInputResult;
+        const imagesInputResult = io.requireInput('images');
+        if (!imagesInputResult.ok) {
+            return imagesInputResult;
         }
-        if (!isImageBinaryValue(firstImageInputResult.value)) {
+        if (!Array.isArray(imagesInputResult.value)) {
             return {
                 ok: false,
                 error: buildValidationError(
-                    'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_A_INVALID',
-                    'Gemini image compose node input imageA must be binary image payload',
+                    'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGES_INVALID',
+                    'Gemini image compose node input images must be binary image payload array',
                     { nodeId: context.nodeDefinition.nodeId }
                 )
             };
         }
-        const secondImageInputResult = io.requireInput('imageB');
-        if (!secondImageInputResult.ok) {
-            return secondImageInputResult;
-        }
-        if (!isImageBinaryValue(secondImageInputResult.value)) {
+        if (imagesInputResult.value.length < 2) {
             return {
                 ok: false,
                 error: buildValidationError(
-                    'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_B_INVALID',
-                    'Gemini image compose node input imageB must be binary image payload',
+                    'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGES_MIN_ITEMS',
+                    'Gemini image compose node requires at least two input images',
                     { nodeId: context.nodeDefinition.nodeId }
                 )
             };
         }
-        const firstInputAssetId = resolveAssetIdFromBinaryInput(firstImageInputResult.value);
-        if (typeof firstInputAssetId === 'undefined') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_A_ASSET_REQUIRED',
-                    'Gemini image compose node requires asset:// reference for imageA',
-                    { nodeId: context.nodeDefinition.nodeId }
-                )
-            };
-        }
-        const secondInputAssetId = resolveAssetIdFromBinaryInput(secondImageInputResult.value);
-        if (typeof secondInputAssetId === 'undefined') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_B_ASSET_REQUIRED',
-                    'Gemini image compose node requires asset:// reference for imageB',
-                    { nodeId: context.nodeDefinition.nodeId }
-                )
-            };
+        const inputAssetIds: string[] = [];
+        for (const [index, imageInputValue] of imagesInputResult.value.entries()) {
+            if (!isImageBinaryValue(imageInputValue)) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGES_INVALID',
+                        'Gemini image compose node input images must be binary image payload array',
+                        { nodeId: context.nodeDefinition.nodeId, index }
+                    )
+                };
+            }
+            const inputAssetId = resolveAssetIdFromBinaryInput(imageInputValue);
+            if (typeof inputAssetId === 'undefined') {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_ASSET_REQUIRED',
+                        'Gemini image compose node requires asset:// reference for each image input',
+                        { nodeId: context.nodeDefinition.nodeId, index }
+                    )
+                };
+            }
+            inputAssetIds.push(inputAssetId);
         }
 
         const promptInputResult = io.requireInput('prompt');
@@ -351,8 +349,7 @@ class GeminiImageComposeNodeTaskHandler {
             : DEFAULT_GEMINI_IMAGE_MODEL;
 
         const composedImageResult = await this.imageClient.composeImages({
-            firstInputAssetId,
-            secondInputAssetId,
+            inputAssetIds,
             prompt: promptValue,
             model: resolvedModel
         });
@@ -384,20 +381,15 @@ export class GeminiImageComposeNodeDefinition implements IDagNodeDefinition {
     public readonly category = 'AI';
     public readonly inputs: IDagNodeDefinition['inputs'] = [
         createBinaryPortDefinition({
-            key: 'imageA',
-            label: 'Image A',
+            key: 'images',
+            label: 'Images',
             order: 0,
             required: true,
-            preset: BINARY_PORT_PRESETS.IMAGE_COMMON
+            preset: BINARY_PORT_PRESETS.IMAGE_COMMON,
+            isList: true,
+            minItems: 2
         }),
-        createBinaryPortDefinition({
-            key: 'imageB',
-            label: 'Image B',
-            order: 1,
-            required: true,
-            preset: BINARY_PORT_PRESETS.IMAGE_COMMON
-        }),
-        { key: 'prompt', label: 'Prompt', order: 2, type: 'string', required: true }
+        { key: 'prompt', label: 'Prompt', order: 1, type: 'string', required: true }
     ];
     public readonly outputs: IDagNodeDefinition['outputs'] = [
         createBinaryPortDefinition({

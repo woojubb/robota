@@ -1,4 +1,8 @@
-import type { IDagDefinition, IPortDefinition } from '../types/domain.js';
+import {
+    parseListPortHandleKey,
+    type IDagDefinition,
+    type IPortDefinition
+} from '../types/domain.js';
 import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
 import { buildValidationError } from '../utils/error-builders.js';
@@ -108,6 +112,37 @@ export class DagDefinitionValidator {
                                 'DAG_VALIDATION_INVALID_INPUT_ORDER',
                                 'input port order must be a non-negative integer',
                                 { nodeId: node.nodeId, key: port.key, order: port.order }
+                            )
+                        );
+                    }
+                    if (typeof port.minItems === 'number' && (!Number.isInteger(port.minItems) || port.minItems < 0)) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_INVALID_INPUT_MIN_ITEMS',
+                                'input port minItems must be a non-negative integer',
+                                { nodeId: node.nodeId, key: port.key, minItems: port.minItems }
+                            )
+                        );
+                    }
+                    if (typeof port.maxItems === 'number' && (!Number.isInteger(port.maxItems) || port.maxItems < 0)) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_INVALID_INPUT_MAX_ITEMS',
+                                'input port maxItems must be a non-negative integer',
+                                { nodeId: node.nodeId, key: port.key, maxItems: port.maxItems }
+                            )
+                        );
+                    }
+                    if (
+                        typeof port.minItems === 'number'
+                        && typeof port.maxItems === 'number'
+                        && port.minItems > port.maxItems
+                    ) {
+                        errors.push(
+                            buildValidationError(
+                                'DAG_VALIDATION_INVALID_INPUT_ITEM_RANGE',
+                                'input port minItems must be less than or equal to maxItems',
+                                { nodeId: node.nodeId, key: port.key, minItems: port.minItems, maxItems: port.maxItems }
                             )
                         );
                     }
@@ -241,7 +276,8 @@ export class DagDefinitionValidator {
                     );
                 }
 
-                const inputPort = findPort(inputPorts, binding.inputKey);
+                const resolvedInput = resolveInputPort(inputPorts, binding.inputKey);
+                const inputPort = resolvedInput.port;
                 if (!inputPort) {
                     errors.push(
                         buildValidationError(
@@ -255,7 +291,10 @@ export class DagDefinitionValidator {
                     );
                 }
 
-                if (inputKeysInEdge.has(binding.inputKey)) {
+                const bindingInputIdentity = resolvedInput.port?.isList
+                    ? binding.inputKey
+                    : resolvedInput.portKey;
+                if (inputKeysInEdge.has(bindingInputIdentity)) {
                     errors.push(
                         buildValidationError(
                             'DAG_VALIDATION_BINDING_INPUT_KEY_DUPLICATE',
@@ -264,7 +303,7 @@ export class DagDefinitionValidator {
                         )
                     );
                 } else {
-                    inputKeysInEdge.add(binding.inputKey);
+                    inputKeysInEdge.add(bindingInputIdentity);
                 }
 
                 if (outputPort && inputPort && !isPortTypeCompatible(outputPort, inputPort)) {
@@ -294,7 +333,12 @@ export class DagDefinitionValidator {
             const key = edge.to;
             const used = usedInputKeysByTarget.get(key) ?? new Set<string>();
             for (const binding of edge.bindings) {
-                if (used.has(binding.inputKey)) {
+                const toNode = nodeById.get(edge.to);
+                const resolvedInput = resolveInputPort(toNode?.inputs ?? [], binding.inputKey);
+                const bindingInputIdentity = resolvedInput.port?.isList
+                    ? binding.inputKey
+                    : resolvedInput.portKey;
+                if (used.has(bindingInputIdentity)) {
                     errors.push(
                         buildValidationError(
                             'DAG_VALIDATION_BINDING_INPUT_KEY_CONFLICT',
@@ -303,7 +347,7 @@ export class DagDefinitionValidator {
                         )
                     );
                 } else {
-                    used.add(binding.inputKey);
+                    used.add(bindingInputIdentity);
                 }
             }
             usedInputKeysByTarget.set(key, used);
@@ -360,6 +404,37 @@ export class DagDefinitionValidator {
 
 function findPort(ports: IPortDefinition[], key: string): IPortDefinition | undefined {
     return ports.find((port) => port.key === key);
+}
+
+function resolveInputPort(
+    ports: IPortDefinition[],
+    bindingInputKey: string
+): { portKey: string; port: IPortDefinition | undefined } {
+    const directPort = findPort(ports, bindingInputKey);
+    if (directPort) {
+        return {
+            portKey: bindingInputKey,
+            port: directPort
+        };
+    }
+    const listHandle = parseListPortHandleKey(bindingInputKey);
+    if (!listHandle) {
+        return {
+            portKey: bindingInputKey,
+            port: undefined
+        };
+    }
+    const listPort = findPort(ports, listHandle.portKey);
+    if (!listPort?.isList) {
+        return {
+            portKey: listHandle.portKey,
+            port: undefined
+        };
+    }
+    return {
+        portKey: listHandle.portKey,
+        port: listPort
+    };
 }
 
 function isPortTypeCompatible(outputPort: IPortDefinition, inputPort: IPortDefinition): boolean {

@@ -10,7 +10,6 @@ import {
     type ReactNode
 } from 'react';
 import {
-    addEdge,
     Background,
     type Connection,
     ConnectionMode,
@@ -28,6 +27,8 @@ import {
     useNodesState
 } from '@xyflow/react';
 import {
+    buildListPortHandleKey,
+    parseListPortHandleKey,
     EXECUTION_PROGRESS_EVENTS,
     TASK_PROGRESS_EVENTS,
     type IDagDefinition,
@@ -198,7 +199,8 @@ function toNode(
     nodeUiState: INodeUiState | undefined,
     latestTrace?: IDagNodeIoTrace,
     assetBaseUrl?: string,
-    positionOverride?: XYPosition
+    positionOverride?: XYPosition,
+    inputHandlesByPortKey?: Record<string, string[]>
 ): TDagCanvasNode {
     const traceSignature = latestTrace
         ? JSON.stringify({
@@ -220,7 +222,8 @@ function toNode(
             isSelected: nodeUiState?.isSelected ?? false,
             latestTrace,
             assetBaseUrl,
-            traceSignature
+            traceSignature,
+            inputHandlesByPortKey
         } satisfies IDagNodeViewData,
         position: positionOverride
             ?? nodeDefinition.position
@@ -325,6 +328,117 @@ function findPort(ports: IPortDefinition[], key: string): IPortDefinition | unde
     return ports.find((port) => port.key === key);
 }
 
+function resolveInputPort(
+    inputPorts: IPortDefinition[],
+    inputKey: string
+): { inputPort: IPortDefinition | undefined; resolvedKey: string } {
+    const directPort = findPort(inputPorts, inputKey);
+    if (directPort) {
+        return {
+            inputPort: directPort,
+            resolvedKey: inputKey
+        };
+    }
+    const listHandle = parseListPortHandleKey(inputKey);
+    if (!listHandle) {
+        return {
+            inputPort: undefined,
+            resolvedKey: inputKey
+        };
+    }
+    const listPort = findPort(inputPorts, listHandle.portKey);
+    if (!listPort?.isList) {
+        return {
+            inputPort: undefined,
+            resolvedKey: listHandle.portKey
+        };
+    }
+    return {
+        inputPort: listPort,
+        resolvedKey: listHandle.portKey
+    };
+}
+
+function compactListBindings(definition: IDagDefinition): IDagDefinition {
+    const nextEdges = definition.edges.map((edge) => {
+        if (!edge.bindings || edge.bindings.length === 0) {
+            return edge;
+        }
+        const targetNode = definition.nodes.find((node) => node.nodeId === edge.to);
+        if (!targetNode) {
+            return edge;
+        }
+        const listInputPorts = targetNode.inputs.filter((port) => port.isList);
+        if (listInputPorts.length === 0) {
+            return edge;
+        }
+        const bindingIndexByListKey = new Map<string, number>();
+        const nextBindings = edge.bindings.map((binding) => {
+            const listHandle = parseListPortHandleKey(binding.inputKey);
+            const directListPort = targetNode.inputs.find((port) => port.key === binding.inputKey && port.isList);
+            const listPortKey = directListPort
+                ? directListPort.key
+                : listHandle?.portKey;
+            if (!listPortKey) {
+                return binding;
+            }
+            const listPort = targetNode.inputs.find((port) => port.key === listPortKey && port.isList);
+            if (!listPort) {
+                return binding;
+            }
+            const nextIndex = bindingIndexByListKey.get(listPortKey) ?? 0;
+            bindingIndexByListKey.set(listPortKey, nextIndex + 1);
+            return {
+                ...binding,
+                inputKey: buildListPortHandleKey(listPortKey, nextIndex)
+            };
+        });
+        return {
+            ...edge,
+            bindings: nextBindings
+        };
+    });
+    return {
+        ...definition,
+        edges: nextEdges
+    };
+}
+
+function computeInputHandlesByPortKey(
+    definition: IDagDefinition,
+    nodeId: string,
+    inputPorts: IPortDefinition[]
+): Record<string, string[]> {
+    const handlesByPortKey: Record<string, string[]> = {};
+    const incomingEdges = definition.edges.filter((edge) => edge.to === nodeId);
+    for (const inputPort of inputPorts) {
+        if (!inputPort.isList) {
+            continue;
+        }
+        const slotIndices: number[] = [];
+        for (const edge of incomingEdges) {
+            for (const binding of edge.bindings ?? []) {
+                if (binding.inputKey === inputPort.key) {
+                    slotIndices.push(0);
+                    continue;
+                }
+                const listHandle = parseListPortHandleKey(binding.inputKey);
+                if (!listHandle || listHandle.portKey !== inputPort.key) {
+                    continue;
+                }
+                slotIndices.push(listHandle.index);
+            }
+        }
+        const connectedCount = slotIndices.length;
+        const handleIds: string[] = [];
+        for (let index = 0; index < connectedCount + 1; index += 1) {
+            handleIds.push(buildListPortHandleKey(inputPort.key, index));
+        }
+        handlesByPortKey[inputPort.key] = handleIds;
+    }
+    return handlesByPortKey;
+}
+
 function computeBindingErrors(definition: IDagDefinition): string[] {
     const errors: string[] = [];
     const usedInputKeysByTarget = new Map<string, Set<string>>();
@@ -348,32 +462,35 @@ function computeBindingErrors(definition: IDagDefinition): string[] {
                     `Edge ${edge.from}->${edge.to}: output key "${binding.outputKey}" was removed or not found.`
                 );
             }
-            const inputPort = findPort(toNode.inputs, binding.inputKey);
+            const resolvedInput = resolveInputPort(toNode.inputs, binding.inputKey);
+            const inputPort = resolvedInput.inputPort;
             if (!inputPort) {
                 errors.push(
                     `Edge ${edge.from}->${edge.to}: input key "${binding.inputKey}" was removed or not found.`
                 );
+                continue;
             }
             if (outputPort && inputPort && outputPort.type !== inputPort.type) {
                 errors.push(
                     `Edge ${edge.from}->${edge.to}: type mismatch "${binding.outputKey}"(${outputPort.type}) -> "${binding.inputKey}"(${inputPort.type}).`
                 );
             }
-            if (usedInEdge.has(binding.inputKey)) {
+            const inputIdentity = inputPort.isList ? binding.inputKey : resolvedInput.resolvedKey;
+            if (usedInEdge.has(inputIdentity)) {
                 errors.push(
                     `Edge ${edge.from}->${edge.to}: duplicate input key "${binding.inputKey}" in same edge.`
                 );
             } else {
-                usedInEdge.add(binding.inputKey);
+                usedInEdge.add(inputIdentity);
             }
 
             const usedByTarget = usedInputKeysByTarget.get(edge.to) ?? new Set<string>();
-            if (usedByTarget.has(binding.inputKey)) {
+            if (usedByTarget.has(inputIdentity)) {
                 errors.push(
                     `Edge ${edge.from}->${edge.to}: input key "${binding.inputKey}" conflicts with another upstream edge.`
                 );
             } else {
-                usedByTarget.add(binding.inputKey);
+                usedByTarget.add(inputIdentity);
                 usedInputKeysByTarget.set(edge.to, usedByTarget);
             }
         }
@@ -633,12 +750,12 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const updateEdge = useCallback((nextEdge: IDagEdgeDefinition): void => {
         setBindingCleanupMessage(undefined);
         resetRunProgress();
-        props.onDefinitionChange({
+        props.onDefinitionChange(compactListBindings({
             ...props.definition,
             edges: props.definition.edges.map((edge) => (
                 edge.from === nextEdge.from && edge.to === nextEdge.to ? nextEdge : edge
             ))
-        });
+        }));
     }, [props.definition, props.onDefinitionChange, resetRunProgress]);
 
     const removeEdgeById = useCallback((edgeId: string): void => {
@@ -650,11 +767,11 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         resetRunProgress();
         setSelectedEdgeId(undefined);
         const nextNodes = recomputeNodeDependencies(props.definition.nodes, nextEdges);
-        props.onDefinitionChange({
+        props.onDefinitionChange(compactListBindings({
             ...props.definition,
             nodes: nextNodes,
             edges: nextEdges
-        });
+        }));
     }, [props.definition, props.onDefinitionChange, resetRunProgress]);
 
     const removeNodeById = useCallback((nodeId: string): void => {
@@ -668,11 +785,11 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         resetRunProgress();
         setSelectedNodeId(undefined);
         setSelectedEdgeId(undefined);
-        props.onDefinitionChange({
+        props.onDefinitionChange(compactListBindings({
             ...props.definition,
             nodes: reconciledNodes,
             edges: nextEdges
-        });
+        }));
     }, [props.definition, props.onDefinitionChange, resetRunProgress]);
 
     const contextValue = useMemo<IDagDesignerContextValue>(() => ({
@@ -765,7 +882,9 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             index,
             context.nodeUiStateByNodeId[node.nodeId],
             latestTraceByNodeId.get(node.nodeId),
-            context.assetUploadBaseUrl
+            context.assetUploadBaseUrl,
+            undefined,
+            computeInputHandlesByPortKey(context.definition, node.nodeId, node.inputs)
         )),
         [context.assetUploadBaseUrl, context.definition.nodes, context.nodeUiStateByNodeId, latestTraceByNodeId]
     );
@@ -782,14 +901,22 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 currentNodes.map((node) => [node.id, node.position])
             );
             const mappedNodes = context.definition.nodes.map((node, index) => (
-                toNode(
-                    node,
-                    index,
-                    context.nodeUiStateByNodeId[node.nodeId],
-                    latestTraceByNodeId.get(node.nodeId),
-                    context.assetUploadBaseUrl,
-                    positionByNodeId.get(node.nodeId)
-                )
+                (() => {
+                    const inputHandlesByPortKey = computeInputHandlesByPortKey(
+                        context.definition,
+                        node.nodeId,
+                        node.inputs
+                    );
+                    return toNode(
+                        node,
+                        index,
+                        context.nodeUiStateByNodeId[node.nodeId],
+                        latestTraceByNodeId.get(node.nodeId),
+                        context.assetUploadBaseUrl,
+                        positionByNodeId.get(node.nodeId),
+                        inputHandlesByPortKey
+                    );
+                })()
             ));
             if (hasSameCanvasNodeState(currentNodes, mappedNodes)) {
                 return currentNodes;
@@ -891,35 +1018,32 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             return;
         }
 
-        const existingEdgeIndex = context.definition.edges.findIndex(
-            (edge) => edge.from === connection.source && edge.to === connection.target
-        );
-        if (existingEdgeIndex >= 0) {
-            context.setConnectError(`Connection rejected: edge ${connection.source}->${connection.target} already exists.`);
-            return;
-        }
         context.setConnectError(undefined);
 
-        const nextEdges = addEdge(
-            {
-                id: `${connection.source}->${connection.target}`,
-                type: 'binding-edge',
-                source: connection.source,
-                target: connection.target,
-                sourceHandle: connection.sourceHandle,
-                targetHandle: connection.targetHandle,
-                data: {
-                    shortLabel: `${connection.sourceHandle} -> ${connection.targetHandle}`,
-                    fullLabel: `${connection.sourceHandle} -> ${connection.targetHandle}`,
-                    hasBinding: true,
-                    onSelectEdge: selectEdgeById
-                } satisfies IDagBindingEdgeData
-            },
-            edges
-        );
-        setEdges(nextEdges);
-
         const sourceNode = context.definition.nodes.find((node) => node.nodeId === connection.source);
+        const targetNode = context.definition.nodes.find((node) => node.nodeId === connection.target);
+        const targetInputPort = targetNode
+            ? resolveInputPort(targetNode.inputs, connection.targetHandle).inputPort
+            : undefined;
+        if (!targetInputPort) {
+            context.setConnectError(`Connection rejected: input handle "${connection.targetHandle}" is invalid.`);
+            return;
+        }
+        const targetInputIdentity = targetInputPort.isList
+            ? connection.targetHandle
+            : targetInputPort.key;
+        const hasConflictingTargetBinding = context.definition.edges
+            .filter((edge) => edge.to === connection.target)
+            .some((edge) => (edge.bindings ?? []).some((binding) => {
+                const existingTargetIdentity = targetInputPort.isList
+                    ? binding.inputKey
+                    : resolveInputPort(targetNode?.inputs ?? [], binding.inputKey).resolvedKey;
+                return existingTargetIdentity === targetInputIdentity;
+            }));
+        if (hasConflictingTargetBinding) {
+            context.setConnectError(`Connection rejected: input handle "${connection.targetHandle}" is already bound.`);
+            return;
+        }
         const nextNodes = context.definition.nodes.map((node) => {
             if (node.nodeId !== connection.target || !sourceNode) {
                 return node;
@@ -937,19 +1061,52 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             outputKey: connection.sourceHandle,
             inputKey: connection.targetHandle
         };
-
-        context.onDefinitionChange({
+        let shouldAbortConnection = false;
+        const nextDefinition = compactListBindings({
             ...context.definition,
             nodes: nextNodes,
-            edges: [
-                ...context.definition.edges,
-                {
-                    from: connection.source,
-                    to: connection.target,
-                    bindings: [newBinding]
+            edges: (() => {
+                const existingEdge = context.definition.edges.find(
+                    (edge) => edge.from === connection.source && edge.to === connection.target
+                );
+                if (!existingEdge) {
+                    return [
+                        ...context.definition.edges,
+                        {
+                            from: connection.source,
+                            to: connection.target,
+                            bindings: [newBinding]
+                        }
+                    ];
                 }
-            ]
+                const bindingExists = (existingEdge.bindings ?? []).some((binding) => {
+                    const existingTargetIdentity = targetInputPort.isList
+                        ? binding.inputKey
+                        : resolveInputPort(targetNode?.inputs ?? [], binding.inputKey).resolvedKey;
+                    return (
+                        existingTargetIdentity === targetInputIdentity
+                        && binding.outputKey === newBinding.outputKey
+                    );
+                });
+                if (bindingExists) {
+                    context.setConnectError('Connection rejected: duplicate binding already exists.');
+                    shouldAbortConnection = true;
+                    return context.definition.edges;
+                }
+                return context.definition.edges.map((edge) => (
+                    edge.from === connection.source && edge.to === connection.target
+                        ? {
+                            ...edge,
+                            bindings: [...(edge.bindings ?? []), newBinding]
+                        }
+                        : edge
+                ));
+            })()
         });
+        if (shouldAbortConnection) {
+            return;
+        }
+        context.onDefinitionChange(nextDefinition);
         context.resetRunProgress();
     };
 

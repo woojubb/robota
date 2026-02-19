@@ -1,11 +1,12 @@
-import type {
-    IDagDefinition,
-    IDagEdgeDefinition,
-    IDagNode,
-    IEdgeBinding,
-    IPortDefinition,
-    TBinaryKind,
-    TPortValueType
+import {
+    parseListPortHandleKey,
+    type IDagDefinition,
+    type IDagEdgeDefinition,
+    type IDagNode,
+    type IEdgeBinding,
+    type IPortDefinition,
+    type TBinaryKind,
+    type TPortValueType
 } from '@robota-sdk/dag-core';
 
 export type TPortDirection = 'inputs' | 'outputs';
@@ -33,6 +34,25 @@ export interface IReconcileNodeUpdateResult {
 
 function findPort(ports: IPortDefinition[], key: string): IPortDefinition | undefined {
     return ports.find((port) => port.key === key);
+}
+
+function resolveInputPort(
+    ports: IPortDefinition[],
+    inputKey: string
+): { port: IPortDefinition | undefined; resolvedKey: string } {
+    const directPort = findPort(ports, inputKey);
+    if (directPort) {
+        return { port: directPort, resolvedKey: inputKey };
+    }
+    const listHandle = parseListPortHandleKey(inputKey);
+    if (!listHandle) {
+        return { port: undefined, resolvedKey: inputKey };
+    }
+    const listPort = findPort(ports, listHandle.portKey);
+    if (!listPort?.isList) {
+        return { port: undefined, resolvedKey: listHandle.portKey };
+    }
+    return { port: listPort, resolvedKey: listHandle.portKey };
 }
 
 export function normalizePortOrders(ports: IPortDefinition[]): IPortDefinition[] {
@@ -178,7 +198,8 @@ export function reconcileNodePortsAndEdges(
                 removedBindings.push({ edgeId, binding, reason: 'output_not_found' });
                 return false;
             }
-            const inputPort = findPort(targetNode.inputs, binding.inputKey);
+            const resolvedInput = resolveInputPort(targetNode.inputs, binding.inputKey);
+            const inputPort = resolvedInput.port;
             if (!inputPort) {
                 removedBindings.push({ edgeId, binding, reason: 'input_not_found' });
                 return false;
@@ -187,17 +208,18 @@ export function reconcileNodePortsAndEdges(
                 removedBindings.push({ edgeId, binding, reason: 'type_mismatch' });
                 return false;
             }
-            if (seenInputKeys.has(binding.inputKey)) {
+            const inputIdentity = inputPort.isList ? binding.inputKey : resolvedInput.resolvedKey;
+            if (seenInputKeys.has(inputIdentity)) {
                 removedBindings.push({ edgeId, binding, reason: 'duplicate_input_in_edge' });
                 return false;
             }
-            if (usedByTarget.has(binding.inputKey)) {
+            if (usedByTarget.has(inputIdentity)) {
                 removedBindings.push({ edgeId, binding, reason: 'duplicate_input_cross_edges' });
                 return false;
             }
 
-            seenInputKeys.add(binding.inputKey);
-            usedByTarget.add(binding.inputKey);
+            seenInputKeys.add(inputIdentity);
+            usedByTarget.add(inputIdentity);
             return true;
         });
 
@@ -246,6 +268,7 @@ export function getConnectedBindingCountForPort(
             direction === 'outputs'
                 ? binding.outputKey === portKey
                 : binding.inputKey === portKey
+                    || parseListPortHandleKey(binding.inputKey)?.portKey === portKey
         )).length;
         return count + matchedCount;
     }, 0);

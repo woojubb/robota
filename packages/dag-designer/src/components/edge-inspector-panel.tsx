@@ -1,9 +1,11 @@
 import { useState, type ReactElement } from 'react';
-import type {
-    IDagDefinition,
-    IDagEdgeDefinition,
-    IEdgeBinding,
-    IPortDefinition
+import {
+    buildListPortHandleKey,
+    parseListPortHandleKey,
+    type IDagDefinition,
+    type IDagEdgeDefinition,
+    type IEdgeBinding,
+    type IPortDefinition
 } from '@robota-sdk/dag-core';
 
 export interface IEdgeInspectorPanelProps {
@@ -21,6 +23,25 @@ function findPortByKey(ports: IPortDefinition[], key: string): IPortDefinition |
     return ports.find((port) => port.key === key);
 }
 
+function resolveInputPort(
+    ports: IPortDefinition[],
+    inputKey: string
+): { port: IPortDefinition | undefined; resolvedKey: string } {
+    const directPort = findPortByKey(ports, inputKey);
+    if (directPort) {
+        return { port: directPort, resolvedKey: inputKey };
+    }
+    const listHandle = parseListPortHandleKey(inputKey);
+    if (!listHandle) {
+        return { port: undefined, resolvedKey: inputKey };
+    }
+    const listPort = findPortByKey(ports, listHandle.portKey);
+    if (!listPort?.isList) {
+        return { port: undefined, resolvedKey: listHandle.portKey };
+    }
+    return { port: listPort, resolvedKey: listHandle.portKey };
+}
+
 function validateBindings(
     definition: IDagDefinition,
     selectedEdge: IDagEdgeDefinition,
@@ -33,29 +54,39 @@ function validateBindings(
     }
 
     const usedInputInEdge = new Set<string>();
-    const usedInputInOtherEdges = new Set<string>(
-        definition.edges
-            .filter((edge) => edge.to === selectedEdge.to && edgeId(edge) !== edgeId(selectedEdge))
-            .flatMap((edge) => (edge.bindings ?? []).map((binding) => binding.inputKey))
-    );
+    const usedInputInOtherEdges = new Set<string>();
+    for (const edge of definition.edges) {
+        if (edge.to !== selectedEdge.to || edgeId(edge) === edgeId(selectedEdge)) {
+            continue;
+        }
+        for (const binding of edge.bindings ?? []) {
+            const resolvedInput = resolveInputPort(inputPorts, binding.inputKey);
+            const inputIdentity = resolvedInput.port?.isList
+                ? binding.inputKey
+                : resolvedInput.resolvedKey;
+            usedInputInOtherEdges.add(inputIdentity);
+        }
+    }
 
     for (const binding of bindings) {
         const outputPort = findPortByKey(outputPorts, binding.outputKey);
         if (!outputPort) {
             return `Output key "${binding.outputKey}" was not found on source node.`;
         }
-        const inputPort = findPortByKey(inputPorts, binding.inputKey);
+        const resolvedInput = resolveInputPort(inputPorts, binding.inputKey);
+        const inputPort = resolvedInput.port;
         if (!inputPort) {
             return `Input key "${binding.inputKey}" was not found on target node.`;
         }
         if (outputPort.type !== inputPort.type) {
             return `Type mismatch: "${binding.outputKey}"(${outputPort.type}) -> "${binding.inputKey}"(${inputPort.type}).`;
         }
-        if (usedInputInEdge.has(binding.inputKey)) {
+        const inputIdentity = inputPort.isList ? binding.inputKey : resolvedInput.resolvedKey;
+        if (usedInputInEdge.has(inputIdentity)) {
             return `Duplicate input key "${binding.inputKey}" in the same edge is not allowed.`;
         }
-        usedInputInEdge.add(binding.inputKey);
-        if (usedInputInOtherEdges.has(binding.inputKey)) {
+        usedInputInEdge.add(inputIdentity);
+        if (usedInputInOtherEdges.has(inputIdentity)) {
             return `Input key "${binding.inputKey}" conflicts with another upstream edge.`;
         }
     }
@@ -126,7 +157,9 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
 
         const nextBindings = [...(selectedEdge.bindings ?? []), {
             outputKey: firstOutput.key,
-            inputKey: firstInput.key
+            inputKey: firstInput.isList
+                ? buildListPortHandleKey(firstInput.key, 0)
+                : firstInput.key
         }];
         updateEdgeWithValidation(nextBindings);
     };

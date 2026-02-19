@@ -23,6 +23,12 @@ function isBinaryValue(value: TPortValue): value is IPortBinaryValue {
 }
 
 function isPortValueCompatible(port: IPortDefinition, value: TPortValue): boolean {
+    if (port.isList) {
+        if (!Array.isArray(value)) {
+            return false;
+        }
+        return value.every((item) => isPortValueCompatible({ ...port, isList: false }, item));
+    }
     switch (port.type) {
         case 'string':
             return typeof value === 'string';
@@ -79,6 +85,51 @@ function validateRequiredPorts(
                 };
             }
             continue;
+        }
+
+        if (port.isList) {
+            if (!Array.isArray(value)) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        mode === 'input'
+                            ? 'DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH'
+                            : 'DAG_VALIDATION_NODE_OUTPUT_TYPE_MISMATCH',
+                        mode === 'input'
+                            ? 'List input port must receive array payload'
+                            : 'List output port must emit array payload',
+                        { nodeId, key: port.key, type: port.type }
+                    )
+                };
+            }
+            if (typeof port.minItems === 'number' && value.length < port.minItems) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        mode === 'input'
+                            ? 'DAG_VALIDATION_NODE_INPUT_MIN_ITEMS_NOT_SATISFIED'
+                            : 'DAG_VALIDATION_NODE_OUTPUT_MIN_ITEMS_NOT_SATISFIED',
+                        mode === 'input'
+                            ? 'List input port does not satisfy minItems'
+                            : 'List output port does not satisfy minItems',
+                        { nodeId, key: port.key, minItems: port.minItems, actualItems: value.length }
+                    )
+                };
+            }
+            if (typeof port.maxItems === 'number' && value.length > port.maxItems) {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        mode === 'input'
+                            ? 'DAG_VALIDATION_NODE_INPUT_MAX_ITEMS_EXCEEDED'
+                            : 'DAG_VALIDATION_NODE_OUTPUT_MAX_ITEMS_EXCEEDED',
+                        mode === 'input'
+                            ? 'List input port exceeds maxItems'
+                            : 'List output port exceeds maxItems',
+                        { nodeId, key: port.key, maxItems: port.maxItems, actualItems: value.length }
+                    )
+                };
+            }
         }
 
         if (!isPortValueCompatible(port, value)) {

@@ -23,7 +23,7 @@ export interface IPortBinaryValue {
 }
 
 export type TPortObjectValue = Record<string, TPortPrimitive>;
-export type TPortArrayValue = TPortPrimitive[];
+export type TPortArrayValue = TPortValue[];
 
 export type TPortValue =
     | TPortPrimitive
