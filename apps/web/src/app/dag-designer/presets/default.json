@@ -12,6 +12,10 @@
       {
         "nodeId": "input_1",
         "nodeType": "input",
+        "position": {
+          "x": 120,
+          "y": 220
+        },
         "dependsOn": [],
         "inputs": [],
         "outputs": [
@@ -30,6 +34,10 @@
       {
         "nodeId": "llm_text_1",
         "nodeType": "llm-text",
+        "position": {
+          "x": 520,
+          "y": 220
+        },
         "dependsOn": [
           "input_1"
         ],
@@ -60,6 +68,10 @@
       {
         "nodeId": "text_output_1",
         "nodeType": "text-output",
+        "position": {
+          "x": 920,
+          "y": 220
+        },
         "dependsOn": [
           "llm_text_1"
         ],

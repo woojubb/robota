@@ -14,6 +14,7 @@ import {
     type INodeLifecycleFactory,
     type INodeManifest,
     type INodeManifestRegistry,
+    type IStoragePort,
     type TRunProgressEvent,
     type TPortPayload
 } from '@robota-sdk/dag-core';
@@ -175,6 +176,7 @@ export interface IDagServerBootstrapOptions {
     nodeLifecycleFactory: INodeLifecycleFactory;
     nodeCatalogService: INodeCatalogService;
     assetStore: IAssetStore;
+    storage?: IStoragePort;
     llmCompletionClient?: ILlmTextCompletionClient;
     port?: number;
     corsOrigins?: string[];
@@ -402,7 +404,7 @@ export async function startDagServer(options: IDagServerBootstrapOptions): Promi
     }));
     app.use(express.json({ limit: requestBodyLimit }));
 
-    const storage = new InMemoryStoragePort();
+    const storage = options.storage ?? new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const deadLetterQueue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
