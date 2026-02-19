@@ -12,6 +12,10 @@
     {
       "templateId": "gemini-image-edit",
       "documentFile": "gemini-image-edit.json"
+    },
+    {
+      "templateId": "gemini-seedance-video",
+      "documentFile": "gemini-seedance-video.json"
     }
   ]
 }

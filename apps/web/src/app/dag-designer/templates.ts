@@ -3,8 +3,9 @@ import templateCatalogDocument from "./presets/index.json";
 import blankTemplatePresetDocument from "./presets/blank.json";
 import defaultTemplatePresetDocument from "./presets/default.json";
 import geminiImageEditTemplatePresetDocument from "./presets/gemini-image-edit.json";
+import geminiSeedanceVideoTemplatePresetDocument from "./presets/gemini-seedance-video.json";
 
-export type TDagTemplateKey = "blank" | "default" | "gemini-image-edit";
+export type TDagTemplateKey = "blank" | "default" | "gemini-image-edit" | "gemini-seedance-video";
 
 export interface IDagTemplateContext {
   dagId: string;
@@ -38,6 +39,7 @@ const TEMPLATE_DOCUMENTS_BY_FILE: Record<string, IDagTemplatePreset> = {
   "blank.json": blankTemplatePresetDocument as IDagTemplatePreset,
   "default.json": defaultTemplatePresetDocument as IDagTemplatePreset,
   "gemini-image-edit.json": geminiImageEditTemplatePresetDocument as IDagTemplatePreset,
+  "gemini-seedance-video.json": geminiSeedanceVideoTemplatePresetDocument as IDagTemplatePreset,
 };
 
 function buildTemplateRegistryFromCatalog(catalog: ITemplateCatalogDocument): Record<TDagTemplateKey, IDagTemplatePreset> {

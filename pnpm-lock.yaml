@@ -72,6 +72,9 @@ importers:
       '@robota-sdk/anthropic':
         specifier: workspace:*
         version: link:../../packages/anthropic
+      '@robota-sdk/bytedance':
+        specifier: workspace:*
+        version: link:../../packages/bytedance
       '@robota-sdk/dag-api':
         specifier: workspace:*
         version: link:../../packages/dag-api
@@ -96,6 +99,9 @@ importers:
       '@robota-sdk/dag-node-ok-emitter':
         specifier: workspace:*
         version: link:../../packages/dag-nodes/ok-emitter
+      '@robota-sdk/dag-node-seedance-video':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/seedance-video
       '@robota-sdk/dag-node-text-output':
         specifier: workspace:*
         version: link:../../packages/dag-nodes/text-output
@@ -633,6 +639,31 @@ importers:
         version: 1.6.1(@types/node@20.19.9)
 
   packages/dag-nodes/ok-emitter:
+    dependencies:
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../../dag-core
+      zod:
+        specifier: ^3.24.4
+        version: 3.25.76
+    devDependencies:
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.20.3)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/dag-nodes/seedance-video:
     dependencies:
       '@robota-sdk/dag-core':
         specifier: workspace:*

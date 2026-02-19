@@ -1,4 +1,6 @@
 import type {
+    IInlineImageInputSource,
+    IUriImageInputSource,
     IProviderMediaError,
     TProviderMediaResult,
     IVideoGenerationProvider,
@@ -8,14 +10,16 @@ import type {
 } from '@robota-sdk/agents';
 import type {
     IBytedanceApiErrorResponse,
-    IBytedanceCreateVideoResponse,
+    IBytedanceCreateVideoTaskRequest,
+    IBytedanceCreateVideoTaskResponse,
     IBytedanceProviderOptions,
-    IBytedanceVideoJobResponse
+    IBytedanceVideoTaskResponse,
+    TBytedanceTaskContent
 } from './types';
 
-const DEFAULT_CREATE_VIDEO_PATH = '/seedance/v2/videos';
-const DEFAULT_GET_VIDEO_JOB_PATH_TEMPLATE = '/seedance/v2/videos/{jobId}';
-const DEFAULT_CANCEL_VIDEO_JOB_PATH_TEMPLATE = '/seedance/v2/videos/{jobId}/cancel';
+const DEFAULT_CREATE_VIDEO_PATH = '/contents/generations/tasks';
+const DEFAULT_GET_VIDEO_TASK_PATH_TEMPLATE = '/contents/generations/tasks/{taskId}';
+const DEFAULT_CANCEL_VIDEO_TASK_PATH_TEMPLATE = '/contents/generations/tasks/{taskId}';
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 export class BytedanceProvider implements IVideoGenerationProvider {
@@ -32,18 +36,33 @@ export class BytedanceProvider implements IVideoGenerationProvider {
         if (request.model.trim().length === 0) {
             return this.buildInvalidRequestError('Video generation requires non-empty model.');
         }
+        if (typeof request.seed === 'number') {
+            return this.buildInvalidRequestError('ModelArk Seedance provider does not support seed field in current contract.');
+        }
 
-        const responseResult = await this.requestJson<IBytedanceCreateVideoResponse>({
+        const contentResult = this.buildContentPayload(request.prompt, request.inputImages);
+        if (!contentResult.ok) {
+            return contentResult;
+        }
+
+        const payload: IBytedanceCreateVideoTaskRequest = {
+            model: request.model.trim(),
+            content: contentResult.value,
+            duration: request.durationSeconds,
+            ratio: request.aspectRatio
+        };
+
+        const responseResult = await this.requestJson<IBytedanceCreateVideoTaskResponse>({
             path: this.options.createVideoPath ?? DEFAULT_CREATE_VIDEO_PATH,
             method: 'POST',
-            body: JSON.stringify(request)
+            body: JSON.stringify(payload)
         });
         if (!responseResult.ok) {
             return responseResult;
         }
 
-        if (responseResult.value.jobId.trim().length === 0) {
-            return this.buildUpstreamError('Bytedance createVideo response is missing jobId.');
+        if (responseResult.value.id.trim().length === 0) {
+            return this.buildUpstreamError('Bytedance createVideo response is missing task id.');
         }
         const mappedStatus = this.mapInitialStatus(responseResult.value.status);
         if (!mappedStatus.ok) {
@@ -52,9 +71,9 @@ export class BytedanceProvider implements IVideoGenerationProvider {
         return {
             ok: true,
             value: {
-                jobId: responseResult.value.jobId,
+                jobId: responseResult.value.id,
                 status: mappedStatus.value,
-                createdAt: responseResult.value.createdAt ?? new Date().toISOString()
+                createdAt: this.toIsoTimestamp(responseResult.value.created_at)
             }
         };
     }
@@ -64,9 +83,9 @@ export class BytedanceProvider implements IVideoGenerationProvider {
             return this.buildInvalidRequestError('Video job lookup requires non-empty jobId.');
         }
 
-        const responseResult = await this.requestJson<IBytedanceVideoJobResponse>({
+        const responseResult = await this.requestJson<IBytedanceVideoTaskResponse>({
             path: this.buildPath(
-                this.options.getVideoJobPathTemplate ?? DEFAULT_GET_VIDEO_JOB_PATH_TEMPLATE,
+                this.options.getVideoTaskPathTemplate ?? DEFAULT_GET_VIDEO_TASK_PATH_TEMPLATE,
                 jobId
             ),
             method: 'GET'
@@ -82,12 +101,13 @@ export class BytedanceProvider implements IVideoGenerationProvider {
             return this.buildInvalidRequestError('Video job cancellation requires non-empty jobId.');
         }
 
-        const responseResult = await this.requestJson<IBytedanceVideoJobResponse>({
+        const cancelMethod = this.options.cancelVideoTaskMethod ?? 'DELETE';
+        const responseResult = await this.requestJson<IBytedanceVideoTaskResponse>({
             path: this.buildPath(
-                this.options.cancelVideoJobPathTemplate ?? DEFAULT_CANCEL_VIDEO_JOB_PATH_TEMPLATE,
+                this.options.cancelVideoTaskPathTemplate ?? DEFAULT_CANCEL_VIDEO_TASK_PATH_TEMPLATE,
                 jobId
             ),
-            method: 'POST'
+            method: cancelMethod
         });
         if (!responseResult.ok) {
             return responseResult;
@@ -98,7 +118,7 @@ export class BytedanceProvider implements IVideoGenerationProvider {
     private async requestJson<TResponse>(
         request: {
             path: string;
-            method: 'GET' | 'POST';
+            method: 'GET' | 'POST' | 'DELETE';
             body?: string;
         }
     ): Promise<TProviderMediaResult<TResponse>> {
@@ -242,26 +262,9 @@ export class BytedanceProvider implements IVideoGenerationProvider {
         }
     }
 
-    private mapInitialStatus(status: string): TProviderMediaResult<'queued' | 'running'> {
-        const normalized = status.trim().toLowerCase();
-        if (normalized === 'queued') {
-            return { ok: true, value: 'queued' };
-        }
-        if (normalized === 'running') {
-            return { ok: true, value: 'running' };
-        }
-        return {
-            ok: false,
-            error: {
-                code: 'PROVIDER_UPSTREAM_ERROR',
-                message: `Unexpected createVideo status from Bytedance: ${status}`
-            }
-        };
-    }
-
-    private mapVideoJobSnapshot(response: IBytedanceVideoJobResponse): TProviderMediaResult<IVideoJobSnapshot> {
-        if (response.jobId.trim().length === 0) {
-            return this.buildUpstreamError('Bytedance video job response is missing jobId.');
+    private mapVideoJobSnapshot(response: IBytedanceVideoTaskResponse): TProviderMediaResult<IVideoJobSnapshot> {
+        if (response.id.trim().length === 0) {
+            return this.buildUpstreamError('Bytedance video job response is missing task id.');
         }
         const normalizedStatusResult = this.mapVideoStatus(response.status);
         if (!normalizedStatusResult.ok) {
@@ -270,30 +273,36 @@ export class BytedanceProvider implements IVideoGenerationProvider {
         return {
             ok: true,
             value: {
-                jobId: response.jobId,
+                jobId: response.id,
                 status: normalizedStatusResult.value,
                 output: this.mapOutput(response),
-                error: normalizedStatusResult.value === 'failed' && response.errorMessage
+                error: normalizedStatusResult.value === 'failed' && response.error_message
                     ? {
                         code: 'PROVIDER_UPSTREAM_ERROR',
-                        message: response.errorMessage
+                        message: response.error_message
                     }
                     : undefined,
-                updatedAt: response.updatedAt ?? new Date().toISOString()
+                updatedAt: this.toIsoTimestamp(response.updated_at ?? response.created_at)
             }
         };
     }
 
     private mapVideoStatus(status: string): TProviderMediaResult<IVideoJobSnapshot['status']> {
         const normalized = status.trim().toLowerCase();
-        if (
-            normalized === 'queued'
-            || normalized === 'running'
-            || normalized === 'succeeded'
-            || normalized === 'failed'
-            || normalized === 'cancelled'
-        ) {
-            return { ok: true, value: normalized };
+        if (normalized === 'queued' || normalized === 'pending' || normalized === 'submitted') {
+            return { ok: true, value: 'queued' };
+        }
+        if (normalized === 'running' || normalized === 'processing' || normalized === 'in_progress') {
+            return { ok: true, value: 'running' };
+        }
+        if (normalized === 'succeeded' || normalized === 'success' || normalized === 'completed') {
+            return { ok: true, value: 'succeeded' };
+        }
+        if (normalized === 'failed' || normalized === 'error') {
+            return { ok: true, value: 'failed' };
+        }
+        if (normalized === 'cancelled' || normalized === 'canceled') {
+            return { ok: true, value: 'cancelled' };
         }
         return {
             ok: false,
@@ -304,14 +313,22 @@ export class BytedanceProvider implements IVideoGenerationProvider {
         };
     }
 
-    private mapOutput(response: IBytedanceVideoJobResponse): IVideoJobSnapshot['output'] {
-        if (typeof response.outputUrl !== 'string' || response.outputUrl.trim().length === 0) {
+    private mapOutput(response: IBytedanceVideoTaskResponse): IVideoJobSnapshot['output'] {
+        const directVideoUrl = typeof response.video_url === 'string' && response.video_url.trim().length > 0
+            ? response.video_url
+            : undefined;
+        const contentVideoUrl = typeof response.content?.video_url === 'string'
+            && response.content.video_url.trim().length > 0
+            ? response.content.video_url
+            : undefined;
+        const resolvedVideoUrl = directVideoUrl ?? contentVideoUrl;
+        if (typeof resolvedVideoUrl !== 'string') {
             return undefined;
         }
         return {
             kind: 'uri',
-            uri: response.outputUrl,
-            mimeType: response.mimeType,
+            uri: resolvedVideoUrl,
+            mimeType: response.mime_type,
             bytes: response.bytes
         };
     }
@@ -324,8 +341,8 @@ export class BytedanceProvider implements IVideoGenerationProvider {
         return `${sanitizedBaseUrl}${sanitizedPath}`;
     }
 
-    private buildPath(template: string, jobId: string): string {
-        return template.replace('{jobId}', encodeURIComponent(jobId));
+    private buildPath(template: string, taskId: string): string {
+        return template.replace('{taskId}', encodeURIComponent(taskId));
     }
 
     private buildInvalidRequestError(message: string): TProviderMediaResult<never> {
@@ -344,6 +361,106 @@ export class BytedanceProvider implements IVideoGenerationProvider {
             error: {
                 code: 'PROVIDER_UPSTREAM_ERROR',
                 message
+            }
+        };
+    }
+
+    private toIsoTimestamp(value: string | number | undefined): string {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            const numericTimestamp = value > 1_000_000_000_000 ? value : value * 1000;
+            const date = new Date(numericTimestamp);
+            if (!Number.isNaN(date.getTime())) {
+                return date.toISOString();
+            }
+        }
+        if (typeof value === 'string' && value.trim().length > 0) {
+            const maybeNumeric = Number(value);
+            if (Number.isFinite(maybeNumeric)) {
+                return this.toIsoTimestamp(maybeNumeric);
+            }
+            const parsedDate = new Date(value);
+            if (!Number.isNaN(parsedDate.getTime())) {
+                return parsedDate.toISOString();
+            }
+        }
+        return new Date().toISOString();
+    }
+
+    private buildContentPayload(
+        prompt: string,
+        inputImages: IVideoGenerationRequest['inputImages']
+    ): TProviderMediaResult<TBytedanceTaskContent[]> {
+        const normalizedPrompt = prompt.trim();
+        if (normalizedPrompt.length === 0) {
+            return this.buildInvalidRequestError('Video generation requires non-empty prompt.');
+        }
+        const content: TBytedanceTaskContent[] = [
+            {
+                type: 'text',
+                text: normalizedPrompt
+            }
+        ];
+        if (Array.isArray(inputImages)) {
+            for (const image of inputImages) {
+                const imageUrlResult = this.toContentImageUrl(image);
+                if (!imageUrlResult.ok) {
+                    return imageUrlResult;
+                }
+                content.push({
+                    type: 'image_url',
+                    image_url: {
+                        url: imageUrlResult.value
+                    }
+                });
+            }
+        }
+        return {
+            ok: true,
+            value: content
+        };
+    }
+
+    private toContentImageUrl(image: IInlineImageInputSource | IUriImageInputSource): TProviderMediaResult<string> {
+        if (image.kind === 'uri') {
+            if (image.uri.trim().length === 0) {
+                return this.buildInvalidRequestError('Image uri must be non-empty.');
+            }
+            return {
+                ok: true,
+                value: image.uri
+            };
+        }
+        if (image.data.trim().length === 0) {
+            return this.buildInvalidRequestError('Inline image data must be non-empty.');
+        }
+        if (image.mimeType.trim().length === 0) {
+            return this.buildInvalidRequestError('Inline image mimeType must be non-empty.');
+        }
+        return {
+            ok: true,
+            value: `data:${image.mimeType};base64,${image.data}`
+        };
+    }
+
+    private mapInitialStatus(statusValue: string | undefined): TProviderMediaResult<'queued' | 'running'> {
+        if (typeof statusValue !== 'string' || statusValue.trim().length === 0) {
+            return {
+                ok: true,
+                value: 'queued'
+            };
+        }
+        const normalizedStatus = statusValue.trim().toLowerCase();
+        if (normalizedStatus === 'queued' || normalizedStatus === 'pending' || normalizedStatus === 'submitted') {
+            return { ok: true, value: 'queued' };
+        }
+        if (normalizedStatus === 'running' || normalizedStatus === 'processing' || normalizedStatus === 'in_progress') {
+            return { ok: true, value: 'running' };
+        }
+        return {
+            ok: false,
+            error: {
+                code: 'PROVIDER_UPSTREAM_ERROR',
+                message: `Unexpected createVideo status from Bytedance: ${statusValue}`
             }
         };
     }

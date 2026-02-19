@@ -18,6 +18,7 @@ import {
     GeminiImageComposeNodeDefinition,
     GeminiImageEditNodeDefinition
 } from '@robota-sdk/dag-node-gemini-image-edit';
+import { SeedanceVideoNodeDefinition } from '@robota-sdk/dag-node-seedance-video';
 import {
     startDagServer,
     BundledNodeCatalogService
@@ -25,6 +26,7 @@ import {
 import { createRobotaLlmCompletionClientFromEnv } from './services/robota-llm-completion-client.js';
 import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
 import { createRobotaGeminiImageClientFromEnv } from './services/robota-gemini-image-client.js';
+import { createRobotaSeedanceVideoClientFromEnv } from './services/robota-seedance-video-client.js';
 import { resolveApiDocsEnabled } from './utils/env-flags.js';
 
 dotenv.config({
@@ -92,6 +94,7 @@ async function bootstrapDagDevServer(): Promise<void> {
     await assetStore.initialize();
 
     const geminiImageClient = createRobotaGeminiImageClientFromEnv(assetStore);
+    const seedanceVideoClient = createRobotaSeedanceVideoClientFromEnv(assetStore);
 
     const defaultNodeDefinitions: IDagNodeDefinition[] = [
         new InputNodeDefinition(),
@@ -108,6 +111,9 @@ async function bootstrapDagDevServer(): Promise<void> {
         }),
         new GeminiImageComposeNodeDefinition({
             imageClient: geminiImageClient
+        }),
+        new SeedanceVideoNodeDefinition({
+            videoClient: seedanceVideoClient
         }),
         new OkEmitterNodeDefinition()
     ];
