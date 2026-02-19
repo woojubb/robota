@@ -93,9 +93,9 @@ importers:
       '@robota-sdk/dag-node-input':
         specifier: workspace:*
         version: link:../../packages/dag-nodes/input
-      '@robota-sdk/dag-node-llm-text':
+      '@robota-sdk/dag-node-llm-text-openai':
         specifier: workspace:*
-        version: link:../../packages/dag-nodes/llm-text
+        version: link:../../packages/dag-nodes/llm-text-openai
       '@robota-sdk/dag-node-ok-emitter':
         specifier: workspace:*
         version: link:../../packages/dag-nodes/ok-emitter
@@ -469,9 +469,9 @@ importers:
       '@robota-sdk/dag-node-input':
         specifier: workspace:*
         version: link:../dag-nodes/input
-      '@robota-sdk/dag-node-llm-text':
+      '@robota-sdk/dag-node-llm-text-openai':
         specifier: workspace:*
-        version: link:../dag-nodes/llm-text
+        version: link:../dag-nodes/llm-text-openai
       '@robota-sdk/dag-node-ok-emitter':
         specifier: workspace:*
         version: link:../dag-nodes/ok-emitter
@@ -515,13 +515,22 @@ importers:
 
   packages/dag-nodes/gemini-image-edit:
     dependencies:
+      '@robota-sdk/agents':
+        specifier: workspace:*
+        version: link:../../agents
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/google':
+        specifier: workspace:*
+        version: link:../../google
       zod:
         specifier: ^3.24.4
         version: 3.25.76
     devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.9
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -613,15 +622,24 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
-  packages/dag-nodes/llm-text:
+  packages/dag-nodes/llm-text-openai:
     dependencies:
+      '@robota-sdk/agents':
+        specifier: workspace:*
+        version: link:../../agents
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/openai':
+        specifier: workspace:*
+        version: link:../../openai
       zod:
         specifier: ^3.24.4
         version: 3.25.76
     devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.9
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -665,6 +683,12 @@ importers:
 
   packages/dag-nodes/seedance-video:
     dependencies:
+      '@robota-sdk/agents':
+        specifier: workspace:*
+        version: link:../../agents
+      '@robota-sdk/bytedance':
+        specifier: workspace:*
+        version: link:../../bytedance
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
@@ -672,6 +696,9 @@ importers:
         specifier: ^3.24.4
         version: 3.25.76
     devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.9
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -843,9 +870,6 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
-      '@robota-sdk/dag-node-llm-text':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text
       cors:
         specifier: ^2.8.5
         version: 2.8.5

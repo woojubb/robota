@@ -38,10 +38,13 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@robota-sdk/agents": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/google": "workspace:*",
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@types/node": "^20.10.0",
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",
