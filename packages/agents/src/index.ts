@@ -96,8 +96,28 @@ export type {
     IToolSchema,
     IProviderOptions,
     IChatOptions,
-    IAIProvider
-} from './interfaces/provider';
+    IAIProvider,
+    IMediaOutputRef,
+    IProviderMediaError,
+    TProviderMediaResult,
+    IInlineImageInputSource,
+    IUriImageInputSource,
+    TImageInputSource,
+    IImageGenerationRequest,
+    IImageEditRequest,
+    IImageComposeRequest,
+    IImageGenerationResult,
+    IImageGenerationProvider,
+    IVideoGenerationRequest,
+    IVideoJobAccepted,
+    IVideoJobSnapshot,
+    IVideoGenerationProvider
+} from './interfaces';
+
+export {
+    isImageGenerationProvider,
+    isVideoGenerationProvider
+} from './interfaces/media-provider';
 
 /**
  * Message type definitions for conversation management.

@@ -9,7 +9,14 @@ import type {
     IUserMessage,
     ISystemMessage,
     IToolMessage,
-    TUniversalMessagePart
+    TUniversalMessagePart,
+    IImageGenerationProvider,
+    IImageGenerationRequest,
+    IImageEditRequest,
+    IImageComposeRequest,
+    IImageGenerationResult,
+    IMediaOutputRef,
+    TProviderMediaResult
 } from '@robota-sdk/agents';
 
 
@@ -27,7 +34,7 @@ import type {
  * 
  * @public
  */
-export class GoogleProvider extends AbstractAIProvider {
+export class GoogleProvider extends AbstractAIProvider implements IImageGenerationProvider {
     override readonly name = 'google';
     override readonly version = '1.0.0';
 
@@ -167,6 +174,131 @@ export class GoogleProvider extends AbstractAIProvider {
             const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
             throw new Error(`Google stream failed: ${errorMessage}`);
         }
+    }
+
+    public async generateImage(request: IImageGenerationRequest): Promise<TProviderMediaResult<IImageGenerationResult>> {
+        if (request.prompt.trim().length === 0) {
+            return {
+                ok: false,
+                error: {
+                    code: 'PROVIDER_INVALID_REQUEST',
+                    message: 'Image generation requires a non-empty prompt.'
+                }
+            };
+        }
+        if (request.model.trim().length === 0) {
+            return {
+                ok: false,
+                error: {
+                    code: 'PROVIDER_INVALID_REQUEST',
+                    message: 'Image generation requires a non-empty model.'
+                }
+            };
+        }
+
+        const message: TUniversalMessage = {
+            role: 'user',
+            content: request.prompt,
+            parts: [
+                {
+                    type: 'text',
+                    text: request.prompt
+                }
+            ],
+            timestamp: new Date()
+        };
+        return this.runImageRequest([message], request.model);
+    }
+
+    public async editImage(request: IImageEditRequest): Promise<TProviderMediaResult<IImageGenerationResult>> {
+        if (request.prompt.trim().length === 0) {
+            return {
+                ok: false,
+                error: {
+                    code: 'PROVIDER_INVALID_REQUEST',
+                    message: 'Image edit requires a non-empty prompt.'
+                }
+            };
+        }
+        if (request.model.trim().length === 0) {
+            return {
+                ok: false,
+                error: {
+                    code: 'PROVIDER_INVALID_REQUEST',
+                    message: 'Image edit requires a non-empty model.'
+                }
+            };
+        }
+
+        const inputPartResult = this.mapImageInputSourceToPart(request.image);
+        if (!inputPartResult.ok) {
+            return inputPartResult;
+        }
+
+        const message: TUniversalMessage = {
+            role: 'user',
+            content: request.prompt,
+            parts: [
+                inputPartResult.value,
+                {
+                    type: 'text',
+                    text: request.prompt
+                }
+            ],
+            timestamp: new Date()
+        };
+        return this.runImageRequest([message], request.model);
+    }
+
+    public async composeImage(request: IImageComposeRequest): Promise<TProviderMediaResult<IImageGenerationResult>> {
+        if (request.prompt.trim().length === 0) {
+            return {
+                ok: false,
+                error: {
+                    code: 'PROVIDER_INVALID_REQUEST',
+                    message: 'Image compose requires a non-empty prompt.'
+                }
+            };
+        }
+        if (request.model.trim().length === 0) {
+            return {
+                ok: false,
+                error: {
+                    code: 'PROVIDER_INVALID_REQUEST',
+                    message: 'Image compose requires a non-empty model.'
+                }
+            };
+        }
+        if (request.images.length < 2) {
+            return {
+                ok: false,
+                error: {
+                    code: 'PROVIDER_INVALID_REQUEST',
+                    message: 'Image compose requires at least two input images.'
+                }
+            };
+        }
+
+        const messageParts: TUniversalMessagePart[] = [];
+        for (const imageSource of request.images) {
+            const mappedPartResult = this.mapImageInputSourceToPart(imageSource);
+            if (!mappedPartResult.ok) {
+                return mappedPartResult;
+            }
+            messageParts.push(mappedPartResult.value);
+        }
+        messageParts.push({
+            type: 'text',
+            text: request.prompt
+        });
+
+        const message: TUniversalMessage = {
+            role: 'user',
+            content: request.prompt,
+            parts: messageParts,
+            timestamp: new Date()
+        };
+        return this.runImageRequest([message], request.model);
     }
 
     override supportsTools(): boolean {
@@ -395,6 +527,135 @@ export class GoogleProvider extends AbstractAIProvider {
             parts.push({ text: message.content });
         }
         return parts;
+    }
+
+    private async runImageRequest(
+        messages: TUniversalMessage[],
+        model: string
+    ): Promise<TProviderMediaResult<IImageGenerationResult>> {
+        try {
+            const response = await this.chat(messages, {
+                model,
+                google: {
+                    responseModalities: ['TEXT', 'IMAGE']
+                }
+            });
+            const outputs = this.mapInlineImagePartsToMediaOutputs(response.parts);
+            if (outputs.length === 0) {
+                return {
+                    ok: false,
+                    error: {
+                        code: 'PROVIDER_UPSTREAM_ERROR',
+                        message: 'Google image response did not include image output parts.'
+                    }
+                };
+            }
+            return {
+                ok: true,
+                value: {
+                    outputs,
+                    model
+                }
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Google image request failed.';
+            return {
+                ok: false,
+                error: {
+                    code: 'PROVIDER_UPSTREAM_ERROR',
+                    message: errorMessage
+                }
+            };
+        }
+    }
+
+    private mapInlineImagePartsToMediaOutputs(parts: TUniversalMessagePart[] | undefined): IMediaOutputRef[] {
+        if (!parts) {
+            return [];
+        }
+        const outputs: IMediaOutputRef[] = [];
+        for (const part of parts) {
+            if (part.type !== 'image_inline') {
+                continue;
+            }
+            outputs.push({
+                kind: 'uri',
+                uri: `data:${part.mimeType};base64,${part.data}`,
+                mimeType: part.mimeType
+            });
+        }
+        return outputs;
+    }
+
+    private mapImageInputSourceToPart(
+        source: IImageEditRequest['image'] | IImageComposeRequest['images'][number]
+    ): TProviderMediaResult<TUniversalMessagePart> {
+        if (source.kind === 'inline') {
+            if (source.mimeType.trim().length === 0 || source.data.trim().length === 0) {
+                return {
+                    ok: false,
+                    error: {
+                        code: 'PROVIDER_INVALID_REQUEST',
+                        message: 'Inline image source requires non-empty mimeType and data.'
+                    }
+                };
+            }
+            return {
+                ok: true,
+                value: {
+                    type: 'image_inline',
+                    mimeType: source.mimeType,
+                    data: source.data
+                }
+            };
+        }
+        if (!source.uri.startsWith('data:')) {
+            return {
+                ok: false,
+                error: {
+                    code: 'PROVIDER_INVALID_REQUEST',
+                    message: 'Google image provider supports only inline or data URI input sources.'
+                }
+            };
+        }
+        const parsedDataUri = this.parseDataUri(source.uri);
+        if (!parsedDataUri) {
+            return {
+                ok: false,
+                error: {
+                    code: 'PROVIDER_INVALID_REQUEST',
+                    message: 'Data URI source must use base64 payload.'
+                }
+            };
+        }
+        return {
+            ok: true,
+            value: {
+                type: 'image_inline',
+                mimeType: parsedDataUri.mimeType,
+                data: parsedDataUri.data
+            }
+        };
+    }
+
+    private parseDataUri(uri: string): { mimeType: string; data: string } | undefined {
+        const commaIndex = uri.indexOf(',');
+        if (commaIndex < 0) {
+            return undefined;
+        }
+        const header = uri.slice(0, commaIndex);
+        const payload = uri.slice(commaIndex + 1);
+        if (!header.endsWith(';base64')) {
+            return undefined;
+        }
+        const mimeType = header.replace('data:', '').replace(';base64', '').trim();
+        if (mimeType.length === 0 || payload.trim().length === 0) {
+            return undefined;
+        }
+        return {
+            mimeType,
+            data: payload
+        };
     }
 
     private hasImagePart(parts: TUniversalMessagePart[] | undefined): boolean {

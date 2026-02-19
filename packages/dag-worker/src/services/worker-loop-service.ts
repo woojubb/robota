@@ -7,6 +7,7 @@ import {
     buildLeaseError,
     buildTaskExecutionError,
     buildValidationError,
+    parseListPortHandleKey,
     type IClockPort,
     type IDagDefinition,
     type IDagRun,
@@ -504,6 +505,17 @@ export class WorkerLoopService {
         taskRuns: ITaskRun[],
         downstreamNodeId: string
     ): TResult<TPortPayload, IDagError> {
+        const downstreamNode = definition.nodes.find((node) => node.nodeId === downstreamNodeId);
+        if (!downstreamNode) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_DOWNSTREAM_NODE_NOT_FOUND',
+                    'Downstream node was not found while building payload',
+                    { downstreamNodeId }
+                )
+            };
+        }
         const incomingEdges = definition.edges.filter((edge) => edge.to === downstreamNodeId);
         if (incomingEdges.length === 0) {
             return {
@@ -579,6 +591,46 @@ export class WorkerLoopService {
                     };
                 }
 
+                const directInputPort = downstreamNode.inputs.find((port) => port.key === binding.inputKey);
+                if (directInputPort?.isList) {
+                    if (!Array.isArray(payload[binding.inputKey])) {
+                        payload[binding.inputKey] = [];
+                    }
+                    const listPayload = payload[binding.inputKey];
+                    if (!Array.isArray(listPayload)) {
+                        return {
+                            ok: false,
+                            error: buildValidationError(
+                                'DAG_VALIDATION_BINDING_LIST_PAYLOAD_INVALID',
+                                'List payload container is invalid',
+                                { to: edge.to, inputKey: binding.inputKey }
+                            )
+                        };
+                    }
+                    listPayload.push(outputValue);
+                    continue;
+                }
+
+                const listHandle = parseListPortHandleKey(binding.inputKey);
+                if (listHandle) {
+                    const listPort = downstreamNode.inputs.find((port) => port.key === listHandle.portKey);
+                    if (!listPort?.isList) {
+                        return {
+                            ok: false,
+                            error: buildValidationError(
+                                'DAG_VALIDATION_BINDING_INPUT_KEY_MISSING',
+                                'Binding inputKey does not resolve to a valid list input port',
+                                { to: edge.to, inputKey: binding.inputKey }
+                            )
+                        };
+                    }
+                    const existingListValue = payload[listHandle.portKey];
+                    const listPayload = Array.isArray(existingListValue) ? existingListValue : [];
+                    listPayload[listHandle.index] = outputValue;
+                    payload[listHandle.portKey] = listPayload;
+                    continue;
+                }
+
                 if (typeof payload[binding.inputKey] !== 'undefined') {
                     return {
                         ok: false,
@@ -591,6 +643,17 @@ export class WorkerLoopService {
                 }
                 payload[binding.inputKey] = outputValue;
             }
+        }
+
+        for (const port of downstreamNode.inputs) {
+            if (!port.isList) {
+                continue;
+            }
+            const listValue = payload[port.key];
+            if (!Array.isArray(listValue)) {
+                continue;
+            }
+            payload[port.key] = listValue.filter((item) => typeof item !== 'undefined');
         }
 
         return {

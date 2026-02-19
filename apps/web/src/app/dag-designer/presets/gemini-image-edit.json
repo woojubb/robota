@@ -95,24 +95,13 @@
         ],
         "inputs": [
           {
-            "key": "imageA",
-            "label": "Image A",
+            "key": "images",
+            "label": "Images",
             "order": 0,
             "type": "binary",
             "required": true,
-            "binaryKind": "image",
-            "mimeTypes": [
-              "image/png",
-              "image/jpeg",
-              "image/webp"
-            ]
-          },
-          {
-            "key": "imageB",
-            "label": "Image B",
-            "order": 1,
-            "type": "binary",
-            "required": true,
+            "isList": true,
+            "minItems": 2,
             "binaryKind": "image",
             "mimeTypes": [
               "image/png",
@@ -123,7 +112,7 @@
           {
             "key": "prompt",
             "label": "Prompt",
-            "order": 2,
+            "order": 1,
             "type": "string",
             "required": true
           }
@@ -199,7 +188,7 @@
         "bindings": [
           {
             "outputKey": "image",
-            "inputKey": "imageA"
+            "inputKey": "images[0]"
           }
         ]
       },
@@ -209,7 +198,7 @@
         "bindings": [
           {
             "outputKey": "image",
-            "inputKey": "imageB"
+            "inputKey": "images[1]"
           }
         ]
       },

@@ -60,6 +60,9 @@ export interface IPortDefinition {
     description?: string;
     binaryKind?: TBinaryKind;
     mimeTypes?: string[];
+    isList?: boolean;
+    minItems?: number;
+    maxItems?: number;
 }
 
 export interface IBinaryPortPreset {
@@ -82,6 +85,9 @@ export interface IBinaryPortDefinitionInput {
     required: boolean;
     description?: string;
     preset: IBinaryPortPreset;
+    isList?: boolean;
+    minItems?: number;
+    maxItems?: number;
 }
 
 export function createBinaryPortDefinition(input: IBinaryPortDefinitionInput): IPortDefinition {
@@ -93,7 +99,10 @@ export function createBinaryPortDefinition(input: IBinaryPortDefinitionInput): I
         required: input.required,
         description: input.description,
         binaryKind: input.preset.binaryKind,
-        mimeTypes: [...input.preset.mimeTypes]
+        mimeTypes: [...input.preset.mimeTypes],
+        isList: input.isList,
+        minItems: input.minItems,
+        maxItems: input.maxItems
     };
 }
 
@@ -130,6 +139,29 @@ export interface IDagNode {
 export interface IEdgeBinding {
     outputKey: string;
     inputKey: string;
+}
+
+const LIST_PORT_HANDLE_PREFIX_SEPARATOR = '[';
+const LIST_PORT_HANDLE_SUFFIX = ']';
+
+export function buildListPortHandleKey(portKey: string, index: number): string {
+    return `${portKey}${LIST_PORT_HANDLE_PREFIX_SEPARATOR}${index}${LIST_PORT_HANDLE_SUFFIX}`;
+}
+
+export function parseListPortHandleKey(handleKey: string): { portKey: string; index: number } | undefined {
+    const startIndex = handleKey.lastIndexOf(LIST_PORT_HANDLE_PREFIX_SEPARATOR);
+    if (startIndex <= 0 || !handleKey.endsWith(LIST_PORT_HANDLE_SUFFIX)) {
+        return undefined;
+    }
+    const portKey = handleKey.slice(0, startIndex);
+    const rawIndex = handleKey.slice(startIndex + 1, handleKey.length - 1);
+    if (!/^\d+$/.test(rawIndex)) {
+        return undefined;
+    }
+    return {
+        portKey,
+        index: Number.parseInt(rawIndex, 10)
+    };
 }
 
 export interface IDagEdgeDefinition {

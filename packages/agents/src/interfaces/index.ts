@@ -43,6 +43,29 @@ export type {
 } from './provider';
 
 export type {
+    IMediaOutputRef,
+    IProviderMediaError,
+    TProviderMediaResult,
+    IInlineImageInputSource,
+    IUriImageInputSource,
+    TImageInputSource,
+    IImageGenerationRequest,
+    IImageEditRequest,
+    IImageComposeRequest,
+    IImageGenerationResult,
+    IImageGenerationProvider,
+    IVideoGenerationRequest,
+    IVideoJobAccepted,
+    IVideoJobSnapshot,
+    IVideoGenerationProvider
+} from './media-provider';
+
+export {
+    isImageGenerationProvider,
+    isVideoGenerationProvider
+} from './media-provider';
+
+export type {
     TAgentCreationMetadata,
     TManagerToolParameters,
     IConfigValidationResult,

@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import type { IPortDefinition, TPortPayload } from '@robota-sdk/dag-core';
+import { buildListPortHandleKey, type IPortDefinition, type TPortPayload } from '@robota-sdk/dag-core';
 import type { TNodeExecutionStatus } from './dag-designer-canvas.js';
 import { NodeIoViewer } from './node-io-viewer.js';
 
@@ -20,6 +20,7 @@ export interface IDagNodeViewData extends Record<string, unknown> {
     latestTrace?: IDagNodeIoTrace;
     assetBaseUrl?: string;
     traceSignature?: string;
+    inputHandlesByPortKey?: Record<string, string[]>;
 }
 
 export type TDagCanvasNode = Node<IDagNodeViewData, 'dag-node'>;
@@ -81,25 +82,43 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                     {inputs.length === 0 ? (
                         <div className="px-3 text-[11px] text-gray-400">No inputs</div>
                     ) : (
-                        inputs.map((port) => (
-                            <div key={`input-${port.key}`} className="relative px-3 pl-6">
-                                <Handle
-                                    type="target"
-                                    position={Position.Left}
-                                    id={port.key}
-                                    isConnectable
-                                    isConnectableStart={false}
-                                    isConnectableEnd
-                                    className="!h-3 !w-3"
-                                />
-                                <div className="leading-tight">
-                                    <div className="text-[10px] font-medium text-gray-700">{port.label ?? port.key}</div>
+                        inputs.map((port) => {
+                            const inputHandles = port.isList
+                                ? (props.data.inputHandlesByPortKey?.[port.key] ?? [buildListPortHandleKey(port.key, 0)])
+                                : [port.key];
+                            return (
+                                <div key={`input-${port.key}`} className="relative flex flex-col gap-1 pr-3">
+                                    {inputHandles.map((handleId, handleIndex) => {
+                                        const isPendingSlot = port.isList && handleIndex === inputHandles.length - 1;
+                                        return (
+                                            <div key={`${port.key}:${handleId}`} className="relative pl-6">
+                                                <Handle
+                                                    type="target"
+                                                    position={Position.Left}
+                                                    id={handleId}
+                                                    isConnectable
+                                                    isConnectableStart={false}
+                                                    isConnectableEnd
+                                                    className="!left-[-1px] !h-3 !w-3"
+                                                />
+                                                <div className={`leading-tight ${isPendingSlot ? 'opacity-50' : ''}`}>
+                                                    <div className="text-[10px] font-medium text-gray-700">
+                                                        {port.label ?? port.key}
+                                                        {port.isList ? ` #${handleIndex + 1}` : ''}
+                                                    </div>
+                                                    <div className="text-[9px] text-gray-500">
+                                                        {port.isList ? handleId : port.key} · {port.type} · {port.required ? 'required' : 'optional'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                     <div className="text-[9px] text-gray-500">
-                                        {port.key} · {port.type} · {port.required ? 'required' : 'optional'}
+                                        {port.key} · {port.type} · {port.required ? 'required' : 'optional'}{port.isList ? ' · list' : ''}
                                     </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
                 <div className="nodrag flex flex-col gap-2">
@@ -108,7 +127,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                         <div className="px-3 text-right text-[11px] text-gray-400">No outputs</div>
                     ) : (
                         outputs.map((port) => (
-                            <div key={`output-${port.key}`} className="relative px-3 pr-6 text-right">
+                            <div key={`output-${port.key}`} className="relative pl-3 pr-6 text-right">
                                 <Handle
                                     type="source"
                                     position={Position.Right}
@@ -116,7 +135,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                                     isConnectable
                                     isConnectableStart
                                     isConnectableEnd={false}
-                                    className="!h-3 !w-3"
+                                    className="!right-[-1px] !h-3 !w-3"
                                 />
                                 <div className="leading-tight">
                                     <div className="text-[10px] font-medium text-gray-700">{port.label ?? port.key}</div>
