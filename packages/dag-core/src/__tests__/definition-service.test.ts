@@ -27,7 +27,10 @@ function createValidDefinition(): IDagDefinition {
                     }
                 ],
                 config: {
-                    uri: 'file://sample.png',
+                    asset: {
+                        referenceType: 'uri',
+                        uri: 'file://sample.png'
+                    },
                     mimeType: 'image/png'
                 }
             },

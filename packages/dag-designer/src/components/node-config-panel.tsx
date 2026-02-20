@@ -45,6 +45,15 @@ interface IAssetUploadResponse {
     };
 }
 
+interface IAssetConfigValue {
+    referenceType: 'asset' | 'uri';
+    assetId?: string;
+    uri?: string;
+    mediaType?: string;
+    name?: string;
+    sizeBytes?: number;
+}
+
 function isNodeConfigValue(value: unknown): value is TNodeConfigValue {
     if (
         typeof value === 'string'
@@ -78,6 +87,47 @@ function isNodeConfigRecord(value: unknown): value is TNodeConfigRecord {
         }
     }
     return true;
+}
+
+function parseAssetConfigValue(value: unknown): IAssetConfigValue | undefined {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        return undefined;
+    }
+    const candidate = value as Record<string, unknown>;
+    if (candidate.referenceType !== 'asset' && candidate.referenceType !== 'uri') {
+        return undefined;
+    }
+    return {
+        referenceType: candidate.referenceType,
+        assetId: typeof candidate.assetId === 'string' ? candidate.assetId : undefined,
+        uri: typeof candidate.uri === 'string' ? candidate.uri : undefined,
+        mediaType: typeof candidate.mediaType === 'string' ? candidate.mediaType : undefined,
+        name: typeof candidate.name === 'string' ? candidate.name : undefined,
+        sizeBytes: typeof candidate.sizeBytes === 'number' ? candidate.sizeBytes : undefined
+    };
+}
+
+function buildAssetConfigValue(value: IAssetConfigValue): TNodeConfigRecord {
+    const nextValue: TNodeConfigRecord = {
+        referenceType: value.referenceType
+    };
+    if (value.referenceType === 'asset') {
+        if (typeof value.assetId === 'string' && value.assetId.trim().length > 0) {
+            nextValue.assetId = value.assetId.trim();
+        }
+    } else if (typeof value.uri === 'string' && value.uri.trim().length > 0) {
+        nextValue.uri = value.uri.trim();
+    }
+    if (typeof value.mediaType === 'string' && value.mediaType.trim().length > 0) {
+        nextValue.mediaType = value.mediaType.trim();
+    }
+    if (typeof value.name === 'string' && value.name.trim().length > 0) {
+        nextValue.name = value.name.trim();
+    }
+    if (typeof value.sizeBytes === 'number' && Number.isFinite(value.sizeBytes) && value.sizeBytes >= 0) {
+        nextValue.sizeBytes = Math.trunc(value.sizeBytes);
+    }
+    return nextValue;
 }
 
 export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
@@ -139,14 +189,15 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         });
     };
 
-    const updateAssetIdWithXor = (key: string, assetId: string): void => {
-        const nextConfig: TNodeConfigRecord = {
-            ...node.config,
-            [key]: assetId,
-            referenceType: 'asset'
-        };
-        if ('uri' in nextConfig) {
-            delete nextConfig.uri;
+    const updateAssetConfigWithUploadedId = (key: string, assetId: string): void => {
+        const nextConfig: TNodeConfigRecord = { ...node.config };
+        if (key === 'asset') {
+            nextConfig[key] = {
+                referenceType: 'asset',
+                assetId
+            };
+        } else {
+            nextConfig[key] = assetId;
         }
         clearValidationError();
         props.onUpdateNode({
@@ -216,7 +267,7 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 }));
                 return;
             }
-            updateAssetIdWithXor(key, uploadedAssetId);
+            updateAssetConfigWithUploadedId(key, uploadedAssetId);
             clearValidationError();
             setUploadStatusByField((current) => ({
                 ...current,
@@ -268,6 +319,7 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         const fieldDescription = typeof propertySchema.description === 'string'
             ? propertySchema.description
             : undefined;
+        const isAssetReferenceField = key === 'asset';
         const isAssetIdField = key.toLowerCase().endsWith('assetid');
         const fieldLabel = (
             <div className="col-span-4 text-xs font-medium text-gray-700">
@@ -278,6 +330,137 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 ) : null}
             </div>
         );
+
+        if (isAssetReferenceField) {
+            const assetConfigValue = parseAssetConfigValue(effectiveValue) ?? { referenceType: 'asset' };
+            const setAssetConfig = (nextValue: IAssetConfigValue): void => {
+                updateConfigValue(key, buildAssetConfigValue(nextValue));
+            };
+            const sizeBytesValue = typeof assetConfigValue.sizeBytes === 'number'
+                ? String(assetConfigValue.sizeBytes)
+                : '';
+            return (
+                <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+                    {fieldLabel}
+                    <div className="col-span-8 space-y-2">
+                        <select
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                            value={assetConfigValue.referenceType}
+                            onChange={(event) => {
+                                const nextReferenceType = event.target.value === 'uri' ? 'uri' : 'asset';
+                                setAssetConfig({
+                                    ...assetConfigValue,
+                                    referenceType: nextReferenceType,
+                                    assetId: nextReferenceType === 'asset' ? assetConfigValue.assetId : undefined,
+                                    uri: nextReferenceType === 'uri' ? assetConfigValue.uri : undefined
+                                });
+                            }}
+                        >
+                            <option value="asset">asset</option>
+                            <option value="uri">uri</option>
+                        </select>
+                        {assetConfigValue.referenceType === 'asset' ? (
+                            <input
+                                className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                                value={assetConfigValue.assetId ?? ''}
+                                placeholder="assetId"
+                                onChange={(event) => {
+                                    setAssetConfig({
+                                        ...assetConfigValue,
+                                        assetId: event.target.value,
+                                        uri: undefined
+                                    });
+                                }}
+                            />
+                        ) : (
+                            <input
+                                className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                                value={assetConfigValue.uri ?? ''}
+                                placeholder="uri"
+                                onChange={(event) => {
+                                    setAssetConfig({
+                                        ...assetConfigValue,
+                                        uri: event.target.value,
+                                        assetId: undefined
+                                    });
+                                }}
+                            />
+                        )}
+                        <input
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                            value={assetConfigValue.mediaType ?? ''}
+                            placeholder="mediaType (optional)"
+                            onChange={(event) => {
+                                setAssetConfig({
+                                    ...assetConfigValue,
+                                    mediaType: event.target.value
+                                });
+                            }}
+                        />
+                        <input
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                            value={assetConfigValue.name ?? ''}
+                            placeholder="name (optional)"
+                            onChange={(event) => {
+                                setAssetConfig({
+                                    ...assetConfigValue,
+                                    name: event.target.value
+                                });
+                            }}
+                        />
+                        <input
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                            type="number"
+                            min={0}
+                            value={sizeBytesValue}
+                            placeholder="sizeBytes (optional)"
+                            onChange={(event) => {
+                                const nextValue = event.target.value;
+                                if (nextValue.trim().length === 0) {
+                                    setAssetConfig({
+                                        ...assetConfigValue,
+                                        sizeBytes: undefined
+                                    });
+                                    return;
+                                }
+                                const parsedValue = Number(nextValue);
+                                if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+                                    reportValidationError('Asset sizeBytes must be a non-negative number.');
+                                    return;
+                                }
+                                setAssetConfig({
+                                    ...assetConfigValue,
+                                    sizeBytes: parsedValue
+                                });
+                            }}
+                        />
+                        <div className="rounded border border-gray-200 bg-gray-50 p-2">
+                            <div className="mb-2 text-[11px] text-gray-600">
+                                Upload file to asset store and set `{key}` automatically.
+                            </div>
+                            <input
+                                type="file"
+                                className="block w-full text-xs"
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0];
+                                    if (!file) {
+                                        return;
+                                    }
+                                    void handleAssetUpload(key, file);
+                                    event.target.value = '';
+                                }}
+                            />
+                            {uploadStatusByField[key] ? (
+                                <div className="mt-2 text-[11px] text-gray-600">{uploadStatusByField[key]}</div>
+                            ) : null}
+                            {uploadingFieldKey === key ? (
+                                <div className="mt-1 text-[11px] text-gray-500">Uploading...</div>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 
         if (enumValues.length > 0) {
             const selectedValue = typeof effectiveValue === 'string' ? effectiveValue : '';
@@ -308,7 +491,7 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
             return (
                 <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
                     {fieldLabel}
-                    <div className="col-span-8">
+                    <div className="col-span-8 space-y-2">
                         <textarea
                             className="min-h-[90px] w-full rounded border border-gray-300 px-2 py-1 font-mono text-xs"
                             value={rawValue}
@@ -334,6 +517,31 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                                 }
                             }}
                         />
+                        {isAssetReferenceField ? (
+                            <div className="rounded border border-gray-200 bg-gray-50 p-2">
+                                <div className="mb-2 text-[11px] text-gray-600">
+                                    Upload file to asset store and set `{key}` automatically.
+                                </div>
+                                <input
+                                    type="file"
+                                    className="block w-full text-xs"
+                                    onChange={(event) => {
+                                        const file = event.target.files?.[0];
+                                        if (!file) {
+                                            return;
+                                        }
+                                        void handleAssetUpload(key, file);
+                                        event.target.value = '';
+                                    }}
+                                />
+                                {uploadStatusByField[key] ? (
+                                    <div className="mt-2 text-[11px] text-gray-600">{uploadStatusByField[key]}</div>
+                                ) : null}
+                                {uploadingFieldKey === key ? (
+                                    <div className="mt-1 text-[11px] text-gray-500">Uploading...</div>
+                                ) : null}
+                            </div>
+                        ) : null}
                     </div>
                 </div>
             );

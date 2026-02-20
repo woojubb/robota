@@ -3,6 +3,7 @@ import { parseListPortHandleKey } from '../types/domain.js';
 import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
 import type { TPortPayload, TPortValue } from '../interfaces/ports.js';
+import { MediaReference, type IMediaReferenceCandidate } from '../value-objects/media-reference.js';
 
 export class NodeIoAccessor {
     private readonly output: TPortPayload = {};
@@ -166,6 +167,36 @@ export class NodeIoAccessor {
         };
     }
 
+    public requireInputMediaReference(
+        key: string,
+        options?: { allowStringUri?: boolean; allowStringAssetUri?: boolean }
+    ): TResult<MediaReference, IDagError> {
+        const inputResult = this.requireInput(key);
+        if (!inputResult.ok) {
+            return inputResult;
+        }
+        return this.parseMediaReferenceValue(inputResult.value, key, options);
+    }
+
+    public requireInputBinaryReference(key: string, kind?: 'image' | 'video' | 'audio' | 'file'): TResult<MediaReference, IDagError> {
+        const binaryResult = this.requireInputBinary(key, kind);
+        if (!binaryResult.ok) {
+            return binaryResult;
+        }
+        const parsedResult = MediaReference.fromBinary(binaryResult.value);
+        if (!parsedResult.ok) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    parsedResult.error.code,
+                    parsedResult.error.message,
+                    { nodeId: this.nodeId, key, ...(parsedResult.error.context ?? {}) }
+                )
+            };
+        }
+        return parsedResult;
+    }
+
     private parseBinaryValue(
         rawValue: TPortValue,
         key: string,
@@ -257,6 +288,61 @@ export class NodeIoAccessor {
             collected.push(value);
         }
         return collected;
+    }
+
+    private parseMediaReferenceValue(
+        rawValue: TPortValue,
+        key: string,
+        options?: { allowStringUri?: boolean; allowStringAssetUri?: boolean }
+    ): TResult<MediaReference, IDagError> {
+        if (typeof rawValue === 'string') {
+            if (options?.allowStringAssetUri === true && rawValue.startsWith('asset://')) {
+                const parsedResult = MediaReference.fromCandidate({
+                    referenceType: 'asset',
+                    assetId: rawValue.slice('asset://'.length)
+                });
+                return this.wrapMediaReferenceError(parsedResult, key);
+            }
+            if (options?.allowStringUri === true) {
+                const parsedResult = MediaReference.fromCandidate({
+                    referenceType: 'uri',
+                    uri: rawValue
+                });
+                return this.wrapMediaReferenceError(parsedResult, key);
+            }
+        }
+
+        if (typeof rawValue !== 'object' || rawValue === null || Array.isArray(rawValue)) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH',
+                    'Node input key must be media reference object',
+                    { nodeId: this.nodeId, key, expectedType: 'media-reference' }
+                )
+            };
+        }
+
+        const value = rawValue as IMediaReferenceCandidate;
+        const parsedResult = MediaReference.fromCandidate(value);
+        return this.wrapMediaReferenceError(parsedResult, key);
+    }
+
+    private wrapMediaReferenceError(
+        result: TResult<MediaReference, IDagError>,
+        key: string
+    ): TResult<MediaReference, IDagError> {
+        if (result.ok) {
+            return result;
+        }
+        return {
+            ok: false,
+            error: buildValidationError(
+                result.error.code,
+                result.error.message,
+                { nodeId: this.nodeId, key, ...(result.error.context ?? {}) }
+            )
+        };
     }
 
     public setOutput(key: string, value: TPortValue): void {

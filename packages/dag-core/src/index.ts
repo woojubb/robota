@@ -24,6 +24,8 @@ export * from './services/node-lifecycle-runner.js';
 export * from './services/lifecycle-task-executor-port.js';
 export * from './utils/node-descriptor.js';
 export * from './utils/error-builders.js';
+export * from './schemas/media-reference-schema.js';
+export * from './value-objects/media-reference.js';
 export * from './testing/index.js';
 
 export const DAG_CORE_PACKAGE_NAME = '@robota-sdk/dag-core';

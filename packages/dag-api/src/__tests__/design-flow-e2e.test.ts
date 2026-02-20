@@ -13,7 +13,12 @@ function createDefinition(): IDagDefinition {
                 nodeId: 'image_source_1',
                 nodeType: 'image-source',
                 dependsOn: [],
-                config: {},
+                config: {
+                    asset: {
+                        referenceType: 'uri',
+                        uri: 'file://sample.png'
+                    }
+                },
                 inputs: [],
                 outputs: [
                     {
