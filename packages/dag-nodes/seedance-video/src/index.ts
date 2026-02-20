@@ -1,6 +1,7 @@
 import {
     AbstractNodeDefinition,
     BINARY_PORT_PRESETS,
+    MediaReference,
     NodeIoAccessor,
     buildTaskExecutionError,
     buildValidationError,
@@ -60,23 +61,15 @@ function sleep(ms: number): Promise<void> {
     });
 }
 
-function parseAssetIdFromAssetUri(uri: string): string | undefined {
-    if (!uri.startsWith('asset://')) {
-        return undefined;
-    }
-    const rawAssetId = uri.slice('asset://'.length).trim();
-    return rawAssetId.length > 0 ? rawAssetId : undefined;
-}
-
-function toAssetContentUrl(assetId: string): string {
+function resolveRuntimeBaseUrl(): string {
     const runtimeBaseUrl = process.env.DAG_RUNTIME_BASE_URL?.trim();
     if (runtimeBaseUrl && runtimeBaseUrl.length > 0) {
-        return `${runtimeBaseUrl.replace(/\/$/, '')}/v1/dag/assets/${assetId}/content`;
+        return runtimeBaseUrl.replace(/\/$/, '');
     }
     const portRaw = process.env.DAG_DEV_PORT;
     const portParsed = typeof portRaw === 'string' ? Number.parseInt(portRaw, 10) : Number.NaN;
     const port = Number.isFinite(portParsed) && portParsed > 0 ? portParsed : DEFAULT_DAG_DEV_PORT;
-    return `http://127.0.0.1:${port}/v1/dag/assets/${assetId}/content`;
+    return `http://127.0.0.1:${port}`;
 }
 
 function toOutputVideo(output: IVideoJobSnapshot['output']): TResult<IPortBinaryValue, IDagError> {
@@ -163,13 +156,35 @@ class SeedanceVideoRuntime {
     }
 
     private async resolveImageInputSource(image: IPortBinaryValue): Promise<TResult<TImageInputSource, IDagError>> {
-        const explicitAssetId = typeof image.assetId === 'string' && image.assetId.trim().length > 0
-            ? image.assetId.trim()
-            : undefined;
-        const uriAssetId = parseAssetIdFromAssetUri(image.uri);
-        const assetId = explicitAssetId ?? uriAssetId;
-        if (typeof assetId === 'string') {
-            const response = await fetch(toAssetContentUrl(assetId));
+        const referenceResult = MediaReference.fromBinary(image);
+        if (!referenceResult.ok) {
+            return referenceResult;
+        }
+        const reference = referenceResult.value;
+
+        if (reference.isAsset()) {
+            const assetId = reference.assetId();
+            if (typeof assetId !== 'string') {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
+                        'Asset reference must include non-empty assetId'
+                    )
+                };
+            }
+            const assetContentUrl = reference.toAssetContentUrl(resolveRuntimeBaseUrl());
+            if (typeof assetContentUrl !== 'string') {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
+                        'Asset content URL could not be resolved',
+                        { assetId }
+                    )
+                };
+            }
+            const response = await fetch(assetContentUrl);
             if (!response.ok || !response.body) {
                 return {
                     ok: false,
@@ -201,12 +216,23 @@ class SeedanceVideoRuntime {
                 }
             };
         }
-        if (image.uri.startsWith('http://') || image.uri.startsWith('https://')) {
+
+        const uri = reference.uri();
+        if (typeof uri !== 'string' || uri.length === 0) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
+                    'URI reference must include non-empty uri'
+                )
+            };
+        }
+        if (uri.startsWith('http://') || uri.startsWith('https://')) {
             return {
                 ok: true,
                 value: {
                     kind: 'uri',
-                    uri: image.uri,
+                    uri,
                     mimeType: image.mimeType
                 }
             };
@@ -216,7 +242,7 @@ class SeedanceVideoRuntime {
             error: buildValidationError(
                 'DAG_VALIDATION_SEEDANCE_IMAGE_REFERENCE_UNSUPPORTED',
                 'Seedance image input must reference asset://, http://, or https:// URI',
-                { uri: image.uri }
+                { uri }
             )
         };
     }

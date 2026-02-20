@@ -16,7 +16,9 @@ import {
     type INodeManifestRegistry,
     type IStoragePort,
     type TRunProgressEvent,
-    type TPortPayload
+    type TPortPayload,
+    type TResult,
+    type IDagError
 } from '@robota-sdk/dag-core';
 import {
     createDagControllerComposition,
@@ -240,59 +242,35 @@ async function validateAssetReferences(
     for (const node of definition.nodes) {
         const config = node.config;
         const assetValue = config.asset;
-        if (typeof assetValue === 'object' && assetValue !== null && 'referenceType' in assetValue) {
-            const referenceType = assetValue.referenceType;
-            const hasAssetId = 'assetId' in assetValue && typeof assetValue.assetId === 'string' && assetValue.assetId.trim().length > 0;
-            const hasUri = 'uri' in assetValue && typeof assetValue.uri === 'string' && assetValue.uri.trim().length > 0;
-            if (hasAssetId === hasUri) {
-                errors.push({
-                    code: 'DAG_VALIDATION_ASSET_REFERENCE_XOR_REQUIRED',
-                    detail: `Node ${node.nodeId} config.asset must provide exactly one of assetId or uri`,
-                    retryable: false
-                });
-                continue;
-            }
-            if (referenceType === 'asset' && !hasAssetId) {
-                errors.push({
-                    code: 'DAG_VALIDATION_ASSET_REFERENCE_TYPE_ASSET_REQUIRES_ASSET_ID',
-                    detail: `Node ${node.nodeId} config.asset referenceType asset requires assetId`,
-                    retryable: false
-                });
-                continue;
-            }
-            if (referenceType === 'uri' && !hasUri) {
-                errors.push({
-                    code: 'DAG_VALIDATION_ASSET_REFERENCE_TYPE_URI_REQUIRES_URI',
-                    detail: `Node ${node.nodeId} config.asset referenceType uri requires uri`,
-                    retryable: false
-                });
-                continue;
-            }
-            if (hasAssetId && typeof assetValue.assetId === 'string') {
-                const metadata = await assetStore.getMetadata(assetValue.assetId);
-                if (!metadata) {
-                    errors.push({
-                        code: 'DAG_VALIDATION_ASSET_REFERENCE_NOT_FOUND',
-                        detail: `Node ${node.nodeId} references unknown assetId: ${assetValue.assetId}`,
-                        retryable: false
-                    });
-                }
-            }
+        if (typeof assetValue === 'undefined') {
             continue;
         }
 
-        const referenceType = config.referenceType;
-        const assetId = typeof config.assetId === 'string' ? config.assetId : undefined;
-        const uri = typeof config.uri === 'string' ? config.uri : undefined;
-        const hasAssetId = typeof assetId === 'string' && assetId.trim().length > 0;
-        const hasUri = typeof uri === 'string' && uri.trim().length > 0;
-        if (!hasAssetId && !hasUri) {
+        if (typeof assetValue !== 'object' || assetValue === null || Array.isArray(assetValue) || !('referenceType' in assetValue)) {
+            errors.push({
+                code: 'DAG_VALIDATION_ASSET_REFERENCE_OBJECT_REQUIRED',
+                detail: `Node ${node.nodeId} config.asset must be a media reference object`,
+                retryable: false
+            });
             continue;
         }
+
+        const referenceType = assetValue.referenceType;
+        if (referenceType !== 'asset' && referenceType !== 'uri') {
+            errors.push({
+                code: 'DAG_VALIDATION_ASSET_REFERENCE_TYPE_INVALID',
+                detail: `Node ${node.nodeId} config.asset referenceType must be asset or uri`,
+                retryable: false
+            });
+            continue;
+        }
+
+        const hasAssetId = 'assetId' in assetValue && typeof assetValue.assetId === 'string' && assetValue.assetId.trim().length > 0;
+        const hasUri = 'uri' in assetValue && typeof assetValue.uri === 'string' && assetValue.uri.trim().length > 0;
         if (hasAssetId === hasUri) {
             errors.push({
                 code: 'DAG_VALIDATION_ASSET_REFERENCE_XOR_REQUIRED',
-                detail: `Node ${node.nodeId} config must provide exactly one of assetId or uri`,
+                detail: `Node ${node.nodeId} config.asset must provide exactly one of assetId or uri`,
                 retryable: false
             });
             continue;
@@ -300,7 +278,7 @@ async function validateAssetReferences(
         if (referenceType === 'asset' && !hasAssetId) {
             errors.push({
                 code: 'DAG_VALIDATION_ASSET_REFERENCE_TYPE_ASSET_REQUIRES_ASSET_ID',
-                detail: `Node ${node.nodeId} referenceType asset requires assetId`,
+                detail: `Node ${node.nodeId} config.asset referenceType asset requires assetId`,
                 retryable: false
             });
             continue;
@@ -308,17 +286,17 @@ async function validateAssetReferences(
         if (referenceType === 'uri' && !hasUri) {
             errors.push({
                 code: 'DAG_VALIDATION_ASSET_REFERENCE_TYPE_URI_REQUIRES_URI',
-                detail: `Node ${node.nodeId} referenceType uri requires uri`,
+                detail: `Node ${node.nodeId} config.asset referenceType uri requires uri`,
                 retryable: false
             });
             continue;
         }
-        if (hasAssetId && typeof assetId === 'string') {
-            const metadata = await assetStore.getMetadata(assetId);
+        if (hasAssetId && typeof assetValue.assetId === 'string') {
+            const metadata = await assetStore.getMetadata(assetValue.assetId);
             if (!metadata) {
                 errors.push({
                     code: 'DAG_VALIDATION_ASSET_REFERENCE_NOT_FOUND',
-                    detail: `Node ${node.nodeId} references unknown assetId: ${assetId}`,
+                    detail: `Node ${node.nodeId} references unknown assetId: ${assetValue.assetId}`,
                     retryable: false
                 });
             }
@@ -360,7 +338,10 @@ function createSampleDefinition(dagId: string, version: number): IDagDefinition 
                     }
                 ],
                 config: {
-                    uri: 'file://sample-image.png',
+                    asset: {
+                        referenceType: 'uri',
+                        uri: 'file://sample-image.png'
+                    },
                     mimeType: 'image/png'
                 }
             },

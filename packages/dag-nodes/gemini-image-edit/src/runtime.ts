@@ -1,4 +1,5 @@
 import {
+    MediaReference,
     buildTaskExecutionError,
     buildValidationError,
     type IDagError,
@@ -59,26 +60,15 @@ function parseDataUri(uri: string): { mimeType: string; data: string } | undefin
     };
 }
 
-function resolveAssetIdFromBinaryInput(value: IPortBinaryValue): string | undefined {
-    if (typeof value.assetId === 'string' && value.assetId.trim().length > 0) {
-        return value.assetId;
-    }
-    if (!value.uri.startsWith('asset://')) {
-        return undefined;
-    }
-    const rawAssetId = value.uri.slice('asset://'.length).trim();
-    return rawAssetId.length > 0 ? rawAssetId : undefined;
-}
-
-function toAssetContentUrl(assetId: string): string {
+function resolveRuntimeBaseUrl(): string {
     const runtimeBaseUrl = process.env.DAG_RUNTIME_BASE_URL?.trim();
     if (runtimeBaseUrl && runtimeBaseUrl.length > 0) {
-        return `${runtimeBaseUrl.replace(/\/$/, '')}/v1/dag/assets/${assetId}/content`;
+        return runtimeBaseUrl.replace(/\/$/, '');
     }
     const portRaw = process.env.DAG_DEV_PORT;
     const portParsed = typeof portRaw === 'string' ? Number.parseInt(portRaw, 10) : Number.NaN;
     const port = Number.isFinite(portParsed) && portParsed > 0 ? portParsed : DEFAULT_DAG_DEV_PORT;
-    return `http://127.0.0.1:${port}/v1/dag/assets/${assetId}/content`;
+    return `http://127.0.0.1:${port}`;
 }
 
 export function isImageBinaryValue(value: unknown): value is IPortBinaryValue {
@@ -142,9 +132,35 @@ export class GeminiImageRuntime {
         notFoundCode: string,
         notFoundMessage: string
     ): Promise<TResult<{ kind: 'inline'; mimeType: string; data: string }, IDagError>> {
-        const assetId = resolveAssetIdFromBinaryInput(image);
-        if (assetId) {
-            const response = await fetch(toAssetContentUrl(assetId));
+        const referenceResult = MediaReference.fromBinary(image);
+        if (!referenceResult.ok) {
+            return referenceResult;
+        }
+        const reference = referenceResult.value;
+
+        if (reference.isAsset()) {
+            const assetId = reference.assetId();
+            if (typeof assetId !== 'string') {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
+                        'Asset reference must include a valid assetId'
+                    )
+                };
+            }
+            const assetContentUrl = reference.toAssetContentUrl(resolveRuntimeBaseUrl());
+            if (typeof assetContentUrl !== 'string') {
+                return {
+                    ok: false,
+                    error: buildValidationError(
+                        'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
+                        'Asset content URL could not be resolved',
+                        { assetId }
+                    )
+                };
+            }
+            const response = await fetch(assetContentUrl);
             if (!response.ok || !response.body) {
                 return {
                     ok: false,
@@ -172,15 +188,27 @@ export class GeminiImageRuntime {
                 }
             };
         }
-        if (image.uri.startsWith('data:')) {
-            const parsedDataUri = parseDataUri(image.uri);
+
+        const uri = reference.uri();
+        if (typeof uri !== 'string' || uri.length === 0) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
+                    'URI reference must include non-empty uri'
+                )
+            };
+        }
+
+        if (uri.startsWith('data:')) {
+            const parsedDataUri = parseDataUri(uri);
             if (!parsedDataUri) {
                 return {
                     ok: false,
                     error: buildValidationError(
                         'DAG_VALIDATION_GEMINI_IMAGE_INPUT_DATA_URI_INVALID',
                         'Gemini image input data URI must be base64 encoded',
-                        { uriPrefix: image.uri.slice(0, 64) }
+                        { uriPrefix: uri.slice(0, 64) }
                     )
                 };
             }
@@ -193,15 +221,15 @@ export class GeminiImageRuntime {
                 }
             };
         }
-        if (image.uri.startsWith('http://') || image.uri.startsWith('https://')) {
-            const response = await fetch(image.uri);
+        if (uri.startsWith('http://') || uri.startsWith('https://')) {
+            const response = await fetch(uri);
             if (!response.ok || !response.body) {
                 return {
                     ok: false,
                     error: buildValidationError(
                         'DAG_VALIDATION_GEMINI_IMAGE_INPUT_URI_UNREACHABLE',
                         'Gemini image input URI must be reachable',
-                        { uri: image.uri }
+                        { uri }
                     )
                 };
             }
@@ -212,7 +240,7 @@ export class GeminiImageRuntime {
                     error: buildValidationError(
                         'DAG_VALIDATION_GEMINI_IMAGE_INPUT_MEDIA_TYPE_INVALID',
                         'Gemini image input URI must resolve to image media type',
-                        { uri: image.uri, mediaType: mediaType ?? 'missing' }
+                        { uri, mediaType: mediaType ?? 'missing' }
                     )
                 };
             }
@@ -231,7 +259,7 @@ export class GeminiImageRuntime {
             error: buildValidationError(
                 'DAG_VALIDATION_GEMINI_IMAGE_INPUT_REFERENCE_UNSUPPORTED',
                 'Gemini image input must be asset://, data:, http://, or https:// URI',
-                { uri: image.uri }
+                { uri }
             )
         };
     }
