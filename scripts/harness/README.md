@@ -7,9 +7,9 @@ These scripts are the executable layer of the Robota harness.
 - `pnpm harness:scan`
 - `pnpm harness:scan:consistency`
 - `pnpm harness:scan:specs`
-- `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios]`
-- `pnpm harness:record -- --scope <packages/foo|apps/bar>`
-- `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--report-format markdown|json]`
+- `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios] [--base-ref <git-ref>]`
+- `pnpm harness:record -- --scope <packages/foo|apps/bar> [--base-ref <git-ref>]`
+- `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--report-format markdown|json] [--base-ref <git-ref>]`
 - `pnpm harness:self-check`
 
 ## Ownership Rules
@@ -45,8 +45,9 @@ These scripts are the executable layer of the Robota harness.
 ### `verify-change.mjs`
 
 - resolves workspace scopes from changed files or `--scope`
+- falls back to `git diff <base-ref>...HEAD` when the working tree is clean
 - runs build, test, lint, and typecheck for the relevant scope
-- runs owner-registered scenario verification when scenario-like changes are present or `--include-scenarios` is requested
+- runs owner-registered scenario verification when scenario-like changes, source/config changes in scenario-owning scopes, or `--include-scenarios` are present
 - fails if authoritative scenario records are missing, invalid, duplicated, or do not match the owner command set
 - compares scenario verification output against the owner `*.record.json` artifact and fails on drift
 - supports `--dry-run`
@@ -54,6 +55,7 @@ These scripts are the executable layer of the Robota harness.
 ### `record-change.mjs`
 
 - resolves workspace scopes from changed files or `--scope`
+- falls back to `git diff <base-ref>...HEAD` when the working tree is clean
 - runs owner-registered `scenario:record` commands for the relevant scope
 - refreshes authoritative `*.record.json` artifacts as an explicit harness action
 
@@ -71,6 +73,7 @@ These scripts are the executable layer of the Robota harness.
 ### `review-change.mjs`
 
 - summarizes risk for the selected scope
+- falls back to `git diff <base-ref>...HEAD` when the working tree is clean
 - highlights repository-level policy or harness changes
 - can persist the review as Markdown or JSON via `--report-file`
 - recommends follow-up harness commands
@@ -84,5 +87,6 @@ These scripts are the executable layer of the Robota harness.
 ## Design Notes
 
 - Commands are intentionally narrow and explicit.
+- Local working tree changes take priority; clean checkout flows should pass `--base-ref <git-ref>` when the default base inference is not enough.
 - Scope detection must follow actual workspace ownership, not ad-hoc package discovery.
 - If an invariant matters repeatedly, prefer extending these scripts over adding more prose.

@@ -32,7 +32,7 @@ function renderFiles(files) {
 async function main() {
   const options = parseScopeArgs(process.argv.slice(2));
   const scopes = await listWorkspaceScopes();
-  const changedFiles = detectChangedFiles();
+  const changedFiles = detectChangedFiles(options.baseRef);
   const scopeFiles = mapFilesToScopes(changedFiles, scopes);
   const selectedScopes = options.scopeTokens.length > 0
     ? resolveRequestedScopes(options.scopeTokens, scopes)
@@ -51,7 +51,14 @@ async function main() {
     const classification = classifyScopeChanges(scope, files, options.scopeTokens.length > 0);
     const workdir = path.join(WORKSPACE_ROOT, scope.relativeDir);
     const scenarioVerification = resolveScenarioVerification(scope);
-    const shouldRunScenarios = options.includeScenarios || classification.hasScenarioChanges;
+    const shouldRunScenarios = options.includeScenarios || (
+      Boolean(scenarioVerification)
+      && (
+        classification.hasScenarioChanges
+        || classification.hasSourceChanges
+        || classification.hasConfigChanges
+      )
+    );
 
     process.stdout.write(`\n[verify] ${scope.relativeDir}\n`);
     process.stdout.write(`files: ${renderFiles(files)}\n`);

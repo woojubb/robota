@@ -55,6 +55,10 @@ async function main() {
   const [command, ...args] = commandTokens;
   const result = executeCommandCapture(command, args, process.cwd(), {}, false);
 
+  if (result.status !== 0) {
+    throw new Error(`Scenario record command failed: ${commandTokens.join(' ')}`);
+  }
+
   const absoluteOutputPath = path.resolve(process.cwd(), outputPath);
   await fs.mkdir(path.dirname(absoluteOutputPath), { recursive: true });
 
@@ -71,10 +75,6 @@ async function main() {
 
   await fs.writeFile(absoluteOutputPath, `${JSON.stringify(content, null, 2)}\n`, 'utf8');
   process.stdout.write(`record written: ${path.relative(process.cwd(), absoluteOutputPath)}\n`);
-
-  if (result.status !== 0) {
-    process.exitCode = result.status;
-  }
 }
 
 void main();
