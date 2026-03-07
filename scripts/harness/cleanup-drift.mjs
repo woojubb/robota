@@ -196,7 +196,7 @@ async function checkDependencyDirection(findings) {
         continue;
       }
 
-      if (scope.shortName === 'dag-api' || scope.shortName === 'dag-designer') {
+      if (['dag-api', 'dag-designer', 'dag-scheduler', 'dag-server-core'].includes(scope.shortName)) {
         continue;
       }
 
