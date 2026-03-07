@@ -6,7 +6,9 @@ export default defineConfig({
         include: [
             'packages/**/src/**/*.{test,spec}.{ts,tsx}',
             // Continue to support existing test directories
-            'packages/**/tests/**/*.{test,spec}.{ts,tsx}'
+            'packages/**/tests/**/*.{test,spec}.{ts,tsx}',
+            // Harness script tests
+            'scripts/**/__tests__/**/*.test.{ts,mjs}',
         ],
         environment: 'node',
         // Parallel execution
