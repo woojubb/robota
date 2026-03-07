@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'docs/**'
+      - 'content/**'
       - 'packages/*/src/**'
       - 'apps/docs/**'
       - 'scripts/docs/**'

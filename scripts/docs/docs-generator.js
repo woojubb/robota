@@ -55,7 +55,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
 // Directory path configuration
 const ROOT_DIR = process.cwd(); // Using process.cwd() since script runs from root directory
 const PACKAGES_DIR = path.join(ROOT_DIR, 'packages');
-const DOCS_DIR = path.join(ROOT_DIR, 'docs');
+const DOCS_DIR = path.join(ROOT_DIR, 'content');
 const OUTPUT_DIR = path.join(DOCS_DIR, 'api-reference');
 const APPS_DOCS_DIR = path.join(ROOT_DIR, 'apps/docs');
 const TEMP_DIR = path.join(APPS_DOCS_DIR, '.temp');
