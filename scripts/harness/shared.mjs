@@ -39,6 +39,59 @@ export async function readWorkspacePatterns() {
     .map((line) => line.slice(2).trim().replace(/^['"]|['"]$/g, ''));
 }
 
+function parseGitStatusFiles(output) {
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .map((line) => {
+      const payload = line.slice(3).trim();
+      if (payload.includes(' -> ')) {
+        return payload.split(' -> ').at(-1) ?? payload;
+      }
+      return payload;
+    });
+}
+
+function parseGitDiffFiles(output) {
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function gitRefExists(ref) {
+  const result = spawnSync('git', ['rev-parse', '--verify', `${ref}^{commit}`], {
+    cwd: WORKSPACE_ROOT,
+    stdio: 'ignore',
+    encoding: 'utf8',
+  });
+  return result.status === 0;
+}
+
+function resolveDefaultBaseRef() {
+  const candidates = [];
+  const envBaseRef = process.env.HARNESS_BASE_REF?.trim();
+  const githubBaseRef = process.env.GITHUB_BASE_REF?.trim();
+
+  if (envBaseRef) {
+    candidates.push(envBaseRef);
+  }
+  if (githubBaseRef) {
+    candidates.push(`origin/${githubBaseRef}`, githubBaseRef);
+  }
+
+  candidates.push('origin/develop', 'develop', 'origin/main', 'main');
+
+  for (const candidate of candidates) {
+    if (candidate && gitRefExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 export async function listWorkspaceScopes() {
   const scopes = [];
   const patterns = await readWorkspacePatterns();
@@ -100,6 +153,7 @@ export function parseScopeArgs(argv) {
     includeScenarios: false,
     reportFile: null,
     reportFormat: null,
+    baseRef: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -152,6 +206,15 @@ export function parseScopeArgs(argv) {
         index += 1;
         break;
       }
+      case '--base-ref': {
+        const value = argv[index + 1];
+        if (!value) {
+          throw new Error('--base-ref requires a value');
+        }
+        options.baseRef = value;
+        index += 1;
+        break;
+      }
       default:
         throw new Error(`Unknown argument: ${token}`);
     }
@@ -185,7 +248,7 @@ export function runCommand(command, args, workdir, dryRun, envOverrides = {}) {
   return result;
 }
 
-export function detectChangedFiles() {
+export function detectChangedFiles(baseRef = null) {
   const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], {
     cwd: WORKSPACE_ROOT,
     encoding: 'utf8',
@@ -195,17 +258,29 @@ export function detectChangedFiles() {
     throw new Error('Unable to read changed files from git status.');
   }
 
-  return result.stdout
-    .split(/\r?\n/)
-    .map((line) => line.trimEnd())
-    .filter(Boolean)
-    .map((line) => {
-      const payload = line.slice(3).trim();
-      if (payload.includes(' -> ')) {
-        return payload.split(' -> ').at(-1) ?? payload;
-      }
-      return payload;
-    });
+  const workingTreeFiles = parseGitStatusFiles(result.stdout);
+  if (workingTreeFiles.length > 0) {
+    return workingTreeFiles;
+  }
+
+  const resolvedBaseRef = typeof baseRef === 'string' && baseRef.trim().length > 0
+    ? baseRef.trim()
+    : resolveDefaultBaseRef();
+
+  if (!resolvedBaseRef) {
+    return [];
+  }
+
+  const diffResult = spawnSync('git', ['diff', '--name-only', '--diff-filter=ACMRD', `${resolvedBaseRef}...HEAD`], {
+    cwd: WORKSPACE_ROOT,
+    encoding: 'utf8',
+  });
+
+  if (diffResult.status !== 0) {
+    throw new Error(`Unable to read changed files from git diff against ${resolvedBaseRef}.`);
+  }
+
+  return parseGitDiffFiles(diffResult.stdout);
 }
 
 export function resolveRequestedScopes(scopeTokens, scopes) {

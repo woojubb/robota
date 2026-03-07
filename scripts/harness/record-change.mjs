@@ -18,7 +18,7 @@ function renderFiles(files) {
 async function main() {
   const options = parseScopeArgs(process.argv.slice(2));
   const scopes = await listWorkspaceScopes();
-  const changedFiles = detectChangedFiles();
+  const changedFiles = detectChangedFiles(options.baseRef);
   const scopeFiles = mapFilesToScopes(changedFiles, scopes);
   const selectedScopes = options.scopeTokens.length > 0
     ? resolveRequestedScopes(options.scopeTokens, scopes)

@@ -17,13 +17,13 @@ import {
     GeminiImageRuntime,
     isImageBinaryValue,
     type IGeminiImageRuntimeOptions
-} from './runtime.js';
+} from './runtime-core.js';
 
 export type {
     IGeminiImageEditRequest,
     IGeminiImageComposeRequest,
     IGeminiImageRuntimeOptions
-} from './runtime.js';
+} from './runtime-core.js';
 
 export interface IGeminiImageEditNodeDefinitionOptions extends IGeminiImageRuntimeOptions {}
 export interface IGeminiImageComposeNodeDefinitionOptions extends IGeminiImageRuntimeOptions {}

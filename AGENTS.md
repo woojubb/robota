@@ -286,10 +286,12 @@ Current harness entrypoints:
 
 - `pnpm harness:scan` (consistency + spec ownership + docs structure)
 - `pnpm harness:scan:consistency`
-- `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios]`
-- `pnpm harness:record -- --scope <packages/foo|apps/bar>`
-- `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>]`
+- `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios] [--base-ref <git-ref>]`
+- `pnpm harness:record -- --scope <packages/foo|apps/bar> [--base-ref <git-ref>]`
+- `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--base-ref <git-ref>]`
 - `pnpm harness:self-check`
+
+When the working tree is clean, harness commands may resolve scope from `git diff <base-ref>...HEAD` instead of `git status`.
 
 ## Conflict Scan Commands
 
