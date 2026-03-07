@@ -1,13 +1,10 @@
 import {
     buildValidationError,
-    type IClockPort,
     type IDagError,
-    type IQueuePort,
-    type IStoragePort,
     type TPortPayload,
     type TResult
 } from '@robota-sdk/dag-core';
-import { RunOrchestratorService, type IStartRunResult } from '@robota-sdk/dag-runtime';
+import { type RunOrchestratorService, type IStartRunResult } from '@robota-sdk/dag-runtime';
 
 export interface IScheduledTriggerRequest {
     dagId: string;
@@ -42,12 +39,8 @@ export interface ICatchupTriggerResult {
 export class SchedulerTriggerService {
     private readonly runOrchestrator: RunOrchestratorService;
 
-    public constructor(
-        storage: IStoragePort,
-        queue: IQueuePort,
-        clock: IClockPort
-    ) {
-        this.runOrchestrator = new RunOrchestratorService(storage, queue, clock);
+    public constructor(runOrchestrator: RunOrchestratorService) {
+        this.runOrchestrator = runOrchestrator;
     }
 
     public async triggerScheduledRun(
