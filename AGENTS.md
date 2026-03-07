@@ -122,6 +122,16 @@ All rules below are mandatory and non-negotiable.
 - Terminal failure states (`failed`, `cancelled`) must remain terminal by default.
 - Retry or requeue is allowed only through an explicit policy gate, never as an implicit fallback.
 
+### Test-Driven Development
+
+- Follow Kent Beck's Red-Green-Refactor cycle when writing new code or modifying behavior.
+- RED: write a failing test first. GREEN: write minimal code to pass. REFACTOR: clean up while green.
+- Never write production code without a failing test that demands it.
+- Never refactor while tests are failing.
+- Never add behavior during refactoring — only restructure.
+- Bug fixes start with a test that reproduces the bug.
+- Prefer small, incremental steps. If a step feels too big, break it down.
+
 ### Build Requirements
 
 - ANY modification to `packages/*/src/` REQUIRES immediate build of the affected scope.
@@ -206,6 +216,7 @@ Domain and package skills:
 | dag-node-standard | `.agents/skills/dag-node-standard/` | Node implementation workflow and templates |
 | pnpm-monorepo-build | `.agents/skills/pnpm-monorepo-build/` | Build commands and workflow guidance |
 | quality-standards | `.agents/skills/quality-standards/` | Type system design and quality gates |
+| tdd-red-green-refactor | `.agents/skills/tdd-red-green-refactor/` | Kent Beck's TDD Red-Green-Refactor cycle |
 | vitest-testing-strategy | `.agents/skills/vitest-testing-strategy/` | Testing strategy (unit, integration, type-level) |
 | contract-testing | `.agents/skills/contract-testing/` | Consumer-driven contract testing |
 | boundary-validation | `.agents/skills/boundary-validation/` | External data validation at trust boundaries |
@@ -231,6 +242,7 @@ Domain and package skills:
 | scenario-guard-checklist | `.agents/skills/scenario-guard-checklist/` | Pre-change checklist for scenario modifications |
 | verification-guard | `.agents/skills/verification-guard/` | Guarded example verification with abort conditions |
 | branch-guard | `.agents/skills/branch-guard/` | Guard against committing on protected branches |
+| task-tracking | `.agents/skills/task-tracking/` | Track work with task files in .agents/tasks/ |
 
 During the harness migration, legacy skills may remain. Prefer harness-oriented skills when a legacy skill overlaps with them.
 
