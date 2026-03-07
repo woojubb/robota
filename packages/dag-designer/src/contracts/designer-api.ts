@@ -5,17 +5,12 @@ import type {
     TPortPayload,
     TRunProgressEvent
 } from '@robota-sdk/dag-core';
+import type { IProblemDetails, IDefinitionListItem } from '@robota-sdk/dag-api';
+import type { IRunNodeTrace, IRunResult } from '@robota-sdk/dag-server-core';
 
-export interface IProblemDetails {
-    type: string;
-    title: string;
-    status: number;
-    detail: string;
-    instance: string;
-    code: string;
-    retryable: boolean;
-    correlationId?: string;
-}
+// Re-export SSOT types for downstream consumers
+export type { IProblemDetails, IDefinitionListItem };
+export type { IRunNodeTrace, IRunResult };
 
 export interface ICreateDefinitionInput {
     definition: IDagDefinition;
@@ -52,22 +47,7 @@ export interface IListDefinitionsInput {
     correlationId?: string;
 }
 
-export interface IRunNodeTrace {
-    nodeId: string;
-    nodeType: string;
-    input: TPortPayload;
-    output: TPortPayload;
-    estimatedCostUsd: number;
-    totalCostUsd: number;
-}
-
-export interface IRunResult {
-    dagRunId: string;
-    traces: IRunNodeTrace[];
-    totalCostUsd: number;
-}
-
-export interface ICreateRunInput {
+export interface IDesignerCreateRunInput {
     definition: IDagDefinition;
     input?: TPortPayload;
     correlationId?: string;
@@ -78,15 +58,9 @@ export interface IGetRunResultInput {
     correlationId?: string;
 }
 
-export interface IStartRunInput {
+export interface IDesignerStartRunInput {
     dagRunId: string;
     correlationId?: string;
-}
-
-export interface IDefinitionListItem {
-    dagId: string;
-    latestVersion: number;
-    statuses: IDagDefinition['status'][];
 }
 
 export interface IDesignerApiClient {
@@ -97,8 +71,8 @@ export interface IDesignerApiClient {
     getDefinition(input: IGetDefinitionInput): Promise<TResult<IDagDefinition, IProblemDetails[]>>;
     listDefinitions(input?: IListDefinitionsInput): Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>>;
-    createRun(input: ICreateRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
-    startRun(input: IStartRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    createRun(input: IDesignerCreateRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    startRun(input: IDesignerStartRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
     getRunResult(input: IGetRunResultInput): Promise<TResult<IRunResult, IProblemDetails[]>>;
     subscribeRunProgress: (input: {
         dagRunId: string;

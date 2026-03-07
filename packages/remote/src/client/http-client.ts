@@ -1,11 +1,11 @@
 /**
  * HTTP Client - Simple & Type Safe
- * 
+ *
  * Clean HTTP client using atomic components for maximum type safety
  */
 
 import type { IHttpRequest, IHttpResponse, TDefaultRequestData } from '../types/http-types';
-import type { ILogger } from '@robota-sdk/agents';
+import type { ILogger, IToolSchema, IToolCall } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import type { IBasicMessage, IResponseMessage } from '../types/message-types';
 import {
@@ -15,13 +15,32 @@ import {
     generateId,
     toResponseMessage
 } from '../utils/transformers';
-// Simple inline type checking instead of external type guards
 
 export interface IHttpClientConfig {
     baseUrl: string;
     timeout: number;
     headers: Record<string, string>;
     logger?: ILogger;
+}
+
+/** Shape of a message sent in chat request body, including optional tool-related fields */
+interface IChatRequestMessage {
+    role: 'user' | 'assistant' | 'system' | 'tool';
+    content: string | null;
+    toolCalls?: IToolCall[];
+    toolCallId?: string;
+}
+
+/** Shape of the response payload from the chat endpoint */
+interface IChatResponsePayload {
+    success?: boolean;
+    data?: {
+        role?: string;
+        content?: string;
+        toolCalls?: IToolCall[];
+    };
+    provider?: string;
+    model?: string;
 }
 
 /**
@@ -72,22 +91,25 @@ export class HttpClient {
     /**
      * Execute chat request specifically
      */
-    async chat(messages: IBasicMessage[], provider: string, model: string, tools?: any[]): Promise<IResponseMessage> {
-        const requestData = {
-            messages: messages.map(msg => {
-                const base: any = {
-                    role: msg.role,
-                    content: msg.content
-                };
-                const anyMsg = msg as any;
-                if (msg.role === 'assistant' && anyMsg.toolCalls && Array.isArray(anyMsg.toolCalls)) {
-                    base.toolCalls = anyMsg.toolCalls;
-                }
-                if (msg.role === 'tool' && anyMsg.toolCallId) {
-                    base.toolCallId = anyMsg.toolCallId;
-                }
-                return base;
-            }),
+    async chat(messages: IBasicMessage[], provider: string, model: string, tools?: IToolSchema[]): Promise<IResponseMessage> {
+        const mappedMessages: IChatRequestMessage[] = messages.map((msg): IChatRequestMessage => {
+            const mapped: IChatRequestMessage = {
+                role: msg.role,
+                content: msg.content
+            };
+            const msgWithToolCalls = msg as IBasicMessage & { toolCalls?: IToolCall[] };
+            if (msg.role === 'assistant' && msgWithToolCalls.toolCalls && Array.isArray(msgWithToolCalls.toolCalls)) {
+                mapped.toolCalls = msgWithToolCalls.toolCalls;
+            }
+            const msgWithToolCallId = msg as IBasicMessage & { toolCallId?: string };
+            if (msg.role === 'tool' && msgWithToolCallId.toolCallId) {
+                mapped.toolCallId = msgWithToolCallId.toolCallId;
+            }
+            return mapped;
+        });
+
+        const requestData: Record<string, unknown> = {
+            messages: mappedMessages,
             provider,
             model,
             ...(tools && tools.length > 0 && { tools })
@@ -96,42 +118,57 @@ export class HttpClient {
         this.logger.info('🔧 [HTTP-CLIENT] Non-streaming request tools:', tools?.length || 0);
 
         // Server responds with shape: { success: boolean, data: TUniversalMessage, provider, model }
-        const response = await this.post<typeof requestData, TDefaultRequestData>('/chat', requestData);
+        const response = await this.post<TDefaultRequestData, TDefaultRequestData>('/chat', requestData as TDefaultRequestData);
 
         // Extract assistant message preserving toolCalls if present
-        const responseData = response.data as TDefaultRequestData;
+        const responseData = response.data as Record<string, unknown>;
         const dataMessage = (responseData && typeof responseData === 'object' && 'data' in responseData)
-            ? (responseData['data'] as TDefaultRequestData)
+            ? responseData['data'] as Record<string, unknown> | undefined
             : undefined;
 
-        const assistantMessage: any = {
-            role: (dataMessage && typeof dataMessage === 'object' && 'role' in dataMessage)
-                ? (dataMessage as any).role
-                : 'assistant',
-            content: (dataMessage && typeof dataMessage === 'object' && 'content' in dataMessage)
-                ? (dataMessage as any).content
-                : extractContent(response)
+        const rawRole = (dataMessage && typeof dataMessage === 'object' && 'role' in dataMessage && typeof dataMessage['role'] === 'string')
+            ? dataMessage['role']
+            : 'assistant';
+        // The server response always returns an assistant message role
+        const role = (rawRole === 'user' || rawRole === 'assistant' || rawRole === 'system' || rawRole === 'tool')
+            ? rawRole
+            : 'assistant' as const;
+
+        const content = (dataMessage && typeof dataMessage === 'object' && 'content' in dataMessage && typeof dataMessage['content'] === 'string')
+            ? dataMessage['content']
+            : extractContent(response);
+
+        const assistantMessage: IChatRequestMessage = {
+            role,
+            content
         };
 
         // Preserve toolCalls when available (array of tool call fragments)
         if (dataMessage && typeof dataMessage === 'object' && 'toolCalls' in dataMessage) {
-            const tc = (dataMessage as any).toolCalls;
+            const tc = dataMessage['toolCalls'];
             if (Array.isArray(tc)) {
-                assistantMessage.toolCalls = tc;
+                assistantMessage.toolCalls = tc as IToolCall[];
             }
         }
 
+        const providerName = (responseData && typeof responseData === 'object' && 'provider' in responseData && typeof responseData['provider'] === 'string')
+            ? responseData['provider']
+            : undefined;
+        const modelName = (responseData && typeof responseData === 'object' && 'model' in responseData && typeof responseData['model'] === 'string')
+            ? responseData['model']
+            : undefined;
+
         return toResponseMessage(
             assistantMessage,
-            (responseData && (responseData as any).provider) ? (responseData as any).provider : undefined,
-            (responseData && (responseData as any).model) ? (responseData as any).model : undefined
+            providerName,
+            modelName
         );
     }
 
     /**
      * Execute streaming chat request
      */
-    async *chatStream(messages: IBasicMessage[], provider: string, model: string, tools?: any[]): AsyncGenerator<IResponseMessage> {
+    async *chatStream(messages: IBasicMessage[], provider: string, model: string, tools?: IToolSchema[]): AsyncGenerator<IResponseMessage> {
         const url = `${this.config.baseUrl}/stream`;
         const body = {
             messages,
@@ -189,28 +226,30 @@ export class HttpClient {
                             }
 
                             try {
-                                const parsed = JSON.parse(data);
+                                const parsed = JSON.parse(data) as Record<string, unknown>;
 
                                 // The server sends the raw TUniversalMessage; no unwrapping is needed.
                                 const responseData = parsed;
 
-                                if (responseData && responseData.role === 'assistant') {
+                                if (responseData && responseData['role'] === 'assistant') {
+                                    const contentValue = typeof responseData['content'] === 'string' ? responseData['content'] : '';
+                                    const toolCalls = responseData['toolCalls'];
+
                                     // Debug: inspect parsed data
                                     this.logger.debug('🔍 [HTTP-CLIENT-PARSE] Parsed response data:', {
-                                        role: responseData.role,
-                                        content: responseData.content?.substring(0, 30) + '...',
-                                        hasToolCalls: !!responseData.toolCalls,
-                                        toolCallsLength: responseData.toolCalls?.length || 0,
-                                        toolCallsData: responseData.toolCalls
+                                        role: String(responseData['role']),
+                                        content: contentValue.substring(0, 30) + '...',
+                                        hasToolCalls: !!toolCalls,
+                                        toolCallsLength: Array.isArray(toolCalls) ? toolCalls.length : 0
                                     });
 
                                     yield toResponseMessage(
                                         {
                                             role: 'assistant',
-                                            content: responseData.content || '',
+                                            content: contentValue,
                                             // Always forward toolCalls when present (including empty id fragments)
-                                            ...(responseData.toolCalls && Array.isArray(responseData.toolCalls) &&
-                                                { toolCalls: responseData.toolCalls })
+                                            ...(Array.isArray(toolCalls) &&
+                                                { toolCalls: toolCalls as IToolCall[] })
                                         },
                                         provider,
                                         model
@@ -293,4 +332,4 @@ export class HttpClient {
             this.config.headers !== null
         );
     }
-} 
+}

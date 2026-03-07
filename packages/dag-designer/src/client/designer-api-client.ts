@@ -1,6 +1,6 @@
 import type { IDagDefinition, INodeManifest, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
 import type {
-    ICreateRunInput,
+    IDesignerCreateRunInput,
     ICreateDefinitionInput,
     IDefinitionListItem,
     IGetRunResultInput,
@@ -11,7 +11,7 @@ import type {
     IListDefinitionsInput,
     IProblemDetails,
     IPublishDefinitionInput,
-    IStartRunInput,
+    IDesignerStartRunInput,
     IUpdateDraftInput,
     IValidateDefinitionInput
 } from '../contracts/designer-api.js';
@@ -195,7 +195,7 @@ export class DesignerApiClient implements IDesignerApiClient {
         };
     }
 
-    public async createRun(input: ICreateRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
+    public async createRun(input: IDesignerCreateRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
         const path = '/v1/dag/runs';
         const payloadResult = await this.requestPayload(
             path,
@@ -223,7 +223,7 @@ export class DesignerApiClient implements IDesignerApiClient {
     }
 
     public async startRun(
-        input: IStartRunInput
+        input: IDesignerStartRunInput
     ): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
         const path = `/v1/dag/runs/${input.dagRunId}/start`;
         const payloadResult = await this.requestPayload(
