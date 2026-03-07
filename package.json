@@ -35,6 +35,13 @@
     "readme:copy": "node scripts/copy-readme.cjs copy",
     "readme:cleanup": "node scripts/copy-readme.cjs cleanup",
     "readme:validate": "node scripts/validate-readmes.js",
+    "harness:scan": "pnpm harness:scan:consistency && pnpm harness:scan:specs && pnpm docs:validate-structure",
+    "harness:scan:consistency": "node scripts/harness/scan-consistency.mjs",
+    "harness:scan:specs": "node scripts/harness/audit-spec-coverage.mjs",
+    "harness:verify": "node scripts/harness/verify-change.mjs",
+    "harness:record": "node scripts/harness/record-change.mjs",
+    "harness:review": "node scripts/harness/review-change.mjs",
+    "harness:self-check": "node scripts/harness/self-check.mjs",
     "git:push-tags": "git push --tags",
     "publish:packages": "pnpm readme:validate && pnpm readme:copy && pnpm changeset version && pnpm install && pnpm publish -r --no-git-checks && pnpm git:push-tags && pnpm readme:cleanup",
     "ci:publish": "pnpm publish -r"
@@ -79,6 +86,7 @@
     "lint-staged": "^15.2.0",
     "marked": "^9.1.5",
     "prettier": "^3.1.1",
+    "tsx": "^4.21.0",
     "typedoc": "^0.25.9",
     "typedoc-plugin-markdown": "^3.17.1",
     "typescript": "^5.3.3",
@@ -94,13 +102,11 @@
     "zod": "^3.24.4"
   },
   "workspaces": [
-    "packages/agents",
-    "packages/openai",
-    "packages/anthropic",
-    "packages/google",
-    "packages/team",
-    "packages/sessions",
-    "apps/docs"
+    "packages/*",
+    "packages/dag-nodes/*",
+    "packages/dag-*",
+    "apps/*",
+    "src/examples"
   ],
   "volta": {
     "node": "22.14.0"

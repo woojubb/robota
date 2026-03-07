@@ -46,6 +46,8 @@
         "test:coverage": "vitest run --coverage",
         "lint": "eslint src --ext .ts,.tsx",
         "lint:fix": "eslint src --ext .ts,.tsx --fix",
+        "scenario:verify": "pnpm --filter @robota-sdk/agents build && pnpm exec tsx examples/verify-offline.ts",
+        "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/sessions --output examples/scenarios/offline-verify.record.json -- pnpm scenario:verify",
         "prepublishOnly": "pnpm run clean && pnpm run build && pnpm run test"
     },
     "keywords": [
