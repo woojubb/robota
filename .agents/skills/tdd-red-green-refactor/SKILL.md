@@ -128,4 +128,4 @@ When unsure how to generalize:
 
 - `vitest-testing-strategy` — testing patterns and structure
 - `repo-change-loop` — build/test/verify workflow
-- `quality-standards` — type system and quality gates
+- `type-boundary-and-ssot` — type system, quality gates, and SSOT ownership

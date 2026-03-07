@@ -205,7 +205,7 @@ Harness-oriented repository skills:
 | repo-change-loop | `.agents/skills/repo-change-loop/` | Standard change -> build -> test -> verify workflow |
 | scenario-verification-harness | `.agents/skills/scenario-verification-harness/` | Scenario pre-check, record, verify, and stop conditions |
 | harness-governance | `.agents/skills/harness-governance/` | Rule/skill/owner drift checks and policy consistency |
-| type-boundary-and-ssot | `.agents/skills/type-boundary-and-ssot/` | Boundary validation, type strictness, and SSOT ownership workflow |
+| type-boundary-and-ssot | `.agents/skills/type-boundary-and-ssot/` | Boundary validation, type strictness, quality gates, and SSOT ownership workflow |
 | repo-writing | `.agents/skills/repo-writing/` | Repository writing rules for docs, `.design/`, and commit messages |
 | spec-writing-standard | `.agents/skills/spec-writing-standard/` | SPEC.md required sections, quality gates, and drift detection |
 
@@ -215,19 +215,15 @@ Domain and package skills:
 |-------|------|---------|
 | dag-node-standard | `.agents/skills/dag-node-standard/` | Node implementation workflow and templates |
 | pnpm-monorepo-build | `.agents/skills/pnpm-monorepo-build/` | Build commands and workflow guidance |
-| quality-standards | `.agents/skills/quality-standards/` | Type system design and quality gates |
+| architecture-patterns | `.agents/skills/architecture-patterns/` | Functional core/imperative shell, ports-and-adapters, DI patterns |
 | tdd-red-green-refactor | `.agents/skills/tdd-red-green-refactor/` | Kent Beck's TDD Red-Green-Refactor cycle |
 | vitest-testing-strategy | `.agents/skills/vitest-testing-strategy/` | Testing strategy (unit, integration, type-level) |
 | contract-testing | `.agents/skills/contract-testing/` | Consumer-driven contract testing |
-| boundary-validation | `.agents/skills/boundary-validation/` | External data validation at trust boundaries |
 | state-machine-design | `.agents/skills/state-machine-design/` | Finite state machine design patterns |
 | ddd-tactical-patterns | `.agents/skills/ddd-tactical-patterns/` | DDD patterns (Aggregate, Value Object, Domain Event) |
 | cqrs-event-projection-basics | `.agents/skills/cqrs-event-projection-basics/` | CQRS and event projection fundamentals |
 | async-concurrency-patterns | `.agents/skills/async-concurrency-patterns/` | Concurrent async with limits and cancellation |
 | effect-style-error-modeling | `.agents/skills/effect-style-error-modeling/` | Result/Either-based error modeling |
-| functional-core-imperative-shell | `.agents/skills/functional-core-imperative-shell/` | Pure logic core, side effects at boundaries |
-| hexagonal-architecture-ts | `.agents/skills/hexagonal-architecture-ts/` | Ports-and-adapters architecture |
-| ts-oop-di-patterns | `.agents/skills/ts-oop-di-patterns/` | DI, composition over inheritance |
 | execution-caching | `.agents/skills/execution-caching/` | Execution caching workflows |
 | architecture-decision-records | `.agents/skills/architecture-decision-records/` | ADR format and workflow |
 | semver-api-surface | `.agents/skills/semver-api-surface/` | Semantic versioning for monorepo |
