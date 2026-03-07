@@ -1,6 +1,7 @@
 # Agents Docs Index
 
 ## Document Structure
+- `SPEC.md`: Package scope, ownership boundaries, and canonical responsibilities.
 - `ARCHITECTURE.md`: Architectural layers and design boundaries.
 - `DEVELOPMENT.md`: Development workflow and quality expectations.
 - `PLUGINS.md`: Plugin behavior/configuration guide (merged).

@@ -40,7 +40,7 @@ Use this skill to apply consistent development patterns and architecture princip
 4. Does ownership stay single and explicit after the change?
 
 ## Dependency Direction
-- Lower layers import from higher layers, not the other way around.
+- Higher-level application wiring may depend on lower-level policy or domain modules, not the other way around.
 - Avoid lateral imports across same-level modules.
 
 ## Data Architecture

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/team",
+  "packageName": "@robota-sdk/team",
+  "command": {
+    "executable": "pnpm",
+    "args": [
+      "scenario:verify"
+    ],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/team@2.0.9 scenario:verify /Users/jungyoun/Documents/dev/robota/packages/team\n> pnpm --filter @robota-sdk/agents build && pnpm exec tsx examples/verify-offline.ts\n\n\n> @robota-sdk/agents@2.0.9 build /Users/jungyoun/Documents/dev/robota/packages/agents\n> tsup\n\nCLI Building entry: src/index.ts\nCLI Using tsconfig: tsconfig.json\nCLI tsup v8.5.0\nCLI Using tsup config: /Users/jungyoun/Documents/dev/robota/packages/agents/tsup.config.ts\nCLI Building entry: src/index.ts\nCLI Using tsconfig: tsconfig.json\nCLI tsup v8.5.0\nCLI Using tsup config: /Users/jungyoun/Documents/dev/robota/packages/agents/tsup.config.ts\nCLI Target: es2022\nCLI Target: es2022\nCLI Cleaning output folder\nESM Build start\nCJS Build start\nCLI Cleaning output folder\nESM Build start\nDTS Build start\nDTS Build start\nESM dist/node/index.js 184.55 KB\nESM ⚡️ Build success in 338ms\nCJS dist/node/index.cjs 185.17 KB\nCJS ⚡️ Build success in 338ms\nESM dist/browser/index.js 184.55 KB\nESM ⚡️ Build success in 338ms\nDTS ⚡️ Build success in 959ms\nDTS dist/browser/index.d.ts 211.67 KB\nDTS ⚡️ Build success in 982ms\nDTS dist/node/index.d.ts  211.67 KB\nDTS dist/node/index.d.cts 211.67 KB\nteam offline verify passed.\n",
+    "normalized": "team offline verify passed.",
+    "sha256": "66c0f39d614503300f98ae6c323b1ff09c9d7490d46bfb32ff17061641d4ba02"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

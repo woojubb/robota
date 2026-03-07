@@ -2,6 +2,10 @@
 
 OpenAI Provider for Robota SDK - Complete type-safe integration with OpenAI's GPT models, featuring function calling, streaming, and advanced AI capabilities.
 
+## Documentation Map
+
+- `SPEC.md`: Provider scope, ownership boundaries, and canonical responsibilities.
+
 ## 🚀 Features
 
 ### Core Capabilities

@@ -54,7 +54,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "scenario:verify": "pnpm --filter @robota-sdk/agents build && pnpm exec tsx examples/verify-executor.ts",
+    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/openai --output examples/scenarios/executor-verify.record.json -- pnpm scenario:verify"
   },
   "keywords": [
     "ai",

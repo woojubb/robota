@@ -71,7 +71,12 @@ function validateTaskRunPayload(
     errors.push({ field: 'taskRunId', expected: 'string', received: typeof obj.taskRunId });
   }
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, data: obj as ITaskRunPayload };
+  return {
+    ok: true,
+    data: {
+      taskRunId: obj.taskRunId,
+    },
+  };
 }
 ```
 
