@@ -35,7 +35,7 @@ description: Designs finite state machines as pure, declarative transition table
 ```ts
 // 1. States and events as union types
 type TTaskRunStatus = 'queued' | 'running' | 'success' | 'failed' | 'upstream_failed' | 'skipped';
-type TTaskRunEvent = 'DISPATCH' | 'LEASE_ACQUIRED' | 'COMPLETE' | 'FAIL' | 'SKIP' | 'UPSTREAM_FAIL' | 'RETRY';
+type TTaskRunEvent = 'DISPATCH' | 'LEASE_ACQUIRED' | 'COMPLETE' | 'FAIL' | 'SKIP' | 'UPSTREAM_FAIL';
 
 // 2. Transition error
 type TTransitionError = { from: TTaskRunStatus; event: TTaskRunEvent; reason: string };
@@ -45,7 +45,6 @@ const TASK_TRANSITIONS: Record<string, TTaskRunStatus | undefined> = {
   'queued:DISPATCH': 'running',
   'running:COMPLETE': 'success',
   'running:FAIL': 'failed',
-  'failed:RETRY': 'queued',
   'queued:UPSTREAM_FAIL': 'upstream_failed',
   'queued:SKIP': 'skipped',
 };
@@ -61,6 +60,8 @@ function transitionTaskRun(
   return { ok: true, status: next };
 }
 ```
+
+If a reprocess path is required, model it behind an explicit policy gate in a separate layer instead of making `failed -> queued` part of the default machine.
 
 ## Checklist
 - [ ] All states are listed as a finite union type.

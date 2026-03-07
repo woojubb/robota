@@ -1,8 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { listWorkspaceScopes, WORKSPACE_ROOT } from './harness/shared.mjs';
 
-const WORKSPACE_ROOT = process.cwd();
-const TARGET_ROOTS = ['packages'];
 const MARKDOWN_EXTENSION = '.md';
 const ROOT_DOCS_BASENAMES = new Set(['README.md', 'CHANGELOG.md']);
 const DOCS_INDEX_BASENAME = 'README.md';
@@ -19,24 +18,6 @@ async function pathExists(targetPath) {
 
 async function getDirectoryEntries(targetPath) {
     return fs.readdir(targetPath, { withFileTypes: true });
-}
-
-async function listPackageDirectories() {
-    const packageDirectories = [];
-    for (const rootName of TARGET_ROOTS) {
-        const rootPath = path.join(WORKSPACE_ROOT, rootName);
-        if (!(await pathExists(rootPath))) {
-            continue;
-        }
-        const entries = await getDirectoryEntries(rootPath);
-        for (const entry of entries) {
-            if (!entry.isDirectory()) {
-                continue;
-            }
-            packageDirectories.push(path.join(rootPath, entry.name));
-        }
-    }
-    return packageDirectories;
 }
 
 function isAllowedRootDocFile(fileName) {
@@ -93,7 +74,7 @@ async function validatePackageDocumentation(packagePath) {
 }
 
 async function main() {
-    const packageDirectories = await listPackageDirectories();
+    const packageDirectories = (await listWorkspaceScopes()).map((scope) => path.join(WORKSPACE_ROOT, scope.relativeDir));
     const violations = [];
 
     for (const packagePath of packageDirectories) {
