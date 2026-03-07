@@ -139,7 +139,7 @@ const report = {
   contractImplementationPairsNonTestDetails: contractImplementationPairsNonTest,
 };
 
-fs.writeFileSync('.design/ssot-duplicate-declarations-v3.json', JSON.stringify(report, null, 2));
+fs.writeFileSync('scripts/audit/output/ssot-duplicate-declarations-v3.json', JSON.stringify(report, null, 2));
 
 console.log(
   `[SSOT-SCAN:v3] scannedFiles=${report.scannedFiles} ` +

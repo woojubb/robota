@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { listWorkspaceScopes, WORKSPACE_ROOT } from './harness/shared.mjs';
+import { listWorkspaceScopes, WORKSPACE_ROOT } from '../harness/shared.mjs';
 
 const MARKDOWN_EXTENSION = '.md';
 const ROOT_DOCS_BASENAMES = new Set(['README.md', 'CHANGELOG.md']);

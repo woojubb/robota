@@ -1,0 +1,1706 @@
+{
+  "version": 1,
+  "scannedFiles": 420,
+  "scannedClasses": 173,
+  "interfacesWithAtLeastOneImplementer": 51,
+  "interfacesWithMultipleImplementations": 15,
+  "baseImplementsThenExtendsChains": 9,
+  "interfaceImplementations": [
+    {
+      "interfaceName": "ILogStorage",
+      "implementingClassCount": 4,
+      "implementingClasses": [
+        {
+          "className": "ConsoleLogStorage",
+          "file": "packages/agents/src/plugins/logging/storages/console-storage.ts",
+          "line": 8,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "FileLogStorage",
+          "file": "packages/agents/src/plugins/logging/storages/file-storage.ts",
+          "line": 9,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "RemoteLogStorage",
+          "file": "packages/agents/src/plugins/logging/storages/remote-storage.ts",
+          "line": 11,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "SilentLogStorage",
+          "file": "packages/agents/src/plugins/logging/storages/silent-storage.ts",
+          "line": 6,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IUsageStorage",
+      "implementingClassCount": 4,
+      "implementingClasses": [
+        {
+          "className": "FileUsageStorage",
+          "file": "packages/agents/src/plugins/usage/storages/file-storage.ts",
+          "line": 9,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "MemoryUsageStorage",
+          "file": "packages/agents/src/plugins/usage/storages/memory-storage.ts",
+          "line": 7,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "RemoteUsageStorage",
+          "file": "packages/agents/src/plugins/usage/storages/remote-storage.ts",
+          "line": 11,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "SilentUsageStorage",
+          "file": "packages/agents/src/plugins/usage/storages/silent-storage.ts",
+          "line": 7,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IHistoryStorage",
+      "implementingClassCount": 3,
+      "implementingClasses": [
+        {
+          "className": "DatabaseHistoryStorage",
+          "file": "packages/agents/src/plugins/conversation-history/storages/database-storage.ts",
+          "line": 8,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "FileHistoryStorage",
+          "file": "packages/agents/src/plugins/conversation-history/storages/file-storage.ts",
+          "line": 8,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "MemoryHistoryStorage",
+          "file": "packages/agents/src/plugins/conversation-history/storages/memory-storage.ts",
+          "line": 6,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ITaskExecutorPort",
+      "implementingClassCount": 3,
+      "implementingClasses": [
+        {
+          "className": "AssetAwareTaskExecutorPort",
+          "file": "packages/dag-server-core/src/asset-aware-task-executor.ts",
+          "line": 36,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-server-core"
+        },
+        {
+          "className": "LifecycleTaskExecutorPort",
+          "file": "packages/dag-core/src/services/lifecycle-task-executor-port.ts",
+          "line": 14,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        },
+        {
+          "className": "MockTaskExecutorPort",
+          "file": "packages/dag-core/src/testing/mock-task-executor-port.ts",
+          "line": 16,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IAgent",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "AbstractAgent",
+          "file": "packages/agents/src/abstracts/abstract-agent.ts",
+          "line": 12,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "Robota",
+          "file": "packages/agents/src/core/robota.ts",
+          "line": 131,
+          "isAbstract": false,
+          "extendsName": "AbstractAgent",
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IClockPort",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "FakeClockPort",
+          "file": "packages/dag-core/src/testing/fake-clock-port.ts",
+          "line": 3,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        },
+        {
+          "className": "SystemClockPort",
+          "file": "packages/dag-core/src/testing/fake-clock-port.ts",
+          "line": 27,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IConversationHistory",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "BaseConversationHistory",
+          "file": "packages/agents/src/managers/conversation-history-manager.ts",
+          "line": 308,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "ConversationSession",
+          "file": "packages/agents/src/managers/conversation-history-manager.ts",
+          "line": 612,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IEventHistoryModule",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "EventHistoryModule",
+          "file": "packages/agents/src/services/history-module.ts",
+          "line": 4,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "InMemoryHistoryStore",
+          "file": "packages/agents/src/services/in-memory-history-store.ts",
+          "line": 3,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IExecutor",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "AbstractExecutor",
+          "file": "packages/agents/src/abstracts/abstract-executor.ts",
+          "line": 29,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "SimpleRemoteExecutor",
+          "file": "packages/remote/src/client/remote-executor-simple.ts",
+          "line": 66,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/remote"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ILogFormatter",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "ConsoleLogFormatter",
+          "file": "packages/agents/src/plugins/logging/formatters.ts",
+          "line": 6,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "JsonLogFormatter",
+          "file": "packages/agents/src/plugins/logging/formatters.ts",
+          "line": 19,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "INodeLifecycleFactory",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "MissingNodeLifecycleFactory",
+          "file": "packages/dag-core/src/services/node-lifecycle-runner.ts",
+          "line": 131,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        },
+        {
+          "className": "StaticNodeLifecycleFactory",
+          "file": "packages/dag-core/src/lifecycle/static-node-lifecycle-factory.ts",
+          "line": 13,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IPayloadLogger",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "ConsolePayloadLogger",
+          "file": "packages/openai/src/loggers/console-payload-logger.ts",
+          "line": 28,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/openai"
+        },
+        {
+          "className": "FilePayloadLogger",
+          "file": "packages/openai/src/loggers/file-payload-logger.ts",
+          "line": 31,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/openai"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IStoragePort",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "FileStoragePort",
+          "file": "packages/dag-server-core/src/file-storage-port.ts",
+          "line": 25,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-server-core"
+        },
+        {
+          "className": "InMemoryStoragePort",
+          "file": "packages/dag-core/src/testing/in-memory-storage-port.ts",
+          "line": 15,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ITool",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "MCPTool",
+          "file": "packages/agents/src/tools/implementations/mcp-tool.ts",
+          "line": 74,
+          "isAbstract": false,
+          "extendsName": "AbstractTool",
+          "root": "packages/agents"
+        },
+        {
+          "className": "OpenAPITool",
+          "file": "packages/agents/src/tools/implementations/openapi-tool.ts",
+          "line": 17,
+          "isAbstract": false,
+          "extendsName": "AbstractTool",
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ITransport",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "HttpTransport",
+          "file": "packages/remote/src/transport/http-transport.ts",
+          "line": 13,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/remote"
+        },
+        {
+          "className": "SimpleWebSocketTransport",
+          "file": "packages/remote/src/transport/websocket-transport-simple.ts",
+          "line": 35,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/remote"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IAIProvider",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AbstractAIProvider",
+          "file": "packages/agents/src/abstracts/abstract-ai-provider.ts",
+          "line": 116,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IAIProviderManager",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AIProviders",
+          "file": "packages/agents/src/managers/ai-provider-manager.ts",
+          "line": 14,
+          "isAbstract": false,
+          "extendsName": "AbstractManager",
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IAssetStore",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "LocalFsAssetStore",
+          "file": "apps/api-server/src/services/local-fs-asset-store.ts",
+          "line": 16,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "apps/api-server"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ICacheStorage",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "MemoryCacheStorage",
+          "file": "packages/agents/src/services/cache/memory-cache-storage.ts",
+          "line": 10,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IChatInstance",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "ChatInstance",
+          "file": "packages/sessions/src/chat/chat-instance.ts",
+          "line": 18,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/sessions"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IConversationService",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "ConversationService",
+          "file": "packages/agents/src/services/conversation-service/index.ts",
+          "line": 63,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IDagNodeDefinition",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AbstractNodeDefinition",
+          "file": "packages/dag-core/src/lifecycle/abstract-node-definition.ts",
+          "line": 32,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IDesignerApiClient",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "DesignerApiClient",
+          "file": "packages/dag-designer/src/client/designer-api-client.ts",
+          "line": 99,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-designer"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IEventEmitterMetrics",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "InMemoryEventEmitterMetrics",
+          "file": "packages/agents/src/plugins/event-emitter/metrics.ts",
+          "line": 12,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IEventService",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AbstractEventService",
+          "file": "packages/agents/src/services/event-service.ts",
+          "line": 25,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IFunctionTool",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "FunctionTool",
+          "file": "packages/agents/src/tools/implementations/function-tool.ts",
+          "line": 19,
+          "isAbstract": false,
+          "extendsName": "AbstractTool",
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IImageGenerationProvider",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "GoogleProvider",
+          "file": "packages/google/src/provider.ts",
+          "line": 37,
+          "isAbstract": false,
+          "extendsName": "AbstractAIProvider",
+          "root": "packages/google"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ILeasePort",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "InMemoryLeasePort",
+          "file": "packages/dag-core/src/testing/in-memory-lease-port.ts",
+          "line": 3,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ILogger",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "ConsoleLogger",
+          "file": "packages/agents/src/utils/logger.ts",
+          "line": 86,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IModule",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AbstractModule",
+          "file": "packages/agents/src/abstracts/abstract-module.ts",
+          "line": 211,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IModuleHooks",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AbstractModule",
+          "file": "packages/agents/src/abstracts/abstract-module.ts",
+          "line": 211,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "INodeCatalogService",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "BundledNodeCatalogService",
+          "file": "packages/dag-server-core/src/bundled-node-catalog-service.ts",
+          "line": 4,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-server-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "INodeLifecycle",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "RegisteredNodeLifecycle",
+          "file": "packages/dag-core/src/lifecycle/registered-node-lifecycle.ts",
+          "line": 161,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "INodeManifestRegistry",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "StaticNodeManifestRegistry",
+          "file": "packages/dag-core/src/registry/static-node-manifest-registry.ts",
+          "line": 4,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "INodeTaskHandlerRegistry",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "StaticNodeTaskHandlerRegistry",
+          "file": "packages/dag-core/src/lifecycle/default-node-task-handlers.ts",
+          "line": 3,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IPerformanceStorage",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "MemoryPerformanceStorage",
+          "file": "packages/agents/src/plugins/performance/storages/memory-storage.ts",
+          "line": 3,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IPlaygroundBlockCollector",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "PlaygroundBlockCollector",
+          "file": "packages/playground/src/lib/playground/block-tracking/block-collector.ts",
+          "line": 30,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/playground"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IPluginContract",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AbstractPlugin",
+          "file": "packages/agents/src/abstracts/abstract-plugin.ts",
+          "line": 298,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IPluginHooks",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AbstractPlugin",
+          "file": "packages/agents/src/abstracts/abstract-plugin.ts",
+          "line": 298,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IPluginsManager",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "Plugins",
+          "file": "packages/agents/src/managers/plugins.ts",
+          "line": 107,
+          "isAbstract": false,
+          "extendsName": "AbstractManager",
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IQueuePort",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "InMemoryQueuePort",
+          "file": "packages/dag-core/src/testing/in-memory-queue-port.ts",
+          "line": 9,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IRunCostPolicyEvaluator",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "RunCostPolicyEvaluator",
+          "file": "packages/dag-core/src/services/node-lifecycle-runner.ts",
+          "line": 12,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IRunProgressEventBus",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "RunProgressEventBus",
+          "file": "packages/dag-api/src/composition/run-progress-event-bus.ts",
+          "line": 10,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-api"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ISystemMetricsCollector",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "NodeSystemMetricsCollector",
+          "file": "packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts",
+          "line": 7,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ITemplateManager",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "TemplateManagerAdapter",
+          "file": "packages/sessions/src/adapters/template-manager-adapter.ts",
+          "line": 10,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/sessions"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IToolManager",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "Tools",
+          "file": "packages/agents/src/managers/tool-manager.ts",
+          "line": 17,
+          "isAbstract": false,
+          "extendsName": "AbstractManager",
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IToolRegistry",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "ToolRegistry",
+          "file": "packages/agents/src/tools/registry/tool-registry.ts",
+          "line": 10,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IToolWithEventService",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AbstractTool",
+          "file": "packages/agents/src/abstracts/abstract-tool.ts",
+          "line": 119,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IVideoGenerationProvider",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "BytedanceProvider",
+          "file": "packages/bytedance/src/provider.ts",
+          "line": 25,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/bytedance"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IWorkflowConverter",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AbstractWorkflowConverter",
+          "file": "packages/agents/src/abstracts/abstract-workflow-converter.ts",
+          "line": 60,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IWorkflowValidator",
+      "implementingClassCount": 1,
+      "implementingClasses": [
+        {
+          "className": "AbstractWorkflowValidator",
+          "file": "packages/agents/src/abstracts/abstract-workflow-validator.ts",
+          "line": 76,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    }
+  ],
+  "interfacesWithMultipleImplementationsDetails": [
+    {
+      "interfaceName": "ILogStorage",
+      "implementingClassCount": 4,
+      "implementingClasses": [
+        {
+          "className": "ConsoleLogStorage",
+          "file": "packages/agents/src/plugins/logging/storages/console-storage.ts",
+          "line": 8,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "FileLogStorage",
+          "file": "packages/agents/src/plugins/logging/storages/file-storage.ts",
+          "line": 9,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "RemoteLogStorage",
+          "file": "packages/agents/src/plugins/logging/storages/remote-storage.ts",
+          "line": 11,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "SilentLogStorage",
+          "file": "packages/agents/src/plugins/logging/storages/silent-storage.ts",
+          "line": 6,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IUsageStorage",
+      "implementingClassCount": 4,
+      "implementingClasses": [
+        {
+          "className": "FileUsageStorage",
+          "file": "packages/agents/src/plugins/usage/storages/file-storage.ts",
+          "line": 9,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "MemoryUsageStorage",
+          "file": "packages/agents/src/plugins/usage/storages/memory-storage.ts",
+          "line": 7,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "RemoteUsageStorage",
+          "file": "packages/agents/src/plugins/usage/storages/remote-storage.ts",
+          "line": 11,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "SilentUsageStorage",
+          "file": "packages/agents/src/plugins/usage/storages/silent-storage.ts",
+          "line": 7,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IHistoryStorage",
+      "implementingClassCount": 3,
+      "implementingClasses": [
+        {
+          "className": "DatabaseHistoryStorage",
+          "file": "packages/agents/src/plugins/conversation-history/storages/database-storage.ts",
+          "line": 8,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "FileHistoryStorage",
+          "file": "packages/agents/src/plugins/conversation-history/storages/file-storage.ts",
+          "line": 8,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "MemoryHistoryStorage",
+          "file": "packages/agents/src/plugins/conversation-history/storages/memory-storage.ts",
+          "line": 6,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ITaskExecutorPort",
+      "implementingClassCount": 3,
+      "implementingClasses": [
+        {
+          "className": "AssetAwareTaskExecutorPort",
+          "file": "packages/dag-server-core/src/asset-aware-task-executor.ts",
+          "line": 36,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-server-core"
+        },
+        {
+          "className": "LifecycleTaskExecutorPort",
+          "file": "packages/dag-core/src/services/lifecycle-task-executor-port.ts",
+          "line": 14,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        },
+        {
+          "className": "MockTaskExecutorPort",
+          "file": "packages/dag-core/src/testing/mock-task-executor-port.ts",
+          "line": 16,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IAgent",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "AbstractAgent",
+          "file": "packages/agents/src/abstracts/abstract-agent.ts",
+          "line": 12,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "Robota",
+          "file": "packages/agents/src/core/robota.ts",
+          "line": 131,
+          "isAbstract": false,
+          "extendsName": "AbstractAgent",
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IClockPort",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "FakeClockPort",
+          "file": "packages/dag-core/src/testing/fake-clock-port.ts",
+          "line": 3,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        },
+        {
+          "className": "SystemClockPort",
+          "file": "packages/dag-core/src/testing/fake-clock-port.ts",
+          "line": 27,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IConversationHistory",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "BaseConversationHistory",
+          "file": "packages/agents/src/managers/conversation-history-manager.ts",
+          "line": 308,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "ConversationSession",
+          "file": "packages/agents/src/managers/conversation-history-manager.ts",
+          "line": 612,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IEventHistoryModule",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "EventHistoryModule",
+          "file": "packages/agents/src/services/history-module.ts",
+          "line": 4,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "InMemoryHistoryStore",
+          "file": "packages/agents/src/services/in-memory-history-store.ts",
+          "line": 3,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IExecutor",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "AbstractExecutor",
+          "file": "packages/agents/src/abstracts/abstract-executor.ts",
+          "line": 29,
+          "isAbstract": true,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "SimpleRemoteExecutor",
+          "file": "packages/remote/src/client/remote-executor-simple.ts",
+          "line": 66,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/remote"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ILogFormatter",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "ConsoleLogFormatter",
+          "file": "packages/agents/src/plugins/logging/formatters.ts",
+          "line": 6,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        },
+        {
+          "className": "JsonLogFormatter",
+          "file": "packages/agents/src/plugins/logging/formatters.ts",
+          "line": 19,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "INodeLifecycleFactory",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "MissingNodeLifecycleFactory",
+          "file": "packages/dag-core/src/services/node-lifecycle-runner.ts",
+          "line": 131,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        },
+        {
+          "className": "StaticNodeLifecycleFactory",
+          "file": "packages/dag-core/src/lifecycle/static-node-lifecycle-factory.ts",
+          "line": 13,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IPayloadLogger",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "ConsolePayloadLogger",
+          "file": "packages/openai/src/loggers/console-payload-logger.ts",
+          "line": 28,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/openai"
+        },
+        {
+          "className": "FilePayloadLogger",
+          "file": "packages/openai/src/loggers/file-payload-logger.ts",
+          "line": 31,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/openai"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IStoragePort",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "FileStoragePort",
+          "file": "packages/dag-server-core/src/file-storage-port.ts",
+          "line": 25,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-server-core"
+        },
+        {
+          "className": "InMemoryStoragePort",
+          "file": "packages/dag-core/src/testing/in-memory-storage-port.ts",
+          "line": 15,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/dag-core"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ITool",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "MCPTool",
+          "file": "packages/agents/src/tools/implementations/mcp-tool.ts",
+          "line": 74,
+          "isAbstract": false,
+          "extendsName": "AbstractTool",
+          "root": "packages/agents"
+        },
+        {
+          "className": "OpenAPITool",
+          "file": "packages/agents/src/tools/implementations/openapi-tool.ts",
+          "line": 17,
+          "isAbstract": false,
+          "extendsName": "AbstractTool",
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "ITransport",
+      "implementingClassCount": 2,
+      "implementingClasses": [
+        {
+          "className": "HttpTransport",
+          "file": "packages/remote/src/transport/http-transport.ts",
+          "line": 13,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/remote"
+        },
+        {
+          "className": "SimpleWebSocketTransport",
+          "file": "packages/remote/src/transport/websocket-transport-simple.ts",
+          "line": 35,
+          "isAbstract": false,
+          "extendsName": null,
+          "root": "packages/remote"
+        }
+      ]
+    }
+  ],
+  "baseImplementsThenExtendsChainsDetails": [
+    {
+      "interfaceName": "IDagNodeDefinition",
+      "baseClass": {
+        "className": "AbstractNodeDefinition",
+        "file": "packages/dag-core/src/lifecycle/abstract-node-definition.ts",
+        "line": 32,
+        "isAbstract": true,
+        "root": "packages/dag-core"
+      },
+      "derivedClassCount": 11,
+      "derivedClasses": [
+        {
+          "className": "GeminiImageComposeNodeDefinition",
+          "file": "packages/dag-nodes/gemini-image-edit/src/index.ts",
+          "line": 137,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        },
+        {
+          "className": "GeminiImageEditNodeDefinition",
+          "file": "packages/dag-nodes/gemini-image-edit/src/index.ts",
+          "line": 43,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        },
+        {
+          "className": "ImageLoaderNodeDefinition",
+          "file": "packages/dag-nodes/image-loader/src/index.ts",
+          "line": 17,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        },
+        {
+          "className": "ImageSourceNodeDefinition",
+          "file": "packages/dag-nodes/image-source/src/index.ts",
+          "line": 20,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        },
+        {
+          "className": "InputNodeDefinition",
+          "file": "packages/dag-nodes/input/src/index.ts",
+          "line": 17,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        },
+        {
+          "className": "LlmTextOpenAiNodeDefinition",
+          "file": "packages/dag-nodes/llm-text-openai/src/index.ts",
+          "line": 31,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        },
+        {
+          "className": "OkEmitterNodeDefinition",
+          "file": "packages/dag-nodes/ok-emitter/src/index.ts",
+          "line": 32,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        },
+        {
+          "className": "SeedanceVideoNodeDefinition",
+          "file": "packages/dag-nodes/seedance-video/src/index.ts",
+          "line": 147,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        },
+        {
+          "className": "TextOutputNodeDefinition",
+          "file": "packages/dag-nodes/text-output/src/index.ts",
+          "line": 15,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        },
+        {
+          "className": "TextTemplateNodeDefinition",
+          "file": "packages/dag-nodes/text-template/src/index.ts",
+          "line": 22,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        },
+        {
+          "className": "TransformNodeDefinition",
+          "file": "packages/dag-nodes/transform/src/index.ts",
+          "line": 18,
+          "isAbstract": false,
+          "root": "packages/dag-nodes"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IPluginContract",
+      "baseClass": {
+        "className": "AbstractPlugin",
+        "file": "packages/agents/src/abstracts/abstract-plugin.ts",
+        "line": 298,
+        "isAbstract": true,
+        "root": "packages/agents"
+      },
+      "derivedClassCount": 9,
+      "derivedClasses": [
+        {
+          "className": "ConversationHistoryPlugin",
+          "file": "packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts",
+          "line": 23,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "ErrorHandlingPlugin",
+          "file": "packages/agents/src/plugins/error-handling/error-handling-plugin.ts",
+          "line": 17,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "EventEmitterPlugin",
+          "file": "packages/agents/src/plugins/event-emitter-plugin.ts",
+          "line": 175,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "ExecutionAnalyticsPlugin",
+          "file": "packages/agents/src/plugins/execution/execution-analytics-plugin.ts",
+          "line": 20,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "LimitsPlugin",
+          "file": "packages/agents/src/plugins/limits-plugin.ts",
+          "line": 55,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "LoggingPlugin",
+          "file": "packages/agents/src/plugins/logging/logging-plugin.ts",
+          "line": 45,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "PerformancePlugin",
+          "file": "packages/agents/src/plugins/performance/performance-plugin.ts",
+          "line": 21,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "UsagePlugin",
+          "file": "packages/agents/src/plugins/usage/usage-plugin.ts",
+          "line": 26,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "WebhookPlugin",
+          "file": "packages/agents/src/plugins/webhook/webhook-plugin.ts",
+          "line": 55,
+          "isAbstract": false,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IPluginHooks",
+      "baseClass": {
+        "className": "AbstractPlugin",
+        "file": "packages/agents/src/abstracts/abstract-plugin.ts",
+        "line": 298,
+        "isAbstract": true,
+        "root": "packages/agents"
+      },
+      "derivedClassCount": 9,
+      "derivedClasses": [
+        {
+          "className": "ConversationHistoryPlugin",
+          "file": "packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts",
+          "line": 23,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "ErrorHandlingPlugin",
+          "file": "packages/agents/src/plugins/error-handling/error-handling-plugin.ts",
+          "line": 17,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "EventEmitterPlugin",
+          "file": "packages/agents/src/plugins/event-emitter-plugin.ts",
+          "line": 175,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "ExecutionAnalyticsPlugin",
+          "file": "packages/agents/src/plugins/execution/execution-analytics-plugin.ts",
+          "line": 20,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "LimitsPlugin",
+          "file": "packages/agents/src/plugins/limits-plugin.ts",
+          "line": 55,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "LoggingPlugin",
+          "file": "packages/agents/src/plugins/logging/logging-plugin.ts",
+          "line": 45,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "PerformancePlugin",
+          "file": "packages/agents/src/plugins/performance/performance-plugin.ts",
+          "line": 21,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "UsagePlugin",
+          "file": "packages/agents/src/plugins/usage/usage-plugin.ts",
+          "line": 26,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "WebhookPlugin",
+          "file": "packages/agents/src/plugins/webhook/webhook-plugin.ts",
+          "line": 55,
+          "isAbstract": false,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IAIProvider",
+      "baseClass": {
+        "className": "AbstractAIProvider",
+        "file": "packages/agents/src/abstracts/abstract-ai-provider.ts",
+        "line": 116,
+        "isAbstract": true,
+        "root": "packages/agents"
+      },
+      "derivedClassCount": 5,
+      "derivedClasses": [
+        {
+          "className": "AnthropicProvider",
+          "file": "packages/anthropic/src/provider.ts",
+          "line": 24,
+          "isAbstract": false,
+          "root": "packages/anthropic"
+        },
+        {
+          "className": "GoogleProvider",
+          "file": "packages/google/src/provider.ts",
+          "line": 37,
+          "isAbstract": false,
+          "root": "packages/google"
+        },
+        {
+          "className": "MockAIProvider",
+          "file": "packages/agents/examples/verify-offline.ts",
+          "line": 6,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "MockAIProvider",
+          "file": "packages/sessions/examples/verify-offline.ts",
+          "line": 5,
+          "isAbstract": false,
+          "root": "packages/sessions"
+        },
+        {
+          "className": "OpenAIProvider",
+          "file": "packages/openai/src/provider.ts",
+          "line": 26,
+          "isAbstract": false,
+          "root": "packages/openai"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IToolWithEventService",
+      "baseClass": {
+        "className": "AbstractTool",
+        "file": "packages/agents/src/abstracts/abstract-tool.ts",
+        "line": 119,
+        "isAbstract": true,
+        "root": "packages/agents"
+      },
+      "derivedClassCount": 4,
+      "derivedClasses": [
+        {
+          "className": "FunctionTool",
+          "file": "packages/agents/src/tools/implementations/function-tool.ts",
+          "line": 19,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "MCPTool",
+          "file": "packages/agents/src/tools/implementations/mcp-tool.ts",
+          "line": 74,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "OpenAPITool",
+          "file": "packages/agents/src/tools/implementations/openapi-tool.ts",
+          "line": 17,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "RelayMcpTool",
+          "file": "packages/agents/src/tools/implementations/relay-mcp-tool.ts",
+          "line": 36,
+          "isAbstract": false,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IEventService",
+      "baseClass": {
+        "className": "AbstractEventService",
+        "file": "packages/agents/src/services/event-service.ts",
+        "line": 25,
+        "isAbstract": true,
+        "root": "packages/agents"
+      },
+      "derivedClassCount": 3,
+      "derivedClasses": [
+        {
+          "className": "DefaultEventService",
+          "file": "packages/agents/src/services/event-service.ts",
+          "line": 49,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "ObservableEventService",
+          "file": "packages/agents/src/services/event-service.ts",
+          "line": 151,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "StructuredEventService",
+          "file": "packages/agents/src/services/event-service.ts",
+          "line": 97,
+          "isAbstract": false,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IConversationHistory",
+      "baseClass": {
+        "className": "BaseConversationHistory",
+        "file": "packages/agents/src/managers/conversation-history-manager.ts",
+        "line": 308,
+        "isAbstract": true,
+        "root": "packages/agents"
+      },
+      "derivedClassCount": 2,
+      "derivedClasses": [
+        {
+          "className": "PersistentSystemConversationHistory",
+          "file": "packages/agents/src/managers/conversation-history-manager.ts",
+          "line": 512,
+          "isAbstract": false,
+          "root": "packages/agents"
+        },
+        {
+          "className": "SimpleConversationHistory",
+          "file": "packages/agents/src/managers/conversation-history-manager.ts",
+          "line": 437,
+          "isAbstract": false,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IAgent",
+      "baseClass": {
+        "className": "AbstractAgent",
+        "file": "packages/agents/src/abstracts/abstract-agent.ts",
+        "line": 12,
+        "isAbstract": true,
+        "root": "packages/agents"
+      },
+      "derivedClassCount": 1,
+      "derivedClasses": [
+        {
+          "className": "Robota",
+          "file": "packages/agents/src/core/robota.ts",
+          "line": 131,
+          "isAbstract": false,
+          "root": "packages/agents"
+        }
+      ]
+    },
+    {
+      "interfaceName": "IExecutor",
+      "baseClass": {
+        "className": "AbstractExecutor",
+        "file": "packages/agents/src/abstracts/abstract-executor.ts",
+        "line": 29,
+        "isAbstract": true,
+        "root": "packages/agents"
+      },
+      "derivedClassCount": 1,
+      "derivedClasses": [
+        {
+          "className": "LocalExecutor",
+          "file": "packages/agents/src/executors/local-executor.ts",
+          "line": 33,
+          "isAbstract": false,
+          "root": "packages/agents"
+        }
+      ]
+    }
+  ]
+}

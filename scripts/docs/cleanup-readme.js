@@ -13,10 +13,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Set working directory to project root
-process.chdir(path.join(__dirname, '..'));
+process.chdir(path.join(__dirname, '..', '..'));
 
 // Package path
-const packagesPath = path.resolve(__dirname, '../packages');
+const packagesPath = path.resolve(__dirname, '../../packages');
 
 // Package list
 const packages = ['core', 'openai', 'anthropic', 'google', 'tools'];

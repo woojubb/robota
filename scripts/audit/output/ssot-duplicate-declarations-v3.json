@@ -1,0 +1,819 @@
+{
+  "version": 3,
+  "scannedFiles": 472,
+  "duplicateGroupsAll": 25,
+  "duplicateGroupsNonTest": 25,
+  "ssotViolationGroupsNonTest": 10,
+  "crossRootGroupsNonTest": 8,
+  "sameKindGroupsNonTest": 10,
+  "contractImplementationPairsNonTest": 15,
+  "keywordInventoryNonTest": {
+    "interfaceKeywordCount": 0,
+    "typeKeywordCount": 5,
+    "typeSafeKeywordCount": 0,
+    "interfaceKeywordSamples": [],
+    "typeKeywordSamples": [
+      {
+        "rawName": "TBinaryReferenceType",
+        "normalizedName": "BinaryReferenceType",
+        "kind": "type",
+        "file": "packages/dag-core/src/interfaces/ports.ts",
+        "line": 14,
+        "text": "export type TBinaryReferenceType = 'asset' | 'uri';"
+      },
+      {
+        "rawName": "TPortValueType",
+        "normalizedName": "PortValueType",
+        "kind": "type",
+        "file": "packages/dag-core/src/types/domain.ts",
+        "line": 2,
+        "text": "export type TPortValueType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'binary';"
+      },
+      {
+        "rawName": "TAssetReferenceType",
+        "normalizedName": "AssetReferenceType",
+        "kind": "type",
+        "file": "packages/dag-core/src/types/domain.ts",
+        "line": 11,
+        "text": "export type TAssetReferenceType = 'asset' | 'uri';"
+      },
+      {
+        "rawName": "TDagTriggerType",
+        "normalizedName": "DagTriggerType",
+        "kind": "type",
+        "file": "packages/dag-core/src/types/domain.ts",
+        "line": 52,
+        "text": "export type TDagTriggerType = 'manual' | 'scheduled' | 'api';"
+      },
+      {
+        "rawName": "TRunProgressEventType",
+        "normalizedName": "RunProgressEventType",
+        "kind": "type",
+        "file": "packages/dag-core/src/types/run-progress.ts",
+        "line": 4,
+        "text": "export type TRunProgressEventType ="
+      }
+    ],
+    "typeSafeKeywordSamples": []
+  },
+  "duplicatesNonTest": [
+    {
+      "name": "MockAIProvider",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "MockAIProvider",
+          "normalizedName": "MockAIProvider",
+          "kind": "class",
+          "file": "packages/agents/examples/verify-offline.ts",
+          "line": 6,
+          "text": "class MockAIProvider extends AbstractAIProvider {"
+        },
+        {
+          "rawName": "MockAIProvider",
+          "normalizedName": "MockAIProvider",
+          "kind": "class",
+          "file": "packages/sessions/examples/verify-offline.ts",
+          "line": 5,
+          "text": "class MockAIProvider extends AbstractAIProvider {"
+        }
+      ],
+      "roots": [
+        "packages/agents",
+        "packages/sessions"
+      ],
+      "kindSet": [
+        "class"
+      ],
+      "classification": "same_kind_duplicate"
+    },
+    {
+      "name": "ExecutionEventName",
+      "count": 3,
+      "occurrences": [
+        {
+          "rawName": "TExecutionEventName",
+          "normalizedName": "ExecutionEventName",
+          "kind": "type",
+          "file": "packages/agents/src/plugins/event-emitter/types.ts",
+          "line": 30,
+          "text": "type TExecutionEventName = typeof EXECUTION_EVENT_NAMES[keyof typeof EXECUTION_EVENT_NAMES];"
+        },
+        {
+          "rawName": "TExecutionEventName",
+          "normalizedName": "ExecutionEventName",
+          "kind": "type",
+          "file": "packages/agents/src/plugins/webhook/types.ts",
+          "line": 11,
+          "text": "type TExecutionEventName = `${typeof EXECUTION_EVENT_PREFIX}.${typeof EXECUTION_EVENTS[keyof typeof EXECUTION_EVENTS]}`;"
+        },
+        {
+          "rawName": "TExecutionEventName",
+          "normalizedName": "ExecutionEventName",
+          "kind": "type",
+          "file": "packages/playground/src/types/playground-statistics.ts",
+          "line": 192,
+          "text": "export type TExecutionEventName ="
+        }
+      ],
+      "roots": [
+        "packages/agents",
+        "packages/playground"
+      ],
+      "kindSet": [
+        "type"
+      ],
+      "classification": "same_kind_duplicate"
+    },
+    {
+      "name": "CategorySummary",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "TCategorySummary",
+          "normalizedName": "CategorySummary",
+          "kind": "type",
+          "file": "packages/team/examples/assign-task-categorized.ts",
+          "line": 12,
+          "text": "type TCategorySummary = {"
+        },
+        {
+          "rawName": "TCategorySummary",
+          "normalizedName": "CategorySummary",
+          "kind": "type",
+          "file": "packages/team/examples/verify-offline.ts",
+          "line": 8,
+          "text": "type TCategorySummary = {"
+        }
+      ],
+      "roots": [
+        "packages/team"
+      ],
+      "kindSet": [
+        "type"
+      ],
+      "classification": "same_kind_duplicate"
+    },
+    {
+      "name": "CreateRunInput",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "ICreateRunInput",
+          "normalizedName": "CreateRunInput",
+          "kind": "interface",
+          "file": "packages/dag-designer/src/contracts/designer-api.ts",
+          "line": 70,
+          "text": "export interface ICreateRunInput {"
+        },
+        {
+          "rawName": "ICreateRunInput",
+          "normalizedName": "CreateRunInput",
+          "kind": "interface",
+          "file": "packages/dag-runtime/src/services/run-orchestrator-service.ts",
+          "line": 30,
+          "text": "export interface ICreateRunInput extends IStartRunInput {}"
+        }
+      ],
+      "roots": [
+        "packages/dag-designer",
+        "packages/dag-runtime"
+      ],
+      "kindSet": [
+        "interface"
+      ],
+      "classification": "same_kind_duplicate"
+    },
+    {
+      "name": "DefinitionListItem",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IDefinitionListItem",
+          "normalizedName": "DefinitionListItem",
+          "kind": "interface",
+          "file": "packages/dag-api/src/contracts/design-api.ts",
+          "line": 50,
+          "text": "export interface IDefinitionListItem {"
+        },
+        {
+          "rawName": "IDefinitionListItem",
+          "normalizedName": "DefinitionListItem",
+          "kind": "interface",
+          "file": "packages/dag-designer/src/contracts/designer-api.ts",
+          "line": 86,
+          "text": "export interface IDefinitionListItem {"
+        }
+      ],
+      "roots": [
+        "packages/dag-api",
+        "packages/dag-designer"
+      ],
+      "kindSet": [
+        "interface"
+      ],
+      "classification": "same_kind_duplicate"
+    },
+    {
+      "name": "ProblemDetails",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IProblemDetails",
+          "normalizedName": "ProblemDetails",
+          "kind": "interface",
+          "file": "packages/dag-api/src/contracts/design-api.ts",
+          "line": 4,
+          "text": "export interface IProblemDetails {"
+        },
+        {
+          "rawName": "IProblemDetails",
+          "normalizedName": "ProblemDetails",
+          "kind": "interface",
+          "file": "packages/dag-designer/src/contracts/designer-api.ts",
+          "line": 9,
+          "text": "export interface IProblemDetails {"
+        }
+      ],
+      "roots": [
+        "packages/dag-api",
+        "packages/dag-designer"
+      ],
+      "kindSet": [
+        "interface"
+      ],
+      "classification": "same_kind_duplicate"
+    },
+    {
+      "name": "RunNodeTrace",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IRunNodeTrace",
+          "normalizedName": "RunNodeTrace",
+          "kind": "interface",
+          "file": "packages/dag-designer/src/contracts/designer-api.ts",
+          "line": 55,
+          "text": "export interface IRunNodeTrace {"
+        },
+        {
+          "rawName": "IRunNodeTrace",
+          "normalizedName": "RunNodeTrace",
+          "kind": "interface",
+          "file": "packages/dag-server-core/src/dag-run-service.ts",
+          "line": 15,
+          "text": "export interface IRunNodeTrace {"
+        }
+      ],
+      "roots": [
+        "packages/dag-designer",
+        "packages/dag-server-core"
+      ],
+      "kindSet": [
+        "interface"
+      ],
+      "classification": "same_kind_duplicate"
+    },
+    {
+      "name": "RunResult",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IRunResult",
+          "normalizedName": "RunResult",
+          "kind": "interface",
+          "file": "packages/dag-designer/src/contracts/designer-api.ts",
+          "line": 64,
+          "text": "export interface IRunResult {"
+        },
+        {
+          "rawName": "IRunResult",
+          "normalizedName": "RunResult",
+          "kind": "interface",
+          "file": "packages/dag-server-core/src/dag-run-service.ts",
+          "line": 24,
+          "text": "export interface IRunResult {"
+        }
+      ],
+      "roots": [
+        "packages/dag-designer",
+        "packages/dag-server-core"
+      ],
+      "kindSet": [
+        "interface"
+      ],
+      "classification": "same_kind_duplicate"
+    },
+    {
+      "name": "StartRunInput",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IStartRunInput",
+          "normalizedName": "StartRunInput",
+          "kind": "interface",
+          "file": "packages/dag-designer/src/contracts/designer-api.ts",
+          "line": 81,
+          "text": "export interface IStartRunInput {"
+        },
+        {
+          "rawName": "IStartRunInput",
+          "normalizedName": "StartRunInput",
+          "kind": "interface",
+          "file": "packages/dag-runtime/src/services/run-orchestrator-service.ts",
+          "line": 21,
+          "text": "export interface IStartRunInput {"
+        }
+      ],
+      "roots": [
+        "packages/dag-designer",
+        "packages/dag-runtime"
+      ],
+      "kindSet": [
+        "interface"
+      ],
+      "classification": "same_kind_duplicate"
+    },
+    {
+      "name": "TemplateSummary",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "TTemplateSummary",
+          "normalizedName": "TemplateSummary",
+          "kind": "type",
+          "file": "packages/team/examples/template-payloads.ts",
+          "line": 1,
+          "text": "export type TTemplateSummary = {"
+        },
+        {
+          "rawName": "TTemplateSummary",
+          "normalizedName": "TemplateSummary",
+          "kind": "type",
+          "file": "packages/team/examples/verify-offline.ts",
+          "line": 14,
+          "text": "type TTemplateSummary = {"
+        }
+      ],
+      "roots": [
+        "packages/team"
+      ],
+      "kindSet": [
+        "type"
+      ],
+      "classification": "same_kind_duplicate"
+    }
+  ],
+  "contractImplementationPairsNonTestDetails": [
+    {
+      "name": "AbstractTool",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IAbstractTool",
+          "normalizedName": "AbstractTool",
+          "kind": "interface",
+          "file": "packages/agents/src/abstracts/abstract-tool.ts",
+          "line": 74,
+          "text": "export interface IAbstractTool<TParams = TToolParameters, TResult = IToolResult> {"
+        },
+        {
+          "rawName": "AbstractTool",
+          "normalizedName": "AbstractTool",
+          "kind": "class",
+          "file": "packages/agents/src/abstracts/abstract-tool.ts",
+          "line": 119,
+          "text": "export abstract class AbstractTool<TParameters = TToolParameters, TResult = IToolResult>"
+        }
+      ],
+      "roots": [
+        "packages/agents"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "AgentFactory",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IAgentFactory",
+          "normalizedName": "AgentFactory",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/manager.ts",
+          "line": 144,
+          "text": "export interface IAgentFactory {"
+        },
+        {
+          "rawName": "AgentFactory",
+          "normalizedName": "AgentFactory",
+          "kind": "class",
+          "file": "packages/agents/src/managers/agent-factory.ts",
+          "line": 58,
+          "text": "export class AgentFactory {"
+        }
+      ],
+      "roots": [
+        "packages/agents"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "ChatInstance",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "ChatInstance",
+          "normalizedName": "ChatInstance",
+          "kind": "class",
+          "file": "packages/sessions/src/chat/chat-instance.ts",
+          "line": 18,
+          "text": "export class ChatInstance implements IChatInstance {"
+        },
+        {
+          "rawName": "IChatInstance",
+          "normalizedName": "ChatInstance",
+          "kind": "interface",
+          "file": "packages/sessions/src/types/chat.ts",
+          "line": 49,
+          "text": "export interface IChatInstance {"
+        }
+      ],
+      "roots": [
+        "packages/sessions"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "ConversationHistory",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IConversationHistory",
+          "normalizedName": "ConversationHistory",
+          "kind": "interface",
+          "file": "packages/agents/src/managers/conversation-history-manager.ts",
+          "line": 210,
+          "text": "export interface IConversationHistory {"
+        },
+        {
+          "rawName": "ConversationHistory",
+          "normalizedName": "ConversationHistory",
+          "kind": "class",
+          "file": "packages/agents/src/managers/conversation-history-manager.ts",
+          "line": 779,
+          "text": "export class ConversationHistory {"
+        }
+      ],
+      "roots": [
+        "packages/agents"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "ConversationService",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IConversationService",
+          "normalizedName": "ConversationService",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/service.ts",
+          "line": 164,
+          "text": "export interface IConversationService {"
+        },
+        {
+          "rawName": "ConversationService",
+          "normalizedName": "ConversationService",
+          "kind": "class",
+          "file": "packages/agents/src/services/conversation-service/index.ts",
+          "line": 63,
+          "text": "export class ConversationService implements IConversationService {"
+        }
+      ],
+      "roots": [
+        "packages/agents"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "DesignerApiClient",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "DesignerApiClient",
+          "normalizedName": "DesignerApiClient",
+          "kind": "class",
+          "file": "packages/dag-designer/src/client/designer-api-client.ts",
+          "line": 99,
+          "text": "export class DesignerApiClient implements IDesignerApiClient {"
+        },
+        {
+          "rawName": "IDesignerApiClient",
+          "normalizedName": "DesignerApiClient",
+          "kind": "interface",
+          "file": "packages/dag-designer/src/contracts/designer-api.ts",
+          "line": 92,
+          "text": "export interface IDesignerApiClient {"
+        }
+      ],
+      "roots": [
+        "packages/dag-designer"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "EventEmitterPlugin",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "EventEmitterPlugin",
+          "normalizedName": "EventEmitterPlugin",
+          "kind": "class",
+          "file": "packages/agents/src/plugins/event-emitter-plugin.ts",
+          "line": 175,
+          "text": "export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOptions, IEventEmitterPluginStats> {"
+        },
+        {
+          "rawName": "IEventEmitterPlugin",
+          "normalizedName": "EventEmitterPlugin",
+          "kind": "interface",
+          "file": "packages/agents/src/plugins/event-emitter/types.ts",
+          "line": 140,
+          "text": "export interface IEventEmitterPlugin {"
+        }
+      ],
+      "roots": [
+        "packages/agents"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "EventHistoryModule",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IEventHistoryModule",
+          "normalizedName": "EventHistoryModule",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/history-module.ts",
+          "line": 16,
+          "text": "export interface IEventHistoryModule {"
+        },
+        {
+          "rawName": "EventHistoryModule",
+          "normalizedName": "EventHistoryModule",
+          "kind": "class",
+          "file": "packages/agents/src/services/history-module.ts",
+          "line": 4,
+          "text": "export class EventHistoryModule implements IEventHistoryModule {"
+        }
+      ],
+      "roots": [
+        "packages/agents"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "ExecutionService",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IExecutionService",
+          "normalizedName": "ExecutionService",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/service.ts",
+          "line": 227,
+          "text": "export interface IExecutionService {"
+        },
+        {
+          "rawName": "ExecutionService",
+          "normalizedName": "ExecutionService",
+          "kind": "class",
+          "file": "packages/agents/src/services/execution-service.ts",
+          "line": 111,
+          "text": "export class ExecutionService {"
+        }
+      ],
+      "roots": [
+        "packages/agents"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "FunctionTool",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IFunctionTool",
+          "normalizedName": "FunctionTool",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/tool.ts",
+          "line": 232,
+          "text": "export interface IFunctionTool extends ITool {"
+        },
+        {
+          "rawName": "FunctionTool",
+          "normalizedName": "FunctionTool",
+          "kind": "class",
+          "file": "packages/agents/src/tools/implementations/function-tool.ts",
+          "line": 19,
+          "text": "export class FunctionTool extends AbstractTool<TToolParameters, IToolResult> implements IFunctionTool {"
+        }
+      ],
+      "roots": [
+        "packages/agents"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "PlaygroundBlockCollector",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IPlaygroundBlockCollector",
+          "normalizedName": "PlaygroundBlockCollector",
+          "kind": "interface",
+          "file": "packages/playground/src/lib/playground/block-tracking/block-collector.ts",
+          "line": 19,
+          "text": "export interface IPlaygroundBlockCollector extends IBlockDataCollector {"
+        },
+        {
+          "rawName": "PlaygroundBlockCollector",
+          "normalizedName": "PlaygroundBlockCollector",
+          "kind": "class",
+          "file": "packages/playground/src/lib/playground/block-tracking/block-collector.ts",
+          "line": 30,
+          "text": "export class PlaygroundBlockCollector implements IPlaygroundBlockCollector {"
+        }
+      ],
+      "roots": [
+        "packages/playground"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "RunCostPolicyEvaluator",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "RunCostPolicyEvaluator",
+          "normalizedName": "RunCostPolicyEvaluator",
+          "kind": "class",
+          "file": "packages/dag-core/src/services/node-lifecycle-runner.ts",
+          "line": 12,
+          "text": "export class RunCostPolicyEvaluator implements IRunCostPolicyEvaluator {"
+        },
+        {
+          "rawName": "IRunCostPolicyEvaluator",
+          "normalizedName": "RunCostPolicyEvaluator",
+          "kind": "interface",
+          "file": "packages/dag-core/src/types/node-lifecycle.ts",
+          "line": 110,
+          "text": "export interface IRunCostPolicyEvaluator {"
+        }
+      ],
+      "roots": [
+        "packages/dag-core"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "RunProgressEventBus",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IRunProgressEventBus",
+          "normalizedName": "RunProgressEventBus",
+          "kind": "interface",
+          "file": "packages/dag-api/src/composition/run-progress-event-bus.ts",
+          "line": 5,
+          "text": "export interface IRunProgressEventBus {"
+        },
+        {
+          "rawName": "RunProgressEventBus",
+          "normalizedName": "RunProgressEventBus",
+          "kind": "class",
+          "file": "packages/dag-api/src/composition/run-progress-event-bus.ts",
+          "line": 10,
+          "text": "export class RunProgressEventBus implements IRunProgressEventBus {"
+        }
+      ],
+      "roots": [
+        "packages/dag-api"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "ToolExecutionService",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IToolExecutionService",
+          "normalizedName": "ToolExecutionService",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/service.ts",
+          "line": 207,
+          "text": "export interface IToolExecutionService {"
+        },
+        {
+          "rawName": "ToolExecutionService",
+          "normalizedName": "ToolExecutionService",
+          "kind": "class",
+          "file": "packages/agents/src/services/tool-execution-service.ts",
+          "line": 41,
+          "text": "export class ToolExecutionService {"
+        }
+      ],
+      "roots": [
+        "packages/agents"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    },
+    {
+      "name": "ToolRegistry",
+      "count": 2,
+      "occurrences": [
+        {
+          "rawName": "IToolRegistry",
+          "normalizedName": "ToolRegistry",
+          "kind": "interface",
+          "file": "packages/agents/src/interfaces/tool.ts",
+          "line": 240,
+          "text": "export interface IToolRegistry {"
+        },
+        {
+          "rawName": "ToolRegistry",
+          "normalizedName": "ToolRegistry",
+          "kind": "class",
+          "file": "packages/agents/src/tools/registry/tool-registry.ts",
+          "line": 10,
+          "text": "export class ToolRegistry implements IToolRegistry {"
+        }
+      ],
+      "roots": [
+        "packages/agents"
+      ],
+      "kindSet": [
+        "class",
+        "interface"
+      ],
+      "classification": "contract_implementation_pair"
+    }
+  ]
+}
