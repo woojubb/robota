@@ -232,6 +232,7 @@ Domain and package skills:
 | tailwind-truncation | `.agents/skills/tailwind-truncation/` | Tailwind truncation patterns |
 | branch-guard | `.agents/skills/branch-guard/` | Guard against committing on protected branches |
 | task-tracking | `.agents/skills/task-tracking/` | Track work with task files in .agents/tasks/ |
+| contract-audit | `.agents/skills/contract-audit/` | Package-level class contract review and SPEC.md registry |
 
 ## Rules and Skills Boundary
 
@@ -268,6 +269,7 @@ Each workspace `docs/SPEC.md` must include at minimum:
 - **Extension Points**: abstract classes or interfaces that consumers implement.
 - **Error Taxonomy**: package-specific error types with codes and categories.
 - **Test Strategy**: current test coverage and identified gaps.
+- **Class Contract Registry**: interface implementations, inheritance chains, and cross-package port consumers.
 
 The `spec-writing-standard` skill provides the full workflow for creating or updating SPEC.md files.
 
