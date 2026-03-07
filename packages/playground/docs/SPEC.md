@@ -59,6 +59,31 @@ Errors are returned in `IPlaygroundExecutorResult` using the `IPlaygroundUiError
 
 Runtime errors: `'No active agent to execute prompt'`, `'Server URL and auth token required'`, `'Unknown tool id'`, agent/tool registry lookup failures.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IPlaygroundBlockCollector` | `PlaygroundBlockCollector` | production | `src/executor/block-collector.ts` |
+
+### Inheritance Chains
+
+| Base (Owner) | Derived | Location | Notes |
+|------|---------|----------|-------|
+| `AbstractPlugin` (agents) | `PlaygroundStatisticsPlugin` | `src/plugins/statistics-plugin.ts` | UX metrics |
+| `AbstractPlugin` (agents) | `PlaygroundHistoryPlugin` | `src/plugins/history-plugin.ts` | Conversation events |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer | Location |
+|--------------|---------|----------|
+| `Robota` (agents) | `PlaygroundExecutor` | `src/executor/playground-executor.ts` |
+| `AbstractPlugin` (agents) | `PlaygroundStatisticsPlugin`, `PlaygroundHistoryPlugin` | `src/plugins/` |
+| `FunctionTool` (agents) | Tool factory functions | `src/tools/` |
+| `RemoteExecutor` (remote) | `PlaygroundExecutor` | `src/executor/playground-executor.ts` |
+| `IPlaygroundWebSocketMessage` (remote) | `PlaygroundWebSocketClient` | `src/websocket/` |
+
 ## Test Strategy
 
 - **No test files found** in this package currently.

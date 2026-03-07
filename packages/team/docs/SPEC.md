@@ -84,6 +84,20 @@ This package does not define a custom error hierarchy. It relies on:
 
 All underlying agent execution errors propagate from `@robota-sdk/agents`.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+None. This package defines no classes. All exports are tool instances (`FunctionTool`, `RelayMcpTool`) created via factory functions from `@robota-sdk/agents`.
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer | Location |
+|--------------|---------|----------|
+| `FunctionTool` (agents) | `listTemplateCategoriesTool`, `listTemplatesTool`, `getTemplateDetailTool` | `src/assign-task/relay-assign-task.ts` |
+| `RelayMcpTool` (agents) | `createAssignTaskRelayTool` result | `src/assign-task/relay-assign-task.ts` |
+| `IEventService` (agents) | `createAssignTaskRelayTool` parameter | `src/assign-task/relay-assign-task.ts` |
+
 ## Test Strategy
 
 ### Current State

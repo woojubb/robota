@@ -147,6 +147,27 @@ This package does not define a custom error hierarchy. All errors are thrown as 
 
 Underlying AI provider errors propagate from `@robota-sdk/agents` and are wrapped in the message send/config update error paths.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IChatInstance` | `ChatInstance` | production | `src/chat/chat-instance.ts` |
+| `ITemplateManager` | `TemplateManagerAdapter` | production (adapter) | `src/adapters/template-manager-adapter.ts` |
+
+### Inheritance Chains
+
+None. Classes are standalone.
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer Class | Location |
+|--------------|---------------|----------|
+| `Robota` (agents) | `ChatInstance` | `src/chat/chat-instance.ts` |
+| `AgentFactory` (agents) | `SessionManager` | `src/session/session-manager.ts` |
+| `AgentTemplates` (agents) | `TemplateManagerAdapter` | `src/adapters/template-manager-adapter.ts` |
+
 ## Test Strategy
 
 ### Current Test Coverage

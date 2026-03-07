@@ -55,6 +55,28 @@ All errors use `IDagError` from `dag-core` with `category: 'validation'`:
 - `DAG_VALIDATION_DAG_RUN_NOT_FOUND` -- DAG run not found for the requested projection
 - `DAG_VALIDATION_DEFINITION_NOT_FOUND` -- definition not found for lineage projection (required to map nodes and edges)
 
+## Class Contract Registry
+
+### Interface Implementations
+
+None. `ProjectionReadModelService` does not use `implements`.
+
+### Inheritance Chains
+
+None. Service class is standalone.
+
+### Port Consumption via DI
+
+| Service Class | Injected Port (from dag-core) | Location |
+|---------------|------------------------------|----------|
+| `ProjectionReadModelService` | `IStoragePort` | `src/services/projection-read-model-service.ts` |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer Class | Location |
+|--------------|---------------|----------|
+| `IStoragePort` (dag-core) | `ProjectionReadModelService` | `src/services/projection-read-model-service.ts` |
+
 ## Test Strategy
 
 - **Unit tests**: `projection-read-model-service.test.ts`

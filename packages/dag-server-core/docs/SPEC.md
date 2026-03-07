@@ -75,6 +75,31 @@ Errors are mapped to `IProblemDetails` (from `dag-api`) at the Express route lev
 - `DAG_VALIDATION_RUN_FAILURE_DETAILS_MISSING` -- failed task missing error details
 - `DAG_VALIDATION_DEFINITION_SNAPSHOT_MISSING` / `_INVALID` / `_PARSE_FAILED` -- definition snapshot errors
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `ITaskExecutorPort` (dag-core) | `AssetAwareTaskExecutorPort` | production (decorator) | `src/asset-aware-task-executor.ts` |
+| `IStoragePort` (dag-core) | `FileStoragePort` | production | `src/file-storage-port.ts` |
+| `INodeCatalogService` (dag-api) | `BundledNodeCatalogService` | production | `src/bundled-node-catalog-service.ts` |
+
+### Inheritance Chains
+
+None. Classes are standalone.
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Adapter | Location |
+|--------------|---------|----------|
+| `ITaskExecutorPort` (dag-core) | `AssetAwareTaskExecutorPort` | `src/asset-aware-task-executor.ts` |
+| `IStoragePort` (dag-core) | `FileStoragePort` | `src/file-storage-port.ts` |
+| `INodeCatalogService` (dag-api) | `BundledNodeCatalogService` | `src/bundled-node-catalog-service.ts` |
+| `INodeLifecycleFactory` (dag-core) | `startDagServer` (via DI) | `src/dag-server-bootstrap.ts` |
+| `INodeManifestRegistry` (dag-core) | `startDagServer` (via DI) | `src/dag-server-bootstrap.ts` |
+| Controller composition (dag-api) | `startDagServer` | `src/dag-server-bootstrap.ts` |
+
 ## Test Strategy
 
 - **Unit tests**: `dag-server-bootstrap.helpers.test.ts`

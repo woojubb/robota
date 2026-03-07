@@ -44,6 +44,10 @@ This is a private app (`"private": true`) with no programmatic API. Its output i
 
 No application-level error types. Build failures surface through VitePress and Node.js script exit codes.
 
+## Class Contract Registry
+
+No classes exist in this app. It is a documentation-only build pipeline with no TypeScript runtime code.
+
 ## Test Strategy
 
 - **No test files or test scripts** defined for this app.

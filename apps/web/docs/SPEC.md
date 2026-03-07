@@ -56,6 +56,29 @@ No package-specific error types defined. Errors are handled by:
 - Next.js built-in error boundaries.
 - `IApiResponse.error` field for API call failures.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+None. No classes implement external interfaces.
+
+### Inheritance Chains
+
+None.
+
+### Classes
+
+| Class | Kind | Location | Notes |
+|-------|------|----------|-------|
+| `SimpleCache<TValue>` | standalone (generic) | `src/lib/cache.ts` | In-memory TTL cache, no external contracts |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer | Location |
+|--------------|---------|----------|
+| `@robota-sdk/playground` components | Page routes | `src/app/playground/` |
+| `@robota-sdk/dag-designer` components | Page routes | `src/app/dag-designer/` |
+
 ## Test Strategy
 
 - **Test framework**: Jest with `@testing-library/react` and `jest-environment-jsdom`.

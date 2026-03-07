@@ -73,6 +73,34 @@ This is a private app with no published package surface. Internal exports:
 | WebSocket | `{ type: 'auth', data: { error } }` | Invalid message, auth failure |
 | DAG bootstrap | Process exit(1) | Server startup failure |
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IAssetStore` (dag-server-core) | `LocalFsAssetStore` | production | `src/services/local-fs-asset-store.ts` |
+
+### Inheritance Chains
+
+None. Classes are standalone.
+
+### Classes
+
+| Class | Kind | Location | Notes |
+|-------|------|----------|-------|
+| `PlaygroundWebSocketServer` | standalone | `src/websocket-server.ts` | WebSocket server for playground real-time communication |
+| `LocalFsAssetStore` | `IAssetStore` impl | `src/services/local-fs-asset-store.ts` | Local filesystem asset storage |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer | Location |
+|--------------|---------|----------|
+| `IAssetStore` (dag-server-core) | `LocalFsAssetStore` | `src/services/local-fs-asset-store.ts` |
+| `RemoteServer` (remote) | `createApp` | `src/server.ts` |
+| `startDagServer` (dag-server-core) | `bootstrapDagDevServer` | `src/dag-dev-server.ts` |
+| `IAIProvider` (agents) | Provider registration in `createApp` | `src/server.ts` |
+
 ## Test Strategy
 
 - **Test framework**: Vitest configured with `--passWithNoTests`.
