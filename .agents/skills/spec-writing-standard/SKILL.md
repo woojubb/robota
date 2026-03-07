@@ -37,6 +37,7 @@ description: Use when creating or updating a package SPEC.md. Defines required s
    - **Extension Points**: How consumers extend behavior (abstract classes, interfaces, strategies).
    - **Error Taxonomy**: Error types with codes, categories, recoverability. Table format if applicable.
    - **Test Strategy**: Current test files, scenario verification, coverage gaps.
+   - **Class Contract Registry**: Interface implementations, inheritance chains, and cross-package port consumers for this package.
 
 4. **Write optional sections** (include when applicable):
 
@@ -59,6 +60,7 @@ description: Use when creating or updating a package SPEC.md. Defines required s
 - Type ownership table references types that do not exist in source.
 - Public API surface lists exports not present in `index.ts`.
 - SPEC.md describes architecture that contradicts actual code structure.
+- Class Contract Registry is inconsistent with `implements-audit` output.
 
 ## Checklist
 
@@ -70,6 +72,7 @@ description: Use when creating or updating a package SPEC.md. Defines required s
 - [ ] Extension points list abstract classes or interfaces consumers implement
 - [ ] Error taxonomy covers package-specific error types
 - [ ] Test strategy describes current coverage and gaps
+- [ ] Class Contract Registry covers all implements/extends in this package
 - [ ] All referenced types, exports, and errors exist in source code
 - [ ] `pnpm harness:scan:specs` passes
 
