@@ -235,6 +235,7 @@ Domain and package skills:
 | branch-guard | `.agents/skills/branch-guard/` | Guard against committing on protected branches |
 | task-tracking | `.agents/skills/task-tracking/` | Track work with task files in .agents/tasks/ |
 | contract-audit | `.agents/skills/contract-audit/` | Package-level class contract review and SPEC.md registry |
+| package-code-review | `.agents/skills/package-code-review/` | Systematic 6-perspective code review with severity labels |
 
 ## Rules and Skills Boundary
 
