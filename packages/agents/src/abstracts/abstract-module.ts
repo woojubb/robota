@@ -10,6 +10,7 @@
 import type { ILogger } from '../utils/logger';
 import { SilentLogger } from '../utils/logger';
 import { EVENT_EMITTER_EVENTS, type IEventEmitterPlugin, type TEventDataValue } from '../plugins/event-emitter/types';
+import type { IModuleInitializationEventData, IModuleExecutionEventData, IModuleDisposalEventData } from './abstract-module-events';
 
 /**
  * Module execution context for all modules
@@ -656,6 +657,8 @@ export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBase
             ...(averageTime !== undefined && { averageExecutionTime: averageTime })
         };
 
+        // TStats extends IModuleStats, so the base fields satisfy the constraint.
+        // Subclasses that widen TStats must override getStats() to supply additional fields.
         return baseStats as TStats;
     }
 
@@ -738,81 +741,14 @@ export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBase
 }
 
 /**
- * Standard module event data structures for consistent event communication
+ * Standard module event data structures — re-exported from abstract-module-events.ts
+ * for backward compatibility.
  */
-
-/**
- * Base module event data interface
- */
-export interface IBaseModuleEventData {
-    moduleName: string;
-    moduleType: string;
-    timestamp: Date;
-    metadata?: Record<string, string | number | boolean | Date>;
-}
-
-/**
- * Module initialization event data
- */
-export interface IModuleInitializationEventData extends IBaseModuleEventData {
-    phase: 'start' | 'complete' | 'error';
-    duration?: number;
-    error?: string;
-    options?: Record<string, string | number | boolean>;
-}
-
-/**
- * Module execution event data
- */
-export interface IModuleExecutionEventData extends IBaseModuleEventData {
-    phase: 'start' | 'complete' | 'error';
-    executionId: string;
-    duration?: number;
-    success?: boolean;
-    error?: string;
-    inputSize?: number;
-    outputSize?: number;
-    context?: {
-        sessionId?: string;
-        userId?: string;
-        agentName?: string;
-    };
-}
-
-/**
- * Module disposal event data
- */
-export interface IModuleDisposalEventData extends IBaseModuleEventData {
-    phase: 'start' | 'complete' | 'error';
-    duration?: number;
-    error?: string;
-    resourcesReleased?: string[];
-}
-
-/**
- * Module capability event data (for capability registration/changes)
- */
-export interface IModuleCapabilityEventData extends IBaseModuleEventData {
-    action: 'registered' | 'updated' | 'removed';
-    capabilities: string[];
-    dependencies?: string[];
-}
-
-/**
- * Module health event data (for monitoring and diagnostics)
- */
-export interface IModuleHealthEventData extends IBaseModuleEventData {
-    status: 'healthy' | 'warning' | 'error' | 'critical';
-    metrics: {
-        memoryUsage?: number;
-        cpuUsage?: number;
-        executionCount?: number;
-        errorCount?: number;
-        averageResponseTime?: number;
-    };
-    issues?: Array<{
-        severity: 'low' | 'medium' | 'high' | 'critical';
-        message: string;
-        code?: string;
-    }>;
-} 
+export type {
+    IBaseModuleEventData,
+    IModuleInitializationEventData,
+    IModuleExecutionEventData,
+    IModuleDisposalEventData,
+    IModuleCapabilityEventData,
+    IModuleHealthEventData
+} from './abstract-module-events';

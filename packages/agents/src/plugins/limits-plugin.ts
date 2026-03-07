@@ -60,7 +60,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     private logger: ILogger;
     private windows = new Map<string, ILimitWindow>();
     private buckets = new Map<string, ITokenBucket>();
-    private requestCounts = new Map<string, number>();
+
 
     constructor(options: ILimitsPluginOptions) {
         super();
@@ -545,12 +545,10 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
         if (key) {
             this.buckets.delete(key);
             this.windows.delete(key);
-            this.requestCounts.delete(key);
             this.logger.info('Limits reset for key', { key });
         } else {
             this.buckets.clear();
             this.windows.clear();
-            this.requestCounts.clear();
             this.logger.info('All limits reset');
         }
     }

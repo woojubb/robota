@@ -115,6 +115,8 @@ export class AgentFactory {
         config: Partial<IAgentConfig>,
         fromTemplate: boolean = false
     ): Promise<IAgent<IAgentConfig>> {
+        // Apply defaults before try so fullConfig is available in catch
+        let fullConfig: IAgentConfig | undefined;
         try {
             // Check concurrent agent limit
             if (this.activeAgents.size >= this.options.maxConcurrentAgents) {
@@ -124,7 +126,7 @@ export class AgentFactory {
             }
 
             // Apply default configuration
-            const fullConfig = this.applyDefaults(config);
+            fullConfig = this.applyDefaults(config);
 
             // Validate configuration
             if (this.options.strictValidation) {
@@ -172,17 +174,18 @@ export class AgentFactory {
             return agent;
         } catch (error) {
             // Call error lifecycle event
-            if (this.lifecycleEvents.onCreateError) {
-                await this.lifecycleEvents.onCreateError(error as Error, config as IAgentConfig);
+            const normalizedError = error instanceof Error ? error : new Error(String(error));
+            if (this.lifecycleEvents.onCreateError && fullConfig) {
+                await this.lifecycleEvents.onCreateError(normalizedError, fullConfig);
             }
 
             this.logger.error('Failed to create agent', {
-                error: error instanceof Error ? error.message : String(error),
+                error: normalizedError.message,
                 model: config.defaultModel?.model,
                 provider: config.defaultModel?.provider,
                 hasTools: !!config.tools?.length
             });
-            throw error;
+            throw normalizedError;
         }
     }
 

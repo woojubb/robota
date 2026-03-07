@@ -24,6 +24,15 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
     constructor(config: IOpenAPIToolConfig, options: IAbstractToolOptions = {}) {
         super(options);
         this.config = config;
+        // Runtime validation of required OpenAPI 3.x fields before cast
+        if (
+            typeof config.spec !== 'object' ||
+            config.spec === null ||
+            typeof config.spec.openapi !== 'string' ||
+            typeof config.spec.paths !== 'object'
+        ) {
+            throw new Error('Invalid OpenAPI spec: must contain "openapi" (string) and "paths" (object) fields');
+        }
         this.apiSpec = config.spec as OpenAPIV3.Document;
         this.operationId = config.operationId;
         this.baseURL = config.baseURL;
@@ -113,18 +122,7 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
         // Build the HTTP request
         const requestConfig = this.buildRequestConfig(operation, parameters);
 
-        // TODO: Implement actual HTTP request execution
-        // This would typically use fetch() or axios
-        const result = {
-            message: `OpenAPI tool "${this.schema.name}" executed`,
-            operationId: this.operationId,
-            method: requestConfig.method,
-            url: requestConfig.url,
-            parameters,
-            timestamp: new Date().toISOString()
-        };
-
-        return result;
+        throw new Error('Not implemented: actual API execution is not yet available');
     }
 
     /**
@@ -169,7 +167,7 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
             if (value !== undefined) {
                 switch (param.in) {
                     case 'path':
-                        url = url.replace(`{${param.name}}`, String(value));
+                        url = url.replace(`{${param.name}}`, encodeURIComponent(String(value)));
                         break;
                     case 'query': {
                         const separator = url.includes('?') ? '&' : '?';

@@ -3,6 +3,7 @@ import type { TUniversalMessage } from '../interfaces/messages';
 import type { TToolParameters, IToolExecutionResult, IToolExecutionContext } from '../interfaces/tool';
 import type { IEventEmitterEventData, IEventEmitterPlugin, TEventName } from '../plugins/event-emitter/types';
 import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
+import { createLogger, type ILogger } from '../utils/logger';
 
 /**
  * Plugin categories for classification
@@ -324,6 +325,9 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
     /** Event subscription handlers */
     protected eventHandlers = new Map<TEventName, string[]>();
 
+    /** Logger for plugin diagnostics */
+    protected readonly pluginLogger: ILogger = createLogger('AbstractPlugin');
+
     /** Plugin statistics */
     protected stats = {
         calls: 0,
@@ -402,8 +406,12 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
                     await this.onModuleEvent?.(eventType, eventData);
                 } catch (error) {
                     this.stats.errors++;
-                    // Log error but don't throw to avoid breaking event processing
-                    // Plugin failed to handle module event
+                    const safeError = error instanceof Error ? error : new Error(String(error));
+                    this.pluginLogger.error(`Plugin "${this.name}" failed to handle module event "${String(eventType)}"`, {
+                        plugin: this.name,
+                        eventType: String(eventType),
+                        error: safeError.message
+                    });
                 }
             });
 
@@ -541,6 +549,8 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
             ...(this.stats.lastActivity && { lastActivity: this.stats.lastActivity })
         };
 
+        // TStats extends IPluginStats, so the base fields satisfy the constraint.
+        // Subclasses that widen TStats must override getStats() to supply additional fields.
         return baseStats as TStats;
     }
 

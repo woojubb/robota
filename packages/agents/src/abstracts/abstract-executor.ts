@@ -117,14 +117,14 @@ export abstract class AbstractExecutor implements IExecutor {
      * @param timeoutMs - Timeout in milliseconds
      * @returns Promise resolving to function result
      */
-    protected async withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-        const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => {
-                reject(new Error(`Operation timed out after ${timeoutMs}ms`));
-            }, timeoutMs);
-        });
-
-        return Promise.race([promise, timeoutPromise]);
+    protected withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+        let timerId: ReturnType<typeof setTimeout>;
+        return Promise.race([
+            promise.then(result => { clearTimeout(timerId); return result; }),
+            new Promise<never>((_, reject) => {
+                timerId = setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
+            })
+        ]);
     }
 
     /**
@@ -193,8 +193,12 @@ export abstract class AbstractExecutor implements IExecutor {
             throw new Error('Response must have a role');
         }
 
-        if (!response.content) {
-            throw new Error('Response must have content');
+        const hasToolCalls = response.role === 'assistant'
+            && 'toolCalls' in response
+            && Array.isArray((response as IAssistantMessage).toolCalls)
+            && (response as IAssistantMessage).toolCalls!.length > 0;
+        if (!response.content && !hasToolCalls) {
+            throw new Error('Response must have content or tool calls');
         }
     }
 } 

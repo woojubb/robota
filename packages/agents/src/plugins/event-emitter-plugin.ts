@@ -161,7 +161,7 @@ export interface IEventEmitterPluginOptions extends IPluginOptions {
  */
 export interface IEventEmitterPluginStats extends IPluginStats {
     eventTypes: TEventName[];
-    listenerCounts: Record<TEventName, number>;
+    listenerCounts: Partial<Record<TEventName, number>>;
     totalListeners: number;
     bufferedEvents: number;
     totalEmitted: number;
@@ -207,7 +207,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
             maxListeners: options.maxListeners ?? 100,
             async: options.async ?? true,
             catchErrors: options.catchErrors ?? true,
-            filters: options.filters ?? {} as Record<TEventName, (event: IEventEmitterEventData) => boolean>,
+            filters: options.filters ?? ({} as Partial<Record<TEventName, (event: IEventEmitterEventData) => boolean>>) as Record<TEventName, (event: IEventEmitterEventData) => boolean>,
             buffer: options.buffer ?? {
                 enabled: false,
                 maxSize: 1000,
@@ -599,7 +599,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     override getStats(): IEventEmitterPluginStats {
         const base = super.getStats();
         const metrics = this.metrics.getSnapshot();
-        const listenerCounts: Record<TEventName, number> = {} as Record<TEventName, number>;
+        const listenerCounts: Partial<Record<TEventName, number>> = {};
         let totalListeners = 0;
 
         for (const [eventType, handlers] of this.handlers) {

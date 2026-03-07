@@ -81,9 +81,9 @@ export class ModuleRegistry {
     private logger: ILogger;
     private isDisposing = false;
 
-    constructor(eventEmitter?: IEventEmitterPlugin) {
+    constructor(eventEmitter?: IEventEmitterPlugin, typeRegistry?: ModuleDescriptorRegistry) {
         this.eventEmitter = eventEmitter;
-        this.typeRegistry = ModuleDescriptorRegistry.getInstance();
+        this.typeRegistry = typeRegistry ?? new ModuleDescriptorRegistry();
         this.logger = createLogger('ModuleRegistry');
 
         this.logger.info('ModuleRegistry created', {
@@ -247,13 +247,17 @@ export class ModuleRegistry {
         const initPromise = module.initialize(options, this.eventEmitter);
 
         if (timeout && timeout > 0) {
+            let timerId: ReturnType<typeof setTimeout>;
             const timeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => {
+                timerId = setTimeout(() => {
                     reject(new Error(`Module '${moduleName}' initialization timed out after ${timeout}ms`));
                 }, timeout);
             });
 
-            await Promise.race([initPromise, timeoutPromise]);
+            await Promise.race([
+                initPromise.then(result => { clearTimeout(timerId); return result; }),
+                timeoutPromise
+            ]);
         } else {
             await initPromise;
         }

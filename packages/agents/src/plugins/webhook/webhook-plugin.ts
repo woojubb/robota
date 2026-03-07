@@ -63,6 +63,9 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     private batchQueue: IWebhookPayload[] = [];
     private activeConcurrency = 0;
     private batchTimer?: TTimerId;
+    private totalSentCount = 0;
+    private totalErrorCount = 0;
+    private totalResponseTime = 0;
 
     constructor(options: IWebhookPluginOptions) {
         super();
@@ -257,7 +260,16 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
             this.processQueue();
         } else {
             // Send synchronously
-            await Promise.allSettled(requests.map(req => this.httpClient.sendRequest(req)));
+            await Promise.allSettled(requests.map(req => {
+                const startTime = Date.now();
+                return this.httpClient.sendRequest(req).then(() => {
+                    this.totalSentCount++;
+                    this.totalResponseTime += Date.now() - startTime;
+                }).catch((error: unknown) => {
+                    this.totalErrorCount++;
+                    throw error;
+                });
+            }));
         }
     }
 
@@ -272,13 +284,28 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
             this.activeConcurrency++;
 
             // Process request asynchronously
-            this.httpClient.sendRequest(request).finally(() => {
-                this.activeConcurrency--;
-                // Continue processing queue
-                if (this.requestQueue.length > 0) {
-                    this.processQueue();
-                }
-            });
+            const startTime = Date.now();
+            this.httpClient.sendRequest(request)
+                .then(() => {
+                    this.totalSentCount++;
+                    this.totalResponseTime += Date.now() - startTime;
+                })
+                .catch((error: unknown) => {
+                    this.totalErrorCount++;
+                    const message = error instanceof Error ? error.message : String(error);
+                    this.logger.error('Webhook request failed', {
+                        endpoint: request.endpoint.url,
+                        event: request.payload.event,
+                        error: message
+                    });
+                })
+                .finally(() => {
+                    this.activeConcurrency--;
+                    // Continue processing queue
+                    if (this.requestQueue.length > 0) {
+                        this.processQueue();
+                    }
+                });
         }
     }
 
@@ -364,9 +391,11 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
             batchQueueLength: this.batchQueue.length,
             activeConcurrency: this.activeConcurrency,
             supportedEvents: this.pluginOptions.events,
-            totalSent: 0, // TODO: Track total sent webhooks
-            totalErrors: 0, // TODO: Track total webhook errors
-            averageResponseTime: 0 // TODO: Track average response time
+            totalSent: this.totalSentCount,
+            totalErrors: this.totalErrorCount,
+            averageResponseTime: this.totalSentCount > 0
+                ? this.totalResponseTime / this.totalSentCount
+                : 0
         };
     }
 

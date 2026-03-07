@@ -92,11 +92,6 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
             supportsStreaming: typeof provider.chatStream === 'function'
         });
 
-        if (this.getCurrentProvider()?.provider === name) {
-            logger.debug(`Cleared current provider selection after removing "${name}"`);
-        }
-
-        logger.debug(`AI provider "${name}" removed successfully`);
     }
 
     /**

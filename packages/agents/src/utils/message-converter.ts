@@ -1,8 +1,9 @@
 import type { TUniversalMessage } from '../interfaces/messages';
 
-/**
- * Provider-specific message format types
- */
+// Internal conversion types for provider message format mapping.
+// These are NOT the canonical provider types — they represent the subset
+// of fields needed for universal message conversion.
+
 interface IOpenAIMessage {
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string | null;
@@ -78,7 +79,8 @@ export class MessageConverter {
             // Add tool call ID and name for tool messages
             if (msg.role === 'tool' && 'toolCallId' in msg) {
                 baseMessage.tool_call_id = msg.toolCallId;
-                baseMessage.name = msg.content; // Tool name from content for OpenAI
+                // IToolMessage.name holds the tool name; use it for the OpenAI name field
+                baseMessage.name = msg.name;
             }
 
             return baseMessage;

@@ -172,15 +172,25 @@ export class ToolExecutionService {
             metadataFactory?: (toolCall: { id: string; function: { name: string; arguments: string } }) => TToolMetadata | undefined;
         }
     ): IToolExecutionRequest[] {
-        return toolCalls.map(toolCall => ({
+        return toolCalls.map(toolCall => {
+            let parsedParameters: TToolParameters;
+            try {
+                parsedParameters = JSON.parse(toolCall.function.arguments) as TToolParameters;
+            } catch {
+                throw new ValidationError(
+                    `Failed to parse arguments for tool "${toolCall.function.name}" (call ${toolCall.id}): invalid JSON`
+                );
+            }
+            return {
             toolName: toolCall.function.name,
-            parameters: JSON.parse(toolCall.function.arguments),
+            parameters: parsedParameters,
             executionId: toolCall.id,
             ownerType: 'tool',
             ownerId: toolCall.id,
             ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
             metadata: context.metadataFactory ? context.metadataFactory(toolCall) : undefined
-        }));
+            };
+        });
     }
 
     /**
