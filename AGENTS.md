@@ -197,6 +197,7 @@ Harness-oriented repository skills:
 | harness-governance | `.agents/skills/harness-governance/` | Rule/skill/owner drift checks and policy consistency |
 | type-boundary-and-ssot | `.agents/skills/type-boundary-and-ssot/` | Boundary validation, type strictness, and SSOT ownership workflow |
 | repo-writing | `.agents/skills/repo-writing/` | Repository writing rules for docs, `.design/`, and commit messages |
+| spec-writing-standard | `.agents/skills/spec-writing-standard/` | SPEC.md required sections, quality gates, and drift detection |
 
 Domain and package skills:
 
@@ -252,6 +253,30 @@ Detailed domain truth should live in owner documents, package docs, ADRs, or con
 
 Each workspace package or app should own its current-state specification in `docs/SPEC.md`.
 Each workspace `docs/README.md` should expose `SPEC.md` as the canonical entrypoint for that scope.
+
+### Spec Quality Gate
+
+Each workspace `docs/SPEC.md` must include at minimum:
+
+- **Scope**: what the package owns.
+- **Boundaries**: what the package does not own and where those responsibilities live.
+- **Architecture Overview**: layer structure or key components.
+- **Type Ownership**: SSOT types defined by this package (table: Type | Location | Purpose).
+- **Public API Surface**: primary exported classes, functions, and types.
+- **Extension Points**: abstract classes or interfaces that consumers implement.
+- **Error Taxonomy**: package-specific error types with codes and categories.
+- **Test Strategy**: current test coverage and identified gaps.
+
+The `spec-writing-standard` skill provides the full workflow for creating or updating SPEC.md files.
+
+### Continuous Improvement
+
+When modifying a package, agents should:
+
+- Check if `docs/SPEC.md` reflects the current architecture.
+- Identify missing test coverage for touched code paths.
+- Update type ownership documentation if new SSOT types are introduced.
+- Flag SPEC.md drift for packages where implementation diverges from spec.
 Each workspace that owns `examples/` or scenario artifacts should expose a package-level `scenario:verify` command.
 Each workspace that owns `examples/` or scenario artifacts should expose a package-level `scenario:record` command when scenario output can be refreshed.
 Each workspace that owns `examples/` or scenario artifacts should keep authoritative records under `examples/scenarios/*.record.json`.
