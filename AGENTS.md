@@ -228,6 +228,9 @@ Domain and package skills:
 | plugin-development | `.agents/skills/plugin-development/` | Plugin development with validation |
 | robota-sdk-usage | `.agents/skills/robota-sdk-usage/` | SDK usage patterns and migration |
 | tailwind-truncation | `.agents/skills/tailwind-truncation/` | Tailwind truncation patterns |
+| scenario-guard-checklist | `.agents/skills/scenario-guard-checklist/` | Pre-change checklist for scenario modifications |
+| verification-guard | `.agents/skills/verification-guard/` | Guarded example verification with abort conditions |
+| branch-guard | `.agents/skills/branch-guard/` | Guard against committing on protected branches |
 
 During the harness migration, legacy skills may remain. Prefer harness-oriented skills when a legacy skill overlaps with them.
 

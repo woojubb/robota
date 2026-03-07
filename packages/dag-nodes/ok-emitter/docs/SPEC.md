@@ -1,9 +1,47 @@
 # OK Emitter Node Specification
 
 ## Scope
-- Owns the `ok-emitter` DAG node package for Robota.
-- Provides node-level behavior for emitting canonical success-style outputs within DAG flows.
+
+- Owns the `ok-emitter` DAG node definition.
+- Provides a test/verification node that accepts a binary image input and emits a string `"ok"` status output. Used to verify upstream image pipeline correctness.
 
 ## Boundaries
-- Must follow `AbstractNodeDefinition`, `NodeIoAccessor`, and DAG error code conventions.
-- Does not own workflow-wide event naming or scheduler policy.
+
+- Extends `AbstractNodeDefinition` from `dag-core`. Does not redefine core DAG contracts.
+- Uses `NodeIoAccessor` for input validation and output construction.
+- Uses `createBinaryPortDefinition` with `BINARY_PORT_PRESETS.IMAGE_PNG` for the input port.
+- No external provider dependencies. Category: `Test`.
+
+## Architecture Overview
+
+- `OkEmitterNodeDefinition` — node that accepts an `image` binary input and produces a `status` string output (`"ok"`).
+- Overrides `validateInputWithConfig` for early binary image shape validation via `isImageBinary` helper.
+- Execution re-validates input via `NodeIoAccessor.requireInput` and `isImageBinary`, then sets `status` to `"ok"`.
+
+## Type Ownership
+
+| Type | Location | Purpose |
+|------|----------|---------|
+| `OkEmitterNodeDefinition` | `src/index.ts` | Node definition class |
+
+## Public API Surface
+
+- `OkEmitterNodeDefinition` — class
+
+## Extension Points
+
+- Extends `AbstractNodeDefinition` and overrides `validateInputWithConfig`, `estimateCostWithConfig` (zero cost), and `executeWithConfig`.
+- No constructor options. No environment variable dependencies.
+- Config schema is empty (`z.object({})`).
+
+## Error Taxonomy
+
+| Code | Layer | Description |
+|------|-------|-------------|
+| `DAG_VALIDATION_OK_EMITTER_IMAGE_REQUIRED` | Validation | Input is not a valid binary image payload |
+| `DAG_TASK_EXECUTION_OK_EMITTER_IMAGE_INVALID` | Execution | Image input failed re-validation during execution |
+
+## Test Strategy
+
+- No test files exist yet. Coverage status: none.
+- Recommended: unit tests verifying `"ok"` output for valid image input, validation rejection for non-image input, and execution failure for malformed binary payloads.
