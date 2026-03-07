@@ -315,6 +315,7 @@ Current harness entrypoints:
 - `pnpm harness:record -- --scope <packages/foo|apps/bar> [--base-ref <git-ref>]`
 - `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--base-ref <git-ref>]`
 - `pnpm harness:self-check`
+- `pnpm harness:cleanup`
 
 When the working tree is clean, harness commands may resolve scope from `git diff <base-ref>...HEAD` instead of `git status`.
 

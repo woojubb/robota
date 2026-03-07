@@ -11,6 +11,7 @@ These scripts are the executable layer of the Robota harness.
 - `pnpm harness:record -- --scope <packages/foo|apps/bar> [--base-ref <git-ref>]`
 - `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--report-format markdown|json] [--base-ref <git-ref>]`
 - `pnpm harness:self-check`
+- `pnpm harness:cleanup`
 
 ## Ownership Rules
 
@@ -83,6 +84,17 @@ These scripts are the executable layer of the Robota harness.
 - exercises the canonical `packages/agents` scenario verification path
 - validates the authoritative record artifact structure
 - proves both positive match and negative drift detection against the same artifact
+
+### `pnpm harness:cleanup`
+
+- scans for stale `.design/tmp/` documents (older than 14 days)
+- checks SPEC.md quality against the Spec Quality Gate (8 required sections)
+- detects unregistered skills (exist on disk but not in AGENTS.md)
+- detects stale skill references (in AGENTS.md but no directory on disk)
+- scans for forbidden agent hierarchy terms in production code
+- checks DAG package dependency direction (sibling imports)
+- flags dynamic imports in production code for manual review
+- reports findings grouped by type with summary counts
 
 ## Design Notes
 
