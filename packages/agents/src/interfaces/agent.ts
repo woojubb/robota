@@ -7,6 +7,7 @@ import type { TMetadata, TConfigValue } from './types';
 import type { IEventService } from '../services/event-service';
 import type { IOwnerPathSegment } from '../services/event-service';
 import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
+import type { ICacheOptions } from './cache';
 
 export type {
     TUniversalMessage,
@@ -130,6 +131,9 @@ export interface IAgentConfig {
 
     // 🎯 [CONTEXT-INJECTION] Execution context for hierarchical agent management
     executionContext?: IExecutionContextInjection;
+
+    // Execution caching
+    cache?: ICacheOptions;
 }
 
 /**

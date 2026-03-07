@@ -19,6 +19,7 @@ import {
     IBaseEventData
 } from './event-service';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
+import type { ExecutionCacheService } from './cache/execution-cache-service';
 
 /**
  * ExecutionService owned events
@@ -121,13 +122,15 @@ export class ExecutionService {
     private agentOwnerPathBase: IOwnerPathSegment[];
     // Path-only: remove lastResponseExecutionId tracking
     private lastResponseExecutionId?: string | undefined;
+    private cacheService?: ExecutionCacheService;
 
     constructor(
         aiProviders: IAIProviderManager,
         tools: IToolManager,
         conversationHistory: ConversationHistory,
         eventService?: IEventService,
-        executionContext?: IExecutionContextInjection // 🎯 [CONTEXT-INJECTION] Accept parent context
+        executionContext?: IExecutionContextInjection, // 🎯 [CONTEXT-INJECTION] Accept parent context
+        cacheService?: ExecutionCacheService
     ) {
         this.toolExecutionService = new ToolExecutionService(tools);
         this.aiProviders = aiProviders;
@@ -143,6 +146,7 @@ export class ExecutionService {
         this.ownerPathBase = this.buildBaseOwnerPath(executionContext);
         this.toolEventServices = new Map();
         this.agentOwnerPathBase = [];
+        this.cacheService = cacheService;
     }
 
     /**
@@ -488,7 +492,33 @@ export class ExecutionService {
                     }
                 );
 
-                const response = await provider.chat(conversationMessages, chatOptions);
+                let response: TUniversalMessage;
+
+                // Cache-first: check cache before LLM call (no-fallback on integrity error)
+                if (this.cacheService) {
+                    const cachedResponse = this.cacheService.lookup(
+                        conversationMessages,
+                        config.defaultModel.model,
+                        config.defaultModel.provider,
+                        { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens }
+                    );
+                    if (cachedResponse) {
+                        response = { role: 'assistant', content: cachedResponse, timestamp: new Date() };
+                    } else {
+                        response = await provider.chat(conversationMessages, chatOptions);
+                        if (typeof response.content === 'string') {
+                            this.cacheService.store(
+                                conversationMessages,
+                                config.defaultModel.model,
+                                config.defaultModel.provider,
+                                response.content,
+                                { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens }
+                            );
+                        }
+                    }
+                } else {
+                    response = await provider.chat(conversationMessages, chatOptions);
+                }
 
                 const assistantToolCallsFromResponse = response.role === 'assistant'
                     ? (response as IAssistantMessage).toolCalls

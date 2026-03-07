@@ -10,6 +10,7 @@ import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
+import { CacheKeyBuilder, MemoryCacheStorage, ExecutionCacheService } from '../services/cache';
 import { AGENT_EVENTS, AGENT_EVENT_PREFIX } from '../agents/constants';
 import {
     IEventService,
@@ -520,12 +521,23 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
             // 🎯 [CONTEXT-INJECTION] Extract execution context from config if available
             const executionContext = this.config.executionContext;
 
+            // Build cache service if cache config is provided
+            let cacheService: ExecutionCacheService | undefined;
+            if (this.config.cache?.enabled) {
+                const cacheStorage = new MemoryCacheStorage({
+                    maxEntries: this.config.cache.maxEntries,
+                    ttlMs: this.config.cache.ttlMs
+                });
+                cacheService = new ExecutionCacheService(cacheStorage, new CacheKeyBuilder());
+            }
+
             this.executionService = new ExecutionService(
                 this.aiProviders,
                 this.tools,
                 this.conversationHistory,
                 this.eventService,
-                executionContext // 🎯 [CONTEXT-INJECTION] Pass execution context to ExecutionService
+                executionContext, // 🎯 [CONTEXT-INJECTION] Pass execution context to ExecutionService
+                cacheService
             );
 
             // Register plugins with ExecutionService after it's created
