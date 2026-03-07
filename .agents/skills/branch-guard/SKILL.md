@@ -24,6 +24,8 @@ description: Guard against committing directly to protected branches (main, mast
    ```
 
 2. **If on a protected branch** (`main`, `master`, or `develop`):
+
+   **First commit in a task:**
    - Do NOT commit directly.
    - Ask the user whether to create a new branch before committing.
    - Suggest a branch name based on the change type and scope:
@@ -34,15 +36,16 @@ description: Guard against committing directly to protected branches (main, mast
      - `chore/<short-description>`
    - Example: `docs/spec-expansion`, `feat/agents-caching`, `chore/harness-cleanup`
    - Wait for user confirmation of the branch name before proceeding.
+   - Create and switch to the new branch:
+     ```bash
+     git checkout -b <approved-branch-name>
+     ```
 
-3. **Create and switch to the new branch**:
-   ```bash
-   git checkout -b <approved-branch-name>
-   ```
+   **Subsequent commits within the same task:**
+   - If a feature branch was already created for the current task, continue committing on that branch without asking again.
+   - Mid-task commits (e.g., checkpointing progress in a multi-step plan) do not require a new branch — they are part of the same logical work.
 
-4. **Proceed with the commit** on the new branch.
-
-5. **If NOT on a protected branch**: proceed with the commit normally.
+3. **If NOT on a protected branch**: proceed with the commit normally.
 
 ## Protected Branches
 - `main`
@@ -64,3 +67,4 @@ description: Guard against committing directly to protected branches (main, mast
 - Committing directly to `main`, `master`, or `develop` without asking.
 - Creating a branch without user approval of the name.
 - Using generic branch names like `temp` or `wip` without a descriptive suffix.
+- Creating a new branch for every intermediate commit within a single task.
