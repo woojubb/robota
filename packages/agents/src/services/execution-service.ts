@@ -153,9 +153,17 @@ export class ExecutionService {
      * Register a plugin
      */
     registerPlugin(plugin: IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks): void {
-        this.plugins.push(plugin);
+        // Insert in priority order (higher priority first, stable for equal priority)
+        const pluginPriority = plugin.priority ?? 0;
+        const insertIndex = this.plugins.findIndex(p => (p.priority ?? 0) < pluginPriority);
+        if (insertIndex === -1) {
+            this.plugins.push(plugin);
+        } else {
+            this.plugins.splice(insertIndex, 0, plugin);
+        }
         this.logger.debug('Plugin registered', {
             pluginName: plugin.name,
+            priority: pluginPriority,
             hasBeforeRun: typeof plugin.beforeRun,
             hasAfterRun: typeof plugin.afterRun,
             hasBeforeProviderCall: typeof plugin.beforeProviderCall,

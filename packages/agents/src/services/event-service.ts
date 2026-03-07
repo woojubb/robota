@@ -85,6 +85,13 @@ export function composeEventName(ownerType: string, localName: string): string {
 }
 
 /**
+ * Generate a unique span ID for distributed tracing correlation.
+ */
+function generateSpanId(): string {
+    return `span_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
  * A scoped event service that always emits with an owner binding applied.
  */
 export class StructuredEventService extends AbstractEventService {
@@ -105,7 +112,9 @@ export class StructuredEventService extends AbstractEventService {
             ...context,
             ownerType: this.binding.ownerType,
             ownerId: this.binding.ownerId,
-            ownerPath: this.binding.ownerPath
+            ownerPath: this.binding.ownerPath,
+            depth: this.binding.ownerPath.length,
+            spanId: context?.spanId ?? generateSpanId()
         };
         const fullEventName = composeEventName(this.binding.ownerType, eventType);
         this.base.emit(fullEventName, data, merged);
