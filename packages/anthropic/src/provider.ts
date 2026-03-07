@@ -183,20 +183,18 @@ export class AnthropicProvider extends AbstractAIProvider {
             } else if (msg.role === 'assistant') {
                 const assistantMsg = msg as IAssistantMessage;
 
-                // IMPORTANT: Anthropic requires null content for tool calls
+                // Anthropic uses content blocks for tool use (not OpenAI-style tool_calls)
                 if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
+                    const contentBlocks: Anthropic.ToolUseBlockParam[] = assistantMsg.toolCalls.map(tc => ({
+                        type: 'tool_use' as const,
+                        id: tc.id,
+                        name: tc.function.name,
+                        input: JSON.parse(tc.function.arguments)
+                    }));
                     return {
-                        role: 'assistant',
-                        content: null, // MUST be null for tool calls in Anthropic
-                        tool_calls: assistantMsg.toolCalls.map(tc => ({
-                            id: tc.id,
-                            type: 'function',
-                            function: {
-                                name: tc.function.name,
-                                arguments: JSON.stringify(tc.function.arguments)
-                            }
-                        }))
-                    } as any;
+                        role: 'assistant' as const,
+                        content: contentBlocks
+                    };
                 }
 
                 // Regular assistant message
@@ -234,7 +232,7 @@ export class AnthropicProvider extends AbstractAIProvider {
 
             // Add metadata if available
             if (response.usage) {
-                (result as any).metadata = {
+                result.metadata = {
                     inputTokens: response.usage.input_tokens,
                     outputTokens: response.usage.output_tokens,
                     model: response.model
@@ -242,7 +240,7 @@ export class AnthropicProvider extends AbstractAIProvider {
 
                 // Only add stopReason if it's not null
                 if (response.stop_reason) {
-                    (result as any).metadata['stopReason'] = response.stop_reason;
+                    result.metadata['stopReason'] = response.stop_reason;
                 }
             }
 
@@ -266,7 +264,7 @@ export class AnthropicProvider extends AbstractAIProvider {
             return result;
         }
 
-        throw new Error(`Unsupported content type: ${(content as any).type}`);
+        throw new Error(`Unsupported content type: ${(content as { type: string }).type}`);
     }
 
     /**

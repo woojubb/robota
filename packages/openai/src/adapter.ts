@@ -116,8 +116,8 @@ export class OpenAIConversationAdapter {
             return result;
         }
 
-        // This should never happen but TypeScript requires exhaustive checking
-        throw new Error(`Unsupported message role: ${(msg as any).role}`);
+        const exhaustive: never = messageRole;
+        throw new Error(`Unsupported message role: ${exhaustive}`);
     }
 
     /**

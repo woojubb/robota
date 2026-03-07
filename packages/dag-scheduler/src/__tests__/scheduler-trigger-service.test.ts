@@ -5,6 +5,7 @@ import {
     InMemoryStoragePort,
     type IDagDefinition
 } from '@robota-sdk/dag-core';
+import { RunOrchestratorService } from '@robota-sdk/dag-runtime';
 import { SchedulerTriggerService } from '../services/scheduler-trigger-service.js';
 
 function createPublishedDefinition(dagId: string): IDagDefinition {
@@ -33,7 +34,7 @@ describe('SchedulerTriggerService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
         await storage.saveDefinition(createPublishedDefinition('dag-scheduler-one'));
 
-        const service = new SchedulerTriggerService(storage, queue, clock);
+        const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
         const started = await service.triggerScheduledRun({
             dagId: 'dag-scheduler-one',
             logicalDate: '2026-02-14T07:00:00.000Z',
@@ -56,7 +57,7 @@ describe('SchedulerTriggerService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
         await storage.saveDefinition(createPublishedDefinition('dag-scheduler-batch'));
 
-        const service = new SchedulerTriggerService(storage, queue, clock);
+        const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
         const firstBatch = await service.triggerScheduledBatch({
             items: [
                 {
@@ -94,7 +95,7 @@ describe('SchedulerTriggerService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
         await storage.saveDefinition(createPublishedDefinition('dag-scheduler-catchup'));
 
-        const service = new SchedulerTriggerService(storage, queue, clock);
+        const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
         const catchup = await service.triggerCatchup({
             dagId: 'dag-scheduler-catchup',
             rangeStartLogicalDate: '2026-02-14T07:00:00.000Z',
@@ -118,7 +119,7 @@ describe('SchedulerTriggerService', () => {
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 7, 0, 0));
         await storage.saveDefinition(createPublishedDefinition('dag-scheduler-catchup-limit'));
 
-        const service = new SchedulerTriggerService(storage, queue, clock);
+        const service = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
         const catchup = await service.triggerCatchup({
             dagId: 'dag-scheduler-catchup-limit',
             rangeStartLogicalDate: '2026-02-14T07:00:00.000Z',

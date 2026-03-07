@@ -373,7 +373,7 @@ describe('RunOrchestratorService', () => {
         expect(failedTaskRun?.errorCode).toBe('DAG_DISPATCH_ENQUEUE_FAILED');
     });
 
-    it('returns existing run when createDagRun races with concurrent writer', async () => {
+    it('fails when createDagRun throws a storage error', async () => {
         const storage = new RacyDagRunStoragePort();
         const queue = new InMemoryQueuePort();
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
@@ -387,10 +387,10 @@ describe('RunOrchestratorService', () => {
             input: { seed: 'race-case' }
         });
 
-        expect(created.ok).toBe(true);
-        if (!created.ok) {
+        expect(created.ok).toBe(false);
+        if (created.ok) {
             return;
         }
-        expect(created.value.status).toBe('created');
+        expect(created.error.code).toBe('DAG_DISPATCH_DAG_RUN_CREATE_FAILED');
     });
 });
