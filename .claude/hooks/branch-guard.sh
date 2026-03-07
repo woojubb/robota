@@ -2,18 +2,22 @@
 # branch-guard hook
 # Blocks git commit/push on protected branches (main, master, develop).
 # Runs as a PreToolUse hook on Bash tool calls.
+#
+# Dependencies: git, grep, sed (POSIX standard — no jq required)
 
 set -euo pipefail
 
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 
-# Only check Bash tool calls
+# Extract tool_name without jq — match "tool_name":"Bash"
+TOOL_NAME=$(echo "$INPUT" | grep -o '"tool_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"tool_name"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
+
 if [[ "$TOOL_NAME" != "Bash" ]]; then
   exit 0
 fi
 
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+# Extract command from tool_input.command
+COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[[:space:]]*:[[:space:]]*"//' | sed 's/"$//')
 
 # Only check git commit and git push commands
 if ! echo "$COMMAND" | grep -qE '^\s*git\s+(commit|push)\b'; then
@@ -32,7 +36,8 @@ PROTECTED_BRANCHES="main master develop"
 
 for branch in $PROTECTED_BRANCHES; do
   if [[ "$CURRENT_BRANCH" == "$branch" ]]; then
-    echo "[branch-guard] Blocked: cannot $( echo "$COMMAND" | grep -oE 'git\s+(commit|push)' | head -1 ) on protected branch '$branch'. Create a feature branch first. See .agents/skills/branch-guard/SKILL.md" >&2
+    GIT_ACTION=$(echo "$COMMAND" | grep -oE 'git\s+(commit|push)' | head -1)
+    echo "[branch-guard] Blocked: cannot ${GIT_ACTION} on protected branch '${branch}'. Create a feature branch first. See .agents/skills/branch-guard/SKILL.md" >&2
     exit 2
   fi
 done
