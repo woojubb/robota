@@ -44,7 +44,9 @@
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "lint": "eslint src --ext .ts,.tsx",
-        "lint:fix": "eslint src --ext .ts,.tsx --fix"
+        "lint:fix": "eslint src --ext .ts,.tsx --fix",
+        "scenario:verify": "pnpm --filter @robota-sdk/agents build && DRY_RUN=1 pnpm exec tsx examples/example-generate-image.ts && DRY_RUN=1 pnpm exec tsx examples/example-compose-image.ts",
+        "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/google --output examples/scenarios/google-image-dry-run.record.json -- pnpm scenario:verify"
     },
     "keywords": [
         "ai",

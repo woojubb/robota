@@ -1,8 +1,8 @@
-# Web Host Specification
+# Web App Specification
 
 ## Scope
-- Hosts `/dag-designer` and composes `@robota-sdk/dag-designer` components.
-- Owns page-level UX, layout composition, and host-side API wiring.
+- Owns the Robota web application, including the Next.js host, web-facing playground integration, and browser runtime composition.
 
 ## Boundaries
-- App-level orchestration only.
+- Does not become the owner of package-level runtime contracts that belong to workspace packages.
+- Keeps deployment, auth configuration, and frontend integration behavior documented under `docs/`.

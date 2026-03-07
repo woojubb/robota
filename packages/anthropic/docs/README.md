@@ -2,6 +2,10 @@
 
 Anthropic Provider for Robota SDK - Complete type-safe integration with Anthropic's Claude models, featuring advanced reasoning, function calling, and real-time streaming.
 
+## Documentation Map
+
+- `SPEC.md`: Provider scope, ownership boundaries, and canonical responsibilities.
+
 ## 🚀 Features
 
 ### Core Capabilities

@@ -75,6 +75,6 @@ type TToolCalls = import('../abstracts/abstract-plugin').IPluginExecutionResult[
 - Use type guards for runtime validation.
 
 ## Type Strictness Alignment
-- Follow repository strict policy: do not use `any`, `unknown`, or `{}` in production code.
+- Follow repository strict policy: do not use `any` or `{}` in production code, and use `unknown` only at trust boundaries with immediate narrowing.
 - Do not add linter or TypeScript bypass directives for convenience.
 - If typing fails, redesign contracts or module boundaries rather than weakening type safety.
