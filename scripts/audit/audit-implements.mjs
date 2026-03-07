@@ -7,7 +7,7 @@ function isTargetFile(file) {
   if (!(file.startsWith('packages/') || file.startsWith('apps/'))) return false;
   if (!(file.endsWith('.ts') || file.endsWith('.tsx'))) return false;
   if (file.includes('/dist/')) return false;
-  if (file.startsWith('docs/api-reference/')) return false;
+  if (file.startsWith('content/api-reference/')) return false;
   if (file.includes('/node_modules/')) return false;
   return true;
 }
