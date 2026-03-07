@@ -64,6 +64,30 @@ This package is SSOT for:
 | `RemoteServer` | HTTP 400 JSON | Missing fields or unknown provider |
 | `RemoteServer` | HTTP 500 JSON | Provider execution failure |
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IExecutor` (agents) | `SimpleRemoteExecutor` | production | `src/client/remote-executor-simple.ts` |
+| `ITransport` | `HttpTransport` | production | `src/transport/http-transport.ts` |
+| `ITransport` | `SimpleWebSocketTransport` | production | `src/transport/websocket-transport.ts` |
+
+### Inheritance Chains
+
+| Base | Derived | Location | Notes |
+|------|---------|----------|-------|
+| `Error` | `TransportError` | `src/transport/transport-error.ts` | Structured transport error |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Adapter | Location |
+|--------------|---------|----------|
+| `IExecutor` (agents) | `SimpleRemoteExecutor` | `src/client/remote-executor-simple.ts` |
+| `ILogger` (agents) | `RemoteServer`, `SimpleRemoteExecutor` | `src/server/`, `src/client/` |
+| `IAIProvider` (agents) | `RemoteServer` (registers providers) | `src/server/remote-server.ts` |
+
 ## Test Strategy
 
 - **Unit tests**: 3 test files under `src/client/__tests__/` and `src/utils/__tests__/`:

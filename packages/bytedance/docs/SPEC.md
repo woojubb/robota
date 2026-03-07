@@ -55,6 +55,24 @@ All errors are returned via `TProviderMediaResult` (Result pattern, never thrown
 | `PROVIDER_UPSTREAM_ERROR` | 5xx, invalid JSON, missing task id, unexpected status |
 | `PROVIDER_TIMEOUT` | Fetch aborted by timeout |
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IVideoGenerationProvider` (agents) | `BytedanceProvider` | production | `src/provider.ts` |
+
+### Inheritance Chains
+
+None. `BytedanceProvider` implements an interface directly (no abstract base class).
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Adapter | Location |
+|--------------|---------|----------|
+| `IVideoGenerationProvider` (agents) | `BytedanceProvider` | `src/provider.ts` |
+
 ## Test Strategy
 
 - **Unit tests**: `provider.spec.ts` -- 5 test cases covering `createVideo`, `getVideoJob`, `cancelVideoJob`, HTTP error mapping (404), and status normalization. Uses `vi.stubGlobal('fetch', ...)` to mock network calls.

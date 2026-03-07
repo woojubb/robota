@@ -80,6 +80,24 @@ Client-side errors use `IProblemDetails` (mirroring the server shape):
 - Server-originated `IProblemDetails` errors are passed through from the API response.
 - `EventSource` errors surface via `onError` callback: `"EventSource is not available"`, `"Run progress stream disconnected"`, `"Failed to parse run progress event payload"`.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IDesignerApiClient` | `DesignerApiClient` | production | `src/client/designer-api-client.ts` |
+
+### Inheritance Chains
+
+None. Classes are standalone.
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer | Location |
+|--------------|---------|----------|
+| Domain types from dag-core (`IDagDefinition`, `INodeManifest`, `TRunProgressEvent`) | `DesignerApiClient`, hooks, components | Throughout `src/` |
+
 ## Test Strategy
 
 - No dedicated test files found in this package currently.

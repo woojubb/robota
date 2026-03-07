@@ -77,6 +77,40 @@ Controller-specific codes:
 - `DAG_VALIDATION_NODE_CATALOG_NOT_CONFIGURED` (400)
 - `DAG_POLICY_REINJECT_DISABLED` (409)
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IRunProgressEventBus` | `RunProgressEventBus` | production | `src/composition/run-progress-event-bus.ts` |
+| `INodeCatalogService` | (external: `BundledNodeCatalogService` in dag-server-core) | port | N/A (consumed via DI) |
+| `IDiagnosticsPolicy` | (external) | port | N/A (consumed via DI) |
+
+### Inheritance Chains
+
+None. Controller and composition classes are standalone.
+
+### Port Consumption via DI
+
+| Service/Controller | Injected Port (from dag-core) | Location |
+|-------------------|------------------------------|----------|
+| `createDagControllerComposition` | `IStoragePort`, `IQueuePort`, `IClockPort`, `ILeasePort`, `ITaskExecutorPort` | `src/composition/` |
+| `createDagExecutionComposition` | `IStoragePort`, `IQueuePort`, `IClockPort`, `ILeasePort`, `ITaskExecutorPort` | `src/composition/` |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer | Location |
+|--------------|---------|----------|
+| `IStoragePort` (dag-core) | Controller composition factories | `src/composition/` |
+| `IQueuePort` (dag-core) | Controller composition factories | `src/composition/` |
+| `IClockPort` (dag-core) | Controller composition factories | `src/composition/` |
+| `ILeasePort` (dag-core) | Controller composition factories | `src/composition/` |
+| `ITaskExecutorPort` (dag-core) | Controller composition factories | `src/composition/` |
+| `RunOrchestratorService` (dag-runtime) | `DagRuntimeController` | `src/controllers/` |
+| `ProjectionReadModelService` (dag-projection) | `DagObservabilityController` | `src/controllers/` |
+| `WorkerLoopService` (dag-worker) | Execution composition | `src/composition/` |
+
 ## Test Strategy
 
 - **Unit tests**: `src/__tests__/run-progress-event-bus.test.ts`, `execution-composition.test.ts`
