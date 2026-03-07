@@ -1,5 +1,5 @@
 import type { IPortBinaryValue } from '../interfaces/ports.js';
-import type { IAssetReference, TAssetReferenceType, TBinaryKind } from '../types/domain.js';
+import type { TAssetReference, TAssetReferenceType, TBinaryKind } from '../types/domain.js';
 import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
 import { buildValidationError } from '../utils/error-builders.js';
@@ -27,7 +27,7 @@ interface INormalizedMediaReference {
 export class MediaReference {
     private constructor(private readonly value: INormalizedMediaReference) {}
 
-    public static fromAssetReference(reference: IAssetReference): MediaReference {
+    public static fromAssetReference(reference: TAssetReference): MediaReference {
         if (reference.referenceType === 'asset') {
             return new MediaReference({
                 referenceType: 'asset',

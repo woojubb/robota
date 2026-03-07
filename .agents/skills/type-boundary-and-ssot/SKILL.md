@@ -123,6 +123,27 @@ class OpenAiResponseAdapter {
 import type { IToolCall, TToolParameters } from '@robota-sdk/agents';
 ```
 
+## SSOT Conflict Resolution Workflow
+
+When duplicate type declarations are detected across packages:
+
+1. Run `node scripts/audit/ssot-scan-declarations.mjs` to obtain the duplication list.
+2. For each duplicate, determine ownership:
+   - Semantically identical types → the upstream contract package owns; downstream imports.
+   - Same name but different semantics → rename one side to eliminate the collision.
+   - Duplicates inside `examples/` → allowed (treated the same as test scope).
+3. When transferring ownership, analyze impact: update all consumer import paths.
+4. Update `SPEC.md` Type Ownership table for affected packages.
+
+## SDK Boundary Type Assertion Guidelines
+
+When converting between SDK/external library types and internal types:
+
+- `as any` is prohibited (absolute).
+- `as SdkType` direct assertion: allowed only when structurally compatible; add a comment stating the compatibility rationale.
+- `as unknown as T` double-cast: prohibited.
+- When structural mismatch is significant: write a converter function with field-by-field mapping.
+
 ## Stop Conditions
 - External data is cast into a domain type without validation.
 - A non-owner module re-declares an owned contract.
@@ -130,6 +151,8 @@ import type { IToolCall, TToolParameters } from '@robota-sdk/agents';
 - The changed scope fails lint or typecheck.
 - Validation errors lack field name, expected type, or received value.
 - Side concerns are placed directly in core modules.
+- `ssot-scan-declarations.mjs` reports `same_kind_duplicate` count > 0.
+- A type alias uses `I*` prefix, or an interface uses `T*` prefix.
 
 ## Checklist
 - [ ] Boundary input remains untrusted until validation completes.

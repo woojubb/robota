@@ -31,7 +31,7 @@ import { DAG_OPENAPI_DOCUMENT } from './docs/openapi-dag.js';
 
 /**
  * API response shape for asset endpoints; includes content URI.
- * Differs from dag-core IAssetReference which disallows uri when referenceType is 'asset'.
+ * Differs from dag-core TAssetReference which disallows uri when referenceType is 'asset'.
  */
 interface IAssetApiResponse {
     referenceType: 'asset';
