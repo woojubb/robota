@@ -3,4 +3,3 @@ packages:
   - 'packages/dag-nodes/*'
   - 'packages/dag-*'
   - 'apps/*'
-  - 'src/examples'
