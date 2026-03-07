@@ -211,6 +211,91 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 
 `ErrorUtils` provides `isRecoverable()`, `getErrorCode()`, `fromUnknown()`, and `wrapProviderError()`.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IAgent` | `AbstractAgent` | abstract base | `src/abstracts/abstract-agent.ts` |
+| `IAgent` | `Robota` | production | `src/robota.ts` |
+| `IAIProvider` | `AbstractAIProvider` | abstract base | `src/abstracts/abstract-provider.ts` |
+| `IExecutor` | `AbstractExecutor` | abstract base | `src/abstracts/abstract-executor.ts` |
+| `IPluginContract`, `IPluginHooks` | `AbstractPlugin` | abstract base | `src/abstracts/abstract-plugin.ts` |
+| `IToolWithEventService` | `AbstractTool` | abstract base | `src/abstracts/abstract-tool.ts` |
+| `IModule`, `IModuleHooks` | `AbstractModule` | abstract base | `src/abstracts/abstract-module.ts` |
+| `IWorkflowConverter` | `AbstractWorkflowConverter` | abstract base | `src/abstracts/abstract-workflow-converter.ts` |
+| `IWorkflowValidator` | `AbstractWorkflowValidator` | abstract base | `src/abstracts/abstract-workflow-validator.ts` |
+| `IEventService` | `AbstractEventService` | abstract base | `src/services/event-service.ts` |
+| `IEventService` | `DefaultEventService` | production (null object) | `src/services/event-service.ts` |
+| `IEventService` | `StructuredEventService` | production | `src/services/event-service.ts` |
+| `IEventService` | `ObservableEventService` | production | `src/services/event-service.ts` |
+| `IConversationHistory` | `BaseConversationHistory` | abstract base | `src/managers/conversation-history-manager.ts` |
+| `IConversationHistory` | `ConversationSession` | production | `src/managers/conversation-session.ts` |
+| `IConversationService` | `ConversationService` | production | `src/services/conversation-service.ts` |
+| `IFunctionTool` | `FunctionTool` | production | `src/tools/implementations/function-tool.ts` |
+| `ITool` | `MCPTool` | production | `src/tools/implementations/mcp-tool.ts` |
+| `ITool` | `OpenAPITool` | production | `src/tools/implementations/openapi-tool.ts` |
+| `IToolManager` | `Tools` | production | `src/managers/tool-manager.ts` |
+| `IToolRegistry` | `ToolRegistry` | production | `src/tools/tool-registry.ts` |
+| `IAIProviderManager` | `AIProviders` | production | `src/managers/ai-provider-manager.ts` |
+| `IPluginsManager` | `Plugins` | production | `src/managers/plugin-manager.ts` |
+| `ILogger` | `ConsoleLogger` | production | `src/utils/logger.ts` |
+| `ILogStorage` | `ConsoleLogStorage` | production | `src/plugins/logging/storages/console-storage.ts` |
+| `ILogStorage` | `FileLogStorage` | production | `src/plugins/logging/storages/file-storage.ts` |
+| `ILogStorage` | `RemoteLogStorage` | production | `src/plugins/logging/storages/remote-storage.ts` |
+| `ILogStorage` | `SilentLogStorage` | production (null object) | `src/plugins/logging/storages/silent-storage.ts` |
+| `ILogFormatter` | `ConsoleLogFormatter` | production | `src/plugins/logging/formatters/console-formatter.ts` |
+| `ILogFormatter` | `JsonLogFormatter` | production | `src/plugins/logging/formatters/json-formatter.ts` |
+| `IUsageStorage` | `FileUsageStorage` | production | `src/plugins/usage/storages/file-storage.ts` |
+| `IUsageStorage` | `MemoryUsageStorage` | production | `src/plugins/usage/storages/memory-storage.ts` |
+| `IUsageStorage` | `RemoteUsageStorage` | production | `src/plugins/usage/storages/remote-storage.ts` |
+| `IUsageStorage` | `SilentUsageStorage` | production (null object) | `src/plugins/usage/storages/silent-storage.ts` |
+| `IPerformanceStorage` | `MemoryPerformanceStorage` | production | `src/plugins/performance/storages/memory-storage.ts` |
+| `IHistoryStorage` | `DatabaseHistoryStorage` | production | `src/plugins/conversation-history/storages/database-storage.ts` |
+| `IHistoryStorage` | `FileHistoryStorage` | production | `src/plugins/conversation-history/storages/file-storage.ts` |
+| `IHistoryStorage` | `MemoryHistoryStorage` | production | `src/plugins/conversation-history/storages/memory-storage.ts` |
+| `IEventHistoryModule` | `EventHistoryModule` | production | `src/services/event-history-module.ts` |
+| `IEventHistoryModule` | `InMemoryHistoryStore` | production | `src/services/event-history-module.ts` |
+| `IEventEmitterMetrics` | `InMemoryEventEmitterMetrics` | production | `src/plugins/event-emitter-plugin.ts` |
+| `ICacheStorage` | `MemoryCacheStorage` | production | `src/utils/cache-storage.ts` |
+| `ISystemMetricsCollector` | `NodeSystemMetricsCollector` | production | `src/plugins/performance/collectors/node-system-metrics.ts` |
+
+### Inheritance Chains
+
+| Base | Derived | Location | Notes |
+|------|---------|----------|-------|
+| `AbstractAgent` | `Robota` | `src/robota.ts` | Main facade |
+| `AbstractEventService` | `DefaultEventService` | `src/services/event-service.ts` | Null object |
+| `AbstractEventService` | `StructuredEventService` | `src/services/event-service.ts` | Owner-bound events |
+| `AbstractEventService` | `ObservableEventService` | `src/services/event-service.ts` | RxJS integration |
+| `AbstractExecutor` | `LocalExecutor` | `src/executors/local-executor.ts` | Local provider execution |
+| `AbstractTool` | `FunctionTool` | `src/tools/implementations/function-tool.ts` | JS function with Zod schema |
+| `AbstractTool` | `MCPTool` | `src/tools/implementations/mcp-tool.ts` | MCP protocol tool |
+| `AbstractTool` | `OpenAPITool` | `src/tools/implementations/openapi-tool.ts` | OpenAPI spec tool |
+| `AbstractTool` | `RelayMcpTool` | `src/tools/implementations/relay-mcp-tool.ts` | MCP relay tool |
+| `AbstractPlugin` | `ConversationHistoryPlugin` | `src/plugins/conversation-history/conversation-history-plugin.ts` | Persistent history |
+| `AbstractPlugin` | `ErrorHandlingPlugin` | `src/plugins/error-handling/error-handling-plugin.ts` | Error recovery |
+| `AbstractPlugin` | `EventEmitterPlugin` | `src/plugins/event-emitter-plugin.ts` | Event coordination |
+| `AbstractPlugin` | `ExecutionAnalyticsPlugin` | `src/plugins/execution/execution-analytics-plugin.ts` | Execution analytics |
+| `AbstractPlugin` | `LimitsPlugin` | `src/plugins/limits-plugin.ts` | Rate limiting |
+| `AbstractPlugin` | `LoggingPlugin` | `src/plugins/logging/logging-plugin.ts` | Multi-backend logging |
+| `AbstractPlugin` | `PerformancePlugin` | `src/plugins/performance/performance-plugin.ts` | Metrics collection |
+| `AbstractPlugin` | `UsagePlugin` | `src/plugins/usage/usage-plugin.ts` | Token usage tracking |
+| `AbstractPlugin` | `WebhookPlugin` | `src/plugins/webhook/webhook-plugin.ts` | HTTP notifications |
+| `BaseConversationHistory` | `SimpleConversationHistory` | `src/managers/conversation-history-manager.ts` | Basic history |
+| `BaseConversationHistory` | `PersistentSystemConversationHistory` | `src/managers/conversation-history-manager.ts` | System message persistence |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Adapter (Consumer Package) | Location |
+|--------------|---------------------------|----------|
+| `AbstractAIProvider` (agents) | `OpenAIProvider` (openai) | `packages/openai/src/provider.ts` |
+| `AbstractAIProvider` (agents) | `AnthropicProvider` (anthropic) | `packages/anthropic/src/provider.ts` |
+| `AbstractAIProvider` (agents) | `GoogleProvider` (google) | `packages/google/src/provider.ts` |
+| `AbstractAIProvider` (agents) | `MockAIProvider` (sessions) | `packages/sessions/examples/verify-offline.ts` |
+| `AbstractExecutor` (agents) | `SimpleRemoteExecutor` (remote) | `packages/remote/src/` |
+
 ## Test Strategy
 
 ### Current Coverage

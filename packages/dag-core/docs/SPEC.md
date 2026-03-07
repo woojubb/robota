@@ -339,6 +339,51 @@ Progress event types are defined as `TRunProgressEvent` (discriminated union) wi
 
 No peer dependencies. No runtime dependencies on other `@robota-sdk/*` packages.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IDagNodeDefinition` | `AbstractNodeDefinition` | abstract base | `src/lifecycle/abstract-node-definition.ts` |
+| `INodeLifecycle` | `RegisteredNodeLifecycle` | production | `src/lifecycle/registered-node-lifecycle.ts` |
+| `INodeLifecycleFactory` | `StaticNodeLifecycleFactory` | production | `src/lifecycle/static-node-lifecycle-factory.ts` |
+| `INodeLifecycleFactory` | `MissingNodeLifecycleFactory` | sentinel | `src/lifecycle/node-lifecycle-runner.ts` |
+| `INodeManifestRegistry` | `StaticNodeManifestRegistry` | production | `src/registry/static-node-manifest-registry.ts` |
+| `INodeTaskHandlerRegistry` | `StaticNodeTaskHandlerRegistry` | production | `src/registry/default-node-task-handlers.ts` |
+| `IRunCostPolicyEvaluator` | `RunCostPolicyEvaluator` | production | `src/lifecycle/node-lifecycle-runner.ts` |
+| `ITaskExecutorPort` | `LifecycleTaskExecutorPort` | production | `src/lifecycle/lifecycle-task-executor-port.ts` |
+| `IStoragePort` | `InMemoryStoragePort` | test adapter | `src/testing/in-memory-storage-port.ts` |
+| `IQueuePort` | `InMemoryQueuePort` | test adapter | `src/testing/in-memory-queue-port.ts` |
+| `ILeasePort` | `InMemoryLeasePort` | test adapter | `src/testing/in-memory-lease-port.ts` |
+| `IClockPort` | `FakeClockPort` | test adapter | `src/testing/fake-clock-port.ts` |
+| `IClockPort` | `SystemClockPort` | test adapter | `src/testing/fake-clock-port.ts` |
+| `ITaskExecutorPort` | `MockTaskExecutorPort` | test adapter | `src/testing/mock-task-executor-port.ts` |
+
+### Inheritance Chains
+
+| Base | Derived | Location | Notes |
+|------|---------|----------|-------|
+| `AbstractNodeDefinition` | (11 node definitions) | `packages/dag-nodes/src/` | See cross-package table below |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Adapter (Consumer Package) | Location |
+|--------------|---------------------------|----------|
+| `ITaskExecutorPort` (dag-core) | `AssetAwareTaskExecutorPort` (dag-server-core) | `packages/dag-server-core/src/` |
+| `IStoragePort` (dag-core) | `FileStoragePort` (dag-server-core) | `packages/dag-server-core/src/` |
+| `AbstractNodeDefinition` (dag-core) | `ImageLoaderNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/image-loader/` |
+| `AbstractNodeDefinition` (dag-core) | `ImageSourceNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/image-source/` |
+| `AbstractNodeDefinition` (dag-core) | `InputNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/input/` |
+| `AbstractNodeDefinition` (dag-core) | `TextOutputNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/text-output/` |
+| `AbstractNodeDefinition` (dag-core) | `TextTemplateNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/text-template/` |
+| `AbstractNodeDefinition` (dag-core) | `TransformNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/transform/` |
+| `AbstractNodeDefinition` (dag-core) | `LlmTextOpenAiNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/llm-text-openai/` |
+| `AbstractNodeDefinition` (dag-core) | `OkEmitterNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/ok-emitter/` |
+| `AbstractNodeDefinition` (dag-core) | `GeminiImageEditNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/gemini-image-edit/` |
+| `AbstractNodeDefinition` (dag-core) | `GeminiImageComposeNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/gemini-image-compose/` |
+| `AbstractNodeDefinition` (dag-core) | `SeedanceVideoNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/seedance-video/` |
+
 ## Test Strategy
 
 ### Current Test Files
