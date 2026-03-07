@@ -37,7 +37,7 @@ The Robota SDK v2.0 is a unified TypeScript library for building AI agents with:
 - **[Documentation Site Setup](./documentation-site-setup.md)** - Documentation site management
 
 ### 🧪 SSOT Tooling
-- **Duplicate Declaration Scanner**: `.design/open-tasks/ssot-duplicate-declarations-v3.json`
+- **Duplicate Declaration Scanner**: `.design/ssot-duplicate-declarations-v3.json`
 - **Alias Cleanup**: Policy enforcement for `type A = B` and same-shape redefinitions
 - **Scanner Classification**: Same-kind vs contract+implementation pair grouping (v3)
 - **Naming Hygiene**: Removal of redundant `Interface`/`Type`/`TypeSafe` naming patterns
