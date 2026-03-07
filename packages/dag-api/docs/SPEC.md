@@ -30,6 +30,7 @@ The package follows a controller-composition pattern:
 This package is SSOT for:
 
 - `IProblemDetails` -- RFC 7807-style error detail shape
+- `TDesignApiSuccess<TData>`, `TDesignApiFailure`, `TDesignApiResponse<TData>` -- design API result aliases
 - `IApiSuccess<TData>`, `IApiFailure<TError>`, `TApiResponse<TData, TError>` -- generic API envelope types
 - `ICreateDefinitionRequest`, `IUpdateDraftRequest`, `IValidateDefinitionRequest`, `IPublishDefinitionRequest`, `IGetDefinitionRequest`, `IListDefinitionsRequest`, `IListNodeCatalogRequest` -- design API request types
 - `IDefinitionListItem`, `IDefinitionValidationResult` -- design API response types

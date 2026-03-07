@@ -165,6 +165,14 @@ export class DagDefinitionService {
         };
 
         await this.storage.saveDefinition(published);
+
+        // Mark the original draft as published so it can no longer be updated
+        const closedDraft: IDagDefinition = {
+            ...existing,
+            status: 'published'
+        };
+        await this.storage.saveDefinition(closedDraft);
+
         return {
             ok: true,
             value: published

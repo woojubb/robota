@@ -47,10 +47,13 @@ This package is SSOT for:
 
 - `IDesignerApiClient` -- client interface for all designer-to-server API operations
 - `IDesignerApiClientConfig` -- client configuration (baseUrl)
-- `IProblemDetails` (designer-local redefinition for client-side use)
 - `ICreateDefinitionInput`, `IUpdateDraftInput`, `IValidateDefinitionInput`, `IPublishDefinitionInput`, `IGetDefinitionInput`, `IListDefinitionsInput` -- client-side input types
-- `ICreateRunInput`, `IStartRunInput`, `IGetRunResultInput` -- run operation inputs
-- `IRunNodeTrace`, `IRunResult`, `IDefinitionListItem` -- result types (client-side)
+- `IDesignerCreateRunInput`, `IDesignerStartRunInput`, `IGetRunResultInput` -- run operation inputs (designer-prefixed to avoid collision with dag-runtime)
+
+Imported from other packages (not owned here):
+
+- `IProblemDetails`, `IDefinitionListItem` -- imported from `@robota-sdk/dag-api`
+- `IRunNodeTrace`, `IRunResult` -- imported from `@robota-sdk/dag-server-core`
 - `IDagDesignerState`, `IDagDesignerActions` -- React state/action interfaces
 - `IUseDagDesignApi`, `IUseDagDesignApiOptions` -- hook interfaces
 - `IRunProgressState` -- run progress tracking state (from canvas component)
