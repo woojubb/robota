@@ -20,6 +20,12 @@ export interface IEventContext {
     ownerId: string;
     ownerPath: IOwnerPathSegment[];
 
+    /** Depth of the current execution in the hierarchy (0 = root) */
+    depth?: number;
+
+    /** Unique span identifier for distributed tracing correlation */
+    spanId?: string;
+
     /** Optional structured metadata for debugging/observability */
     metadata?: TLoggerData;
 }

@@ -68,11 +68,13 @@ describe('event-service', () => {
 
         expect(base.events).toHaveLength(1);
         expect(base.events[0]?.eventType).toBe(executionStartEvent);
-        expect(base.events[0]?.context).toEqual({
+        expect(base.events[0]?.context).toMatchObject({
             ownerType: 'execution',
             ownerId: 'exec_1',
-            ownerPath: [{ type: 'execution', id: 'exec_1' }]
+            ownerPath: [{ type: 'execution', id: 'exec_1' }],
+            depth: 1
         });
+        expect(base.events[0]?.context?.spanId).toMatch(/^span_/);
     });
 
     it('StructuredEventService should reject dotted local event names', () => {
