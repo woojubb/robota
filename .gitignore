@@ -96,3 +96,10 @@ apps/**/README.md
 .local-assets
 apps/api-server/.local-assets/
 apps/api-server/.dag-storage/
+
+# Lock files from other package managers
+bun.lock
+
+# Runtime/backup directories
+.backup/
+.robota/
