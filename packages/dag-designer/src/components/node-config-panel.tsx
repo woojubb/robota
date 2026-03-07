@@ -4,7 +4,7 @@ import {
     type IDagNode,
     type INodeManifest,
     type IPortDefinition,
-    type TNodeConfigRecord,
+    type INodeConfigObject,
     type TNodeConfigValue
 } from '@robota-sdk/dag-core';
 import {
@@ -77,7 +77,7 @@ function isNodeConfigValue(value: unknown): value is TNodeConfigValue {
     return true;
 }
 
-function isNodeConfigRecord(value: unknown): value is TNodeConfigRecord {
+function isNodeConfigRecord(value: unknown): value is INodeConfigObject {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
         return false;
     }
@@ -107,8 +107,8 @@ function parseAssetConfigValue(value: unknown): IAssetConfigValue | undefined {
     };
 }
 
-function buildAssetConfigValue(value: IAssetConfigValue): TNodeConfigRecord {
-    const nextValue: TNodeConfigRecord = {
+function buildAssetConfigValue(value: IAssetConfigValue): INodeConfigObject {
+    const nextValue: INodeConfigObject = {
         referenceType: value.referenceType
     };
     if (value.referenceType === 'asset') {
@@ -176,7 +176,7 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
     };
 
     const updateConfigValue = (key: string, value: TNodeConfigValue | undefined): void => {
-        const nextConfig: TNodeConfigRecord = { ...node.config };
+        const nextConfig: INodeConfigObject = { ...node.config };
         if (typeof value === 'undefined') {
             delete nextConfig[key];
         } else {
@@ -190,7 +190,7 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
     };
 
     const updateAssetConfigWithUploadedId = (key: string, assetId: string): void => {
-        const nextConfig: TNodeConfigRecord = { ...node.config };
+        const nextConfig: INodeConfigObject = { ...node.config };
         if (key === 'asset') {
             nextConfig[key] = {
                 referenceType: 'asset',

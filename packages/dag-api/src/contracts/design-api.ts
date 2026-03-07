@@ -57,7 +57,6 @@ export interface IListNodeCatalogRequest {
     correlationId?: string;
 }
 
-export type TDesignApiSuccess<TData> = IApiSuccess<TData>;
 export type TDesignApiFailure = IApiFailure<IProblemDetails>;
 export type TDesignApiResponse<TData> = TApiResponse<TData, IProblemDetails>;
 

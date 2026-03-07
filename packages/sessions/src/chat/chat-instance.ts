@@ -3,7 +3,6 @@ import type {
     IChatConfig,
     IChatMetadata,
     IChatStats,
-    TMessageContent,
     ITemplateManager,
     IChatInstance
 } from '../types/chat';
@@ -35,7 +34,7 @@ export class ChatInstance implements IChatInstance {
     /**
      * Send a message and get AI response
      */
-    async sendMessage(content: TMessageContent): Promise<string> {
+    async sendMessage(content: string): Promise<string> {
         try {
             const response = await this.robota.run(content);
             this.metadata.messageCount++;

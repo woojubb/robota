@@ -1,4 +1,4 @@
-import type { TNodeConfigRecord, TNodeConfigValue } from '@robota-sdk/dag-core';
+import type { INodeConfigObject, TNodeConfigValue } from '@robota-sdk/dag-core';
 
 interface IJsonSchemaLike {
     $ref?: string;
@@ -33,7 +33,7 @@ function cloneNodeConfigValue(value: TNodeConfigValue): TNodeConfigValue {
         return value.map((item) => cloneNodeConfigValue(item));
     }
     if (typeof value === 'object' && value !== null) {
-        const nextObject: TNodeConfigRecord = {};
+        const nextObject: INodeConfigObject = {};
         for (const [key, item] of Object.entries(value)) {
             nextObject[key] = cloneNodeConfigValue(item);
         }
@@ -61,13 +61,13 @@ function resolveRef(rootSchema: unknown, currentSchema: unknown): unknown {
     return cursor;
 }
 
-function extractDefaultsFromObjectSchema(rootSchema: unknown, schema: unknown): TNodeConfigRecord {
+function extractDefaultsFromObjectSchema(rootSchema: unknown, schema: unknown): INodeConfigObject {
     const resolvedSchema = resolveRef(rootSchema, schema);
     if (!isSchemaObject(resolvedSchema) || !resolvedSchema.properties) {
         return {};
     }
 
-    const defaults: TNodeConfigRecord = {};
+    const defaults: INodeConfigObject = {};
     for (const [key, propertySchemaRaw] of Object.entries(resolvedSchema.properties)) {
         const resolvedProperty = resolveRef(rootSchema, propertySchemaRaw);
         if (!isSchemaObject(resolvedProperty)) {
@@ -88,15 +88,15 @@ function extractDefaultsFromObjectSchema(rootSchema: unknown, schema: unknown): 
     return defaults;
 }
 
-export function extractConfigDefaultsFromSchema(configSchema: unknown): TNodeConfigRecord {
+export function extractConfigDefaultsFromSchema(configSchema: unknown): INodeConfigObject {
     if (!isSchemaObject(configSchema)) {
         return {};
     }
     return extractDefaultsFromObjectSchema(configSchema, configSchema);
 }
 
-export function mergeConfigWithDefaults(current: TNodeConfigRecord, defaults: TNodeConfigRecord): TNodeConfigRecord {
-    const merged: TNodeConfigRecord = {};
+export function mergeConfigWithDefaults(current: INodeConfigObject, defaults: INodeConfigObject): INodeConfigObject {
+    const merged: INodeConfigObject = {};
     const keys = new Set<string>([
         ...Object.keys(defaults),
         ...Object.keys(current)
@@ -122,8 +122,8 @@ export function mergeConfigWithDefaults(current: TNodeConfigRecord, defaults: TN
             && !Array.isArray(defaultValue)
         ) {
             merged[key] = mergeConfigWithDefaults(
-                currentValue as TNodeConfigRecord,
-                defaultValue as TNodeConfigRecord
+                currentValue as INodeConfigObject,
+                defaultValue as INodeConfigObject
             );
             continue;
         }
