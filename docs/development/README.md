@@ -46,7 +46,7 @@ The Robota SDK v2.0 is a unified TypeScript library for building AI agents with:
 - **Generation Command Header**: Auto-generated API docs include the generating command.
 
 ### ✅ Process Updates
-- Rules-to-skills migration completed; guidance is now consolidated under `.cursor/skills/`.
+- Rules-to-skills migration completed; guidance is now consolidated under `.agents/skills/`.
 
 ## Development Workflow
 

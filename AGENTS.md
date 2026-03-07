@@ -59,7 +59,7 @@ apps/
 
 ## Mandatory Rules
 
-The project maintains detailed rules in `.cursor/rules/`. All rules below are mandatory and non-negotiable.
+All rules below are mandatory and non-negotiable.
 
 ### Language Policy
 
@@ -143,43 +143,52 @@ The project maintains detailed rules in `.cursor/rules/`. All rules below are ma
 
 ## Skills Reference
 
-Procedural workflows and implementation guides are in `.cursor/skills/`. Key skills for dag-* work:
+Procedural workflows and implementation guides are in `.agents/skills/`. Key skills for dag-* work:
 
 | Skill | Path | Purpose |
 |-------|------|---------|
-| dag-node-standard | `.cursor/skills/dag-node-standard/` | Node implementation workflow and templates |
-| pnpm-monorepo-build | `.cursor/skills/pnpm-monorepo-build/` | Build commands and workflow guidance |
-| quality-standards | `.cursor/skills/quality-standards/` | Type system design and quality gates |
-| vitest-testing-strategy | `.cursor/skills/vitest-testing-strategy/` | Testing strategy (unit, integration, type-level) |
-| contract-testing | `.cursor/skills/contract-testing/` | Consumer-driven contract testing |
-| boundary-validation | `.cursor/skills/boundary-validation/` | External data validation at trust boundaries |
-| state-machine-design | `.cursor/skills/state-machine-design/` | Finite state machine design patterns |
-| ddd-tactical-patterns | `.cursor/skills/ddd-tactical-patterns/` | DDD patterns (Aggregate, Value Object, Domain Event) |
-| cqrs-event-projection-basics | `.cursor/skills/cqrs-event-projection-basics/` | CQRS and event projection fundamentals |
-| async-concurrency-patterns | `.cursor/skills/async-concurrency-patterns/` | Concurrent async with limits and cancellation |
-| effect-style-error-modeling | `.cursor/skills/effect-style-error-modeling/` | Result/Either-based error modeling |
-| functional-core-imperative-shell | `.cursor/skills/functional-core-imperative-shell/` | Pure logic core, side effects at boundaries |
-| hexagonal-architecture-ts | `.cursor/skills/hexagonal-architecture-ts/` | Ports-and-adapters architecture |
-| ts-oop-di-patterns | `.cursor/skills/ts-oop-di-patterns/` | DI, composition over inheritance |
-| development-architecture-guidance | `.cursor/skills/development-architecture-guidance/` | Error handling, DI, interface design |
-| import-standards | `.cursor/skills/import-standards/` | ES module import patterns |
-| commit-message-guidance | `.cursor/skills/commit-message-guidance/` | Commit message examples |
-| writing-language-guide | `.cursor/skills/writing-language-guide/` | Language usage for docs and commits |
-| scenario-guard-checklist | `.cursor/skills/scenario-guard-checklist/` | Pre-change checklist for scenario modifications |
-| verification-guard | `.cursor/skills/verification-guard/` | Guarded example verification |
-| execution-caching | `.cursor/skills/execution-caching/` | Execution caching workflows |
-| execution-cache-ops | `.cursor/skills/execution-cache-ops/` | Cache operational commands |
-| architecture-decision-records | `.cursor/skills/architecture-decision-records/` | ADR format and workflow |
-| semver-api-surface | `.cursor/skills/semver-api-surface/` | Semantic versioning for monorepo |
-| plugin-development | `.cursor/skills/plugin-development/` | Plugin development with validation |
-| robota-sdk-usage | `.cursor/skills/robota-sdk-usage/` | SDK usage patterns and migration |
-| tailwind-truncation | `.cursor/skills/tailwind-truncation/` | Tailwind truncation patterns |
+| dag-node-standard | `.agents/skills/dag-node-standard/` | Node implementation workflow and templates |
+| pnpm-monorepo-build | `.agents/skills/pnpm-monorepo-build/` | Build commands and workflow guidance |
+| quality-standards | `.agents/skills/quality-standards/` | Type system design and quality gates |
+| vitest-testing-strategy | `.agents/skills/vitest-testing-strategy/` | Testing strategy (unit, integration, type-level) |
+| contract-testing | `.agents/skills/contract-testing/` | Consumer-driven contract testing |
+| boundary-validation | `.agents/skills/boundary-validation/` | External data validation at trust boundaries |
+| state-machine-design | `.agents/skills/state-machine-design/` | Finite state machine design patterns |
+| ddd-tactical-patterns | `.agents/skills/ddd-tactical-patterns/` | DDD patterns (Aggregate, Value Object, Domain Event) |
+| cqrs-event-projection-basics | `.agents/skills/cqrs-event-projection-basics/` | CQRS and event projection fundamentals |
+| async-concurrency-patterns | `.agents/skills/async-concurrency-patterns/` | Concurrent async with limits and cancellation |
+| effect-style-error-modeling | `.agents/skills/effect-style-error-modeling/` | Result/Either-based error modeling |
+| functional-core-imperative-shell | `.agents/skills/functional-core-imperative-shell/` | Pure logic core, side effects at boundaries |
+| hexagonal-architecture-ts | `.agents/skills/hexagonal-architecture-ts/` | Ports-and-adapters architecture |
+| ts-oop-di-patterns | `.agents/skills/ts-oop-di-patterns/` | DI, composition over inheritance |
+| development-architecture-guidance | `.agents/skills/development-architecture-guidance/` | Error handling, DI, interface design |
+| import-standards | `.agents/skills/import-standards/` | ES module import patterns |
+| commit-message-guidance | `.agents/skills/commit-message-guidance/` | Commit message examples |
+| writing-language-guide | `.agents/skills/writing-language-guide/` | Language usage for docs and commits |
+| scenario-guard-checklist | `.agents/skills/scenario-guard-checklist/` | Pre-change checklist for scenario modifications |
+| verification-guard | `.agents/skills/verification-guard/` | Guarded example verification |
+| execution-caching | `.agents/skills/execution-caching/` | Execution caching workflows |
+| execution-cache-ops | `.agents/skills/execution-cache-ops/` | Cache operational commands |
+| architecture-decision-records | `.agents/skills/architecture-decision-records/` | ADR format and workflow |
+| semver-api-surface | `.agents/skills/semver-api-surface/` | Semantic versioning for monorepo |
+| plugin-development | `.agents/skills/plugin-development/` | Plugin development with validation |
+| robota-sdk-usage | `.agents/skills/robota-sdk-usage/` | SDK usage patterns and migration |
+| tailwind-truncation | `.agents/skills/tailwind-truncation/` | Tailwind truncation patterns |
 
 ## Rules and Skills Boundary
 
-- **Rules** (`.cursor/rules/`): Mandatory constraints and prohibitions. Always win on conflict.
-- **Skills** (`.cursor/skills/`): Procedural playbooks and implementation workflows. Must not relax rule-level constraints.
+- **Rules**: Mandatory constraints defined in the "Mandatory Rules" section above. Always win on conflict.
+- **Skills** (`.agents/skills/`): Procedural playbooks and implementation workflows. Must not relax rule-level constraints.
 - If skill text conflicts with a rule, the rule wins.
+
+### Conflict Scan Commands
+
+Use these scans before merging documentation changes:
+
+```bash
+rg -n "any/unknown may|no-explicit-any|fallback to|temporary workaround" .agents/skills AGENTS.md
+rg -n "main agent|sub-agent|parent-agent|child-agent" .agents/skills AGENTS.md
+```
 
 ## Code Review Focus Areas (dag-* packages)
 
