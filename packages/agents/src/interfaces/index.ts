@@ -146,3 +146,11 @@ export type {
     IEventHistoryRecord,
     IEventHistorySnapshot
 } from './history-module';
+
+export type {
+    ICacheKey,
+    ICacheEntry,
+    ICacheStorage,
+    ICacheStats,
+    ICacheOptions
+} from './cache';

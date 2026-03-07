@@ -213,6 +213,19 @@ export class StorageError extends RobotaError {
 }
 
 /**
+ * Cache integrity validation errors
+ */
+export class CacheIntegrityError extends RobotaError {
+    readonly code = 'CACHE_INTEGRITY_ERROR';
+    readonly category = 'system' as const;
+    readonly recoverable = false;
+
+    constructor(message: string, context?: TErrorContextData) {
+        super(`Cache Integrity Error: ${message}`, context);
+    }
+}
+
+/**
  * Error utility functions
  */
 export class ErrorUtils {

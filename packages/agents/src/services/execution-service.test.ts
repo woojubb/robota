@@ -9,14 +9,8 @@ import type { IAgentConfig } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
 
 // Mock dependencies
-vi.mock('../utils/logger', () => ({
-    Logger: vi.fn().mockImplementation(() => ({
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn()
-    })),
-    createLogger: vi.fn().mockReturnValue({
+vi.mock('../utils/logger', () => {
+    const logger = {
         debug: vi.fn(),
         info: vi.fn(),
         warn: vi.fn(),
@@ -24,8 +18,13 @@ vi.mock('../utils/logger', () => ({
         isDebugEnabled: vi.fn().mockReturnValue(false),
         setLevel: vi.fn(),
         getLevel: vi.fn().mockReturnValue('warn')
-    })
-}));
+    };
+    return {
+        Logger: vi.fn().mockImplementation(() => logger),
+        SilentLogger: logger,
+        createLogger: vi.fn().mockReturnValue(logger)
+    };
+});
 
 // Create a mock class that extends BaseAIProvider
 class MockAIProvider extends AbstractAIProvider {
@@ -67,9 +66,20 @@ class MockConversationHistory extends ConversationHistory {
     }
 }
 
-// Create mock classes using interface implementation instead of inheritance
+// Create mock event service
+const createMockEventService = () => ({
+    emit: vi.fn(),
+    on: vi.fn().mockReturnValue(vi.fn()),
+    off: vi.fn(),
+    removeAllListeners: vi.fn(),
+    listenerCount: vi.fn().mockReturnValue(0),
+    eventNames: vi.fn().mockReturnValue([]),
+    getOwnerPath: vi.fn().mockReturnValue([]),
+    child: vi.fn().mockReturnThis(),
+    isDefault: false
+});
 
-describe.skip('ExecutionService', () => {
+describe('ExecutionService', () => {
     let executionService: ExecutionService;
     let conversationHistory: MockConversationHistory;
     let aiProviders: AIProviders;
@@ -119,7 +129,8 @@ describe.skip('ExecutionService', () => {
         executionService = new ExecutionService(
             aiProviders,
             tools,
-            conversationHistory
+            conversationHistory,
+            createMockEventService() as any
         );
     });
 
@@ -172,6 +183,7 @@ describe.skip('ExecutionService', () => {
             // Mock provider to return tool calls
             mockProvider.chat = vi.fn()
                 .mockResolvedValueOnce({
+                    role: 'assistant',
                     content: 'I need to use a tool',
                     toolCalls: [
                         {
@@ -184,19 +196,25 @@ describe.skip('ExecutionService', () => {
                         }
                     ],
                     usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
-                    finishReason: 'tool_calls'
+                    finishReason: 'tool_calls',
+                    timestamp: new Date()
                 })
                 .mockResolvedValueOnce({
+                    role: 'assistant',
                     content: 'Task completed with tool result',
                     toolCalls: [],
                     usage: { promptTokens: 15, completionTokens: 25, totalTokens: 40 },
-                    finishReason: 'stop'
+                    finishReason: 'stop',
+                    timestamp: new Date()
                 });
 
             // Mock tool execution service in ExecutionService
             const mockToolExecutionService = {
                 createExecutionRequests: vi.fn().mockReturnValue([
                     { toolName: 'testTool', parameters: { param: 'value' }, executionId: 'tool-1' }
+                ]),
+                createExecutionRequestsWithContext: vi.fn().mockReturnValue([
+                    { toolName: 'testTool', parameters: { param: 'value' }, executionId: 'tool-1', ownerId: 'tool-1', ownerPath: [{ ownerType: 'tool', ownerId: 'tool-1' }] }
                 ]),
                 executeTools: vi.fn().mockResolvedValue({
                     totalExecuted: 1,
@@ -334,9 +352,9 @@ describe.skip('ExecutionService', () => {
 
             await executionService.execute(inputMsg, messagesArray, agentConfig, { conversationId: 'test-agent' });
 
-            // Verify all messages were added
-            expect(addUserMessageSpy).toHaveBeenCalledWith('Hello', undefined);
-            expect(addAssistantMessageSpy).toHaveBeenCalledWith('Hi there!', undefined, undefined);
+            // Verify all messages were added (addUserMessage: content, metadata, parts; addAssistantMessage: content, toolCalls, metadata, parts)
+            expect(addUserMessageSpy).toHaveBeenCalledWith('Hello', undefined, undefined);
+            expect(addAssistantMessageSpy).toHaveBeenCalledWith('Hi there!', undefined, undefined, undefined);
             expect(addUserMessageSpy).toHaveBeenCalledWith(inputMsg, expect.any(Object));
         });
 
@@ -362,8 +380,8 @@ describe.skip('ExecutionService', () => {
             await executionService.execute(userInput, messagesList, testConfig, { conversationId: 'test-agent' });
 
             // Verify system message was added
-            expect(addSystemMessageSpy).toHaveBeenCalledWith('You are a helpful assistant', undefined);
-            expect(addUserMessageSpy).toHaveBeenCalledWith('Previous question', undefined);
+            expect(addSystemMessageSpy).toHaveBeenCalledWith('You are a helpful assistant', undefined, undefined);
+            expect(addUserMessageSpy).toHaveBeenCalledWith('Previous question', undefined, undefined);
             expect(addUserMessageSpy).toHaveBeenCalledWith(userInput, expect.any(Object));
         });
 
@@ -382,9 +400,9 @@ describe.skip('ExecutionService', () => {
             conversationHistory.getConversationSession('test-agent');
 
             // Mock no provider available
-            aiProviders.getCurrentProviderInstance = vi.fn().mockReturnValue(null);
+            vi.spyOn(aiProviders, 'getCurrentProvider').mockReturnValue(null as any);
 
-            await expect(executionService.execute(testInput, emptyMessages, providerConfig, { conversationId: 'test-agent' })).rejects.toThrow('No AI provider available');
+            await expect(executionService.execute(testInput, emptyMessages, providerConfig, { conversationId: 'test-agent' })).rejects.toThrow('[EXECUTION] Provider is required');
         });
     });
 }); 

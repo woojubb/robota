@@ -45,10 +45,10 @@
   },
   "dependencies": {
     "@robota-sdk/dag-core": "workspace:*",
-    "@robota-sdk/dag-runtime": "workspace:*",
-    "@robota-sdk/dag-worker": "workspace:*"
+    "@robota-sdk/dag-runtime": "workspace:*"
   },
   "devDependencies": {
+    "@robota-sdk/dag-worker": "workspace:*",
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",

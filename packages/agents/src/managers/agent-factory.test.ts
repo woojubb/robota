@@ -33,7 +33,7 @@ class MockAIProvider extends AbstractAIProvider {
     }
 }
 
-describe.skip('AgentFactory', () => {
+describe('AgentFactory', () => {
     let factory: AgentFactory;
     const mockLifecycleEvents: IAgentLifecycleEvents = {
         beforeCreate: vi.fn(),
@@ -188,7 +188,14 @@ describe.skip('AgentFactory', () => {
         });
 
         it('should apply overrides to template', async () => {
-            const overrides = { name: 'OverriddenAgent', model: 'gpt-4' };
+            const overrides: Partial<IAgentConfig> = {
+                name: 'OverriddenAgent',
+                aiProviders: [new MockAIProvider()],
+                defaultModel: {
+                    provider: 'mock-provider',
+                    model: 'gpt-4'
+                }
+            };
             const agent = await factory.createFromTemplate(Robota as any, 'test-template', overrides);
 
             expect(agent).toBeInstanceOf(Robota);
@@ -198,7 +205,7 @@ describe.skip('AgentFactory', () => {
 
             expect(agent.name).toBe('OverriddenAgent');
             expect(agent.getModel().model).toBe('gpt-4');
-            expect(agent.getModel().provider).toBe('mock-provider'); // From template
+            expect(agent.getModel().provider).toBe('mock-provider');
         });
 
         it('should throw error for non-existent template', async () => {
@@ -295,10 +302,13 @@ describe.skip('AgentFactory', () => {
 
     describe('Configuration Validation', () => {
         it('should provide validation results', () => {
-            const validConfig = {
+            const validConfig: Partial<IAgentConfig> = {
                 name: 'ValidAgent',
-                model: 'gpt-3.5-turbo',
-                provider: 'openai'
+                aiProviders: [new MockAIProvider()],
+                defaultModel: {
+                    provider: 'mock-provider',
+                    model: 'gpt-3.5-turbo'
+                }
             };
 
             const validation = factory.validateConfiguration(validConfig);
