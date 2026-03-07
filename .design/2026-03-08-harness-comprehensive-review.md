@@ -317,12 +317,32 @@ SPEC.md를 다음 구조로 확장:
 
 ## 8. 즉시 실행 항목 요약
 
-| 번호 | 항목 | 범위 |
-|------|------|------|
-| 1 | agents SPEC.md 보강 | packages/agents/docs/SPEC.md |
-| 2 | `spec-writing-standard` skill 생성 | .agents/skills/spec-writing-standard/ |
-| 3 | AGENTS.md에 Spec Quality Gate 규칙 추가 | AGENTS.md |
-| 4 | AGENTS.md에 Continuous Improvement 규칙 추가 | AGENTS.md |
-| 5 | `.design/tmp/` 스테일 문서 정리 안내 | CURRENT-TASKS.md 업데이트 |
-| 6 | `harness:cleanup` 스크립트 초안 | scripts/harness/cleanup-drift.mjs |
-| 7 | `dependency-direction-check` 스크립트 초안 | scripts/harness/check-dependency-direction.mjs |
+| 번호 | 항목 | 범위 | 상태 |
+|------|------|------|------|
+| 1 | agents SPEC.md 보강 | packages/agents/docs/SPEC.md | ✅ 완료 (49→3 drift) |
+| 2 | `spec-writing-standard` skill 생성 | .agents/skills/spec-writing-standard/ | ✅ 완료 |
+| 3 | AGENTS.md에 Spec Quality Gate 규칙 추가 | AGENTS.md | ✅ 완료 |
+| 4 | AGENTS.md에 Continuous Improvement 규칙 추가 | AGENTS.md | ✅ 완료 |
+| 5 | `.design/tmp/` 스테일 문서 정리 | CURRENT-TASKS.md 업데이트 | ✅ 완료 — tmp/ 삭제, 잔여 항목 CURRENT-TASKS.md로 이관 |
+| 6 | `harness:cleanup` 스크립트 초안 | scripts/harness/cleanup-drift.mjs | ✅ 완료 |
+| 7 | `dependency-direction-check` 스크립트 초안 | scripts/harness/ | 미완 — CURRENT-TASKS.md Priority 2로 등재 |
+
+---
+
+## 9. Agents 패키지 후속 완료 항목 (2026-03-08)
+
+| 항목 | 상태 |
+|------|------|
+| 테스트 커버리지 확대 (8→21 파일, 456 tests) | ✅ 완료 |
+| Skipped 테스트 활성화 (24 skipped → 0) | ✅ 완료 |
+| Execution Caching 구현 | ✅ 완료 |
+| DAG sibling dependency 해소 (3 drift → 0) | ✅ 완료 |
+| 레거시 skill 정리 (26→16) | 미완 — CURRENT-TASKS.md Priority 2로 등재 |
+
+## 10. `.design/tmp/` 정리 완료 기록
+
+2026-03-08: 6개 임시 분석 문서를 정리 완료.
+
+- 핵심 결론은 이미 AGENTS.md, skill, harness 스크립트에 적용됨
+- 미적용 잔여 항목은 `open-tasks/CURRENT-TASKS.md`로 이관
+- 원본 파일 삭제
