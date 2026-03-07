@@ -1,6 +1,6 @@
 #!/bin/bash
 # task-tracking-stop hook
-# On session stop, reminds to update/archive active tasks.
+# On session stop, detects active tasks and instructs the agent to archive completed ones.
 
 set -euo pipefail
 
@@ -23,10 +23,16 @@ if [[ ${#ACTIVE_TASKS[@]} -eq 0 ]]; then
   exit 0
 fi
 
-echo "[task-tracking] Reminder: ${#ACTIVE_TASKS[@]} active task(s) in .agents/tasks/:"
+echo "ACTION REQUIRED — Active task files found in .agents/tasks/:"
 for task in "${ACTIVE_TASKS[@]}"; do
-  echo "  - $task"
+  STATUS=$(grep -m1 '^\- \*\*Status\*\*:' "$TASKS_DIR/$task" 2>/dev/null | sed 's/.*: //' || echo "unknown")
+  echo "  - $task (status: $STATUS)"
 done
-echo "If work is complete, update status to 'completed' and move to .agents/tasks/completed/."
+echo ""
+echo "Before ending this session you MUST:"
+echo "  1. Update each task file status and progress."
+echo "  2. If all work is done, set status to 'completed', fill the Result section,"
+echo "     and move the file: mv .agents/tasks/<name>.md .agents/tasks/completed/"
+echo "  3. Do NOT leave completed work in the active directory."
 
 exit 0
