@@ -55,7 +55,7 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `TBinaryKind` | `types/domain.ts` | Binary payload kind: `image`, `video`, `audio`, `file` |
 | `TNodeConfigValue` | `types/domain.ts` | Recursive config value type (primitives, objects, arrays) |
 | `TNodeConfigRecord` | `types/domain.ts` | Node configuration record (alias for `INodeConfigObject`) |
-| `IAssetReference` | `types/domain.ts` | Discriminated union for asset-by-id or asset-by-uri references |
+| `TAssetReference` | `types/domain.ts` | Discriminated union for asset-by-id or asset-by-uri references |
 | `TDagRunStatus` | `types/domain.ts` | DAG run states: `created`, `queued`, `running`, `success`, `failed`, `cancelled` |
 | `TTaskRunStatus` | `types/domain.ts` | Task run states: `created`, `queued`, `running`, `success`, `failed`, `upstream_failed`, `skipped`, `cancelled` |
 | `TDagTriggerType` | `types/domain.ts` | Trigger types: `manual`, `scheduled`, `api` |

@@ -28,6 +28,7 @@ This package is SSOT for:
 - `IHttpRequest`, `IHttpResponse`, `IHttpError`, `THttpMethod` -- HTTP types.
 - `ITransport`, `ITransportCapabilities`, `ITransportConfig`, `TransportError` -- transport contracts.
 - `ISimpleRemoteConfig` -- client executor configuration.
+- `IHttpClientConfig` -- HTTP client configuration.
 - `IRemoteServerConfig` -- server configuration.
 - `IRemoteConfig`, `IHealthStatus`, `IUserContext`, `IProviderStatus` -- shared configuration/status types.
 - `IChatRequestBody`, `IChatResponseData`, `ITransportRequest`, `ITransportResponse` -- transport payload shapes.
