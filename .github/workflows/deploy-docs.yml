@@ -7,8 +7,7 @@ on:
       - 'docs/**'
       - 'packages/*/src/**'
       - 'apps/docs/**'
-      - 'scripts/docs-generator.js'
-      - 'scripts/prepare-docs.js'
+      - 'scripts/docs/**'
       - 'typedoc.json'
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:

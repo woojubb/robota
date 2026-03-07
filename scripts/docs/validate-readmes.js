@@ -13,7 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Set working directory to project root
-process.chdir(path.join(__dirname, '..'));
+process.chdir(path.join(__dirname, '..', '..'));
 
 const PACKAGES_DIR = 'packages';
 

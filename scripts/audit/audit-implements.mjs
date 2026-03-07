@@ -192,7 +192,7 @@ const report = {
   baseImplementsThenExtendsChainsDetails: baseImplementsThenExtendsChains,
 };
 
-const outFile = '.design/implements-audit.json';
+const outFile = 'scripts/audit/output/implements-audit.json';
 fs.writeFileSync(outFile, JSON.stringify(report, null, 2));
 
 console.log(
