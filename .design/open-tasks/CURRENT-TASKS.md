@@ -18,6 +18,6 @@
   - 플러그인 실행 순서: PluginPriority 기반 삽입 정렬 (higher priority first, stable)
   - 이벤트 계층 추적: IEventContext에 depth (ownerPath.length 자동) + spanId (auto-generated) 추가
 
-## 향후 통합 검토 대상
-- `quality-standards` + `boundary-validation` → `type-boundary-and-ssot`
-- `functional-core-imperative-shell` + `hexagonal-architecture-ts` + `ts-oop-di-patterns` → architecture-pattern 계열로 재편
+### Skill 통합
+- [x] `quality-standards` + `boundary-validation` → `type-boundary-and-ssot` 통합
+- [x] `functional-core-imperative-shell` + `hexagonal-architecture-ts` + `ts-oop-di-patterns` → `architecture-patterns` 통합
