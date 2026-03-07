@@ -3,6 +3,17 @@ import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError, ConfigurationError } from '../utils/errors';
 
+function compareSemver(a: string, b: string): number {
+    const pa = a.split('.').map(Number);
+    const pb = b.split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const na = pa[i] ?? 0;
+        const nb = pb[i] ?? 0;
+        if (na !== nb) return na - nb;
+    }
+    return 0;
+}
+
 /**
  * Plugin lifecycle events
  */
@@ -371,11 +382,12 @@ export class Plugins extends AbstractManager implements IPluginsManager {
             });
 
             // Call error lifecycle event
+            const normalizedError = error instanceof Error ? error : new Error(String(error));
             if (this.lifecycleEvents.onError) {
-                await this.lifecycleEvents.onError(plugin, error as Error);
+                await this.lifecycleEvents.onError(plugin, normalizedError);
             }
 
-            throw new PluginError(`Failed to initialize plugin: ${error instanceof Error ? error.message : String(error)}`, pluginName);
+            throw new PluginError(`Failed to initialize plugin: ${normalizedError.message}`, pluginName);
         }
     }
 
@@ -416,11 +428,12 @@ export class Plugins extends AbstractManager implements IPluginsManager {
             });
 
             // Call error lifecycle event
+            const normalizedError = error instanceof Error ? error : new Error(String(error));
             if (this.lifecycleEvents.onError) {
-                await this.lifecycleEvents.onError(plugin, error as Error);
+                await this.lifecycleEvents.onError(plugin, normalizedError);
             }
 
-            throw new PluginError(`Failed to destroy plugin: ${error instanceof Error ? error.message : String(error)}`, pluginName);
+            throw new PluginError(`Failed to destroy plugin: ${normalizedError.message}`, pluginName);
         }
     }
 
@@ -433,12 +446,10 @@ export class Plugins extends AbstractManager implements IPluginsManager {
                 throw new ConfigurationError(`Required dependency "${dep.name}" is not registered`);
             }
 
-            // Version checking could be implemented here if needed
             if (dep.minVersion) {
                 const dependencyPlugin = this.plugins.get(dep.name);
                 if (dependencyPlugin && dependencyPlugin.version) {
-                    // Simple version comparison (could be enhanced with semver)
-                    if (dependencyPlugin.version < dep.minVersion) {
+                    if (compareSemver(dependencyPlugin.version, dep.minVersion) < 0) {
                         throw new ConfigurationError(
                             `Dependency "${dep.name}" version ${dependencyPlugin.version} is less than required ${dep.minVersion}`
                         );

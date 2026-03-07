@@ -38,6 +38,21 @@ export const EXECUTION_EVENTS = {
 
 export const EXECUTION_EVENT_PREFIX = 'execution' as const;
 
+/**
+ * Count words in text without allocating an intermediate array.
+ * Avoids the cost of split(/\s+/) in hot paths.
+ */
+function countWords(text: string): number {
+    let count = 0;
+    let inWord = false;
+    for (let i = 0; i < text.length; i++) {
+        const isSpace = text[i] === ' ' || text[i] === '\t' || text[i] === '\n' || text[i] === '\r';
+        if (!isSpace && !inWord) { count++; inWord = true; }
+        else if (isSpace) { inWord = false; }
+    }
+    return count;
+}
+
 // Step 1: ❌ Can't use Error.executionId (not in Error interface)
 // Step 2: ❌ Can't extend Error interface (TypeScript limitation)  
 // Step 3: ✅ Define custom interface for execution errors
@@ -116,12 +131,10 @@ export class ExecutionService {
     private plugins: Array<IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks> = [];
     private logger: ILogger;
     private baseEventService: IEventService;
-    private executionContext?: IExecutionContextInjection; // 🎯 [CONTEXT-INJECTION] Parent execution context
+    private executionContext?: IExecutionContextInjection; // [CONTEXT-INJECTION] Parent execution context
     private ownerPathBase: IOwnerPathSegment[];
     private toolEventServices: Map<string, IEventService>;
     private agentOwnerPathBase: IOwnerPathSegment[];
-    // Path-only: remove lastResponseExecutionId tracking
-    private lastResponseExecutionId?: string | undefined;
     private cacheService?: ExecutionCacheService;
 
     constructor(
@@ -129,7 +142,7 @@ export class ExecutionService {
         tools: IToolManager,
         conversationHistory: ConversationHistory,
         eventService?: IEventService,
-        executionContext?: IExecutionContextInjection, // 🎯 [CONTEXT-INJECTION] Accept parent context
+        executionContext?: IExecutionContextInjection, // [CONTEXT-INJECTION] Accept parent context
         cacheService?: ExecutionCacheService
     ) {
         this.toolExecutionService = new ToolExecutionService(tools);
@@ -142,7 +155,7 @@ export class ExecutionService {
             throw new Error('[EXECUTION] EventService is required');
         }
         this.baseEventService = eventService;
-        this.executionContext = executionContext; // 🎯 [CONTEXT-INJECTION] Store parent context
+        this.executionContext = executionContext; // [CONTEXT-INJECTION] Store parent context
         this.ownerPathBase = this.buildBaseOwnerPath(executionContext);
         this.toolEventServices = new Map();
         this.agentOwnerPathBase = [];
@@ -348,7 +361,7 @@ export class ExecutionService {
                         userPrompt: input,
                         userMessageContent: input,
                         messageLength: input.length,
-                        wordCount: input.split(/\s+/).filter(word => word.length > 0).length,
+                        wordCount: countWords(input),
                         characterCount: input.length
                     },
                     metadata: {
@@ -388,12 +401,21 @@ export class ExecutionService {
             let maxRounds = 10; // Increased limit for complex team delegation scenarios
             let currentRound = 0;
 
+            // Running assistant message tracking to avoid per-round filter scans
+            const initialMessages = conversationSession.getMessages();
+            let runningAssistantCount = 0;
+            let lastTrackedAssistantMessage: IAssistantMessage | undefined;
+            for (const msg of initialMessages) {
+                if (msg.role === 'assistant') {
+                    runningAssistantCount++;
+                    lastTrackedAssistantMessage = msg as IAssistantMessage;
+                }
+            }
+
             while (currentRound < maxRounds) {
                 currentRound++;
 
-                // [ROUND-DEBUG] Round start logging
-                this.logger.info(`🔄 [ROUND-DEBUG] Starting Round ${currentRound} for agent ${fullContext.conversationId}`);
-                this.logger.debug(`🔄 [ROUND-${currentRound}] Starting execution round ${currentRound}`, {
+                this.logger.debug(`[ROUND-${currentRound}] Starting execution round ${currentRound}`, {
                     executionId,
                     conversationId: fullContext.conversationId,
                     round: currentRound,
@@ -407,13 +429,8 @@ export class ExecutionService {
                 if (!Array.isArray(historyMessages)) {
                     throw new Error('[EXECUTION] Conversation messages must be an array');
                 }
-                const assistantMessages = historyMessages.filter(
-                    (message): message is IAssistantMessage => message.role === 'assistant'
-                );
-                const assistantMessageCount = assistantMessages.length;
-                const latestAssistantMessage = assistantMessages.length > 0
-                    ? assistantMessages[assistantMessages.length - 1]
-                    : undefined;
+                const assistantMessageCount = runningAssistantCount;
+                const latestAssistantMessage = lastTrackedAssistantMessage;
                 const shouldChainFromPreviousToolResult =
                     Array.isArray(latestAssistantMessage?.toolCalls) &&
                     latestAssistantMessage.toolCalls.length > 0;
@@ -463,9 +480,7 @@ export class ExecutionService {
                     throw new Error('Model must be a non-empty string in defaultModel configuration.');
                 }
 
-                // Delegate entire execution to provider
-                const availableTools = this.tools.getTools();
-
+                // Delegate entire execution to provider (reuse availableTools from outer scope)
                 const chatOptions: IChatOptions = {
                     model: config.defaultModel.model,
                     ...(config.defaultModel.maxTokens !== undefined && { maxTokens: config.defaultModel.maxTokens }),
@@ -532,17 +547,19 @@ export class ExecutionService {
                     ? (response as IAssistantMessage).toolCalls
                     : undefined;
 
-                if (typeof response.content !== 'string') {
-                    throw new Error('[EXECUTION] Provider response content is required');
+                const hasToolCalls = Array.isArray(assistantToolCallsFromResponse) && assistantToolCallsFromResponse.length > 0;
+                if (typeof response.content !== 'string' && !hasToolCalls) {
+                    throw new Error('[EXECUTION] Provider response must have content or tool calls');
                 }
                 if (assistantToolCallsFromResponse && !Array.isArray(assistantToolCallsFromResponse)) {
                     throw new Error('[EXECUTION] assistant toolCalls must be an array');
                 }
-                this.logger.debug(`🤖 [ROUND-${currentRound}] Provider response completed`, {
+                const responseContent = response.content ?? '';
+                this.logger.debug(`[ROUND-${currentRound}] Provider response completed`, {
                     executionId,
                     conversationId: fullContext.conversationId,
                     round: currentRound,
-                    responseLength: response.content.length,
+                    responseLength: responseContent.length,
                     hasToolCalls: Array.isArray(assistantToolCallsFromResponse) && assistantToolCallsFromResponse.length > 0,
                     toolCallsCount: Array.isArray(assistantToolCallsFromResponse) ? assistantToolCallsFromResponse.length : 0
                 });
@@ -560,63 +577,33 @@ export class ExecutionService {
                 }
 
                 const assistantResponse = response as IAssistantMessage;
-                if (typeof assistantResponse.content !== 'string') {
-                    throw new Error('[EXECUTION] assistant response content is required');
-                }
                 const assistantToolCalls = assistantResponse.toolCalls ?? [];
                 if (!Array.isArray(assistantToolCalls)) {
                     throw new Error('[EXECUTION] assistantResponse.toolCalls must be an array');
                 }
                 conversationSession.addAssistantMessage(
-                    assistantResponse.content,
+                    assistantResponse.content ?? '',
                     assistantToolCalls,
                     {
                         round: currentRound,
                         ...(assistantResponse.metadata?.['usage'] && { usage: assistantResponse.metadata['usage'] })
                     }
                 );
-
-                this.logger.debug(`[RULE-9-DEBUG] Round ${currentRound} response check: toolCalls=${assistantToolCalls.length}`, {
-                    round: currentRound,
-                    hasToolCalls: assistantToolCalls.length > 0,
-                    toolCallsLength: assistantToolCalls.length,
-                    responseContent: assistantResponse.content.substring(0, 100) + '...'
-                });
-
-                // [ROUND2-DEBUG] Extra diagnostics for Round 2 response
-                if (currentRound === 2) {
-                    this.logger.info(`🔍 [ROUND2-DEBUG] Round 2 AI Response for agent ${fullContext.conversationId}:`);
-                    this.logger.info(`🔍 [ROUND2-DEBUG] - Content: ${assistantResponse.content.substring(0, 200)}...`);
-                    this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Calls: ${assistantToolCalls.length}`);
-                    if (assistantToolCalls.length > 0) {
-                        this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Call Details: ${JSON.stringify(assistantToolCalls.map(tc => ({ id: tc.id, name: tc.function?.name })))}`);
-                    }
-                }
+                // Update running assistant message tracker
+                runningAssistantCount++;
+                lastTrackedAssistantMessage = assistantResponse;
 
                 if (assistantToolCalls.length === 0) {
                     // No tools to execute, we're done
-                    this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} ENDING - no tool calls for agent ${fullContext.conversationId}`);
                     this.logger.debug(`[AGENT-FLOW-CONTROL] Round ${currentRound} completed - no tool calls, execution finished for agent ${fullContext.conversationId}`);
 
-                    // [VERIFICATION] Validate ExecutionService flow-control logic
-                    this.logger.info(`🔍 [EXECUTION-VERIFICATION] Agent ${fullContext.conversationId} - Round ${currentRound} - No tool calls detected`);
-                    this.logger.info(`🔍 [EXECUTION-VERIFICATION] ExecutionContext exists: ${!!this.executionContext}`);
-                    if (this.executionContext) {
-                        this.logger.info(`🔍 [EXECUTION-VERIFICATION] Parent ID: ${this.executionContext.parentExecutionId}`);
-                        this.logger.info(`🔍 [EXECUTION-VERIFICATION] Execution Level: ${this.executionContext.executionLevel}`);
-                    }
-
-                    // [EVENT-ORTHODOXY] Emit events consistently; do not conditionally suppress emission.
-                    // The handler decides whether to process the event based on context.
-                    this.logger.info(`🔧 [EVENT-ORTHODOXY] Emitting assistant_message_complete for Round ${currentRound} completion (no tool calls)`);
-
-                    if (typeof assistantResponse.content !== 'string' || assistantResponse.content.length === 0) {
-                        throw new Error('[EXECUTION] assistant response content is required');
+                    if ((typeof assistantResponse.content !== 'string' || assistantResponse.content.length === 0) && assistantToolCalls.length === 0) {
+                        throw new Error('[EXECUTION] assistant response must have content or tool calls');
                     }
                     if (!(assistantResponse.timestamp instanceof Date)) {
                         throw new Error('[EXECUTION] assistant response timestamp is required');
                     }
-                    const responseContent = assistantResponse.content;
+                    const responseContent = assistantResponse.content as string;
                     const responseStartTime = assistantResponse.timestamp;
                     const responseDuration = new Date().getTime() - responseStartTime.getTime();
 
@@ -626,7 +613,7 @@ export class ExecutionService {
                             parameters: {
                                 assistantMessage: responseContent,
                                 responseLength: responseContent.length,
-                                wordCount: responseContent.split(/\s+/).filter(word => word.length > 0).length,
+                                wordCount: countWords(responseContent),
                                 responseTime: responseDuration,
                                 contentPreview: responseContent.length > 200
                                     ? responseContent.substring(0, 200) + '...'
@@ -638,7 +625,7 @@ export class ExecutionService {
                                 fullResponse: responseContent,
                                 responseMetrics: {
                                     length: responseContent.length,
-                                    estimatedReadTime: Math.ceil(responseContent.split(/\s+/).length / 200),
+                                    estimatedReadTime: Math.ceil(countWords(responseContent) / 200),
                                     hasCodeBlocks: /```/.test(responseContent),
                                     hasLinks: /https?:\/\//.test(responseContent),
                                     complexity: responseContent.length > 1000 ? 'high' : responseContent.length > 300 ? 'medium' : 'low'
@@ -670,16 +657,12 @@ export class ExecutionService {
                         }
                     );
 
-                    this.logger.info(`🔍 [EXECUTION-VERIFICATION] Breaking execution loop - should prevent Round ${currentRound + 1}`);
                     break;
                 } else {
                     // Tools are triggered in this round. Do not emit assistant_message_complete yet.
                     // Completion will be emitted when a subsequent assistant turn finishes without tool calls.
                 }
 
-                // [ROUND-DEBUG] Continue round: tool calls present
-                this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} CONTINUING - ${assistantToolCalls.length} tool calls for agent ${fullContext.conversationId}`);
-                this.logger.info(`🔄 [ROUND-DEBUG] Agent instance conversationId=${fullContext.conversationId}`);
                 this.logger.debug('Tool calls detected, executing tools', {
                     toolCallCount: assistantToolCalls.length,
                     round: currentRound,
@@ -885,11 +868,14 @@ export class ExecutionService {
                     }
                 );
 
+                // Clean up per-round tool event services to bound Map growth
+                this.toolEventServices.clear();
+
                 // Continue to next round - let the AI decide if more tools are needed
                 // The AI will see the tool results and can either:
                 // 1. Call more tools if needed
                 // 2. Provide a final response without tool calls
-                this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} COMPLETED - continuing to Round ${currentRound + 1} for agent ${fullContext.conversationId}`);
+                this.logger.debug(`Round ${currentRound} completed - continuing to next round for agent ${fullContext.conversationId}`);
             }
 
             // Check if we hit the round limit
@@ -986,8 +972,9 @@ export class ExecutionService {
             const duration = Date.now() - startTime.getTime();
 
             // Call onError hook on all plugins
+            const normalizedError = error instanceof Error ? error : new Error(String(error));
             await this.callPluginHook('onError', {
-                error: error as Error,
+                error: normalizedError,
                 executionContext: this.convertExecutionContextToPluginFormat(fullContext)
             });
 
@@ -1078,21 +1065,21 @@ export class ExecutionService {
 
             // Create chat options
             const configToolsLength = Array.isArray(config.tools) ? config.tools.length : undefined;
-            this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools:', { length: configToolsLength });
+            this.logger.debug('[EXECUTION-SERVICE] config.tools:', { length: configToolsLength });
             const toolSchemas = this.tools.getTools();
             const toolSchemasLength = Array.isArray(toolSchemas) ? toolSchemas.length : undefined;
-            this.logger.debug('🔍 [EXECUTION-SERVICE] this.tools.getTools():', { length: toolSchemasLength });
-            this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools exists:', { exists: !!config.tools });
-            this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools.length > 0:', { hasTools: config.tools && config.tools.length > 0 });
+            this.logger.debug('[EXECUTION-SERVICE] this.tools.getTools():', { length: toolSchemasLength });
+            this.logger.debug('[EXECUTION-SERVICE] config.tools exists:', { exists: !!config.tools });
+            this.logger.debug('[EXECUTION-SERVICE] config.tools.length > 0:', { hasTools: config.tools && config.tools.length > 0 });
 
             const chatOptions: IChatOptions = {
                 model: config.defaultModel.model,
                 ...(config.tools && config.tools.length > 0 && { tools: this.tools.getTools() })
             };
 
-            this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions has tools:', { hasTools: !!chatOptions.tools });
+            this.logger.debug('[EXECUTION-SERVICE] Final chatOptions has tools:', { hasTools: !!chatOptions.tools });
             const chatOptionsToolsLength = Array.isArray(chatOptions.tools) ? chatOptions.tools.length : undefined;
-            this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions.tools length:', { length: chatOptionsToolsLength });
+            this.logger.debug('[EXECUTION-SERVICE] Final chatOptions.tools length:', { length: chatOptionsToolsLength });
 
             const chatStream = provider.chatStream;
             if (!chatStream) {
@@ -1161,7 +1148,7 @@ export class ExecutionService {
                 }
             }
 
-            this.logger.debug('🔥 [EXECUTION-SERVICE-STREAM] Stream completed, toolCalls detected:', { count: toolCalls.length });
+            this.logger.debug('[EXECUTION-SERVICE-STREAM] Stream completed, toolCalls detected:', { count: toolCalls.length });
 
             if (typeof fullResponse !== 'string') {
                 throw new Error('[EXECUTION] Streaming response content is required');
@@ -1174,7 +1161,7 @@ export class ExecutionService {
 
             // Execute tools if detected
             if (toolCalls.length > 0) {
-                this.logger.debug('🔥 [EXECUTION-SERVICE-STREAM] Executing tools:', { tools: toolCalls.map(tc => tc.function.name) });
+                this.logger.debug('[EXECUTION-SERVICE-STREAM] Executing tools:', { tools: toolCalls.map(tc => tc.function.name) });
 
                 // Execute tools with hierarchical context
                 const streamingRootId = streamingConversationId;
@@ -1354,6 +1341,10 @@ export class ExecutionService {
     /**
      * Call a hook method on all plugins that implement it
      * Handles different hook signatures properly
+     *
+     * TODO: Candidate for extraction to PluginHookDispatcher class.
+     * Currently blocked because this method directly accesses private fields
+     * (this.plugins, this.logger). Extract once these are injectable.
      */
     private async callPluginHook(
         hookName: string,

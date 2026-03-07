@@ -330,14 +330,6 @@ export type {
 } from './interfaces/agent';
 
 /**
- * Tool provider types for function calling integration.
- * Provides type safety for tool implementations and schema validation.
- * 
- * @public
- */
-export type { IToolSchema as IFunctionSchema } from './interfaces/provider';
-
-/**
  * Event history module contracts (optional service).
  *
  * @public

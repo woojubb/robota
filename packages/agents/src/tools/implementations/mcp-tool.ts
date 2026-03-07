@@ -169,11 +169,16 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
      */
     private async ensureConnection(): Promise<void> {
         if (this.connectionStatus === 'connecting') {
-            // Wait for existing connection attempt
-            return new Promise((resolve) => {
+            // Wait for existing connection attempt with upper bound
+            const maxIterations = 50;
+            return new Promise((resolve, reject) => {
+                let iterations = 0;
                 const checkConnection = () => {
+                    iterations++;
                     if (this.connectionStatus !== 'connecting') {
                         resolve();
+                    } else if (iterations >= maxIterations) {
+                        reject(new Error(`MCP connection timeout: still connecting after ${maxIterations * 100}ms`));
                     } else {
                         setTimeout(checkConnection, 100);
                     }
@@ -205,7 +210,7 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
      * Build MCP request from tool parameters
      */
     private buildMCPRequest(toolName: string, parameters: TToolParameters): IMCPRequest {
-        const requestId = `${toolName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const requestId = `${toolName}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
         const mcpParams: IMCPRequestParams = {
             tool: toolName,
@@ -238,20 +243,7 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
                 id: request.id
             });
 
-            // Simulate MCP response for now
-            const mockResponse: IMCPResponse = {
-                jsonrpc: '2.0',
-                id: request.id,
-                result: {
-                    content: `MCP tool "${request.params?.tool}" executed with parameters: ${JSON.stringify(request.params?.arguments)}`,
-                    metadata: {
-                        timestamp: new Date().toISOString(),
-                        server: this.mcpConfig.endpoint
-                    }
-                }
-            };
-
-            return mockResponse;
+            throw new Error('Not implemented: actual MCP execution is not yet available');
 
         } catch (error) {
             // Return error response in MCP format

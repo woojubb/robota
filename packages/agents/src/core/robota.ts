@@ -863,6 +863,12 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * ```
      */
     addPlugin(plugin: IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks): void {
+        if (!this.isFullyInitialized || !this.executionService) {
+            throw new ConfigurationError(
+                'Cannot add plugin before agent is fully initialized. Await an operation like run() first, or pass plugins via the constructor config.',
+                { pluginName: plugin.name }
+            );
+        }
         this.executionService.registerPlugin(plugin);
         this.logger.debug('Plugin added', { pluginName: plugin.name });
     }
@@ -1381,12 +1387,20 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
             plugins,
             modules,
             historyLength: history.length,
-            historyStats: {
-                userMessages: history.filter(m => m.role === 'user').length,
-                assistantMessages: history.filter(m => m.role === 'assistant').length,
-                systemMessages: history.filter(m => m.role === 'system').length,
-                toolMessages: history.filter(m => m.role === 'tool').length
-            },
+            historyStats: (() => {
+                const roleCounts = { user: 0, assistant: 0, system: 0, tool: 0 };
+                for (const msg of history) {
+                    if (msg.role in roleCounts) {
+                        roleCounts[msg.role as keyof typeof roleCounts]++;
+                    }
+                }
+                return {
+                    userMessages: roleCounts.user,
+                    assistantMessages: roleCounts.assistant,
+                    systemMessages: roleCounts.system,
+                    toolMessages: roleCounts.tool
+                };
+            })(),
             uptime
         };
     }

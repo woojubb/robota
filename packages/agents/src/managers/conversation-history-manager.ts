@@ -611,6 +611,7 @@ export class PersistentSystemConversationHistory extends BaseConversationHistory
  */
 export class ConversationSession implements IConversationHistory {
     private history: SimpleConversationHistory;
+    private toolCallIds: Set<string> = new Set<string>();
 
     constructor(maxMessages: number = 100) {
         this.history = new SimpleConversationHistory({ maxMessages });
@@ -675,16 +676,12 @@ export class ConversationSession implements IConversationHistory {
         metadata?: TUniversalMessageMetadata,
         parts?: TUniversalMessagePart[]
     ): void {
-        // Check if a tool message with this toolCallId already exists
-        const existingToolMessage = this.history.getMessages().find(
-            msg => msg.role === 'tool' && isToolMessage(msg) && msg.toolCallId === toolCallId
-        );
-
-        // Throw error if duplicate toolCallId is detected
-        if (existingToolMessage) {
+        // O(1) duplicate detection via tracked Set
+        if (this.toolCallIds.has(toolCallId)) {
             throw new Error(`Duplicate tool message detected for toolCallId: ${toolCallId}. Tool messages must have unique toolCallIds.`);
         }
 
+        this.toolCallIds.add(toolCallId);
         this.history.addToolMessageWithId(content, toolCallId, toolName, metadata, parts);
     }
 
@@ -743,6 +740,7 @@ export class ConversationSession implements IConversationHistory {
      */
     clear(): void {
         this.history.clear();
+        this.toolCallIds.clear();
     }
 }
 

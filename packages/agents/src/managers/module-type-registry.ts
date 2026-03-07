@@ -49,23 +49,12 @@ export interface IModuleCompatibilityResult {
  * - Circular dependency detection
  */
 export class ModuleDescriptorRegistry {
-    private static instance: ModuleDescriptorRegistry | null = null;
     private registeredTypes = new Map<string, IModuleDescriptor>();
     private logger: ILogger;
 
     constructor() {
         this.logger = createLogger('ModuleDescriptorRegistry');
         this.registerBuiltinTypes();
-    }
-
-    /**
-     * Get singleton instance of ModuleDescriptorRegistry
-     */
-    static getInstance(): ModuleDescriptorRegistry {
-        if (!ModuleDescriptorRegistry.instance) {
-            ModuleDescriptorRegistry.instance = new ModuleDescriptorRegistry();
-        }
-        return ModuleDescriptorRegistry.instance;
     }
 
     /**

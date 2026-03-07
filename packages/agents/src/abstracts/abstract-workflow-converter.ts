@@ -339,7 +339,9 @@ export abstract class AbstractWorkflowConverter<TInput extends IWorkflowData, TO
         const processingTime = now.getTime() - startTime;
 
         return {
-            data: null as never as TOutput,
+            // On failure, data has no meaningful value. Use undefined cast since
+            // the result's success=false signals that data should not be consumed.
+            data: undefined as unknown as TOutput,
             success: false,
             errors,
             warnings,
