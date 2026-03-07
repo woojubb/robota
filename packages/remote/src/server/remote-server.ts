@@ -20,7 +20,7 @@ interface IServerStatus {
  */
 export class RemoteServer {
     private app: express.Application;
-    private providers: Map<string, any>;
+    private providers: Map<string, IAIProvider>;
     private router: express.Router;
     private readonly logger: ILogger;
 
@@ -214,12 +214,12 @@ export class RemoteServer {
 
                     for await (const chunk of stream) {
                         // Debug: log raw chunks received from OpenAI
+                        const toolCalls = chunk.role === 'assistant' ? chunk.toolCalls : undefined;
                         this.logger.debug('🔍 [REMOTE-SERVER-CHUNK] Raw chunk from OpenAI:', {
                             role: chunk.role,
-                            content: chunk.content?.substring(0, 30) + '...',
-                            hasToolCalls: !!chunk.toolCalls,
-                            toolCallsLength: chunk.toolCalls?.length || 0,
-                            toolCallsData: chunk.toolCalls
+                            content: (chunk.content ?? '').substring(0, 30) + '...',
+                            hasToolCalls: !!toolCalls,
+                            toolCallsLength: toolCalls?.length || 0
                         });
 
                         // Same behavior as OpenAIProvider: forward the raw TUniversalMessage (no metadata wrapping)
@@ -267,7 +267,7 @@ export class RemoteServer {
                 capabilities: {
                     chat: typeof providerInstance.chat === 'function',
                     stream: typeof providerInstance.chatStream === 'function',
-                    tools: 'supportsTools' in providerInstance && typeof (providerInstance as any).supportsTools === 'function' ? (providerInstance as any).supportsTools() : false
+                    tools: providerInstance.supportsTools()
                 }
             });
         });

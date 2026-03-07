@@ -1,4 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type {
+    Content,
+    Part,
+    FunctionCall,
+    FunctionDeclaration,
+    EnhancedGenerateContentResponse
+} from '@google/generative-ai';
 import type { IGoogleProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
@@ -89,11 +96,11 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
             const geminiMessages = this.convertToGeminiFormat(messages);
 
             const result = await model.generateContent({
-                contents: geminiMessages as any, // Google SDK types are complex, using any here
+                contents: geminiMessages,
                 generationConfig: this.buildGenerationConfig(messages, options),
                 ...(options?.tools && {
                     tools: [{
-                        functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
+                        functionDeclarations: this.convertToolsToGeminiFormat(options.tools)
                     }]
                 })
             });
@@ -151,11 +158,11 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
             const geminiMessages = this.convertToGeminiFormat(messages);
 
             const result = await model.generateContentStream({
-                contents: geminiMessages as any, // Google SDK types are complex, using any here
+                contents: geminiMessages,
                 generationConfig: this.buildGenerationConfig(messages, options),
                 ...(options?.tools && {
                     tools: [{
-                        functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
+                        functionDeclarations: this.convertToolsToGeminiFormat(options.tools)
                     }]
                 })
             });
@@ -319,39 +326,16 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
      * IMPORTANT: Google Gemini allows content with function calls
      * - Content can be empty string or text, but NOT null
      */
-    private convertToGeminiFormat(messages: TUniversalMessage[]): Array<{
-        role: 'user' | 'model';
-        parts: Array<{
-            text?: string;
-            inlineData?: {
-                mimeType: string;
-                data: string;
-            };
-            functionCall?: {
-                name: string;
-                args: Record<string, any>;
-            };
-        }>;
-    }> {
+    private convertToGeminiFormat(messages: TUniversalMessage[]): Content[] {
         return messages.map(msg => {
             if (msg.role === 'user') {
                 return {
-                    role: 'user' as const,
+                    role: 'user',
                     parts: this.mapMessagePartsToGeminiParts(msg as IUserMessage)
                 };
             } else if (msg.role === 'assistant') {
                 const assistantMsg = msg as IAssistantMessage;
-                const parts: Array<{
-                    text?: string;
-                    inlineData?: {
-                        mimeType: string;
-                        data: string;
-                    };
-                    functionCall?: {
-                        name: string;
-                        args: Record<string, any>;
-                    };
-                }> = [];
+                const parts: Part[] = [];
 
                 // Google allows content with function calls
                 const mappedAssistantParts = this.mapMessagePartsToGeminiParts(assistantMsg);
@@ -367,20 +351,20 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
                         parts.push({
                             functionCall: {
                                 name: tc.function.name,
-                                args: JSON.parse(tc.function.arguments)
+                                args: JSON.parse(tc.function.arguments) as object
                             }
                         });
                     });
                 }
 
                 return {
-                    role: 'model' as const,
+                    role: 'model',
                     parts
                 };
             } else if (msg.role === 'tool') {
                 const toolMessage = msg as IToolMessage;
                 return {
-                    role: 'user' as const,
+                    role: 'user',
                     parts: this.mapMessagePartsToGeminiParts(toolMessage)
                 };
             } else {
@@ -391,7 +375,7 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
                     systemParts.push({ text: `System: ${systemMessage.content || ''}` });
                 }
                 return {
-                    role: 'user' as const,
+                    role: 'user',
                     parts: systemParts
                 };
             }
@@ -401,7 +385,7 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
     /**
      * Convert Gemini response to TUniversalMessage
      */
-    private convertFromGeminiResponse(response: any): TUniversalMessage {
+    private convertFromGeminiResponse(response: EnhancedGenerateContentResponse): TUniversalMessage {
         const candidate = response.candidates?.[0];
         if (!candidate) {
             throw new Error('No candidate in Gemini response');
@@ -412,48 +396,42 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
             throw new Error('No content in Gemini response');
         }
 
-        const textParts = content.parts.filter((p: any) => typeof p.text === 'string').map((p: any) => p.text);
-        const imageParts = content.parts.filter((p: any) =>
-            (p.inlineData && typeof p.inlineData.data === 'string' && typeof p.inlineData.mimeType === 'string')
-            || (p.inline_data && typeof p.inline_data.data === 'string' && typeof p.inline_data.mime_type === 'string')
-        );
-        const functionCalls = content.parts.filter((p: any) => p.functionCall);
-
+        const textValues: string[] = [];
         const messageParts: TUniversalMessagePart[] = [];
-        for (const textPart of textParts) {
-            messageParts.push({
-                type: 'text',
-                text: textPart
-            });
-        }
-        for (const imagePart of imageParts) {
-            const inlineData = imagePart.inlineData
-                ?? {
-                    data: imagePart.inline_data.data,
-                    mimeType: imagePart.inline_data.mime_type
-                };
-            messageParts.push({
-                type: 'image_inline',
-                data: inlineData.data,
-                mimeType: inlineData.mimeType
-            });
+        const collectedFunctionCalls: FunctionCall[] = [];
+
+        for (const p of content.parts) {
+            if (typeof p.text === 'string') {
+                textValues.push(p.text);
+                messageParts.push({ type: 'text', text: p.text });
+            }
+            if (p.inlineData && typeof p.inlineData.data === 'string') {
+                messageParts.push({
+                    type: 'image_inline',
+                    data: p.inlineData.data,
+                    mimeType: p.inlineData.mimeType
+                });
+            }
+            if (p.functionCall) {
+                collectedFunctionCalls.push(p.functionCall);
+            }
         }
 
         const result: TUniversalMessage = {
             role: 'assistant',
-            content: textParts.length > 0 ? textParts.join('') : null,
+            content: textValues.length > 0 ? textValues.join('') : null,
             parts: messageParts,
             timestamp: new Date()
         };
 
-        if (functionCalls.length > 0) {
+        if (collectedFunctionCalls.length > 0) {
             const assistantResult = result as IAssistantMessage;
-            assistantResult.toolCalls = functionCalls.map((fc: any) => ({
+            assistantResult.toolCalls = collectedFunctionCalls.map((fc) => ({
                 id: this.generateId(),
                 type: 'function' as const,
                 function: {
-                    name: fc.functionCall.name,
-                    arguments: JSON.stringify(fc.functionCall.args)
+                    name: fc.name,
+                    arguments: JSON.stringify(fc.args)
                 }
             }));
         }
@@ -473,15 +451,12 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
     /**
      * Convert tools to Gemini format
      */
-    private convertToolsToGeminiFormat(tools: IToolSchema[]): Array<{
-        name: string;
-        description: string;
-        parameters: Record<string, any>;
-    }> {
+    private convertToolsToGeminiFormat(tools: IToolSchema[]): FunctionDeclaration[] {
         return tools.map(tool => ({
             name: tool.name,
             description: tool.description,
-            parameters: tool.parameters as Record<string, any>
+            // IToolSchema.parameters follows JSON Schema structure compatible with FunctionDeclarationSchema
+            parameters: tool.parameters as FunctionDeclaration['parameters']
         }));
     }
 
@@ -492,20 +467,8 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
         return `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 
-    private mapMessagePartsToGeminiParts(message: IUserMessage | IAssistantMessage | ISystemMessage | IToolMessage): Array<{
-        text?: string;
-        inlineData?: {
-            mimeType: string;
-            data: string;
-        };
-    }> {
-        const parts: Array<{
-            text?: string;
-            inlineData?: {
-                mimeType: string;
-                data: string;
-            };
-        }> = [];
+    private mapMessagePartsToGeminiParts(message: IUserMessage | IAssistantMessage | ISystemMessage | IToolMessage): Part[] {
+        const parts: Part[] = [];
         const messageParts = message.parts ?? [];
         for (const part of messageParts) {
             if (part.type === 'text') {

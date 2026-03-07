@@ -1,14 +1,9 @@
-import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from '../../services/execution-service';
+import type { TExecutionEventName } from '../event-emitter/types';
 
 /**
  * Webhook plugin type definitions
  * Clean separation of concerns with domain-specific types
  */
-
-/**
- * Webhook event types for different lifecycle events
- */
-type TExecutionEventName = `${typeof EXECUTION_EVENT_PREFIX}.${typeof EXECUTION_EVENTS[keyof typeof EXECUTION_EVENTS]}`;
 
 export type TWebhookEventName =
     | TExecutionEventName

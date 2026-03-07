@@ -27,7 +27,7 @@ const AGENT_EVENT_NAMES = {
     CREATED: buildEventName(AGENT_EVENT_PREFIX, AGENT_EVENTS.CREATED)
 } as const;
 
-type TExecutionEventName = typeof EXECUTION_EVENT_NAMES[keyof typeof EXECUTION_EVENT_NAMES];
+export type TExecutionEventName = typeof EXECUTION_EVENT_NAMES[keyof typeof EXECUTION_EVENT_NAMES];
 type TToolEventName = typeof TOOL_EVENT_NAMES[keyof typeof TOOL_EVENT_NAMES];
 type TAgentEventName = typeof AGENT_EVENT_NAMES[keyof typeof AGENT_EVENT_NAMES];
 

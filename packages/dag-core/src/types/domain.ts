@@ -10,26 +10,26 @@ export type TNodeConfigRecord = INodeConfigObject;
 
 export type TAssetReferenceType = 'asset' | 'uri';
 
-export interface IAssetReferenceBase {
+export interface TAssetReferenceBase {
     referenceType: TAssetReferenceType;
     mediaType?: string;
     name?: string;
     sizeBytes?: number;
 }
 
-export interface IAssetReferenceByAssetId extends IAssetReferenceBase {
+export interface TAssetReferenceByAssetId extends TAssetReferenceBase {
     referenceType: 'asset';
     assetId: string;
     uri?: never;
 }
 
-export interface IAssetReferenceByUri extends IAssetReferenceBase {
+export interface TAssetReferenceByUri extends TAssetReferenceBase {
     referenceType: 'uri';
     uri: string;
     assetId?: never;
 }
 
-export type IAssetReference = IAssetReferenceByAssetId | IAssetReferenceByUri;
+export type TAssetReference = TAssetReferenceByAssetId | TAssetReferenceByUri;
 
 export type TDagRunStatus =
     | 'created'

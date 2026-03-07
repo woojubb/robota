@@ -111,6 +111,7 @@ All rules below are mandatory and non-negotiable.
 - `unknown` is allowed only at trust boundaries and `catch` boundaries, and must be narrowed before domain use.
 - `// @ts-ignore` and `// @ts-nocheck` are prohibited.
 - `I*` prefix is for interfaces only. `T*` prefix is for type aliases only.
+- Type aliases with `I*` prefix or interfaces with `T*` prefix are naming violations. Rename to match the convention.
 - In test files (`*.test.ts`, `*.spec.ts`), `any` and `unknown` may be used only for mocks or boundary fixtures.
 - Follow owner-based SSOT: every concept has exactly one owner module. Import from the owner's public surface and never re-declare owned contracts.
 

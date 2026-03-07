@@ -265,9 +265,10 @@ export class OpenAIProvider extends AbstractAIProvider {
                         content: msg.content || '',
                         tool_call_id: msg.toolCallId || ''
                     };
-                default:
-                    // This should never happen with proper TypeScript
-                    throw new Error(`Unsupported message role: ${(msg as any).role}`);
+                default: {
+                    const exhaustive: never = msg;
+                    throw new Error(`Unsupported message role: ${(exhaustive as { role: string }).role}`);
+                }
             }
         });
     }

@@ -6,8 +6,7 @@
  * - Focused on UI/UX-oriented metrics
  */
 
-import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from '@robota-sdk/agents';
-import type { TUniversalValue } from '@robota-sdk/agents';
+import type { TUniversalValue, TExecutionEventName } from '@robota-sdk/agents';
 
 // =============================================================================
 // Core Statistics Interfaces
@@ -189,8 +188,8 @@ export const PLAYGROUND_STATISTICS_EVENTS = {
 
 export const PLAYGROUND_STATISTICS_EVENT_PREFIX = 'playground' as const;
 
-export type TExecutionEventName =
-    `${typeof EXECUTION_EVENT_PREFIX}.${(typeof EXECUTION_EVENTS)[keyof typeof EXECUTION_EVENTS]}`;
+// SSOT: TExecutionEventName is owned by @robota-sdk/agents (event-emitter/types.ts)
+export type { TExecutionEventName } from '@robota-sdk/agents';
 
 export type TPlaygroundStatisticsEventFullName =
     `${typeof PLAYGROUND_STATISTICS_EVENT_PREFIX}.${(typeof PLAYGROUND_STATISTICS_EVENTS)[keyof typeof PLAYGROUND_STATISTICS_EVENTS]}`;
