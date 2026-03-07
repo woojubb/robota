@@ -94,6 +94,24 @@ Imported from `@robota-sdk/agents` (not owned): `AbstractAIProvider`, `TUniversa
 
 Anthropic API errors are defined in `IAnthropicError` with types: `invalid_request_error`, `authentication_error`, `permission_error`, `not_found_error`, `rate_limit_error`, `api_error`, `overloaded_error`.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+None. This package has no local interface implementations.
+
+### Inheritance Chains
+
+| Base (Owner) | Derived | Location | Notes |
+|------|---------|----------|-------|
+| `AbstractAIProvider` (agents) | `AnthropicProvider` | `src/provider.ts` | Primary provider implementation |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Adapter | Location |
+|--------------|---------|----------|
+| `AbstractAIProvider` (agents) | `AnthropicProvider` | `src/provider.ts` |
+
 ## Test Strategy
 
 - **Current state**: No test files exist in the package (`pnpm test` runs with `--passWithNoTests`).

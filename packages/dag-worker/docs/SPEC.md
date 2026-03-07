@@ -79,6 +79,33 @@ All errors use `IDagError` from `dag-core` with the following codes:
 - `DAG_TASK_EXECUTION_EXCEPTION` -- executor threw an exception
 - `DAG_TASK_EXECUTION_FAILED` -- generic run failure
 
+## Class Contract Registry
+
+### Interface Implementations
+
+No classes in this package use the `implements` keyword. All port dependencies are consumed via constructor injection.
+
+### Inheritance Chains
+
+None. Service classes are standalone (no `extends`).
+
+### Port Consumption via DI
+
+| Service Class | Injected Port (from dag-core) | Location |
+|---------------|------------------------------|----------|
+| `WorkerLoopService` | `IStoragePort`, `IQueuePort`, `ILeasePort`, `ITaskExecutorPort`, `IClockPort` | `src/services/worker-loop-service.ts` |
+| `DlqReinjectService` | `IStoragePort`, `IQueuePort` (x2), `IClockPort` | `src/services/dlq-reinject-service.ts` |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer Class | Location |
+|--------------|---------------|----------|
+| `IStoragePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
+| `IQueuePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
+| `ILeasePort` (dag-core) | `WorkerLoopService` | `src/services/worker-loop-service.ts` |
+| `ITaskExecutorPort` (dag-core) | `WorkerLoopService` | `src/services/worker-loop-service.ts` |
+| `IClockPort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
+
 ## Test Strategy
 
 - **Unit tests**: `worker-loop-service.test.ts`, `dlq-reinject-service.test.ts`, `worker-loop-composition.test.ts`

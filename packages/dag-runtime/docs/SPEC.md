@@ -151,6 +151,33 @@ All errors use `IDagError` from `dag-core` and are constructed via `buildValidat
 
 State transition failures (e.g., attempting to cancel a terminal run) are returned directly from `DagRunStateMachine.transition` and `TaskRunStateMachine.transition` in `dag-core`. This package does not wrap or remap those errors.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+No classes in this package use the `implements` keyword. All port dependencies are consumed via constructor injection.
+
+### Inheritance Chains
+
+None. Service classes are standalone (no `extends`).
+
+### Port Consumption via DI
+
+| Service Class | Injected Port (from dag-core) | Location |
+|---------------|------------------------------|----------|
+| `RunOrchestratorService` | `IStoragePort`, `IQueuePort`, `IClockPort`, `IRunProgressEventReporter` | `src/services/run-orchestrator-service.ts` |
+| `RunQueryService` | `IStoragePort` | `src/services/run-query-service.ts` |
+| `RunCancelService` | `IStoragePort`, `IClockPort` | `src/services/run-cancel-service.ts` |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer Class | Location |
+|--------------|---------------|----------|
+| `IStoragePort` (dag-core) | `RunOrchestratorService`, `RunQueryService`, `RunCancelService` | `src/services/` |
+| `IQueuePort` (dag-core) | `RunOrchestratorService` | `src/services/run-orchestrator-service.ts` |
+| `IClockPort` (dag-core) | `RunOrchestratorService`, `RunCancelService` | `src/services/` |
+| `IRunProgressEventReporter` (dag-core) | `RunOrchestratorService` | `src/services/run-orchestrator-service.ts` |
+
 ## Test Strategy
 
 Tests are located in `packages/dag-runtime/src/__tests__/` and executed via `vitest`.

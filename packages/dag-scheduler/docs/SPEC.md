@@ -59,6 +59,30 @@ All errors use `IDagError` from `dag-core` with `category: 'validation'`:
 
 Additionally, errors from `RunOrchestratorService.startRun()` propagate directly (definition not found, state transition errors, dispatch errors).
 
+## Class Contract Registry
+
+### Interface Implementations
+
+No classes in this package use the `implements` keyword. All port dependencies are consumed via constructor injection.
+
+### Inheritance Chains
+
+None. Service classes are standalone (no `extends`).
+
+### Port Consumption via DI
+
+| Service Class | Injected Port (from dag-core) | Location |
+|---------------|------------------------------|----------|
+| `SchedulerTriggerService` | `IStoragePort`, `IQueuePort`, `IClockPort` | `src/services/scheduler-trigger-service.ts` |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Consumer Class | Location |
+|--------------|---------------|----------|
+| `IStoragePort` (dag-core) | `SchedulerTriggerService` | `src/services/scheduler-trigger-service.ts` |
+| `IQueuePort` (dag-core) | `SchedulerTriggerService` | `src/services/scheduler-trigger-service.ts` |
+| `IClockPort` (dag-core) | `SchedulerTriggerService` | `src/services/scheduler-trigger-service.ts` |
+
 ## Test Strategy
 
 - **Unit tests**: `scheduler-trigger-service.test.ts`

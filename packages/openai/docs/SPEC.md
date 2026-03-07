@@ -162,6 +162,27 @@ This package does not define a custom error class hierarchy. It uses standard `E
 
 Payload loggers (`FilePayloadLogger`, `ConsolePayloadLogger`) catch and log their own errors internally without propagating them, ensuring logging failures do not break main functionality.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IPayloadLogger` | `ConsolePayloadLogger` | production | `src/loggers/console-payload-logger.ts` |
+| `IPayloadLogger` | `FilePayloadLogger` | production | `src/loggers/file-payload-logger.ts` |
+
+### Inheritance Chains
+
+| Base (Owner) | Derived | Location | Notes |
+|------|---------|----------|-------|
+| `AbstractAIProvider` (agents) | `OpenAIProvider` | `src/provider.ts` | Primary provider implementation |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Adapter | Location |
+|--------------|---------|----------|
+| `AbstractAIProvider` (agents) | `OpenAIProvider` | `src/provider.ts` |
+
 ## Test Strategy
 
 ### Current Test Files
