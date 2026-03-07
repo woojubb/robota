@@ -123,6 +123,27 @@ Note: Image generation methods (`generateImage`, `editImage`, `composeImage`) re
 
 Google API errors are defined in `IGoogleError` with numeric `code`, string `status`, and optional `details` array.
 
+## Class Contract Registry
+
+### Interface Implementations
+
+| Interface | Implementor | Kind | Location |
+|-----------|------------|------|----------|
+| `IImageGenerationProvider` | `GoogleProvider` | production | `src/provider.ts` |
+
+### Inheritance Chains
+
+| Base (Owner) | Derived | Location | Notes |
+|------|---------|----------|-------|
+| `AbstractAIProvider` (agents) | `GoogleProvider` | `src/provider.ts` | Provider with image generation |
+
+### Cross-Package Port Consumers
+
+| Port (Owner) | Adapter | Location |
+|--------------|---------|----------|
+| `AbstractAIProvider` (agents) | `GoogleProvider` | `src/provider.ts` |
+| `IImageGenerationProvider` (agents) | `GoogleProvider` | `src/provider.ts` |
+
 ## Test Strategy
 
 - **Current state**: One test file exists at `src/provider.spec.ts` covering image-related functionality.
