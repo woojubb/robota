@@ -1,3 +1,4 @@
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import {
@@ -22,6 +23,16 @@ import {
   runCommand,
 } from './shared.mjs';
 
+function inferReportFormat(reportFile, explicitFormat) {
+  if (explicitFormat) {
+    return explicitFormat;
+  }
+  if (reportFile?.endsWith('.json')) {
+    return 'json';
+  }
+  return 'json';
+}
+
 function renderFiles(files) {
   if (files.length === 0) {
     return 'explicit scope';
@@ -45,6 +56,7 @@ async function main() {
   }
 
   const summary = [];
+  let allPassed = true;
 
   for (const scope of selectedScopes) {
     const files = scopeFiles.get(scope.relativeDir) ?? [];
@@ -63,20 +75,50 @@ async function main() {
     process.stdout.write(`\n[verify] ${scope.relativeDir}\n`);
     process.stdout.write(`files: ${renderFiles(files)}\n`);
 
+    const stepResults = { build: 'skip', test: 'skip', lint: 'skip', typecheck: 'skip', scenarios: 'not-applicable' };
+
     if (classification.needsBuild && scope.scripts.build) {
-      runCommand('pnpm', ['build'], workdir, options.dryRun);
+      try {
+        runCommand('pnpm', ['build'], workdir, options.dryRun);
+        stepResults.build = 'pass';
+      } catch (error) {
+        stepResults.build = 'fail';
+        allPassed = false;
+        throw error;
+      }
     }
 
     if (!options.skipTests && classification.needsTest && scope.scripts.test) {
-      runCommand('pnpm', ['test'], workdir, options.dryRun);
+      try {
+        runCommand('pnpm', ['test'], workdir, options.dryRun);
+        stepResults.test = 'pass';
+      } catch (error) {
+        stepResults.test = 'fail';
+        allPassed = false;
+        throw error;
+      }
     }
 
     if (!options.skipLint && classification.needsLint && scope.scripts.lint) {
-      runCommand('pnpm', ['lint'], workdir, options.dryRun);
+      try {
+        runCommand('pnpm', ['lint'], workdir, options.dryRun);
+        stepResults.lint = 'pass';
+      } catch (error) {
+        stepResults.lint = 'fail';
+        allPassed = false;
+        throw error;
+      }
     }
 
     if (!options.skipTypecheck && classification.needsTypecheck) {
-      runCommand('pnpm', ['exec', 'tsc', '-p', 'tsconfig.json', '--noEmit'], workdir, options.dryRun);
+      try {
+        runCommand('pnpm', ['exec', 'tsc', '-p', 'tsconfig.json', '--noEmit'], workdir, options.dryRun);
+        stepResults.typecheck = 'pass';
+      } catch (error) {
+        stepResults.typecheck = 'fail';
+        allPassed = false;
+        throw error;
+      }
     }
 
     const notes = [];
@@ -132,6 +174,8 @@ async function main() {
           scenarios.push(command.label);
 
           if (execution.status !== 0) {
+            stepResults.scenarios = 'fail';
+            allPassed = false;
             throw new Error(`Command failed: ${execution.rendered}`);
           }
 
@@ -160,6 +204,8 @@ async function main() {
           });
           const differences = compareScenarioRecordArtifact(artifactEntry.record, executionRecord);
           if (differences.length > 0) {
+            stepResults.scenarios = 'fail';
+            allPassed = false;
             throw new Error(
               `Scenario record drift detected for ${scope.relativeDir} at ${relativePathFromRoot(artifactEntry.artifactPath)}: ${differences.join('; ')}. ` +
               `Run \`pnpm harness:record -- --scope ${scope.relativeDir}\` if the change is intentional.`
@@ -168,6 +214,8 @@ async function main() {
 
           notes.push(`scenario output matched ${relativePathFromRoot(artifactEntry.artifactPath)}`);
         }
+
+        stepResults.scenarios = 'pass';
       } else {
         notes.push('scenario-like verification was requested, but no owner scenario command is registered for this scope');
       }
@@ -177,11 +225,12 @@ async function main() {
 
     summary.push({
       scope: scope.relativeDir,
-      build: classification.needsBuild && Boolean(scope.scripts.build),
-      test: !options.skipTests && classification.needsTest && Boolean(scope.scripts.test),
-      lint: !options.skipLint && classification.needsLint && Boolean(scope.scripts.lint),
-      typecheck: !options.skipTypecheck && classification.needsTypecheck,
-      scenarios,
+      build: stepResults.build,
+      test: stepResults.test,
+      lint: stepResults.lint,
+      typecheck: stepResults.typecheck,
+      scenarios: stepResults.scenarios,
+      scenarioLabels: scenarios,
       notes,
     });
   }
@@ -189,17 +238,42 @@ async function main() {
   process.stdout.write('\nVerification summary:\n');
   for (const item of summary) {
     const checks = [
-      item.build ? 'build' : null,
-      item.test ? 'test' : null,
-      item.lint ? 'lint' : null,
-      item.typecheck ? 'typecheck' : null,
-      item.scenarios.length > 0 ? `scenarios(${item.scenarios.join('; ')})` : null,
+      item.build !== 'skip' ? 'build' : null,
+      item.test !== 'skip' ? 'test' : null,
+      item.lint !== 'skip' ? 'lint' : null,
+      item.typecheck !== 'skip' ? 'typecheck' : null,
+      item.scenarioLabels.length > 0 ? `scenarios(${item.scenarioLabels.join('; ')})` : null,
     ].filter(Boolean);
 
     process.stdout.write(`- ${item.scope}: ${checks.join(', ') || 'no runnable checks'}\n`);
     for (const note of item.notes) {
       process.stdout.write(`  note: ${note}\n`);
     }
+  }
+
+  if (options.reportFile) {
+    const format = inferReportFormat(options.reportFile, options.reportFormat);
+    const reportPayload = {
+      type: 'verify',
+      timestamp: new Date().toISOString(),
+      scopes: summary.map((item) => ({
+        scope: item.scope,
+        build: item.build,
+        test: item.test,
+        lint: item.lint,
+        typecheck: item.typecheck,
+        scenarios: item.scenarios,
+        notes: item.notes,
+      })),
+      passed: allPassed,
+    };
+
+    const targetPath = path.resolve(WORKSPACE_ROOT, options.reportFile);
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.writeFile(targetPath, `${JSON.stringify(reportPayload, null, 2)}\n`, 'utf8');
+
+    const relativePath = path.relative(WORKSPACE_ROOT, targetPath);
+    process.stdout.write(`\nReport written: ${relativePath.startsWith('..') ? targetPath : relativePath}\n`);
   }
 }
 

@@ -209,6 +209,55 @@ async function checkDependencyDirection(findings) {
   }
 }
 
+async function checkBoundaryValidation(findings) {
+  // Scan for blind type assertions in production code (not tests)
+  const patterns = [
+    { regex: 'as any', type: 'blind-assertion-any', detail: 'Blind `as any` assertion in production code.' },
+    { regex: 'as unknown as', type: 'blind-assertion-unknown', detail: 'Blind `as unknown as T` assertion in production code.' },
+  ];
+
+  for (const { regex, type, detail } of patterns) {
+    const result = spawnSync('grep', [
+      '-rn', '--include=*.ts',
+      '--exclude-dir=node_modules', '--exclude-dir=dist',
+      '-l', regex,
+      'packages/',
+    ], {
+      cwd: WORKSPACE_ROOT,
+      encoding: 'utf8',
+    });
+
+    if (result.status !== 0 || !result.stdout.trim()) {
+      continue;
+    }
+
+    const files = result.stdout.trim().split(/\r?\n/);
+    for (const file of files) {
+      if (file.includes('.test.') || file.includes('.spec.') || file.includes('__tests__') || file.includes('node_modules')) {
+        continue;
+      }
+
+      findings.push({
+        file,
+        type,
+        detail,
+      });
+    }
+  }
+
+  // Scan for silent fallback patterns in production code
+  const fallbackResult = spawnSync('grep', [
+    '-rn', '--include=*.ts',
+    '-l', '-E', 'catch\\s*\\{[^}]*\\}\\s*$|\\|\\|\\s*fallback|\\|\\|\\s*default',
+    'packages/',
+  ], {
+    cwd: WORKSPACE_ROOT,
+    encoding: 'utf8',
+  });
+
+  // Note: fallback detection is advisory since grep patterns are coarse
+}
+
 async function checkDynamicImports(findings) {
   const result = spawnSync('grep', [
     '-rn', '--include=*.ts',
@@ -237,7 +286,48 @@ async function checkDynamicImports(findings) {
   }
 }
 
+function parseCleanupArgs(argv) {
+  const options = {
+    reportFile: null,
+    reportFormat: null,
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    switch (token) {
+      case '--':
+        break;
+      case '--report-file': {
+        const value = argv[index + 1];
+        if (!value) {
+          throw new Error('--report-file requires a value');
+        }
+        options.reportFile = value;
+        index += 1;
+        break;
+      }
+      case '--report-format': {
+        const value = argv[index + 1];
+        if (!value) {
+          throw new Error('--report-format requires a value');
+        }
+        if (value !== 'json') {
+          throw new Error('--report-format must be: json');
+        }
+        options.reportFormat = value;
+        index += 1;
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  return options;
+}
+
 async function main() {
+  const options = parseCleanupArgs(process.argv.slice(2));
   const findings = [];
 
   await Promise.all([
@@ -246,6 +336,7 @@ async function main() {
     checkUnregisteredSkills(findings),
     checkForbiddenTerms(findings),
     checkDependencyDirection(findings),
+    checkBoundaryValidation(findings),
     checkDynamicImports(findings),
   ]);
 
@@ -262,17 +353,37 @@ async function main() {
 
   if (driftCount === 0) {
     process.stdout.write('no drift detected.\n');
-    return;
+  } else {
+    process.stdout.write('\nsummary:\n');
+    for (const [type, count] of typeGroups) {
+      process.stdout.write(`  ${type}: ${count}\n`);
+    }
+
+    process.stdout.write('\ndetails:\n');
+    for (const finding of findings) {
+      process.stdout.write(`- [${finding.type}] ${finding.file}: ${finding.detail}\n`);
+    }
   }
 
-  process.stdout.write('\nsummary:\n');
-  for (const [type, count] of typeGroups) {
-    process.stdout.write(`  ${type}: ${count}\n`);
-  }
+  if (options.reportFile) {
+    const reportPayload = {
+      type: 'cleanup',
+      timestamp: new Date().toISOString(),
+      findingCount: driftCount,
+      findings: findings.map((finding) => ({
+        file: finding.file,
+        type: finding.type,
+        detail: finding.detail,
+      })),
+      passed: driftCount === 0,
+    };
 
-  process.stdout.write('\ndetails:\n');
-  for (const finding of findings) {
-    process.stdout.write(`- [${finding.type}] ${finding.file}: ${finding.detail}\n`);
+    const targetPath = path.resolve(WORKSPACE_ROOT, options.reportFile);
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.writeFile(targetPath, `${JSON.stringify(reportPayload, null, 2)}\n`, 'utf8');
+
+    const relativePath = path.relative(WORKSPACE_ROOT, targetPath);
+    process.stdout.write(`\nReport written: ${relativePath.startsWith('..') ? targetPath : relativePath}\n`);
   }
 }
 
