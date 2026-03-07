@@ -10,8 +10,7 @@ export type { ITemplateManager } from './types/chat';
 export type {
     IChatConfig,
     IChatMetadata,
-    IChatStats,
-    TMessageContent
+    IChatStats
 } from './types/chat';
 
 export type {

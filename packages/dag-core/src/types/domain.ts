@@ -6,30 +6,29 @@ export interface INodeConfigObject {
     [key: string]: TNodeConfigValue;
 }
 export type TNodeConfigValue = TNodeConfigPrimitive | INodeConfigObject | TNodeConfigValue[];
-export type TNodeConfigRecord = INodeConfigObject;
 
 export type TAssetReferenceType = 'asset' | 'uri';
 
-export interface TAssetReferenceBase {
+export interface IAssetReferenceBase {
     referenceType: TAssetReferenceType;
     mediaType?: string;
     name?: string;
     sizeBytes?: number;
 }
 
-export interface TAssetReferenceByAssetId extends TAssetReferenceBase {
+export interface IAssetReferenceByAssetId extends IAssetReferenceBase {
     referenceType: 'asset';
     assetId: string;
     uri?: never;
 }
 
-export interface TAssetReferenceByUri extends TAssetReferenceBase {
+export interface IAssetReferenceByUri extends IAssetReferenceBase {
     referenceType: 'uri';
     uri: string;
     assetId?: never;
 }
 
-export type TAssetReference = TAssetReferenceByAssetId | TAssetReferenceByUri;
+export type TAssetReference = IAssetReferenceByAssetId | IAssetReferenceByUri;
 
 export type TDagRunStatus =
     | 'created'
@@ -130,7 +129,7 @@ export interface IDagNode {
     triggerPolicy?: string;
     retryPolicy?: string;
     timeoutMs?: number;
-    config: TNodeConfigRecord;
+    config: INodeConfigObject;
     inputs: IPortDefinition[];
     outputs: IPortDefinition[];
     costPolicy?: ICostPolicy;

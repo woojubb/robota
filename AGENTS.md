@@ -114,6 +114,7 @@ All rules below are mandatory and non-negotiable.
 - Type aliases with `I*` prefix or interfaces with `T*` prefix are naming violations. Rename to match the convention.
 - In test files (`*.test.ts`, `*.spec.ts`), `any` and `unknown` may be used only for mocks or boundary fixtures.
 - Follow owner-based SSOT: every concept has exactly one owner module. Import from the owner's public surface and never re-declare owned contracts.
+- Trivial 1:1 type aliases (`type X = Y`) that add no semantic value are prohibited. Use the original type directly. Generic specializations (`type X = Map<string, Foo>`) and discriminated unions are allowed.
 
 ### No Fallback Policy
 

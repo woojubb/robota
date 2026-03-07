@@ -5,11 +5,6 @@ import type {
 } from '@robota-sdk/agents';
 
 /**
- * Simple message content type
- */
-export type TMessageContent = string;
-
-/**
  * Chat configuration interface - simplified
  */
 export interface IChatConfig {
@@ -52,7 +47,7 @@ export interface IChatInstance {
     readonly robota: Robota;
 
     // Core Chat Operations
-    sendMessage(content: TMessageContent): Promise<string>;
+    sendMessage(content: string): Promise<string>;
     regenerateResponse(): Promise<string>;
 
     // Configuration
