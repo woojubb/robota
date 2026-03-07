@@ -228,23 +228,14 @@ Domain and package skills:
 | functional-core-imperative-shell | `.agents/skills/functional-core-imperative-shell/` | Pure logic core, side effects at boundaries |
 | hexagonal-architecture-ts | `.agents/skills/hexagonal-architecture-ts/` | Ports-and-adapters architecture |
 | ts-oop-di-patterns | `.agents/skills/ts-oop-di-patterns/` | DI, composition over inheritance |
-| development-architecture-guidance | `.agents/skills/development-architecture-guidance/` | Error handling, DI, interface design |
-| import-standards | `.agents/skills/import-standards/` | ES module import patterns |
-| commit-message-guidance | `.agents/skills/commit-message-guidance/` | Commit message examples |
-| writing-language-guide | `.agents/skills/writing-language-guide/` | Language usage for docs and commits |
 | execution-caching | `.agents/skills/execution-caching/` | Execution caching workflows |
-| execution-cache-ops | `.agents/skills/execution-cache-ops/` | Cache operational commands |
 | architecture-decision-records | `.agents/skills/architecture-decision-records/` | ADR format and workflow |
 | semver-api-surface | `.agents/skills/semver-api-surface/` | Semantic versioning for monorepo |
 | plugin-development | `.agents/skills/plugin-development/` | Plugin development with validation |
 | robota-sdk-usage | `.agents/skills/robota-sdk-usage/` | SDK usage patterns and migration |
 | tailwind-truncation | `.agents/skills/tailwind-truncation/` | Tailwind truncation patterns |
-| scenario-guard-checklist | `.agents/skills/scenario-guard-checklist/` | Pre-change checklist for scenario modifications |
-| verification-guard | `.agents/skills/verification-guard/` | Guarded example verification with abort conditions |
 | branch-guard | `.agents/skills/branch-guard/` | Guard against committing on protected branches |
 | task-tracking | `.agents/skills/task-tracking/` | Track work with task files in .agents/tasks/ |
-
-During the harness migration, legacy skills may remain. Prefer harness-oriented skills when a legacy skill overlaps with them.
 
 ## Rules and Skills Boundary
 
@@ -331,6 +322,8 @@ Current harness entrypoints:
 - `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--base-ref <git-ref>]`
 - `pnpm harness:self-check`
 - `pnpm harness:cleanup`
+- `pnpm harness:bootstrap -- [--scope web|api-server] [--report-file <path>] [--dry-run]`
+- `pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]`
 
 When the working tree is clean, harness commands may resolve scope from `git diff <base-ref>...HEAD` instead of `git status`.
 
