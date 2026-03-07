@@ -8,6 +8,7 @@ import {
     type IDagDefinition
 } from '@robota-sdk/dag-core';
 import { WorkerLoopService } from '@robota-sdk/dag-worker';
+import { RunOrchestratorService } from '@robota-sdk/dag-runtime';
 import { SchedulerTriggerService } from '../services/scheduler-trigger-service.js';
 
 function createPublishedDefinition(dagId: string): IDagDefinition {
@@ -42,7 +43,7 @@ describe('Scheduler integration E2E', () => {
 
         await storage.saveDefinition(createPublishedDefinition('dag-scheduler-integration'));
 
-        const scheduler = new SchedulerTriggerService(storage, queue, clock);
+        const scheduler = new SchedulerTriggerService(new RunOrchestratorService(storage, queue, clock));
         const worker = new WorkerLoopService(
             storage,
             queue,

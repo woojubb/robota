@@ -122,19 +122,6 @@ export class RunOrchestratorService {
                 startedAt: this.clock.nowIso()
             });
         } catch (error) {
-            const racedRun = await this.storage.getDagRunByRunKey(runKey);
-            if (racedRun) {
-                return {
-                    ok: true,
-                    value: {
-                        dagRunId: racedRun.dagRunId,
-                        dagId: racedRun.dagId,
-                        version: racedRun.version,
-                        logicalDate: racedRun.logicalDate,
-                        status: racedRun.status
-                    }
-                };
-            }
             return {
                 ok: false,
                 error: buildDispatchError(

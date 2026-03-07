@@ -460,6 +460,9 @@ importers:
 
   packages/dag-designer:
     dependencies:
+      '@robota-sdk/dag-api':
+        specifier: workspace:*
+        version: link:../dag-api
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
@@ -484,6 +487,9 @@ importers:
       '@robota-sdk/dag-node-transform':
         specifier: workspace:*
         version: link:../dag-nodes/transform
+      '@robota-sdk/dag-server-core':
+        specifier: workspace:*
+        version: link:../dag-server-core
       '@xyflow/react':
         specifier: ^12.8.2
         version: 12.8.2(@types/react@19.1.8)(react-dom@19.1.0)(react@19.1.0)
