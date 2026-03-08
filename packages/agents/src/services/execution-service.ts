@@ -231,8 +231,8 @@ export class ExecutionService {
     /**
      * Get a plugin by name
      */
-    getPlugin(pluginName: string): (IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks) | null {
-        return this.plugins.find(p => p.name === pluginName) ?? null;
+    getPlugin(pluginName: string): (IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks) | undefined {
+        return this.plugins.find(p => p.name === pluginName);
     }
 
     /**
