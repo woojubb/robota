@@ -1,14 +1,14 @@
-import { BasePlugin, PluginCategory, PluginPriority, type ErrorContext } from '../../abstracts/base-plugin';
-import { Logger, createLogger } from '../../utils/logger';
-import type { RunOptions } from '../../interfaces/agent';
-import type { UniversalMessage } from '../../managers/conversation-history-manager';
+import { AbstractPlugin, PluginCategory, PluginPriority, type IPluginErrorContext } from '../../abstracts/abstract-plugin';
+import { createLogger, type ILogger } from '../../utils/logger';
+import type { IRunOptions } from '../../interfaces/agent';
+import type { TUniversalMessage } from '../../interfaces/messages';
 import { isAssistantMessage } from '../../managers/conversation-history-manager';
-import type { ToolParameters, ToolExecutionResult } from '../../interfaces/tool';
+import type { TToolParameters, IToolExecutionResult } from '../../interfaces/tool';
 import type {
-    ExecutionStats,
-    AggregatedExecutionStats,
-    ExecutionAnalyticsOptions,
-    ExecutionAnalyticsPluginStats
+    IExecutionStats,
+    IAggregatedExecutionStats,
+    IExecutionAnalyticsOptions,
+    IExecutionAnalyticsPluginStats
 } from './types';
 
 
@@ -17,18 +17,18 @@ import type {
  * Plugin for tracking execution analytics automatically
  * Integrates with agent lifecycle to track performance without manual intervention
  */
-export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptions, ExecutionAnalyticsPluginStats> {
+export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalyticsOptions, IExecutionAnalyticsPluginStats> {
     name = 'ExecutionAnalyticsPlugin';
     version = '1.0.0';
 
-    private pluginOptions: Required<ExecutionAnalyticsOptions>;
-    private logger: Logger;
+    private pluginOptions: Required<IExecutionAnalyticsOptions>;
+    private logger: ILogger;
     private activeExecutions: Map<string, { startTime: number; operation: string; input?: string }> = new Map();
-    private executionHistory: ExecutionStats[] = [];
+    private executionHistory: IExecutionStats[] = [];
     private executionCounter = 0;
     private initialized = false;
 
-    constructor(options: ExecutionAnalyticsOptions = {}) {
+    constructor(options: IExecutionAnalyticsOptions = {}) {
         super();
 
         // Set plugin classification
@@ -44,7 +44,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
             trackErrors: options.trackErrors ?? true,
             performanceThreshold: options.performanceThreshold || 5000,
             enableWarnings: options.enableWarnings ?? true,
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.MONITORING,
             priority: options.priority ?? PluginPriority.NORMAL,
             moduleEvents: options.moduleEvents ?? [],
@@ -70,7 +70,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called before agent run - start tracking
      */
-    override beforeRun = async (input: string, options?: RunOptions): Promise<void> => {
+    override beforeRun = async (input: string, options?: IRunOptions): Promise<void> => {
         const executionId = this.generateExecutionId();
 
         this.activeExecutions.set(executionId, {
@@ -89,7 +89,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called after agent run - end tracking
      */
-    override afterRun = async (input: string, response: string, options?: RunOptions): Promise<void> => {
+    override afterRun = async (input: string, response: string, options?: IRunOptions): Promise<void> => {
         // Find the related execution
         const execution = this.findActiveExecution('run', input);
 
@@ -102,7 +102,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
         const endTime = Date.now();
         const duration = endTime - executionData.startTime;
 
-        const stats: ExecutionStats = {
+        const stats: IExecutionStats = {
             executionId,
             operation: 'run',
             startTime: new Date(executionData.startTime),
@@ -140,7 +140,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called before provider call - start tracking
      */
-    override beforeProviderCall = async (messages: UniversalMessage[]): Promise<void> => {
+    override beforeProviderCall = async (messages: TUniversalMessage[]): Promise<void> => {
         const executionId = this.generateExecutionId('provider');
 
         this.activeExecutions.set(executionId, {
@@ -158,7 +158,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called after provider call - end tracking
      */
-    override afterProviderCall = async (messages: UniversalMessage[], response: UniversalMessage): Promise<void> => {
+    override afterProviderCall = async (messages: TUniversalMessage[], response: TUniversalMessage): Promise<void> => {
         // Find the related execution
         const execution = this.findActiveExecution('provider-call', messages[0]?.content || '');
 
@@ -171,7 +171,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
         const endTime = Date.now();
         const duration = endTime - executionData.startTime;
 
-        const stats: ExecutionStats = {
+        const stats: IExecutionStats = {
             executionId,
             operation: 'provider-call',
             startTime: new Date(executionData.startTime),
@@ -207,7 +207,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called before tool call - start tracking
      */
-    override async beforeToolCall(toolName: string, parameters: ToolParameters): Promise<void> {
+    override async beforeToolCall(toolName: string, parameters: TToolParameters): Promise<void> {
         const executionId = this.generateExecutionId('tool');
 
         this.activeExecutions.set(executionId, {
@@ -226,7 +226,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called after tool call - end tracking
      */
-    override async afterToolCall(toolName: string, parameters: ToolParameters, result: ToolExecutionResult): Promise<void> {
+    override async afterToolCall(toolName: string, parameters: TToolParameters, result: IToolExecutionResult): Promise<void> {
         // Find the related execution
         const execution = this.findActiveExecution('tool-call', toolName);
 
@@ -242,11 +242,11 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
 
         const errorInfo = result?.error && this.pluginOptions.trackErrors ? {
             message: String(result.error),
-            // stack is optional in ExecutionStats interface
+            // stack is optional in IExecutionStats interface
             type: 'ToolExecutionError'
         } : undefined;
 
-        const stats: ExecutionStats = {
+        const stats: IExecutionStats = {
             executionId,
             operation: 'tool-call',
             startTime: new Date(executionData.startTime),
@@ -276,7 +276,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called on error - end tracking with error
      */
-    override async onError(error: Error, context?: ErrorContext): Promise<void> {
+    override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
         // Find any active execution that might be related to this error
         const activeExecution = Array.from(this.activeExecutions.entries())[0];
 
@@ -291,7 +291,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
                 type: error.constructor.name
             } : undefined;
 
-            const stats: ExecutionStats = {
+            const stats: IExecutionStats = {
                 executionId,
                 operation: executionData.operation,
                 startTime: new Date(executionData.startTime),
@@ -325,7 +325,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Get execution statistics
      */
-    getExecutionStats(operation?: string, timeRange?: { start: Date; end: Date }): ExecutionStats[] {
+    getExecutionStats(operation?: string, timeRange?: { start: Date; end: Date }): IExecutionStats[] {
         let filtered = this.executionHistory;
 
         if (operation) {
@@ -344,7 +344,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Get aggregated execution statistics
      */
-    getAggregatedStats(timeRange?: { start: Date; end: Date }): AggregatedExecutionStats {
+    getAggregatedStats(timeRange?: { start: Date; end: Date }): IAggregatedExecutionStats {
         const stats = this.getExecutionStats(undefined, timeRange);
 
         if (stats.length === 0) {
@@ -503,14 +503,14 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Get execution data for export
      */
-    getExecutionData(): ExecutionStats[] {
+    getExecutionData(): IExecutionStats[] {
         return [...this.executionHistory];
     }
 
     /**
      * Get analytics statistics
      */
-    getAnalyticsStats(): AggregatedExecutionStats {
+    getAnalyticsStats(): IAggregatedExecutionStats {
         return this.getAggregatedStats();
     }
 
@@ -549,7 +549,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
  * Get plugin statistics
  */
-    override getStats(): ExecutionAnalyticsPluginStats {
+    override getStats(): IExecutionAnalyticsPluginStats {
         const oldest = this.executionHistory[0];
         const newest = this.executionHistory[this.executionHistory.length - 1];
 
@@ -568,7 +568,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
 
     // Helper methods
 
-    private recordStats(stats: ExecutionStats): void {
+    private recordStats(stats: IExecutionStats): void {
         this.executionHistory.push(stats);
 
         // Maintain max entries limit
@@ -611,7 +611,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Validate plugin options
      */
-    private validateOptions(options: ExecutionAnalyticsOptions): void {
+    private validateOptions(options: IExecutionAnalyticsOptions): void {
         if (options.maxEntries !== undefined && options.maxEntries < 1) {
             this.logger.warn('maxEntries must be at least 1. Setting to 1000.');
             this.pluginOptions.maxEntries = 1000;

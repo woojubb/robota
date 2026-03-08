@@ -1,0 +1,754 @@
+/**
+ * @fileoverview Abstract Module Base Class
+ *
+ * 🎯 ABSTRACT CLASS - DO NOT DEPEND ON CONCRETE IMPLEMENTATIONS
+ *
+ * This class defines the core lifecycle contract for Robota modules.
+ * It only relies on abstract dependencies (EventEmitterPlugin interface and
+ * AbstractLogger) so that concrete modules can inject their own behaviors.
+ */
+import type { ILogger } from '../utils/logger';
+import { SilentLogger } from '../utils/logger';
+import { EVENT_EMITTER_EVENTS, type IEventEmitterPlugin, type TEventDataValue } from '../plugins/event-emitter/types';
+import type { IModuleInitializationEventData, IModuleExecutionEventData, IModuleDisposalEventData } from './abstract-module-events';
+
+/**
+ * Module execution context for all modules
+ */
+export interface IModuleExecutionContext {
+    executionId?: string;
+    sessionId?: string;
+    userId?: string;
+    agentName?: string;
+    metadata?: Record<string, string | number | boolean | Date>;
+    [key: string]: string | number | boolean | Date | Record<string, string | number | boolean | Date> | undefined;
+}
+
+/**
+ * Module execution result for all modules
+ */
+export interface IModuleExecutionResult {
+    success: boolean;
+    data?: IModuleResultData;
+    error?: Error;
+    duration?: number;
+    metadata?: Record<string, string | number | boolean | Date>;
+}
+
+/**
+ * Module result data interface
+ */
+export interface IModuleResultData {
+    [key: string]: string | number | boolean | Record<string, string | number | boolean> | undefined;
+}
+
+/**
+ * Base module options that all module options should extend
+ */
+export interface IBaseModuleOptions {
+    /** Whether the module is enabled */
+    enabled?: boolean;
+    /** Module-specific configuration */
+    config?: Record<string, string | number | boolean>;
+}
+
+/**
+ * Module capabilities that define what the module can do
+ */
+export interface IModuleCapabilities {
+    /** List of capabilities this module provides */
+    capabilities: string[];
+    /** Dependencies on other modules */
+    dependencies?: string[];
+    /** Optional capabilities that enhance functionality if available */
+    optionalDependencies?: string[];
+}
+
+/**
+ * Module type descriptor for dynamic type system
+ */
+export interface IModuleDescriptor {
+    /** Unique type identifier */
+    type: string;
+    /** Module category */
+    category: ModuleCategory;
+    /** Module layer */
+    layer: ModuleLayer;
+    /** Required dependencies */
+    dependencies?: string[];
+    /** Provided capabilities */
+    capabilities?: string[];
+}
+
+/**
+ * Module categories for classification
+ */
+export enum ModuleCategory {
+    /** Core functionality modules */
+    CORE = 'core',
+    /** Storage and data management */
+    STORAGE = 'storage',
+    /** Processing and transformation */
+    PROCESSING = 'processing',
+    /** External integration */
+    INTEGRATION = 'integration',
+    /** User interface and interaction */
+    INTERFACE = 'interface',
+    /** Specialized capabilities */
+    CAPABILITY = 'capability'
+}
+
+/**
+ * Module layers for dependency management
+ */
+export enum ModuleLayer {
+    /** Infrastructure layer (lowest) */
+    INFRASTRUCTURE = 'infrastructure',
+    /** Core services layer */
+    CORE = 'core',
+    /** Application logic layer */
+    APPLICATION = 'application',
+    /** Domain-specific layer */
+    DOMAIN = 'domain',
+    /** Presentation layer (highest) */
+    PRESENTATION = 'presentation'
+}
+
+/**
+ * Module data interface for introspection
+ */
+export interface IModuleData {
+    name: string;
+    version: string;
+    type: string;
+    enabled: boolean;
+    initialized: boolean;
+    capabilities: IModuleCapabilities;
+    metadata?: Record<string, string | number | boolean>;
+}
+
+/**
+ * Module statistics interface
+ */
+export interface IModuleStats {
+    enabled: boolean;
+    initialized: boolean;
+    executionCount: number;
+    errorCount: number;
+    lastActivity?: Date;
+    averageExecutionTime?: number;
+    [key: string]: string | number | boolean | Date | undefined;
+}
+
+/**
+ * Type-safe module interface with specific type parameters
+ * 
+ * @template TOptions - Module options type that extends IBaseModuleOptions
+ * @template TStats - Module statistics type (defaults to IModuleStats)
+ */
+export interface IModule<TOptions extends IBaseModuleOptions = IBaseModuleOptions, TStats = IModuleStats> {
+    name: string;
+    version: string;
+    enabled: boolean;
+
+    initialize(options?: TOptions, eventEmitter?: IEventEmitterPlugin): Promise<void>;
+    dispose?(): Promise<void>;
+    execute?(context: IModuleExecutionContext): Promise<IModuleExecutionResult>;
+    getModuleType(): IModuleDescriptor;
+    getCapabilities(): IModuleCapabilities;
+    getData?(): IModuleData;
+    getStats?(): TStats;
+    isEnabled(): boolean;
+    isInitialized(): boolean;
+}
+
+/**
+ * Base module interface extending IModule
+ */
+export interface IBaseModule extends IModule<IBaseModuleOptions, IModuleStats> { }
+
+/**
+ * Module lifecycle hooks
+ */
+export interface IModuleHooks {
+    /**
+     * Called before module execution
+     */
+    beforeExecution?(context: IModuleExecutionContext): Promise<void> | void;
+
+    /**
+     * Called after module execution
+     */
+    afterExecution?(context: IModuleExecutionContext, result: IModuleExecutionResult): Promise<void> | void;
+
+    /**
+     * Called when module is activated
+     */
+    onActivate?(): Promise<void> | void;
+
+    /**
+     * Called when module is deactivated
+     */
+    onDeactivate?(): Promise<void> | void;
+
+    /**
+     * Called on module error
+     */
+    onError?(error: Error, context?: IModuleExecutionContext): Promise<void> | void;
+}
+
+/**
+ * Abstract base class for all modules with type parameter support
+ * Provides module lifecycle management and common functionality
+ * 
+ * ⚠️ Core assumption: every Module must be an optional extension feature
+ * - ✅ Robota must work normally without any Module
+ * - ✅ Adding a Module should only grant new capabilities or features
+ * - ❌ If missing a Module breaks core logic, it must be implemented as an internal class instead
+ * 
+ * @template TOptions - Module options type that extends IBaseModuleOptions
+ * @template TStats - Module statistics type (defaults to IModuleStats)
+ */
+export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBaseModuleOptions, TStats = IModuleStats>
+    implements IModule<TOptions, TStats>, IModuleHooks {
+
+    /** Module name */
+    abstract readonly name: string;
+
+    /** Module version */
+    abstract readonly version: string;
+
+    /** Module enabled state */
+    public enabled = true;
+
+    /** Module initialization state */
+    public initialized = false;
+
+    /** Module options */
+    protected options: TOptions | undefined;
+
+    /** EventEmitter for module events */
+    protected eventEmitter: IEventEmitterPlugin | undefined;
+
+    /** Logger instance */
+    protected logger: ILogger;
+
+    /** Execution statistics */
+    protected stats = {
+        executionCount: 0,
+        errorCount: 0,
+        lastActivity: undefined as Date | undefined,
+        totalExecutionTime: 0
+    };
+
+    constructor(logger: ILogger = SilentLogger) {
+        this.logger = logger;
+    }
+
+    /**
+     * Get module type descriptor - must be implemented by each module
+     */
+    abstract getModuleType(): IModuleDescriptor;
+
+    /**
+     * Get module capabilities - must be implemented by each module
+     */
+    abstract getCapabilities(): IModuleCapabilities;
+
+    /**
+     * Initialize the module with type-safe options and EventEmitter
+     */
+    async initialize(options?: TOptions, eventEmitter?: IEventEmitterPlugin): Promise<void> {
+        this.options = options;
+        this.eventEmitter = eventEmitter;
+
+        // Set enabled state from options with default fallback
+        if (options && 'enabled' in options && typeof options.enabled === 'boolean') {
+            this.enabled = options.enabled;
+        } else {
+            this.enabled = true; // Default to enabled
+        }
+
+        this.logger.debug('Module initializing', {
+            name: this.name,
+            version: this.version,
+            enabled: this.enabled,
+            hasEventEmitter: !!this.eventEmitter
+        });
+
+        const startTime = Date.now();
+
+        // Emit module initialization event
+        if (this.eventEmitter && this.enabled) {
+            const filteredOptions = options ? Object.fromEntries(
+                Object.entries(options).filter(([_, value]) =>
+                    typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+                )
+            ) : undefined;
+
+            const eventData: IModuleInitializationEventData = {
+                moduleName: this.name,
+                moduleType: this.getModuleType().type,
+                phase: 'start',
+                timestamp: new Date(),
+                ...(filteredOptions && Object.keys(filteredOptions).length > 0 && { options: filteredOptions })
+            };
+
+            await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START, {
+                data: this.convertToEventData(eventData),
+                timestamp: new Date()
+            });
+        }
+
+        try {
+            // Call custom initialization logic
+            await this.onInitialize(options);
+
+            this.initialized = true;
+
+            // Emit successful initialization
+            if (this.eventEmitter && this.enabled) {
+                const eventData: IModuleInitializationEventData = {
+                    moduleName: this.name,
+                    moduleType: this.getModuleType().type,
+                    phase: 'complete',
+                    timestamp: new Date(),
+                    duration: Date.now() - startTime
+                };
+
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE, {
+                    data: this.convertToEventData(eventData),
+                    timestamp: new Date()
+                });
+            }
+
+            this.logger.info('Module initialized successfully', {
+                name: this.name,
+                type: this.getModuleType().type
+            });
+
+        } catch (error) {
+            this.initialized = false;
+
+            // Emit initialization error
+            if (this.eventEmitter) {
+                const eventData: IModuleInitializationEventData = {
+                    moduleName: this.name,
+                    moduleType: this.getModuleType().type,
+                    phase: 'error',
+                    timestamp: new Date(),
+                    duration: Date.now() - startTime,
+                    error: error instanceof Error ? error.message : String(error)
+                };
+
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR, {
+                    data: this.convertToEventData(eventData),
+                    error: error instanceof Error ? error : new Error(String(error)),
+                    timestamp: new Date()
+                });
+            }
+
+            this.logger.error('Module initialization failed', {
+                name: this.name,
+                error: error instanceof Error ? error.message : String(error)
+            });
+
+            throw error;
+        }
+    }
+
+    /**
+     * Custom initialization logic - can be overridden by modules
+     */
+    protected async onInitialize(_options?: TOptions): Promise<void> {
+        // Default implementation - can be overridden
+    }
+
+    /**
+     * Execute module functionality
+     */
+    async execute(context: IModuleExecutionContext): Promise<IModuleExecutionResult> {
+        if (!this.enabled) {
+            throw new Error(`Module ${this.name} is disabled`);
+        }
+
+        if (!this.initialized) {
+            throw new Error(`Module ${this.name} is not initialized`);
+        }
+
+        const startTime = Date.now();
+        const executionId = context.executionId || `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Emit execution start event
+        if (this.eventEmitter) {
+            const contextData: Record<string, string> = {};
+            if (context['sessionId']) contextData['sessionId'] = context['sessionId'];
+            if (context['userId']) contextData['userId'] = context['userId'];
+            if (context['agentName']) contextData['agentName'] = context['agentName'];
+
+            const eventData: IModuleExecutionEventData = {
+                moduleName: this.name,
+                moduleType: this.getModuleType().type,
+                phase: 'start',
+                executionId,
+                timestamp: new Date(),
+                inputSize: JSON.stringify(context).length,
+                ...(Object.keys(contextData).length > 0 && { context: contextData })
+            };
+
+            await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START, {
+                data: this.convertToEventData(eventData),
+                timestamp: new Date()
+            });
+        }
+
+        try {
+            // Call before execution hook
+            await this.beforeExecution?.(context);
+
+            // Execute module logic
+            const result = await this.onExecute(context);
+
+            const duration = Date.now() - startTime;
+
+            // Update statistics
+            this.stats.executionCount++;
+            this.stats.lastActivity = new Date();
+            this.stats.totalExecutionTime += duration;
+
+            const finalResult = {
+                ...result,
+                duration
+            };
+
+            // Call after execution hook
+            await this.afterExecution?.(context, finalResult);
+
+            // Emit execution complete event
+            if (this.eventEmitter) {
+                const contextData: Record<string, string> = {};
+                if (context['sessionId']) contextData['sessionId'] = context['sessionId'];
+                if (context['userId']) contextData['userId'] = context['userId'];
+                if (context['agentName']) contextData['agentName'] = context['agentName'];
+
+                const eventData: IModuleExecutionEventData = {
+                    moduleName: this.name,
+                    moduleType: this.getModuleType().type,
+                    phase: 'complete',
+                    executionId,
+                    timestamp: new Date(),
+                    duration,
+                    success: finalResult.success,
+                    outputSize: finalResult.data ? JSON.stringify(finalResult.data).length : 0,
+                    ...(Object.keys(contextData).length > 0 && { context: contextData })
+                };
+
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE, {
+                    data: this.convertToEventData(eventData),
+                    timestamp: new Date()
+                });
+            }
+
+            return finalResult;
+
+        } catch (error) {
+            const duration = Date.now() - startTime;
+
+            // Update error statistics
+            this.stats.errorCount++;
+            this.stats.lastActivity = new Date();
+
+            const errorResult: IModuleExecutionResult = {
+                success: false,
+                error: error instanceof Error ? error : new Error(String(error)),
+                duration
+            };
+
+            // Call error hook
+            await this.onError?.(errorResult.error!, context);
+
+            // Emit execution error event
+            if (this.eventEmitter) {
+                const contextData: Record<string, string> = {};
+                if (context['sessionId']) contextData['sessionId'] = context['sessionId'];
+                if (context['userId']) contextData['userId'] = context['userId'];
+                if (context['agentName']) contextData['agentName'] = context['agentName'];
+
+                const eventData: IModuleExecutionEventData = {
+                    moduleName: this.name,
+                    moduleType: this.getModuleType().type,
+                    phase: 'error',
+                    executionId,
+                    timestamp: new Date(),
+                    duration,
+                    success: false,
+                    error: errorResult.error!.message,
+                    ...(Object.keys(contextData).length > 0 && { context: contextData })
+                };
+
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR, {
+                    data: this.convertToEventData(eventData),
+                    error: errorResult.error!,
+                    timestamp: new Date()
+                });
+            }
+
+            throw errorResult.error;
+        }
+    }
+
+    /**
+     * Custom execution logic - must be implemented by modules that support execution
+     */
+    protected async onExecute(_context: IModuleExecutionContext): Promise<IModuleExecutionResult> {
+        throw new Error(`Module ${this.name} does not implement execute functionality`);
+    }
+
+    /**
+     * Dispose module resources
+     */
+    async dispose(): Promise<void> {
+        this.logger.debug('Module disposing', { name: this.name });
+
+        const startTime = Date.now();
+
+        // Emit disposal event
+        if (this.eventEmitter && this.initialized) {
+            const eventData: IModuleDisposalEventData = {
+                moduleName: this.name,
+                moduleType: this.getModuleType().type,
+                phase: 'start',
+                timestamp: new Date()
+            };
+
+            await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START, {
+                data: this.convertToEventData(eventData),
+                timestamp: new Date()
+            });
+        }
+
+        try {
+            // Call custom disposal logic
+            await this.onDispose();
+
+            this.initialized = false;
+            this.enabled = false;
+
+            const duration = Date.now() - startTime;
+
+            // Emit successful disposal
+            if (this.eventEmitter) {
+                const eventData: IModuleDisposalEventData = {
+                    moduleName: this.name,
+                    moduleType: this.getModuleType().type,
+                    phase: 'complete',
+                    timestamp: new Date(),
+                    duration,
+                    resourcesReleased: ['memory', 'event-handlers', 'timers']
+                };
+
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE, {
+                    data: this.convertToEventData(eventData),
+                    timestamp: new Date()
+                });
+            }
+
+            this.logger.info('Module disposed successfully', { name: this.name });
+
+        } catch (error) {
+            const duration = Date.now() - startTime;
+
+            // Emit disposal error
+            if (this.eventEmitter) {
+                const eventData: IModuleDisposalEventData = {
+                    moduleName: this.name,
+                    moduleType: this.getModuleType().type,
+                    phase: 'error',
+                    timestamp: new Date(),
+                    duration,
+                    error: error instanceof Error ? error.message : String(error)
+                };
+
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR, {
+                    data: this.convertToEventData(eventData),
+                    error: error instanceof Error ? error : new Error(String(error)),
+                    timestamp: new Date()
+                });
+            }
+
+            this.logger.error('Module disposal failed', {
+                name: this.name,
+                error: error instanceof Error ? error.message : String(error)
+            });
+
+            throw error;
+        }
+    }
+
+    /**
+     * Custom disposal logic - can be overridden by modules
+     */
+    protected async onDispose(): Promise<void> {
+        // Default implementation - can be overridden
+    }
+
+    /**
+     * Enable the module
+     */
+    enable(): void {
+        this.enabled = true;
+        this.logger.debug('Module enabled', { name: this.name });
+    }
+
+    /**
+     * Disable the module
+     */
+    disable(): void {
+        this.enabled = false;
+        this.logger.debug('Module disabled', { name: this.name });
+    }
+
+    /**
+     * Check if module is enabled
+     */
+    isEnabled(): boolean {
+        return this.enabled;
+    }
+
+    /**
+     * Check if module is initialized
+     */
+    isInitialized(): boolean {
+        return this.initialized;
+    }
+
+    /**
+     * Get module data for introspection
+     */
+    getData(): IModuleData {
+        return {
+            name: this.name,
+            version: this.version,
+            type: this.getModuleType().type,
+            enabled: this.enabled,
+            initialized: this.initialized,
+            capabilities: this.getCapabilities(),
+            metadata: {
+                category: this.getModuleType().category,
+                layer: this.getModuleType().layer
+            }
+        };
+    }
+
+    /**
+     * Get module statistics
+     */
+    getStats(): TStats {
+        const averageTime = this.stats.executionCount > 0
+            ? this.stats.totalExecutionTime / this.stats.executionCount
+            : undefined;
+
+        const baseStats: IModuleStats = {
+            enabled: this.enabled,
+            initialized: this.initialized,
+            executionCount: this.stats.executionCount,
+            errorCount: this.stats.errorCount,
+            ...(this.stats.lastActivity && { lastActivity: this.stats.lastActivity }),
+            ...(averageTime !== undefined && { averageExecutionTime: averageTime })
+        };
+
+        // TStats extends IModuleStats, so the base fields satisfy the constraint.
+        // Subclasses that widen TStats must override getStats() to supply additional fields.
+        return baseStats as TStats;
+    }
+
+    /**
+     * Get module status
+     */
+    getStatus(): {
+        name: string;
+        version: string;
+        type: string;
+        enabled: boolean;
+        initialized: boolean;
+        hasEventEmitter: boolean;
+    } {
+        return {
+            name: this.name,
+            version: this.version,
+            type: this.getModuleType().type,
+            enabled: this.enabled,
+            initialized: this.initialized,
+            hasEventEmitter: !!this.eventEmitter
+        };
+    }
+
+    /**
+     * Convert module event data to event emitter data payload format.
+     */
+    private convertToEventData(data: IModuleInitializationEventData | IModuleExecutionEventData | IModuleDisposalEventData): Record<string, TEventDataValue> {
+        const payload: Record<string, TEventDataValue> = {
+            moduleName: data.moduleName,
+            moduleType: data.moduleType,
+            timestamp: data.timestamp.toISOString()
+        };
+
+        if (data.metadata) {
+            payload['metadata'] = data.metadata;
+        }
+
+        if ('phase' in data) {
+            payload['phase'] = data.phase;
+        }
+        if ('duration' in data && data.duration !== undefined) {
+            payload['duration'] = data.duration;
+        }
+        if ('error' in data && data.error !== undefined) {
+            payload['error'] = data.error;
+        }
+
+        // Initialization-only fields
+        if ('options' in data && data.options) {
+            payload['options'] = data.options;
+        }
+
+        // Execution-only fields
+        if ('executionId' in data) {
+            payload['executionId'] = data.executionId;
+        }
+        if ('success' in data && data.success !== undefined) {
+            payload['success'] = data.success;
+        }
+        if ('inputSize' in data && data.inputSize !== undefined) {
+            payload['inputSize'] = data.inputSize;
+        }
+        if ('outputSize' in data && data.outputSize !== undefined) {
+            payload['outputSize'] = data.outputSize;
+        }
+        if ('context' in data && data.context) {
+            payload['context'] = data.context;
+        }
+
+        return payload;
+    }
+
+    // Optional lifecycle hooks - modules can override these
+    async beforeExecution?(context: IModuleExecutionContext): Promise<void>;
+    async afterExecution?(context: IModuleExecutionContext, result: IModuleExecutionResult): Promise<void>;
+    async onActivate?(): Promise<void>;
+    async onDeactivate?(): Promise<void>;
+    async onError?(error: Error, context?: IModuleExecutionContext): Promise<void>;
+}
+
+/**
+ * Standard module event data structures — re-exported from abstract-module-events.ts
+ * for backward compatibility.
+ */
+export type {
+    IBaseModuleEventData,
+    IModuleInitializationEventData,
+    IModuleExecutionEventData,
+    IModuleDisposalEventData,
+    IModuleCapabilityEventData,
+    IModuleHealthEventData
+} from './abstract-module-events';

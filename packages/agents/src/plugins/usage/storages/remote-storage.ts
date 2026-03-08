@@ -1,18 +1,20 @@
-import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
-import { Logger, createLogger } from '../../../utils/logger';
+import { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
+import { createLogger, type ILogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
-import type { TimerId } from '../../../utils';
+import type { TTimerId } from '../../../utils';
+import { aggregateUsageStats } from '../aggregate-usage-stats';
+import { startPeriodicTask, stopPeriodicTask } from '../../../utils/periodic-task';
 
 /**
  * Remote storage implementation for usage statistics with batching
  */
-export class RemoteUsageStorage implements UsageStorage {
+export class RemoteUsageStorage implements IUsageStorage {
     private apiUrl: string;
     private batchSize: number;
     private flushInterval: number;
-    private batch: UsageStats[] = [];
-    private timer: TimerId | null = null;
-    private logger: Logger;
+    private batch: IUsageStats[] = [];
+    private timer: TTimerId | null = null;
+    private logger: ILogger;
 
     constructor(
         apiUrl: string,
@@ -27,10 +29,12 @@ export class RemoteUsageStorage implements UsageStorage {
         this.flushInterval = flushInterval;
         this.logger = createLogger('RemoteUsageStorage');
 
-        this.startTimer();
+        this.timer = startPeriodicTask(this.logger, { name: 'RemoteUsageStorage.flush', intervalMs: this.flushInterval }, async () => {
+            await this.flush();
+        });
     }
 
-    async save(entry: UsageStats): Promise<void> {
+    async save(entry: IUsageStats): Promise<void> {
         this.batch.push(entry);
 
         if (this.batch.length >= this.batchSize) {
@@ -38,7 +42,7 @@ export class RemoteUsageStorage implements UsageStorage {
         }
     }
 
-    async getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<UsageStats[]> {
+    async getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<IUsageStats[]> {
         try {
             // Remote API call would be implemented here
             this.logger.warn('Remote usage storage not fully implemented yet', {
@@ -57,31 +61,10 @@ export class RemoteUsageStorage implements UsageStorage {
         }
     }
 
-    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats> {
+    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats> {
         try {
-            // Remote API call would be implemented here
-            this.logger.warn('Remote usage storage not fully implemented yet', {
-                endpoint: this.apiUrl,
-                operation: 'getAggregatedStats',
-                timeRange
-            });
-
-            // Return empty aggregated stats as placeholder
-            return {
-                totalRequests: 0,
-                totalTokens: 0,
-                totalCost: 0,
-                totalDuration: 0,
-                successRate: 0,
-                providerStats: {},
-                modelStats: {},
-                toolStats: {},
-                timeRangeStats: {
-                    startTime: timeRange?.start || new Date(),
-                    endTime: timeRange?.end || new Date(),
-                    period: 'unknown'
-                }
-            };
+            const stats = await this.getStats(undefined, timeRange);
+            return aggregateUsageStats(stats, timeRange);
         } catch (error) {
             throw new StorageError('Failed to get aggregated usage stats from remote endpoint', {
                 endpoint: this.apiUrl,
@@ -139,23 +122,9 @@ export class RemoteUsageStorage implements UsageStorage {
     }
 
     async close(): Promise<void> {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
+        stopPeriodicTask(this.timer);
+        this.timer = null;
 
         await this.flush();
-    }
-
-    private startTimer(): void {
-        this.timer = setInterval(async () => {
-            try {
-                await this.flush();
-            } catch (error) {
-                this.logger.error('Failed to flush usage stats on timer', {
-                    error: error instanceof Error ? error.message : String(error)
-                });
-            }
-        }, this.flushInterval);
     }
 } 

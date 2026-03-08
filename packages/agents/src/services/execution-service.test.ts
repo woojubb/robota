@@ -1,22 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ExecutionService } from './execution-service';
-import { ConversationHistory } from '../managers/conversation-history-manager';
+import { ConversationHistory, ConversationSession } from '../managers/conversation-history-manager';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
-import { BaseAIProvider } from '../abstracts/base-ai-provider';
-import type { UniversalMessage } from '../managers/conversation-history-manager';
-import type { AgentConfig, Message } from '../interfaces/agent';
-import type { ChatOptions } from '../interfaces/provider';
+import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
+import type { TUniversalMessage } from '../interfaces/messages';
+import type { IAgentConfig } from '../interfaces/agent';
+import type { IChatOptions } from '../interfaces/provider';
 
 // Mock dependencies
-vi.mock('../utils/logger', () => ({
-    Logger: vi.fn().mockImplementation(() => ({
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn()
-    })),
-    createLogger: vi.fn().mockReturnValue({
+vi.mock('../utils/logger', () => {
+    const logger = {
         debug: vi.fn(),
         info: vi.fn(),
         warn: vi.fn(),
@@ -24,15 +18,20 @@ vi.mock('../utils/logger', () => ({
         isDebugEnabled: vi.fn().mockReturnValue(false),
         setLevel: vi.fn(),
         getLevel: vi.fn().mockReturnValue('warn')
-    })
-}));
+    };
+    return {
+        Logger: vi.fn().mockImplementation(() => logger),
+        SilentLogger: logger,
+        createLogger: vi.fn().mockReturnValue(logger)
+    };
+});
 
 // Create a mock class that extends BaseAIProvider
-class MockAIProvider extends BaseAIProvider {
+class MockAIProvider extends AbstractAIProvider {
     readonly name = 'mock-provider';
     readonly version = '1.0.0';
 
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response',
@@ -40,7 +39,7 @@ class MockAIProvider extends BaseAIProvider {
         };
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response',
@@ -49,41 +48,38 @@ class MockAIProvider extends BaseAIProvider {
     }
 }
 
-// Define mock session value type
-type MockSessionValue = {
-    getMessages: () => any[];
-    getMessageCount: () => number;
-    addUserMessage: (content: string, metadata?: any) => void;
-    addAssistantMessage: (content: string, metadata?: any) => void;
-    addSystemMessage: (content: string) => void;
-    addToolMessageWithId: (content: string, toolCallId: string, toolName: string, metadata?: any) => void;
-    addMessage: (message: any) => void;
-    clear: () => void;
-    getMessagesByRole: (role: string) => any[];
-    getRecentMessages: (count: number) => any[];
-} | null;
-
 // Create a mock class that extends ConversationHistory
 class MockConversationHistory extends ConversationHistory {
-    private mockSession: Record<string, MockSessionValue>;
+    private sessions = new Map<string, ConversationSession>();
 
     constructor() {
         super({ maxMessagesPerConversation: 100, maxConversations: 10 });
-        this.mockSession = {};
     }
 
-    override getConversationSession(conversationId: string): MockSessionValue {
-        return this.mockSession[conversationId] || null;
-    }
+    override getConversationSession(conversationId: string): ConversationSession {
+        const existing = this.sessions.get(conversationId);
+        if (existing) return existing;
 
-    setMockSession(session: Record<string, MockSessionValue>): void {
-        this.mockSession = session;
+        const session = super.getConversationSession(conversationId);
+        this.sessions.set(conversationId, session);
+        return session;
     }
 }
 
-// Create mock classes using interface implementation instead of inheritance
+// Create mock event service
+const createMockEventService = () => ({
+    emit: vi.fn(),
+    on: vi.fn().mockReturnValue(vi.fn()),
+    off: vi.fn(),
+    removeAllListeners: vi.fn(),
+    listenerCount: vi.fn().mockReturnValue(0),
+    eventNames: vi.fn().mockReturnValue([]),
+    getOwnerPath: vi.fn().mockReturnValue([]),
+    child: vi.fn().mockReturnThis(),
+    isDefault: false
+});
 
-describe.skip('ExecutionService', () => {
+describe('ExecutionService', () => {
     let executionService: ExecutionService;
     let conversationHistory: MockConversationHistory;
     let aiProviders: AIProviders;
@@ -99,68 +95,42 @@ describe.skip('ExecutionService', () => {
         // Create mock conversation history that extends ConversationHistory
         conversationHistory = new MockConversationHistory();
 
-        // Create mock AI providers manager with interface methods
-        aiProviders = {
-            getCurrentProviderInstance: vi.fn().mockReturnValue(mockProvider),
-            getCurrentProvider: vi.fn().mockReturnValue({ provider: 'mock-provider', model: 'mock-model' }),
-            getProviderInstance: vi.fn().mockReturnValue(mockProvider),
-            getAvailableProviders: vi.fn().mockReturnValue(['mock-provider']),
-            initialize: vi.fn().mockResolvedValue(undefined),
-            dispose: vi.fn().mockResolvedValue(undefined),
-            isInitialized: vi.fn().mockReturnValue(true),
-            addProvider: vi.fn(),
-            removeProvider: vi.fn(),
-            getProvider: vi.fn().mockReturnValue(mockProvider),
-            getProviders: vi.fn().mockReturnValue({ 'mock-provider': mockProvider }),
-            setCurrentProvider: vi.fn(),
-            isConfigured: vi.fn().mockReturnValue(true),
-            getAvailableModels: vi.fn().mockReturnValue(['mock-model']),
-            getProviderNames: vi.fn().mockReturnValue(['mock-provider']),
-            getProvidersByPattern: vi.fn().mockReturnValue({ 'mock-provider': mockProvider }),
-            supportsStreaming: vi.fn().mockReturnValue(true),
-            getProviderCount: vi.fn().mockReturnValue(1)
-        };
+        // Use real manager instances (type-safe) and stub behavior as needed.
+        aiProviders = new AIProviders();
+        // Tests are skipped; stubs exist purely to satisfy typecheck.
+        vi.spyOn(aiProviders, 'getCurrentProviderInstance').mockReturnValue(mockProvider);
+        vi.spyOn(aiProviders, 'getCurrentProvider').mockReturnValue({ provider: 'mock-provider', model: 'mock-model' });
+        vi.spyOn(aiProviders, 'isConfigured').mockReturnValue(true);
+        vi.spyOn(aiProviders, 'getProvider').mockReturnValue(mockProvider);
+        vi.spyOn(aiProviders, 'getProviders').mockReturnValue({ 'mock-provider': mockProvider });
+        vi.spyOn(aiProviders, 'getProviderNames').mockReturnValue(['mock-provider']);
+        vi.spyOn(aiProviders, 'supportsStreaming').mockReturnValue(true);
+        vi.spyOn(aiProviders, 'getProviderCount').mockReturnValue(1);
 
         // Create mock tools manager with interface methods
-        tools = {
-            getTools: vi.fn().mockReturnValue([
-                {
-                    type: 'function',
-                    function: {
-                        name: 'testTool',
-                        description: 'A test tool',
-                        parameters: {
-                            type: 'object',
-                            properties: {
-                                param: { type: 'string' }
-                            },
-                            required: ['param']
-                        }
-                    }
+        tools = new Tools();
+        vi.spyOn(tools, 'getTools').mockReturnValue([
+            {
+                name: 'testTool',
+                description: 'A test tool',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        param: { type: 'string', description: 'param' }
+                    },
+                    required: ['param']
                 }
-            ]),
-            hasTool: vi.fn().mockReturnValue(true),
-            getRegisteredToolNames: vi.fn().mockReturnValue(['testTool']),
-            getToolsForExecution: vi.fn().mockReturnValue([]),
-            initialize: vi.fn().mockResolvedValue(undefined),
-            dispose: vi.fn().mockResolvedValue(undefined),
-            isInitialized: vi.fn().mockReturnValue(true),
-            addTool: vi.fn(),
-            removeTool: vi.fn(),
-            getTool: vi.fn(),
-            getToolSchema: vi.fn(),
-            executeTool: vi.fn(),
-            setAllowedTools: vi.fn(),
-            getAllowedTools: vi.fn(),
-            getRegistry: vi.fn(),
-            getToolCount: vi.fn().mockReturnValue(1)
-        };
+            }
+        ]);
+        vi.spyOn(tools, 'hasTool').mockReturnValue(true);
+        vi.spyOn(tools, 'getToolCount').mockReturnValue(1);
 
         // Create execution service
         executionService = new ExecutionService(
             aiProviders,
             tools,
-            conversationHistory
+            conversationHistory,
+            createMockEventService() as any
         );
     });
 
@@ -171,8 +141,8 @@ describe.skip('ExecutionService', () => {
     describe('execute', () => {
         it('should execute a conversation without tool calls', async () => {
             const input = 'Hello, how are you?';
-            const messages: Message[] = [];
-            const config: AgentConfig = {
+            const messages: TUniversalMessage[] = [];
+            const config: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -182,23 +152,9 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
-
-            // Mock conversation session messages with assistant response
-            mockSession.getMessages = vi.fn()
+            const session = conversationHistory.getConversationSession('test-agent');
+            const getMessagesSpy = vi.spyOn(session, 'getMessages');
+            getMessagesSpy
                 .mockReturnValueOnce([]) // first call (empty)
                 .mockReturnValue([
                     { role: 'user', content: input, timestamp: new Date() },
@@ -213,8 +169,8 @@ describe.skip('ExecutionService', () => {
 
         it('should execute a conversation with tool calls', async () => {
             const toolInput = 'Use the test tool';
-            const toolMessages: Message[] = [];
-            const toolConfig: AgentConfig = {
+            const toolMessages: TUniversalMessage[] = [];
+            const toolConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -224,24 +180,10 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
-
             // Mock provider to return tool calls
             mockProvider.chat = vi.fn()
                 .mockResolvedValueOnce({
+                    role: 'assistant',
                     content: 'I need to use a tool',
                     toolCalls: [
                         {
@@ -254,19 +196,25 @@ describe.skip('ExecutionService', () => {
                         }
                     ],
                     usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
-                    finishReason: 'tool_calls'
+                    finishReason: 'tool_calls',
+                    timestamp: new Date()
                 })
                 .mockResolvedValueOnce({
+                    role: 'assistant',
                     content: 'Task completed with tool result',
                     toolCalls: [],
                     usage: { promptTokens: 15, completionTokens: 25, totalTokens: 40 },
-                    finishReason: 'stop'
+                    finishReason: 'stop',
+                    timestamp: new Date()
                 });
 
             // Mock tool execution service in ExecutionService
             const mockToolExecutionService = {
                 createExecutionRequests: vi.fn().mockReturnValue([
                     { toolName: 'testTool', parameters: { param: 'value' }, executionId: 'tool-1' }
+                ]),
+                createExecutionRequestsWithContext: vi.fn().mockReturnValue([
+                    { toolName: 'testTool', parameters: { param: 'value' }, executionId: 'tool-1', ownerId: 'tool-1', ownerPath: [{ ownerType: 'tool', ownerId: 'tool-1' }] }
                 ]),
                 executeTools: vi.fn().mockResolvedValue({
                     totalExecuted: 1,
@@ -290,23 +238,14 @@ describe.skip('ExecutionService', () => {
             // Replace the tool execution service in the execution service
             (executionService as any).toolExecutionService = mockToolExecutionService;
 
-            // Create and set mock session for tool calls test
-            const mockToolSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockToolSession });
+            const session = conversationHistory.getConversationSession('test-agent');
+            const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
+            const addAssistantMessageSpy = vi.spyOn(session, 'addAssistantMessage');
+            const addToolMessageWithIdSpy = vi.spyOn(session, 'addToolMessageWithId');
+            const getMessagesSpy = vi.spyOn(session, 'getMessages');
 
             // Mock conversation session messages progression
-            mockToolSession.getMessages = vi.fn()
+            getMessagesSpy
                 .mockReturnValueOnce([]) // first call (empty)
                 .mockReturnValueOnce([  // after first AI response
                     { role: 'user', content: 'Use a tool to do something', timestamp: new Date() },
@@ -352,8 +291,8 @@ describe.skip('ExecutionService', () => {
                 ]);
 
             const testInput = 'Use a tool to do something';
-            const testMessages: Message[] = [];
-            const testConfig: AgentConfig = {
+            const testMessages: TUniversalMessage[] = [];
+            const testConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -368,15 +307,15 @@ describe.skip('ExecutionService', () => {
             expect(result.response).toBe('Task completed with tool result');
 
             // Verify conversation history updates
-            expect(mockToolSession.addUserMessage).toHaveBeenCalledWith(testInput, expect.any(Object));
-            expect(mockToolSession.addAssistantMessage).toHaveBeenCalledTimes(2);
-            expect(mockToolSession.addToolMessageWithId).toHaveBeenCalledTimes(1);
+            expect(addUserMessageSpy).toHaveBeenCalledWith(testInput, expect.any(Object));
+            expect(addAssistantMessageSpy).toHaveBeenCalledTimes(2);
+            expect(addToolMessageWithIdSpy).toHaveBeenCalledTimes(1);
         });
 
         it('should handle errors during execution', async () => {
             const errorInput = 'Hello';
-            const errorMessages: Message[] = [];
-            const errorConfig: AgentConfig = {
+            const errorMessages: TUniversalMessage[] = [];
+            const errorConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -385,20 +324,7 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
+            conversationHistory.getConversationSession('test-agent');
 
             mockProvider.chat = vi.fn().mockRejectedValue(new Error('Provider error'));
 
@@ -407,11 +333,11 @@ describe.skip('ExecutionService', () => {
 
         it('should initialize conversation history with existing messages', async () => {
             const inputMsg = 'Hello again';
-            const messagesArray: Message[] = [
+            const messagesArray: TUniversalMessage[] = [
                 { role: 'user', content: 'Hello', timestamp: new Date() },
                 { role: 'assistant', content: 'Hi there!', timestamp: new Date() }
-            ] as Message[];
-            const agentConfig: AgentConfig = {
+            ];
+            const agentConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -420,36 +346,25 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
+            const session = conversationHistory.getConversationSession('test-agent');
+            const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
+            const addAssistantMessageSpy = vi.spyOn(session, 'addAssistantMessage');
 
             await executionService.execute(inputMsg, messagesArray, agentConfig, { conversationId: 'test-agent' });
 
-            // Verify all messages were added
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith('Hello', undefined);
-            expect(mockSession.addAssistantMessage).toHaveBeenCalledWith('Hi there!', undefined, undefined);
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith(inputMsg, expect.any(Object));
+            // Verify all messages were added (addUserMessage: content, metadata, parts; addAssistantMessage: content, toolCalls, metadata, parts)
+            expect(addUserMessageSpy).toHaveBeenCalledWith('Hello', undefined, undefined);
+            expect(addAssistantMessageSpy).toHaveBeenCalledWith('Hi there!', undefined, undefined, undefined);
+            expect(addUserMessageSpy).toHaveBeenCalledWith(inputMsg, expect.any(Object));
         });
 
         it('should handle messages with system role', async () => {
             const userInput = 'Hello';
-            const messagesList: Message[] = [
+            const messagesList: TUniversalMessage[] = [
                 { role: 'system', content: 'You are a helpful assistant', timestamp: new Date() },
                 { role: 'user', content: 'Previous question', timestamp: new Date() }
-            ] as Message[];
-            const testConfig: AgentConfig = {
+            ];
+            const testConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -458,33 +373,22 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
+            const session = conversationHistory.getConversationSession('test-agent');
+            const addSystemMessageSpy = vi.spyOn(session, 'addSystemMessage');
+            const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
 
             await executionService.execute(userInput, messagesList, testConfig, { conversationId: 'test-agent' });
 
             // Verify system message was added
-            expect(mockSession.addSystemMessage).toHaveBeenCalledWith('You are a helpful assistant', undefined);
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith('Previous question', undefined);
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith(userInput, expect.any(Object));
+            expect(addSystemMessageSpy).toHaveBeenCalledWith('You are a helpful assistant', undefined, undefined);
+            expect(addUserMessageSpy).toHaveBeenCalledWith('Previous question', undefined, undefined);
+            expect(addUserMessageSpy).toHaveBeenCalledWith(userInput, expect.any(Object));
         });
 
         it('should handle no AI provider available', async () => {
             const testInput = 'Hello';
-            const emptyMessages: Message[] = [];
-            const providerConfig: AgentConfig = {
+            const emptyMessages: TUniversalMessage[] = [];
+            const providerConfig: IAgentConfig = {
                 name: 'test-agent',
                 aiProviders: [mockProvider],
                 defaultModel: {
@@ -493,25 +397,12 @@ describe.skip('ExecutionService', () => {
                 }
             };
 
-            // Create and set mock session
-            const mockSession = {
-                getMessages: vi.fn().mockReturnValue([]),
-                getMessageCount: vi.fn().mockReturnValue(0),
-                addUserMessage: vi.fn(),
-                addAssistantMessage: vi.fn(),
-                addSystemMessage: vi.fn(),
-                addToolMessageWithId: vi.fn(),
-                addMessage: vi.fn(),
-                clear: vi.fn(),
-                getMessagesByRole: vi.fn(),
-                getRecentMessages: vi.fn()
-            };
-            conversationHistory.setMockSession({ 'test-agent': mockSession });
+            conversationHistory.getConversationSession('test-agent');
 
             // Mock no provider available
-            aiProviders.getCurrentProviderInstance = vi.fn().mockReturnValue(null);
+            vi.spyOn(aiProviders, 'getCurrentProvider').mockReturnValue(null as any);
 
-            await expect(executionService.execute(testInput, emptyMessages, providerConfig, { conversationId: 'test-agent' })).rejects.toThrow('No AI provider available');
+            await expect(executionService.execute(testInput, emptyMessages, providerConfig, { conversationId: 'test-agent' })).rejects.toThrow('[EXECUTION] Provider is required');
         });
     });
 }); 

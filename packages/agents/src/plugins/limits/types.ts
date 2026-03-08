@@ -1,16 +1,16 @@
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { IPluginOptions } from '../../abstracts/abstract-plugin';
 
 /**
  * Rate limiting strategies
  */
-export type LimitsStrategy = 'token-bucket' | 'sliding-window' | 'fixed-window' | 'none';
+export type TLimitsStrategy = 'token-bucket' | 'sliding-window' | 'fixed-window' | 'none';
 
 /**
  * Limits plugin configuration
  */
-export interface LimitsPluginOptions extends BasePluginOptions {
+export interface ILimitsPluginOptions extends IPluginOptions {
     /** Rate limiting strategy */
-    strategy: LimitsStrategy;
+    strategy: TLimitsStrategy;
     /** Maximum tokens per time window */
     maxTokens?: number;
     /** Maximum requests per time window */
@@ -41,12 +41,12 @@ export interface LimitsPluginOptions extends BasePluginOptions {
  * 5. Type assertions (decreases type safety)
  * TODO: Consider specific status interfaces if patterns emerge
  */
-export type PluginLimitsStatusData = Record<string, string | number | boolean | Array<string | number | boolean> | Record<string, string | number | boolean> | null>;
+export type TPluginLimitsStatusData = Record<string, string | number | boolean | Array<string | number | boolean> | Record<string, string | number | boolean> | null>;
 
 /**
  * Rate limiting window data
  */
-export interface LimitWindow {
+export interface ILimitWindow {
     count: number;
     tokens: number;
     cost: number;
@@ -56,7 +56,7 @@ export interface LimitWindow {
 /**
  * Token bucket state
  */
-export interface TokenBucket {
+export interface ITokenBucket {
     tokens: number;
     lastRefill: number;
     requests: number;

@@ -1,20 +1,21 @@
-import { LogEntry, LogStorage, LogFormatter } from '../types';
+import type { ILogEntry, ILogStorage, ILogFormatter } from '../types';
 import { JsonLogFormatter } from '../formatters';
-import { Logger, createLogger } from '../../../utils/logger';
+import { createLogger, type ILogger } from '../../../utils/logger';
 import { PluginError } from '../../../utils/errors';
-import type { TimerId } from '../../../utils';
+import type { TTimerId } from '../../../utils';
+import { startPeriodicTask, stopPeriodicTask } from '../../../utils/periodic-task';
 
 /**
  * Remote log storage with batching
  */
-export class RemoteLogStorage implements LogStorage {
+export class RemoteLogStorage implements ILogStorage {
     private url: string;
-    private formatter: LogFormatter;
+    private formatter: ILogFormatter;
     private batchSize: number;
     private flushInterval: number;
-    private pendingLogs: LogEntry[] = [];
-    private flushTimer: TimerId | undefined;
-    private logger: Logger;
+    private pendingLogs: ILogEntry[] = [];
+    private flushTimer: TTimerId | undefined;
+    private logger: ILogger;
 
     constructor(url: string, _options: { timeout?: number } = {}) {
         this.url = url;
@@ -24,10 +25,12 @@ export class RemoteLogStorage implements LogStorage {
         this.logger = createLogger('RemoteLogStorage');
 
         // Start flush timer
-        this.startFlushTimer();
+        this.flushTimer = startPeriodicTask(this.logger, { name: 'RemoteLogStorage.flush', intervalMs: this.flushInterval }, async () => {
+            await this.flush();
+        });
     }
 
-    async write(entry: LogEntry): Promise<void> {
+    async write(entry: ILogEntry): Promise<void> {
         this.pendingLogs.push(entry);
 
         if (this.pendingLogs.length >= this.batchSize) {
@@ -59,23 +62,9 @@ export class RemoteLogStorage implements LogStorage {
     }
 
     async close(): Promise<void> {
-        if (this.flushTimer) {
-            clearInterval(this.flushTimer);
-            this.flushTimer = undefined;
-        }
+        stopPeriodicTask(this.flushTimer);
+        this.flushTimer = undefined;
 
         await this.flush();
-    }
-
-    private startFlushTimer(): void {
-        this.flushTimer = setInterval(async () => {
-            try {
-                await this.flush();
-            } catch (error) {
-                this.logger.error('Failed to flush logs on timer', {
-                    error: error instanceof Error ? error.message : String(error)
-                });
-            }
-        }, this.flushInterval);
     }
 } 

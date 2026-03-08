@@ -3,41 +3,71 @@
  * Coordinates webhook functionality through clean, separated components
  */
 
-import { BasePlugin, PluginCategory, PluginPriority, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext } from '../../abstracts/base-plugin';
-import { Logger, createLogger } from '../../utils/logger';
+import {
+    AbstractPlugin,
+    PluginCategory,
+    PluginPriority,
+    type IPluginExecutionContext,
+    type IPluginExecutionResult,
+    type IPluginErrorContext
+} from '../../abstracts/abstract-plugin';
+import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from '../../services/execution-service';
+import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError } from '../../utils/errors';
-import type { TimerId } from '../../utils';
+import type { TTimerId } from '../../utils';
 
 import { WebhookTransformer } from './transformer';
 import { WebhookHttpClient } from './http-client';
 import type {
-    WebhookEventType,
-    WebhookEventData,
-    WebhookMetadata,
-    WebhookPayload,
-    WebhookEndpoint,
-    WebhookPluginOptions,
-    WebhookPluginStats,
-    WebhookRequest
+    TWebhookEventName,
+    IWebhookEventData,
+    TWebhookMetadata,
+    IWebhookPayload,
+    IWebhookEndpoint,
+    IWebhookPluginOptions,
+    IWebhookPluginStats,
+    IWebhookRequest
 } from './types';
+
+// Local event constants for webhook usage (kept internal to plugin)
+const EXEC_EVENTS: { START: TWebhookEventName; COMPLETE: TWebhookEventName; ERROR: TWebhookEventName } = {
+    START: `${EXECUTION_EVENT_PREFIX}.${EXECUTION_EVENTS.START}`,
+    COMPLETE: `${EXECUTION_EVENT_PREFIX}.${EXECUTION_EVENTS.COMPLETE}`,
+    ERROR: `${EXECUTION_EVENT_PREFIX}.${EXECUTION_EVENTS.ERROR}`
+} as const;
+
+const CONV_EVENTS: { COMPLETE: TWebhookEventName } = {
+    COMPLETE: 'conversation.complete'
+} as const;
+
+const TOOL_EVENTS_LOCAL: { EXECUTED: TWebhookEventName } = {
+    EXECUTED: 'tool.executed'
+} as const;
+
+const ERROR_EVENTS: { OCCURRED: TWebhookEventName } = {
+    OCCURRED: 'error.occurred'
+} as const;
 
 /**
  * Webhook Plugin using Facade Pattern
  * Provides a clean interface for webhook functionality
  */
-export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPluginStats> {
+export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhookPluginStats> {
     name = 'WebhookPlugin';
     version = '1.0.0';
 
-    private pluginOptions: Required<WebhookPluginOptions>;
-    private logger: Logger;
+    private pluginOptions: Required<IWebhookPluginOptions>;
+    private logger: ILogger;
     private httpClient: WebhookHttpClient;
-    private requestQueue: WebhookRequest[] = [];
-    private batchQueue: WebhookPayload[] = [];
+    private requestQueue: IWebhookRequest[] = [];
+    private batchQueue: IWebhookPayload[] = [];
     private activeConcurrency = 0;
-    private batchTimer?: TimerId;
+    private batchTimer?: TTimerId;
+    private totalSentCount = 0;
+    private totalErrorCount = 0;
+    private totalResponseTime = 0;
 
-    constructor(options: WebhookPluginOptions) {
+    constructor(options: IWebhookPluginOptions) {
         super();
 
         // Set plugin classification
@@ -52,7 +82,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
         // Set default options
         this.pluginOptions = {
             enabled: options.enabled ?? true,
-            events: ['execution.complete', 'conversation.complete', 'tool.executed', 'error.occurred'],
+            events: [EXEC_EVENTS.COMPLETE, CONV_EVENTS.COMPLETE, TOOL_EVENTS_LOCAL.EXECUTED, ERROR_EVENTS.OCCURRED],
             defaultTimeout: 5000,
             defaultRetries: 3,
             async: true,
@@ -63,7 +93,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
                 flushInterval: 5000
             },
             payloadTransformer: WebhookTransformer.defaultPayloadTransformer,
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.NOTIFICATION,
             priority: options.priority ?? PluginPriority.LOW,
             moduleEvents: options.moduleEvents ?? [],
@@ -90,23 +120,23 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
     /**
      * After execution completes
      */
-    override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
+    override async afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
         const webhookResult = WebhookTransformer.resultToWebhook(result);
         const eventData = WebhookTransformer.createExecutionData(webhookContext, webhookResult);
 
-        await this.sendWebhook('execution.complete', eventData);
+        await this.sendWebhook(EXEC_EVENTS.COMPLETE, eventData);
     }
 
     /**
      * After conversation completes
      */
-    override async afterConversation(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
+    override async afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
         const webhookResult = WebhookTransformer.resultToWebhook(result);
         const eventData = WebhookTransformer.createConversationData(webhookContext, webhookResult);
 
-        await this.sendWebhook('conversation.complete', eventData);
+        await this.sendWebhook(CONV_EVENTS.COMPLETE, eventData);
     }
 
     /**
@@ -121,9 +151,9 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
      * 5. Type assertions (decreases type safety)
      * TODO: Consider standardized tool result interface across tools
      */
-    override async afterToolExecution(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void> {
+    override async afterToolExecution(context: IPluginExecutionContext, toolResults: IPluginExecutionResult): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
-        // Handle tool results from BaseExecutionResult
+        // Handle tool results from IPluginExecutionResult
         if (toolResults.toolCalls && toolResults.toolCalls.length > 0) {
             for (const toolCall of toolResults.toolCalls) {
                 const toolData = {
@@ -134,7 +164,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
                     duration: toolResults.duration
                 };
                 const eventData = WebhookTransformer.createToolData(webhookContext, toolData);
-                await this.sendWebhook('tool.executed', eventData);
+                await this.sendWebhook(TOOL_EVENTS_LOCAL.EXECUTED, eventData);
             }
         }
     }
@@ -142,7 +172,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
     /**
      * On error
      */
-    override async onError(error: Error, context?: ErrorContext): Promise<void> {
+    override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
         const webhookContext = context ? {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -155,23 +185,23 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
 
         const errorEventData = WebhookTransformer.createErrorData(webhookContext, error);
 
-        await this.sendWebhook('error.occurred', errorEventData);
-        await this.sendWebhook('execution.error', errorEventData);
+        await this.sendWebhook(ERROR_EVENTS.OCCURRED, errorEventData);
+        await this.sendWebhook(EXEC_EVENTS.ERROR, errorEventData);
     }
 
     /**
      * Send webhook notification
      */
     async sendWebhook(
-        event: WebhookEventType,
-        data: WebhookEventData,
-        metadata?: WebhookMetadata
+        event: TWebhookEventName,
+        data: IWebhookEventData,
+        metadata?: TWebhookMetadata
     ): Promise<void> {
         if (!this.pluginOptions.events.includes(event)) {
             return;
         }
 
-        const payload: WebhookPayload = {
+        const payload: IWebhookPayload = {
             event,
             timestamp: new Date().toISOString(),
             data: this.pluginOptions.payloadTransformer(event, data),
@@ -203,21 +233,21 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
     /**
      * Send custom webhook
      */
-    async sendCustomWebhook(data: WebhookEventData, metadata?: WebhookMetadata): Promise<void> {
+    async sendCustomWebhook(data: IWebhookEventData, metadata?: TWebhookMetadata): Promise<void> {
         await this.sendWebhook('custom', data, metadata);
     }
 
     /**
      * Send payload to all applicable endpoints
      */
-    private async sendToEndpoints(payload: WebhookPayload): Promise<void> {
+    private async sendToEndpoints(payload: IWebhookPayload): Promise<void> {
         const endpoints = this.getEndpointsForEvent(payload.event);
 
         if (endpoints.length === 0) {
             return;
         }
 
-        const requests: WebhookRequest[] = endpoints.map(endpoint => ({
+        const requests: IWebhookRequest[] = endpoints.map(endpoint => ({
             endpoint,
             payload,
             attempt: 1,
@@ -230,7 +260,16 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
             this.processQueue();
         } else {
             // Send synchronously
-            await Promise.allSettled(requests.map(req => this.httpClient.sendRequest(req)));
+            await Promise.allSettled(requests.map(req => {
+                const startTime = Date.now();
+                return this.httpClient.sendRequest(req).then(() => {
+                    this.totalSentCount++;
+                    this.totalResponseTime += Date.now() - startTime;
+                }).catch((error: unknown) => {
+                    this.totalErrorCount++;
+                    throw error;
+                });
+            }));
         }
     }
 
@@ -245,20 +284,35 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
             this.activeConcurrency++;
 
             // Process request asynchronously
-            this.httpClient.sendRequest(request).finally(() => {
-                this.activeConcurrency--;
-                // Continue processing queue
-                if (this.requestQueue.length > 0) {
-                    this.processQueue();
-                }
-            });
+            const startTime = Date.now();
+            this.httpClient.sendRequest(request)
+                .then(() => {
+                    this.totalSentCount++;
+                    this.totalResponseTime += Date.now() - startTime;
+                })
+                .catch((error: unknown) => {
+                    this.totalErrorCount++;
+                    const message = error instanceof Error ? error.message : String(error);
+                    this.logger.error('Webhook request failed', {
+                        endpoint: request.endpoint.url,
+                        event: request.payload.event,
+                        error: message
+                    });
+                })
+                .finally(() => {
+                    this.activeConcurrency--;
+                    // Continue processing queue
+                    if (this.requestQueue.length > 0) {
+                        this.processQueue();
+                    }
+                });
         }
     }
 
     /**
      * Get endpoints that should receive the event
      */
-    private getEndpointsForEvent(event: WebhookEventType): WebhookEndpoint[] {
+    private getEndpointsForEvent(event: TWebhookEventName): IWebhookEndpoint[] {
         return this.pluginOptions.endpoints.filter(endpoint => {
             if (!endpoint.events || endpoint.events.length === 0) {
                 return true; // No event filter means all events
@@ -311,9 +365,9 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
             }
 
             if (endpoint.events) {
-                const validEvents: WebhookEventType[] = [
-                    'execution.start', 'execution.complete', 'execution.error',
-                    'conversation.complete', 'tool.executed', 'error.occurred', 'custom'
+                const validEvents: TWebhookEventName[] = [
+                    EXEC_EVENTS.START, EXEC_EVENTS.COMPLETE, EXEC_EVENTS.ERROR,
+                    CONV_EVENTS.COMPLETE, TOOL_EVENTS_LOCAL.EXECUTED, ERROR_EVENTS.OCCURRED, 'custom'
                 ];
 
                 for (const event of endpoint.events) {
@@ -328,16 +382,20 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
     /**
      * Get webhook plugin statistics
      */
-    override getStats(): WebhookPluginStats {
+    override getStats(): IWebhookPluginStats {
+        const base = super.getStats();
         return {
+            ...base,
             endpointCount: this.pluginOptions.endpoints.length,
             queueLength: this.requestQueue.length,
             batchQueueLength: this.batchQueue.length,
             activeConcurrency: this.activeConcurrency,
             supportedEvents: this.pluginOptions.events,
-            totalSent: 0, // TODO: Track total sent webhooks
-            totalErrors: 0, // TODO: Track total webhook errors
-            averageResponseTime: 0 // TODO: Track average response time
+            totalSent: this.totalSentCount,
+            totalErrors: this.totalErrorCount,
+            averageResponseTime: this.totalSentCount > 0
+                ? this.totalResponseTime / this.totalSentCount
+                : 0
         };
     }
 

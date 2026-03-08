@@ -7,16 +7,13 @@
 
 // Core types
 export type {
-    ZodSchema,
-    ZodParseResult,
-    ZodSchemaDef,
-    ToolExecutor,
-    IFunctionTool,
-    ValidationOptions,
-    SchemaConversionOptions,
-    ToolExecutionMetadata,
-    ToolResult,
-    ToolParameterValue
+    IZodSchema,
+    IZodParseResult,
+    IZodSchemaDef,
+    IFunctionToolValidationOptions,
+    ISchemaConversionOptions,
+    IFunctionToolExecutionMetadata,
+    IFunctionToolResult
 } from './types';
 
 // Schema conversion utilities

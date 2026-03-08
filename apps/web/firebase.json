@@ -1,7 +1,7 @@
 {
-    "firestore": {
-        "rules": "firestore.rules",
-        "indexes": "firestore-indexes.json",
-        "database": "robota-io"
-    }
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore-indexes.json",
+    "database": "robota-io"
+  }
 }

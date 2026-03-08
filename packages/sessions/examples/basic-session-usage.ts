@@ -11,7 +11,7 @@
 import { SessionManager } from '../src/session/session-manager';
 // Note: OpenAI provider would be imported in real usage
 // import { OpenAIProvider } from '@robota-sdk/openai';
-import type { CreateSessionOptions, CreateChatOptions } from '../src/types/core';
+import type { ICreateSessionOptions, ICreateChatOptions } from '../src/types/core';
 
 async function basicSessionExample() {
     console.log('🚀 Starting Basic Session Management Example\n');

@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { Robota } from './robota';
-import type { AgentConfig } from '../interfaces/agent';
-import { BaseAgent } from '../abstracts/base-agent';
-import type { AgentInterface } from '../interfaces/agent';
-import { BasePlugin } from '../abstracts/base-plugin';
-import { BaseTool } from '../abstracts/base-tool';
-import { BaseAIProvider } from '../abstracts/base-ai-provider';
-import type { ToolSchema, ChatOptions } from '../interfaces/provider';
-import type { ToolParameters, ToolResult } from '../interfaces/tool';
-import type { UniversalMessage } from '../managers/conversation-history-manager';
+import { Robota } from '../core/robota';
+import type { IAgentConfig, IRunOptions } from '../interfaces/agent';
+import { AbstractAgent } from '../abstracts/abstract-agent';
+import type { IAgent } from '../interfaces/agent';
+import { AbstractPlugin } from '../abstracts/abstract-plugin';
+import { AbstractTool as BaseTool } from '../abstracts/abstract-tool';
+import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
+import type { IToolSchema, IChatOptions } from '../interfaces/provider';
+import type { IToolExecutionContext, IToolResult, TToolParameters } from '../interfaces/tool';
+import type { TUniversalMessage } from '../interfaces/messages';
 
 import { ConfigurationError, ValidationError } from '../utils/errors';
 
 // Mock AI Provider for testing
-class MockAIProvider extends BaseAIProvider {
+class MockAIProvider extends AbstractAIProvider {
     readonly name = 'mock-provider';
     readonly version = '1.0.0';
 
@@ -21,7 +21,7 @@ class MockAIProvider extends BaseAIProvider {
         super();
     }
 
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response',
@@ -29,7 +29,7 @@ class MockAIProvider extends BaseAIProvider {
         };
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response',
@@ -39,7 +39,7 @@ class MockAIProvider extends BaseAIProvider {
 }
 
 // Second Mock AI Provider for multi-provider testing
-class MockAIProvider2 extends BaseAIProvider {
+class MockAIProvider2 extends AbstractAIProvider {
     readonly name = 'mock-provider-2';
     readonly version = '1.0.0';
 
@@ -47,7 +47,7 @@ class MockAIProvider2 extends BaseAIProvider {
         super();
     }
 
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response from provider 2',
@@ -55,7 +55,7 @@ class MockAIProvider2 extends BaseAIProvider {
         };
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response from provider 2',
@@ -66,17 +66,10 @@ class MockAIProvider2 extends BaseAIProvider {
 
 // Mock Tool for testing
 class MockTool extends BaseTool {
-    name = 'mock-tool';
-    description = 'Mock tool for testing';
-
-    constructor() {
-        super();
-    }
-
-    get schema(): ToolSchema {
+    override get schema(): IToolSchema {
         return {
-            name: this.name,
-            description: this.description,
+            name: 'mock-tool',
+            description: 'Mock tool for testing',
             parameters: {
                 type: 'object' as const,
                 properties: {
@@ -86,28 +79,27 @@ class MockTool extends BaseTool {
         };
     }
 
-    async execute(parameters: ToolParameters): Promise<ToolResult> {
+    protected override async executeImpl(parameters: TToolParameters, _context: IToolExecutionContext): Promise<IToolResult> {
+        const inputValue = parameters.input;
+        const inputText = typeof inputValue === 'string' ? inputValue : 'no input';
+
         return {
             success: true,
-            data: `Mock tool executed with: ${(parameters as Record<string, string | number | boolean>).input || 'no input'}`
+            data: `Mock tool executed with: ${inputText}`
         };
-    }
-
-    validateParameters(parameters: ToolParameters): { isValid: boolean; errors: string[] } {
-        return { isValid: true, errors: [] };
     }
 }
 
 // Mock Plugin for testing
-class MockPlugin extends BasePlugin {
-    name = 'mock-plugin';
-    version = '1.0.0';
+class MockPlugin extends AbstractPlugin {
+    override readonly name = 'mock-plugin';
+    override readonly version = '1.0.0';
 
-    async beforeRun(input: string): Promise<void> {
+    override async beforeRun(input: string, _options?: IRunOptions): Promise<void> {
         // Mock hook implementation
     }
 
-    async afterRun(input: string, response: string): Promise<void> {
+    override async afterRun(input: string, response: string, _options?: IRunOptions): Promise<void> {
         // Mock hook implementation
     }
 }
@@ -117,7 +109,7 @@ describe('Robota Class - New Configuration API', () => {
     let mockProvider2: MockAIProvider2;
     let mockTool: MockTool;
     let mockPlugin: MockPlugin;
-    let config: AgentConfig;
+    let config: IAgentConfig;
 
     beforeEach(() => {
         mockProvider = new MockAIProvider();
@@ -150,13 +142,13 @@ describe('Robota Class - New Configuration API', () => {
         it('should create instance with new configuration format', () => {
             const robota = new Robota(config);
 
-            expect(robota).toBeInstanceOf(BaseAgent);
+            expect(robota).toBeInstanceOf(AbstractAgent);
             expect(robota).toBeInstanceOf(Robota);
             expect(robota.name).toBe('Test Robota');
         });
 
         it('should validate required fields', () => {
-            expect(() => new Robota({} as AgentConfig)).toThrow(ConfigurationError);
+            expect(() => new Robota({} as IAgentConfig)).toThrow(ConfigurationError);
 
             expect(() => new Robota({
                 name: 'Test',
@@ -193,7 +185,7 @@ describe('Robota Class - New Configuration API', () => {
         });
 
         it('should support multiple AI providers', () => {
-            const multiProviderConfig: AgentConfig = {
+            const multiProviderConfig: IAgentConfig = {
                 name: 'Multi Provider Test',
                 aiProviders: [mockProvider, mockProvider2],
                 defaultModel: {
@@ -237,7 +229,7 @@ describe('Robota Class - New Configuration API', () => {
         });
 
         it('should switch between multiple providers', async () => {
-            const multiProviderConfig: AgentConfig = {
+            const multiProviderConfig: IAgentConfig = {
                 name: 'Multi Provider Test',
                 aiProviders: [mockProvider, mockProvider2],
                 defaultModel: {
@@ -263,7 +255,7 @@ describe('Robota Class - New Configuration API', () => {
         });
 
         it('should preserve other model settings when switching providers', async () => {
-            const multiProviderConfig: AgentConfig = {
+            const multiProviderConfig: IAgentConfig = {
                 name: 'Multi Provider Test',
                 aiProviders: [mockProvider, mockProvider2],
                 defaultModel: {
@@ -295,13 +287,13 @@ describe('Robota Class - New Configuration API', () => {
     });
 
     describe('Basic Architecture', () => {
-        it('should extend BaseAgent and implement AgentInterface', () => {
+        it('should extend AbstractAgent and implement IAgent', () => {
             const robota = new Robota(config);
 
-            expect(robota).toBeInstanceOf(BaseAgent);
+            expect(robota).toBeInstanceOf(AbstractAgent);
             expect(robota).toBeInstanceOf(Robota);
 
-            // Check AgentInterface implementation
+            // Check IAgent implementation
             expect(typeof robota.run).toBe('function');
             expect(typeof robota.runStream).toBe('function');
             expect(typeof robota.getHistory).toBe('function');

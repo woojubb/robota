@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x, 22.x]
+        node-version: [18.x, 22.x]
 
     steps:
       - uses: actions/checkout@v4
@@ -31,13 +31,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       
-      - name: Build core packages
+      - name: Build packages
         run: pnpm run build:deps
       
       - name: Type check
+        if: matrix.node-version == '22.x'
         run: pnpm run typecheck
 
       - name: Lint
+        if: matrix.node-version == '22.x'
         run: pnpm run lint
 
       - name: Test

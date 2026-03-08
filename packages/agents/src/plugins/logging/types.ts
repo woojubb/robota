@@ -1,21 +1,21 @@
 /**
  * Logging strategy types
  */
-export type LoggingStrategy = 'console' | 'file' | 'remote' | 'silent';
+export type TLoggingStrategy = 'console' | 'file' | 'remote' | 'silent';
 
 /**
  * Log levels
  */
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type TLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
  * Log entry structure
  */
-export interface LogEntry {
+export interface ILogEntry {
     timestamp: Date;
-    level: LogLevel;
+    level: TLogLevel;
     message: string;
-    context?: Record<string, string | number | boolean | Date>;
+    context?: Record<string, string | number | boolean | Date | undefined>;
     metadata?: {
         executionId?: string;
         conversationId?: string;
@@ -26,17 +26,17 @@ export interface LogEntry {
     };
 }
 
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
-import type { SimpleLogger } from '../../utils/simple-logger';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
+import type { ILogger } from '../../utils/logger';
 
 /**
  * Configuration options for logging plugin
  */
-export interface LoggingPluginOptions extends BasePluginOptions {
+export interface ILoggingPluginOptions extends IPluginOptions {
     /** Logging strategy to use */
-    strategy: LoggingStrategy;
+    strategy: TLoggingStrategy;
     /** Minimum log level to capture */
-    level?: LogLevel;
+    level?: TLogLevel;
     /** File path for file strategy */
     filePath?: string;
     /** Remote endpoint for remote strategy */
@@ -48,9 +48,9 @@ export interface LoggingPluginOptions extends BasePluginOptions {
     /** Whether to include stack traces in error logs */
     includeStackTrace?: boolean;
     /** Custom log formatter */
-    formatter?: LogFormatter;
+    formatter?: ILogFormatter;
     /** Logger instance for internal plugin logging */
-    logger?: SimpleLogger;
+    logger?: ILogger;
     /** Batch size for remote logging */
     batchSize?: number;
     /** Flush interval for batched logging in milliseconds */
@@ -60,15 +60,15 @@ export interface LoggingPluginOptions extends BasePluginOptions {
 /**
  * Log formatter interface
  */
-export interface LogFormatter {
-    format(entry: LogEntry): string;
+export interface ILogFormatter {
+    format(entry: ILogEntry): string;
 }
 
 /**
  * Log storage interface
  */
-export interface LogStorage {
-    write(entry: LogEntry): Promise<void>;
+export interface ILogStorage {
+    write(entry: ILogEntry): Promise<void>;
     flush(): Promise<void>;
     close(): Promise<void>;
 }
@@ -76,15 +76,15 @@ export interface LogStorage {
 /**
  * Logging plugin statistics
  */
-export interface LoggingPluginStats {
+export interface ILoggingPluginStats extends IPluginStats {
     /** Total number of logs written */
     logsWritten: number;
     /** Number of failed log writes */
     failedWrites: number;
     /** Current log level */
-    currentLevel: LogLevel;
+    currentLevel: TLogLevel;
     /** Storage strategy in use */
-    strategy: LoggingStrategy;
+    strategy: TLoggingStrategy;
     /** Last flush timestamp */
     lastFlushTime?: Date;
 } 

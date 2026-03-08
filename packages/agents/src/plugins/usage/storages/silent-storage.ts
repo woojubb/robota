@@ -1,35 +1,21 @@
-import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
+import { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
+import { aggregateUsageStats } from '../aggregate-usage-stats';
 
 /**
  * Silent storage implementation for usage statistics (no-op)
  */
-export class SilentUsageStorage implements UsageStorage {
-    async save(_entry: UsageStats): Promise<void> {
+export class SilentUsageStorage implements IUsageStorage {
+    async save(_entry: IUsageStats): Promise<void> {
         // Silent mode - do nothing
     }
 
-    async getStats(_conversationId?: string, _timeRange?: { start: Date; end: Date }): Promise<UsageStats[]> {
+    async getStats(_conversationId?: string, _timeRange?: { start: Date; end: Date }): Promise<IUsageStats[]> {
         // Silent mode - return empty array
         return [];
     }
 
-    async getAggregatedStats(_timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats> {
-        // Silent mode - return empty aggregated stats
-        return {
-            totalRequests: 0,
-            totalTokens: 0,
-            totalCost: 0,
-            totalDuration: 0,
-            successRate: 0,
-            providerStats: {},
-            modelStats: {},
-            toolStats: {},
-            timeRangeStats: {
-                startTime: _timeRange?.start || new Date(),
-                endTime: _timeRange?.end || new Date(),
-                period: 'silent'
-            }
-        };
+    async getAggregatedStats(_timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats> {
+        return aggregateUsageStats([], _timeRange);
     }
 
     async clear(): Promise<void> {

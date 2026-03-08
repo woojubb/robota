@@ -4,23 +4,23 @@
  */
 
 import jsSHA from 'jssha';
-import type { WebhookRequest } from './types';
-import { Logger } from '../../utils/logger';
+import type { IWebhookRequest } from './types';
+import type { ILogger } from '../../utils/logger';
 
 /**
  * HTTP client for webhook requests
  */
 export class WebhookHttpClient {
-    private logger: Logger;
+    private logger: ILogger;
 
-    constructor(logger: Logger) {
+    constructor(logger: ILogger) {
         this.logger = logger;
     }
 
     /**
      * Send a single webhook request with retries
      */
-    async sendRequest(request: WebhookRequest): Promise<void> {
+    async sendRequest(request: IWebhookRequest): Promise<void> {
         const { endpoint, payload, attempt } = request;
         const timeout = endpoint.timeout ?? 5000;
         const maxRetries = endpoint.retries ?? 3;
@@ -71,7 +71,7 @@ export class WebhookHttpClient {
 
             // Retry if we haven't exceeded max attempts
             if (attempt < maxRetries) {
-                const retryRequest: WebhookRequest = {
+                const retryRequest: IWebhookRequest = {
                     ...request,
                     attempt: attempt + 1
                 };

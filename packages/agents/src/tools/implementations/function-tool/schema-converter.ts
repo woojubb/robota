@@ -11,31 +11,27 @@
  * TODO: Consider caching conversion results for performance
  */
 
-import type { ToolSchema, ParameterSchema, JSONSchemaEnum } from '../../../interfaces/provider';
+import type { IToolSchema, IParameterSchema, TJSONSchemaEnum } from '../../../interfaces/provider';
 import type {
-    ZodSchema,
-    ToolParameterValue,
-    SchemaConversionOptions
+    IZodSchema,
+    ISchemaConversionOptions
 } from './types';
+import type { TUniversalValue } from '../../../interfaces/types';
 
 /**
  * Convert Zod schema to JSON Schema format with safe undefined handling
  */
 export function zodToJsonSchema(
-    schema: ZodSchema,
-    options: SchemaConversionOptions = {}
-): ToolSchema['parameters'] {
-    const properties: Record<string, ParameterSchema> = {};
+    schema: IZodSchema,
+    options: ISchemaConversionOptions = {}
+): IToolSchema['parameters'] {
+    const properties: Record<string, IParameterSchema> = {};
     const required: string[] = [];
 
-    // Safe access to schema definition with fallback
+    // Safe access to schema definition (no fallback).
     const schemaDef = schema._def;
     if (!schemaDef) {
-        return {
-            type: 'object',
-            properties: {},
-            required: []
-        };
+        throw new Error('Zod schema is missing _def; cannot convert to JSON schema.');
     }
 
     // Handle object schemas with shape
@@ -44,15 +40,12 @@ export function zodToJsonSchema(
         const shape = typeof schemaDef.shape === 'function' ? schemaDef.shape() : schemaDef.shape;
 
         for (const [key, typeObj] of Object.entries(shape)) {
-            // Safe property conversion with undefined checks
             const property = convertZodTypeToProperty(typeObj);
-            if (property) {
-                properties[key] = property;
+            properties[key] = property;
 
-                // Check if field is required (not optional/nullable)
-                if (isRequiredField(typeObj)) {
-                    required.push(key);
-                }
+            // Check if field is required (not optional/nullable)
+            if (isRequiredField(typeObj)) {
+                required.push(key);
             }
         }
     }
@@ -68,14 +61,14 @@ export function zodToJsonSchema(
 /**
  * Convert individual Zod type to parameter schema with safe undefined handling
  */
-function convertZodTypeToProperty(typeObj: ZodSchema): ParameterSchema | null {
+function convertZodTypeToProperty(typeObj: IZodSchema): IParameterSchema {
     // Safe access to type definition
     const typeDef = typeObj._def;
     if (!typeDef) {
-        return null;
+        throw new Error('Zod type is missing _def; cannot convert to JSON schema.');
     }
 
-    const base: Partial<ParameterSchema> = {};
+    const base: Partial<IParameterSchema> = {};
 
     // Add description if available
     if (typeDef.description) {
@@ -94,11 +87,13 @@ function convertZodTypeToProperty(typeObj: ZodSchema): ParameterSchema | null {
             return { type: 'boolean', ...base };
 
         case 'ZodArray': {
-            // Safe handling of array item types
-            const arrayItems = typeDef.type ? convertZodTypeToProperty(typeDef.type) : null;
+            if (!typeDef.type) {
+                throw new Error('ZodArray is missing item type; cannot convert to JSON schema.');
+            }
+            const arrayItems = convertZodTypeToProperty(typeDef.type);
             return {
                 type: 'array',
-                items: arrayItems || { type: 'string' }, // Fallback to string type
+                items: arrayItems,
                 ...base
             };
         }
@@ -107,55 +102,53 @@ function convertZodTypeToProperty(typeObj: ZodSchema): ParameterSchema | null {
             return { type: 'object', ...base };
 
         case 'ZodEnum': {
-            // Safe enum value extraction with undefined check
             const enumValues = typeDef.values;
-            if (enumValues && Array.isArray(enumValues)) {
-                return {
-                    type: 'string',
-                    enum: enumValues as JSONSchemaEnum,
-                    ...base
-                };
+            if (!enumValues || !Array.isArray(enumValues)) {
+                throw new Error('ZodEnum is missing enum values; cannot convert to JSON schema.');
             }
-            return { type: 'string', ...base };
+            return {
+                type: 'string',
+                enum: enumValues as TJSONSchemaEnum,
+                ...base
+            };
         }
 
         case 'ZodOptional':
             // Handle optional types by recursion
             if (typeDef.innerType) {
                 const innerProperty = convertZodTypeToProperty(typeDef.innerType);
-                return innerProperty ? { ...innerProperty, ...base } : null;
+                return { ...innerProperty, ...base };
             }
-            return null;
+            throw new Error('ZodOptional is missing innerType; cannot convert to JSON schema.');
 
         case 'ZodNullable':
             // Handle nullable types
             if (typeDef.innerType) {
                 const innerProperty = convertZodTypeToProperty(typeDef.innerType);
-                return innerProperty ? { ...innerProperty, ...base } : null;
+                return { ...innerProperty, ...base };
             }
-            return null;
+            throw new Error('ZodNullable is missing innerType; cannot convert to JSON schema.');
 
         case 'ZodDefault':
             // Handle default values by processing the inner type
             if (typeDef.innerType) {
                 const innerProperty = convertZodTypeToProperty(typeDef.innerType);
-                return innerProperty ? { ...innerProperty, ...base } : null;
+                return { ...innerProperty, ...base };
             }
-            return null;
+            throw new Error('ZodDefault is missing innerType; cannot convert to JSON schema.');
 
         default:
-            // Fallback for unknown types
-            return { type: 'string', ...base };
+            throw new Error(`Unsupported Zod type: ${String(typeDef.typeName)}`);
     }
 }
 
 /**
  * Check if a Zod field is required (not optional or nullable)
  */
-function isRequiredField(typeObj: ZodSchema): boolean {
+function isRequiredField(typeObj: IZodSchema): boolean {
     const typeDef = typeObj._def;
     if (!typeDef) {
-        return false;
+        throw new Error('Zod schema is missing _def; cannot determine required fields.');
     }
 
     // Field is optional if it's ZodOptional, ZodNullable, or ZodDefault
@@ -167,22 +160,24 @@ function isRequiredField(typeObj: ZodSchema): boolean {
 /**
  * Safely extract enum values from Zod schema
  */
-export function extractEnumValues(schema: ZodSchema): ToolParameterValue[] {
+export function extractEnumValues(schema: IZodSchema): TUniversalValue[] {
     const typeDef = schema._def;
-    if (!typeDef || !typeDef.values || !Array.isArray(typeDef.values)) {
-        return [];
+    if (!typeDef) {
+        throw new Error('Zod schema is missing _def; cannot extract enum values.');
     }
-
+    if (!typeDef.values || !Array.isArray(typeDef.values)) {
+        throw new Error('ZodEnum schema is missing enum values; cannot extract enum values.');
+    }
     return typeDef.values;
 }
 
 /**
  * Check if schema has validation constraints
  */
-export function hasValidationConstraints(schema: ZodSchema): boolean {
+export function hasValidationConstraints(schema: IZodSchema): boolean {
     const typeDef = schema._def;
     if (!typeDef) {
-        return false;
+        throw new Error('Zod schema is missing _def; cannot determine validation constraints.');
     }
 
     return !!(typeDef.checks && typeDef.checks.length > 0);
@@ -191,7 +186,13 @@ export function hasValidationConstraints(schema: ZodSchema): boolean {
 /**
  * Safe schema type name extraction
  */
-export function getSchemaTypeName(schema: ZodSchema): string {
+export function getSchemaTypeName(schema: IZodSchema): string {
     const typeDef = schema._def;
-    return typeDef?.typeName || 'Unknown';
+    if (!typeDef) {
+        throw new Error('Zod schema is missing _def; cannot determine schema type name.');
+    }
+    if (!typeDef.typeName) {
+        throw new Error('Zod schema has empty typeName; cannot determine schema type name.');
+    }
+    return typeDef.typeName;
 } 

@@ -1,13 +1,13 @@
-import { AgentFactory, AgentTemplates, type AgentConfig, type AgentTemplate } from '@robota-sdk/agents';
-import type { TemplateManager } from '../types/chat';
+import { AgentFactory, AgentTemplates, type IAgentConfig, type IAgentTemplate } from '@robota-sdk/agents';
+import type { ITemplateManager } from '../types/chat';
 
 /**
- * TemplateManagerAdapter - adapts agents package AgentFactory/AgentTemplates to TemplateManager interface
+ * TemplateManagerAdapter - adapts agents package AgentFactory/AgentTemplates to ITemplateManager interface
  * 
  * This adapter allows the sessions package to use the template functionality from
  * the agents package without duplicating implementation.
  */
-export class TemplateManagerAdapter implements TemplateManager {
+export class TemplateManagerAdapter implements ITemplateManager {
     private agentFactory: AgentFactory;
     private agentTemplates: AgentTemplates;
 
@@ -19,7 +19,7 @@ export class TemplateManagerAdapter implements TemplateManager {
     /**
      * Get template configuration by name
      */
-    getTemplate(name: string): AgentConfig | undefined {
+    getTemplate(name: string): IAgentConfig | undefined {
         const template = this.agentTemplates.getTemplate(name);
         if (!template) {
             return undefined;
@@ -39,21 +39,16 @@ export class TemplateManagerAdapter implements TemplateManager {
     /**
      * Validate template configuration
      */
-    validateTemplate(config: AgentConfig): boolean {
-        try {
-            // Use AgentFactory's validateConfiguration method
-            const validation = this.agentFactory.validateConfiguration(config);
-            return validation.isValid;
-        } catch {
-            // Basic validation - check required fields
-            return !!(config.name && config.aiProviders && config.defaultModel);
-        }
+    validateTemplate(config: IAgentConfig): boolean {
+        // Single authoritative validation path (no fallback).
+        const validation = this.agentFactory.validateConfiguration(config);
+        return validation.isValid;
     }
 
     /**
      * Register a new template
      */
-    registerTemplate(template: AgentTemplate): void {
+    registerTemplate(template: IAgentTemplate): void {
         this.agentTemplates.registerTemplate(template);
     }
 
@@ -67,14 +62,14 @@ export class TemplateManagerAdapter implements TemplateManager {
     /**
      * Get template details (full template object)
      */
-    getTemplateDetails(name: string): AgentTemplate | undefined {
+    getTemplateDetails(name: string): IAgentTemplate | undefined {
         return this.agentTemplates.getTemplate(name);
     }
 
     /**
      * Apply template to create agent config with overrides
      */
-    applyTemplate(templateId: string, overrides: Partial<AgentConfig> = {}): AgentConfig | undefined {
+    applyTemplate(templateId: string, overrides: Partial<IAgentConfig> = {}): IAgentConfig | undefined {
         const template = this.agentTemplates.getTemplate(templateId);
         if (!template) {
             return undefined;

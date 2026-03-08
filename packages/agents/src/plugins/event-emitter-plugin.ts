@@ -1,41 +1,31 @@
-import { BasePlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, PluginCategory, PluginPriority } from '../abstracts/base-plugin';
-import type { ToolExecutionContext } from '../interfaces/tool';
-import { Logger, createLogger } from '../utils/logger';
+import {
+    AbstractPlugin,
+    type IPluginExecutionContext,
+    type IPluginExecutionResult,
+    type IPluginErrorContext,
+    type IPluginOptions,
+    type IPluginStats,
+    PluginCategory,
+    PluginPriority
+} from '../abstracts/abstract-plugin';
+import type { IToolExecutionContext, TToolParameters, IToolResult } from '../interfaces/tool';
+import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
-import type { TimerId } from '../utils';
+import type { TTimerId } from '../utils';
+import {
+    EVENT_EMITTER_EVENTS,
+    type IEventEmitterEventData,
+    type TEventName,
+    type TEventEmitterListener
+} from './event-emitter/types';
+import { InMemoryEventEmitterMetrics, type IEventEmitterMetrics } from './event-emitter/metrics';
+
+export type { TEventName };
 
 /**
- * Event types that can be emitted
+ * Basic event execution value types - compatible with IPluginExecutionResult
  */
-export type EventType =
-    | 'execution.start'
-    | 'execution.complete'
-    | 'execution.error'
-    | 'conversation.start'
-    | 'conversation.complete'
-    | 'conversation.error'
-    | 'tool.beforeExecute'
-    | 'tool.afterExecute'
-    | 'tool.success'
-    | 'tool.error'
-    | 'plugin.error'
-    | 'module.initialize.start'
-    | 'module.initialize.complete'
-    | 'module.initialize.error'
-    | 'module.execution.start'
-    | 'module.execution.complete'
-    | 'module.execution.error'
-    | 'module.dispose.start'
-    | 'module.dispose.complete'
-    | 'module.dispose.error'
-    | 'module.registered'
-    | 'module.unregistered'
-    | 'custom';
-
-/**
- * Basic event execution value types - compatible with BaseExecutionResult
- */
-export type EventExecutionValue =
+export type TEventExecutionValue =
     | string
     | number
     | boolean
@@ -51,28 +41,28 @@ export type EventExecutionValue =
  * Event execution context data following semantic naming conventions
  * Supports nested structures with proper type safety
  */
-export interface EventExecutionContextData {
+export interface IEventExecutionContextData {
     messageCount?: number | undefined;
-    config?: Record<string, EventExecutionValue> | undefined;
-    result?: BaseExecutionResult | undefined;
+    config?: Record<string, TEventExecutionValue> | undefined;
+    result?: IPluginExecutionResult | undefined;
     duration?: number | undefined;
     tokensUsed?: number | undefined;
     toolsExecuted?: number | undefined;
-    messages?: Record<string, EventExecutionValue>[] | undefined;
+    messages?: Record<string, TEventExecutionValue>[] | undefined;
     response?: string | undefined;
-    toolCalls?: Record<string, EventExecutionValue>[] | undefined;
-    [key: string]: EventExecutionValue | Record<string, EventExecutionValue> | Record<string, EventExecutionValue>[] | BaseExecutionResult | undefined;
+    toolCalls?: Record<string, TEventExecutionValue>[] | undefined;
+    [key: string]: TEventExecutionValue | Record<string, TEventExecutionValue> | Record<string, TEventExecutionValue>[] | IPluginExecutionResult | undefined;
 }
 
 /**
  * Event metadata following semantic naming conventions
  */
-export type EventEmitterMetadata = Record<string, string | number | boolean | Date | string[] | number[] | undefined>;
+export type TEventEmitterMetadata = Record<string, string | number | boolean | Date | string[] | number[] | undefined>;
 
 /**
  * Plugin execution context for event emitter
  */
-export interface PluginExecutionContext extends BaseExecutionContext {
+export interface IEventEmitterPluginExecutionContext extends IPluginExecutionContext {
     // Override config to support additional types
 }
 
@@ -81,54 +71,73 @@ export interface PluginExecutionContext extends BaseExecutionContext {
 /**
  * Plugin execution result for event emitter
  */
-export interface PluginExecutionResult {
+export interface IEventEmitterPluginExecutionResult {
     content?: string;
     response?: string;
     duration?: number;
     tokensUsed?: number;
     toolsExecuted?: number;
-    usage?: Record<string, EventExecutionValue>;
-    toolCalls?: Record<string, EventExecutionValue>[];
-    [key: string]: EventExecutionValue | Record<string, EventExecutionValue> | Record<string, EventExecutionValue>[] | undefined;
+    usage?: Record<string, TEventExecutionValue>;
+    toolCalls?: Record<string, TEventExecutionValue>[];
+    [key: string]: TEventExecutionValue | Record<string, TEventExecutionValue> | Record<string, TEventExecutionValue>[] | undefined;
 }
 
 /**
  * Event data structure
  */
-export interface EventData {
-    type: EventType;
-    timestamp: Date;
-    executionId?: string | undefined;
-    sessionId?: string | undefined;
-    userId?: string | undefined;
-    data?: EventExecutionContextData | undefined;
-    error?: Error | undefined;
-    metadata?: EventEmitterMetadata | undefined;
+export type { IEventEmitterEventData };
+
+/**
+ * 🆕 Enhanced event data for hierarchical execution tracking
+ * Extends IEventEmitterEventData with additional fields for parent-child relationships and real-time data
+ */
+export interface IEventEmitterHierarchicalEventData extends IEventEmitterEventData {
+    /** Parent execution ID for hierarchical tracking */
+    parentExecutionId?: string;
+
+    /** Root execution ID (Team/Agent level) */
+    rootExecutionId?: string;
+
+    /** Execution depth level (0: Team, 1: Agent, 2: Tool, etc.) */
+    executionLevel: number;
+
+    /** Execution path showing complete hierarchy */
+    executionPath: string[];
+
+    /** Real-time execution data (no simulation) */
+    realTimeData?: {
+        /** Actual execution start time */
+        startTime: Date;
+        /** Actual duration in milliseconds (when completed) */
+        actualDuration?: number;
+        /** Actual input parameters */
+        actualParameters?: TToolParameters;
+        /** Actual execution result */
+        actualResult?: IToolResult;
+    };
 }
 
 /**
  * Event listener function
  */
-export type EventListener = (event: EventData) => void | Promise<void>;
+export type { TEventEmitterListener };
 
 /**
  * Event handler registration
  */
-interface EventHandler {
+interface IEventEmitterHandlerRegistration {
     id: string;
-    listener: EventListener;
+    listener: TEventEmitterListener;
     once: boolean;
-    filter?: (event: EventData) => boolean;
+    filter?: (event: IEventEmitterEventData) => boolean;
 }
-
-import type { BasePluginOptions } from '../abstracts/base-plugin';
 
 /**
  * Event emitter configuration
  */
-export interface EventEmitterPluginOptions extends BasePluginOptions {
+export interface IEventEmitterPluginOptions extends IPluginOptions {
     /** Events to listen for */
-    events?: EventType[];
+    events?: TEventName[];
     /** Maximum number of listeners per event type */
     maxListeners?: number;
     /** Whether to emit events asynchronously */
@@ -136,21 +145,23 @@ export interface EventEmitterPluginOptions extends BasePluginOptions {
     /** Whether to catch and log listener errors */
     catchErrors?: boolean;
     /** Custom event filters */
-    filters?: Record<EventType, (event: EventData) => boolean>;
+    filters?: Record<TEventName, (event: IEventEmitterEventData) => boolean>;
     /** Event buffering options */
     buffer?: {
         enabled: boolean;
         maxSize: number;
         flushInterval: number;
     };
+    /** Metrics collector (optional) */
+    metrics?: IEventEmitterMetrics;
 }
 
 /**
  * Event emitter plugin statistics
  */
-export interface EventEmitterPluginStats {
-    eventTypes: EventType[];
-    listenerCounts: Record<EventType, number>;
+export interface IEventEmitterPluginStats extends IPluginStats {
+    eventTypes: TEventName[];
+    listenerCounts: Partial<Record<TEventName, number>>;
     totalListeners: number;
     bufferedEvents: number;
     totalEmitted: number;
@@ -161,21 +172,23 @@ export interface EventEmitterPluginStats {
  * Plugin for event detection and propagation
  * Emits events during agent execution lifecycle
  */
-export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, EventEmitterPluginStats> {
+export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOptions, IEventEmitterPluginStats> {
     name = 'EventEmitterPlugin';
     version = '1.0.0';
 
 
-    private pluginOptions: Required<EventEmitterPluginOptions>;
-    private logger: Logger;
-    private handlers = new Map<EventType, EventHandler[]>();
-    private eventBuffer: EventData[] = [];
+    private pluginOptions: Required<Omit<IEventEmitterPluginOptions, 'metrics'>>;
+    private logger: ILogger;
+    private handlers = new Map<TEventName, IEventEmitterHandlerRegistration[]>();
+    private eventBuffer: IEventEmitterEventData[] = [];
     private nextHandlerId = 1;
-    private bufferTimer?: TimerId;
+    private bufferTimer?: TTimerId;
+    private metrics: IEventEmitterMetrics;
 
-    constructor(options: EventEmitterPluginOptions = {}) {
+    constructor(options: IEventEmitterPluginOptions = {}) {
         super();
         this.logger = createLogger('EventEmitterPlugin');
+        this.metrics = options.metrics ?? new InMemoryEventEmitterMetrics();
 
         // Validate options
         this.validateOptions(options);
@@ -183,24 +196,24 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
         this.pluginOptions = {
             enabled: options.enabled ?? true,
             events: options.events ?? [
-                'execution.start',
-                'execution.complete',
-                'execution.error',
-                'tool.beforeExecute',
-                'tool.afterExecute',
-                'tool.success',
-                'tool.error'
+                EVENT_EMITTER_EVENTS.AGENT_EXECUTION_START,
+                EVENT_EMITTER_EVENTS.AGENT_EXECUTION_COMPLETE,
+                EVENT_EMITTER_EVENTS.AGENT_EXECUTION_ERROR,
+                EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE,
+                EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE,
+                EVENT_EMITTER_EVENTS.TOOL_SUCCESS,
+                EVENT_EMITTER_EVENTS.TOOL_ERROR
             ],
             maxListeners: options.maxListeners ?? 100,
             async: options.async ?? true,
             catchErrors: options.catchErrors ?? true,
-            filters: options.filters ?? {} as Record<EventType, (event: EventData) => boolean>,
+            filters: options.filters ?? ({} as Partial<Record<TEventName, (event: IEventEmitterEventData) => boolean>>) as Record<TEventName, (event: IEventEmitterEventData) => boolean>,
             buffer: options.buffer ?? {
                 enabled: false,
                 maxSize: 1000,
                 flushInterval: 5000
             },
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.EVENT_PROCESSING,
             priority: options.priority ?? PluginPriority.HIGH,
             moduleEvents: options.moduleEvents ?? [],
@@ -223,8 +236,8 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * Before execution starts
      */
-    override async beforeExecution(context: BaseExecutionContext): Promise<void> {
-        await this.emit('execution.start', {
+    override async beforeExecution(context: IPluginExecutionContext): Promise<void> {
+        await this.emit(EVENT_EMITTER_EVENTS.AGENT_EXECUTION_START, {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
@@ -238,13 +251,12 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * After execution completes
      */
-    override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
-        await this.emit('execution.complete', {
+    override async afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
+        await this.emit(EVENT_EMITTER_EVENTS.AGENT_EXECUTION_COMPLETE, {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
             data: {
-                result: result,
                 duration: result?.duration,
                 tokensUsed: result?.tokensUsed,
                 toolsExecuted: result?.toolsExecuted
@@ -255,8 +267,8 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * Before conversation starts
      */
-    override async beforeConversation(context: BaseExecutionContext): Promise<void> {
-        await this.emit('conversation.start', {
+    override async beforeConversation(context: IPluginExecutionContext): Promise<void> {
+        await this.emit(EVENT_EMITTER_EVENTS.CONVERSATION_START, {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
@@ -266,7 +278,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
                     content: msg.content || '',
                     timestamp: msg.timestamp ? msg.timestamp.toISOString() : new Date().toISOString()
                 })),
-                config: context.config as Record<string, EventExecutionValue>
+                config: context.config as Record<string, TEventExecutionValue>
             }
         });
     }
@@ -274,8 +286,8 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * After conversation completes
      */
-    override async afterConversation(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
-        await this.emit('conversation.complete', {
+    override async afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
+        await this.emit(EVENT_EMITTER_EVENTS.CONVERSATION_COMPLETE, {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
@@ -295,19 +307,21 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * Before tool execution - emits tool.beforeExecute event
      */
-    override async beforeToolExecution(context: BaseExecutionContext, toolData: ToolExecutionContext): Promise<void> {
-        const toolCalls = Array.isArray(toolData?.['toolCalls']) ? toolData['toolCalls'] :
-            toolData ? [toolData] : [];
+    override async beforeToolExecution(context: IPluginExecutionContext, toolData: IToolExecutionContext): Promise<void> {
+        if (!toolData) {
+            return;
+        }
+        const toolCalls: IToolExecutionContext[] = [toolData];
 
         for (const toolCall of toolCalls) {
-            await this.emit('tool.beforeExecute', {
+            await this.emit(EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE, {
                 executionId: context.executionId,
                 sessionId: context.sessionId,
                 userId: context.userId,
                 data: {
-                    toolName: toolCall.function?.name || toolCall.name,
-                    toolId: toolCall.id,
-                    arguments: toolCall.function?.arguments || toolCall.arguments
+                    toolName: toolCall.toolName,
+                    toolId: toolCall.executionId,
+                    arguments: JSON.stringify(toolCall.parameters ?? {})
                 }
             });
         }
@@ -316,11 +330,11 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * After tool execution - emits tool.success or tool.error events
      */
-    override async afterToolExecution(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void> {
-        // Handle tool results from BaseExecutionResult
+    override async afterToolExecution(context: IPluginExecutionContext, toolResults: IPluginExecutionResult): Promise<void> {
+        // Handle tool results from IPluginExecutionResult
         if (toolResults.toolCalls && toolResults.toolCalls.length > 0) {
             for (const toolCall of toolResults.toolCalls) {
-                const eventType = toolCall.result === null ? 'tool.error' : 'tool.success';
+                const eventType = toolCall.result === null ? EVENT_EMITTER_EVENTS.TOOL_ERROR : EVENT_EMITTER_EVENTS.TOOL_SUCCESS;
 
                 await this.emit(eventType, {
                     executionId: context.executionId,
@@ -336,7 +350,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
                 });
 
                 // Also emit generic afterExecute event
-                await this.emit('tool.afterExecute', {
+                await this.emit(EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE, {
                     executionId: context.executionId,
                     sessionId: context.sessionId,
                     userId: context.userId,
@@ -364,14 +378,16 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * 5. Type assertions (decreases type safety)
      * TODO: Consider standardized error context interface
      */
-    override async onError(error: Error, context?: ErrorContext): Promise<void> {
-        await this.emit('execution.error', {
+    override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
+        await this.emit(EVENT_EMITTER_EVENTS.AGENT_EXECUTION_ERROR, {
             executionId: context?.executionId,
             sessionId: context?.sessionId,
             userId: context?.userId,
             error: error instanceof Error ? error : new Error(String(error)),
             data: {
-                context: context
+                action: context?.action,
+                tool: context?.tool,
+                attempt: context?.attempt
             }
         });
     }
@@ -379,9 +395,9 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * Register event listener
      */
-    on(eventType: EventType, listener: EventListener, options?: {
+    on(eventType: TEventName, listener: TEventEmitterListener, options?: {
         once?: boolean;
-        filter?: (event: EventData) => boolean;
+        filter?: (event: IEventEmitterEventData) => boolean;
     }): string {
         const handlerId = `handler_${this.nextHandlerId++}`;
 
@@ -419,7 +435,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * Register one-time event listener
      */
-    once(eventType: EventType, listener: EventListener, filter?: (event: EventData) => boolean): string {
+    once(eventType: TEventName, listener: TEventEmitterListener, filter?: (event: IEventEmitterEventData) => boolean): string {
         return this.on(eventType, listener, {
             once: true,
             ...(filter && { filter })
@@ -429,7 +445,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * Remove event listener
      */
-    off(eventType: EventType, handlerIdOrListener: string | EventListener): boolean {
+    off(eventType: TEventName, handlerIdOrListener: string | TEventEmitterListener): boolean {
         const handlers = this.handlers.get(eventType);
         if (!handlers) {
             return false;
@@ -456,12 +472,12 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * Emit an event
      */
-    async emit(eventType: EventType, eventData: Partial<EventData> = {}): Promise<void> {
+    async emit(eventType: TEventName, eventData: Partial<IEventEmitterEventData> = {}): Promise<void> {
         if (!this.pluginOptions.events.includes(eventType)) {
             return;
         }
 
-        const event: EventData = {
+        const event: IEventEmitterEventData = {
             type: eventType,
             timestamp: new Date(),
             ...eventData
@@ -472,6 +488,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
         if (globalFilter && !globalFilter(event)) {
             return;
         }
+        this.metrics.incrementEmitted();
 
         // Buffer events if enabled
         if (this.pluginOptions.buffer.enabled) {
@@ -485,7 +502,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * Process a single event
      */
-    private async processEvent(event: EventData): Promise<void> {
+    private async processEvent(event: IEventEmitterEventData): Promise<void> {
         const handlers = this.handlers.get(event.type);
         if (!handlers || handlers.length === 0) {
             return;
@@ -511,46 +528,37 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
             this.off(event.type, handler.id);
         }
 
-        // Execute handlers
-        const promises = handlersToCall.map(async (handler) => {
-            try {
-                if (this.pluginOptions.async) {
-                    await handler.listener(event);
-                } else {
-                    handler.listener(event);
-                }
-            } catch (error) {
-                if (this.pluginOptions.catchErrors) {
-                    this.logger.error('Event handler error', {
-                        eventType: event.type,
-                        handlerId: handler.id,
-                        error: error instanceof Error ? error.message : String(error)
-                    });
-
-                    // Emit plugin error event
-                    await this.emit('plugin.error', {
-                        error: error instanceof Error ? error : new Error(String(error)),
-                        data: {
-                            handlerId: handler.id,
-                            originalEventType: event.type,
-                            originalEventExecutionId: event.executionId
-                        }
-                    });
-                } else {
-                    throw error;
-                }
-            }
-        });
-
+        // Execute handlers without fallback path.
         if (this.pluginOptions.async) {
-            await Promise.allSettled(promises);
+            await Promise.all(handlersToCall.map(handler => this.executeHandler(handler, event)));
+            return;
+        }
+
+        for (const handler of handlersToCall) {
+            await this.executeHandler(handler, event);
+        }
+    }
+
+    private async executeHandler(handler: IEventEmitterHandlerRegistration, event: IEventEmitterEventData): Promise<void> {
+        try {
+            await handler.listener(event);
+        } catch (error) {
+            this.metrics.incrementErrors();
+            if (this.pluginOptions.catchErrors) {
+                this.logger.error('Event handler error', {
+                    eventType: event.type,
+                    handlerId: handler.id,
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            }
+            throw error instanceof Error ? error : new Error(String(error));
         }
     }
 
     /**
      * Buffer an event
      */
-    private bufferEvent(event: EventData): void {
+    private bufferEvent(event: IEventEmitterEventData): void {
         this.eventBuffer.push(event);
 
         if (this.eventBuffer.length >= this.pluginOptions.buffer.maxSize) {
@@ -588,8 +596,10 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * Get event emitter statistics
      */
-    override getStats(): EventEmitterPluginStats {
-        const listenerCounts: Record<EventType, number> = {} as Record<EventType, number>;
+    override getStats(): IEventEmitterPluginStats {
+        const base = super.getStats();
+        const metrics = this.metrics.getSnapshot();
+        const listenerCounts: Partial<Record<TEventName, number>> = {};
         let totalListeners = 0;
 
         for (const [eventType, handlers] of this.handlers) {
@@ -598,12 +608,13 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
         }
 
         return {
+            ...base,
             eventTypes: Array.from(this.handlers.keys()),
             listenerCounts,
             totalListeners,
             bufferedEvents: this.eventBuffer.length,
-            totalEmitted: 0, // TODO: Track total emitted events
-            totalErrors: 0 // TODO: Track total listener errors
+            totalEmitted: metrics.totalEmitted,
+            totalErrors: metrics.totalErrors
         };
     }
 
@@ -634,7 +645,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * @param options The options to validate.
      * @throws PluginError if options are invalid.
      */
-    private validateOptions(options: EventEmitterPluginOptions): void {
+    private validateOptions(options: IEventEmitterPluginOptions): void {
         if (options.maxListeners !== undefined && options.maxListeners < 0) {
             throw new PluginError(
                 `Invalid maxListeners option: ${options.maxListeners}. Must be a non-negative number.`,

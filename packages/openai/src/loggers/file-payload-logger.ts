@@ -1,7 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { PayloadLogger } from '../interfaces/payload-logger';
-import type { OpenAILogData } from '../types/api-types';
+import type { IPayloadLogger } from '../interfaces/payload-logger';
+import type { IOpenAILogData } from '../types/api-types';
+import type { ILogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
+import { sanitizeOpenAILogData } from './sanitize-openai-log-data';
 
 /**
  * File-based payload logger for Node.js environments
@@ -25,19 +28,22 @@ import type { OpenAILogData } from '../types/api-types';
  * });
  * ```
  */
-export class FilePayloadLogger implements PayloadLogger {
+export class FilePayloadLogger implements IPayloadLogger {
     private readonly enabled: boolean;
     private readonly logDir: string;
     private readonly includeTimestamp: boolean;
+    private readonly logger: ILogger;
 
     constructor(options: {
         logDir: string;
         enabled?: boolean;
         includeTimestamp?: boolean;
+        logger?: ILogger;
     }) {
         this.enabled = options.enabled ?? true;
         this.logDir = options.logDir;
         this.includeTimestamp = options.includeTimestamp ?? true;
+        this.logger = options.logger || SilentLogger;
 
         if (this.enabled) {
             this.ensureLogDirectoryExists();
@@ -56,7 +62,7 @@ export class FilePayloadLogger implements PayloadLogger {
      * @param payload - The API request payload
      * @param type - Type of request ('chat' or 'stream')
      */
-    async logPayload(payload: OpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {
+    async logPayload(payload: IOpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {
         if (!this.enabled) {
             return;
         }
@@ -73,7 +79,7 @@ export class FilePayloadLogger implements PayloadLogger {
                 timestamp: new Date().toISOString(),
                 type,
                 provider: 'openai',
-                payload: this.sanitizePayload(payload)
+                payload: sanitizeOpenAILogData(payload)
             };
 
             await fs.promises.writeFile(
@@ -86,8 +92,9 @@ export class FilePayloadLogger implements PayloadLogger {
         } catch (error) {
             // Don't throw errors - just log them and continue
             // This ensures that API logging failures don't break the main functionality
-            // eslint-disable-next-line no-console
-            console.error('[FilePayloadLogger] Failed to save payload log:', error instanceof Error ? error.message : 'Unknown error');
+            this.logger.error('[FilePayloadLogger] Failed to save payload log:', {
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     }
 
@@ -100,22 +107,10 @@ export class FilePayloadLogger implements PayloadLogger {
                 fs.mkdirSync(this.logDir, { recursive: true });
             }
         } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error('[FilePayloadLogger] Failed to create log directory:', error instanceof Error ? error.message : 'Unknown error');
+            this.logger.error('[FilePayloadLogger] Failed to create log directory:', {
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     }
-
-    /**
-     * Sanitize payload to remove sensitive information
-     * @param payload - Raw payload object
-     * @returns Sanitized payload
-     */
-    private sanitizePayload(payload: OpenAILogData): OpenAILogData {
-        // Create a deep copy to avoid modifying original
-        const sanitized = JSON.parse(JSON.stringify(payload)) as OpenAILogData;
-
-        // Remove or mask sensitive data if needed
-        // For now, we keep everything as OpenAI payloads don't contain API keys
-        return sanitized;
-    }
+    // Sanitization intentionally lives in ./sanitize-openai-log-data.ts (SSOT utility).
 } 

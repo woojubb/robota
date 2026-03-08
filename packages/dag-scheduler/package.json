@@ -1,0 +1,61 @@
+{
+  "name": "@robota-sdk/dag-scheduler",
+  "version": "0.1.0",
+  "description": "Scheduler layer for Robota DAG orchestration",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "module": "dist/node/index.mjs",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --watch",
+    "clean": "rimraf dist",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "robota",
+    "dag",
+    "scheduler",
+    "orchestration",
+    "typescript",
+    "sdk"
+  ],
+  "author": "Robota SDK Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@robota-sdk/dag-worker": "workspace:*",
+    "eslint": "^8.56.0",
+    "rimraf": "^5.0.5",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,12 +1,12 @@
 /**
  * Usage tracking strategy types
  */
-export type UsageTrackingStrategy = 'memory' | 'file' | 'remote' | 'silent';
+export type TUsageTrackingStrategy = 'memory' | 'file' | 'remote' | 'silent';
 
 /**
  * Usage statistics entry
  */
-export interface UsageStats {
+export interface IUsageStats {
     conversationId?: string;
     executionId?: string;
     timestamp: Date;
@@ -32,7 +32,7 @@ export interface UsageStats {
 /**
  * Aggregated usage statistics
  */
-export interface AggregatedUsageStats {
+export interface IAggregatedUsageStats {
     totalRequests: number;
     totalTokens: number;
     totalCost: number;
@@ -62,14 +62,14 @@ export interface AggregatedUsageStats {
     };
 }
 
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Configuration options for usage plugin
  */
-export interface UsagePluginOptions extends BasePluginOptions {
+export interface IUsagePluginOptions extends IPluginOptions {
     /** Usage tracking strategy to use */
-    strategy: UsageTrackingStrategy;
+    strategy: TUsageTrackingStrategy;
     /** File path for file strategy */
     filePath?: string;
     /** Remote endpoint for remote strategy */
@@ -95,10 +95,10 @@ export interface UsagePluginOptions extends BasePluginOptions {
 /**
  * Usage storage interface
  */
-export interface UsageStorage {
-    save(entry: UsageStats): Promise<void>;
-    getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<UsageStats[]>;
-    getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats>;
+export interface IUsageStorage {
+    save(entry: IUsageStats): Promise<void>;
+    getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<IUsageStats[]>;
+    getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats>;
     clear(): Promise<void>;
     flush(): Promise<void>;
     close(): Promise<void>;
@@ -107,7 +107,7 @@ export interface UsageStorage {
 /**
  * Usage plugin statistics
  */
-export interface UsagePluginStats {
+export interface IUsagePluginStats extends IPluginStats {
     /** Total number of usage entries tracked */
     entriesTracked: number;
     /** Total tokens tracked */
@@ -115,7 +115,7 @@ export interface UsagePluginStats {
     /** Total cost tracked */
     totalCost: number;
     /** Current tracking strategy */
-    strategy: UsageTrackingStrategy;
+    strategy: TUsageTrackingStrategy;
     /** Last tracking timestamp */
     lastTrackTime?: Date;
     /** Number of failed tracking attempts */

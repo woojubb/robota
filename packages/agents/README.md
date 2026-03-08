@@ -89,6 +89,9 @@ console.log(response);
 - **Function Tools**: Zod schema-based function tool implementation
 - **OpenAPI/MCP Support**: Basic structure for extensibility
 
+## Recent Updates
+- Tool execution results preserve `executionId` mappings for both success and failure to keep deterministic ordering.
+
 ### 🔌 Plugin System
 Eight core plugins with type-safe configuration and BasePluginOptions integration:
 
@@ -131,9 +134,7 @@ const agent = new Robota({
 ```
 
 #### Plugin Documentation
-- **[Plugin Behaviors](plugin-automatic-behaviors.md)**: Detailed documentation of all automatic behaviors and default policies
-- **[Configuration Examples](plugin-configuration-examples.md)**: Comprehensive examples for each plugin including disable options
-- **[Best Practices](plugin-best-practices.md)**: Guidelines for plugin configuration and performance optimization
+- **[Plugin Guide](./docs/PLUGINS.md)**: Unified plugin behavior and configuration guide
 
 ### 🔒 Type Safety Features
 - **Generic Type Parameters**: `BaseAgent<TConfig, TContext, TMessage>`
@@ -180,7 +181,7 @@ packages/agents/src/
 
 ## Development
 
-See [development.md](development.md) for detailed development guidelines.
+See [Development Guide](./docs/DEVELOPMENT.md) for development guidelines.
 
 ## API Reference
 
@@ -188,7 +189,7 @@ See [api.md](api.md) for complete API documentation.
 
 ## Architecture Guide
 
-See [architecture.md](architecture.md) for detailed architecture information.
+See [Architecture](./docs/ARCHITECTURE.md) for detailed architecture information.
 
 ## Examples
 
@@ -204,7 +205,7 @@ See [architecture.md](architecture.md) for detailed architecture information.
 - **@robota-sdk/openai**: Complete agents standard migration
 - **@robota-sdk/anthropic**: Complete agents standard migration  
 - **@robota-sdk/google**: Complete agents standard migration
-- **@robota-sdk/team**: Full integration with team collaboration features
+- **@robota-sdk/team**: assignTask MCP tool collection (team creation removed)
 
 ### Deprecated Packages
 - **@robota-sdk/core**: Deprecated - functionality moved to agents

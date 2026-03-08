@@ -1,11 +1,11 @@
-import type { FunctionTool as IFunctionTool, ToolResult, ToolExecutionContext, ParameterValidationResult, ToolExecutor, ToolExecutionData, ToolParameters, ToolParameterValue } from '../../interfaces/tool';
-import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
-import { BaseTool } from '../../abstracts/base-tool';
+import type { IFunctionTool, IToolResult, IToolExecutionContext, IParameterValidationResult, TToolExecutor, TToolParameters } from '../../interfaces/tool';
+import type { IToolSchema, IParameterSchema } from '../../interfaces/provider';
+import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
-import { logger } from '../../utils/logger';
+import type { TUniversalValue } from '../../interfaces/types';
 
 // Import from Facade pattern modules for type safety
-import type { ZodSchema } from './function-tool/types';
+import type { IZodSchema } from './function-tool/types';
 import { zodToJsonSchema } from './function-tool/schema-converter';
 
 // Zod type definitions moved to Facade pattern modules
@@ -14,23 +14,24 @@ import { zodToJsonSchema } from './function-tool/schema-converter';
  * Function tool implementation
  * Wraps a JavaScript function as a tool with schema validation
  * 
- * @extends BaseTool<ToolParameters, ToolResult>
+ * @extends AbstractTool<TToolParameters, ToolResult>
  */
-export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implements IFunctionTool {
-    readonly schema: ToolSchema;
-    readonly fn: ToolExecutor;
+export class FunctionTool extends AbstractTool<TToolParameters, IToolResult> implements IFunctionTool {
+    readonly schema: IToolSchema;
+    readonly fn: TToolExecutor;
 
-    constructor(schema: ToolSchema, fn: ToolExecutor) {
-        super();
+    constructor(schema: IToolSchema, fn: TToolExecutor, options: IAbstractToolOptions = {}) {
+        super(options);
         this.schema = schema;
         this.fn = fn;
         this.validateConstructorInputs();
     }
 
     /**
-     * Execute the function tool
+     * Execute the function tool implementation
+     * This method is called by the parent's Template Method Pattern
      */
-    async execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: TToolParameters, context?: IToolExecutionContext): Promise<IToolResult> {
         const toolName = this.schema.name;
 
         try {
@@ -40,7 +41,7 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
                 throw new ValidationError(`Invalid parameters for tool "${toolName}": ${errors.join(', ')}`);
             }
 
-            logger.debug(`Executing function tool "${toolName}"`, {
+            this.logger.debug(`Executing function tool "${toolName}"`, {
                 toolName,
                 parameterCount: Object.keys(parameters || {}).length,
                 hasContext: !!context
@@ -51,7 +52,7 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
             const result = await this.fn(parameters, context);
             const executionTime = Date.now() - startTime;
 
-            logger.debug(`Function tool "${toolName}" executed successfully`, {
+            this.logger.debug(`Function tool "${toolName}" executed successfully`, {
                 toolName,
                 executionTime,
                 resultType: typeof result
@@ -68,14 +69,18 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
             };
 
         } catch (error) {
-            logger.error(`Function tool "${toolName}" execution failed`, {
+            this.logger.error(`Function tool "${toolName}" execution failed`, {
                 toolName,
-                parameterCount: Object.keys(parameters || {}).length,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : String(error),
+                parameters
             });
 
+            if (error instanceof ToolExecutionError || error instanceof ValidationError) {
+                throw error;
+            }
+
             throw new ToolExecutionError(
-                `Function execution failed: ${error instanceof Error ? error.message : String(error)}`,
+                `Function tool execution failed: ${error instanceof Error ? error.message : String(error)}`,
                 toolName,
                 error instanceof Error ? error : new Error(String(error)),
                 {
@@ -89,14 +94,14 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
     /**
      * Enhanced validation with detailed error reporting
      */
-    override validate(parameters: ToolParameters): boolean {
+    override validate(parameters: TToolParameters): boolean {
         return this.getValidationErrors(parameters).length === 0;
     }
 
     /**
      * Validate tool parameters with detailed result
      */
-    override validateParameters(parameters: ToolParameters): ParameterValidationResult {
+    override validateParameters(parameters: TToolParameters): IParameterValidationResult {
         const errors = this.getValidationErrors(parameters);
         return {
             isValid: errors.length === 0,
@@ -107,7 +112,7 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
     /**
      * Get detailed validation errors
      */
-    private getValidationErrors(parameters: ToolParameters): string[] {
+    private getValidationErrors(parameters: TToolParameters): string[] {
         const errors: string[] = [];
         const required = this.schema.parameters.required || [];
         const properties = this.schema.parameters.properties || {};
@@ -139,7 +144,7 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
     /**
      * Validate individual parameter type
      */
-    private validateParameterType(key: string, value: ToolParameterValue, schema: ParameterSchema): string | null {
+    private validateParameterType(key: string, value: TUniversalValue, schema: IParameterSchema): string | null {
         const expectedType = schema['type'];
 
         switch (expectedType) {
@@ -228,10 +233,10 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
 export function createFunctionTool(
     name: string,
     description: string,
-    parameters: ToolSchema['parameters'],
-    fn: ToolExecutor
+    parameters: IToolSchema['parameters'],
+    fn: TToolExecutor
 ): FunctionTool {
-    const schema: ToolSchema = {
+    const schema: IToolSchema = {
         name,
         description,
         parameters
@@ -246,20 +251,21 @@ export function createFunctionTool(
 export function createZodFunctionTool(
     name: string,
     description: string,
-    zodSchema: ZodSchema,
-    fn: ToolExecutor
+    zodSchema: IZodSchema,
+    fn: TToolExecutor,
+    options?: IAbstractToolOptions
 ): FunctionTool {
     // Use comprehensive Zod to JSON schema conversion
     const parameters = zodToJsonSchema(zodSchema);
 
-    const schema: ToolSchema = {
+    const schema: IToolSchema = {
         name,
         description,
         parameters
     };
 
     // Wrap the function with validation and ensure proper parameter handling
-    const wrappedFn: ToolExecutor = async (parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
+    const wrappedFn: TToolExecutor = async (parameters: TToolParameters, context?: IToolExecutionContext): Promise<TUniversalValue> => {
         // Use Zod for runtime validation
         const parseResult = zodSchema.safeParse(parameters);
         if (!parseResult.success) {
@@ -271,7 +277,7 @@ export function createZodFunctionTool(
         return typeof result === 'string' ? result : JSON.stringify(result);
     };
 
-    return new FunctionTool(schema, wrappedFn);
+    return new FunctionTool(schema, wrappedFn, options);
 }
 
 // zodToJsonSchema function moved to Facade pattern schema-converter module 

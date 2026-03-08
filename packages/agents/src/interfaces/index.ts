@@ -3,56 +3,154 @@ export * from './types';
 
 // Re-export specific types to avoid conflicts
 export type {
-    AgentConfig,
-    AgentInterface,
-    AgentTemplate,
-    Message,
-    UserMessage,
-    AssistantMessage,
-    SystemMessage,
-    ToolMessage,
-    ToolCall,
-    RunOptions
+    IAgentConfig,
+    IAgentTemplate,
+    IRunOptions
 } from './agent';
 
+// Message contracts (single source of truth)
 export type {
-    AIProvider,
-    ToolSchema,
-    ParameterSchema,
-    JSONSchemaType,
-    JSONSchemaEnum,
-    ParameterDefaultValue,
-    ChatOptions
+    TUniversalMessage,
+    TUniversalMessageRole,
+    TUniversalMessageMetadata,
+    IBaseMessage,
+    IUserMessage,
+    IAssistantMessage,
+    ISystemMessage,
+    IToolMessage,
+    IToolCall,
+    ITextMessagePart,
+    IInlineImageMessagePart,
+    IUriImageMessagePart,
+    TUniversalMessagePart
+} from './messages';
+
+export type {
+    IAIProvider,
+    IToolSchema,
+    IParameterSchema,
+    TJSONSchemaKind,
+    TJSONSchemaEnum,
+    TParameterDefaultValue,
+    IChatOptions,
+    IProviderOptions,
+    IProviderRequest,
+    IRawProviderResponse,
+    ITokenUsage,
+    IProviderSpecificOptions,
+    TProviderConfigValue,
+    TProviderOptionValueBase
 } from './provider';
 
 export type {
-    AgentCreationMetadata,
-    ConfigValidationResult,
-    AgentFactoryInterface,
-    AIProviderManagerInterface,
-    ToolManagerInterface
+    IMediaOutputRef,
+    IProviderMediaError,
+    TProviderMediaResult,
+    IInlineImageInputSource,
+    IUriImageInputSource,
+    TImageInputSource,
+    IImageGenerationRequest,
+    IImageEditRequest,
+    IImageComposeRequest,
+    IImageGenerationResult,
+    IImageGenerationProvider,
+    IVideoGenerationRequest,
+    IVideoJobAccepted,
+    IVideoJobSnapshot,
+    IVideoGenerationProvider
+} from './media-provider';
+
+export {
+    isImageGenerationProvider,
+    isVideoGenerationProvider
+} from './media-provider';
+
+export type {
+    TAgentCreationMetadata,
+    TManagerToolParameters,
+    IConfigValidationResult,
+    IAgentCreationOptions,
+    IAgentFactory,
+    IAIProviderManager,
+    IToolManager
 } from './manager';
 
 export type {
-    ToolInterface,
-    FunctionTool,
-    ToolRegistryInterface,
-    ToolFactoryInterface,
-    ToolResult,
-    ToolExecutionResult,
-    ToolExecutionContext,
-    ParameterValidationResult,
-    ToolExecutor,
-    OpenAPIToolConfig,
-    MCPToolConfig,
-    ToolMetadata,
-    ToolExecutionData
+    ITool,
+    IFunctionTool,
+    IToolRegistry,
+    IToolFactory,
+    IToolResult,
+    IToolExecutionResult,
+    IToolExecutionContext,
+    IParameterValidationResult,
+    TToolExecutor,
+    IOpenAPIToolConfig,
+    IMCPToolConfig,
+    TToolMetadata,
 } from './tool';
 
 export type {
-    ConversationContextMetadata,
-    ConversationContext,
-    ConversationServiceInterface,
-    ToolExecutionServiceInterface,
-    ExecutionServiceInterface
-} from './service'; 
+    IEventService,
+    IEventContext,
+    IOwnerPathSegment,
+    IBaseEventData,
+    IExecutionEventData,
+    IToolEventData,
+    IAgentEventData,
+    IEventServiceOwnerBinding,
+    TEventListener
+} from './event-service';
+
+// 🆕 Progress reporting interface exports
+export type {
+    IProgressReportingTool,
+    IToolExecutionStep,
+    TToolProgressCallback
+} from './progress-reporting';
+
+export {
+    isProgressReportingTool,
+    getToolEstimatedDuration,
+    getToolExecutionSteps,
+    setToolProgressCallback
+} from './progress-reporting';
+
+export type {
+    TConversationContextMetadata,
+    TToolExecutionParameters,
+    TExecutionMetadata,
+    TResponseMetadata,
+    IToolExecutionRequest,
+    IConversationContext,
+    IConversationResponse,
+    IStreamingChunk,
+    IContextOptions,
+    IExecutionServiceOptions,
+    IConversationServiceOptions,
+    IConversationService,
+    IToolExecutionService,
+    IExecutionService
+} from './service';
+
+export type {
+    IExecutor,
+    IChatExecutionRequest,
+    IStreamExecutionRequest,
+    ILocalExecutorConfig,
+    IRemoteExecutorConfig
+} from './executor'; 
+
+export type {
+    IEventHistoryModule,
+    IEventHistoryRecord,
+    IEventHistorySnapshot
+} from './history-module';
+
+export type {
+    ICacheKey,
+    ICacheEntry,
+    ICacheStorage,
+    ICacheStats,
+    ICacheOptions
+} from './cache';

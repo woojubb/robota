@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { AgentFactory, type AgentFactoryOptions, type AgentLifecycleEvents } from './agent-factory';
-import type { AgentInterface, AgentConfig, AgentTemplate } from '../interfaces/agent';
+import { AgentFactory, type IAgentFactoryOptions, type IAgentLifecycleEvents } from './agent-factory';
+import type { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
 import { ConfigurationError, ValidationError } from '../utils/errors';
-import { Robota } from '../agents/robota';
-import { BaseAIProvider } from '../abstracts/base-ai-provider';
-import type { UniversalMessage } from './conversation-history-manager';
-import type { ChatOptions } from '../interfaces/provider';
+import { Robota } from '../core/robota';
+import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
+import type { TUniversalMessage } from '../interfaces/messages';
+import type { IChatOptions } from '../interfaces/provider';
 
 // Mock AI Provider for testing
-class MockAIProvider extends BaseAIProvider {
+class MockAIProvider extends AbstractAIProvider {
     readonly name = 'mock-provider';
     readonly version = '1.0.0';
 
@@ -16,7 +16,7 @@ class MockAIProvider extends BaseAIProvider {
         super();
     }
 
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response',
@@ -24,7 +24,7 @@ class MockAIProvider extends BaseAIProvider {
         };
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response',
@@ -33,16 +33,16 @@ class MockAIProvider extends BaseAIProvider {
     }
 }
 
-describe.skip('AgentFactory', () => {
+describe('AgentFactory', () => {
     let factory: AgentFactory;
-    const mockLifecycleEvents: AgentLifecycleEvents = {
+    const mockLifecycleEvents: IAgentLifecycleEvents = {
         beforeCreate: vi.fn(),
         afterCreate: vi.fn(),
         onCreateError: vi.fn(),
         onDestroy: vi.fn()
     };
 
-    const mockTemplate: AgentTemplate = {
+    const mockTemplate: IAgentTemplate = {
         id: 'test-template',
         name: 'Test Template',
         description: 'A test template',
@@ -92,7 +92,7 @@ describe.skip('AgentFactory', () => {
     });
 
     describe('Agent Creation', () => {
-        const basicConfig: Partial<AgentConfig> = {
+        const basicConfig: Partial<IAgentConfig> = {
             name: 'TestAgent',
             aiProviders: [new MockAIProvider()],
             defaultModel: {
@@ -119,6 +119,11 @@ describe.skip('AgentFactory', () => {
                     model: 'gpt-4'
                 }
             });
+
+            expect(agent).toBeInstanceOf(Robota);
+            if (!(agent instanceof Robota)) {
+                throw new Error('Expected a Robota instance from createAgent');
+            }
 
             const model = agent.getModel();
             expect(model.model).toBe('gpt-4'); // Default
@@ -172,18 +177,35 @@ describe.skip('AgentFactory', () => {
         it('should create agent from template', async () => {
             const agent = await factory.createFromTemplate(Robota as any, 'test-template');
 
+            expect(agent).toBeInstanceOf(Robota);
+            if (!(agent instanceof Robota)) {
+                throw new Error('Expected a Robota instance from template');
+            }
+
             expect(agent.name).toBe('TemplateAgent');
-            expect(agent.model).toBe('gpt-3.5-turbo');
-            expect(agent.provider).toBe('mock-provider');
+            expect(agent.getModel().model).toBe('gpt-3.5-turbo');
+            expect(agent.getModel().provider).toBe('mock-provider');
         });
 
         it('should apply overrides to template', async () => {
-            const overrides = { name: 'OverriddenAgent', model: 'gpt-4' };
+            const overrides: Partial<IAgentConfig> = {
+                name: 'OverriddenAgent',
+                aiProviders: [new MockAIProvider()],
+                defaultModel: {
+                    provider: 'mock-provider',
+                    model: 'gpt-4'
+                }
+            };
             const agent = await factory.createFromTemplate(Robota as any, 'test-template', overrides);
 
+            expect(agent).toBeInstanceOf(Robota);
+            if (!(agent instanceof Robota)) {
+                throw new Error('Expected a Robota instance from template');
+            }
+
             expect(agent.name).toBe('OverriddenAgent');
-            expect(agent.model).toBe('gpt-4');
-            expect(agent.provider).toBe('mock-provider'); // From template
+            expect(agent.getModel().model).toBe('gpt-4');
+            expect(agent.getModel().provider).toBe('mock-provider');
         });
 
         it('should throw error for non-existent template', async () => {
@@ -280,10 +302,13 @@ describe.skip('AgentFactory', () => {
 
     describe('Configuration Validation', () => {
         it('should provide validation results', () => {
-            const validConfig = {
+            const validConfig: Partial<IAgentConfig> = {
                 name: 'ValidAgent',
-                model: 'gpt-3.5-turbo',
-                provider: 'openai'
+                aiProviders: [new MockAIProvider()],
+                defaultModel: {
+                    provider: 'mock-provider',
+                    model: 'gpt-3.5-turbo'
+                }
             };
 
             const validation = factory.validateConfiguration(validConfig);

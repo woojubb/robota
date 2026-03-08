@@ -11,57 +11,38 @@
  * NOTE: Tool functionality is now integrated into @robota-sdk/agents package
  */
 
-import type { ToolParameters, ToolExecutionContext, ToolExecutionData, ParameterValidationResult } from '../../../interfaces/tool';
-import type { ToolSchema } from '../../../interfaces/provider';
+import type { TToolParameters } from '../../../interfaces/tool';
+import type { TUniversalValue } from '../../../interfaces/types';
 
 /**
  * Zod schema compatibility types
  */
-export interface ZodParseResult {
+export interface IZodParseResult {
     success: boolean;
-    data?: ToolParameters;
+    data?: TToolParameters;
     error?: string | Error;
 }
 
-export interface ZodSchemaDef {
+export interface IZodSchemaDef {
     typeName?: string;
-    innerType?: ZodSchema;
-    checks?: Array<{ kind: string; value?: ToolParameterValue }>;
-    shape?: () => Record<string, ZodSchema>;
-    type?: ZodSchema;
-    values?: ToolParameterValue[];
+    innerType?: IZodSchema;
+    checks?: Array<{ kind: string; value?: TUniversalValue }>;
+    shape?: () => Record<string, IZodSchema>;
+    type?: IZodSchema;
+    values?: TUniversalValue[];
     description?: string;
 }
 
-export interface ZodSchema {
-    parse(value: ToolParameters): ToolParameters;
-    safeParse(value: ToolParameters): ZodParseResult;
-    _def?: ZodSchemaDef;
-}
-
-/**
- * Tool executor function type
- */
-export type ToolExecutor = (
-    parameters: ToolParameters,
-    context?: ToolExecutionContext
-) => Promise<ToolExecutionData>;
-
-/**
- * Function tool interface
- */
-export interface IFunctionTool {
-    readonly schema: ToolSchema;
-    readonly fn: ToolExecutor;
-    execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult>;
-    validate(parameters: ToolParameters): boolean;
-    validateParameters(parameters: ToolParameters): ParameterValidationResult;
+export interface IZodSchema {
+    parse(value: TToolParameters): TToolParameters;
+    safeParse(value: TToolParameters): IZodParseResult;
+    _def?: IZodSchemaDef;
 }
 
 /**
  * Parameter type validation options
  */
-export interface ValidationOptions {
+export interface IFunctionToolValidationOptions {
     strict?: boolean;
     allowUnknown?: boolean;
     validateTypes?: boolean;
@@ -70,7 +51,7 @@ export interface ValidationOptions {
 /**
  * Schema conversion options
  */
-export interface SchemaConversionOptions {
+export interface ISchemaConversionOptions {
     includeDescription?: boolean;
     strictTypes?: boolean;
     allowAdditionalProperties?: boolean;
@@ -79,32 +60,17 @@ export interface SchemaConversionOptions {
 /**
  * Tool execution metadata
  */
-export interface ToolExecutionMetadata {
+export interface IFunctionToolExecutionMetadata {
     executionTime: number;
     toolName: string;
-    parameters: ToolParameters;
+    parameters: TToolParameters;
 }
 
 /**
  * Tool result with metadata
  */
-export interface ToolResult {
+export interface IFunctionToolResult {
     success: boolean;
-    data: ToolExecutionData;
-    metadata?: ToolExecutionMetadata;
+    data: TUniversalValue;
+    metadata?: IFunctionToolExecutionMetadata;
 }
-
-/**
- * Tool parameter value types (for compatibility)
- */
-export type ToolParameterValue =
-    | string
-    | number
-    | boolean
-    | string[]
-    | number[]
-    | boolean[]
-    | Array<string | number | boolean>
-    | Record<string, string | number | boolean>
-    | null
-    | undefined; 

@@ -1,14 +1,15 @@
-import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
-import { Logger, createLogger } from '../../utils/logger';
+import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
+import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
-import type { EventType, EventData } from '../event-emitter-plugin';
+import type { IEventEmitterEventData, TEventName } from '../event-emitter-plugin';
+import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
 import {
-    PerformanceMetrics,
-    AggregatedPerformanceStats,
-    PerformancePluginOptions,
-    PerformancePluginStats,
-    PerformanceStorage,
-    SystemMetricsCollector
+    IPerformanceMetrics,
+    IAggregatedPerformanceStats,
+    IPerformancePluginOptions,
+    IPerformancePluginStats,
+    IPerformanceStorage,
+    ISystemMetricsCollector
 } from './types';
 import { MemoryPerformanceStorage } from './storages/index';
 import { NodeSystemMetricsCollector } from './collectors/system-metrics-collector';
@@ -17,16 +18,16 @@ import { NodeSystemMetricsCollector } from './collectors/system-metrics-collecto
  * Plugin for monitoring performance metrics
  * Collects system and application performance data
  */
-export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, PerformancePluginStats> {
+export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions, IPerformancePluginStats> {
     name = 'PerformancePlugin';
     version = '1.0.0';
 
-    private storage: PerformanceStorage;
-    private metricsCollector: SystemMetricsCollector;
-    private pluginOptions: Required<PerformancePluginOptions>;
-    private logger: Logger;
+    private storage: IPerformanceStorage;
+    private metricsCollector: ISystemMetricsCollector;
+    private pluginOptions: Required<IPerformancePluginOptions>;
+    private logger: ILogger;
 
-    constructor(options: PerformancePluginOptions) {
+    constructor(options: IPerformancePluginOptions) {
         super();
         this.logger = createLogger('PerformancePlugin');
 
@@ -54,7 +55,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
             aggregateStats: options.aggregateStats ?? true,
             aggregationInterval: options.aggregationInterval ?? 60000,
             performanceThreshold: options.performanceThreshold ?? 1000, // 1 second
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.MONITORING,
             priority: options.priority ?? PluginPriority.NORMAL,
             moduleEvents: options.moduleEvents ?? [],
@@ -76,17 +77,17 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
     /**
      * Handle module events for performance monitoring
      */
-    override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
+    override async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
             const moduleData = eventData.data;
 
-            switch (eventType) {
-                case 'module.initialize.start':
+            switch (eventName) {
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START:
                     // Start tracking module initialization performance
                     break;
 
-                case 'module.initialize.complete':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_initialization',
@@ -103,7 +104,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     }
                     break;
 
-                case 'module.initialize.error':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_initialization',
@@ -121,7 +122,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     }
                     break;
 
-                case 'module.execution.complete':
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_execution',
@@ -138,7 +139,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     }
                     break;
 
-                case 'module.execution.error':
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_execution',
@@ -156,7 +157,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     }
                     break;
 
-                case 'module.dispose.complete':
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_disposal',
@@ -173,7 +174,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     }
                     break;
 
-                case 'module.dispose.error':
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR:
                     if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_disposal',
@@ -200,13 +201,13 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
     /**
      * Record performance metrics
      */
-    async recordMetrics(metrics: Omit<PerformanceMetrics, 'timestamp' | 'memoryUsage' | 'cpuUsage' | 'networkStats'>): Promise<void> {
+    async recordMetrics(metrics: Omit<IPerformanceMetrics, 'timestamp' | 'memoryUsage' | 'cpuUsage' | 'networkStats'>): Promise<void> {
         try {
             const memoryUsage = this.pluginOptions.monitorMemory ? await this.metricsCollector.getMemoryUsage() : undefined;
             const cpuUsage = this.pluginOptions.monitorCPU ? await this.metricsCollector.getCPUUsage() : undefined;
             const networkStats = this.pluginOptions.monitorNetwork ? await this.metricsCollector.getNetworkStats() : undefined;
 
-            const entry: PerformanceMetrics = {
+            const entry: IPerformanceMetrics = {
                 ...metrics,
                 timestamp: new Date(),
                 ...(memoryUsage && { memoryUsage }),
@@ -242,7 +243,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
     /**
      * Get performance metrics
      */
-    async getMetrics(operation?: string, timeRange?: { start: Date; end: Date }): Promise<PerformanceMetrics[]> {
+    async getMetrics(operation?: string, timeRange?: { start: Date; end: Date }): Promise<IPerformanceMetrics[]> {
         try {
             return await this.storage.getMetrics(operation, timeRange);
         } catch (error) {
@@ -257,7 +258,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
     /**
      * Get aggregated performance statistics
      */
-    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedPerformanceStats> {
+    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedPerformanceStats> {
         try {
             return await this.storage.getAggregatedStats(timeRange);
         } catch (error) {
@@ -296,7 +297,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
         }
     }
 
-    private validateOptions(options: PerformancePluginOptions): void {
+    private validateOptions(options: IPerformancePluginOptions): void {
         if (!options.strategy) {
             throw new ConfigurationError('Performance monitoring strategy is required');
         }
@@ -309,14 +310,14 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
         }
     }
 
-    private createStorage(): PerformanceStorage {
+    private createStorage(): IPerformanceStorage {
         switch (this.pluginOptions.strategy) {
             case 'memory':
                 return new MemoryPerformanceStorage(this.pluginOptions.maxEntries);
             default:
-                // For now, fallback to memory storage for other strategies
-                this.logger.warn(`Strategy '${this.pluginOptions.strategy}' not fully implemented, using memory storage`);
-                return new MemoryPerformanceStorage(this.pluginOptions.maxEntries);
+                throw new ConfigurationError('Performance monitoring strategy is not implemented', {
+                    provided: this.pluginOptions.strategy
+                });
         }
     }
 } 

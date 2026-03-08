@@ -1,8 +1,8 @@
-// Re-export necessary types from agents
-export type { AgentInterface, AgentConfig, Message, RunOptions } from '@robota-sdk/agents';
+// Re-export necessary types from agents (SSOT)
+export type { IAgent, IAgentConfig, TUniversalMessage, IRunOptions } from '@robota-sdk/agents';
 
 // Import AgentConfig type for local use
-import type { AgentConfig } from '@robota-sdk/agents';
+import type { IAgentConfig } from '@robota-sdk/agents';
 
 export enum SessionState {
     ACTIVE = 'active',
@@ -11,14 +11,14 @@ export enum SessionState {
 }
 
 // Session related types
-export interface SessionConfig {
+export interface ISessionConfig {
     name?: string;
     maxChats?: number;
     userId?: string;
     workspaceId?: string;
 }
 
-export interface SessionInfo {
+export interface ISessionInfo {
     id: string;
     userId: string;
     name: string;
@@ -30,7 +30,7 @@ export interface SessionInfo {
     workspaceId?: string;
 }
 
-export interface ChatInfo {
+export interface IChatInfo {
     id: string;
     sessionId: string;
     name: string;
@@ -42,13 +42,13 @@ export interface ChatInfo {
 }
 
 // Manager configuration - simplified to core features only
-export interface SessionManagerConfig {
+export interface ISessionManagerConfig {
     maxSessions?: number;
     maxChatsPerSession?: number;
 }
 
 // Session creation options
-export interface CreateSessionOptions {
+export interface ICreateSessionOptions {
     name?: string;
     userId?: string;
     workspaceId?: string;
@@ -56,9 +56,9 @@ export interface CreateSessionOptions {
 }
 
 // Chat creation options
-export interface CreateChatOptions {
+export interface ICreateChatOptions {
     name?: string;
-    agentConfig: AgentConfig;
+    agentConfig: IAgentConfig;
     agentTemplate?: string;
     description?: string;
 } 

@@ -1,23 +1,34 @@
-import { BaseManager } from '../abstracts/base-manager';
-import { BasePlugin } from '../abstracts/base-plugin';
-import { Logger, createLogger } from '../utils/logger';
+import { AbstractManager } from '../abstracts/abstract-manager';
+import { AbstractPlugin } from '../abstracts/abstract-plugin';
+import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError, ConfigurationError } from '../utils/errors';
+
+function compareSemver(a: string, b: string): number {
+    const pa = a.split('.').map(Number);
+    const pb = b.split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const na = pa[i] ?? 0;
+        const nb = pb[i] ?? 0;
+        if (na !== nb) return na - nb;
+    }
+    return 0;
+}
 
 /**
  * Plugin lifecycle events
  */
-export interface PluginLifecycleEvents {
-    beforeInitialize?: (plugin: BasePlugin) => Promise<void> | void;
-    afterInitialize?: (plugin: BasePlugin) => Promise<void> | void;
-    beforeDestroy?: (plugin: BasePlugin) => Promise<void> | void;
-    afterDestroy?: (plugin: BasePlugin) => Promise<void> | void;
-    onError?: (plugin: BasePlugin, error: Error) => Promise<void> | void;
+export interface IPluginLifecycleEvents {
+    beforeInitialize?: (plugin: AbstractPlugin) => Promise<void> | void;
+    afterInitialize?: (plugin: AbstractPlugin) => Promise<void> | void;
+    beforeDestroy?: (plugin: AbstractPlugin) => Promise<void> | void;
+    afterDestroy?: (plugin: AbstractPlugin) => Promise<void> | void;
+    onError?: (plugin: AbstractPlugin, error: Error) => Promise<void> | void;
 }
 
 /**
  * Plugin dependency definition
  */
-export interface PluginDependency {
+export interface IPluginDependency {
     name: string;
     required: boolean;
     minVersion?: string;
@@ -26,8 +37,8 @@ export interface PluginDependency {
 /**
  * Plugin registration options
  */
-export interface PluginRegistrationOptions {
-    dependencies?: PluginDependency[];
+export interface IPluginRegistrationOptions {
+    dependencies?: IPluginDependency[];
     priority?: number; // Higher number = higher priority
     autoInitialize?: boolean;
 }
@@ -35,7 +46,7 @@ export interface PluginRegistrationOptions {
 /**
  * Plugin status information
  */
-export interface PluginStatus {
+export interface IPluginStatus {
     name: string;
     version?: string;
     enabled: boolean;
@@ -47,11 +58,11 @@ export interface PluginStatus {
 /**
  * Plugins manager interface
  */
-export interface PluginsManagerInterface {
+export interface IPluginsManager {
     /**
      * Register a plugin with optional configuration
      */
-    register(plugin: BasePlugin, options?: PluginRegistrationOptions): Promise<void>;
+    register(plugin: AbstractPlugin, options?: IPluginRegistrationOptions): Promise<void>;
 
     /**
      * Unregister a plugin by name
@@ -71,12 +82,12 @@ export interface PluginsManagerInterface {
     /**
      * Get plugin by name
      */
-    getPlugin<T extends BasePlugin = BasePlugin>(name: string): T | null;
+    getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | null;
 
     /**
      * Get all registered plugins
      */
-    getPlugins(): BasePlugin[];
+    getPlugins(): AbstractPlugin[];
 
     /**
      * Get plugin names
@@ -91,12 +102,12 @@ export interface PluginsManagerInterface {
     /**
      * Get plugin status
      */
-    getPluginStatus(name: string): PluginStatus | null;
+    getPluginStatus(name: string): IPluginStatus | null;
 
     /**
      * Get all plugin statuses
      */
-    getAllPluginStatuses(): PluginStatus[];
+    getAllPluginStatuses(): IPluginStatus[];
 }
 
 /**
@@ -104,21 +115,21 @@ export interface PluginsManagerInterface {
  * Instance-based for isolation
  * @internal
  */
-export class Plugins extends BaseManager implements PluginsManagerInterface {
-    private plugins = new Map<string, BasePlugin>();
-    private pluginOptions = new Map<string, PluginRegistrationOptions>();
+export class Plugins extends AbstractManager implements IPluginsManager {
+    private plugins = new Map<string, AbstractPlugin>();
+    private pluginOptions = new Map<string, IPluginRegistrationOptions>();
     private initializationOrder: string[] = [];
-    private lifecycleEvents: PluginLifecycleEvents;
-    private logger: Logger;
+    private lifecycleEvents: IPluginLifecycleEvents;
+    private logger: ILogger;
 
-    constructor(lifecycleEvents: PluginLifecycleEvents = {}) {
+    constructor(lifecycleEvents: IPluginLifecycleEvents = {}) {
         super();
         this.lifecycleEvents = lifecycleEvents;
         this.logger = createLogger('Plugins');
     }
 
     /**
-     * Actual initialization logic - required by BaseManager
+     * Actual initialization logic - required by AbstractManager
      */
     protected async doInitialize(): Promise<void> {
         this.logger.debug('Plugins manager initializing');
@@ -126,7 +137,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     }
 
     /**
-     * Actual disposal logic - required by BaseManager
+     * Actual disposal logic - required by AbstractManager
      */
     protected async doDispose(): Promise<void> {
         this.logger.debug('Plugins manager disposing');
@@ -152,7 +163,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     /**
      * Register a plugin with optional configuration
      */
-    async register(plugin: BasePlugin, options: PluginRegistrationOptions = {}): Promise<void> {
+    async register(plugin: AbstractPlugin, options: IPluginRegistrationOptions = {}): Promise<void> {
         const pluginName = plugin.name;
 
         if (this.plugins.has(pluginName)) {
@@ -268,7 +279,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     /**
      * Get plugin by name with type safety
      */
-    getPlugin<T extends BasePlugin = BasePlugin>(name: string): T | null {
+    getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | null {
         const plugin = this.plugins.get(name);
         return plugin ? (plugin as T) : null;
     }
@@ -276,7 +287,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     /**
      * Get all registered plugins
      */
-    getPlugins(): BasePlugin[] {
+    getPlugins(): AbstractPlugin[] {
         return Array.from(this.plugins.values());
     }
 
@@ -297,7 +308,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     /**
      * Get plugin status information
      */
-    getPluginStatus(name: string): PluginStatus | null {
+    getPluginStatus(name: string): IPluginStatus | null {
         const plugin = this.plugins.get(name);
         const options = this.pluginOptions.get(name);
 
@@ -319,10 +330,10 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     /**
      * Get all plugin statuses
      */
-    getAllPluginStatuses(): PluginStatus[] {
+    getAllPluginStatuses(): IPluginStatus[] {
         return Array.from(this.plugins.keys())
             .map(name => this.getPluginStatus(name))
-            .filter((status): status is PluginStatus => status !== null);
+            .filter((status): status is IPluginStatus => status !== null);
     }
 
     // ================================
@@ -371,11 +382,12 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
             });
 
             // Call error lifecycle event
+            const normalizedError = error instanceof Error ? error : new Error(String(error));
             if (this.lifecycleEvents.onError) {
-                await this.lifecycleEvents.onError(plugin, error as Error);
+                await this.lifecycleEvents.onError(plugin, normalizedError);
             }
 
-            throw new PluginError(`Failed to initialize plugin: ${error instanceof Error ? error.message : String(error)}`, pluginName);
+            throw new PluginError(`Failed to initialize plugin: ${normalizedError.message}`, pluginName);
         }
     }
 
@@ -416,29 +428,28 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
             });
 
             // Call error lifecycle event
+            const normalizedError = error instanceof Error ? error : new Error(String(error));
             if (this.lifecycleEvents.onError) {
-                await this.lifecycleEvents.onError(plugin, error as Error);
+                await this.lifecycleEvents.onError(plugin, normalizedError);
             }
 
-            throw new PluginError(`Failed to destroy plugin: ${error instanceof Error ? error.message : String(error)}`, pluginName);
+            throw new PluginError(`Failed to destroy plugin: ${normalizedError.message}`, pluginName);
         }
     }
 
     /**
      * Validate plugin dependencies
      */
-    private async validateDependencies(dependencies: PluginDependency[]): Promise<void> {
+    private async validateDependencies(dependencies: IPluginDependency[]): Promise<void> {
         for (const dep of dependencies) {
             if (dep.required && !this.plugins.has(dep.name)) {
                 throw new ConfigurationError(`Required dependency "${dep.name}" is not registered`);
             }
 
-            // Version checking could be implemented here if needed
             if (dep.minVersion) {
                 const dependencyPlugin = this.plugins.get(dep.name);
                 if (dependencyPlugin && dependencyPlugin.version) {
-                    // Simple version comparison (could be enhanced with semver)
-                    if (dependencyPlugin.version < dep.minVersion) {
+                    if (compareSemver(dependencyPlugin.version, dep.minVersion) < 0) {
                         throw new ConfigurationError(
                             `Dependency "${dep.name}" version ${dependencyPlugin.version} is less than required ${dep.minVersion}`
                         );

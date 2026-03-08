@@ -1,14 +1,16 @@
-import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
-import { Logger, createLogger } from '../../utils/logger';
+import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
+import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
-import type { EventType, EventData } from '../event-emitter-plugin';
-import type { TimerId } from '../../utils';
+import type { IEventEmitterEventData, TEventName } from '../event-emitter-plugin';
+import type { TTimerId } from '../../utils/index';
+import { EVENT_EMITTER_EVENTS } from '../event-emitter/types';
+import { startPeriodicTask } from '../../utils/periodic-task';
 import {
-    UsageStats,
-    AggregatedUsageStats,
-    UsagePluginOptions,
-    UsagePluginStats,
-    UsageStorage
+    IUsageStats,
+    IAggregatedUsageStats,
+    IUsagePluginOptions,
+    IUsagePluginStats,
+    IUsageStorage
 } from './types';
 import {
     MemoryUsageStorage,
@@ -21,16 +23,16 @@ import {
  * Plugin for tracking usage statistics
  * Collects and stores usage data including tokens, costs, performance metrics
  */
-export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats> {
+export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePluginStats> {
     name = 'UsagePlugin';
     version = '1.0.0';
 
-    private storage: UsageStorage;
-    private pluginOptions: Required<Omit<UsagePluginOptions, 'costRates'>> & { costRates?: Record<string, { input: number; output: number }> };
-    private logger: Logger;
-    private aggregationTimer?: TimerId;
+    private storage: IUsageStorage;
+    private pluginOptions: Required<Omit<IUsagePluginOptions, 'costRates'>> & { costRates?: Record<string, { input: number; output: number }> };
+    private logger: ILogger;
+    private aggregationTimer?: TTimerId;
 
-    constructor(options: UsagePluginOptions) {
+    constructor(options: IUsagePluginOptions) {
         super();
         this.logger = createLogger('UsagePlugin');
 
@@ -55,7 +57,7 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
             flushInterval: options.flushInterval ?? 60000, // 1 minute
             aggregateStats: options.aggregateStats ?? true,
             aggregationInterval: options.aggregationInterval ?? 300000, // 5 minutes
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.MONITORING,
             priority: options.priority ?? PluginPriority.NORMAL,
             moduleEvents: options.moduleEvents ?? [],
@@ -80,15 +82,15 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
     /**
      * Handle module events for usage tracking
      */
-    override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
+    override async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
             const moduleData = eventData.data;
 
-            switch (eventType) {
-                case 'module.initialize.complete':
-                case 'module.execution.complete':
-                case 'module.dispose.complete':
+            switch (eventName) {
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE:
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE:
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE:
                     // Track module usage statistics
                     if (moduleData && 'duration' in moduleData && typeof moduleData.duration === 'number') {
                         await this.recordUsage({
@@ -107,16 +109,16 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
                             metadata: {
                                 moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                                 moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                                operation: eventType.includes('initialize') ? 'initialization' :
-                                    eventType.includes('execution') ? 'execution' : 'disposal'
+                                operation: eventName.includes('initialize') ? 'initialization' :
+                                    eventName.includes('execution') ? 'execution' : 'disposal'
                             }
                         });
                     }
                     break;
 
-                case 'module.initialize.error':
-                case 'module.execution.error':
-                case 'module.dispose.error':
+                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR:
+                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR:
+                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR:
                     // Track module error statistics
                     if (moduleData && 'duration' in moduleData && typeof moduleData.duration === 'number') {
                         await this.recordUsage({
@@ -135,8 +137,8 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
                             metadata: {
                                 moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
                                 moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                                operation: eventType.includes('initialize') ? 'initialization' :
-                                    eventType.includes('execution') ? 'execution' : 'disposal',
+                                operation: eventName.includes('initialize') ? 'initialization' :
+                                    eventName.includes('execution') ? 'execution' : 'disposal',
                                 error: eventData.error?.message || 'unknown error'
                             }
                         });
@@ -152,11 +154,11 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
     /**
      * Record usage statistics
      */
-    async recordUsage(usage: Omit<UsageStats, 'timestamp' | 'cost'>): Promise<void> {
+    async recordUsage(usage: Omit<IUsageStats, 'timestamp' | 'cost'>): Promise<void> {
         try {
             const cost = this.pluginOptions.trackCosts ? this.calculateCost(usage.model, usage.tokensUsed) : undefined;
 
-            const entry: UsageStats = {
+            const entry: IUsageStats = {
                 ...usage,
                 timestamp: new Date(),
                 ...(cost && { cost })
@@ -181,7 +183,7 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
     /**
      * Get usage statistics
      */
-    async getUsageStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<UsageStats[]> {
+    async getUsageStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<IUsageStats[]> {
         try {
             return await this.storage.getStats(conversationId, timeRange);
         } catch (error) {
@@ -196,7 +198,7 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
     /**
      * Get aggregated usage statistics
      */
-    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats> {
+    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats> {
         try {
             return await this.storage.getAggregatedStats(timeRange);
         } catch (error) {
@@ -274,7 +276,7 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
     /**
      * Validate plugin options
      */
-    private validateOptions(options: UsagePluginOptions): void {
+    private validateOptions(options: IUsagePluginOptions): void {
         if (!options.strategy) {
             throw new ConfigurationError('Usage tracking strategy is required');
         }
@@ -314,7 +316,7 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
     /**
      * Create storage instance based on strategy
      */
-    private createStorage(): UsageStorage {
+    private createStorage(): IUsageStorage {
         switch (this.pluginOptions.strategy) {
             case 'memory':
                 return new MemoryUsageStorage(this.pluginOptions.maxEntries);
@@ -340,8 +342,10 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
      * Setup periodic aggregation
      */
     private setupAggregation(): void {
-        this.aggregationTimer = setInterval(async () => {
-            try {
+        this.aggregationTimer = startPeriodicTask(
+            this.logger,
+            { name: 'UsagePlugin.aggregate', intervalMs: this.pluginOptions.aggregationInterval },
+            async () => {
                 const stats = await this.getAggregatedStats();
                 this.logger.debug('Periodic usage aggregation', {
                     totalRequests: stats.totalRequests,
@@ -349,11 +353,7 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
                     totalCost: stats.totalCost,
                     successRate: stats.successRate
                 });
-            } catch (error) {
-                this.logger.error('Error during periodic aggregation', {
-                    error: error instanceof Error ? error.message : String(error)
-                });
             }
-        }, this.pluginOptions.aggregationInterval);
+        );
     }
 } 

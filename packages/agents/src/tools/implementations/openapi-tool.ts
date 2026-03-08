@@ -1,33 +1,38 @@
-import type { ToolInterface, ToolResult, ToolExecutionContext, OpenAPIToolConfig, ToolParameters, ToolParameterValue } from '../../interfaces/tool';
-import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
+import type { ITool, IToolResult, IToolExecutionContext, IOpenAPIToolConfig, TToolParameters } from '../../interfaces/tool';
+import type { IToolSchema, IParameterSchema } from '../../interfaces/provider';
 import type { OpenAPIV3 } from 'openapi-types';
-import { BaseTool } from '../../abstracts/base-tool';
-import { ToolExecutionError } from '../../utils/errors';
-import { logger } from '../../utils/logger';
+import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstract-tool';
+import { ToolExecutionError, ValidationError } from '../../utils/errors';
 
 /**
  * OpenAPI operation method types
  */
-type HTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options';
-
-
-
+type THTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options';
 /**
  * OpenAPI tool implementation
  * Executes API calls based on OpenAPI 3.0 specifications
  * 
- * @extends BaseTool<ToolParameters, ToolResult>
+ * @extends AbstractTool<ToolParameters, ToolResult>
  */
-export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements ToolInterface {
-    readonly schema: ToolSchema;
+export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> implements ITool {
+    readonly schema: IToolSchema;
     private readonly apiSpec: OpenAPIV3.Document;
     private readonly operationId: string;
     private readonly baseURL: string;
-    private readonly config: OpenAPIToolConfig;
+    private readonly config: IOpenAPIToolConfig;
 
-    constructor(config: OpenAPIToolConfig) {
-        super();
+    constructor(config: IOpenAPIToolConfig, options: IAbstractToolOptions = {}) {
+        super(options);
         this.config = config;
+        // Runtime validation of required OpenAPI 3.x fields before cast
+        if (
+            typeof config.spec !== 'object' ||
+            config.spec === null ||
+            typeof config.spec.openapi !== 'string' ||
+            typeof config.spec.paths !== 'object'
+        ) {
+            throw new Error('Invalid OpenAPI spec: must contain "openapi" (string) and "paths" (object) fields');
+        }
         this.apiSpec = config.spec as OpenAPIV3.Document;
         this.operationId = config.operationId;
         this.baseURL = config.baseURL;
@@ -35,80 +40,99 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
     }
 
     /**
-     * Execute the OpenAPI operation
+     * Execute the OpenAPI tool implementation
+     * This method is called by the parent's Template Method Pattern
      */
-    async execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: TToolParameters, context?: IToolExecutionContext): Promise<IToolResult> {
         const toolName = this.schema.name;
 
         try {
-            logger.debug(`Executing OpenAPI tool "${toolName}"`, {
-                toolName,
-                parametersCount: Object.keys(parameters || {}).length,
-                baseURL: this.baseURL,
-                operationId: this.operationId
-            });
-
-            // Find the operation in the OpenAPI spec
-            const operation = this.findOperation();
-            if (!operation) {
-                throw new Error(`Operation ${this.operationId} not found in OpenAPI spec`);
+            // Validate parameters
+            const validation = this.validateParameters(parameters);
+            if (!validation.isValid) {
+                throw new ValidationError(`Invalid parameters for OpenAPI tool "${toolName}": ${validation.errors.join(', ')}`);
             }
 
-            // Build the HTTP request
-            const requestConfig = this.buildRequestConfig(operation, parameters);
-
-            // TODO: Implement actual HTTP request execution
-            // This would typically use fetch() or axios
-            const result = {
-                message: `OpenAPI tool "${toolName}" executed`,
+            this.logger.debug(`Executing OpenAPI tool "${toolName}"`, {
+                toolName,
                 operationId: this.operationId,
-                method: requestConfig.method,
-                url: requestConfig.url,
-                parameters,
-                timestamp: new Date().toISOString()
-            };
+                baseURL: this.baseURL,
+                parametersCount: Object.keys(parameters).length
+            });
+
+            // Execute the API call
+            const startTime = Date.now();
+            const result = await this.executeAPICall(parameters, context);
+            const executionTime = Date.now() - startTime;
+
+            this.logger.debug(`OpenAPI tool "${toolName}" executed successfully`, {
+                toolName,
+                executionTime,
+                resultType: typeof result
+            });
 
             return {
                 success: true,
                 data: result,
                 metadata: {
+                    executionTime,
                     toolName,
-                    toolType: 'openapi',
                     operationId: this.operationId,
-                    baseURL: this.baseURL,
-                    method: requestConfig.method
+                    baseURL: this.baseURL
                 }
             };
 
         } catch (error) {
-            logger.error(`OpenAPI tool "${toolName}" execution failed`, {
+            const safeError = error instanceof Error ? error : new Error(String(error));
+            this.logger.error(`OpenAPI tool "${toolName}" execution failed`, {
                 toolName,
                 operationId: this.operationId,
-                error: error instanceof Error ? error.message : String(error)
+                error: safeError,
+                parameters
             });
 
+            if (error instanceof ToolExecutionError || error instanceof ValidationError) {
+                throw error;
+            }
+
             throw new ToolExecutionError(
-                `OpenAPI execution failed: ${error instanceof Error ? error.message : String(error)}`,
+                `OpenAPI tool execution failed: ${safeError.message}`,
                 toolName,
-                error instanceof Error ? error : new Error(String(error)),
+                safeError,
                 {
-                    parametersCount: Object.keys(parameters || {}).length,
-                    hasContext: !!context,
                     operationId: this.operationId,
-                    baseURL: this.baseURL
+                    baseURL: this.baseURL,
+                    parametersCount: Object.keys(parameters).length
                 }
             );
         }
     }
 
     /**
+     * Execute the actual API call
+     * @private
+     */
+    private async executeAPICall(parameters: TToolParameters, _context?: IToolExecutionContext) {
+        // Find the operation in the OpenAPI spec
+        const operation = this.findOperation();
+        if (!operation) {
+            throw new Error(`Operation ${this.operationId} not found in OpenAPI spec`);
+        }
+
+        // Build the HTTP request
+        const requestConfig = this.buildRequestConfig(operation, parameters);
+
+        throw new Error('Not implemented: actual API execution is not yet available');
+    }
+
+    /**
      * Find the operation in the OpenAPI specification
      */
-    private findOperation(): { method: HTTPMethod; path: string; operation: OpenAPIV3.OperationObject } | null {
+    private findOperation(): { method: THTTPMethod; path: string; operation: OpenAPIV3.OperationObject } | null {
         for (const [path, pathItem] of Object.entries(this.apiSpec.paths || {})) {
             if (!pathItem) continue;
 
-            for (const method of ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'] as HTTPMethod[]) {
+            for (const method of ['get', 'post', 'put', 'delete', 'patch', 'head', 'options'] as THTTPMethod[]) {
                 const operation = pathItem[method];
                 if (operation?.operationId === this.operationId) {
                     return { method, path, operation };
@@ -122,9 +146,9 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
      * Build HTTP request configuration from OpenAPI operation and parameters
      */
     private buildRequestConfig(
-        opInfo: { method: HTTPMethod; path: string; operation: OpenAPIV3.OperationObject },
-        parameters: ToolParameters
-    ): { method: HTTPMethod; url: string; headers: Record<string, string>; body?: string } {
+        opInfo: { method: THTTPMethod; path: string; operation: OpenAPIV3.OperationObject },
+        parameters: TToolParameters
+    ): { method: THTTPMethod; url: string; headers: Record<string, string>; body?: string } {
         const { method, path, operation } = opInfo;
 
         let url = this.baseURL + path;
@@ -143,7 +167,7 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
             if (value !== undefined) {
                 switch (param.in) {
                     case 'path':
-                        url = url.replace(`{${param.name}}`, String(value));
+                        url = url.replace(`{${param.name}}`, encodeURIComponent(String(value)));
                         break;
                     case 'query': {
                         const separator = url.includes('?') ? '&' : '?';
@@ -164,7 +188,7 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
             if (jsonContent) {
                 headers['Content-Type'] = 'application/json';
                 // Extract body parameters (those not in path/query/header)
-                const bodyParams: Record<string, ToolParameterValue> = {};
+                const bodyParams: TToolParameters = {};
                 for (const [key, value] of Object.entries(parameters)) {
                     const isParamUsed = params.some(p => p.name === key);
                     if (!isParamUsed) {
@@ -189,7 +213,7 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
             }
         }
 
-        const result: { method: HTTPMethod; url: string; headers: Record<string, string>; body?: string } = {
+        const result: { method: THTTPMethod; url: string; headers: Record<string, string>; body?: string } = {
             method,
             url,
             headers
@@ -205,23 +229,17 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
     /**
      * Create tool schema from OpenAPI operation specification
      */
-    private createSchemaFromOpenAPI(): ToolSchema {
+    private createSchemaFromOpenAPI(): IToolSchema {
         const operation = this.findOperation();
         if (!operation) {
-            // Fallback schema if operation not found
-            return {
-                name: this.operationId,
-                description: `OpenAPI operation: ${this.operationId}`,
-                parameters: {
-                    type: 'object',
-                    properties: {},
-                    required: []
-                }
-            };
+            throw new Error(
+                `[STRICT-POLICY][EMITTER-CONTRACT] OpenAPI operation not found: ${this.operationId}. ` +
+                `Emitter contract must provide a valid operationId present in the OpenAPI document.`
+            );
         }
 
         const { operation: opSpec } = operation;
-        const properties: Record<string, ParameterSchema> = {};
+        const properties: Record<string, IParameterSchema> = {};
         const required: string[] = [];
 
         // Convert OpenAPI parameters to tool schema
@@ -242,7 +260,7 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
                 if (bodySchema.type === 'object' && bodySchema.properties) {
                     Object.assign(properties, bodySchema.properties);
                     // Handle required properties for object schemas
-                    const schemaWithRequired = bodySchema as ParameterSchema & { required?: string[] };
+                    const schemaWithRequired = bodySchema as IParameterSchema & { required?: string[] };
                     if (schemaWithRequired.required) {
                         required.push(...schemaWithRequired.required);
                     }
@@ -250,7 +268,7 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
             }
         }
 
-        const schemaParams: { type: 'object'; properties: Record<string, ParameterSchema>; required?: string[] } = {
+        const schemaParams: { type: 'object'; properties: Record<string, IParameterSchema>; required?: string[] } = {
             type: 'object',
             properties
         };
@@ -269,7 +287,7 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
     /**
      * Convert OpenAPI parameter to tool parameter schema
      */
-    private convertOpenAPIParamToSchema(param: OpenAPIV3.ParameterObject): ParameterSchema {
+    private convertOpenAPIParamToSchema(param: OpenAPIV3.ParameterObject): IParameterSchema {
         const schema = param.schema as OpenAPIV3.SchemaObject;
         return this.convertOpenAPISchemaToParameterSchema(schema);
     }
@@ -277,14 +295,14 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
     /**
      * Convert OpenAPI schema to parameter schema
      */
-    private convertOpenAPISchemaToParameterSchema(schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject): ParameterSchema {
+    private convertOpenAPISchemaToParameterSchema(schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject): IParameterSchema {
         // Handle reference objects
         if ('$ref' in schema) {
             // For now, treat references as generic objects
             return { type: 'object' };
         }
 
-        const result: ParameterSchema = {
+        const result: IParameterSchema = {
             type: this.mapOpenAPIType(schema.type)
         };
 
@@ -339,7 +357,7 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
     /**
      * Map OpenAPI type to JSON schema type
      */
-    private mapOpenAPIType(type: string | undefined): ParameterSchema['type'] {
+    private mapOpenAPIType(type: string | undefined): IParameterSchema['type'] {
         switch (type) {
             case 'string': return 'string';
             case 'number': return 'number';
@@ -355,6 +373,6 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
 /**
  * Factory function to create OpenAPI tools from specification
  */
-export function createOpenAPITool(config: OpenAPIToolConfig): OpenAPITool {
+export function createOpenAPITool(config: IOpenAPIToolConfig): OpenAPITool {
     return new OpenAPITool(config);
 } 

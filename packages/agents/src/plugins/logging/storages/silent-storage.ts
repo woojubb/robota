@@ -1,10 +1,10 @@
-import { LogEntry, LogStorage } from '../types';
+import type { ILogEntry, ILogStorage } from '../types';
 
 /**
  * Silent log storage (no-op)
  */
-export class SilentLogStorage implements LogStorage {
-    async write(_entry: LogEntry): Promise<void> {
+export class SilentLogStorage implements ILogStorage {
+    async write(_entry: ILogEntry): Promise<void> {
         // Silent mode - do nothing
     }
 

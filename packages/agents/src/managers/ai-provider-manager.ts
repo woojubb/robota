@@ -1,6 +1,6 @@
-import type { AIProviderManagerInterface } from '../interfaces/manager';
-import type { AIProvider } from '../interfaces/provider';
-import { BaseManager } from '../abstracts/base-manager';
+import type { IAIProviderManager } from '../interfaces/manager';
+import type { IAIProvider } from '../interfaces/provider';
+import { AbstractManager } from '../abstracts/abstract-manager';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { Validator } from '../utils/validation';
 import { logger } from '../utils/logger';
@@ -11,8 +11,8 @@ import { logger } from '../utils/logger';
  * Instance-based for isolated provider management
  * @internal
  */
-export class AIProviders extends BaseManager implements AIProviderManagerInterface {
-    private providers = new Map<string, AIProvider>();
+export class AIProviders extends AbstractManager implements IAIProviderManager {
+    private providers = new Map<string, IAIProvider>();
     private currentProvider: string | undefined;
     private currentModel: string | undefined;
 
@@ -55,7 +55,7 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
     /**
      * Register an AI provider
      */
-    addProvider(name: string, provider: AIProvider): void {
+    addProvider(name: string, provider: IAIProvider): void {
         this.ensureInitialized();
 
         // Validate provider name
@@ -92,11 +92,6 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
             supportsStreaming: typeof provider.chatStream === 'function'
         });
 
-        if (this.getCurrentProvider()?.provider === name) {
-            logger.debug(`Cleared current provider selection after removing "${name}"`);
-        }
-
-        logger.debug(`AI provider "${name}" removed successfully`);
     }
 
     /**
@@ -135,7 +130,7 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
     /**
      * Get registered provider by name
      */
-    getProvider(name: string): AIProvider | undefined {
+    getProvider(name: string): IAIProvider | undefined {
         this.ensureInitialized();
         return this.providers.get(name);
     }
@@ -143,7 +138,7 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
     /**
      * Get all registered providers
      */
-    getProviders(): Record<string, AIProvider> {
+    getProviders(): Record<string, IAIProvider> {
         this.ensureInitialized();
         return Object.fromEntries(this.providers);
     }
@@ -213,7 +208,7 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
     /**
      * Get current provider instance
      */
-    getCurrentProviderInstance(): AIProvider | undefined {
+    getCurrentProviderInstance(): IAIProvider | undefined {
         if (!this.isConfigured() || !this.currentProvider) {
             return undefined;
         }
@@ -232,11 +227,11 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
     /**
      * Get providers by pattern
      */
-    getProvidersByPattern(pattern: string | RegExp): Record<string, AIProvider> {
+    getProvidersByPattern(pattern: string | RegExp): Record<string, IAIProvider> {
         this.ensureInitialized();
 
         const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
-        const result: Record<string, AIProvider> = {};
+        const result: Record<string, IAIProvider> = {};
 
         for (const [name, provider] of this.providers) {
             if (regex.test(name)) {

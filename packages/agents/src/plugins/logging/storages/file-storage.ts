@@ -1,23 +1,23 @@
-import { LogEntry, LogStorage, LogFormatter } from '../types';
+import type { ILogEntry, ILogStorage, ILogFormatter } from '../types';
 import { JsonLogFormatter } from '../formatters';
-import { Logger, createLogger } from '../../../utils/logger';
+import { createLogger, type ILogger } from '../../../utils/logger';
 import { PluginError } from '../../../utils/errors';
 
 /**
  * File log storage (placeholder implementation)
  */
-export class FileLogStorage implements LogStorage {
+export class FileLogStorage implements ILogStorage {
     private filePath: string;
-    private formatter: LogFormatter;
-    private logger: Logger;
+    private formatter: ILogFormatter;
+    private logger: ILogger;
 
-    constructor(filePath: string, formatter?: LogFormatter) {
+    constructor(filePath: string, formatter?: ILogFormatter) {
         this.filePath = filePath;
         this.formatter = formatter || new JsonLogFormatter();
         this.logger = createLogger('FileLogStorage');
     }
 
-    async write(entry: LogEntry): Promise<void> {
+    async write(entry: ILogEntry): Promise<void> {
         try {
             // File writing would be implemented here
             // This is a placeholder for actual file system operations

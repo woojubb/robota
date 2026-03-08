@@ -1,6 +1,22 @@
 import type { NextConfig } from "next";
 
+// Bundle analyzer
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 const nextConfig: NextConfig = {
+  // ESLint configuration
+  eslint: {
+    // Do not run ESLint during builds. Lint is enforced separately (CI/PR),
+    // while build remains focused on compilation/type correctness.
+    ignoreDuringBuilds: true,
+  },
+  // TypeScript configuration
+  // Do not ignore type errors during builds. Builds must fail on type errors.
+  typescript: {
+    ignoreBuildErrors: false,
+  },
   // Image optimization configuration
   images: {
     // Enable image optimization
@@ -50,9 +66,12 @@ const nextConfig: NextConfig = {
 
   // Compiler optimizations
   compiler: {
-    // Remove console.log in production
-    removeConsole: process.env.NODE_ENV === 'production',
+    // Keep console.log for debugging (temporarily disabled)
+    removeConsole: false,
   },
+
+  // Remove complex webpack configuration
+  // Next.js should handle server/client separation automatically
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

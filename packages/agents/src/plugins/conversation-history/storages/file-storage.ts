@@ -1,20 +1,20 @@
-import { HistoryStorage, ConversationHistoryEntry } from '../types';
-import { Logger, createLogger } from '../../../utils/logger';
+import type { IHistoryStorage, IConversationHistoryEntry } from '../types';
+import { createLogger, type ILogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
 
 /**
  * File storage implementation
  */
-export class FileHistoryStorage implements HistoryStorage {
+export class FileHistoryStorage implements IHistoryStorage {
     private filePath: string;
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor(filePath: string) {
         this.filePath = filePath;
         this.logger = createLogger('FileHistoryStorage');
     }
 
-    async save(conversationId: string, _entry: ConversationHistoryEntry): Promise<void> {
+    async save(conversationId: string, _entry: IConversationHistoryEntry): Promise<void> {
         try {
             // File operations would be implemented here
             // This is a placeholder for actual file system operations
@@ -31,7 +31,7 @@ export class FileHistoryStorage implements HistoryStorage {
         }
     }
 
-    async load(conversationId: string): Promise<ConversationHistoryEntry | undefined> {
+    async load(conversationId: string): Promise<IConversationHistoryEntry | undefined> {
         try {
             // File operations would be implemented here
             this.logger.warn('File storage not fully implemented yet', {

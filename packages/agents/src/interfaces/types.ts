@@ -1,78 +1,85 @@
 /**
- * Centralized type definitions for agents library
- * Provides consistent, well-defined types to eliminate any/unknown usage
+ * Agent-specific type definitions
+ * Local types for agent functionality - not forced to use base types unless needed for cross-connections
  */
+
+import type { TUniversalMessage } from './messages';
 
 /**
  * Primitive value types - foundation for all other types
+ * Extended to include null/undefined for agent contexts
  */
-export type PrimitiveValue = string | number | boolean | null | undefined;
+export type TPrimitiveValue = string | number | boolean | null | undefined;
 
 /**
- * Array value types - well-defined array structures (includes object arrays for complex data)
+ * Universal value type axis (recursive, JSON-like + Date).
+ *
+ * IMPORTANT:
+ * - This axis is the single source of truth for payload/context/result values.
+ * - It must support nested objects/arrays without `any`/`unknown`.
  */
-export type ArrayValue = string[] | number[] | boolean[] | Array<PrimitiveValue> | Array<ObjectValue>;
+export type TUniversalValue =
+    | TPrimitiveValue
+    | Date
+    | TUniversalArrayValue
+    | IUniversalObjectValue;
+
+export type TUniversalArrayValue = TUniversalValue[];
+
+export interface IUniversalObjectValue {
+    [key: string]: TUniversalValue;
+}
 
 /**
- * Object value types - structured object definitions (includes Date for compatibility)
+ * Metadata type - consistent across agent components
  */
-export type ObjectValue = Record<string, PrimitiveValue | ArrayValue | Date>;
-
-/**
- * Universal value type - covers all valid data types
- */
-export type UniversalValue = PrimitiveValue | ArrayValue | ObjectValue;
-
-/**
- * Metadata type - consistent across all components (includes Date for compatibility)
- */
-export type MetadataValue = PrimitiveValue | ArrayValue | Date;
-export type Metadata = Record<string, MetadataValue>;
+export type TMetadataValue = TPrimitiveValue | TUniversalArrayValue | Date;
+export type TMetadata = Record<string, TMetadataValue>;
 
 /**
  * Context data type - for execution contexts
  */
-export type ContextData = Record<string, UniversalValue>;
+export type TContextData = Record<string, TUniversalValue>;
 
 /**
- * Logger data type - for logging contexts (includes Date for timestamps)
+ * Logger data type - for logging contexts
  */
-export type LoggerData = Record<string, UniversalValue | Date | Error>;
+export type TLoggerData = Record<string, TUniversalValue | Date | Error>;
 
 /**
- * Configuration value type - supports complex objects like tools, plugins, and nested configurations
+ * Configuration types - for agent configuration
  */
-export type ComplexConfigValue = Record<string, PrimitiveValue | ArrayValue | ObjectValue>;
-export type ConfigValue = PrimitiveValue | ArrayValue | ObjectValue | Array<ComplexConfigValue> | Array<Record<string, PrimitiveValue | ArrayValue | ObjectValue>> | Array<ComplexConfigValue> | ComplexConfigValue;
-export type ConfigData = Record<string, ConfigValue>;
+export type TComplexConfigValue = Record<string, TPrimitiveValue | TUniversalArrayValue | IUniversalObjectValue>;
+export type TConfigValue = TPrimitiveValue | TUniversalArrayValue | IUniversalObjectValue | Array<TComplexConfigValue> | Array<Record<string, TPrimitiveValue | TUniversalArrayValue | IUniversalObjectValue>> | Array<TComplexConfigValue> | TComplexConfigValue;
+export type TConfigData = Record<string, TConfigValue>;
 
 /**
  * Tool parameter value type - specific for tool parameters
  */
-export type ToolParameterValue = PrimitiveValue | ArrayValue | ObjectValue;
-export type ToolParameters = Record<string, ToolParameterValue>;
+export type TToolParameters = Record<string, TUniversalValue>;
 
 /**
  * Tool result data type - for tool execution results
  */
-export type ToolResultData = UniversalValue;
+// NOTE:
+// Tool result values are represented by the canonical TUniversalValue axis.
 
-/**
- * Provider configuration value type - for AI provider configs
- * Note: ProviderConfig is defined in agent.ts to avoid export conflicts
- */
-export type ProviderConfigValue = PrimitiveValue | ArrayValue | ObjectValue;
+// NOTE:
+// Provider config value types are owned by the provider axis (`interfaces/provider.ts`).
+// Avoid defining provider config interfaces in this value axis module.
+// Do not introduce duplicate provider config value types here.
 
 /**
  * Plugin context type - for plugin execution contexts
  */
-export interface PluginContext {
+export interface IPluginContext {
     input?: string;
     response?: string;
-    messages?: Array<Record<string, UniversalValue>>;
-    metadata?: Metadata;
+    messages?: TUniversalMessage[];
+    responseMessage?: TUniversalMessage;
+    metadata?: TMetadata;
     error?: Error;
-    executionContext?: ContextData;
+    executionContext?: TContextData;
 }
 
 /**
@@ -80,7 +87,7 @@ export interface PluginContext {
  * @internal
  */
 export const TypeUtils = {
-    isPrimitive: (value: UniversalValue | Date | Record<string, UniversalValue>): value is PrimitiveValue => {
+    isPrimitive: (value: TUniversalValue): value is TPrimitiveValue => {
         return value === null ||
             value === undefined ||
             typeof value === 'string' ||
@@ -88,23 +95,20 @@ export const TypeUtils = {
             typeof value === 'boolean';
     },
 
-    isArray: (value: UniversalValue | Date | Record<string, UniversalValue>): value is ArrayValue => {
-        return Array.isArray(value) &&
-            value.every(item => TypeUtils.isPrimitive(item) || TypeUtils.isObject(item));
+    isArray: (value: TUniversalValue): value is TUniversalArrayValue => {
+        return Array.isArray(value) && value.every(item => TypeUtils.isUniversalValue(item));
     },
 
-    isObject: (value: UniversalValue | Date | Record<string, UniversalValue>): value is ObjectValue => {
+    isObject: (value: TUniversalValue): value is IUniversalObjectValue => {
         return typeof value === 'object' &&
             value !== null &&
             !Array.isArray(value) &&
-            Object.values(value).every(val =>
-                TypeUtils.isPrimitive(val) || TypeUtils.isArray(val) || val instanceof Date
-            );
+            !(value instanceof Date) &&
+            Object.values(value).every(val => TypeUtils.isUniversalValue(val));
     },
 
-    isUniversalValue: (value: UniversalValue | Date | Record<string, UniversalValue>): value is UniversalValue => {
-        return TypeUtils.isPrimitive(value) ||
-            TypeUtils.isArray(value) ||
-            TypeUtils.isObject(value);
+    isUniversalValue: (value: TUniversalValue): value is TUniversalValue => {
+        if (value instanceof Date) return true;
+        return TypeUtils.isPrimitive(value) || TypeUtils.isArray(value) || TypeUtils.isObject(value);
     }
 }; 

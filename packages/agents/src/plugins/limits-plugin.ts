@@ -1,16 +1,23 @@
-import { BasePlugin, BaseExecutionContext, BaseExecutionResult, PluginCategory, PluginPriority } from '../abstracts/base-plugin';
-import { Logger, createLogger } from '../utils/logger';
+import {
+    AbstractPlugin,
+    type IPluginExecutionContext,
+    type IPluginExecutionResult,
+    PluginCategory,
+    PluginPriority
+} from '../abstracts/abstract-plugin';
+import { createLogger, type ILogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 import type {
-    LimitsStrategy,
-    LimitsPluginOptions,
-    PluginLimitsStatusData,
-    LimitWindow,
-    TokenBucket
+    TLimitsStrategy,
+    ILimitsPluginOptions,
+    TPluginLimitsStatusData,
+    ILimitWindow,
+    ITokenBucket
 } from './limits/types';
+import type { TUniversalMessage } from '../interfaces/messages';
 
 // Re-export types for external use
-export type { LimitsStrategy, LimitsPluginOptions, PluginLimitsStatusData };
+export type { TLimitsStrategy, ILimitsPluginOptions, TPluginLimitsStatusData };
 
 /**
  * Reusable type definitions for limits plugin
@@ -19,9 +26,9 @@ export type { LimitsStrategy, LimitsPluginOptions, PluginLimitsStatusData };
 /**
  * Plugin execution context type
  * Used for processing execution context in limits plugin
- * Extends BaseExecutionContext for compatibility
+ * Extends IPluginExecutionContext for compatibility
  */
-export interface PluginExecutionContext extends BaseExecutionContext {
+export interface ILimitsPluginExecutionContext extends IPluginExecutionContext {
     config?: {
         model?: string;
         maxTokens?: number;
@@ -34,7 +41,7 @@ export interface PluginExecutionContext extends BaseExecutionContext {
  * Plugin execution result type
  * Used for processing execution results in limits plugin
  */
-export type PluginExecutionResult = {
+export type TLimitsPluginExecutionResult = {
     tokensUsed?: number;
     cost?: number;
     success?: boolean;
@@ -45,17 +52,17 @@ export type PluginExecutionResult = {
  * Plugin for rate limiting and resource control
  * Enforces limits on token usage, request frequency, and costs
  */
-export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsStatusData> {
+export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     name = 'LimitsPlugin';
     version = '1.0.0';
 
-    private pluginOptions: Required<LimitsPluginOptions>;
-    private logger: Logger;
-    private windows = new Map<string, LimitWindow>();
-    private buckets = new Map<string, TokenBucket>();
-    private requestCounts = new Map<string, number>();
+    private pluginOptions: Required<ILimitsPluginOptions>;
+    private logger: ILogger;
+    private windows = new Map<string, ILimitWindow>();
+    private buckets = new Map<string, ITokenBucket>();
 
-    constructor(options: LimitsPluginOptions) {
+
+    constructor(options: ILimitsPluginOptions) {
         super();
         this.logger = createLogger('LimitsPlugin');
 
@@ -74,7 +81,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
             refillRate: options.refillRate ?? 100, // tokens per second
             bucketSize: options.bucketSize ?? 10000,
             costCalculator: options.costCalculator ?? this.defaultCostCalculator.bind(this),
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.LIMITS,
             priority: options.priority ?? PluginPriority.NORMAL,
             moduleEvents: options.moduleEvents ?? [],
@@ -92,7 +99,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
     /**
      * Check limits before execution
      */
-    override async beforeExecution(context: BaseExecutionContext): Promise<void> {
+    override async beforeExecution(context: IPluginExecutionContext): Promise<void> {
         if (this.pluginOptions.strategy === 'none') {
             return;
         }
@@ -130,14 +137,14 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
     /**
      * Update limits after execution
      */
-    override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
+    override async afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         if (this.pluginOptions.strategy === 'none') {
             return;
         }
 
         const key = this.getKey(context);
         const tokensUsed = result?.tokensUsed || 0;
-        const cost = this.pluginOptions.costCalculator(tokensUsed, (context.config?.['model'] as string) || 'unknown');
+        const cost = this.pluginOptions.costCalculator(tokensUsed, this.resolveModelName(context));
 
         try {
             switch (this.pluginOptions.strategy) {
@@ -169,7 +176,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
     /**
      * Token bucket rate limiting
      */
-    private async checkTokenBucket(key: string, context: PluginExecutionContext): Promise<void> {
+    private async checkTokenBucket(key: string, context: ILimitsPluginExecutionContext): Promise<void> {
         const bucket = this.getBucket(key);
         const now = Date.now();
 
@@ -204,7 +211,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
             );
         }
 
-        const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, context.config?.model || 'unknown');
+        const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, this.resolveModelName(context));
         if (bucket.cost + estimatedCost > this.pluginOptions.maxCost) {
             throw new PluginError(
                 `Cost limit exceeded. Current: $${bucket.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.pluginOptions.maxCost}`,
@@ -221,7 +228,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
     /**
      * Sliding window rate limiting
      */
-    private async checkSlidingWindow(key: string, context: PluginExecutionContext): Promise<void> {
+    private async checkSlidingWindow(key: string, context: ILimitsPluginExecutionContext): Promise<void> {
         const now = Date.now();
         const window = this.getWindow(key);
 
@@ -229,7 +236,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
         // This is a simplified implementation
         if (now - window.windowStart < this.pluginOptions.timeWindow) {
             const estimatedTokens = this.estimateTokens(context);
-            const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, context.config?.model || 'unknown');
+            const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, this.resolveModelName(context));
 
             if (window.tokens + estimatedTokens > this.pluginOptions.maxTokens) {
                 throw new PluginError(
@@ -268,7 +275,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
     /**
      * Fixed window rate limiting
      */
-    private async checkFixedWindow(key: string, context: PluginExecutionContext): Promise<void> {
+    private async checkFixedWindow(key: string, context: ILimitsPluginExecutionContext): Promise<void> {
         const now = Date.now();
         const window = this.getWindow(key);
 
@@ -281,7 +288,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
         }
 
         const estimatedTokens = this.estimateTokens(context);
-        const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, context.config?.model || 'unknown');
+        const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, this.resolveModelName(context));
 
         if (window.tokens + estimatedTokens > this.pluginOptions.maxTokens) {
             throw new PluginError(
@@ -330,7 +337,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
     /**
      * Get or create token bucket for key
      */
-    private getBucket(key: string): TokenBucket {
+    private getBucket(key: string): ITokenBucket {
         if (!this.buckets.has(key)) {
             this.buckets.set(key, {
                 tokens: this.pluginOptions.bucketSize,
@@ -346,7 +353,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
     /**
      * Get or create window for key
      */
-    private getWindow(key: string): LimitWindow {
+    private getWindow(key: string): ILimitWindow {
         if (!this.windows.has(key)) {
             this.windows.set(key, {
                 count: 0,
@@ -361,16 +368,21 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
     /**
      * Generate key for rate limiting (user/session based)
      */
-    private getKey(context: PluginExecutionContext): string {
-        return context.userId || context.sessionId || context['executionId'] as string || 'default';
+    private getKey(context: ILimitsPluginExecutionContext): string {
+        return context.userId || context.sessionId || context.executionId || 'default';
+    }
+
+    private resolveModelName(context: IPluginExecutionContext): string {
+        const model = context.config?.model;
+        return typeof model === 'string' && model.length > 0 ? model : 'unknown';
     }
 
     /**
      * Estimate tokens needed for request
      */
-    private estimateTokens(context: PluginExecutionContext): number {
+    private estimateTokens(context: ILimitsPluginExecutionContext): number {
         // Simple estimation - in real implementation, this would be more sophisticated
-        const messageLength = context.messages?.reduce((total: number, msg: { role: string; content: string }) =>
+        const messageLength = context.messages?.reduce((total: number, msg: TUniversalMessage) =>
             total + (msg.content?.length || 0), 0) || 0;
 
         // Rough estimation: 1 token per 4 characters
@@ -398,7 +410,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
     /**
  * Validate plugin options
  */
-    private validateOptions(options: LimitsPluginOptions): void {
+    private validateOptions(options: ILimitsPluginOptions): void {
         if (options.strategy === 'none') {
             this.logger.info('LimitsPlugin configured with "none" strategy - no rate limiting will be applied');
             return;
@@ -496,7 +508,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
      * 5. Type assertions (decreases type safety)
      * TODO: Consider specific status interface if patterns emerge
      */
-    getLimitsStatus(key?: string): PluginLimitsStatusData {
+    getLimitsStatus(key?: string): TPluginLimitsStatusData {
         if (key) {
             const bucket = this.buckets.get(key);
             const window = this.windows.get(key);
@@ -533,12 +545,10 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
         if (key) {
             this.buckets.delete(key);
             this.windows.delete(key);
-            this.requestCounts.delete(key);
             this.logger.info('Limits reset for key', { key });
         } else {
             this.buckets.clear();
             this.windows.clear();
-            this.requestCounts.clear();
             this.logger.info('All limits reset');
         }
     }

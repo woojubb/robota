@@ -1,0 +1,614 @@
+import type {
+    IAssistantMessage,
+    ISystemMessage,
+    IToolCall,
+    IToolMessage,
+    IUserMessage,
+    TUniversalMessage
+} from '../../interfaces/messages';
+import type { IAIProvider, IProviderRequest, IRawProviderResponse } from '../../interfaces/provider';
+import type { TUniversalValue } from '../../interfaces/types';
+import { NetworkError, ProviderError } from '../../utils/errors';
+import { createLogger, type ILogger } from '../../utils/logger';
+import {
+    IConversationContext,
+    IConversationResponse,
+    IStreamingChunk,
+    IConversationServiceOptions,
+    IContextOptions,
+    IConversationService,
+    type TConversationContextMetadata
+} from '../../interfaces/service';
+
+/**
+ * Default conversation service options
+ */
+const DEFAULT_OPTIONS: Required<IConversationServiceOptions> = {
+    maxHistoryLength: 100,
+    enableRetry: true,
+    maxRetries: 3,
+    retryDelay: 1000,
+    timeout: 30000,
+};
+
+/**
+ * Provider request configuration with stream property
+ */
+interface IConversationProviderRequest extends IProviderRequest {
+    model: string; // Make model required
+    stream?: boolean;
+}
+
+
+/**
+ * Raw streaming chunk structure
+ */
+interface IRawStreamingChunk {
+    delta?: string;
+    done?: boolean;
+    toolCalls?: IToolCall[];
+    usage?: {
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+    };
+}
+
+/**
+ * Conversation Service - handles AI provider interactions and response processing
+ * Stateless service that manages conversation context, AI provider calls, and response processing
+ * All methods are pure functions without instance state
+ * @internal
+ */
+export class ConversationService implements IConversationService {
+
+    /**
+     * Prepare conversation context from messages and configuration
+     * Pure function that transforms inputs to context object
+     */
+    prepareContext(
+        messages: TUniversalMessage[],
+        model: string,
+        provider: string,
+        contextOptions: IContextOptions = {},
+        serviceOptions: IConversationServiceOptions = {}
+    ): IConversationContext {
+        const logger = createLogger('ConversationService');
+        return ConversationService.createContext(
+            messages,
+            model,
+            provider,
+            contextOptions,
+            serviceOptions,
+            logger
+        );
+    }
+
+    /**
+     * Generate a response using the AI provider
+     * Stateless operation that handles the full request-response cycle
+     */
+    async generateResponse(
+        provider: IAIProvider,
+        context: IConversationContext,
+        serviceOptions: IConversationServiceOptions = {}
+    ): Promise<IConversationResponse> {
+        const logger = createLogger('ConversationService');
+        return ConversationService.performResponseGeneration(provider, context, serviceOptions, logger);
+    }
+
+    /**
+     * Generate streaming response using the AI provider
+     * Stateless streaming operation
+     */
+    async* generateStreamingResponse(
+        provider: IAIProvider,
+        context: IConversationContext,
+        serviceOptions: IConversationServiceOptions = {}
+    ): AsyncGenerator<IStreamingChunk, void, undefined> {
+        const logger = createLogger('ConversationService');
+        yield* ConversationService.performStreamingResponse(provider, context, serviceOptions, logger);
+    }
+
+    /**
+     * Validate conversation context
+     * Pure validation function
+     */
+    validateContext(context: IConversationContext): { isValid: boolean; errors: string[] } {
+        return ConversationService.performContextValidation(context);
+    }
+
+    // ==============================================
+    // Static helper methods (pure functions)
+    // ==============================================
+
+    /**
+     * Static helper method for context creation
+     */
+    private static createContext(
+        messages: TUniversalMessage[],
+        model: string,
+        provider: string,
+        contextOptions: IContextOptions,
+        serviceOptions: IConversationServiceOptions,
+        logger: ILogger
+    ): IConversationContext {
+        const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
+
+        // Limit history length if configured
+        let processedMessages = messages;
+        if (options.maxHistoryLength > 0 && messages.length > options.maxHistoryLength) {
+            // Keep system message if it exists, then take the most recent messages
+            const systemMessages = messages.filter(m => m.role === 'system');
+            const otherMessages = messages.filter(m => m.role !== 'system');
+
+            const recentMessages = otherMessages.slice(-options.maxHistoryLength + systemMessages.length);
+            processedMessages = [...systemMessages, ...recentMessages];
+
+            logger.debug('Trimmed conversation history', {
+                originalLength: messages.length,
+                trimmedLength: processedMessages.length,
+                maxLength: options.maxHistoryLength,
+            });
+        }
+
+        const context: IConversationContext = {
+            messages: processedMessages,
+            model,
+            provider,
+            ...(contextOptions.systemMessage && { systemMessage: contextOptions.systemMessage }),
+            ...(contextOptions.temperature !== undefined && { temperature: contextOptions.temperature }),
+            ...(contextOptions.maxTokens !== undefined && { maxTokens: contextOptions.maxTokens }),
+            ...(contextOptions.tools && { tools: contextOptions.tools }),
+            ...(contextOptions.metadata && { metadata: contextOptions.metadata })
+        };
+
+        logger.debug('Conversation context prepared', {
+            messageCount: context.messages.length,
+            model: context.model,
+            provider: context.provider,
+            hasSystemMessage: !!context.systemMessage,
+            hasTools: !!(context.tools && context.tools.length > 0),
+        });
+
+        return context;
+    }
+
+    /**
+     * Static method for response generation
+     */
+    private static async performResponseGeneration(
+        provider: IAIProvider,
+        context: IConversationContext,
+        serviceOptions: IConversationServiceOptions,
+        logger: ILogger
+    ): Promise<IConversationResponse> {
+        const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
+        const startTime = Date.now();
+
+        try {
+            logger.debug('Starting response generation', {
+                provider: context.provider,
+                model: context.model,
+                messageCount: context.messages.length,
+            });
+
+            // Create request payload
+            const requestPayload = ConversationService.createProviderRequest(context);
+
+            // Generate response with retry logic
+            const response = await ConversationService.executeWithRetry(
+                () => provider.generateResponse(requestPayload),
+                `generateResponse for ${context.provider}:${context.model}`,
+                options,
+                logger
+            );
+
+            // Process and validate response
+            const processedResponse = ConversationService.processProviderResponse(response);
+
+            const duration = Date.now() - startTime;
+            logger.info('Response generated successfully', {
+                provider: context.provider,
+                model: context.model,
+                duration,
+                usage: processedResponse.usage,
+            });
+
+            return processedResponse;
+
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            logger.error('Response generation failed', {
+                provider: context.provider,
+                model: context.model,
+                duration,
+                error: error instanceof Error ? error.message : String(error),
+            });
+
+            if (error instanceof NetworkError || error instanceof ProviderError) {
+                throw error;
+            }
+
+            throw new ProviderError(
+                `Response generation failed: ${error instanceof Error ? error.message : String(error)}`,
+                context.provider,
+                error instanceof Error ? error : undefined
+            );
+        }
+    }
+
+    /**
+     * Static method for streaming response generation
+     */
+    private static async* performStreamingResponse(
+        provider: IAIProvider,
+        context: IConversationContext,
+        _serviceOptions: IConversationServiceOptions,
+        logger: ILogger
+    ): AsyncGenerator<IStreamingChunk, void, undefined> {
+        // Apply defaults for future use - currently not needed but maintains service contract
+        const startTime = Date.now();
+
+        try {
+            logger.debug('Starting streaming response generation', {
+                provider: context.provider,
+                model: context.model,
+                messageCount: context.messages.length,
+            });
+
+            // Create request payload for streaming
+            const requestPayload = ConversationService.createProviderRequest(context, true);
+
+            // Check if provider supports streaming
+            if (!provider.generateStreamingResponse) {
+                throw new ProviderError(`Provider does not support streaming`, context.provider);
+            }
+
+            // Generate streaming response
+            const streamingResponse = provider.generateStreamingResponse(requestPayload);
+
+            let chunkCount = 0;
+            for await (const chunk of streamingResponse) {
+                chunkCount++;
+                const processedChunk = ConversationService.processStreamingChunk(chunk);
+
+                logger.debug('Streaming chunk processed', {
+                    chunkNumber: chunkCount,
+                    deltaLength: processedChunk.delta.length,
+                    done: processedChunk.done,
+                });
+
+                yield processedChunk;
+
+                if (processedChunk.done) {
+                    break;
+                }
+            }
+
+            const duration = Date.now() - startTime;
+            logger.info('Streaming response completed', {
+                provider: context.provider,
+                model: context.model,
+                duration,
+                totalChunks: chunkCount,
+            });
+
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            logger.error('Streaming response failed', {
+                provider: context.provider,
+                model: context.model,
+                duration,
+                error: error instanceof Error ? error.message : String(error),
+            });
+
+            if (error instanceof NetworkError || error instanceof ProviderError) {
+                throw error;
+            }
+
+            throw new ProviderError(
+                `Streaming response failed: ${error instanceof Error ? error.message : String(error)}`,
+                context.provider,
+                error instanceof Error ? error : undefined
+            );
+        }
+    }
+
+    /**
+     * Static method for context validation
+     */
+    private static performContextValidation(context: IConversationContext): { isValid: boolean; errors: string[] } {
+        const errors: string[] = [];
+
+        if (!context.messages || !Array.isArray(context.messages)) {
+            errors.push('Messages must be an array');
+        } else if (context.messages.length === 0) {
+            errors.push('At least one message is required');
+        }
+
+        if (!context.model || typeof context.model !== 'string') {
+            errors.push('Model must be a non-empty string');
+        }
+
+        if (!context.provider || typeof context.provider !== 'string') {
+            errors.push('Provider must be a non-empty string');
+        }
+
+        if (context.temperature !== undefined && (typeof context.temperature !== 'number' || context.temperature < 0 || context.temperature > 2)) {
+            errors.push('Temperature must be a number between 0 and 2');
+        }
+
+        if (context.maxTokens !== undefined && (typeof context.maxTokens !== 'number' || context.maxTokens <= 0)) {
+            errors.push('MaxTokens must be a positive number');
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+
+    // ==============================================
+    // Message creation utilities (pure functions)
+    // ==============================================
+
+    /**
+     * Create a user message
+     */
+    createUserMessage(content: string, metadata?: Record<string, string | number | boolean>): IUserMessage {
+        return ConversationService.createUserMessageStatic(content, metadata);
+    }
+
+    /**
+     * Create an assistant message from response
+     */
+    createAssistantMessage(response: IConversationResponse, metadata?: Record<string, string | number | boolean>): IAssistantMessage {
+        return ConversationService.createAssistantMessageStatic(response, metadata);
+    }
+
+    /**
+     * Create a system message
+     */
+    createSystemMessage(content: string, metadata?: Record<string, string | number | boolean>): ISystemMessage {
+        return ConversationService.createSystemMessageStatic(content, metadata);
+    }
+
+    /**
+     * Create a tool message
+     */
+    createToolMessage(toolCallId: string, result: TUniversalValue, metadata?: Record<string, string | number | boolean>): IToolMessage {
+        return ConversationService.createToolMessageStatic(toolCallId, result, metadata);
+    }
+
+    // Static versions of message creation methods
+    private static createUserMessageStatic(content: string, metadata?: Record<string, string | number | boolean>): IUserMessage {
+        return {
+            role: 'user',
+            content,
+            timestamp: new Date(),
+            metadata: {
+                timestamp: new Date().toISOString(),
+                ...metadata
+            }
+        };
+    }
+
+    private static createAssistantMessageStatic(response: IConversationResponse, metadata?: Record<string, string | number | boolean>): IAssistantMessage {
+        const message: IAssistantMessage = {
+            role: 'assistant',
+            content: response.content,
+            timestamp: new Date(),
+            metadata: {
+                timestamp: new Date().toISOString(),
+                ...(response.usage && { usage: JSON.stringify(response.usage) }),
+                ...(response.finishReason && { finishReason: response.finishReason }),
+                ...metadata
+            }
+        };
+
+        if (response.toolCalls && response.toolCalls.length > 0) {
+            message.toolCalls = response.toolCalls;
+        }
+
+        return message;
+    }
+
+    private static createSystemMessageStatic(content: string, metadata?: Record<string, string | number | boolean>): ISystemMessage {
+        return {
+            role: 'system',
+            content,
+            timestamp: new Date(),
+            metadata: {
+                timestamp: new Date().toISOString(),
+                ...metadata
+            }
+        };
+    }
+
+    private static createToolMessageStatic(toolCallId: string, result: TUniversalValue, metadata?: Record<string, string | number | boolean>): IToolMessage {
+        return {
+            role: 'tool',
+            content: typeof result === 'string' ? result : JSON.stringify(result),
+            toolCallId,
+            timestamp: new Date(),
+            metadata: {
+                timestamp: new Date().toISOString(),
+                ...metadata
+            }
+        };
+    }
+
+    // ==============================================
+    // Pure utility functions
+    // ==============================================
+
+    /**
+     * Convert complex metadata to simple provider request format
+     */
+    private static convertToProviderMetadata(metadata?: TConversationContextMetadata): Record<string, string | number | boolean> | undefined {
+        if (!metadata) return undefined;
+
+        const converted: Record<string, string | number | boolean> = {};
+        for (const [key, value] of Object.entries(metadata)) {
+            if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                converted[key] = value;
+            } else if (value instanceof Date) {
+                converted[key] = value.toISOString();
+            } else if (Array.isArray(value)) {
+                converted[key] = JSON.stringify(value);
+            } else {
+                converted[key] = JSON.stringify(value);
+            }
+        }
+        return converted;
+    }
+
+    /**
+     * Convert optional usage to required format
+     */
+    private static convertUsage(usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number }): { promptTokens: number; completionTokens: number; totalTokens: number } | undefined {
+        if (!usage) return undefined;
+
+        if (typeof usage.promptTokens === 'number' &&
+            typeof usage.completionTokens === 'number' &&
+            typeof usage.totalTokens === 'number') {
+            return {
+                promptTokens: usage.promptTokens,
+                completionTokens: usage.completionTokens,
+                totalTokens: usage.totalTokens
+            };
+        }
+        return undefined;
+    }
+
+    private static createProviderRequest(context: IConversationContext, streaming: boolean = false): IConversationProviderRequest {
+        const metadata = ConversationService.convertToProviderMetadata(context.metadata);
+
+        const request: IConversationProviderRequest = {
+            messages: context.messages,
+            model: context.model,
+            stream: streaming,
+            ...(context.temperature !== undefined && { temperature: context.temperature }),
+            ...(context.maxTokens !== undefined && { maxTokens: context.maxTokens }),
+            ...(context.tools && { tools: context.tools }),
+            ...(context.systemMessage && { systemMessage: context.systemMessage }),
+            ...(metadata && { metadata })
+        };
+
+        return request;
+    }
+
+    private static processProviderResponse(response: IRawProviderResponse): IConversationResponse {
+        const usage = ConversationService.convertUsage(response.usage);
+
+        const result: IConversationResponse = {
+            content: response.content || '',
+            toolCalls: response.toolCalls || [],
+            metadata: response.metadata || {},
+            finishReason: response.finishReason || 'stop',
+            ...(usage && { usage })
+        };
+
+        return result;
+    }
+
+    private static processStreamingChunk(chunk: IRawStreamingChunk): IStreamingChunk {
+        const usage = ConversationService.convertUsage(chunk.usage);
+
+        const result: IStreamingChunk = {
+            delta: chunk.delta || '',
+            done: chunk.done || false,
+            toolCalls: chunk.toolCalls || [],
+            ...(usage && { usage })
+        };
+
+        return result;
+    }
+
+    private static async executeWithRetry<T>(
+        fn: () => Promise<T>,
+        operation: string,
+        options: Required<IConversationServiceOptions>,
+        logger: ILogger
+    ): Promise<T> {
+        let lastError: Error | undefined;
+
+        for (let attempt = 1; attempt <= options.maxRetries; attempt++) {
+            try {
+                const result = await ConversationService.withTimeout(fn(), options.timeout);
+
+                if (attempt > 1) {
+                    logger.info(`${operation} succeeded on attempt ${attempt}`);
+                }
+
+                return result;
+            } catch (error) {
+                lastError = error as Error;
+
+                // Don't retry if this is the last attempt or if error shouldn't be retried
+                if (attempt === options.maxRetries || !ConversationService.shouldRetryError(lastError)) {
+                    break;
+                }
+
+                logger.warn(`${operation} failed on attempt ${attempt}, retrying...`, {
+                    attempt,
+                    maxRetries: options.maxRetries,
+                    error: lastError.message,
+                    retryDelay: options.retryDelay
+                });
+
+                await ConversationService.delay(options.retryDelay);
+            }
+        }
+
+        if (lastError) {
+            logger.error(`${operation} failed after ${options.maxRetries} attempts`, {
+                error: lastError.message
+            });
+            throw lastError;
+        }
+
+        // This should never happen, but just in case
+        throw new Error(`${operation} failed with no error details`);
+    }
+
+    private static shouldRetryError(error: Error): boolean {
+        // Retry on network errors and specific provider errors
+        if (error instanceof NetworkError) {
+            return true;
+        }
+
+        // Retry on timeout errors
+        if (error.message.includes('timeout') || error.message.includes('TIMEOUT')) {
+            return true;
+        }
+
+        // Retry on rate limit errors
+        if (error.message.includes('rate limit') || error.message.includes('429')) {
+            return true;
+        }
+
+        // Don't retry on other errors
+        return false;
+    }
+
+    private static withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+        return Promise.race([
+            promise,
+            ConversationService.createTimeoutPromise<T>(timeoutMs)
+        ]);
+    }
+
+    private static createTimeoutPromise<T>(timeoutMs: number): Promise<T> {
+        return new Promise((_, reject) => {
+            setTimeout(() => {
+                reject(new NetworkError(`Operation timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
+        });
+    }
+
+    private static delay(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+} 

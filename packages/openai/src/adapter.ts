@@ -1,33 +1,10 @@
 import OpenAI from 'openai';
-import type {
-    UniversalMessage,
-    AssistantMessage
-} from '@robota-sdk/agents';
-
-// Define message types locally to avoid circular dependency
-export interface UserMessage {
-    role: 'user';
-    content: string | null;
-    timestamp?: Date;
-}
-
-export interface SystemMessage {
-    role: 'system';
-    content: string | null;
-    timestamp?: Date;
-}
-
-export interface ToolMessage {
-    role: 'tool';
-    content: string | null;
-    timestamp?: Date;
-    toolCallId?: string;
-}
+import type { TUniversalMessage, IAssistantMessage } from '@robota-sdk/agents';
 
 /**
  * OpenAI Conversation Adapter
  * 
- * Converts between UniversalMessage format and OpenAI native types.
+ * Converts between TUniversalMessage format and OpenAI native types.
  * Provides bidirectional conversion for seamless integration.
  * 
  * @public
@@ -41,7 +18,7 @@ export class OpenAIConversationAdapter {
      * - Messages must be in proper sequence
      * - Tool messages without toolCallId should be excluded
      */
-    static filterMessagesForOpenAI(messages: UniversalMessage[]): UniversalMessage[] {
+    static filterMessagesForOpenAI(messages: TUniversalMessage[]): TUniversalMessage[] {
         return messages.filter(msg => {
             // Always include user, assistant, and system messages
             if (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system') {
@@ -50,11 +27,12 @@ export class OpenAIConversationAdapter {
 
             // For tool messages, only include if they have a valid toolCallId
             if (msg.role === 'tool') {
-                const toolMsg = msg as ToolMessage;
                 // Must have toolCallId and it must not be empty or 'unknown'
-                return !!(toolMsg.toolCallId &&
-                    toolMsg.toolCallId.trim() !== '' &&
-                    toolMsg.toolCallId !== 'unknown');
+                return !!(
+                    msg.toolCallId &&
+                    msg.toolCallId.trim() !== '' &&
+                    msg.toolCallId !== 'unknown'
+                );
             }
 
             return false;
@@ -62,32 +40,31 @@ export class OpenAIConversationAdapter {
     }
 
     /**
-     * Convert UniversalMessage array to OpenAI message format
+     * Convert TUniversalMessage array to OpenAI message format
      * Now properly handles tool messages for OpenAI's tool calling feature
      */
-    static toOpenAIFormat(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
+    static toOpenAIFormat(messages: TUniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
         // First filter messages for OpenAI compatibility
         const filteredMessages = this.filterMessagesForOpenAI(messages);
         return filteredMessages.map(msg => this.convertMessage(msg));
     }
 
     /**
-     * Convert a single UniversalMessage to OpenAI format
+     * Convert a single TUniversalMessage to OpenAI format
      * Handles all message types including tool messages
      */
-    static convertMessage(msg: UniversalMessage): OpenAI.Chat.ChatCompletionMessageParam {
+    static convertMessage(msg: TUniversalMessage): OpenAI.Chat.ChatCompletionMessageParam {
         const messageRole = msg.role;
 
         if (messageRole === 'user') {
-            const userMsg = msg as UserMessage;
             return {
                 role: 'user',
-                content: userMsg.content || ''
+                content: msg.content
             };
         }
 
         if (messageRole === 'assistant') {
-            const assistantMsg = msg as AssistantMessage;
+            const assistantMsg = msg as IAssistantMessage;
 
             // Handle tool_calls format
             if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
@@ -119,32 +96,28 @@ export class OpenAIConversationAdapter {
         }
 
         if (messageRole === 'system') {
-            const systemMsg = msg as SystemMessage;
             return {
                 role: 'system',
-                content: systemMsg.content || ''
+                content: msg.content
             };
         }
 
         // Handle tool messages for OpenAI tool calling
         if (messageRole === 'tool') {
-            const toolMsg = msg as ToolMessage;
-
-            if (!toolMsg.toolCallId || toolMsg.toolCallId.trim() === '') {
-                throw new Error(`Tool message missing toolCallId: ${JSON.stringify(toolMsg)}`);
+            if (!msg.toolCallId || msg.toolCallId.trim() === '') {
+                throw new Error(`Tool message missing toolCallId: ${JSON.stringify(msg)}`);
             }
 
             const result: OpenAI.Chat.ChatCompletionToolMessageParam = {
                 role: 'tool',
-                content: toolMsg.content || '',
-                tool_call_id: toolMsg.toolCallId
+                content: msg.content,
+                tool_call_id: msg.toolCallId
             };
             return result;
         }
 
-        // This should never happen but TypeScript requires exhaustive checking
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        throw new Error(`Unsupported message role: ${(msg as any).role}`);
+        const exhaustive: never = messageRole;
+        throw new Error(`Unsupported message role: ${exhaustive}`);
     }
 
     /**

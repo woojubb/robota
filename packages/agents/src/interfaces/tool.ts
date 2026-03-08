@@ -1,65 +1,52 @@
-import type { ToolSchema } from './provider';
+import type { IToolSchema } from './provider';
+import type { IEventService, IOwnerPathSegment } from './event-service';
+import type { TContextData, TLoggerData, TToolParameters, TUniversalValue } from './types';
 
-/**
- * Specific tool parameter value types - declarative type system
- */
-export type ToolParameterValue =
-    | string
-    | number
-    | boolean
-    | string[]
-    | number[]
-    | boolean[]
-    | Array<string | number | boolean>
-    | Record<string, string | number | boolean>
-    | null
-    | undefined;
+// Re-export canonical tool parameter types from the shared "types" axis.
+export type { TToolParameters } from './types';
 
-/**
- * Tool parameters collection - declarative type system
- */
-export type ToolParameters = Record<string, ToolParameterValue>;
+export type TToolContextExtensionValue =
+    | TUniversalValue
+    | Date
+    | Error
+    | TLoggerData
+    | TContextData
+    | TToolParameters
+    | TToolMetadata;
 
 /**
  * Tool metadata structure - specific type definition
  */
-export type ToolMetadata = Record<string, string | number | boolean | string[] | number[] | boolean[] | ToolParameters>;
+export type TToolMetadata = Record<string, string | number | boolean | string[] | number[] | boolean[] | TToolParameters>;
 
 /**
- * Generic tool execution data - supports complex nested structures including ToolResult
+ * Tool execution data - domain payload for tool results.
+ *
+ * IMPORTANT:
+ * - This must support structured tool outputs without resorting to `any`.
+ * - Prefer `ToolResultData` (derived from the canonical `UniversalValue` axis).
  */
-export type ToolExecutionData =
-    | string
-    | number
-    | boolean
-    | Record<string, string | number | boolean | ToolParameters>
-    | Array<string | number | boolean | ToolParameters>
-    | ToolParameters
-    | ToolResult
-    | null
-    | undefined;
-
 /**
  * Tool execution result - extended for ToolExecutionData compatibility
  */
-export interface ToolResult {
+export interface IToolResult {
     success: boolean;
-    data?: ToolExecutionData;
+    data?: TUniversalValue;
     error?: string;
-    metadata?: ToolMetadata;
-    [key: string]: string | number | boolean | ToolParameters | ToolExecutionData | ToolMetadata | undefined;
+    metadata?: TToolMetadata;
+    [key: string]: TToolContextExtensionValue | undefined;
 }
 
 /**
  * Enhanced tool execution result with additional metadata
  */
-export interface ToolExecutionResult {
+export interface IToolExecutionResult {
     /** Whether execution was successful */
     success: boolean;
     /** Tool name that was executed */
     toolName?: string;
     /** Execution result or data */
-    result?: ToolExecutionData;
+    result?: TUniversalValue;
     /** Error message if execution failed */
     error?: string;
     /** Execution duration in milliseconds */
@@ -67,28 +54,85 @@ export interface ToolExecutionResult {
     /** Unique execution ID */
     executionId?: string;
     /** Additional metadata */
-    metadata?: ToolMetadata;
+    metadata?: TToolMetadata;
 }
 
 
 
 /**
  * Tool execution context - type-safe context for tool execution
+ * Enhanced with hierarchical execution tracking support
  */
-export interface ToolExecutionContext {
+export interface IToolExecutionContext {
     toolName: string;
-    parameters: ToolParameters;
+    parameters: TToolParameters;
+    executionId?: string; // Tool execution ID (typically tool call ID)
     userId?: string;
     sessionId?: string;
-    metadata?: ToolMetadata;
-    // Additional context data
-    [key: string]: string | number | boolean | ToolParameters | ToolMetadata | undefined;
+    metadata?: TToolMetadata;
+
+    // 🆕 Hierarchical execution tracking fields (all optional for backward compatibility)
+
+    /** Parent execution ID for hierarchical tool execution tracking */
+    parentExecutionId?: string;
+
+    /** Root execution ID (Team/Agent level) for complete execution tree tracking */
+    rootExecutionId?: string;
+
+    /** Execution depth level (0: Team, 1: Agent, 2: Tool, etc.) */
+    executionLevel?: number;
+
+    /** Execution path array showing the complete execution hierarchy */
+    executionPath?: string[];
+
+    /** Real-time execution data for accurate tracking (no simulation) */
+    realTimeData?: {
+        /** Actual execution start time */
+        startTime: Date;
+        /** Actual input parameters passed to the tool */
+        actualParameters: TToolParameters;
+        /** Tool-provided estimated duration (optional) */
+        estimatedDuration?: number;
+    };
+
+    /**
+     * Additional tool execution context extensions.
+     *
+     * IMPORTANT:
+     * - Avoid ad-hoc top-level fields to keep the contract stable.
+     * - Use this map for forward-compatible extra data with constrained value types.
+     */
+    extensions?: Record<string, TToolContextExtensionValue>;
+
+    /** Owner context propagated from EventService */
+    ownerType?: string;
+    ownerId?: string;
+    ownerPath?: IOwnerPathSegment[];
+    sourceId?: string;
+
+    /**
+     * Tool-call scoped EventService instance.
+     * Caller (ExecutionService/ToolExecutionService) is responsible for providing
+     * an ownerPath-bound EventService for this tool call.
+     */
+    eventService?: IEventService;
+
+    /**
+     * Unbound base EventService instance.
+     *
+     * Required when a tool needs to create another owner-bound EventService
+     * for a different owner (e.g., creating an agent from a tool call).
+     *
+     * NOTE: Do not wrap an already owner-bound EventService to bind a different owner.
+     * Owner-bound instances must not be layered across different owners.
+     */
+    baseEventService?: IEventService;
 }
 
 /**
  * Parameter validation result
  */
-export interface ParameterValidationResult {
+export interface IParameterValidationResult {
     /** Whether parameters are valid */
     isValid: boolean;
     /** Validation error messages */
@@ -98,13 +142,13 @@ export interface ParameterValidationResult {
 /**
  * Generic tool executor function
  */
-export type ToolExecutor<TParams = ToolParameters, TResult = ToolExecutionData> =
-    (parameters: TParams, context?: ToolExecutionContext) => Promise<TResult>;
+export type TToolExecutor<TParams = TToolParameters, TResult = TUniversalValue> =
+    (parameters: TParams, context?: IToolExecutionContext) => Promise<TResult>;
 
 /**
  * OpenAPI specification configuration
  */
-export interface OpenAPIToolConfig {
+export interface IOpenAPIToolConfig {
     /** OpenAPI 3.0 specification */
     spec: {
         openapi: string;
@@ -138,7 +182,7 @@ export interface OpenAPIToolConfig {
 /**
  * MCP (Model Context Protocol) configuration
  */
-export interface MCPToolConfig {
+export interface IMCPToolConfig {
     /** MCP server endpoint */
     endpoint: string;
     /** Protocol version */
@@ -157,24 +201,24 @@ export interface MCPToolConfig {
 /**
  * Base tool interface
  */
-export interface ToolInterface {
+export interface ITool {
     /** Tool schema */
-    schema: ToolSchema;
+    schema: IToolSchema;
 
     /**
      * Execute the tool with given parameters
      */
-    execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult>;
+    execute(parameters: TToolParameters, context?: IToolExecutionContext): Promise<IToolResult>;
 
     /**
      * Validate tool parameters
      */
-    validate(parameters: ToolParameters): boolean;
+    validate(parameters: TToolParameters): boolean;
 
     /**
      * Validate tool parameters with detailed result
      */
-    validateParameters(parameters: ToolParameters): ParameterValidationResult;
+    validateParameters(parameters: TToolParameters): IParameterValidationResult;
 
     /**
      * Get tool description
@@ -185,19 +229,19 @@ export interface ToolInterface {
 /**
  * Function tool implementation
  */
-export interface FunctionTool extends ToolInterface {
+export interface IFunctionTool extends ITool {
     /** Function to execute */
-    fn: ToolExecutor;
+    fn: TToolExecutor;
 }
 
 /**
  * Tool registry interface
  */
-export interface ToolRegistryInterface {
+export interface IToolRegistry {
     /**
      * Register a tool
      */
-    register(tool: ToolInterface): void;
+    register(tool: ITool): void;
 
     /**
      * Unregister a tool
@@ -207,17 +251,17 @@ export interface ToolRegistryInterface {
     /**
      * Get tool by name
      */
-    get(name: string): ToolInterface | undefined;
+    get(name: string): ITool | undefined;
 
     /**
      * Get all registered tools
      */
-    getAll(): ToolInterface[];
+    getAll(): ITool[];
 
     /**
      * Get tool schemas
      */
-    getSchemas(): ToolSchema[];
+    getSchemas(): IToolSchema[];
 
     /**
      * Check if tool exists
@@ -233,19 +277,19 @@ export interface ToolRegistryInterface {
 /**
  * Tool factory interface
  */
-export interface ToolFactoryInterface {
+export interface IToolFactory {
     /**
      * Create function tool from schema and function
      */
-    createFunctionTool(schema: ToolSchema, fn: ToolExecutor): FunctionTool;
+    createFunctionTool(schema: IToolSchema, fn: TToolExecutor): IFunctionTool;
 
     /**
      * Create tool from OpenAPI specification
      */
-    createOpenAPITool(config: OpenAPIToolConfig): ToolInterface;
+    createOpenAPITool(config: IOpenAPIToolConfig): ITool;
 
     /**
      * Create MCP tool
      */
-    createMCPTool(config: MCPToolConfig): ToolInterface;
+    createMCPTool(config: IMCPToolConfig): ITool;
 } 
