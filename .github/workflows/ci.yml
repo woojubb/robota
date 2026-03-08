@@ -41,4 +41,8 @@ jobs:
         run: pnpm run lint
 
       - name: Test
-        run: pnpm run test 
+        run: pnpm run test
+
+      - name: Security audit
+        if: matrix.node-version == '22.x'
+        run: pnpm audit --audit-level high

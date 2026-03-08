@@ -47,7 +47,8 @@
     "harness:run-context": "node scripts/harness/collect-run-context.mjs",
     "git:push-tags": "git push --tags",
     "publish:packages": "pnpm readme:validate && pnpm readme:copy && pnpm changeset version && pnpm install && pnpm publish -r --no-git-checks && pnpm git:push-tags && pnpm readme:cleanup",
-    "ci:publish": "pnpm publish -r"
+    "ci:publish": "pnpm publish -r",
+    "knip": "knip"
   },
   "keywords": [
     "ai",
@@ -86,6 +87,7 @@
     "eslint-plugin-eslint-comments": "^3.2.0",
     "glob": "^10.3.10",
     "husky": "^8.0.3",
+    "knip": "^5.86.0",
     "lint-staged": "^15.2.0",
     "marked": "^9.1.5",
     "prettier": "^3.1.1",
