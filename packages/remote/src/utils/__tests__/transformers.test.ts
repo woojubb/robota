@@ -158,37 +158,45 @@ describe('Transformers Pure Functions', () => {
     });
 
     describe('extractContent', () => {
-        it('should extract content from valid response data', () => {
+        it('should extract content from canonical nested response data', () => {
             const response = createHttpResponse('resp_123', 200, {
-                content: 'Hello world',
-                other: 'data'
+                data: { content: 'Hello world', other: 'data' }
             });
 
             const content = extractContent(response);
             expect(content).toBe('Hello world');
         });
 
-        it('should return empty string for missing content', () => {
+        it('should return empty string for missing content in nested data', () => {
             const response = createHttpResponse('resp_123', 200, {
-                message: 'No content field'
+                data: { message: 'No content field' }
             });
 
             const content = extractContent(response);
             expect(content).toBe('');
         });
 
-        it('should return empty string for non-string content', () => {
+        it('should return empty string for non-string content in nested data', () => {
             const response = createHttpResponse('resp_123', 200, {
-                content: 123
+                data: { content: 123 }
             });
 
             const content = extractContent(response);
             expect(content).toBe('');
         });
 
-        it('should return empty string for non-object data', () => {
+        it('should return empty string when nested data is not an object', () => {
             const response = createHttpResponse('resp_123', 200, {
                 data: 'string data'
+            });
+
+            const content = extractContent(response);
+            expect(content).toBe('');
+        });
+
+        it('should return empty string when no data envelope exists', () => {
+            const response = createHttpResponse('resp_123', 200, {
+                content: 'flat content without envelope'
             });
 
             const content = extractContent(response);
@@ -340,9 +348,9 @@ describe('Transformers Pure Functions', () => {
                 requestMessage
             );
 
-            // 3. Create mock response
+            // 3. Create mock response (canonical nested envelope)
             const responseData = {
-                content: 'Response from AI',
+                data: { content: 'Response from AI' },
                 provider: 'openai'
             };
             const httpResponse = createHttpResponse(

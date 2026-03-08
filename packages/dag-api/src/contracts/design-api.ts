@@ -72,11 +72,13 @@ export function toProblemDetails(
 ): IProblemDetails {
     const status = error.category === 'state_transition'
         ? 409
-        : error.category === 'dispatch'
-            ? 503
-            : error.category === 'task_execution'
-                ? 500
-                : 400;
+        : error.category === 'lease'
+            ? 409
+            : error.category === 'dispatch'
+                ? 503
+                : error.category === 'task_execution'
+                    ? 500
+                    : 400;
 
     const title = error.category === 'validation'
         ? 'Validation failed'

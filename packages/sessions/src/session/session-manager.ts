@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Robota, AgentFactory } from '@robota-sdk/agents';
 import { ChatInstance } from '../chat/chat-instance';
 import type {
@@ -245,13 +246,13 @@ export class SessionManager {
      * Generate unique session ID
      */
     private generateSessionId(): string {
-        return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return `session_${randomUUID()}`;
     }
 
     /**
      * Generate unique chat ID
      */
     private generateChatId(): string {
-        return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return `chat_${randomUUID()}`;
     }
 } 

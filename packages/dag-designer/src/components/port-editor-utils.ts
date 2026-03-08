@@ -32,11 +32,11 @@ export interface IReconcileNodeUpdateResult {
     removedBindings: IReconcileBindingRemoval[];
 }
 
-function findPort(ports: IPortDefinition[], key: string): IPortDefinition | undefined {
+export function findPort(ports: IPortDefinition[], key: string): IPortDefinition | undefined {
     return ports.find((port) => port.key === key);
 }
 
-function resolveInputPort(
+export function resolveInputPort(
     ports: IPortDefinition[],
     inputKey: string
 ): { port: IPortDefinition | undefined; resolvedKey: string } {

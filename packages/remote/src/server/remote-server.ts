@@ -118,10 +118,16 @@ export class RemoteServer {
                 this.logger.info('🔧 [REMOTE-SERVER] Messages count:', messages?.length || 0);
                 this.logger.info('🔧 [REMOTE-SERVER] Tools:', tools?.length || 0);
 
-                if (!provider || !model || !messages) {
-                    res.status(400).json({
-                        error: 'Missing required fields: provider, model, messages'
-                    });
+                if (!provider || typeof provider !== 'string') {
+                    res.status(400).json({ error: 'Missing or invalid field: provider must be a string' });
+                    return;
+                }
+                if (!model || typeof model !== 'string') {
+                    res.status(400).json({ error: 'Missing or invalid field: model must be a string' });
+                    return;
+                }
+                if (!messages || !Array.isArray(messages)) {
+                    res.status(400).json({ error: 'Missing or invalid field: messages must be an array' });
                     return;
                 }
 
@@ -172,10 +178,16 @@ export class RemoteServer {
                 this.logger.info('🔧 [REMOTE-SERVER] Messages count:', messages?.length || 0);
                 this.logger.info('🔧 [REMOTE-SERVER] Tools:', tools?.length || 0);
 
-                if (!provider || !model || !messages) {
-                    res.status(400).json({
-                        error: 'Missing required fields: provider, model, messages'
-                    });
+                if (!provider || typeof provider !== 'string') {
+                    res.status(400).json({ error: 'Missing or invalid field: provider must be a string' });
+                    return;
+                }
+                if (!model || typeof model !== 'string') {
+                    res.status(400).json({ error: 'Missing or invalid field: model must be a string' });
+                    return;
+                }
+                if (!messages || !Array.isArray(messages)) {
+                    res.status(400).json({ error: 'Missing or invalid field: messages must be an array' });
                     return;
                 }
 

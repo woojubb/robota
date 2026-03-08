@@ -103,6 +103,9 @@ export class HttpTransport implements ITransport {
                 );
             }
 
+            // Trust boundary: response.json() returns unknown at runtime.
+            // The generic TData is unchecked — callers are responsible for validating
+            // the returned data before using it in domain logic.
             const data = await response.json();
 
             return {
@@ -186,8 +189,10 @@ export class HttpTransport implements ITransport {
 
                             try {
                                 yield JSON.parse(data) as T;
-                            } catch (parseError) {
-                                // Skip invalid SSE data
+                            } catch (_parseError) {
+                                // SSE data lines that are not valid JSON are intentionally
+                                // skipped. This can occur with malformed chunks during
+                                // streaming and is non-fatal for the overall stream.
                             }
                         }
                     }

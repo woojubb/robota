@@ -1,3 +1,7 @@
+// TODO: This file exceeds 300 lines. Candidates for extraction:
+// - Port editor section (renderPortsSection, port table rows) into a PortEditorSection component
+// - Config editor section (renderConfigFields, renderConfigValue) into a ConfigEditorSection component
+// - Asset upload logic (handleAssetUpload, IAssetUploadResponse) into an asset-upload utility
 import { useState, type ReactElement } from 'react';
 import {
     type IDagDefinition,
@@ -11,7 +15,7 @@ import {
     getConnectedBindingCountForPort,
     type TPortDirection
 } from './port-editor-utils.js';
-import { extractConfigDefaultsFromSchema } from './schema-defaults.js';
+import { extractConfigDefaultsFromSchema, isNodeConfigValue } from './schema-defaults.js';
 
 export interface INodeConfigPanelProps {
     node?: IDagNode;
@@ -52,29 +56,6 @@ interface IAssetConfigValue {
     mediaType?: string;
     name?: string;
     sizeBytes?: number;
-}
-
-function isNodeConfigValue(value: unknown): value is TNodeConfigValue {
-    if (
-        typeof value === 'string'
-        || typeof value === 'number'
-        || typeof value === 'boolean'
-        || value === null
-    ) {
-        return true;
-    }
-    if (Array.isArray(value)) {
-        return value.every((item) => isNodeConfigValue(item));
-    }
-    if (typeof value !== 'object') {
-        return false;
-    }
-    for (const item of Object.values(value)) {
-        if (!isNodeConfigValue(item)) {
-            return false;
-        }
-    }
-    return true;
 }
 
 function isNodeConfigRecord(value: unknown): value is INodeConfigObject {

@@ -8,16 +8,7 @@ import {
     type TResult
 } from '@robota-sdk/dag-core';
 
-export interface ITaskStatusSummary {
-    created: number;
-    queued: number;
-    running: number;
-    success: number;
-    failed: number;
-    upstream_failed: number;
-    skipped: number;
-    cancelled: number;
-}
+export type ITaskStatusSummary = Record<TTaskRunStatus, number>;
 
 export interface IRunProjection {
     dagRun: IDagRun;
@@ -50,17 +41,17 @@ export interface IDashboardProjection {
     lineageProjection: ILineageProjection;
 }
 
+const TASK_RUN_STATUSES: readonly TTaskRunStatus[] = [
+    'created', 'queued', 'running', 'success',
+    'failed', 'upstream_failed', 'skipped', 'cancelled'
+] as const;
+
 function createEmptyTaskStatusSummary(): ITaskStatusSummary {
-    return {
-        created: 0,
-        queued: 0,
-        running: 0,
-        success: 0,
-        failed: 0,
-        upstream_failed: 0,
-        skipped: 0,
-        cancelled: 0
-    };
+    const summary = {} as ITaskStatusSummary;
+    for (const status of TASK_RUN_STATUSES) {
+        summary[status] = 0;
+    }
+    return summary;
 }
 
 export class ProjectionReadModelService {

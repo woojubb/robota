@@ -2,7 +2,7 @@ import { Robota, bindWithOwnerPath, FunctionTool, RelayMcpTool, type IEventServi
 import type { IAgentConfig, IAIProvider, IToolSchema, TToolParameters, IToolResult, IOwnerPathSegment } from '@robota-sdk/agents';
 import templates from './templates.json';
 
-type TemplateEntry = {
+type TTemplateEntry = {
     id: string;
     name: string;
     description?: string;
@@ -12,7 +12,26 @@ type TemplateEntry = {
     systemMessage: string;
 };
 
-const TEMPLATE_LIST: TemplateEntry[] = templates as TemplateEntry[];
+function validateTemplateList(data: unknown): TTemplateEntry[] {
+    if (!Array.isArray(data)) {
+        throw new Error('[relay-assign-task] templates.json must be an array');
+    }
+    for (const entry of data) {
+        if (
+            typeof entry !== 'object' || entry === null ||
+            typeof (entry as Record<string, unknown>).id !== 'string' ||
+            typeof (entry as Record<string, unknown>).name !== 'string' ||
+            typeof (entry as Record<string, unknown>).provider !== 'string' ||
+            typeof (entry as Record<string, unknown>).model !== 'string' ||
+            typeof (entry as Record<string, unknown>).systemMessage !== 'string'
+        ) {
+            throw new Error('[relay-assign-task] Invalid template entry: missing required fields (id, name, provider, model, systemMessage)');
+        }
+    }
+    return data as TTemplateEntry[];
+}
+
+const TEMPLATE_LIST: TTemplateEntry[] = validateTemplateList(templates);
 
 const listTemplateCategoriesSchema: IToolSchema = {
     name: 'listTemplateCategories',
@@ -140,7 +159,13 @@ export function createAssignTaskRelayTool(eventService: IEventService, aiProvide
             if (!ctx?.agentId) {
                 throw new Error('[ASSIGN-TASK] Missing context.agentId');
             }
-            const parentOwnerPath: IOwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map((s: IOwnerPathSegment) => ({ ...s })) : [];
+            const parentOwnerPath: IOwnerPathSegment[] = Array.isArray(ctx.ownerPath)
+                ? ctx.ownerPath
+                    .filter((s: IOwnerPathSegment): s is IOwnerPathSegment =>
+                        s !== null && typeof s === 'object' && typeof s.type === 'string' && typeof s.id === 'string'
+                    )
+                    .map((s: IOwnerPathSegment) => ({ ...s }))
+                : [];
             const agentOwnerPath: IOwnerPathSegment[] = [...parentOwnerPath, { type: 'agent', id: ctx.agentId }];
             const agentEventService = bindWithOwnerPath(ctx.baseEventService, {
                 ownerType: 'agent',

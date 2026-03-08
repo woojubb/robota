@@ -344,6 +344,12 @@ export class WorkerLoopService {
         };
     }
 
+    /**
+     * Resolves the timeout for task execution.
+     * `timeoutMs` is injected into the message payload by the runtime when dispatching
+     * downstream tasks (see `dispatchDownstreamReadyTasks`), based on the node definition's
+     * `timeoutMs` field. Falls back to `defaultTimeoutMs` from worker options.
+     */
     private resolveTimeoutMs(message: IQueueMessage): number {
         const timeoutFromPayload = message.payload.timeoutMs;
         if (typeof timeoutFromPayload === 'number' && timeoutFromPayload > 0) {
@@ -353,6 +359,14 @@ export class WorkerLoopService {
         return this.options.defaultTimeoutMs;
     }
 
+    /**
+     * Executes a task with a timeout guard. When the timeout fires, the promise resolves
+     * with a timeout error, but the underlying executor continues running in the background.
+     * The executor result is discarded if it completes after timeout.
+     *
+     * Limitation: the executor is not aborted on timeout. True cancellation would require
+     * AbortController integration in `ITaskExecutorPort.execute`, which is a larger change.
+     */
     private async executeWithTimeout(
         input: ITaskExecutionInput,
         timeoutMs: number,

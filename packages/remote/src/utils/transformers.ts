@@ -102,22 +102,18 @@ export function createHttpResponse<TData>(
 }
 
 /**
- * Extract content from response safely
+ * Extract content from response safely.
+ *
+ * Canonical structure: response.data.data.content (nested data envelope).
+ * The server always wraps the payload in a { data: { content: ... } } envelope.
  */
 export function extractContent(response: IHttpResponse<TDefaultRequestData>): string {
-    // Check for nested data structure: response.data.data.content
     if ('data' in response.data) {
         const nestedData = response.data['data'];
         if (nestedData !== null && typeof nestedData === 'object' && 'content' in nestedData) {
             const content = (nestedData as Record<string, TUniversalValue>)['content'];
             return typeof content === 'string' ? content : '';
         }
-    }
-
-    // Fallback to original structure: response.data.content
-    if ('content' in response.data) {
-        const content = response.data['content'];
-        return typeof content === 'string' ? content : '';
     }
 
     return '';
@@ -146,7 +142,11 @@ export function normalizeHeaders(headers: Record<string, string | number | boole
 }
 
 /**
- * Safe JSON parse with basic error handling
+ * Safe JSON parse with basic error handling.
+ *
+ * Trust boundary: The generic parameter T is NOT validated at runtime.
+ * JSON.parse returns unknown and the cast to T is unchecked.
+ * Callers MUST validate the returned value before using it in domain logic.
  */
 export function safeJsonParse<T>(jsonString: string): T | null {
     try {

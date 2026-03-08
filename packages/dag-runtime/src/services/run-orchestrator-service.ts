@@ -27,8 +27,6 @@ export interface IStartRunInput {
     input: TPortPayload;
 }
 
-export interface ICreateRunInput extends IStartRunInput {}
-
 export interface ICreateRunResult {
     dagRunId: string;
     dagId: string;
@@ -57,7 +55,7 @@ export class RunOrchestratorService {
         this.timeSemanticsService = new TimeSemanticsService(clock);
     }
 
-    public async createRun(input: ICreateRunInput): Promise<TResult<ICreateRunResult, IDagError>> {
+    public async createRun(input: IStartRunInput): Promise<TResult<ICreateRunResult, IDagError>> {
         const definition = input.version
             ? await this.storage.getDefinition(input.dagId, input.version)
             : await this.storage.getLatestPublishedDefinition(input.dagId);
@@ -283,7 +281,15 @@ export class RunOrchestratorService {
                 );
                 const cancelledTaskTransition = TaskRunStateMachine.transition('queued', 'CANCEL');
                 if (cancelledTaskTransition.ok) {
+                    // Cancel the current failed task
                     await this.storage.updateTaskRunStatus(taskRunId, cancelledTaskTransition.value.nextStatus, dispatchError);
+                    // Cancel previously-enqueued tasks in this batch to prevent orphans
+                    for (const previousTaskRunId of taskRunIds) {
+                        if (previousTaskRunId === taskRunId) {
+                            continue;
+                        }
+                        await this.storage.updateTaskRunStatus(previousTaskRunId, cancelledTaskTransition.value.nextStatus, dispatchError);
+                    }
                 }
                 const failedRunTransition = DagRunStateMachine.transition('running', 'COMPLETE_FAILURE');
                 if (failedRunTransition.ok) {
@@ -418,6 +424,6 @@ export class RunOrchestratorService {
         if (error instanceof Error && error.message.trim().length > 0) {
             return error.message;
         }
-        return 'Unknown enqueue error';
+        return 'Unknown error';
     }
 }
