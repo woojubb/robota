@@ -1,7 +1,6 @@
 import {
     TASK_PROGRESS_EVENTS,
     TaskRunStateMachine,
-    buildLeaseError,
     buildValidationError,
     type IClockPort,
     type IDagDefinition,
@@ -79,7 +78,7 @@ export class WorkerLoopService {
         const acquired = await this.lease.acquire(leaseKey, this.options.workerId, this.options.leaseDurationMs);
         if (!acquired) {
             await this.queue.nack(message.messageId);
-            return { ok: false, error: buildLeaseError('DAG_LEASE_CONTRACT_VIOLATION', 'Failed to acquire lease for task run', { taskRunId: message.taskRunId, workerId: this.options.workerId }) };
+            return { ok: true, value: { processed: false } };
         }
 
         try {
