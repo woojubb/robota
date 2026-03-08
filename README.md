@@ -334,6 +334,32 @@ WEATHER_API_KEY=your_weather_api_key_here
 MCP_API_KEY=your_mcp_api_key_here
 ```
 
+## Deployment
+
+All deployments are manual-only. No automatic deployments are triggered on push or merge.
+
+### Documentation (GitHub Pages)
+
+Run from GitHub Actions UI: **Actions → Deploy Documentation → Run workflow**
+
+Select the branch or tag to deploy from. Defaults to `main`.
+
+### Web App (Vercel)
+
+Run from GitHub Actions UI: **Actions → Deploy to Vercel → Run workflow**
+
+Select the deployment target: `staging` or `production`.
+
+### NPM Release
+
+Run from GitHub Actions UI: **Actions → Release → Run workflow**
+
+Enter the release tag (e.g., `v1.0.0`). This runs typecheck, lint, build, test, publishes to NPM, and deploys documentation.
+
+### CI
+
+CI runs automatically on pull requests targeting `main` or `develop`. No CI runs on push.
+
 ## License
 
 MIT
