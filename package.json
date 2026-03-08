@@ -48,7 +48,8 @@
     "git:push-tags": "git push --tags",
     "publish:packages": "pnpm readme:validate && pnpm readme:copy && pnpm changeset version && pnpm install && pnpm publish -r --no-git-checks && pnpm git:push-tags && pnpm readme:cleanup",
     "ci:publish": "pnpm publish -r",
-    "knip": "knip"
+    "knip": "knip",
+    "deps:check": "depcruise packages/ apps/ --config .dependency-cruiser.cjs"
   },
   "keywords": [
     "ai",
@@ -83,6 +84,7 @@
     "@types/node": "^20.10.6",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "dependency-cruiser": "^17.3.8",
     "eslint": "^8.56.0",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
