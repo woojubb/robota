@@ -33,7 +33,7 @@ import {
 
 export type TNodeExecutionStatus = 'idle' | 'running' | 'success' | 'failed';
 
-interface INodeUiState {
+export interface INodeUiState {
     executionStatus: TNodeExecutionStatus;
     isSelected: boolean;
 }

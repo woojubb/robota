@@ -10,12 +10,7 @@ import {
 import type { Edge, Node, XYPosition } from '@xyflow/react';
 import type { IDagNodeIoTrace, IDagNodeViewData, TDagCanvasNode } from './dag-node-view.js';
 import type { IDagBindingEdgeData } from './dag-binding-edge.js';
-import type { TNodeExecutionStatus } from './dag-designer-context.js';
-
-interface INodeUiState {
-    executionStatus: TNodeExecutionStatus;
-    isSelected: boolean;
-}
+import type { INodeUiState, TNodeExecutionStatus } from './dag-designer-context.js';
 
 export function toNode(
     nodeDefinition: IDagNode,

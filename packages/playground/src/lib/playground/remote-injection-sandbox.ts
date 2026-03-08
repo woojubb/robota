@@ -4,16 +4,7 @@
 
 import type { TUniversalValue } from '@robota-sdk/agents';
 import type { IPlaygroundConfig } from './config-validation';
-
-interface IRemoteExecutor {
-    readonly name: string;
-    readonly version: string;
-    executeChat(request: Record<string, TUniversalValue>): Promise<TUniversalValue>;
-    executeChatStream?(request: Record<string, TUniversalValue>): AsyncIterable<TUniversalValue>;
-    supportsTools(): boolean;
-    validateConfig(): boolean;
-    dispose?(): Promise<void>;
-}
+import type { IRemoteExecutor } from './remote-injection';
 
 type TSandboxLogArg = TUniversalValue | Error;
 

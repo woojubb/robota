@@ -2,11 +2,9 @@ import {
     buildTaskExecutionError,
     type IDagError,
     type ITaskExecutionInput,
-    type ITaskExecutorPort
+    type ITaskExecutorPort,
+    type TTaskExecutionResult
 } from '@robota-sdk/dag-core';
-
-/** Return type of the task executor's execute method. */
-type TTaskExecutionResult = Awaited<ReturnType<ITaskExecutorPort['execute']>>;
 
 /** Builds a timeout error for a task that exceeded its allowed execution time. */
 function buildTimeoutError(taskRunId: string, timeoutMs: number): IDagError {
