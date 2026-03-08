@@ -1,6 +1,7 @@
 import {
     DagDefinitionService,
     type IClockPort,
+    type ILeasePort,
     type IQueuePort,
     type IStoragePort
 } from '@robota-sdk/dag-core';
@@ -24,6 +25,7 @@ export interface IDagControllerCompositionDependencies {
     storage: IStoragePort;
     queue: IQueuePort;
     deadLetterQueue: IQueuePort;
+    lease: ILeasePort;
     clock: IClockPort;
 }
 
@@ -64,6 +66,7 @@ export function createDagControllerComposition(
         dependencies.storage,
         dependencies.deadLetterQueue,
         dependencies.queue,
+        dependencies.lease,
         dependencies.clock
     );
 
