@@ -20,7 +20,7 @@ import { WebLogger } from '../../lib/web-logger';
 import { useToast } from '../../hooks/use-toast';
 import { CreateAgentModal, AddToolModal } from './playground-modals';
 
-type ToolDraft = { name: string; description: string };
+export type TToolDraft = { name: string; description: string };
 
 function slugifyKebab(input: string): string {
   const raw = input.trim().toLowerCase();
@@ -53,7 +53,7 @@ function PlaygroundContent(): React.ReactElement {
   const toolItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [lastAddedToolId, setLastAddedToolId] = useState<string | null>(null);
   const sortedToolItems = useMemo(() => [...toolItems].sort((a, b) => a.name.localeCompare(b.name)), [toolItems]);
-  const [toolDraft, setToolDraft] = useState<ToolDraft>({ name: '', description: '' });
+  const [toolDraft, setToolDraft] = useState<TToolDraft>({ name: '', description: '' });
 
   useEffect(() => {
     if (!lastAddedToolId) return;

@@ -20,14 +20,14 @@ export interface IBaseWorkflowValidatorOptions {
     enabled?: boolean; logger?: ILogger; config?: IWorkflowConfig; defaultOptions?: Partial<IValidationOptions>;
 }
 
-interface IValidatorStats {
+export interface IValidatorStats {
     totalValidations: number; successfulValidations: number; failedValidations: number;
     totalProcessingTime: number; totalIssueCount: number;
     issuesByRule: Map<string, number>; issuesBySeverity: Map<ValidationSeverity, number>;
     lastValidationAt?: Date;
 }
 
-interface IValidationRuleConfig { enabled: boolean; description: string; severity: ValidationSeverity; category: string }
+export interface IValidationRuleConfig { enabled: boolean; description: string; severity: ValidationSeverity; category: string }
 
 /**
  * Base Workflow Validator Abstract Class.

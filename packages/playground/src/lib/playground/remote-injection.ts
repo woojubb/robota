@@ -12,7 +12,7 @@ import { addPlaygroundSetup } from './remote-injection-setup';
 // Re-export sandbox for external consumers
 export { createPlaygroundSandbox } from './remote-injection-sandbox';
 
-interface IRemoteExecutor {
+export interface IRemoteExecutor {
   readonly name: string;
   readonly version: string;
   executeChat(request: Record<string, TUniversalValue>): Promise<TUniversalValue>;
