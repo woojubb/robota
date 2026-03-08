@@ -74,9 +74,13 @@ Each package is reviewed through six specialist perspectives, in order:
 ### 6. Maintainability
 - Test coverage for public API surface
 - Naming clarity (functions describe actions, variables describe content)
-- File size and complexity (flag files > 300 lines or functions > 50 lines)
+- File size: production files > 300 lines → **MUST** fix (split into focused modules)
+- Function size: functions > 50 lines → **MUST** fix (extract sub-operations)
+- Cyclomatic complexity: functions with > 15 branches → **SHOULD** simplify
 - Documentation accuracy (SPEC.md reflects current implementation)
 - Dead code (unused exports, unreachable branches)
+- Magic numbers/strings without named constants → **SHOULD** fix
+- Mutable function parameters → **MUST** fix (clone or create new objects)
 
 ## Execution Steps
 
