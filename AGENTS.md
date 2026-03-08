@@ -95,10 +95,12 @@ All rules below are mandatory, non-negotiable, and domain-free. Domain-specific 
 - `unknown` is allowed only at trust boundaries and `catch` boundaries, and must be narrowed before domain use.
 - `// @ts-ignore` and `// @ts-nocheck` are prohibited.
 - `I*` prefix is for interfaces only. `T*` prefix is for type aliases only. Type aliases with `I*` prefix or interfaces with `T*` prefix are naming violations and must be renamed.
-- New code should prefer descriptive names without prefixes where clarity is not compromised. Existing prefixed names may be migrated gradually.
 - In test files (`*.test.ts`, `*.spec.ts`), `any` and `unknown` may be used only for mocks or boundary fixtures.
 - Follow owner-based SSOT: every concept has exactly one owner module. Import from the owner's public surface and never re-declare owned contracts.
-- Trivial 1:1 type aliases (`type X = Y`) that add no semantic value are prohibited.
+- To use another package's type: import and use it directly, or re-export it (`export type { X } from`). Do not create a wrapper alias.
+- A new type that structurally overlaps with an existing type is allowed only when the package cannot expose the original (e.g., exposing only a subset of fields, decoupling from an internal dependency). The new type must have a distinct name that reflects its narrowed purpose.
+- Trivial 1:1 type aliases (`type X = Y`) are prohibited. Union, intersection, mapped, and conditional types are valid uses of type aliases.
+- Object shapes must use `interface`. Type aliases are for unions, intersections, tuples, mapped types, and primitives.
 - Prefer `undefined` over `null` for absence of value. `null` is allowed only at API boundaries (JSON serialization).
 
 ### No Fallback Policy
