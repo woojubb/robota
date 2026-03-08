@@ -7,7 +7,7 @@ Core development principles and philosophy for the Robota SDK v2.0.
 The Robota SDK v2.0 is a unified TypeScript library for building AI agents with:
 
 - **Unified Architecture**: Everything consolidated in `@robota-sdk/agents`
-- **Type-Safe Design**: Zero `any` types, complete TypeScript safety
+- **Type-Safe Design**: `any` prohibited in production code, complete TypeScript safety
 - **Multi-Provider Support**: OpenAI, Anthropic, Google AI with seamless switching
 - **Plugin-Based Extensibility**: Modular plugin system for extending functionality
 - **Performance-First**: Built-in analytics and monitoring
@@ -16,7 +16,7 @@ The Robota SDK v2.0 is a unified TypeScript library for building AI agents with:
 
 ### 1. Type Safety First
 
-**Zero Any/Unknown Policy**: Complete elimination of `any` and unsafe `unknown` types
+**Strict Type Safety Policy**: Complete elimination of `any` and unsafe `unknown` types
 
 ```typescript
 // ✅ Good: Fully typed
@@ -24,10 +24,10 @@ interface AgentConfig {
     name: string;
     model: string;
     provider: string;
-    aiProviders: Record<string, BaseAIProvider>;
+    aiProviders: IAIProvider[];
     systemMessage?: string;
-    tools?: Tool[];
-    plugins?: BasePlugin[];
+    tools?: IToolInterface[];
+    plugins?: AbstractPlugin[];
 }
 
 // ❌ Bad: Using any
@@ -41,10 +41,10 @@ interface BadConfig {
 
 **Single Source of Truth**: `@robota-sdk/agents` contains all core functionality
 
-- **BaseAgent**: Foundation for all agent implementations
-- **BaseAIProvider**: Unified provider interface
-- **BaseTool**: Type-safe tool system
-- **BasePlugin**: Extensible plugin architecture
+- **AbstractAgent**: Foundation for all agent implementations
+- **AbstractAIProvider**: Unified provider interface
+- **AbstractTool**: Type-safe tool system
+- **AbstractPlugin**: Extensible plugin architecture
 - **AgentFactory**: Template-based agent creation
 
 ### 3. Provider Agnostic Architecture
@@ -192,7 +192,7 @@ describe('Robota Agent', () => {
 **Extensible Architecture**: Core functionality + optional plugins
 
 ```typescript
-export abstract class BasePlugin<TStats = PluginStats> {
+export abstract class AbstractPlugin<TStats = PluginStats> {
     abstract name: string;
     abstract onAgentStart?(): Promise<void>;
     abstract onAgentStop?(): Promise<void>;
@@ -218,7 +218,7 @@ const agent = await factory.createFromTemplate('helpful-assistant');
 **Abstraction Layer**: Unified interface across different AI services
 
 ```typescript
-export abstract class BaseAIProvider {
+export abstract class AbstractAIProvider {
     abstract generateResponse(messages: UniversalMessage[]): Promise<string>;
     abstract generateStream(messages: UniversalMessage[]): AsyncIterable<StreamChunk>;
     abstract getSupportedModels(): string[];
@@ -257,7 +257,7 @@ for await (const chunk of stream) {
 
 ```typescript
 // Plugin-specific cleanup
-export class ConversationHistoryPlugin extends BasePlugin {
+export class ConversationHistoryPlugin extends AbstractPlugin {
     async onAgentStop(): Promise<void> {
         // Clean up conversation history
         this.clearHistory();

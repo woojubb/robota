@@ -10,20 +10,24 @@ The codebase is logically separated as follows:
 
 ```
 robota/
-├── packages/           # Core packages
-│   ├── core/           # Core functionality
-│   │   ├── managers/   # Feature-specific manager classes
-│   │   ├── services/   # Business logic services
-│   │   ├── interfaces/ # Type definitions and interfaces
-│   │   └── utils/      # Utility functions
-│   ├── openai/         # OpenAI integration
-│   ├── anthropic/      # Anthropic integration
-│   ├── mcp/            # MCP implementation
-│   ├── tools/          # Tool system
-│   └── ...
+├── packages/           # SDK packages
+│   ├── agents/         # Core agent framework
+│   ├── openai/         # OpenAI provider
+│   ├── anthropic/      # Anthropic provider
+│   ├── google/         # Google AI provider
+│   ├── bytedance/      # ByteDance provider
+│   ├── sessions/       # Session management
+│   ├── remote/         # Remote execution
+│   ├── playground/     # Development playground
+│   ├── team/           # Task assignment tools
+│   ├── dag-core/       # DAG core types
+│   ├── dag-api/        # DAG API contracts
+│   ├── dag-runtime/    # DAG execution runtime
+│   └── ...             # More DAG and utility packages
 └── apps/               # Applications
-    ├── docs/           # Documentation application
-    └── examples/       # Example code
+    ├── docs/           # Documentation site
+    ├── web/            # Web application
+    └── api-server/     # API server
 ```
 
 ### Introduction of Manager Pattern
@@ -40,7 +44,7 @@ export class Robota {
     
     // Basic configuration
     private memory: Memory;
-    private onToolCall?: (toolName: string, params: any, result: any) => void;
+    private onToolCall?: (toolName: string, params: Record<string, unknown>, result: unknown) => void;
     private logger: Logger;
     private debug: boolean;
 }
@@ -65,21 +69,21 @@ Manages tool providers and tool calls:
 ```typescript
 export class ToolProviderManager {
     addProviders(providers: ToolProvider[]): void;
-    callTool(toolName: string, parameters: Record<string, any>): Promise<any>;
-    getAvailableTools(): any[];
+    callTool(toolName: string, parameters: Record<string, unknown>): Promise<unknown>;
+    getAvailableTools(): FunctionSchema[];
     setAllowedFunctions(functions: string[]): void;
 }
 ```
 
 #### SystemMessageManager
-Manages system prompts and system messages:
+Manages system messages:
 
 ```typescript
 export class SystemMessageManager {
-    setSystemPrompt(prompt: string): void;
+    setSystemMessage(message: string): void;
     setSystemMessages(messages: Message[]): void;
     addSystemMessage(content: string): void;
-    getSystemPrompt(): string | undefined;
+    getSystemMessage(): string | undefined;
     getSystemMessages(): Message[] | undefined;
 }
 ```
@@ -91,7 +95,7 @@ Manages tool providers, tool calls, and tool execution:
 export class ToolProviderManager {
     addProviders(providers: ToolProvider[]): void;
     removeProvider(providerId: string): void;
-    callTool(toolName: string, parameters: Record<string, any>): Promise<any>;
+    callTool(toolName: string, parameters: Record<string, unknown>): Promise<unknown>;
     getAvailableTools(): FunctionSchema[];
     getProviders(): ToolProvider[];
 }
@@ -106,9 +110,9 @@ Handles conversation processing with AI:
 
 ```typescript
 export class ConversationService {
-    prepareContext(memory: Memory, systemPrompt?: string, systemMessages?: Message[], options?: RunOptions): Context;
-    generateResponse(aiProvider: AIProvider, model: string, context: Context, options: RunOptions, availableTools: any[], onToolCall?: Function): Promise<ModelResponse>;
-    generateStream(aiProvider: AIProvider, model: string, context: Context, options: RunOptions, availableTools: any[]): Promise<AsyncIterable<StreamingResponseChunk>>;
+    prepareContext(memory: Memory, systemMessage?: string, systemMessages?: Message[], options?: RunOptions): Context;
+    generateResponse(aiProvider: AIProvider, model: string, context: Context, options: RunOptions, availableTools: FunctionSchema[], onToolCall?: Function): Promise<ModelResponse>;
+    generateStream(aiProvider: AIProvider, model: string, context: Context, options: RunOptions, availableTools: FunctionSchema[]): Promise<AsyncIterable<StreamingResponseChunk>>;
 }
 ```
 
@@ -182,7 +186,7 @@ interface Tool {
 }
 
 // Improved:
-interface Tool<TInput = any, TOutput = any> {
+interface Tool<TInput = unknown, TOutput = unknown> {
   name: string;
   description?: string;
   parameters?: ToolParameter[];
@@ -236,7 +240,7 @@ class Robota {
   // ============================================================
   // System Message Management (delegation)
   // ============================================================
-  setSystemPrompt() { /* ... */ }
+  setSystemMessage() { /* ... */ }
   setSystemMessages() { /* ... */ }
   addSystemMessage() { /* ... */ }
   
@@ -266,7 +270,7 @@ class Robota {
 Error handling has been improved to provide more specific and useful feedback in various situations:
 
 ```typescript
-async generateResponse(context: any, options: RunOptions = {}): Promise<ModelResponse> {
+async generateResponse(context: Context, options: RunOptions = {}): Promise<ModelResponse> {
     if (!this.aiProviderManager.isConfigured()) {
         throw new Error('Current AI provider and model are not configured. Use setModel() method to configure.');
     }
@@ -287,7 +291,7 @@ async generateResponse(context: any, options: RunOptions = {}): Promise<ModelRes
 Test files are placed alongside their corresponding implementation files for easier management:
 
 ```
-packages/core/src/
+packages/agents/src/
   ├── memory.ts
   ├── memory.test.ts  // Tests for memory.ts
   ├── robota.ts
@@ -313,18 +317,16 @@ describe('Robota', () => {
 
     beforeEach(() => {
         mockProvider = new MockProvider();
-        robota = new Robota({ 
-            aiProviders: { mock: mockProvider },
-            currentProvider: 'mock',
-            currentModel: 'mock-model'
+        robota = new Robota({
+            aiProviders: [mockProvider],
+            defaultModel: { provider: 'mock', model: 'mock-model' }
         });
     });
 
     it('should initialize with function call configuration', () => {
         const customRobota = new Robota({
-            aiProviders: { mock: mockProvider },
-            currentProvider: 'mock',
-            currentModel: 'mock-model',
+            aiProviders: [mockProvider],
+            defaultModel: { provider: 'mock', model: 'mock-model' },
             toolProviderConfig
         });
 
@@ -341,7 +343,7 @@ describe('Robota', () => {
 All APIs follow consistent naming conventions:
 
 - Classes: PascalCase (e.g., `AIProviderManager`, `ToolProviderManager`)
-- Methods: camelCase (e.g., `registerFunction`, `setSystemPrompt`)
+- Methods: camelCase (e.g., `registerFunction`, `setSystemMessage`)
 - Constants: UPPER_SNAKE_CASE (e.g., `DEFAULT_TIMEOUT`, `MAX_TOKENS`)
 - Types/Interfaces: PascalCase (e.g., `ToolResult`, `FunctionSchema`)
 
@@ -365,8 +367,8 @@ export class Robota {
     }
 
     // Delegate system message management to SystemMessageManager
-    setSystemPrompt(prompt: string): void {
-        this.systemMessageManager.setSystemPrompt(prompt);
+    setSystemMessage(message: string): void {
+        this.systemMessageManager.setSystemMessage(message);
     }
 }
 ```
@@ -427,7 +429,7 @@ All JSDoc comments in the library codebase have been changed from Korean to Engl
 
 #### Changed Files
 
-**Core Package:**
+**Agents Package:**
 - `index.ts`: Main class and manager export comments
 - `robota.ts`: All Robota class and method comments
 - `managers/`: All manager class comments
@@ -442,10 +444,6 @@ All JSDoc comments in the library codebase have been changed from Korean to Engl
 
 **Anthropic Package:**
 - `index.ts`, `types.ts`, `provider.ts`: All package comments
-
-**Tools Package:**
-- `types.d.ts`, `index.ts`: Tool system related comments
-- `tool-provider.ts`, `mcp-tool-provider.ts`: Tool provider comments
 
 #### Comment Change Examples
 
