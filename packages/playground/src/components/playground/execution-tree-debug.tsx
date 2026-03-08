@@ -1,5 +1,7 @@
 'use client';
 
+const CONTENT_PREVIEW_LENGTH = 100;
+
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -404,9 +406,9 @@ export const ExecutionTreeDebug: React.FC<IExecutionTreeDebugProps> = ({
                                                         startTime: metadata.startTime?.toISOString(),
                                                         duration: metadata.actualDuration,
                                                         content: typeof block.content === 'string'
-                                                            ? (block.content.substring(0, 100) + (block.content.length > 100 ? '...' : ''))
+                                                            ? (block.content.substring(0, CONTENT_PREVIEW_LENGTH) + (block.content.length > CONTENT_PREVIEW_LENGTH ? '...' : ''))
                                                             : block.content
-                                                                ? JSON.stringify(block.content).substring(0, 100) + '...'
+                                                                ? JSON.stringify(block.content).substring(0, CONTENT_PREVIEW_LENGTH) + '...'
                                                                 : ''
                                                     }, null, 2)}
                                                 </pre>

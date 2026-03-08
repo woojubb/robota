@@ -8,6 +8,9 @@ import type { IHttpRequest, IHttpResponse, TDefaultRequestData } from '../types/
 import type { ILogger, IToolSchema, IToolCall } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import type { IBasicMessage, IResponseMessage } from '../types/message-types';
+
+const SSE_DATA_PREFIX_LENGTH = 6;
+const CONTENT_PREVIEW_LENGTH = 30;
 import {
     createHttpRequest,
     createHttpResponse,
@@ -271,7 +274,7 @@ export class HttpClient {
                         if (line.trim() === '') continue;
 
                         if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
+                            const data = line.slice(SSE_DATA_PREFIX_LENGTH);
                             if (data === '[DONE]') {
                                 return;
                             }
@@ -289,7 +292,7 @@ export class HttpClient {
                                     // Debug: inspect parsed data
                                     this.logger.debug('🔍 [HTTP-CLIENT-PARSE] Parsed response data:', {
                                         role: String(responseData['role']),
-                                        content: contentValue.substring(0, 30) + '...',
+                                        content: contentValue.substring(0, CONTENT_PREVIEW_LENGTH) + '...',
                                         hasToolCalls: !!toolCalls,
                                         toolCallsLength: Array.isArray(toolCalls) ? toolCalls.length : 0
                                     });

@@ -11,6 +11,9 @@ import type {
     IExecutionAnalyticsPluginStats
 } from './types';
 
+const DEFAULT_MAX_ENTRIES = 1000;
+const DEFAULT_PERFORMANCE_THRESHOLD_MS = 5000;
+const PREVIEW_LENGTH = 100;
 
 
 /**
@@ -65,9 +68,9 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
 
         this.pluginOptions = {
             enabled: options.enabled ?? true,
-            maxEntries: options.maxEntries || 1000,
+            maxEntries: options.maxEntries || DEFAULT_MAX_ENTRIES,
             trackErrors: options.trackErrors ?? true,
-            performanceThreshold: options.performanceThreshold || 5000,
+            performanceThreshold: options.performanceThreshold || DEFAULT_PERFORMANCE_THRESHOLD_MS,
             enableWarnings: options.enableWarnings ?? true,
             // Add plugin options defaults
             category: options.category ?? PluginCategory.MONITORING,
@@ -102,7 +105,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
         this.activeExecutions.set(executionId, {
             startTime: Date.now(),
             operation: 'run',
-            input: input.substring(0, 100) // Store first 100 chars
+            input: input.substring(0, PREVIEW_LENGTH) // Store first 100 chars
         });
 
         this.logger.debug('Started tracking run execution', {
@@ -121,7 +124,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
         const execution = this.findActiveExecution('run', input);
 
         if (!execution) {
-            this.logger.warn('No active execution found for afterRun', { input: input.substring(0, 100) });
+            this.logger.warn('No active execution found for afterRun', { input: input.substring(0, PREVIEW_LENGTH) });
             return;
         }
 

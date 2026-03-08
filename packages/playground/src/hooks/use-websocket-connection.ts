@@ -1,5 +1,13 @@
 'use client';
 
+const DEFAULT_RECONNECT_INTERVAL_MS = 1000;
+const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
+const UPTIME_UPDATE_INTERVAL_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 30000;
+const PING_MIN_LATENCY_MS = 50;
+const PING_MAX_EXTRA_LATENCY_MS = 100;
+const HIGH_CONNECTION_ATTEMPTS_THRESHOLD = 3;
+
 /**
  * useWebSocketConnection - WebSocket Connection Management Hook
  * 
@@ -116,8 +124,8 @@ export function useWebSocketConnection(): IWebSocketConnectionHookReturn {
 
     // Configuration state
     const [autoReconnect, setAutoReconnect] = useState(true);
-    const [reconnectInterval, setReconnectInterval] = useState(1000);
-    const [maxReconnectAttempts, setMaxReconnectAttempts] = useState(5);
+    const [reconnectInterval, setReconnectInterval] = useState(DEFAULT_RECONNECT_INTERVAL_MS);
+    const [maxReconnectAttempts, setMaxReconnectAttempts] = useState(DEFAULT_MAX_RECONNECT_ATTEMPTS);
 
     // Refs for tracking
     const websocketRef = useRef<WebSocket | null>(null);
@@ -161,7 +169,7 @@ export function useWebSocketConnection(): IWebSocketConnectionHookReturn {
                     const uptime = Date.now() - connectionStartTimeRef.current.getTime();
                     setConnectionInfo(prev => ({ ...prev, uptime }));
                 }
-            }, 1000);
+            }, UPTIME_UPDATE_INTERVAL_MS);
         } else if (!isConnected && uptimeIntervalRef.current) {
             clearInterval(uptimeIntervalRef.current);
             uptimeIntervalRef.current = null;
@@ -288,7 +296,7 @@ export function useWebSocketConnection(): IWebSocketConnectionHookReturn {
         setConnectionState('reconnecting');
 
         // Exponential backoff
-        const delay = Math.min(reconnectInterval * Math.pow(2, connectionInfo.connectionAttempts), 30000);
+        const delay = Math.min(reconnectInterval * Math.pow(2, connectionInfo.connectionAttempts), MAX_RECONNECT_DELAY_MS);
 
         reconnectTimeoutRef.current = setTimeout(async () => {
             try {
@@ -361,7 +369,7 @@ export function useWebSocketConnection(): IWebSocketConnectionHookReturn {
             if (sendMessage({ type: PLAYGROUND_WS_MESSAGE_TYPES.PING, timestamp: startTime })) {
                 // In a real implementation, you'd listen for pong response
                 // For now, simulate a reasonable ping time
-                setTimeout(handlePong, 50 + Math.random() * 100);
+                setTimeout(handlePong, PING_MIN_LATENCY_MS + Math.random() * PING_MAX_EXTRA_LATENCY_MS);
             } else {
                 reject(new Error('Failed to send ping'));
             }
@@ -383,7 +391,7 @@ export function useWebSocketConnection(): IWebSocketConnectionHookReturn {
             isHealthy = false;
         }
 
-        if (connectionInfo.connectionAttempts > 3) {
+        if (connectionInfo.connectionAttempts > HIGH_CONNECTION_ATTEMPTS_THRESHOLD) {
             issues.push('Multiple connection attempts');
             isHealthy = false;
         }

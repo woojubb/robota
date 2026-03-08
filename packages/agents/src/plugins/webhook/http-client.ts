@@ -7,6 +7,11 @@ import jsSHA from 'jssha';
 import type { IWebhookRequest } from './types';
 import type { ILogger } from '../../utils/logger';
 
+const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_MAX_RETRIES = 3;
+const BACKOFF_BASE_MS = 1000;
+const MAX_BACKOFF_MS = 10000;
+
 /**
  * HTTP client for webhook requests
  */
@@ -22,8 +27,8 @@ export class WebhookHttpClient {
      */
     async sendRequest(request: IWebhookRequest): Promise<void> {
         const { endpoint, payload, attempt } = request;
-        const timeout = endpoint.timeout ?? 5000;
-        const maxRetries = endpoint.retries ?? 3;
+        const timeout = endpoint.timeout ?? DEFAULT_TIMEOUT_MS;
+        const maxRetries = endpoint.retries ?? DEFAULT_MAX_RETRIES;
 
         try {
             // Prepare request body
@@ -77,7 +82,7 @@ export class WebhookHttpClient {
                 };
 
                 // Exponential backoff
-                const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+                const delay = Math.min(BACKOFF_BASE_MS * Math.pow(2, attempt - 1), MAX_BACKOFF_MS);
                 await this.delay(delay);
 
                 return this.sendRequest(retryRequest);

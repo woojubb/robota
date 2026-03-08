@@ -5,6 +5,8 @@ import type { TTimerId } from '../../../utils';
 import { aggregateUsageStats } from '../aggregate-usage-stats';
 import { startPeriodicTask, stopPeriodicTask } from '../../../utils/periodic-task';
 
+const SAMPLE_SIZE = 3;
+
 /**
  * Remote storage implementation for usage statistics with batching
  */
@@ -101,7 +103,7 @@ export class RemoteUsageStorage implements IUsageStorage {
                 endpoint: this.apiUrl,
                 operation: 'flush',
                 batchSize: statsToSend.length,
-                sample: statsToSend.slice(0, 3).map(stat => ({
+                sample: statsToSend.slice(0, SAMPLE_SIZE).map(stat => ({
                     timestamp: stat.timestamp.toISOString(),
                     provider: stat.provider,
                     model: stat.model,

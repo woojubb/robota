@@ -11,6 +11,10 @@ import type {
 import { SessionState } from '../types/core';
 import type { IChatMetadata, IChatConfig } from '../types/chat';
 
+const DEFAULT_MAX_SESSIONS = 50;
+const DEFAULT_MAX_CHATS_PER_SESSION = 10;
+const SESSION_ID_SUFFIX_LENGTH = -8;
+
 /**
  * SessionManager - manages multiple independent AI agents in isolated workspaces
  * 
@@ -29,8 +33,8 @@ export class SessionManager {
 
     constructor(config: ISessionManagerConfig = {}) {
         this.config = {
-            maxSessions: config.maxSessions || 50,
-            maxChatsPerSession: config.maxChatsPerSession || 10,
+            maxSessions: config.maxSessions || DEFAULT_MAX_SESSIONS,
+            maxChatsPerSession: config.maxChatsPerSession || DEFAULT_MAX_CHATS_PER_SESSION,
         };
 
         this.agentFactory = new AgentFactory({
@@ -51,7 +55,7 @@ export class SessionManager {
         const sessionInfo: ISessionInfo = {
             id: sessionId,
             userId: options.userId || 'anonymous',
-            name: options.name || `Session ${sessionId.slice(-8)}`,
+            name: options.name || `Session ${sessionId.slice(SESSION_ID_SUFFIX_LENGTH)}`,
             state: SessionState.ACTIVE,
             chatCount: 0,
             createdAt: new Date(),
@@ -92,7 +96,7 @@ export class SessionManager {
         const metadata: IChatMetadata = {
             chatId,
             sessionId,
-            chatName: options.name || `Chat ${chatId.slice(-8)}`,
+            chatName: options.name || `Chat ${chatId.slice(SESSION_ID_SUFFIX_LENGTH)}`,
             createdAt: new Date(),
             updatedAt: new Date(),
             lastAccessedAt: new Date(),

@@ -1,5 +1,8 @@
 'use client'
 
+const RULER_COLUMN_WARNING = 80;
+const RULER_COLUMN_ERROR = 120;
+
 import { useRef } from 'react'
 import Editor, { OnMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
@@ -446,7 +449,7 @@ export function CodeEditor({
           minimap: { enabled: false },
           wordWrap: 'on',
           lineNumbers: 'on',
-          rulers: [80, 120],
+          rulers: [RULER_COLUMN_WARNING, RULER_COLUMN_ERROR],
           renderLineHighlight: 'line',
           renderWhitespace: 'boundary',
           cursorBlinking: 'blink',

@@ -1,5 +1,9 @@
 'use client';
 
+const PROMPT_PREVIEW_LENGTH = 100;
+const PERCENTAGE_MULTIPLIER = 100;
+const WS_CHECK_INTERVAL_MS = 1000;
+
 /**
  * PlaygroundContext - Global State Management for Robota Playground
  * 
@@ -391,7 +395,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
             // Record UI interaction - chat send
             if (typeof state.executor.recordPlaygroundAction === 'function') {
                 await state.executor.recordPlaygroundAction('chat_send', {
-                    prompt: prompt.substring(0, 100), // First 100 chars for tracking
+                    prompt: prompt.substring(0, PROMPT_PREVIEW_LENGTH), // First 100 chars for tracking
                     mode: state.mode
                 });
             }
@@ -480,14 +484,14 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
             // Record UI interaction - streaming chat send
             if (typeof state.executor.recordPlaygroundAction === 'function') {
                 await state.executor.recordPlaygroundAction('chat_send', {
-                    prompt: prompt.substring(0, 100),
+                    prompt: prompt.substring(0, PROMPT_PREVIEW_LENGTH),
                     mode: state.mode,
                     streaming: true
                 });
             }
 
             // Example 26 alignment: minimal executor.execute call flow.
-            logger.debug('Starting execution with prompt', { preview: prompt.substring(0, 100) });
+            logger.debug('Starting execution with prompt', { preview: prompt.substring(0, PROMPT_PREVIEW_LENGTH) });
 
             const result = await state.executor.execute(prompt, onChunk);
 
@@ -636,7 +640,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
                 }
             };
 
-            const interval = setInterval(checkConnection, 1000);
+            const interval = setInterval(checkConnection, WS_CHECK_INTERVAL_MS);
             return () => clearInterval(interval);
         }
         return;

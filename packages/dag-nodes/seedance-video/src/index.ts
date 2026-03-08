@@ -26,6 +26,7 @@ export interface ISeedanceVideoNodeDefinitionOptions extends ISeedanceVideoRunti
 
 const DEFAULT_SEEDANCE_MODEL = 'seedance-1-5-pro-251215';
 const DEFAULT_BASE_COST_USD = 0.08;
+const IMAGE_INPUT_SURCHARGE_USD = 0.02;
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
 const DEFAULT_POLL_TIMEOUT_MS = 180_000;
 
@@ -52,7 +53,7 @@ class SeedanceVideoNodeTaskHandler {
         config: z.output<typeof SeedanceVideoConfigSchema>
     ): Promise<TResult<ICostEstimate, IDagError>> {
         const imagesInput = input.images;
-        const imageSurcharge = Array.isArray(imagesInput) && imagesInput.length > 0 ? 0.02 : 0;
+        const imageSurcharge = Array.isArray(imagesInput) && imagesInput.length > 0 ? IMAGE_INPUT_SURCHARGE_USD : 0;
         const estimatedCostUsd = config.baseCostUsd + imageSurcharge;
         return {
             ok: true,

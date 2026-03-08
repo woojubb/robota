@@ -1,5 +1,10 @@
 import type { IAgentConfig } from '../interfaces/agent';
 
+const MAX_SYSTEM_MESSAGE_LENGTH = 1000;
+const MAX_TOOLS_WARNING_THRESHOLD = 20;
+const MAX_INPUT_LENGTH = 10000;
+const MIN_API_KEY_LENGTH = 10;
+
 /**
  * Validation result interface
  */
@@ -62,11 +67,11 @@ export class Validator {
         }
 
         // Warnings for best practices
-        if (config.systemMessage && config.systemMessage.length > 1000) {
+        if (config.systemMessage && config.systemMessage.length > MAX_SYSTEM_MESSAGE_LENGTH) {
             warnings.push('systemMessage is quite long, consider keeping it concise for better performance');
         }
 
-        if (config.tools && config.tools.length > 20) {
+        if (config.tools && config.tools.length > MAX_TOOLS_WARNING_THRESHOLD) {
             warnings.push('Large number of tools may impact performance, consider grouping related tools');
         }
 
@@ -91,7 +96,7 @@ export class Validator {
                 errors.push('Input cannot be only whitespace');
             }
 
-            if (input.length > 10000) {
+            if (input.length > MAX_INPUT_LENGTH) {
                 warnings.push('Very long input may be truncated by AI providers');
             }
         }
@@ -170,7 +175,7 @@ export class Validator {
         }
 
         // General security checks
-        if (apiKey.length < 10) {
+        if (apiKey.length < MIN_API_KEY_LENGTH) {
             errors.push('API key appears to be too short');
         }
 

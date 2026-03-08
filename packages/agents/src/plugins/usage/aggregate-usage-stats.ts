@@ -1,5 +1,12 @@
 import type { IAggregatedUsageStats, IUsageStats } from './types';
 
+const MS_PER_SECOND = 1000;
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const MS_PER_HOUR = MS_PER_SECOND * SECONDS_PER_MINUTE * MINUTES_PER_HOUR;
+const HOURS_PER_DAY = 24;
+const HOURS_PER_WEEK = 168;
+
 interface IUsageTimeRange {
     start: Date;
     end: Date;
@@ -9,11 +16,11 @@ function determineUsagePeriod(timeRange: IUsageTimeRange | undefined): string {
     if (!timeRange) return 'all';
 
     const diff = timeRange.end.getTime() - timeRange.start.getTime();
-    const hours = diff / (1000 * 60 * 60);
+    const hours = diff / MS_PER_HOUR;
 
     if (hours <= 1) return 'hour';
-    if (hours <= 24) return 'day';
-    if (hours <= 168) return 'week'; // 24 * 7
+    if (hours <= HOURS_PER_DAY) return 'day';
+    if (hours <= HOURS_PER_WEEK) return 'week';
     return 'month';
 }
 

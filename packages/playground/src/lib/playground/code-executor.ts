@@ -4,6 +4,14 @@
  * Now with RemoteExecutor integration for secure server-side execution
  */
 
+const DELAY_PARSE_MS = 500;
+const DELAY_COMPILE_MS = 800;
+const DELAY_INIT_MS = 600;
+const DELAY_HEALTH_CHECK_MS = 400;
+const SIMULATED_MIN_DELAY_MS = 1000;
+const SIMULATED_MAX_EXTRA_DELAY_MS = 2000;
+const MAX_SYNTAX_WARNINGS = 3;
+
 import {
     injectRemoteExecutor,
     requiresTransformation,
@@ -99,7 +107,7 @@ export class CodeExecutor {
 
             // Step 2: Parse agent configuration
             logs.push('⚙️ Parsing agent configuration...')
-            await this.simulateDelay(500)
+            await this.simulateDelay(DELAY_PARSE_MS)
 
             const agentConfig = this.parseAgentConfig(transformedCode)
             const providerInfo = extractProviderInfo(transformedCode)
@@ -126,12 +134,12 @@ export class CodeExecutor {
 
             // Step 4: Simulate compilation
             logs.push('🔨 Compiling agent...')
-            await this.simulateDelay(800)
+            await this.simulateDelay(DELAY_COMPILE_MS)
             logs.push('✅ Compilation successful')
 
             // Step 5: Initialize agent
             logs.push('🚀 Initializing agent...')
-            await this.simulateDelay(600)
+            await this.simulateDelay(DELAY_INIT_MS)
 
             if (requiresTransformation(code)) {
                 logs.push('🔐 Using RemoteExecutor for secure execution')
@@ -186,7 +194,7 @@ export class CodeExecutor {
             }
 
             logs.push('🧪 Running health checks...')
-            await this.simulateDelay(400)
+            await this.simulateDelay(DELAY_HEALTH_CHECK_MS)
             logs.push('✅ All systems operational')
 
             this.context = { ...agentConfig, provider }
@@ -242,7 +250,7 @@ export class CodeExecutor {
         }
 
         // Simulate processing time
-        await this.simulateDelay(1000 + Math.random() * 2000)
+        await this.simulateDelay(SIMULATED_MIN_DELAY_MS + Math.random() * SIMULATED_MAX_EXTRA_DELAY_MS)
 
         // Generate realistic responses based on context
         return this.generateAgentResponse(message, this.context)
@@ -319,7 +327,7 @@ export class CodeExecutor {
                 line.includes('=')
             )
 
-        missingSemicolonLines.slice(0, 3).forEach(({ line, index }) => {
+        missingSemicolonLines.slice(0, MAX_SYNTAX_WARNINGS).forEach(({ line, index }) => {
             warnings.push({
                 type: 'syntax',
                 severity: 'warning',

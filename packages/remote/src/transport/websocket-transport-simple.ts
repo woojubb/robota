@@ -24,6 +24,14 @@ export interface ISimpleWebSocketConfig extends ITransportConfig {
     pingInterval?: number;
 }
 
+const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_RETRY_COUNT = 3;
+const DEFAULT_RECONNECT_DELAY_MS = 1000;
+const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
+const DEFAULT_PING_INTERVAL_MS = 30000;
+const WS_NORMAL_CLOSURE = 1000;
+const WS_MAX_PAYLOAD_SIZE_BYTES = 1048576; // 1MB
+
 interface IPendingRequest {
     resolve: (value: ITransportResponse<unknown>) => void;
     reject: (error: Error) => void;
@@ -43,13 +51,13 @@ export class SimpleWebSocketTransport implements ITransport {
     constructor(config: ISimpleWebSocketConfig) {
         this.config = {
             baseUrl: config.baseUrl,
-            timeout: config.timeout || 30000,
-            retryCount: config.retryCount || 3,
+            timeout: config.timeout || DEFAULT_TIMEOUT_MS,
+            retryCount: config.retryCount || DEFAULT_RETRY_COUNT,
             headers: config.headers || {},
             compression: config.compression || false,
-            reconnectDelay: config.reconnectDelay || 1000,
-            maxReconnectAttempts: config.maxReconnectAttempts || 5,
-            pingInterval: config.pingInterval || 30000
+            reconnectDelay: config.reconnectDelay || DEFAULT_RECONNECT_DELAY_MS,
+            maxReconnectAttempts: config.maxReconnectAttempts || DEFAULT_MAX_RECONNECT_ATTEMPTS,
+            pingInterval: config.pingInterval || DEFAULT_PING_INTERVAL_MS
         };
     }
 
@@ -105,7 +113,7 @@ export class SimpleWebSocketTransport implements ITransport {
 
         if (this.ws) {
             if (this.ws.readyState === WebSocket.OPEN) {
-                this.ws.close(1000, 'Normal closure');
+                this.ws.close(WS_NORMAL_CLOSURE, 'Normal closure');
             }
             this.ws = undefined;
         }
@@ -161,7 +169,7 @@ export class SimpleWebSocketTransport implements ITransport {
             streaming: true,
             bidirectional: true,
             compression: this.config.compression,
-            maxPayloadSize: 1024 * 1024,
+            maxPayloadSize: WS_MAX_PAYLOAD_SIZE_BYTES,
             protocols: ['websocket']
         };
     }
@@ -218,7 +226,7 @@ export class SimpleWebSocketTransport implements ITransport {
     }
 
     private handleClose(code: number): void {
-        if (code !== 1000 && !this.isReconnecting && this.reconnectAttempts < this.config.maxReconnectAttempts) {
+        if (code !== WS_NORMAL_CLOSURE && !this.isReconnecting && this.reconnectAttempts < this.config.maxReconnectAttempts) {
             this.attemptReconnect();
         }
     }

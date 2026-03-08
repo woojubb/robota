@@ -99,10 +99,13 @@ const getBlockColors = (type: IBlockMetadata['type'], state: IBlockMetadata['vis
 /**
  * Format duration for display
  */
+const MS_PER_SECOND = 1000;
+const MAX_INDENT_LEVEL = 8;
+
 const formatDuration = (duration?: number) => {
     if (!duration) return '';
-    if (duration < 1000) return `${duration}ms`;
-    return `${(duration / 1000).toFixed(1)}s`;
+    if (duration < MS_PER_SECOND) return `${duration}ms`;
+    return `${(duration / MS_PER_SECOND).toFixed(1)}s`;
 };
 
 const INDENT_MARGIN_CLASSES = [
@@ -134,7 +137,7 @@ export const BlockNode: React.FC<IBlockNodeProps> = ({
     const [localExpanded, setLocalExpanded] = useState(blockMetadata.isExpanded);
 
     const hasChildren = blockMetadata.children.length > 0 || children;
-    const indentLevel = Math.min(level, 8); // Limit deep nesting
+    const indentLevel = Math.min(level, MAX_INDENT_LEVEL); // Limit deep nesting
     const indentClassName = INDENT_MARGIN_CLASSES[indentLevel];
 
     const handleToggleExpand = useCallback(() => {

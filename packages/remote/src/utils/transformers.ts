@@ -7,6 +7,9 @@
 import type { IBasicMessage, IResponseMessage, IRequestMessage } from '../types/message-types';
 import type { IHttpRequest, IHttpResponse, TDefaultRequestData, THttpMethod } from '../types/http-types';
 import type { TUniversalValue } from '@robota-sdk/agents';
+
+const RANDOM_ID_RADIX = 36;
+
 // Simple utility functions for basic type checking
 
 /**
@@ -123,7 +126,7 @@ export function extractContent(response: IHttpResponse<TDefaultRequestData>): st
  * Generate unique ID
  */
 export function generateId(prefix: string = 'id'): string {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+    return `${prefix}_${Date.now()}_${Math.random().toString(RANDOM_ID_RADIX).substring(2)}`;
 }
 
 /**

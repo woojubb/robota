@@ -16,6 +16,10 @@ import {
     DatabaseHistoryStorage
 } from './storages/index';
 
+const DEFAULT_MAX_CONVERSATIONS = 100;
+const DEFAULT_MAX_MESSAGES = 1000;
+const DEFAULT_SAVE_INTERVAL_MS = 30000;
+
 /**
  * Persists conversation history using configurable storage backends.
  *
@@ -64,12 +68,12 @@ export class ConversationHistoryPlugin extends AbstractPlugin<IConversationHisto
         this.pluginOptions = {
             enabled: options.enabled ?? true,
             storage: options.storage,
-            maxConversations: options.maxConversations ?? 100,
-            maxMessagesPerConversation: options.maxMessagesPerConversation ?? 1000,
+            maxConversations: options.maxConversations ?? DEFAULT_MAX_CONVERSATIONS,
+            maxMessagesPerConversation: options.maxMessagesPerConversation ?? DEFAULT_MAX_MESSAGES,
             filePath: options.filePath ?? './conversations.json',
             connectionString: options.connectionString ?? '',
             autoSave: options.autoSave ?? true,
-            saveInterval: options.saveInterval ?? 30000, // 30 seconds
+            saveInterval: options.saveInterval ?? DEFAULT_SAVE_INTERVAL_MS,
             // Add plugin options defaults
             category: options.category ?? PluginCategory.STORAGE,
             priority: options.priority ?? PluginPriority.HIGH,

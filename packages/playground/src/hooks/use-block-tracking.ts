@@ -1,3 +1,5 @@
+const UPDATE_STATE_DELAY_MS = 100;
+
 import { useRef, useEffect, useState, useCallback } from 'react';
 import {
     PlaygroundBlockCollector,
@@ -103,7 +105,7 @@ export function useBlockTracking(options: IUseBlockTrackingOptions = {}): IUseBl
         setLastUpdate(new Date());
 
         // Small delay to show updating state
-        setTimeout(() => setIsUpdating(false), 100);
+        setTimeout(() => setIsUpdating(false), UPDATE_STATE_DELAY_MS);
     }, []);
 
     // Listen to block events

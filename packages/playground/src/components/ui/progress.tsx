@@ -29,10 +29,13 @@ const INDICATOR_TRANSLATE_CLASSES = {
     100: "translate-x-0",
 } as const
 
+const PROGRESS_MAX = 100;
+const PROGRESS_STEP = 5;
+
 function getIndicatorTranslateClass(value?: number | null): string {
     const raw = typeof value === "number" ? value : 0
-    const bounded = Math.max(0, Math.min(100, raw))
-    const rounded = Math.round(bounded / 5) * 5 as keyof typeof INDICATOR_TRANSLATE_CLASSES
+    const bounded = Math.max(0, Math.min(PROGRESS_MAX, raw))
+    const rounded = Math.round(bounded / PROGRESS_STEP) * PROGRESS_STEP as keyof typeof INDICATOR_TRANSLATE_CLASSES
     return INDICATOR_TRANSLATE_CLASSES[rounded]
 }
 

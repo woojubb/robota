@@ -11,6 +11,8 @@ import { useChatInput } from '../../hooks/use-chat-input';
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { WebLogger } from '../../lib/web-logger';
 
+const MAX_RECENT_PROMPTS = 3;
+
 interface IChatInputPanelProps {
     onClose: () => void;
 }
@@ -39,7 +41,7 @@ export function ChatInputPanel({ onClose }: IChatInputPanelProps) {
             if (stored) {
                 const prompts = JSON.parse(stored);
                 if (Array.isArray(prompts)) {
-                    setRecentPrompts(prompts.slice(0, 3)); // Ensure max 3 items
+                    setRecentPrompts(prompts.slice(0, MAX_RECENT_PROMPTS)); // Ensure max items
                 }
             }
         } catch (error) {
@@ -54,8 +56,8 @@ export function ChatInputPanel({ onClose }: IChatInputPanelProps) {
         if (!trimmedPrompt) return;
 
         setRecentPrompts(current => {
-            // Add to beginning and limit to 3
-            const updated = [trimmedPrompt, ...current].slice(0, 3);
+            // Add to beginning and limit to max
+            const updated = [trimmedPrompt, ...current].slice(0, MAX_RECENT_PROMPTS);
 
             // Save to localStorage
             try {
