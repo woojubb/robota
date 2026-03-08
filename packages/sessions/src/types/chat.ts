@@ -42,8 +42,8 @@ export interface ITemplateManager {
  * Simplified chat instance interface - just a wrapper around Robota
  */
 export interface IChatInstance {
-    readonly metadata: IChatMetadata;
-    readonly config: IChatConfig;
+    metadata: IChatMetadata;
+    config: IChatConfig;
     readonly robota: Robota;
 
     // Core Chat Operations

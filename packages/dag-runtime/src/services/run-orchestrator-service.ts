@@ -376,6 +376,13 @@ export class RunOrchestratorService {
                 || !('dagId' in parsed)
                 || !('version' in parsed)
                 || !('nodes' in parsed)
+                || !('edges' in parsed)
+                || !('status' in parsed)
+                || typeof parsed.dagId !== 'string'
+                || typeof parsed.version !== 'number'
+                || !Array.isArray(parsed.nodes)
+                || !Array.isArray(parsed.edges)
+                || typeof parsed.status !== 'string'
             ) {
                 return {
                     ok: false,

@@ -40,22 +40,28 @@ export class LlmTextOpenAiNodeDefinition extends AbstractNodeDefinition<typeof L
     ];
     public readonly configSchemaDefinition = LlmTextOpenAiConfigSchema;
 
-    private readonly provider: OpenAIProvider | undefined;
+    private readonly apiKeyEnvName = 'OPENAI_API_KEY';
+    private readonly explicitApiKey?: string;
     private readonly defaultModel: string;
     private readonly allowedModels: string[];
 
     public constructor(options?: ILlmTextOpenAiNodeDefinitionOptions) {
         super();
-        const apiKey = process.env.OPENAI_API_KEY;
-        this.provider = typeof apiKey === 'string' && apiKey.trim().length > 0
-            ? new OpenAIProvider({ apiKey: apiKey.trim() })
-            : undefined;
+        this.explicitApiKey = undefined;
         this.defaultModel = typeof options?.defaultModel === 'string' && options.defaultModel.trim().length > 0
             ? options.defaultModel.trim()
             : DEFAULT_OPENAI_LLM_MODEL;
         this.allowedModels = Array.isArray(options?.allowedModels) && options.allowedModels.length > 0
             ? options.allowedModels
             : [this.defaultModel];
+    }
+
+    private resolveProvider(): OpenAIProvider | undefined {
+        const apiKey = this.explicitApiKey ?? process.env[this.apiKeyEnvName];
+        if (typeof apiKey === 'string' && apiKey.trim().length > 0) {
+            return new OpenAIProvider({ apiKey: apiKey.trim() });
+        }
+        return undefined;
     }
 
     private resolveModel(modelFromConfig: string): TResult<string, IDagError> {
@@ -128,7 +134,8 @@ export class LlmTextOpenAiNodeDefinition extends AbstractNodeDefinition<typeof L
         context: INodeExecutionContext,
         config: z.output<typeof LlmTextOpenAiConfigSchema>
     ): Promise<TResult<TPortPayload, IDagError>> {
-        if (!this.provider) {
+        const provider = this.resolveProvider();
+        if (!provider) {
             return {
                 ok: false,
                 error: buildValidationError(
@@ -156,7 +163,7 @@ export class LlmTextOpenAiNodeDefinition extends AbstractNodeDefinition<typeof L
 
         const agent = new Robota({
             name: 'DagLlmTextOpenAiNodeAgent',
-            aiProviders: [this.provider],
+            aiProviders: [provider],
             defaultModel: {
                 provider: 'openai',
                 model: modelResult.value,

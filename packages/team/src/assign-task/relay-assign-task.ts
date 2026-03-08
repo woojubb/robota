@@ -1,5 +1,5 @@
 import { Robota, bindWithOwnerPath, FunctionTool, RelayMcpTool, type IEventService } from '@robota-sdk/agents';
-import type { IAgentConfig, IToolSchema, TToolParameters, IToolResult, IOwnerPathSegment } from '@robota-sdk/agents';
+import type { IAgentConfig, IAIProvider, IToolSchema, TToolParameters, IToolResult, IOwnerPathSegment } from '@robota-sdk/agents';
 import templates from './templates.json';
 
 type TemplateEntry = {
@@ -106,7 +106,7 @@ export const getTemplateDetailTool = new FunctionTool(getTemplateDetailSchema, a
     return tmpl;
 });
 
-export function createAssignTaskRelayTool(eventService: IEventService): RelayMcpTool {
+export function createAssignTaskRelayTool(eventService: IEventService, aiProviders: IAIProvider[]): RelayMcpTool {
     return new RelayMcpTool({
         schema: assignTaskSchema,
         eventService,
@@ -150,7 +150,7 @@ export function createAssignTaskRelayTool(eventService: IEventService): RelayMcp
 
             const agentConfig: IAgentConfig = {
                 name: `assign-${ctx.agentId}`,
-                aiProviders: [], // caller must inject via execution context/manager; left empty here
+                aiProviders,
                 defaultModel: {
                     provider: provider || tmpl.provider,
                     model: model || tmpl.model,

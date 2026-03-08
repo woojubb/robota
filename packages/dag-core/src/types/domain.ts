@@ -111,7 +111,7 @@ export interface INodeManifest {
     category: string;
     inputs: IPortDefinition[];
     outputs: IPortDefinition[];
-    configSchema?: object;
+    configSchema?: Record<string, unknown>;
     deprecated?: boolean;
 }
 

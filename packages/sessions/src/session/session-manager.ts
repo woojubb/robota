@@ -81,7 +81,11 @@ export class SessionManager {
         const chatId = this.generateChatId();
 
         // Create Robota instance using AgentFactory
-        const robota = await this.agentFactory.createAgent(Robota, options.agentConfig) as Robota;
+        const agent = await this.agentFactory.createAgent(Robota, options.agentConfig);
+        if (!(agent instanceof Robota)) {
+            throw new Error('AgentFactory did not return a Robota instance');
+        }
+        const robota = agent;
 
         // Create chat metadata
         const metadata: IChatMetadata = {

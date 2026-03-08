@@ -1,6 +1,14 @@
 import type { IPlaygroundBlockCollector } from '../block-tracking/block-collector';
-import type { IRealTimeBlockMessage, IRealTimeBlockMetadata } from '../block-tracking/types';
+import type { IBlockMetadata, IRealTimeBlockMessage, IRealTimeBlockMetadata } from '../block-tracking/types';
 import type { TUniversalValue } from '@robota-sdk/agents';
+
+/**
+ * Type guard: checks whether block metadata has the executionHierarchy field
+ * present in IRealTimeBlockMetadata but not in the base IBlockMetadata.
+ */
+function isRealTimeBlockMetadata(meta: IBlockMetadata): meta is IRealTimeBlockMetadata {
+    return 'executionHierarchy' in meta && 'visualState' in meta;
+}
 
 /**
  * LLM response data from Agent history
@@ -230,9 +238,11 @@ export class RealTimeLLMTracker {
             return [currentStep];
         }
 
-        // Build path from parent's hierarchy
-        const parentMetadata = parentBlock.blockMetadata as IRealTimeBlockMetadata;
-        const parentPath = parentMetadata.executionHierarchy?.path || [];
+        // Build path from parent's hierarchy using type guard instead of downcast
+        const parentMetadata = parentBlock.blockMetadata;
+        const parentPath = isRealTimeBlockMetadata(parentMetadata)
+            ? parentMetadata.executionHierarchy?.path ?? []
+            : [];
 
         return [...parentPath, currentStep];
     }

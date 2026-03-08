@@ -112,7 +112,11 @@ async function bootstrapDagDevServer(): Promise<void> {
         new SeedanceVideoNodeDefinition(),
         new OkEmitterNodeDefinition()
     ];
-    const defaultNodeDefinitionAssembly = buildNodeDefinitionAssembly(defaultNodeDefinitions);
+    const assemblyResult = buildNodeDefinitionAssembly(defaultNodeDefinitions);
+    if (!assemblyResult.ok) {
+        throw new Error(`Failed to build node definition assembly: ${assemblyResult.error.message}`);
+    }
+    const defaultNodeDefinitionAssembly = assemblyResult.value;
     const defaultLifecycleFactory = new StaticNodeLifecycleFactory(
         new StaticNodeTaskHandlerRegistry(defaultNodeDefinitionAssembly.handlersByType)
     );

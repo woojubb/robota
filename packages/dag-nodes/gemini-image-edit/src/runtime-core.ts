@@ -50,34 +50,46 @@ export function isImageBinaryValue(value: Partial<IPortBinaryValue> | null | und
 }
 
 export class GeminiImageRuntime {
-    private readonly provider?: IImageGenerationProvider;
-    private readonly defaultModel: string;
-    private readonly allowedModels: string[];
-    private readonly runtimeBaseUrl: string;
+    private readonly explicitApiKey?: string;
+    private readonly explicitDefaultModel?: string;
+    private readonly explicitAllowedModels?: string[];
 
     public constructor(options?: IGeminiImageRuntimeOptions) {
-        const apiKeyValue = options?.apiKey ?? process.env.GEMINI_API_KEY;
-        const defaultModelValue = options?.defaultModel ?? process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL;
-        const allowedModelsValue = options?.allowedModels ?? parseCsv(process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS);
-        this.defaultModel = typeof defaultModelValue === 'string' && defaultModelValue.trim().length > 0
+        this.explicitApiKey = options?.apiKey;
+        this.explicitDefaultModel = options?.defaultModel;
+        this.explicitAllowedModels = options?.allowedModels;
+    }
+
+    private resolveDefaultModel(): string {
+        const defaultModelValue = this.explicitDefaultModel ?? process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL;
+        return typeof defaultModelValue === 'string' && defaultModelValue.trim().length > 0
             ? defaultModelValue.trim()
             : DEFAULT_GEMINI_IMAGE_MODEL;
-        this.allowedModels = Array.isArray(allowedModelsValue) && allowedModelsValue.length > 0
+    }
+
+    private resolveAllowedModels(defaultModel: string): string[] {
+        const allowedModelsValue = this.explicitAllowedModels ?? parseCsv(process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS);
+        return Array.isArray(allowedModelsValue) && allowedModelsValue.length > 0
             ? allowedModelsValue
-            : [this.defaultModel];
+            : [defaultModel];
+    }
+
+    private resolveProvider(allowedModels: string[]): IImageGenerationProvider | undefined {
+        const apiKeyValue = this.explicitApiKey ?? process.env.GEMINI_API_KEY;
         if (typeof apiKeyValue === 'string' && apiKeyValue.trim().length > 0) {
-            this.provider = new GoogleProvider({
+            return new GoogleProvider({
                 apiKey: apiKeyValue.trim(),
-                imageCapableModels: this.allowedModels
+                imageCapableModels: allowedModels
             });
         }
-        this.runtimeBaseUrl = resolveRuntimeBaseUrl();
+        return undefined;
     }
 
     private getImageProviderCapability(
+        provider: IImageGenerationProvider | undefined,
         methodName: 'editImage' | 'composeImage'
     ): TResult<IImageGenerationProvider, IDagError> {
-        if (!this.provider || typeof this.provider[methodName] !== 'function') {
+        if (!provider || typeof provider[methodName] !== 'function') {
             return {
                 ok: false,
                 error: buildValidationError(
@@ -88,12 +100,8 @@ export class GeminiImageRuntime {
         }
         return {
             ok: true,
-            value: this.provider
+            value: provider
         };
-    }
-
-    private parseModel(selectedModel: string): TResult<string, IDagError> {
-        return resolveModel(selectedModel, this.defaultModel, this.allowedModels);
     }
 
     private mapProviderFailure(
@@ -137,30 +145,36 @@ export class GeminiImageRuntime {
 
     private async mapInputImage(
         image: IPortBinaryValue,
+        runtimeBaseUrl: string,
         notFoundCode: string,
         notFoundMessage: string
     ): Promise<TResult<IInlineImageSource, IDagError>> {
         return toInlineImageSource({
             image,
-            runtimeBaseUrl: this.runtimeBaseUrl,
+            runtimeBaseUrl,
             notFoundCode,
             notFoundMessage
         });
     }
 
     public async editImage(request: IGeminiImageEditRequest): Promise<TResult<IPortBinaryValue, IDagError>> {
-        const providerCapabilityResult = this.getImageProviderCapability('editImage');
+        const defaultModel = this.resolveDefaultModel();
+        const allowedModels = this.resolveAllowedModels(defaultModel);
+        const resolvedProvider = this.resolveProvider(allowedModels);
+        const providerCapabilityResult = this.getImageProviderCapability(resolvedProvider, 'editImage');
         if (!providerCapabilityResult.ok) {
             return providerCapabilityResult;
         }
         const provider = providerCapabilityResult.value;
-        const modelResult = this.parseModel(request.model);
+        const modelResult = resolveModel(request.model, defaultModel, allowedModels);
         if (!modelResult.ok) {
             return modelResult;
         }
 
+        const runtimeBaseUrl = resolveRuntimeBaseUrl();
         const imageSourceResult = await this.mapInputImage(
             request.image,
+            runtimeBaseUrl,
             'DAG_VALIDATION_GEMINI_IMAGE_INPUT_ASSET_NOT_FOUND',
             'Input image asset was not found or is not binary content'
         );
@@ -168,7 +182,19 @@ export class GeminiImageRuntime {
             return imageSourceResult;
         }
 
-        const result = await provider.editImage!({
+        const editImageFn = provider.editImage;
+        if (!editImageFn) {
+            return {
+                ok: false,
+                error: buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_GEMINI_IMAGE_EDIT_FAILED',
+                    'Provider does not support editImage capability',
+                    false,
+                    { model: modelResult.value }
+                )
+            };
+        }
+        const result = await editImageFn.call(provider, {
             image: imageSourceResult.value,
             prompt: request.prompt,
             model: modelResult.value
@@ -190,12 +216,15 @@ export class GeminiImageRuntime {
     }
 
     public async composeImages(request: IGeminiImageComposeRequest): Promise<TResult<IPortBinaryValue, IDagError>> {
-        const providerCapabilityResult = this.getImageProviderCapability('composeImage');
+        const defaultModel = this.resolveDefaultModel();
+        const allowedModels = this.resolveAllowedModels(defaultModel);
+        const resolvedProvider = this.resolveProvider(allowedModels);
+        const providerCapabilityResult = this.getImageProviderCapability(resolvedProvider, 'composeImage');
         if (!providerCapabilityResult.ok) {
             return providerCapabilityResult;
         }
         const provider = providerCapabilityResult.value;
-        const modelResult = this.parseModel(request.model);
+        const modelResult = resolveModel(request.model, defaultModel, allowedModels);
         if (!modelResult.ok) {
             return modelResult;
         }
@@ -210,10 +239,12 @@ export class GeminiImageRuntime {
             };
         }
 
+        const runtimeBaseUrl = resolveRuntimeBaseUrl();
         const composeInputs: IInlineImageSource[] = [];
         for (const [index, image] of request.images.entries()) {
             const imageSourceResult = await this.mapInputImage(
                 image,
+                runtimeBaseUrl,
                 'DAG_VALIDATION_GEMINI_IMAGE_COMPOSE_IMAGE_ASSET_NOT_FOUND',
                 'Compose image asset was not found or is not binary content'
             );
@@ -230,7 +261,19 @@ export class GeminiImageRuntime {
             composeInputs.push(imageSourceResult.value);
         }
 
-        const result = await provider.composeImage!({
+        const composeImageFn = provider.composeImage;
+        if (!composeImageFn) {
+            return {
+                ok: false,
+                error: buildTaskExecutionError(
+                    'DAG_TASK_EXECUTION_GEMINI_IMAGE_COMPOSE_FAILED',
+                    'Provider does not support composeImage capability',
+                    false,
+                    { model: modelResult.value }
+                )
+            };
+        }
+        const result = await composeImageFn.call(provider, {
             images: composeInputs,
             prompt: request.prompt,
             model: modelResult.value

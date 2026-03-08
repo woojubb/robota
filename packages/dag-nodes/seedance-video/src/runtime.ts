@@ -64,29 +64,43 @@ function compactTaskErrorContext(
 }
 
 export class SeedanceVideoRuntime {
-    private readonly provider?: IVideoGenerationProvider;
-    private readonly defaultModel: string;
-    private readonly allowedModels: string[];
-    private readonly runtimeBaseUrl: string;
+    private readonly explicitApiKey?: string;
+    private readonly explicitBaseUrl?: string;
+    private readonly explicitDefaultModel?: string;
+    private readonly explicitAllowedModels?: string[];
 
     public constructor(options?: ISeedanceVideoRuntimeOptions) {
-        const apiKey = options?.apiKey ?? process.env.BYTEDANCE_API_KEY ?? process.env.ARK_API_KEY;
-        const baseUrl = options?.baseUrl ?? process.env.BYTEDANCE_BASE_URL;
-        const defaultModelRaw = options?.defaultModel ?? process.env.DAG_SEEDANCE_DEFAULT_MODEL;
-        const allowedModelsRaw = options?.allowedModels ?? parseCsv(process.env.DAG_SEEDANCE_ALLOWED_MODELS);
-        this.defaultModel = typeof defaultModelRaw === 'string' && defaultModelRaw.trim().length > 0
+        this.explicitApiKey = options?.apiKey;
+        this.explicitBaseUrl = options?.baseUrl;
+        this.explicitDefaultModel = options?.defaultModel;
+        this.explicitAllowedModels = options?.allowedModels;
+    }
+
+    private resolveConfig(): {
+        provider: IVideoGenerationProvider | undefined;
+        defaultModel: string;
+        allowedModels: string[];
+        runtimeBaseUrl: string;
+    } {
+        const defaultModelRaw = this.explicitDefaultModel ?? process.env.DAG_SEEDANCE_DEFAULT_MODEL;
+        const allowedModelsRaw = this.explicitAllowedModels ?? parseCsv(process.env.DAG_SEEDANCE_ALLOWED_MODELS);
+        const defaultModel = typeof defaultModelRaw === 'string' && defaultModelRaw.trim().length > 0
             ? defaultModelRaw.trim()
             : DEFAULT_SEEDANCE_MODEL;
-        this.allowedModels = Array.isArray(allowedModelsRaw) && allowedModelsRaw.length > 0
+        const allowedModels = Array.isArray(allowedModelsRaw) && allowedModelsRaw.length > 0
             ? allowedModelsRaw
-            : [this.defaultModel];
+            : [defaultModel];
+        const apiKey = this.explicitApiKey ?? process.env.BYTEDANCE_API_KEY ?? process.env.ARK_API_KEY;
+        const baseUrl = this.explicitBaseUrl ?? process.env.BYTEDANCE_BASE_URL;
+        let provider: IVideoGenerationProvider | undefined;
         if (typeof apiKey === 'string' && apiKey.trim().length > 0 && typeof baseUrl === 'string' && baseUrl.trim().length > 0) {
-            this.provider = new BytedanceProvider({
+            provider = new BytedanceProvider({
                 apiKey: apiKey.trim(),
                 baseUrl: baseUrl.trim()
             });
         }
-        this.runtimeBaseUrl = resolveRuntimeBaseUrl();
+        const runtimeBaseUrl = resolveRuntimeBaseUrl();
+        return { provider, defaultModel, allowedModels, runtimeBaseUrl };
     }
 
     private mapTaskError(
@@ -102,7 +116,8 @@ export class SeedanceVideoRuntime {
     }
 
     public async generateVideo(request: ISeedanceGenerateVideoRequest): Promise<TResult<IPortBinaryValue, IDagError>> {
-        if (!this.provider) {
+        const config = this.resolveConfig();
+        if (!config.provider) {
             return {
                 ok: false,
                 error: buildValidationError(
@@ -111,8 +126,9 @@ export class SeedanceVideoRuntime {
                 )
             };
         }
-        const selectedModel = request.model.trim().length > 0 ? request.model.trim() : this.defaultModel;
-        if (this.allowedModels.length > 0 && !this.allowedModels.includes(selectedModel)) {
+        const provider = config.provider;
+        const selectedModel = request.model.trim().length > 0 ? request.model.trim() : config.defaultModel;
+        if (config.allowedModels.length > 0 && !config.allowedModels.includes(selectedModel)) {
             return {
                 ok: false,
                 error: buildValidationError(
@@ -136,7 +152,7 @@ export class SeedanceVideoRuntime {
         const inputImages: TImageInputSource[] = [];
         if (Array.isArray(request.inputImages) && request.inputImages.length > 0) {
             for (const [index, image] of request.inputImages.entries()) {
-                const imageSourceResult = await resolveImageInputSource(image, this.runtimeBaseUrl);
+                const imageSourceResult = await resolveImageInputSource(image, config.runtimeBaseUrl);
                 if (!imageSourceResult.ok) {
                     return {
                         ok: false,
@@ -151,7 +167,7 @@ export class SeedanceVideoRuntime {
             }
         }
 
-        const acceptedResult = await this.provider.createVideo({
+        const acceptedResult = await provider.createVideo({
             prompt,
             model: selectedModel,
             durationSeconds: request.durationSeconds,
@@ -170,7 +186,7 @@ export class SeedanceVideoRuntime {
 
         const deadlineEpochMs = Date.now() + request.pollTimeoutMs;
         for (;;) {
-            const snapshotResult = await this.provider.getVideoJob(acceptedResult.value.jobId);
+            const snapshotResult = await provider.getVideoJob(acceptedResult.value.jobId);
             if (!snapshotResult.ok) {
                 return this.mapTaskError(
                     'DAG_TASK_EXECUTION_SEEDANCE_POLL_FAILED',

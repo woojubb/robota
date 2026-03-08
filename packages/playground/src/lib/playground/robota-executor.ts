@@ -304,14 +304,14 @@ export class PlaygroundExecutor {
             throw new Error(`agent not found: ${agentId}`);
         }
 
-        // Create tool from static ToolRegistry (eventService injected)
-        const typedToolRegistry = ToolRegistry as Record<string, ((eventService: IEventService) => FunctionTool) | undefined>;
+        // Create tool from static ToolRegistry (eventService + aiProviders injected)
+        const typedToolRegistry = ToolRegistry as Record<string, ((eventService: IEventService, aiProviders: IAIProvider[]) => FunctionTool) | undefined>;
         const factory = typedToolRegistry[card.id];
         if (typeof factory !== 'function') {
             throw new Error(`Unknown tool id: ${card.id}`);
         }
 
-        const newTool = factory(this.eventService);
+        const newTool = factory(this.eventService, this.createProvidersWithExecutor());
         const existing = this.agentToolsRegistry.get(agentId) || [];
         const result = await agent.updateTools([...existing, newTool]);
         this.agentToolsRegistry.set(agentId, [...existing, newTool]);
@@ -618,11 +618,12 @@ export class PlaygroundExecutor {
                 this.logger.debug('Executing in agent mode');
                 const prompt = messages[0].content || '';
                 const result = await this.currentAgent.run(prompt);
-                response = {
-                    role: 'assistant',
+                const assistantMessage: TUniversalMessage = {
+                    role: 'assistant' as const,
                     content: result,
                     timestamp: new Date()
-                } as TUniversalMessage;
+                };
+                response = assistantMessage;
 
             } else {
                 throw new Error('No agent configured for execution');
@@ -693,11 +694,12 @@ export class PlaygroundExecutor {
                 }
 
                 // Yield the final aggregated message once.
-                yield {
-                    role: 'assistant',
+                const streamMessage: TUniversalMessage = {
+                    role: 'assistant' as const,
                     content: fullResponse,
                     timestamp: new Date()
-                } as TUniversalMessage;
+                };
+                yield streamMessage;
 
             } else {
                 const error = new Error('No agent configured for streaming execution');

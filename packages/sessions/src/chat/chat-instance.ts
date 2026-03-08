@@ -15,8 +15,8 @@ import { TemplateManagerAdapter } from '../adapters/template-manager-adapter';
  * within a session context. Delegates conversation management to Robota.
  */
 export class ChatInstance implements IChatInstance {
-    public readonly metadata: IChatMetadata;
-    public readonly config: IChatConfig;
+    public metadata: IChatMetadata;
+    public config: IChatConfig;
     public readonly robota: Robota;
     private templateManager: ITemplateManager;
 
