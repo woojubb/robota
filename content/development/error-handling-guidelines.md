@@ -21,7 +21,7 @@ This document defines comprehensive error handling strategies for the Robota pro
 #### Recoverable Errors
 - Network timeouts → Retry with backoff
 - Rate limiting → Wait and retry
-- Temporary provider issues → Fallback to alternative
+- Temporary provider issues → Retry with exponential backoff
 - Validation errors → Provide correction guidance
 
 #### Non-Recoverable Errors
@@ -43,7 +43,7 @@ export abstract class RobotaError extends Error {
     
     constructor(
         message: string,
-        public readonly context?: Record<string, any>
+        public readonly context?: Record<string, unknown>
     ) {
         super(message);
         this.name = this.constructor.name;
@@ -66,7 +66,7 @@ export class ProviderError extends RobotaError {
         message: string,
         public readonly provider: string,
         public readonly originalError?: Error,
-        context?: Record<string, any>
+        context?: Record<string, unknown>
     ) {
         super(message, context);
     }
@@ -208,14 +208,14 @@ interface ErrorLogEntry {
     message: string;
     errorCode?: string;
     category?: string;
-    context?: Record<string, any>;
+    context?: Record<string, unknown>;
     stack?: string;
     userId?: string;
     sessionId?: string;
 }
 
 class ErrorLogger {
-    logError(error: Error, context?: Record<string, any>): void {
+    logError(error: Error, context?: Record<string, unknown>): void {
         const entry: ErrorLogEntry = {
             timestamp: new Date().toISOString(),
             level: 'error',
@@ -290,7 +290,7 @@ class AgentStrictErrorHandling {
 ```typescript
 interface RecoveryCheckpoint {
     conversationHistory: Message[];
-    providerState: Record<string, any>;
+    providerState: Record<string, unknown>;
     timestamp: Date;
 }
 
@@ -362,7 +362,7 @@ class ErrorFormatter {
         return this.interpolateTemplate(message, error.context || {});
     }
     
-    private interpolateTemplate(template: string, context: Record<string, any>): string {
+    private interpolateTemplate(template: string, context: Record<string, unknown>): string {
         return template.replace(/\{(\w+)\}/g, (match, key) => {
             return context[key]?.toString() || match;
         });

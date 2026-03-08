@@ -6,7 +6,7 @@ The Robota SDK is built around a unified agent architecture that combines conver
 
 ### Core Principles
 
-1. **Type Safety First**: Complete TypeScript safety with zero `any`/`unknown` types
+1. **Type Safety First**: Complete TypeScript safety with `any` prohibited in production code; `unknown` allowed only at trust boundaries with narrowing
 2. **Modular Design**: Plugin-based extensible architecture with clear separation of concerns
 3. **Provider Agnostic**: Seamless integration with multiple AI providers (OpenAI, Anthropic, Google)
 4. **Cross-Platform Compatibility**: Universal support for Node.js, browsers, and WebWorkers
@@ -59,13 +59,13 @@ const robota = new Robota({
 ## Core Features
 
 ### Unified Agent System
-- **Type-Safe Architecture**: Complete TypeScript safety with `BaseAgent` foundation
+- **Type-Safe Architecture**: Complete TypeScript safety with `AbstractAgent` foundation
 - **Robota Class**: Main agent implementation combining conversation, tools, and plugins
 - **Configuration Management**: Unified `AgentConfig` system with runtime updates
 - **Execution Service**: Safe command execution with comprehensive error handling
 
 ### Multi-Provider Support
-- **Provider Abstraction**: `BaseAIProvider` interface for consistent AI integration
+- **Provider Abstraction**: `AbstractAIProvider` interface for consistent AI integration
 - **Supported Providers**: OpenAI (GPT-3.5, GPT-4, GPT-4o-mini), Anthropic (Claude 3.5), Google (Gemini 1.5)
 - **Real-Time Streaming**: Live response streaming across all providers
 - **Universal Messages**: Cross-provider message format compatibility
@@ -102,7 +102,7 @@ const robota = new Robota({
 ### Modular Architecture System
 
 #### Module Infrastructure
-- **BaseModule**: Abstract foundation for all module implementations with lifecycle management
+- **AbstractModule**: Abstract foundation for all module implementations with lifecycle management
 - **ModuleRegistry**: Centralized module registration and dependency-based initialization
 - **ModuleTypeRegistry**: Dynamic type system with validation and compatibility checking
 - **Event-Driven Communication**: Loose coupling between modules and plugins via EventEmitter
@@ -145,11 +145,11 @@ const robota = new Robota({
 ```
 
 ### Core Abstractions
-- **BaseAgent**: Foundation class for all agent implementations
-- **BaseAIProvider**: Unified interface for AI provider integration
-- **BaseTool**: Type-safe tool system with parameter validation
-- **BasePlugin**: Enhanced plugin architecture with classification, priorities, and module event subscription
-- **BaseModule**: Abstract foundation for modular functionality with lifecycle management
+- **AbstractAgent**: Foundation class for all agent implementations
+- **AbstractAIProvider**: Unified interface for AI provider integration
+- **AbstractTool**: Type-safe tool system with parameter validation
+- **AbstractPlugin**: Enhanced plugin architecture with classification, priorities, and module event subscription
+- **AbstractModule**: Abstract foundation for modular functionality with lifecycle management
 - **AgentFactory**: Agent creation and template management
 - **ModuleRegistry**: Centralized module registration with dependency resolution
 - **ModuleTypeRegistry**: Dynamic type system with validation and compatibility checking
@@ -164,21 +164,21 @@ const robota = new Robota({
 - **@robota-sdk/google**: Google AI provider with Gemini 1.5 support
 
 ### Type System
-- **Complete Type Safety**: Zero `any`/`unknown` types throughout the codebase
-- **Generic Type Parameters**: Flexible type system with `BaseAgent<TConfig, TStats>`
+- **Complete Type Safety**: `any` prohibited in production code; `unknown` allowed at trust boundaries
+- **Generic Type Parameters**: Flexible type system with `AbstractAgent<TConfig, TStats>`
 - **Universal Message Format**: Standardized message structure across all providers
 - **Unified Configuration**: `AgentConfig` system with runtime updates
 
 ## Extension and Development
 
 ### Adding New AI Providers
-1. **Extend BaseAIProvider**: Implement the unified provider interface
+1. **Extend AbstractAIProvider**: Implement the unified provider interface
 2. **Define Types**: Create provider-specific type definitions
 3. **Message Conversion**: Implement `UniversalMessage` conversion logic  
 4. **Streaming Support**: Add real-time streaming capabilities
 
 ```typescript
-class CustomProvider extends BaseAIProvider {
+class CustomProvider extends AbstractAIProvider {
   async chat(messages: UniversalMessage[]): Promise<UniversalMessage> {
     // Implementation
   }
@@ -190,7 +190,7 @@ class CustomProvider extends BaseAIProvider {
 ```
 
 ### Creating Custom Plugins
-1. **Extend BasePlugin**: Use the enhanced plugin foundation with type parameters
+1. **Extend AbstractPlugin**: Use the enhanced plugin foundation with type parameters
 2. **Define Configuration**: Create plugin-specific options interface extending BasePluginOptions
 3. **Set Classification**: Assign category and priority for proper execution ordering
 4. **Implement Lifecycle**: Add event handlers for agent lifecycle
@@ -198,7 +198,7 @@ class CustomProvider extends BaseAIProvider {
 6. **Add Statistics**: Provide plugin-specific metrics
 
 ```typescript
-class CustomPlugin extends BasePlugin<CustomOptions, CustomStats> {
+class CustomPlugin extends AbstractPlugin<CustomOptions, CustomStats> {
   name = 'CustomPlugin';
   
   constructor(options: CustomOptions) {
@@ -208,7 +208,7 @@ class CustomPlugin extends BasePlugin<CustomOptions, CustomStats> {
     this.category = PluginCategory.MONITORING;
     this.priority = PluginPriority.NORMAL;
     
-    // Configure options with BasePluginOptions
+    // Configure options with IPluginOptions
     this.pluginOptions = {
       enabled: options.enabled ?? true,
       category: this.category,
@@ -223,10 +223,10 @@ class CustomPlugin extends BasePlugin<CustomOptions, CustomStats> {
     // Pre-execution logic
   }
   
-  async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
-    // Handle module events for cross-component monitoring
-    const moduleData = eventData.data as any;
-    console.log(`Module event: ${eventType}`, moduleData);
+  async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
+    const record = (typeof eventData.data === 'object' && eventData.data !== null)
+      ? eventData.data as Record<string, unknown> : {};
+    this.logger.info(`Module event: ${eventName}`, record);
   }
   
   override getStats(): CustomStats {
@@ -243,14 +243,14 @@ class CustomPlugin extends BasePlugin<CustomOptions, CustomStats> {
 ```
 
 ### Creating Custom Modules
-1. **Extend BaseModule**: Use the module foundation with type parameters
+1. **Extend AbstractModule**: Use the module foundation with type parameters
 2. **Define Module Type**: Specify capabilities and dependencies
 3. **Implement Lifecycle**: Add initialize, execute, and dispose methods
 4. **Event Broadcasting**: Emit events for plugin monitoring
 5. **Dependency Management**: Declare module dependencies
 
 ```typescript
-class CustomModule extends BaseModule<CustomOptions, CustomStats> {
+class CustomModule extends AbstractModule<CustomOptions, CustomStats> {
   readonly name = 'CustomModule';
   readonly version = '1.0.0';
   readonly moduleType = 'processing';
@@ -340,7 +340,7 @@ class CustomModule extends BaseModule<CustomOptions, CustomStats> {
 ```
 
 ### Building Tools
-1. **Extend BaseTool**: Create type-safe tool implementations
+1. **Extend AbstractTool**: Create type-safe tool implementations
 2. **Parameter Validation**: Use Zod schemas for type safety
 3. **Execution Logic**: Implement the tool's core functionality
 4. **Error Handling**: Add robust error management
@@ -392,14 +392,11 @@ The Robota SDK implements a sophisticated logging system that works consistently
 ### SimpleLogger Interface
 
 ```typescript
-interface SimpleLogger {
-  debug(...args: any[]): void;
-  info(...args: any[]): void;
-  warn(...args: any[]): void;
-  error(...args: any[]): void;
-  log(...args: any[]): void;
-  group?(label?: string): void;
-  groupEnd?(): void;
+interface ILogger {
+  debug(message: string, data?: Record<string, unknown>): void;
+  info(message: string, data?: Record<string, unknown>): void;
+  warn(message: string, data?: Record<string, unknown>): void;
+  error(message: string, error?: Error | Record<string, unknown>): void;
 }
 ```
 
