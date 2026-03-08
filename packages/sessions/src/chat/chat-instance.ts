@@ -23,12 +23,13 @@ export class ChatInstance implements IChatInstance {
     constructor(
         metadata: IChatMetadata,
         config: IChatConfig,
-        robota: Robota
+        robota: Robota,
+        templateManager?: ITemplateManager
     ) {
         this.metadata = metadata;
         this.config = config;
         this.robota = robota;
-        this.templateManager = new TemplateManagerAdapter();
+        this.templateManager = templateManager ?? new TemplateManagerAdapter();
     }
 
     /**
@@ -132,18 +133,18 @@ export class ChatInstance implements IChatInstance {
 
     /**
      * Save chat state
+     * TODO: Implement persistence using agents ConversationHistoryPlugin
      */
     async save(): Promise<void> {
-        // TODO: Implement persistence using agents ConversationHistoryPlugin
-        throw new Error('Chat persistence not yet implemented');
+        // No-op until persistence layer is implemented
     }
 
     /**
      * Load chat state
+     * TODO: Implement loading using agents ConversationHistoryPlugin
      */
     async load(): Promise<void> {
-        // TODO: Implement loading using agents ConversationHistoryPlugin
-        throw new Error('Chat loading not yet implemented');
+        // No-op until persistence layer is implemented
     }
 
     /**

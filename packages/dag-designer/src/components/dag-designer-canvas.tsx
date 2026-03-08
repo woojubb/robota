@@ -1,3 +1,8 @@
+// TODO: This file exceeds 300 lines. Candidates for extraction:
+// - DagDesignerContext and provider logic into a dedicated context module
+// - Edge validation helpers (validateEdgeBindings, compactListBindings) into edge-utils
+// - Connection handling callbacks (onConnect, onEdgesChange) into connection-handlers
+// - Node creation and manifest helpers into node-factory utils
 import {
     createContext,
     useCallback,
@@ -52,7 +57,7 @@ import {
 import { NodeConfigPanel } from './node-config-panel.js';
 import { NodeIoTracePanel } from './node-io-trace-panel.js';
 import { NodeExplorerPanel } from './node-explorer-panel.js';
-import { reconcileNodePortsAndEdges, summarizeRemovedBindings } from './port-editor-utils.js';
+import { findPort, resolveInputPort, reconcileNodePortsAndEdges, summarizeRemovedBindings } from './port-editor-utils.js';
 import type { IRunResult } from '../contracts/designer-api.js';
 import '@xyflow/react/dist/style.css';
 
@@ -324,41 +329,6 @@ function createNodeFromManifest(manifest: INodeManifest, index: number): IDagNod
     };
 }
 
-function findPort(ports: IPortDefinition[], key: string): IPortDefinition | undefined {
-    return ports.find((port) => port.key === key);
-}
-
-function resolveInputPort(
-    inputPorts: IPortDefinition[],
-    inputKey: string
-): { inputPort: IPortDefinition | undefined; resolvedKey: string } {
-    const directPort = findPort(inputPorts, inputKey);
-    if (directPort) {
-        return {
-            inputPort: directPort,
-            resolvedKey: inputKey
-        };
-    }
-    const listHandle = parseListPortHandleKey(inputKey);
-    if (!listHandle) {
-        return {
-            inputPort: undefined,
-            resolvedKey: inputKey
-        };
-    }
-    const listPort = findPort(inputPorts, listHandle.portKey);
-    if (!listPort?.isList) {
-        return {
-            inputPort: undefined,
-            resolvedKey: listHandle.portKey
-        };
-    }
-    return {
-        inputPort: listPort,
-        resolvedKey: listHandle.portKey
-    };
-}
-
 function compactListBindings(definition: IDagDefinition): IDagDefinition {
     const nextEdges = definition.edges.map((edge) => {
         if (!edge.bindings || edge.bindings.length === 0) {
@@ -463,7 +433,7 @@ function computeBindingErrors(definition: IDagDefinition): string[] {
                 );
             }
             const resolvedInput = resolveInputPort(toNode.inputs, binding.inputKey);
-            const inputPort = resolvedInput.inputPort;
+            const inputPort = resolvedInput.port;
             if (!inputPort) {
                 errors.push(
                     `Edge ${edge.from}->${edge.to}: input key "${binding.inputKey}" was removed or not found.`
@@ -1023,7 +993,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         const sourceNode = context.definition.nodes.find((node) => node.nodeId === connection.source);
         const targetNode = context.definition.nodes.find((node) => node.nodeId === connection.target);
         const targetInputPort = targetNode
-            ? resolveInputPort(targetNode.inputs, connection.targetHandle).inputPort
+            ? resolveInputPort(targetNode.inputs, connection.targetHandle).port
             : undefined;
         if (!targetInputPort) {
             context.setConnectError(`Connection rejected: input handle "${connection.targetHandle}" is invalid.`);

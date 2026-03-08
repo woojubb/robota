@@ -16,7 +16,8 @@ export type {
 import type {
     IChatExecutionRequest as BaseChatExecutionRequest,
     IStreamExecutionRequest as BaseStreamExecutionRequest,
-    IAssistantMessage
+    IAssistantMessage,
+    IToolSchema
 } from '@robota-sdk/agents';
 
 export type { TUniversalMessage, IAssistantMessage } from '@robota-sdk/agents';
@@ -30,7 +31,7 @@ export interface IExtendedAssistantMessage extends IAssistantMessage {
         completionTokens: number;
         totalTokens: number;
     };
-    tools?: Array<Record<string, string>>;
+    tools?: IToolSchema[];
 }
 
 /**
@@ -51,7 +52,7 @@ export interface IChatRequestBody {
     model: string;
     temperature?: number;
     maxTokens?: number;
-    tools?: Array<Record<string, string>>;
+    tools?: IToolSchema[];
     stream?: boolean;
 }
 
@@ -89,7 +90,7 @@ export interface IChatResponseData {
         completionTokens: number;
         totalTokens: number;
     };
-    tools?: Array<Record<string, string>>;
+    tools?: IToolSchema[];
 }
 
 export interface ITransportResponse<TData = IChatResponseData> {

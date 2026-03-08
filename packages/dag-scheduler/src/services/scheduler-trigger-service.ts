@@ -4,6 +4,10 @@ import {
     type TPortPayload,
     type TResult
 } from '@robota-sdk/dag-core';
+// dag-scheduler depends on dag-runtime for RunOrchestratorService.
+// This is a known exception to the dag-core-only dependency rule:
+// the scheduler delegates run creation to the runtime orchestrator rather than
+// reimplementing that logic, keeping the single-responsibility boundary intact.
 import { type RunOrchestratorService, type IStartRunResult } from '@robota-sdk/dag-runtime';
 
 export interface IScheduledTriggerRequest {
@@ -19,6 +23,8 @@ export interface IScheduledBatchTriggerRequest {
 
 export interface IScheduledBatchTriggerResult {
     startedRuns: IStartRunResult[];
+    /** Present when the batch was interrupted by a failure mid-iteration. */
+    partialError?: IDagError;
 }
 
 export interface ICatchupTriggerRequest {
@@ -63,6 +69,15 @@ export class SchedulerTriggerService {
         for (const item of request.items) {
             const started = await this.triggerScheduledRun(item);
             if (!started.ok) {
+                if (startedRuns.length > 0) {
+                    return {
+                        ok: true,
+                        value: {
+                            startedRuns,
+                            partialError: started.error
+                        }
+                    };
+                }
                 return started;
             }
             startedRuns.push(started.value);

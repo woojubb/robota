@@ -105,6 +105,15 @@ export function validateWebSocketMessage(data: string): {
             return { valid: false, error: `Invalid message type: ${parsed.type}` };
         }
 
+        // Validate required fields per message type
+        if ((parsed.type === 'response' || parsed.type === 'stream' || parsed.type === 'request') && !('data' in parsed)) {
+            return { valid: false, error: `Invalid message: missing 'data' field for type '${parsed.type}'` };
+        }
+
+        if (parsed.type === 'error' && (!('error' in parsed) || typeof (parsed as Partial<IWebSocketErrorPayload>).error !== 'string')) {
+            return { valid: false, error: "Invalid message: missing or invalid 'error' field for type 'error'" };
+        }
+
         return { valid: true, message: parsed as TWebSocketPayload };
     } catch (error) {
         return {

@@ -6,7 +6,7 @@ interface IJsonSchemaLike {
     default?: unknown;
 }
 
-function isNodeConfigValue(value: unknown): value is TNodeConfigValue {
+export function isNodeConfigValue(value: unknown): value is TNodeConfigValue {
     if (
         typeof value === 'string'
         || typeof value === 'number'

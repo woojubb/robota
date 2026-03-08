@@ -1,12 +1,12 @@
 import { useState, type ReactElement } from 'react';
 import {
     buildListPortHandleKey,
-    parseListPortHandleKey,
     type IDagDefinition,
     type IDagEdgeDefinition,
     type IEdgeBinding,
     type IPortDefinition
 } from '@robota-sdk/dag-core';
+import { findPort, resolveInputPort } from './port-editor-utils.js';
 
 export interface IEdgeInspectorPanelProps {
     definition: IDagDefinition;
@@ -17,29 +17,6 @@ export interface IEdgeInspectorPanelProps {
 
 function edgeId(edge: IDagEdgeDefinition): string {
     return `${edge.from}->${edge.to}`;
-}
-
-function findPortByKey(ports: IPortDefinition[], key: string): IPortDefinition | undefined {
-    return ports.find((port) => port.key === key);
-}
-
-function resolveInputPort(
-    ports: IPortDefinition[],
-    inputKey: string
-): { port: IPortDefinition | undefined; resolvedKey: string } {
-    const directPort = findPortByKey(ports, inputKey);
-    if (directPort) {
-        return { port: directPort, resolvedKey: inputKey };
-    }
-    const listHandle = parseListPortHandleKey(inputKey);
-    if (!listHandle) {
-        return { port: undefined, resolvedKey: inputKey };
-    }
-    const listPort = findPortByKey(ports, listHandle.portKey);
-    if (!listPort?.isList) {
-        return { port: undefined, resolvedKey: listHandle.portKey };
-    }
-    return { port: listPort, resolvedKey: listHandle.portKey };
 }
 
 function validateBindings(
@@ -69,7 +46,7 @@ function validateBindings(
     }
 
     for (const binding of bindings) {
-        const outputPort = findPortByKey(outputPorts, binding.outputKey);
+        const outputPort = findPort(outputPorts, binding.outputKey);
         if (!outputPort) {
             return `Output key "${binding.outputKey}" was not found on source node.`;
         }
