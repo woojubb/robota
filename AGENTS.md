@@ -95,9 +95,11 @@ All rules below are mandatory, non-negotiable, and domain-free. Domain-specific 
 - `unknown` is allowed only at trust boundaries and `catch` boundaries, and must be narrowed before domain use.
 - `// @ts-ignore` and `// @ts-nocheck` are prohibited.
 - `I*` prefix is for interfaces only. `T*` prefix is for type aliases only. Type aliases with `I*` prefix or interfaces with `T*` prefix are naming violations and must be renamed.
+- New code should prefer descriptive names without prefixes where clarity is not compromised. Existing prefixed names may be migrated gradually.
 - In test files (`*.test.ts`, `*.spec.ts`), `any` and `unknown` may be used only for mocks or boundary fixtures.
 - Follow owner-based SSOT: every concept has exactly one owner module. Import from the owner's public surface and never re-declare owned contracts.
 - Trivial 1:1 type aliases (`type X = Y`) that add no semantic value are prohibited.
+- Prefer `undefined` over `null` for absence of value. `null` is allowed only at API boundaries (JSON serialization).
 
 ### No Fallback Policy
 
@@ -106,6 +108,7 @@ All rules below are mandatory, non-negotiable, and domain-free. Domain-specific 
 - No logical OR fallbacks for core behavior (`primary() || fallback()`).
 - Terminal failure states must remain terminal by default.
 - Retry or requeue is allowed only through an explicit policy gate, never as an implicit fallback.
+- Public domain functions that can fail MUST return `Result<T, E>`. Throwing is reserved for truly unexpected programmer errors.
 
 ### Test-Driven Development
 
@@ -131,6 +134,16 @@ All rules below are mandatory, non-negotiable, and domain-free. Domain-specific 
 - ALWAYS use dependency injection for logging and side concerns.
 - No blind type assertions without proper validation.
 - Separate core behavior from side concerns.
+- Prefer `readonly` properties and parameters. Mutation should be explicit and localized.
+- Never mutate function parameters directly. Clone or create new objects instead.
+- No magic numbers or strings. Use named constants with descriptive names. Exceptions: `0`, `1`, `-1` as array/math primitives.
+- Production files should not exceed 300 lines. Functions should not exceed 50 lines. Exceptions require justification in code review.
+
+### Process Lifecycle
+
+- Applications in `apps/` must handle SIGTERM and SIGINT for graceful shutdown.
+- In-progress work must complete or be safely cancelled within a configurable timeout.
+- All acquired resources (connections, file handles) must be released on shutdown.
 
 ### Agent Identity
 
@@ -145,7 +158,7 @@ All rules below are mandatory, non-negotiable, and domain-free. Domain-specific 
 ### Git Operations
 
 - No `git commit` or `git push` without explicit user approval.
-- Conventional commit format: `<type>(<scope>): <message>` (max 80 chars).
+- Conventional commit format: `<type>(<scope>): <message>` (max 72 chars).
 - Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`.
 
 ### Branch Policy
@@ -198,6 +211,8 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 | [`plugin-development`](.agents/skills/plugin-development/SKILL.md) | Plugin development |
 | [`robota-sdk-usage`](.agents/skills/robota-sdk-usage/SKILL.md) | SDK usage patterns |
 | [`tailwind-truncation`](.agents/skills/tailwind-truncation/SKILL.md) | Tailwind truncation |
+| [`logging-level-guide`](.agents/skills/logging-level-guide/SKILL.md) | Log level usage guide |
+| [`api-error-standard`](.agents/skills/api-error-standard/SKILL.md) | RFC 7807 API error responses |
 
 ## Rules and Skills Boundary
 
