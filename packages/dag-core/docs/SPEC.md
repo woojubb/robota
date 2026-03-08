@@ -54,7 +54,7 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `TPortValueType` | `types/domain.ts` | Port data types: `string`, `number`, `boolean`, `object`, `array`, `binary` |
 | `TBinaryKind` | `types/domain.ts` | Binary payload kind: `image`, `video`, `audio`, `file` |
 | `TNodeConfigValue` | `types/domain.ts` | Recursive config value type (primitives, objects, arrays) |
-| `TNodeConfigRecord` | `types/domain.ts` | Node configuration record (alias for `INodeConfigObject`). **NOT YET DEFINED IN CODE** — documented as a planned type alias. Must be implemented or removed from this table. |
+| `TNodeConfigRecord` | `types/domain.ts` | Node configuration record (alias for `INodeConfigObject`) |
 | `TAssetReference` | `types/domain.ts` | Discriminated union for asset-by-id or asset-by-uri references |
 | `TDagRunStatus` | `types/domain.ts` | DAG run states: `created`, `queued`, `running`, `success`, `failed`, `cancelled` |
 | `TTaskRunStatus` | `types/domain.ts` | Task run states: `created`, `queued`, `running`, `success`, `failed`, `upstream_failed`, `skipped`, `cancelled` |

@@ -14,8 +14,10 @@ import {
 /** Non-terminal task statuses that indicate the DAG run is still in progress. */
 const PENDING_TASK_STATUSES = new Set(['created', 'queued', 'running']);
 
-/** Terminal failure task statuses used to determine DAG run outcome. */
-const FAILURE_TASK_STATUSES = new Set(['failed', 'upstream_failed', 'cancelled']);
+/** Terminal failure task statuses used to determine DAG run outcome.
+ * Only 'failed' contributes to a failed DAG outcome. upstream_failed, skipped,
+ * and cancelled are non-failure terminal states. */
+const FAILURE_TASK_STATUSES = new Set(['failed']);
 
 /**
  * Checks whether all tasks in a DAG run have reached a terminal state

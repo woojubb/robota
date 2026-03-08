@@ -1,5 +1,6 @@
 import {
     buildDispatchError,
+    TaskRunStateMachine,
     type IClockPort,
     type IDagDefinition,
     type IDagRun,
@@ -119,6 +120,10 @@ async function dispatchSingleDownstreamNode(
     try {
         await queue.enqueue(nextMessage);
     } catch (error) {
+        const cancelTransition = TaskRunStateMachine.transition('queued', 'CANCEL');
+        if (cancelTransition.ok) {
+            await storage.updateTaskRunStatus(nextTaskRunId, cancelTransition.value.nextStatus);
+        }
         return {
             ok: false,
             error: buildDispatchError(
