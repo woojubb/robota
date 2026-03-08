@@ -4,6 +4,8 @@ import { Badge } from '../ui/badge';
 import { Wifi, Settings, User, Hash } from 'lucide-react';
 import { usePlayground } from '../../contexts/playground-context';
 
+const SESSION_ID_SUFFIX_LENGTH = -8;
+
 /**
  * Connection Status Panel Component
  * Shows WebSocket connection status and basic information
@@ -51,7 +53,7 @@ export const ConnectionStatusPanel: React.FC = () => {
                         <Hash className="h-3 w-3 text-gray-400" />
                         <span className="text-gray-500">Session:</span>
                         <span className="font-mono text-gray-700 truncate">
-                            {sessionId ? sessionId.slice(-8) : 'Not set'}
+                            {sessionId ? sessionId.slice(SESSION_ID_SUFFIX_LENGTH) : 'Not set'}
                         </span>
                     </div>
                 </div>

@@ -1,5 +1,9 @@
 'use client';
 
+const CRYPTO_BYTES_COUNT = 3;
+const HEX_BASE = 16;
+const MAX_TOOL_SLUG_LENGTH = 40;
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PlaygroundProvider, usePlayground } from '../../contexts/playground-context';
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
@@ -36,13 +40,13 @@ function generateSixCharToken(): string {
   if (!cryptoObj || typeof cryptoObj.getRandomValues !== 'function') {
     throw new Error('Crypto API is not available in this environment.');
   }
-  const bytes = new Uint8Array(3);
+  const bytes = new Uint8Array(CRYPTO_BYTES_COUNT);
   cryptoObj.getRandomValues(bytes);
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(bytes).map((b) => b.toString(HEX_BASE).padStart(2, '0')).join('');
 }
 
 function buildToolId(name: string): string {
-  const base = slugifyKebab(name).slice(0, 40);
+  const base = slugifyKebab(name).slice(0, MAX_TOOL_SLUG_LENGTH);
   const token = generateSixCharToken();
   return `${base}-${token}`;
 }

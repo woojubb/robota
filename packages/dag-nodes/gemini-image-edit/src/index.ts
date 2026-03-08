@@ -31,15 +31,17 @@ export interface IGeminiImageEditNodeDefinitionOptions extends IGeminiImageRunti
 export interface IGeminiImageComposeNodeDefinitionOptions extends IGeminiImageRuntimeOptions {}
 
 const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
+const DEFAULT_IMAGE_EDIT_COST_USD = 0.01;
+const DEFAULT_IMAGE_COMPOSE_COST_USD = 0.015;
 
 const GeminiImageEditConfigSchema = z.object({
     model: z.string().default(DEFAULT_GEMINI_IMAGE_MODEL),
-    baseCostUsd: z.number().default(0.01)
+    baseCostUsd: z.number().default(DEFAULT_IMAGE_EDIT_COST_USD)
 });
 
 const GeminiImageComposeConfigSchema = z.object({
     model: z.string().default(DEFAULT_GEMINI_IMAGE_MODEL),
-    baseCostUsd: z.number().default(0.015)
+    baseCostUsd: z.number().default(DEFAULT_IMAGE_COMPOSE_COST_USD)
 });
 
 /**

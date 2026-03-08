@@ -4,6 +4,8 @@ import { RemoteServer } from '@robota-sdk/remote/server';
 import swaggerUi from 'swagger-ui-express';
 import { REMOTE_OPENAPI_DOCUMENT } from './docs/openapi-remote.js';
 
+const HTTP_OK = 200;
+
 export interface IRemoteServerLogger {
     debug: (message: string, ...data: unknown[]) => void;
     info: (message: string, ...data: unknown[]) => void;
@@ -43,7 +45,7 @@ export function registerRemoteServerRoutes(
 
     if (options.apiDocsEnabled !== false) {
         options.app.get('/docs/remote.json', (_req, res) => {
-            res.status(200).json(REMOTE_OPENAPI_DOCUMENT);
+            res.status(HTTP_OK).json(REMOTE_OPENAPI_DOCUMENT);
         });
         options.app.use(
             '/docs/remote',

@@ -5,6 +5,9 @@ import { AGENT_EVENTS } from '../agents/constants';
 import { TASK_EVENTS } from '../services/task-events';
 import type { IUniversalObjectValue, TUniversalValue } from '../interfaces/types';
 
+const ID_RADIX = 36;
+const ID_RANDOM_LENGTH = 9;
+
 /**
  * Configuration for execution proxy
  */
@@ -283,7 +286,7 @@ export class ExecutionProxy<T extends object = object> {
      * Generate unique execution ID
      */
     private generateExecutionId(): string {
-        return `${this.config.sourceType}-${this.config.sourceId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        return `${this.config.sourceType}-${this.config.sourceId}-${Date.now()}-${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
     }
 }
 

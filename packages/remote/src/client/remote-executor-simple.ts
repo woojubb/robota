@@ -13,6 +13,8 @@ import type {
     IExecutor,
     ILogger,
 } from '@robota-sdk/agents';
+
+const DEFAULT_TIMEOUT_MS = 30000;
 import { SilentLogger } from '@robota-sdk/agents';
 import { HttpClient, type IHttpClientConfig } from './http-client';
 // Simple inline type checking instead of external type guards
@@ -84,7 +86,7 @@ export class SimpleRemoteExecutor implements IExecutor {
         // Create HTTP client with timeout and headers
         const httpConfig: IHttpClientConfig = {
             baseUrl: config.serverUrl,
-            timeout: config.timeout || 30000,
+            timeout: config.timeout || DEFAULT_TIMEOUT_MS,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${config.userApiKey}`,

@@ -16,6 +16,19 @@ import type {
 } from './limits/types';
 import type { TUniversalMessage } from '../interfaces/messages';
 
+const DEFAULT_MAX_TOKENS = 100000;
+const DEFAULT_MAX_REQUESTS = 1000;
+const DEFAULT_TIME_WINDOW_MS = 3600000;
+const DEFAULT_MAX_COST = 10.0;
+const DEFAULT_TOKEN_COST_PER_1000 = 0.002;
+const DEFAULT_REFILL_RATE = 100;
+const DEFAULT_BUCKET_SIZE = 10000;
+const MS_PER_SECOND = 1000;
+const COST_DECIMAL_PLACES = 4;
+const CHARS_PER_TOKEN = 4;
+const TOKEN_ESTIMATE_BUFFER = 100;
+const TOKENS_PER_COST_UNIT = 1000;
+
 // Re-export types for external use
 export type { TLimitsStrategy, ILimitsPluginOptions, TPluginLimitsStatusData };
 
@@ -94,13 +107,13 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
         this.pluginOptions = {
             enabled: options.enabled ?? true,
             strategy: options.strategy,
-            maxTokens: options.maxTokens ?? 100000,
-            maxRequests: options.maxRequests ?? 1000,
-            timeWindow: options.timeWindow ?? 3600000, // 1 hour
-            maxCost: options.maxCost ?? 10.0, // $10
-            tokenCostPer1000: options.tokenCostPer1000 ?? 0.002, // $0.002 per 1K tokens
-            refillRate: options.refillRate ?? 100, // tokens per second
-            bucketSize: options.bucketSize ?? 10000,
+            maxTokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
+            maxRequests: options.maxRequests ?? DEFAULT_MAX_REQUESTS,
+            timeWindow: options.timeWindow ?? DEFAULT_TIME_WINDOW_MS,
+            maxCost: options.maxCost ?? DEFAULT_MAX_COST,
+            tokenCostPer1000: options.tokenCostPer1000 ?? DEFAULT_TOKEN_COST_PER_1000,
+            refillRate: options.refillRate ?? DEFAULT_REFILL_RATE,
+            bucketSize: options.bucketSize ?? DEFAULT_BUCKET_SIZE,
             costCalculator: options.costCalculator ?? this.defaultCostCalculator.bind(this),
             // Add plugin options defaults
             category: options.category ?? PluginCategory.LIMITS,
@@ -203,7 +216,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
         const now = Date.now();
 
         // Refill bucket
-        const timePassed = (now - bucket.lastRefill) / 1000;
+        const timePassed = (now - bucket.lastRefill) / MS_PER_SECOND;
         const tokensToAdd = timePassed * this.pluginOptions.refillRate;
         bucket.tokens = Math.min(this.pluginOptions.bucketSize, bucket.tokens + tokensToAdd);
         bucket.lastRefill = now;
@@ -236,7 +249,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
         const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, this.resolveModelName(context));
         if (bucket.cost + estimatedCost > this.pluginOptions.maxCost) {
             throw new PluginError(
-                `Cost limit exceeded. Current: $${bucket.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.pluginOptions.maxCost}`,
+                `Cost limit exceeded. Current: $${bucket.cost.toFixed(COST_DECIMAL_PLACES)}, Estimated: $${estimatedCost.toFixed(COST_DECIMAL_PLACES)}, Max: $${this.pluginOptions.maxCost}`,
                 this.name,
                 { currentCost: bucket.cost, estimatedCost, maxCost: this.pluginOptions.maxCost }
             );
@@ -278,7 +291,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
 
             if (window.cost + estimatedCost > this.pluginOptions.maxCost) {
                 throw new PluginError(
-                    `Cost limit exceeded in sliding window. Current: $${window.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.pluginOptions.maxCost}`,
+                    `Cost limit exceeded in sliding window. Current: $${window.cost.toFixed(COST_DECIMAL_PLACES)}, Estimated: $${estimatedCost.toFixed(COST_DECIMAL_PLACES)}, Max: $${this.pluginOptions.maxCost}`,
                     this.name,
                     { currentCost: window.cost, estimatedCost, maxCost: this.pluginOptions.maxCost }
                 );
@@ -330,7 +343,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
 
         if (window.cost + estimatedCost > this.pluginOptions.maxCost) {
             throw new PluginError(
-                `Cost limit exceeded in fixed window. Current: $${window.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.pluginOptions.maxCost}`,
+                `Cost limit exceeded in fixed window. Current: $${window.cost.toFixed(COST_DECIMAL_PLACES)}, Estimated: $${estimatedCost.toFixed(COST_DECIMAL_PLACES)}, Max: $${this.pluginOptions.maxCost}`,
                 this.name,
                 { currentCost: window.cost, estimatedCost, maxCost: this.pluginOptions.maxCost }
             );
@@ -408,7 +421,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
             total + (msg.content?.length || 0), 0) || 0;
 
         // Rough estimation: 1 token per 4 characters
-        return Math.ceil(messageLength / 4) + 100; // Add some buffer
+        return Math.ceil(messageLength / CHARS_PER_TOKEN) + TOKEN_ESTIMATE_BUFFER;
     }
 
     /**
@@ -426,7 +439,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
         };
 
         const costPer1000 = modelCosts[model] || this.pluginOptions.tokenCostPer1000;
-        return (tokens / 1000) * costPer1000;
+        return (tokens / TOKENS_PER_COST_UNIT) * costPer1000;
     }
 
     /**

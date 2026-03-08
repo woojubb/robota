@@ -1,5 +1,7 @@
 "use client";
 
+const COPY_FEEDBACK_DURATION_MS = 2000;
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -99,7 +101,7 @@ export function ErrorPanel({ errors, warnings, onFixSuggestion }: IErrorPanelPro
     const copyToClipboard = async (text: string, id: string) => {
         await navigator.clipboard.writeText(text);
         setCopiedText(id);
-        setTimeout(() => setCopiedText(null), 2000);
+        setTimeout(() => setCopiedText(null), COPY_FEEDBACK_DURATION_MS);
     };
 
     const toggleExpanded = (index: number) => {

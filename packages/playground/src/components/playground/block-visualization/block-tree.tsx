@@ -18,11 +18,15 @@ import type {
     IBlockTreeNode
 } from '../../../lib/playground/block-tracking';
 
+const TREE_HEIGHT_SM = 320;
+const TREE_HEIGHT_MD = 400;
+const TREE_HEIGHT_LG = 600;
+
 function getTreeHeightClass(height: string | number): string {
     if (height === '100%') return 'h-full';
-    if (height === '320px' || height === 320) return 'h-80';
-    if (height === '400px' || height === 400) return 'h-[400px]';
-    if (height === '600px' || height === 600) return 'h-[600px]';
+    if (height === '320px' || height === TREE_HEIGHT_SM) return 'h-80';
+    if (height === '400px' || height === TREE_HEIGHT_MD) return 'h-[400px]';
+    if (height === '600px' || height === TREE_HEIGHT_LG) return 'h-[600px]';
     return 'h-[400px]';
 }
 

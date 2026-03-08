@@ -1,3 +1,6 @@
+const RANDOM_ID_BASE = 36;
+const RANDOM_ID_LENGTH = 9;
+
 /**
  * PlaygroundExecutor - Manages Robota Agent and Team execution in the browser
  * 
@@ -726,7 +729,7 @@ export class PlaygroundExecutor {
      * Generate unique execution ID
      */
     private generateExecutionId(): string {
-        return `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return `exec_${Date.now()}_${Math.random().toString(RANDOM_ID_BASE).substr(2, RANDOM_ID_LENGTH)}`;
     }
 
     /**

@@ -20,6 +20,11 @@ import {
     SilentLogStorage
 } from './storages/index';
 
+const DEFAULT_MAX_LOGS = 10000;
+const DEFAULT_BATCH_SIZE = 100;
+const DEFAULT_FLUSH_INTERVAL_MS = 30000;
+const PREVIEW_LENGTH = 100;
+
 /**
  * Logging context data - structured data for log entries
  */
@@ -90,11 +95,11 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
             filePath: options.filePath ?? './agent.log',
             remoteEndpoint: options.remoteEndpoint ?? '',
             remoteHeaders: options.remoteHeaders ?? {},
-            maxLogs: options.maxLogs ?? 10000,
+            maxLogs: options.maxLogs ?? DEFAULT_MAX_LOGS,
             includeStackTrace: options.includeStackTrace ?? true,
             ...(options.formatter && { formatter: options.formatter }),
-            batchSize: options.batchSize ?? 100,
-            flushInterval: options.flushInterval ?? 30000,
+            batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
+            flushInterval: options.flushInterval ?? DEFAULT_FLUSH_INTERVAL_MS,
             // Add plugin options defaults
             category: options.category ?? PluginCategory.LOGGING,
             priority: options.priority ?? PluginPriority.HIGH,
@@ -238,7 +243,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
      * Logs the start of an agent execution, truncating user input to 100 characters.
      */
     async logExecutionStart(executionId: string, userInput: string, metadata?: ILogEntry['metadata']): Promise<void> {
-        await this.info('Execution started', { userInput: userInput.substring(0, 100) }, {
+        await this.info('Execution started', { userInput: userInput.substring(0, PREVIEW_LENGTH) }, {
             executionId,
             operation: 'execution_start',
             ...metadata

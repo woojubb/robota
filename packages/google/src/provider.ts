@@ -26,7 +26,8 @@ import type {
     TProviderMediaResult
 } from '@robota-sdk/agents';
 
-
+const RANDOM_ID_RADIX = 36;
+const RANDOM_ID_LENGTH = 9;
 
 /**
  * Google Gemini provider implementation for Robota
@@ -479,7 +480,7 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
      * Generate a unique ID
      */
     private generateId(): string {
-        return `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return `call_${Date.now()}_${Math.random().toString(RANDOM_ID_RADIX).substr(2, RANDOM_ID_LENGTH)}`;
     }
 
     private mapMessagePartsToGeminiParts(message: IUserMessage | IAssistantMessage | ISystemMessage | IToolMessage): Part[] {

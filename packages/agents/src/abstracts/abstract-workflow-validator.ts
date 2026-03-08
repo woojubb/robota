@@ -19,6 +19,9 @@ import type { ILogger } from '../utils/logger';
 import { SilentLogger } from '../utils/logger';
 import type { TUniversalValue } from '../interfaces/types';
 
+const TOP_ISSUES_COUNT = 10;
+const PREVIEW_LENGTH = 100;
+
 /**
  * Validator options (enabled flag + injected logger).
  */
@@ -363,7 +366,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     getStats() {
         const mostCommonIssues = Array.from(this.stats.issuesByRule.entries())
             .sort(([, a], [, b]) => b - a)
-            .slice(0, 10)
+            .slice(0, TOP_ISSUES_COUNT)
             .map(([rule, count]) => {
                 const config = this.ruleConfigs.get(rule);
                 return {
@@ -561,7 +564,7 @@ export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowD
     private extractSimpleOptions(options: IValidationOptions): string | number | boolean | string[] | Date {
         // Convert ValidationOptions to simple type safely
         if (typeof options === 'object' && options !== null) {
-            return `${JSON.stringify(options).substring(0, 100)}...`; // Truncated string representation
+            return `${JSON.stringify(options).substring(0, PREVIEW_LENGTH)}...`; // Truncated string representation
         }
         return String(options);
     }

@@ -84,11 +84,14 @@ export function composeEventName(ownerType: string, localName: string): string {
     return `${ownerType}.${localName}`;
 }
 
+const ID_RADIX = 36;
+const SPAN_ID_SUBSTR_END = 10;
+
 /**
  * Generate a unique span ID for distributed tracing correlation.
  */
 function generateSpanId(): string {
-    return `span_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    return `span_${Date.now().toString(ID_RADIX)}_${Math.random().toString(ID_RADIX).slice(2, SPAN_ID_SUBSTR_END)}`;
 }
 
 /**

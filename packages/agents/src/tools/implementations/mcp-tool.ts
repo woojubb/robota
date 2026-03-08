@@ -5,6 +5,10 @@ import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstrac
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import { logger as _logger } from '../../utils/logger';
 
+const CONNECTION_CHECK_INTERVAL_MS = 100;
+const ID_RADIX = 36;
+const ID_SUBSTR_END = 11;
+
 /**
  * MCP (Model Context Protocol) tool configuration
  */
@@ -178,9 +182,9 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
                     if (this.connectionStatus !== 'connecting') {
                         resolve();
                     } else if (iterations >= maxIterations) {
-                        reject(new Error(`MCP connection timeout: still connecting after ${maxIterations * 100}ms`));
+                        reject(new Error(`MCP connection timeout: still connecting after ${maxIterations * CONNECTION_CHECK_INTERVAL_MS}ms`));
                     } else {
-                        setTimeout(checkConnection, 100);
+                        setTimeout(checkConnection, CONNECTION_CHECK_INTERVAL_MS);
                     }
                 };
                 checkConnection();
@@ -195,7 +199,7 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
             this.logger.debug('Establishing MCP connection', { endpoint: this.mcpConfig.endpoint });
 
             // Simulate connection delay
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, CONNECTION_CHECK_INTERVAL_MS));
 
             this.connectionStatus = 'connected';
             this.logger.debug('MCP connection established', { endpoint: this.mcpConfig.endpoint });
@@ -210,7 +214,7 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
      * Build MCP request from tool parameters
      */
     private buildMCPRequest(toolName: string, parameters: TToolParameters): IMCPRequest {
-        const requestId = `${toolName}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+        const requestId = `${toolName}-${Date.now()}-${Math.random().toString(ID_RADIX).substring(2, ID_SUBSTR_END)}`;
 
         const mcpParams: IMCPRequestParams = {
             tool: toolName,

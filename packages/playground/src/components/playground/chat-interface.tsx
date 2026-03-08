@@ -1,5 +1,9 @@
 'use client'
 
+const SIMULATED_MIN_DELAY_MS = 1000;
+const SIMULATED_MAX_EXTRA_DELAY_MS = 2000;
+const COPY_FEEDBACK_DURATION_MS = 2000;
+
 import { useState, useRef, type KeyboardEvent } from 'react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -85,7 +89,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: IChatPanelProps) 
 
     const simulateAgentResponse = async (_userInput: string): Promise<string> => {
         // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000))
+        await new Promise(resolve => setTimeout(resolve, SIMULATED_MIN_DELAY_MS + Math.random() * SIMULATED_MAX_EXTRA_DELAY_MS))
 
         const responses = [
             "Hello! I'm your Robota agent. How can I help you today?",
@@ -109,7 +113,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: IChatPanelProps) 
         try {
             await navigator.clipboard.writeText(text)
             setCopiedId(messageId)
-            setTimeout(() => setCopiedId(null), 2000)
+            setTimeout(() => setCopiedId(null), COPY_FEEDBACK_DURATION_MS)
         } catch (err) {
             WebLogger.error('Failed to copy', { error: err instanceof Error ? err.message : String(err) })
         }

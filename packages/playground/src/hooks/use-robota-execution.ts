@@ -1,5 +1,9 @@
 'use client';
 
+const PERCENTAGE_MULTIPLIER = 100;
+const IDLE_RESET_DELAY_MS = 1000;
+const EXECUTION_TIMEOUT_MS = 30000;
+
 /**
  * useRobotaExecution - Agent Execution State Hook
  * 
@@ -106,7 +110,7 @@ export function useRobotaExecution(): IRobotaExecutionHookReturn {
     const totalExecutions = executionHistory.length;
 
     const successRate = totalExecutions > 0
-        ? (executionHistory.filter(result => result.success).length / totalExecutions) * 100
+        ? (executionHistory.filter(result => result.success).length / totalExecutions) * PERCENTAGE_MULTIPLIER
         : 0;
 
     // Update execution state based on context state
@@ -119,7 +123,7 @@ export function useRobotaExecution(): IRobotaExecutionHookReturn {
             // Auto-reset to idle after a short delay
             setTimeout(() => {
                 setExecutionState('idle');
-            }, 1000);
+            }, IDLE_RESET_DELAY_MS);
         }
     }, [state.isExecuting, executionState]);
 
@@ -170,7 +174,7 @@ export function useRobotaExecution(): IRobotaExecutionHookReturn {
             lastPromptRef.current = prompt;
 
             // Set execution timeout
-            const timeoutMs = 30000; // 30 seconds
+            const timeoutMs = EXECUTION_TIMEOUT_MS;
             executionTimeouRef.current = setTimeout(() => {
                 setExecutionState('error');
                 setLastError(new Error('Execution timeout'));

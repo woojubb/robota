@@ -8,9 +8,11 @@ import type {
     IAssistantMessage,
 } from '@robota-sdk/agents';
 
+const DEFAULT_MAX_TOKENS = 4096;
+
 /**
  * Anthropic provider implementation for Robota
- * 
+ *
  * IMPORTANT PROVIDER-SPECIFIC RULES:
  * 1. This provider MUST extend BaseAIProvider from @robota-sdk/agents
  * 2. Content handling for Anthropic API:
@@ -83,7 +85,7 @@ export class AnthropicProvider extends AbstractAIProvider {
         const requestParams: Anthropic.MessageCreateParams = {
             model: options.model as string,
             messages: anthropicMessages,
-            max_tokens: options?.maxTokens || 4096
+            max_tokens: options?.maxTokens || DEFAULT_MAX_TOKENS
         };
 
         if (options?.temperature !== undefined) {
@@ -129,7 +131,7 @@ export class AnthropicProvider extends AbstractAIProvider {
         const requestParams: Anthropic.MessageCreateParamsStreaming = {
             model: options.model as string,
             messages: anthropicMessages,
-            max_tokens: options?.maxTokens || 4096,
+            max_tokens: options?.maxTokens || DEFAULT_MAX_TOKENS,
             stream: true
         };
 

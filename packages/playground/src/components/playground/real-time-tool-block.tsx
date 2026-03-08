@@ -118,16 +118,23 @@ const getStatusColors = (state: IRealTimeBlockMetadata['visualState']) => {
 /**
  * Format duration in milliseconds to human-readable string
  */
+const MS_PER_SECOND = 1000;
+const MS_PER_MINUTE = 60000;
+const PROGRESS_IN_PROGRESS = 95;
+const PROGRESS_PARTIAL = 50;
+const PROGRESS_INITIAL = 25;
+const PROGRESS_COMPLETE = 100;
+
 const formatDuration = (duration?: number): string => {
     if (!duration) return '—';
 
-    if (duration < 1000) {
+    if (duration < MS_PER_SECOND) {
         return `${duration.toFixed(0)}ms`;
-    } else if (duration < 60000) {
-        return `${(duration / 1000).toFixed(1)}s`;
+    } else if (duration < MS_PER_MINUTE) {
+        return `${(duration / MS_PER_SECOND).toFixed(1)}s`;
     } else {
-        const minutes = Math.floor(duration / 60000);
-        const seconds = ((duration % 60000) / 1000).toFixed(0);
+        const minutes = Math.floor(duration / MS_PER_MINUTE);
+        const seconds = ((duration % MS_PER_MINUTE) / MS_PER_SECOND).toFixed(0);
         return `${minutes}m ${seconds}s`;
     }
 };
@@ -204,9 +211,9 @@ export const RealTimeToolBlock: React.FC<IRealTimeToolBlockProps> = ({
             case 'pending':
                 return 0;
             case 'in_progress':
-                return metadata.actualDuration ? Math.min(95, 50) : 25; // Conservative estimate
+                return metadata.actualDuration ? Math.min(PROGRESS_IN_PROGRESS, PROGRESS_PARTIAL) : PROGRESS_INITIAL; // Conservative estimate
             case 'completed':
-                return 100;
+                return PROGRESS_COMPLETE;
             case 'error':
                 return 0;
             default:
