@@ -1,580 +1,101 @@
+/**
+ * Abstract class for all plugins with type parameter support.
+ *
+ * Type definitions live in ./abstract-plugin-types.ts.
+ */
 import type { IRunOptions } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { TToolParameters, IToolExecutionResult, IToolExecutionContext } from '../interfaces/tool';
 import type { IEventEmitterEventData, IEventEmitterPlugin, TEventName } from '../plugins/event-emitter/types';
 import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 import { createLogger, type ILogger } from '../utils/logger';
+import type { IPluginOptions, IPluginStats, IPluginConfig, IPluginData, IPluginContract, IPluginHooks, IPluginExecutionContext, IPluginExecutionResult, IPluginErrorContext } from './abstract-plugin-types';
+import { PluginCategory, PluginPriority } from './abstract-plugin-types';
+
+// Re-export all types for backward compatibility
+export type { IPluginOptions, IPluginStats, IPluginConfig, IPluginData, IPluginContract, IPluginHooks, IPluginExecutionContext, IPluginExecutionResult, IPluginErrorContext };
+export type { IPlugin } from './abstract-plugin-types';
+export { PluginCategory, PluginPriority };
 
 /**
- * Plugin categories for classification
- */
-export enum PluginCategory {
-    /** Monitoring and observability */
-    MONITORING = 'monitoring',
-    /** Logging and debugging */
-    LOGGING = 'logging',
-    /** Data storage and persistence */
-    STORAGE = 'storage',
-    /** External notifications and alerts */
-    NOTIFICATION = 'notification',
-    /** Security and access control */
-    SECURITY = 'security',
-    /** Performance optimization */
-    PERFORMANCE = 'performance',
-    /** Error handling and recovery */
-    ERROR_HANDLING = 'error_handling',
-    /** Rate limiting and throttling */
-    LIMITS = 'limits',
-    /** Event processing and coordination */
-    EVENT_PROCESSING = 'event_processing',
-    /** Custom or specialized functionality */
-    CUSTOM = 'custom'
-}
-
-const PRIORITY_CRITICAL = 1000;
-const PRIORITY_HIGH = 800;
-const PRIORITY_NORMAL = 500;
-const PRIORITY_LOW = 200;
-const PRIORITY_MINIMAL = 100;
-
-/**
- * Plugin priority levels
- */
-export enum PluginPriority {
-    /** Highest priority - executed first */
-    CRITICAL = PRIORITY_CRITICAL,
-    /** High priority */
-    HIGH = PRIORITY_HIGH,
-    /** Normal priority (default) */
-    NORMAL = PRIORITY_NORMAL,
-    /** Low priority */
-    LOW = PRIORITY_LOW,
-    /** Lowest priority - executed last */
-    MINIMAL = PRIORITY_MINIMAL
-}
-
-/**
- * Plugin execution context for all plugins
- */
-export interface IPluginExecutionContext {
-    executionId?: string;
-    sessionId?: string;
-    userId?: string;
-    // Define specific types for common plugin context data
-    messages?: TUniversalMessage[];
-    config?: Record<string, string | number | boolean>;
-    metadata?: Record<string, string | number | boolean | Date>;
-    // Index signature for exactOptionalPropertyTypes compatibility
-    [key: string]: string | number | boolean | Date | string[] | number[] | boolean[] | TUniversalMessage[] | Record<string, string | number | boolean> | Record<string, string | number | boolean | Date> | undefined;
-}
-
-/**
- * Plugin execution result for all plugins
- */
-export interface IPluginExecutionResult {
-    response?: string;
-    content?: string;
-    duration?: number;
-    tokensUsed?: number;
-    toolsExecuted?: number;
-    success?: boolean;
-    usage?: { totalTokens?: number; promptTokens?: number; completionTokens?: number };
-    // Define specific types for tool call data
-    toolCalls?: Array<{
-        id?: string;
-        name?: string;
-        arguments?: Record<string, string | number | boolean>;
-        result?: string | number | boolean | null;
-    }>;
-    // Define specific result types
-    results?: Array<{
-        id?: string;
-        type?: string;
-        data?: string | number | boolean | null;
-        success?: boolean;
-    }>;
-    error?: Error;
-    // Additional execution metadata
-    metadata?: Record<string, string | number | boolean | Date>;
-}
-
-/**
- * Error context for plugin error handling
- */
-export interface IPluginErrorContext {
-    action: string;
-    tool?: string;
-    parameters?: TToolParameters;
-    result?: IToolExecutionResult;
-    error?: Error;
-    // Define specific types for common error context data
-    executionId?: string;
-    sessionId?: string;
-    userId?: string;
-    timestamp?: Date;
-    attempt?: number;
-    stack?: string;
-    metadata?: Record<string, string | number | boolean>;
-}
-
-/**
- * Plugin configuration interface
- */
-export interface IPluginConfig extends IPluginOptions {
-    options?: Record<string, string | number | boolean>;
-}
-
-/**
- * Plugin options that all plugin options should extend
- * This provides a common structure while allowing specific options
- */
-export interface IPluginOptions {
-    /** Whether the plugin is enabled */
-    enabled?: boolean;
-    /** Plugin category for classification */
-    category?: PluginCategory;
-    /** Plugin priority for execution order */
-    priority?: PluginPriority | number;
-    /** Events to subscribe to from modules */
-    moduleEvents?: TEventName[];
-    /** Whether to subscribe to all module events */
-    subscribeToAllModuleEvents?: boolean;
-}
-
-/**
- * Plugin data interface
- */
-export interface IPluginData {
-    name: string;
-    version: string;
-    enabled: boolean;
-    category: PluginCategory;
-    priority: number;
-    subscribedEvents: TEventName[];
-    metadata?: Record<string, string | number | boolean>;
-}
-
-/**
- * Type-safe plugin interface with specific type parameters
- * 
+ * Abstract class for all plugins with type parameter support.
+ * Provides plugin lifecycle management and common functionality.
  * @template TOptions - Plugin options type that extends IPluginOptions
- * @template TStats - Plugin statistics type (defaults to IPluginStats for type safety)
- */
-export interface IPluginContract<TOptions extends IPluginOptions = IPluginOptions, TStats = IPluginStats> {
-    name: string;
-    version: string;
-    enabled: boolean;
-    category: PluginCategory;
-    priority: number;
-
-    initialize(options?: TOptions): Promise<void>;
-    cleanup?(): Promise<void>;
-    getData?(): IPluginData;
-    getStats?(): TStats;
-
-    // Event subscription methods
-    subscribeToModuleEvents?(eventEmitter: IEventEmitterPlugin): Promise<void>;
-    unsubscribeFromModuleEvents?(eventEmitter: IEventEmitterPlugin): Promise<void>;
-    onModuleEvent?(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> | void;
-}
-
-/**
- * Plugin statistics base interface with common metrics
- */
-export interface IPluginStats {
-    enabled: boolean;
-    calls: number;
-    errors: number;
-    lastActivity?: Date;
-    moduleEventsReceived?: number;
-    [key: string]:
-    | string
-    | number
-    | boolean
-    | Date
-    | string[]
-    | number[]
-    | boolean[]
-    | Record<string, string | number | boolean | Date>
-    | undefined;
-}
-
-/**
- * Plugin interface extending IPluginContract
- */
-export interface IPlugin extends IPluginContract<IPluginConfig, IPluginStats> { }
-
-/**
- * Plugin lifecycle hooks
- */
-export interface IPluginHooks {
-    /**
-     * Called before agent run
-     */
-    beforeRun?(input: string, options?: IRunOptions): Promise<void> | void;
-
-    /**
-     * Called after agent run
-     */
-    afterRun?(input: string, response: string, options?: IRunOptions): Promise<void> | void;
-
-    /**
-     * Called before execution with context
-     */
-    beforeExecution?(context: IPluginExecutionContext): Promise<void> | void;
-
-    /**
-     * Called after execution with context and result
-     */
-    afterExecution?(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> | void;
-
-    /**
-     * Called before conversation with context
-     */
-    beforeConversation?(context: IPluginExecutionContext): Promise<void> | void;
-
-    /**
-     * Called after conversation with context and result
-     */
-    afterConversation?(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> | void;
-
-    /**
-     * Called before tool execution
-     */
-    beforeToolCall?(toolName: string, parameters: TToolParameters): Promise<void> | void;
-
-    /**
-     * Called before tool execution with context
-     */
-    beforeToolExecution?(context: IPluginExecutionContext, toolData: IToolExecutionContext): Promise<void> | void;
-
-    /**
-     * Called after tool execution
-     */
-    afterToolCall?(toolName: string, parameters: TToolParameters, result: IToolExecutionResult): Promise<void> | void;
-
-    /**
-     * Called after tool execution with context
-     */
-    afterToolExecution?(context: IPluginExecutionContext, toolResults: IPluginExecutionResult): Promise<void> | void;
-
-    /**
-     * Called before AI provider call
-     */
-    beforeProviderCall?(messages: TUniversalMessage[]): Promise<void> | void;
-
-    /**
-     * Called after AI provider call
-     */
-    afterProviderCall?(messages: TUniversalMessage[], response: TUniversalMessage): Promise<void> | void;
-
-    /**
-     * Called on streaming chunk
-     */
-    onStreamingChunk?(chunk: TUniversalMessage): Promise<void> | void;
-
-    /**
-     * Called on error
-     */
-    onError?(error: Error, context?: IPluginErrorContext): Promise<void> | void;
-
-    /**
-     * Called on message added to history
-     */
-    onMessageAdded?(message: TUniversalMessage): Promise<void> | void;
-
-    /**
-     * Called when module events are received
-     */
-    onModuleEvent?(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> | void;
-}
-
-/**
- * Abstract class for all plugins with type parameter support
- * Provides plugin lifecycle management and common functionality
- * 
- * Enhanced with:
- * - Plugin classification system (categories and priorities)
- * - EventEmitter integration for module event subscription
- * - Improved statistics tracking
- * - Better error handling and recovery
- * 
- * @template TOptions - Plugin options type that extends IPluginOptions
- * @template TStats - Plugin statistics type (defaults to IPluginStats for type safety)
+ * @template TStats - Plugin statistics type
  */
 export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOptions, TStats extends IPluginStats = IPluginStats>
     implements IPluginContract<TOptions, TStats>, IPluginHooks {
-    /** Plugin name */
     abstract readonly name: string;
-
-    /** Plugin version */
     abstract readonly version: string;
-
-    /** Plugin enabled state */
     public enabled = true;
-
-    /** Plugin category for classification */
     public category: PluginCategory = PluginCategory.CUSTOM;
-
-    /** Plugin priority for execution order */
     public priority: number = PluginPriority.NORMAL;
-
-    /** Plugin options */
     protected options: TOptions | undefined;
-
-    /** EventEmitter for module event subscription */
     protected eventEmitter: IEventEmitterPlugin | undefined;
-
-    /** Subscribed event types */
     protected subscribedEvents: TEventName[] = [];
-
-    /** Event subscription handlers */
     protected eventHandlers = new Map<TEventName, string[]>();
-
-    /** Logger for plugin diagnostics */
     protected readonly pluginLogger: ILogger = createLogger('AbstractPlugin');
+    protected stats = { calls: 0, errors: 0, moduleEventsReceived: 0, lastActivity: undefined as Date | undefined };
 
-    /** Plugin statistics */
-    protected stats = {
-        calls: 0,
-        errors: 0,
-        moduleEventsReceived: 0,
-        lastActivity: undefined as Date | undefined
-    };
-
-    /**
-     * Initialize the plugin with type-safe options
-     */
     async initialize(options?: TOptions): Promise<void> {
         this.options = options;
-
-        // Set enabled state from options with default fallback
-        if (options && 'enabled' in options && typeof options.enabled === 'boolean') {
-            this.enabled = options.enabled;
-        } else {
-            this.enabled = true; // Default to enabled
-        }
-
-        // Set category from options
-        if (options?.category) {
-            this.category = options.category;
-        }
-
-        // Set priority from options
-        if (options?.priority !== undefined) {
-            this.priority = typeof options.priority === 'number'
-                ? options.priority
-                : options.priority;
-        }
-
-        // Default implementation - can be overridden
+        if (options && 'enabled' in options && typeof options.enabled === 'boolean') this.enabled = options.enabled; else this.enabled = true;
+        if (options?.category) this.category = options.category;
+        if (options?.priority !== undefined) this.priority = typeof options.priority === 'number' ? options.priority : options.priority;
     }
 
-    /**
-     * Subscribe to module events through EventEmitter
-     */
     async subscribeToModuleEvents(eventEmitter: IEventEmitterPlugin): Promise<void> {
         this.eventEmitter = eventEmitter;
-
-        if (!this.options) {
-            return;
-        }
-
+        if (!this.options) return;
         const eventsToSubscribe: TEventName[] = [];
-
-        // Subscribe to all module events if requested
         if (this.options.subscribeToAllModuleEvents) {
             eventsToSubscribe.push(
-                EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START,
-                EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE,
-                EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR,
-                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START,
-                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE,
-                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR,
-                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START,
-                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE,
-                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR
+                EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START, EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE, EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR,
+                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START, EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE, EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR,
+                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START, EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE, EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR
             );
         }
-
-        // Subscribe to specific events if specified
-        if (this.options.moduleEvents) {
-            eventsToSubscribe.push(...this.options.moduleEvents);
-        }
-
-        // Subscribe to events (no deduplication; duplicates must surface for debugging)
+        if (this.options.moduleEvents) eventsToSubscribe.push(...this.options.moduleEvents);
         for (const eventType of eventsToSubscribe) {
             const handlerId = this.eventEmitter.on(eventType, async (eventData: IEventEmitterEventData) => {
-                try {
-                    this.stats.moduleEventsReceived++;
-                    this.stats.lastActivity = new Date();
-
-                    await this.onModuleEvent?.(eventType, eventData);
-                } catch (error) {
-                    this.stats.errors++;
-                    const safeError = error instanceof Error ? error : new Error(String(error));
-                    this.pluginLogger.error(`Plugin "${this.name}" failed to handle module event "${String(eventType)}"`, {
-                        plugin: this.name,
-                        eventType: String(eventType),
-                        error: safeError.message
-                    });
-                }
+                try { this.stats.moduleEventsReceived++; this.stats.lastActivity = new Date(); await this.onModuleEvent?.(eventType, eventData); }
+                catch (error) { this.stats.errors++; const safeError = error instanceof Error ? error : new Error(String(error)); this.pluginLogger.error(`Plugin "${this.name}" failed to handle module event "${String(eventType)}"`, { plugin: this.name, eventType: String(eventType), error: safeError.message }); }
             });
-
             const existing = this.eventHandlers.get(eventType);
-            if (existing) {
-                existing.push(handlerId);
-            } else {
-                this.eventHandlers.set(eventType, [handlerId]);
-            }
+            if (existing) existing.push(handlerId); else this.eventHandlers.set(eventType, [handlerId]);
             this.subscribedEvents.push(eventType);
         }
     }
 
-    /**
-     * Unsubscribe from module events
-     */
     async unsubscribeFromModuleEvents(eventEmitter: IEventEmitterPlugin): Promise<void> {
-        for (const [eventType, handlerIds] of this.eventHandlers.entries()) {
-            for (const handlerId of handlerIds) {
-                eventEmitter.off(eventType, handlerId);
-            }
-        }
-
-        this.eventHandlers.clear();
-        this.subscribedEvents = [];
-        this.eventEmitter = undefined;
+        for (const [eventType, handlerIds] of this.eventHandlers.entries()) { for (const handlerId of handlerIds) eventEmitter.off(eventType, handlerId); }
+        this.eventHandlers.clear(); this.subscribedEvents = []; this.eventEmitter = undefined;
     }
 
-    /**
-     * Cleanup plugin resources
-     */
-    async dispose(): Promise<void> {
-        // Unsubscribe from events if subscribed
-        if (this.eventEmitter) {
-            await this.unsubscribeFromModuleEvents(this.eventEmitter);
-        }
+    async dispose(): Promise<void> { if (this.eventEmitter) await this.unsubscribeFromModuleEvents(this.eventEmitter); }
+    enable(): void { this.enabled = true; }
+    disable(): void { this.enabled = false; }
+    isEnabled(): boolean { return this.enabled; }
+    getConfig(): IPluginConfig { return {}; }
+    updateConfig(_config: IPluginConfig): void { /* override in subclass */ }
 
-        // Default implementation - can be overridden
-    }
-
-    /**
-     * Enable the plugin
-     */
-    enable(): void {
-        this.enabled = true;
-    }
-
-    /**
-     * Disable the plugin
-     */
-    disable(): void {
-        this.enabled = false;
-    }
-
-    /**
-     * Check if plugin is enabled
-     */
-    isEnabled(): boolean {
-        return this.enabled;
-    }
-
-    /**
-     * Get plugin configuration
-     */
-    getConfig(): IPluginConfig {
-        return {};
-    }
-
-    /**
-     * Update plugin configuration
-     */
-    updateConfig(_config: IPluginConfig): void {
-        // Default implementation - can be overridden
-    }
-
-    /**
-     * Get plugin data - enhanced with classification information
-     */
     getData(): IPluginData {
-        return {
-            name: this.name,
-            version: this.version,
-            enabled: this.enabled,
-            category: this.category,
-            priority: this.priority,
-            subscribedEvents: [...this.subscribedEvents],
-            metadata: {
-                moduleEventsReceived: this.stats.moduleEventsReceived,
-                totalCalls: this.stats.calls,
-                totalErrors: this.stats.errors
-            }
-        };
+        return { name: this.name, version: this.version, enabled: this.enabled, category: this.category, priority: this.priority, subscribedEvents: [...this.subscribedEvents], metadata: { moduleEventsReceived: this.stats.moduleEventsReceived, totalCalls: this.stats.calls, totalErrors: this.stats.errors } };
     }
 
-    /**
-     * Clear plugin data - common interface for all plugins
-     * This method should be implemented by plugins that store data
-     */
     clearData?(): void;
 
-    /**
-     * Get plugin status - enhanced with classification information
-     */
-    getStatus(): {
-        name: string;
-        version: string;
-        enabled: boolean;
-        initialized: boolean;
-        category: PluginCategory;
-        priority: number;
-        subscribedEventsCount: number;
-        hasEventEmitter: boolean;
-    } {
-        return {
-            name: this.name,
-            version: this.version,
-            enabled: this.enabled,
-            initialized: true, // Can be overridden by plugins to track initialization state
-            category: this.category,
-            priority: this.priority,
-            subscribedEventsCount: this.subscribedEvents.length,
-            hasEventEmitter: !!this.eventEmitter
-        };
+    getStatus(): { name: string; version: string; enabled: boolean; initialized: boolean; category: PluginCategory; priority: number; subscribedEventsCount: number; hasEventEmitter: boolean } {
+        return { name: this.name, version: this.version, enabled: this.enabled, initialized: true, category: this.category, priority: this.priority, subscribedEventsCount: this.subscribedEvents.length, hasEventEmitter: !!this.eventEmitter };
     }
 
-    /**
-     * Get plugin statistics - enhanced with module event tracking
-     */
     getStats(): TStats {
-        const baseStats: IPluginStats = {
-            enabled: this.enabled,
-            calls: this.stats.calls,
-            errors: this.stats.errors,
-            moduleEventsReceived: this.stats.moduleEventsReceived,
-            ...(this.stats.lastActivity && { lastActivity: this.stats.lastActivity })
-        };
-
-        // TStats extends IPluginStats, so the base fields satisfy the constraint.
-        // Subclasses that widen TStats must override getStats() to supply additional fields.
+        const baseStats: IPluginStats = { enabled: this.enabled, calls: this.stats.calls, errors: this.stats.errors, moduleEventsReceived: this.stats.moduleEventsReceived, ...(this.stats.lastActivity && { lastActivity: this.stats.lastActivity }) };
         return baseStats as TStats;
     }
 
-    /**
-     * Update plugin call statistics
-     */
-    protected updateCallStats(): void {
-        this.stats.calls++;
-        this.stats.lastActivity = new Date();
-    }
-
-    /**
-     * Update plugin error statistics
-     */
-    protected updateErrorStats(): void {
-        this.stats.errors++;
-        this.stats.lastActivity = new Date();
-    }
+    protected updateCallStats(): void { this.stats.calls++; this.stats.lastActivity = new Date(); }
+    protected updateErrorStats(): void { this.stats.errors++; this.stats.lastActivity = new Date(); }
 
     // Optional lifecycle hooks - plugins can override these
     async beforeRun?(input: string, options?: IRunOptions): Promise<void>;
@@ -593,4 +114,4 @@ export abstract class AbstractPlugin<TOptions extends IPluginOptions = IPluginOp
     async onError?(error: Error, context?: IPluginErrorContext): Promise<void>;
     async onMessageAdded?(message: TUniversalMessage): Promise<void>;
     async onModuleEvent?(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void>;
-} 
+}

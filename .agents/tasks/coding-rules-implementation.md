@@ -202,4 +202,4 @@ coding-rules-audit.md에서 수용된 17개 제안을 프로젝트에 실제 적
 - [x] pnpm build 통과
 - [x] pnpm test 통과
 - [x] pnpm lint 통과 (warn 허용, error 0)
-- [ ] coding-rules-audit.md 상태를 completed로 변경
+- [x] coding-rules-audit.md 상태를 completed로 변경
