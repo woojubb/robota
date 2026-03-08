@@ -4,13 +4,17 @@ export type { IAgent, IAgentConfig, TUniversalMessage, IRunOptions } from '@robo
 // Import AgentConfig type for local use
 import type { IAgentConfig } from '@robota-sdk/agents';
 
+/** Lifecycle state of a session. */
 export enum SessionState {
+    /** Session is active and accepting interactions. */
     ACTIVE = 'active',
+    /** Session is temporarily paused; can be resumed. */
     PAUSED = 'paused',
+    /** Session is permanently ended; no further interactions allowed. */
     TERMINATED = 'terminated'
 }
 
-// Session related types
+/** Configuration options for creating or updating a session. */
 export interface ISessionConfig {
     name?: string;
     maxChats?: number;
@@ -18,6 +22,7 @@ export interface ISessionConfig {
     workspaceId?: string;
 }
 
+/** Read-only snapshot of a session's current state and metadata. */
 export interface ISessionInfo {
     id: string;
     userId: string;
@@ -30,6 +35,7 @@ export interface ISessionInfo {
     workspaceId?: string;
 }
 
+/** Read-only summary of a chat instance within a session. */
 export interface IChatInfo {
     id: string;
     sessionId: string;
@@ -41,13 +47,13 @@ export interface IChatInfo {
     agentTemplate?: string;
 }
 
-// Manager configuration - simplified to core features only
+/** Configuration for SessionManager capacity limits. */
 export interface ISessionManagerConfig {
     maxSessions?: number;
     maxChatsPerSession?: number;
 }
 
-// Session creation options
+/** Options for creating a new session via SessionManager. */
 export interface ICreateSessionOptions {
     name?: string;
     userId?: string;
@@ -55,7 +61,7 @@ export interface ICreateSessionOptions {
     maxChats?: number;
 }
 
-// Chat creation options
+/** Options for creating a new chat instance within a session. */
 export interface ICreateChatOptions {
     name?: string;
     agentConfig: IAgentConfig;

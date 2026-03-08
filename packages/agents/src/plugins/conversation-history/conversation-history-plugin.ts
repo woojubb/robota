@@ -17,8 +17,26 @@ import {
 } from './storages/index';
 
 /**
- * Plugin for managing conversation history
- * Saves and loads conversation history using configurable storage strategies
+ * Persists conversation history using configurable storage backends.
+ *
+ * Supports memory, file, and database storage strategies. Messages are
+ * automatically trimmed to {@link IConversationHistoryPluginOptions.maxMessagesPerConversation | maxMessagesPerConversation}.
+ * When {@link IConversationHistoryPluginOptions.autoSave | autoSave} is
+ * disabled, changes are batched and flushed on a timer.
+ *
+ * @extends AbstractPlugin
+ * @see IHistoryStorage - storage backend contract
+ * @see IConversationHistoryPluginOptions - configuration options
+ *
+ * @example
+ * ```ts
+ * const plugin = new ConversationHistoryPlugin({
+ *   storage: 'memory',
+ *   maxMessagesPerConversation: 500,
+ * });
+ * await plugin.startConversation('conv-1');
+ * await plugin.addMessage({ role: 'user', content: 'Hello' });
+ * ```
  */
 export class ConversationHistoryPlugin extends AbstractPlugin<IConversationHistoryPluginOptions, IConversationHistoryPluginStats> {
     name = 'ConversationHistoryPlugin';
@@ -75,7 +93,8 @@ export class ConversationHistoryPlugin extends AbstractPlugin<IConversationHisto
     }
 
     /**
-     * Start a new conversation
+     * Creates a new conversation entry and persists it (or queues for batch save).
+     * @throws PluginError if the storage write fails
      */
     async startConversation(conversationId: string): Promise<void> {
         try {
@@ -102,7 +121,9 @@ export class ConversationHistoryPlugin extends AbstractPlugin<IConversationHisto
     }
 
     /**
-     * Add a message to the current conversation
+     * Appends a message to the active conversation, trimming to the maximum
+     * message limit if exceeded.
+     * @throws PluginError if no conversation is active or the storage write fails
      */
     async addMessage(message: TUniversalMessage): Promise<void> {
         if (!this.currentConversationId) {
@@ -208,7 +229,8 @@ export class ConversationHistoryPlugin extends AbstractPlugin<IConversationHisto
     }
 
     /**
-     * Save pending conversations (for batch mode)
+     * Persists all conversations queued since the last save (batch mode only).
+     * Individual save failures are logged but do not abort the remaining saves.
      */
     async savePending(): Promise<void> {
         if (this.pendingSaves.size === 0) return;
@@ -233,7 +255,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<IConversationHisto
     }
 
     /**
-     * Cleanup resources
+     * Stops the batch-save timer and flushes any pending conversation saves.
      */
     async destroy(): Promise<void> {
         try {

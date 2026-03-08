@@ -17,6 +17,7 @@ import {
     isPingMessage
 } from './websocket-utils';
 
+/** Configuration for SimpleWebSocketTransport with reconnection and keep-alive settings. */
 export interface ISimpleWebSocketConfig extends ITransportConfig {
     reconnectDelay?: number;
     maxReconnectAttempts?: number;

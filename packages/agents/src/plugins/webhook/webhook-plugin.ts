@@ -49,8 +49,31 @@ const ERROR_EVENTS: { OCCURRED: TWebhookEventName } = {
 } as const;
 
 /**
- * Webhook Plugin using Facade Pattern
- * Provides a clean interface for webhook functionality
+ * Sends HTTP webhook notifications for agent execution lifecycle events.
+ *
+ * Routes events to configured {@link IWebhookEndpoint | endpoints} with
+ * optional event filtering per endpoint. Supports asynchronous delivery with
+ * configurable concurrency, automatic retries via {@link WebhookHttpClient},
+ * and optional payload batching.
+ *
+ * Lifecycle hooks used: {@link AbstractPlugin.afterExecution | afterExecution},
+ * {@link AbstractPlugin.afterConversation | afterConversation},
+ * {@link AbstractPlugin.afterToolExecution | afterToolExecution},
+ * {@link AbstractPlugin.onError | onError}
+ *
+ * @extends AbstractPlugin
+ * @see IWebhookPluginOptions - configuration options
+ * @see WebhookTransformer - payload transformation utilities
+ * @see WebhookHttpClient - HTTP delivery client
+ *
+ * @example
+ * ```ts
+ * const plugin = new WebhookPlugin({
+ *   endpoints: [{ url: 'https://example.com/hook' }],
+ *   async: true,
+ *   maxConcurrency: 3,
+ * });
+ * ```
  */
 export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhookPluginStats> {
     name = 'WebhookPlugin';
@@ -118,7 +141,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     }
 
     /**
-     * After execution completes
+     * Sends an execution-complete webhook after the agent finishes processing.
      */
     override async afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
@@ -129,7 +152,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     }
 
     /**
-     * After conversation completes
+     * Sends a conversation-complete webhook after a conversation round finishes.
      */
     override async afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
@@ -140,16 +163,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     }
 
     /**
-     * After tool execution
-     * 
-     * REASON: Tool results structure varies by tool type and provider, needs flexible handling for webhook processing
-     * ALTERNATIVES_CONSIDERED:
-     * 1. Strict tool result interfaces (breaks tool compatibility)
-     * 2. Union types (insufficient for dynamic tool results)
-     * 3. Generic constraints (too complex for webhook processing)
-     * 4. Interface definitions (too rigid for varied tool results)
-     * 5. Type assertions (decreases type safety)
-     * TODO: Consider standardized tool result interface across tools
+     * Sends a tool-executed webhook for each tool call in the result set.
      */
     override async afterToolExecution(context: IPluginExecutionContext, toolResults: IPluginExecutionResult): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
@@ -170,7 +184,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     }
 
     /**
-     * On error
+     * Sends both an error-occurred and execution-error webhook on failure.
      */
     override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
         const webhookContext = context ? {
@@ -190,7 +204,8 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     }
 
     /**
-     * Send webhook notification
+     * Builds a webhook payload and delivers it to all matching endpoints. When
+     * batching is enabled, payloads are queued and flushed at the configured interval.
      */
     async sendWebhook(
         event: TWebhookEventName,
@@ -231,7 +246,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     }
 
     /**
-     * Send custom webhook
+     * Sends a webhook with the `custom` event type.
      */
     async sendCustomWebhook(data: IWebhookEventData, metadata?: TWebhookMetadata): Promise<void> {
         await this.sendWebhook('custom', data, metadata);
@@ -409,7 +424,7 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
     }
 
     /**
-     * Cleanup on plugin destruction
+     * Flushes pending batches, clears request queues, and stops the batch timer.
      */
     async destroy(): Promise<void> {
         if (this.batchTimer) {

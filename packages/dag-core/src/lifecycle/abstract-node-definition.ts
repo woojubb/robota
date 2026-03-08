@@ -29,6 +29,18 @@ function createConfigValidationError(
     );
 }
 
+/**
+ * Base class for all DAG node definitions. Handles config schema parsing via zod
+ * and delegates lifecycle methods to typed `*WithConfig` overrides.
+ *
+ * Subclasses must implement `configSchemaDefinition`, metadata fields, and
+ * at minimum `executeWithConfig`. Optional lifecycle hooks:
+ * `initializeWithConfig`, `estimateCostWithConfig`, `validateInputWithConfig`,
+ * `validateOutputWithConfig`, `disposeWithConfig`.
+ *
+ * @see IDagNodeDefinition - interface this class implements
+ * @see NodeIoAccessor - helper for typed input/output access in execute methods
+ */
 export abstract class AbstractNodeDefinition<TSchema extends z.ZodTypeAny> implements IDagNodeDefinition {
     public abstract readonly nodeType: string;
     public abstract readonly displayName: string;

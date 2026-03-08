@@ -91,6 +91,10 @@ const assignTaskSchema: IToolSchema = {
     }
 };
 
+/**
+ * Tool that lists available template categories for task assignment.
+ * @returns An object containing the array of template categories.
+ */
 export const listTemplateCategoriesTool = new FunctionTool(listTemplateCategoriesSchema, async () => {
     const categories = [
         {
@@ -102,6 +106,10 @@ export const listTemplateCategoriesTool = new FunctionTool(listTemplateCategorie
     return { categories };
 });
 
+/**
+ * Tool that lists available task assignment templates with optional category filtering.
+ * @returns An object containing the array of template summaries.
+ */
 export const listTemplatesTool = new FunctionTool(listTemplatesSchema, async (params: TToolParameters) => {
     void params;
     const filtered = TEMPLATE_LIST.map(t => ({
@@ -113,6 +121,10 @@ export const listTemplatesTool = new FunctionTool(listTemplatesSchema, async (pa
     return { templates: filtered };
 });
 
+/**
+ * Tool that retrieves the full details of a specific task assignment template.
+ * @returns The complete template entry matching the requested templateId.
+ */
 export const getTemplateDetailTool = new FunctionTool(getTemplateDetailSchema, async (params: TToolParameters) => {
     const templateId = typeof params.templateId === 'string' ? params.templateId : '';
     if (!templateId) {
@@ -125,6 +137,12 @@ export const getTemplateDetailTool = new FunctionTool(getTemplateDetailSchema, a
     return tmpl;
 });
 
+/**
+ * Create a relay tool that assigns a task to a dynamically spawned agent based on a template.
+ * @param eventService - Event service for agent communication and lifecycle tracking.
+ * @param aiProviders - Available AI providers for the spawned agent to use.
+ * @returns A RelayMcpTool that executes task assignment via template-driven agent creation.
+ */
 export function createAssignTaskRelayTool(eventService: IEventService, aiProviders: IAIProvider[]): RelayMcpTool {
     return new RelayMcpTool({
         schema: assignTaskSchema,

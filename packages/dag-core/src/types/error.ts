@@ -1,3 +1,4 @@
+/** Classification of DAG errors by their origin and nature. */
 export type TErrorCategory =
     | 'validation'
     | 'state_transition'
@@ -5,6 +6,7 @@ export type TErrorCategory =
     | 'dispatch'
     | 'task_execution';
 
+/** Structured error used across all DAG packages. */
 export interface IDagError {
     code: string;
     category: TErrorCategory;

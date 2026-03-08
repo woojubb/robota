@@ -5,6 +5,14 @@ import type { TResult } from '../types/result.js';
 import type { TPortPayload, TPortValue } from '../interfaces/ports.js';
 import { MediaReference, type IMediaReferenceCandidate } from '../value-objects/media-reference.js';
 
+/**
+ * Typed accessor for reading node inputs and building node outputs within execute methods.
+ *
+ * Provides `requireInput*` helpers that return `TResult` with validation errors,
+ * and `setOutput` / `toOutput` for constructing the output payload.
+ *
+ * @see AbstractNodeDefinition - base class that uses this accessor in lifecycle hooks
+ */
 export class NodeIoAccessor {
     private readonly output: TPortPayload = {};
 

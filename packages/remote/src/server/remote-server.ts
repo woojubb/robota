@@ -286,7 +286,7 @@ export class RemoteServer {
     }
 }
 
-// Import server configuration
+/** Configuration options for RemoteServer initialization. */
 export interface IRemoteServerConfig {
     port?: number;
     enableCors?: boolean;

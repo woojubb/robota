@@ -183,6 +183,11 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
         }
     }
 
+    /**
+     * Generate an image from a text prompt using the Gemini API.
+     * @param request - Image generation request containing the prompt and model
+     * @returns A result containing generated image data or an error
+     */
     public async generateImage(request: IImageGenerationRequest): Promise<TProviderMediaResult<IImageGenerationResult>> {
         if (request.prompt.trim().length === 0) {
             return {
@@ -217,6 +222,11 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
         return this.runImageRequest([message], request.model);
     }
 
+    /**
+     * Edit an existing image based on a text prompt using the Gemini API.
+     * @param request - Image edit request containing the source image, prompt, and model
+     * @returns A result containing the edited image data or an error
+     */
     public async editImage(request: IImageEditRequest): Promise<TProviderMediaResult<IImageGenerationResult>> {
         if (request.prompt.trim().length === 0) {
             return {
@@ -257,6 +267,11 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
         return this.runImageRequest([message], request.model);
     }
 
+    /**
+     * Compose multiple images together based on a text prompt using the Gemini API.
+     * @param request - Image compose request containing at least two source images, prompt, and model
+     * @returns A result containing the composed image data or an error
+     */
     public async composeImage(request: IImageComposeRequest): Promise<TProviderMediaResult<IImageGenerationResult>> {
         if (request.prompt.trim().length === 0) {
             return {

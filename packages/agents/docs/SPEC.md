@@ -36,7 +36,7 @@ Robota (Facade)
         ├── LoggingPlugin
         ├── UsagePlugin
         ├── PerformancePlugin
-        ├── ExecutionPlugin
+        ├── ExecutionAnalyticsPlugin
         ├── ErrorHandlingPlugin
         ├── LimitsPlugin
         ├── EventEmitterPlugin
@@ -132,7 +132,7 @@ Provider packages import these types. They must not re-declare them.
 | `LoggingPlugin` | logging | Multi-backend logging (console, file, remote, silent) |
 | `UsagePlugin` | monitoring | Token usage and cost tracking |
 | `PerformancePlugin` | monitoring | Metrics collection |
-| `ExecutionPlugin` | monitoring | Execution analytics |
+| `ExecutionAnalyticsPlugin` | monitoring | Execution analytics |
 | `ErrorHandlingPlugin` | error_handling | Error recovery strategies |
 | `LimitsPlugin` | limits | Rate limiting |
 | `EventEmitterPlugin` | event_processing | Event coordination |
