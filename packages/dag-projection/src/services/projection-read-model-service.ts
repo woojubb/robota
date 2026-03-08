@@ -8,12 +8,12 @@ import {
     type TResult
 } from '@robota-sdk/dag-core';
 
-export type ITaskStatusSummary = Record<TTaskRunStatus, number>;
+export type TTaskStatusSummary = Record<TTaskRunStatus, number>;
 
 export interface IRunProjection {
     dagRun: IDagRun;
     taskRuns: ITaskRun[];
-    taskStatusSummary: ITaskStatusSummary;
+    taskStatusSummary: TTaskStatusSummary;
 }
 
 export interface ILineageNodeProjection {
@@ -46,8 +46,8 @@ const TASK_RUN_STATUSES: readonly TTaskRunStatus[] = [
     'failed', 'upstream_failed', 'skipped', 'cancelled'
 ] as const;
 
-function createEmptyTaskStatusSummary(): ITaskStatusSummary {
-    const summary = {} as ITaskStatusSummary;
+function createEmptyTaskStatusSummary(): TTaskStatusSummary {
+    const summary = {} as TTaskStatusSummary;
     for (const status of TASK_RUN_STATUSES) {
         summary[status] = 0;
     }
