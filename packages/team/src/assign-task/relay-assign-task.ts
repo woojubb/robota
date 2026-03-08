@@ -2,7 +2,7 @@ import { Robota, bindWithOwnerPath, FunctionTool, RelayMcpTool, type IEventServi
 import type { IAgentConfig, IAIProvider, IToolSchema, TToolParameters, IToolResult, IOwnerPathSegment } from '@robota-sdk/agents';
 import templates from './templates.json';
 
-type TTemplateEntry = {
+interface ITemplateEntry {
     id: string;
     name: string;
     description?: string;
@@ -10,9 +10,9 @@ type TTemplateEntry = {
     model: string;
     temperature?: number;
     systemMessage: string;
-};
+}
 
-function validateTemplateList(data: unknown): TTemplateEntry[] {
+function validateTemplateList(data: unknown): ITemplateEntry[] {
     if (!Array.isArray(data)) {
         throw new Error('[relay-assign-task] templates.json must be an array');
     }
@@ -28,10 +28,10 @@ function validateTemplateList(data: unknown): TTemplateEntry[] {
             throw new Error('[relay-assign-task] Invalid template entry: missing required fields (id, name, provider, model, systemMessage)');
         }
     }
-    return data as TTemplateEntry[];
+    return data as ITemplateEntry[];
 }
 
-const TEMPLATE_LIST: TTemplateEntry[] = validateTemplateList(templates);
+const TEMPLATE_LIST: ITemplateEntry[] = validateTemplateList(templates as unknown);
 
 const listTemplateCategoriesSchema: IToolSchema = {
     name: 'listTemplateCategories',
@@ -134,7 +134,7 @@ export const getTemplateDetailTool = new FunctionTool(getTemplateDetailSchema, a
     if (!tmpl) {
         throw new Error(`Template not found: ${templateId}`);
     }
-    return tmpl;
+    return { ...tmpl };
 });
 
 /**
