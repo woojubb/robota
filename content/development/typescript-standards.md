@@ -2,15 +2,14 @@
 
 Type safety standards and best practices for the Robota SDK v2.0.
 
-## Controlled Any/Unknown Policy (SSOT-First)
+## Type Safety Policy
 
-The Robota SDK enforces a **Controlled Any/Unknown Policy**:
+The Robota SDK enforces strict type safety rules:
 
-- `any` / `unknown` are **not categorically forbidden**, but they are treated as a **last resort**.
-- In **shipped source** (`packages/*/src/**`, `apps/*/src/**`), `any`/`unknown` are **warnings** and **must not be suppressed** via `eslint-disable` for the corresponding rules.
-- In **test files** (`**/*.test.*`, `**/*.spec.*`), `any`/`unknown` are allowed for mocks and test ergonomics.
-
-This keeps the codebase aligned with SSOT types and prevents “quick fixes” that bypass type design.
+- `any` and `{}` are **prohibited** in production code (`packages/*/src/**`, `apps/*/src/**`).
+- `unknown` is allowed **only at trust boundaries** (JSON parsing, external API responses, `catch` blocks) and **must be narrowed** with type guards before domain use.
+- `// @ts-ignore` and `// @ts-nocheck` are prohibited.
+- In **test files** (`**/*.test.*`, `**/*.spec.*`), `any` and `unknown` may be used only for mocks or boundary fixtures.
 
 ### Policy Enforcement
 
@@ -20,10 +19,10 @@ interface AgentConfig {
     name: string;
     model: string;
     provider: 'openai' | 'anthropic' | 'google';
-    aiProviders: Record<string, BaseAIProvider>;
+    aiProviders: IAIProvider[];
     systemMessage?: string;
-    tools?: Tool[];
-    plugins?: BasePlugin[];
+    tools?: IToolInterface[];
+    plugins?: AbstractPlugin[];
 }
 
 // ❌ Bad: Any types (avoid in shipped source; do not suppress via eslint-disable)
@@ -97,6 +96,9 @@ interface AgentStats {
     readonly lastInteraction?: Readonly<Date>;
 }
 
+// Note: Object shapes must use `interface` (I* prefix). Type aliases (T* prefix)
+// are for unions, intersections, mapped types, tuples, and primitives only.
+
 // ✅ Good: Branded types for type safety
 type ModelName = string & { readonly __brand: 'ModelName' };
 type ProviderName = string & { readonly __brand: 'ProviderName' };
@@ -122,7 +124,7 @@ type StreamChunk =
 
 ```typescript
 // ✅ Good: Proper generic constraints
-interface BaseAgent<TStats extends AgentStats = AgentStats> {
+interface AbstractAgent<TStats extends AgentStats = AgentStats> {
     getStats(): TStats;
     run(input: string): Promise<string>;
     stream(input: string): AsyncIterable<StreamChunk>;
@@ -130,7 +132,7 @@ interface BaseAgent<TStats extends AgentStats = AgentStats> {
 }
 
 // ✅ Good: Conditional types for flexibility
-type PluginConfig<T extends BasePlugin> = T extends ExecutionAnalyticsPlugin
+type PluginConfig<T extends AbstractPlugin> = T extends ExecutionAnalyticsPlugin
     ? ExecutionAnalyticsConfig
     : T extends ConversationHistoryPlugin
     ? ConversationHistoryConfig
@@ -217,7 +219,7 @@ function isSome<T>(option: Option<T>): option is { some: T } {
 }
 
 // Usage
-function findPlugin(agent: Robota, name: string): Option<BasePlugin> {
+function findPlugin(agent: Robota, name: string): Option<AbstractPlugin> {
     const plugin = agent.getPlugin(name);
     return plugin ? some(plugin) : none();
 }
@@ -229,7 +231,7 @@ function findPlugin(agent: Robota, name: string): Option<BasePlugin> {
 
 ```typescript
 // ✅ Good: Generic plugin interface
-export abstract class BasePlugin<TStats extends PluginStats = PluginStats> {
+export abstract class AbstractPlugin<TStats extends PluginStats = PluginStats> {
     abstract readonly name: string;
     abstract getStats(): TStats;
     
@@ -255,7 +257,7 @@ interface ConversationHistoryStats extends PluginStats {
 }
 
 // Plugin implementations
-export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsStats> {
+export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsStats> {
     readonly name = 'ExecutionAnalyticsPlugin';
     
     getStats(): ExecutionAnalyticsStats {
@@ -328,7 +330,7 @@ const calculatorTool = createFunctionTool(
 
 ```typescript
 // ✅ Good: Provider type system
-export abstract class BaseAIProvider<TOptions extends ProviderOptions = ProviderOptions> {
+export abstract class AbstractAIProvider<TOptions extends ProviderOptions = ProviderOptions> {
     constructor(protected readonly options: TOptions) {}
     
     abstract generateResponse(
@@ -357,7 +359,7 @@ interface AnthropicProviderOptions extends ProviderOptions {
 }
 
 // Provider implementations
-export class OpenAIProvider extends BaseAIProvider<OpenAIProviderOptions> {
+export class OpenAIProvider extends AbstractAIProvider<OpenAIProviderOptions> {
     getSupportedModels(): readonly ModelName[] {
         return [
             createModelName('gpt-3.5-turbo'),
@@ -401,16 +403,16 @@ interface AgentConfig<TStats extends AgentStats = AgentStats> {
      * }
      * ```
      */
-    readonly aiProviders: Record<string, BaseAIProvider>;
-    
+    readonly aiProviders: IAIProvider[];
+
     /** System message for the agent */
     readonly systemMessage?: string;
-    
+
     /** Available tools for the agent */
-    readonly tools?: readonly Tool[];
-    
+    readonly tools?: readonly IToolInterface[];
+
     /** Plugins to extend agent functionality */
-    readonly plugins?: readonly BasePlugin[];
+    readonly plugins?: readonly AbstractPlugin[];
 }
 ```
 
@@ -473,7 +475,7 @@ interface OldConfig {
 
 // v2.0 (current)
 interface NewConfig {
-    providers: Record<string, BaseAIProvider>; // ✅ Specific types
+    providers: Record<string, AbstractAIProvider>; // ✅ Specific types
     options: GenerationOptions; // ✅ Well-defined interface
 }
 ```
