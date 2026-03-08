@@ -8,18 +8,10 @@ import type { IValidationOptions, IValidationResult, IValidationIssue } from '..
 import { ValidationSeverity } from '../interfaces/workflow-validator';
 import type { IWorkflowData } from '../interfaces/workflow-converter';
 import type { TUniversalValue } from '../interfaces/types';
+import type { IValidatorStats, IValidationRuleConfig } from './abstract-workflow-validator';
 
 const PREVIEW_LENGTH = 100;
 const TOP_ISSUES_COUNT = 10;
-
-interface IValidatorStats {
-    totalValidations: number; successfulValidations: number; failedValidations: number;
-    totalProcessingTime: number; totalIssueCount: number;
-    issuesByRule: Map<string, number>; issuesBySeverity: Map<ValidationSeverity, number>;
-    lastValidationAt?: Date;
-}
-
-interface IValidationRuleConfig { enabled: boolean; description: string; severity: ValidationSeverity; category: string }
 
 /** @internal */
 export function createValidationResultHelper(

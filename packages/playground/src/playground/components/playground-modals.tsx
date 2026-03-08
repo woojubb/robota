@@ -9,8 +9,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import type { IPlaygroundAgentConfig } from '../../lib/playground/robota-executor';
 import { systemPromptTemplates } from './system-prompt-templates';
-
-type ToolDraft = { name: string; description: string };
+import type { TToolDraft } from './PlaygroundApp';
 
 export function CreateAgentModal({ isOpen, agentDraft, setAgentDraft, onSubmit, onClose }: {
     isOpen: boolean;
@@ -79,8 +78,8 @@ export function CreateAgentModal({ isOpen, agentDraft, setAgentDraft, onSubmit, 
 
 export function AddToolModal({ isOpen, toolDraft, setToolDraft, onSubmit, onClose }: {
     isOpen: boolean;
-    toolDraft: ToolDraft;
-    setToolDraft: (draft: ToolDraft) => void;
+    toolDraft: TToolDraft;
+    setToolDraft: (draft: TToolDraft) => void;
     onSubmit: () => void;
     onClose: () => void;
 }) {
