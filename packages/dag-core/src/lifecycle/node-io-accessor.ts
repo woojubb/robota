@@ -4,6 +4,7 @@ import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
 import type { TPortPayload, TPortValue } from '../interfaces/ports.js';
 import { MediaReference, type IMediaReferenceCandidate } from '../value-objects/media-reference.js';
+import { parseBinaryValue, type IParsedBinaryValue } from './binary-value-parser.js';
 
 /**
  * Typed accessor for reading node inputs and building node outputs within execute methods.
@@ -37,10 +38,7 @@ export class NodeIoAccessor {
                 )
             };
         }
-        return {
-            ok: true,
-            value
-        };
+        return { ok: true, value };
     }
 
     public requireInputString(key: string): TResult<string, IDagError> {
@@ -58,26 +56,17 @@ export class NodeIoAccessor {
                 )
             };
         }
-        return {
-            ok: true,
-            value: inputResult.value
-        };
+        return { ok: true, value: inputResult.value };
     }
 
     public requireInputArray(key: string): TResult<TPortValue[], IDagError> {
         const directValue = this.getInput(key);
         if (Array.isArray(directValue)) {
-            return {
-                ok: true,
-                value: directValue
-            };
+            return { ok: true, value: directValue };
         }
         const listHandleValues = this.collectListHandleValues(key);
         if (listHandleValues) {
-            return {
-                ok: true,
-                value: listHandleValues
-            };
+            return { ok: true, value: listHandleValues };
         }
         if (typeof directValue === 'undefined') {
             return {
@@ -102,33 +91,19 @@ export class NodeIoAccessor {
     public requireInputBinary(
         key: string,
         kind?: 'image' | 'video' | 'audio' | 'file'
-    ): TResult<{
-        kind: 'image' | 'video' | 'audio' | 'file';
-        mimeType: string;
-        uri: string;
-        referenceType?: 'asset' | 'uri';
-        assetId?: string;
-        sizeBytes?: number;
-    }, IDagError> {
+    ): TResult<IParsedBinaryValue, IDagError> {
         const inputResult = this.requireInput(key);
         if (!inputResult.ok) {
             return inputResult;
         }
-        return this.parseBinaryValue(inputResult.value, key, kind);
+        return parseBinaryValue(inputResult.value, this.nodeId, key, kind);
     }
 
     public requireInputBinaryList(
         key: string,
         kind?: 'image' | 'video' | 'audio' | 'file',
         options?: { minItems?: number; maxItems?: number }
-    ): TResult<Array<{
-        kind: 'image' | 'video' | 'audio' | 'file';
-        mimeType: string;
-        uri: string;
-        referenceType?: 'asset' | 'uri';
-        assetId?: string;
-        sizeBytes?: number;
-    }>, IDagError> {
+    ): TResult<IParsedBinaryValue[], IDagError> {
         const arrayResult = this.requireInputArray(key);
         if (!arrayResult.ok) {
             return arrayResult;
@@ -154,25 +129,15 @@ export class NodeIoAccessor {
                 )
             };
         }
-        const parsedValues: Array<{
-            kind: 'image' | 'video' | 'audio' | 'file';
-            mimeType: string;
-            uri: string;
-            referenceType?: 'asset' | 'uri';
-            assetId?: string;
-            sizeBytes?: number;
-        }> = [];
+        const parsedValues: IParsedBinaryValue[] = [];
         for (const [index, value] of values.entries()) {
-            const parsedResult = this.parseBinaryValue(value, `${key}[${index}]`, kind);
+            const parsedResult = parseBinaryValue(value, this.nodeId, `${key}[${index}]`, kind);
             if (!parsedResult.ok) {
                 return parsedResult;
             }
             parsedValues.push(parsedResult.value);
         }
-        return {
-            ok: true,
-            value: parsedValues
-        };
+        return { ok: true, value: parsedValues };
     }
 
     public requireInputMediaReference(
@@ -186,7 +151,10 @@ export class NodeIoAccessor {
         return this.parseMediaReferenceValue(inputResult.value, key, options);
     }
 
-    public requireInputBinaryReference(key: string, kind?: 'image' | 'video' | 'audio' | 'file'): TResult<MediaReference, IDagError> {
+    public requireInputBinaryReference(
+        key: string,
+        kind?: 'image' | 'video' | 'audio' | 'file'
+    ): TResult<MediaReference, IDagError> {
         const binaryResult = this.requireInputBinary(key, kind);
         if (!binaryResult.ok) {
             return binaryResult;
@@ -205,69 +173,12 @@ export class NodeIoAccessor {
         return parsedResult;
     }
 
-    private parseBinaryValue(
-        rawValue: TPortValue,
-        key: string,
-        kind?: 'image' | 'video' | 'audio' | 'file'
-    ): TResult<{
-        kind: 'image' | 'video' | 'audio' | 'file';
-        mimeType: string;
-        uri: string;
-        referenceType?: 'asset' | 'uri';
-        assetId?: string;
-        sizeBytes?: number;
-    }, IDagError> {
-        if (typeof rawValue !== 'object' || rawValue === null || Array.isArray(rawValue)) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH',
-                    'Node input key must be binary payload object',
-                    { nodeId: this.nodeId, key, expectedType: 'binary' }
-                )
-            };
-        }
-        const value = rawValue as {
-            kind?: unknown;
-            mimeType?: unknown;
-            uri?: unknown;
-            referenceType?: unknown;
-            assetId?: unknown;
-            sizeBytes?: unknown;
-        };
-        const validKind = value.kind === 'image' || value.kind === 'video' || value.kind === 'audio' || value.kind === 'file';
-        if (!validKind || typeof value.mimeType !== 'string' || typeof value.uri !== 'string') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH',
-                    'Node input key must be valid binary payload',
-                    { nodeId: this.nodeId, key, expectedType: 'binary' }
-                )
-            };
-        }
-        const binaryKind = value.kind as 'image' | 'video' | 'audio' | 'file';
-        if (kind && binaryKind !== kind) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH',
-                    'Node input binary kind does not match expected kind',
-                    { nodeId: this.nodeId, key, expectedKind: kind, actualKind: binaryKind }
-                )
-            };
-        }
-        return {
-            ok: true,
-            value: {
-                kind: binaryKind,
-                mimeType: value.mimeType,
-                uri: value.uri,
-                referenceType: value.referenceType === 'asset' || value.referenceType === 'uri' ? value.referenceType : undefined,
-                assetId: typeof value.assetId === 'string' ? value.assetId : undefined,
-                sizeBytes: typeof value.sizeBytes === 'number' ? value.sizeBytes : undefined
-            }
-        };
+    public setOutput(key: string, value: TPortValue): void {
+        this.output[key] = value;
+    }
+
+    public toOutput(): TPortPayload {
+        return { ...this.output };
     }
 
     private collectListHandleValues(portKey: string): TPortValue[] | undefined {
@@ -305,18 +216,16 @@ export class NodeIoAccessor {
     ): TResult<MediaReference, IDagError> {
         if (typeof rawValue === 'string') {
             if (options?.allowStringAssetUri === true && rawValue.startsWith('asset://')) {
-                const parsedResult = MediaReference.fromCandidate({
-                    referenceType: 'asset',
-                    assetId: rawValue.slice('asset://'.length)
-                });
-                return this.wrapMediaReferenceError(parsedResult, key);
+                return this.wrapMediaReferenceError(
+                    MediaReference.fromCandidate({ referenceType: 'asset', assetId: rawValue.slice('asset://'.length) }),
+                    key
+                );
             }
             if (options?.allowStringUri === true) {
-                const parsedResult = MediaReference.fromCandidate({
-                    referenceType: 'uri',
-                    uri: rawValue
-                });
-                return this.wrapMediaReferenceError(parsedResult, key);
+                return this.wrapMediaReferenceError(
+                    MediaReference.fromCandidate({ referenceType: 'uri', uri: rawValue }),
+                    key
+                );
             }
         }
 
@@ -331,9 +240,10 @@ export class NodeIoAccessor {
             };
         }
 
-        const value = rawValue as IMediaReferenceCandidate;
-        const parsedResult = MediaReference.fromCandidate(value);
-        return this.wrapMediaReferenceError(parsedResult, key);
+        return this.wrapMediaReferenceError(
+            MediaReference.fromCandidate(rawValue as IMediaReferenceCandidate),
+            key
+        );
     }
 
     private wrapMediaReferenceError(
@@ -351,13 +261,5 @@ export class NodeIoAccessor {
                 { nodeId: this.nodeId, key, ...(result.error.context ?? {}) }
             )
         };
-    }
-
-    public setOutput(key: string, value: TPortValue): void {
-        this.output[key] = value;
-    }
-
-    public toOutput(): TPortPayload {
-        return { ...this.output };
     }
 }

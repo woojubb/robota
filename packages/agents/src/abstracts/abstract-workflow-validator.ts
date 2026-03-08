@@ -2,621 +2,127 @@
  * Abstract Workflow Validator
  *
  * Abstract base class for all workflow validators in the Robota SDK.
- * Uses an enabled flag + injected logger pattern.
+ * Result creation, statistics, and data helpers live in ./abstract-workflow-validator-helpers.ts.
  *
  * @template TWorkflowData - Type of workflow data to validate
  */
-
-import {
-    IWorkflowValidator,
-    IValidationOptions,
-    IValidationResult,
-    IValidationIssue,
-    ValidationSeverity
-} from '../interfaces/workflow-validator';
+import { IWorkflowValidator, IValidationOptions, IValidationResult, IValidationIssue, ValidationSeverity } from '../interfaces/workflow-validator';
 import type { IWorkflowData, IWorkflowConfig } from '../interfaces/workflow-converter';
 import type { ILogger } from '../utils/logger';
 import { SilentLogger } from '../utils/logger';
-import type { TUniversalValue } from '../interfaces/types';
+import {
+    createValidationResultHelper, createFailureResultHelper, updateStatisticsHelper,
+    buildValidatorStatsOutput, filterIssuesHelper, getEnabledRulesHelper
+} from './abstract-workflow-validator-helpers';
 
-const TOP_ISSUES_COUNT = 10;
-const PREVIEW_LENGTH = 100;
-
-/**
- * Validator options (enabled flag + injected logger).
- */
+/** Validator options (enabled flag + injected logger). */
 export interface IBaseWorkflowValidatorOptions {
-    /** Enable/disable the validator */
-    enabled?: boolean;
-
-    /** Custom logger instance */
-    logger?: ILogger;
-
-    /** Validator-specific configuration */
-    config?: IWorkflowConfig;
-
-    /** Default validation options */
-    defaultOptions?: Partial<IValidationOptions>;
+    enabled?: boolean; logger?: ILogger; config?: IWorkflowConfig; defaultOptions?: Partial<IValidationOptions>;
 }
 
-/**
- * Validator statistics tracking
- */
 interface IValidatorStats {
-    totalValidations: number;
-    successfulValidations: number;
-    failedValidations: number;
-    totalProcessingTime: number;
-    totalIssueCount: number;
-    issuesByRule: Map<string, number>;
-    issuesBySeverity: Map<ValidationSeverity, number>;
+    totalValidations: number; successfulValidations: number; failedValidations: number;
+    totalProcessingTime: number; totalIssueCount: number;
+    issuesByRule: Map<string, number>; issuesBySeverity: Map<ValidationSeverity, number>;
     lastValidationAt?: Date;
 }
 
-/**
- * Validation rule configuration
- */
-interface IValidationRuleConfig {
-    enabled: boolean;
-    description: string;
-    severity: ValidationSeverity;
-    category: string;
-}
+interface IValidationRuleConfig { enabled: boolean; description: string; severity: ValidationSeverity; category: string }
 
 /**
- * Base Workflow Validator Abstract Class
- * 
- * Provides common functionality for all workflow validators:
- * - Statistics tracking
- * - Logging with dependency injection
- * - Rule management and configuration
- * - Performance monitoring
- * - Enable/disable functionality
- * - Common validation utilities
- * 
+ * Base Workflow Validator Abstract Class.
+ * Provides statistics tracking, logging with DI, rule management, and performance monitoring.
  * @template TWorkflowData - Type of workflow data to validate
  */
-export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowData>
-    implements IWorkflowValidator<TWorkflowData> {
-
-    // Abstract properties that must be implemented by subclasses
+export abstract class AbstractWorkflowValidator<TWorkflowData extends IWorkflowData> implements IWorkflowValidator<TWorkflowData> {
     abstract readonly name: string;
     abstract readonly version: string;
     abstract readonly dataFormat: string;
     abstract readonly availableRules: string[];
-
-    /** Enable/disable state */
     public enabled: boolean;
-
-    /** Logger instance with dependency injection */
     protected readonly logger: ILogger;
-
-    /** Validator configuration */
     protected readonly config: IWorkflowConfig;
-
-    /** Default validation options */
     protected readonly defaultOptions: Partial<IValidationOptions>;
-
-    /** Rule configurations */
     protected readonly ruleConfigs: Map<string, IValidationRuleConfig> = new Map();
+    private stats: IValidatorStats = { totalValidations: 0, successfulValidations: 0, failedValidations: 0, totalProcessingTime: 0, totalIssueCount: 0, issuesByRule: new Map(), issuesBySeverity: new Map() };
 
-    /** Statistics tracking */
-    private stats: IValidatorStats = {
-        totalValidations: 0,
-        successfulValidations: 0,
-        failedValidations: 0,
-        totalProcessingTime: 0,
-        totalIssueCount: 0,
-        issuesByRule: new Map(),
-        issuesBySeverity: new Map()
-    };
-
-    /**
-     * Constructor
-     *
-     * @param options - Validator configuration options
-     */
     constructor(options: IBaseWorkflowValidatorOptions = {}) {
         this.enabled = options.enabled ?? true;
         this.logger = options.logger || SilentLogger;
         this.config = options.config || {};
         this.defaultOptions = options.defaultOptions || {};
-
-        // Initialize rule configurations
         this.initializeRuleConfigs();
-
-        this.logger.debug(`${this.constructor.name} initialized`, {
-            enabled: this.enabled
-        });
+        this.logger.debug(`${this.constructor.name} initialized`, { enabled: this.enabled });
     }
 
-    /**
-     * Main validation method with comprehensive error handling and metrics
-     * 
-     * @param data - Workflow data to validate
-     * @param options - Validation options
-     * @returns Promise resolving to validation result
-     */
     async validate(data: TWorkflowData, options: IValidationOptions = {}): Promise<IValidationResult> {
-        if (!this.enabled) {
-            throw new Error(`Validator ${this.name} is disabled`);
-        }
-
+        if (!this.enabled) throw new Error(`Validator ${this.name} is disabled`);
         const startTime = Date.now();
-        const mergedOptions = { ...this.defaultOptions, ...options };
-        const logger = mergedOptions.logger || this.logger;
-
-        logger.debug(`Starting validation with ${this.name}`, {
-            strict: mergedOptions.strict,
-            rulesCount: this.availableRules.length
-        });
-
+        const merged = { ...this.defaultOptions, ...options };
+        const logger = merged.logger || this.logger;
+        logger.debug(`Starting validation with ${this.name}`, { strict: merged.strict, rulesCount: this.availableRules.length });
         try {
-            // Update statistics
             this.stats.totalValidations++;
-
-            // Get enabled rules
-            const enabledRules = this.getEnabledRules(mergedOptions);
-
-            if (enabledRules.length === 0) {
-                logger.warn('No validation rules enabled');
-            }
-
-            // Collect all validation issues
+            const enabledRules = getEnabledRulesHelper(this.availableRules, this.ruleConfigs, merged);
+            if (enabledRules.length === 0) logger.warn('No validation rules enabled');
             const allIssues: IValidationIssue[] = [];
-
-            // Run validation rules
             for (const rule of enabledRules) {
-                try {
-                    const ruleResult = await this.performRuleValidation(data, rule, mergedOptions);
-                    allIssues.push(...ruleResult.issues);
-                } catch (error) {
-                    logger.error(`Rule ${rule} failed to execute`, {
-                        error: error instanceof Error ? error.message : String(error)
-                    });
-
-                    allIssues.push({
-                        id: `rule-execution-error-${rule}`,
-                        severity: ValidationSeverity.ERROR,
-                        message: `Validation rule '${rule}' failed to execute`,
-                        details: error instanceof Error ? error.message : String(error),
-                        rule,
-                        detectedAt: new Date()
-                    });
+                try { const rr = await this.performRuleValidation(data, rule, merged); allIssues.push(...rr.issues); }
+                catch (error) {
+                    logger.error(`Rule ${rule} failed to execute`, { error: error instanceof Error ? error.message : String(error) });
+                    allIssues.push({ id: `rule-execution-error-${rule}`, severity: ValidationSeverity.ERROR, message: `Validation rule '${rule}' failed to execute`, details: error instanceof Error ? error.message : String(error), rule, detectedAt: new Date() });
                 }
             }
-
-            // Filter issues based on options
-            const filteredIssues = this.filterIssues(allIssues, mergedOptions);
-
-            // Create validation result
-            const result = this.createValidationResult(
-                enabledRules,
-                startTime,
-                data,
-                mergedOptions,
-                filteredIssues
-            );
-
-            // Update statistics
-            this.updateStatistics(result);
-
-            logger.debug(`Validation completed`, {
-                processingTime: result.metadata.processingTime,
-                issueCount: result.summary.totalIssues,
-                isValid: result.isValid
-            });
-
+            const filteredIssues = filterIssuesHelper(allIssues, merged);
+            const result = createValidationResultHelper(enabledRules, startTime, data, merged, filteredIssues, this.name, this.version, (d) => this.getDataStats(d));
+            updateStatisticsHelper(this.stats, result);
+            logger.debug('Validation completed', { processingTime: result.metadata.processingTime, issueCount: result.summary.totalIssues, isValid: result.isValid });
             return result;
-
         } catch (error) {
             this.stats.failedValidations++;
-            const processingTime = Date.now() - startTime;
-
-            logger.error(`Validation failed`, {
-                error: error instanceof Error ? error.message : String(error),
-                processingTime
-            });
-
-            return this.createFailureResult(error instanceof Error ? error : new Error(String(error)), startTime, data);
+            logger.error('Validation failed', { error: error instanceof Error ? error.message : String(error), processingTime: Date.now() - startTime });
+            return createFailureResultHelper(error instanceof Error ? error : new Error(String(error)), startTime, data, this.name, this.version, (d) => this.getDataStats(d));
         }
     }
 
-    /**
-     * Validate specific rule
-     * 
-     * @param data - Workflow data to validate
-     * @param rule - Specific rule to apply
-     * @param options - Validation options
-     * @returns Promise resolving to validation result for this rule
-     */
-    async validateRule(
-        data: TWorkflowData,
-        rule: string,
-        options: IValidationOptions = {}
-    ): Promise<IValidationResult> {
-        if (!this.availableRules.includes(rule)) {
-            throw new Error(`Rule '${rule}' is not available in validator ${this.name}`);
-        }
-
-        const startTime = Date.now();
-        const mergedOptions = { ...this.defaultOptions, ...options };
-
+    async validateRule(data: TWorkflowData, rule: string, options: IValidationOptions = {}): Promise<IValidationResult> {
+        if (!this.availableRules.includes(rule)) throw new Error(`Rule '${rule}' is not available in validator ${this.name}`);
+        const startTime = Date.now(); const merged = { ...this.defaultOptions, ...options };
         try {
-            const ruleResult = await this.performRuleValidation(data, rule, mergedOptions);
-            return this.createValidationResult([rule], startTime, data, mergedOptions, ruleResult.issues);
-        } catch (error) {
-            return this.createFailureResult(error instanceof Error ? error : new Error(String(error)), startTime, data);
-        }
+            const rr = await this.performRuleValidation(data, rule, merged);
+            return createValidationResultHelper([rule], startTime, data, merged, rr.issues, this.name, this.version, (d) => this.getDataStats(d));
+        } catch (error) { return createFailureResultHelper(error instanceof Error ? error : new Error(String(error)), startTime, data, this.name, this.version, (d) => this.getDataStats(d)); }
     }
 
-    /**
-     * Abstract method for performing individual rule validation
-     * Must be implemented by subclasses
-     * 
-     * @param data - Workflow data to validate
-     * @param rule - Rule to validate
-     * @param options - Validation options
-     * @returns Promise resolving to rule validation result
-     */
-    protected abstract performRuleValidation(
-        data: TWorkflowData,
-        rule: string,
-        options: IValidationOptions
-    ): Promise<{ issues: IValidationIssue[] }>;
-
-    /**
-     * Abstract method for initializing rule configurations
-     * Must be implemented by subclasses
-     */
+    protected abstract performRuleValidation(data: TWorkflowData, rule: string, options: IValidationOptions): Promise<{ issues: IValidationIssue[] }>;
     protected abstract initializeRuleConfigs(): void;
+    canValidate(data: TWorkflowData): data is TWorkflowData { return data != null; }
 
-    /**
-     * Default implementation for checking if validator can handle data
-     * Should be overridden by subclasses for specific type checking
-     * 
-     * @param data - Data to check
-     * @returns True if validator can handle this data
-     */
-    canValidate(data: TWorkflowData): data is TWorkflowData {
-        // Basic existence check - subclasses should provide more specific logic
-        return data != null;
-    }
-
-    /**
-     * Get available validation rules with descriptions
-     * 
-     * @returns Map of rule names to descriptions
-     */
-    getRuleDescriptions(): Map<string, {
-        description: string;
-        severity: ValidationSeverity;
-        category: string;
-        enabled: boolean;
-    }> {
-        const descriptions = new Map();
-
-        for (const rule of this.availableRules) {
-            const config = this.ruleConfigs.get(rule);
-            if (config) {
-                descriptions.set(rule, {
-                    description: config.description,
-                    severity: config.severity,
-                    category: config.category,
-                    enabled: config.enabled
-                });
-            }
-        }
-
+    getRuleDescriptions(): Map<string, { description: string; severity: ValidationSeverity; category: string; enabled: boolean }> {
+        const descriptions = new Map<string, { description: string; severity: ValidationSeverity; category: string; enabled: boolean }>();
+        for (const rule of this.availableRules) { const c = this.ruleConfigs.get(rule); if (c) descriptions.set(rule, { description: c.description, severity: c.severity, category: c.category, enabled: c.enabled }); }
         return descriptions;
     }
 
-    /**
-     * Enable or disable specific validation rules
-     * 
-     * @param rules - Map of rule names to enabled status
-     */
     configureRules(rules: Map<string, boolean>): void {
-        for (const [rule, enabled] of rules) {
-            const config = this.ruleConfigs.get(rule);
-            if (config) {
-                config.enabled = enabled;
-                this.logger.debug(`Rule ${rule} ${enabled ? 'enabled' : 'disabled'}`);
-            } else {
-                this.logger.warn(`Attempted to configure unknown rule: ${rule}`);
-            }
-        }
+        for (const [rule, enabled] of rules) { const c = this.ruleConfigs.get(rule); if (c) { c.enabled = enabled; this.logger.debug(`Rule ${rule} ${enabled ? 'enabled' : 'disabled'}`); } else this.logger.warn(`Attempted to configure unknown rule: ${rule}`); }
     }
 
-    /**
-     * Default auto-recovery implementation
-     * Can be overridden by subclasses for specific recovery strategies
-     * 
-     * @param data - Original workflow data
-     * @param issues - Validation issues to recover from
-     * @returns Promise resolving to recovered data and recovery result
-     */
-    async autoRecover(data: TWorkflowData, issues: IValidationIssue[]): Promise<{
-        recoveredData: TWorkflowData;
-        recoveryResult: {
-            success: boolean;
-            issuesFixed: IValidationIssue[];
-            remainingIssues: IValidationIssue[];
-            appliedFixes: string[];
-        };
-    }> {
-        // Default implementation returns original data with no fixes
-        // Subclasses should override for specific recovery logic
-        return {
-            recoveredData: data,
-            recoveryResult: {
-                success: false,
-                issuesFixed: [],
-                remainingIssues: issues,
-                appliedFixes: []
-            }
-        };
+    async autoRecover(data: TWorkflowData, issues: IValidationIssue[]): Promise<{ recoveredData: TWorkflowData; recoveryResult: { success: boolean; issuesFixed: IValidationIssue[]; remainingIssues: IValidationIssue[]; appliedFixes: string[] } }> {
+        return { recoveredData: data, recoveryResult: { success: false, issuesFixed: [], remainingIssues: issues, appliedFixes: [] } };
     }
 
-    /**
-     * Get validator statistics
-     * 
-     * @returns Validator performance metrics
-     */
-    getStats() {
-        const mostCommonIssues = Array.from(this.stats.issuesByRule.entries())
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, TOP_ISSUES_COUNT)
-            .map(([rule, count]) => {
-                const config = this.ruleConfigs.get(rule);
-                return {
-                    rule,
-                    count,
-                    severity: config?.severity || ValidationSeverity.ERROR
-                };
-            });
+    getStats() { return buildValidatorStatsOutput(this.stats, this.ruleConfigs); }
 
-        return {
-            totalValidations: this.stats.totalValidations,
-            successfulValidations: this.stats.successfulValidations,
-            failedValidations: this.stats.failedValidations,
-            averageProcessingTime: this.stats.totalValidations > 0
-                ? this.stats.totalProcessingTime / this.stats.totalValidations
-                : 0,
-            averageIssueCount: this.stats.totalValidations > 0
-                ? this.stats.totalIssueCount / this.stats.totalValidations
-                : 0,
-            mostCommonIssues,
-            lastValidationAt: this.stats.lastValidationAt
-        };
-    }
-
-    /**
-     * Reset validator statistics
-     */
     resetStats(): void {
-        this.stats = {
-            totalValidations: 0,
-            successfulValidations: 0,
-            failedValidations: 0,
-            totalProcessingTime: 0,
-            totalIssueCount: 0,
-            issuesByRule: new Map(),
-            issuesBySeverity: new Map()
-        };
-
+        this.stats = { totalValidations: 0, successfulValidations: 0, failedValidations: 0, totalProcessingTime: 0, totalIssueCount: 0, issuesByRule: new Map(), issuesBySeverity: new Map() };
         this.logger.debug(`Statistics reset for validator ${this.name}`);
     }
 
-    /**
-     * Get enabled rules based on options
-     */
-    private getEnabledRules(options: IValidationOptions): string[] {
-        let rules = this.availableRules.filter(rule => {
-            const config = this.ruleConfigs.get(rule);
-            return config?.enabled !== false;
-        });
-
-        if (options.skipRules) {
-            rules = rules.filter(rule => !options.skipRules!.includes(rule));
-        }
-
-        if (options.includeRules) {
-            rules = rules.filter(rule => options.includeRules!.includes(rule));
-        }
-
-        return rules;
-    }
-
-    /**
-     * Filter issues based on validation options
-     */
-    private filterIssues(issues: IValidationIssue[], options: IValidationOptions): IValidationIssue[] {
-        let filteredIssues = [...issues];
-
-        // Filter by severity
-        if (!options.includeWarnings) {
-            filteredIssues = filteredIssues.filter(issue => issue.severity !== ValidationSeverity.WARNING);
-        }
-
-        if (!options.includeInfo) {
-            filteredIssues = filteredIssues.filter(issue => issue.severity !== ValidationSeverity.INFO);
-        }
-
-        // Limit number of errors
-        if (options.maxErrors && options.maxErrors > 0) {
-            const errorCount = filteredIssues.filter(issue => issue.severity === ValidationSeverity.ERROR).length;
-            if (errorCount > options.maxErrors) {
-                const errors = filteredIssues.filter(issue => issue.severity === ValidationSeverity.ERROR)
-                    .slice(0, options.maxErrors);
-                const nonErrors = filteredIssues.filter(issue => issue.severity !== ValidationSeverity.ERROR);
-                filteredIssues = [...errors, ...nonErrors];
-            }
-        }
-
-        return filteredIssues;
-    }
-
-    /**
-     * Create validation result with metadata
-     */
-    private createValidationResult(
-        appliedRules: string[],
-        startTime: number,
-        data: TWorkflowData,
-        options: IValidationOptions,
-        issues: IValidationIssue[] = []
-    ): IValidationResult {
-        const now = new Date();
-        const processingTime = now.getTime() - startTime;
-
-        const summary = {
-            errorCount: issues.filter(i => i.severity === ValidationSeverity.ERROR).length,
-            warningCount: issues.filter(i => i.severity === ValidationSeverity.WARNING).length,
-            infoCount: issues.filter(i => i.severity === ValidationSeverity.INFO).length,
-            totalIssues: issues.length
-        };
-
-        return {
-            isValid: summary.errorCount === 0 && (!options.strict || summary.warningCount === 0),
-            issues,
-            summary,
-            metadata: {
-                validatedAt: now,
-                processingTime,
-                validator: this.name,
-                rulesApplied: appliedRules,
-                dataStats: this.getDataStats(this.extractSimpleData(data)),
-                version: this.version,
-                options: this.extractSimpleOptions(options)
-            }
-        };
-    }
-
-    /**
-     * Create failure result for validation errors
-     */
-    private createFailureResult(
-        error: Error,
-        startTime: number,
-        data: TWorkflowData
-    ): IValidationResult {
-        const now = new Date();
-        const processingTime = now.getTime() - startTime;
-        const errorMessage = error instanceof Error ? error.message : String(error);
-
-        return {
-            isValid: false,
-            issues: [{
-                id: 'validation-system-error',
-                severity: ValidationSeverity.ERROR,
-                message: 'Validation system encountered an error',
-                details: errorMessage,
-                rule: 'system',
-                detectedAt: now
-            }],
-            summary: {
-                errorCount: 1,
-                warningCount: 0,
-                infoCount: 0,
-                totalIssues: 1
-            },
-            metadata: {
-                validatedAt: now,
-                processingTime,
-                validator: this.name,
-                rulesApplied: [],
-                dataStats: this.getDataStats(this.extractSimpleData(data)),
-                version: this.version
-            }
-        };
-    }
-
-    /**
-     * Update statistics based on validation result
-     */
-    private updateStatistics(result: IValidationResult): void {
-        if (result.isValid) {
-            this.stats.successfulValidations++;
-        } else {
-            this.stats.failedValidations++;
-        }
-
-        this.stats.totalProcessingTime += result.metadata.processingTime;
-        this.stats.totalIssueCount += result.summary.totalIssues;
-        this.stats.lastValidationAt = result.metadata.validatedAt;
-
-        // Update issue statistics
-        for (const issue of result.issues) {
-            // By rule
-            const ruleCount = this.stats.issuesByRule.get(issue.rule) || 0;
-            this.stats.issuesByRule.set(issue.rule, ruleCount + 1);
-
-            // By severity
-            const severityCount = this.stats.issuesBySeverity.get(issue.severity) || 0;
-            this.stats.issuesBySeverity.set(issue.severity, severityCount + 1);
-        }
-    }
-
-    /**
-     * Extract simple options representation for metadata
-     */
-    private extractSimpleOptions(options: IValidationOptions): string | number | boolean | string[] | Date {
-        // Convert ValidationOptions to simple type safely
-        if (typeof options === 'object' && options !== null) {
-            return `${JSON.stringify(options).substring(0, PREVIEW_LENGTH)}...`; // Truncated string representation
-        }
-        return String(options);
-    }
-
-    /**
-     * Extract simple data representation from workflow data for statistics
-     */
-    private extractSimpleData(data: TWorkflowData): Record<string, string | number | boolean> {
-        // Convert TWorkflowData to simple Record format safely
-        const result: Record<string, string | number | boolean> = {};
-
-        // Handle known workflow properties
-        if (data && typeof data === 'object') {
-            const dataObj = data as Record<string, TUniversalValue>;
-            const nodes = dataObj['nodes'];
-            if (Array.isArray(nodes)) {
-                result.nodes = nodes.length;
-            }
-            const edges = dataObj['edges'];
-            if (Array.isArray(edges)) {
-                result.edges = edges.length;
-            }
-            const node = dataObj['node'];
-            if (Array.isArray(node)) {
-                result.node = node.length;
-            }
-            const connections = dataObj['connections'];
-            if (Array.isArray(connections)) {
-                result.connections = connections.length;
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * Extract basic statistics from workflow data
-     * Can be overridden by subclasses for specific data formats
-     */
     protected getDataStats(data: Record<string, string | number | boolean>): Record<string, string | number | boolean> {
-        if (!data) {
-            return { nodeCount: 0, edgeCount: 0 };
-        }
-
-        // Try to extract node and edge counts from common properties
-        const nodeCount = Array.isArray(data.nodes) ? data.nodes.length :
-            Array.isArray(data.node) ? data.node.length : 0;
-
-        const edgeCount = Array.isArray(data.edges) ? data.edges.length :
-            Array.isArray(data.connections) ? data.connections.length :
-                Array.isArray(data.edge) ? data.edge.length : 0;
-
+        if (!data) return { nodeCount: 0, edgeCount: 0 };
+        const nodeCount = Array.isArray(data.nodes) ? data.nodes.length : Array.isArray(data.node) ? data.node.length : 0;
+        const edgeCount = Array.isArray(data.edges) ? data.edges.length : Array.isArray(data.connections) ? data.connections.length : Array.isArray(data.edge) ? data.edge.length : 0;
         return { nodeCount, edgeCount };
     }
 }

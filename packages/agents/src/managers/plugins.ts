@@ -1,22 +1,16 @@
+/**
+ * Plugin Manager - manages plugin lifecycle and dependencies.
+ *
+ * Lifecycle and dependency helpers live in ./plugins-helpers.ts.
+ * @internal
+ */
 import { AbstractManager } from '../abstracts/abstract-manager';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { createLogger, type ILogger } from '../utils/logger';
-import { PluginError, ConfigurationError } from '../utils/errors';
+import { PluginError } from '../utils/errors';
+import { initializePluginHelper, destroyPluginHelper, validateDependenciesHelper, resolveDependencyOrderHelper } from './plugins-helpers';
 
-function compareSemver(a: string, b: string): number {
-    const pa = a.split('.').map(Number);
-    const pb = b.split('.').map(Number);
-    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-        const na = pa[i] ?? 0;
-        const nb = pb[i] ?? 0;
-        if (na !== nb) return na - nb;
-    }
-    return 0;
-}
-
-/**
- * Plugin lifecycle events
- */
+/** Plugin lifecycle events */
 export interface IPluginLifecycleEvents {
     beforeInitialize?: (plugin: AbstractPlugin) => Promise<void> | void;
     afterInitialize?: (plugin: AbstractPlugin) => Promise<void> | void;
@@ -25,96 +19,30 @@ export interface IPluginLifecycleEvents {
     onError?: (plugin: AbstractPlugin, error: Error) => Promise<void> | void;
 }
 
-/**
- * Plugin dependency definition
- */
-export interface IPluginDependency {
-    name: string;
-    required: boolean;
-    minVersion?: string;
-}
+/** Plugin dependency definition */
+export interface IPluginDependency { name: string; required: boolean; minVersion?: string }
 
-/**
- * Plugin registration options
- */
-export interface IPluginRegistrationOptions {
-    dependencies?: IPluginDependency[];
-    priority?: number; // Higher number = higher priority
-    autoInitialize?: boolean;
-}
+/** Plugin registration options */
+export interface IPluginRegistrationOptions { dependencies?: IPluginDependency[]; priority?: number; autoInitialize?: boolean }
 
-/**
- * Plugin status information
- */
-export interface IPluginStatus {
-    name: string;
-    version?: string;
-    enabled: boolean;
-    initialized: boolean;
-    dependencies: string[];
-    priority: number;
-}
+/** Plugin status information */
+export interface IPluginStatus { name: string; version?: string; enabled: boolean; initialized: boolean; dependencies: string[]; priority: number }
 
-/**
- * Plugins manager interface
- */
+/** Plugins manager interface */
 export interface IPluginsManager {
-    /**
-     * Register a plugin with optional configuration
-     */
     register(plugin: AbstractPlugin, options?: IPluginRegistrationOptions): Promise<void>;
-
-    /**
-     * Unregister a plugin by name
-     */
     unregister(pluginName: string): Promise<boolean>;
-
-    /**
-     * Initialize all registered plugins in dependency order
-     */
     initializeAll(): Promise<void>;
-
-    /**
-     * Destroy all plugins in reverse dependency order
-     */
     destroyAll(): Promise<void>;
-
-    /**
-     * Get plugin by name
-     */
     getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | undefined;
-
-    /**
-     * Get all registered plugins
-     */
     getPlugins(): AbstractPlugin[];
-
-    /**
-     * Get plugin names
-     */
     getPluginNames(): string[];
-
-    /**
-     * Check if plugin is registered
-     */
     hasPlugin(name: string): boolean;
-
-    /**
-     * Get plugin status
-     */
     getPluginStatus(name: string): IPluginStatus | undefined;
-
-    /**
-     * Get all plugin statuses
-     */
     getAllPluginStatuses(): IPluginStatus[];
 }
 
-/**
- * Plugin Manager - manages plugin lifecycle and dependencies
- * Instance-based for isolation
- * @internal
- */
+/** @internal */
 export class Plugins extends AbstractManager implements IPluginsManager {
     private plugins = new Map<string, AbstractPlugin>();
     private pluginOptions = new Map<string, IPluginRegistrationOptions>();
@@ -123,387 +51,71 @@ export class Plugins extends AbstractManager implements IPluginsManager {
     private logger: ILogger;
 
     constructor(lifecycleEvents: IPluginLifecycleEvents = {}) {
-        super();
-        this.lifecycleEvents = lifecycleEvents;
-        this.logger = createLogger('Plugins');
+        super(); this.lifecycleEvents = lifecycleEvents; this.logger = createLogger('Plugins');
     }
 
-    /**
-     * Actual initialization logic - required by AbstractManager
-     */
-    protected async doInitialize(): Promise<void> {
-        this.logger.debug('Plugins manager initializing');
-        // No specific initialization needed for the manager itself
-    }
+    protected async doInitialize(): Promise<void> { this.logger.debug('Plugins manager initializing'); }
+    protected async doDispose(): Promise<void> { this.logger.debug('Plugins manager disposing'); await this.destroyAll(); this.plugins.clear(); this.pluginOptions.clear(); this.initializationOrder = []; }
 
-    /**
-     * Actual disposal logic - required by AbstractManager
-     */
-    protected async doDispose(): Promise<void> {
-        this.logger.debug('Plugins manager disposing');
-        await this.destroyAll();
-        this.plugins.clear();
-        this.pluginOptions.clear();
-        this.initializationOrder = [];
-    }
-
-    /**
-     * Initialize the plugin manager
-     */
     override async initialize(): Promise<void> {
-        if (this.initialized) {
-            return;
-        }
-
-        this.logger.debug('Initializing Plugins manager');
-        this.initialized = true;
-        this.logger.debug('Plugins manager initialized');
+        if (this.initialized) return;
+        this.logger.debug('Initializing Plugins manager'); this.initialized = true; this.logger.debug('Plugins manager initialized');
     }
 
-    /**
-     * Register a plugin with optional configuration
-     */
     async register(plugin: AbstractPlugin, options: IPluginRegistrationOptions = {}): Promise<void> {
         const pluginName = plugin.name;
-
         if (this.plugins.has(pluginName)) {
-            this.logger.warn(`Plugin "${pluginName}" is already registered, overriding`, {
-                pluginName,
-                existingVersion: this.plugins.get(pluginName)?.version,
-                newVersion: plugin.version
-            });
-
-            // Unregister existing plugin first
+            this.logger.warn(`Plugin "${pluginName}" is already registered, overriding`, { pluginName, existingVersion: this.plugins.get(pluginName)?.version, newVersion: plugin.version });
             await this.unregister(pluginName);
         }
-
-        // Validate dependencies
-        if (options.dependencies) {
-            await this.validateDependencies(options.dependencies);
-        }
-
-        // Store plugin and options
+        if (options.dependencies) await validateDependenciesHelper(options.dependencies, this.plugins);
         this.plugins.set(pluginName, plugin);
-        this.pluginOptions.set(pluginName, {
-            dependencies: options.dependencies || [],
-            priority: options.priority || 0,
-            autoInitialize: options.autoInitialize ?? true,
-        });
-
-        this.logger.info(`Plugin "${pluginName}" registered`, {
-            version: plugin.version,
-            priority: options.priority || 0,
-            dependencies: options.dependencies?.length || 0,
-            autoInitialize: options.autoInitialize ?? true,
-        });
-
-        // Auto-initialize if requested
-        if (options.autoInitialize !== false) {
-            await this.initializePlugin(pluginName);
-        }
+        this.pluginOptions.set(pluginName, { dependencies: options.dependencies || [], priority: options.priority || 0, autoInitialize: options.autoInitialize ?? true });
+        this.logger.info(`Plugin "${pluginName}" registered`, { version: plugin.version, priority: options.priority || 0, dependencies: options.dependencies?.length || 0, autoInitialize: options.autoInitialize ?? true });
+        if (options.autoInitialize !== false) await initializePluginHelper(pluginName, this.plugins, this.lifecycleEvents, this.logger);
     }
 
-    /**
-     * Unregister a plugin by name
-     */
     async unregister(pluginName: string): Promise<boolean> {
         const plugin = this.plugins.get(pluginName);
-        if (!plugin) {
-            this.logger.warn(`Attempted to unregister non-existent plugin "${pluginName}"`);
-            return false;
-        }
-
+        if (!plugin) { this.logger.warn(`Attempted to unregister non-existent plugin "${pluginName}"`); return false; }
         try {
-            // Destroy plugin if initialized
             const status = plugin.getStatus();
-            if (status.initialized) {
-                await this.destroyPlugin(pluginName);
-            }
-
-            // Remove from collections
-            this.plugins.delete(pluginName);
-            this.pluginOptions.delete(pluginName);
-            this.initializationOrder = this.initializationOrder.filter(name => name !== pluginName);
-
-            this.logger.info(`Plugin "${pluginName}" unregistered successfully`);
-            return true;
-
+            if (status.initialized) await destroyPluginHelper(pluginName, this.plugins, this.lifecycleEvents, this.logger);
+            this.plugins.delete(pluginName); this.pluginOptions.delete(pluginName);
+            this.initializationOrder = this.initializationOrder.filter(n => n !== pluginName);
+            this.logger.info(`Plugin "${pluginName}" unregistered successfully`); return true;
         } catch (error) {
-            this.logger.error(`Failed to unregister plugin "${pluginName}"`, {
-                error: error instanceof Error ? error.message : String(error),
-            });
+            this.logger.error(`Failed to unregister plugin "${pluginName}"`, { error: error instanceof Error ? error.message : String(error) });
             throw new PluginError(`Failed to unregister plugin: ${error instanceof Error ? error.message : String(error)}`, pluginName);
         }
     }
 
-    /**
-     * Initialize all registered plugins in dependency order
-     */
     async initializeAll(): Promise<void> {
         const pluginNames = Array.from(this.plugins.keys());
-        this.initializationOrder = this.resolveDependencyOrder(pluginNames);
-
-        this.logger.debug('Initializing all plugins', {
-            totalPlugins: pluginNames.length,
-            initializationOrder: this.initializationOrder,
-        });
-
-        for (const pluginName of this.initializationOrder) {
-            await this.initializePlugin(pluginName);
-        }
-
-        this.logger.info('All plugins initialized successfully', {
-            totalPlugins: this.initializationOrder.length,
-        });
+        this.initializationOrder = resolveDependencyOrderHelper(pluginNames, this.pluginOptions);
+        this.logger.debug('Initializing all plugins', { totalPlugins: pluginNames.length, initializationOrder: this.initializationOrder });
+        for (const name of this.initializationOrder) await initializePluginHelper(name, this.plugins, this.lifecycleEvents, this.logger);
+        this.logger.info('All plugins initialized successfully', { totalPlugins: this.initializationOrder.length });
     }
 
-    /**
-     * Destroy all plugins in reverse dependency order
-     */
     async destroyAll(): Promise<void> {
         const destroyOrder = [...this.initializationOrder].reverse();
-
-        this.logger.debug('Destroying all plugins', {
-            totalPlugins: destroyOrder.length,
-            destroyOrder,
-        });
-
-        for (const pluginName of destroyOrder) {
-            await this.destroyPlugin(pluginName);
-        }
-
-        this.initializationOrder = [];
-        this.logger.info('All plugins destroyed successfully');
+        this.logger.debug('Destroying all plugins', { totalPlugins: destroyOrder.length, destroyOrder });
+        for (const name of destroyOrder) await destroyPluginHelper(name, this.plugins, this.lifecycleEvents, this.logger);
+        this.initializationOrder = []; this.logger.info('All plugins destroyed successfully');
     }
 
-    /**
-     * Get plugin by name with type safety
-     */
-    getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | undefined {
-        const plugin = this.plugins.get(name);
-        return plugin ? (plugin as T) : undefined;
-    }
+    getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | undefined { const p = this.plugins.get(name); return p ? (p as T) : undefined; }
+    getPlugins(): AbstractPlugin[] { return Array.from(this.plugins.values()); }
+    getPluginNames(): string[] { return Array.from(this.plugins.keys()); }
+    hasPlugin(name: string): boolean { return this.plugins.has(name); }
 
-    /**
-     * Get all registered plugins
-     */
-    getPlugins(): AbstractPlugin[] {
-        return Array.from(this.plugins.values());
-    }
-
-    /**
-     * Get plugin names
-     */
-    getPluginNames(): string[] {
-        return Array.from(this.plugins.keys());
-    }
-
-    /**
-     * Check if plugin is registered
-     */
-    hasPlugin(name: string): boolean {
-        return this.plugins.has(name);
-    }
-
-    /**
-     * Get plugin status information
-     */
     getPluginStatus(name: string): IPluginStatus | undefined {
-        const plugin = this.plugins.get(name);
-        const options = this.pluginOptions.get(name);
-
-        if (!plugin || !options) {
-            return undefined;
-        }
-
+        const plugin = this.plugins.get(name); const options = this.pluginOptions.get(name);
+        if (!plugin || !options) return undefined;
         const status = plugin.getStatus();
-        return {
-            name: status.name,
-            version: status.version,
-            enabled: status.enabled,
-            initialized: status.initialized,
-            dependencies: options.dependencies?.map(dep => dep.name) || [],
-            priority: options.priority || 0,
-        };
+        return { name: status.name, version: status.version, enabled: status.enabled, initialized: status.initialized, dependencies: options.dependencies?.map(d => d.name) || [], priority: options.priority || 0 };
     }
 
-    /**
-     * Get all plugin statuses
-     */
-    getAllPluginStatuses(): IPluginStatus[] {
-        return Array.from(this.plugins.keys())
-            .map(name => this.getPluginStatus(name))
-            .filter((status): status is IPluginStatus => status !== undefined);
-    }
-
-    // ================================
-    // Private helper methods
-    // ================================
-
-    /**
-     * Initialize a single plugin
-     */
-    private async initializePlugin(pluginName: string): Promise<void> {
-        const plugin = this.plugins.get(pluginName);
-        if (!plugin) {
-            throw new PluginError(`Plugin "${pluginName}" not found`, pluginName);
-        }
-
-        const status = plugin.getStatus();
-        if (status.initialized) {
-            this.logger.debug(`Plugin "${pluginName}" already initialized`);
-            return;
-        }
-
-        try {
-            // Call before initialize lifecycle event
-            if (this.lifecycleEvents.beforeInitialize) {
-                await this.lifecycleEvents.beforeInitialize(plugin);
-            }
-
-            // Initialize the plugin
-            const startTime = Date.now();
-            await plugin.initialize();
-            const duration = Date.now() - startTime;
-
-            this.logger.info(`Plugin "${pluginName}" initialized successfully`, {
-                duration,
-                version: plugin.version,
-            });
-
-            // Call after initialize lifecycle event
-            if (this.lifecycleEvents.afterInitialize) {
-                await this.lifecycleEvents.afterInitialize(plugin);
-            }
-
-        } catch (error) {
-            this.logger.error(`Failed to initialize plugin "${pluginName}"`, {
-                error: error instanceof Error ? error.message : String(error),
-            });
-
-            // Call error lifecycle event
-            const normalizedError = error instanceof Error ? error : new Error(String(error));
-            if (this.lifecycleEvents.onError) {
-                await this.lifecycleEvents.onError(plugin, normalizedError);
-            }
-
-            throw new PluginError(`Failed to initialize plugin: ${normalizedError.message}`, pluginName);
-        }
-    }
-
-    /**
-     * Destroy a single plugin
-     */
-    private async destroyPlugin(pluginName: string): Promise<void> {
-        const plugin = this.plugins.get(pluginName);
-        if (!plugin) {
-            return;
-        }
-
-        const status = plugin.getStatus();
-        if (!status.initialized) {
-            this.logger.debug(`Plugin "${pluginName}" not initialized, skipping destroy`);
-            return;
-        }
-
-        try {
-            // Call before destroy lifecycle event
-            if (this.lifecycleEvents.beforeDestroy) {
-                await this.lifecycleEvents.beforeDestroy(plugin);
-            }
-
-            // Destroy the plugin
-            await plugin.dispose();
-
-            this.logger.info(`Plugin "${pluginName}" destroyed successfully`);
-
-            // Call after destroy lifecycle event
-            if (this.lifecycleEvents.afterDestroy) {
-                await this.lifecycleEvents.afterDestroy(plugin);
-            }
-
-        } catch (error) {
-            this.logger.error(`Failed to destroy plugin "${pluginName}"`, {
-                error: error instanceof Error ? error.message : String(error),
-            });
-
-            // Call error lifecycle event
-            const normalizedError = error instanceof Error ? error : new Error(String(error));
-            if (this.lifecycleEvents.onError) {
-                await this.lifecycleEvents.onError(plugin, normalizedError);
-            }
-
-            throw new PluginError(`Failed to destroy plugin: ${normalizedError.message}`, pluginName);
-        }
-    }
-
-    /**
-     * Validate plugin dependencies
-     */
-    private async validateDependencies(dependencies: IPluginDependency[]): Promise<void> {
-        for (const dep of dependencies) {
-            if (dep.required && !this.plugins.has(dep.name)) {
-                throw new ConfigurationError(`Required dependency "${dep.name}" is not registered`);
-            }
-
-            if (dep.minVersion) {
-                const dependencyPlugin = this.plugins.get(dep.name);
-                if (dependencyPlugin && dependencyPlugin.version) {
-                    if (compareSemver(dependencyPlugin.version, dep.minVersion) < 0) {
-                        throw new ConfigurationError(
-                            `Dependency "${dep.name}" version ${dependencyPlugin.version} is less than required ${dep.minVersion}`
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Resolve dependency order for initialization
-     */
-    private resolveDependencyOrder(pluginNames: string[]): string[] {
-        const resolved: string[] = [];
-        const visiting = new Set<string>();
-        const visited = new Set<string>();
-
-        const visit = (pluginName: string) => {
-            if (visited.has(pluginName)) {
-                return;
-            }
-
-            if (visiting.has(pluginName)) {
-                throw new ConfigurationError(`Circular dependency detected involving plugin "${pluginName}"`);
-            }
-
-            visiting.add(pluginName);
-
-            // Visit dependencies first
-            const options = this.pluginOptions.get(pluginName);
-            if (options?.dependencies) {
-                for (const dep of options.dependencies) {
-                    if (pluginNames.includes(dep.name)) {
-                        visit(dep.name);
-                    }
-                }
-            }
-
-            visiting.delete(pluginName);
-            visited.add(pluginName);
-            resolved.push(pluginName);
-        };
-
-        // Sort by priority first, then resolve dependencies
-        const sortedPlugins = pluginNames.sort((a, b) => {
-            const priorityA = this.pluginOptions.get(a)?.priority || 0;
-            const priorityB = this.pluginOptions.get(b)?.priority || 0;
-            return priorityB - priorityA; // Higher priority first
-        });
-
-        for (const pluginName of sortedPlugins) {
-            visit(pluginName);
-        }
-
-        return resolved;
-    }
-} 
+    getAllPluginStatuses(): IPluginStatus[] { return Array.from(this.plugins.keys()).map(n => this.getPluginStatus(n)).filter((s): s is IPluginStatus => s !== undefined); }
+}

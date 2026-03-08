@@ -1,6 +1,6 @@
 # Coding Rules & Skills Audit
 
-## Status: decided
+## Status: completed
 
 ## Priority: high
 
