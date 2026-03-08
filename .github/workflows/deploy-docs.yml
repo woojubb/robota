@@ -1,26 +1,20 @@
 name: Deploy Documentation
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'content/**'
-      - 'packages/*/src/**'
-      - 'apps/docs/**'
-      - 'scripts/docs/**'
-      - 'typedoc.json'
-      - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or tag to deploy from'
+        required: false
+        default: 'main'
 
-# 수동으로 워크플로우를 실행할 수 있게 함
+# Manual-only deployment. Run from GitHub Actions UI.
 
-# 저장소에 쓰기 권한 허용
 permissions:
   contents: write
   pages: write
   id-token: write
 
-# 동시에 하나의 배포만 허용
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -31,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -41,6 +37,9 @@ jobs:
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
+
+      - name: Install dependencies
+        run: pnpm install
 
       - name: Build Documentation
         run: pnpm docs:build
