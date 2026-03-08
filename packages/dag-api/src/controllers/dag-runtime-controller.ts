@@ -8,6 +8,10 @@ import type {
 } from '../contracts/runtime-api.js';
 import { toRuntimeProblemDetails } from '../contracts/runtime-api.js';
 
+/**
+ * API controller for DAG runtime operations: trigger, query, and cancel runs.
+ * @see RunOrchestratorService
+ */
 export class DagRuntimeController {
     public constructor(
         private readonly runOrchestrator: RunOrchestratorService,
@@ -15,6 +19,11 @@ export class DagRuntimeController {
         private readonly runCancel: RunCancelService
     ) {}
 
+    /**
+     * Triggers a new DAG run with the specified definition and input.
+     * @param request - The trigger request with dagId, trigger type, and input.
+     * @returns Created run details or problem details on error.
+     */
     public async triggerRun(
         request: ITriggerRunRequest
     ): Promise<TRuntimeApiResponse<{
@@ -52,6 +61,11 @@ export class DagRuntimeController {
         };
     }
 
+    /**
+     * Queries a DAG run and its associated task runs.
+     * @param request - The query request with dagRunId.
+     * @returns DAG run with task runs or problem details on error.
+     */
     public async queryRun(
         request: IQueryRunRequest
     ): Promise<TRuntimeApiResponse<{ dagRun: IDagRun; taskRuns: ITaskRun[] }>> {
@@ -83,6 +97,11 @@ export class DagRuntimeController {
         };
     }
 
+    /**
+     * Cancels an active DAG run.
+     * @param request - The cancel request with dagRunId.
+     * @returns Cancellation confirmation or problem details on error.
+     */
     public async cancelRun(
         request: ICancelRunRequest
     ): Promise<TRuntimeApiResponse<{ dagRunId: string; status: 'cancelled' }>> {

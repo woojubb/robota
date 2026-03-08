@@ -14,6 +14,14 @@ import { z } from 'zod';
 
 const ImageLoaderConfigSchema = z.object({});
 
+/**
+ * DAG node that loads a media reference and outputs it as a binary image port value.
+ *
+ * Accepts an object-typed media reference on the `asset` input and converts it to
+ * a binary image output via {@link MediaReference}.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class ImageLoaderNodeDefinition extends AbstractNodeDefinition<typeof ImageLoaderConfigSchema> {
     public readonly nodeType = 'image-loader';
     public readonly displayName = 'Image Loader';

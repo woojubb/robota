@@ -10,12 +10,14 @@ import type { IMediaOutputRef } from '@robota-sdk/agents';
 
 const DEFAULT_DAG_DEV_PORT = 3011;
 
+/** Represents a base64-encoded inline image ready to send to the Gemini API. */
 export interface IInlineImageSource {
     kind: 'inline';
     mimeType: string;
     data: string;
 }
 
+/** Options for converting a binary port image into an inline image source. */
 export interface IInlineImageSourceOptions {
     image: IPortBinaryValue;
     runtimeBaseUrl: string;
@@ -23,6 +25,12 @@ export interface IInlineImageSourceOptions {
     notFoundMessage: string;
 }
 
+/**
+ * Parses a comma-separated string into a trimmed, non-empty array of values.
+ *
+ * @param value - The raw CSV string, or `undefined`.
+ * @returns An array of trimmed non-empty tokens.
+ */
 export function parseCsv(value: string | undefined): string[] {
     if (typeof value !== 'string') {
         return [];
@@ -33,6 +41,11 @@ export function parseCsv(value: string | undefined): string[] {
         .filter((item) => item.length > 0);
 }
 
+/**
+ * Resolves the DAG runtime base URL from environment variables.
+ *
+ * Falls back to `http://127.0.0.1:<port>` using `DAG_DEV_PORT` or the default port 3011.
+ */
 export function resolveRuntimeBaseUrl(): string {
     const runtimeBaseUrl = process.env.DAG_RUNTIME_BASE_URL?.trim();
     if (runtimeBaseUrl && runtimeBaseUrl.length > 0) {
@@ -44,6 +57,14 @@ export function resolveRuntimeBaseUrl(): string {
     return `http://127.0.0.1:${port}`;
 }
 
+/**
+ * Resolves and validates a model identifier against the allowed model list.
+ *
+ * @param selectedModel - The model requested by config.
+ * @param defaultModel - The fallback model when the selection is empty.
+ * @param allowedModels - The set of permitted model identifiers.
+ * @returns A result containing the resolved model name or a validation error.
+ */
 export function resolveModel(
     selectedModel: string,
     defaultModel: string,
@@ -86,6 +107,14 @@ function parseDataUri(uri: string): { mimeType: string; data: string } | undefin
     };
 }
 
+/**
+ * Converts a binary port image value into an inline base64-encoded image source.
+ *
+ * Supports asset references, data URIs, and HTTP(S) URIs.
+ *
+ * @param options - The image, runtime base URL, and error metadata.
+ * @returns A result containing the inline image source or a validation error.
+ */
 export async function toInlineImageSource(
     options: IInlineImageSourceOptions
 ): Promise<TResult<IInlineImageSource, IDagError>> {
@@ -221,6 +250,14 @@ export async function toInlineImageSource(
     };
 }
 
+/**
+ * Normalizes a provider media output reference into a standard binary port value.
+ *
+ * Handles both asset-based and URI-based outputs, including data URIs.
+ *
+ * @param output - The raw media output reference from the provider.
+ * @returns A result containing the normalized binary port value or an execution error.
+ */
 export function normalizeImageOutput(output: IMediaOutputRef): TResult<IPortBinaryValue, IDagError> {
     if (output.kind === 'asset') {
         if (typeof output.assetId !== 'string' || output.assetId.trim().length === 0) {

@@ -1,16 +1,24 @@
 import type { TRunProgressEvent } from '@robota-sdk/dag-core';
 
+/** Callback type for receiving run progress events. */
 export type TRunProgressEventListener = (event: TRunProgressEvent) => void;
 
+/** Logger port for reporting event bus errors. */
 export interface IRunProgressLogger {
     error(message: string, context?: Record<string, unknown>): void;
 }
 
+/** Contract for publishing and subscribing to run progress events. */
 export interface IRunProgressEventBus {
     publish: (event: TRunProgressEvent) => void;
     subscribe: (listener: TRunProgressEventListener) => () => void;
 }
 
+/**
+ * In-memory event bus for broadcasting run progress events to subscribers.
+ * When a logger is provided, listener errors are logged and swallowed; otherwise the first error is rethrown.
+ * @see IRunProgressEventBus
+ */
 export class RunProgressEventBus implements IRunProgressEventBus {
     private readonly listeners = new Set<TRunProgressEventListener>();
     private readonly logger?: IRunProgressLogger;
@@ -19,6 +27,10 @@ export class RunProgressEventBus implements IRunProgressEventBus {
         this.logger = logger;
     }
 
+    /**
+     * Publishes an event to all registered listeners.
+     * @param event - The run progress event to broadcast.
+     */
     public publish(event: TRunProgressEvent): void {
         const errors: unknown[] = [];
         for (const listener of [...this.listeners]) {
@@ -41,6 +53,11 @@ export class RunProgressEventBus implements IRunProgressEventBus {
         }
     }
 
+    /**
+     * Registers a listener for run progress events.
+     * @param listener - The callback to invoke on each event.
+     * @returns Unsubscribe function that removes the listener.
+     */
     public subscribe(listener: TRunProgressEventListener): () => void {
         this.listeners.add(listener);
         return () => {

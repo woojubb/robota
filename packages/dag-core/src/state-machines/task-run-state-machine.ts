@@ -3,6 +3,7 @@ import type { TTaskRunStatus } from '../types/domain.js';
 import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
 
+/** Events that can trigger a task run state transition. */
 export type TTaskRunTransitionEvent =
     | 'QUEUE'
     | 'START'
@@ -13,6 +14,7 @@ export type TTaskRunTransitionEvent =
     | 'RETRY'
     | 'CANCEL';
 
+/** Result of a successful task run state transition. */
 export interface ITaskRunTransitionValue {
     nextStatus: TTaskRunStatus;
     domainEvents: string[];
@@ -51,6 +53,10 @@ function buildDomainEvent(nextStatus: TTaskRunStatus): string {
     return `task.${nextStatus}`;
 }
 
+/**
+ * Finite state machine for task run status transitions.
+ * Enforces valid transitions (including retry from failed) and emits domain events.
+ */
 export class TaskRunStateMachine {
     public static transition(
         currentStatus: TTaskRunStatus,

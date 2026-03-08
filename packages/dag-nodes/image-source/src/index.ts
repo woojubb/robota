@@ -17,6 +17,14 @@ const ImageSourceConfigSchema = createMediaReferenceConfigSchema().extend({
     mimeType: z.string().optional()
 });
 
+/**
+ * DAG node that produces a binary image output from a configured asset reference.
+ *
+ * Designed for testing and static image injection into a DAG pipeline. The asset
+ * reference and optional MIME type are provided through node configuration.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class ImageSourceNodeDefinition extends AbstractNodeDefinition<typeof ImageSourceConfigSchema> {
     public readonly nodeType = 'image-source';
     public readonly displayName = 'Image Source';

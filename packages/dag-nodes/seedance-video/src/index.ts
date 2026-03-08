@@ -21,6 +21,7 @@ export type {
     ISeedanceVideoRuntimeOptions
 } from './runtime.js';
 
+/** Options for constructing a {@link SeedanceVideoNodeDefinition}. */
 export interface ISeedanceVideoNodeDefinitionOptions extends ISeedanceVideoRuntimeOptions {}
 
 const DEFAULT_SEEDANCE_MODEL = 'seedance-1-5-pro-251215';
@@ -144,6 +145,14 @@ class SeedanceVideoNodeTaskHandler {
     }
 }
 
+/**
+ * DAG node that generates video using the Seedance (Bytedance) video generation API.
+ *
+ * Accepts a text prompt and optional reference images, then produces a video output
+ * by polling the Seedance job until completion or timeout.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class SeedanceVideoNodeDefinition extends AbstractNodeDefinition<typeof SeedanceVideoConfigSchema> {
     public readonly nodeType = 'seedance-video';
     public readonly displayName = 'Seedance Video';

@@ -13,11 +13,18 @@ import {
 } from '@robota-sdk/dag-core';
 import { replaceAttemptSegment } from '../utils/execution-path.js';
 
+/** Result of a single dead-letter queue reinjection attempt. */
 export interface IDlqReinjectResult {
     reinjected: boolean;
     taskRunId?: string;
 }
 
+/**
+ * Reprocesses failed tasks by moving messages from the dead-letter queue
+ * back to the main processing queue with an incremented attempt number.
+ *
+ * @see TaskRunStateMachine for retry state transitions
+ */
 export class DlqReinjectService {
     public constructor(
         private readonly storage: IStoragePort,
@@ -26,6 +33,13 @@ export class DlqReinjectService {
         private readonly clock: IClockPort
     ) {}
 
+    /**
+     * Dequeues a single message from the dead-letter queue and reinjects it
+     * into the main queue for retry processing.
+     * @param workerId - The worker identity for queue visibility.
+     * @param visibilityTimeoutMs - Visibility timeout for the dequeue operation.
+     * @returns The reinjection result, or an error if the task run is not found or retry is disallowed.
+     */
     public async reinjectOnce(workerId: string, visibilityTimeoutMs: number): Promise<TResult<IDlqReinjectResult, IDagError>> {
         const deadLetterMessage = await this.deadLetterQueue.dequeue(workerId, visibilityTimeoutMs);
         if (!deadLetterMessage) {

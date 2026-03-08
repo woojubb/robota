@@ -8,14 +8,17 @@ import {
     type TResult
 } from '@robota-sdk/dag-core';
 
+/** Maps each task run status to its occurrence count. */
 export type TTaskStatusSummary = Record<TTaskRunStatus, number>;
 
+/** Read-model projection of a DAG run including its task runs and status summary. */
 export interface IRunProjection {
     dagRun: IDagRun;
     taskRuns: ITaskRun[];
     taskStatusSummary: TTaskStatusSummary;
 }
 
+/** Projection of a single node in a DAG lineage graph. */
 export interface ILineageNodeProjection {
     nodeId: string;
     nodeType: string;
@@ -23,11 +26,13 @@ export interface ILineageNodeProjection {
     taskStatus?: TTaskRunStatus;
 }
 
+/** Projection of a directed edge between two nodes in a DAG lineage graph. */
 export interface ILineageEdgeProjection {
     from: string;
     to: string;
 }
 
+/** Full lineage projection of a DAG run, including node graph and edge relationships. */
 export interface ILineageProjection {
     dagId: string;
     version: number;
@@ -36,6 +41,7 @@ export interface ILineageProjection {
     edges: ILineageEdgeProjection[];
 }
 
+/** Combined dashboard projection containing both run and lineage views. */
 export interface IDashboardProjection {
     runProjection: IRunProjection;
     lineageProjection: ILineageProjection;
@@ -54,9 +60,18 @@ function createEmptyTaskStatusSummary(): TTaskStatusSummary {
     return summary;
 }
 
+/**
+ * Service that builds read-model projections from DAG run storage.
+ * @see IStoragePort
+ */
 export class ProjectionReadModelService {
     public constructor(private readonly storage: IStoragePort) {}
 
+    /**
+     * Builds a run projection with task runs and status summary.
+     * @param dagRunId - The DAG run identifier to project.
+     * @returns Run projection or a validation error if the run is not found.
+     */
     public async buildRunProjection(dagRunId: string): Promise<TResult<IRunProjection, IDagError>> {
         const dagRun = await this.storage.getDagRun(dagRunId);
         if (!dagRun) {
@@ -86,6 +101,11 @@ export class ProjectionReadModelService {
         };
     }
 
+    /**
+     * Builds a lineage projection showing node graph and task statuses.
+     * @param dagRunId - The DAG run identifier to project.
+     * @returns Lineage projection or a validation error.
+     */
     public async buildLineageProjection(dagRunId: string): Promise<TResult<ILineageProjection, IDagError>> {
         const runProjection = await this.buildRunProjection(dagRunId);
         if (!runProjection.ok) {
@@ -95,6 +115,11 @@ export class ProjectionReadModelService {
         return this.buildLineageProjectionFromRunProjection(runProjection.value);
     }
 
+    /**
+     * Builds a combined dashboard projection with both run and lineage views.
+     * @param dagRunId - The DAG run identifier to project.
+     * @returns Dashboard projection or a validation error.
+     */
     public async buildDashboardProjection(dagRunId: string): Promise<TResult<IDashboardProjection, IDagError>> {
         const runProjection = await this.buildRunProjection(dagRunId);
         if (!runProjection.ok) {

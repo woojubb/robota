@@ -1,5 +1,6 @@
 import type { INodeTaskHandler, INodeTaskHandlerRegistry } from '../types/node-lifecycle.js';
 
+/** In-memory registry of task handlers, keyed by node type. */
 export class StaticNodeTaskHandlerRegistry implements INodeTaskHandlerRegistry {
     public constructor(private readonly handlersByType: Record<string, INodeTaskHandler>) {}
 

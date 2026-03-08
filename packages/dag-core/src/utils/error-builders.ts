@@ -1,5 +1,6 @@
 import type { IDagError, TErrorCategory } from '../types/error.js';
 
+/** Create a structured {@link IDagError} with all required fields. */
 export function buildDagError(
     category: TErrorCategory,
     code: string,
@@ -16,6 +17,7 @@ export function buildDagError(
     };
 }
 
+/** Shorthand for creating a non-retryable validation error. */
 export function buildValidationError(
     code: string,
     message: string,
@@ -24,6 +26,7 @@ export function buildValidationError(
     return buildDagError('validation', code, message, false, context);
 }
 
+/** Shorthand for creating a retryable dispatch error. */
 export function buildDispatchError(
     code: string,
     message: string,
@@ -32,6 +35,7 @@ export function buildDispatchError(
     return buildDagError('dispatch', code, message, true, context);
 }
 
+/** Shorthand for creating a non-retryable lease error. */
 export function buildLeaseError(
     code: string,
     message: string,
@@ -40,6 +44,7 @@ export function buildLeaseError(
     return buildDagError('lease', code, message, false, context);
 }
 
+/** Shorthand for creating a task execution error with configurable retryability. */
 export function buildTaskExecutionError(
     code: string,
     message: string,

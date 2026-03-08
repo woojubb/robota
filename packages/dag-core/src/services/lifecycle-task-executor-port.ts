@@ -11,6 +11,10 @@ import type {
 import type { INodeLifecycleFactory, INodeManifestRegistry } from '../types/node-lifecycle.js';
 import { buildValidationError } from '../utils/error-builders.js';
 
+/**
+ * Adapter that implements {@link ITaskExecutorPort} by delegating to {@link NodeLifecycleRunner}.
+ * Bridges the task execution input into the node lifecycle execution model.
+ */
 export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
     private readonly lifecycleFactory: INodeLifecycleFactory;
     private readonly runner: NodeLifecycleRunner;

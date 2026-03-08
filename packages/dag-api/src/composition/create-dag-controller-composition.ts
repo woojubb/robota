@@ -19,6 +19,7 @@ import { DagDesignController, type INodeCatalogService } from '../controllers/da
 import { DagObservabilityController } from '../controllers/dag-observability-controller.js';
 import { DagRuntimeController } from '../controllers/dag-runtime-controller.js';
 
+/** Infrastructure dependencies required to compose all DAG controllers. */
 export interface IDagControllerCompositionDependencies {
     storage: IStoragePort;
     queue: IQueuePort;
@@ -26,11 +27,13 @@ export interface IDagControllerCompositionDependencies {
     clock: IClockPort;
 }
 
+/** Optional configuration for controller composition behavior. */
 export interface IDagControllerCompositionOptions {
     diagnosticsPolicy?: IDiagnosticsPolicy;
     nodeCatalogService?: INodeCatalogService;
 }
 
+/** Composed set of all DAG API controllers. */
 export interface IDagControllerComposition {
     design: DagDesignController;
     runtime: DagRuntimeController;
@@ -38,6 +41,12 @@ export interface IDagControllerComposition {
     diagnostics: DagDiagnosticsController;
 }
 
+/**
+ * Creates a fully wired composition of all DAG API controllers.
+ * @param dependencies - Infrastructure ports (storage, queue, clock).
+ * @param options - Optional diagnostics policy and node catalog configuration.
+ * @returns Composed controller instances for design, runtime, observability, and diagnostics.
+ */
 export function createDagControllerComposition(
     dependencies: IDagControllerCompositionDependencies,
     options?: IDagControllerCompositionOptions
