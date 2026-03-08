@@ -94,7 +94,7 @@ All rules below are mandatory, non-negotiable, and domain-free. Domain-specific 
 - `any` and `{}` are prohibited in production code.
 - `unknown` is allowed only at trust boundaries and `catch` boundaries, and must be narrowed before domain use.
 - `// @ts-ignore` and `// @ts-nocheck` are prohibited.
-- `I*` prefix is for interfaces only. `T*` prefix is for type aliases only.
+- `I*` prefix is for interfaces only. `T*` prefix is for type aliases only. Type aliases with `I*` prefix or interfaces with `T*` prefix are naming violations and must be renamed.
 - In test files (`*.test.ts`, `*.spec.ts`), `any` and `unknown` may be used only for mocks or boundary fixtures.
 - Follow owner-based SSOT: every concept has exactly one owner module. Import from the owner's public surface and never re-declare owned contracts.
 - Trivial 1:1 type aliases (`type X = Y`) that add no semantic value are prohibited.
