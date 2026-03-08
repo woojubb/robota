@@ -40,8 +40,26 @@ The package exposes three service classes, each with a single responsibility:
 
 1. **RunOrchestratorService** -- The primary orchestration service. Accepts port dependencies via constructor injection (`IStoragePort`, `IQueuePort`, `IClockPort`, optional `IRunProgressEventReporter`). Provides three public methods:
    - `createRun` -- Resolves the definition, validates publication status, resolves time semantics, generates an idempotent run key, and persists a new `DagRun` in `created` status. Handles race conditions by re-querying on storage conflict.
-   - `startCreatedRun` -- Takes a `dagRunId` in `created` status, parses the definition snapshot, identifies entry nodes, transitions the run through `created -> queued -> running`, creates task runs for entry nodes, and enqueues queue messages. On enqueue failure, transitions the run to `failed` and the affected task to `cancelled`.
+   - `startCreatedRun` -- Takes a `dagRunId` in `created` status, parses the definition snapshot, identifies entry nodes, transitions the run through `created -> queued -> running`, creates task runs for entry nodes, and enqueues queue messages. On enqueue failure, transitions the run to `failed` and all affected tasks to `cancelled`.
    - `startRun` -- Composes `createRun` and `startCreatedRun` into a single idempotent operation. If the run already exists and is past `created`, returns existing task run IDs.
+
+### Behavioral Contracts
+
+#### Entry Task Enqueue Failure Recovery
+
+When `dispatchEntryTasks` enqueues entry tasks and one enqueue fails mid-batch:
+
+1. Tasks already enqueued successfully remain in the queue (no rollback of successful enqueues).
+2. The failed task's `TaskRun` is transitioned to `cancelled` status.
+3. All previously created `TaskRun` records (including successfully enqueued ones) are transitioned to `cancelled` status. Workers that dequeue already-enqueued messages will encounter a cancelled task and skip execution via state machine rejection.
+4. The DAG run is transitioned to `failed` status.
+5. A `FAILED` execution progress event is published.
+
+Entry nodes that have not yet been iterated in the dispatch loop do not have `TaskRun` records created, so no cleanup is needed for them. This means the storage may not contain a complete audit trail of all intended entry tasks — only those that were created before the failure.
+
+#### startCreatedRun Idempotency
+
+`startCreatedRun` is safe to call on a run that is already past the `created` state. If the run is in `queued`, `running`, or any terminal state, the method returns the existing task run IDs without re-enqueuing or re-transitioning. This prevents duplicate task creation on retry.
 
 2. **RunQueryService** -- Read-only service. Accepts `IStoragePort`. Retrieves a `DagRun` and its associated `ITaskRun[]` by `dagRunId`.
 
