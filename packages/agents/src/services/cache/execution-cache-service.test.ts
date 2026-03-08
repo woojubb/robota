@@ -19,9 +19,9 @@ describe('ExecutionCacheService', () => {
     });
 
     describe('lookup', () => {
-        it('should return null on cache miss', () => {
+        it('should return undefined on cache miss', () => {
             const result = service.lookup(messages, 'gpt-4', 'openai');
-            expect(result).toBeNull();
+            expect(result).toBeUndefined();
         });
 
         it('should return cached response on cache hit', () => {

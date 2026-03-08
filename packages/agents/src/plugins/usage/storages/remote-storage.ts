@@ -13,7 +13,7 @@ export class RemoteUsageStorage implements IUsageStorage {
     private batchSize: number;
     private flushInterval: number;
     private batch: IUsageStats[] = [];
-    private timer: TTimerId | null = null;
+    private timer?: TTimerId;
     private logger: ILogger;
 
     constructor(
@@ -123,7 +123,7 @@ export class RemoteUsageStorage implements IUsageStorage {
 
     async close(): Promise<void> {
         stopPeriodicTask(this.timer);
-        this.timer = null;
+        this.timer = undefined;
 
         await this.flush();
     }

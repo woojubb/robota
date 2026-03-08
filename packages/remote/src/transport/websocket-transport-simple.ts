@@ -34,7 +34,7 @@ interface IPendingRequest {
  * Simplified WebSocket Transport with Type Safety
  */
 export class SimpleWebSocketTransport implements ITransport {
-    private ws: WebSocket | null = null;
+    private ws?: WebSocket;
     private config: Required<ISimpleWebSocketConfig>;
     private pendingRequests = new Map<string, IPendingRequest>();
     private reconnectAttempts = 0;
@@ -107,7 +107,7 @@ export class SimpleWebSocketTransport implements ITransport {
             if (this.ws.readyState === WebSocket.OPEN) {
                 this.ws.close(1000, 'Normal closure');
             }
-            this.ws = null;
+            this.ws = undefined;
         }
     }
 
@@ -153,7 +153,7 @@ export class SimpleWebSocketTransport implements ITransport {
     }
 
     isConnected(): boolean {
-        return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+        return this.ws !== undefined && this.ws.readyState === WebSocket.OPEN;
     }
 
     getCapabilities(): ITransportCapabilities {

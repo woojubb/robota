@@ -130,7 +130,7 @@ export class ErrorHandlingPlugin extends AbstractPlugin<IErrorHandlingPluginOpti
         fn: () => Promise<T>,
         context: IErrorHandlingContextData = {}
     ): Promise<T> {
-        let lastError: Error | null = null;
+        let lastError: Error | undefined;
         let attempt = 0;
 
         while (attempt <= this.pluginOptions.maxRetries) {
