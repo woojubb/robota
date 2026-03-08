@@ -622,7 +622,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
         return `${prefix}-${Date.now()}-${++this.executionCounter}`;
     }
 
-    private findActiveExecution(operation: string, input?: string): { executionId: string; executionData: { startTime: number; operation: string; input?: string } } | null {
+    private findActiveExecution(operation: string, input?: string): { executionId: string; executionData: { startTime: number; operation: string; input?: string } } | undefined {
         for (const [executionId, executionData] of this.activeExecutions.entries()) {
             if (executionData.operation === operation) {
                 // For 'run' operations, also match input if provided
@@ -632,7 +632,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
                 return { executionId, executionData };
             }
         }
-        return null;
+        return undefined;
     }
 
     /**

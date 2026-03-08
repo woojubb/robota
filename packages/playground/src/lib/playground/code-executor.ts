@@ -44,7 +44,7 @@ export interface IAgentContext {
 }
 
 export class CodeExecutor {
-    private context: IAgentContext | null = null
+    private context?: IAgentContext
     private playgroundConfig: IPlaygroundConfig
 
     constructor(config?: Partial<IPlaygroundConfig>) {
@@ -656,11 +656,11 @@ export default compiledAgent;`
         return new Promise(resolve => setTimeout(resolve, ms))
     }
 
-    getContext(): IAgentContext | null {
+    getContext(): IAgentContext | undefined {
         return this.context
     }
 
     reset(): void {
-        this.context = null
+        this.context = undefined
     }
 } 

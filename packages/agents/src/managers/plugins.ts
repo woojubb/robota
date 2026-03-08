@@ -82,7 +82,7 @@ export interface IPluginsManager {
     /**
      * Get plugin by name
      */
-    getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | null;
+    getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | undefined;
 
     /**
      * Get all registered plugins
@@ -102,7 +102,7 @@ export interface IPluginsManager {
     /**
      * Get plugin status
      */
-    getPluginStatus(name: string): IPluginStatus | null;
+    getPluginStatus(name: string): IPluginStatus | undefined;
 
     /**
      * Get all plugin statuses
@@ -279,9 +279,9 @@ export class Plugins extends AbstractManager implements IPluginsManager {
     /**
      * Get plugin by name with type safety
      */
-    getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | null {
+    getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | undefined {
         const plugin = this.plugins.get(name);
-        return plugin ? (plugin as T) : null;
+        return plugin ? (plugin as T) : undefined;
     }
 
     /**
@@ -308,12 +308,12 @@ export class Plugins extends AbstractManager implements IPluginsManager {
     /**
      * Get plugin status information
      */
-    getPluginStatus(name: string): IPluginStatus | null {
+    getPluginStatus(name: string): IPluginStatus | undefined {
         const plugin = this.plugins.get(name);
         const options = this.pluginOptions.get(name);
 
         if (!plugin || !options) {
-            return null;
+            return undefined;
         }
 
         const status = plugin.getStatus();
@@ -333,7 +333,7 @@ export class Plugins extends AbstractManager implements IPluginsManager {
     getAllPluginStatuses(): IPluginStatus[] {
         return Array.from(this.plugins.keys())
             .map(name => this.getPluginStatus(name))
-            .filter((status): status is IPluginStatus => status !== null);
+            .filter((status): status is IPluginStatus => status !== undefined);
     }
 
     // ================================
