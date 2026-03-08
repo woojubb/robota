@@ -17,7 +17,7 @@ function isApiLikeError(value: object): value is IApiLikeError {
 export const useApiError = () => {
     const { toast } = useToast();
 
-    const handleError = (error: Error | TApiLikeError, customMessage?: string) => {
+    const handleError = (error: Error | IApiLikeError, customMessage?: string) => {
         WebLogger.error('API Error', { error: error instanceof Error ? error.message : (error.message ?? 'Unknown error') });
 
         if (!(error instanceof Error) && isApiLikeError(error) && typeof error.code === 'string') {
