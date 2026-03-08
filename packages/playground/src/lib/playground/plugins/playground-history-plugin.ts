@@ -1,3 +1,5 @@
+const DEFAULT_MAX_EVENTS = 1000;
+
 import type { ILogger, TUniversalValue } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
@@ -56,7 +58,7 @@ export class PlaygroundHistoryPlugin {
 
   constructor(options: IPlaygroundHistoryPluginOptions = {}) {
     this.logger = options.logger ?? SilentLogger;
-    this.maxEvents = Math.max(1, options.maxEvents ?? 1000);
+    this.maxEvents = Math.max(1, options.maxEvents ?? DEFAULT_MAX_EVENTS);
     this.enableVisualization = options.enableVisualization ?? true;
   }
 

@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const MIN_DESCRIPTION_LENGTH = 10;
+const MIN_SYSTEM_PROMPT_LENGTH = 50;
+const MAX_TAGS = 10;
+const MAX_TOKENS_LIMIT = 100000;
+
 /**
  * Reusable type definitions for schema validation
  */
@@ -37,7 +42,7 @@ export const AgentTemplateSchema = z.object({
         .regex(/^[a-z0-9_-]+$/, 'Template name must contain only lowercase letters, numbers, underscores, and hyphens'),
 
     description: z.string()
-        .min(10, 'Description must be at least 10 characters long'),
+        .min(MIN_DESCRIPTION_LENGTH, 'Description must be at least 10 characters long'),
 
     llm_provider: z.string()
         .min(1, 'LLM provider is required')
@@ -51,11 +56,11 @@ export const AgentTemplateSchema = z.object({
         .max(1, 'Temperature must be <= 1'),
 
     system_prompt: z.string()
-        .min(50, 'System prompt must be at least 50 characters long'),
+        .min(MIN_SYSTEM_PROMPT_LENGTH, 'System prompt must be at least 50 characters long'),
 
     tags: z.array(z.string())
         .min(1, 'At least one tag is required')
-        .max(10, 'Maximum 10 tags allowed'),
+        .max(MAX_TAGS, 'Maximum 10 tags allowed'),
 
     version: z.string()
         .regex(/^\d+\.\d+\.\d+$/, 'Version must follow semantic versioning (x.y.z)')
@@ -63,7 +68,7 @@ export const AgentTemplateSchema = z.object({
 
     maxTokens: z.number()
         .min(1)
-        .max(100000)
+        .max(MAX_TOKENS_LIMIT)
         .optional(),
 
     metadata: AgentTemplateMetadataSchema.optional()

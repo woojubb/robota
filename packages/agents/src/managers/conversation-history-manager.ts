@@ -11,6 +11,9 @@ import type {
     TUniversalMessagePart
 } from '../interfaces/messages';
 
+const DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 100;
+const DEFAULT_MAX_CONVERSATIONS = 50;
+
 /**
  * Type guard functions
  */
@@ -781,8 +784,8 @@ export class ConversationHistory {
     private readonly maxConversations: number;
 
     constructor(options: IConversationHistoryOptions = {}) {
-        this.maxMessagesPerConversation = options.maxMessagesPerConversation || 100;
-        this.maxConversations = options.maxConversations || 50;
+        this.maxMessagesPerConversation = options.maxMessagesPerConversation || DEFAULT_MAX_MESSAGES_PER_CONVERSATION;
+        this.maxConversations = options.maxConversations || DEFAULT_MAX_CONVERSATIONS;
         this.logger = createLogger('ConversationHistory');
     }
 

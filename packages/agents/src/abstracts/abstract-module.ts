@@ -12,6 +12,9 @@ import { SilentLogger } from '../utils/logger';
 import { EVENT_EMITTER_EVENTS, type IEventEmitterPlugin, type TEventDataValue } from '../plugins/event-emitter/types';
 import type { IModuleInitializationEventData, IModuleExecutionEventData, IModuleDisposalEventData } from './abstract-module-events';
 
+const ID_RADIX = 36;
+const ID_RANDOM_LENGTH = 9;
+
 /**
  * Module execution context for all modules
  */
@@ -377,7 +380,7 @@ export abstract class AbstractModule<TOptions extends IBaseModuleOptions = IBase
         }
 
         const startTime = Date.now();
-        const executionId = context.executionId || `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const executionId = context.executionId || `exec_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
 
         // Emit execution start event
         if (this.eventEmitter) {

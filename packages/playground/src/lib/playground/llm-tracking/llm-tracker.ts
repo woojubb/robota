@@ -1,3 +1,6 @@
+const RANDOM_ID_BASE = 36;
+const RANDOM_ID_LENGTH = 6;
+
 import type { IPlaygroundBlockCollector } from '../block-tracking/block-collector';
 import type { IBlockMetadata, IRealTimeBlockMessage, IRealTimeBlockMetadata } from '../block-tracking/types';
 import type { TUniversalValue } from '@robota-sdk/agents';
@@ -251,7 +254,7 @@ export class RealTimeLLMTracker {
      * Generate unique block ID
      */
     private generateBlockId(): string {
-        return `llm_block_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+        return `llm_block_${Date.now()}_${Math.random().toString(RANDOM_ID_BASE).substr(2, RANDOM_ID_LENGTH)}`;
     }
 
     /**

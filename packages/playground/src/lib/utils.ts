@@ -5,12 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+const MILLION = 1000000;
+const THOUSAND = 1000;
+
 export function formatNumber(num: number): string {
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + 'M'
+  if (num >= MILLION) {
+    return (num / MILLION).toFixed(1) + 'M'
   }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'K'
+  if (num >= THOUSAND) {
+    return (num / THOUSAND).toFixed(1) + 'K'
   }
   return num.toLocaleString()
 }

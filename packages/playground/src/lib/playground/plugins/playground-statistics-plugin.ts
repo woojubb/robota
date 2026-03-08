@@ -1,3 +1,10 @@
+const DEFAULT_MAX_ENTRIES = 1000;
+const DEFAULT_SLOW_EXECUTION_THRESHOLD_MS = 3000;
+const DEFAULT_ERROR_RATE_THRESHOLD = 10;
+const PERCENTAGE_MULTIPLIER = 100;
+const TOP_ERRORS_COUNT = 5;
+const INITIAL_SUCCESS_RATE = 100;
+
 import type { ILogger, TUniversalValue } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 
@@ -32,11 +39,11 @@ export class PlaygroundStatisticsPlugin {
       collectConfigMetrics: options.collectConfigMetrics ?? true,
       trackResponseTime: options.trackResponseTime ?? true,
       trackExecutionDetails: options.trackExecutionDetails ?? true,
-      maxEntries: options.maxEntries ?? 1000,
+      maxEntries: options.maxEntries ?? DEFAULT_MAX_ENTRIES,
       aggregateStats: options.aggregateStats ?? true,
       resetOnSessionStart: options.resetOnSessionStart ?? false,
-      slowExecutionThreshold: options.slowExecutionThreshold ?? 3000,
-      errorRateThreshold: options.errorRateThreshold ?? 10,
+      slowExecutionThreshold: options.slowExecutionThreshold ?? DEFAULT_SLOW_EXECUTION_THRESHOLD_MS,
+      errorRateThreshold: options.errorRateThreshold ?? DEFAULT_ERROR_RATE_THRESHOLD,
     };
 
     this.metrics = {
@@ -50,7 +57,7 @@ export class PlaygroundStatisticsPlugin {
       averageResponseTime: 0,
       lastExecutionTime: null,
       errorCount: 0,
-      successRate: 100,
+      successRate: INITIAL_SUCCESS_RATE,
       isActive: false,
       lastUpdated: new Date(),
     };
@@ -115,7 +122,7 @@ export class PlaygroundStatisticsPlugin {
     this.metrics.averageResponseTime = 0;
     this.metrics.lastExecutionTime = null;
     this.metrics.errorCount = 0;
-    this.metrics.successRate = 100;
+    this.metrics.successRate = INITIAL_SUCCESS_RATE;
     this.metrics.isActive = false;
     this.metrics.lastUpdated = new Date();
 
@@ -124,9 +131,9 @@ export class PlaygroundStatisticsPlugin {
   }
 
   private calculateSuccessRate(): number {
-    if (this.metrics.totalChatExecutions === 0) return 100;
+    if (this.metrics.totalChatExecutions === 0) return INITIAL_SUCCESS_RATE;
     const successCount = this.metrics.totalChatExecutions - this.metrics.errorCount;
-    return Math.round((successCount / this.metrics.totalChatExecutions) * 100);
+    return Math.round((successCount / this.metrics.totalChatExecutions) * PERCENTAGE_MULTIPLIER);
   }
 
   private calculateAverageResponseTime(): number {
@@ -150,7 +157,7 @@ export class PlaygroundStatisticsPlugin {
 
     const topErrors = Object.entries(errorCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+      .slice(0, TOP_ERRORS_COUNT)
       .map(([error, count]) => ({ error, count }));
 
     return {

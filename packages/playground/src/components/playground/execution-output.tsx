@@ -1,5 +1,7 @@
 'use client'
 
+const COPY_FEEDBACK_DURATION_MS = 2000;
+
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
@@ -33,7 +35,7 @@ export function ExecutionOutput({ result, isRunning, onFixSuggestion }: IExecuti
     const copyToClipboard = async (text: string, itemId: string) => {
         await navigator.clipboard.writeText(text)
         setCopiedItem(itemId)
-        setTimeout(() => setCopiedItem(null), 2000)
+        setTimeout(() => setCopiedItem(null), COPY_FEEDBACK_DURATION_MS)
     }
 
     const hasErrors = result?.errors && result.errors.length > 0

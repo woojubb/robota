@@ -13,6 +13,8 @@ import type {
     IChatResponseData
 } from '../shared/types';
 
+const RANDOM_ID_RADIX = 36;
+
 /**
  * Create transport request for chat execution
  */
@@ -108,5 +110,5 @@ export function validateStreamRequest(request: IStreamExecutionRequest): {
  * Generate unique request ID
  */
 function generateRequestId(): string {
-    return `req_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+    return `req_${Date.now()}_${Math.random().toString(RANDOM_ID_RADIX).substring(2)}`;
 } 

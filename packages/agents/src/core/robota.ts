@@ -29,6 +29,9 @@ import type { IToolExecutionContext, TToolParameters } from '../interfaces/tool'
 import type { TUniversalValue } from '../interfaces/types';
 import type { IModuleResultData, IModuleExecutionContext } from '../abstracts/abstract-module';
 
+const ID_RADIX = 36;
+const ID_RANDOM_LENGTH = 9;
+
 /**
  * Reusable type definitions for Robota agent
  */
@@ -195,7 +198,7 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
 
         this.name = config.name;
         this.config = config;
-        this.conversationId = config.conversationId || `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        this.conversationId = config.conversationId || `conv_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
         this.logger = createLogger('Robota');
         this.startTime = Date.now();
 

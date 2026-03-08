@@ -1,3 +1,6 @@
+const RANDOM_ID_BASE = 36;
+const RANDOM_ID_LENGTH = 6;
+
 import type {
     IEventEmitterPlugin,
     IEventEmitterEventData,
@@ -391,7 +394,7 @@ export class ExecutionSubscriber {
      * Generate unique block ID
      */
     private generateBlockId(): string {
-        return `block_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+        return `block_${Date.now()}_${Math.random().toString(RANDOM_ID_BASE).substr(2, RANDOM_ID_LENGTH)}`;
     }
 
     /**

@@ -28,6 +28,11 @@
  * ```
  */
 
+const STATS_REFRESH_INTERVAL_MS = 1000;
+const RECENTLY_ACTIVE_THRESHOLD_MS = 5000;
+const MS_PER_SECOND = 1000;
+const MS_PER_MINUTE = 60000;
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePlayground } from '../contexts/playground-context';
 import type { IPlaygroundMetrics } from '../types/playground-statistics';
@@ -130,7 +135,7 @@ export function usePlaygroundStatistics(): IPlaygroundStatisticsHookResult {
         updateStats();
 
         // Refresh every second for real-time updates
-        const interval = setInterval(updateStats, 1000);
+        const interval = setInterval(updateStats, STATS_REFRESH_INTERVAL_MS);
 
         return () => clearInterval(interval);
     }, [
@@ -193,7 +198,7 @@ export function usePlaygroundStatistics(): IPlaygroundStatisticsHookResult {
         const formattedResponseTime = formatResponseTime(rawStatistics.averageResponseTime);
 
         // Consider "active" if updated within the last 5 seconds
-        const isRecentlyActive = (Date.now() - rawStatistics.lastUpdated.getTime()) < 5000;
+        const isRecentlyActive = (Date.now() - rawStatistics.lastUpdated.getTime()) < RECENTLY_ACTIVE_THRESHOLD_MS;
 
         return {
             // Core execution metrics
@@ -236,13 +241,13 @@ export function usePlaygroundStatistics(): IPlaygroundStatisticsHookResult {
 function formatResponseTime(milliseconds: number): string {
     if (milliseconds === 0) return '0ms';
 
-    if (milliseconds < 1000) {
+    if (milliseconds < MS_PER_SECOND) {
         return `${Math.round(milliseconds)}ms`;
-    } else if (milliseconds < 60000) {
-        return `${(milliseconds / 1000).toFixed(1)}s`;
+    } else if (milliseconds < MS_PER_MINUTE) {
+        return `${(milliseconds / MS_PER_SECOND).toFixed(1)}s`;
     } else {
-        const minutes = Math.floor(milliseconds / 60000);
-        const seconds = Math.round((milliseconds % 60000) / 1000);
+        const minutes = Math.floor(milliseconds / MS_PER_MINUTE);
+        const seconds = Math.round((milliseconds % MS_PER_MINUTE) / MS_PER_SECOND);
         return `${minutes}m ${seconds}s`;
     }
 } 

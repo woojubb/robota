@@ -4,6 +4,9 @@ import { AbstractTool, type IAbstractToolOptions } from '../../abstracts/abstrac
 import type { IEventService, IOwnerPathSegment } from '../../services/event-service';
 import { ToolExecutionError } from '../../utils/errors';
 
+const ID_RADIX = 36;
+const ID_SUBSTR_END = 8;
+
 export interface IRelayMcpContext {
     /** OwnerPath including agent segment appended for this relay execution */
     ownerPath: IOwnerPathSegment[];
@@ -58,7 +61,7 @@ export class RelayMcpTool extends AbstractTool<TToolParameters, IToolResult> {
             throw new ToolExecutionError('RelayMcpTool requires ownerPath bound to tool segment', this.schema.name);
         }
 
-        const agentId = `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const agentId = `agent_${Date.now()}_${Math.random().toString(ID_RADIX).slice(2, ID_SUBSTR_END)}`;
         const agentOwnerPath: IOwnerPathSegment[] = [
             ...baseOwnerPath.map(segment => ({ ...segment })),
             { type: 'agent', id: agentId }

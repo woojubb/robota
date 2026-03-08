@@ -19,11 +19,16 @@ import type {
 } from '../../../lib/playground/block-tracking';
 import { ExecutionTreeDebug } from '../execution-tree-debug';
 
+const CONTAINER_HEIGHT_MD = 400;
+const CONTAINER_HEIGHT_LG = 600;
+const CONTAINER_HEIGHT_XL = 800;
+const MS_PER_SECOND = 1000;
+
 function getContainerHeightClass(height: string | number): string {
     if (height === '100%') return 'h-full';
-    if (height === '400px' || height === 400) return 'h-[400px]';
-    if (height === '600px' || height === 600) return 'h-[600px]';
-    if (height === '800px' || height === 800) return 'h-[800px]';
+    if (height === '400px' || height === CONTAINER_HEIGHT_MD) return 'h-[400px]';
+    if (height === '600px' || height === CONTAINER_HEIGHT_LG) return 'h-[600px]';
+    if (height === '800px' || height === CONTAINER_HEIGHT_XL) return 'h-[800px]';
     return 'h-[600px]';
 }
 
@@ -238,9 +243,9 @@ const BlockInspectionPanel: React.FC<{
                     <div>
                         <label className="text-xs font-medium text-gray-500">Duration</label>
                         <div className="text-sm">
-                            {blockMetadata.executionContext.duration < 1000
+                            {blockMetadata.executionContext.duration < MS_PER_SECOND
                                 ? `${blockMetadata.executionContext.duration}ms`
-                                : `${(blockMetadata.executionContext.duration / 1000).toFixed(1)}s`
+                                : `${(blockMetadata.executionContext.duration / MS_PER_SECOND).toFixed(1)}s`
                             }
                         </div>
                     </div>

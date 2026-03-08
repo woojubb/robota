@@ -1,5 +1,9 @@
 'use client';
 
+const PERCENTAGE_MULTIPLIER = 100;
+const RANDOM_ID_BASE = 36;
+const RANDOM_ID_LENGTH = 9;
+
 /**
  * PluginContainerBlock - Visual Plugin Configuration Component
  * 
@@ -447,13 +451,13 @@ function IndividualPluginBlock({
                                     <div className="flex items-center gap-2">
                                         <Progress
                                             value={pluginBlock.stats.calls > 0
-                                                ? ((pluginBlock.stats.calls - pluginBlock.stats.errors) / pluginBlock.stats.calls) * 100
+                                                ? ((pluginBlock.stats.calls - pluginBlock.stats.errors) / pluginBlock.stats.calls) * PERCENTAGE_MULTIPLIER
                                                 : 0}
                                             className="h-2 flex-1"
                                         />
                                         <span className="text-xs text-gray-600">
                                             {pluginBlock.stats.calls > 0 ?
-                                                Math.round(((pluginBlock.stats.calls - pluginBlock.stats.errors) / pluginBlock.stats.calls) * 100)
+                                                Math.round(((pluginBlock.stats.calls - pluginBlock.stats.errors) / pluginBlock.stats.calls) * PERCENTAGE_MULTIPLIER)
                                                 : 0
                                             }%
                                         </span>
@@ -563,7 +567,7 @@ export function PluginContainerBlock({
         }
 
         const newPlugin: IPluginBlock = {
-            id: `plugin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: `plugin_${Date.now()}_${Math.random().toString(RANDOM_ID_BASE).substr(2, RANDOM_ID_LENGTH)}`,
             plugin: {
                 name: pluginDefinition.name,
                 version: '1.0.0',
