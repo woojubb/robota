@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ConfigurationError, PluginError } from '../../utils/errors';
 
 // Mock logger before importing LoggingPlugin
@@ -48,6 +48,30 @@ class SpyStorage implements ILogStorage {
     async close(): Promise<void> {
         this.closeCount++;
     }
+}
+
+// Failing storage that throws on write
+class FailingStorage implements ILogStorage {
+    async write(): Promise<void> {
+        throw new Error('Storage write failed');
+    }
+
+    async flush(): Promise<void> {
+        throw new Error('Storage flush failed');
+    }
+
+    async close(): Promise<void> {}
+}
+
+/**
+ * Inject a spy storage into a LoggingPlugin instance.
+ * Returns the spy so tests can inspect written entries.
+ */
+function injectSpyStorage(plugin: LoggingPlugin): SpyStorage {
+    const spy = new SpyStorage();
+    // Access private field for test injection — acceptable in test scope
+    (plugin as unknown as { storage: ILogStorage }).storage = spy;
+    return spy;
 }
 
 describe('LoggingPlugin', () => {
@@ -115,115 +139,149 @@ describe('LoggingPlugin', () => {
     // Log level filtering
     // ----------------------------------------------------------------
     describe('log level filtering', () => {
-        it('should log messages at or above the configured level', async () => {
+        it('should write entries at or above the configured level', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'warn' });
+            const spy = injectSpyStorage(plugin);
 
-            // Access internal storage via logging behavior
-            // Since silent storage discards, we test via the public log method
-            // The key behavior: shouldLog filters based on level
-            await expect(plugin.log('error', 'Error msg')).resolves.not.toThrow();
-            await expect(plugin.log('warn', 'Warn msg')).resolves.not.toThrow();
+            await plugin.log('error', 'Error msg');
+            await plugin.log('warn', 'Warn msg');
+
+            expect(spy.entries).toHaveLength(2);
+            expect(spy.entries[0].level).toBe('error');
+            expect(spy.entries[1].level).toBe('warn');
         });
 
-        it('should filter messages below the configured level', async () => {
-            // With level 'error', only 'error' messages should pass
+        it('should not write entries below the configured level', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'error' });
+            const spy = injectSpyStorage(plugin);
 
-            // These should be silently filtered (no error, just no output)
-            await expect(plugin.info('Info msg')).resolves.not.toThrow();
-            await expect(plugin.debug('Debug msg')).resolves.not.toThrow();
-            await expect(plugin.warn('Warn msg')).resolves.not.toThrow();
+            await plugin.info('Info msg');
+            await plugin.debug('Debug msg');
+            await plugin.warn('Warn msg');
+
+            expect(spy.entries).toHaveLength(0);
         });
 
-        it('should pass all levels when set to debug', async () => {
+        it('should write all levels when set to debug', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'debug' });
+            const spy = injectSpyStorage(plugin);
 
-            await expect(plugin.debug('d')).resolves.not.toThrow();
-            await expect(plugin.info('i')).resolves.not.toThrow();
-            await expect(plugin.warn('w')).resolves.not.toThrow();
-            await expect(plugin.error('e')).resolves.not.toThrow();
+            await plugin.debug('d');
+            await plugin.info('i');
+            await plugin.warn('w');
+            await plugin.error('e');
+
+            expect(spy.entries).toHaveLength(4);
+            expect(spy.entries.map(e => e.level)).toEqual(['debug', 'info', 'warn', 'error']);
         });
     });
 
     // ----------------------------------------------------------------
-    // Log methods
+    // Log entry structure
     // ----------------------------------------------------------------
-    describe('log methods', () => {
-        it('should support debug level', async () => {
-            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'debug' });
-            await expect(plugin.debug('Debug message')).resolves.not.toThrow();
-        });
-
-        it('should support info level', async () => {
+    describe('log entry structure', () => {
+        it('should write entry with timestamp, level, and message', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.info('Info message')).resolves.not.toThrow();
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.info('Test message');
+
+            expect(spy.entries).toHaveLength(1);
+            const entry = spy.entries[0];
+            expect(entry.level).toBe('info');
+            expect(entry.message).toBe('Test message');
+            expect(entry.timestamp).toBeInstanceOf(Date);
         });
 
-        it('should support warn level', async () => {
-            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'warn' });
-            await expect(plugin.warn('Warn message')).resolves.not.toThrow();
+        it('should include context when provided', async () => {
+            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.info('With context', { operation: 'test', duration: 100 });
+
+            const entry = spy.entries[0];
+            expect(entry.context).toEqual({ operation: 'test', duration: 100 });
         });
 
-        it('should support error level with Error object', async () => {
-            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'error' });
-            const err = new Error('Something broke');
-            await expect(plugin.error('Error occurred', err)).resolves.not.toThrow();
+        it('should include metadata when provided', async () => {
+            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.log('info', 'With metadata', undefined, { executionId: 'exec-1' });
+
+            const entry = spy.entries[0];
+            expect(entry.metadata).toEqual({ executionId: 'exec-1' });
         });
 
-        it('should include error stack when includeStackTrace is true', async () => {
+        it('should include error details when includeStackTrace is true', async () => {
             const plugin = new LoggingPlugin({
                 strategy: 'silent',
                 level: 'error',
                 includeStackTrace: true
             });
+            const spy = injectSpyStorage(plugin);
 
             const err = new Error('Stack trace test');
-            await expect(plugin.error('Error with stack', err, { toolName: 'test' })).resolves.not.toThrow();
-        });
+            await plugin.error('Error occurred', err);
 
-        it('should accept context and metadata', async () => {
-            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.info(
-                'Test message',
-                { operation: 'test', duration: 100 },
-                { executionId: 'exec-1' }
-            )).resolves.not.toThrow();
+            const entry = spy.entries[0];
+            expect(entry.context?.errorMessage).toBe('Stack trace test');
+            expect(entry.context?.errorStack).toBeDefined();
         });
     });
 
     // ----------------------------------------------------------------
-    // Convenience logging methods
+    // Convenience methods
     // ----------------------------------------------------------------
     describe('convenience methods', () => {
-        it('should log execution start', async () => {
+        it('should log execution start with truncated user input', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.logExecutionStart('exec-1', 'Hello world'))
-                .resolves.not.toThrow();
-        });
+            const spy = injectSpyStorage(plugin);
 
-        it('should truncate long user input in logExecutionStart', async () => {
-            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
             const longInput = 'x'.repeat(200);
-            await expect(plugin.logExecutionStart('exec-1', longInput))
-                .resolves.not.toThrow();
+            await plugin.logExecutionStart('exec-1', longInput);
+
+            expect(spy.entries).toHaveLength(1);
+            const entry = spy.entries[0];
+            expect(entry.message).toBe('Execution started');
+            expect((entry.context?.userInput as string).length).toBeLessThanOrEqual(100);
+            expect(entry.metadata?.executionId).toBe('exec-1');
+            expect(entry.metadata?.operation).toBe('execution_start');
         });
 
-        it('should log execution complete', async () => {
+        it('should log execution complete with duration', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.logExecutionComplete('exec-1', 150))
-                .resolves.not.toThrow();
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.logExecutionComplete('exec-1', 150);
+
+            const entry = spy.entries[0];
+            expect(entry.message).toBe('Execution completed');
+            expect(entry.context?.duration).toBe(150);
+            expect(entry.metadata?.executionId).toBe('exec-1');
         });
 
-        it('should log successful tool execution', async () => {
+        it('should log successful tool execution at info level', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.logToolExecution('search-tool', 'exec-1', 50, true))
-                .resolves.not.toThrow();
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.logToolExecution('search-tool', 'exec-1', 50, true);
+
+            const entry = spy.entries[0];
+            expect(entry.level).toBe('info');
+            expect(entry.message).toBe('Tool executed successfully');
+            expect(entry.context?.toolName).toBe('search-tool');
         });
 
-        it('should log failed tool execution', async () => {
+        it('should log failed tool execution at error level', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.logToolExecution('search-tool', 'exec-1', 50, false))
-                .resolves.not.toThrow();
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.logToolExecution('search-tool', 'exec-1', 50, false);
+
+            const entry = spy.entries[0];
+            expect(entry.level).toBe('error');
+            expect(entry.message).toBe('Tool execution failed');
         });
     });
 
@@ -264,122 +322,119 @@ describe('LoggingPlugin', () => {
             };
         }
 
-        it('should handle MODULE_INITIALIZE_START event', async () => {
+        it('should write info entry for MODULE_INITIALIZE_START', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.onModuleEvent(
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.onModuleEvent(
                 EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START,
                 createEventData()
-            )).resolves.not.toThrow();
+            );
+
+            expect(spy.entries).toHaveLength(1);
+            expect(spy.entries[0].level).toBe('info');
+            expect(spy.entries[0].message).toContain('initialization started');
+            expect(spy.entries[0].context?.moduleName).toBe('TestModule');
         });
 
-        it('should handle MODULE_INITIALIZE_COMPLETE event', async () => {
+        it('should write info entry for MODULE_INITIALIZE_COMPLETE with duration', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.onModuleEvent(
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.onModuleEvent(
                 EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE,
                 createEventData({
                     type: EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE,
                     data: { moduleName: 'TestModule', moduleType: 'processor', duration: 50 }
                 })
-            )).resolves.not.toThrow();
+            );
+
+            expect(spy.entries).toHaveLength(1);
+            expect(spy.entries[0].message).toContain('initialization completed');
+            expect(spy.entries[0].context?.duration).toBe(50);
         });
 
-        it('should handle MODULE_INITIALIZE_ERROR event', async () => {
+        it('should write error entry for MODULE_INITIALIZE_ERROR', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.onModuleEvent(
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.onModuleEvent(
                 EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR,
                 createEventData({
                     type: EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR,
                     error: new Error('Init failed')
                 })
-            )).resolves.not.toThrow();
+            );
+
+            expect(spy.entries).toHaveLength(1);
+            expect(spy.entries[0].level).toBe('error');
+            expect(spy.entries[0].message).toContain('initialization failed');
         });
 
-        it('should handle MODULE_EXECUTION_START event', async () => {
+        it('should write debug entry for MODULE_EXECUTION_START', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'debug' });
-            await expect(plugin.onModuleEvent(
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.onModuleEvent(
                 EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START,
                 createEventData({ type: EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START })
-            )).resolves.not.toThrow();
+            );
+
+            expect(spy.entries).toHaveLength(1);
+            expect(spy.entries[0].level).toBe('debug');
+            expect(spy.entries[0].message).toContain('execution started');
         });
 
-        it('should handle MODULE_EXECUTION_COMPLETE event', async () => {
-            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'debug' });
-            await expect(plugin.onModuleEvent(
-                EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE,
-                createEventData({
-                    type: EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE,
-                    data: { moduleName: 'TestModule', moduleType: 'processor', duration: 100, success: true }
-                })
-            )).resolves.not.toThrow();
-        });
-
-        it('should handle MODULE_EXECUTION_ERROR event', async () => {
+        it('should write error entry for MODULE_EXECUTION_ERROR', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.onModuleEvent(
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.onModuleEvent(
                 EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR,
                 createEventData({
                     type: EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR,
                     error: new Error('Execution failed')
                 })
-            )).resolves.not.toThrow();
+            );
+
+            expect(spy.entries).toHaveLength(1);
+            expect(spy.entries[0].level).toBe('error');
         });
 
-        it('should handle MODULE_DISPOSE_START event', async () => {
-            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'debug' });
-            await expect(plugin.onModuleEvent(
-                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START,
-                createEventData({ type: EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START })
-            )).resolves.not.toThrow();
-        });
-
-        it('should handle MODULE_DISPOSE_COMPLETE event', async () => {
+        it('should use unknown for missing module data', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.onModuleEvent(
-                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE,
-                createEventData({
-                    type: EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE,
-                    data: { moduleName: 'TestModule', moduleType: 'processor', duration: 10 }
-                })
-            )).resolves.not.toThrow();
-        });
+            const spy = injectSpyStorage(plugin);
 
-        it('should handle MODULE_DISPOSE_ERROR event', async () => {
-            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.onModuleEvent(
-                EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR,
-                createEventData({
-                    type: EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR,
-                    error: new Error('Dispose failed')
-                })
-            )).resolves.not.toThrow();
-        });
-
-        it('should not throw when event data is missing module info', async () => {
-            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
-            await expect(plugin.onModuleEvent(
+            await plugin.onModuleEvent(
                 EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START,
                 { type: EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START, timestamp: new Date() }
-            )).resolves.not.toThrow();
+            );
+
+            expect(spy.entries).toHaveLength(1);
+            expect(spy.entries[0].context?.moduleName).toBe('unknown');
         });
     });
 
     // ----------------------------------------------------------------
-    // Flush
+    // Flush and destroy
     // ----------------------------------------------------------------
-    describe('flush', () => {
-        it('should flush the storage', async () => {
+    describe('flush and destroy', () => {
+        it('should delegate flush to storage', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent' });
-            await expect(plugin.flush()).resolves.not.toThrow();
-        });
-    });
+            const spy = injectSpyStorage(plugin);
 
-    // ----------------------------------------------------------------
-    // Destroy
-    // ----------------------------------------------------------------
-    describe('destroy', () => {
-        it('should close storage on destroy', async () => {
+            await plugin.flush();
+
+            expect(spy.flushCount).toBe(1);
+        });
+
+        it('should delegate close to storage on destroy', async () => {
             const plugin = new LoggingPlugin({ strategy: 'silent' });
-            await expect(plugin.destroy()).resolves.not.toThrow();
+            const spy = injectSpyStorage(plugin);
+
+            await plugin.destroy();
+
+            expect(spy.closeCount).toBe(1);
         });
     });
 
@@ -388,12 +443,19 @@ describe('LoggingPlugin', () => {
     // ----------------------------------------------------------------
     describe('error resilience', () => {
         it('should not throw when storage write fails', async () => {
-            // Use console strategy, then the storage.write might not throw
-            // but the plugin's log method catches errors internally
-            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'debug' });
+            const plugin = new LoggingPlugin({ strategy: 'silent', level: 'info' });
+            const failing = new FailingStorage();
+            (plugin as unknown as { storage: ILogStorage }).storage = failing;
 
-            // Even if internal errors occur, the log method should not throw
-            await expect(plugin.log('info', 'Safe message')).resolves.not.toThrow();
+            await expect(plugin.info('This should not throw')).resolves.not.toThrow();
+        });
+
+        it('should throw PluginError when flush fails', async () => {
+            const plugin = new LoggingPlugin({ strategy: 'silent' });
+            const failing = new FailingStorage();
+            (plugin as unknown as { storage: ILogStorage }).storage = failing;
+
+            await expect(plugin.flush()).rejects.toThrow(PluginError);
         });
     });
 });
