@@ -141,6 +141,10 @@ All rules below are mandatory, non-negotiable, and domain-free. Domain-specific 
 - No magic numbers or strings. Use named constants with descriptive names. Exceptions: `0`, `1`, `-1` as array/math primitives.
 - Production files should not exceed 300 lines. Functions should not exceed 50 lines. Exceptions require justification in code review.
 
+### API Specification
+
+- Applications with external API endpoints must maintain standardized API specifications (e.g., OpenAPI for HTTP). See `api-spec-management` skill for workflow details.
+
 ### Process Lifecycle
 
 - Applications in `apps/` must handle SIGTERM and SIGINT for graceful shutdown.
@@ -215,6 +219,7 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 | [`tailwind-truncation`](.agents/skills/tailwind-truncation/SKILL.md) | Tailwind truncation |
 | [`logging-level-guide`](.agents/skills/logging-level-guide/SKILL.md) | Log level usage guide |
 | [`api-error-standard`](.agents/skills/api-error-standard/SKILL.md) | RFC 7807 API error responses |
+| [`api-spec-management`](.agents/skills/api-spec-management/SKILL.md) | API specification management |
 
 ## Rules and Skills Boundary
 
