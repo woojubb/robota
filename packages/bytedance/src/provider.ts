@@ -22,6 +22,21 @@ const DEFAULT_GET_VIDEO_TASK_PATH_TEMPLATE = '/contents/generations/tasks/{taskI
 const DEFAULT_CANCEL_VIDEO_TASK_PATH_TEMPLATE = '/contents/generations/tasks/{taskId}';
 const DEFAULT_TIMEOUT_MS = 60_000;
 
+/** HTTP status codes used by the Bytedance API error mapper. */
+const HTTP_UNAUTHORIZED = 401;
+const HTTP_FORBIDDEN = 403;
+const HTTP_NOT_FOUND = 404;
+const HTTP_CONFLICT = 409;
+const HTTP_TOO_MANY_REQUESTS = 429;
+const HTTP_BAD_REQUEST = 400;
+const HTTP_INTERNAL_ERROR = 500;
+
+/** Threshold (in milliseconds) above which a numeric timestamp is treated as milliseconds rather than seconds. */
+const MILLISECOND_EPOCH_THRESHOLD = 1_000_000_000_000;
+
+/** Conversion factor from seconds to milliseconds. */
+const MS_PER_SECOND = 1000;
+
 export class BytedanceProvider implements IVideoGenerationProvider {
     private readonly options: IBytedanceProviderOptions;
 
@@ -192,7 +207,7 @@ export class BytedanceProvider implements IVideoGenerationProvider {
 
     private mapHttpError(statusCode: number, responseText: string): TProviderMediaResult<never> {
         const parsedError = this.parseErrorResponse(responseText);
-        if (statusCode === 401 || statusCode === 403) {
+        if (statusCode === HTTP_UNAUTHORIZED || statusCode === HTTP_FORBIDDEN) {
             return {
                 ok: false,
                 error: {
@@ -202,7 +217,7 @@ export class BytedanceProvider implements IVideoGenerationProvider {
                 }
             };
         }
-        if (statusCode === 404) {
+        if (statusCode === HTTP_NOT_FOUND) {
             return {
                 ok: false,
                 error: {
@@ -212,7 +227,7 @@ export class BytedanceProvider implements IVideoGenerationProvider {
                 }
             };
         }
-        if (statusCode === 409) {
+        if (statusCode === HTTP_CONFLICT) {
             return {
                 ok: false,
                 error: {
@@ -222,7 +237,7 @@ export class BytedanceProvider implements IVideoGenerationProvider {
                 }
             };
         }
-        if (statusCode === 429) {
+        if (statusCode === HTTP_TOO_MANY_REQUESTS) {
             return {
                 ok: false,
                 error: {
@@ -232,7 +247,7 @@ export class BytedanceProvider implements IVideoGenerationProvider {
                 }
             };
         }
-        if (statusCode >= 400 && statusCode < 500) {
+        if (statusCode >= HTTP_BAD_REQUEST && statusCode < HTTP_INTERNAL_ERROR) {
             return {
                 ok: false,
                 error: {
@@ -367,7 +382,7 @@ export class BytedanceProvider implements IVideoGenerationProvider {
 
     private toIsoTimestamp(value: string | number | undefined): string {
         if (typeof value === 'number' && Number.isFinite(value)) {
-            const numericTimestamp = value > 1_000_000_000_000 ? value : value * 1000;
+            const numericTimestamp = value > MILLISECOND_EPOCH_THRESHOLD ? value : value * MS_PER_SECOND;
             const date = new Date(numericTimestamp);
             if (!Number.isNaN(date.getTime())) {
                 return date.toISOString();

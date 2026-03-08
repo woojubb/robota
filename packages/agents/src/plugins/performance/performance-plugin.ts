@@ -14,6 +14,12 @@ import {
 import { MemoryPerformanceStorage } from './storages/index';
 import { NodeSystemMetricsCollector } from './collectors/system-metrics-collector';
 
+const DEFAULT_MAX_ENTRIES = 5000;
+const DEFAULT_BATCH_SIZE = 100;
+const DEFAULT_FLUSH_INTERVAL_MS = 30000;
+const DEFAULT_AGGREGATION_INTERVAL_MS = 60000;
+const DEFAULT_PERFORMANCE_THRESHOLD_MS = 1000;
+
 /**
  * Collects application and system performance metrics during agent execution.
  *
@@ -67,15 +73,15 @@ export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions,
             remoteEndpoint: options.remoteEndpoint ?? '',
             prometheusEndpoint: options.prometheusEndpoint ?? '/metrics',
             remoteHeaders: options.remoteHeaders ?? {},
-            maxEntries: options.maxEntries ?? 5000,
+            maxEntries: options.maxEntries ?? DEFAULT_MAX_ENTRIES,
             monitorMemory: options.monitorMemory ?? true,
             monitorCPU: options.monitorCPU ?? true,
             monitorNetwork: options.monitorNetwork ?? false,
-            batchSize: options.batchSize ?? 100,
-            flushInterval: options.flushInterval ?? 30000,
+            batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
+            flushInterval: options.flushInterval ?? DEFAULT_FLUSH_INTERVAL_MS,
             aggregateStats: options.aggregateStats ?? true,
-            aggregationInterval: options.aggregationInterval ?? 60000,
-            performanceThreshold: options.performanceThreshold ?? 1000, // 1 second
+            aggregationInterval: options.aggregationInterval ?? DEFAULT_AGGREGATION_INTERVAL_MS,
+            performanceThreshold: options.performanceThreshold ?? DEFAULT_PERFORMANCE_THRESHOLD_MS,
             // Add plugin options defaults
             category: options.category ?? PluginCategory.MONITORING,
             priority: options.priority ?? PluginPriority.NORMAL,

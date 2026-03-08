@@ -19,6 +19,12 @@ import {
     SilentUsageStorage
 } from './storages/index';
 
+const DEFAULT_MAX_ENTRIES = 10000;
+const DEFAULT_BATCH_SIZE = 50;
+const DEFAULT_FLUSH_INTERVAL_MS = 60000;
+const DEFAULT_AGGREGATION_INTERVAL_MS = 300000;
+const DEFAULT_REMOTE_TIMEOUT_MS = 30000;
+
 /**
  * Tracks token usage, request counts, and costs across agent executions.
  *
@@ -70,13 +76,13 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
             filePath: options.filePath ?? './usage-stats.json',
             remoteEndpoint: options.remoteEndpoint ?? '',
             remoteHeaders: options.remoteHeaders ?? {},
-            maxEntries: options.maxEntries ?? 10000,
+            maxEntries: options.maxEntries ?? DEFAULT_MAX_ENTRIES,
             trackCosts: options.trackCosts ?? true,
             ...(options.costRates && { costRates: options.costRates }),
-            batchSize: options.batchSize ?? 50,
-            flushInterval: options.flushInterval ?? 60000, // 1 minute
+            batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
+            flushInterval: options.flushInterval ?? DEFAULT_FLUSH_INTERVAL_MS,
             aggregateStats: options.aggregateStats ?? true,
-            aggregationInterval: options.aggregationInterval ?? 300000, // 5 minutes
+            aggregationInterval: options.aggregationInterval ?? DEFAULT_AGGREGATION_INTERVAL_MS,
             // Add plugin options defaults
             category: options.category ?? PluginCategory.MONITORING,
             priority: options.priority ?? PluginPriority.NORMAL,
@@ -353,7 +359,7 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
                 return new RemoteUsageStorage(
                     this.pluginOptions.remoteEndpoint!,
                     '',  // apiKey - not in options
-                    30000,  // timeout - not in options
+                    DEFAULT_REMOTE_TIMEOUT_MS,
                     this.pluginOptions.remoteHeaders || {},
                     this.pluginOptions.batchSize,
                     this.pluginOptions.flushInterval

@@ -20,6 +20,8 @@ import {
 } from './event-emitter/types';
 import { InMemoryEventEmitterMetrics, type IEventEmitterMetrics } from './event-emitter/metrics';
 
+const DEFAULT_MAX_LISTENERS = 100;
+
 export type { TEventName };
 
 /**
@@ -229,7 +231,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
                 EVENT_EMITTER_EVENTS.TOOL_SUCCESS,
                 EVENT_EMITTER_EVENTS.TOOL_ERROR
             ],
-            maxListeners: options.maxListeners ?? 100,
+            maxListeners: options.maxListeners ?? DEFAULT_MAX_LISTENERS,
             async: options.async ?? true,
             catchErrors: options.catchErrors ?? true,
             filters: options.filters ?? ({} as Partial<Record<TEventName, (event: IEventEmitterEventData) => boolean>>) as Record<TEventName, (event: IEventEmitterEventData) => boolean>,

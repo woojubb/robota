@@ -1,5 +1,7 @@
 'use client';
 
+const SCREEN_READER_DELAY_MS = 100;
+
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { cn } from '../../lib/utils';
 
@@ -212,7 +214,7 @@ export function Announcer({
                 if (announcerRef.current) {
                     announcerRef.current.textContent = message;
                 }
-            }, 100);
+            }, SCREEN_READER_DELAY_MS);
         }
     }, [message]);
 

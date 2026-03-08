@@ -5,6 +5,11 @@ import { validateAgentConfig } from '../utils/validation';
 import { createLogger, type ILogger } from '../utils/logger';
 import { AgentTemplates, type ITemplateApplicationResult } from './agent-templates';
 
+const MAX_CONCURRENT_AGENTS = 100;
+const DEFAULT_TEMPERATURE = 0.7;
+const ID_RADIX = 36;
+const AGENT_ID_SUBSTR_END = 8;
+
 /**
  * Configuration options for AgentFactory
  */
@@ -71,7 +76,7 @@ export class AgentFactory {
         this.options = {
             defaultModel: options.defaultModel || 'gpt-4',
             defaultProvider: options.defaultProvider || 'openai',
-            maxConcurrentAgents: options.maxConcurrentAgents || 100,
+            maxConcurrentAgents: options.maxConcurrentAgents || MAX_CONCURRENT_AGENTS,
             defaultSystemMessage: options.defaultSystemMessage || 'You are a helpful AI assistant.',
             strictValidation: options.strictValidation ?? true,
         };
@@ -355,7 +360,7 @@ export class AgentFactory {
             defaultModel: {
                 provider: defaultModel.provider,
                 model: defaultModel.model,
-                temperature: defaultModel.temperature ?? 0.7,
+                temperature: defaultModel.temperature ?? DEFAULT_TEMPERATURE,
                 ...(defaultModel.maxTokens !== undefined && { maxTokens: defaultModel.maxTokens }),
                 ...(defaultModel.topP !== undefined && { topP: defaultModel.topP }),
                 systemMessage: defaultModel.systemMessage || this.options.defaultSystemMessage
@@ -374,7 +379,7 @@ export class AgentFactory {
      */
     private generateAgentId(): string {
         const timestamp = Date.now();
-        const random = Math.random().toString(36).substring(2, 8);
+        const random = Math.random().toString(ID_RADIX).substring(2, AGENT_ID_SUBSTR_END);
         return `agent_${timestamp}_${random}`;
     }
 

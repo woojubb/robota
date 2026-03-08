@@ -1,5 +1,8 @@
 'use client';
 
+const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_MAX_TOKENS = 2000;
+
 /**
  * AgentConfigurationBlock - Visual Agent Configuration Component
  * 
@@ -300,11 +303,11 @@ export function AgentConfigurationBlock({
                         <div className="space-y-2">
                             <div className="flex justify-between items-center">
                                 <Label className="text-xs font-medium">Temperature</Label>
-                                <span className="text-xs text-gray-500">{editedConfig.defaultModel.temperature || 0.7}</span>
+                                <span className="text-xs text-gray-500">{editedConfig.defaultModel.temperature || DEFAULT_TEMPERATURE}</span>
                             </div>
                             <input
                                 type="range"
-                                value={editedConfig.defaultModel.temperature || 0.7}
+                                value={editedConfig.defaultModel.temperature || DEFAULT_TEMPERATURE}
                                 onChange={(e) => handleConfigUpdate({
                                     defaultModel: {
                                         ...editedConfig.defaultModel,
@@ -323,11 +326,11 @@ export function AgentConfigurationBlock({
                         <div className="space-y-2">
                             <div className="flex justify-between items-center">
                                 <Label className="text-xs font-medium">Max Tokens</Label>
-                                <span className="text-xs text-gray-500">{editedConfig.defaultModel.maxTokens || 2000}</span>
+                                <span className="text-xs text-gray-500">{editedConfig.defaultModel.maxTokens || DEFAULT_MAX_TOKENS}</span>
                             </div>
                             <input
                                 type="range"
-                                value={editedConfig.defaultModel.maxTokens || 2000}
+                                value={editedConfig.defaultModel.maxTokens || DEFAULT_MAX_TOKENS}
                                 onChange={(e) => handleConfigUpdate({
                                     defaultModel: {
                                         ...editedConfig.defaultModel,

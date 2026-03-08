@@ -15,10 +15,13 @@ import { OpenAIProvider } from '@robota-sdk/openai';
 import { z } from 'zod';
 
 const DEFAULT_OPENAI_LLM_MODEL = 'gpt-4o-mini';
+const DEFAULT_TEMPERATURE = 0.2;
+const CHARS_PER_TOKEN_ESTIMATE = 1000;
+const COST_PER_TOKEN_USD = 0.001;
 
 const LlmTextOpenAiConfigSchema = z.object({
     model: z.string().default(DEFAULT_OPENAI_LLM_MODEL),
-    temperature: z.number().default(0.2),
+    temperature: z.number().default(DEFAULT_TEMPERATURE),
     maxTokens: z.number().int().positive().optional(),
     baseCostUsd: z.number().default(0)
 });
@@ -131,7 +134,7 @@ export class LlmTextOpenAiNodeDefinition extends AbstractNodeDefinition<typeof L
                 )
             };
         }
-        const estimatedCostUsd = config.baseCostUsd + (prompt.length / 1000) * 0.001;
+        const estimatedCostUsd = config.baseCostUsd + (prompt.length / CHARS_PER_TOKEN_ESTIMATE) * COST_PER_TOKEN_USD;
         return {
             ok: true,
             value: { estimatedCostUsd }

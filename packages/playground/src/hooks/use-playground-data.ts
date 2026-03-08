@@ -1,5 +1,7 @@
 'use client';
 
+const PERCENTAGE_MULTIPLIER = 100;
+
 /**
  * usePlaygroundData - Plugin Data Access Hook
  * 
@@ -134,7 +136,7 @@ export function usePlaygroundData(): IPlaygroundDataHookReturn {
 
         const totalExecutions = userMessages.length;
         const successfulExecutions = assistantMessages.length;
-        const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0;
+        const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * PERCENTAGE_MULTIPLIER : 0;
 
         // Calculate average duration between user message and assistant response
         let totalDuration = 0;

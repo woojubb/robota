@@ -39,6 +39,22 @@ interface IRateLimitInfo {
     day: { remaining: number; limit: number; resetTime: string };
 }
 
+const REFRESH_INTERVAL_MS = 30000;
+const FETCH_DELAY_MS = 500;
+const MOCK_MAX_DAILY_EXECUTIONS = 100;
+const MOCK_MAX_TOKENS = 1000;
+const MOCK_MAX_RANDOM_EXECUTIONS = 15;
+const MOCK_MINUTE_LIMIT = 5;
+const MOCK_HOUR_LIMIT = 50;
+const MOCK_DAY_LIMIT = 100;
+const MOCK_MINUTE_RESET_MS = 30000;
+const MOCK_HOUR_RESET_MS = 1800000;
+const MOCK_DAY_RESET_MS = 86400000;
+const PERCENTAGE_MULTIPLIER = 100;
+const USAGE_WARNING_THRESHOLD = 90;
+const USAGE_CAUTION_THRESHOLD = 70;
+const MOCK_MAX_RANDOM_TOKENS = 300;
+
 interface IUsageMonitorProps {
     isVisible: boolean;
     onClose?: () => void;
@@ -53,8 +69,8 @@ export function UsageMonitor({ isVisible, onClose }: IUsageMonitorProps) {
     useEffect(() => {
         if (isVisible) {
             fetchUsageStats();
-            // Refresh every 30 seconds when visible
-            const interval = setInterval(fetchUsageStats, 30000);
+            // Refresh periodically when visible
+            const interval = setInterval(fetchUsageStats, REFRESH_INTERVAL_MS);
             return () => clearInterval(interval);
         }
         return;
@@ -65,17 +81,17 @@ export function UsageMonitor({ isVisible, onClose }: IUsageMonitorProps) {
         try {
             // This would call the actual API in production
             // For now, we'll simulate the data
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, FETCH_DELAY_MS));
 
             const mockUsage: IPlaygroundUsageStats = {
-                dailyExecutions: 100,
+                dailyExecutions: MOCK_MAX_DAILY_EXECUTIONS,
                 maxConcurrentSessions: 1,
                 allowedProviders: ['openai'],
-                maxTokens: 1000,
+                maxTokens: MOCK_MAX_TOKENS,
                 currentUsage: {
-                    dailyExecutions: Math.floor(Math.random() * 15),
+                    dailyExecutions: Math.floor(Math.random() * MOCK_MAX_RANDOM_EXECUTIONS),
                     activeSessions: Math.floor(Math.random() * 2),
-                    tokensUsed: Math.floor(Math.random() * 300)
+                    tokensUsed: Math.floor(Math.random() * MOCK_MAX_RANDOM_TOKENS)
                 },
                 features: {
                     streaming: false,
@@ -86,19 +102,19 @@ export function UsageMonitor({ isVisible, onClose }: IUsageMonitorProps) {
 
             const mockRateLimit: IRateLimitInfo = {
                 minute: {
-                    remaining: Math.floor(Math.random() * 5),
-                    limit: 5,
-                    resetTime: new Date(Date.now() + 30000).toISOString()
+                    remaining: Math.floor(Math.random() * MOCK_MINUTE_LIMIT),
+                    limit: MOCK_MINUTE_LIMIT,
+                    resetTime: new Date(Date.now() + MOCK_MINUTE_RESET_MS).toISOString()
                 },
                 hour: {
-                    remaining: Math.floor(Math.random() * 50),
-                    limit: 50,
-                    resetTime: new Date(Date.now() + 1800000).toISOString()
+                    remaining: Math.floor(Math.random() * MOCK_HOUR_LIMIT),
+                    limit: MOCK_HOUR_LIMIT,
+                    resetTime: new Date(Date.now() + MOCK_HOUR_RESET_MS).toISOString()
                 },
                 day: {
-                    remaining: Math.floor(Math.random() * 100),
-                    limit: 100,
-                    resetTime: new Date(Date.now() + 86400000).toISOString()
+                    remaining: Math.floor(Math.random() * MOCK_DAY_LIMIT),
+                    limit: MOCK_DAY_LIMIT,
+                    resetTime: new Date(Date.now() + MOCK_DAY_RESET_MS).toISOString()
                 }
             };
 
@@ -114,16 +130,16 @@ export function UsageMonitor({ isVisible, onClose }: IUsageMonitorProps) {
     };
 
     const getUsageColor = (current: number, max: number): string => {
-        const percentage = (current / max) * 100;
-        if (percentage >= 90) return 'text-red-500';
-        if (percentage >= 70) return 'text-yellow-500';
+        const percentage = (current / max) * PERCENTAGE_MULTIPLIER;
+        if (percentage >= USAGE_WARNING_THRESHOLD) return 'text-red-500';
+        if (percentage >= USAGE_CAUTION_THRESHOLD) return 'text-yellow-500';
         return 'text-green-500';
     };
 
     const getProgressColor = (current: number, max: number): string => {
-        const percentage = (current / max) * 100;
-        if (percentage >= 90) return 'bg-red-500';
-        if (percentage >= 70) return 'bg-yellow-500';
+        const percentage = (current / max) * PERCENTAGE_MULTIPLIER;
+        if (percentage >= USAGE_WARNING_THRESHOLD) return 'bg-red-500';
+        if (percentage >= USAGE_CAUTION_THRESHOLD) return 'bg-yellow-500';
         return 'bg-green-500';
     };
 
@@ -175,7 +191,7 @@ export function UsageMonitor({ isVisible, onClose }: IUsageMonitorProps) {
                         </span>
                     </div>
                     <Progress
-                        value={(usage.currentUsage.dailyExecutions / usage.dailyExecutions) * 100}
+                        value={(usage.currentUsage.dailyExecutions / usage.dailyExecutions) * PERCENTAGE_MULTIPLIER}
                         className="h-2"
                     />
                 </div>
@@ -192,7 +208,7 @@ export function UsageMonitor({ isVisible, onClose }: IUsageMonitorProps) {
                         </span>
                     </div>
                     <Progress
-                        value={(usage.currentUsage.activeSessions / usage.maxConcurrentSessions) * 100}
+                        value={(usage.currentUsage.activeSessions / usage.maxConcurrentSessions) * PERCENTAGE_MULTIPLIER}
                         className="h-2"
                     />
                 </div>
@@ -209,7 +225,7 @@ export function UsageMonitor({ isVisible, onClose }: IUsageMonitorProps) {
                         </span>
                     </div>
                     <Progress
-                        value={(usage.currentUsage.tokensUsed / usage.maxTokens) * 100}
+                        value={(usage.currentUsage.tokensUsed / usage.maxTokens) * PERCENTAGE_MULTIPLIER}
                         className="h-2"
                     />
                 </div>

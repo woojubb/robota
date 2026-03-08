@@ -6,6 +6,9 @@ import type {
 import { TransportError } from './transport-interface';
 import type { ITransportRequest, ITransportResponse } from '../shared/types';
 
+const MAX_PAYLOAD_SIZE_BYTES = 104857600; // 100MB
+const SSE_DATA_PREFIX_LENGTH = 6;
+
 /**
  * HTTP Transport implementation
  * Works in both browser and Node.js environments
@@ -65,7 +68,7 @@ export class HttpTransport implements ITransport {
             streaming: false, // HTTP doesn't support true streaming
             bidirectional: false,
             compression: this.config.compression,
-            maxPayloadSize: 100 * 1024 * 1024, // 100MB
+            maxPayloadSize: MAX_PAYLOAD_SIZE_BYTES,
             protocols: ['http', 'https']
         };
     }
@@ -184,7 +187,7 @@ export class HttpTransport implements ITransport {
                         if (line.trim() === '') continue;
 
                         if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
+                            const data = line.slice(SSE_DATA_PREFIX_LENGTH);
                             if (data === '[DONE]') break;
 
                             try {

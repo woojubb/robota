@@ -10,6 +10,11 @@ import type {
 } from './types';
 import { toErrorContext, createPluginErrorContext } from './context-adapter';
 
+const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_RETRY_DELAY_MS = 1000;
+const DEFAULT_FAILURE_THRESHOLD = 5;
+const DEFAULT_CIRCUIT_BREAKER_TIMEOUT_MS = 60000;
+
 /**
  * Provides configurable error recovery using one of four strategies:
  * simple logging, circuit breaker, exponential backoff, or silent.
@@ -56,11 +61,11 @@ export class ErrorHandlingPlugin extends AbstractPlugin<IErrorHandlingPluginOpti
         this.pluginOptions = {
             enabled: options.enabled ?? true,
             strategy: options.strategy,
-            maxRetries: options.maxRetries ?? 3,
-            retryDelay: options.retryDelay ?? 1000,
+            maxRetries: options.maxRetries ?? DEFAULT_MAX_RETRIES,
+            retryDelay: options.retryDelay ?? DEFAULT_RETRY_DELAY_MS,
             logErrors: options.logErrors ?? true,
-            failureThreshold: options.failureThreshold ?? 5,
-            circuitBreakerTimeout: options.circuitBreakerTimeout ?? 60000, // 1 minute
+            failureThreshold: options.failureThreshold ?? DEFAULT_FAILURE_THRESHOLD,
+            circuitBreakerTimeout: options.circuitBreakerTimeout ?? DEFAULT_CIRCUIT_BREAKER_TIMEOUT_MS,
             // Add plugin options defaults
             category: options.category ?? PluginCategory.ERROR_HANDLING,
             priority: options.priority ?? PluginPriority.HIGH,

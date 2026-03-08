@@ -8,6 +8,8 @@ import {
 } from '@robota-sdk/dag-core';
 import type { IMediaOutputRef } from '@robota-sdk/agents';
 
+const DATA_URI_PREFIX_MAX_LENGTH = 64;
+
 const DEFAULT_DAG_DEV_PORT = 3011;
 
 /** Represents a base64-encoded inline image ready to send to the Gemini API. */
@@ -194,7 +196,7 @@ export async function toInlineImageSource(
                 error: buildValidationError(
                     'DAG_VALIDATION_GEMINI_IMAGE_INPUT_DATA_URI_INVALID',
                     'Gemini image input data URI must be base64 encoded',
-                    { uriPrefix: uri.slice(0, 64) }
+                    { uriPrefix: uri.slice(0, DATA_URI_PREFIX_MAX_LENGTH) }
                 )
             };
         }

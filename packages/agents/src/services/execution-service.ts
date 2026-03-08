@@ -22,6 +22,18 @@ import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
 import type { ConversationSession } from '../managers/conversation-history-manager';
 
+const PREVIEW_LENGTH = 100;
+const CONTENT_PREVIEW_LENGTH = 200;
+const SHORT_PREVIEW_LENGTH = 50;
+const WORDS_PER_MINUTE = 200;
+const HIGH_COMPLEXITY_THRESHOLD = 1000;
+const MEDIUM_COMPLEXITY_THRESHOLD = 300;
+const HIGH_INPUT_COMPLEXITY_THRESHOLD = 200;
+const MEDIUM_INPUT_COMPLEXITY_THRESHOLD = 50;
+const LAST_MESSAGES_SLICE = -5;
+const ID_RADIX = 36;
+const ID_RANDOM_LENGTH = 9;
+
 /**
  * Provider and tools information resolved at the start of execution
  */
@@ -354,7 +366,7 @@ export class ExecutionService {
                 {
                     result: {
                         success: true,
-                        data: result.response.substring(0, 100) + '...'
+                        data: result.response.substring(0, PREVIEW_LENGTH) + '...'
                     },
                     metadata: {
                         method: 'execute',
@@ -539,7 +551,7 @@ export class ExecutionService {
                     messageType: 'user_message',
                     hasQuestions: input.includes('?'),
                     containsUrgency: /urgent|asap|critical|emergency/i.test(input),
-                    estimatedComplexity: input.length > 200 ? 'high' : input.length > 50 ? 'medium' : 'low'
+                    estimatedComplexity: input.length > HIGH_INPUT_COMPLEXITY_THRESHOLD ? 'high' : input.length > MEDIUM_INPUT_COMPLEXITY_THRESHOLD ? 'medium' : 'low'
                 }
             },
             conversationId,
@@ -684,20 +696,20 @@ export class ExecutionService {
                     responseLength: responseContent.length,
                     wordCount: countWords(responseContent),
                     responseTime: responseDuration,
-                    contentPreview: responseContent.length > 200
-                        ? responseContent.substring(0, 200) + '...'
+                    contentPreview: responseContent.length > CONTENT_PREVIEW_LENGTH
+                        ? responseContent.substring(0, CONTENT_PREVIEW_LENGTH) + '...'
                         : responseContent
                 },
                 result: {
                     success: true,
-                    data: responseContent.substring(0, 100) + '...',
+                    data: responseContent.substring(0, PREVIEW_LENGTH) + '...',
                     fullResponse: responseContent,
                     responseMetrics: {
                         length: responseContent.length,
-                        estimatedReadTime: Math.ceil(countWords(responseContent) / 200),
+                        estimatedReadTime: Math.ceil(countWords(responseContent) / WORDS_PER_MINUTE),
                         hasCodeBlocks: /```/.test(responseContent),
                         hasLinks: /https?:\/\//.test(responseContent),
-                        complexity: responseContent.length > 1000 ? 'high' : responseContent.length > 300 ? 'medium' : 'low'
+                        complexity: responseContent.length > HIGH_COMPLEXITY_THRESHOLD ? 'high' : responseContent.length > MEDIUM_COMPLEXITY_THRESHOLD ? 'medium' : 'low'
                     }
                 },
                 metadata: {
@@ -872,7 +884,7 @@ export class ExecutionService {
             this.logger.debug('Adding tool result to conversation', {
                 toolCallId: toolCall.id,
                 toolName: toolCallName,
-                content: content.substring(0, 100),
+                content: content.substring(0, PREVIEW_LENGTH),
                 round: currentRound,
                 currentHistoryLength: conversationSession.getMessages().length
             });
@@ -1001,7 +1013,7 @@ export class ExecutionService {
             fullHistory: conversationMessages.map((m, index) => ({
                 index,
                 role: m.role,
-                content: m.content?.substring(0, 100),
+                content: m.content?.substring(0, PREVIEW_LENGTH),
                 hasToolCalls: 'toolCalls' in m ? !!m.toolCalls?.length : false,
                 toolCallId: 'toolCallId' in m ? m.toolCallId : undefined,
                 toolCallsCount: 'toolCalls' in m ? m.toolCalls?.length : 0
@@ -1013,9 +1025,9 @@ export class ExecutionService {
         this.logger.debug('Sending messages to AI provider', {
             round: currentRound,
             messageCount: conversationMessages.length,
-            lastFewMessages: conversationMessages.slice(-5).map(m => ({
+            lastFewMessages: conversationMessages.slice(LAST_MESSAGES_SLICE).map(m => ({
                 role: m.role,
-                content: m.content?.substring(0, 50),
+                content: m.content?.substring(0, SHORT_PREVIEW_LENGTH),
                 hasToolCalls: 'toolCalls' in m ? !!m.toolCalls?.length : false,
                 toolCallId: 'toolCallId' in m ? m.toolCallId : undefined
             }))
@@ -1485,7 +1497,7 @@ export class ExecutionService {
      * Generate a unique execution ID
      */
     private generateExecutionId(): string {
-        return `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return `exec_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
     }
 
     /**

@@ -5,6 +5,12 @@ import type { ILogger } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
 import type { IAIProvider } from '@robota-sdk/agents';
 
+const HTTP_OK = 200;
+const HTTP_BAD_REQUEST = 400;
+const HTTP_NOT_FOUND = 404;
+const HTTP_INTERNAL_ERROR = 500;
+const CONTENT_PREVIEW_LENGTH = 30;
+
 /**
  * Server status interface
  */
@@ -119,21 +125,21 @@ export class RemoteServer {
                 this.logger.info('🔧 [REMOTE-SERVER] Tools:', tools?.length || 0);
 
                 if (!provider || typeof provider !== 'string') {
-                    res.status(400).json({ error: 'Missing or invalid field: provider must be a string' });
+                    res.status(HTTP_BAD_REQUEST).json({ error: 'Missing or invalid field: provider must be a string' });
                     return;
                 }
                 if (!model || typeof model !== 'string') {
-                    res.status(400).json({ error: 'Missing or invalid field: model must be a string' });
+                    res.status(HTTP_BAD_REQUEST).json({ error: 'Missing or invalid field: model must be a string' });
                     return;
                 }
                 if (!messages || !Array.isArray(messages)) {
-                    res.status(400).json({ error: 'Missing or invalid field: messages must be an array' });
+                    res.status(HTTP_BAD_REQUEST).json({ error: 'Missing or invalid field: messages must be an array' });
                     return;
                 }
 
                 const providerInstance = this.providers.get(provider);
                 if (!providerInstance) {
-                    res.status(400).json({
+                    res.status(HTTP_BAD_REQUEST).json({
                         error: `Provider '${provider}' not found`,
                         availableProviders: Array.from(this.providers.keys())
                     });
@@ -160,7 +166,7 @@ export class RemoteServer {
 
             } catch (error) {
                 this.logger.error('Chat execution error:', error instanceof Error ? error : new Error(String(error)));
-                res.status(500).json({
+                res.status(HTTP_INTERNAL_ERROR).json({
                     error: 'Chat execution failed',
                     message: error instanceof Error ? error.message : 'Unknown error'
                 });
@@ -179,21 +185,21 @@ export class RemoteServer {
                 this.logger.info('🔧 [REMOTE-SERVER] Tools:', tools?.length || 0);
 
                 if (!provider || typeof provider !== 'string') {
-                    res.status(400).json({ error: 'Missing or invalid field: provider must be a string' });
+                    res.status(HTTP_BAD_REQUEST).json({ error: 'Missing or invalid field: provider must be a string' });
                     return;
                 }
                 if (!model || typeof model !== 'string') {
-                    res.status(400).json({ error: 'Missing or invalid field: model must be a string' });
+                    res.status(HTTP_BAD_REQUEST).json({ error: 'Missing or invalid field: model must be a string' });
                     return;
                 }
                 if (!messages || !Array.isArray(messages)) {
-                    res.status(400).json({ error: 'Missing or invalid field: messages must be an array' });
+                    res.status(HTTP_BAD_REQUEST).json({ error: 'Missing or invalid field: messages must be an array' });
                     return;
                 }
 
                 const providerInstance = this.providers.get(provider);
                 if (!providerInstance) {
-                    res.status(400).json({
+                    res.status(HTTP_BAD_REQUEST).json({
                         error: `Provider '${provider}' not found`,
                         availableProviders: Array.from(this.providers.keys())
                     });
@@ -201,7 +207,7 @@ export class RemoteServer {
                 }
 
                 // Setup SSE
-                res.writeHead(200, {
+                res.writeHead(HTTP_OK, {
                     'Content-Type': 'text/event-stream',
                     'Cache-Control': 'no-cache',
                     'Connection': 'keep-alive',
@@ -229,7 +235,7 @@ export class RemoteServer {
                         const toolCalls = chunk.role === 'assistant' ? chunk.toolCalls : undefined;
                         this.logger.debug('🔍 [REMOTE-SERVER-CHUNK] Raw chunk from OpenAI:', {
                             role: chunk.role,
-                            content: (chunk.content ?? '').substring(0, 30) + '...',
+                            content: (chunk.content ?? '').substring(0, CONTENT_PREVIEW_LENGTH) + '...',
                             hasToolCalls: !!toolCalls,
                             toolCallsLength: toolCalls?.length || 0
                         });
@@ -253,7 +259,7 @@ export class RemoteServer {
 
             } catch (error) {
                 this.logger.error('Stream setup error:', error instanceof Error ? error : new Error(String(error)));
-                res.status(500).json({
+                res.status(HTTP_INTERNAL_ERROR).json({
                     error: 'Stream setup failed',
                     message: error instanceof Error ? error.message : 'Unknown error'
                 });
@@ -266,7 +272,7 @@ export class RemoteServer {
             const providerInstance = this.providers.get(provider);
 
             if (!providerInstance) {
-                res.status(404).json({
+                res.status(HTTP_NOT_FOUND).json({
                     error: `Provider '${provider}' not found`,
                     availableProviders: Array.from(this.providers.keys())
                 });

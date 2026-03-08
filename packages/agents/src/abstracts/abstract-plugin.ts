@@ -31,20 +31,26 @@ export enum PluginCategory {
     CUSTOM = 'custom'
 }
 
+const PRIORITY_CRITICAL = 1000;
+const PRIORITY_HIGH = 800;
+const PRIORITY_NORMAL = 500;
+const PRIORITY_LOW = 200;
+const PRIORITY_MINIMAL = 100;
+
 /**
  * Plugin priority levels
  */
 export enum PluginPriority {
     /** Highest priority - executed first */
-    CRITICAL = 1000,
+    CRITICAL = PRIORITY_CRITICAL,
     /** High priority */
-    HIGH = 800,
+    HIGH = PRIORITY_HIGH,
     /** Normal priority (default) */
-    NORMAL = 500,
+    NORMAL = PRIORITY_NORMAL,
     /** Low priority */
-    LOW = 200,
+    LOW = PRIORITY_LOW,
     /** Lowest priority - executed last */
-    MINIMAL = 100
+    MINIMAL = PRIORITY_MINIMAL
 }
 
 /**

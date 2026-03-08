@@ -1,5 +1,11 @@
 'use client';
 
+const TOKEN_ESTIMATE_MULTIPLIER = 1.3;
+const TYPING_TIMEOUT_MS = 1000;
+const MAX_MESSAGE_LENGTH = 4000;
+const CHARS_PER_TOKEN_ESTIMATE = 4;
+const MAX_TOKEN_WARNING = 1000;
+
 /**
  * useChatInput - Real-time Chat Management Hook
  * 
@@ -153,7 +159,7 @@ export function useChatInput(options: IChatInputOptions = {}): IChatInputHookRet
             errors,
             wordCount,
             characterCount,
-            estimatedTokens: Math.ceil(wordCount * 1.3) // Rough estimate
+            estimatedTokens: Math.ceil(wordCount * TOKEN_ESTIMATE_MULTIPLIER) // Rough estimate
         };
     }, [inputValue, enableValidation, maxLength]);
 
@@ -172,7 +178,7 @@ export function useChatInput(options: IChatInputOptions = {}): IChatInputHookRet
 
         typingTimeoutRef.current = setTimeout(() => {
             setIsTyping(false);
-        }, 1000);
+        }, TYPING_TIMEOUT_MS);
 
         // Show suggestions if appropriate (temporarily disabled)
         setShowSuggestions(false); // Simplified for now
@@ -319,12 +325,12 @@ export function useChatInput(options: IChatInputOptions = {}): IChatInputHookRet
             errors.push('Message cannot be empty');
         }
 
-        if (text.length > 4000) {
+        if (text.length > MAX_MESSAGE_LENGTH) {
             errors.push('Message exceeds maximum length');
         }
 
-        const estimatedTokens = Math.ceil(text.length / 4);
-        if (estimatedTokens > 1000) {
+        const estimatedTokens = Math.ceil(text.length / CHARS_PER_TOKEN_ESTIMATE);
+        if (estimatedTokens > MAX_TOKEN_WARNING) {
             errors.push('Message may exceed token limit');
         }
 

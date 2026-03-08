@@ -74,11 +74,17 @@ function isPlaygroundWebSocketMessage(value: TUniversalValue): value is IPlaygro
 /**
  * WebSocket client for Playground real-time communication
  */
+const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_BASE_DELAY_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 30000;
+const PING_INTERVAL_MS = 30000;
+const NORMAL_CLOSE_CODE = 1000;
+
 export class PlaygroundWebSocketClient {
     private ws?: WebSocket;
     private status: IPlaygroundConnectionStatus = { connected: false, authenticated: false };
     private reconnectAttempts = 0;
-    private maxReconnectAttempts = 5;
+    private maxReconnectAttempts = DEFAULT_MAX_RECONNECT_ATTEMPTS;
     private reconnectTimeout?: NodeJS.Timeout;
     private pingInterval?: NodeJS.Timeout;
     private eventHandlers = new Map<string, Set<TPlaygroundWebSocketEventHandler>>();
@@ -162,7 +168,7 @@ export class PlaygroundWebSocketClient {
                     this.emit(PLAYGROUND_WS_CLIENT_EVENTS.CONNECTION, { connected: false });
 
                     // Attempt reconnection if not intentional
-                    if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
+                    if (event.code !== NORMAL_CLOSE_CODE && this.reconnectAttempts < this.maxReconnectAttempts) {
                         this.scheduleReconnect();
                     }
                 };
@@ -193,7 +199,7 @@ export class PlaygroundWebSocketClient {
         this.stopPingPong();
 
         if (this.ws) {
-            this.ws.close(1000, 'Client disconnect');
+            this.ws.close(NORMAL_CLOSE_CODE, 'Client disconnect');
             this.ws = undefined;
         }
 
@@ -377,7 +383,7 @@ export class PlaygroundWebSocketClient {
 
     private scheduleReconnect(): void {
         this.reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
+        const delay = Math.min(RECONNECT_BASE_DELAY_MS * Math.pow(2, this.reconnectAttempts - 1), MAX_RECONNECT_DELAY_MS);
 
         WebLogger.info('Scheduling WebSocket reconnect', {
             attempt: this.reconnectAttempts,
@@ -397,7 +403,7 @@ export class PlaygroundWebSocketClient {
             if (this.ws?.readyState === WebSocket.OPEN) {
                 this.sendMessage({ type: PLAYGROUND_WS_MESSAGE_TYPES.PING });
             }
-        }, 30000); // Ping every 30 seconds
+        }, PING_INTERVAL_MS); // Ping periodically
     }
 
     private stopPingPong(): void {

@@ -6,6 +6,8 @@
 
 import type { IChatResponseData, ITransportRequest } from '../shared/types';
 
+const RANDOM_ID_RADIX = 36;
+
 export interface IWebSocketRequestPayload {
     id: string;
     type: 'request';
@@ -176,5 +178,5 @@ export function serializeMessage(message: TWebSocketPayload): string {
  * Pure function to generate unique message ID
  */
 export function generateMessageId(): string {
-    return `msg_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+    return `msg_${Date.now()}_${Math.random().toString(RANDOM_ID_RADIX).substring(2)}`;
 } 

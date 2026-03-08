@@ -3,6 +3,13 @@
  * Handles saving, loading, and managing playground projects
  */
 
+const DAYS_PER_WEEK = 7;
+const HOURS_PER_DAY = 24;
+const MINUTES_PER_HOUR = 60;
+const SECONDS_PER_MINUTE = 60;
+const MS_PER_SECOND = 1000;
+const RANDOM_ID_BASE = 36;
+
 import { WebLogger } from '../web-logger'
 import type { TUniversalValue } from '@robota-sdk/agents'
 
@@ -344,7 +351,7 @@ export class ProjectManager {
 
     getProjectStats(): IProjectStats {
         const projects = Array.from(this.projects.values())
-        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        const oneWeekAgo = new Date(Date.now() - DAYS_PER_WEEK * HOURS_PER_DAY * MINUTES_PER_HOUR * SECONDS_PER_MINUTE * MS_PER_SECOND)
 
         const providers: Record<TPlaygroundProvider, number> = { openai: 0, anthropic: 0, google: 0 }
         let totalLinesOfCode = 0
@@ -378,7 +385,7 @@ export class ProjectManager {
     }
 
     private generateId(): string {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2)
+        return Date.now().toString(RANDOM_ID_BASE) + Math.random().toString(RANDOM_ID_BASE).substr(2)
     }
 
     // Template management

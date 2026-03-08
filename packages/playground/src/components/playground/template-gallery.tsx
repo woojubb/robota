@@ -1,5 +1,8 @@
 "use client";
 
+const MAX_VISIBLE_FEATURES = 3;
+const CODE_PREVIEW_LENGTH = 500;
+
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -552,14 +555,14 @@ export function TemplateGallery({ onSelectTemplate, onClose }: ITemplateGalleryP
                                     <div>
                                         <h4 className="text-sm font-medium mb-2">Features</h4>
                                         <div className="flex flex-wrap gap-1">
-                                            {template.features.slice(0, 3).map((feature, index) => (
+                                            {template.features.slice(0, MAX_VISIBLE_FEATURES).map((feature, index) => (
                                                 <Badge key={index} variant="outline" className="text-xs">
                                                     {feature}
                                                 </Badge>
                                             ))}
-                                            {template.features.length > 3 && (
+                                            {template.features.length > MAX_VISIBLE_FEATURES && (
                                                 <Badge variant="outline" className="text-xs">
-                                                    +{template.features.length - 3} more
+                                                    +{template.features.length - MAX_VISIBLE_FEATURES} more
                                                 </Badge>
                                             )}
                                         </div>
@@ -633,7 +636,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: ITemplateGalleryP
                                                         <h4 className="font-medium mb-2">Code Preview</h4>
                                                         <div className="bg-muted p-4 rounded-lg">
                                                             <pre className="text-sm overflow-x-auto">
-                                                                <code>{template.code.slice(0, 500)}...</code>
+                                                                <code>{template.code.slice(0, CODE_PREVIEW_LENGTH)}...</code>
                                                             </pre>
                                                         </div>
                                                     </div>

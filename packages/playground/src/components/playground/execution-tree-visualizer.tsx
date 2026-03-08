@@ -1,5 +1,7 @@
 'use client';
 
+const MS_PER_SECOND = 1000;
+
 import React, { useMemo, useCallback } from 'react';
 import { ScrollArea } from '../ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -289,10 +291,10 @@ export const ExecutionTreeVisualizer: React.FC<IExecutionTreeVisualizerProps> = 
                     <CardContent className="pt-0">
                         <div className="flex items-center space-x-4 text-xs text-gray-600">
                             <span>
-                                Total Duration: {(executionStats.totalDuration / 1000).toFixed(1)}s
+                                Total Duration: {(executionStats.totalDuration / MS_PER_SECOND).toFixed(1)}s
                             </span>
                             <span>
-                                Avg Duration: {(executionStats.avgDuration / 1000).toFixed(1)}s
+                                Avg Duration: {(executionStats.avgDuration / MS_PER_SECOND).toFixed(1)}s
                             </span>
                         </div>
                     </CardContent>

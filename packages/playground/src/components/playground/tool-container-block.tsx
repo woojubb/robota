@@ -1,5 +1,8 @@
 'use client';
 
+const RANDOM_ID_BASE = 36;
+const RANDOM_ID_LENGTH = 9;
+
 /**
  * ToolContainerBlock - Visual Tool Configuration Component
  * 
@@ -379,7 +382,7 @@ export function ToolContainerBlock({
         const emptyResult: Record<string, TUniversalValue> = {};
 
         const newTool: IToolBlock = {
-            id: `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: `tool_${Date.now()}_${Math.random().toString(RANDOM_ID_BASE).substr(2, RANDOM_ID_LENGTH)}`,
             tool: {
                 name: toolDefinition.name,
                 description: toolDefinition.description,
