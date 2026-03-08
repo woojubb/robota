@@ -1,6 +1,7 @@
 import type {
     IClockPort,
     IDagError,
+    ILeasePort,
     IQueueMessage,
     IQueuePort,
     IStoragePort,
@@ -23,6 +24,9 @@ export interface IDlqReinjectResult {
  * Reprocesses failed tasks by moving messages from the dead-letter queue
  * back to the main processing queue with an incremented attempt number.
  *
+ * Acquires a lease on the task run before modifying state to prevent
+ * concurrent reinject races when DLQ visibility timeout expires.
+ *
  * @see TaskRunStateMachine for retry state transitions
  */
 export class DlqReinjectService {
@@ -30,13 +34,14 @@ export class DlqReinjectService {
         private readonly storage: IStoragePort,
         private readonly deadLetterQueue: IQueuePort,
         private readonly mainQueue: IQueuePort,
+        private readonly lease: ILeasePort,
         private readonly clock: IClockPort
     ) {}
 
     /**
      * Dequeues a single message from the dead-letter queue and reinjects it
      * into the main queue for retry processing.
-     * @param workerId - The worker identity for queue visibility.
+     * @param workerId - The worker identity for queue visibility and lease ownership.
      * @param visibilityTimeoutMs - Visibility timeout for the dequeue operation.
      * @returns The reinjection result, or an error if the task run is not found or retry is disallowed.
      */
@@ -51,6 +56,29 @@ export class DlqReinjectService {
             };
         }
 
+        const leaseKey = `taskRun:${deadLetterMessage.taskRunId}`;
+        const acquired = await this.lease.acquire(leaseKey, workerId, visibilityTimeoutMs);
+        if (!acquired) {
+            await this.deadLetterQueue.nack(deadLetterMessage.messageId);
+            return {
+                ok: true,
+                value: {
+                    reinjected: false
+                }
+            };
+        }
+
+        try {
+            return await this.processReinject(deadLetterMessage, workerId);
+        } finally {
+            await this.lease.release(leaseKey, workerId);
+        }
+    }
+
+    private async processReinject(
+        deadLetterMessage: IQueueMessage,
+        _workerId: string
+    ): Promise<TResult<IDlqReinjectResult, IDagError>> {
         const taskRun = await this.storage.getTaskRun(deadLetterMessage.taskRunId);
         if (!taskRun) {
             await this.deadLetterQueue.nack(deadLetterMessage.messageId);

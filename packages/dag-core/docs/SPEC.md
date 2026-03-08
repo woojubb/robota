@@ -301,7 +301,15 @@ States: `created`, `queued`, `running`, `success`, `failed`, `upstream_failed`, 
 
 Terminal states: `success`, `upstream_failed`, `skipped`, `cancelled`
 
-The `failed` state has a single explicit policy gate: `RETRY` transitions back to `queued`.
+**Note**: The `failed` state is NOT terminal — it has a single explicit policy gate: `RETRY` transitions back to `queued`. This is intentional: a failed task may be retried via the DLQ reinject mechanism. Consumer packages (e.g., `dag-worker`'s `DagRunFinalizer`) must treat `failed` as terminal only for finalization purposes (i.e., a failed task with no remaining retries is effectively terminal for DAG completion evaluation).
+
+### Finalization Semantics
+
+For DAG run finalization (determining `success` vs `failed` outcome):
+
+- `failed` is the **only** task status that contributes to a `failed` DAG run outcome.
+- `upstream_failed`, `skipped`, and `cancelled` are non-failure terminal states — they do not cause the DAG run to fail.
+- A DAG run is `success` when all tasks are in terminal states AND no task is `failed`.
 
 ```
 created --QUEUE--> queued --START--> running --COMPLETE_SUCCESS--> success
