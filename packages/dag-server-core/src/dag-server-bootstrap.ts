@@ -95,6 +95,7 @@ export async function startDagServer(options: import('./routes/route-types.js').
             storage,
             queue,
             deadLetterQueue,
+            lease,
             clock
         },
         {

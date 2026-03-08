@@ -66,7 +66,7 @@ describe('Dag diagnostics flow E2E', () => {
         const diagnostics = new DagDiagnosticsController(
             new RunQueryService(storage),
             new RunOrchestratorService(storage, queue, clock),
-            new DlqReinjectService(storage, deadLetterQueue, queue, clock)
+            new DlqReinjectService(storage, deadLetterQueue, queue, lease, clock)
         );
 
         const started = await composition.runOrchestrator.startRun({
@@ -140,7 +140,7 @@ describe('Dag diagnostics flow E2E', () => {
         const diagnostics = new DagDiagnosticsController(
             new RunQueryService(storage),
             new RunOrchestratorService(storage, queue, clock),
-            new DlqReinjectService(storage, deadLetterQueue, queue, clock),
+            new DlqReinjectService(storage, deadLetterQueue, queue, lease, clock),
             { reinjectEnabled: true }
         );
 

@@ -41,11 +41,12 @@ When dispatching a downstream task, the create-then-enqueue sequence must be ato
 
 ### DLQ Reinject Concurrency Safety
 
-`DlqReinjectService.reinjectOnce` relies on the DLQ's dequeue visibility timeout for message-level exclusion — only one worker receives a given DLQ message at a time. This provides partial concurrency safety.
+`DlqReinjectService.reinjectOnce` uses two layers of concurrency protection:
 
-However, for defense-in-depth, the service should acquire a lease on the task run (via `ILeasePort`) before modifying its state. This prevents races in edge cases where the visibility timeout expires before the reinject completes, allowing another worker to dequeue the same message.
+1. **DLQ dequeue visibility timeout**: only one worker receives a given DLQ message at a time.
+2. **Lease acquisition**: after dequeue, the service acquires a lease on the task run (`taskRun:{taskRunId}`) before modifying state. If the lease is held by another worker, the message is nacked and the method returns `reinjected: false` without error.
 
-**Current gap**: The `DlqReinjectService` constructor does not accept an `ILeasePort` dependency. Adding lease acquisition would require extending the constructor signature and the composition factory.
+The lease is always released in a `finally` block after processing completes.
 
 ### DAG Run Finalization Classification
 
@@ -137,7 +138,7 @@ None. Service classes are standalone (no `extends`).
 | Service Class | Injected Port (from dag-core) | Location |
 |---------------|------------------------------|----------|
 | `WorkerLoopService` | `IStoragePort`, `IQueuePort`, `ILeasePort`, `ITaskExecutorPort`, `IClockPort` | `src/services/worker-loop-service.ts` |
-| `DlqReinjectService` | `IStoragePort`, `IQueuePort` (x2), `IClockPort` | `src/services/dlq-reinject-service.ts` |
+| `DlqReinjectService` | `IStoragePort`, `IQueuePort` (x2), `ILeasePort`, `IClockPort` | `src/services/dlq-reinject-service.ts` |
 
 ### Cross-Package Port Consumers
 
@@ -145,7 +146,7 @@ None. Service classes are standalone (no `extends`).
 |--------------|---------------|----------|
 | `IStoragePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
 | `IQueuePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
-| `ILeasePort` (dag-core) | `WorkerLoopService` | `src/services/worker-loop-service.ts` |
+| `ILeasePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
 | `ITaskExecutorPort` (dag-core) | `WorkerLoopService` | `src/services/worker-loop-service.ts` |
 | `IClockPort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
 
