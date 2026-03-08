@@ -1,13 +1,8 @@
-// TODO: This file exceeds 300 lines. Candidates for extraction:
-// - Port editor section (renderPortsSection, port table rows) into a PortEditorSection component
-// - Config editor section (renderConfigFields, renderConfigValue) into a ConfigEditorSection component
-// - Asset upload logic (handleAssetUpload, IAssetUploadResponse) into an asset-upload utility
 import { useState, type ReactElement } from 'react';
 import {
     type IDagDefinition,
     type IDagNode,
     type INodeManifest,
-    type IPortDefinition,
     type INodeConfigObject,
     type TNodeConfigValue
 } from '@robota-sdk/dag-core';
@@ -16,6 +11,12 @@ import {
     type TPortDirection
 } from './port-editor-utils.js';
 import { extractConfigDefaultsFromSchema, isNodeConfigValue } from './schema-defaults.js';
+import {
+    toBase64,
+    type IAssetUploadResponse
+} from './asset-upload-utils.js';
+import { SchemaField } from './config-field-renderers.js';
+import { PortSection } from './port-section.js';
 
 export interface INodeConfigPanelProps {
     node?: IDagNode;
@@ -31,33 +32,6 @@ interface IJsonSchemaObject {
     required?: string[];
 }
 
-interface IJsonSchemaProperty {
-    type?: string;
-    enum?: unknown[];
-    oneOf?: unknown[];
-    anyOf?: unknown[];
-    description?: string;
-    default?: unknown;
-}
-
-interface IAssetUploadResponse {
-    ok?: boolean;
-    data?: {
-        asset?: {
-            assetId?: string;
-        };
-    };
-}
-
-interface IAssetConfigValue {
-    referenceType: 'asset' | 'uri';
-    assetId?: string;
-    uri?: string;
-    mediaType?: string;
-    name?: string;
-    sizeBytes?: number;
-}
-
 function isNodeConfigRecord(value: unknown): value is INodeConfigObject {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
         return false;
@@ -68,47 +42,6 @@ function isNodeConfigRecord(value: unknown): value is INodeConfigObject {
         }
     }
     return true;
-}
-
-function parseAssetConfigValue(value: unknown): IAssetConfigValue | undefined {
-    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-        return undefined;
-    }
-    const candidate = value as Record<string, unknown>;
-    if (candidate.referenceType !== 'asset' && candidate.referenceType !== 'uri') {
-        return undefined;
-    }
-    return {
-        referenceType: candidate.referenceType,
-        assetId: typeof candidate.assetId === 'string' ? candidate.assetId : undefined,
-        uri: typeof candidate.uri === 'string' ? candidate.uri : undefined,
-        mediaType: typeof candidate.mediaType === 'string' ? candidate.mediaType : undefined,
-        name: typeof candidate.name === 'string' ? candidate.name : undefined,
-        sizeBytes: typeof candidate.sizeBytes === 'number' ? candidate.sizeBytes : undefined
-    };
-}
-
-function buildAssetConfigValue(value: IAssetConfigValue): INodeConfigObject {
-    const nextValue: INodeConfigObject = {
-        referenceType: value.referenceType
-    };
-    if (value.referenceType === 'asset') {
-        if (typeof value.assetId === 'string' && value.assetId.trim().length > 0) {
-            nextValue.assetId = value.assetId.trim();
-        }
-    } else if (typeof value.uri === 'string' && value.uri.trim().length > 0) {
-        nextValue.uri = value.uri.trim();
-    }
-    if (typeof value.mediaType === 'string' && value.mediaType.trim().length > 0) {
-        nextValue.mediaType = value.mediaType.trim();
-    }
-    if (typeof value.name === 'string' && value.name.trim().length > 0) {
-        nextValue.name = value.name.trim();
-    }
-    if (typeof value.sizeBytes === 'number' && Number.isFinite(value.sizeBytes) && value.sizeBytes >= 0) {
-        nextValue.sizeBytes = Math.trunc(value.sizeBytes);
-    }
-    return nextValue;
 }
 
 export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
@@ -187,26 +120,6 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         });
     };
 
-    const toBase64 = async (file: File): Promise<string> => (
-        new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-                if (typeof reader.result !== 'string') {
-                    reject(new Error('Failed to read file'));
-                    return;
-                }
-                const delimiterIndex = reader.result.indexOf(',');
-                if (delimiterIndex < 0) {
-                    reject(new Error('Invalid data URL format'));
-                    return;
-                }
-                resolve(reader.result.slice(delimiterIndex + 1));
-            };
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsDataURL(file);
-        })
-    );
-
     const handleAssetUpload = async (key: string, file: File): Promise<void> => {
         if (typeof props.assetUploadBaseUrl !== 'string' || props.assetUploadBaseUrl.trim().length === 0) {
             reportValidationError(
@@ -281,457 +194,6 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
     const schemaProperties = schemaRoot?.properties ?? {};
     const requiredSet = new Set<string>(schemaRoot?.required ?? []);
 
-    const renderSchemaField = (key: string, propertySchemaRaw: unknown): ReactElement => {
-        const propertySchema = (
-            typeof propertySchemaRaw === 'object' && propertySchemaRaw !== null
-        )
-            ? (propertySchemaRaw as IJsonSchemaProperty)
-            : {};
-        const label = key;
-        const currentValue = node.config[key];
-        const schemaDefaultValue = schemaDefaults[key];
-        const effectiveValue = typeof currentValue === 'undefined' ? schemaDefaultValue : currentValue;
-        const enumValues = Array.isArray(propertySchema.enum)
-            ? propertySchema.enum.filter((value): value is string => typeof value === 'string')
-            : [];
-        const hasUnionSchema = Array.isArray(propertySchema.oneOf) || Array.isArray(propertySchema.anyOf);
-        const isRequired = requiredSet.has(key);
-        const schemaType = propertySchema.type;
-        const fieldDescription = typeof propertySchema.description === 'string'
-            ? propertySchema.description
-            : undefined;
-        const isAssetReferenceField = key === 'asset';
-        const isAssetIdField = key.toLowerCase().endsWith('assetid');
-        const fieldLabel = (
-            <div className="col-span-4 text-xs font-medium text-gray-700">
-                {label}
-                {isRequired ? ' *' : ''}
-                {fieldDescription ? (
-                    <div className="mt-1 text-[11px] font-normal text-gray-500">{fieldDescription}</div>
-                ) : null}
-            </div>
-        );
-
-        if (isAssetReferenceField) {
-            const assetConfigValue = parseAssetConfigValue(effectiveValue) ?? { referenceType: 'asset' };
-            const setAssetConfig = (nextValue: IAssetConfigValue): void => {
-                updateConfigValue(key, buildAssetConfigValue(nextValue));
-            };
-            const sizeBytesValue = typeof assetConfigValue.sizeBytes === 'number'
-                ? String(assetConfigValue.sizeBytes)
-                : '';
-            return (
-                <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
-                    {fieldLabel}
-                    <div className="col-span-8 space-y-2">
-                        <select
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            value={assetConfigValue.referenceType}
-                            onChange={(event) => {
-                                const nextReferenceType = event.target.value === 'uri' ? 'uri' : 'asset';
-                                setAssetConfig({
-                                    ...assetConfigValue,
-                                    referenceType: nextReferenceType,
-                                    assetId: nextReferenceType === 'asset' ? assetConfigValue.assetId : undefined,
-                                    uri: nextReferenceType === 'uri' ? assetConfigValue.uri : undefined
-                                });
-                            }}
-                        >
-                            <option value="asset">asset</option>
-                            <option value="uri">uri</option>
-                        </select>
-                        {assetConfigValue.referenceType === 'asset' ? (
-                            <input
-                                className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                                value={assetConfigValue.assetId ?? ''}
-                                placeholder="assetId"
-                                onChange={(event) => {
-                                    setAssetConfig({
-                                        ...assetConfigValue,
-                                        assetId: event.target.value,
-                                        uri: undefined
-                                    });
-                                }}
-                            />
-                        ) : (
-                            <input
-                                className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                                value={assetConfigValue.uri ?? ''}
-                                placeholder="uri"
-                                onChange={(event) => {
-                                    setAssetConfig({
-                                        ...assetConfigValue,
-                                        uri: event.target.value,
-                                        assetId: undefined
-                                    });
-                                }}
-                            />
-                        )}
-                        <input
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            value={assetConfigValue.mediaType ?? ''}
-                            placeholder="mediaType (optional)"
-                            onChange={(event) => {
-                                setAssetConfig({
-                                    ...assetConfigValue,
-                                    mediaType: event.target.value
-                                });
-                            }}
-                        />
-                        <input
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            value={assetConfigValue.name ?? ''}
-                            placeholder="name (optional)"
-                            onChange={(event) => {
-                                setAssetConfig({
-                                    ...assetConfigValue,
-                                    name: event.target.value
-                                });
-                            }}
-                        />
-                        <input
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            type="number"
-                            min={0}
-                            value={sizeBytesValue}
-                            placeholder="sizeBytes (optional)"
-                            onChange={(event) => {
-                                const nextValue = event.target.value;
-                                if (nextValue.trim().length === 0) {
-                                    setAssetConfig({
-                                        ...assetConfigValue,
-                                        sizeBytes: undefined
-                                    });
-                                    return;
-                                }
-                                const parsedValue = Number(nextValue);
-                                if (!Number.isFinite(parsedValue) || parsedValue < 0) {
-                                    reportValidationError('Asset sizeBytes must be a non-negative number.');
-                                    return;
-                                }
-                                setAssetConfig({
-                                    ...assetConfigValue,
-                                    sizeBytes: parsedValue
-                                });
-                            }}
-                        />
-                        <div className="rounded border border-gray-200 bg-gray-50 p-2">
-                            <div className="mb-2 text-[11px] text-gray-600">
-                                Upload file to asset store and set `{key}` automatically.
-                            </div>
-                            <input
-                                type="file"
-                                className="block w-full text-xs"
-                                onChange={(event) => {
-                                    const file = event.target.files?.[0];
-                                    if (!file) {
-                                        return;
-                                    }
-                                    void handleAssetUpload(key, file);
-                                    event.target.value = '';
-                                }}
-                            />
-                            {uploadStatusByField[key] ? (
-                                <div className="mt-2 text-[11px] text-gray-600">{uploadStatusByField[key]}</div>
-                            ) : null}
-                            {uploadingFieldKey === key ? (
-                                <div className="mt-1 text-[11px] text-gray-500">Uploading...</div>
-                            ) : null}
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        if (enumValues.length > 0) {
-            const selectedValue = typeof effectiveValue === 'string' ? effectiveValue : '';
-            return (
-                <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
-                    {fieldLabel}
-                    <div className="col-span-8">
-                        <select
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            value={selectedValue}
-                            onChange={(event) => {
-                                const nextValue = event.target.value;
-                                updateConfigValue(key, nextValue.length > 0 ? nextValue : undefined);
-                            }}
-                        >
-                            <option value="">(empty)</option>
-                            {enumValues.map((value) => (
-                                <option key={`${key}:${value}`} value={value}>{value}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            );
-        }
-
-        if (hasUnionSchema || schemaType === 'object' || schemaType === 'array') {
-            const rawValue = typeof effectiveValue === 'undefined' ? '' : JSON.stringify(effectiveValue, null, 2);
-            return (
-                <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
-                    {fieldLabel}
-                    <div className="col-span-8 space-y-2">
-                        <textarea
-                            className="min-h-[90px] w-full rounded border border-gray-300 px-2 py-1 font-mono text-xs"
-                            value={rawValue}
-                            onChange={(event) => {
-                                const nextValue = event.target.value;
-                                if (nextValue.trim().length === 0) {
-                                    updateConfigValue(key, undefined);
-                                    return;
-                                }
-                                try {
-                                    const parsed = JSON.parse(nextValue);
-                                    if (!isNodeConfigValue(parsed)) {
-                                        reportValidationError(
-                                            `Config field "${key}" has an invalid JSON value.`
-                                        );
-                                        return;
-                                    }
-                                    updateConfigValue(key, parsed);
-                                } catch {
-                                    reportValidationError(
-                                        `Config field "${key}" contains invalid JSON syntax.`
-                                    );
-                                }
-                            }}
-                        />
-                        {isAssetReferenceField ? (
-                            <div className="rounded border border-gray-200 bg-gray-50 p-2">
-                                <div className="mb-2 text-[11px] text-gray-600">
-                                    Upload file to asset store and set `{key}` automatically.
-                                </div>
-                                <input
-                                    type="file"
-                                    className="block w-full text-xs"
-                                    onChange={(event) => {
-                                        const file = event.target.files?.[0];
-                                        if (!file) {
-                                            return;
-                                        }
-                                        void handleAssetUpload(key, file);
-                                        event.target.value = '';
-                                    }}
-                                />
-                                {uploadStatusByField[key] ? (
-                                    <div className="mt-2 text-[11px] text-gray-600">{uploadStatusByField[key]}</div>
-                                ) : null}
-                                {uploadingFieldKey === key ? (
-                                    <div className="mt-1 text-[11px] text-gray-500">Uploading...</div>
-                                ) : null}
-                            </div>
-                        ) : null}
-                    </div>
-                </div>
-            );
-        }
-
-        if (schemaType === 'boolean') {
-            return (
-                <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
-                    {fieldLabel}
-                    <div className="col-span-8">
-                        <label className="inline-flex items-center gap-2 rounded border border-gray-300 px-2 py-2 text-xs">
-                            <input
-                                type="checkbox"
-                                checked={effectiveValue === true}
-                                onChange={(event) => updateConfigValue(key, event.target.checked)}
-                            />
-                            <span>Enabled</span>
-                        </label>
-                    </div>
-                </div>
-            );
-        }
-
-        if (schemaType === 'number' || schemaType === 'integer') {
-            const inputValue = typeof effectiveValue === 'number' ? String(effectiveValue) : '';
-            return (
-                <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
-                    {fieldLabel}
-                    <div className="col-span-8">
-                        <input
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            type="number"
-                            value={inputValue}
-                            onChange={(event) => {
-                                const nextValue = event.target.value;
-                                if (nextValue.trim().length === 0) {
-                                    updateConfigValue(key, undefined);
-                                    return;
-                                }
-                                const parsed = Number(nextValue);
-                                if (!Number.isFinite(parsed)) {
-                                    reportValidationError(
-                                        `Config field "${key}" must be a valid number.`
-                                    );
-                                    return;
-                                }
-                                updateConfigValue(key, schemaType === 'integer' ? Math.trunc(parsed) : parsed);
-                            }}
-                        />
-                    </div>
-                </div>
-            );
-        }
-
-        const textValue = typeof effectiveValue === 'string' ? effectiveValue : '';
-        const useTextareaForText = schemaType === 'string' && !isAssetIdField;
-        return (
-            <div key={key} className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
-                {fieldLabel}
-                <div className="col-span-8 space-y-2">
-                    {useTextareaForText ? (
-                        <textarea
-                            className="min-h-[90px] w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            value={textValue}
-                            onChange={(event) => {
-                                const nextValue = event.target.value;
-                                updateConfigValue(key, nextValue.length > 0 ? nextValue : undefined);
-                            }}
-                        />
-                    ) : (
-                        <input
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                            value={textValue}
-                            onChange={(event) => {
-                                const nextValue = event.target.value;
-                                updateConfigValue(key, nextValue.length > 0 ? nextValue : undefined);
-                            }}
-                        />
-                    )}
-                    {isAssetIdField ? (
-                        <div className="rounded border border-gray-200 bg-gray-50 p-2">
-                            <div className="mb-2 text-[11px] text-gray-600">
-                                Upload file to asset store and set `{key}` automatically.
-                            </div>
-                            <input
-                                type="file"
-                                className="block w-full text-xs"
-                                onChange={(event) => {
-                                    const file = event.target.files?.[0];
-                                    if (!file) {
-                                        return;
-                                    }
-                                    void handleAssetUpload(key, file);
-                                    event.target.value = '';
-                                }}
-                            />
-                            {uploadStatusByField[key] ? (
-                                <div className="mt-2 text-[11px] text-gray-600">{uploadStatusByField[key]}</div>
-                            ) : null}
-                            {uploadingFieldKey === key ? (
-                                <div className="mt-1 text-[11px] text-gray-500">Uploading...</div>
-                            ) : null}
-                        </div>
-                    ) : null}
-                </div>
-            </div>
-        );
-    };
-
-    const renderPortSection = (
-        direction: TPortDirection,
-        ports: IPortDefinition[]
-    ): ReactElement => {
-        const title = direction === 'inputs' ? 'Inputs' : 'Outputs';
-        return (
-            <section className="rounded border border-gray-200 p-2">
-                <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-xs font-semibold">{title}</h3>
-                        <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">{ports.length}</span>
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    {ports.length === 0 ? (
-                        <div className="rounded border border-dashed border-gray-300 p-3 text-xs text-gray-500">
-                            No ports defined in this node type.
-                        </div>
-                    ) : ports.map((port, index) => {
-                        const connectedCount = getConnectedCount(direction, port.key);
-
-                        return (
-                            <article key={`${direction}-${index}-${port.key}`} className="rounded border border-gray-200 p-2">
-                                <div className="mb-2 flex items-center justify-between">
-                                    <span className="text-xs font-medium">Port {index + 1}</span>
-                                    <span className="text-[11px] text-gray-500">
-                                        Connected bindings: {connectedCount}
-                                    </span>
-                                </div>
-
-                                <div className="grid grid-cols-12 items-center gap-2">
-                                    <label className="col-span-4 text-xs font-medium text-gray-700">Label</label>
-                                    <div className="col-span-8">
-                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
-                                            {port.label ?? '-'}
-                                        </div>
-                                    </div>
-
-                                    <label className="col-span-4 text-xs font-medium text-gray-700">Key</label>
-                                    <div className="col-span-8">
-                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
-                                            {port.key}
-                                        </div>
-                                    </div>
-
-                                    <label className="col-span-4 text-xs font-medium text-gray-700">Type</label>
-                                    <div className="col-span-8">
-                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
-                                            {port.type}
-                                        </div>
-                                    </div>
-
-                                    <label className="col-span-4 text-xs font-medium text-gray-700">Required</label>
-                                    <div className="col-span-8">
-                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
-                                            {port.required ? 'Required' : 'Optional'}
-                                        </div>
-                                    </div>
-
-                                    <label className="col-span-4 text-xs font-medium text-gray-700">Order</label>
-                                    <div className="col-span-8">
-                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
-                                            {typeof port.order === 'number' ? port.order : '-'}
-                                        </div>
-                                    </div>
-
-                                    <label className="col-span-4 text-xs font-medium text-gray-700">Description</label>
-                                    <div className="col-span-8">
-                                        <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
-                                            {port.description ?? '-'}
-                                        </div>
-                                    </div>
-
-                                    {port.type === 'binary' ? (
-                                        <>
-                                            <label className="col-span-4 text-xs font-medium text-gray-700">Binary Kind</label>
-                                            <div className="col-span-8">
-                                                <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
-                                                    {port.binaryKind ?? '-'}
-                                                </div>
-                                            </div>
-
-                                            <label className="col-span-4 text-xs font-medium text-gray-700">Mime Types</label>
-                                            <div className="col-span-8">
-                                                <div className="rounded border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700">
-                                                    {Array.isArray(port.mimeTypes) && port.mimeTypes.length > 0 ? port.mimeTypes.join(', ') : '-'}
-                                                </div>
-                                            </div>
-                                        </>
-                                    ) : null}
-                                </div>
-                            </article>
-                        );
-                    })}
-                </div>
-            </section>
-        );
-    };
-
     return (
         <div className="flex h-full flex-col gap-3 rounded border border-gray-300 p-3">
             <h2 className="text-sm font-semibold">Node Config</h2>
@@ -754,21 +216,41 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
             {Object.keys(schemaProperties).length > 0 ? (
                 <div className="grid grid-cols-1 gap-2 rounded border border-gray-200 p-2">
                     <div className="text-xs font-medium">Config Form</div>
-                    {Object.entries(schemaProperties).map(([key, propertySchema]) => (
-                        renderSchemaField(key, propertySchema)
-                    ))}
+                    {Object.entries(schemaProperties).map(([key, propertySchema]) => {
+                        const currentValue = node.config[key];
+                        const schemaDefaultValue = schemaDefaults[key];
+                        const effectiveValue = typeof currentValue === 'undefined' ? schemaDefaultValue : currentValue;
+                        return (
+                            <SchemaField
+                                key={key}
+                                fieldKey={key}
+                                propertySchemaRaw={propertySchema}
+                                effectiveValue={effectiveValue}
+                                isRequired={requiredSet.has(key)}
+                                uploadingFieldKey={uploadingFieldKey}
+                                uploadStatusByField={uploadStatusByField}
+                                onUpdateConfigValue={updateConfigValue}
+                                onReportValidationError={reportValidationError}
+                                onHandleAssetUpload={(fieldKey, file) => {
+                                    void handleAssetUpload(fieldKey, file);
+                                }}
+                            />
+                        );
+                    })}
                 </div>
             ) : null}
 
-            {renderPortSection(
-                'inputs',
-                node.inputs
-            )}
+            <PortSection
+                direction="inputs"
+                ports={node.inputs}
+                getConnectedCount={getConnectedCount}
+            />
 
-            {renderPortSection(
-                'outputs',
-                node.outputs
-            )}
+            <PortSection
+                direction="outputs"
+                ports={node.outputs}
+                getConnectedCount={getConnectedCount}
+            />
 
             <div className="rounded border border-gray-200 p-2">
                 <div className="flex items-center justify-between">
