@@ -74,6 +74,19 @@ description: Guard against committing directly to protected branches (main, mast
    - This is a release-level action. Always ask for explicit user approval.
    - Never do this as part of a regular feature workflow.
 
+5. **When switching branch context for a separate task:**
+
+   - Commit and push all current work before switching.
+   - After the separate task is done, return to the original branch.
+   - For tasks that must not touch the working tree (e.g., deploying from a different ref), use `git worktree add /tmp/<name> <ref>` or a separate `git clone`.
+   - Always clean up worktrees (`git worktree remove`) and temporary clones after use.
+
+6. **When deploying to `gh-pages`:**
+
+   - Always use a separate clone or worktree. Never mix deployment artifacts with the source tree.
+   - Preserve special files (`CNAME`, `.nojekyll`) when replacing gh-pages content.
+   - Custom domain: `robota.io` — the `CNAME` file must exist in gh-pages root.
+
 ## Stop Conditions
 - User declines branch creation — do not commit on the protected branch.
 - Branch name conflicts with an existing branch — ask for an alternative name.
