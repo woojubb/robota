@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Robota } from './robota';
 import type { IAgentConfig, IRunOptions } from '../interfaces/agent';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
@@ -43,6 +43,24 @@ class TrackingProvider extends AbstractAIProvider {
     }
 }
 
+// A second provider with a different name
+class SecondProvider extends AbstractAIProvider {
+    readonly name = 'provider-2';
+    readonly version = '1.0.0';
+
+    async chat(messages: TUniversalMessage[]): Promise<TUniversalMessage> {
+        return {
+            role: 'assistant',
+            content: `Provider-2: ${messages[messages.length - 1]?.content ?? ''}`,
+            timestamp: new Date()
+        };
+    }
+
+    async *chatStream(): AsyncIterable<TUniversalMessage> {
+        yield { role: 'assistant', content: 'chunk', timestamp: new Date() };
+    }
+}
+
 // Mock Tool with schema and execution tracking
 class TrackingTool extends AbstractTool {
     executionCount = 0;
@@ -67,6 +85,21 @@ class TrackingTool extends AbstractTool {
             success: true,
             data: `Tool result for: ${query}`
         };
+    }
+}
+
+// A second tool with a different name
+class AnotherTool extends AbstractTool {
+    override get schema(): IToolSchema {
+        return {
+            name: 'another-tool',
+            description: 'Another tool',
+            parameters: { type: 'object' as const, properties: {} }
+        };
+    }
+
+    protected override async executeImpl(): Promise<IToolResult> {
+        return { success: true, data: 'ok' };
     }
 }
 
@@ -110,7 +143,7 @@ describe('Robota Core', () => {
     // System prompt handling
     // ----------------------------------------------------------------
     describe('system prompt', () => {
-        it('should pass system message from config to provider', async () => {
+        it('should pass system message to provider via messages array', async () => {
             const provider = new TrackingProvider();
             const config = createConfig({
                 aiProviders: [provider],
@@ -120,28 +153,21 @@ describe('Robota Core', () => {
             const robota = new Robota(config);
             await robota.run('Hello');
 
-            // The provider should receive the system message in the messages array
-            expect(provider.chatCalls.length).toBeGreaterThan(0);
-            const lastCall = provider.chatCalls[provider.chatCalls.length - 1];
-            const systemMsg = lastCall.messages.find(m => m.role === 'system');
+            expect(provider.chatCalls).toHaveLength(1);
+            const messages = provider.chatCalls[0].messages;
+            const systemMsg = messages.find(m => m.role === 'system');
             expect(systemMsg).toBeDefined();
             expect(systemMsg?.content).toBe('You are a helpful assistant.');
         });
 
         it('should work without a system message', async () => {
             const provider = new TrackingProvider();
-            const config = createConfig({
-                aiProviders: [provider],
-                defaultModel: {
-                    provider: 'tracking-provider',
-                    model: 'test-model'
-                }
-            });
+            const config = createConfig({ aiProviders: [provider] });
 
             const robota = new Robota(config);
             const response = await robota.run('Hello');
 
-            expect(response).toContain('Hello');
+            expect(response).toBe('Response to: Hello');
         });
     });
 
@@ -153,8 +179,7 @@ describe('Robota Core', () => {
             const robota = new Robota(createConfig());
             const response = await robota.run('What is 2+2?');
 
-            expect(typeof response).toBe('string');
-            expect(response.length).toBeGreaterThan(0);
+            expect(response).toBe('Response to: What is 2+2?');
         });
 
         it('should accumulate conversation history across runs', async () => {
@@ -163,8 +188,8 @@ describe('Robota Core', () => {
             await robota.run('Second message');
 
             const history = robota.getHistory();
-            // Should have at least user + assistant pairs
-            expect(history.length).toBeGreaterThanOrEqual(4);
+            // 2 user messages + 2 assistant messages = 4
+            expect(history.length).toBe(4);
         });
 
         it('should include previous messages when calling provider', async () => {
@@ -175,10 +200,11 @@ describe('Robota Core', () => {
             await robota.run('First');
             await robota.run('Second');
 
-            // The second call should include history from the first
-            const secondCall = provider.chatCalls[provider.chatCalls.length - 1];
+            const secondCall = provider.chatCalls[1];
             const userMessages = secondCall.messages.filter(m => m.role === 'user');
-            expect(userMessages.length).toBeGreaterThanOrEqual(2);
+            expect(userMessages).toHaveLength(2);
+            expect(userMessages[0].content).toBe('First');
+            expect(userMessages[1].content).toBe('Second');
         });
     });
 
@@ -209,8 +235,9 @@ describe('Robota Core', () => {
             const robota = new Robota(config);
             await robota.run('Test input');
 
-            expect(plugin.beforeRunCalls.length).toBeGreaterThanOrEqual(1);
-            expect(plugin.afterRunCalls.length).toBeGreaterThanOrEqual(1);
+            expect(plugin.beforeRunCalls).toEqual(['Test input']);
+            expect(plugin.afterRunCalls).toHaveLength(1);
+            expect(plugin.afterRunCalls[0].input).toBe('Test input');
         });
     });
 
@@ -223,7 +250,7 @@ describe('Robota Core', () => {
             const config = createConfig({ tools: [tool] });
 
             const robota = new Robota(config);
-            await robota.run('test'); // trigger initialization
+            await robota.run('test');
 
             const stats = robota.getStats();
             expect(stats.tools).toContain('tracking-tool');
@@ -236,20 +263,11 @@ describe('Robota Core', () => {
             const robota = new Robota(config);
             await robota.run('init');
 
-            const newTool = new TrackingTool();
-            // Override schema name for distinction
-            Object.defineProperty(newTool, 'schema', {
-                get() {
-                    return {
-                        name: 'new-tracking-tool',
-                        description: 'Updated tool',
-                        parameters: { type: 'object' as const, properties: {} }
-                    };
-                }
-            });
+            const result = await robota.updateTools([new AnotherTool()]);
+            expect(result.version).toBe(2);
 
-            const result = await robota.updateTools([newTool]);
-            expect(result.version).toBeGreaterThan(1);
+            const stats = robota.getStats();
+            expect(stats.tools).toContain('another-tool');
         });
     });
 
@@ -267,11 +285,8 @@ describe('Robota Core', () => {
         });
 
         it('should update model with setModel', async () => {
-            const provider2 = new TrackingProvider();
-            Object.defineProperty(provider2, 'name', { value: 'provider-2', writable: false });
-
             const config = createConfig({
-                aiProviders: [new TrackingProvider(), provider2],
+                aiProviders: [new TrackingProvider(), new SecondProvider()],
                 defaultModel: {
                     provider: 'tracking-provider',
                     model: 'model-a'
@@ -317,7 +332,7 @@ describe('Robota Core', () => {
             expect(stats.providers).toContain('tracking-provider');
             expect(stats.conversationId).toMatch(/^conv_/);
             expect(typeof stats.uptime).toBe('number');
-            expect(stats.historyLength).toBeGreaterThanOrEqual(1);
+            expect(stats.historyLength).toBe(2); // 1 user + 1 assistant
         });
     });
 

@@ -106,12 +106,12 @@ describe('ChatInstance', () => {
         });
 
         it('should update lastAccessedAt after send', async () => {
-            const before = new Date(metadata.lastAccessedAt);
-            // small delay to ensure time difference
-            await new Promise((r) => setTimeout(r, 5));
+            const past = new Date('2020-01-01T00:00:00Z');
+            chatInstance.metadata.lastAccessedAt = past;
+
             await chatInstance.sendMessage('test');
 
-            expect(chatInstance.metadata.lastAccessedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+            expect(chatInstance.metadata.lastAccessedAt.getTime()).toBeGreaterThan(past.getTime());
         });
 
         it('should throw wrapped error when robota.run fails', async () => {
