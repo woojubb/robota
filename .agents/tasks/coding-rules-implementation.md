@@ -197,7 +197,7 @@ coding-rules-audit.md에서 수용된 17개 제안을 프로젝트에 실제 적
 - [x] ESLint 룰 추가 및 기존 코드 위반 scan (B-1 ~ B-3, B-2 a11y는 별도)
 - [x] CI workflow 업데이트 (C-1 audit, C-4 knip)
 - [x] CI coverage threshold (C-2)
-- [ ] Dependency direction 자동 검증 (C-3, dependency-cruiser)
+- [x] Dependency direction 자동 검증 (C-3, dependency-cruiser)
 - [x] 스킬 파일 작성/갱신 (D-1 ~ D-4)
 - [x] pnpm build 통과
 - [x] pnpm test 통과
