@@ -16,7 +16,7 @@ A powerful TypeScript library for building AI agents with multi-provider support
 - **Centralized Model Configuration**: Single source of truth for model settings through `defaultModel`
 
 ### 🔒 Enterprise-Grade Type Safety
-- **100% TypeScript**: Complete type coverage with zero `any` types
+- **100% TypeScript**: Complete type coverage — `any` prohibited in production code
 - **Compile-time Validation**: Catch errors before they reach production
 - **IntelliSense Everything**: Full IDE support for all APIs
 
@@ -82,8 +82,8 @@ const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }
 const tools = [
     listTemplatesTool,
     getTemplateDetailTool,
-    // NOTE: eventService must be ownerPath-bound by the caller in real flows
-    createAssignTaskRelayTool({ emit: () => undefined } as any)
+    // NOTE: eventService must be ownerPath-bound via bindWithOwnerPath()
+    createAssignTaskRelayTool(eventService)
 ];
 
 const robota = new Robota({
@@ -114,7 +114,7 @@ const robota = new Robota({
         })
     ],
     plugins: [
-        new LoggingPlugin({ strategy: 'console' }) // browser-friendly
+        new LoggingPlugin({ strategy: 'console', level: 'info' }) // browser-friendly
     ]
 });
 
@@ -204,7 +204,7 @@ npm install @robota-sdk/team
 ## 🎯 Key Benefits
 
 - **Rapid Development**: Build AI agents with minimal boilerplate code
-- **Type Safety**: Complete TypeScript coverage with zero `any` types
+- **Type Safety**: Complete TypeScript coverage — `any` prohibited in production code
 - **Provider Flexibility**: Easy switching between OpenAI, Anthropic, and Google AI
 - **Extensible Architecture**: Plugin system for custom functionality
 

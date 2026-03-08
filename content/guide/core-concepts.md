@@ -18,7 +18,7 @@ Understanding the fundamental concepts and architecture of the Robota SDK.
 
 ### Robota's Solution
 - **Provider Agnostic**: Write once, run with any AI provider
-- **100% Type Safe**: Compile-time guarantees with zero `any` types
+- **100% Type Safe**: Compile-time guarantees — `any` prohibited in production code
 - **Plugin Architecture**: Extend without modifying core
 - **Clean Abstractions**: Unified interfaces across all providers
 
@@ -81,9 +81,9 @@ agent.addPlugin(new CustomPlugin());
 
 ## Agent Architecture
 
-### BaseAgent Foundation
+### AbstractAgent Foundation
 
-All agents in Robota extend from the `BaseAgent` class, which provides:
+All agents in Robota extend from the `AbstractAgent` class, which provides:
 
 - **Type Safety**: Generic type parameters for configuration and context
 - **Provider Abstraction**: Unified interface across different AI providers
@@ -130,7 +130,7 @@ The Robota SDK features a clear separation between **Plugins** and **Modules** t
 #### Plugin Examples:
 ```typescript
 // Usage tracking plugin - collects agent execution statistics
-class UsagePlugin extends BasePlugin {
+class UsagePlugin extends AbstractPlugin {
     category = PluginCategory.MONITORING;
     priority = PluginPriority.NORMAL;
     
@@ -148,7 +148,7 @@ class UsagePlugin extends BasePlugin {
 }
 
 // Performance monitoring plugin - tracks execution time and memory usage
-class PerformancePlugin extends BasePlugin {
+class PerformancePlugin extends AbstractPlugin {
     category = PluginCategory.MONITORING;
     priority = PluginPriority.NORMAL;
     
@@ -202,9 +202,9 @@ interface FileProcessingModule {
 
 // Database Connector Module - LLMs cannot access databases directly
 interface DatabaseModule {
-    query(sql: string): Promise<any[]>;
-    insert(table: string, data: any): Promise<void>;
-    update(table: string, id: string, data: any): Promise<void>;
+    query(sql: string): Promise<Record<string, unknown>[]>;
+    insert(table: string, data: Record<string, unknown>): Promise<void>;
+    update(table: string, id: string, data: Record<string, unknown>): Promise<void>;
 }
 ```
 
@@ -298,10 +298,10 @@ agent.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
 
 ### Provider Abstraction
 
-All providers implement the `BaseAIProvider` interface:
+All providers implement the `AbstractAIProvider` interface:
 
 ```typescript
-abstract class BaseAIProvider {
+abstract class AbstractAIProvider {
     abstract chat(messages: UniversalMessage[]): Promise<UniversalMessage>;
     abstract chatStream(messages: UniversalMessage[]): AsyncIterable<UniversalMessage>;
 }
@@ -370,9 +370,9 @@ interface AgentConfig {
         topP?: number;
         systemMessage?: string;
     };
-    tools?: BaseTool[];
-    plugins?: BasePlugin[];
-    modules?: BaseModule[];  // New: Module support
+    tools?: AbstractTool[];
+    plugins?: AbstractPlugin[];
+    modules?: AbstractModule[];  // New: Module support
 }
 ```
 
@@ -403,7 +403,7 @@ Robota uses EventEmitter for loose coupling between components:
 
 ```typescript
 // Plugins can subscribe to module events
-class LoggingPlugin extends BasePlugin {
+class LoggingPlugin extends AbstractPlugin {
     constructor(options) {
         super();
         this.moduleEvents = [
@@ -412,7 +412,7 @@ class LoggingPlugin extends BasePlugin {
         ];
     }
     
-    async onModuleEvent(eventType: string, eventData: any): Promise<void> {
+    async onModuleEvent(eventType: string, eventData: unknown): Promise<void> {
         console.log(`Module event: ${eventType}`, eventData);
     }
 }
@@ -439,11 +439,11 @@ interface MyAgentConfig extends AgentConfig {
 }
 
 // Type-safe plugin options
-interface MyPluginOptions extends BasePluginOptions {
+interface MyPluginOptions extends AbstractPluginOptions {
     setting: number;
 }
 
-class MyPlugin extends BasePlugin<MyPluginOptions, MyPluginStats> {
+class MyPlugin extends AbstractPlugin<MyPluginOptions, MyPluginStats> {
     // Fully typed implementation
 }
 ```
@@ -529,7 +529,7 @@ Robota SDK v2.0 introduces a unified architecture centered around the `@robota-s
 
 ### Key Design Principles
 
-1. **Type Safety First**: Zero `any` types, complete TypeScript safety
+1. **Type Safety First**: `any` prohibited in production code, complete TypeScript safety
 2. **Modular Design**: Plugin-based extensible architecture
 3. **Provider Agnostic**: Seamless switching between AI providers
 4. **Performance Focused**: Built-in analytics and monitoring
@@ -556,31 +556,31 @@ const agent = new Robota({
 });
 ```
 
-### 2. BaseAgent Architecture
+### 2. AbstractAgent Architecture
 
-All agents inherit from `BaseAgent`, providing:
+All agents inherit from `AbstractAgent`, providing:
 
 ```typescript
 // Core agent capabilities
-export abstract class BaseAgent<TStats = AgentStats> {
+export abstract class AbstractAgent<TStats = AgentStats> {
     abstract run(input: string): Promise<string>;
     abstract stream(input: string): AsyncIterable<StreamChunk>;
     abstract getStats(): TStats;
     abstract destroy(): Promise<void>;
     
     // Plugin management
-    protected plugins: BasePlugin[] = [];
-    addPlugin(plugin: BasePlugin): void;
-    getPlugin(name: string): BasePlugin | undefined;
+    protected plugins: AbstractPlugin[] = [];
+    addPlugin(plugin: AbstractPlugin): void;
+    getPlugin(name: string): AbstractPlugin | undefined;
 }
 ```
 
 ### 3. Provider System
 
-The `BaseAIProvider` creates a unified interface across all AI services:
+The `AbstractAIProvider` creates a unified interface across all AI services:
 
 ```typescript
-export abstract class BaseAIProvider {
+export abstract class AbstractAIProvider {
     abstract generateResponse(
         messages: UniversalMessage[],
         options?: GenerationOptions
@@ -606,7 +606,7 @@ export abstract class BaseAIProvider {
 Plugins extend agent functionality through a standardized interface:
 
 ```typescript
-export abstract class BasePlugin<TStats = PluginStats> {
+export abstract class AbstractPlugin<TStats = PluginStats> {
     abstract name: string;
     abstract onAgentStart?(): Promise<void>;
     abstract onAgentStop?(): Promise<void>;
@@ -876,7 +876,7 @@ interface AgentConfig {
     provider: string;
     systemMessage?: string;
     tools?: Tool[];
-    plugins?: BasePlugin[];
+    plugins?: AbstractPlugin[];
 }
 
 function createProductionAgent(): Robota {
@@ -896,7 +896,7 @@ function createProductionAgent(): Robota {
 ### Plugin Configuration
 
 ```typescript
-function getProductionPlugins(): BasePlugin[] {
+function getProductionPlugins(): AbstractPlugin[] {
     return [
         new ExecutionAnalyticsPlugin({
             maxEntries: 10000,
@@ -939,9 +939,10 @@ console.log(`Uptime: ${stats.uptime}ms`);
 console.log(`Messages: ${stats.historyLength}`);
 
 // Plugin-specific analytics
-const analyticsPlugin = agent.getPlugin('ExecutionAnalyticsPlugin');
+const analyticsPlugin = agent.getPlugin('ExecutionAnalyticsPlugin') as
+    (AbstractPlugin & { getAggregatedStats(): { successRate: number; averageDuration: number } }) | undefined;
 if (analyticsPlugin && 'getAggregatedStats' in analyticsPlugin) {
-    const analytics = (analyticsPlugin as any).getAggregatedStats();
+    const analytics = analyticsPlugin.getAggregatedStats();
     console.log(`Success rate: ${(analytics.successRate * 100).toFixed(1)}%`);
     console.log(`Avg duration: ${analytics.averageDuration.toFixed(0)}ms`);
 }
@@ -957,7 +958,7 @@ interface CustomAgentStats extends AgentStats {
     customMetric: number;
 }
 
-class CustomAgent extends BaseAgent<CustomAgentStats> {
+class CustomAgent extends AbstractAgent<CustomAgentStats> {
     getStats(): CustomAgentStats {
         return {
             ...super.getStats(),
