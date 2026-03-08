@@ -98,7 +98,20 @@
       }
     ],
     // 🚨 require() 사용 금지 (ES modules 사용)
-    "@typescript-eslint/no-require-imports": "error"
+    "@typescript-eslint/no-require-imports": "error",
+    // ==========================================
+    // CODE QUALITY RULES
+    // ==========================================
+    "complexity": ["warn", 15],
+    "max-lines": ["warn", { "max": 300, "skipBlankLines": true, "skipComments": true }],
+    "max-lines-per-function": ["warn", { "max": 50, "skipBlankLines": true, "skipComments": true }],
+    "no-param-reassign": ["error", { "props": false }],
+    "no-magic-numbers": ["warn", {
+      "ignore": [-1, 0, 1, 2],
+      "ignoreArrayIndexes": true,
+      "ignoreDefaultValues": true,
+      "enforceConst": true
+    }]
   },
   "overrides": [
     {
@@ -182,7 +195,11 @@
         // This exception must NOT be extended to production code
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/ban-types": "off",
-        "no-console": "warn" // ⚠️ WARNING: Console usage in test files should be minimal. Use test framework assertions or mockable loggers for better isolation
+        "no-console": "warn", // ⚠️ WARNING: Console usage in test files should be minimal. Use test framework assertions or mockable loggers for better isolation
+        "complexity": "off",
+        "max-lines": "off",
+        "max-lines-per-function": "off",
+        "no-magic-numbers": "off"
         // ==========================================
       }
     },
@@ -195,7 +212,9 @@
         "**/rollup.config.js"
       ],
       "rules": {
-        "no-restricted-syntax": "off"
+        "no-restricted-syntax": "off",
+        "no-magic-numbers": "off",
+        "max-lines": "off"
       }
     }
   ],
