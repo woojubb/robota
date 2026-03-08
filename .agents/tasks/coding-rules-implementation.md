@@ -1,6 +1,6 @@
 # Coding Rules Implementation
 
-## Status: ready
+## Status: in-progress
 
 ## Priority: high
 
@@ -193,11 +193,13 @@ coding-rules-audit.md에서 수용된 17개 제안을 프로젝트에 실제 적
 
 ## 검증 체크리스트
 
-- [ ] AGENTS.md 규칙 추가 (A-1 ~ A-8)
-- [ ] ESLint 룰 추가 및 기존 코드 위반 scan (B-1 ~ B-3)
-- [ ] CI workflow 업데이트 (C-1 ~ C-4)
-- [ ] 스킬 파일 작성/갱신 (D-1 ~ D-4)
-- [ ] pnpm build 통과
-- [ ] pnpm test 통과
-- [ ] pnpm lint 통과 (warn 허용, error 0)
+- [x] AGENTS.md 규칙 추가 (A-1 ~ A-8)
+- [x] ESLint 룰 추가 및 기존 코드 위반 scan (B-1 ~ B-3, B-2 a11y는 별도)
+- [x] CI workflow 업데이트 (C-1 audit, C-4 knip)
+- [ ] CI coverage threshold (C-2)
+- [ ] Dependency direction 자동 검증 (C-3, dependency-cruiser)
+- [x] 스킬 파일 작성/갱신 (D-1 ~ D-4)
+- [x] pnpm build 통과
+- [x] pnpm test 통과
+- [x] pnpm lint 통과 (warn 허용, error 0)
 - [ ] coding-rules-audit.md 상태를 completed로 변경
