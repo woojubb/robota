@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "scannedFiles": 472,
+  "scannedFiles": 486,
   "duplicateGroupsAll": 18,
   "duplicateGroupsNonTest": 18,
   "ssotViolationGroupsNonTest": 3,
@@ -18,7 +18,7 @@
         "normalizedName": "BinaryReferenceType",
         "kind": "type",
         "file": "packages/dag-core/src/interfaces/ports.ts",
-        "line": 14,
+        "line": 17,
         "text": "export type TBinaryReferenceType = 'asset' | 'uri';"
       },
       {
@@ -26,7 +26,7 @@
         "normalizedName": "PortValueType",
         "kind": "type",
         "file": "packages/dag-core/src/types/domain.ts",
-        "line": 2,
+        "line": 4,
         "text": "export type TPortValueType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'binary';"
       },
       {
@@ -34,7 +34,7 @@
         "normalizedName": "AssetReferenceType",
         "kind": "type",
         "file": "packages/dag-core/src/types/domain.ts",
-        "line": 11,
+        "line": 17,
         "text": "export type TAssetReferenceType = 'asset' | 'uri';"
       },
       {
@@ -42,7 +42,7 @@
         "normalizedName": "DagTriggerType",
         "kind": "type",
         "file": "packages/dag-core/src/types/domain.ts",
-        "line": 52,
+        "line": 65,
         "text": "export type TDagTriggerType = 'manual' | 'scheduled' | 'api';"
       },
       {
@@ -50,7 +50,7 @@
         "normalizedName": "RunProgressEventType",
         "kind": "type",
         "file": "packages/dag-core/src/types/run-progress.ts",
-        "line": 4,
+        "line": 5,
         "text": "export type TRunProgressEventType ="
       }
     ],
@@ -216,7 +216,7 @@
           "normalizedName": "ChatInstance",
           "kind": "class",
           "file": "packages/sessions/src/chat/chat-instance.ts",
-          "line": 18,
+          "line": 17,
           "text": "export class ChatInstance implements IChatInstance {"
         },
         {
@@ -224,7 +224,7 @@
           "normalizedName": "ChatInstance",
           "kind": "interface",
           "file": "packages/sessions/src/types/chat.ts",
-          "line": 49,
+          "line": 44,
           "text": "export interface IChatInstance {"
         }
       ],
@@ -254,7 +254,7 @@
           "normalizedName": "ConversationHistory",
           "kind": "class",
           "file": "packages/agents/src/managers/conversation-history-manager.ts",
-          "line": 779,
+          "line": 777,
           "text": "export class ConversationHistory {"
         }
       ],
@@ -336,7 +336,7 @@
           "normalizedName": "EventEmitterPlugin",
           "kind": "class",
           "file": "packages/agents/src/plugins/event-emitter-plugin.ts",
-          "line": 175,
+          "line": 200,
           "text": "export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOptions, IEventEmitterPluginStats> {"
         },
         {
@@ -404,7 +404,7 @@
           "normalizedName": "ExecutionService",
           "kind": "class",
           "file": "packages/agents/src/services/execution-service.ts",
-          "line": 111,
+          "line": 126,
           "text": "export class ExecutionService {"
         }
       ],
@@ -486,7 +486,7 @@
           "normalizedName": "RunCostPolicyEvaluator",
           "kind": "class",
           "file": "packages/dag-core/src/services/node-lifecycle-runner.ts",
-          "line": 12,
+          "line": 13,
           "text": "export class RunCostPolicyEvaluator implements IRunCostPolicyEvaluator {"
         },
         {
@@ -494,7 +494,7 @@
           "normalizedName": "RunCostPolicyEvaluator",
           "kind": "interface",
           "file": "packages/dag-core/src/types/node-lifecycle.ts",
-          "line": 110,
+          "line": 133,
           "text": "export interface IRunCostPolicyEvaluator {"
         }
       ],
@@ -516,7 +516,7 @@
           "normalizedName": "RunProgressEventBus",
           "kind": "interface",
           "file": "packages/dag-api/src/composition/run-progress-event-bus.ts",
-          "line": 5,
+          "line": 12,
           "text": "export interface IRunProgressEventBus {"
         },
         {
@@ -524,7 +524,7 @@
           "normalizedName": "RunProgressEventBus",
           "kind": "class",
           "file": "packages/dag-api/src/composition/run-progress-event-bus.ts",
-          "line": 10,
+          "line": 22,
           "text": "export class RunProgressEventBus implements IRunProgressEventBus {"
         }
       ],
