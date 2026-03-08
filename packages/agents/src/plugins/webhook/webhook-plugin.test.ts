@@ -388,10 +388,8 @@ describe('WebhookPlugin', () => {
                 async: false
             });
 
-            // Expect the send to reject since retries=0
-            await plugin.sendWebhook('custom', { executionId: 'test' }).catch(() => {
-                // Expected to fail
-            });
+            // sendWebhook catches errors internally and tracks them in stats
+            await plugin.sendWebhook('custom', { executionId: 'test' });
 
             const stats = plugin.getStats();
             expect(stats.totalErrors).toBeGreaterThan(0);
