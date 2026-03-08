@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/bytedance",
-  "version": "2.0.9",
+  "version": "3.0.0",
   "description": "ByteDance/BytePlus media integration for Robota SDK - Seedance video generation provider support",
   "type": "module",
   "main": "dist/node/index.js",

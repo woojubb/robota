@@ -5,40 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.1.0] - 2025-01-XX
+## [3.0.0] - 2026-03-08
+
+### 🚨 Breaking Changes
+
+#### @robota-sdk/agents — API Surface Overhaul
+- **Type naming convention**: All interfaces use `I*` prefix, type aliases use `T*` prefix
+  - `ToolSchema` → `IToolSchema`, `ProviderOptions` → `IProviderOptions`
+  - `AgentConfig` → `IAgentConfig`, `AgentTemplate` → `IAgentTemplate`
+  - `ToolCall` → `IToolCall`, `UserMessage` → `IUserMessage`, `SystemMessage` → `ISystemMessage`, `ToolMessage` → `IToolMessage`
+  - `UniversalMessage` → `TUniversalMessage`
+  - `ErrorHandlingStrategy` → `TErrorHandlingStrategy`, `LimitsStrategy` → `TLimitsStrategy`
+  - `EventType` → `TEventName`, `WebhookEventType` → `TWebhookEventName`
+- **Class rename**: `BaseAIProvider` → `AbstractAIProvider`
+- **Module path change**: `Robota` import path changed from `./agents/robota` to `./core/robota`
+- **Removed re-export**: `ToolSchema as FunctionSchema` alias removed
+- **New required exports**: `IAgent`, `IRunOptions`, `IProviderRequest`, `IRawProviderResponse`
+
+#### @robota-sdk/sessions — Complete Rewrite
+- Removed: `ConversationServiceImpl`, `SystemMessageManagerImpl`, `MultiProviderAdapterManager`
+- Removed: `ContextManager`, `ProviderManager`, `ProviderConfig`, `EnhancedConversationHistory`
+- Removed: Message editing/deletion functionality
+- Added: `SessionManager`, `TemplateManagerAdapter`
+- Simplified type exports (`ISessionConfig`, `IChatConfig`, etc.)
+
+#### @robota-sdk/team — Architecture Change
+- Removed: `TeamContainer`, `createTeam`, `TeamOptions`, `TeamContainerOptions`
+- Added: Relay tool-based architecture (`listTemplateCategoriesTool`, `createAssignTaskRelayTool`, etc.)
+
+#### @robota-sdk/openai
+- Removed: `PayloadLogger` class export
+- Added: `IPayloadLogger`, `IPayloadLoggerOptions` type-only exports
+
+#### @robota-sdk/anthropic
+- `AnthropicProviderOptions` → `IAnthropicProviderOptions`
 
 ### ✨ Added
 
-#### Sessions Package Production-Ready
-- **@robota-sdk/sessions**: Complete transformation from experimental to production-ready state
-- **SessionManager**: Full implementation for managing multiple independent AI agents across isolated workspaces
-- **Multi-Agent Support**: Each session can contain multiple specialized AI agents
-- **Workspace Isolation**: Independent memory spaces for each session
-- **Template Integration**: Seamless integration with AgentFactory and AgentTemplates from agents package
-- **Comprehensive Testing**: Full test coverage with working examples
+#### New Packages
+- **@robota-sdk/bytedance**: ByteDance AI provider (Doubao model support)
+- **@robota-sdk/remote**: Remote executor with HTTP client and WebSocket transport
+- **@robota-sdk/remote-server-core**: Server-side routes for remote execution
+- **@robota-sdk/playground**: Interactive AI playground
+
+#### DAG Workflow Engine (9 packages)
+- **@robota-sdk/dag-core**: Core contracts, state machines, node lifecycle, definition services
+- **@robota-sdk/dag-runtime**: Run orchestration, query, and cancellation services
+- **@robota-sdk/dag-worker**: Worker loop service, DLQ reinject service
+- **@robota-sdk/dag-scheduler**: Scheduler trigger service
+- **@robota-sdk/dag-projection**: Projection read-model service
+- **@robota-sdk/dag-api**: REST API controllers and composition roots
+- **@robota-sdk/dag-server-core**: Server bootstrap, asset store, OpenAPI spec
+- **@robota-sdk/dag-designer**: Designer UI components, hooks, and API client
+- **@robota-sdk/dag-node-***: 10 node type implementations (gemini-image-edit, image-loader, image-source, input, llm-text-openai, ok-emitter, seedance-video, text-output, text-template, transform)
+
+#### @robota-sdk/agents — New Features
+- **Media providers**: `IImageGenerationProvider`, `IVideoGenerationProvider` with type guards
+- **Event service system**: `AbstractEventService`, `StructuredEventService`, `ObservableEventService`
+- **Event constants**: `EXECUTION_EVENTS`, `TOOL_EVENTS`, `AGENT_EVENTS`, `TASK_EVENTS`, `USER_EVENTS`
+- **Executor architecture**: `LocalExecutor`, `AbstractExecutor`, `IExecutor` interface
+- **Event history module**: `EventHistoryModule` with snapshot support
+- **MCP relay tool**: `RelayMcpTool` for MCP server integration
+- **Execution proxy**: `ExecutionProxy`, `createExecutionProxy`, `withEventEmission`
+- **Workflow contracts**: `IWorkflowConverter`, `IWorkflowValidator` interfaces
+- **Logger**: `SilentLogger`, `ILogger` interface export
 
 ### 🔧 Changed
+- Code review-based refactoring across agents, sessions, and team packages
+- Complexity and file size violations resolved (300-line limit enforcement)
+- Helper extraction to reduce file complexity in agents and playground
+- Plugin system: frontend-design and github plugins enabled
 
-#### Sessions Architecture Overhaul
-- **Purpose Redefinition**: Focused on managing multiple independent AI agents in isolated workspaces
-- **Simplified ChatInstance**: Now a clean wrapper around Robota agents with proper delegation
-- **Type System Simplification**: Streamlined interfaces, removed complex EnhancedConversationHistory
-- **File Cleanup**: Removed duplicate implementations that existed in agents package
-- **Documentation Overhaul**: Complete README rewrite with architecture diagrams and API reference
-
-### 🗑️ Removed
-
-#### Sessions Package Cleanup
-- **Message Editing**: Removed message editing/deletion functionality to focus on core purpose
-- **EnhancedConversationHistory**: Eliminated complex interface in favor of simple delegation
-- **Duplicate Files**: Removed provider-adapter, system-message, and conversation service implementations
-- **Complex Configuration**: Simplified configuration tracking and change management
-
-### 📦 Dependencies
-
-#### Updated
-- `@robota-sdk/sessions`: Now depends on `@robota-sdk/agents` for runtime functionality
-- Removed peer dependencies to avoid conflicts in monorepo setup
+### 🐛 Fixed
+- **dag-worker**: Finalization classification error in task completion
+- **dag-worker**: Downstream dispatch atomicity guarantee
+- **dag-worker**: DLQ reinject concurrency safety (lease mechanism added)
 
 ## [2.0.0-rc.1] - 2025-01-06
 

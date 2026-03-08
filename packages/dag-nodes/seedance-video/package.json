@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-seedance-video",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "description": "DAG seedance-video node for Robota",
   "type": "module",
   "main": "dist/node/index.js",

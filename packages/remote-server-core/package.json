@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/remote-server-core",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "description": "Reusable Remote API server routes for Robota",
   "type": "module",
   "main": "dist/node/index.js",
