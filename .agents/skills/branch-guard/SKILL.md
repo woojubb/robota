@@ -52,9 +52,32 @@ description: Guard against committing directly to protected branches (main, mast
 - `master`
 - `develop`
 
+4. **When merging a branch** (PR or local merge):
+
+   **Determine merge target:**
+   - Check the fork point of the current branch:
+     ```bash
+     git log --oneline --first-parent develop..HEAD
+     git log --oneline --first-parent main..HEAD
+     ```
+   - The merge target must be the branch it was forked from.
+   - If the branch was forked from `develop`, merge back into `develop`.
+   - If the branch was forked from `main`, merge back into `main` (rare, requires justification).
+
+   **Never assume `main` as the default target.** The default is always the fork origin.
+
+   **If the agent wants a different merge target:**
+   - Explicitly state the recommendation and reasoning.
+   - Wait for user approval before proceeding.
+
+   **Merging `develop` into `main`:**
+   - This is a release-level action. Always ask for explicit user approval.
+   - Never do this as part of a regular feature workflow.
+
 ## Stop Conditions
 - User declines branch creation — do not commit on the protected branch.
 - Branch name conflicts with an existing branch — ask for an alternative name.
+- Merge target differs from fork origin — ask user before proceeding.
 
 ## Checklist
 - [ ] Current branch checked before every commit
@@ -62,9 +85,13 @@ description: Guard against committing directly to protected branches (main, mast
 - [ ] Branch name suggested with conventional prefix
 - [ ] User approved the branch name
 - [ ] New branch created before committing
+- [ ] Merge target matches fork origin
+- [ ] Release merge (develop → main) explicitly approved by user
 
 ## Anti-Patterns
 - Committing directly to `main`, `master`, or `develop` without asking.
 - Creating a branch without user approval of the name.
 - Using generic branch names like `temp` or `wip` without a descriptive suffix.
 - Creating a new branch for every intermediate commit within a single task.
+- Merging into `main` when the branch was forked from `develop`.
+- Assuming `main` as the default merge/PR target.

@@ -23,10 +23,12 @@ COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | 
 # Detect git action type
 IS_COMMIT=false
 IS_PUSH=false
+IS_MERGE=false
 echo "$COMMAND" | grep -qE '^\s*git\s+commit\b' && IS_COMMIT=true
 echo "$COMMAND" | grep -qE '^\s*git\s+(push|push\s)' && IS_PUSH=true
+echo "$COMMAND" | grep -qE '^\s*git\s+merge\b' && IS_MERGE=true
 
-if [[ "$IS_COMMIT" == "false" && "$IS_PUSH" == "false" ]]; then
+if [[ "$IS_COMMIT" == "false" && "$IS_PUSH" == "false" && "$IS_MERGE" == "false" ]]; then
   exit 0
 fi
 
@@ -53,6 +55,16 @@ if [[ "$IS_PUSH" == "true" ]]; then
   for branch in main master; do
     if [[ "$CURRENT_BRANCH" == "$branch" ]]; then
       echo "[branch-guard] Blocked: cannot git push on protected branch '${branch}'." >&2
+      exit 2
+    fi
+  done
+fi
+
+# Block merge into main/master (release merge requires explicit user approval via PR)
+if [[ "$IS_MERGE" == "true" ]]; then
+  for branch in main master; do
+    if [[ "$CURRENT_BRANCH" == "$branch" ]]; then
+      echo "[branch-guard] Blocked: cannot git merge into '${branch}'. Use a PR or get explicit user approval for release merges." >&2
       exit 2
     fi
   done
