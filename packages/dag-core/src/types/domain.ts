@@ -12,6 +12,8 @@ export interface INodeConfigObject {
 }
 /** Any value that can appear inside a node's config. */
 export type TNodeConfigValue = TNodeConfigPrimitive | INodeConfigObject | TNodeConfigValue[];
+/** Top-level node configuration record. Alias for INodeConfigObject. */
+export type TNodeConfigRecord = INodeConfigObject;
 
 /** Discriminant for asset reference resolution strategy. */
 export type TAssetReferenceType = 'asset' | 'uri';
