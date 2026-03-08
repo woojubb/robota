@@ -54,7 +54,7 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `TPortValueType` | `types/domain.ts` | Port data types: `string`, `number`, `boolean`, `object`, `array`, `binary` |
 | `TBinaryKind` | `types/domain.ts` | Binary payload kind: `image`, `video`, `audio`, `file` |
 | `TNodeConfigValue` | `types/domain.ts` | Recursive config value type (primitives, objects, arrays) |
-| `TNodeConfigRecord` | `types/domain.ts` | Node configuration record (alias for `INodeConfigObject`) |
+| `TNodeConfigRecord` | `types/domain.ts` | Node configuration record (alias for `INodeConfigObject`). **NOT YET DEFINED IN CODE** — documented as a planned type alias. Must be implemented or removed from this table. |
 | `TAssetReference` | `types/domain.ts` | Discriminated union for asset-by-id or asset-by-uri references |
 | `TDagRunStatus` | `types/domain.ts` | DAG run states: `created`, `queued`, `running`, `success`, `failed`, `cancelled` |
 | `TTaskRunStatus` | `types/domain.ts` | Task run states: `created`, `queued`, `running`, `success`, `failed`, `upstream_failed`, `skipped`, `cancelled` |
@@ -301,7 +301,15 @@ States: `created`, `queued`, `running`, `success`, `failed`, `upstream_failed`, 
 
 Terminal states: `success`, `upstream_failed`, `skipped`, `cancelled`
 
-The `failed` state has a single explicit policy gate: `RETRY` transitions back to `queued`.
+**Note**: The `failed` state is NOT terminal — it has a single explicit policy gate: `RETRY` transitions back to `queued`. This is intentional: a failed task may be retried via the DLQ reinject mechanism. Consumer packages (e.g., `dag-worker`'s `DagRunFinalizer`) must treat `failed` as terminal only for finalization purposes (i.e., a failed task with no remaining retries is effectively terminal for DAG completion evaluation).
+
+### Finalization Semantics
+
+For DAG run finalization (determining `success` vs `failed` outcome):
+
+- `failed` is the **only** task status that contributes to a `failed` DAG run outcome.
+- `upstream_failed`, `skipped`, and `cancelled` are non-failure terminal states — they do not cause the DAG run to fail.
+- A DAG run is `success` when all tasks are in terminal states AND no task is `failed`.
 
 ```
 created --QUEUE--> queued --START--> running --COMPLETE_SUCCESS--> success
