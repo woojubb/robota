@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-transform",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "description": "DAG transform node for Robota",
   "type": "module",
   "main": "dist/node/index.js",

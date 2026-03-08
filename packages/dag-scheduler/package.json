@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-scheduler",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "description": "Scheduler layer for Robota DAG orchestration",
   "type": "module",
   "main": "dist/node/index.js",

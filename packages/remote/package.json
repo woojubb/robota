@@ -1,6 +1,6 @@
 {
     "name": "@robota-sdk/remote",
-    "version": "1.0.0",
+    "version": "3.0.0",
     "description": "Remote execution system for Robota SDK - enables secure server-side AI provider execution",
     "keywords": [
         "robota",

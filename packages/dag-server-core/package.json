@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-server-core",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "description": "Reusable DAG server bootstrap and runtime for Robota",
   "type": "module",
   "main": "dist/node/index.js",
