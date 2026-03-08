@@ -1,6 +1,6 @@
 # Test Coverage Expansion
 
-## Status: pending
+## Status: in-progress
 
 ## Priority: high
 
