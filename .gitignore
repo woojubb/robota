@@ -103,3 +103,6 @@ bun.lock
 # Runtime/backup directories
 .backup/
 .robota/
+
+# Audit script output (local-only, not committed)
+scripts/audit/output/
