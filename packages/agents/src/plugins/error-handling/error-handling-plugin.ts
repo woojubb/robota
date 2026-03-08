@@ -1,12 +1,12 @@
-import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
-import { Logger, createLogger } from '../../utils/logger';
+import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
+import { createLogger, type ILogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 
 // Import from Facade pattern modules for type safety
 import type {
-    ErrorHandlingContextData,
-    ErrorHandlingPluginOptions,
-    ErrorHandlingPluginStats
+    IErrorHandlingContextData,
+    IErrorHandlingPluginOptions,
+    IErrorHandlingPluginStats
 } from './types';
 import { toErrorContext, createPluginErrorContext } from './context-adapter';
 
@@ -14,17 +14,17 @@ import { toErrorContext, createPluginErrorContext } from './context-adapter';
  * Plugin for handling errors with configurable strategies
  * Provides error recovery, retry mechanisms, and circuit breaker patterns
  */
-export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, ErrorHandlingPluginStats> {
+export class ErrorHandlingPlugin extends AbstractPlugin<IErrorHandlingPluginOptions, IErrorHandlingPluginStats> {
     name = 'ErrorHandlingPlugin';
     version = '1.0.0';
 
-    private pluginOptions: Required<Omit<ErrorHandlingPluginOptions, 'customErrorHandler'>> & { customErrorHandler?: (error: Error, context: ErrorHandlingContextData) => Promise<void> };
-    private logger: Logger;
+    private pluginOptions: Required<Omit<IErrorHandlingPluginOptions, 'customErrorHandler'>> & { customErrorHandler?: (error: Error, context: IErrorHandlingContextData) => Promise<void> };
+    private logger: ILogger;
     private failureCount = 0;
     private circuitBreakerOpen = false;
     private lastFailureTime = 0;
 
-    constructor(options: ErrorHandlingPluginOptions) {
+    constructor(options: IErrorHandlingPluginOptions) {
         super();
         this.logger = createLogger('ErrorHandlingPlugin');
 
@@ -40,7 +40,7 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
             logErrors: options.logErrors ?? true,
             failureThreshold: options.failureThreshold ?? 5,
             circuitBreakerTimeout: options.circuitBreakerTimeout ?? 60000, // 1 minute
-            // Add BasePluginOptions defaults
+            // Add plugin options defaults
             category: options.category ?? PluginCategory.ERROR_HANDLING,
             priority: options.priority ?? PluginPriority.HIGH,
             moduleEvents: options.moduleEvents ?? [],
@@ -58,7 +58,7 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
     /**
      * Handle an error with the configured strategy
      */
-    async handleError(error: Error, context: ErrorHandlingContextData = {}): Promise<void> {
+    async handleError(error: Error, context: IErrorHandlingContextData = {}): Promise<void> {
         if (this.pluginOptions.logErrors) {
             this.logger.error('Error occurred', {
                 error: error.message,
@@ -101,13 +101,13 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
      */
     /**
      * Execute a function with error handling and retry logic
-     * REASON: PluginError constructor requires ErrorContextData which has different type constraints than ErrorHandlingContextData, causing multiple type compatibility issues
+     * REASON: PluginError constructor requires ErrorContextData which has different type constraints than IErrorHandlingContextData, causing multiple type compatibility issues
      * ALTERNATIVES_CONSIDERED: Union types (breaks existing error context interfaces), interface definition (creates circular dependencies), generic types (complex type propagation through error handling chain), conditional types (breaks existing plugin interfaces), mapped types (incompatible with error constructor signatures), type guards (runtime only, doesn't solve constructor compatibility), custom declarations (breaks PluginError interface contract), code refactoring (would require redesigning entire error handling system across all plugins), @types packages (none available for this specific use case), external library integration (no standard error context type systems available), utility types (Pick/Omit create new compatibility issues)
-     * TODO: Create unified error context type system that bridges ErrorHandlingContextData and ErrorContextData requirements, or redesign PluginError to accept more flexible context types
+     * TODO: Create unified error context type system that bridges IErrorHandlingContextData and ErrorContextData requirements, or redesign PluginError to accept more flexible context types
      */
     async executeWithRetry<T>(
         fn: () => Promise<T>,
-        context: ErrorHandlingContextData = {}
+        context: IErrorHandlingContextData = {}
     ): Promise<T> {
         let lastError: Error | null = null;
         let attempt = 0;
@@ -176,8 +176,10 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
     /**
      * Get error handling statistics
      */
-    override getStats(): ErrorHandlingPluginStats {
+    override getStats(): IErrorHandlingPluginStats {
+        const base = super.getStats();
         return {
+            ...base,
             failureCount: this.failureCount,
             circuitBreakerOpen: this.circuitBreakerOpen,
             lastFailureTime: this.lastFailureTime,
@@ -193,7 +195,7 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
         this.logger.info('ErrorHandlingPlugin destroyed');
     }
 
-    private async handleSimple(error: Error, context: ErrorHandlingContextData): Promise<void> {
+    private async handleSimple(error: Error, context: IErrorHandlingContextData): Promise<void> {
         // Simple logging - no additional logic
         this.logger.debug('Simple error handling applied', {
             error: error.message,
@@ -201,7 +203,7 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
         });
     }
 
-    private async handleCircuitBreaker(_error: Error, context: ErrorHandlingContextData): Promise<void> {
+    private async handleCircuitBreaker(_error: Error, context: IErrorHandlingContextData): Promise<void> {
         this.failureCount++;
         this.lastFailureTime = Date.now();
 
@@ -215,7 +217,7 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
         }
     }
 
-    private async handleExponentialBackoff(_error: Error, context: ErrorHandlingContextData): Promise<void> {
+    private async handleExponentialBackoff(_error: Error, context: IErrorHandlingContextData): Promise<void> {
         this.failureCount++;
         this.logger.debug('Exponential backoff error handling applied', {
             error: _error.message,
@@ -241,7 +243,7 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
         return true;
     }
 
-    private validateOptions(options: ErrorHandlingPluginOptions): void {
+    private validateOptions(options: IErrorHandlingPluginOptions): void {
         if (!options.strategy) {
             throw new ConfigurationError('Error handling strategy is required');
         }

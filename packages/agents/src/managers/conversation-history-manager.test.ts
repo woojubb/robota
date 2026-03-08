@@ -9,7 +9,6 @@ import {
     createUserMessage,
     createSystemMessage
 } from './conversation-history-manager';
-import type { ToolMessage } from './conversation-history-manager';
 
 describe('ConversationSession', () => {
     describe('addToolMessageWithId', () => {
@@ -288,6 +287,47 @@ describe('ConversationSession', () => {
             expect(messages[1].metadata).toEqual(assistantMetadata);
             expect(messages[2].metadata).toEqual(toolMetadata);
         });
+
+        it('should preserve multimodal parts for user, assistant, system, and tool messages', () => {
+            const session = new ConversationSession();
+
+            session.addUserMessage(
+                '',
+                undefined,
+                [
+                    { type: 'image_inline', mimeType: 'image/png', data: 'ZmFrZS1pbWFnZQ==' },
+                    { type: 'text', text: 'describe this' }
+                ]
+            );
+            session.addAssistantMessage(
+                'done',
+                undefined,
+                undefined,
+                [
+                    { type: 'text', text: 'generated result' },
+                    { type: 'image_inline', mimeType: 'image/png', data: 'cmVzdWx0LWltYWdl' }
+                ]
+            );
+            session.addSystemMessage(
+                'system with part',
+                undefined,
+                [{ type: 'text', text: 'system-part' }]
+            );
+            session.addToolMessageWithId(
+                '{"ok":true}',
+                'tool-call-parts',
+                'testTool',
+                undefined,
+                [{ type: 'text', text: 'tool-part' }]
+            );
+
+            const messages = session.getMessages();
+            expect(messages[0].parts).toBeDefined();
+            expect(messages[0].parts?.[0]?.type).toBe('image_inline');
+            expect(messages[1].parts?.[1]?.type).toBe('image_inline');
+            expect(messages[2].parts?.[0]?.type).toBe('text');
+            expect(messages[3].parts?.[0]?.type).toBe('text');
+        });
     });
 
     describe('Factory functions data integrity', () => {
@@ -321,6 +361,18 @@ describe('ConversationSession', () => {
             expect(message.name).toBe('testTool');
             expect(message.metadata).toEqual({ success: true });
             expect(message.timestamp).toBeInstanceOf(Date);
+        });
+
+        it('should create messages with multimodal parts when provided', () => {
+            const userMessage = createUserMessage('hello', {
+                parts: [{ type: 'text', text: 'hello-part' }]
+            });
+            const assistantMessage = createAssistantMessage('world', {
+                parts: [{ type: 'image_inline', mimeType: 'image/png', data: 'ZmFrZQ==' }]
+            });
+
+            expect(userMessage.parts?.[0]?.type).toBe('text');
+            expect(assistantMessage.parts?.[0]?.type).toBe('image_inline');
         });
     });
 });

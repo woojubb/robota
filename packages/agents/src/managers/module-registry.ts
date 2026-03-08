@@ -1,22 +1,29 @@
-import {
-    BaseModule,
-    BaseModuleOptions,
-    ModuleExecutionContext,
-    ModuleExecutionResult
-} from '../abstracts/base-module';
-import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
-import { ModuleTypeRegistry } from './module-type-registry';
-import { Logger, createLogger } from '../utils/logger';
+import type {
+    IBaseModuleOptions,
+    IModule,
+    IModuleExecutionContext,
+    IModuleExecutionResult
+} from '../abstracts/abstract-module';
+import type { IEventEmitterPlugin } from '../plugins/event-emitter/types';
+import { ModuleDescriptorRegistry } from './module-type-registry';
+import { createLogger, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
+
+export const MODULE_REGISTRY_EVENTS = {
+    /** Emitted when a module is registered in ModuleRegistry */
+    REGISTERED: 'module.registered',
+    /** Emitted when a module is unregistered in ModuleRegistry */
+    UNREGISTERED: 'module.unregistered'
+} as const;
 
 /**
  * Module registration options
  */
-export interface ModuleRegistrationOptions {
+export interface IModuleRegistrationOptions {
     /** Whether to initialize the module immediately */
     autoInitialize?: boolean;
     /** Custom initialization options */
-    initOptions?: BaseModuleOptions;
+    initOptions?: IBaseModuleOptions;
     /** Whether to validate dependencies */
     validateDependencies?: boolean;
     /** Custom initialization timeout */
@@ -26,7 +33,7 @@ export interface ModuleRegistrationOptions {
 /**
  * Module status information
  */
-export interface ModuleStatus {
+export interface IModuleStatus {
     name: string;
     type: string;
     enabled: boolean;
@@ -42,7 +49,7 @@ export interface ModuleStatus {
 /**
  * Module execution statistics
  */
-export interface ModuleExecutionStats {
+export interface IModuleExecutionStats {
     totalExecutions: number;
     successfulExecutions: number;
     failedExecutions: number;
@@ -63,20 +70,20 @@ export interface ModuleExecutionStats {
  * - Error handling and recovery
  */
 export class ModuleRegistry {
-    private modules = new Map<string, BaseModule>();
-    private moduleOptions = new Map<string, BaseModuleOptions>();
-    private moduleStatuses = new Map<string, ModuleStatus>();
-    private moduleStats = new Map<string, ModuleExecutionStats>();
+    private modules = new Map<string, IModule>();
+    private moduleOptions = new Map<string, IBaseModuleOptions>();
+    private moduleStatuses = new Map<string, IModuleStatus>();
+    private moduleStats = new Map<string, IModuleExecutionStats>();
     private registrationOrder: string[] = [];
     private initializationOrder: string[] = [];
-    private typeRegistry: ModuleTypeRegistry;
-    private eventEmitter: EventEmitterPlugin | undefined;
-    private logger: Logger;
+    private typeRegistry: ModuleDescriptorRegistry;
+    private eventEmitter: IEventEmitterPlugin | undefined;
+    private logger: ILogger;
     private isDisposing = false;
 
-    constructor(eventEmitter?: EventEmitterPlugin) {
+    constructor(eventEmitter?: IEventEmitterPlugin, typeRegistry?: ModuleDescriptorRegistry) {
         this.eventEmitter = eventEmitter;
-        this.typeRegistry = ModuleTypeRegistry.getInstance();
+        this.typeRegistry = typeRegistry ?? new ModuleDescriptorRegistry();
         this.logger = createLogger('ModuleRegistry');
 
         this.logger.info('ModuleRegistry created', {
@@ -88,8 +95,8 @@ export class ModuleRegistry {
      * Register a module instance
      */
     async registerModule(
-        module: BaseModule,
-        options: ModuleRegistrationOptions = {}
+        module: IModule,
+        options: IModuleRegistrationOptions = {}
     ): Promise<void> {
         if (this.isDisposing) {
             throw new ConfigurationError('Cannot register modules during disposal');
@@ -118,7 +125,7 @@ export class ModuleRegistry {
 
         // Create status tracking
         const moduleType = module.getModuleType();
-        const status: ModuleStatus = {
+        const status: IModuleStatus = {
             name: module.name,
             type: moduleType.type,
             enabled: module.isEnabled(),
@@ -152,7 +159,7 @@ export class ModuleRegistry {
 
         // Emit registration event
         if (this.eventEmitter) {
-            await this.eventEmitter.emit('module.registered', {
+            await this.eventEmitter.emit(MODULE_REGISTRY_EVENTS.REGISTERED, {
                 data: {
                     moduleName: module.name,
                     moduleType: moduleType.type
@@ -182,7 +189,9 @@ export class ModuleRegistry {
 
         // Dispose the module if initialized
         if (module.isInitialized()) {
-            await module.dispose();
+            if (module.dispose) {
+                await module.dispose();
+            }
         }
 
         // Remove from all tracking structures
@@ -206,7 +215,7 @@ export class ModuleRegistry {
 
         // Emit unregistration event
         if (this.eventEmitter) {
-            await this.eventEmitter.emit('module.unregistered', {
+            await this.eventEmitter.emit(MODULE_REGISTRY_EVENTS.UNREGISTERED, {
                 data: {
                     moduleName
                 },
@@ -238,13 +247,17 @@ export class ModuleRegistry {
         const initPromise = module.initialize(options, this.eventEmitter);
 
         if (timeout && timeout > 0) {
+            let timerId: ReturnType<typeof setTimeout>;
             const timeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => {
+                timerId = setTimeout(() => {
                     reject(new Error(`Module '${moduleName}' initialization timed out after ${timeout}ms`));
                 }, timeout);
             });
 
-            await Promise.race([initPromise, timeoutPromise]);
+            await Promise.race([
+                initPromise.then(result => { clearTimeout(timerId); return result; }),
+                timeoutPromise
+            ]);
         } else {
             await initPromise;
         }
@@ -331,7 +344,7 @@ export class ModuleRegistry {
     /**
      * Execute a module by name
      */
-    async executeModule(moduleName: string, context: ModuleExecutionContext): Promise<ModuleExecutionResult> {
+    async executeModule(moduleName: string, context: IModuleExecutionContext): Promise<IModuleExecutionResult> {
         const module = this.modules.get(moduleName);
         if (!module) {
             throw new ConfigurationError(`Module '${moduleName}' not found`);
@@ -350,6 +363,9 @@ export class ModuleRegistry {
         const startTime = Date.now();
 
         try {
+            if (!module.execute) {
+                throw new ConfigurationError(`Module '${moduleName}' does not support execute()`);
+            }
             const result = await module.execute(context);
 
             // Update success statistics
@@ -384,20 +400,19 @@ export class ModuleRegistry {
     /**
      * Get a module by name
      */
-    getModule<T extends BaseModule = BaseModule>(moduleName: string): T | null {
-        const module = this.modules.get(moduleName);
-        return module ? (module as T) : null;
+    getModule(moduleName: string): IModule | null {
+        return this.modules.get(moduleName) ?? null;
     }
 
     /**
      * Get modules by type
      */
-    getModulesByType<T extends BaseModule = BaseModule>(moduleType: string): T[] {
-        const modules: T[] = [];
+    getModulesByType(moduleType: string): IModule[] {
+        const modules: IModule[] = [];
 
         for (const module of this.modules.values()) {
             if (module.getModuleType().type === moduleType) {
-                modules.push(module as T);
+                modules.push(module);
             }
         }
 
@@ -407,7 +422,7 @@ export class ModuleRegistry {
     /**
      * Get all registered modules
      */
-    getAllModules(): BaseModule[] {
+    getAllModules(): IModule[] {
         return Array.from(this.modules.values());
     }
 
@@ -428,29 +443,29 @@ export class ModuleRegistry {
     /**
      * Get module status
      */
-    getModuleStatus(moduleName: string): ModuleStatus | null {
+    getModuleStatus(moduleName: string): IModuleStatus | null {
         return this.moduleStatuses.get(moduleName) || null;
     }
 
     /**
      * Get all module statuses
      */
-    getAllModuleStatuses(): ModuleStatus[] {
+    getAllModuleStatuses(): IModuleStatus[] {
         return Array.from(this.moduleStatuses.values());
     }
 
     /**
      * Get module execution statistics
      */
-    getModuleStats(moduleName: string): ModuleExecutionStats | null {
+    getModuleStats(moduleName: string): IModuleExecutionStats | null {
         return this.moduleStats.get(moduleName) || null;
     }
 
     /**
      * Get all module execution statistics
      */
-    getAllModuleStats(): Record<string, ModuleExecutionStats> {
-        const stats: Record<string, ModuleExecutionStats> = {};
+    getAllModuleStats(): Record<string, IModuleExecutionStats> {
+        const stats: Record<string, IModuleExecutionStats> = {};
         for (const [name, moduleStats] of this.moduleStats.entries()) {
             stats[name] = { ...moduleStats };
         }
@@ -480,7 +495,9 @@ export class ModuleRegistry {
             const module = this.modules.get(moduleName);
             if (module && module.isInitialized()) {
                 try {
-                    await module.dispose();
+                    if (module.dispose) {
+                        await module.dispose();
+                    }
 
                     // Update status
                     const status = this.moduleStatuses.get(moduleName);
@@ -580,7 +597,7 @@ export class ModuleRegistry {
     /**
      * Validate a module before registration
      */
-    private validateModule(module: BaseModule): void {
+    private validateModule(module: IModule): void {
         if (!module.name || module.name.trim() === '') {
             throw new ConfigurationError('Module name is required');
         }
@@ -612,7 +629,7 @@ export class ModuleRegistry {
     /**
      * Validate module dependencies
      */
-    private async validateModuleDependencies(module: BaseModule): Promise<void> {
+    private async validateModuleDependencies(module: IModule): Promise<void> {
         const moduleType = module.getModuleType();
 
         if (!moduleType.dependencies || moduleType.dependencies.length === 0) {

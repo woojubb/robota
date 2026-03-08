@@ -1,7 +1,8 @@
-import type { ToolManagerInterface } from '../interfaces/manager';
-import type { ToolSchema } from '../interfaces/provider';
-import type { ToolInterface, ToolExecutor, ToolExecutionData, ToolParameters } from '../interfaces/tool';
-import { BaseManager } from '../abstracts/base-manager';
+import type { IToolManager } from '../interfaces/manager';
+import type { IToolSchema } from '../interfaces/provider';
+import type { ITool, TToolExecutor, TToolParameters, IToolExecutionContext } from '../interfaces/tool';
+import type { TUniversalValue } from '../interfaces/types';
+import { AbstractManager } from '../abstracts/abstract-manager';
 import { ToolRegistry } from '../tools/registry/tool-registry';
 import { FunctionTool } from '../tools/implementations/function-tool';
 import { ToolExecutionError } from '../utils/errors';
@@ -13,7 +14,7 @@ import { logger } from '../utils/logger';
  * Instance-based for isolated tool management
  * @internal
  */
-export class Tools extends BaseManager implements ToolManagerInterface {
+export class Tools extends AbstractManager implements IToolManager {
     private registry: ToolRegistry;
     private allowedTools?: string[];
 
@@ -41,7 +42,7 @@ export class Tools extends BaseManager implements ToolManagerInterface {
     /**
      * Register a tool with schema and executor function
      */
-    addTool(schema: ToolSchema, executor: ToolExecutor): void {
+    addTool(schema: IToolSchema, executor: TToolExecutor): void {
         this.ensureInitialized();
 
         const tool = new FunctionTool(schema, executor);
@@ -61,7 +62,7 @@ export class Tools extends BaseManager implements ToolManagerInterface {
     /**
      * Get tool interface by name
      */
-    getTool(name: string): ToolInterface | undefined {
+    getTool(name: string): ITool | undefined {
         this.ensureInitialized();
         return this.registry.get(name);
     }
@@ -69,7 +70,7 @@ export class Tools extends BaseManager implements ToolManagerInterface {
     /**
      * Get tool schema by name
      */
-    getToolSchema(name: string): ToolSchema | undefined {
+    getToolSchema(name: string): IToolSchema | undefined {
         this.ensureInitialized();
         const tool = this.registry.get(name);
         return tool?.schema;
@@ -78,7 +79,7 @@ export class Tools extends BaseManager implements ToolManagerInterface {
     /**
      * Get all registered tool schemas
      */
-    getTools(): ToolSchema[] {
+    getTools(): IToolSchema[] {
         this.ensureInitialized();
 
         const schemas = this.registry.getSchemas();
@@ -94,7 +95,7 @@ export class Tools extends BaseManager implements ToolManagerInterface {
     /**
      * Execute a tool with parameters
      */
-    async executeTool(name: string, parameters: ToolParameters): Promise<ToolExecutionData> {
+    async executeTool(name: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<TUniversalValue> {
         this.ensureInitialized();
 
         // Check if tool is allowed
@@ -113,7 +114,7 @@ export class Tools extends BaseManager implements ToolManagerInterface {
             );
         }
 
-        const result = await tool.execute(parameters);
+        const result = await tool.execute(parameters, context);
 
         if (!result.success) {
             throw new ToolExecutionError(
@@ -127,6 +128,9 @@ export class Tools extends BaseManager implements ToolManagerInterface {
             );
         }
 
+        if (typeof result.data === 'undefined') {
+            throw new ToolExecutionError('Tool execution succeeded but returned no data', name);
+        }
         return result.data;
     }
 

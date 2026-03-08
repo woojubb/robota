@@ -1,20 +1,21 @@
-import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
-import { Logger, createLogger } from '../../../utils/logger';
+import { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
+import { createLogger, type ILogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
+import { aggregateUsageStats } from '../aggregate-usage-stats';
 
 /**
  * File storage implementation for usage statistics
  */
-export class FileUsageStorage implements UsageStorage {
+export class FileUsageStorage implements IUsageStorage {
     private filePath: string;
-    private logger: Logger;
+    private logger: ILogger;
 
     constructor(filePath: string) {
         this.filePath = filePath;
         this.logger = createLogger('FileUsageStorage');
     }
 
-    async save(entry: UsageStats): Promise<void> {
+    async save(entry: IUsageStats): Promise<void> {
         try {
             // File operations would be implemented here
             // This is a placeholder for actual file system operations
@@ -37,7 +38,7 @@ export class FileUsageStorage implements UsageStorage {
         }
     }
 
-    async getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<UsageStats[]> {
+    async getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<IUsageStats[]> {
         try {
             // File operations would be implemented here
             this.logger.warn('File usage storage not fully implemented yet', {
@@ -55,30 +56,10 @@ export class FileUsageStorage implements UsageStorage {
         }
     }
 
-    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats> {
+    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats> {
         try {
-            // File operations would be implemented here
-            this.logger.warn('File usage storage not fully implemented yet', {
-                filePath: this.filePath,
-                timeRange
-            });
-
-            // Return empty aggregated stats as placeholder
-            return {
-                totalRequests: 0,
-                totalTokens: 0,
-                totalCost: 0,
-                totalDuration: 0,
-                successRate: 0,
-                providerStats: {},
-                modelStats: {},
-                toolStats: {},
-                timeRangeStats: {
-                    startTime: timeRange?.start || new Date(),
-                    endTime: timeRange?.end || new Date(),
-                    period: 'unknown'
-                }
-            };
+            const stats = await this.getStats(undefined, timeRange);
+            return aggregateUsageStats(stats, timeRange);
         } catch (error) {
             throw new StorageError('Failed to get aggregated usage stats from file', {
                 filePath: this.filePath,

@@ -1,0 +1,27 @@
+{
+  "name": "robota-agents-examples",
+  "private": true,
+  "type": "module",
+  "description": "Package-owned examples for @robota-sdk/agents (not part of the workspace)",
+  "dependencies": {
+    "@robota-sdk/agents": "link:..",
+    "@robota-sdk/openai": "link:../../openai",
+    "@robota-sdk/anthropic": "link:../../anthropic"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.3",
+    "typescript": "^5.3.3"
+  },
+  "scripts": {
+    "basic": "tsx basic-conversation.ts",
+    "tools": "tsx tool-calling.ts",
+    "multi-providers": "tsx multi-providers.ts",
+    "advanced": "tsx advanced-features.ts",
+    "templates": "tsx agent-templates.ts",
+    "analytics": "tsx execution-analytics.ts",
+    "usage": "tsx agents-basic-usage.ts",
+    "streaming": "tsx agents-streaming.ts"
+  }
+}
+
+

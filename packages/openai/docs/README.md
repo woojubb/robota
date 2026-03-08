@@ -2,6 +2,10 @@
 
 OpenAI Provider for Robota SDK - Complete type-safe integration with OpenAI's GPT models, featuring function calling, streaming, and advanced AI capabilities.
 
+## Documentation Map
+
+- `SPEC.md`: Provider scope, ownership boundaries, and canonical responsibilities.
+
 ## 🚀 Features
 
 ### Core Capabilities
@@ -171,7 +175,7 @@ const claudeResponse = await agent.run('Respond using Claude');
 ## ⚙️ Configuration Options
 
 ```typescript
-interface OpenAIProviderOptions {
+interface IOpenAIProviderOptions {
   // Required
   client: OpenAI;                    // OpenAI SDK client instance
   
@@ -217,7 +221,7 @@ interface OpenAIProviderOptions {
 
 ```typescript
 class OpenAIProvider extends BaseAIProvider<
-  OpenAIProviderOptions,
+  IOpenAIProviderOptions,
   UniversalMessage,
   UniversalMessage
 > {
@@ -364,7 +368,7 @@ MIT License - see LICENSE file for details.
 - **[@robota-sdk/agents](../agents/)**: Core agent framework
 - **[@robota-sdk/anthropic](../anthropic/)**: Anthropic Claude provider
 - **[@robota-sdk/google](../google/)**: Google AI provider
-- **[@robota-sdk/team](../team/)**: Multi-agent collaboration
+- **[@robota-sdk/team](../team/)**: assignTask MCP tool collection (team creation removed)
 
 ---
 

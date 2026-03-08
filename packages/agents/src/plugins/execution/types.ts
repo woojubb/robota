@@ -1,7 +1,7 @@
 /**
  * Analytics context data for execution tracking
  */
-export interface AnalyticsContextData {
+export interface IExecutionAnalyticsContextData {
     executionId?: string;
     sessionId?: string;
     userId?: string;
@@ -22,7 +22,7 @@ export interface AnalyticsContextData {
 /**
  * Execution statistics entry
  */
-export interface ExecutionStats {
+export interface IExecutionStats {
     executionId: string;
     operation: string;
     startTime: Date;
@@ -40,7 +40,7 @@ export interface ExecutionStats {
 /**
  * Aggregated execution statistics
  */
-export interface AggregatedExecutionStats {
+export interface IAggregatedExecutionStats {
     totalExecutions: number;
     successfulExecutions: number;
     failedExecutions: number;
@@ -61,12 +61,12 @@ export interface AggregatedExecutionStats {
     };
 }
 
-import type { BasePluginOptions, PluginStats } from '../../abstracts/base-plugin';
+import type { IPluginOptions, IPluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Plugin options
  */
-export interface ExecutionAnalyticsOptions extends BasePluginOptions {
+export interface IExecutionAnalyticsOptions extends IPluginOptions {
     /** Maximum number of entries to keep in memory */
     maxEntries?: number;
     /** Whether to track error details */
@@ -80,7 +80,7 @@ export interface ExecutionAnalyticsOptions extends BasePluginOptions {
 /**
  * Execution analytics plugin statistics
  */
-export interface ExecutionAnalyticsPluginStats extends PluginStats {
+export interface IExecutionAnalyticsPluginStats extends IPluginStats {
     /** Total number of executions recorded */
     totalRecorded: number;
     /** Number of active executions */

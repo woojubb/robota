@@ -6,7 +6,7 @@
  */
 
 // Google AI Request Types
-export interface GoogleModelConfig {
+export interface IGoogleModelConfig {
     temperature?: number;
     topK?: number;
     topP?: number;
@@ -16,80 +16,80 @@ export interface GoogleModelConfig {
     responseMimeType?: string;
 }
 
-export interface GoogleGenerateContentRequest {
-    contents: GoogleContent[];
-    tools?: GoogleTool[];
-    systemInstruction?: GoogleContent;
-    generationConfig?: GoogleModelConfig;
+export interface IGoogleGenerateContentRequest {
+    contents: IGoogleContent[];
+    tools?: IGoogleTool[];
+    systemInstruction?: IGoogleContent;
+    generationConfig?: IGoogleModelConfig;
 }
 
-export interface GoogleStreamGenerateContentRequest extends GoogleGenerateContentRequest {
+export interface IGoogleStreamGenerateContentRequest extends IGoogleGenerateContentRequest {
     // Streaming uses the same request structure
 }
 
 // Content Types
-export interface GoogleContent {
-    parts: GooglePart[];
+export interface IGoogleContent {
+    parts: IGooglePart[];
     role?: 'user' | 'model';
 }
 
-export interface GooglePart {
+export interface IGooglePart {
     text?: string;
-    functionCall?: GoogleFunctionCall;
-    functionResponse?: GoogleFunctionResponse;
+    functionCall?: IGoogleFunctionCall;
+    functionResponse?: IGoogleFunctionResponse;
 }
 
-export interface GoogleFunctionCall {
+export interface IGoogleFunctionCall {
     name: string;
     args: Record<string, string | number | boolean | object>;
 }
 
-export interface GoogleFunctionResponse {
+export interface IGoogleFunctionResponse {
     name: string;
     response: Record<string, string | number | boolean | object>;
 }
 
 // Tool Types
-export interface GoogleTool {
-    functionDeclarations: GoogleFunctionDeclaration[];
+export interface IGoogleTool {
+    functionDeclarations: IGoogleFunctionDeclaration[];
 }
 
-export interface GoogleFunctionDeclaration {
+export interface IGoogleFunctionDeclaration {
     name: string;
     description?: string;
-    parameters: GoogleFunctionParameters;
+    parameters: IGoogleFunctionParameters;
 }
 
-export interface GoogleFunctionParameters {
+export interface IGoogleFunctionParameters {
     type: 'object';
-    properties: Record<string, GooglePropertySchema>;
+    properties: Record<string, IGooglePropertySchema>;
     required?: string[];
 }
 
-export interface GooglePropertySchema {
+export interface IGooglePropertySchema {
     type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
     description?: string;
     enum?: string[];
-    items?: GooglePropertySchema;
-    properties?: Record<string, GooglePropertySchema>;
+    items?: IGooglePropertySchema;
+    properties?: Record<string, IGooglePropertySchema>;
 }
 
 // Response Types
-export interface GoogleGenerateContentResponse {
-    candidates: GoogleCandidate[];
-    promptFeedback?: GooglePromptFeedback;
-    usageMetadata?: GoogleUsageMetadata;
+export interface IGoogleGenerateContentResponse {
+    candidates: IGoogleCandidate[];
+    promptFeedback?: IGooglePromptFeedback;
+    usageMetadata?: IGoogleUsageMetadata;
 }
 
-export interface GoogleCandidate {
-    content: GoogleContent;
-    finishReason?: GoogleFinishReason;
+export interface IGoogleCandidate {
+    content: IGoogleContent;
+    finishReason?: TGoogleFinishReason;
     index: number;
-    safetyRatings?: GoogleSafetyRating[];
-    citationMetadata?: GoogleCitationMetadata;
+    safetyRatings?: IGoogleSafetyRating[];
+    citationMetadata?: IGoogleCitationMetadata;
 }
 
-export type GoogleFinishReason =
+export type TGoogleFinishReason =
     | 'FINISH_REASON_UNSPECIFIED'
     | 'STOP'
     | 'MAX_TOKENS'
@@ -97,12 +97,12 @@ export type GoogleFinishReason =
     | 'RECITATION'
     | 'OTHER';
 
-export interface GoogleSafetyRating {
-    category: GoogleHarmCategory;
-    probability: GoogleHarmProbability;
+export interface IGoogleSafetyRating {
+    category: TGoogleHarmCategory;
+    probability: TGoogleHarmProbability;
 }
 
-export type GoogleHarmCategory =
+export type TGoogleHarmCategory =
     | 'HARM_CATEGORY_UNSPECIFIED'
     | 'HARM_CATEGORY_DEROGATORY'
     | 'HARM_CATEGORY_TOXICITY'
@@ -111,58 +111,58 @@ export type GoogleHarmCategory =
     | 'HARM_CATEGORY_MEDICAL'
     | 'HARM_CATEGORY_DANGEROUS';
 
-export type GoogleHarmProbability =
+export type TGoogleHarmProbability =
     | 'HARM_PROBABILITY_UNSPECIFIED'
     | 'NEGLIGIBLE'
     | 'LOW'
     | 'MEDIUM'
     | 'HIGH';
 
-export interface GoogleCitationMetadata {
-    citationSources: GoogleCitationSource[];
+export interface IGoogleCitationMetadata {
+    citationSources: IGoogleCitationSource[];
 }
 
-export interface GoogleCitationSource {
+export interface IGoogleCitationSource {
     startIndex?: number;
     endIndex?: number;
     uri?: string;
     license?: string;
 }
 
-export interface GooglePromptFeedback {
-    blockReason?: GoogleBlockReason;
-    safetyRatings?: GoogleSafetyRating[];
+export interface IGooglePromptFeedback {
+    blockReason?: TGoogleBlockReason;
+    safetyRatings?: IGoogleSafetyRating[];
 }
 
-export type GoogleBlockReason =
+export type TGoogleBlockReason =
     | 'BLOCK_REASON_UNSPECIFIED'
     | 'SAFETY'
     | 'OTHER';
 
-export interface GoogleUsageMetadata {
+export interface IGoogleUsageMetadata {
     promptTokenCount: number;
     candidatesTokenCount: number;
     totalTokenCount: number;
 }
 
 // Streaming Types
-export interface GoogleStreamChunk {
-    candidates?: GoogleCandidate[];
-    promptFeedback?: GooglePromptFeedback;
-    usageMetadata?: GoogleUsageMetadata;
+export interface IGoogleStreamChunk {
+    candidates?: IGoogleCandidate[];
+    promptFeedback?: IGooglePromptFeedback;
+    usageMetadata?: IGoogleUsageMetadata;
 }
 
 // Error Types
-export interface GoogleError {
+export interface IGoogleError {
     error: {
         code: number;
         message: string;
         status: string;
-        details?: GoogleErrorDetail[];
+        details?: IGoogleErrorDetail[];
     };
 }
 
-export interface GoogleErrorDetail {
+export interface IGoogleErrorDetail {
     '@type': string;
     reason?: string;
     domain?: string;
@@ -170,7 +170,7 @@ export interface GoogleErrorDetail {
 }
 
 // Provider Configuration
-export interface GoogleLogData {
+export interface IGoogleLogData {
     model: string;
     messagesCount: number;
     hasTools: boolean;
@@ -178,11 +178,11 @@ export interface GoogleLogData {
     maxOutputTokens?: number;
     timestamp: string;
     requestId?: string;
-    usage?: GoogleUsageMetadata;
+    usage?: IGoogleUsageMetadata;
 }
 
 // Tool Call Types for Internal Processing
-export interface GoogleToolCall {
+export interface IGoogleToolCall {
     id: string;
     type: 'function';
     function: {
@@ -192,15 +192,15 @@ export interface GoogleToolCall {
 }
 
 // Message Conversion Types
-export interface GoogleMessageConversionResult {
-    contents: GoogleContent[];
-    systemInstruction?: GoogleContent;
+export interface IGoogleMessageConversionResult {
+    contents: IGoogleContent[];
+    systemInstruction?: IGoogleContent;
 }
 
 // Stream Context for Managing State
-export interface GoogleStreamContext {
+export interface IGoogleStreamContext {
     currentMessage: string;
-    currentToolCalls: GoogleToolCall[];
+    currentToolCalls: IGoogleToolCall[];
     isComplete: boolean;
-    usage?: GoogleUsageMetadata;
+    usage?: IGoogleUsageMetadata;
 } 

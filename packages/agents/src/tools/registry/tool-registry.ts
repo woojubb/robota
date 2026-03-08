@@ -1,5 +1,5 @@
-import type { ToolInterface, ToolRegistryInterface } from '../../interfaces/tool';
-import type { ToolSchema } from '../../interfaces/provider';
+import type { ITool, IToolRegistry } from '../../interfaces/tool';
+import type { IToolSchema } from '../../interfaces/provider';
 import { ValidationError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 
@@ -7,13 +7,13 @@ import { logger } from '../../utils/logger';
  * Tool registry implementation
  * Manages tool registration, validation, and retrieval
  */
-export class ToolRegistry implements ToolRegistryInterface {
-    private tools = new Map<string, ToolInterface>();
+export class ToolRegistry implements IToolRegistry {
+    private tools = new Map<string, ITool>();
 
     /**
      * Register a tool
      */
-    register(tool: ToolInterface): void {
+    register(tool: ITool): void {
         if (!tool.schema?.name) {
             throw new ValidationError('Tool must have a valid schema with name');
         }
@@ -55,21 +55,34 @@ export class ToolRegistry implements ToolRegistryInterface {
     /**
      * Get tool by name
      */
-    get(name: string): ToolInterface | undefined {
+    get(name: string): ITool | undefined {
         return this.tools.get(name);
     }
 
     /**
      * Get all registered tools
      */
-    getAll(): ToolInterface[] {
+    getAll(): ITool[] {
         return Array.from(this.tools.values());
     }
 
     /**
      * Get tool schemas
      */
-    getSchemas(): ToolSchema[] {
+    getSchemas(): IToolSchema[] {
+        const tools = this.getAll();
+
+        // 🔍 [TOOL-FLOW] ToolRegistry.getSchemas() - Extracting schemas from tools
+        logger.debug('[TOOL-FLOW] ToolRegistry.getSchemas() - Tools before schema extraction', {
+            count: tools.length,
+            tools: tools.map(t => ({
+                name: t.schema?.name ?? 'unnamed',
+                hasSchema: !!t.schema,
+                schemaType: typeof t.schema,
+                toolType: t.constructor?.name || 'unknown'
+            }))
+        });
+
         return this.getAll().map(tool => tool.schema);
     }
 
@@ -99,7 +112,7 @@ export class ToolRegistry implements ToolRegistryInterface {
     /**
      * Get tools by pattern
      */
-    getToolsByPattern(pattern: string | RegExp): ToolInterface[] {
+    getToolsByPattern(pattern: string | RegExp): ITool[] {
         const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
         return this.getAll().filter(tool => regex.test(tool.schema.name));
     }
@@ -114,7 +127,7 @@ export class ToolRegistry implements ToolRegistryInterface {
     /**
      * Validate tool schema
      */
-    private validateToolSchema(schema: ToolSchema): void {
+    private validateToolSchema(schema: IToolSchema): void {
         if (!schema.name || typeof schema.name !== 'string') {
             throw new ValidationError('Tool schema must have a valid name');
         }
@@ -133,8 +146,9 @@ export class ToolRegistry implements ToolRegistryInterface {
 
         // Validate parameter properties
         if (schema.parameters.properties) {
-            for (const [propName, propSchema] of Object.entries(schema.parameters.properties)) {
-                if (!propSchema.type) {
+            for (const propName of Object.keys(schema.parameters.properties)) {
+                const propSchema = schema.parameters.properties[propName];
+                if (!propSchema?.type) {
                     throw new ValidationError(`Parameter "${propName}" must have a type`);
                 }
 

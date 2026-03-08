@@ -1,0 +1,21 @@
+{
+  "defaultTemplateId": "default",
+  "templates": [
+    {
+      "templateId": "blank",
+      "documentFile": "blank.json"
+    },
+    {
+      "templateId": "default",
+      "documentFile": "default.json"
+    },
+    {
+      "templateId": "gemini-image-edit",
+      "documentFile": "gemini-image-edit.json"
+    },
+    {
+      "templateId": "gemini-seedance-video",
+      "documentFile": "gemini-seedance-video.json"
+    }
+  ]
+}

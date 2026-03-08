@@ -3,17 +3,18 @@
  * Converts base plugin types to webhook-specific types safely
  */
 
-import type { BaseExecutionContext, BaseExecutionResult } from '../../abstracts/base-plugin';
-import type { LoggerData, UniversalValue } from '../../interfaces/types';
+import type { IPluginExecutionContext, IPluginExecutionResult } from '../../abstracts/abstract-plugin';
+import type { TLoggerData, TUniversalValue } from '../../interfaces/types';
 import type {
-    WebhookExecutionContext,
-    WebhookExecutionResult,
-    WebhookEventData,
-    WebhookExecutionData,
-    WebhookConversationData,
-    WebhookToolData,
-    WebhookErrorData,
-    WebhookToolCallData
+    IWebhookExecutionContext,
+    IWebhookExecutionResult,
+    IWebhookEventData,
+    IWebhookExecutionData,
+    IWebhookConversationData,
+    IWebhookToolData,
+    IWebhookErrorData,
+    IWebhookToolCallData,
+    TWebhookEventName
 } from './types';
 
 /**
@@ -21,9 +22,9 @@ import type {
  */
 export class WebhookTransformer {
     /**
-     * Convert BaseExecutionContext to WebhookExecutionContext
+     * Convert IPluginExecutionContext to WebhookExecutionContext
      */
-    static contextToWebhook(context: BaseExecutionContext): WebhookExecutionContext {
+    static contextToWebhook(context: IPluginExecutionContext): IWebhookExecutionContext {
         return {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -32,9 +33,9 @@ export class WebhookTransformer {
     }
 
     /**
-     * Convert BaseExecutionResult to WebhookExecutionResult
+     * Convert IPluginExecutionResult to WebhookExecutionResult
      */
-    static resultToWebhook(result: BaseExecutionResult): WebhookExecutionResult {
+    static resultToWebhook(result: IPluginExecutionResult): IWebhookExecutionResult {
         return {
             response: result.response,
             content: result.content,
@@ -52,10 +53,10 @@ export class WebhookTransformer {
      * Create execution event data
      */
     static createExecutionData(
-        context: WebhookExecutionContext,
-        result: WebhookExecutionResult
-    ): WebhookEventData {
-        const executionData: WebhookExecutionData = {
+        context: IWebhookExecutionContext,
+        result: IWebhookExecutionResult
+    ): IWebhookEventData {
+        const executionData: IWebhookExecutionData = {
             response: result.response || undefined,
             duration: result.duration || undefined,
             tokensUsed: result.tokensUsed || undefined,
@@ -75,17 +76,17 @@ export class WebhookTransformer {
      * Create conversation event data
      */
     static createConversationData(
-        context: WebhookExecutionContext,
-        result: WebhookExecutionResult
-    ): WebhookEventData {
-        const toolCalls: WebhookToolCallData[] = result.toolCalls?.map(call => ({
+        context: IWebhookExecutionContext,
+        result: IWebhookExecutionResult
+    ): IWebhookEventData {
+        const toolCalls: IWebhookToolCallData[] = result.toolCalls?.map(call => ({
             id: call.id || '',
             name: call.name || '',
             arguments: JSON.stringify(call.arguments || {}),
             result: String(call.result || '')
         })) || [];
 
-        const conversationData: WebhookConversationData = {
+        const conversationData: IWebhookConversationData = {
             response: result.content || result.response || undefined,
             tokensUsed: result.usage?.totalTokens || result.tokensUsed || undefined,
             toolCalls: toolCalls.length > 0 ? toolCalls : undefined
@@ -112,9 +113,9 @@ export class WebhookTransformer {
      * TODO: Consider standardized tool result interface across tools
      */
     static createToolData(
-        context: WebhookExecutionContext,
-        toolResult: LoggerData
-    ): WebhookEventData {
+        context: IWebhookExecutionContext,
+        toolResult: TLoggerData
+    ): IWebhookEventData {
         // Safely extract tool data from result
         const toolName = this.safeGetProperty(toolResult, 'toolName') || 'unknown';
         const toolId = this.safeGetProperty(toolResult, 'toolId') ||
@@ -123,7 +124,7 @@ export class WebhookTransformer {
         const duration = this.safeGetProperty(toolResult, 'duration');
         const result = this.safeGetProperty(toolResult, 'result');
 
-        const toolData: WebhookToolData = {
+        const toolData: IWebhookToolData = {
             name: String(toolName),
             id: String(toolId),
             success: !hasError,
@@ -144,10 +145,10 @@ export class WebhookTransformer {
      * Create error event data
      */
     static createErrorData(
-        context: WebhookExecutionContext,
+        context: IWebhookExecutionContext,
         error: Error
-    ): WebhookEventData {
-        const errorData: WebhookErrorData = {
+    ): IWebhookEventData {
+        const errorData: IWebhookErrorData = {
             message: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,
             type: error instanceof Error ? error.constructor.name : 'Unknown',
@@ -178,7 +179,7 @@ export class WebhookTransformer {
      * 5. Type assertions (decreases type safety)
      * TODO: Consider typed property access if patterns emerge
      */
-    private static safeGetProperty(obj: LoggerData, key: string): UniversalValue | Date | Error {
+    private static safeGetProperty(obj: TLoggerData, key: string): TUniversalValue | Date | Error {
         if (!obj || typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
             return undefined;
         }
@@ -189,9 +190,9 @@ export class WebhookTransformer {
      * Default payload transformer for webhook events
      */
     static defaultPayloadTransformer(
-        _event: string,
-        data: WebhookEventData
-    ): WebhookEventData {
+        _event: TWebhookEventName,
+        data: IWebhookEventData
+    ): IWebhookEventData {
         // Simply return the data as-is for the default transformer
         return data;
     }

@@ -1,71 +1,40 @@
+import type { TUniversalValue } from '@robota-sdk/agents'
+import type { ReactNode } from 'react'
+
 // Theme types
-export type Theme = 'light' | 'dark' | 'system'
+export type TTheme = 'light' | 'dark' | 'system'
 
 // Navigation types
-export interface NavItem {
+export interface INavItem {
     title: string
     href: string
     description?: string
     external?: boolean
 }
 
-export interface NavSection {
+export interface INavSection {
     title: string
-    items: NavItem[]
+    items: INavItem[]
 }
 
 // Brand types
-export interface BrandConfig {
+export interface IBrandConfig {
     name: string
     tagline: string
     description: string
 }
 
 // Layout types
-export interface LayoutProps {
-    children: React.ReactNode
+export interface ILayoutProps {
+    children: ReactNode
 }
 
 // API types
-export interface ApiResponse<T = any> {
+export interface IApiResponse<T = TUniversalValue> {
     success: boolean
     data?: T
     error?: string
     message?: string
 }
 
-// User types (for future auth implementation)
-export interface User {
-    id: string
-    email: string
-    name: string
-    avatar?: string
-    role: 'user' | 'admin'
-    createdAt: Date
-    updatedAt: Date
-}
-
-// Playground types (for future implementation)
-export interface Project {
-    id: string
-    name: string
-    description?: string
-    code: string
-    language: string
-    template?: string
-    isPublic: boolean
-    author: User
-    createdAt: Date
-    updatedAt: Date
-}
-
-export interface Template {
-    id: string
-    name: string
-    description: string
-    code: string
-    language: string
-    category: string
-    tags: string[]
-    featured: boolean
-} 
+// Note: Auth/Website domain types were removed. apps/web is a minimal Playground host.

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootPath = path.resolve(__dirname, '../../../');
-const docsPath = path.join(rootPath, 'docs');
+const docsPath = path.join(rootPath, 'content');
 const packagesPath = path.join(rootPath, 'packages');
 const tempDir = path.join(rootPath, 'apps/docs/.temp');
 

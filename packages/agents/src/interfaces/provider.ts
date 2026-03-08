@@ -1,4 +1,4 @@
-import type { UniversalMessage } from '../managers/conversation-history-manager';
+import type { TUniversalMessage, IToolCall } from './messages';
 
 /**
  * Reusable type definitions for provider layer
@@ -8,45 +8,33 @@ import type { UniversalMessage } from '../managers/conversation-history-manager'
  * Provider configuration value type
  * Used for storing provider-specific configuration values
  */
-export type ProviderConfigValue = string | number | boolean;
+export type TProviderConfigValue = string | number | boolean;
 
 /**
  * JSON Schema parameter default value type
  * Used for default values in parameter schemas
  */
-export type ParameterDefaultValue = string | number | boolean | null;
+export type TParameterDefaultValue = string | number | boolean | null;
 
 /**
  * JSON Schema primitive types
  */
-export type JSONSchemaType = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null';
+export type TJSONSchemaKind = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null';
 
 /**
  * JSON Schema enum values
  */
-export type JSONSchemaEnum = string[] | number[] | boolean[] | (string | number | boolean)[];
-
-/**
- * Tool call structure for AI responses
- */
-export interface ToolCall {
-    id: string;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string;
-    };
-}
+export type TJSONSchemaEnum = string[] | number[] | boolean[] | (string | number | boolean)[];
 
 /**
  * Tool schema definition
  */
-export interface ToolSchema {
+export interface IToolSchema {
     name: string;
     description: string;
     parameters: {
         type: 'object';
-        properties: Record<string, ParameterSchema>;
+        properties: Record<string, IParameterSchema>;
         required?: string[];
     };
 }
@@ -54,23 +42,23 @@ export interface ToolSchema {
 /**
  * Parameter schema for tools
  */
-export interface ParameterSchema {
-    type: JSONSchemaType;
+export interface IParameterSchema {
+    type: TJSONSchemaKind;
     description?: string;
-    enum?: JSONSchemaEnum;
-    items?: ParameterSchema;
-    properties?: Record<string, ParameterSchema>;
+    enum?: TJSONSchemaEnum;
+    items?: IParameterSchema;
+    properties?: Record<string, IParameterSchema>;
     minimum?: number;
     maximum?: number;
     pattern?: string;
     format?: string;
-    default?: ParameterDefaultValue;
+    default?: TParameterDefaultValue;
 }
 
 /**
  * Token usage statistics
  */
-export interface TokenUsage {
+export interface ITokenUsage {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
@@ -79,24 +67,24 @@ export interface TokenUsage {
 /**
  * Raw provider response interface
  */
-export interface RawProviderResponse {
+export interface IRawProviderResponse {
     content: string | null;
-    toolCalls?: ToolCall[];
-    usage?: TokenUsage;
+    toolCalls?: IToolCall[];
+    usage?: ITokenUsage;
     finishReason?: string;
     model?: string;
-    metadata?: Record<string, ProviderConfigValue>;
+    metadata?: Record<string, TProviderConfigValue>;
 }
 
 /**
  * Provider request payload
  */
-export interface ProviderRequest {
-    messages: UniversalMessage[];
+export interface IProviderRequest {
+    messages: TUniversalMessage[];
     model?: string;
     temperature?: number;
     maxTokens?: number;
-    tools?: ToolSchema[];
+    tools?: IToolSchema[];
     systemMessage?: string;
     metadata?: Record<string, string | number | boolean>;
 }
@@ -104,7 +92,7 @@ export interface ProviderRequest {
 /**
  * Provider-specific configuration options
  */
-export interface ProviderSpecificOptions {
+export interface IProviderSpecificOptions {
     /** OpenAI specific options */
     openai?: {
         organization?: string;
@@ -140,6 +128,7 @@ export interface ProviderSpecificOptions {
             category: string;
             threshold: string;
         }>;
+        responseModalities?: Array<'TEXT' | 'IMAGE'>;
         topP?: number;
         topK?: number;
     };
@@ -148,9 +137,9 @@ export interface ProviderSpecificOptions {
 /**
  * Options for AI provider chat requests
  */
-export interface ChatOptions extends ProviderSpecificOptions {
+export interface IChatOptions extends IProviderSpecificOptions {
     /** Tool schemas to provide to the AI provider */
-    tools?: ToolSchema[];
+    tools?: IToolSchema[];
     /** Maximum number of tokens to generate */
     maxTokens?: number;
     /** Temperature for response randomness (0-1) */
@@ -161,43 +150,43 @@ export interface ChatOptions extends ProviderSpecificOptions {
 
 /**
  * Provider-agnostic AI Provider interface
- * This interface uses only UniversalMessage types and avoids provider-specific types
+ * This interface uses only TUniversalMessage types and avoids provider-specific types
  */
-export interface AIProvider {
+export interface IAIProvider {
     /** Provider identifier */
     readonly name: string;
     /** Provider version */
     readonly version: string;
 
     /**
-     * Generate response from AI model using UniversalMessage
-     * @param messages - Array of UniversalMessage from conversation history
+     * Generate response from AI model using TUniversalMessage
+     * @param messages - Array of TUniversalMessage from conversation history
      * @param options - Chat options including tools, model settings, etc.
-     * @returns Promise resolving to a UniversalMessage response
+     * @returns Promise resolving to a TUniversalMessage response
      */
-    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+    chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage>;
 
     /**
-     * Generate streaming response from AI model using UniversalMessage
-     * @param messages - Array of UniversalMessage from conversation history
+     * Generate streaming response from AI model using TUniversalMessage
+     * @param messages - Array of TUniversalMessage from conversation history
      * @param options - Chat options including tools, model settings, etc.
-     * @returns AsyncIterable of UniversalMessage chunks
+     * @returns AsyncIterable of TUniversalMessage chunks
      */
-    chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+    chatStream?(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage>;
 
     /**
      * Generate response from AI model (raw provider response)
      * @param payload - Provider request payload
      * @returns Promise resolving to raw provider response
      */
-    generateResponse(payload: ProviderRequest): Promise<RawProviderResponse>;
+    generateResponse(payload: IProviderRequest): Promise<IRawProviderResponse>;
 
     /**
      * Generate streaming response from AI model (raw provider response)
      * @param payload - Provider request payload
      * @returns AsyncIterable of raw provider response chunks
      */
-    generateStreamingResponse?(payload: ProviderRequest): AsyncIterable<RawProviderResponse>;
+    generateStreamingResponse?(payload: IProviderRequest): AsyncIterable<IRawProviderResponse>;
 
     /**
      * Check if the provider supports tool calling
@@ -225,7 +214,7 @@ export interface AIProvider {
 /**
  * Provider options interface
  */
-export interface ProviderOptions {
+export interface IProviderOptions {
     apiKey?: string;
     baseURL?: string;
     timeout?: number;
@@ -235,5 +224,24 @@ export interface ProviderOptions {
     organization?: string;
     project?: string;
     /** Additional provider-specific configuration */
-    extra?: Record<string, ProviderConfigValue>;
+    extra?: Record<string, TProviderConfigValue>;
 } 
+
+/**
+ * Base union for provider option values.
+ *
+ * Purpose:
+ * - Enable provider packages to compose their own option value unions without redefining the primitives.
+ * - Keep the shared axis in @robota-sdk/agents (SSOT).
+ *
+ * Note:
+ * - Provider packages may extend this with provider-specific runtime objects (e.g., OpenAI/Anthropic clients).
+ */
+export type TProviderOptionValueBase =
+    | string
+    | number
+    | boolean
+    | undefined
+    | null
+    | TProviderOptionValueBase[]
+    | { [key: string]: TProviderOptionValueBase };

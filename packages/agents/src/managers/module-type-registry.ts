@@ -1,15 +1,15 @@
 import {
-    ModuleTypeDescriptor,
+    IModuleDescriptor,
     ModuleCategory,
     ModuleLayer
-} from '../abstracts/base-module';
-import { Logger, createLogger } from '../utils/logger';
+} from '../abstracts/abstract-module';
+import { createLogger, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 
 /**
  * Module type validation result
  */
-export interface ModuleTypeValidationResult {
+export interface IModuleDescriptorValidationResult {
     valid: boolean;
     errors: string[];
     warnings: string[];
@@ -18,7 +18,7 @@ export interface ModuleTypeValidationResult {
 /**
  * Module dependency resolution result
  */
-export interface ModuleDependencyResolution {
+export interface IModuleDependencyResolution {
     resolved: boolean;
     order: string[];
     circularDependencies: string[][];
@@ -28,7 +28,7 @@ export interface ModuleDependencyResolution {
 /**
  * Module compatibility check result
  */
-export interface ModuleCompatibilityResult {
+export interface IModuleCompatibilityResult {
     compatible: boolean;
     conflicts: Array<{
         module1: string;
@@ -48,30 +48,19 @@ export interface ModuleCompatibilityResult {
  * - Type compatibility validation
  * - Circular dependency detection
  */
-export class ModuleTypeRegistry {
-    private static instance: ModuleTypeRegistry | null = null;
-    private registeredTypes = new Map<string, ModuleTypeDescriptor>();
-    private logger: Logger;
+export class ModuleDescriptorRegistry {
+    private registeredTypes = new Map<string, IModuleDescriptor>();
+    private logger: ILogger;
 
     constructor() {
-        this.logger = createLogger('ModuleTypeRegistry');
+        this.logger = createLogger('ModuleDescriptorRegistry');
         this.registerBuiltinTypes();
-    }
-
-    /**
-     * Get singleton instance of ModuleTypeRegistry
-     */
-    static getInstance(): ModuleTypeRegistry {
-        if (!ModuleTypeRegistry.instance) {
-            ModuleTypeRegistry.instance = new ModuleTypeRegistry();
-        }
-        return ModuleTypeRegistry.instance;
     }
 
     /**
      * Register a new module type
      */
-    registerType(typeDescriptor: ModuleTypeDescriptor): void {
+    registerType(typeDescriptor: IModuleDescriptor): void {
         // Validate the type descriptor
         const validation = this.validateTypeDescriptor(typeDescriptor);
         if (!validation.valid) {
@@ -86,8 +75,8 @@ export class ModuleTypeRegistry {
             const existingType = this.registeredTypes.get(typeDescriptor.type);
             this.logger.warn('Overriding existing module type', {
                 type: typeDescriptor.type,
-                previousCategory: (existingType?.category || 'unknown') as string,
-                newCategory: typeDescriptor.category as string
+                previousCategory: existingType?.category || 'unknown',
+                newCategory: typeDescriptor.category
             });
         }
 
@@ -127,21 +116,21 @@ export class ModuleTypeRegistry {
     /**
      * Get a registered module type
      */
-    getType(type: string): ModuleTypeDescriptor | null {
+    getType(type: string): IModuleDescriptor | null {
         return this.registeredTypes.get(type) || null;
     }
 
     /**
      * Get all registered module types
      */
-    getAllTypes(): ModuleTypeDescriptor[] {
+    getAllTypes(): IModuleDescriptor[] {
         return Array.from(this.registeredTypes.values());
     }
 
     /**
      * Get module types by category
      */
-    getTypesByCategory(category: ModuleCategory): ModuleTypeDescriptor[] {
+    getTypesByCategory(category: ModuleCategory): IModuleDescriptor[] {
         return Array.from(this.registeredTypes.values())
             .filter(type => type.category === category);
     }
@@ -149,7 +138,7 @@ export class ModuleTypeRegistry {
     /**
      * Get module types by layer
      */
-    getTypesByLayer(layer: ModuleLayer): ModuleTypeDescriptor[] {
+    getTypesByLayer(layer: ModuleLayer): IModuleDescriptor[] {
         return Array.from(this.registeredTypes.values())
             .filter(type => type.layer === layer);
     }
@@ -164,7 +153,7 @@ export class ModuleTypeRegistry {
     /**
      * Validate module type descriptor
      */
-    validateTypeDescriptor(typeDescriptor: ModuleTypeDescriptor): ModuleTypeValidationResult {
+    validateTypeDescriptor(typeDescriptor: IModuleDescriptor): IModuleDescriptorValidationResult {
         const errors: string[] = [];
         const warnings: string[] = [];
 
@@ -235,17 +224,18 @@ export class ModuleTypeRegistry {
             }
         }
 
-        return {
+        const result: IModuleDescriptorValidationResult = {
             valid: errors.length === 0,
             errors,
             warnings
         };
+        return result;
     }
 
     /**
      * Resolve module dependencies and return initialization order
      */
-    resolveDependencies(moduleTypes: string[]): ModuleDependencyResolution {
+    resolveDependencies(moduleTypes: string[]): IModuleDependencyResolution {
         const visited = new Set<string>();
         const visiting = new Set<string>();
         const order: string[] = [];
@@ -321,7 +311,7 @@ export class ModuleTypeRegistry {
     /**
      * Check compatibility between module types
      */
-    checkCompatibility(moduleTypes: string[]): ModuleCompatibilityResult {
+    checkCompatibility(moduleTypes: string[]): IModuleCompatibilityResult {
         const conflicts: Array<{ module1: string; module2: string; reason: string }> = [];
         const suggestions: string[] = [];
 

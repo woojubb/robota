@@ -1,7 +1,7 @@
-import type { AIProvider } from './provider';
-import type { ToolSchema } from './provider';
-import type { ToolInterface, ToolExecutor, ToolExecutionData } from './tool';
-import type { AgentConfig, AgentInterface } from './agent';
+import type { IAIProvider, IToolSchema } from './provider';
+import type { ITool, TToolExecutor, IToolExecutionContext, TToolParameters } from './tool';
+import type { TUniversalValue } from './types';
+import type { IAgentConfig, IAgent } from './agent';
 
 /**
  * Reusable type definitions for manager layer
@@ -11,18 +11,18 @@ import type { AgentConfig, AgentInterface } from './agent';
  * Agent creation metadata type
  * Used for storing additional information about agent creation and configuration
  */
-export type AgentCreationMetadata = Record<string, string | number | boolean | Date>;
+export type TAgentCreationMetadata = Record<string, string | number | boolean | Date>;
 
 /**
  * Tool execution parameters for manager operations
  * Used for tool parameter validation and execution in manager context
  */
-export type ManagerToolParameters = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
+export type TManagerToolParameters = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
 
 /**
  * Configuration validation result
  */
-export interface ConfigValidationResult {
+export interface IConfigValidationResult {
     isValid: boolean;
     errors: string[];
     warnings?: string[];
@@ -31,11 +31,11 @@ export interface ConfigValidationResult {
 /**
  * AI Provider Manager interface for provider registration and selection
  */
-export interface AIProviderManagerInterface {
+export interface IAIProviderManager {
     /**
      * Register an AI provider
      */
-    addProvider(name: string, provider: AIProvider): void;
+    addProvider(name: string, provider: IAIProvider): void;
 
     /**
      * Remove an AI provider
@@ -45,12 +45,12 @@ export interface AIProviderManagerInterface {
     /**
      * Get registered provider by name
      */
-    getProvider(name: string): AIProvider | undefined;
+    getProvider(name: string): IAIProvider | undefined;
 
     /**
      * Get all registered providers
      */
-    getProviders(): Record<string, AIProvider>;
+    getProviders(): Record<string, IAIProvider>;
 
     /**
      * Set current provider and model
@@ -76,11 +76,11 @@ export interface AIProviderManagerInterface {
 /**
  * Tool Manager interface for tool registration and management
  */
-export interface ToolManagerInterface {
+export interface IToolManager {
     /**
      * Register a tool
      */
-    addTool(schema: ToolSchema, executor: ToolExecutor): void;
+    addTool(schema: IToolSchema, executor: TToolExecutor): void;
 
     /**
      * Remove a tool by name
@@ -90,22 +90,22 @@ export interface ToolManagerInterface {
     /**
      * Get tool interface by name
      */
-    getTool(name: string): ToolInterface | undefined;
+    getTool(name: string): ITool | undefined;
 
     /**
      * Get tool schema by name
      */
-    getToolSchema(name: string): ToolSchema | undefined;
+    getToolSchema(name: string): IToolSchema | undefined;
 
     /**
      * Get all registered tools
      */
-    getTools(): ToolSchema[];
+    getTools(): IToolSchema[];
 
     /**
      * Execute a tool
      */
-    executeTool(name: string, parameters: ManagerToolParameters): Promise<ToolExecutionData>;
+    executeTool(name: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<TUniversalValue>;
 
     /**
      * Check if tool exists
@@ -126,39 +126,39 @@ export interface ToolManagerInterface {
 /**
  * Agent creation options
  */
-export interface AgentCreationOptions {
+export interface IAgentCreationOptions {
     /** Override default configuration */
-    overrides?: Partial<AgentConfig>;
+    overrides?: Partial<IAgentConfig>;
     /** Validation options */
     validation?: {
         strict?: boolean;
         skipOptional?: boolean;
     };
     /** Additional metadata */
-    metadata?: AgentCreationMetadata;
+    metadata?: TAgentCreationMetadata;
 }
 
 /**
  * Agent Factory interface for agent creation and configuration
  */
-export interface AgentFactoryInterface {
+export interface IAgentFactory {
     /**
      * Create agent instance
      */
-    createAgent(config: AgentConfig, options?: AgentCreationOptions): AgentInterface;
+    createAgent(config: IAgentConfig, options?: IAgentCreationOptions): IAgent<IAgentConfig>;
 
     /**
      * Validate agent configuration
      */
-    validateConfig(config: AgentConfig): ConfigValidationResult;
+    validateConfig(config: IAgentConfig): IConfigValidationResult;
 
     /**
      * Get default configuration
      */
-    getDefaultConfig(): AgentConfig;
+    getDefaultConfig(): IAgentConfig;
 
     /**
      * Merge configurations
      */
-    mergeConfig(base: AgentConfig, override: Partial<AgentConfig>): AgentConfig;
+    mergeConfig(base: IAgentConfig, override: Partial<IAgentConfig>): IAgentConfig;
 } 

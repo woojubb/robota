@@ -70,7 +70,7 @@ robota/
 │   ├── anthropic/      # Anthropic integration
 │   ├── google/         # Google AI integration
 │   ├── sessions/       # Multi-session management
-│   ├── team/           # Multi-agent team collaboration
+│   ├── team/           # assignTask MCP tool collection (no team creation APIs)
 │   ├── mcp/            # Model Context Protocol implementation
 │   ├── tools/          # Tool system (Zod-based function calling)
 │   └── ...
@@ -103,37 +103,32 @@ const response = await robota.run('Hello! How can I help you today?');
 console.log(response);
 ```
 
-### Multi-Agent Team Collaboration
+### assignTask MCP Tool Collection
 
 ```typescript
-import { createTeam } from '@robota-sdk/team';
+import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import { AnthropicProvider } from '@robota-sdk/anthropic';
 
 const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
-const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Create a team with intelligent delegation capabilities
-const team = await createTeam({
-    aiProviders: [openaiProvider, anthropicProvider],
-    maxMembers: 5,
-    maxTokenLimit: 50000,
-    logger: console,
-    debug: true
+// Tools exposed to the agent (assignTask + template queries)
+const tools = [
+    listTemplatesTool,
+    getTemplateDetailTool,
+    createAssignTaskRelayTool(/* pass bound eventService here */)
+];
+
+const robota = new Robota({
+    name: 'Assistant',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    },
+    tools
 });
 
-// The team automatically delegates complex tasks to specialized agents
-const response = await team.execute(`
-    Create a comprehensive business plan for a coffee shop startup. 
-    Include: 1) Market analysis, 2) Menu design, 3) Financial projections
-`);
-
-// Task coordinator intelligently analyzes the request and automatically:
-// - Selects domain_researcher template for market analysis
-// - Selects creative_ideator template for menu design  
-// - Selects fast_executor template for financial projections
-// - Synthesizes all results into a comprehensive business plan
-
+const response = await robota.run('Create a business plan draft for a coffee shop.');
 console.log(response);
 ```
 
@@ -295,42 +290,15 @@ pnpm install
 
 ## Running Examples
 
-All examples are located in the `apps/examples` directory. Navigate there first:
+Examples are distributed per package under `packages/*/examples` (SSOT ownership).
 
 ```bash
-cd apps/examples
-```
+# Build packages (recommended before running examples)
+pnpm build
 
-### Method 1: Using Package Scripts
-
-```bash
-# Individual examples
-pnpm start:simple-conversation
-pnpm start:using-ai-client
-pnpm start:multi-ai-providers
-pnpm start:provider-switching
-pnpm start:zod-function-provider
-pnpm start:using-tool-providers
-
-# Example groups
-pnpm start:all-basic          # All basic examples
-pnpm start:all-tool-providers # All tool provider examples
-pnpm start:all-examples       # All examples sequentially
-pnpm start:all                # Quick demo
-```
-
-### Method 2: Direct File Execution
-
-```bash
-# With bun (fastest)
-bun run 01-basic/01-simple-conversation.ts
-bun run 01-basic/02-ai-with-tools.ts
-bun run 01-basic/03-multi-ai-providers.ts
-
-# With pnpm + tsx
-pnpm tsx 01-basic/01-simple-conversation.ts
-pnpm tsx 02-functions/01-zod-function-tools.ts
-pnpm tsx 03-integrations/01-mcp-client.ts
+# Run a package-owned example from the repo root
+npx tsx packages/agents/examples/basic-conversation.ts
+npx tsx packages/agents/examples/tool-calling.ts
 ```
 
 ## Development

@@ -1,11 +1,10 @@
-import { Robota, type AgentConfig, type Message } from '@robota-sdk/agents';
+import { Robota, type IAgentConfig, type TUniversalMessage } from '@robota-sdk/agents';
 import type {
-    ChatConfig,
-    ChatMetadata,
-    ChatStats,
-    MessageContent,
-    TemplateManager,
-    ChatInstance as IChatInstance
+    IChatConfig,
+    IChatMetadata,
+    IChatStats,
+    ITemplateManager,
+    IChatInstance
 } from '../types/chat';
 import { TemplateManagerAdapter } from '../adapters/template-manager-adapter';
 
@@ -16,26 +15,27 @@ import { TemplateManagerAdapter } from '../adapters/template-manager-adapter';
  * within a session context. Delegates conversation management to Robota.
  */
 export class ChatInstance implements IChatInstance {
-    public readonly metadata: ChatMetadata;
-    public readonly config: ChatConfig;
+    public metadata: IChatMetadata;
+    public config: IChatConfig;
     public readonly robota: Robota;
-    private templateManager: TemplateManager;
+    private templateManager: ITemplateManager;
 
     constructor(
-        metadata: ChatMetadata,
-        config: ChatConfig,
-        robota: Robota
+        metadata: IChatMetadata,
+        config: IChatConfig,
+        robota: Robota,
+        templateManager?: ITemplateManager
     ) {
         this.metadata = metadata;
         this.config = config;
         this.robota = robota;
-        this.templateManager = new TemplateManagerAdapter();
+        this.templateManager = templateManager ?? new TemplateManagerAdapter();
     }
 
     /**
      * Send a message and get AI response
      */
-    async sendMessage(content: MessageContent): Promise<string> {
+    async sendMessage(content: string): Promise<string> {
         try {
             const response = await this.robota.run(content);
             this.metadata.messageCount++;
@@ -51,7 +51,7 @@ export class ChatInstance implements IChatInstance {
      */
     async regenerateResponse(): Promise<string> {
         const history = this.robota.getHistory();
-        const lastUserMessage = history.filter(msg => msg.role === 'user').pop();
+        const lastUserMessage = history.filter((msg: TUniversalMessage) => msg.role === 'user').pop();
 
         if (!lastUserMessage) {
             throw new Error('No user message found to regenerate response for');
@@ -63,7 +63,7 @@ export class ChatInstance implements IChatInstance {
     /**
      * Update robota configuration
      */
-    async updateRobotaConfig(config: AgentConfig): Promise<void> {
+    async updateRobotaConfig(config: IAgentConfig): Promise<void> {
         try {
             await this.robota.configure(config);
             this.config.robotaConfig = { ...this.config.robotaConfig, ...config };
@@ -76,7 +76,7 @@ export class ChatInstance implements IChatInstance {
     /**
      * Get current robota configuration
      */
-    getRobotaConfig(): AgentConfig {
+    getRobotaConfig(): IAgentConfig {
         return this.config.robotaConfig;
     }
 
@@ -96,7 +96,7 @@ export class ChatInstance implements IChatInstance {
     /**
      * Get template manager instance
      */
-    getTemplateManager(): TemplateManager {
+    getTemplateManager(): ITemplateManager {
         return this.templateManager;
     }
 
@@ -118,7 +118,7 @@ export class ChatInstance implements IChatInstance {
     /**
      * Get conversation history - delegate to Robota
      */
-    getHistory(): Message[] {
+    getHistory(): TUniversalMessage[] {
         return this.robota.getHistory();
     }
 
@@ -133,24 +133,24 @@ export class ChatInstance implements IChatInstance {
 
     /**
      * Save chat state
+     * TODO: Implement persistence using agents ConversationHistoryPlugin
      */
     async save(): Promise<void> {
-        // TODO: Implement persistence using agents ConversationHistoryPlugin
-        throw new Error('Chat persistence not yet implemented');
+        // No-op until persistence layer is implemented
     }
 
     /**
      * Load chat state
+     * TODO: Implement loading using agents ConversationHistoryPlugin
      */
     async load(): Promise<void> {
-        // TODO: Implement loading using agents ConversationHistoryPlugin
-        throw new Error('Chat loading not yet implemented');
+        // No-op until persistence layer is implemented
     }
 
     /**
      * Get chat statistics
      */
-    getStats(): ChatStats {
+    getStats(): IChatStats {
         return {
             messageCount: this.metadata.messageCount,
             createdAt: this.metadata.createdAt,
@@ -162,7 +162,7 @@ export class ChatInstance implements IChatInstance {
     /**
      * Update chat configuration
      */
-    updateConfig(config: Partial<ChatConfig>): void {
+    updateConfig(config: Partial<IChatConfig>): void {
         Object.assign(this.config, config);
         this.metadata.updatedAt = new Date();
     }

@@ -1,6 +1,7 @@
-import type { PayloadLogger, PayloadLoggerOptions } from '../interfaces/payload-logger';
-import type { OpenAILogData } from '../types/api-types';
-import { SimpleLogger, DefaultConsoleLogger } from '@robota-sdk/agents';
+import type { IPayloadLogger, IPayloadLoggerOptions } from '../interfaces/payload-logger';
+import type { IOpenAILogData } from '../types/api-types';
+import { SilentLogger, type ILogger } from '@robota-sdk/agents';
+import { sanitizeOpenAILogData } from './sanitize-openai-log-data';
 
 /**
  * Console-based payload logger for browser environments
@@ -24,15 +25,15 @@ import { SimpleLogger, DefaultConsoleLogger } from '@robota-sdk/agents';
  * });
  * ```
  */
-export class ConsolePayloadLogger implements PayloadLogger {
+export class ConsolePayloadLogger implements IPayloadLogger {
     private readonly enabled: boolean;
     private readonly includeTimestamp: boolean;
-    private readonly logger: SimpleLogger;
+    private readonly logger: ILogger;
 
-    constructor(options: PayloadLoggerOptions = {}) {
+    constructor(options: IPayloadLoggerOptions = {}) {
         this.enabled = options.enabled ?? true;
         this.includeTimestamp = options.includeTimestamp ?? true;
-        this.logger = options.logger || DefaultConsoleLogger;
+        this.logger = options.logger || SilentLogger;
     }
 
     /**
@@ -47,22 +48,17 @@ export class ConsolePayloadLogger implements PayloadLogger {
      * @param payload - The API request payload
      * @param type - Type of request ('chat' or 'stream')
      */
-    async logPayload(payload: OpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {
+    async logPayload(payload: IOpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {
         if (!this.enabled) {
             return;
         }
 
         try {
-            const logData = {
-                timestamp: new Date().toISOString(),
-                type,
-                provider: 'openai',
-                payload: this.sanitizePayload(payload)
-            };
+            const sanitizedPayload = sanitizeOpenAILogData(payload);
 
             // Use structured console logging for better browser developer tools integration
             const title = `[OpenAI ${type.toUpperCase()}] API Payload`;
-            const timeInfo = this.includeTimestamp ? ` (${logData.timestamp})` : '';
+            const timeInfo = this.includeTimestamp ? ` (${sanitizedPayload.timestamp})` : '';
 
             // Group related log entries for better organization
             this.logger.group?.(`${title}${timeInfo}`);
@@ -76,7 +72,7 @@ export class ConsolePayloadLogger implements PayloadLogger {
                 maxTokens: payload.maxTokens
             });
 
-            this.logger.debug('🔍 Full Payload:', logData);
+            this.logger.debug('🔍 Full Payload:', { type, provider: 'openai', ...sanitizedPayload });
 
             this.logger.groupEnd?.();
 
@@ -92,12 +88,5 @@ export class ConsolePayloadLogger implements PayloadLogger {
      * @param payload - Raw payload object
      * @returns Sanitized payload
      */
-    private sanitizePayload(payload: OpenAILogData): OpenAILogData {
-        // Create a deep copy to avoid modifying original
-        const sanitized = JSON.parse(JSON.stringify(payload)) as OpenAILogData;
-
-        // Remove or mask sensitive data if needed
-        // For now, we keep everything as OpenAI payloads don't contain API keys
-        return sanitized;
-    }
+    // Sanitization intentionally lives in ./sanitize-openai-log-data.ts (SSOT utility).
 } 

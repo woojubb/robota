@@ -8,7 +8,8 @@
         "declarationMap": true
     },
     "include": [
-        "src/**/*"
+        "src/**/*",
+        "src/**/*.json"
     ],
     "exclude": [
         "dist",

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@source "../../../../packages/dag-designer/src/**/*.{ts,tsx}";
+@source "../../../../packages/dag-designer/dist/node/**/*.{js,mjs,cjs}";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -160,6 +162,11 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body {
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -184,42 +191,7 @@
     --ring: 0 0% 100%;
   }
 
-  /* Container centering for proper layout */
-  .container {
-    @apply mx-auto px-4 sm:px-6 lg:px-8;
-    max-width: 100%;
-  }
 
-  /* Responsive container max-widths */
-  @media (min-width: 640px) {
-    .container {
-      max-width: 640px;
-    }
-  }
-
-  @media (min-width: 768px) {
-    .container {
-      max-width: 768px;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container {
-      max-width: 1024px;
-    }
-  }
-
-  @media (min-width: 1280px) {
-    .container {
-      max-width: 1280px;
-    }
-  }
-
-  @media (min-width: 1536px) {
-    .container {
-      max-width: 1536px;
-    }
-  }
 }
 
 /* Custom scrollbar */
@@ -289,13 +261,162 @@
   background: oklch(var(--muted-foreground) / 0.5);
 }
 
-/* Selection */
-::selection {
-  background: oklch(var(--primary) / 0.2);
-}
-
 /* Focus visible */
 .focus-visible {
   outline: 2px solid oklch(var(--ring));
   outline-offset: 2px;
+}
+
+/* React Flow Custom Node Styles - 외부 박스에 스타일 적용 */
+
+/* Agent Node - Status-based border colors */
+
+
+/* ========================================
+   🎨 REACT FLOW NODE STYLES - SIMPLIFIED
+   ========================================
+   Based on perfect-playground-data.json
+   Simple, intuitive design for each type
+   ======================================== */
+
+/* === USER INPUT === */
+
+/* User Message - Starting point with user input */
+.react-flow__node-user_message {
+  border: 2px solid #8b5cf6;
+  /* purple-500 */
+}
+
+/* User message icon removed for cleaner design */
+
+
+
+/* === AGENT NODES === */
+
+/* Agent - Main processing units */
+.react-flow__node-agent {
+  border: 2px solid #3b82f6;
+  /* blue-500 */
+}
+
+/* Team - Multiple agents working together */
+.react-flow__node-team {
+  border: 2px solid #059669;
+  /* emerald-600 */
+}
+
+/* Tool - Individual tools */
+.react-flow__node-tool {
+  border: 2px solid #d97706;
+  /* amber-600 */
+}
+
+/* Agent icon removed for cleaner design */
+
+
+
+/* === THINKING PROCESS === */
+.react-flow__node-agent_thinking {
+  border: 2px solid #06b6d4;
+  /* cyan-500 */
+}
+
+/* Agent thinking icon removed for cleaner design */
+
+/* === TOOL ACTIONS === */
+.react-flow__node-tool_call {
+  border: 2px solid #ea580c;
+  /* orange-600 */
+}
+
+/* Tool call icon removed for cleaner design */
+
+/* === RESPONSES === */
+.react-flow__node-response {
+  border: 2px solid #22c55e;
+  /* green-500 */
+}
+
+/* Response icon removed for cleaner design */
+
+/* === TOOL RESPONSES === */
+.react-flow__node-tool_response {
+  border: 2px solid #22c55e;
+  /* green-500 (same as response node) */
+}
+
+/* Tool call response icon removed for cleaner design */
+
+/* === MERGE POINTS === */
+.react-flow__node-tool_result {
+  border: 2px solid #7c3aed;
+  /* violet-600 */
+}
+
+/* === COMPATIBILITY NODE TYPES === */
+
+/* Tool Call (camelCase) */
+.react-flow__node-toolCall {
+  border: 2px solid #ea580c;
+  /* orange-600 */
+}
+
+/* Agent Response (camelCase) */
+.react-flow__node-agentResponse {
+  border: 2px solid #22c55e;
+  /* green-500 */
+}
+
+/* Tool result icon removed for cleaner design */
+
+/* === SHARED ANIMATIONS === */
+
+@keyframes bounce {
+
+  0%,
+  20%,
+  53%,
+  80%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  40%,
+  43% {
+    transform: translate3d(0, -8px, 0);
+  }
+
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+/* === UNIVERSAL STYLES === */
+.react-flow__node {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.react-flow__node:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* === STATUS INDICATORS === */
+.react-flow__node[data-status="running"] {
+  animation: pulse 2s infinite;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+
+.react-flow__node[data-status="completed"] {
+  border-color: #22c55e !important;
+}
+
+.react-flow__node[data-status="error"] {
+  border-color: #ef4444 !important;
+  background: #fef2f2 !important;
 }

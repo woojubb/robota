@@ -6,26 +6,25 @@ export { SessionManager } from './session/session-manager';
 export { TemplateManagerAdapter } from './adapters/template-manager-adapter';
 
 // Interfaces and types
-export type { TemplateManager } from './types/chat';
+export type { ITemplateManager } from './types/chat';
 export type {
-    ChatConfig,
-    ChatMetadata,
-    ChatStats,
-    MessageContent
+    IChatConfig,
+    IChatMetadata,
+    IChatStats
 } from './types/chat';
 
 export type {
     SessionState,
-    SessionConfig,
-    SessionInfo,
-    ChatInfo,
-    SessionManagerConfig,
-    CreateSessionOptions,
-    CreateChatOptions,
-    AgentInterface,
-    AgentConfig,
-    Message,
-    RunOptions
+    ISessionConfig,
+    ISessionInfo,
+    IChatInfo,
+    ISessionManagerConfig,
+    ICreateSessionOptions,
+    ICreateChatOptions,
+    IAgent,
+    IAgentConfig,
+    TUniversalMessage,
+    IRunOptions
 } from './types/core';
 
 // Re-export ConversationHistory from agents (unified implementation)

@@ -1,14 +1,14 @@
-import { AgentInterface, AgentConfig, AgentTemplate } from '../interfaces/agent';
-import { ConfigData } from '../interfaces/types';
+import { IAgent, IAgentConfig, IAgentTemplate } from '../interfaces/agent';
+import { TConfigData } from '../interfaces/types';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { validateAgentConfig } from '../utils/validation';
-import { Logger, createLogger } from '../utils/logger';
-import { AgentTemplates, TemplateApplicationResult } from './agent-templates';
+import { createLogger, type ILogger } from '../utils/logger';
+import { AgentTemplates, type ITemplateApplicationResult } from './agent-templates';
 
 /**
  * Configuration options for AgentFactory
  */
-export interface AgentFactoryOptions {
+export interface IAgentFactoryOptions {
     /** Default model to use if not specified in config */
     defaultModel?: string;
     /** Default provider to use if not specified in config */
@@ -24,7 +24,7 @@ export interface AgentFactoryOptions {
 /**
  * Agent creation statistics
  */
-export interface AgentCreationStats {
+export interface IAgentCreationStats {
     /** Total number of agents created */
     totalCreated: number;
     /** Number of currently active agents */
@@ -40,13 +40,13 @@ export interface AgentCreationStats {
 /**
  * Agent lifecycle events
  */
-export interface AgentLifecycleEvents {
+export interface IAgentLifecycleEvents {
     /** Called before agent creation */
-    beforeCreate?: (config: AgentConfig) => Promise<void> | void;
+    beforeCreate?: (config: IAgentConfig) => Promise<void> | void;
     /** Called after successful agent creation */
-    afterCreate?: (agent: AgentInterface, config: AgentConfig) => Promise<void> | void;
+    afterCreate?: (agent: IAgent<IAgentConfig>, config: IAgentConfig) => Promise<void> | void;
     /** Called when agent creation fails */
-    onCreateError?: (error: Error, config: AgentConfig) => Promise<void> | void;
+    onCreateError?: (error: Error, config: IAgentConfig) => Promise<void> | void;
     /** Called when agent is destroyed */
     onDestroy?: (agentId: string) => Promise<void> | void;
 }
@@ -58,14 +58,14 @@ export interface AgentLifecycleEvents {
 export class AgentFactory {
     private agentTemplates: AgentTemplates;
     private initialized = false;
-    private logger: Logger;
-    private options: Required<AgentFactoryOptions>;
-    private activeAgents: Map<string, AgentInterface>;
-    private creationStats: AgentCreationStats;
-    private lifecycleEvents: AgentLifecycleEvents;
+    private logger: ILogger;
+    private options: Required<IAgentFactoryOptions>;
+    private activeAgents: Map<string, IAgent<IAgentConfig>>;
+    private creationStats: IAgentCreationStats;
+    private lifecycleEvents: IAgentLifecycleEvents;
 
 
-    constructor(options: AgentFactoryOptions = {}, lifecycleEvents: AgentLifecycleEvents = {}) {
+    constructor(options: IAgentFactoryOptions = {}, lifecycleEvents: IAgentLifecycleEvents = {}) {
         this.agentTemplates = new AgentTemplates();
         this.logger = createLogger('AgentFactory');
         this.options = {
@@ -111,10 +111,12 @@ export class AgentFactory {
      * Create a new agent instance
      */
     async createAgent(
-        AgentClass: new (config: AgentConfig) => AgentInterface,
-        config: Partial<AgentConfig>,
+        AgentClass: new (config: IAgentConfig) => IAgent<IAgentConfig>,
+        config: Partial<IAgentConfig>,
         fromTemplate: boolean = false
-    ): Promise<AgentInterface> {
+    ): Promise<IAgent<IAgentConfig>> {
+        // Apply defaults before try so fullConfig is available in catch
+        let fullConfig: IAgentConfig | undefined;
         try {
             // Check concurrent agent limit
             if (this.activeAgents.size >= this.options.maxConcurrentAgents) {
@@ -124,7 +126,7 @@ export class AgentFactory {
             }
 
             // Apply default configuration
-            const fullConfig = this.applyDefaults(config);
+            fullConfig = this.applyDefaults(config);
 
             // Validate configuration
             if (this.options.strictValidation) {
@@ -143,8 +145,12 @@ export class AgentFactory {
             const agent = new AgentClass(fullConfig);
 
             // Initialize agent if it has an initialize method
-            if ('initialize' in agent && typeof agent.initialize === 'function') {
-                await (agent as AgentInterface & { initialize(): Promise<void> }).initialize();
+            interface IInitializableAgent {
+                initialize(): Promise<void>;
+            }
+            const maybeInitializable = agent as Partial<IInitializableAgent>;
+            if (typeof maybeInitializable.initialize === 'function') {
+                await maybeInitializable.initialize();
             }
 
             // Track agent
@@ -168,17 +174,18 @@ export class AgentFactory {
             return agent;
         } catch (error) {
             // Call error lifecycle event
-            if (this.lifecycleEvents.onCreateError) {
-                await this.lifecycleEvents.onCreateError(error as Error, config as AgentConfig);
+            const normalizedError = error instanceof Error ? error : new Error(String(error));
+            if (this.lifecycleEvents.onCreateError && fullConfig) {
+                await this.lifecycleEvents.onCreateError(normalizedError, fullConfig);
             }
 
             this.logger.error('Failed to create agent', {
-                error: error instanceof Error ? error.message : String(error),
+                error: normalizedError.message,
                 model: config.defaultModel?.model,
                 provider: config.defaultModel?.provider,
                 hasTools: !!config.tools?.length
             });
-            throw error;
+            throw normalizedError;
         }
     }
 
@@ -186,10 +193,10 @@ export class AgentFactory {
      * Create agent from template
      */
     async createFromTemplate(
-        AgentClass: new (config: AgentConfig) => AgentInterface,
+        AgentClass: new (config: IAgentConfig) => IAgent<IAgentConfig>,
         templateId: string,
-        overrides: Partial<AgentConfig> = {}
-    ): Promise<AgentInterface> {
+        overrides: Partial<IAgentConfig> = {}
+    ): Promise<IAgent<IAgentConfig>> {
         const template = this.agentTemplates.getTemplate(templateId);
         if (!template) {
             throw new ConfigurationError(`Template not found: ${templateId}`);
@@ -220,7 +227,7 @@ export class AgentFactory {
     /**
      * Register a template
      */
-    registerTemplate(template: AgentTemplate): void {
+    registerTemplate(template: IAgentTemplate): void {
         this.agentTemplates.registerTemplate(template);
     }
 
@@ -234,14 +241,14 @@ export class AgentFactory {
     /**
      * Get all templates
      */
-    getTemplates(): AgentTemplate[] {
+    getTemplates(): IAgentTemplate[] {
         return this.agentTemplates.getTemplates();
     }
 
     /**
      * Get template by ID
      */
-    getTemplate(templateId: string): AgentTemplate | undefined {
+    getTemplate(templateId: string): IAgentTemplate | undefined {
         return this.agentTemplates.getTemplate(templateId);
     }
 
@@ -253,15 +260,15 @@ export class AgentFactory {
         tags?: string[];
         provider?: string;
         model?: string;
-    }): AgentTemplate[] {
+    }): IAgentTemplate[] {
         return this.agentTemplates.findTemplates(criteria);
     }
 
     /**
      * Apply template to configuration
      */
-    applyTemplate(template: AgentTemplate, overrides: Partial<AgentConfig> = {}): TemplateApplicationResult {
-        return this.agentTemplates.applyTemplate(template, overrides as ConfigData);
+    applyTemplate(template: IAgentTemplate, overrides: Partial<IAgentConfig> = {}): ITemplateApplicationResult {
+        return this.agentTemplates.applyTemplate(template, overrides as TConfigData);
     }
 
     /**
@@ -275,8 +282,12 @@ export class AgentFactory {
 
         try {
             // Cleanup agent if it has a cleanup method
-            if ('cleanup' in agent && typeof agent.cleanup === 'function') {
-                await (agent as AgentInterface & { cleanup(): Promise<void> }).cleanup();
+            interface ICleanableAgent {
+                cleanup(): Promise<void>;
+            }
+            const maybeCleanable = agent as Partial<ICleanableAgent>;
+            if (typeof maybeCleanable.cleanup === 'function') {
+                await maybeCleanable.cleanup();
             }
 
             // Remove from tracking
@@ -302,28 +313,28 @@ export class AgentFactory {
     /**
      * Get creation statistics
      */
-    getCreationStats(): AgentCreationStats {
+    getCreationStats(): IAgentCreationStats {
         return { ...this.creationStats };
     }
 
     /**
      * Get all active agents
      */
-    getActiveAgents(): Map<string, AgentInterface> {
+    getActiveAgents(): Map<string, IAgent<IAgentConfig>> {
         return new Map(this.activeAgents);
     }
 
     /**
      * Validate agent configuration
      */
-    validateConfiguration(config: Partial<AgentConfig>): { isValid: boolean; errors: string[] } {
+    validateConfiguration(config: Partial<IAgentConfig>): { isValid: boolean; errors: string[] } {
         return validateAgentConfig(config);
     }
 
     /**
      * Apply default configuration values
      */
-    private applyDefaults(config: Partial<AgentConfig>): AgentConfig {
+    private applyDefaults(config: Partial<IAgentConfig>): IAgentConfig {
         // Handle new API format with aiProviders and defaultModel
         if (!config.aiProviders || config.aiProviders.length === 0) {
             throw new ConfigurationError('At least one AI provider must be specified in aiProviders array');

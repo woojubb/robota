@@ -1,107 +1,76 @@
-import type { ProviderConfigValue, AIProvider } from './provider';
-import type { BasePlugin, BasePluginOptions, PluginStats } from '../abstracts/base-plugin';
-import type { BaseTool } from '../abstracts/base-tool';
-import type { BaseModule } from '../abstracts/base-module';
-import type { UtilLogLevel } from '../utils/logger';
-import type { ToolExecutionResult } from './tool';
-import type { Metadata, ConfigValue } from './types';
+import type { TProviderConfigValue, IAIProvider } from './provider';
+import type { IPluginContract, IPluginOptions, IPluginStats } from '../abstracts/abstract-plugin';
+import type { IModule } from '../abstracts/abstract-module';
+import type { IToolWithEventService } from '../abstracts/abstract-tool';
+import type { TUtilLogLevel } from '../utils/logger';
+import type { TMetadata, TConfigValue } from './types';
+import type { IEventService } from '../services/event-service';
+import type { IOwnerPathSegment } from '../services/event-service';
+import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
+import type { ICacheOptions } from './cache';
+
+export type {
+    TUniversalMessage,
+    TUniversalMessageMetadata,
+    IBaseMessage,
+    IUserMessage,
+    IAssistantMessage,
+    ISystemMessage,
+    IToolMessage,
+    IToolCall,
+    TUniversalMessageRole,
+} from './messages';
 
 /**
- * Message metadata structure - specific type definition for agents
+ * IExecutionContextInjection
+ *
+ * Minimal context payload used to inject an existing ownerPath into a new agent instance
+ * (e.g., when a tool creates an agent and must preserve absolute ownerPath semantics).
+ *
+ * NOTE: This is intentionally NOT ToolExecutionContext. ToolExecutionContext is for tool calls
+ * and requires toolName/parameters; agent creation only needs ownerPath and execution linkage.
  */
-export type MessageMetadata = Record<string, string | number | boolean | Date>;
-
-/**
- * Base message interface for agent communication
- */
-export interface BaseMessage {
-    role: 'user' | 'assistant' | 'system' | 'tool';
-    content: string;
-    timestamp?: Date;
-    metadata?: MessageMetadata;
+export interface IExecutionContextInjection {
+    ownerPath?: IOwnerPathSegment[];
+    parentExecutionId?: string;
+    rootExecutionId?: string;
+    executionLevel?: number;
+    sourceId?: string;
 }
 
-/**
- * User message interface
- */
-export interface UserMessage extends BaseMessage {
-    role: 'user';
-}
-
-/**
- * Assistant message interface
- */
-export interface AssistantMessage extends BaseMessage {
-    role: 'assistant';
-    toolCalls?: ToolCall[];
-}
-
-/**
- * System message interface
- */
-export interface SystemMessage extends BaseMessage {
-    role: 'system';
-}
-
-/**
- * Tool message interface
- */
-export interface ToolMessage extends BaseMessage {
-    role: 'tool';
-    toolCallId: string;
-    result: ToolExecutionResult;
-}
-
-/**
- * Universal message type
- */
-export type Message = UserMessage | AssistantMessage | SystemMessage | ToolMessage;
-
-/**
- * Tool call interface
- */
-export interface ToolCall {
-    id: string;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string;
-    };
-}
-
-// ProviderConfigValue imported from provider.ts for type ownership consistency
+// Provider config value types are owned by provider axis (`interfaces/provider.ts`).
 
 /**
  * Provider-specific configuration
  */
-export interface ProviderConfig {
+export interface IAgentProviderConfig {
     openai?: {
         apiKey?: string;
         baseURL?: string;
         organization?: string;
-        [key: string]: ProviderConfigValue;
+        [key: string]: TProviderConfigValue | undefined;
     };
     anthropic?: {
         apiKey?: string;
         baseURL?: string;
-        [key: string]: ProviderConfigValue;
+        [key: string]: TProviderConfigValue | undefined;
     };
     google?: {
         apiKey?: string;
         projectId?: string;
         location?: string;
-        [key: string]: ProviderConfigValue;
+        [key: string]: TProviderConfigValue | undefined;
     };
-    [provider: string]: Record<string, ProviderConfigValue> | undefined;
+    [provider: string]: Record<string, TProviderConfigValue | undefined> | undefined;
 }
 
 /**
  * Agent configuration options - New design with aiProviders array and defaultModel
  */
-export interface AgentConfig {
+export interface IAgentConfig {
     id?: string;
     name: string;
-    aiProviders: AIProvider[];
+    aiProviders: IAIProvider[];
     defaultModel: {
         provider: string;
         model: string;
@@ -112,11 +81,11 @@ export interface AgentConfig {
     };
 
     // Tools and plugins
-    tools?: BaseTool[];
-    plugins?: Array<BasePlugin<BasePluginOptions, PluginStats>>;
+    tools?: Array<IToolWithEventService>;
+    plugins?: Array<IPluginContract<IPluginOptions, IPluginStats>>;
 
     // Modules for extended functionality
-    modules?: BaseModule[];
+    modules?: IModule[];
 
     // System configuration
     systemMessage?: string;
@@ -128,25 +97,25 @@ export interface AgentConfig {
     userId?: string;
 
     // Metadata and context
-    metadata?: MessageMetadata;
-    context?: Record<string, ConfigValue>;
+    metadata?: TUniversalMessageMetadata;
+    context?: Record<string, TConfigValue>;
 
     // Logging configuration
     logging?: {
-        level?: UtilLogLevel;
+        level?: TUtilLogLevel;
         enabled?: boolean;
         format?: string;
         destination?: string;
     };
 
     // Provider-specific configurations
-    providerConfig?: ProviderConfig;
+    providerConfig?: IAgentProviderConfig;
 
     // Execution options
     stream?: boolean;
     toolChoice?: 'auto' | 'none' | string;
-    responseFormat?: ResponseFormatConfig;
-    safetySettings?: SafetySetting[];
+    responseFormat?: IResponseFormatConfig;
+    safetySettings?: ISafetySetting[];
 
     // Performance and limits
     timeout?: number;
@@ -156,18 +125,27 @@ export interface AgentConfig {
         maxRequests?: number;
         windowMs?: number;
     };
+
+    // Event tracking
+    eventService?: IEventService;
+
+    // 🎯 [CONTEXT-INJECTION] Execution context for hierarchical agent management
+    executionContext?: IExecutionContextInjection;
+
+    // Execution caching
+    cache?: ICacheOptions;
 }
 
 /**
  * Agent template interface
  */
-export interface AgentTemplate {
+export interface IAgentTemplate {
     id: string;
     name: string;
     description?: string;
     category?: string;
     tags?: string[];
-    config: AgentConfig;
+    config: IAgentConfig;
     version?: string;
     author?: string;
     createdAt?: Date;
@@ -177,27 +155,27 @@ export interface AgentTemplate {
 /**
  * Agent run options - type-safe interface for all agent execution options
  */
-export interface RunOptions {
+export interface IRunOptions {
     temperature?: number;
     maxTokens?: number;
     stream?: boolean;
     toolChoice?: 'auto' | 'none' | string;
     sessionId?: string;
     userId?: string;
-    metadata?: Metadata;
+    metadata?: TMetadata;
 }
 
 /**
  * Generic agent interface with type parameters for enhanced type safety
  * 
- * @template TConfig - Agent configuration type (defaults to AgentConfig for backward compatibility)
- * @template TContext - Execution context type (defaults to RunOptions for backward compatibility)
- * @template TMessage - Message type (defaults to Message for backward compatibility)
+ * @template TConfig - Agent configuration type (defaults to IAgentConfig for backward compatibility)
+ * @template TContext - Execution context type (defaults to IRunOptions for backward compatibility)
+ * @template TUniversalMessage - Message type (defaults to TUniversalMessage for backward compatibility)
  */
-export interface BaseAgentInterface<
-    TConfig = AgentConfig,
-    TContext = RunOptions,
-    TMessage = Message
+export interface IAgent<
+    TConfig = IAgentConfig,
+    TContext = IRunOptions,
+    TMessage = TUniversalMessage
 > {
     /**
      * Configure the agent with type-safe configuration
@@ -229,17 +207,17 @@ export interface BaseAgentInterface<
  * Extended run context with provider-agnostic options
  * Supports dynamic provider configurations without hardcoding specific providers
  */
-export interface ExtendedRunContext {
+export interface IExtendedRunContext {
     temperature?: number;
     maxTokens?: number;
     stream?: boolean;
     toolChoice?: 'auto' | 'none' | string;
     sessionId?: string;
     userId?: string;
-    metadata?: Metadata;
+    metadata?: TMetadata;
 
     // Provider-agnostic options that can be used by any provider
-    providerOptions?: Record<string, ConfigValue>;
+    providerOptions?: Record<string, TConfigValue>;
 
     // Common provider options (provider-agnostic naming)
     stopSequences?: string[];
@@ -248,41 +226,36 @@ export interface ExtendedRunContext {
     seed?: number;
 
     // Advanced configuration with specific types
-    responseFormat?: ResponseFormatConfig;
-    safetySettings?: SafetySetting[];
-    generationConfig?: GenerationConfig;
+    responseFormat?: IResponseFormatConfig;
+    safetySettings?: ISafetySetting[];
+    generationConfig?: IGenerationConfig;
 }
 
 /**
  * Response format configuration
  */
-export interface ResponseFormatConfig {
+export interface IResponseFormatConfig {
     type?: 'text' | 'json_object';
-    schema?: Record<string, ConfigValue>;
+    schema?: Record<string, TConfigValue>;
 }
 
 /**
  * Safety setting configuration
  */
-export interface SafetySetting {
+export interface ISafetySetting {
     category: string;
     threshold: string;
-    [key: string]: ConfigValue;
+    [key: string]: TConfigValue;
 }
 
 /**
  * Generation configuration
  */
-export interface GenerationConfig {
+export interface IGenerationConfig {
     temperature?: number;
     maxTokens?: number;
     topP?: number;
     topK?: number;
-    [key: string]: ConfigValue;
+    [key: string]: TConfigValue;
 }
 
-/**
- * Legacy agent interface for backward compatibility
- * @deprecated Use BaseAgentInterface or provider-specific interfaces instead
- */
-export interface AgentInterface extends BaseAgentInterface<AgentConfig, RunOptions, Message> { } 

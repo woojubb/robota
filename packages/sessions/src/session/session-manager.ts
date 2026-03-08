@@ -1,14 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import { Robota, AgentFactory } from '@robota-sdk/agents';
 import { ChatInstance } from '../chat/chat-instance';
 import type {
-    SessionInfo,
-    SessionManagerConfig,
-    CreateSessionOptions,
-    CreateChatOptions,
-    ChatInfo
+    ISessionInfo,
+    ISessionManagerConfig,
+    ICreateSessionOptions,
+    ICreateChatOptions,
+    IChatInfo
 } from '../types/core';
 import { SessionState } from '../types/core';
-import type { ChatMetadata, ChatConfig } from '../types/chat';
+import type { IChatMetadata, IChatConfig } from '../types/chat';
 
 /**
  * SessionManager - manages multiple independent AI agents in isolated workspaces
@@ -20,13 +21,13 @@ import type { ChatMetadata, ChatConfig } from '../types/chat';
  * - Handle basic session lifecycle and limits
  */
 export class SessionManager {
-    private sessions: Map<string, SessionInfo> = new Map();
+    private sessions: Map<string, ISessionInfo> = new Map();
     private chats: Map<string, ChatInstance> = new Map();
     private sessionChats: Map<string, Set<string>> = new Map(); // sessionId -> chatIds
     private agentFactory: AgentFactory;
-    private config: Required<SessionManagerConfig>;
+    private config: Required<ISessionManagerConfig>;
 
-    constructor(config: SessionManagerConfig = {}) {
+    constructor(config: ISessionManagerConfig = {}) {
         this.config = {
             maxSessions: config.maxSessions || 50,
             maxChatsPerSession: config.maxChatsPerSession || 10,
@@ -40,14 +41,14 @@ export class SessionManager {
     /**
      * Create a new session (workspace)
      */
-    createSession(options: CreateSessionOptions = {}): string {
+    createSession(options: ICreateSessionOptions = {}): string {
         // Simple limit check - let external code handle cleanup policy
         if (this.sessions.size >= this.config.maxSessions) {
             throw new Error(`Maximum sessions limit (${this.config.maxSessions}) reached. Please remove existing sessions before creating new ones.`);
         }
 
         const sessionId = this.generateSessionId();
-        const sessionInfo: SessionInfo = {
+        const sessionInfo: ISessionInfo = {
             id: sessionId,
             userId: options.userId || 'anonymous',
             name: options.name || `Session ${sessionId.slice(-8)}`,
@@ -67,7 +68,7 @@ export class SessionManager {
     /**
      * Create a new chat (AI agent) within a session
      */
-    async createChat(sessionId: string, options: CreateChatOptions): Promise<string> {
+    async createChat(sessionId: string, options: ICreateChatOptions): Promise<string> {
         const session = this.sessions.get(sessionId);
         if (!session) {
             throw new Error(`Session ${sessionId} not found`);
@@ -81,10 +82,14 @@ export class SessionManager {
         const chatId = this.generateChatId();
 
         // Create Robota instance using AgentFactory
-        const robota = await this.agentFactory.createAgent(Robota, options.agentConfig) as Robota;
+        const agent = await this.agentFactory.createAgent(Robota, options.agentConfig);
+        if (!(agent instanceof Robota)) {
+            throw new Error('AgentFactory did not return a Robota instance');
+        }
+        const robota = agent;
 
         // Create chat metadata
-        const metadata: ChatMetadata = {
+        const metadata: IChatMetadata = {
             chatId,
             sessionId,
             chatName: options.name || `Chat ${chatId.slice(-8)}`,
@@ -97,7 +102,7 @@ export class SessionManager {
         };
 
         // Create chat config
-        const chatConfig: ChatConfig = {
+        const chatConfig: IChatConfig = {
             robotaConfig: options.agentConfig,
             ...(options.name && { chatName: options.name }),
             ...(options.description && { description: options.description }),
@@ -128,14 +133,14 @@ export class SessionManager {
     /**
      * Get session information
      */
-    getSession(sessionId: string): SessionInfo | undefined {
+    getSession(sessionId: string): ISessionInfo | undefined {
         return this.sessions.get(sessionId);
     }
 
     /**
      * List all chats in a session
      */
-    getSessionChats(sessionId: string): ChatInfo[] {
+    getSessionChats(sessionId: string): IChatInfo[] {
         const chatIds = this.sessionChats.get(sessionId);
         if (!chatIds) {
             return [];
@@ -233,7 +238,7 @@ export class SessionManager {
     /**
      * List all sessions
      */
-    listSessions(): SessionInfo[] {
+    listSessions(): ISessionInfo[] {
         return Array.from(this.sessions.values());
     }
 
@@ -241,13 +246,13 @@ export class SessionManager {
      * Generate unique session ID
      */
     private generateSessionId(): string {
-        return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return `session_${randomUUID()}`;
     }
 
     /**
      * Generate unique chat ID
      */
     private generateChatId(): string {
-        return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        return `chat_${randomUUID()}`;
     }
 } 

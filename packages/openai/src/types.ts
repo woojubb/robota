@@ -1,27 +1,34 @@
 import OpenAI from 'openai';
 
-import type { PayloadLogger } from './interfaces/payload-logger';
-import type { SimpleLogger } from '@robota-sdk/agents';
+import type { IPayloadLogger } from './interfaces/payload-logger';
+import type { IExecutor, ILogger, TProviderOptionValueBase } from '@robota-sdk/agents';
 
 /**
  * Valid provider option value types
  */
-export type ProviderOptionValue = string | number | boolean | undefined | null | OpenAI | PayloadLogger | SimpleLogger | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
-
-/**
- * Base provider options interface
- */
-export interface ProviderOptions {
-  /**
-   * Additional provider-specific options
-   */
-  [key: string]: ProviderOptionValue;
-}
+export type TOpenAIProviderOptionValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | null
+  | OpenAI
+  | IPayloadLogger
+  | ILogger
+  | IExecutor
+  | TProviderOptionValueBase
+  | TOpenAIProviderOptionValue[]
+  | { [key: string]: TOpenAIProviderOptionValue };
 
 /**
  * OpenAI provider options
  */
-export interface OpenAIProviderOptions extends ProviderOptions {
+export interface IOpenAIProviderOptions {
+  /**
+   * Additional provider-specific options
+   */
+  [key: string]: TOpenAIProviderOptionValue;
+
   /**
    * OpenAI API key (required when client is not provided)
    */
@@ -45,7 +52,7 @@ export interface OpenAIProviderOptions extends ProviderOptions {
   /**
    * Response format (default: 'text')
    * - 'text': Plain text response
-   * - 'json_object': Legacy JSON mode (requires system message)
+   * - 'json_object': JSON object mode (requires system message)
    * - 'json_schema': Structured Outputs with schema validation
    */
   responseFormat?: 'text' | 'json_object' | 'json_schema';
@@ -56,7 +63,7 @@ export interface OpenAIProviderOptions extends ProviderOptions {
   jsonSchema?: {
     name: string;
     description?: string;
-    schema?: Record<string, ProviderOptionValue>;
+    schema?: Record<string, TOpenAIProviderOptionValue>;
     strict?: boolean;
   };
 
@@ -71,7 +78,7 @@ export interface OpenAIProviderOptions extends ProviderOptions {
    * Use different implementations based on your environment:
    * - FilePayloadLogger: Node.js file-based logging
    * - ConsolePayloadLogger: Browser console-based logging
-   * - Custom: Implement PayloadLogger interface
+   * - Custom: Implement IPayloadLogger interface
    * 
    * @example
    * ```typescript
@@ -90,11 +97,38 @@ export interface OpenAIProviderOptions extends ProviderOptions {
    * });
    * ```
    */
-  payloadLogger?: PayloadLogger;
+  payloadLogger?: IPayloadLogger;
+
+  /**
+   * Optional executor for handling AI requests
+   * 
+   * When provided, the provider will delegate all chat operations to this executor
+   * instead of making direct API calls. This enables remote execution capabilities.
+   * 
+   * @example
+   * ```typescript
+   * import { LocalExecutor, RemoteExecutor } from '@robota-sdk/agents';
+   * 
+   * // Local execution (registers this provider)
+   * const localExecutor = new LocalExecutor();
+   * localExecutor.registerProvider('openai', new OpenAIProvider({ apiKey: 'sk-...' }));
+   * 
+   * // Remote execution
+   * const remoteExecutor = new RemoteExecutor({
+   *   serverUrl: 'https://api.robota.io',
+   *   userApiKey: 'user-token-123'
+   * });
+   * 
+   * const provider = new OpenAIProvider({
+   *   executor: remoteExecutor // No direct API key needed
+   * });
+   * ```
+   */
+  executor?: IExecutor;
 
   /**
    * Logger instance for internal OpenAI provider logging
    * @defaultValue SilentLogger
    */
-  logger?: SimpleLogger;
+  logger?: ILogger;
 } 

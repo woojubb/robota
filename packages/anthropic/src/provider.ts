@@ -1,18 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { AnthropicProviderOptions } from './types';
-import { BaseAIProvider } from '@robota-sdk/agents';
+import type { IAnthropicProviderOptions } from './types';
+import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
-    UniversalMessage as RobotaUniversalMessage,
-    ChatOptions as RobotaChatOptions,
-    ToolSchema as RobotaToolSchema,
-    AssistantMessage as RobotaAssistantMessage
+    TUniversalMessage,
+    IChatOptions,
+    IToolSchema,
+    IAssistantMessage,
 } from '@robota-sdk/agents';
-
-// Re-export with cleaner names for internal use
-type UniversalMessage = RobotaUniversalMessage;
-type ChatOptions = RobotaChatOptions;
-type ToolSchema = RobotaToolSchema;
-type AssistantMessage = RobotaAssistantMessage;
 
 /**
  * Anthropic provider implementation for Robota
@@ -27,41 +21,63 @@ type AssistantMessage = RobotaAssistantMessage;
  * 
  * @public
  */
-export class AnthropicProvider extends BaseAIProvider {
+export class AnthropicProvider extends AbstractAIProvider {
     override readonly name = 'anthropic';
     override readonly version = '1.0.0';
 
-    private readonly client: Anthropic;
-    private readonly options: AnthropicProviderOptions;
+    private readonly client?: Anthropic;
+    private readonly options: IAnthropicProviderOptions;
 
-    constructor(options: AnthropicProviderOptions) {
+    constructor(options: IAnthropicProviderOptions) {
         super();
         this.options = options;
 
-        // Create client from apiKey if not provided
-        if (options.client) {
-            this.client = options.client;
-        } else if (options.apiKey) {
-            this.client = new Anthropic({
-                apiKey: options.apiKey,
-                ...(options.timeout && { timeout: options.timeout }),
-                ...(options.baseURL && { baseURL: options.baseURL })
-            });
-        } else {
-            throw new Error('Either Anthropic client or apiKey is required');
+        // Set executor if provided
+        if (options.executor) {
+            this.executor = options.executor;
+        }
+
+        // Only create client if not using executor
+        if (!this.executor) {
+            // Create client from apiKey if not provided
+            if (options.client) {
+                this.client = options.client;
+            } else if (options.apiKey) {
+                this.client = new Anthropic({
+                    apiKey: options.apiKey,
+                    ...(options.timeout && { timeout: options.timeout }),
+                    ...(options.baseURL && { baseURL: options.baseURL })
+                });
+            } else {
+                throw new Error('Either Anthropic client, apiKey, or executor is required');
+            }
         }
     }
 
     /**
-     * Generate response using UniversalMessage
+     * Generate response using TUniversalMessage
      */
-    override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    override async chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage> {
         this.validateMessages(messages);
+
+        // Use executor when configured; otherwise use direct execution
+        if (this.executor) {
+            try {
+                return await this.executeViaExecutorOrDirect(messages, options);
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        // Direct execution with Anthropic client
+        if (!this.client) {
+            throw new Error('Anthropic client not available. Either provide a client/apiKey or use an executor.');
+        }
 
         const anthropicMessages = this.convertToAnthropicFormat(messages);
 
         if (!options?.model) {
-            throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+            throw new Error('Model is required in chat options. Please specify a model in defaultModel configuration.');
         }
 
         const requestParams: Anthropic.MessageCreateParams = {
@@ -84,15 +100,30 @@ export class AnthropicProvider extends BaseAIProvider {
     }
 
     /**
-     * Generate streaming response using UniversalMessage
+     * Generate streaming response using TUniversalMessage
      */
-    override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    override async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         this.validateMessages(messages);
+
+        // Use executor when configured; otherwise use direct execution
+        if (this.executor) {
+            try {
+                yield* this.executeStreamViaExecutorOrDirect(messages, options);
+                return;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        // Direct execution with Anthropic client
+        if (!this.client) {
+            throw new Error('Anthropic client not available. Either provide a client/apiKey or use an executor.');
+        }
 
         const anthropicMessages = this.convertToAnthropicFormat(messages);
 
         if (!options?.model) {
-            throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+            throw new Error('Model is required in chat options. Please specify a model in defaultModel configuration.');
         }
 
         const requestParams: Anthropic.MessageCreateParamsStreaming = {
@@ -136,13 +167,13 @@ export class AnthropicProvider extends BaseAIProvider {
     }
 
     /**
-     * Convert UniversalMessage to Anthropic format
+     * Convert TUniversalMessage to Anthropic format
      * 
      * CRITICAL: Anthropic API requires specific content handling:
      * - tool_use messages: content MUST be null
      * - regular messages: content should be a string
      */
-    private convertToAnthropicFormat(messages: UniversalMessage[]): Anthropic.MessageParam[] {
+    private convertToAnthropicFormat(messages: TUniversalMessage[]): Anthropic.MessageParam[] {
         return messages.map(msg => {
             if (msg.role === 'user') {
                 return {
@@ -150,23 +181,20 @@ export class AnthropicProvider extends BaseAIProvider {
                     content: msg.content || ''
                 };
             } else if (msg.role === 'assistant') {
-                const assistantMsg = msg as AssistantMessage;
+                const assistantMsg = msg as IAssistantMessage;
 
-                // IMPORTANT: Anthropic requires null content for tool calls
+                // Anthropic uses content blocks for tool use (not OpenAI-style tool_calls)
                 if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
+                    const contentBlocks: Anthropic.ToolUseBlockParam[] = assistantMsg.toolCalls.map(tc => ({
+                        type: 'tool_use' as const,
+                        id: tc.id,
+                        name: tc.function.name,
+                        input: JSON.parse(tc.function.arguments)
+                    }));
                     return {
-                        role: 'assistant',
-                        content: null, // MUST be null for tool calls in Anthropic
-                        tool_calls: assistantMsg.toolCalls.map(tc => ({
-                            id: tc.id,
-                            type: 'function',
-                            function: {
-                                name: tc.function.name,
-                                arguments: JSON.stringify(tc.function.arguments)
-                            }
-                        }))
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    } as any;
+                        role: 'assistant' as const,
+                        content: contentBlocks
+                    };
                 }
 
                 // Regular assistant message
@@ -185,9 +213,9 @@ export class AnthropicProvider extends BaseAIProvider {
     }
 
     /**
-     * Convert Anthropic response to UniversalMessage
+     * Convert Anthropic response to TUniversalMessage
      */
-    private convertFromAnthropicResponse(response: Anthropic.Message): UniversalMessage {
+    private convertFromAnthropicResponse(response: Anthropic.Message): TUniversalMessage {
         if (!response.content || response.content.length === 0) {
             throw new Error('No content in Anthropic response');
         }
@@ -196,7 +224,7 @@ export class AnthropicProvider extends BaseAIProvider {
 
         if (content && content.type === 'text') {
             const textContent = content as Anthropic.TextBlock;
-            const result: UniversalMessage = {
+            const result: TUniversalMessage = {
                 role: 'assistant',
                 content: textContent.text,
                 timestamp: new Date()
@@ -204,8 +232,7 @@ export class AnthropicProvider extends BaseAIProvider {
 
             // Add metadata if available
             if (response.usage) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (result as any).metadata = {
+                result.metadata = {
                     inputTokens: response.usage.input_tokens,
                     outputTokens: response.usage.output_tokens,
                     model: response.model
@@ -213,15 +240,14 @@ export class AnthropicProvider extends BaseAIProvider {
 
                 // Only add stopReason if it's not null
                 if (response.stop_reason) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (result as any).metadata['stopReason'] = response.stop_reason;
+                    result.metadata['stopReason'] = response.stop_reason;
                 }
             }
 
             return result;
         } else if (content && content.type === 'tool_use') {
             const toolContent = content as Anthropic.ToolUseBlock;
-            const result: UniversalMessage = {
+            const result: TUniversalMessage = {
                 role: 'assistant',
                 content: '', // Empty string for type compatibility
                 timestamp: new Date(),
@@ -238,14 +264,13 @@ export class AnthropicProvider extends BaseAIProvider {
             return result;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        throw new Error(`Unsupported content type: ${(content as any).type}`);
+        throw new Error(`Unsupported content type: ${(content as { type: string }).type}`);
     }
 
     /**
      * Convert tools to Anthropic format
      */
-    private convertToolsToAnthropicFormat(tools: ToolSchema[]): Anthropic.Tool[] {
+    private convertToolsToAnthropicFormat(tools: IToolSchema[]): Anthropic.Tool[] {
         return tools.map(tool => ({
             name: tool.name,
             description: tool.description,
@@ -254,9 +279,9 @@ export class AnthropicProvider extends BaseAIProvider {
     }
 
     /**
-     * Validate UniversalMessage array
+     * Validate TUniversalMessage array
      */
-    protected override validateMessages(messages: UniversalMessage[]): void {
+    protected override validateMessages(messages: TUniversalMessage[]): void {
         if (!Array.isArray(messages)) {
             throw new Error('Messages must be an array');
         }

@@ -1,16 +1,25 @@
 {
     "name": "@robota-sdk/sessions",
-    "version": "2.0.8",
+    "version": "2.0.9",
     "description": "Session and chat management for Robota SDK - multi-session support with independent workspaces",
     "type": "module",
-    "main": "dist/index.js",
-    "module": "dist/index.mjs",
-    "types": "dist/index.d.ts",
+    "main": "dist/node/index.js",
+    "module": "dist/node/index.mjs",
+    "types": "dist/node/index.d.ts",
     "exports": {
         ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js",
-            "require": "./dist/index.cjs"
+            "types": "./dist/node/index.d.ts",
+            "node": {
+                "import": "./dist/node/index.js",
+                "require": "./dist/node/index.cjs"
+            },
+            "browser": {
+                "import": "./dist/browser/index.js"
+            },
+            "default": {
+                "import": "./dist/node/index.js",
+                "require": "./dist/node/index.cjs"
+            }
         }
     },
     "repository": {
@@ -32,12 +41,13 @@
         "build:check": "pnpm run typecheck && pnpm run build",
         "dev": "tsup --watch",
         "clean": "rimraf dist && rimraf tsconfig.tsbuildinfo",
-        "typecheck": "tsc --noEmit",
         "test": "vitest run --passWithNoTests",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "lint": "eslint src --ext .ts,.tsx",
         "lint:fix": "eslint src --ext .ts,.tsx --fix",
+        "scenario:verify": "pnpm --filter @robota-sdk/agents build && pnpm exec tsx examples/verify-offline.ts",
+        "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/sessions --output examples/scenarios/offline-verify.record.json -- pnpm scenario:verify",
         "prepublishOnly": "pnpm run clean && pnpm run build && pnpm run test"
     },
     "keywords": [
