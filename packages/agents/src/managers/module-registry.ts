@@ -1,74 +1,36 @@
-import type {
-    IBaseModuleOptions,
-    IModule,
-    IModuleExecutionContext,
-    IModuleExecutionResult
-} from '../abstracts/abstract-module';
+/**
+ * Registry for managing module instances.
+ *
+ * Validation helpers live in ./module-registry-validation.ts.
+ */
+import type { IBaseModuleOptions, IModule, IModuleExecutionContext, IModuleExecutionResult } from '../abstracts/abstract-module';
 import type { IEventEmitterPlugin } from '../plugins/event-emitter/types';
 import { ModuleDescriptorRegistry } from './module-type-registry';
 import { createLogger, type ILogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
+import { validateModule, validateModuleDependencies, findDependentModules, buildRegistryStats } from './module-registry-validation';
+import type { IModuleExecutionStats, IModuleRegistryStats } from './module-registry-validation';
+
+export type { IModuleExecutionStats };
 
 export const MODULE_REGISTRY_EVENTS = {
-    /** Emitted when a module is registered in ModuleRegistry */
     REGISTERED: 'module.registered',
-    /** Emitted when a module is unregistered in ModuleRegistry */
     UNREGISTERED: 'module.unregistered'
 } as const;
 
-/**
- * Module registration options
- */
 export interface IModuleRegistrationOptions {
-    /** Whether to initialize the module immediately */
     autoInitialize?: boolean;
-    /** Custom initialization options */
     initOptions?: IBaseModuleOptions;
-    /** Whether to validate dependencies */
     validateDependencies?: boolean;
-    /** Custom initialization timeout */
     initTimeout?: number;
 }
 
-/**
- * Module status information
- */
 export interface IModuleStatus {
-    name: string;
-    type: string;
-    enabled: boolean;
-    initialized: boolean;
-    hasEventEmitter: boolean;
-    registrationTime: Date;
-    initializationTime?: Date;
-    lastActivity?: Date;
-    dependencies: string[];
-    dependents: string[];
+    name: string; type: string; enabled: boolean; initialized: boolean;
+    hasEventEmitter: boolean; registrationTime: Date; initializationTime?: Date;
+    lastActivity?: Date; dependencies: string[]; dependents: string[];
 }
 
-/**
- * Module execution statistics
- */
-export interface IModuleExecutionStats {
-    totalExecutions: number;
-    successfulExecutions: number;
-    failedExecutions: number;
-    averageExecutionTime: number;
-    lastExecutionTime?: Date;
-    totalExecutionTime: number;
-}
-
-/**
- * Registry for managing module instances
- * Handles module lifecycle, dependencies, and execution coordination
- * 
- * Key features:
- * - Dependency-based initialization ordering
- * - Module lifecycle management (register, initialize, dispose)
- * - Event-driven communication through EventEmitter
- * - Module status tracking and statistics
- * - Error handling and recovery
- */
 export class ModuleRegistry {
     private modules = new Map<string, IModule>();
     private moduleOptions = new Map<string, IBaseModuleOptions>();
@@ -85,609 +47,121 @@ export class ModuleRegistry {
         this.eventEmitter = eventEmitter;
         this.typeRegistry = typeRegistry ?? new ModuleDescriptorRegistry();
         this.logger = createLogger('ModuleRegistry');
-
-        this.logger.info('ModuleRegistry created', {
-            hasEventEmitter: !!this.eventEmitter
-        });
     }
 
-    /**
-     * Register a module instance
-     */
-    async registerModule(
-        module: IModule,
-        options: IModuleRegistrationOptions = {}
-    ): Promise<void> {
-        if (this.isDisposing) {
-            throw new ConfigurationError('Cannot register modules during disposal');
-        }
+    async registerModule(module: IModule, options: IModuleRegistrationOptions = {}): Promise<void> {
+        if (this.isDisposing) throw new ConfigurationError('Cannot register modules during disposal');
+        validateModule(module, this.typeRegistry, this.logger);
+        if (this.modules.has(module.name)) throw new ConfigurationError(`Module with name '${module.name}' is already registered`, { moduleName: module.name });
+        if (options.validateDependencies !== false) await validateModuleDependencies(module, this.typeRegistry, this.modules, this.logger);
 
-        // Validate module
-        this.validateModule(module);
-
-        // Check for name conflicts
-        if (this.modules.has(module.name)) {
-            throw new ConfigurationError(
-                `Module with name '${module.name}' is already registered`,
-                { moduleName: module.name }
-            );
-        }
-
-        // Validate dependencies if requested
-        if (options.validateDependencies !== false) {
-            await this.validateModuleDependencies(module);
-        }
-
-        // Register the module
         this.modules.set(module.name, module);
         this.moduleOptions.set(module.name, options.initOptions || {});
         this.registrationOrder.push(module.name);
-
-        // Create status tracking
         const moduleType = module.getModuleType();
-        const status: IModuleStatus = {
-            name: module.name,
-            type: moduleType.type,
-            enabled: module.isEnabled(),
-            initialized: false,
-            hasEventEmitter: !!this.eventEmitter,
-            registrationTime: new Date(),
-            dependencies: moduleType.dependencies || [],
-            dependents: []
-        };
-        this.moduleStatuses.set(module.name, status);
+        this.moduleStatuses.set(module.name, { name: module.name, type: moduleType.type, enabled: module.isEnabled(), initialized: false, hasEventEmitter: !!this.eventEmitter, registrationTime: new Date(), dependencies: moduleType.dependencies || [], dependents: [] });
+        this.moduleStats.set(module.name, { totalExecutions: 0, successfulExecutions: 0, failedExecutions: 0, averageExecutionTime: 0, totalExecutionTime: 0 });
 
-        // Initialize execution statistics
-        this.moduleStats.set(module.name, {
-            totalExecutions: 0,
-            successfulExecutions: 0,
-            failedExecutions: 0,
-            averageExecutionTime: 0,
-            totalExecutionTime: 0
-        });
-
-        this.logger.info('Module registered', {
-            name: module.name,
-            type: moduleType.type,
-            autoInitialize: options.autoInitialize
-        });
-
-        // Auto-initialize if requested
-        if (options.autoInitialize) {
-            await this.initializeModule(module.name, options.initTimeout);
-        }
-
-        // Emit registration event
-        if (this.eventEmitter) {
-            await this.eventEmitter.emit(MODULE_REGISTRY_EVENTS.REGISTERED, {
-                data: {
-                    moduleName: module.name,
-                    moduleType: moduleType.type
-                },
-                timestamp: new Date()
-            });
-        }
+        if (options.autoInitialize) await this.initializeModule(module.name, options.initTimeout);
+        if (this.eventEmitter) await this.eventEmitter.emit(MODULE_REGISTRY_EVENTS.REGISTERED, { data: { moduleName: module.name, moduleType: moduleType.type }, timestamp: new Date() });
     }
 
-    /**
-     * Unregister a module
-     */
     async unregisterModule(moduleName: string): Promise<boolean> {
         const module = this.modules.get(moduleName);
-        if (!module) {
-            return false;
-        }
-
-        // Check if other modules depend on this one
-        const dependents = this.findDependentModules(moduleName);
-        if (dependents.length > 0) {
-            throw new ConfigurationError(
-                `Cannot unregister module '${moduleName}' - it is required by: ${dependents.join(', ')}`,
-                { moduleName, dependents }
-            );
-        }
-
-        // Dispose the module if initialized
-        if (module.isInitialized()) {
-            if (module.dispose) {
-                await module.dispose();
-            }
-        }
-
-        // Remove from all tracking structures
-        this.modules.delete(moduleName);
-        this.moduleOptions.delete(moduleName);
-        this.moduleStatuses.delete(moduleName);
-        this.moduleStats.delete(moduleName);
-
-        // Remove from order arrays
-        const regIndex = this.registrationOrder.indexOf(moduleName);
-        if (regIndex !== -1) {
-            this.registrationOrder.splice(regIndex, 1);
-        }
-
-        const initIndex = this.initializationOrder.indexOf(moduleName);
-        if (initIndex !== -1) {
-            this.initializationOrder.splice(initIndex, 1);
-        }
-
-        this.logger.info('Module unregistered', { name: moduleName });
-
-        // Emit unregistration event
-        if (this.eventEmitter) {
-            await this.eventEmitter.emit(MODULE_REGISTRY_EVENTS.UNREGISTERED, {
-                data: {
-                    moduleName
-                },
-                timestamp: new Date()
-            });
-        }
-
+        if (!module) return false;
+        const dependents = findDependentModules(moduleName, this.modules);
+        if (dependents.length > 0) throw new ConfigurationError(`Cannot unregister module '${moduleName}' - it is required by: ${dependents.join(', ')}`, { moduleName, dependents });
+        if (module.isInitialized() && module.dispose) await module.dispose();
+        this.modules.delete(moduleName); this.moduleOptions.delete(moduleName); this.moduleStatuses.delete(moduleName); this.moduleStats.delete(moduleName);
+        const ri = this.registrationOrder.indexOf(moduleName); if (ri !== -1) this.registrationOrder.splice(ri, 1);
+        const ii = this.initializationOrder.indexOf(moduleName); if (ii !== -1) this.initializationOrder.splice(ii, 1);
+        if (this.eventEmitter) await this.eventEmitter.emit(MODULE_REGISTRY_EVENTS.UNREGISTERED, { data: { moduleName }, timestamp: new Date() });
         return true;
     }
 
-    /**
-     * Initialize a specific module
-     */
     async initializeModule(moduleName: string, timeout?: number): Promise<void> {
         const module = this.modules.get(moduleName);
-        if (!module) {
-            throw new ConfigurationError(`Module '${moduleName}' not found`);
-        }
-
-        if (module.isInitialized()) {
-            this.logger.debug('Module already initialized', { name: moduleName });
-            return;
-        }
-
-        // Get initialization options
+        if (!module) throw new ConfigurationError(`Module '${moduleName}' not found`);
+        if (module.isInitialized()) return;
         const options = this.moduleOptions.get(moduleName);
-
-        // Initialize with timeout if specified
         const initPromise = module.initialize(options, this.eventEmitter);
-
         if (timeout && timeout > 0) {
             let timerId: ReturnType<typeof setTimeout>;
-            const timeoutPromise = new Promise<never>((_, reject) => {
-                timerId = setTimeout(() => {
-                    reject(new Error(`Module '${moduleName}' initialization timed out after ${timeout}ms`));
-                }, timeout);
-            });
-
-            await Promise.race([
-                initPromise.then(result => { clearTimeout(timerId); return result; }),
-                timeoutPromise
-            ]);
-        } else {
-            await initPromise;
-        }
-
-        // Update status
+            const timeoutPromise = new Promise<never>((_, reject) => { timerId = setTimeout(() => { reject(new Error(`Module '${moduleName}' initialization timed out after ${timeout}ms`)); }, timeout); });
+            await Promise.race([initPromise.then(result => { clearTimeout(timerId); return result; }), timeoutPromise]);
+        } else { await initPromise; }
         const status = this.moduleStatuses.get(moduleName);
-        if (status) {
-            status.initialized = true;
-            status.initializationTime = new Date();
-        }
-
-        // Add to initialization order
-        if (!this.initializationOrder.includes(moduleName)) {
-            this.initializationOrder.push(moduleName);
-        }
-
-        this.logger.info('Module initialized', { name: moduleName });
+        if (status) { status.initialized = true; status.initializationTime = new Date(); }
+        if (!this.initializationOrder.includes(moduleName)) this.initializationOrder.push(moduleName);
     }
 
-    /**
-     * Initialize all registered modules in dependency order
-     */
     async initializeAllModules(timeout?: number): Promise<void> {
         const moduleNames = Array.from(this.modules.keys());
-
-        if (moduleNames.length === 0) {
-            this.logger.debug('No modules to initialize');
-            return;
-        }
-
-        // Get module types for dependency resolution
-        const moduleTypes = moduleNames.map(name => {
-            const module = this.modules.get(name)!;
-            return module.getModuleType().type;
-        });
-
-        // Resolve dependencies
+        if (moduleNames.length === 0) return;
+        const moduleTypes = moduleNames.map(name => this.modules.get(name)!.getModuleType().type);
         const resolution = this.typeRegistry.resolveDependencies(moduleTypes);
-
         if (!resolution.resolved) {
             const errors: string[] = [];
-
-            if (resolution.missingDependencies.length > 0) {
-                errors.push(`Missing dependencies: ${resolution.missingDependencies.join(', ')}`);
-            }
-
-            if (resolution.circularDependencies.length > 0) {
-                const cycles = resolution.circularDependencies.map(cycle => cycle.join(' -> ')).join('; ');
-                errors.push(`Circular dependencies: ${cycles}`);
-            }
-
-            throw new ConfigurationError(
-                `Cannot initialize modules: ${errors.join('; ')}`,
-                {
-                    missingDependencies: resolution.missingDependencies,
-                    circularDependencies: resolution.circularDependencies.map(cycle => cycle.join(' -> '))
-                }
-            );
+            if (resolution.missingDependencies.length > 0) errors.push(`Missing dependencies: ${resolution.missingDependencies.join(', ')}`);
+            if (resolution.circularDependencies.length > 0) errors.push(`Circular dependencies: ${resolution.circularDependencies.map(c => c.join(' -> ')).join('; ')}`);
+            throw new ConfigurationError(`Cannot initialize modules: ${errors.join('; ')}`, { missingDependencies: resolution.missingDependencies, circularDependencies: resolution.circularDependencies.map(c => c.join(' -> ')) });
         }
-
-        // Initialize modules in dependency order
-        this.logger.info('Initializing modules in dependency order', {
-            order: resolution.order,
-            totalModules: moduleNames.length
-        });
-
         for (const moduleType of resolution.order) {
-            // Find module by type
-            const moduleName = moduleNames.find(name => {
-                const module = this.modules.get(name)!;
-                return module.getModuleType().type === moduleType;
-            });
-
-            if (moduleName) {
-                await this.initializeModule(moduleName, timeout);
-            }
+            const mn = moduleNames.find(name => this.modules.get(name)!.getModuleType().type === moduleType);
+            if (mn) await this.initializeModule(mn, timeout);
         }
-
-        this.logger.info('All modules initialized successfully', {
-            initializedCount: this.initializationOrder.length
-        });
     }
 
-    /**
-     * Execute a module by name
-     */
     async executeModule(moduleName: string, context: IModuleExecutionContext): Promise<IModuleExecutionResult> {
         const module = this.modules.get(moduleName);
-        if (!module) {
-            throw new ConfigurationError(`Module '${moduleName}' not found`);
-        }
-
-        if (!module.isInitialized()) {
-            throw new ConfigurationError(`Module '${moduleName}' is not initialized`);
-        }
-
-        if (!module.isEnabled()) {
-            throw new ConfigurationError(`Module '${moduleName}' is disabled`);
-        }
-
-        // Update statistics
+        if (!module) throw new ConfigurationError(`Module '${moduleName}' not found`);
+        if (!module.isInitialized()) throw new ConfigurationError(`Module '${moduleName}' is not initialized`);
+        if (!module.isEnabled()) throw new ConfigurationError(`Module '${moduleName}' is disabled`);
         const stats = this.moduleStats.get(moduleName)!;
         const startTime = Date.now();
-
         try {
-            if (!module.execute) {
-                throw new ConfigurationError(`Module '${moduleName}' does not support execute()`);
-            }
+            if (!module.execute) throw new ConfigurationError(`Module '${moduleName}' does not support execute()`);
             const result = await module.execute(context);
-
-            // Update success statistics
             const duration = Date.now() - startTime;
-            stats.totalExecutions++;
-            stats.successfulExecutions++;
-            stats.totalExecutionTime += duration;
-            stats.averageExecutionTime = stats.totalExecutionTime / stats.totalExecutions;
-            stats.lastExecutionTime = new Date();
-
-            // Update module status
-            const status = this.moduleStatuses.get(moduleName);
-            if (status) {
-                status.lastActivity = new Date();
-            }
-
+            stats.totalExecutions++; stats.successfulExecutions++; stats.totalExecutionTime += duration;
+            stats.averageExecutionTime = stats.totalExecutionTime / stats.totalExecutions; stats.lastExecutionTime = new Date();
+            const status = this.moduleStatuses.get(moduleName); if (status) status.lastActivity = new Date();
             return result;
-
         } catch (error) {
-            // Update error statistics
             const duration = Date.now() - startTime;
-            stats.totalExecutions++;
-            stats.failedExecutions++;
-            stats.totalExecutionTime += duration;
-            stats.averageExecutionTime = stats.totalExecutionTime / stats.totalExecutions;
-            stats.lastExecutionTime = new Date();
-
+            stats.totalExecutions++; stats.failedExecutions++; stats.totalExecutionTime += duration;
+            stats.averageExecutionTime = stats.totalExecutionTime / stats.totalExecutions; stats.lastExecutionTime = new Date();
             throw error;
         }
     }
 
-    /**
-     * Get a module by name
-     */
-    getModule(moduleName: string): IModule | undefined {
-        return this.modules.get(moduleName);
-    }
+    getModule(moduleName: string): IModule | undefined { return this.modules.get(moduleName); }
+    getModulesByType(moduleType: string): IModule[] { return Array.from(this.modules.values()).filter(m => m.getModuleType().type === moduleType); }
+    getAllModules(): IModule[] { return Array.from(this.modules.values()); }
+    getModuleNames(): string[] { return Array.from(this.modules.keys()); }
+    hasModule(moduleName: string): boolean { return this.modules.has(moduleName); }
+    getModuleStatus(moduleName: string): IModuleStatus | undefined { return this.moduleStatuses.get(moduleName); }
+    getAllModuleStatuses(): IModuleStatus[] { return Array.from(this.moduleStatuses.values()); }
+    getModuleStats(moduleName: string): IModuleExecutionStats | undefined { return this.moduleStats.get(moduleName); }
+    getAllModuleStats(): Record<string, IModuleExecutionStats> { const s: Record<string, IModuleExecutionStats> = {}; for (const [n, ms] of this.moduleStats.entries()) s[n] = { ...ms }; return s; }
 
-    /**
-     * Get modules by type
-     */
-    getModulesByType(moduleType: string): IModule[] {
-        const modules: IModule[] = [];
-
-        for (const module of this.modules.values()) {
-            if (module.getModuleType().type === moduleType) {
-                modules.push(module);
-            }
-        }
-
-        return modules;
-    }
-
-    /**
-     * Get all registered modules
-     */
-    getAllModules(): IModule[] {
-        return Array.from(this.modules.values());
-    }
-
-    /**
-     * Get module names
-     */
-    getModuleNames(): string[] {
-        return Array.from(this.modules.keys());
-    }
-
-    /**
-     * Check if a module is registered
-     */
-    hasModule(moduleName: string): boolean {
-        return this.modules.has(moduleName);
-    }
-
-    /**
-     * Get module status
-     */
-    getModuleStatus(moduleName: string): IModuleStatus | undefined {
-        return this.moduleStatuses.get(moduleName);
-    }
-
-    /**
-     * Get all module statuses
-     */
-    getAllModuleStatuses(): IModuleStatus[] {
-        return Array.from(this.moduleStatuses.values());
-    }
-
-    /**
-     * Get module execution statistics
-     */
-    getModuleStats(moduleName: string): IModuleExecutionStats | undefined {
-        return this.moduleStats.get(moduleName);
-    }
-
-    /**
-     * Get all module execution statistics
-     */
-    getAllModuleStats(): Record<string, IModuleExecutionStats> {
-        const stats: Record<string, IModuleExecutionStats> = {};
-        for (const [name, moduleStats] of this.moduleStats.entries()) {
-            stats[name] = { ...moduleStats };
-        }
-        return stats;
-    }
-
-    /**
-     * Dispose all modules in reverse initialization order
-     */
     async disposeAllModules(): Promise<void> {
         this.isDisposing = true;
-
-        if (this.initializationOrder.length === 0) {
-            this.logger.debug('No modules to dispose');
-            return;
-        }
-
-        // Dispose in reverse initialization order
         const reverseOrder = [...this.initializationOrder].reverse();
-
-        this.logger.info('Disposing modules in reverse order', {
-            order: reverseOrder,
-            totalModules: reverseOrder.length
-        });
-
         for (const moduleName of reverseOrder) {
             const module = this.modules.get(moduleName);
             if (module && module.isInitialized()) {
-                try {
-                    if (module.dispose) {
-                        await module.dispose();
-                    }
-
-                    // Update status
-                    const status = this.moduleStatuses.get(moduleName);
-                    if (status) {
-                        status.initialized = false;
-                    }
-
-                    this.logger.debug('Module disposed', { name: moduleName });
-                } catch (error) {
-                    this.logger.error('Failed to dispose module', {
-                        name: moduleName,
-                        error: error instanceof Error ? error.message : String(error)
-                    });
-                }
+                try { if (module.dispose) await module.dispose(); const s = this.moduleStatuses.get(moduleName); if (s) s.initialized = false; }
+                catch (error) { this.logger.error('Failed to dispose module', { name: moduleName, error: error instanceof Error ? error.message : String(error) }); }
             }
         }
-
-        // Clear initialization order
-        this.initializationOrder = [];
-        this.isDisposing = false;
-
-        this.logger.info('All modules disposed');
+        this.initializationOrder = []; this.isDisposing = false;
     }
 
-    /**
-     * Clear all modules (for testing)
-     */
     clearAllModules(): void {
-        this.modules.clear();
-        this.moduleOptions.clear();
-        this.moduleStatuses.clear();
-        this.moduleStats.clear();
-        this.registrationOrder = [];
-        this.initializationOrder = [];
-        this.isDisposing = false;
-
-        this.logger.info('All modules cleared');
+        this.modules.clear(); this.moduleOptions.clear(); this.moduleStatuses.clear(); this.moduleStats.clear();
+        this.registrationOrder = []; this.initializationOrder = []; this.isDisposing = false;
     }
 
-    /**
-     * Get registry statistics
-     */
-    getRegistryStats(): {
-        totalModules: number;
-        initializedModules: number;
-        enabledModules: number;
-        modulesByType: Record<string, number>;
-        totalExecutions: number;
-        totalSuccessfulExecutions: number;
-        totalFailedExecutions: number;
-        averageExecutionTime: number;
-    } {
-        const modulesByType: Record<string, number> = {};
-        let initializedModules = 0;
-        let enabledModules = 0;
-        let totalExecutions = 0;
-        let totalSuccessfulExecutions = 0;
-        let totalFailedExecutions = 0;
-        let totalExecutionTime = 0;
-
-        for (const module of this.modules.values()) {
-            const moduleType = module.getModuleType().type;
-            modulesByType[moduleType] = (modulesByType[moduleType] || 0) + 1;
-
-            if (module.isInitialized()) {
-                initializedModules++;
-            }
-
-            if (module.isEnabled()) {
-                enabledModules++;
-            }
-        }
-
-        for (const stats of this.moduleStats.values()) {
-            totalExecutions += stats.totalExecutions;
-            totalSuccessfulExecutions += stats.successfulExecutions;
-            totalFailedExecutions += stats.failedExecutions;
-            totalExecutionTime += stats.totalExecutionTime;
-        }
-
-        const averageExecutionTime = totalExecutions > 0
-            ? totalExecutionTime / totalExecutions
-            : 0;
-
-        return {
-            totalModules: this.modules.size,
-            initializedModules,
-            enabledModules,
-            modulesByType,
-            totalExecutions,
-            totalSuccessfulExecutions,
-            totalFailedExecutions,
-            averageExecutionTime
-        };
-    }
-
-    /**
-     * Validate a module before registration
-     */
-    private validateModule(module: IModule): void {
-        if (!module.name || module.name.trim() === '') {
-            throw new ConfigurationError('Module name is required');
-        }
-
-        if (!module.version || module.version.trim() === '') {
-            throw new ConfigurationError('Module version is required');
-        }
-
-        // Validate module type
-        const moduleType = module.getModuleType();
-        const validation = this.typeRegistry.validateTypeDescriptor(moduleType);
-
-        if (!validation.valid) {
-            throw new ConfigurationError(
-                `Invalid module type: ${validation.errors.join(', ')}`,
-                { moduleName: module.name, errors: validation.errors }
-            );
-        }
-
-        // Log warnings if any
-        if (validation.warnings.length > 0) {
-            this.logger.warn('Module type validation warnings', {
-                moduleName: module.name,
-                warnings: validation.warnings
-            });
-        }
-    }
-
-    /**
-     * Validate module dependencies
-     */
-    private async validateModuleDependencies(module: IModule): Promise<void> {
-        const moduleType = module.getModuleType();
-
-        if (!moduleType.dependencies || moduleType.dependencies.length === 0) {
-            return;
-        }
-
-        // Check if dependency types are registered
-        for (const depType of moduleType.dependencies) {
-            if (!this.typeRegistry.hasType(depType)) {
-                throw new ConfigurationError(
-                    `Module '${module.name}' depends on unregistered type '${depType}'`,
-                    { moduleName: module.name, dependencyType: depType }
-                );
-            }
-        }
-
-        // Check if dependency modules are available
-        const availableTypes = new Set<string>();
-        for (const registeredModule of this.modules.values()) {
-            availableTypes.add(registeredModule.getModuleType().type);
-        }
-
-        const missingDependencies: string[] = [];
-        for (const depType of moduleType.dependencies) {
-            if (!availableTypes.has(depType)) {
-                missingDependencies.push(depType);
-            }
-        }
-
-        if (missingDependencies.length > 0) {
-            this.logger.warn('Module has unmet dependencies', {
-                moduleName: module.name,
-                missingDependencies
-            });
-        }
-    }
-
-    /**
-     * Find modules that depend on the given module
-     */
-    private findDependentModules(moduleName: string): string[] {
-        const targetModule = this.modules.get(moduleName);
-        if (!targetModule) {
-            return [];
-        }
-
-        const targetType = targetModule.getModuleType().type;
-        const dependents: string[] = [];
-
-        for (const [name, module] of this.modules.entries()) {
-            if (name === moduleName) continue;
-
-            const moduleType = module.getModuleType();
-            if (moduleType.dependencies?.includes(targetType)) {
-                dependents.push(name);
-            }
-        }
-
-        return dependents;
-    }
-} 
+    getRegistryStats(): IModuleRegistryStats { return buildRegistryStats(this.modules, this.moduleStats); }
+}

@@ -11,6 +11,7 @@ export * from './constants/status.js';
 export * from './constants/events.js';
 export * from './lifecycle/default-node-task-handlers.js';
 export * from './lifecycle/abstract-node-definition.js';
+export * from './lifecycle/binary-value-parser.js';
 export * from './lifecycle/node-io-accessor.js';
 export * from './lifecycle/registered-node-lifecycle.js';
 export * from './lifecycle/static-node-lifecycle-factory.js';

@@ -1,12 +1,12 @@
 import {
     MediaReference,
-    buildTaskExecutionError,
     buildValidationError,
     type IDagError,
     type IPortBinaryValue,
     type TResult
 } from '@robota-sdk/dag-core';
-import type { IMediaOutputRef } from '@robota-sdk/agents';
+
+export { normalizeImageOutput } from './image-output-normalizer.js';
 
 const DATA_URI_PREFIX_MAX_LENGTH = 64;
 
@@ -83,10 +83,7 @@ export function resolveModel(
             )
         };
     }
-    return {
-        ok: true,
-        value: model
-    };
+    return { ok: true, value: model };
 }
 
 function parseDataUri(uri: string): { mimeType: string; data: string } | undefined {
@@ -103,19 +100,13 @@ function parseDataUri(uri: string): { mimeType: string; data: string } | undefin
     if (mimeType.length === 0 || payload.trim().length === 0) {
         return undefined;
     }
-    return {
-        mimeType,
-        data: payload
-    };
+    return { mimeType, data: payload };
 }
 
 /**
  * Converts a binary port image value into an inline base64-encoded image source.
  *
  * Supports asset references, data URIs, and HTTP(S) URIs.
- *
- * @param options - The image, runtime base URL, and error metadata.
- * @returns A result containing the inline image source or a validation error.
  */
 export async function toInlineImageSource(
     options: IInlineImageSourceOptions
@@ -127,54 +118,7 @@ export async function toInlineImageSource(
     const reference = referenceResult.value;
 
     if (reference.isAsset()) {
-        const assetId = reference.assetId();
-        if (typeof assetId !== 'string') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
-                    'Asset reference must include a valid assetId'
-                )
-            };
-        }
-        const assetContentUrl = reference.toAssetContentUrl(options.runtimeBaseUrl);
-        if (typeof assetContentUrl !== 'string') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
-                    'Asset content URL could not be resolved',
-                    { assetId }
-                )
-            };
-        }
-        const response = await fetch(assetContentUrl);
-        if (!response.ok || !response.body) {
-            return {
-                ok: false,
-                error: buildValidationError(options.notFoundCode, options.notFoundMessage, { assetId })
-            };
-        }
-        const mediaType = response.headers.get('content-type');
-        if (typeof mediaType !== 'string' || !mediaType.startsWith('image/')) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_GEMINI_IMAGE_INPUT_MEDIA_TYPE_INVALID',
-                    'Gemini image input asset must resolve to image media type',
-                    { assetId, mediaType: mediaType ?? 'missing' }
-                )
-            };
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        return {
-            ok: true,
-            value: {
-                kind: 'inline',
-                mimeType: mediaType,
-                data: Buffer.from(arrayBuffer).toString('base64')
-            }
-        };
+        return fetchAssetInlineImage(reference, options);
     }
 
     const uri = reference.uri();
@@ -189,58 +133,10 @@ export async function toInlineImageSource(
     }
 
     if (uri.startsWith('data:')) {
-        const parsedDataUri = parseDataUri(uri);
-        if (!parsedDataUri) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_GEMINI_IMAGE_INPUT_DATA_URI_INVALID',
-                    'Gemini image input data URI must be base64 encoded',
-                    { uriPrefix: uri.slice(0, DATA_URI_PREFIX_MAX_LENGTH) }
-                )
-            };
-        }
-        return {
-            ok: true,
-            value: {
-                kind: 'inline',
-                mimeType: parsedDataUri.mimeType,
-                data: parsedDataUri.data
-            }
-        };
+        return parseDataUriInlineImage(uri);
     }
     if (uri.startsWith('http://') || uri.startsWith('https://')) {
-        const response = await fetch(uri);
-        if (!response.ok || !response.body) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_GEMINI_IMAGE_INPUT_URI_UNREACHABLE',
-                    'Gemini image input URI must be reachable',
-                    { uri }
-                )
-            };
-        }
-        const mediaType = response.headers.get('content-type');
-        if (typeof mediaType !== 'string' || !mediaType.startsWith('image/')) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_GEMINI_IMAGE_INPUT_MEDIA_TYPE_INVALID',
-                    'Gemini image input URI must resolve to image media type',
-                    { uri, mediaType: mediaType ?? 'missing' }
-                )
-            };
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        return {
-            ok: true,
-            value: {
-                kind: 'inline',
-                mimeType: mediaType,
-                data: Buffer.from(arrayBuffer).toString('base64')
-            }
-        };
+        return fetchHttpInlineImage(uri);
     }
     return {
         ok: false,
@@ -252,106 +148,100 @@ export async function toInlineImageSource(
     };
 }
 
-/**
- * Normalizes a provider media output reference into a standard binary port value.
- *
- * Handles both asset-based and URI-based outputs, including data URIs.
- *
- * @param output - The raw media output reference from the provider.
- * @returns A result containing the normalized binary port value or an execution error.
- */
-export function normalizeImageOutput(output: IMediaOutputRef): TResult<IPortBinaryValue, IDagError> {
-    if (output.kind === 'asset') {
-        if (typeof output.assetId !== 'string' || output.assetId.trim().length === 0) {
-            return {
-                ok: false,
-                error: buildTaskExecutionError(
-                    'DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_ASSET_INVALID',
-                    'Provider returned asset output without valid assetId',
-                    false
-                )
-            };
-        }
-        const mimeType = typeof output.mimeType === 'string' && output.mimeType.trim().length > 0
-            ? output.mimeType
-            : '';
-        if (!mimeType.startsWith('image/')) {
-            return {
-                ok: false,
-                error: buildTaskExecutionError(
-                    'DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_MEDIA_TYPE_INVALID',
-                    'Provider returned non-image media type for Gemini output',
-                    false,
-                    { mimeType }
-                )
-            };
-        }
-        return {
-            ok: true,
-            value: {
-                kind: 'image',
-                mimeType,
-                uri: `asset://${output.assetId}`,
-                referenceType: 'asset',
-                assetId: output.assetId,
-                sizeBytes: output.bytes
-            }
-        };
-    }
-    if (typeof output.uri !== 'string' || output.uri.trim().length === 0) {
+async function fetchAssetInlineImage(
+    reference: MediaReference,
+    options: IInlineImageSourceOptions
+): Promise<TResult<IInlineImageSource, IDagError>> {
+    const assetId = reference.assetId();
+    if (typeof assetId !== 'string') {
         return {
             ok: false,
-            error: buildTaskExecutionError(
-                'DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_URI_MISSING',
-                'Provider returned uri output without uri value',
-                false
+            error: buildValidationError(
+                'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
+                'Asset reference must include a valid assetId'
             )
         };
     }
-    const outputMimeType = typeof output.mimeType === 'string' && output.mimeType.trim().length > 0
-        ? output.mimeType
-        : '';
-    if (output.uri.startsWith('data:')) {
-        const parsedDataUri = parseDataUri(output.uri);
-        if (!parsedDataUri || !parsedDataUri.mimeType.startsWith('image/')) {
-            return {
-                ok: false,
-                error: buildTaskExecutionError(
-                    'DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_URI_UNSUPPORTED',
-                    'Provider URI output must be image data URI',
-                    false
-                )
-            };
-        }
-        return {
-            ok: true,
-            value: {
-                kind: 'image',
-                mimeType: parsedDataUri.mimeType,
-                uri: output.uri,
-                referenceType: 'uri'
-            }
-        };
-    }
-    if (!outputMimeType.startsWith('image/')) {
+    const assetContentUrl = reference.toAssetContentUrl(options.runtimeBaseUrl);
+    if (typeof assetContentUrl !== 'string') {
         return {
             ok: false,
-            error: buildTaskExecutionError(
-                'DAG_TASK_EXECUTION_GEMINI_IMAGE_OUTPUT_MEDIA_TYPE_INVALID',
-                'Provider returned non-image URI output for Gemini runtime',
-                false,
-                { mimeType: outputMimeType }
+            error: buildValidationError(
+                'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
+                'Asset content URL could not be resolved',
+                { assetId }
+            )
+        };
+    }
+    const response = await fetch(assetContentUrl);
+    if (!response.ok || !response.body) {
+        return {
+            ok: false,
+            error: buildValidationError(options.notFoundCode, options.notFoundMessage, { assetId })
+        };
+    }
+    const mediaType = response.headers.get('content-type');
+    if (typeof mediaType !== 'string' || !mediaType.startsWith('image/')) {
+        return {
+            ok: false,
+            error: buildValidationError(
+                'DAG_VALIDATION_GEMINI_IMAGE_INPUT_MEDIA_TYPE_INVALID',
+                'Gemini image input asset must resolve to image media type',
+                { assetId, mediaType: mediaType ?? 'missing' }
+            )
+        };
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return {
+        ok: true,
+        value: { kind: 'inline', mimeType: mediaType, data: Buffer.from(arrayBuffer).toString('base64') }
+    };
+}
+
+function parseDataUriInlineImage(uri: string): TResult<IInlineImageSource, IDagError> {
+    const parsedResult = parseDataUri(uri);
+    if (!parsedResult) {
+        return {
+            ok: false,
+            error: buildValidationError(
+                'DAG_VALIDATION_GEMINI_IMAGE_INPUT_DATA_URI_INVALID',
+                'Gemini image input data URI must be base64 encoded',
+                { uriPrefix: uri.slice(0, DATA_URI_PREFIX_MAX_LENGTH) }
             )
         };
     }
     return {
         ok: true,
-        value: {
-            kind: 'image',
-            mimeType: outputMimeType,
-            uri: output.uri,
-            referenceType: 'uri',
-            sizeBytes: output.bytes
-        }
+        value: { kind: 'inline', mimeType: parsedResult.mimeType, data: parsedResult.data }
+    };
+}
+
+async function fetchHttpInlineImage(uri: string): Promise<TResult<IInlineImageSource, IDagError>> {
+    const response = await fetch(uri);
+    if (!response.ok || !response.body) {
+        return {
+            ok: false,
+            error: buildValidationError(
+                'DAG_VALIDATION_GEMINI_IMAGE_INPUT_URI_UNREACHABLE',
+                'Gemini image input URI must be reachable',
+                { uri }
+            )
+        };
+    }
+    const mediaType = response.headers.get('content-type');
+    if (typeof mediaType !== 'string' || !mediaType.startsWith('image/')) {
+        return {
+            ok: false,
+            error: buildValidationError(
+                'DAG_VALIDATION_GEMINI_IMAGE_INPUT_MEDIA_TYPE_INVALID',
+                'Gemini image input URI must resolve to image media type',
+                { uri, mediaType: mediaType ?? 'missing' }
+            )
+        };
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return {
+        ok: true,
+        value: { kind: 'inline', mimeType: mediaType, data: Buffer.from(arrayBuffer).toString('base64') }
     };
 }
