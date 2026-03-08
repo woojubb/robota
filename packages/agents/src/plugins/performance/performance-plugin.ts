@@ -95,129 +95,60 @@ export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions,
         });
     }
 
+    /** Event name → metrics descriptor mapping. */
+    private static readonly MODULE_EVENT_MAP: ReadonlyMap<string, { operation: string; phase: string; isError: boolean }> = new Map([
+        [EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE, { operation: 'module_initialization', phase: 'initialization', isError: false }],
+        [EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR, { operation: 'module_initialization', phase: 'initialization', isError: true }],
+        [EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE, { operation: 'module_execution', phase: 'execution', isError: false }],
+        [EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR, { operation: 'module_execution', phase: 'execution', isError: true }],
+        [EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE, { operation: 'module_disposal', phase: 'disposal', isError: false }],
+        [EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR, { operation: 'module_disposal', phase: 'disposal', isError: true }],
+    ]);
+
     /**
      * Records performance metrics from module lifecycle events
      * (initialization, execution, disposal) including duration and error counts.
      */
     override async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
         try {
-            // Extract module event data from eventData.data
-            const moduleData = eventData.data;
+            const descriptor = PerformancePlugin.MODULE_EVENT_MAP.get(eventName);
+            if (!descriptor) return;
 
-            switch (eventName) {
-                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START:
-                    // Start tracking module initialization performance
-                    break;
+            const { moduleName, moduleType, duration, success } = PerformancePlugin.extractModuleData(eventData.data);
+            if (duration === undefined) return;
 
-                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE:
-                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
-                        await this.recordMetrics({
-                            operation: 'module_initialization',
-                            duration: moduleData['duration'],
-                            success: true,
-                            errorCount: 0,
-                            ...(eventData.executionId && { executionId: eventData.executionId }),
-                            metadata: {
-                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                                phase: 'initialization'
-                            }
-                        });
-                    }
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR:
-                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
-                        await this.recordMetrics({
-                            operation: 'module_initialization',
-                            duration: moduleData['duration'],
-                            success: false,
-                            errorCount: 1,
-                            ...(eventData.executionId && { executionId: eventData.executionId }),
-                            metadata: {
-                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                                phase: 'initialization',
-                                error: eventData.error?.message || 'unknown error'
-                            }
-                        });
-                    }
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE:
-                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
-                        await this.recordMetrics({
-                            operation: 'module_execution',
-                            duration: moduleData['duration'],
-                            success: ('success' in moduleData && typeof moduleData['success'] === 'boolean') ? moduleData['success'] : true,
-                            errorCount: ('success' in moduleData && moduleData['success'] === false) ? 1 : 0,
-                            ...(eventData.executionId && { executionId: eventData.executionId }),
-                            metadata: {
-                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                                phase: 'execution'
-                            }
-                        });
-                    }
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR:
-                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
-                        await this.recordMetrics({
-                            operation: 'module_execution',
-                            duration: moduleData['duration'],
-                            success: false,
-                            errorCount: 1,
-                            ...(eventData.executionId && { executionId: eventData.executionId }),
-                            metadata: {
-                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                                phase: 'execution',
-                                error: eventData.error?.message || 'unknown error'
-                            }
-                        });
-                    }
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE:
-                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
-                        await this.recordMetrics({
-                            operation: 'module_disposal',
-                            duration: moduleData['duration'],
-                            success: true,
-                            errorCount: 0,
-                            ...(eventData.executionId && { executionId: eventData.executionId }),
-                            metadata: {
-                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                                phase: 'disposal'
-                            }
-                        });
-                    }
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR:
-                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
-                        await this.recordMetrics({
-                            operation: 'module_disposal',
-                            duration: moduleData['duration'],
-                            success: false,
-                            errorCount: 1,
-                            ...(eventData.executionId && { executionId: eventData.executionId }),
-                            metadata: {
-                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                                phase: 'disposal',
-                                error: eventData.error?.message || 'unknown error'
-                            }
-                        });
-                    }
-                    break;
-            }
-        } catch (error) {
-            // Log the error but don't throw to avoid breaking module event processing
-            // PerformancePlugin failed to handle module event
+            await this.recordMetrics({
+                operation: descriptor.operation,
+                duration,
+                success: descriptor.isError ? false : (success ?? true),
+                errorCount: descriptor.isError ? 1 : 0,
+                ...(eventData.executionId && { executionId: eventData.executionId }),
+                metadata: {
+                    moduleName,
+                    moduleType,
+                    phase: descriptor.phase,
+                    ...(descriptor.isError && { error: eventData.error?.message || 'unknown error' }),
+                },
+            });
+        } catch (_error) {
+            // Swallow to avoid breaking module event processing
         }
+    }
+
+    /** Safely extracts module data fields from untyped event data. */
+    private static extractModuleData(data: unknown): {
+        moduleName: string;
+        moduleType: string;
+        duration?: number;
+        success?: boolean;
+    } {
+        const record = (typeof data === 'object' && data !== null) ? data as Record<string, unknown> : {};
+        return {
+            moduleName: typeof record['moduleName'] === 'string' ? record['moduleName'] : 'unknown',
+            moduleType: typeof record['moduleType'] === 'string' ? record['moduleType'] : 'unknown',
+            ...(typeof record['duration'] === 'number' && { duration: record['duration'] }),
+            ...(typeof record['success'] === 'boolean' && { success: record['success'] }),
+        };
     }
 
     /**
