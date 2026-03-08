@@ -29,6 +29,14 @@ function isImageBinary(input: TPortPayload): boolean {
 
 const OkEmitterConfigSchema = z.object({});
 
+/**
+ * DAG node used for testing that validates a binary image input and emits an "ok" status.
+ *
+ * Accepts a binary image on the `image` input port and outputs the string `"ok"` on
+ * the `status` output port when the image is valid.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class OkEmitterNodeDefinition extends AbstractNodeDefinition<typeof OkEmitterConfigSchema> {
     public readonly nodeType = 'ok-emitter';
     public readonly displayName = 'OK Emitter';

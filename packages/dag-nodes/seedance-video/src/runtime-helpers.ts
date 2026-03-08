@@ -10,6 +10,11 @@ import type { IVideoJobSnapshot, TImageInputSource } from '@robota-sdk/agents';
 
 const DEFAULT_DAG_DEV_PORT = 3011;
 
+/**
+ * Resolves the DAG runtime base URL from environment variables.
+ *
+ * Falls back to `http://127.0.0.1:<port>` using `DAG_DEV_PORT` or the default port 3011.
+ */
 export function resolveRuntimeBaseUrl(): string {
     const runtimeBaseUrl = process.env.DAG_RUNTIME_BASE_URL?.trim();
     if (runtimeBaseUrl && runtimeBaseUrl.length > 0) {
@@ -21,6 +26,14 @@ export function resolveRuntimeBaseUrl(): string {
     return `http://127.0.0.1:${port}`;
 }
 
+/**
+ * Converts a Seedance video job output into a standard binary port value.
+ *
+ * Handles both asset-based and URI-based outputs.
+ *
+ * @param output - The raw video job output snapshot.
+ * @returns A result containing the normalized binary port value or an execution error.
+ */
 export function toOutputVideo(output: IVideoJobSnapshot['output']): TResult<IPortBinaryValue, IDagError> {
     if (!output) {
         return {
@@ -80,6 +93,15 @@ export function toOutputVideo(output: IVideoJobSnapshot['output']): TResult<IPor
     };
 }
 
+/**
+ * Resolves a binary port image into a provider-compatible image input source.
+ *
+ * Supports asset references (fetched via the runtime base URL) and HTTP(S) URIs.
+ *
+ * @param image - The binary port image value.
+ * @param runtimeBaseUrl - The base URL for resolving asset content.
+ * @returns A result containing the resolved image input source or a validation error.
+ */
 export async function resolveImageInputSource(
     image: IPortBinaryValue,
     runtimeBaseUrl: string

@@ -11,6 +11,11 @@ function isZodSchema(input: unknown): input is ZodType {
     return input instanceof z.ZodType;
 }
 
+/**
+ * Convert a zod schema to a JSON Schema representation for node config.
+ * @param configSchemaDefinition - Must be a zod schema instance
+ * @returns JSON Schema object or validation error
+ */
 export function buildConfigSchema(configSchemaDefinition: unknown): TResult<Record<string, unknown>, IDagError> {
     if (!isZodSchema(configSchemaDefinition)) {
         return {

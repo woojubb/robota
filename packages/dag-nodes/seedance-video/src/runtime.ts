@@ -11,6 +11,7 @@ import { resolveImageInputSource, resolveRuntimeBaseUrl, toOutputVideo } from '.
 
 const DEFAULT_SEEDANCE_MODEL = 'seedance-1-5-pro-251215';
 
+/** Configuration options for the Seedance video runtime, including API key, base URL, and model restrictions. */
 export interface ISeedanceVideoRuntimeOptions {
     defaultModel?: string;
     allowedModels?: string[];
@@ -18,6 +19,7 @@ export interface ISeedanceVideoRuntimeOptions {
     apiKey?: string;
 }
 
+/** Request payload for generating a video via the Seedance runtime. */
 export interface ISeedanceGenerateVideoRequest {
     prompt: string;
     model: string;
@@ -63,6 +65,10 @@ function compactTaskErrorContext(
     return Object.keys(compacted).length > 0 ? compacted : undefined;
 }
 
+/**
+ * Runtime that submits video generation requests to the Seedance (Bytedance) API
+ * and polls for completion.
+ */
 export class SeedanceVideoRuntime {
     private readonly explicitApiKey?: string;
     private readonly explicitBaseUrl?: string;

@@ -4,6 +4,7 @@ import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
 import { buildValidationError } from '../utils/error-builders.js';
 
+/** Resolved time context for a DAG run: trigger type, logical date, and request timestamp. */
 export interface IResolvedTimeSemantics {
     trigger: TDagTriggerType;
     logicalDate: string;
@@ -29,6 +30,7 @@ function parseToUtcIso(value: string): TResult<string, IDagError> {
     };
 }
 
+/** Resolves trigger type and logical date into a normalized time context for a DAG run. */
 export class TimeSemanticsService {
     public constructor(private readonly clock: IClockPort) {}
 

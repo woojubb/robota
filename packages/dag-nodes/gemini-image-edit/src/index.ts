@@ -25,7 +25,9 @@ export type {
     IGeminiImageRuntimeOptions
 } from './runtime-core.js';
 
+/** Options for constructing a {@link GeminiImageEditNodeDefinition}. */
 export interface IGeminiImageEditNodeDefinitionOptions extends IGeminiImageRuntimeOptions {}
+/** Options for constructing a {@link GeminiImageComposeNodeDefinition}. */
 export interface IGeminiImageComposeNodeDefinitionOptions extends IGeminiImageRuntimeOptions {}
 
 const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
@@ -40,6 +42,13 @@ const GeminiImageComposeConfigSchema = z.object({
     baseCostUsd: z.number().default(0.015)
 });
 
+/**
+ * DAG node that edits a single image using the Gemini image generation API.
+ *
+ * Accepts a binary image and a text prompt, then returns the edited image.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class GeminiImageEditNodeDefinition extends AbstractNodeDefinition<typeof GeminiImageEditConfigSchema> {
     public readonly nodeType = 'gemini-image-edit';
     public readonly displayName = 'Gemini Image Edit';
@@ -134,6 +143,13 @@ export class GeminiImageEditNodeDefinition extends AbstractNodeDefinition<typeof
     }
 }
 
+/**
+ * DAG node that composes multiple images into one using the Gemini image generation API.
+ *
+ * Accepts a list of binary images (minimum two) and a text prompt, then returns the composed image.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class GeminiImageComposeNodeDefinition extends AbstractNodeDefinition<typeof GeminiImageComposeConfigSchema> {
     public readonly nodeType = 'gemini-image-compose';
     public readonly displayName = 'Gemini Image Compose';

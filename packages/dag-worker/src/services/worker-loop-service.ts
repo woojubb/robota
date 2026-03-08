@@ -25,6 +25,7 @@ import {
 } from '@robota-sdk/dag-core';
 import { replaceAttemptSegment } from '../utils/execution-path.js';
 
+/** Configuration options for the worker loop, including retry and dead-letter policies. */
 export interface IWorkerLoopOptions {
     workerId: string;
     leaseDurationMs: number;
@@ -36,6 +37,7 @@ export interface IWorkerLoopOptions {
     defaultTimeoutMs: number;
 }
 
+/** Result of a single worker loop iteration. */
 export interface IWorkerLoopResult {
     processed: boolean;
     taskRunId?: string;
@@ -64,6 +66,15 @@ function resolveErrorMessage(error: unknown): string {
     return 'Unknown error';
 }
 
+/**
+ * Processes task messages from the queue one at a time: dequeue, acquire lease,
+ * execute via the task executor, handle success/failure paths including retry
+ * and dead-letter routing, and finalize the DAG run when all tasks are terminal.
+ *
+ * @see ITaskExecutorPort for task execution contracts
+ * @see ILeasePort for distributed lease contracts
+ * @see TaskRunStateMachine for task state transitions
+ */
 export class WorkerLoopService {
     public constructor(
         private readonly storage: IStoragePort,
@@ -75,6 +86,12 @@ export class WorkerLoopService {
         private readonly runProgressEventReporter?: IRunProgressEventReporter
     ) {}
 
+    /**
+     * Dequeues and processes a single task message. Acquires a lease before
+     * execution and releases it afterwards. Returns `{ processed: false }`
+     * when the queue is empty.
+     * @returns The processing result or an error if lease acquisition or execution fails.
+     */
     public async processOnce(): Promise<TResult<IWorkerLoopResult, IDagError>> {
         const message = await this.queue.dequeue(this.options.workerId, this.options.visibilityTimeoutMs);
         if (!message) {

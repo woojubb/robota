@@ -1,6 +1,7 @@
 import type { INodeManifest } from '../types/domain.js';
 import type { INodeManifestRegistry } from '../types/node-lifecycle.js';
 
+/** In-memory registry of node manifests, queryable by node type. */
 export class StaticNodeManifestRegistry implements INodeManifestRegistry {
     private readonly manifestByType = new Map<string, INodeManifest>();
 

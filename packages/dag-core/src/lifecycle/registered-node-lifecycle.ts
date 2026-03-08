@@ -158,6 +158,10 @@ function validateRequiredPorts(
     };
 }
 
+/**
+ * {@link INodeLifecycle} implementation that delegates to an {@link INodeTaskHandler}.
+ * Adds default validation for required inputs, binary ports, and output ports.
+ */
 export class RegisteredNodeLifecycle implements INodeLifecycle {
     public constructor(private readonly handler: INodeTaskHandler) {}
 

@@ -23,11 +23,20 @@ const LlmTextOpenAiConfigSchema = z.object({
     baseCostUsd: z.number().default(0)
 });
 
+/** Options for constructing a {@link LlmTextOpenAiNodeDefinition}, including model restrictions. */
 export interface ILlmTextOpenAiNodeDefinitionOptions {
     defaultModel?: string;
     allowedModels?: string[];
 }
 
+/**
+ * DAG node that generates text completions using the OpenAI API.
+ *
+ * Accepts a text prompt and produces a completion via a Robota agent backed by {@link OpenAIProvider}.
+ * Model, temperature, and max tokens are configurable.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class LlmTextOpenAiNodeDefinition extends AbstractNodeDefinition<typeof LlmTextOpenAiConfigSchema> {
     public readonly nodeType = 'llm-text-openai';
     public readonly displayName = 'LLM Text OpenAI';

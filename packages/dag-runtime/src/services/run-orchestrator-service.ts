@@ -18,6 +18,7 @@ import {
     type TResult
 } from '@robota-sdk/dag-core';
 
+/** Input parameters for initiating a DAG run. */
 export interface IStartRunInput {
     dagId: string;
     version?: number;
@@ -27,6 +28,7 @@ export interface IStartRunInput {
     input: TPortPayload;
 }
 
+/** Result returned after a DAG run record is created (before task dispatch). */
 export interface ICreateRunResult {
     dagRunId: string;
     dagId: string;
@@ -35,6 +37,7 @@ export interface ICreateRunResult {
     status: TDagRunStatus;
 }
 
+/** Result returned after a DAG run is fully started with entry tasks dispatched. */
 export interface IStartRunResult {
     dagRunId: string;
     dagId: string;
@@ -43,6 +46,14 @@ export interface IStartRunResult {
     taskRunIds: string[];
 }
 
+/**
+ * Orchestrates the lifecycle of DAG runs: creation, validation, state
+ * transitions, and entry-task dispatch.
+ *
+ * @see IStoragePort for persistence contracts
+ * @see IQueuePort for task queue contracts
+ * @see DagRunStateMachine for run state transitions
+ */
 export class RunOrchestratorService {
     private readonly timeSemanticsService: TimeSemanticsService;
 
@@ -55,6 +66,12 @@ export class RunOrchestratorService {
         this.timeSemanticsService = new TimeSemanticsService(clock);
     }
 
+    /**
+     * Creates a DAG run record without dispatching tasks. Validates the
+     * definition, resolves time semantics, and enforces idempotency via run key.
+     * @param input - Run creation parameters including DAG ID, trigger type, and input payload.
+     * @returns The created run metadata, or an existing run if the run key already exists.
+     */
     public async createRun(input: IStartRunInput): Promise<TResult<ICreateRunResult, IDagError>> {
         const definition = input.version
             ? await this.storage.getDefinition(input.dagId, input.version)
@@ -147,6 +164,11 @@ export class RunOrchestratorService {
         };
     }
 
+    /**
+     * Transitions a previously created run to running and dispatches entry tasks to the queue.
+     * @param dagRunId - The ID of a run in 'created' status.
+     * @returns The started run with dispatched task run IDs.
+     */
     public async startCreatedRun(dagRunId: string): Promise<TResult<IStartRunResult, IDagError>> {
         const dagRun = await this.storage.getDagRun(dagRunId);
         if (!dagRun) {
@@ -324,6 +346,13 @@ export class RunOrchestratorService {
         };
     }
 
+    /**
+     * Creates and starts a DAG run in a single call. Combines {@link createRun}
+     * and {@link startCreatedRun}, returning existing task IDs if the run was
+     * already started.
+     * @param input - Run creation parameters.
+     * @returns The started run with dispatched task run IDs.
+     */
     public async startRun(input: IStartRunInput): Promise<TResult<IStartRunResult, IDagError>> {
         const created = await this.createRun(input);
         if (!created.ok) {

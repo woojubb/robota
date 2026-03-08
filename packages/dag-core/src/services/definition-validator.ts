@@ -8,6 +8,10 @@ import { validateEdgesAndBindings } from './definition-edge-validator.js';
 
 export { validateEdgesAndBindings } from './definition-edge-validator.js';
 
+/**
+ * Validates a DAG definition for structural correctness: node IDs, edges,
+ * duplicate detection, cycle detection, and edge binding constraints.
+ */
 export class DagDefinitionValidator {
     public static validate(definition: IDagDefinition): TResult<IDagDefinition, IDagError[]> {
         const errors: IDagError[] = [];

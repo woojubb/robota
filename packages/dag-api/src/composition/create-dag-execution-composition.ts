@@ -17,6 +17,7 @@ import {
 } from '@robota-sdk/dag-worker';
 import { RunProgressEventBus, type IRunProgressEventBus } from './run-progress-event-bus.js';
 
+/** Infrastructure dependencies required for DAG execution composition. */
 export interface IDagExecutionCompositionDependencies {
     storage: IStoragePort;
     queue: IQueuePort;
@@ -26,10 +27,12 @@ export interface IDagExecutionCompositionDependencies {
     clock: IClockPort;
 }
 
+/** Configuration options for DAG execution composition, including worker policy. */
 export interface IDagExecutionCompositionOptions {
     worker: IWorkerLoopPolicyOptions;
 }
 
+/** Composed set of DAG execution services: orchestrator, query, cancel, worker, and event bus. */
 export interface IDagExecutionComposition {
     runOrchestrator: RunOrchestratorService;
     runQuery: RunQueryService;
@@ -38,6 +41,12 @@ export interface IDagExecutionComposition {
     runProgressEventBus: IRunProgressEventBus;
 }
 
+/**
+ * Creates a fully wired DAG execution composition with orchestrator, worker loop, and event bus.
+ * @param dependencies - Infrastructure ports (storage, queue, lease, executor, clock).
+ * @param options - Worker loop policy options.
+ * @returns Composed execution services ready for DAG run processing.
+ */
 export function createDagExecutionComposition(
     dependencies: IDagExecutionCompositionDependencies,
     options: IDagExecutionCompositionOptions

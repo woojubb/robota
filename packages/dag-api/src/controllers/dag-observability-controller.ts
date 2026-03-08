@@ -7,9 +7,18 @@ import type {
 } from '../contracts/observability-api.js';
 import { toRuntimeProblemDetails } from '../contracts/runtime-api.js';
 
+/**
+ * API controller for DAG observability: run projections, lineage, and dashboards.
+ * @see ProjectionReadModelService
+ */
 export class DagObservabilityController {
     public constructor(private readonly projectionService: ProjectionReadModelService) {}
 
+    /**
+     * Queries the run projection for a specific DAG run.
+     * @param request - The query request with dagRunId.
+     * @returns Run projection data or problem details on error.
+     */
     public async queryRunProjection(
         request: IQueryRunProjectionRequest
     ): Promise<TObservabilityApiResponse<IRunProjection>> {
@@ -34,6 +43,11 @@ export class DagObservabilityController {
         };
     }
 
+    /**
+     * Queries the lineage projection for a specific DAG run.
+     * @param request - The query request with dagRunId.
+     * @returns Lineage projection data or problem details on error.
+     */
     public async queryLineageProjection(
         request: IQueryLineageProjectionRequest
     ): Promise<TObservabilityApiResponse<ILineageProjection>> {
@@ -58,6 +72,11 @@ export class DagObservabilityController {
         };
     }
 
+    /**
+     * Queries the combined dashboard with run and lineage projections.
+     * @param request - The query request with dagRunId.
+     * @returns Dashboard data or problem details on error.
+     */
     public async queryDashboard(
         request: IQueryRunProjectionRequest
     ): Promise<TObservabilityApiResponse<IObservabilityDashboardData>> {

@@ -6,6 +6,7 @@ import { buildValidationError } from '../utils/error-builders.js';
 
 const ASSET_URI_PREFIX = 'asset://';
 
+/** Loosely-typed input for creating a {@link MediaReference} — fields are validated during construction. */
 export interface IMediaReferenceCandidate {
     referenceType?: TAssetReferenceType;
     assetId?: string;
@@ -24,6 +25,10 @@ interface INormalizedMediaReference {
     sizeBytes?: number;
 }
 
+/**
+ * Immutable value object representing a media asset reference.
+ * Normalizes asset ID and URI references into a canonical form.
+ */
 export class MediaReference {
     private constructor(private readonly value: INormalizedMediaReference) {}
 

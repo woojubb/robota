@@ -5,6 +5,12 @@ import type { TResult } from '../types/result.js';
 import { buildValidationError } from '../utils/error-builders.js';
 import { DagDefinitionValidator } from './definition-validator.js';
 
+/**
+ * Manages DAG definition CRUD operations with validation and status transitions.
+ *
+ * @see DagDefinitionValidator - validation rules applied during creation
+ * @see IStoragePort - persistence layer
+ */
 export class DagDefinitionService {
     public constructor(private readonly storage: IStoragePort) {}
 

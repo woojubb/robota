@@ -10,6 +10,7 @@ import {
 // reimplementing that logic, keeping the single-responsibility boundary intact.
 import { type RunOrchestratorService, type IStartRunResult } from '@robota-sdk/dag-runtime';
 
+/** Request parameters for triggering a single scheduled DAG run. */
 export interface IScheduledTriggerRequest {
     dagId: string;
     version?: number;
@@ -17,16 +18,19 @@ export interface IScheduledTriggerRequest {
     input: TPortPayload;
 }
 
+/** Request containing multiple scheduled trigger items to execute sequentially. */
 export interface IScheduledBatchTriggerRequest {
     items: IScheduledTriggerRequest[];
 }
 
+/** Result of a batch trigger operation, including any partial failure. */
 export interface IScheduledBatchTriggerResult {
     startedRuns: IStartRunResult[];
     /** Present when the batch was interrupted by a failure mid-iteration. */
     partialError?: IDagError;
 }
 
+/** Request parameters for a catchup trigger across a date range with fixed-interval slots. */
 export interface ICatchupTriggerRequest {
     dagId: string;
     version?: number;
@@ -37,11 +41,19 @@ export interface ICatchupTriggerRequest {
     input: TPortPayload;
 }
 
+/** Result of a catchup trigger, including the number of computed slots and started runs. */
 export interface ICatchupTriggerResult {
     requestedSlotCount: number;
     startedRuns: IStartRunResult[];
 }
 
+/**
+ * Scheduler service that delegates scheduled, batch, and catchup triggers
+ * to the runtime RunOrchestratorService. Validates catchup parameters
+ * (date ranges, slot intervals, max slots) before dispatching.
+ *
+ * @see RunOrchestratorService for the underlying run creation and dispatch
+ */
 export class SchedulerTriggerService {
     private readonly runOrchestrator: RunOrchestratorService;
 
@@ -49,6 +61,11 @@ export class SchedulerTriggerService {
         this.runOrchestrator = runOrchestrator;
     }
 
+    /**
+     * Triggers a single scheduled DAG run.
+     * @param request - The trigger request with DAG ID, logical date, and input.
+     * @returns The started run result or an error.
+     */
     public async triggerScheduledRun(
         request: IScheduledTriggerRequest
     ): Promise<TResult<IStartRunResult, IDagError>> {
@@ -61,6 +78,12 @@ export class SchedulerTriggerService {
         });
     }
 
+    /**
+     * Triggers a batch of scheduled runs sequentially. If a failure occurs
+     * mid-batch, returns successfully started runs with a partial error.
+     * @param request - The batch request containing multiple trigger items.
+     * @returns The batch result with started runs and optional partial error.
+     */
     public async triggerScheduledBatch(
         request: IScheduledBatchTriggerRequest
     ): Promise<TResult<IScheduledBatchTriggerResult, IDagError>> {
@@ -91,6 +114,12 @@ export class SchedulerTriggerService {
         };
     }
 
+    /**
+     * Triggers runs for each time slot in a catchup date range. Validates date
+     * range, slot interval, and max-slot constraints before dispatching.
+     * @param request - The catchup request with date range, interval, and slot limit.
+     * @returns The catchup result with slot count and started runs, or a validation error.
+     */
     public async triggerCatchup(
         request: ICatchupTriggerRequest
     ): Promise<TResult<ICatchupTriggerResult, IDagError>> {

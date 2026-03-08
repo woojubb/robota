@@ -18,24 +18,33 @@ import {
 
 const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
 
+/** Request payload for editing a single image via the Gemini runtime. */
 export interface IGeminiImageEditRequest {
     image: IPortBinaryValue;
     prompt: string;
     model: string;
 }
 
+/** Request payload for composing multiple images via the Gemini runtime. */
 export interface IGeminiImageComposeRequest {
     images: IPortBinaryValue[];
     prompt: string;
     model: string;
 }
 
+/** Configuration options for the Gemini image runtime, including API key and model restrictions. */
 export interface IGeminiImageRuntimeOptions {
     apiKey?: string;
     defaultModel?: string;
     allowedModels?: string[];
 }
 
+/**
+ * Type guard that checks whether a value is a valid image binary port value.
+ *
+ * @param value - The value to check.
+ * @returns `true` if the value has `kind: 'image'`, a `mimeType`, and a `uri`.
+ */
 export function isImageBinaryValue(value: Partial<IPortBinaryValue> | null | undefined): value is IPortBinaryValue {
     if (!value) {
         return false;
@@ -49,6 +58,10 @@ export function isImageBinaryValue(value: Partial<IPortBinaryValue> | null | und
     );
 }
 
+/**
+ * Runtime that delegates image editing and composition requests to the Google Gemini API
+ * via the GoogleProvider.
+ */
 export class GeminiImageRuntime {
     private readonly explicitApiKey?: string;
     private readonly explicitDefaultModel?: string;

@@ -14,4 +14,5 @@ export * from './composition/create-dag-controller-composition.js';
 export * from './composition/create-dag-execution-composition.js';
 export * from './composition/run-progress-event-bus.js';
 
+/** Package name constant for @robota-sdk/dag-api. */
 export const DAG_API_PACKAGE_NAME = '@robota-sdk/dag-api';

@@ -15,6 +15,14 @@ const TransformNodeConfigSchema = z.object({
     prefix: z.string().default('')
 });
 
+/**
+ * DAG node that transforms input data by optionally prepending a configured prefix to text.
+ *
+ * When the `text` input is present, the configured `prefix` is prepended. Otherwise,
+ * all input entries are passed through to the output unchanged.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class TransformNodeDefinition extends AbstractNodeDefinition<typeof TransformNodeConfigSchema> {
     public readonly nodeType = 'transform';
     public readonly displayName = 'Transform';

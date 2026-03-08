@@ -13,17 +13,27 @@ import {
     type IValidateDefinitionRequest
 } from '../contracts/design-api.js';
 
+/** Port for querying available node types and their manifests. */
 export interface INodeCatalogService {
     listManifests(): Promise<INodeManifest[]>;
     hasNodeType(nodeType: string): boolean;
 }
 
+/**
+ * API controller for DAG definition lifecycle: create, update, validate, publish, and list.
+ * @see DagDefinitionService
+ */
 export class DagDesignController {
     public constructor(
         private readonly definitionService: DagDefinitionService,
         private readonly nodeCatalogService?: INodeCatalogService
     ) {}
 
+    /**
+     * Creates a new DAG definition draft.
+     * @param request - The creation request containing the definition.
+     * @returns Created definition or validation errors.
+     */
     public async createDefinition(
         request: ICreateDefinitionRequest
     ): Promise<TDesignApiResponse<{ definitionId: string; definition: ICreateDefinitionRequest['definition'] }>> {
@@ -52,6 +62,11 @@ export class DagDesignController {
         };
     }
 
+    /**
+     * Updates an existing DAG definition draft.
+     * @param request - The update request with dagId, version, and new definition.
+     * @returns Updated definition or validation errors.
+     */
     public async updateDraft(
         request: IUpdateDraftRequest
     ): Promise<TDesignApiResponse<{ definition: IUpdateDraftRequest['definition'] }>> {
@@ -79,6 +94,11 @@ export class DagDesignController {
         };
     }
 
+    /**
+     * Validates a DAG definition including node catalog checks if configured.
+     * @param request - The validation request with dagId and version.
+     * @returns Validation result or problem details on failure.
+     */
     public async validateDefinition(
         request: IValidateDefinitionRequest
     ): Promise<TDesignApiResponse<IDefinitionValidationResult>> {
@@ -149,6 +169,11 @@ export class DagDesignController {
         };
     }
 
+    /**
+     * Publishes a validated DAG definition, making it available for execution.
+     * @param request - The publish request with dagId and version.
+     * @returns Published definition or validation errors.
+     */
     public async publishDefinition(
         request: IPublishDefinitionRequest
     ): Promise<TDesignApiResponse<{ definitionId: string; definition: IDagDefinition }>> {
@@ -177,6 +202,11 @@ export class DagDesignController {
         };
     }
 
+    /**
+     * Retrieves a DAG definition by ID, optionally at a specific version.
+     * @param request - The get request with dagId and optional version.
+     * @returns Definition data or 404 problem details if not found.
+     */
     public async getDefinition(
         request: IGetDefinitionRequest
     ): Promise<TDesignApiResponse<{ definition: IDagDefinition }>> {
@@ -207,6 +237,11 @@ export class DagDesignController {
         };
     }
 
+    /**
+     * Lists DAG definitions, optionally filtered by dagId, grouped with latest version.
+     * @param request - The list request with optional dagId filter.
+     * @returns Sorted list of definition summary items.
+     */
     public async listDefinitions(
         request: IListDefinitionsRequest
     ): Promise<TDesignApiResponse<{ items: IDefinitionListItem[] }>> {
@@ -243,6 +278,11 @@ export class DagDesignController {
         };
     }
 
+    /**
+     * Lists all registered node types from the node catalog.
+     * @param request - The catalog list request.
+     * @returns Node manifests or error if catalog service is not configured.
+     */
     public async listNodeCatalog(
         request: IListNodeCatalogRequest
     ): Promise<TDesignApiResponse<{ nodes: INodeManifest[] }>> {

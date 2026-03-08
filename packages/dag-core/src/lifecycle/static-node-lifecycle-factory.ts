@@ -10,6 +10,7 @@ import { buildValidationError } from '../utils/error-builders.js';
 import { StaticNodeTaskHandlerRegistry } from './default-node-task-handlers.js';
 import { RegisteredNodeLifecycle } from './registered-node-lifecycle.js';
 
+/** Factory that creates {@link RegisteredNodeLifecycle} instances from a static handler registry. */
 export class StaticNodeLifecycleFactory implements INodeLifecycleFactory {
     public constructor(
         private readonly taskHandlerRegistry: INodeTaskHandlerRegistry
