@@ -116,8 +116,8 @@ export class ModuleDescriptorRegistry {
     /**
      * Get a registered module type
      */
-    getType(type: string): IModuleDescriptor | null {
-        return this.registeredTypes.get(type) || null;
+    getType(type: string): IModuleDescriptor | undefined {
+        return this.registeredTypes.get(type);
     }
 
     /**

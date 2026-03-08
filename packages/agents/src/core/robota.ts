@@ -902,12 +902,12 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * 
      * @template T - The expected plugin type extending AbstractPlugin
      * @param pluginName - The name of the plugin to retrieve
-     * @returns The plugin instance if found, null otherwise
-     * 
+     * @returns The plugin instance if found, undefined otherwise
+     *
      * @example
      * ```typescript
      * import { UsagePlugin } from '@robota-sdk/agents';
-     * 
+     *
      * const usagePlugin = robota.getPlugin<UsagePlugin>('usage-plugin');
      * if (usagePlugin) {
      *   const stats = usagePlugin.getUsageStats();
@@ -915,7 +915,7 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
      * }
      * ```
      */
-    getPlugin(pluginName: string): (IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks) | null {
+    getPlugin(pluginName: string): (IPluginContract<IPluginOptions, IPluginStats> & IPluginHooks) | undefined {
         return this.executionService.getPlugin(pluginName);
     }
 
@@ -992,11 +992,11 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
     /**
      * Get a module by name with type safety
      * @param moduleName - Name of the module to retrieve
-     * @returns The module instance or null if not found
+     * @returns The module instance or undefined if not found
      */
-    getModule(moduleName: string): IModule | null {
+    getModule(moduleName: string): IModule | undefined {
         if (!this.isFullyInitialized) {
-            return null;
+            return undefined;
         }
         return this.moduleRegistry.getModule(moduleName);
     }
@@ -1070,11 +1070,11 @@ export class Robota extends AbstractAgent<IAgentConfig, IRunOptions, TUniversalM
     /**
      * Get module execution statistics
      * @param moduleName - Name of the module
-     * @returns Module statistics or null if not found
+     * @returns Module statistics or undefined if not found
      */
-    getModuleStats(moduleName: string): { totalExecutions: number; successfulExecutions: number; failedExecutions: number; averageExecutionTime: number; lastExecutionTime?: Date } | null {
+    getModuleStats(moduleName: string): { totalExecutions: number; successfulExecutions: number; failedExecutions: number; averageExecutionTime: number; lastExecutionTime?: Date } | undefined {
         if (!this.isFullyInitialized) {
-            return null;
+            return undefined;
         }
         return this.moduleRegistry.getModuleStats(moduleName);
     }
