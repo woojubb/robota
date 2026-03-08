@@ -5,7 +5,7 @@
  */
 
 import type { ITransport, ITransportCapabilities, ITransportConfig } from './transport-interface';
-import type { IChatResponseData, ITransportRequest, ITransportResponse } from '../shared/types';
+import type { ITransportRequest, ITransportResponse } from '../shared/types';
 import {
     createRequestMessage,
     createPongMessage,
@@ -24,7 +24,7 @@ export interface ISimpleWebSocketConfig extends ITransportConfig {
 }
 
 interface IPendingRequest {
-    resolve: (value: ITransportResponse<IChatResponseData>) => void;
+    resolve: (value: ITransportResponse<unknown>) => void;
     reject: (error: Error) => void;
     timeout: NodeJS.Timeout;
 }
@@ -73,7 +73,10 @@ export class SimpleWebSocketTransport implements ITransport {
                 };
 
                 const onMessage = (event: MessageEvent): void => {
-                    this.handleMessage(event.data as string);
+                    if (typeof event.data !== 'string') {
+                        return; // Only handle string messages
+                    }
+                    this.handleMessage(event.data);
                 };
 
                 const onClose = (event: CloseEvent): void => {
@@ -115,14 +118,17 @@ export class SimpleWebSocketTransport implements ITransport {
         const messageId = generateMessageId();
         const message = createRequestMessage(messageId, request);
 
-        return new Promise((resolve, reject) => {
+        // Trust boundary: the WebSocket response data is external/network data.
+        // The generic TData is determined by the caller; the transport layer
+        // resolves with unknown and the caller is responsible for validation.
+        const response = await new Promise<ITransportResponse<unknown>>((resolve, reject) => {
             const timeout = setTimeout(() => {
                 this.pendingRequests.delete(messageId);
                 reject(new Error('Request timeout'));
             }, this.config.timeout);
 
             this.pendingRequests.set(messageId, {
-                resolve: resolve as (value: ITransportResponse<IChatResponseData>) => void,
+                resolve,
                 reject,
                 timeout
             });
@@ -134,7 +140,9 @@ export class SimpleWebSocketTransport implements ITransport {
                 clearTimeout(timeout);
                 reject(error instanceof Error ? error : new Error('Send failed'));
             }
-        }) as Promise<ITransportResponse<TData>>;
+        });
+
+        return response as ITransportResponse<TData>;
     }
 
     async *sendStream<TData>(request: ITransportRequest): AsyncIterable<TData> {
@@ -176,7 +184,7 @@ export class SimpleWebSocketTransport implements ITransport {
         }
     }
 
-    private handleResponse(messageId: string, data: IChatResponseData): void {
+    private handleResponse(messageId: string, data: unknown): void {
         const pending = this.pendingRequests.get(messageId);
         if (pending) {
             this.pendingRequests.delete(messageId);

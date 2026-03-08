@@ -9,8 +9,17 @@ import type { IRealTimeBlockMessage, IRealTimeBlockMetadata, IToolExecutionStepI
 import type { TUniversalValue } from '@robota-sdk/agents';
 
 /**
+ * Type guard: checks whether event data has the hierarchical fields
+ * (executionLevel, executionPath) required by IEventEmitterHierarchicalEventData.
+ */
+function isHierarchicalEventData(data: IEventEmitterEventData): data is IEventEmitterHierarchicalEventData {
+    return 'executionLevel' in data && typeof (data as Record<string, unknown>).executionLevel === 'number'
+        && 'executionPath' in data && Array.isArray((data as Record<string, unknown>).executionPath);
+}
+
+/**
  * 🔗 ExecutionSubscriber - Bridges SDK events to Web App BlockCollector
- * 
+ *
  * Subscribes to SDK events and converts them to real-time block updates.
  * Follows "actual data only" principle - no simulation or fake progress.
  */
@@ -85,10 +94,14 @@ export class ExecutionSubscriber {
 
         // Subscribe to hierarchical events
         this.eventEmitter.on(EVENT_EMITTER_EVENTS.EXECUTION_HIERARCHY, (eventData: IEventEmitterEventData) => {
-            this.onHierarchyUpdate(eventData as IEventEmitterHierarchicalEventData);
+            if (isHierarchicalEventData(eventData)) {
+                this.onHierarchyUpdate(eventData);
+            }
         });
         this.eventEmitter.on(EVENT_EMITTER_EVENTS.EXECUTION_REALTIME, (eventData: IEventEmitterEventData) => {
-            this.onRealtimeUpdate(eventData as IEventEmitterHierarchicalEventData);
+            if (isHierarchicalEventData(eventData)) {
+                this.onRealtimeUpdate(eventData);
+            }
         });
         this.eventEmitter.on(EVENT_EMITTER_EVENTS.TOOL_REALTIME, this.onToolRealtimeUpdate.bind(this));
 
@@ -104,7 +117,7 @@ export class ExecutionSubscriber {
         const executionId = eventData.executionId;
         if (!executionId) return;
 
-        const hierarchicalData = eventData as IEventEmitterHierarchicalEventData;
+        const hierarchicalData = isHierarchicalEventData(eventData) ? eventData : undefined;
         const toolNameValue = this.asObjectValue(eventData.data)?.toolName;
         const toolName = typeof toolNameValue === 'string' && toolNameValue.length > 0
             ? toolNameValue
@@ -114,8 +127,8 @@ export class ExecutionSubscriber {
         const blockMetadata: IRealTimeBlockMetadata = {
             id: this.generateBlockId(),
             type: 'tool_call',
-            level: hierarchicalData.executionLevel || 2,
-            parentId: this.getParentBlockId(hierarchicalData.parentExecutionId),
+            level: hierarchicalData?.executionLevel ?? 2,
+            parentId: this.getParentBlockId(hierarchicalData?.parentExecutionId),
             children: [],
             isExpanded: true,
             visualState: 'in_progress',
@@ -124,10 +137,10 @@ export class ExecutionSubscriber {
             startTime: new Date(),
 
             // Real execution data
-            toolParameters: hierarchicalData.realTimeData?.actualParameters,
+            toolParameters: hierarchicalData?.realTimeData?.actualParameters,
 
             // Hierarchical execution context
-            executionHierarchy: hierarchicalData.executionLevel !== undefined ? {
+            executionHierarchy: hierarchicalData ? {
                 parentExecutionId: hierarchicalData.parentExecutionId,
                 rootExecutionId: hierarchicalData.rootExecutionId,
                 level: hierarchicalData.executionLevel,
@@ -143,7 +156,7 @@ export class ExecutionSubscriber {
 
             // Render data
             renderData: {
-                parameters: hierarchicalData.realTimeData?.actualParameters
+                parameters: hierarchicalData?.realTimeData?.actualParameters
             }
         };
 
@@ -175,7 +188,7 @@ export class ExecutionSubscriber {
         const execution = this.activeExecutions.get(executionId);
         if (!execution) return;
 
-        const hierarchicalData = eventData as IEventEmitterHierarchicalEventData;
+        const hierarchicalData = isHierarchicalEventData(eventData) ? eventData : undefined;
         const endTime = new Date();
         const actualDuration = endTime.getTime() - execution.startTime.getTime();
 
@@ -184,9 +197,9 @@ export class ExecutionSubscriber {
             visualState: 'completed',
             endTime,
             actualDuration,
-            toolResult: hierarchicalData.realTimeData?.actualResult?.data,
+            toolResult: hierarchicalData?.realTimeData?.actualResult?.data,
             renderData: {
-                result: hierarchicalData.realTimeData?.actualResult?.data
+                result: hierarchicalData?.realTimeData?.actualResult?.data
             }
         });
 
@@ -299,10 +312,12 @@ export class ExecutionSubscriber {
         const executionId = eventData.executionId;
         if (!executionId) return;
 
-        const hierarchicalData = eventData as IEventEmitterHierarchicalEventData;
+        // Only process hierarchical event data for group/agent blocks
+        if (!isHierarchicalEventData(eventData)) return;
+        const hierarchicalData = eventData;
 
         // Only create blocks for Agent/Team level (level 0 or 1)
-        if (hierarchicalData.executionLevel !== undefined && hierarchicalData.executionLevel <= 1) {
+        if (hierarchicalData.executionLevel <= 1) {
             const blockMetadata: IRealTimeBlockMetadata = {
                 id: this.generateBlockId(),
                 type: hierarchicalData.executionLevel === 0 ? 'group' : 'assistant',

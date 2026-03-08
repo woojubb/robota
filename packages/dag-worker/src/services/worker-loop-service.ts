@@ -695,7 +695,16 @@ export class WorkerLoopService {
         }
         try {
             const parsed = JSON.parse(dagRun.definitionSnapshot);
-            if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+            if (
+                typeof parsed !== 'object'
+                || parsed === null
+                || Array.isArray(parsed)
+                || typeof parsed.dagId !== 'string'
+                || typeof parsed.version !== 'number'
+                || !Array.isArray(parsed.nodes)
+                || !Array.isArray(parsed.edges)
+                || typeof parsed.status !== 'string'
+            ) {
                 return {
                     ok: false,
                     error: buildValidationError(

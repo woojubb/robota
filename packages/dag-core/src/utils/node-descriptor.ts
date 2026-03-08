@@ -1,5 +1,8 @@
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { z, type ZodType } from 'zod';
+import type { TResult } from '../types/result.js';
+import type { IDagError } from '../types/error.js';
+import { buildValidationError } from './error-builders.js';
 
 function isZodSchema(input: unknown): input is ZodType {
     if (typeof input !== 'object' || input === null) {
@@ -8,11 +11,20 @@ function isZodSchema(input: unknown): input is ZodType {
     return input instanceof z.ZodType;
 }
 
-export function buildConfigSchema(configSchemaDefinition: unknown): object {
+export function buildConfigSchema(configSchemaDefinition: unknown): TResult<Record<string, unknown>, IDagError> {
     if (!isZodSchema(configSchemaDefinition)) {
-        throw new Error('configSchemaDefinition must be a Zod schema instance.');
+        return {
+            ok: false,
+            error: buildValidationError(
+                'DAG_VALIDATION_CONFIG_SCHEMA_INVALID',
+                'configSchemaDefinition must be a Zod schema instance.'
+            )
+        };
     }
-    return zodToJsonSchema(configSchemaDefinition, {
-        target: 'jsonSchema7'
-    });
+    return {
+        ok: true,
+        value: zodToJsonSchema(configSchemaDefinition, {
+            target: 'jsonSchema7'
+        }) as Record<string, unknown>
+    };
 }

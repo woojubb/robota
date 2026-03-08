@@ -103,8 +103,8 @@ export function usePlaygroundStatistics(): IPlaygroundStatisticsHookResult {
     const { state } = usePlayground();
     const [rawStatistics, setRawStatistics] = useState<IPlaygroundMetrics | null>(null);
 
-    // Type guard for executor availability
-    const executor = state.executor as PlaygroundExecutor | null;
+    // state.executor is already typed as PlaygroundExecutor | null
+    const executor = state.executor;
     const isExecutorReady = executor && typeof executor.getPlaygroundStatistics === 'function';
 
     /**

@@ -86,24 +86,31 @@ export interface INodeDefinitionAssembly {
     handlersByType: Record<string, INodeTaskHandler>;
 }
 
-export function buildNodeDefinitionAssembly(nodeDefinitions: IDagNodeDefinition[]): INodeDefinitionAssembly {
+export function buildNodeDefinitionAssembly(nodeDefinitions: IDagNodeDefinition[]): TResult<INodeDefinitionAssembly, IDagError> {
     const manifests: INodeManifest[] = [];
     const handlersByType: Record<string, INodeTaskHandler> = {};
     for (const nodeDefinition of nodeDefinitions) {
+        const configSchemaResult = buildConfigSchema(nodeDefinition.configSchemaDefinition);
+        if (!configSchemaResult.ok) {
+            return configSchemaResult;
+        }
         const manifest: INodeManifest = {
             nodeType: nodeDefinition.nodeType,
             displayName: nodeDefinition.displayName,
             category: nodeDefinition.category,
             inputs: nodeDefinition.inputs,
             outputs: nodeDefinition.outputs,
-            configSchema: buildConfigSchema(nodeDefinition.configSchemaDefinition)
+            configSchema: configSchemaResult.value
         };
         manifests.push(manifest);
         handlersByType[manifest.nodeType] = nodeDefinition.taskHandler;
     }
     return {
-        manifests,
-        handlersByType
+        ok: true,
+        value: {
+            manifests,
+            handlersByType
+        }
     };
 }
 

@@ -11,7 +11,6 @@ import type { IBasicMessage, IResponseMessage } from '../types/message-types';
 import {
     createHttpRequest,
     createHttpResponse,
-    extractContent,
     generateId,
     toResponseMessage
 } from '../utils/transformers';
@@ -41,6 +40,24 @@ interface IChatResponsePayload {
     };
     provider?: string;
     model?: string;
+}
+
+/**
+ * Validate that an array of unknown values conforms to IToolCall[].
+ * Filters out entries that do not have the required shape.
+ */
+function validateToolCallArray(items: unknown[]): IToolCall[] {
+    return items.filter((item): item is IToolCall =>
+        typeof item === 'object' &&
+        item !== null &&
+        'id' in item &&
+        typeof (item as Record<string, unknown>)['id'] === 'string' &&
+        'type' in item &&
+        (item as Record<string, unknown>)['type'] === 'function' &&
+        'function' in item &&
+        typeof (item as Record<string, unknown>)['function'] === 'object' &&
+        (item as Record<string, unknown>)['function'] !== null
+    );
 }
 
 /**
@@ -74,6 +91,45 @@ export class HttpClient {
     }
 
     /**
+     * Send POST request accepting untyped JSON data (Record<string, unknown>).
+     * Used when the request body is constructed dynamically and cannot
+     * satisfy the stricter TDefaultRequestData constraint.
+     */
+    private async postRaw<TResponse>(
+        endpoint: string,
+        data: Record<string, unknown>
+    ): Promise<IHttpResponse<TResponse>> {
+        const url = `${this.config.baseUrl}${endpoint}`;
+
+        try {
+            const fetchResponse = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.config.headers
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!fetchResponse.ok) {
+                throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
+            }
+
+            // Trust boundary: caller validates the response shape
+            const responseData: unknown = await fetchResponse.json();
+
+            return createHttpResponse<TResponse>(
+                generateId('post'),
+                fetchResponse.status,
+                responseData as TResponse,
+                this.getResponseHeaders(fetchResponse)
+            );
+        } catch (error) {
+            throw new Error(`Request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
      * Send GET request with type safety
      */
     async get<TResponse>(endpoint: string): Promise<IHttpResponse<TResponse>> {
@@ -97,13 +153,19 @@ export class HttpClient {
                 role: msg.role,
                 content: msg.content
             };
-            const msgWithToolCalls = msg as IBasicMessage & { toolCalls?: IToolCall[] };
-            if (msg.role === 'assistant' && msgWithToolCalls.toolCalls && Array.isArray(msgWithToolCalls.toolCalls)) {
-                mapped.toolCalls = msgWithToolCalls.toolCalls;
+            // Narrow via property presence check — IBasicMessage may carry extra
+            // fields (toolCalls, toolCallId) that are not in the base interface.
+            if (msg.role === 'assistant' && 'toolCalls' in msg) {
+                const toolCalls = (msg as unknown as Record<string, unknown>)['toolCalls'];
+                if (Array.isArray(toolCalls)) {
+                    mapped.toolCalls = validateToolCallArray(toolCalls);
+                }
             }
-            const msgWithToolCallId = msg as IBasicMessage & { toolCallId?: string };
-            if (msg.role === 'tool' && msgWithToolCallId.toolCallId) {
-                mapped.toolCallId = msgWithToolCallId.toolCallId;
+            if (msg.role === 'tool' && 'toolCallId' in msg) {
+                const toolCallId = (msg as unknown as Record<string, unknown>)['toolCallId'];
+                if (typeof toolCallId === 'string') {
+                    mapped.toolCallId = toolCallId;
+                }
             }
             return mapped;
         });
@@ -118,25 +180,21 @@ export class HttpClient {
         this.logger.info('🔧 [HTTP-CLIENT] Non-streaming request tools:', tools?.length || 0);
 
         // Server responds with shape: { success: boolean, data: TUniversalMessage, provider, model }
-        const response = await this.post<TDefaultRequestData, TDefaultRequestData>('/chat', requestData as TDefaultRequestData);
+        const response = await this.postRaw<IChatResponsePayload>('/chat', requestData);
 
         // Extract assistant message preserving toolCalls if present
-        const responseData = response.data as Record<string, unknown>;
-        const dataMessage = (responseData && typeof responseData === 'object' && 'data' in responseData)
-            ? responseData['data'] as Record<string, unknown> | undefined
-            : undefined;
+        const responsePayload = response.data;
+        const dataMessage = responsePayload?.data;
 
-        const rawRole = (dataMessage && typeof dataMessage === 'object' && 'role' in dataMessage && typeof dataMessage['role'] === 'string')
-            ? dataMessage['role']
-            : 'assistant';
+        const rawRole = dataMessage?.role;
         // The server response always returns an assistant message role
-        const role = (rawRole === 'user' || rawRole === 'assistant' || rawRole === 'system' || rawRole === 'tool')
+        const role: IChatRequestMessage['role'] = (rawRole === 'user' || rawRole === 'assistant' || rawRole === 'system' || rawRole === 'tool')
             ? rawRole
-            : 'assistant' as const;
+            : 'assistant';
 
-        const content = (dataMessage && typeof dataMessage === 'object' && 'content' in dataMessage && typeof dataMessage['content'] === 'string')
-            ? dataMessage['content']
-            : extractContent(response);
+        const content = typeof dataMessage?.content === 'string'
+            ? dataMessage.content
+            : '';
 
         const assistantMessage: IChatRequestMessage = {
             role,
@@ -144,19 +202,12 @@ export class HttpClient {
         };
 
         // Preserve toolCalls when available (array of tool call fragments)
-        if (dataMessage && typeof dataMessage === 'object' && 'toolCalls' in dataMessage) {
-            const tc = dataMessage['toolCalls'];
-            if (Array.isArray(tc)) {
-                assistantMessage.toolCalls = tc as IToolCall[];
-            }
+        if (dataMessage?.toolCalls && Array.isArray(dataMessage.toolCalls)) {
+            assistantMessage.toolCalls = validateToolCallArray(dataMessage.toolCalls);
         }
 
-        const providerName = (responseData && typeof responseData === 'object' && 'provider' in responseData && typeof responseData['provider'] === 'string')
-            ? responseData['provider']
-            : undefined;
-        const modelName = (responseData && typeof responseData === 'object' && 'model' in responseData && typeof responseData['model'] === 'string')
-            ? responseData['model']
-            : undefined;
+        const providerName = typeof responsePayload?.provider === 'string' ? responsePayload.provider : undefined;
+        const modelName = typeof responsePayload?.model === 'string' ? responsePayload.model : undefined;
 
         return toResponseMessage(
             assistantMessage,
@@ -249,7 +300,7 @@ export class HttpClient {
                                             content: contentValue,
                                             // Always forward toolCalls when present (including empty id fragments)
                                             ...(Array.isArray(toolCalls) &&
-                                                { toolCalls: toolCalls as IToolCall[] })
+                                                { toolCalls: validateToolCallArray(toolCalls) })
                                         },
                                         provider,
                                         model
@@ -275,9 +326,17 @@ export class HttpClient {
      */
     private async executeRequest<TResponse>(request: IHttpRequest<TDefaultRequestData> | IHttpRequest<undefined>): Promise<IHttpResponse<TResponse>> {
         try {
+            // Convert IHttpHeaders (string | undefined values) to Record<string, string>
+            const safeHeaders: Record<string, string> = {};
+            for (const [key, value] of Object.entries(request.headers)) {
+                if (value !== undefined) {
+                    safeHeaders[key] = value;
+                }
+            }
+
             const requestInit: RequestInit = {
                 method: request.method,
-                headers: request.headers as HeadersInit,
+                headers: safeHeaders,
             };
 
             // Only include `body` when request data is explicitly provided.
@@ -292,7 +351,9 @@ export class HttpClient {
                 throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
             }
 
-            const responseData = await fetchResponse.json();
+            // Trust boundary: fetchResponse.json() returns unknown.
+            // Callers of executeRequest are responsible for validating the shape.
+            const responseData: unknown = await fetchResponse.json();
 
             return createHttpResponse<TResponse>(
                 request.id,

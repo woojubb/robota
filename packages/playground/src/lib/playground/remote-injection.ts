@@ -530,17 +530,7 @@ export function createPlaygroundSandbox(config: IPlaygroundConfig): {
         if (typeof window !== 'undefined' && window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
           sandbox.__ROBOTA_PLAYGROUND_EXECUTOR__ = window.__ROBOTA_PLAYGROUND_EXECUTOR__;
         } else {
-          // Fallback mock executor
-          const fallbackExecutor: IRemoteExecutor = {
-            name: 'mock-remote',
-            version: '1.0.0',
-            executeChat: async () => ({ role: 'assistant', content: 'Mock response', timestamp: new Date() }),
-            executeChatStream: async function* () { yield { role: 'assistant', content: 'Mock', timestamp: new Date() }; },
-            supportsTools: () => true,
-            validateConfig: () => true,
-            dispose: async () => { }
-          };
-          sandbox.__ROBOTA_PLAYGROUND_EXECUTOR__ = fallbackExecutor;
+          throw new Error('Playground executor not initialized: window.__ROBOTA_PLAYGROUND_EXECUTOR__ is required');
         }
 
         // Transform code for playground execution
@@ -553,7 +543,21 @@ export function createPlaygroundSandbox(config: IPlaygroundConfig): {
           })()
         `;
 
-        // Execute in sandbox context
+        // SECURITY: new Function() is used intentionally as a sandbox code execution mechanism.
+        // The `sandbox` object acts as the security boundary by restricting which globals are
+        // accessible to the executed code — only explicitly listed properties (console, fetch,
+        // Date, Math, JSON, Promise, setTimeout/setInterval, and playground-specific objects)
+        // are passed as arguments.
+        //
+        // RISKS:
+        // - This approach bypasses Content Security Policy (CSP) `script-src` directives.
+        // - If the sandbox object is incomplete or leaks references to the outer scope,
+        //   user code could access privileged APIs or data.
+        // - Prototype chain access (e.g., constructor.constructor) can escape the sandbox
+        //   unless explicitly mitigated.
+        //
+        // This is acceptable in the playground context where user code execution is the
+        // primary purpose and the sandbox limits the available API surface.
         const func = new Function(...Object.keys(sandbox), `return ${wrappedCode}`);
         const result = await func(...Object.values(sandbox));
 

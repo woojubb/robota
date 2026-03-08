@@ -245,20 +245,16 @@ function playgroundReducer(state: IPlaygroundState, action: TPlaygroundReducerAc
                 isLoading: false
             };
 
-        case 'UPDATE_VISUALIZATION_DATA':
-            if (!state.visualizationData) {
-                return {
-                    ...state,
-                    visualizationData: action.payload as IVisualizationData
-                };
-            }
+        case 'UPDATE_VISUALIZATION_DATA': {
+            const baseVisualization: IVisualizationData = state.visualizationData ?? { events: [], agents: [] };
             return {
                 ...state,
                 visualizationData: {
-                    ...state.visualizationData,
+                    ...baseVisualization,
                     ...action.payload
                 }
             };
+        }
 
         case 'SET_TOOL_ITEMS':
             return {
