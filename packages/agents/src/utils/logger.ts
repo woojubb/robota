@@ -84,7 +84,7 @@ class LoggerConfig {
  * @internal
  */
 export class ConsoleLogger implements ILogger {
-    private level: TUtilLogLevel | null = null; // null means use global level
+    private level?: TUtilLogLevel; // undefined means use global level
     private packageName: string;
     private sinkLogger: ILogger;
 

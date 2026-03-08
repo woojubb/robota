@@ -13,10 +13,10 @@ export class ExecutionCacheService {
         model: string,
         provider: string,
         options?: { temperature?: number; maxTokens?: number }
-    ): string | null {
+    ): string | undefined {
         const key = this.keyBuilder.build(messages, model, provider, options);
         const entry = this.storage.get(key.hash);
-        return entry ? entry.response : null;
+        return entry ? entry.response : undefined;
     }
 
     store(

@@ -75,12 +75,12 @@ function isPlaygroundWebSocketMessage(value: TUniversalValue): value is IPlaygro
  * WebSocket client for Playground real-time communication
  */
 export class PlaygroundWebSocketClient {
-    private ws: WebSocket | null = null;
+    private ws?: WebSocket;
     private status: IPlaygroundConnectionStatus = { connected: false, authenticated: false };
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
-    private reconnectTimeout: NodeJS.Timeout | null = null;
-    private pingInterval: NodeJS.Timeout | null = null;
+    private reconnectTimeout?: NodeJS.Timeout;
+    private pingInterval?: NodeJS.Timeout;
     private eventHandlers = new Map<string, Set<TPlaygroundWebSocketEventHandler>>();
 
     constructor(
@@ -187,14 +187,14 @@ export class PlaygroundWebSocketClient {
     disconnect(): void {
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
-            this.reconnectTimeout = null;
+            this.reconnectTimeout = undefined;
         }
 
         this.stopPingPong();
 
         if (this.ws) {
             this.ws.close(1000, 'Client disconnect');
-            this.ws = null;
+            this.ws = undefined;
         }
 
         this.status = { connected: false, authenticated: false };
@@ -403,7 +403,7 @@ export class PlaygroundWebSocketClient {
     private stopPingPong(): void {
         if (this.pingInterval) {
             clearInterval(this.pingInterval);
-            this.pingInterval = null;
+            this.pingInterval = undefined;
         }
     }
 } 

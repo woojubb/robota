@@ -131,7 +131,7 @@ function toPlaygroundUiError(input: Error | string): IPlaygroundUiError {
  */
 export class PlaygroundExecutor {
     private mode: 'agent' = 'agent';
-    private currentAgent: Robota | null = null;
+    private currentAgent?: Robota;
     // Team feature removed
     // Registry: rootId(conversationId) → agent instance
     private agentRegistry: Map<string, Robota> = new Map();
@@ -141,7 +141,7 @@ export class PlaygroundExecutor {
     private historyPlugin: PlaygroundHistoryPlugin;
     private statisticsPlugin: PlaygroundStatisticsPlugin;
     private eventService: IEventService;
-    private websocketClient: PlaygroundWebSocketClient | null = null;
+    private websocketClient?: PlaygroundWebSocketClient;
 
     private readonly logger: ILogger;
 
@@ -576,12 +576,12 @@ export class PlaygroundExecutor {
         try {
             if (this.currentAgent) {
                 await this.currentAgent.destroy();
-                this.currentAgent = null;
+                this.currentAgent = undefined;
             }
 
             if (this.websocketClient) {
                 await this.websocketClient.disconnect();
-                this.websocketClient = null;
+                this.websocketClient = undefined;
             }
 
             await this.historyPlugin.dispose();

@@ -31,7 +31,7 @@ export function startPeriodicTask(
     return timer;
 }
 
-export function stopPeriodicTask(timer: TTimerId | undefined | null): void {
+export function stopPeriodicTask(timer: TTimerId | undefined): void {
     if (!timer) return;
     clearInterval(timer);
 }

@@ -400,8 +400,8 @@ export class ModuleRegistry {
     /**
      * Get a module by name
      */
-    getModule(moduleName: string): IModule | null {
-        return this.modules.get(moduleName) ?? null;
+    getModule(moduleName: string): IModule | undefined {
+        return this.modules.get(moduleName);
     }
 
     /**
@@ -443,8 +443,8 @@ export class ModuleRegistry {
     /**
      * Get module status
      */
-    getModuleStatus(moduleName: string): IModuleStatus | null {
-        return this.moduleStatuses.get(moduleName) || null;
+    getModuleStatus(moduleName: string): IModuleStatus | undefined {
+        return this.moduleStatuses.get(moduleName);
     }
 
     /**
@@ -457,8 +457,8 @@ export class ModuleRegistry {
     /**
      * Get module execution statistics
      */
-    getModuleStats(moduleName: string): IModuleExecutionStats | null {
-        return this.moduleStats.get(moduleName) || null;
+    getModuleStats(moduleName: string): IModuleExecutionStats | undefined {
+        return this.moduleStats.get(moduleName);
     }
 
     /**
