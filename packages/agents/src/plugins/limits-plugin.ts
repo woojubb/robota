@@ -38,15 +38,14 @@ export interface ILimitsPluginExecutionContext extends IPluginExecutionContext {
 }
 
 /**
- * Plugin execution result type
- * Used for processing execution results in limits plugin
+ * Plugin execution result — used for processing execution results in limits plugin.
  */
-export type TLimitsPluginExecutionResult = {
+export interface ILimitsPluginExecutionResult {
     tokensUsed?: number;
     cost?: number;
     success?: boolean;
     [key: string]: string | number | boolean | undefined;
-};
+}
 
 /**
  * Enforces rate limiting on token usage, request frequency, and cost using

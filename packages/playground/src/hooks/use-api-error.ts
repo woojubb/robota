@@ -1,12 +1,12 @@
 import { useToast } from './use-toast';
 import { WebLogger } from '../lib/web-logger';
 
-type TApiLikeError = {
+interface IApiLikeError {
   code?: string;
   message?: string;
-};
+}
 
-function isApiLikeError(value: object): value is TApiLikeError {
+function isApiLikeError(value: object): value is IApiLikeError {
   if (!value) return false;
   const v = value as { code?: unknown; message?: unknown };
   if (typeof v.code !== 'undefined' && typeof v.code !== 'string') return false;
