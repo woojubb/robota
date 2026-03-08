@@ -38,6 +38,7 @@ function validateChatExecutionRequest(request: IChatExecutionRequest | IStreamEx
     }
 }
 
+/** Configuration for connecting a SimpleRemoteExecutor to a remote AI server. */
 export interface ISimpleRemoteConfig {
     serverUrl: string;
     userApiKey: string;
@@ -53,6 +54,7 @@ export interface ISimpleRemoteConfig {
     logger?: ILogger;
 }
 
+/** Simplified execution request containing messages, provider, and model. */
 export interface ISimpleExecutionRequest {
     messages: IBasicMessage[];
     provider: string;

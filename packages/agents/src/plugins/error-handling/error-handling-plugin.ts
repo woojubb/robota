@@ -11,8 +11,29 @@ import type {
 import { toErrorContext, createPluginErrorContext } from './context-adapter';
 
 /**
- * Plugin for handling errors with configurable strategies
- * Provides error recovery, retry mechanisms, and circuit breaker patterns
+ * Provides configurable error recovery using one of four strategies:
+ * simple logging, circuit breaker, exponential backoff, or silent.
+ *
+ * The circuit breaker opens after
+ * {@link IErrorHandlingPluginOptions.failureThreshold | failureThreshold}
+ * consecutive failures and automatically resets after
+ * {@link IErrorHandlingPluginOptions.circuitBreakerTimeout | circuitBreakerTimeout} ms.
+ * An optional custom error handler can be injected for application-specific
+ * recovery logic.
+ *
+ * @extends AbstractPlugin
+ * @see IErrorHandlingPluginOptions - configuration options
+ * @see IErrorHandlingContextData - error context contract
+ *
+ * @example
+ * ```ts
+ * const plugin = new ErrorHandlingPlugin({
+ *   strategy: 'circuit-breaker',
+ *   failureThreshold: 5,
+ *   circuitBreakerTimeout: 60000,
+ * });
+ * const result = await plugin.executeWithRetry(() => fetchData());
+ * ```
  */
 export class ErrorHandlingPlugin extends AbstractPlugin<IErrorHandlingPluginOptions, IErrorHandlingPluginStats> {
     name = 'ErrorHandlingPlugin';
@@ -56,7 +77,8 @@ export class ErrorHandlingPlugin extends AbstractPlugin<IErrorHandlingPluginOpti
     }
 
     /**
-     * Handle an error with the configured strategy
+     * Dispatches the error to the active strategy handler. If a custom error
+     * handler is configured, it takes precedence over strategy-specific handling.
      */
     async handleError(error: Error, context: IErrorHandlingContextData = {}): Promise<void> {
         if (this.pluginOptions.logErrors) {
@@ -97,13 +119,12 @@ export class ErrorHandlingPlugin extends AbstractPlugin<IErrorHandlingPluginOpti
     }
 
     /**
-     * Execute a function with error handling and retry logic
-     */
-    /**
-     * Execute a function with error handling and retry logic
-     * REASON: PluginError constructor requires ErrorContextData which has different type constraints than IErrorHandlingContextData, causing multiple type compatibility issues
-     * ALTERNATIVES_CONSIDERED: Union types (breaks existing error context interfaces), interface definition (creates circular dependencies), generic types (complex type propagation through error handling chain), conditional types (breaks existing plugin interfaces), mapped types (incompatible with error constructor signatures), type guards (runtime only, doesn't solve constructor compatibility), custom declarations (breaks PluginError interface contract), code refactoring (would require redesigning entire error handling system across all plugins), @types packages (none available for this specific use case), external library integration (no standard error context type systems available), utility types (Pick/Omit create new compatibility issues)
-     * TODO: Create unified error context type system that bridges IErrorHandlingContextData and ErrorContextData requirements, or redesign PluginError to accept more flexible context types
+     * Executes a function with automatic retries up to
+     * {@link IErrorHandlingPluginOptions.maxRetries | maxRetries}. The delay
+     * between retries follows the configured strategy (fixed for simple /
+     * circuit-breaker, doubling for exponential-backoff).
+     *
+     * @throws PluginError after all retry attempts are exhausted
      */
     async executeWithRetry<T>(
         fn: () => Promise<T>,
@@ -164,7 +185,8 @@ export class ErrorHandlingPlugin extends AbstractPlugin<IErrorHandlingPluginOpti
     }
 
     /**
-     * Reset circuit breaker state
+     * Resets the circuit breaker to closed state, clearing failure count and
+     * last failure timestamp.
      */
     resetCircuitBreaker(): void {
         this.failureCount = 0;

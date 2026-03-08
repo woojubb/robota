@@ -49,8 +49,30 @@ export type TLimitsPluginExecutionResult = {
 };
 
 /**
- * Plugin for rate limiting and resource control
- * Enforces limits on token usage, request frequency, and costs
+ * Enforces rate limiting on token usage, request frequency, and cost using
+ * one of four strategies: token-bucket, sliding-window, fixed-window, or none.
+ *
+ * Checks are performed in {@link AbstractPlugin.beforeExecution | beforeExecution}
+ * and counters are updated in {@link AbstractPlugin.afterExecution | afterExecution}.
+ * Limits are keyed by user ID, session ID, or execution ID.
+ *
+ * Lifecycle hooks used: {@link AbstractPlugin.beforeExecution | beforeExecution},
+ * {@link AbstractPlugin.afterExecution | afterExecution}
+ *
+ * @extends AbstractPlugin
+ * @see ILimitsPluginOptions - configuration options
+ * @see TLimitsStrategy - available rate limiting strategies
+ *
+ * @example
+ * ```ts
+ * const plugin = new LimitsPlugin({
+ *   strategy: 'token-bucket',
+ *   maxTokens: 100000,
+ *   maxRequests: 1000,
+ *   bucketSize: 10000,
+ *   refillRate: 100,
+ * });
+ * ```
  */
 export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     name = 'LimitsPlugin';
@@ -97,7 +119,8 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     }
 
     /**
-     * Check limits before execution
+     * Validates that the pending execution does not exceed configured token,
+     * request, or cost limits. Throws a {@link PluginError} if any limit is breached.
      */
     override async beforeExecution(context: IPluginExecutionContext): Promise<void> {
         if (this.pluginOptions.strategy === 'none') {
@@ -135,7 +158,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     }
 
     /**
-     * Update limits after execution
+     * Updates token and cost counters with actual usage from the completed execution.
      */
     override async afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         if (this.pluginOptions.strategy === 'none') {
@@ -497,16 +520,8 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     }
 
     /**
-     * Get current limits status
-     * 
-     * REASON: Limits status contains mixed data types (numbers, strings, arrays, objects) for comprehensive status reporting
-     * ALTERNATIVES_CONSIDERED:
-     * 1. Strict interface definitions (too rigid for dynamic status data)
-     * 2. Union types (becomes unwieldy for status reporting)
-     * 3. Generic constraints (too complex for status methods)
-     * 4. Separate status types (breaks existing functionality)
-     * 5. Type assertions (decreases type safety)
-     * TODO: Consider specific status interface if patterns emerge
+     * Returns the current rate-limiting state for a specific key, or a summary
+     * of all tracked keys when no key is provided.
      */
     getLimitsStatus(key?: string): TPluginLimitsStatusData {
         if (key) {
@@ -539,7 +554,7 @@ export class LimitsPlugin extends AbstractPlugin<ILimitsPluginOptions> {
     }
 
     /**
-     * Reset limits for a key or all keys
+     * Clears rate-limiting state for the given key, or for all keys if omitted.
      */
     resetLimits(key?: string): void {
         if (key) {

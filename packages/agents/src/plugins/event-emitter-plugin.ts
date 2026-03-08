@@ -169,8 +169,33 @@ export interface IEventEmitterPluginStats extends IPluginStats {
 }
 
 /**
- * Plugin for event detection and propagation
- * Emits events during agent execution lifecycle
+ * Provides pub/sub event coordination during the agent execution lifecycle.
+ *
+ * Emits typed events for execution, conversation, and tool phases. Supports
+ * filtered listeners, one-time subscriptions, async/sync dispatch, and
+ * optional event buffering for high-throughput scenarios. Metrics are tracked
+ * via {@link IEventEmitterMetrics}.
+ *
+ * Lifecycle hooks used: {@link AbstractPlugin.beforeExecution | beforeExecution},
+ * {@link AbstractPlugin.afterExecution | afterExecution},
+ * {@link AbstractPlugin.beforeConversation | beforeConversation},
+ * {@link AbstractPlugin.afterConversation | afterConversation},
+ * {@link AbstractPlugin.beforeToolExecution | beforeToolExecution},
+ * {@link AbstractPlugin.afterToolExecution | afterToolExecution},
+ * {@link AbstractPlugin.onError | onError}
+ *
+ * @extends AbstractPlugin
+ * @see IEventEmitterPluginOptions - configuration options
+ * @see EVENT_EMITTER_EVENTS - canonical event name constants
+ * @see IEventEmitterMetrics - metrics collection contract
+ *
+ * @example
+ * ```ts
+ * const emitter = new EventEmitterPlugin({ async: true });
+ * emitter.on('agent.execution.complete', (event) => {
+ *   console.log('Execution done:', event.executionId);
+ * });
+ * ```
  */
 export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOptions, IEventEmitterPluginStats> {
     name = 'EventEmitterPlugin';
@@ -234,7 +259,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * Before execution starts
+     * Emits an `agent.execution.start` event with message count and config.
      */
     override async beforeExecution(context: IPluginExecutionContext): Promise<void> {
         await this.emit(EVENT_EMITTER_EVENTS.AGENT_EXECUTION_START, {
@@ -249,7 +274,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * After execution completes
+     * Emits an `agent.execution.complete` event with duration, tokens, and tool count.
      */
     override async afterExecution(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         await this.emit(EVENT_EMITTER_EVENTS.AGENT_EXECUTION_COMPLETE, {
@@ -265,7 +290,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * Before conversation starts
+     * Emits a `conversation.start` event with message history and config.
      */
     override async beforeConversation(context: IPluginExecutionContext): Promise<void> {
         await this.emit(EVENT_EMITTER_EVENTS.CONVERSATION_START, {
@@ -284,7 +309,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * After conversation completes
+     * Emits a `conversation.complete` event with response, tokens, and tool calls.
      */
     override async afterConversation(context: IPluginExecutionContext, result: IPluginExecutionResult): Promise<void> {
         await this.emit(EVENT_EMITTER_EVENTS.CONVERSATION_COMPLETE, {
@@ -305,7 +330,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * Before tool execution - emits tool.beforeExecute event
+     * Emits a `tool.beforeExecute` event for each tool about to be executed.
      */
     override async beforeToolExecution(context: IPluginExecutionContext, toolData: IToolExecutionContext): Promise<void> {
         if (!toolData) {
@@ -328,7 +353,8 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * After tool execution - emits tool.success or tool.error events
+     * Emits `tool.success` or `tool.error` plus a generic `tool.afterExecute`
+     * event for each completed tool call in the result.
      */
     override async afterToolExecution(context: IPluginExecutionContext, toolResults: IPluginExecutionResult): Promise<void> {
         // Handle tool results from IPluginExecutionResult
@@ -367,16 +393,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * On error
-     * 
-     * REASON: Error context structure varies by execution phase and error type, needs flexible handling
-     * ALTERNATIVES_CONSIDERED:
-     * 1. Strict error context interface (breaks error handling flexibility)
-     * 2. Union types (insufficient for dynamic error contexts)
-     * 3. Generic constraints (too complex for error handling)
-     * 4. Interface definitions (too rigid for varied error contexts)
-     * 5. Type assertions (decreases type safety)
-     * TODO: Consider standardized error context interface
+     * Emits an `agent.execution.error` event with the error and context details.
      */
     override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
         await this.emit(EVENT_EMITTER_EVENTS.AGENT_EXECUTION_ERROR, {
@@ -393,7 +410,9 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * Register event listener
+     * Registers a listener for the given event type. Returns a handler ID that
+     * can be passed to {@link off} for removal.
+     * @throws PluginError if the maximum listener count for this event type is exceeded
      */
     on(eventType: TEventName, listener: TEventEmitterListener, options?: {
         once?: boolean;
@@ -433,7 +452,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * Register one-time event listener
+     * Registers a listener that is automatically removed after its first invocation.
      */
     once(eventType: TEventName, listener: TEventEmitterListener, filter?: (event: IEventEmitterEventData) => boolean): string {
         return this.on(eventType, listener, {
@@ -443,7 +462,8 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * Remove event listener
+     * Removes a listener identified by handler ID or function reference.
+     * Returns `true` if the listener was found and removed.
      */
     off(eventType: TEventName, handlerIdOrListener: string | TEventEmitterListener): boolean {
         const handlers = this.handlers.get(eventType);
@@ -470,7 +490,8 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * Emit an event
+     * Emits an event to all matching listeners. Applies global filters first,
+     * then buffers or dispatches immediately based on configuration.
      */
     async emit(eventType: TEventName, eventData: Partial<IEventEmitterEventData> = {}): Promise<void> {
         if (!this.pluginOptions.events.includes(eventType)) {
@@ -576,7 +597,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * Flush buffered events
+     * Processes all buffered events immediately, clearing the buffer.
      */
     async flushBuffer(): Promise<void> {
         if (this.eventBuffer.length === 0) {
@@ -619,7 +640,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * Clear all listeners
+     * Removes all registered listeners for every event type.
      */
     clearAllListeners(): void {
         this.handlers.clear();
@@ -627,7 +648,7 @@ export class EventEmitterPlugin extends AbstractPlugin<IEventEmitterPluginOption
     }
 
     /**
-     * Cleanup on plugin destruction
+     * Flushes buffered events, removes all listeners, and stops the buffer timer.
      */
     async destroy(): Promise<void> {
         if (this.bufferTimer) {

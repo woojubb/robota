@@ -20,8 +20,28 @@ import {
 } from './storages/index';
 
 /**
- * Plugin for tracking usage statistics
- * Collects and stores usage data including tokens, costs, performance metrics
+ * Tracks token usage, request counts, and costs across agent executions.
+ *
+ * Supports memory, file, remote, and silent storage strategies. When
+ * {@link IUsagePluginOptions.trackCosts | trackCosts} is enabled, per-model
+ * cost rates are applied automatically. Periodic aggregation can be enabled
+ * via {@link IUsagePluginOptions.aggregateStats | aggregateStats}.
+ *
+ * Lifecycle hooks used: {@link AbstractPlugin.onModuleEvent | onModuleEvent}
+ *
+ * @extends AbstractPlugin
+ * @see IUsageStorage - storage backend contract
+ * @see IUsagePluginOptions - configuration options
+ *
+ * @example
+ * ```ts
+ * const plugin = new UsagePlugin({
+ *   strategy: 'memory',
+ *   trackCosts: true,
+ *   costRates: { 'gpt-4': { input: 0.03, output: 0.06 } },
+ * });
+ * await plugin.recordUsage({ provider: 'openai', model: 'gpt-4', ... });
+ * ```
  */
 export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePluginStats> {
     name = 'UsagePlugin';
@@ -80,7 +100,9 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
     }
 
     /**
-     * Handle module events for usage tracking
+     * Records usage statistics from module lifecycle events (completion and
+     * error events). Duration-bearing events are recorded with zero token
+     * counts as module events do not involve LLM calls.
      */
     override async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
         try {
@@ -152,7 +174,9 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
     }
 
     /**
-     * Record usage statistics
+     * Records a usage entry, calculating cost if cost tracking is enabled and
+     * a rate is configured for the model.
+     * @throws PluginError if the storage write fails
      */
     async recordUsage(usage: Omit<IUsageStats, 'timestamp' | 'cost'>): Promise<void> {
         try {
@@ -181,7 +205,8 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
     }
 
     /**
-     * Get usage statistics
+     * Retrieves usage entries, optionally filtered by conversation and time range.
+     * @throws PluginError if the storage read fails
      */
     async getUsageStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<IUsageStats[]> {
         try {
@@ -196,7 +221,9 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
     }
 
     /**
-     * Get aggregated usage statistics
+     * Returns aggregated totals (requests, tokens, cost, success rate) across
+     * all recorded usage entries within the optional time range.
+     * @throws PluginError if the storage aggregation fails
      */
     async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<IAggregatedUsageStats> {
         try {
@@ -237,7 +264,7 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
     }
 
     /**
-     * Cleanup resources
+     * Stops the aggregation timer and closes the underlying storage.
      */
     async destroy(): Promise<void> {
         try {

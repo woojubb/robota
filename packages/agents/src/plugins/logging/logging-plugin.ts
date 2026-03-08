@@ -39,8 +39,26 @@ export interface ILoggingContextData extends Record<string, string | number | bo
 }
 
 /**
- * Plugin for logging agent operations
- * Supports multiple logging strategies: console, file, remote, silent
+ * Logs agent operations using configurable storage backends.
+ *
+ * Supports console, file, remote, and silent strategies with configurable log
+ * levels and optional formatting via {@link ILogFormatter} implementations.
+ *
+ * Lifecycle hooks used: {@link AbstractPlugin.onModuleEvent | onModuleEvent}
+ *
+ * @extends AbstractPlugin
+ * @see ILogStorage - storage backend contract
+ * @see ILogFormatter - log formatting contract
+ * @see ILoggingPluginOptions - configuration options
+ *
+ * @example
+ * ```ts
+ * const plugin = new LoggingPlugin({
+ *   strategy: 'console',
+ *   level: 'info',
+ * });
+ * await plugin.info('Agent started');
+ * ```
  */
 export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggingPluginStats> {
     name = 'LoggingPlugin';
@@ -95,7 +113,8 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     }
 
     /**
-     * Handle module events for logging
+     * Routes module lifecycle events (initialize, execute, dispose) to the
+     * appropriate log level. Errors are logged but never re-thrown.
      */
     override async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
         try {
@@ -210,7 +229,8 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     }
 
     /**
-     * Log a message
+     * Writes a log entry to the configured storage if the level meets the
+     * current threshold. Logging failures are swallowed to prevent cascading errors.
      */
     async log(level: TLogLevel, message: string, context?: ILoggingContextData, metadata?: ILogEntry['metadata']): Promise<void> {
         if (!this.shouldLog(level)) {
@@ -270,7 +290,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     }
 
     /**
-     * Log execution start
+     * Logs the start of an agent execution, truncating user input to 100 characters.
      */
     async logExecutionStart(executionId: string, userInput: string, metadata?: ILogEntry['metadata']): Promise<void> {
         await this.info('Execution started', { userInput: userInput.substring(0, 100) }, {
@@ -281,7 +301,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     }
 
     /**
-     * Log execution completion
+     * Logs the completion of an agent execution with its duration.
      */
     async logExecutionComplete(executionId: string, duration: number, metadata?: ILogEntry['metadata']): Promise<void> {
         await this.info('Execution completed', { duration }, {
@@ -293,7 +313,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     }
 
     /**
-     * Log tool execution
+     * Logs a tool execution result at info (success) or error (failure) level.
      */
     async logToolExecution(toolName: string, executionId: string, duration?: number, success?: boolean, metadata?: ILogEntry['metadata']): Promise<void> {
         const message = success ? 'Tool executed successfully' : 'Tool execution failed';
@@ -310,7 +330,8 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     }
 
     /**
-     * Flush any pending logs
+     * Flushes any buffered log entries to the underlying storage.
+     * @throws PluginError if the flush operation fails
      */
     async flush(): Promise<void> {
         try {
@@ -323,7 +344,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
     }
 
     /**
-     * Cleanup resources
+     * Closes the underlying storage and releases resources.
      */
     async destroy(): Promise<void> {
         try {

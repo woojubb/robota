@@ -14,8 +14,33 @@ import type {
 
 
 /**
- * Plugin for tracking execution analytics automatically
- * Integrates with agent lifecycle to track performance without manual intervention
+ * Automatically tracks timing and success/failure of agent runs, provider
+ * calls, and tool executions by hooking into the agent lifecycle.
+ *
+ * Maintains an in-memory history capped at
+ * {@link IExecutionAnalyticsOptions.maxEntries | maxEntries}. Emits warnings
+ * when any operation exceeds
+ * {@link IExecutionAnalyticsOptions.performanceThreshold | performanceThreshold} ms.
+ *
+ * Lifecycle hooks used: {@link AbstractPlugin.beforeRun | beforeRun},
+ * {@link AbstractPlugin.afterRun | afterRun},
+ * {@link AbstractPlugin.beforeProviderCall | beforeProviderCall},
+ * {@link AbstractPlugin.afterProviderCall | afterProviderCall},
+ * {@link AbstractPlugin.beforeToolCall | beforeToolCall},
+ * {@link AbstractPlugin.afterToolCall | afterToolCall},
+ * {@link AbstractPlugin.onError | onError}
+ *
+ * @extends AbstractPlugin
+ * @see IExecutionAnalyticsOptions - configuration options
+ * @see IExecutionStats - individual execution record
+ * @see IAggregatedExecutionStats - aggregated analytics
+ *
+ * @example
+ * ```ts
+ * const plugin = new ExecutionAnalyticsPlugin({ maxEntries: 500 });
+ * // Attach to agent -- hooks fire automatically
+ * const stats = plugin.getAggregatedStats();
+ * ```
  */
 export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalyticsOptions, IExecutionAnalyticsPluginStats> {
     name = 'ExecutionAnalyticsPlugin';
@@ -68,7 +93,8 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Called before agent run - start tracking
+     * Begins tracking a run execution, storing the start time and first 100
+     * characters of input.
      */
     override beforeRun = async (input: string, options?: IRunOptions): Promise<void> => {
         const executionId = this.generateExecutionId();
@@ -87,7 +113,8 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Called after agent run - end tracking
+     * Completes tracking for a run execution, recording duration and metadata.
+     * Logs a warning if the duration exceeds the performance threshold.
      */
     override afterRun = async (input: string, response: string, options?: IRunOptions): Promise<void> => {
         // Find the related execution
@@ -138,7 +165,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Called before provider call - start tracking
+     * Begins tracking an LLM provider call.
      */
     override beforeProviderCall = async (messages: TUniversalMessage[]): Promise<void> => {
         const executionId = this.generateExecutionId('provider');
@@ -156,7 +183,8 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Called after provider call - end tracking
+     * Completes tracking for a provider call, recording duration and tool call
+     * metadata. Logs a warning if the duration exceeds the performance threshold.
      */
     override afterProviderCall = async (messages: TUniversalMessage[], response: TUniversalMessage): Promise<void> => {
         // Find the related execution
@@ -205,7 +233,7 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Called before tool call - start tracking
+     * Begins tracking a tool call execution.
      */
     override async beforeToolCall(toolName: string, parameters: TToolParameters): Promise<void> {
         const executionId = this.generateExecutionId('tool');
@@ -224,7 +252,8 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Called after tool call - end tracking
+     * Completes tracking for a tool call, recording duration, success, and
+     * error details when {@link IExecutionAnalyticsOptions.trackErrors | trackErrors} is enabled.
      */
     override async afterToolCall(toolName: string, parameters: TToolParameters, result: IToolExecutionResult): Promise<void> {
         // Find the related execution
@@ -274,7 +303,8 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Called on error - end tracking with error
+     * Records a failed execution for the first active tracking entry, logging
+     * error details when error tracking is enabled.
      */
     override async onError(error: Error, context?: IPluginErrorContext): Promise<void> {
         // Find any active execution that might be related to this error
@@ -323,7 +353,8 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Get execution statistics
+     * Returns recorded execution entries, optionally filtered by operation
+     * name and/or time range.
      */
     getExecutionStats(operation?: string, timeRange?: { start: Date; end: Date }): IExecutionStats[] {
         let filtered = this.executionHistory;
@@ -342,7 +373,8 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Get aggregated execution statistics
+     * Computes aggregated analytics (totals, averages, success rates, error
+     * distribution) across all recorded executions within the optional time range.
      */
     getAggregatedStats(timeRange?: { start: Date; end: Date }): IAggregatedExecutionStats {
         const stats = this.getExecutionStats(undefined, timeRange);
@@ -445,7 +477,8 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Get currently active executions
+     * Returns a snapshot of executions that have started but not yet completed,
+     * with their current elapsed duration.
      */
     getActiveExecutions(): Array<{ executionId: string; operation: string; duration: number }> {
         const now = Date.now();
@@ -457,7 +490,8 @@ export class ExecutionAnalyticsPlugin extends AbstractPlugin<IExecutionAnalytics
     }
 
     /**
-     * Get plugin performance statistics
+     * Returns internal plugin health metrics including record counts, active
+     * tracking entries, and approximate memory usage.
      */
     getPluginStats(): {
         totalRecorded: number;

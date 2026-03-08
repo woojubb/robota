@@ -15,8 +15,29 @@ import { MemoryPerformanceStorage } from './storages/index';
 import { NodeSystemMetricsCollector } from './collectors/system-metrics-collector';
 
 /**
- * Plugin for monitoring performance metrics
- * Collects system and application performance data
+ * Collects application and system performance metrics during agent execution.
+ *
+ * Optionally monitors memory, CPU, and network via
+ * {@link ISystemMetricsCollector}. Logs a warning when an operation exceeds
+ * the configured {@link IPerformancePluginOptions.performanceThreshold | performanceThreshold}.
+ * Currently only the `memory` storage strategy is implemented.
+ *
+ * Lifecycle hooks used: {@link AbstractPlugin.onModuleEvent | onModuleEvent}
+ *
+ * @extends AbstractPlugin
+ * @see IPerformanceStorage - storage backend contract
+ * @see ISystemMetricsCollector - system metrics collection contract
+ * @see IPerformancePluginOptions - configuration options
+ *
+ * @example
+ * ```ts
+ * const plugin = new PerformancePlugin({
+ *   strategy: 'memory',
+ *   monitorMemory: true,
+ *   performanceThreshold: 2000,
+ * });
+ * await plugin.recordMetrics({ operation: 'run', duration: 1500, success: true, errorCount: 0 });
+ * ```
  */
 export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions, IPerformancePluginStats> {
     name = 'PerformancePlugin';
@@ -75,7 +96,8 @@ export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions,
     }
 
     /**
-     * Handle module events for performance monitoring
+     * Records performance metrics from module lifecycle events
+     * (initialization, execution, disposal) including duration and error counts.
      */
     override async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
         try {
@@ -199,7 +221,9 @@ export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions,
     }
 
     /**
-     * Record performance metrics
+     * Records performance metrics, enriching them with system metrics (memory,
+     * CPU, network) when the corresponding monitoring options are enabled.
+     * @throws PluginError if the storage write fails
      */
     async recordMetrics(metrics: Omit<IPerformanceMetrics, 'timestamp' | 'memoryUsage' | 'cpuUsage' | 'networkStats'>): Promise<void> {
         try {
@@ -241,7 +265,8 @@ export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions,
     }
 
     /**
-     * Get performance metrics
+     * Retrieves recorded metrics, optionally filtered by operation name and time range.
+     * @throws PluginError if the storage read fails
      */
     async getMetrics(operation?: string, timeRange?: { start: Date; end: Date }): Promise<IPerformanceMetrics[]> {
         try {
@@ -284,7 +309,7 @@ export class PerformancePlugin extends AbstractPlugin<IPerformancePluginOptions,
     }
 
     /**
-     * Cleanup resources
+     * Closes the underlying storage and releases resources.
      */
     async destroy(): Promise<void> {
         try {
