@@ -128,7 +128,7 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
     /**
      * Find the operation in the OpenAPI specification
      */
-    private findOperation(): { method: THTTPMethod; path: string; operation: OpenAPIV3.OperationObject } | null {
+    private findOperation(): { method: THTTPMethod; path: string; operation: OpenAPIV3.OperationObject } | undefined {
         for (const [path, pathItem] of Object.entries(this.apiSpec.paths || {})) {
             if (!pathItem) continue;
 
@@ -139,7 +139,7 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
                 }
             }
         }
-        return null;
+        return undefined;
     }
 
     /**

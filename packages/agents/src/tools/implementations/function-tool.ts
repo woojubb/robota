@@ -144,7 +144,7 @@ export class FunctionTool extends AbstractTool<TToolParameters, IToolResult> imp
     /**
      * Validate individual parameter type
      */
-    private validateParameterType(key: string, value: TUniversalValue, schema: IParameterSchema): string | null {
+    private validateParameterType(key: string, value: TUniversalValue, schema: IParameterSchema): string | undefined {
         const expectedType = schema['type'];
 
         switch (expectedType) {
@@ -206,7 +206,7 @@ export class FunctionTool extends AbstractTool<TToolParameters, IToolResult> imp
             }
         }
 
-        return null;
+        return undefined;
     }
 
     /**
