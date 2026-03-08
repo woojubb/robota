@@ -6,7 +6,6 @@ description: Standard workflow for implementing DAG nodes with AbstractNodeDefin
 # DAG Node Standard
 
 ## Rule Anchor
-- `AGENTS.md` > "DAG Node Implementation"
 - `AGENTS.md` > "Development Patterns"
 - `AGENTS.md` > "Type System (Strict)"
 
@@ -140,6 +139,14 @@ export class ExampleNodeDefinition extends AbstractNodeDefinition<typeof Example
   - **Fix**: ensure defaults are declared in zod schema only, not duplicated.
 - **Failure**: brittle parsing inside node index files.
   - **Fix**: extract provider/runtime details to `runtime.ts`.
+
+## Execution Safety Rules
+
+- No duplicate-prevention anti-patterns. Design systems that do not generate duplicates.
+- Failure layers `[EMITTER-CONTRACT]` and `[APPLY-LAYER]` both stop immediately.
+- Event names must use declarative constants with correct ownership and prefix.
+- DAG events use `run.*`, `task.*`, `worker.*`, and `scheduler.*` prefixes.
+- Terminal failure states (`failed`, `cancelled`) must remain terminal unless an explicit policy gate allows reprocessing.
 
 ## Verification Checklist
 - [ ] Node extends `AbstractNodeDefinition`.
