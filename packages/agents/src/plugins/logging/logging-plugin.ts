@@ -112,120 +112,65 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
         });
     }
 
+    /** Event name → log descriptor mapping. Eliminates the 9-case switch statement. */
+    private static readonly MODULE_EVENT_MAP: ReadonlyMap<string, { level: TLogLevel; message: string; operation: string }> = new Map([
+        [EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START, { level: 'info', message: 'Module initialization started', operation: 'module_initialize_start' }],
+        [EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE, { level: 'info', message: 'Module initialization completed', operation: 'module_initialize_complete' }],
+        [EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR, { level: 'error', message: 'Module initialization failed', operation: 'module_initialize_error' }],
+        [EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START, { level: 'debug', message: 'Module execution started', operation: 'module_execution_start' }],
+        [EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE, { level: 'debug', message: 'Module execution completed', operation: 'module_execution_complete' }],
+        [EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR, { level: 'error', message: 'Module execution failed', operation: 'module_execution_error' }],
+        [EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START, { level: 'debug', message: 'Module disposal started', operation: 'module_dispose_start' }],
+        [EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE, { level: 'info', message: 'Module disposal completed', operation: 'module_dispose_complete' }],
+        [EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR, { level: 'error', message: 'Module disposal failed', operation: 'module_dispose_error' }],
+    ]);
+
     /**
      * Routes module lifecycle events (initialize, execute, dispose) to the
      * appropriate log level. Errors are logged but never re-thrown.
      */
     override async onModuleEvent(eventName: TEventName, eventData: IEventEmitterEventData): Promise<void> {
         try {
-            // Extract module event data from eventData.data
-            const moduleData = eventData.data;
+            const descriptor = LoggingPlugin.MODULE_EVENT_MAP.get(eventName);
+            if (!descriptor) return;
 
-            switch (eventName) {
-                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START:
-                    await this.info('Module initialization started', {
-                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
-                    }, {
-                        operation: 'module_initialize_start',
-                        ...(eventData.executionId && { executionId: eventData.executionId })
-                    });
-                    break;
+            const { moduleName, moduleType, duration, success } = LoggingPlugin.extractModuleData(eventData.data);
+            const context: ILoggingContextData = { moduleName, moduleType };
+            if (duration !== undefined) context.duration = duration;
+            if (success !== undefined) context.success = success;
 
-                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE:
-                    await this.info('Module initialization completed', {
-                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] })
-                    }, {
-                        operation: 'module_initialize_complete',
-                        ...(eventData.executionId && { executionId: eventData.executionId }),
-                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] })
-                    });
-                    break;
+            const metadata: ILogEntry['metadata'] = { operation: descriptor.operation };
+            if (eventData.executionId) metadata.executionId = eventData.executionId;
+            if (duration !== undefined) metadata.duration = duration;
 
-                case EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR:
-                    await this.error('Module initialization failed', eventData.error, {
-                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
-                    }, {
-                        operation: 'module_initialize_error',
-                        ...(eventData.executionId && { executionId: eventData.executionId })
-                    });
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START:
-                    await this.debug('Module execution started', {
-                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
-                    }, {
-                        operation: 'module_execution_start',
-                        ...(eventData.executionId && { executionId: eventData.executionId })
-                    });
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE:
-                    await this.debug('Module execution completed', {
-                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] }),
-                        ...(moduleData && 'success' in moduleData && typeof moduleData['success'] === 'boolean' && { success: moduleData['success'] })
-                    }, {
-                        operation: 'module_execution_complete',
-                        ...(eventData.executionId && { executionId: eventData.executionId }),
-                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] })
-                    });
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR:
-                    await this.error('Module execution failed', eventData.error, {
-                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
-                    }, {
-                        operation: 'module_execution_error',
-                        ...(eventData.executionId && { executionId: eventData.executionId })
-                    });
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START:
-                    await this.debug('Module disposal started', {
-                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
-                    }, {
-                        operation: 'module_dispose_start',
-                        ...(eventData.executionId && { executionId: eventData.executionId })
-                    });
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE:
-                    await this.info('Module disposal completed', {
-                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
-                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] })
-                    }, {
-                        operation: 'module_dispose_complete',
-                        ...(eventData.executionId && { executionId: eventData.executionId }),
-                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] })
-                    });
-                    break;
-
-                case EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR:
-                    await this.error('Module disposal failed', eventData.error, {
-                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
-                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
-                    }, {
-                        operation: 'module_dispose_error',
-                        ...(eventData.executionId && { executionId: eventData.executionId })
-                    });
-                    break;
+            const isErrorEvent = descriptor.level === 'error';
+            if (isErrorEvent) {
+                await this.error(descriptor.message, eventData.error, context, metadata);
+            } else {
+                await this.log(descriptor.level, descriptor.message, context, metadata);
             }
         } catch (error) {
-            // Log the error but don't throw to avoid breaking module event processing
             this.simpleLogger.error(
                 `LoggingPlugin failed to handle module event ${eventName}:`,
                 error instanceof Error ? error : new Error(String(error))
             );
         }
+    }
+
+    /** Safely extracts module data fields from untyped event data. */
+    private static extractModuleData(data: unknown): {
+        moduleName: string;
+        moduleType: string;
+        duration?: number;
+        success?: boolean;
+    } {
+        const record = (typeof data === 'object' && data !== null) ? data as Record<string, unknown> : {};
+        return {
+            moduleName: typeof record['moduleName'] === 'string' ? record['moduleName'] : 'unknown',
+            moduleType: typeof record['moduleType'] === 'string' ? record['moduleType'] : 'unknown',
+            ...(typeof record['duration'] === 'number' && { duration: record['duration'] }),
+            ...(typeof record['success'] === 'boolean' && { success: record['success'] }),
+        };
     }
 
     /**
