@@ -112,6 +112,187 @@ describe('BytedanceProvider', () => {
         expect(result.error.code).toBe('PROVIDER_JOB_NOT_FOUND');
     });
 
+    it('rejects createVideo with empty prompt', async () => {
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.createVideo({ prompt: '', model: 'seedance-2.0' });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('PROVIDER_INVALID_REQUEST');
+        }
+    });
+
+    it('rejects createVideo with empty model', async () => {
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.createVideo({ prompt: 'test', model: '' });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('PROVIDER_INVALID_REQUEST');
+        }
+    });
+
+    it('rejects createVideo when seed is provided', async () => {
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.createVideo({ prompt: 'test', model: 'seedance-2.0', seed: 42 });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('PROVIDER_INVALID_REQUEST');
+        }
+    });
+
+    it('rejects createVideo with empty task id in response', async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            text: async () => JSON.stringify({ id: '', status: 'queued' })
+        });
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.createVideo({ prompt: 'test', model: 'seedance-2.0' });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('PROVIDER_UPSTREAM_ERROR');
+        }
+    });
+
+    it('includes image URI content in createVideo payload', async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            text: async () => JSON.stringify({ id: 'task-img', status: 'queued' })
+        });
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.createVideo({
+            prompt: 'animate this',
+            model: 'seedance-2.0',
+            inputImages: [{ kind: 'uri', uri: 'https://example.com/img.png' }]
+        });
+        expect(result.ok).toBe(true);
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(body.content).toHaveLength(2);
+        expect(body.content[1].type).toBe('image_url');
+        expect(body.content[1].image_url.url).toBe('https://example.com/img.png');
+    });
+
+    it('includes inline base64 image content in createVideo payload', async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            text: async () => JSON.stringify({ id: 'task-b64', status: 'queued' })
+        });
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.createVideo({
+            prompt: 'animate this',
+            model: 'seedance-2.0',
+            inputImages: [{ kind: 'inline', data: 'aGVsbG8=', mimeType: 'image/png' }]
+        });
+        expect(result.ok).toBe(true);
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(body.content[1].image_url.url).toBe('data:image/png;base64,aGVsbG8=');
+    });
+
+    it('rejects createVideo with empty image URI', async () => {
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.createVideo({
+            prompt: 'test',
+            model: 'seedance-2.0',
+            inputImages: [{ kind: 'uri', uri: '' }]
+        });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('PROVIDER_INVALID_REQUEST');
+        }
+    });
+
+    it('rejects createVideo with empty inline image data', async () => {
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.createVideo({
+            prompt: 'test',
+            model: 'seedance-2.0',
+            inputImages: [{ kind: 'inline', data: '', mimeType: 'image/png' }]
+        });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('PROVIDER_INVALID_REQUEST');
+        }
+    });
+
+    it('rejects createVideo with empty inline image mimeType', async () => {
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.createVideo({
+            prompt: 'test',
+            model: 'seedance-2.0',
+            inputImages: [{ kind: 'inline', data: 'aGVsbG8=', mimeType: '' }]
+        });
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('PROVIDER_INVALID_REQUEST');
+        }
+    });
+
+    it('rejects getVideoJob with empty jobId', async () => {
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.getVideoJob('');
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('PROVIDER_INVALID_REQUEST');
+        }
+    });
+
+    it('rejects cancelVideoJob with empty jobId', async () => {
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test'
+        });
+        const result = await provider.cancelVideoJob('');
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.code).toBe('PROVIDER_INVALID_REQUEST');
+        }
+    });
+
+    it('uses POST method for cancelVideoJob when configured', async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            text: async () => JSON.stringify({ id: 'task-cancel', status: 'cancelled' })
+        });
+        const provider = new BytedanceProvider({
+            apiKey: 'test-key',
+            baseUrl: 'https://api.byteplus.test',
+            cancelVideoTaskMethod: 'POST'
+        });
+        await provider.cancelVideoJob('task-cancel');
+        expect(fetchMock).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ method: 'POST' })
+        );
+    });
+
     it('uses DELETE by default for cancelVideoJob', async () => {
         fetchMock.mockResolvedValue({
             ok: true,
