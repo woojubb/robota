@@ -116,6 +116,35 @@ describe('WebhookPlugin', () => {
             expect(stats.endpointCount).toBe(2);
         });
 
+        it('should throw when endpoint URL uses file:// scheme', () => {
+            expect(() => new WebhookPlugin({
+                endpoints: [{ url: 'file:///etc/passwd' }]
+            })).toThrow(PluginError);
+            expect(() => new WebhookPlugin({
+                endpoints: [{ url: 'file:///etc/passwd' }]
+            })).toThrow('Webhook endpoint URL must use http or https');
+        });
+
+        it('should throw when endpoint URL uses ftp:// scheme', () => {
+            expect(() => new WebhookPlugin({
+                endpoints: [{ url: 'ftp://example.com/data' }]
+            })).toThrow(PluginError);
+        });
+
+        it('should accept http:// endpoint URL', () => {
+            const plugin = new WebhookPlugin({
+                endpoints: [{ url: 'http://localhost:3000/hook' }]
+            });
+            expect(plugin.name).toBe('WebhookPlugin');
+        });
+
+        it('should accept https:// endpoint URL', () => {
+            const plugin = new WebhookPlugin({
+                endpoints: [{ url: 'https://example.com/hook' }]
+            });
+            expect(plugin.name).toBe('WebhookPlugin');
+        });
+
         it('should throw on invalid event filter in endpoint', () => {
             expect(() => new WebhookPlugin({
                 endpoints: [{
