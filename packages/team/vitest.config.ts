@@ -10,6 +10,7 @@ export default defineConfig({
             exclude: [
                 'dist/**',
                 'node_modules/**',
+                'examples/**',
                 '**/*.test.ts',
                 '**/*.spec.ts'
             ]

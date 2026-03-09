@@ -17,6 +17,12 @@ export default defineConfig({
             'src/**/*.{test,spec}.{ts,tsx}'
         ],
         environment: 'node',
-        testTimeout: 10000
+        testTimeout: 10000,
+        coverage: {
+            exclude: [
+                'examples/**',
+                'src/index.ts'
+            ]
+        }
     },
 }); 

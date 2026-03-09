@@ -251,7 +251,7 @@ export class AnthropicProvider extends AbstractAIProvider {
             const toolContent = content as Anthropic.ToolUseBlock;
             const result: TUniversalMessage = {
                 role: 'assistant',
-                content: '', // Empty string for type compatibility
+                content: null,
                 timestamp: new Date(),
                 toolCalls: [{
                     id: toolContent.id,

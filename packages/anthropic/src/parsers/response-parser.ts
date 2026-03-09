@@ -42,7 +42,7 @@ export class AnthropicResponseParser {
 
             const result: TUniversalMessage = {
                 role: 'assistant',
-                content,
+                content: toolCalls.length > 0 ? null : content,
                 timestamp: new Date(),
                 ...(toolCalls.length > 0 && { toolCalls }),
                 ...(usage && { usage }),
@@ -85,7 +85,7 @@ export class AnthropicResponseParser {
                     if (chunk.content_block?.type === 'tool_use') {
                         return {
                             role: 'assistant',
-                            content: '',
+                            content: null,
                             timestamp: new Date(),
                             toolCalls: [{
                                 id: chunk.content_block.id,
@@ -119,7 +119,7 @@ export class AnthropicResponseParser {
                         // Handle tool call argument streaming
                         return {
                             role: 'assistant',
-                            content: '',
+                            content: null,
                             timestamp: new Date(),
                             metadata: {
                                 isStreamChunk: true,
