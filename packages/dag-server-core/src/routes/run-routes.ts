@@ -146,12 +146,12 @@ export function registerRunRoutes(
         });
     });
 
-    router.delete('/v1/dag/runs/:dagRunId', async (req: Request<{ dagRunId: string }>, res: Response) => {
-        const deleted = await dagRunService.deleteRunArtifacts(req.params.dagRunId);
+    router.delete('/v1/dag/runs/temporary-copies', async (_req: Request, res: Response) => {
+        const deleted = await dagRunService.deleteRunCopyArtifacts();
         if (!deleted.ok) {
-            res.status(HTTP_NOT_FOUND).json({
+            res.status(HTTP_BAD_REQUEST).json({
                 ok: false,
-                status: HTTP_NOT_FOUND,
+                status: HTTP_BAD_REQUEST,
                 errors: [deleted.error]
             });
             return;
@@ -163,12 +163,12 @@ export function registerRunRoutes(
         });
     });
 
-    router.delete('/v1/dag/runs/temporary-copies', async (_req: Request, res: Response) => {
-        const deleted = await dagRunService.deleteRunCopyArtifacts();
+    router.delete('/v1/dag/runs/:dagRunId', async (req: Request<{ dagRunId: string }>, res: Response) => {
+        const deleted = await dagRunService.deleteRunArtifacts(req.params.dagRunId);
         if (!deleted.ok) {
-            res.status(HTTP_BAD_REQUEST).json({
+            res.status(HTTP_NOT_FOUND).json({
                 ok: false,
-                status: HTTP_BAD_REQUEST,
+                status: HTTP_NOT_FOUND,
                 errors: [deleted.error]
             });
             return;

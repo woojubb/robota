@@ -177,6 +177,10 @@ export async function startDagServer(options: import('./routes/route-types.js').
         app.get('/docs/dag.json', (_req: Request, res: Response) => {
             res.status(200).json(DAG_OPENAPI_DOCUMENT);
         });
+        app.use('/docs/dag', (_req, res, next) => {
+            res.removeHeader('Content-Security-Policy');
+            next();
+        });
         app.use(
             '/docs/dag',
             swaggerUi.serve,
