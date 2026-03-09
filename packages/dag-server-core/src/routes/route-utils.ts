@@ -71,6 +71,42 @@ export function resolveCorrelationId(req: { get(name: string): string | undefine
     return createCorrelationId(scope);
 }
 
+/** Media types safe for inline display in browsers. */
+const ALLOWED_INLINE_MEDIA_TYPES: ReadonlySet<string> = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'audio/mpeg',
+    'audio/ogg',
+    'audio/wav',
+    'audio/webm',
+    'video/mp4',
+    'video/webm',
+    'application/pdf',
+    'text/plain',
+    'text/csv',
+    'application/json'
+]);
+
+/**
+ * Checks whether a media type is safe for inline browser display.
+ * Normalizes to lowercase and strips parameters (e.g. charset).
+ */
+export function isAllowedInlineMediaType(mediaType: string): boolean {
+    const base = mediaType.toLowerCase().split(';')[0].trim();
+    return ALLOWED_INLINE_MEDIA_TYPES.has(base);
+}
+
+/**
+ * Sanitizes a file name for safe use in Content-Disposition headers.
+ * Replaces `"` and `\` with `_` to prevent header injection.
+ */
+export function sanitizeFileName(fileName: string): string {
+    return fileName.replace(/["\\]/g, '_');
+}
+
 /**
  * Converts stored asset metadata into an API response shape.
  */
