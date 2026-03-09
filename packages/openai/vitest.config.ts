@@ -9,5 +9,13 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 10000,
     globals: true,
+    coverage: {
+      exclude: [
+        'examples/**',
+        'src/**/*.test.ts',
+        'src/**/*.spec.ts',
+        'tests/**',
+      ],
+    },
   },
 });
