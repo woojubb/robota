@@ -4,6 +4,8 @@ import type { ICreateAssetBody } from './route-types.js';
 import {
     toAssetReference,
     getAssetContentUri,
+    isAllowedInlineMediaType,
+    sanitizeFileName,
     HTTP_BAD_REQUEST,
     HTTP_NOT_FOUND,
     HTTP_CREATED,
@@ -158,8 +160,13 @@ export function registerAssetRoutes(
             });
             return;
         }
-        res.setHeader('Content-Type', contentResult.metadata.mediaType);
-        res.setHeader('Content-Disposition', `inline; filename="${contentResult.metadata.fileName}"`);
+        const mediaType = contentResult.metadata.mediaType;
+        const isInlineSafe = isAllowedInlineMediaType(mediaType);
+        const safeContentType = isInlineSafe ? mediaType : 'application/octet-stream';
+        const disposition = isInlineSafe ? 'inline' : 'attachment';
+        const safeFileName = sanitizeFileName(contentResult.metadata.fileName);
+        res.setHeader('Content-Type', safeContentType);
+        res.setHeader('Content-Disposition', `${disposition}; filename="${safeFileName}"`);
         contentResult.stream.pipe(res);
     });
 }
