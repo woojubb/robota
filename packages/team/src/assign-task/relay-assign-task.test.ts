@@ -38,7 +38,7 @@ function createToolExecutionContext(): IToolExecutionContext {
     return {
         eventService: createMockEventService(),
         baseEventService: createMockEventService(),
-        ownerPath: [{ type: 'agent', id: 'parent-agent-1' }],
+        ownerPath: [{ type: 'agent', id: 'agent-1' }],
         agentId: 'test-agent-123'
     } as unknown as IToolExecutionContext;
 }
