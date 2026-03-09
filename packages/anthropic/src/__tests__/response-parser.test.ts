@@ -212,7 +212,7 @@ describe('AnthropicResponseParser', () => {
             const result = AnthropicResponseParser.parseStreamingChunk(chunk);
 
             expect(result).not.toBeNull();
-            expect(result!.content).toBe('');
+            expect(result!.content).toBeNull();
             expect(result!.metadata?.isStreamChunk).toBe(true);
         });
 

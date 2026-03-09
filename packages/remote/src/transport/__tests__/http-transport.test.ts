@@ -59,25 +59,21 @@ describe('HttpTransport', () => {
         it('should throw TransportError with CONNECTION_FAILED code', async () => {
             mockFetch.mockRejectedValue(new Error('Network down'));
 
-            try {
-                await transport.connect();
-            } catch (error) {
+            await expect(transport.connect()).rejects.toSatisfy((error: unknown) => {
                 expect(error).toBeInstanceOf(TransportError);
                 expect((error as TransportError).code).toBe('CONNECTION_FAILED');
-            }
+                return true;
+            });
         });
 
         it('should handle non-Error thrown values during connection', async () => {
             mockFetch.mockRejectedValue('string error');
 
-            try {
-                await transport.connect();
-            } catch (error) {
+            await expect(transport.connect()).rejects.toSatisfy((error: unknown) => {
                 expect(error).toBeInstanceOf(TransportError);
-                // The non-Error value goes through send() first, which wraps it as NETWORK_ERROR,
-                // then connect() catches that TransportError and re-wraps as CONNECTION_FAILED
                 expect((error as TransportError).code).toBe('CONNECTION_FAILED');
-            }
+                return true;
+            });
         });
     });
 

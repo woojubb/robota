@@ -273,7 +273,7 @@ describe('AnthropicProvider', () => {
             const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
             expect(result.role).toBe('assistant');
-            expect(result.content).toBe('');
+            expect(result.content).toBeNull();
             expect(result.toolCalls).toHaveLength(1);
             expect(result.toolCalls![0]).toEqual({
                 id: 'call_1',
@@ -631,13 +631,9 @@ describe('AnthropicProvider', () => {
     // ── chatStream() — no client available ──────────────────────
 
     describe('chatStream — no client', () => {
-        it('should throw when client is not available and no executor', async () => {
-            // Create provider with executor, then we test direct path fallback scenario
-            // We can't easily test this since constructor requires one of the three,
-            // but we can test the error message pattern by mocking internal state.
-            // The constructor guards prevent reaching this state normally.
-            // This is covered implicitly by chat() tests above.
-            expect(true).toBe(true);
+        it('should throw when neither client nor executor is provided', () => {
+            expect(() => new AnthropicProvider({} as IAnthropicProviderOptions))
+                .toThrow('Either Anthropic client, apiKey, or executor is required');
         });
     });
 
