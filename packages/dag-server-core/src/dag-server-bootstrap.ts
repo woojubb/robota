@@ -1,5 +1,6 @@
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import {
     LifecycleTaskExecutorPort,
@@ -78,6 +79,19 @@ export async function startDagServer(options: import('./routes/route-types.js').
         origin: corsOrigins,
         methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Correlation-Id']
+    }));
+    app.use(helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'none'"],
+                scriptSrc: ["'self'"],
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                imgSrc: ["'self'", "data:"],
+                connectSrc: ["'self'"],
+                frameAncestors: ["'none'"]
+            }
+        },
+        crossOriginResourcePolicy: { policy: 'same-origin' }
     }));
     app.use(express.json({ limit: requestBodyLimit }));
 

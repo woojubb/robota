@@ -38,6 +38,7 @@
     "@robota-sdk/dag-core": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "helmet": "^7.1.0",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {

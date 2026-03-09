@@ -373,10 +373,15 @@ export class WebhookPlugin extends AbstractPlugin<IWebhookPluginOptions, IWebhoo
                 throw new PluginError(`Webhook endpoint URL is required`, this.name);
             }
 
+            let parsed: URL;
             try {
-                new URL(endpoint.url);
+                parsed = new URL(endpoint.url);
             } catch {
                 throw new PluginError(`Invalid webhook URL: ${endpoint.url}`, this.name);
+            }
+
+            if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+                throw new PluginError(`Webhook endpoint URL must use http or https: ${endpoint.url}`, this.name);
             }
 
             if (endpoint.events) {
