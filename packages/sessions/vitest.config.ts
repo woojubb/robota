@@ -15,7 +15,8 @@ export default defineConfig({
                 'dist',
                 '**/*.d.ts',
                 '**/*.config.ts',
-                '**/index.ts'
+                '**/index.ts',
+                'examples/**'
             ]
         }
     }
