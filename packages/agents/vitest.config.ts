@@ -12,6 +12,17 @@ export default defineConfig({
         hookTimeout: 5000,
         typecheck: {
             tsconfig: './tsconfig.test.json'
+        },
+        coverage: {
+            exclude: [
+                'examples/**',
+                'src/index.ts',
+                'src/*/index.ts',
+                'src/*/*/index.ts',
+                'src/*/*/*/index.ts',
+                'src/interfaces/**',
+                'src/schemas/**',
+            ]
         }
     },
 }); 
