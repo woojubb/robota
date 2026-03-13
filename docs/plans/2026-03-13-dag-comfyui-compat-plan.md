@@ -1,20 +1,27 @@
-# DAG ComfyUI-Compatible API + Orchestration Layer Implementation Plan
+# DAG Prompt API + Orchestration Layer Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Refactor DAG API to be ComfyUI-compatible with an orchestration layer for extended features (cost, retry, auth).
+**Goal:** Refactor DAG API to use ComfyUI-compatible prompt format with a separate orchestration layer for extended features (cost, retry, auth).
 
 **Architecture:**
 ```
 [Orchestration Layer]  packages/dag-orchestrator/
-    ↓ queries /object_info, enforces policies, delegates to backend
-[ComfyUI-compatible API]  packages/dag-api/ (refactored)
+    ↓ queries object_info via backend port, enforces policies, delegates
+[Prompt API Layer]  packages/dag-api/ (refactored)
     ↓
-[Backend Port]  IComfyBackendPort (in dag-core)
+[Backend Port]  IPromptBackendPort (in dag-core)
     ↓
 [Robota DAG Adapter]  packages/dag-server-core/ (implements port)
-[ComfyUI Proxy Adapter]  (future — proxies to real ComfyUI)
+[External Proxy Adapter]  (future — proxies to external backend)
 ```
+
+**Naming convention:** No external product names in code. Use generic domain names.
+
+**Separation principle:** Prompt API layer and Orchestrator are completely independent.
+- API layer: protocol/format handling
+- Orchestrator: policy enforcement (cost, retry, auth)
+- Both depend on `IPromptBackendPort`, never on each other.
 
 **Tech Stack:** TypeScript, Express, Zod, Vitest, OpenAPI 3.0.3
 
@@ -28,49 +35,41 @@
 
 ---
 
-## Task 1: ComfyUI Prompt Types in dag-core
+## Task 1: Prompt Types in dag-core
 
-Define the ComfyUI-compatible type contracts in dag-core as the SSOT.
+Define the prompt format type contracts in dag-core as the SSOT.
 
 **Files:**
-- Create: `packages/dag-core/src/types/comfy-prompt.ts`
+- Create: `packages/dag-core/src/types/prompt-types.ts`
 - Modify: `packages/dag-core/src/index.ts` (re-export new types)
-- Test: `packages/dag-core/src/__tests__/comfy-prompt-types.test.ts`
+- Test: `packages/dag-core/src/__tests__/prompt-types.test.ts`
 
 **Step 1: Write the failing test**
 
 ```typescript
-// packages/dag-core/src/__tests__/comfy-prompt-types.test.ts
+// packages/dag-core/src/__tests__/prompt-types.test.ts
 import { describe, it, expect } from 'vitest';
 import type {
-  IComfyPrompt,
-  IComfyNodeDef,
-  TComfyInputValue,
-  TComfyLink,
-  IComfyPromptRequest,
-  IComfyPromptResponse,
-  IComfyQueueStatus,
-  IComfyHistoryEntry,
-  IComfyObjectInfo,
-  IComfyNodeObjectInfo,
-  IComfySystemStats,
-} from '../types/comfy-prompt.js';
+  IPrompt,
+  IPromptNodeDef,
+  TPromptInputValue,
+  TPromptLink,
+  IPromptRequest,
+  IPromptResponse,
+  IQueueStatus,
+  IHistoryEntry,
+  IObjectInfo,
+  INodeObjectInfo,
+  ISystemStats,
+} from '../types/prompt-types.js';
 
-describe('ComfyUI prompt types', () => {
+describe('Prompt types', () => {
   it('should represent a valid prompt with nodes and links', () => {
-    const prompt: IComfyPrompt = {
+    const prompt: IPrompt = {
       '4': {
         class_type: 'CheckpointLoaderSimple',
         inputs: {
           ckpt_name: 'v1-5-pruned-emaonly.safetensors',
-        },
-      },
-      '5': {
-        class_type: 'EmptyLatentImage',
-        inputs: {
-          width: 512,
-          height: 512,
-          batch_size: 1,
         },
       },
       '3': {
@@ -80,12 +79,7 @@ describe('ComfyUI prompt types', () => {
           steps: 20,
           cfg: 8.0,
           sampler_name: 'euler',
-          scheduler: 'normal',
-          denoise: 1.0,
           model: ['4', 0],
-          positive: ['6', 0],
-          negative: ['7', 0],
-          latent_image: ['5', 0],
         },
         _meta: { title: 'KSampler' },
       },
@@ -98,12 +92,9 @@ describe('ComfyUI prompt types', () => {
   });
 
   it('should represent a prompt request with client_id and extra_data', () => {
-    const request: IComfyPromptRequest = {
+    const request: IPromptRequest = {
       prompt: {
-        '1': {
-          class_type: 'InputNode',
-          inputs: { text: 'hello' },
-        },
+        '1': { class_type: 'InputNode', inputs: { text: 'hello' } },
       },
       client_id: 'test-client-uuid',
       extra_data: {
@@ -118,18 +109,17 @@ describe('ComfyUI prompt types', () => {
   });
 
   it('should represent a prompt response with prompt_id', () => {
-    const response: IComfyPromptResponse = {
+    const response: IPromptResponse = {
       prompt_id: 'abc-123',
       number: 1,
       node_errors: {},
     };
 
     expect(response.prompt_id).toBe('abc-123');
-    expect(response.node_errors).toEqual({});
   });
 
   it('should represent queue status', () => {
-    const queue: IComfyQueueStatus = {
+    const queue: IQueueStatus = {
       queue_running: [],
       queue_pending: [],
     };
@@ -138,7 +128,7 @@ describe('ComfyUI prompt types', () => {
   });
 
   it('should represent history entry', () => {
-    const entry: IComfyHistoryEntry = {
+    const entry: IHistoryEntry = {
       prompt: {
         '1': { class_type: 'InputNode', inputs: { text: 'hello' } },
       },
@@ -156,7 +146,7 @@ describe('ComfyUI prompt types', () => {
   });
 
   it('should represent object_info for a node type', () => {
-    const info: IComfyNodeObjectInfo = {
+    const info: INodeObjectInfo = {
       display_name: 'KSampler',
       category: 'sampling',
       input: {
@@ -178,7 +168,7 @@ describe('ComfyUI prompt types', () => {
   });
 
   it('should represent system stats', () => {
-    const stats: IComfySystemStats = {
+    const stats: ISystemStats = {
       system: {
         os: 'darwin',
         python_version: '',
@@ -191,8 +181,8 @@ describe('ComfyUI prompt types', () => {
   });
 
   it('should distinguish links from config values', () => {
-    const link: TComfyLink = ['4', 0];
-    const configValue: TComfyInputValue = 'euler';
+    const link: TPromptLink = ['4', 0];
+    const configValue: TPromptInputValue = 'euler';
 
     expect(Array.isArray(link)).toBe(true);
     expect(Array.isArray(configValue)).toBe(false);
@@ -202,89 +192,89 @@ describe('ComfyUI prompt types', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/comfy-prompt-types.test.ts`
+Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-types.test.ts`
 Expected: FAIL — module not found
 
 **Step 3: Write minimal implementation**
 
 ```typescript
-// packages/dag-core/src/types/comfy-prompt.ts
+// packages/dag-core/src/types/prompt-types.ts
 
 // --- Prompt format types ---
 
 /** Link reference: [sourceNodeId, outputSlotIndex] */
-export type TComfyLink = [string, number];
+export type TPromptLink = [string, number];
 
 /** A single input value: scalar or link */
-export type TComfyInputValue = string | number | boolean | TComfyLink;
+export type TPromptInputValue = string | number | boolean | TPromptLink;
 
 /** A single node in the prompt */
-export interface IComfyNodeDef {
+export interface IPromptNodeDef {
   class_type: string;
-  inputs: Record<string, TComfyInputValue>;
+  inputs: Record<string, TPromptInputValue>;
   _meta?: { title?: string };
 }
 
 /** The full prompt: nodeId → node definition */
-export type IComfyPrompt = Record<string, IComfyNodeDef>;
+export type IPrompt = Record<string, IPromptNodeDef>;
 
 // --- API request/response types ---
 
-export interface IComfyWorkflowJson {
+export interface IWorkflowJson {
   nodes: unknown[];
   links: unknown[];
   version: number;
 }
 
-export interface IComfyPromptRequest {
-  prompt: IComfyPrompt;
+export interface IPromptRequest {
+  prompt: IPrompt;
   client_id?: string;
   prompt_id?: string;
   extra_data?: {
     extra_pnginfo?: {
-      workflow: IComfyWorkflowJson;
+      workflow: IWorkflowJson;
     };
   };
   front?: boolean;
   number?: number;
 }
 
-export interface IComfyNodeError {
+export interface INodeError {
   type: string;
   message: string;
   details: string;
   extra_info: Record<string, unknown>;
 }
 
-export interface IComfyPromptResponse {
+export interface IPromptResponse {
   prompt_id: string;
   number: number;
-  node_errors: Record<string, IComfyNodeError>;
+  node_errors: Record<string, INodeError>;
 }
 
 // --- Queue types ---
 
-export interface IComfyQueueStatus {
+export interface IQueueStatus {
   queue_running: unknown[];
   queue_pending: unknown[];
 }
 
-export interface IComfyQueueAction {
+export interface IQueueAction {
   clear?: boolean;
   delete?: string[];
 }
 
 // --- History types ---
 
-export interface IComfyOutputAsset {
+export interface IOutputAsset {
   filename: string;
   subfolder: string;
   type: string;
 }
 
-export interface IComfyHistoryEntry {
-  prompt: IComfyPrompt;
-  outputs: Record<string, { images?: IComfyOutputAsset[] }>;
+export interface IHistoryEntry {
+  prompt: IPrompt;
+  outputs: Record<string, { images?: IOutputAsset[] }>;
   status: {
     status_str: 'success' | 'error';
     completed: boolean;
@@ -292,20 +282,20 @@ export interface IComfyHistoryEntry {
   };
 }
 
-export type IComfyHistory = Record<string, IComfyHistoryEntry>;
+export type THistory = Record<string, IHistoryEntry>;
 
 // --- Object info types ---
 
-export type TComfyInputTypeSpec =
+export type TInputTypeSpec =
   | [string]                                      // type only: ["MODEL"]
-  | [string, Record<string, unknown>];            // type + constraints: ["INT", {default: 0, min: 0}]
+  | [string, Record<string, unknown>];            // type + constraints: ["INT", {default: 0}]
 
-export interface IComfyNodeObjectInfo {
+export interface INodeObjectInfo {
   display_name: string;
   category: string;
   input: {
-    required: Record<string, TComfyInputTypeSpec | string[]>;
-    optional?: Record<string, TComfyInputTypeSpec | string[]>;
+    required: Record<string, TInputTypeSpec | string[]>;
+    optional?: Record<string, TInputTypeSpec | string[]>;
     hidden?: Record<string, string>;
   };
   output: string[];
@@ -315,11 +305,11 @@ export interface IComfyNodeObjectInfo {
   description: string;
 }
 
-export type IComfyObjectInfo = Record<string, IComfyNodeObjectInfo>;
+export type IObjectInfo = Record<string, INodeObjectInfo>;
 
 // --- System stats types ---
 
-export interface IComfySystemStats {
+export interface ISystemStats {
   system: {
     os: string;
     python_version: string;
@@ -335,7 +325,7 @@ export interface IComfySystemStats {
 
 // --- Utility ---
 
-export function isComfyLink(value: TComfyInputValue): value is TComfyLink {
+export function isPromptLink(value: TPromptInputValue): value is TPromptLink {
   return Array.isArray(value)
     && value.length === 2
     && typeof value[0] === 'string'
@@ -345,7 +335,7 @@ export function isComfyLink(value: TComfyInputValue): value is TComfyLink {
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/comfy-prompt-types.test.ts`
+Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-types.test.ts`
 Expected: PASS
 
 **Step 5: Export from dag-core index**
@@ -353,14 +343,14 @@ Expected: PASS
 Add to `packages/dag-core/src/index.ts`:
 ```typescript
 export type {
-  IComfyPrompt, IComfyNodeDef, TComfyInputValue, TComfyLink,
-  IComfyPromptRequest, IComfyPromptResponse,
-  IComfyQueueStatus, IComfyQueueAction,
-  IComfyHistoryEntry, IComfyHistory, IComfyOutputAsset,
-  IComfyNodeObjectInfo, IComfyObjectInfo, TComfyInputTypeSpec,
-  IComfySystemStats, IComfyWorkflowJson, IComfyNodeError,
-} from './types/comfy-prompt.js';
-export { isComfyLink } from './types/comfy-prompt.js';
+  IPrompt, IPromptNodeDef, TPromptInputValue, TPromptLink,
+  IPromptRequest, IPromptResponse,
+  IQueueStatus, IQueueAction,
+  IHistoryEntry, THistory, IOutputAsset,
+  INodeObjectInfo, IObjectInfo, TInputTypeSpec,
+  ISystemStats, IWorkflowJson, INodeError,
+} from './types/prompt-types.js';
+export { isPromptLink } from './types/prompt-types.js';
 ```
 
 **Step 6: Build and verify**
@@ -371,73 +361,67 @@ Expected: Success
 **Step 7: Commit**
 
 ```bash
-git add packages/dag-core/src/types/comfy-prompt.ts \
-  packages/dag-core/src/__tests__/comfy-prompt-types.test.ts \
+git add packages/dag-core/src/types/prompt-types.ts \
+  packages/dag-core/src/__tests__/prompt-types.test.ts \
   packages/dag-core/src/index.ts
-git commit -m "feat(dag-core): add ComfyUI-compatible prompt types"
+git commit -m "feat(dag-core): add prompt format types"
 ```
 
 ---
 
-## Task 2: ComfyUI Backend Port in dag-core
+## Task 2: Backend Port in dag-core
 
-Define the port interface that both ComfyUI proxy and Robota DAG runtime will implement.
+Define the port interface that both external proxy and Robota DAG runtime will implement.
 
 **Files:**
-- Create: `packages/dag-core/src/interfaces/comfy-backend-port.ts`
+- Create: `packages/dag-core/src/interfaces/prompt-backend-port.ts`
 - Modify: `packages/dag-core/src/index.ts` (re-export)
-- Test: `packages/dag-core/src/__tests__/comfy-backend-port.test.ts`
+- Test: `packages/dag-core/src/__tests__/prompt-backend-port.test.ts`
 
 **Step 1: Write the failing test**
 
 ```typescript
-// packages/dag-core/src/__tests__/comfy-backend-port.test.ts
+// packages/dag-core/src/__tests__/prompt-backend-port.test.ts
 import { describe, it, expect } from 'vitest';
-import type { IComfyBackendPort } from '../interfaces/comfy-backend-port.js';
+import type { IPromptBackendPort } from '../interfaces/prompt-backend-port.js';
 import type {
-  IComfyPromptRequest,
-  IComfyPromptResponse,
-  IComfyQueueStatus,
-  IComfyQueueAction,
-  IComfyHistory,
-  IComfyObjectInfo,
-  IComfySystemStats,
-} from '../types/comfy-prompt.js';
+  IPromptRequest,
+  IPromptResponse,
+  IQueueStatus,
+  IQueueAction,
+  THistory,
+  IObjectInfo,
+  ISystemStats,
+} from '../types/prompt-types.js';
 import type { TResult, IDagError } from '../types/index.js';
 
-describe('IComfyBackendPort', () => {
+describe('IPromptBackendPort', () => {
   it('should be implementable as an in-memory stub', async () => {
-    const stub: IComfyBackendPort = {
-      submitPrompt: async (request: IComfyPromptRequest): Promise<TResult<IComfyPromptResponse, IDagError>> => {
-        return {
-          ok: true,
-          value: { prompt_id: 'test-id', number: 1, node_errors: {} },
-        };
-      },
-      getQueue: async (): Promise<TResult<IComfyQueueStatus, IDagError>> => {
-        return {
-          ok: true,
-          value: { queue_running: [], queue_pending: [] },
-        };
-      },
-      manageQueue: async (_action: IComfyQueueAction): Promise<TResult<void, IDagError>> => {
-        return { ok: true, value: undefined };
-      },
-      getHistory: async (_promptId?: string): Promise<TResult<IComfyHistory, IDagError>> => {
-        return { ok: true, value: {} };
-      },
-      getObjectInfo: async (_nodeType?: string): Promise<TResult<IComfyObjectInfo, IDagError>> => {
-        return { ok: true, value: {} };
-      },
-      getSystemStats: async (): Promise<TResult<IComfySystemStats, IDagError>> => {
-        return {
-          ok: true,
-          value: {
-            system: { os: 'darwin', python_version: '', embedded_python: false },
-            devices: [],
-          },
-        };
-      },
+    const stub: IPromptBackendPort = {
+      submitPrompt: async (_request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>> => ({
+        ok: true,
+        value: { prompt_id: 'test-id', number: 1, node_errors: {} },
+      }),
+      getQueue: async (): Promise<TResult<IQueueStatus, IDagError>> => ({
+        ok: true,
+        value: { queue_running: [], queue_pending: [] },
+      }),
+      manageQueue: async (_action: IQueueAction): Promise<TResult<void, IDagError>> => ({
+        ok: true, value: undefined,
+      }),
+      getHistory: async (_promptId?: string): Promise<TResult<THistory, IDagError>> => ({
+        ok: true, value: {},
+      }),
+      getObjectInfo: async (_nodeType?: string): Promise<TResult<IObjectInfo, IDagError>> => ({
+        ok: true, value: {},
+      }),
+      getSystemStats: async (): Promise<TResult<ISystemStats, IDagError>> => ({
+        ok: true,
+        value: {
+          system: { os: 'darwin', python_version: '', embedded_python: false },
+          devices: [],
+        },
+      }),
     };
 
     const result = await stub.submitPrompt({
@@ -454,48 +438,48 @@ describe('IComfyBackendPort', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/comfy-backend-port.test.ts`
+Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-backend-port.test.ts`
 Expected: FAIL — module not found
 
 **Step 3: Write minimal implementation**
 
 ```typescript
-// packages/dag-core/src/interfaces/comfy-backend-port.ts
+// packages/dag-core/src/interfaces/prompt-backend-port.ts
 import type { TResult, IDagError } from '../types/index.js';
 import type {
-  IComfyPromptRequest,
-  IComfyPromptResponse,
-  IComfyQueueStatus,
-  IComfyQueueAction,
-  IComfyHistory,
-  IComfyObjectInfo,
-  IComfySystemStats,
-} from '../types/comfy-prompt.js';
+  IPromptRequest,
+  IPromptResponse,
+  IQueueStatus,
+  IQueueAction,
+  THistory,
+  IObjectInfo,
+  ISystemStats,
+} from '../types/prompt-types.js';
 
 /**
- * Port interface for ComfyUI-compatible backends.
- * Implemented by Robota DAG runtime adapter or ComfyUI HTTP proxy.
+ * Port interface for prompt-compatible backends.
+ * Implemented by Robota DAG runtime adapter or external HTTP proxy.
  */
-export interface IComfyBackendPort {
-  submitPrompt(request: IComfyPromptRequest): Promise<TResult<IComfyPromptResponse, IDagError>>;
-  getQueue(): Promise<TResult<IComfyQueueStatus, IDagError>>;
-  manageQueue(action: IComfyQueueAction): Promise<TResult<void, IDagError>>;
-  getHistory(promptId?: string): Promise<TResult<IComfyHistory, IDagError>>;
-  getObjectInfo(nodeType?: string): Promise<TResult<IComfyObjectInfo, IDagError>>;
-  getSystemStats(): Promise<TResult<IComfySystemStats, IDagError>>;
+export interface IPromptBackendPort {
+  submitPrompt(request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>>;
+  getQueue(): Promise<TResult<IQueueStatus, IDagError>>;
+  manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>>;
+  getHistory(promptId?: string): Promise<TResult<THistory, IDagError>>;
+  getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>>;
+  getSystemStats(): Promise<TResult<ISystemStats, IDagError>>;
 }
 ```
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/comfy-backend-port.test.ts`
+Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-backend-port.test.ts`
 Expected: PASS
 
 **Step 5: Export from dag-core index**
 
 Add to `packages/dag-core/src/index.ts`:
 ```typescript
-export type { IComfyBackendPort } from './interfaces/comfy-backend-port.js';
+export type { IPromptBackendPort } from './interfaces/prompt-backend-port.js';
 ```
 
 **Step 6: Build and verify**
@@ -506,36 +490,36 @@ Expected: Success
 **Step 7: Commit**
 
 ```bash
-git add packages/dag-core/src/interfaces/comfy-backend-port.ts \
-  packages/dag-core/src/__tests__/comfy-backend-port.test.ts \
+git add packages/dag-core/src/interfaces/prompt-backend-port.ts \
+  packages/dag-core/src/__tests__/prompt-backend-port.test.ts \
   packages/dag-core/src/index.ts
-git commit -m "feat(dag-core): add IComfyBackendPort interface"
+git commit -m "feat(dag-core): add IPromptBackendPort interface"
 ```
 
 ---
 
-## Task 3: OpenAPI Spec for ComfyUI-compatible Endpoints
+## Task 3: OpenAPI Spec for Prompt API Endpoints
 
-Define the complete OpenAPI 3.0.3 spec matching ComfyUI API.
+Define the complete OpenAPI 3.0.3 spec matching the prompt API format.
 
 **Files:**
-- Create: `packages/dag-server-core/src/docs/openapi-comfy.ts`
-- Test: `packages/dag-server-core/src/__tests__/openapi-comfy.test.ts`
+- Create: `packages/dag-server-core/src/docs/openapi-prompt-api.ts`
+- Test: `packages/dag-server-core/src/__tests__/openapi-prompt-api.test.ts`
 
 **Step 1: Write the failing test**
 
 ```typescript
-// packages/dag-server-core/src/__tests__/openapi-comfy.test.ts
+// packages/dag-server-core/src/__tests__/openapi-prompt-api.test.ts
 import { describe, it, expect } from 'vitest';
-import { COMFY_OPENAPI_DOCUMENT } from '../docs/openapi-comfy.js';
+import { PROMPT_API_OPENAPI_DOCUMENT } from '../docs/openapi-prompt-api.js';
 
-describe('ComfyUI OpenAPI spec', () => {
+describe('Prompt API OpenAPI spec', () => {
   it('should have correct openapi version', () => {
-    expect(COMFY_OPENAPI_DOCUMENT.openapi).toBe('3.0.3');
+    expect(PROMPT_API_OPENAPI_DOCUMENT.openapi).toBe('3.0.3');
   });
 
-  it('should define all ComfyUI-compatible endpoints', () => {
-    const paths = Object.keys(COMFY_OPENAPI_DOCUMENT.paths);
+  it('should define all prompt API endpoints', () => {
+    const paths = Object.keys(PROMPT_API_OPENAPI_DOCUMENT.paths);
     expect(paths).toContain('/prompt');
     expect(paths).toContain('/queue');
     expect(paths).toContain('/history');
@@ -546,7 +530,7 @@ describe('ComfyUI OpenAPI spec', () => {
   });
 
   it('should define POST /prompt with correct request body', () => {
-    const post = COMFY_OPENAPI_DOCUMENT.paths['/prompt'].post;
+    const post = PROMPT_API_OPENAPI_DOCUMENT.paths['/prompt'].post;
     expect(post).toBeDefined();
     expect(post.operationId).toBe('submitPrompt');
 
@@ -558,7 +542,7 @@ describe('ComfyUI OpenAPI spec', () => {
   });
 
   it('should define POST /prompt response with prompt_id', () => {
-    const response = COMFY_OPENAPI_DOCUMENT.paths['/prompt'].post.responses['200'];
+    const response = PROMPT_API_OPENAPI_DOCUMENT.paths['/prompt'].post.responses['200'];
     const schema = response.content['application/json'].schema;
     expect(schema.properties.prompt_id.type).toBe('string');
     expect(schema.properties.number.type).toBe('integer');
@@ -566,39 +550,39 @@ describe('ComfyUI OpenAPI spec', () => {
   });
 
   it('should define GET /queue response', () => {
-    const response = COMFY_OPENAPI_DOCUMENT.paths['/queue'].get.responses['200'];
+    const response = PROMPT_API_OPENAPI_DOCUMENT.paths['/queue'].get.responses['200'];
     const schema = response.content['application/json'].schema;
     expect(schema.properties.queue_running).toBeDefined();
     expect(schema.properties.queue_pending).toBeDefined();
   });
 
   it('should define POST /queue for queue management', () => {
-    const post = COMFY_OPENAPI_DOCUMENT.paths['/queue'].post;
+    const post = PROMPT_API_OPENAPI_DOCUMENT.paths['/queue'].post;
     expect(post).toBeDefined();
     expect(post.operationId).toBe('manageQueue');
   });
 
   it('should define GET /object_info response', () => {
-    const response = COMFY_OPENAPI_DOCUMENT.paths['/object_info'].get.responses['200'];
+    const response = PROMPT_API_OPENAPI_DOCUMENT.paths['/object_info'].get.responses['200'];
     expect(response).toBeDefined();
   });
 
   it('should define GET /object_info/{node_type}', () => {
-    const get = COMFY_OPENAPI_DOCUMENT.paths['/object_info/{node_type}'].get;
+    const get = PROMPT_API_OPENAPI_DOCUMENT.paths['/object_info/{node_type}'].get;
     expect(get).toBeDefined();
     expect(get.parameters[0].name).toBe('node_type');
     expect(get.parameters[0].in).toBe('path');
   });
 
   it('should define GET /system_stats', () => {
-    const get = COMFY_OPENAPI_DOCUMENT.paths['/system_stats'].get;
+    const get = PROMPT_API_OPENAPI_DOCUMENT.paths['/system_stats'].get;
     expect(get).toBeDefined();
     expect(get.operationId).toBe('getSystemStats');
   });
 
   it('should define GET /history and /history/{prompt_id}', () => {
-    expect(COMFY_OPENAPI_DOCUMENT.paths['/history'].get).toBeDefined();
-    const byId = COMFY_OPENAPI_DOCUMENT.paths['/history/{prompt_id}'].get;
+    expect(PROMPT_API_OPENAPI_DOCUMENT.paths['/history'].get).toBeDefined();
+    const byId = PROMPT_API_OPENAPI_DOCUMENT.paths['/history/{prompt_id}'].get;
     expect(byId).toBeDefined();
     expect(byId.parameters[0].name).toBe('prompt_id');
   });
@@ -607,15 +591,15 @@ describe('ComfyUI OpenAPI spec', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @robota-sdk/dag-server-core test -- --run src/__tests__/openapi-comfy.test.ts`
+Run: `pnpm --filter @robota-sdk/dag-server-core test -- --run src/__tests__/openapi-prompt-api.test.ts`
 Expected: FAIL — module not found
 
 **Step 3: Write the OpenAPI spec**
 
 ```typescript
-// packages/dag-server-core/src/docs/openapi-comfy.ts
+// packages/dag-server-core/src/docs/openapi-prompt-api.ts
 
-const ComfyNodeDef = {
+const PromptNodeDef = {
   type: 'object' as const,
   required: ['class_type', 'inputs'],
   properties: {
@@ -632,13 +616,13 @@ const ComfyNodeDef = {
   },
 };
 
-const ComfyPrompt = {
+const Prompt = {
   type: 'object' as const,
-  additionalProperties: ComfyNodeDef,
+  additionalProperties: PromptNodeDef,
   description: 'DAG prompt: nodeId → node definition',
 };
 
-const ComfyNodeError = {
+const NodeError = {
   type: 'object' as const,
   properties: {
     type: { type: 'string' as const },
@@ -648,7 +632,7 @@ const ComfyNodeError = {
   },
 };
 
-const ComfyNodeObjectInfo = {
+const NodeObjectInfo = {
   type: 'object' as const,
   required: ['display_name', 'category', 'input', 'output', 'output_is_list', 'output_name', 'output_node', 'description'],
   properties: {
@@ -670,12 +654,12 @@ const ComfyNodeObjectInfo = {
   },
 };
 
-export const COMFY_OPENAPI_DOCUMENT = {
+export const PROMPT_API_OPENAPI_DOCUMENT = {
   openapi: '3.0.3',
   info: {
-    title: 'Robota DAG API (ComfyUI-compatible)',
+    title: 'Robota DAG Prompt API',
     version: '1.0.0',
-    description: 'ComfyUI-compatible API with interchangeable backend (ComfyUI or Robota DAG runtime)',
+    description: 'Prompt-based DAG execution API with interchangeable backend',
   },
   paths: {
     '/prompt': {
@@ -690,7 +674,7 @@ export const COMFY_OPENAPI_DOCUMENT = {
                 type: 'object' as const,
                 required: ['prompt'],
                 properties: {
-                  prompt: ComfyPrompt,
+                  prompt: Prompt,
                   client_id: { type: 'string' as const, format: 'uuid' },
                   prompt_id: { type: 'string' as const, format: 'uuid' },
                   extra_data: {
@@ -722,7 +706,7 @@ export const COMFY_OPENAPI_DOCUMENT = {
                   properties: {
                     prompt_id: { type: 'string' as const, format: 'uuid' },
                     number: { type: 'integer' as const },
-                    node_errors: { type: 'object' as const, additionalProperties: ComfyNodeError },
+                    node_errors: { type: 'object' as const, additionalProperties: NodeError },
                   },
                 },
               },
@@ -735,8 +719,8 @@ export const COMFY_OPENAPI_DOCUMENT = {
                 schema: {
                   type: 'object' as const,
                   properties: {
-                    error: ComfyNodeError,
-                    node_errors: { type: 'object' as const, additionalProperties: ComfyNodeError },
+                    error: NodeError,
+                    node_errors: { type: 'object' as const, additionalProperties: NodeError },
                   },
                 },
               },
@@ -803,7 +787,7 @@ export const COMFY_OPENAPI_DOCUMENT = {
                   additionalProperties: {
                     type: 'object' as const,
                     properties: {
-                      prompt: ComfyPrompt,
+                      prompt: Prompt,
                       outputs: { type: 'object' as const, additionalProperties: true },
                       status: {
                         type: 'object' as const,
@@ -852,7 +836,7 @@ export const COMFY_OPENAPI_DOCUMENT = {
               'application/json': {
                 schema: {
                   type: 'object' as const,
-                  additionalProperties: ComfyNodeObjectInfo,
+                  additionalProperties: NodeObjectInfo,
                 },
               },
             },
@@ -872,7 +856,7 @@ export const COMFY_OPENAPI_DOCUMENT = {
             description: 'Node type definition',
             content: {
               'application/json': {
-                schema: ComfyNodeObjectInfo,
+                schema: NodeObjectInfo,
               },
             },
           },
@@ -926,7 +910,7 @@ export const COMFY_OPENAPI_DOCUMENT = {
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @robota-sdk/dag-server-core test -- --run src/__tests__/openapi-comfy.test.ts`
+Run: `pnpm --filter @robota-sdk/dag-server-core test -- --run src/__tests__/openapi-prompt-api.test.ts`
 Expected: PASS
 
 **Step 5: Build and verify**
@@ -937,32 +921,32 @@ Expected: Success
 **Step 6: Commit**
 
 ```bash
-git add packages/dag-server-core/src/docs/openapi-comfy.ts \
-  packages/dag-server-core/src/__tests__/openapi-comfy.test.ts
-git commit -m "feat(dag-server-core): add ComfyUI-compatible OpenAPI spec"
+git add packages/dag-server-core/src/docs/openapi-prompt-api.ts \
+  packages/dag-server-core/src/__tests__/openapi-prompt-api.test.ts
+git commit -m "feat(dag-server-core): add prompt API OpenAPI spec"
 ```
 
 ---
 
-## Task 4: ComfyUI-compatible API Controller
+## Task 4: Prompt API Controller
 
-Implement the controller that handles all ComfyUI-compatible endpoints, delegating to `IComfyBackendPort`.
+Implement the controller that handles all prompt API endpoints, delegating to `IPromptBackendPort`.
 
 **Files:**
-- Create: `packages/dag-api/src/controllers/comfy-api-controller.ts`
-- Test: `packages/dag-api/src/__tests__/comfy-api-controller.test.ts`
+- Create: `packages/dag-api/src/controllers/prompt-api-controller.ts`
+- Test: `packages/dag-api/src/__tests__/prompt-api-controller.test.ts`
 
 **Step 1: Write the failing test**
 
 ```typescript
-// packages/dag-api/src/__tests__/comfy-api-controller.test.ts
+// packages/dag-api/src/__tests__/prompt-api-controller.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ComfyApiController } from '../controllers/comfy-api-controller.js';
-import type { IComfyBackendPort } from '@robota-sdk/dag-core';
+import { PromptApiController } from '../controllers/prompt-api-controller.js';
+import type { IPromptBackendPort } from '@robota-sdk/dag-core';
 
-function createStubBackend(): IComfyBackendPort {
+function createStubBackend(): IPromptBackendPort {
   return {
-    submitPrompt: async (request) => ({
+    submitPrompt: async () => ({
       ok: true as const,
       value: { prompt_id: 'stub-id', number: 1, node_errors: {} },
     }),
@@ -983,13 +967,13 @@ function createStubBackend(): IComfyBackendPort {
   };
 }
 
-describe('ComfyApiController', () => {
-  let controller: ComfyApiController;
-  let backend: IComfyBackendPort;
+describe('PromptApiController', () => {
+  let controller: PromptApiController;
+  let backend: IPromptBackendPort;
 
   beforeEach(() => {
     backend = createStubBackend();
-    controller = new ComfyApiController(backend);
+    controller = new PromptApiController(backend);
   });
 
   describe('submitPrompt', () => {
@@ -1001,15 +985,11 @@ describe('ComfyApiController', () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.value.prompt_id).toBe('stub-id');
-        expect(result.value.number).toBe(1);
       }
     });
 
     it('should reject empty prompt', async () => {
-      const result = await controller.submitPrompt({
-        prompt: {},
-      });
-
+      const result = await controller.submitPrompt({ prompt: {} });
       expect(result.ok).toBe(false);
     });
   });
@@ -1018,9 +998,6 @@ describe('ComfyApiController', () => {
     it('should return queue status', async () => {
       const result = await controller.getQueue();
       expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.value.queue_running).toEqual([]);
-      }
     });
   });
 
@@ -1066,36 +1043,36 @@ describe('ComfyApiController', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @robota-sdk/dag-api test -- --run src/__tests__/comfy-api-controller.test.ts`
+Run: `pnpm --filter @robota-sdk/dag-api test -- --run src/__tests__/prompt-api-controller.test.ts`
 Expected: FAIL — module not found
 
 **Step 3: Write minimal implementation**
 
 ```typescript
-// packages/dag-api/src/controllers/comfy-api-controller.ts
+// packages/dag-api/src/controllers/prompt-api-controller.ts
 import type {
-  IComfyBackendPort,
-  IComfyPromptRequest,
-  IComfyPromptResponse,
-  IComfyQueueStatus,
-  IComfyQueueAction,
-  IComfyHistory,
-  IComfyObjectInfo,
-  IComfySystemStats,
+  IPromptBackendPort,
+  IPromptRequest,
+  IPromptResponse,
+  IQueueStatus,
+  IQueueAction,
+  THistory,
+  IObjectInfo,
+  ISystemStats,
   TResult,
   IDagError,
 } from '@robota-sdk/dag-core';
 
-export class ComfyApiController {
-  private readonly backend: IComfyBackendPort;
+export class PromptApiController {
+  private readonly backend: IPromptBackendPort;
 
-  constructor(backend: IComfyBackendPort) {
+  constructor(backend: IPromptBackendPort) {
     this.backend = backend;
   }
 
   async submitPrompt(
-    request: IComfyPromptRequest,
-  ): Promise<TResult<IComfyPromptResponse, IDagError>> {
+    request: IPromptRequest,
+  ): Promise<TResult<IPromptResponse, IDagError>> {
     const nodeIds = Object.keys(request.prompt);
     if (nodeIds.length === 0) {
       return {
@@ -1127,29 +1104,23 @@ export class ComfyApiController {
     return this.backend.submitPrompt(request);
   }
 
-  async getQueue(): Promise<TResult<IComfyQueueStatus, IDagError>> {
+  async getQueue(): Promise<TResult<IQueueStatus, IDagError>> {
     return this.backend.getQueue();
   }
 
-  async manageQueue(
-    action: IComfyQueueAction,
-  ): Promise<TResult<void, IDagError>> {
+  async manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>> {
     return this.backend.manageQueue(action);
   }
 
-  async getHistory(
-    promptId?: string,
-  ): Promise<TResult<IComfyHistory, IDagError>> {
+  async getHistory(promptId?: string): Promise<TResult<THistory, IDagError>> {
     return this.backend.getHistory(promptId);
   }
 
-  async getObjectInfo(
-    nodeType?: string,
-  ): Promise<TResult<IComfyObjectInfo, IDagError>> {
+  async getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>> {
     return this.backend.getObjectInfo(nodeType);
   }
 
-  async getSystemStats(): Promise<TResult<IComfySystemStats, IDagError>> {
+  async getSystemStats(): Promise<TResult<ISystemStats, IDagError>> {
     return this.backend.getSystemStats();
   }
 }
@@ -1157,7 +1128,7 @@ export class ComfyApiController {
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @robota-sdk/dag-api test -- --run src/__tests__/comfy-api-controller.test.ts`
+Run: `pnpm --filter @robota-sdk/dag-api test -- --run src/__tests__/prompt-api-controller.test.ts`
 Expected: PASS
 
 **Step 5: Build and verify**
@@ -1168,35 +1139,35 @@ Expected: Success
 **Step 6: Commit**
 
 ```bash
-git add packages/dag-api/src/controllers/comfy-api-controller.ts \
-  packages/dag-api/src/__tests__/comfy-api-controller.test.ts
-git commit -m "feat(dag-api): add ComfyUI-compatible API controller"
+git add packages/dag-api/src/controllers/prompt-api-controller.ts \
+  packages/dag-api/src/__tests__/prompt-api-controller.test.ts
+git commit -m "feat(dag-api): add PromptApiController"
 ```
 
 ---
 
-## Task 5: Express Routes for ComfyUI-compatible Endpoints
+## Task 5: Express Routes for Prompt API Endpoints
 
-Wire the ComfyApiController to Express routes matching ComfyUI's URL structure.
+Wire the PromptApiController to Express routes.
 
 **Files:**
-- Create: `packages/dag-server-core/src/routes/comfy-routes.ts`
-- Test: `packages/dag-server-core/src/__tests__/comfy-routes.test.ts`
+- Create: `packages/dag-server-core/src/routes/prompt-routes.ts`
+- Test: `packages/dag-server-core/src/__tests__/prompt-routes.test.ts`
 
 **Step 1: Write the failing test**
 
 ```typescript
-// packages/dag-server-core/src/__tests__/comfy-routes.test.ts
+// packages/dag-server-core/src/__tests__/prompt-routes.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import { mountComfyRoutes } from '../routes/comfy-routes.js';
-import { ComfyApiController } from '@robota-sdk/dag-api';
-import type { IComfyBackendPort } from '@robota-sdk/dag-core';
+import { mountPromptRoutes } from '../routes/prompt-routes.js';
+import { PromptApiController } from '@robota-sdk/dag-api';
+import type { IPromptBackendPort } from '@robota-sdk/dag-core';
 
-function createStubBackend(): IComfyBackendPort {
+function createStubBackend(): IPromptBackendPort {
   return {
-    submitPrompt: async (req) => ({
+    submitPrompt: async () => ({
       ok: true as const,
       value: { prompt_id: 'test-prompt-id', number: 1, node_errors: {} },
     }),
@@ -1210,14 +1181,10 @@ function createStubBackend(): IComfyBackendPort {
       ok: true as const,
       value: {
         TestNode: {
-          display_name: 'Test Node',
-          category: 'test',
+          display_name: 'Test Node', category: 'test',
           input: { required: {}, optional: {} },
-          output: ['STRING'],
-          output_is_list: [false],
-          output_name: ['output'],
-          output_node: false,
-          description: 'A test node',
+          output: ['STRING'], output_is_list: [false],
+          output_name: ['output'], output_node: false, description: '',
         },
       },
     }),
@@ -1231,15 +1198,15 @@ function createStubBackend(): IComfyBackendPort {
   };
 }
 
-describe('ComfyUI routes', () => {
+describe('Prompt API routes', () => {
   let app: express.Express;
 
   beforeEach(() => {
     app = express();
     app.use(express.json());
     const backend = createStubBackend();
-    const controller = new ComfyApiController(backend);
-    mountComfyRoutes(app, controller);
+    const controller = new PromptApiController(backend);
+    mountPromptRoutes(app, controller);
   });
 
   it('POST /prompt should return prompt_id', async () => {
@@ -1267,9 +1234,7 @@ describe('ComfyUI routes', () => {
   });
 
   it('POST /queue should accept clear action', async () => {
-    const res = await request(app)
-      .post('/queue')
-      .send({ clear: true });
+    const res = await request(app).post('/queue').send({ clear: true });
     expect(res.status).toBe(200);
   });
 
@@ -1304,19 +1269,19 @@ describe('ComfyUI routes', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @robota-sdk/dag-server-core test -- --run src/__tests__/comfy-routes.test.ts`
+Run: `pnpm --filter @robota-sdk/dag-server-core test -- --run src/__tests__/prompt-routes.test.ts`
 Expected: FAIL — module not found
 
 **Step 3: Write minimal implementation**
 
 ```typescript
-// packages/dag-server-core/src/routes/comfy-routes.ts
+// packages/dag-server-core/src/routes/prompt-routes.ts
 import type { Express, Request, Response } from 'express';
-import type { ComfyApiController } from '@robota-sdk/dag-api';
+import type { PromptApiController } from '@robota-sdk/dag-api';
 
-export function mountComfyRoutes(
+export function mountPromptRoutes(
   app: Express,
-  controller: ComfyApiController,
+  controller: PromptApiController,
 ): void {
   app.post('/prompt', async (req: Request, res: Response) => {
     const result = await controller.submitPrompt(req.body);
@@ -1402,7 +1367,7 @@ export function mountComfyRoutes(
 
 **Step 4: Run test to verify it passes**
 
-Run: `pnpm --filter @robota-sdk/dag-server-core test -- --run src/__tests__/comfy-routes.test.ts`
+Run: `pnpm --filter @robota-sdk/dag-server-core test -- --run src/__tests__/prompt-routes.test.ts`
 Expected: PASS
 
 **Step 5: Build and verify**
@@ -1413,16 +1378,17 @@ Expected: Success
 **Step 6: Commit**
 
 ```bash
-git add packages/dag-server-core/src/routes/comfy-routes.ts \
-  packages/dag-server-core/src/__tests__/comfy-routes.test.ts
-git commit -m "feat(dag-server-core): add ComfyUI-compatible Express routes"
+git add packages/dag-server-core/src/routes/prompt-routes.ts \
+  packages/dag-server-core/src/__tests__/prompt-routes.test.ts
+git commit -m "feat(dag-server-core): add prompt API Express routes"
 ```
 
 ---
 
-## Task 6: Orchestration Layer — Package Setup and Port
+## Task 6: Orchestration Layer — Package Setup and Ports
 
-Create the `dag-orchestrator` package with its core port and types.
+Create the `dag-orchestrator` package. Completely independent from the API layer.
+Depends only on `dag-core` (for `IPromptBackendPort` and prompt types).
 
 **Files:**
 - Create: `packages/dag-orchestrator/package.json`
@@ -1455,13 +1421,13 @@ Create the `dag-orchestrator` package with its core port and types.
 }
 ```
 
-Copy `tsconfig.json` pattern from another dag-* package.
+Copy `tsconfig.json` pattern from another dag-* package (e.g., `dag-runtime`).
 
 **Step 2: Define orchestrator types**
 
 ```typescript
 // packages/dag-orchestrator/src/types/orchestrator-types.ts
-import type { IComfyPromptRequest, IComfyPromptResponse } from '@robota-sdk/dag-core';
+import type { IPromptRequest, IPromptResponse } from '@robota-sdk/dag-core';
 
 export interface ICostEstimate {
   totalEstimatedCostUsd: number;
@@ -1489,27 +1455,27 @@ export interface IOrchestratorConfig {
 }
 
 export interface IOrchestratedPromptRequest {
-  promptRequest: IComfyPromptRequest;
+  promptRequest: IPromptRequest;
   config?: IOrchestratorConfig;
 }
 
 export interface IOrchestratedPromptResponse {
-  promptResponse: IComfyPromptResponse;
+  promptResponse: IPromptResponse;
   costEstimate?: ICostEstimate;
 }
 ```
 
-**Step 3: Define policy port**
+**Step 3: Define policy ports**
 
 ```typescript
 // packages/dag-orchestrator/src/interfaces/orchestrator-policy-port.ts
-import type { TResult, IDagError, IComfyObjectInfo } from '@robota-sdk/dag-core';
+import type { TResult, IDagError, IObjectInfo } from '@robota-sdk/dag-core';
 import type { ICostEstimate, ICostPolicy } from '../types/orchestrator-types.js';
 
 export interface ICostEstimatorPort {
   estimateCost(
     nodeTypes: string[],
-    objectInfo: IComfyObjectInfo,
+    objectInfo: IObjectInfo,
   ): Promise<TResult<ICostEstimate, IDagError>>;
 }
 
@@ -1554,7 +1520,7 @@ git commit -m "feat(dag-orchestrator): scaffold orchestration layer package"
 
 ## Task 7: Orchestration Layer — Service Implementation
 
-Implement the orchestrator service that wraps the ComfyUI-compatible API with policy enforcement.
+Implement the orchestrator service. Uses `IPromptBackendPort` directly (not the API controller).
 
 **Files:**
 - Create: `packages/dag-orchestrator/src/services/prompt-orchestrator-service.ts`
@@ -1566,10 +1532,10 @@ Implement the orchestrator service that wraps the ComfyUI-compatible API with po
 // packages/dag-orchestrator/src/__tests__/prompt-orchestrator-service.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PromptOrchestratorService } from '../services/prompt-orchestrator-service.js';
-import type { IComfyBackendPort } from '@robota-sdk/dag-core';
+import type { IPromptBackendPort } from '@robota-sdk/dag-core';
 import type { ICostEstimatorPort, ICostPolicyEvaluatorPort } from '../interfaces/orchestrator-policy-port.js';
 
-function createStubBackend(): IComfyBackendPort {
+function createStubBackend(): IPromptBackendPort {
   return {
     submitPrompt: async () => ({
       ok: true as const,
@@ -1622,7 +1588,7 @@ function createStubPolicyEvaluator(): ICostPolicyEvaluatorPort {
 
 describe('PromptOrchestratorService', () => {
   let service: PromptOrchestratorService;
-  let backend: IComfyBackendPort;
+  let backend: IPromptBackendPort;
 
   beforeEach(() => {
     backend = createStubBackend();
@@ -1709,7 +1675,7 @@ Expected: FAIL — module not found
 ```typescript
 // packages/dag-orchestrator/src/services/prompt-orchestrator-service.ts
 import type {
-  IComfyBackendPort,
+  IPromptBackendPort,
   TResult,
   IDagError,
 } from '@robota-sdk/dag-core';
@@ -1724,7 +1690,7 @@ import type {
 
 export class PromptOrchestratorService {
   constructor(
-    private readonly backend: IComfyBackendPort,
+    private readonly backend: IPromptBackendPort,
     private readonly costEstimator: ICostEstimatorPort,
     private readonly costPolicyEvaluator: ICostPolicyEvaluatorPort,
   ) {}
@@ -1734,7 +1700,6 @@ export class PromptOrchestratorService {
   ): Promise<TResult<IOrchestratedPromptResponse, IDagError>> {
     const { promptRequest, config } = request;
 
-    // Cost estimation and policy enforcement
     if (config?.costPolicy) {
       const objectInfoResult = await this.backend.getObjectInfo();
       if (!objectInfoResult.ok) {
@@ -1761,7 +1726,6 @@ export class PromptOrchestratorService {
         return policyResult;
       }
 
-      // Cost OK — submit prompt
       const submitResult = await this.backend.submitPrompt(promptRequest);
       if (!submitResult.ok) {
         return submitResult;
@@ -1776,7 +1740,6 @@ export class PromptOrchestratorService {
       };
     }
 
-    // No cost policy — submit directly
     const submitResult = await this.backend.submitPrompt(promptRequest);
     if (!submitResult.ok) {
       return submitResult;
@@ -1818,21 +1781,32 @@ git commit -m "feat(dag-orchestrator): add PromptOrchestratorService with cost p
 
 ## Task Summary
 
-| Task | Package | What |
-|------|---------|------|
-| 1 | dag-core | ComfyUI prompt types (SSOT) |
-| 2 | dag-core | IComfyBackendPort interface |
-| 3 | dag-server-core | OpenAPI spec for ComfyUI endpoints |
-| 4 | dag-api | ComfyApiController |
-| 5 | dag-server-core | Express routes (ComfyUI-compatible) |
-| 6 | dag-orchestrator | Package scaffold + types + policy ports |
-| 7 | dag-orchestrator | PromptOrchestratorService |
+| Task | Package | What | Depends on API? | Depends on Orchestrator? |
+|------|---------|------|-----------------|--------------------------|
+| 1 | dag-core | Prompt types (SSOT) | No | No |
+| 2 | dag-core | `IPromptBackendPort` | No | No |
+| 3 | dag-server-core | OpenAPI spec | No | No |
+| 4 | dag-api | `PromptApiController` | — (is the API) | No |
+| 5 | dag-server-core | Express routes | Yes | No |
+| 6 | dag-orchestrator | Package scaffold + types + policy ports | No | — (is the orchestrator) |
+| 7 | dag-orchestrator | `PromptOrchestratorService` | No | — (is the orchestrator) |
+
+**Dependency graph:**
+```
+dag-core (types + ports)
+    ↑                ↑
+dag-api          dag-orchestrator
+    ↑
+dag-server-core
+```
+
+API and Orchestrator never depend on each other. Both depend only on dag-core.
 
 ## Not In Scope (future tasks)
 
-- Robota DAG runtime adapter implementing IComfyBackendPort (wraps existing dag-runtime/dag-worker)
-- ComfyUI HTTP proxy adapter implementing IComfyBackendPort
+- Robota DAG runtime adapter implementing `IPromptBackendPort` (wraps existing dag-runtime/dag-worker)
+- External proxy adapter implementing `IPromptBackendPort`
 - WebSocket progress events
-- dag-designer React Flow ↔ ComfyUI format converter
+- dag-designer React Flow ↔ prompt format converter
 - Retry and timeout policies in orchestrator
 - Auth layer in orchestrator
