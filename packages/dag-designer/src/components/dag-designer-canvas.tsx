@@ -200,6 +200,11 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         context.resetRunProgress();
     }, [context.definition, context.onDefinitionChange, context.resetRunProgress]);
 
+    const selectedEdgeIdRef = useRef(context.selectedEdgeId);
+    selectedEdgeIdRef.current = context.selectedEdgeId;
+    const selectedNodeIdRef = useRef(context.selectedNodeId);
+    selectedNodeIdRef.current = context.selectedNodeId;
+
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent): void => {
             if (event.key !== 'Delete' && event.key !== 'Backspace') {
@@ -208,23 +213,23 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             if (isEditableTarget(event.target)) {
                 return;
             }
-            if (!context.selectedEdgeId && !context.selectedNodeId) {
+            if (!selectedEdgeIdRef.current && !selectedNodeIdRef.current) {
                 return;
             }
             event.preventDefault();
-            if (context.selectedEdgeId) {
-                context.removeEdgeById(context.selectedEdgeId);
+            if (selectedEdgeIdRef.current) {
+                context.removeEdgeById(selectedEdgeIdRef.current);
                 return;
             }
-            if (context.selectedNodeId) {
-                context.removeNodeById(context.selectedNodeId);
+            if (selectedNodeIdRef.current) {
+                context.removeNodeById(selectedNodeIdRef.current);
             }
         };
         window.addEventListener('keydown', onKeyDown);
         return () => {
             window.removeEventListener('keydown', onKeyDown);
         };
-    }, [context.removeEdgeById, context.removeNodeById, context.selectedEdgeId, context.selectedNodeId]);
+    }, [context.removeEdgeById, context.removeNodeById]);
 
     const onConnect = useCallback((connection: Connection): void => {
         if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) {

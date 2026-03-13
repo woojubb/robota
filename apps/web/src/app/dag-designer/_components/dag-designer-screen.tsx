@@ -42,20 +42,21 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
   const [isRunStarting, setIsRunStarting] = useState<boolean>(false);
   const isActionBlocked = props.hasBindingBlockingError;
 
-  const run = async (): Promise<void> => {
-    if (isActionBlocked || isRunStarting) {
-      return;
-    }
+  const contextRef = useRef(context);
+  contextRef.current = context;
+
+  const run = useCallback(async (): Promise<void> => {
     setIsRunStarting(true);
-    context.resetRunProgress();
+    const ctx = contextRef.current;
+    ctx.resetRunProgress();
     try {
-      const runResult = context.onRun
-        ? await context.onRun({
-          definition: context.definition,
-          input: context.initialInput ?? {}
+      const runResult = ctx.onRun
+        ? await ctx.onRun({
+          definition: ctx.definition,
+          input: ctx.initialInput ?? {}
         }, {
-          onRunStarted: context.setActiveDagRunId,
-          onRunProgressEvent: context.applyRunProgressEvent
+          onRunStarted: ctx.setActiveDagRunId,
+          onRunProgressEvent: ctx.applyRunProgressEvent
         })
         : {
           ok: false as const,
@@ -66,12 +67,12 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
             retryable: false
           }
         };
-      context.setRunResult(runResult.ok ? runResult.value : undefined);
-      context.onRunResult?.(runResult);
+      ctx.setRunResult(runResult.ok ? runResult.value : undefined);
+      ctx.onRunResult?.(runResult);
     } finally {
       setIsRunStarting(false);
     }
-  };
+  }, []);
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -480,7 +481,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     };
     void load();
     void refreshNodeCatalog();
-  }, [applyDefinitionChange, props.initialDagId]);
+  }, [applyDefinitionChange, designApi, refreshNodeCatalog, props.initialDagId]);
 
   if (loadState === "loading") {
     return <div className="p-6 text-sm text-gray-700">Loading DAG...</div>;
