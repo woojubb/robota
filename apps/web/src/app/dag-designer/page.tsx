@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDagDesignApi, type IDefinitionListItem } from "@robota-sdk/dag-designer";
 import type { IDagDefinition } from "@robota-sdk/dag-core";
 import {
@@ -16,16 +16,18 @@ function buildAutoDagId(): string {
   return `dag-${Date.now()}`;
 }
 
+const DAG_API_CONFIG = { baseUrl: process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011" };
+const TEMPLATE_METADATA_LIST = listDagTemplatePresets();
+
 export default function DagDesignerListPage() {
   const router = useRouter();
-  const baseUrl = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
-  const designApi = useDagDesignApi({ baseUrl });
+  const designApi = useDagDesignApi(DAG_API_CONFIG);
   const [items, setItems] = useState<IDefinitionListItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<TDagTemplateKey>(DEFAULT_DAG_TEMPLATE_KEY);
-  const templateMetadataList = listDagTemplatePresets();
+  const templateMetadataList = TEMPLATE_METADATA_LIST;
   const selectedTemplate = templateMetadataList.find((template) => template.templateId === selectedTemplateId);
   const sortedItems = useMemo(
     () => [...items]
@@ -34,7 +36,7 @@ export default function DagDesignerListPage() {
     [items]
   );
 
-  const refreshList = async (): Promise<void> => {
+  const refreshList = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     const listed = await designApi.list({ correlationId: "web-dag-list-page" });
     if (listed.ok) {
@@ -45,11 +47,11 @@ export default function DagDesignerListPage() {
     }
     setErrorMessage(`List failed: ${"error" in listed ? listed.error[0]?.code : "UNKNOWN_ERROR"}`);
     setIsLoading(false);
-  };
+  }, [designApi]);
 
   useEffect(() => {
     void refreshList();
-  }, []);
+  }, [refreshList]);
 
   const createNewDag = async (): Promise<void> => {
     if (isCreating) {

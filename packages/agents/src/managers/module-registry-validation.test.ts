@@ -12,7 +12,7 @@ import type { IModule } from '../abstracts/abstract-module';
 import type { ILogger } from '../utils/logger';
 
 function mockLogger(): ILogger {
-    return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() };
 }
 
 function createMockModule(overrides: Partial<IModule> = {}): IModule {

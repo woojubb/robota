@@ -20,9 +20,11 @@ packages/
 ├── dag-designer/       # DAG web designer layer
 └── dag-nodes/          # DAG node implementations
 apps/
-├── web/                # Web application
-├── docs/               # Documentation site
-└── api-server/         # API server
+├── web/                    # Web application
+├── docs/                   # Documentation site
+├── agent-server/           # AI provider proxy + Playground WebSocket
+├── dag-runtime-server/     # DAG execution server (ComfyUI-compatible)
+└── dag-orchestrator-server/ # Orchestration gateway (cost/auth/retry)
 ```
 
 ## DAG Dependency Direction

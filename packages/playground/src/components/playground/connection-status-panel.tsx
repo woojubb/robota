@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Wifi, Settings, User, Hash } from 'lucide-react';
-import { usePlayground } from '../../contexts/playground-context';
+import { usePlaygroundState } from '../../contexts/playground-context';
 
 const SESSION_ID_SUFFIX_LENGTH = -8;
 
@@ -11,7 +11,7 @@ const SESSION_ID_SUFFIX_LENGTH = -8;
  * Shows WebSocket connection status and basic information
  */
 export const ConnectionStatusPanel: React.FC = () => {
-    const { state } = usePlayground();
+    const state = usePlaygroundState();
     const { serverUrl, userId, sessionId, executor } = state;
 
     // Simple connection check based on executor availability

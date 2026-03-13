@@ -507,6 +507,7 @@ describe('RemoteServer', () => {
 
             it('should handle non-Error stream exceptions', async () => {
                 async function* failingStream() {
+                    yield { role: 'assistant', content: 'partial', timestamp: new Date() };
                     throw 'string error';
                 }
 

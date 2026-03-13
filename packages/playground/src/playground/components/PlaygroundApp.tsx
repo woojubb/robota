@@ -5,7 +5,7 @@ const HEX_BASE = 16;
 const MAX_TOOL_SLUG_LENGTH = 40;
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PlaygroundProvider, usePlayground } from '../../contexts/playground-context';
+import { PlaygroundProvider, usePlaygroundState, usePlaygroundActions } from '../../contexts/playground-context';
 import { useRobotaExecution } from '../../hooks/use-robota-execution';
 import { useModal } from '../../hooks/use-modal';
 import { Button } from '../../components/ui/button';
@@ -43,7 +43,8 @@ function buildToolId(name: string): string {
 }
 
 function PlaygroundContent(): React.ReactElement {
-  const { state, setToolItems } = usePlayground();
+  const state = usePlaygroundState();
+  const { setToolItems } = usePlaygroundActions();
   const { createAgent, getDefaultAgentConfig } = useRobotaExecution();
   const { isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<IPlaygroundAgentConfig | null>(null);

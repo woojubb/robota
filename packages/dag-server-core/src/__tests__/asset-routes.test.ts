@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import express, { type Router } from 'express';
+import http from 'node:http';
 import { registerAssetRoutes } from '../routes/asset-routes.js';
 import type { IAssetStore, IStoredAssetMetadata } from '../asset-store-contract.js';
 import { Readable } from 'node:stream';
@@ -43,8 +44,6 @@ async function makeRequest(
     path: string,
     body?: unknown
 ): Promise<{ status: number; body: any; headers: Record<string, string> }> {
-    // Use node http to create a temporary server and make a request
-    const http = await import('node:http');
     return new Promise((resolve, reject) => {
         const server = http.createServer(app as any);
         server.listen(0, () => {

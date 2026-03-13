@@ -32,7 +32,7 @@ function createContext(overrides: Partial<IPluginExecutionContext> = {}): IPlugi
         executionId: 'exec_1',
         sessionId: 'session_1',
         userId: 'user_1',
-        messages: [{ role: 'user', content: 'hello' }],
+        messages: [{ role: 'user', content: 'hello', timestamp: new Date() }],
         config: { model: 'gpt-3.5-turbo' },
         ...overrides
     };
@@ -103,13 +103,13 @@ describe('LimitsPlugin', () => {
     // ----------------------------------------------------------------
     describe('construction validation', () => {
         it('should throw when strategy is missing', () => {
-            expect(() => new LimitsPlugin({ strategy: '' } as ILimitsPluginOptions)).toThrow(PluginError);
-            expect(() => new LimitsPlugin({ strategy: '' } as ILimitsPluginOptions)).toThrow('Strategy must be specified');
+            expect(() => new LimitsPlugin({ strategy: '' } as unknown as ILimitsPluginOptions)).toThrow(PluginError);
+            expect(() => new LimitsPlugin({ strategy: '' } as unknown as ILimitsPluginOptions)).toThrow('Strategy must be specified');
         });
 
         it('should throw when strategy is invalid', () => {
-            expect(() => new LimitsPlugin({ strategy: 'invalid' } as ILimitsPluginOptions)).toThrow(PluginError);
-            expect(() => new LimitsPlugin({ strategy: 'invalid' } as ILimitsPluginOptions)).toThrow('Invalid strategy');
+            expect(() => new LimitsPlugin({ strategy: 'invalid' } as unknown as ILimitsPluginOptions)).toThrow(PluginError);
+            expect(() => new LimitsPlugin({ strategy: 'invalid' } as unknown as ILimitsPluginOptions)).toThrow('Invalid strategy');
         });
 
         it('should throw when bucketSize is negative for token-bucket', () => {

@@ -112,7 +112,7 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
      * Execute the actual API call
      * @private
      */
-    private async executeAPICall(parameters: TToolParameters, _context?: IToolExecutionContext) {
+    private async executeAPICall(parameters: TToolParameters, _context?: IToolExecutionContext): Promise<never> {
         // Find the operation in the OpenAPI spec
         const operation = this.findOperation();
         if (!operation) {

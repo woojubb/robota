@@ -3,7 +3,7 @@
 const PROMPT_PREVIEW_LENGTH = 100;
 const WS_CHECK_INTERVAL_MS = 1000;
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo, ReactNode, useRef } from 'react';
 import { PlaygroundExecutor, type IPlaygroundExecutorResult, type IPlaygroundAgentConfig, type TPlaygroundMode, type IConversationEvent, type IVisualizationData } from '../lib/playground/robota-executor';
 import { DefaultEventService, SilentLogger } from '@robota-sdk/agents';
 import type { IPlaygroundToolMeta } from '../tools/catalog';
@@ -11,8 +11,7 @@ import { type IPlaygroundState, type IPlaygroundExecutionStats, type TPlayground
 
 export type { IPlaygroundState, IPlaygroundExecutionStats, TPlaygroundReducerAction } from './playground-reducer';
 
-interface IPlaygroundContextValue {
-    state: IPlaygroundState;
+interface IPlaygroundActionsValue {
     createAgent: (config: IPlaygroundAgentConfig) => Promise<void>;
     addAgentConfig: (config: IPlaygroundAgentConfig) => void;
     updateAgentConfig: (index: number, config: IPlaygroundAgentConfig) => void;
@@ -28,14 +27,24 @@ interface IPlaygroundContextValue {
     getConnectionStatus: () => { connected: boolean; url: string };
 }
 
-const PlaygroundContext = createContext<IPlaygroundContextValue | undefined>(undefined);
+/** @deprecated Use usePlaygroundState() or usePlaygroundActions() for better performance. */
+interface IPlaygroundContextValue extends IPlaygroundActionsValue {
+    state: IPlaygroundState;
+}
+
+const PlaygroundStateContext = createContext<IPlaygroundState | undefined>(undefined);
+const PlaygroundActionsContext = createContext<IPlaygroundActionsValue | undefined>(undefined);
 
 interface IPlaygroundProviderProps { children: ReactNode; defaultServerUrl?: string; }
 
 export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygroundProviderProps) {
     const logger = SilentLogger;
-    const [state, dispatch] = useReducer(playgroundReducer, { ...initialState, serverUrl: defaultServerUrl });
+    const [state, dispatch] = useReducer(playgroundReducer, defaultServerUrl, (url) => ({ ...initialState, serverUrl: url }));
     const executorRef = useRef<PlaygroundExecutor | null>(null);
+    const isInitializedRef = useRef(state.isInitialized);
+    isInitializedRef.current = state.isInitialized;
+    const modeRef = useRef(state.mode);
+    modeRef.current = state.mode;
 
     useEffect(() => {
         if (!state.executor && defaultServerUrl) {
@@ -52,10 +61,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
     }, [defaultServerUrl]);
 
     const createAgent = useCallback(async (config: IPlaygroundAgentConfig) => {
-        if (!state.executor || !state.isInitialized) throw new Error('Executor not initialized');
+        if (!executorRef.current || !isInitializedRef.current) throw new Error('Executor not initialized');
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
-            await state.executor.createAgent(config);
+            await executorRef.current.createAgent(config);
             dispatch({ type: 'ADD_AGENT_CONFIG', payload: config });
             dispatch({ type: 'SET_LOADING', payload: false });
         } catch (error) {
@@ -63,7 +72,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
             dispatch({ type: 'SET_LOADING', payload: false });
             throw error;
         }
-    }, [state.executor, state.isInitialized]);
+    }, []);
 
     const runExecution = useCallback(async (
         executor: PlaygroundExecutor,
@@ -91,10 +100,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
     }, []);
 
     const executePrompt = useCallback(async (prompt: string): Promise<IPlaygroundExecutorResult> => {
-        if (!state.executor || !state.isInitialized) throw new Error('Executor not initialized');
-        const executor = state.executor;
+        if (!executorRef.current || !isInitializedRef.current) throw new Error('Executor not initialized');
+        const executor = executorRef.current;
         try {
-            return await runExecution(executor, prompt, state.mode, () => executor.run(prompt));
+            return await runExecution(executor, prompt, modeRef.current, () => executor.run(prompt));
         } catch (error) {
             const errorResult = buildErrorResult(error);
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: errorResult });
@@ -103,13 +112,13 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
         } finally {
             dispatch({ type: 'SET_EXECUTING', payload: false });
         }
-    }, [state.executor, state.isInitialized, state.mode, runExecution]);
+    }, [runExecution]);
 
     const executeStreamPrompt = useCallback(async (prompt: string, onChunk: (chunk: string) => void): Promise<IPlaygroundExecutorResult> => {
-        if (!state.executor || !state.isInitialized) throw new Error('Executor not initialized');
-        const executor = state.executor;
+        if (!executorRef.current || !isInitializedRef.current) throw new Error('Executor not initialized');
+        const executor = executorRef.current;
         try {
-            return await runExecution(executor, prompt, state.mode, () => executor.execute(prompt, onChunk));
+            return await runExecution(executor, prompt, modeRef.current, () => executor.execute(prompt, onChunk));
         } catch (error) {
             logger.error('executeStreamPrompt error', { error: error instanceof Error ? error.message : String(error) });
             const errorResult = buildErrorResult(error);
@@ -119,12 +128,12 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
         } finally {
             dispatch({ type: 'SET_EXECUTING', payload: false });
         }
-    }, [state.executor, state.isInitialized, state.mode, runExecution]);
+    }, [runExecution]);
 
     const clearHistory = useCallback(() => {
-        if (state.executor && state.isInitialized) state.executor.clearHistory();
+        if (executorRef.current && isInitializedRef.current) executorRef.current.clearHistory();
         dispatch({ type: 'CLEAR_CONVERSATION_HISTORY' });
-    }, [state.executor, state.isInitialized]);
+    }, []);
 
     const setAuth = useCallback((userId: string, sessionId: string, authToken: string) => {
         dispatch({ type: 'SET_AUTH', payload: { userId, sessionId, authToken } });
@@ -138,18 +147,21 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
         }
     }, []);
 
+    const wsConnectedRef = useRef(state.isWebSocketConnected);
+    wsConnectedRef.current = state.isWebSocketConnected;
+
     useEffect(() => {
         if (state.executor) {
             const executor = state.executor;
             const checkConnection = () => {
                 const isConnected = executor.isWebSocketConnected();
-                if (isConnected !== state.isWebSocketConnected) dispatch({ type: 'SET_WEBSOCKET_CONNECTED', payload: isConnected });
+                if (isConnected !== wsConnectedRef.current) dispatch({ type: 'SET_WEBSOCKET_CONNECTED', payload: isConnected });
             };
             const interval = setInterval(checkConnection, WS_CHECK_INTERVAL_MS);
             return () => clearInterval(interval);
         }
         return;
-    }, [state.executor, state.isWebSocketConnected]);
+    }, [state.executor]);
 
     useEffect(() => {
         return () => {
@@ -161,39 +173,64 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
         };
     }, []);
 
-    const contextValue: IPlaygroundContextValue = {
-        state,
+    const addAgentConfig = useCallback((config: IPlaygroundAgentConfig) => dispatch({ type: 'ADD_AGENT_CONFIG', payload: config }), []);
+    const updateAgentConfig = useCallback((index: number, config: IPlaygroundAgentConfig) => dispatch({ type: 'UPDATE_AGENT_CONFIG', payload: { index, config } }), []);
+    const setExecuting = useCallback((isExecuting: boolean) => dispatch({ type: 'SET_EXECUTING', payload: isExecuting }), []);
+    const setToolItems = useCallback((tools: IPlaygroundToolMeta[]) => dispatch({ type: 'SET_TOOL_ITEMS', payload: tools }), []);
+    const addToolToAgentOverlay = useCallback((agentId: string, toolId: string) => dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId } }), []);
+    const visualizationDataRef = useRef(state.visualizationData);
+    visualizationDataRef.current = state.visualizationData;
+    const getVisualizationData = useCallback((): IVisualizationData | null => visualizationDataRef.current, []);
+
+    const connectionStatusRef = useRef({ connected: state.isWebSocketConnected, url: state.serverUrl });
+    connectionStatusRef.current = { connected: state.isWebSocketConnected, url: state.serverUrl };
+    const getConnectionStatus = useCallback(() => connectionStatusRef.current, []);
+
+    const actionsValue: IPlaygroundActionsValue = useMemo(() => ({
         createAgent,
-        addAgentConfig: (config) => dispatch({ type: 'ADD_AGENT_CONFIG', payload: config }),
-        updateAgentConfig: (index, config) => dispatch({ type: 'UPDATE_AGENT_CONFIG', payload: { index, config } }),
+        addAgentConfig,
+        updateAgentConfig,
         executePrompt,
         executeStreamPrompt,
         clearHistory,
         setAuth,
         disposeExecutor,
-        setExecuting: useCallback((isExecuting: boolean) => dispatch({ type: 'SET_EXECUTING', payload: isExecuting }), []),
-        setToolItems: useCallback((tools: IPlaygroundToolMeta[]) => dispatch({ type: 'SET_TOOL_ITEMS', payload: tools }), []),
-        addToolToAgentOverlay: useCallback((agentId: string, toolId: string) => dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId } }), []),
-        getVisualizationData: useCallback((): IVisualizationData | null => state.visualizationData, [state.visualizationData]),
-        getConnectionStatus: useCallback(() => ({ connected: state.isWebSocketConnected, url: state.serverUrl }), [state.isWebSocketConnected, state.serverUrl])
-    };
+        setExecuting,
+        setToolItems,
+        addToolToAgentOverlay,
+        getVisualizationData,
+        getConnectionStatus,
+    }), [createAgent, addAgentConfig, updateAgentConfig, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor, setExecuting, setToolItems, addToolToAgentOverlay, getVisualizationData, getConnectionStatus]);
 
-    return <PlaygroundContext.Provider value={contextValue}>{children}</PlaygroundContext.Provider>;
+    return (
+        <PlaygroundStateContext.Provider value={state}>
+            <PlaygroundActionsContext.Provider value={actionsValue}>
+                {children}
+            </PlaygroundActionsContext.Provider>
+        </PlaygroundStateContext.Provider>
+    );
 }
 
-export function usePlayground() {
-    const context = useContext(PlaygroundContext);
-    if (context === undefined) throw new Error('usePlayground must be used within a PlaygroundProvider');
-    return context;
+export function usePlaygroundState(): IPlaygroundState {
+    const state = useContext(PlaygroundStateContext);
+    if (state === undefined) throw new Error('usePlaygroundState must be used within a PlaygroundProvider');
+    return state;
 }
 
-export function usePlaygroundState() {
-    return usePlayground().state;
+export function usePlaygroundActions(): IPlaygroundActionsValue {
+    const actions = useContext(PlaygroundActionsContext);
+    if (actions === undefined) throw new Error('usePlaygroundActions must be used within a PlaygroundProvider');
+    return actions;
 }
 
-export function usePlaygroundActions() {
-    const { createAgent, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor } = usePlayground();
-    return { createAgent, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor };
+/**
+ * Returns both state and actions. Prefer usePlaygroundState() or usePlaygroundActions()
+ * when you only need one — this hook re-renders on every state change.
+ */
+export function usePlayground(): IPlaygroundContextValue {
+    const state = usePlaygroundState();
+    const actions = usePlaygroundActions();
+    return useMemo(() => ({ state, ...actions }), [state, actions]);
 }
 
 function buildConversationEvents(executor: PlaygroundExecutor): IConversationEvent[] {

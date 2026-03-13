@@ -18,12 +18,10 @@ class TestPlugin extends AbstractPlugin {
 
     override async initialize(): Promise<void> {
         this.initCalled = true;
-        this.initialized = true;
     }
 
     override async dispose(): Promise<void> {
         this.disposeCalled = true;
-        this.initialized = false;
     }
 }
 

@@ -20,8 +20,16 @@
       "entry": ["src/index.ts"],
       "ignore": ["**/examples/**", "**/__tests__/**", "**/*.test.ts"]
     },
-    "apps/api-server": {
-      "entry": ["src/index.ts", "src/main.ts", "src/app.ts"],
+    "apps/agent-server": {
+      "entry": ["src/index.ts", "src/server.ts", "src/app.ts"],
+      "ignore": ["**/*.test.ts"]
+    },
+    "apps/dag-runtime-server": {
+      "entry": ["src/server.ts"],
+      "ignore": ["**/*.test.ts"]
+    },
+    "apps/dag-orchestrator-server": {
+      "entry": ["src/server.ts"],
       "ignore": ["**/*.test.ts"]
     },
     "apps/web": {

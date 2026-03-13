@@ -61,7 +61,14 @@ const nextConfig: NextConfig = {
 
   // Performance optimizations
   experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-icons',
+      '@robota-sdk/dag-core',
+      '@robota-sdk/dag-designer',
+      '@robota-sdk/agents',
+      '@robota-sdk/playground',
+    ],
   },
 
   // Compiler optimizations

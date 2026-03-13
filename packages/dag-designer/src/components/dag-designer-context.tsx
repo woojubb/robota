@@ -65,10 +65,9 @@ export interface IDagDesignerRootProps {
     className?: string;
 }
 
-export interface IDagDesignerContextValue {
+interface IDagDesignerStateValue {
     definition: IDagDefinition;
     manifests: INodeManifest[];
-    onDefinitionChange: (definition: IDagDefinition) => void;
     assetUploadBaseUrl?: string;
     onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
     onRun?: (input: {
@@ -84,6 +83,11 @@ export interface IDagDesignerContextValue {
     liveNodeTraceByNodeId: Record<string, IDagNodeIoTrace>;
     nodeUiStateByNodeId: Record<string, INodeUiState>;
     runProgress: IRunProgressState;
+    bindingErrors: string[];
+}
+
+interface IDagDesignerActionsValue {
+    onDefinitionChange: (definition: IDagDefinition) => void;
     setSelectedNodeId: (nodeId: string | undefined) => void;
     setSelectedEdgeId: (edgeId: string | undefined) => void;
     setConnectError: (error: string | undefined) => void;
@@ -91,7 +95,6 @@ export interface IDagDesignerContextValue {
     resetRunProgress: () => void;
     setActiveDagRunId: (dagRunId: string) => void;
     applyRunProgressEvent: (event: TRunProgressEvent) => void;
-    bindingErrors: string[];
     addNodeFromManifest: (manifest: INodeManifest) => void;
     updateNode: (nextNode: IDagNode) => void;
     updateEdge: (nextEdge: IDagEdgeDefinition) => void;
@@ -99,7 +102,10 @@ export interface IDagDesignerContextValue {
     removeEdgeById: (edgeId: string) => void;
 }
 
-const DagDesignerContext = createContext<IDagDesignerContextValue | undefined>(undefined);
+export interface IDagDesignerContextValue extends IDagDesignerStateValue, IDagDesignerActionsValue {}
+
+const DagDesignerStateContext = createContext<IDagDesignerStateValue | undefined>(undefined);
+const DagDesignerActionsContext = createContext<IDagDesignerActionsValue | undefined>(undefined);
 
 const INITIAL_RUN_PROGRESS_STATE: IRunProgressState = {
     runStatus: 'idle',
@@ -160,15 +166,42 @@ function applyRunProgressEventToState(
     };
 }
 
+/**
+ * Returns both state and actions. Prefer useDagDesignerState() or useDagDesignerActions()
+ * when you only need one — this hook re-renders on every state change.
+ */
 export function useDagDesignerContext(): IDagDesignerContextValue {
-    const context = useContext(DagDesignerContext);
-    if (!context) {
+    const state = useContext(DagDesignerStateContext);
+    const actions = useContext(DagDesignerActionsContext);
+    if (!state || !actions) {
         throw new Error('DagDesigner components must be rendered under DagDesigner.Root');
     }
-    return context;
+    return useMemo(() => ({ ...state, ...actions }), [state, actions]);
+}
+
+export function useDagDesignerState(): IDagDesignerStateValue {
+    const state = useContext(DagDesignerStateContext);
+    if (!state) {
+        throw new Error('DagDesigner components must be rendered under DagDesigner.Root');
+    }
+    return state;
+}
+
+export function useDagDesignerActions(): IDagDesignerActionsValue {
+    const actions = useContext(DagDesignerActionsContext);
+    if (!actions) {
+        throw new Error('DagDesigner components must be rendered under DagDesigner.Root');
+    }
+    return actions;
 }
 
 export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
+    const definitionRef = useRef(props.definition);
+    definitionRef.current = props.definition;
+
+    const onDefinitionChangeRef = useRef(props.onDefinitionChange);
+    onDefinitionChangeRef.current = props.onDefinitionChange;
+
     const [selectedNodeId, setSelectedNodeIdState] = useState<string | undefined>(undefined);
     const [selectedEdgeId, setSelectedEdgeIdState] = useState<string | undefined>(undefined);
     const [connectError, setConnectError] = useState<string | undefined>(undefined);
@@ -264,7 +297,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         setLiveNodeTraceByNodeId({});
         setNodeUiStateByNodeId((currentState) => {
             const nextState: Record<string, INodeUiState> = {};
-            for (const node of props.definition.nodes) {
+            for (const node of definitionRef.current.nodes) {
                 const existingState = currentState[node.nodeId];
                 nextState[node.nodeId] = {
                     executionStatus: 'idle',
@@ -278,7 +311,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
             runStatus: 'running',
             completedTaskCount: 0
         });
-    }, [clearPendingStatusTimers, props.definition.nodes]);
+    }, [clearPendingStatusTimers]);
 
     const applyRunProgressEvent = useCallback((event: TRunProgressEvent): void => {
         if (
@@ -357,71 +390,75 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     }, []);
 
     const addNodeFromManifest = useCallback((manifest: INodeManifest): void => {
-        const nextNode = createNodeFromManifest(manifest, props.definition.nodes.length);
+        const def = definitionRef.current;
+        const nextNode = createNodeFromManifest(manifest, def.nodes.length);
         setBindingCleanupMessage(undefined);
         resetRunProgress();
-        props.onDefinitionChange({
-            ...props.definition,
-            nodes: [...props.definition.nodes, nextNode]
+        onDefinitionChangeRef.current({
+            ...def,
+            nodes: [...def.nodes, nextNode]
         });
-    }, [props.definition, props.onDefinitionChange, resetRunProgress]);
+    }, [resetRunProgress]);
 
     const updateNode = useCallback((nextNode: IDagNode): void => {
-        const reconciled = reconcileNodePortsAndEdges(props.definition, nextNode);
+        const def = definitionRef.current;
+        const reconciled = reconcileNodePortsAndEdges(def, nextNode);
         setBindingCleanupMessage(summarizeRemovedBindings(reconciled.removedBindings));
         resetRunProgress();
-        props.onDefinitionChange(reconciled.nextDefinition);
-    }, [props.definition, props.onDefinitionChange, resetRunProgress]);
+        onDefinitionChangeRef.current(reconciled.nextDefinition);
+    }, [resetRunProgress]);
 
     const updateEdge = useCallback((nextEdge: IDagEdgeDefinition): void => {
+        const def = definitionRef.current;
         setBindingCleanupMessage(undefined);
         resetRunProgress();
-        props.onDefinitionChange(compactListBindings({
-            ...props.definition,
-            edges: props.definition.edges.map((edge) => (
+        onDefinitionChangeRef.current(compactListBindings({
+            ...def,
+            edges: def.edges.map((edge) => (
                 edge.from === nextEdge.from && edge.to === nextEdge.to ? nextEdge : edge
             ))
         }));
-    }, [props.definition, props.onDefinitionChange, resetRunProgress]);
+    }, [resetRunProgress]);
 
     const removeEdgeById = useCallback((edgeId: string): void => {
-        const nextEdges = props.definition.edges.filter((edge) => `${edge.from}->${edge.to}` !== edgeId);
-        if (nextEdges.length === props.definition.edges.length) {
+        const def = definitionRef.current;
+        const nextEdges = def.edges.filter((edge) => `${edge.from}->${edge.to}` !== edgeId);
+        if (nextEdges.length === def.edges.length) {
             return;
         }
         setBindingCleanupMessage(undefined);
         resetRunProgress();
         setSelectedEdgeId(undefined);
-        const nextNodes = recomputeNodeDependencies(props.definition.nodes, nextEdges);
-        props.onDefinitionChange(compactListBindings({
-            ...props.definition,
+        const nextNodes = recomputeNodeDependencies(def.nodes, nextEdges);
+        onDefinitionChangeRef.current(compactListBindings({
+            ...def,
             nodes: nextNodes,
             edges: nextEdges
         }));
-    }, [props.definition, props.onDefinitionChange, resetRunProgress]);
+    }, [resetRunProgress]);
 
     const removeNodeById = useCallback((nodeId: string): void => {
-        const nextNodes = props.definition.nodes.filter((node) => node.nodeId !== nodeId);
-        if (nextNodes.length === props.definition.nodes.length) {
+        const def = definitionRef.current;
+        const nextNodes = def.nodes.filter((node) => node.nodeId !== nodeId);
+        if (nextNodes.length === def.nodes.length) {
             return;
         }
-        const nextEdges = props.definition.edges.filter((edge) => edge.from !== nodeId && edge.to !== nodeId);
+        const nextEdges = def.edges.filter((edge) => edge.from !== nodeId && edge.to !== nodeId);
         const reconciledNodes = recomputeNodeDependencies(nextNodes, nextEdges);
         setBindingCleanupMessage(undefined);
         resetRunProgress();
         setSelectedNodeId(undefined);
         setSelectedEdgeId(undefined);
-        props.onDefinitionChange(compactListBindings({
-            ...props.definition,
+        onDefinitionChangeRef.current(compactListBindings({
+            ...def,
             nodes: reconciledNodes,
             edges: nextEdges
         }));
-    }, [props.definition, props.onDefinitionChange, resetRunProgress]);
+    }, [resetRunProgress]);
 
-    const contextValue = useMemo<IDagDesignerContextValue>(() => ({
+    const stateValue = useMemo<IDagDesignerStateValue>(() => ({
         definition: props.definition,
         manifests: props.manifests,
-        onDefinitionChange: props.onDefinitionChange,
         assetUploadBaseUrl: props.assetUploadBaseUrl,
         onRunResult: props.onRunResult,
         onRun: props.onRun,
@@ -434,23 +471,10 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         liveNodeTraceByNodeId,
         nodeUiStateByNodeId,
         runProgress,
-        setSelectedNodeId,
-        setSelectedEdgeId,
-        setConnectError,
-        setRunResult,
-        resetRunProgress,
-        setActiveDagRunId,
-        applyRunProgressEvent,
         bindingErrors,
-        addNodeFromManifest,
-        updateNode,
-        updateEdge,
-        removeNodeById,
-        removeEdgeById
     }), [
         props.definition,
         props.manifests,
-        props.onDefinitionChange,
         props.assetUploadBaseUrl,
         props.onRunResult,
         props.onRun,
@@ -464,6 +488,14 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         nodeUiStateByNodeId,
         runProgress,
         bindingErrors,
+    ]);
+
+    const actionsValue = useMemo<IDagDesignerActionsValue>(() => ({
+        onDefinitionChange: props.onDefinitionChange,
+        setSelectedNodeId,
+        setSelectedEdgeId,
+        setConnectError,
+        setRunResult,
         resetRunProgress,
         setActiveDagRunId,
         applyRunProgressEvent,
@@ -471,14 +503,26 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         updateNode,
         updateEdge,
         removeNodeById,
-        removeEdgeById
+        removeEdgeById,
+    }), [
+        props.onDefinitionChange,
+        resetRunProgress,
+        setActiveDagRunId,
+        applyRunProgressEvent,
+        addNodeFromManifest,
+        updateNode,
+        updateEdge,
+        removeNodeById,
+        removeEdgeById,
     ]);
 
     return (
-        <DagDesignerContext.Provider value={contextValue}>
-            <div className={`robota-dag-root min-h-0 ${props.className ?? ''}`}>
-                {props.children}
-            </div>
-        </DagDesignerContext.Provider>
+        <DagDesignerStateContext.Provider value={stateValue}>
+            <DagDesignerActionsContext.Provider value={actionsValue}>
+                <div className={`robota-dag-root min-h-0 ${props.className ?? ''}`}>
+                    {props.children}
+                </div>
+            </DagDesignerActionsContext.Provider>
+        </DagDesignerStateContext.Provider>
     );
 }
