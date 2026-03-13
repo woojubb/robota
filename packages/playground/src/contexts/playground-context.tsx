@@ -34,7 +34,7 @@ interface IPlaygroundProviderProps { children: ReactNode; defaultServerUrl?: str
 
 export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygroundProviderProps) {
     const logger = SilentLogger;
-    const [state, dispatch] = useReducer(playgroundReducer, { ...initialState, serverUrl: defaultServerUrl });
+    const [state, dispatch] = useReducer(playgroundReducer, defaultServerUrl, (url) => ({ ...initialState, serverUrl: url }));
     const executorRef = useRef<PlaygroundExecutor | null>(null);
 
     useEffect(() => {
@@ -169,8 +169,13 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
     const setExecuting = useCallback((isExecuting: boolean) => dispatch({ type: 'SET_EXECUTING', payload: isExecuting }), []);
     const setToolItems = useCallback((tools: IPlaygroundToolMeta[]) => dispatch({ type: 'SET_TOOL_ITEMS', payload: tools }), []);
     const addToolToAgentOverlay = useCallback((agentId: string, toolId: string) => dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId } }), []);
-    const getVisualizationData = useCallback((): IVisualizationData | null => state.visualizationData, [state.visualizationData]);
-    const getConnectionStatus = useCallback(() => ({ connected: state.isWebSocketConnected, url: state.serverUrl }), [state.isWebSocketConnected, state.serverUrl]);
+    const visualizationDataRef = useRef(state.visualizationData);
+    visualizationDataRef.current = state.visualizationData;
+    const getVisualizationData = useCallback((): IVisualizationData | null => visualizationDataRef.current, []);
+
+    const connectionStatusRef = useRef({ connected: state.isWebSocketConnected, url: state.serverUrl });
+    connectionStatusRef.current = { connected: state.isWebSocketConnected, url: state.serverUrl };
+    const getConnectionStatus = useCallback(() => connectionStatusRef.current, []);
 
     const contextValue: IPlaygroundContextValue = useMemo(() => ({
         state,

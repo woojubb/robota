@@ -25,6 +25,10 @@ export interface IDagNodeViewData extends Record<string, unknown> {
 
 export type TDagCanvasNode = Node<IDagNodeViewData, 'dag-node'>;
 
+const NO_TRACE_FALLBACK = (
+    <div className="nodrag border-t border-gray-200 px-3 py-2 text-[10px] text-gray-400">No run data yet</div>
+);
+
 function sortPorts(ports: IPortDefinition[]): IPortDefinition[] {
     return [...ports].sort((left, right) => (left.order ?? 9999) - (right.order ?? 9999));
 }
@@ -154,9 +158,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                     output={latestTrace.output}
                     assetBaseUrl={props.data.assetBaseUrl}
                 />
-            ) : (
-                <div className="nodrag border-t border-gray-200 px-3 py-2 text-[10px] text-gray-400">No run data yet</div>
-            )}
+            ) : NO_TRACE_FALLBACK}
         </div>
     );
 }
