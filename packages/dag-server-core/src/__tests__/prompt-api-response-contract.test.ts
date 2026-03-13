@@ -67,7 +67,7 @@ type JsonObject = Record<string, unknown>;
  */
 function validateResponseShape(
     body: unknown,
-    schema: { type?: string; required?: string[]; properties?: Record<string, { type?: string }> },
+    schema: { type?: string; required?: readonly string[]; properties?: Record<string, { type?: string }> },
     context: string
 ): string[] {
     const errors: string[] = [];
