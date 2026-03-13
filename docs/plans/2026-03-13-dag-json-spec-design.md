@@ -9,16 +9,27 @@ Adopt ComfyUI API prompt format as the DAG JSON schema. The API endpoints also m
 
 ## Architecture
 
+Three independent programs communicating over HTTP:
+
 ```
-[Orchestration Layer] — budget, auth, billing, retry, timeout, extended features
-    ↓ queries /object_info, computes cost, enforces policies
-    ↓ calls /prompt when approved
-[ComfyUI-compatible API] — /prompt, /queue, /history, /object_info
+[dag-designer (UI)]
+    ↓ HTTP
+[Orchestrator API Server] — gateway, client entry point
+    |  independent program, optional (extension pack for Prompt API)
+    |  handles: auth, cost estimation, retry, timeout, billing
+    ↓ HTTP
+[Prompt API Server] — execution engine
+    |  independent program, fully functional standalone
+    |  endpoints: /prompt, /queue, /history, /object_info, /system_stats
     ↓
 [Backend: ComfyUI OR Robota DAG runtime] — interchangeable
 ```
 
-Key constraint: ComfyUI may be used as the actual backend, OR Robota DAG may replace it. Both must be interchangeable behind the same API contract.
+Key constraints:
+- **Prompt API Server** is a standalone program. Works without Orchestrator.
+- **Orchestrator API Server** is a standalone program. Acts as a gateway/extension pack for Prompt API. Connects to Prompt API via HTTP.
+- **dag-designer** connects only to Orchestrator API. Never directly to Prompt API.
+- ComfyUI may be used as the actual backend, OR Robota DAG may replace it. Both interchangeable behind the same Prompt API contract.
 
 ## DAG JSON Format (API Prompt Format)
 
@@ -136,7 +147,7 @@ dag-designer needs a converter: **prompt API format ↔ React Flow nodes/edges d
 | 6 | Server-side concerns | Not in JSON — server owns port defs, lifecycle, state, errors, history |
 | 7 | dagId/version/status | Removed — prompt_id returned on submit (ComfyUI) |
 | 8 | costPolicy | Orchestration layer |
-| 9 | Architecture | ComfyUI or Robota DAG interchangeable behind same API |
+| 9 | Architecture | Three independent programs: dag-designer → Orchestrator API → Prompt API → Backend |
 | 10 | retry/trigger/timeout | Orchestration layer |
 | 11 | position | Separate Workflow JSON (ComfyUI) |
 | 12 | inputSchema/outputSchema | Server node definitions |
