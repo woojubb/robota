@@ -3,7 +3,7 @@
 const PROMPT_PREVIEW_LENGTH = 100;
 const WS_CHECK_INTERVAL_MS = 1000;
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo, ReactNode, useRef } from 'react';
 import { PlaygroundExecutor, type IPlaygroundExecutorResult, type IPlaygroundAgentConfig, type TPlaygroundMode, type IConversationEvent, type IVisualizationData } from '../lib/playground/robota-executor';
 import { DefaultEventService, SilentLogger } from '@robota-sdk/agents';
 import type { IPlaygroundToolMeta } from '../tools/catalog';
@@ -161,22 +161,30 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
         };
     }, []);
 
-    const contextValue: IPlaygroundContextValue = {
+    const addAgentConfig = useCallback((config: IPlaygroundAgentConfig) => dispatch({ type: 'ADD_AGENT_CONFIG', payload: config }), []);
+    const updateAgentConfig = useCallback((index: number, config: IPlaygroundAgentConfig) => dispatch({ type: 'UPDATE_AGENT_CONFIG', payload: { index, config } }), []);
+    const setExecuting = useCallback((isExecuting: boolean) => dispatch({ type: 'SET_EXECUTING', payload: isExecuting }), []);
+    const setToolItems = useCallback((tools: IPlaygroundToolMeta[]) => dispatch({ type: 'SET_TOOL_ITEMS', payload: tools }), []);
+    const addToolToAgentOverlay = useCallback((agentId: string, toolId: string) => dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId } }), []);
+    const getVisualizationData = useCallback((): IVisualizationData | null => state.visualizationData, [state.visualizationData]);
+    const getConnectionStatus = useCallback(() => ({ connected: state.isWebSocketConnected, url: state.serverUrl }), [state.isWebSocketConnected, state.serverUrl]);
+
+    const contextValue: IPlaygroundContextValue = useMemo(() => ({
         state,
         createAgent,
-        addAgentConfig: (config) => dispatch({ type: 'ADD_AGENT_CONFIG', payload: config }),
-        updateAgentConfig: (index, config) => dispatch({ type: 'UPDATE_AGENT_CONFIG', payload: { index, config } }),
+        addAgentConfig,
+        updateAgentConfig,
         executePrompt,
         executeStreamPrompt,
         clearHistory,
         setAuth,
         disposeExecutor,
-        setExecuting: useCallback((isExecuting: boolean) => dispatch({ type: 'SET_EXECUTING', payload: isExecuting }), []),
-        setToolItems: useCallback((tools: IPlaygroundToolMeta[]) => dispatch({ type: 'SET_TOOL_ITEMS', payload: tools }), []),
-        addToolToAgentOverlay: useCallback((agentId: string, toolId: string) => dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId } }), []),
-        getVisualizationData: useCallback((): IVisualizationData | null => state.visualizationData, [state.visualizationData]),
-        getConnectionStatus: useCallback(() => ({ connected: state.isWebSocketConnected, url: state.serverUrl }), [state.isWebSocketConnected, state.serverUrl])
-    };
+        setExecuting,
+        setToolItems,
+        addToolToAgentOverlay,
+        getVisualizationData,
+        getConnectionStatus,
+    }), [state, createAgent, addAgentConfig, updateAgentConfig, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor, setExecuting, setToolItems, addToolToAgentOverlay, getVisualizationData, getConnectionStatus]);
 
     return <PlaygroundContext.Provider value={contextValue}>{children}</PlaygroundContext.Provider>;
 }

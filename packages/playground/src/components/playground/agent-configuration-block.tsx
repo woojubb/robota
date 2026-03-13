@@ -19,7 +19,7 @@ const DEFAULT_MAX_TOKENS = 2000;
  * - Play/Stop execution control
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -72,8 +72,13 @@ export function AgentConfigurationBlock({
     onDelete,
     className = ''
 }: IAgentConfigurationBlockProps) {
-    // Configuration state - always editable when not executing
+    // Configuration state - sync from props without useEffect
     const [editedConfig, setEditedConfig] = useState<IPlaygroundAgentConfig>(config);
+    const prevConfigRef = useRef(config);
+    if (prevConfigRef.current !== config) {
+        prevConfigRef.current = config;
+        setEditedConfig(config);
+    }
 
     // Validation state
     const validation = useMemo(() => {
@@ -105,11 +110,6 @@ export function AgentConfigurationBlock({
         // Auto-save changes
         onConfigChange(newConfig);
     }, [editedConfig, isExecuting, onConfigChange]);
-
-    // Sync props with state on mount
-    useEffect(() => {
-        setEditedConfig(config);
-    }, [config]);
 
     // Status indicators
     const statusIcon = useMemo(() => {

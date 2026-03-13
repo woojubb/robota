@@ -22,6 +22,8 @@ import {
   buildDagTemplate,
 } from "../templates";
 
+const EMPTY_INITIAL_INPUT: TPortPayload = {};
+
 export interface IDagDesignerScreenProps {
   initialDagId: string;
 }
@@ -163,7 +165,14 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   const baseUrl = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
   const designApi = useDagDesignApi({ baseUrl });
   const [log, setLog] = useState<string>("Ready");
-  const [dagId, setDagId] = useState<string>(props.initialDagId);
+  const [dagIdOverride, setDagIdOverride] = useState<string | undefined>(undefined);
+  const prevInitialDagIdRef = useRef<string>(props.initialDagId);
+  if (prevInitialDagIdRef.current !== props.initialDagId) {
+    prevInitialDagIdRef.current = props.initialDagId;
+    setDagIdOverride(undefined);
+  }
+  const dagId = dagIdOverride ?? props.initialDagId;
+  const setDagId = setDagIdOverride;
   const [version, setVersion] = useState<number>(1);
   const [definition, setDefinition] = useState<IDagDefinition>(
     buildDagTemplate("blank", { dagId: props.initialDagId, version: 1 })
@@ -227,6 +236,9 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     definitionRef.current = nextDefinition;
     setDefinition(nextDefinition);
   }, []);
+
+  const toggleNodeExplorer = useCallback(() => setIsNodeExplorerOpen(c => !c), []);
+  const toggleInspector = useCallback(() => setIsInspectorOpen(c => !c), []);
 
   const toDagError = (code?: string): IDagError => ({
     code: code ?? "DAG_VALIDATION_RUN_UNKNOWN",
@@ -439,10 +451,6 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   };
 
   useEffect(() => {
-    setDagId(props.initialDagId);
-  }, [props.initialDagId]);
-
-  useEffect(() => {
     const load = async (): Promise<void> => {
       setLoadState("loading");
       const loaded = await designApi.load({
@@ -489,7 +497,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
           assetUploadBaseUrl={baseUrl}
           onRunResult={onRunResult}
           onRun={runOnServer}
-          initialInput={{}}
+          initialInput={EMPTY_INITIAL_INPUT}
           className="relative h-full w-full overflow-hidden"
         >
           <InitialNodeSelectionEffect nodeId={initialSelectedNodeId} />
@@ -503,14 +511,14 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
                 <button
                   type="button"
                   className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] shadow-sm hover:bg-gray-50"
-                  onClick={() => setIsNodeExplorerOpen((current) => !current)}
+                  onClick={toggleNodeExplorer}
                 >
                   {isNodeExplorerOpen ? "Hide Explorer" : "Show Explorer"}
                 </button>
                 <button
                   type="button"
                   className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] shadow-sm hover:bg-gray-50"
-                  onClick={() => setIsInspectorOpen((current) => !current)}
+                  onClick={toggleInspector}
                 >
                   {isInspectorOpen ? "Hide Inspector" : "Show Inspector"}
                 </button>

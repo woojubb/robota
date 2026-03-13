@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useMemo, useState, type ReactElement } from 'react';
 import type { INodeManifest } from '@robota-sdk/dag-core';
 
 export interface INodeExplorerPanelProps {
@@ -25,14 +25,8 @@ export function NodeExplorerPanel(props: INodeExplorerPanelProps): ReactElement 
         () => [...categoryMap.keys()].sort((left, right) => left.localeCompare(right)),
         [categoryMap]
     );
-    const [activeCategory, setActiveCategory] = useState<string>(categories[0] ?? '');
-
-    useEffect(() => {
-        const nextCategory = categories[0] ?? '';
-        if (!categories.includes(activeCategory)) {
-            setActiveCategory(nextCategory);
-        }
-    }, [activeCategory, categories]);
+    const [rawActiveCategory, setActiveCategory] = useState<string>(categories[0] ?? '');
+    const activeCategory = categories.includes(rawActiveCategory) ? rawActiveCategory : (categories[0] ?? '');
 
     const visibleManifests = categoryMap.get(activeCategory) ?? [];
 
