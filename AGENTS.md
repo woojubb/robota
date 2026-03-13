@@ -220,6 +220,7 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 | [`logging-level-guide`](.agents/skills/logging-level-guide/SKILL.md) | Log level usage guide |
 | [`api-error-standard`](.agents/skills/api-error-standard/SKILL.md) | RFC 7807 API error responses |
 | [`api-spec-management`](.agents/skills/api-spec-management/SKILL.md) | API specification management |
+| [`react-best-practices`](.agents/skills/react-best-practices/SKILL.md) | React/Next.js performance optimization (Vercel) |
 
 ## Rules and Skills Boundary
 
