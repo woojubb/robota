@@ -166,7 +166,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         context.setSelectedEdgeId(undefined);
     }, [context.setSelectedNodeId, context.setSelectedEdgeId]);
 
-    const onNodeDragStop: NodeMouseHandler = (_event, node): void => {
+    const onNodeDragStop: NodeMouseHandler = useCallback((_event, node): void => {
         const originalNode = context.definition.nodes.find((n) => n.nodeId === node.id);
         if (!originalNode) {
             return;
@@ -187,7 +187,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         ));
         context.onDefinitionChange({ ...context.definition, nodes: nextNodes });
         context.resetRunProgress();
-    };
+    }, [context.definition, context.onDefinitionChange, context.resetRunProgress]);
 
     const isEditableTarget = (target: EventTarget | null): boolean => {
         if (!(target instanceof HTMLElement)) {
@@ -226,7 +226,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         };
     }, [context.removeEdgeById, context.removeNodeById, context.selectedEdgeId, context.selectedNodeId]);
 
-    const onConnect = (connection: Connection): void => {
+    const onConnect = useCallback((connection: Connection): void => {
         if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) {
             context.setConnectError('Connection rejected: source/target handles are required.');
             return;
@@ -311,7 +311,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         }
         context.onDefinitionChange(nextDefinition);
         context.resetRunProgress();
-    };
+    }, [context.definition, context.setConnectError, context.onDefinitionChange, context.resetRunProgress]);
 
     useEffect(() => {
         if (isSyncingEdgesFromDefinitionRef.current) {

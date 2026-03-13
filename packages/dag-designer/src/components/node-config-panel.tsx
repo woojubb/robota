@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import { useCallback, useState, type ReactElement } from 'react';
 import {
     type IDagDefinition,
     type IDagNode,
@@ -180,6 +180,10 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         }
     };
 
+    const stableHandleAssetUpload = useCallback((fieldKey: string, file: File): void => {
+        void handleAssetUpload(fieldKey, file);
+    }, [props.assetUploadBaseUrl]);
+
     const getConnectedCount = (direction: TPortDirection, portKey: string): number => (
         getConnectedBindingCountForPort(props.definition, node.nodeId, direction, portKey)
     );
@@ -231,9 +235,7 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                                 uploadStatusByField={uploadStatusByField}
                                 onUpdateConfigValue={updateConfigValue}
                                 onReportValidationError={reportValidationError}
-                                onHandleAssetUpload={(fieldKey, file) => {
-                                    void handleAssetUpload(fieldKey, file);
-                                }}
+                                onHandleAssetUpload={stableHandleAssetUpload}
                             />
                         );
                     })}

@@ -230,10 +230,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     return [];
   }, [definition]);
   const hasBindingBlockingError = bindingBlockingErrors.length > 0;
-  const actionButtonDisabledReason = useMemo(
-    () => getActionButtonDisabledReason(bindingBlockingErrors),
-    [bindingBlockingErrors]
-  );
+  const actionButtonDisabledReason = getActionButtonDisabledReason(bindingBlockingErrors);
   const applyDefinitionChange = useCallback((nextDefinition: IDagDefinition): void => {
     definitionRef.current = nextDefinition;
     setDefinition(nextDefinition);
