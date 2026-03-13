@@ -31,6 +31,12 @@
 
 **Tech Stack:** TypeScript, Express, Zod, Vitest, OpenAPI 3.0.3
 
+**Execution order:** API spec first, then types and implementation.
+```
+Task 3 (OpenAPI spec) → Task 1 (types) → Task 2 (port) → Task 4 → Task 5 → Task 6 → Task 7
+```
+The OpenAPI spec is the contract — types and implementations must conform to it.
+
 **Key references:**
 - Design doc: `docs/plans/2026-03-13-dag-json-spec-design.md`
 - Current types: `packages/dag-core/src/types/domain.ts`
