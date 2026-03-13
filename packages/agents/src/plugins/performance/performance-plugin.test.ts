@@ -133,6 +133,7 @@ describe('PerformancePlugin', () => {
 
         it('records metrics from module execution complete event', async () => {
             await plugin.onModuleEvent('module.execution.complete', {
+                type: 'module.execution.complete',
                 data: { moduleName: 'test-module', moduleType: 'processing', duration: 250, success: true },
                 timestamp: new Date()
             });
@@ -144,6 +145,7 @@ describe('PerformancePlugin', () => {
 
         it('records error metrics from module error events', async () => {
             await plugin.onModuleEvent('module.execution.error', {
+                type: 'module.execution.error',
                 data: { moduleName: 'test-module', moduleType: 'processing', duration: 50 },
                 error: new Error('module failed'),
                 timestamp: new Date()
@@ -155,7 +157,8 @@ describe('PerformancePlugin', () => {
         });
 
         it('ignores unrecognized events', async () => {
-            await plugin.onModuleEvent('some.unknown.event', {
+            await plugin.onModuleEvent('some.unknown.event' as any, {
+                type: 'module.execution.complete' as any,
                 data: { duration: 100 },
                 timestamp: new Date()
             });
@@ -165,6 +168,7 @@ describe('PerformancePlugin', () => {
 
         it('ignores events without duration', async () => {
             await plugin.onModuleEvent('module.execution.complete', {
+                type: 'module.execution.complete',
                 data: { moduleName: 'test-module', moduleType: 'processing' },
                 timestamp: new Date()
             });

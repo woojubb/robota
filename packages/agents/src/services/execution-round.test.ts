@@ -9,7 +9,18 @@ import type { ILogger } from '../utils/logger';
 import { vi } from 'vitest';
 
 function mockLogger(): ILogger {
-    return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() };
+}
+
+function createResolvedProviderInfo(overrides: Partial<Record<string, unknown>> = {}): any {
+    return {
+        provider: { chat: vi.fn() },
+        currentInfo: { provider: 'openai' },
+        aiProviderInfo: { providerName: 'openai', model: 'gpt-4', temperature: undefined, maxTokens: undefined },
+        toolsInfo: [],
+        availableTools: [],
+        ...overrides
+    };
 }
 
 describe('execution-round helpers', () => {
@@ -92,10 +103,7 @@ describe('execution-round helpers', () => {
     describe('callProviderWithCache', () => {
         it('throws when model is empty string', async () => {
             const config = { name: 'test', defaultModel: { provider: 'openai', model: '' } };
-            const resolved = {
-                provider: { chat: vi.fn() } as any,
-                availableTools: []
-            };
+            const resolved = createResolvedProviderInfo();
             // Empty string is falsy, hits the first guard
             await expect(callProviderWithCache([], config as any, resolved))
                 .rejects.toThrow('Model is required');
@@ -103,31 +111,24 @@ describe('execution-round helpers', () => {
 
         it('throws when model is whitespace only', async () => {
             const config = { name: 'test', defaultModel: { provider: 'openai', model: '  ' } };
-            const resolved = {
-                provider: { chat: vi.fn() } as any,
-                availableTools: []
-            };
+            const resolved = createResolvedProviderInfo();
             await expect(callProviderWithCache([], config as any, resolved))
                 .rejects.toThrow('Model must be a non-empty string');
         });
 
         it('throws when model is missing', async () => {
             const config = { name: 'test', defaultModel: { provider: 'openai' } };
-            const resolved = {
-                provider: { chat: vi.fn() } as any,
-                availableTools: []
-            };
+            const resolved = createResolvedProviderInfo();
             await expect(callProviderWithCache([], config as any, resolved))
                 .rejects.toThrow('Model is required');
         });
 
         it('calls provider without cache', async () => {
             const mockResponse = { role: 'assistant', content: 'hi', timestamp: new Date() };
+            const resolved = createResolvedProviderInfo({
+                provider: { chat: vi.fn().mockResolvedValue(mockResponse) }
+            });
             const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
-            const resolved = {
-                provider: { chat: vi.fn().mockResolvedValue(mockResponse) } as any,
-                availableTools: []
-            };
             const result = await callProviderWithCache(
                 [{ role: 'user', content: 'hello', timestamp: new Date() }],
                 config as any,
@@ -139,10 +140,7 @@ describe('execution-round helpers', () => {
 
         it('uses cached response when available', async () => {
             const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
-            const resolved = {
-                provider: { chat: vi.fn() } as any,
-                availableTools: []
-            };
+            const resolved = createResolvedProviderInfo();
             const cacheService = {
                 lookup: vi.fn().mockReturnValue('cached response'),
                 store: vi.fn()
@@ -155,10 +153,9 @@ describe('execution-round helpers', () => {
         it('stores response in cache on miss', async () => {
             const mockResponse = { role: 'assistant', content: 'fresh', timestamp: new Date() };
             const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
-            const resolved = {
-                provider: { chat: vi.fn().mockResolvedValue(mockResponse) } as any,
-                availableTools: []
-            };
+            const resolved = createResolvedProviderInfo({
+                provider: { chat: vi.fn().mockResolvedValue(mockResponse) }
+            });
             const cacheService = {
                 lookup: vi.fn().mockReturnValue(undefined),
                 store: vi.fn()

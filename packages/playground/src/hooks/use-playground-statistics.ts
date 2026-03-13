@@ -34,7 +34,7 @@ const MS_PER_SECOND = 1000;
 const MS_PER_MINUTE = 60000;
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { usePlayground } from '../contexts/playground-context';
+import { usePlaygroundState } from '../contexts/playground-context';
 import type { IPlaygroundMetrics } from '../types/playground-statistics';
 import type { PlaygroundExecutor } from '../lib/playground/robota-executor';
 import { WebLogger } from '../lib/web-logger';
@@ -105,7 +105,7 @@ const defaultStatistics: IPlaygroundStatisticsHookResult = {
  * Pulls statistics from PlaygroundExecutor and returns UI-friendly values.
  */
 export function usePlaygroundStatistics(): IPlaygroundStatisticsHookResult {
-    const { state } = usePlayground();
+    const state = usePlaygroundState();
     const [rawStatistics, setRawStatistics] = useState<IPlaygroundMetrics | null>(null);
 
     // state.executor is already typed as PlaygroundExecutor | null

@@ -5,7 +5,7 @@ import type { TPortPayload } from '../interfaces/ports.js';
 import type { INodeExecutionContext, ICostEstimate } from '../types/node-lifecycle.js';
 import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
-import type { IPortDefinition } from '../types/domain.js';
+import type { IPortDefinition, INodeConfigObject } from '../types/domain.js';
 
 const TestSchema = z.object({
     prompt: z.string(),
@@ -41,7 +41,7 @@ class TestNodeDefinition extends AbstractNodeDefinition<typeof TestSchema> {
     }
 }
 
-function makeContext(config: Record<string, unknown> = { prompt: 'hello' }): INodeExecutionContext {
+function makeContext(config: INodeConfigObject = { prompt: 'hello' }): INodeExecutionContext {
     return {
         dagId: 'dag-1',
         dagRunId: 'run-1',

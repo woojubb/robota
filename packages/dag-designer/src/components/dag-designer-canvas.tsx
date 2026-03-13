@@ -68,6 +68,19 @@ export {
     DagDesignerRunProgressSummary
 } from './dag-designer-panels.js';
 
+const FIT_VIEW_OPTIONS = { padding: 0.35, maxZoom: 0.8 } as const;
+
+function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+        return false;
+    }
+    const tagName = target.tagName.toLowerCase();
+    if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
+        return true;
+    }
+    return target.isContentEditable;
+}
+
 export interface IDagDesignerCanvasProps {
     className?: string;
 }
@@ -149,15 +162,22 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         });
     }, [context.definition.edges, setEdges, selectEdgeById]);
 
-    const onNodeClick: NodeMouseHandler = (_event, node): void => {
+    const onNodeClick: NodeMouseHandler = useCallback((_event, node): void => {
         context.setSelectedNodeId(node.id);
         context.setSelectedEdgeId(undefined);
-    };
-    const onEdgeClick: EdgeMouseHandler = (_event, edge): void => {
+    }, [context.setSelectedNodeId, context.setSelectedEdgeId]);
+
+    const onEdgeClick: EdgeMouseHandler = useCallback((_event, edge): void => {
         context.setSelectedEdgeId(edge.id);
         context.setSelectedNodeId(undefined);
-    };
-    const onNodeDragStop: NodeMouseHandler = (_event, node): void => {
+    }, [context.setSelectedEdgeId, context.setSelectedNodeId]);
+
+    const onPaneClick = useCallback((): void => {
+        context.setSelectedNodeId(undefined);
+        context.setSelectedEdgeId(undefined);
+    }, [context.setSelectedNodeId, context.setSelectedEdgeId]);
+
+    const onNodeDragStop: NodeMouseHandler = useCallback((_event, node): void => {
         const originalNode = context.definition.nodes.find((n) => n.nodeId === node.id);
         if (!originalNode) {
             return;
@@ -178,18 +198,12 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         ));
         context.onDefinitionChange({ ...context.definition, nodes: nextNodes });
         context.resetRunProgress();
-    };
+    }, [context.definition, context.onDefinitionChange, context.resetRunProgress]);
 
-    const isEditableTarget = (target: EventTarget | null): boolean => {
-        if (!(target instanceof HTMLElement)) {
-            return false;
-        }
-        const tagName = target.tagName.toLowerCase();
-        if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
-            return true;
-        }
-        return target.isContentEditable;
-    };
+    const selectedEdgeIdRef = useRef(context.selectedEdgeId);
+    selectedEdgeIdRef.current = context.selectedEdgeId;
+    const selectedNodeIdRef = useRef(context.selectedNodeId);
+    selectedNodeIdRef.current = context.selectedNodeId;
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent): void => {
@@ -199,25 +213,25 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             if (isEditableTarget(event.target)) {
                 return;
             }
-            if (!context.selectedEdgeId && !context.selectedNodeId) {
+            if (!selectedEdgeIdRef.current && !selectedNodeIdRef.current) {
                 return;
             }
             event.preventDefault();
-            if (context.selectedEdgeId) {
-                context.removeEdgeById(context.selectedEdgeId);
+            if (selectedEdgeIdRef.current) {
+                context.removeEdgeById(selectedEdgeIdRef.current);
                 return;
             }
-            if (context.selectedNodeId) {
-                context.removeNodeById(context.selectedNodeId);
+            if (selectedNodeIdRef.current) {
+                context.removeNodeById(selectedNodeIdRef.current);
             }
         };
         window.addEventListener('keydown', onKeyDown);
         return () => {
             window.removeEventListener('keydown', onKeyDown);
         };
-    }, [context.removeEdgeById, context.removeNodeById, context.selectedEdgeId, context.selectedNodeId]);
+    }, [context.removeEdgeById, context.removeNodeById]);
 
-    const onConnect = (connection: Connection): void => {
+    const onConnect = useCallback((connection: Connection): void => {
         if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) {
             context.setConnectError('Connection rejected: source/target handles are required.');
             return;
@@ -302,7 +316,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         }
         context.onDefinitionChange(nextDefinition);
         context.resetRunProgress();
-    };
+    }, [context.definition, context.setConnectError, context.onDefinitionChange, context.resetRunProgress]);
 
     useEffect(() => {
         if (isSyncingEdgesFromDefinitionRef.current) {
@@ -346,16 +360,13 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                     onConnect={onConnect}
                     onNodeClick={onNodeClick}
                     onEdgeClick={onEdgeClick}
-                    onPaneClick={() => {
-                        context.setSelectedNodeId(undefined);
-                        context.setSelectedEdgeId(undefined);
-                    }}
+                    onPaneClick={onPaneClick}
                     onNodeDragStop={onNodeDragStop}
                     panOnDrag={false}
                     panOnScroll
                     connectionLineType={ConnectionLineType.Bezier}
                     fitView
-                    fitViewOptions={{ padding: 0.35, maxZoom: 0.8 }}
+                    fitViewOptions={FIT_VIEW_OPTIONS}
                 >
                     <Background />
                     <Controls />

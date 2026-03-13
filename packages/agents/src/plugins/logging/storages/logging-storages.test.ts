@@ -12,28 +12,28 @@ const entry: ILogEntry = {
 
 describe('ConsoleLogStorage', () => {
     it('writes debug log via logger', async () => {
-        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() };
         const storage = new ConsoleLogStorage(undefined, logger);
         await storage.write({ ...entry, level: 'debug' });
         expect(logger.debug).toHaveBeenCalled();
     });
 
     it('writes info log via logger', async () => {
-        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() };
         const storage = new ConsoleLogStorage(undefined, logger);
         await storage.write({ ...entry, level: 'info' });
         expect(logger.info).toHaveBeenCalled();
     });
 
     it('writes warn log via logger', async () => {
-        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() };
         const storage = new ConsoleLogStorage(undefined, logger);
         await storage.write({ ...entry, level: 'warn' });
         expect(logger.warn).toHaveBeenCalled();
     });
 
     it('writes error log via logger', async () => {
-        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() };
         const storage = new ConsoleLogStorage(undefined, logger);
         await storage.write({ ...entry, level: 'error' });
         expect(logger.error).toHaveBeenCalled();

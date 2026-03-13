@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { DagDesignerScreen } from "../_components/dag-designer-screen";
 
 interface IDagDesignerDetailPageProps {
@@ -6,5 +7,9 @@ interface IDagDesignerDetailPageProps {
 
 export default async function DagDesignerDetailPage(props: IDagDesignerDetailPageProps) {
   const params = await props.params;
-  return <DagDesignerScreen initialDagId={decodeURIComponent(params.dagId)} />;
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-gray-700">Loading DAG...</div>}>
+      <DagDesignerScreen initialDagId={decodeURIComponent(params.dagId)} />
+    </Suspense>
+  );
 }

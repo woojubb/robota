@@ -15,7 +15,7 @@ import { NetworkError } from '../../utils/errors';
 import type { ILogger } from '../../utils/logger';
 
 function mockLogger(): ILogger {
-    return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn() };
 }
 
 describe('ConversationService', () => {

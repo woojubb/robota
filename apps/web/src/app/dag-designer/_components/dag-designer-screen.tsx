@@ -22,6 +22,8 @@ import {
   buildDagTemplate,
 } from "../templates";
 
+const EMPTY_INITIAL_INPUT: TPortPayload = {};
+
 export interface IDagDesignerScreenProps {
   initialDagId: string;
 }
@@ -40,20 +42,21 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
   const [isRunStarting, setIsRunStarting] = useState<boolean>(false);
   const isActionBlocked = props.hasBindingBlockingError;
 
-  const run = async (): Promise<void> => {
-    if (isActionBlocked || isRunStarting) {
-      return;
-    }
+  const contextRef = useRef(context);
+  contextRef.current = context;
+
+  const run = useCallback(async (): Promise<void> => {
     setIsRunStarting(true);
-    context.resetRunProgress();
+    const ctx = contextRef.current;
+    ctx.resetRunProgress();
     try {
-      const runResult = context.onRun
-        ? await context.onRun({
-          definition: context.definition,
-          input: context.initialInput ?? {}
+      const runResult = ctx.onRun
+        ? await ctx.onRun({
+          definition: ctx.definition,
+          input: ctx.initialInput ?? {}
         }, {
-          onRunStarted: context.setActiveDagRunId,
-          onRunProgressEvent: context.applyRunProgressEvent
+          onRunStarted: ctx.setActiveDagRunId,
+          onRunProgressEvent: ctx.applyRunProgressEvent
         })
         : {
           ok: false as const,
@@ -64,12 +67,12 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
             retryable: false
           }
         };
-      context.setRunResult(runResult.ok ? runResult.value : undefined);
-      context.onRunResult?.(runResult);
+      ctx.setRunResult(runResult.ok ? runResult.value : undefined);
+      ctx.onRunResult?.(runResult);
     } finally {
       setIsRunStarting(false);
     }
-  };
+  }, []);
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -159,16 +162,38 @@ function getToastClassName(type: IActionToastState["type"]): string {
   return "border-gray-300 bg-gray-50 text-gray-700";
 }
 
+function toDagError(code?: string): IDagError {
+  return {
+    code: code ?? "DAG_VALIDATION_RUN_UNKNOWN",
+    category: "validation",
+    message: "Run request failed.",
+    retryable: false,
+  };
+}
+
+const DAG_API_BASE_URL = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
+const DAG_API_CONFIG = { baseUrl: DAG_API_BASE_URL };
+
 export function DagDesignerScreen(props: IDagDesignerScreenProps) {
-  const baseUrl = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
-  const designApi = useDagDesignApi({ baseUrl });
+  const designApi = useDagDesignApi(DAG_API_CONFIG);
   const [log, setLog] = useState<string>("Ready");
-  const [dagId, setDagId] = useState<string>(props.initialDagId);
+  const [dagIdOverride, setDagIdOverride] = useState<string | undefined>(undefined);
+  const prevInitialDagIdRef = useRef<string>(props.initialDagId);
+  if (prevInitialDagIdRef.current !== props.initialDagId) {
+    prevInitialDagIdRef.current = props.initialDagId;
+    setDagIdOverride(undefined);
+  }
+  const dagId = dagIdOverride ?? props.initialDagId;
+  const setDagId = setDagIdOverride;
   const [version, setVersion] = useState<number>(1);
   const [definition, setDefinition] = useState<IDagDefinition>(
-    buildDagTemplate("blank", { dagId: props.initialDagId, version: 1 })
+    () => buildDagTemplate("blank", { dagId: props.initialDagId, version: 1 })
   );
   const definitionRef = useRef<IDagDefinition>(definition);
+  const dagIdRef = useRef(dagId);
+  dagIdRef.current = dagId;
+  const versionRef = useRef(version);
+  versionRef.current = version;
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [catalogNodes, setCatalogNodes] = useState<INodeManifest[]>([]);
   const [isNodeExplorerOpen, setIsNodeExplorerOpen] = useState<boolean>(true);
@@ -219,37 +244,34 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     return [];
   }, [definition]);
   const hasBindingBlockingError = bindingBlockingErrors.length > 0;
-  const actionButtonDisabledReason = useMemo(
-    () => getActionButtonDisabledReason(bindingBlockingErrors),
-    [bindingBlockingErrors]
-  );
+  const actionButtonDisabledReason = getActionButtonDisabledReason(bindingBlockingErrors);
   const applyDefinitionChange = useCallback((nextDefinition: IDagDefinition): void => {
     definitionRef.current = nextDefinition;
     setDefinition(nextDefinition);
   }, []);
 
-  const toDagError = (code?: string): IDagError => ({
-    code: code ?? "DAG_VALIDATION_RUN_UNKNOWN",
-    category: "validation",
-    message: "Run request failed.",
-    retryable: false,
-  });
+  const toggleNodeExplorer = useCallback(() => setIsNodeExplorerOpen(c => !c), []);
+  const toggleInspector = useCallback(() => setIsInspectorOpen(c => !c), []);
 
-  const saveDefinition = async (): Promise<void> => {
-    if (hasBindingBlockingError) {
-      setLog(`Save blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
-      showActionToast(actionButtonDisabledReason ?? "Save blocked.", "error");
+  const bindingBlockingErrorsRef = useRef(bindingBlockingErrors);
+  bindingBlockingErrorsRef.current = bindingBlockingErrors;
+
+  const saveDefinition = useCallback(async (): Promise<void> => {
+    const errors = bindingBlockingErrorsRef.current;
+    if (errors.length > 0) {
+      setLog(`Save blocked: ${errors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
+      showActionToast(getActionButtonDisabledReason(errors) ?? "Save blocked.", "error");
       return;
     }
-    if (isSaving) {
-      return;
-    }
-    setIsSaving(true);
+    setIsSaving((current) => {
+      if (current) return current;
+      return true;
+    });
     try {
       const nextDefinition: IDagDefinition = {
         ...definitionRef.current,
-        dagId,
-        version: version + 1,
+        dagId: dagIdRef.current,
+        version: versionRef.current + 1,
         status: "draft",
       };
       const saved = await designApi.createDraft({
@@ -275,22 +297,23 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [designApi, applyDefinitionChange, showActionToast]);
 
-  const publishDraft = async (): Promise<void> => {
-    if (hasBindingBlockingError) {
-      setLog(`Publish blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
-      showActionToast(actionButtonDisabledReason ?? "Publish blocked.", "error");
+  const publishDraft = useCallback(async (): Promise<void> => {
+    const errors = bindingBlockingErrorsRef.current;
+    if (errors.length > 0) {
+      setLog(`Publish blocked: ${errors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
+      showActionToast(getActionButtonDisabledReason(errors) ?? "Publish blocked.", "error");
       return;
     }
-    if (isPublishing) {
-      return;
-    }
-    setIsPublishing(true);
+    setIsPublishing((current) => {
+      if (current) return current;
+      return true;
+    });
     try {
       const published = await designApi.publish({
-        dagId,
-        version,
+        dagId: dagIdRef.current,
+        version: versionRef.current,
         correlationId: "web-dag-publish",
       });
       if (published.ok) {
@@ -310,9 +333,9 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     } finally {
       setIsPublishing(false);
     }
-  };
+  }, [designApi, showActionToast]);
 
-  const onRunResult = (result: TResult<IRunResult, IDagError>): void => {
+  const onRunResult = useCallback((result: TResult<IRunResult, IDagError>): void => {
     if (result.ok) {
       setLog(
         `Run success: dagRunId=${result.value.dagRunId}, totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}`
@@ -327,9 +350,9 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     }
     setLog("Run failed: UNKNOWN_ERROR");
     showActionToast("Run failed.", "error");
-  };
+  }, [showActionToast]);
 
-  const runOnServer = async (input: {
+  const runOnServer = useCallback(async (input: {
     definition: IDagDefinition;
     input: TPortPayload;
   }, hooks?: IRunProgressHooks): Promise<TResult<IRunResult, IDagError>> => {
@@ -427,20 +450,16 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
       }
     }
     return { ok: false, error: toDagError("DAG_VALIDATION_RUN_NOT_TERMINAL") };
-  };
+  }, [designApi]);
 
-  const refreshNodeCatalog = async (): Promise<void> => {
+  const refreshNodeCatalog = useCallback(async (): Promise<void> => {
     const listed = await designApi.listNodeCatalog();
     if (listed.ok) {
       setCatalogNodes(listed.value);
       return;
     }
     setLog(`Node catalog refresh failed: ${"error" in listed ? listed.error[0]?.code : "UNKNOWN_ERROR"}`);
-  };
-
-  useEffect(() => {
-    setDagId(props.initialDagId);
-  }, [props.initialDagId]);
+  }, [designApi]);
 
   useEffect(() => {
     const load = async (): Promise<void> => {
@@ -462,7 +481,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     };
     void load();
     void refreshNodeCatalog();
-  }, [applyDefinitionChange, props.initialDagId]);
+  }, [applyDefinitionChange, designApi, refreshNodeCatalog, props.initialDagId]);
 
   if (loadState === "loading") {
     return <div className="p-6 text-sm text-gray-700">Loading DAG...</div>;
@@ -486,10 +505,10 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
           definition={definition}
           manifests={catalogNodes}
           onDefinitionChange={applyDefinitionChange}
-          assetUploadBaseUrl={baseUrl}
+          assetUploadBaseUrl={DAG_API_BASE_URL}
           onRunResult={onRunResult}
           onRun={runOnServer}
-          initialInput={{}}
+          initialInput={EMPTY_INITIAL_INPUT}
           className="relative h-full w-full overflow-hidden"
         >
           <InitialNodeSelectionEffect nodeId={initialSelectedNodeId} />
@@ -503,14 +522,14 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
                 <button
                   type="button"
                   className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] shadow-sm hover:bg-gray-50"
-                  onClick={() => setIsNodeExplorerOpen((current) => !current)}
+                  onClick={toggleNodeExplorer}
                 >
                   {isNodeExplorerOpen ? "Hide Explorer" : "Show Explorer"}
                 </button>
                 <button
                   type="button"
                   className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] shadow-sm hover:bg-gray-50"
-                  onClick={() => setIsInspectorOpen((current) => !current)}
+                  onClick={toggleInspector}
                 >
                   {isInspectorOpen ? "Hide Inspector" : "Show Inspector"}
                 </button>

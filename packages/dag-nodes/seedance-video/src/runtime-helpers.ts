@@ -8,21 +8,21 @@ import {
 } from '@robota-sdk/dag-core';
 import type { IVideoJobSnapshot, TImageInputSource } from '@robota-sdk/agents';
 
-const DEFAULT_DAG_DEV_PORT = 3011;
+const DEFAULT_DAG_PORT = 3011;
 
 /**
  * Resolves the DAG runtime base URL from environment variables.
  *
- * Falls back to `http://127.0.0.1:<port>` using `DAG_DEV_PORT` or the default port 3011.
+ * Falls back to `http://127.0.0.1:<port>` using `DAG_PORT` or the default port 3011.
  */
 export function resolveRuntimeBaseUrl(): string {
     const runtimeBaseUrl = process.env.DAG_RUNTIME_BASE_URL?.trim();
     if (runtimeBaseUrl && runtimeBaseUrl.length > 0) {
         return runtimeBaseUrl.replace(/\/$/, '');
     }
-    const portRaw = process.env.DAG_DEV_PORT;
+    const portRaw = process.env.DAG_PORT;
     const portParsed = typeof portRaw === 'string' ? Number.parseInt(portRaw, 10) : Number.NaN;
-    const port = Number.isFinite(portParsed) && portParsed > 0 ? portParsed : DEFAULT_DAG_DEV_PORT;
+    const port = Number.isFinite(portParsed) && portParsed > 0 ? portParsed : DEFAULT_DAG_PORT;
     return `http://127.0.0.1:${port}`;
 }
 

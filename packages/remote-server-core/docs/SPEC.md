@@ -9,7 +9,7 @@ Owns reusable Remote API server route registration and OpenAPI documentation for
 - Does not own remote client contracts or transport types; those belong to `@robota-sdk/remote`.
 - Does not own `RemoteServer` implementation; imports from `@robota-sdk/remote/server`.
 - Does not own AI provider contracts (`IAIProvider`); imports from `@robota-sdk/agents`.
-- Does not own app-specific deployment, middleware, or environment configuration; that belongs to consumer apps (`apps/api-server`).
+- Does not own app-specific deployment, middleware, or environment configuration; that belongs to consumer apps (`apps/agent-server`).
 
 ## Architecture Overview
 
@@ -50,5 +50,5 @@ This package does not define its own error types. Errors propagate from:
 ## Test Strategy
 
 - **No test files found** in this package currently.
-- The package has minimal logic (route wiring only), making integration testing at the `apps/api-server` level more appropriate.
+- The package has minimal logic (route wiring only), making integration testing at the `apps/agent-server` level more appropriate.
 - Recommended: smoke test verifying route registration and Swagger UI mount.

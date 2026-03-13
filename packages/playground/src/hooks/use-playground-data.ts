@@ -16,7 +16,7 @@ const PERCENTAGE_MULTIPLIER = 100;
  */
 
 import { useMemo, useCallback } from 'react';
-import { usePlayground } from '../contexts/playground-context';
+import { usePlaygroundState, usePlaygroundActions } from '../contexts/playground-context';
 import type { IConversationEvent, IVisualizationData } from '../lib/playground/robota-executor';
 
 export interface IPlaygroundDataHookReturn {
@@ -60,7 +60,8 @@ export interface IPlaygroundDataHookReturn {
 }
 
 export function usePlaygroundData(): IPlaygroundDataHookReturn {
-    const { state, getVisualizationData } = usePlayground();
+    const state = usePlaygroundState();
+    const { getVisualizationData } = usePlaygroundActions();
 
     // Get current visualization data
     const visualizationData = useMemo(() => {

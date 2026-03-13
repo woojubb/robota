@@ -56,6 +56,7 @@ class MockAIProvider extends AbstractAIProvider {
             timestamp: new Date()
         };
     }
+
 }
 
 /**
@@ -85,7 +86,7 @@ class MockClosableProvider extends MockAIProvider {
         super(providerName);
     }
 
-    override async close(): Promise<void> {
+    async close(): Promise<void> {
         this.closeCalled = true;
     }
 }

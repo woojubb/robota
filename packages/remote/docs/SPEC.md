@@ -7,7 +7,7 @@ Owns the remote execution system for Robota SDK. Provides client-side `RemoteExe
 ## Boundaries
 
 - Does not own core agent/provider contracts (`IExecutor`, `IAIProvider`, `IAssistantMessage`); imports from `@robota-sdk/agents`.
-- Does not own application-level server composition; that belongs to `apps/api-server` and `@robota-sdk/remote-server-core`.
+- Does not own application-level server composition; that belongs to `apps/agent-server` and `@robota-sdk/remote-server-core`.
 - Keeps transport-specific behavior (HTTP, WebSocket) isolated behind the `ITransport` interface.
 
 ## Architecture Overview

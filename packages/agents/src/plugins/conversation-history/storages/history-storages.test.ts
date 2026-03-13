@@ -7,6 +7,8 @@ import type { IConversationHistoryEntry } from '../types';
 const entry: IConversationHistoryEntry = {
     conversationId: 'conv-1',
     messages: [{ role: 'user', content: 'hello', timestamp: new Date() }],
+    startTime: new Date(),
+    lastUpdated: new Date(),
     metadata: {}
 };
 

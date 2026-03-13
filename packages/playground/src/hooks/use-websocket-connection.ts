@@ -24,7 +24,7 @@ const HIGH_CONNECTION_ATTEMPTS_THRESHOLD = 3;
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { usePlayground } from '../contexts/playground-context';
+import { usePlaygroundState, usePlaygroundActions } from '../contexts/playground-context';
 import type { TUniversalValue } from '@robota-sdk/agents';
 import { PLAYGROUND_WS_MESSAGE_TYPES } from '../lib/playground/websocket-client';
 
@@ -97,7 +97,8 @@ export interface IWebSocketConnectionHookReturn {
 }
 
 export function useWebSocketConnection(): IWebSocketConnectionHookReturn {
-    const { state, getConnectionStatus, setAuth } = usePlayground();
+    const state = usePlaygroundState();
+    const { getConnectionStatus, setAuth } = usePlaygroundActions();
 
     // Local state
     const [connectionState, setConnectionState] = useState<TConnectionState>('disconnected');

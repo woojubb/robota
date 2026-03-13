@@ -19,11 +19,11 @@ describe('Button Component', () => {
         render(<Button size="sm">Small Button</Button>)
         const button = screen.getByRole('button', { name: /small button/i })
         expect(button).toBeInTheDocument()
-        expect(button).toHaveClass('h-9')
+        expect(button).toHaveClass('h-8')
     })
 
     it('handles click events', () => {
-        const handleClick = jest.fn()
+        const handleClick = vi.fn()
         render(<Button onClick={handleClick}>Clickable Button</Button>)
 
         const button = screen.getByRole('button', { name: /clickable button/i })

@@ -223,18 +223,24 @@ describe('run-routes', () => {
     });
 
     describe('DELETE /v1/dag/runs/temporary-copies', () => {
-        it('route is registered (but may be shadowed by :dagRunId parameterized route)', async () => {
-            // NOTE: In the current route registration order, DELETE /v1/dag/runs/:dagRunId
-            // is registered before DELETE /v1/dag/runs/temporary-copies, so the parameterized
-            // route catches 'temporary-copies' as a dagRunId. This is a known route ordering
-            // issue in production code. We test that the parameterized route handles it gracefully.
-            (dagRunService.deleteRunArtifacts as any).mockResolvedValue({
-                ok: false,
-                error: { code: 'DAG_VALIDATION_DAG_RUN_NOT_FOUND', message: 'not found', category: 'validation', retryable: false }
+        it('returns 200 on successful deletion of temporary copies', async () => {
+            (dagRunService.deleteRunCopyArtifacts as any).mockResolvedValue({
+                ok: true,
+                value: { deletedCount: 3 }
             });
             const res = await makeRequest(app, 'DELETE', '/v1/dag/runs/temporary-copies');
-            // Expect 404 because :dagRunId route catches it and the run doesn't exist
-            expect(res.status).toBe(404);
+            expect(res.status).toBe(200);
+            expect(res.body.data.deletedCount).toBe(3);
+            expect(dagRunService.deleteRunCopyArtifacts).toHaveBeenCalled();
+        });
+
+        it('returns 400 when deletion fails', async () => {
+            (dagRunService.deleteRunCopyArtifacts as any).mockResolvedValue({
+                ok: false,
+                error: { code: 'DELETE_FAILED', message: 'failed', category: 'validation', retryable: false }
+            });
+            const res = await makeRequest(app, 'DELETE', '/v1/dag/runs/temporary-copies');
+            expect(res.status).toBe(400);
         });
     });
 

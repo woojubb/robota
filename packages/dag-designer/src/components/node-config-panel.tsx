@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import { useCallback, useRef, useState, type ReactElement } from 'react';
 import {
     type IDagDefinition,
     type IDagNode,
@@ -51,13 +51,96 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
     const [isAdvancedJsonOpen, setIsAdvancedJsonOpen] = useState<boolean>(false);
     const [inlineValidationError, setInlineValidationError] = useState<string | undefined>(undefined);
 
-    const reportValidationError = (message: string): void => {
-        setInlineValidationError(message);
-    };
+    const nodeRef = useRef(node);
+    nodeRef.current = node;
+    const onUpdateNodeRef = useRef(props.onUpdateNode);
+    onUpdateNodeRef.current = props.onUpdateNode;
 
-    const clearValidationError = (): void => {
+    const reportValidationError = useCallback((message: string): void => {
+        setInlineValidationError(message);
+    }, []);
+
+    const clearValidationError = useCallback((): void => {
         setInlineValidationError(undefined);
-    };
+    }, []);
+
+    const updateConfigValue = useCallback((key: string, value: TNodeConfigValue | undefined): void => {
+        const currentNode = nodeRef.current;
+        if (!currentNode) {
+            return;
+        }
+        const nextConfig: INodeConfigObject = { ...currentNode.config };
+        if (typeof value === 'undefined') {
+            delete nextConfig[key];
+        } else {
+            nextConfig[key] = value;
+        }
+        setInlineValidationError(undefined);
+        onUpdateNodeRef.current({
+            ...currentNode,
+            config: nextConfig
+        });
+    }, []);
+
+    const stableHandleAssetUpload = useCallback((fieldKey: string, file: File): void => {
+        const currentNode = nodeRef.current;
+        if (!currentNode) {
+            return;
+        }
+        const baseUrl = props.assetUploadBaseUrl;
+        if (typeof baseUrl !== 'string' || baseUrl.trim().length === 0) {
+            setInlineValidationError('Asset upload is not configured for this environment.');
+            return;
+        }
+        const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+
+        setUploadingFieldKey(fieldKey);
+        setUploadStatusByField((current) => ({ ...current, [fieldKey]: `Uploading ${file.name}...` }));
+
+        void (async (): Promise<void> => {
+            try {
+                const base64Data = await toBase64(file);
+                const response = await fetch(`${normalizedBaseUrl}/v1/dag/assets`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ fileName: file.name, mediaType: file.type, base64Data })
+                });
+                const payload = (await response.json()) as IAssetUploadResponse;
+                const uploadedAssetId = payload.data?.asset?.assetId;
+                if (!response.ok || payload.ok !== true || typeof uploadedAssetId !== 'string' || uploadedAssetId.trim().length === 0) {
+                    setInlineValidationError('Asset upload failed. Please try again.');
+                    setUploadStatusByField((current) => ({ ...current, [fieldKey]: 'Upload failed' }));
+                    return;
+                }
+                const latestNode = nodeRef.current;
+                if (!latestNode) {
+                    return;
+                }
+                const nextConfig: INodeConfigObject = { ...latestNode.config };
+                if (fieldKey === 'asset') {
+                    nextConfig[fieldKey] = { referenceType: 'asset', assetId: uploadedAssetId };
+                } else {
+                    nextConfig[fieldKey] = uploadedAssetId;
+                }
+                setInlineValidationError(undefined);
+                onUpdateNodeRef.current({ ...latestNode, config: nextConfig });
+                setUploadStatusByField((current) => ({ ...current, [fieldKey]: `Uploaded: ${uploadedAssetId}` }));
+            } catch {
+                setInlineValidationError('Asset upload failed due to network or payload error.');
+                setUploadStatusByField((current) => ({ ...current, [fieldKey]: 'Upload failed' }));
+            } finally {
+                setUploadingFieldKey(undefined);
+            }
+        })();
+    }, [props.assetUploadBaseUrl]);
+
+    const getConnectedCount = useCallback((direction: TPortDirection, portKey: string): number => {
+        const currentNode = nodeRef.current;
+        if (!currentNode) {
+            return 0;
+        }
+        return getConnectedBindingCountForPort(props.definition, currentNode.nodeId, direction, portKey);
+    }, [props.definition]);
 
     if (!node) {
         return (
@@ -72,117 +155,15 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         try {
             const parsed = JSON.parse(rawJson);
             if (!isNodeConfigRecord(parsed)) {
-                reportValidationError(
-                    'Config JSON must be an object (key-value pairs).'
-                );
+                reportValidationError('Config JSON must be an object (key-value pairs).');
                 return;
             }
             clearValidationError();
-            props.onUpdateNode({
-                ...node,
-                config: parsed
-            });
+            props.onUpdateNode({ ...node, config: parsed });
         } catch {
-            reportValidationError(
-                'Config JSON is invalid. Please fix JSON syntax.'
-            );
+            reportValidationError('Config JSON is invalid. Please fix JSON syntax.');
         }
     };
-
-    const updateConfigValue = (key: string, value: TNodeConfigValue | undefined): void => {
-        const nextConfig: INodeConfigObject = { ...node.config };
-        if (typeof value === 'undefined') {
-            delete nextConfig[key];
-        } else {
-            nextConfig[key] = value;
-        }
-        clearValidationError();
-        props.onUpdateNode({
-            ...node,
-            config: nextConfig
-        });
-    };
-
-    const updateAssetConfigWithUploadedId = (key: string, assetId: string): void => {
-        const nextConfig: INodeConfigObject = { ...node.config };
-        if (key === 'asset') {
-            nextConfig[key] = {
-                referenceType: 'asset',
-                assetId
-            };
-        } else {
-            nextConfig[key] = assetId;
-        }
-        clearValidationError();
-        props.onUpdateNode({
-            ...node,
-            config: nextConfig
-        });
-    };
-
-    const handleAssetUpload = async (key: string, file: File): Promise<void> => {
-        if (typeof props.assetUploadBaseUrl !== 'string' || props.assetUploadBaseUrl.trim().length === 0) {
-            reportValidationError(
-                'Asset upload is not configured for this environment.'
-            );
-            return;
-        }
-        const normalizedBaseUrl = props.assetUploadBaseUrl.endsWith('/')
-            ? props.assetUploadBaseUrl.slice(0, -1)
-            : props.assetUploadBaseUrl;
-
-        setUploadingFieldKey(key);
-        setUploadStatusByField((current) => ({
-            ...current,
-            [key]: `Uploading ${file.name}...`
-        }));
-        try {
-            const base64Data = await toBase64(file);
-            const response = await fetch(`${normalizedBaseUrl}/v1/dag/assets`, {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json'
-                },
-                body: JSON.stringify({
-                    fileName: file.name,
-                    mediaType: file.type,
-                    base64Data
-                })
-            });
-            const payload = (await response.json()) as IAssetUploadResponse;
-            const uploadedAssetId = payload.data?.asset?.assetId;
-            if (!response.ok || payload.ok !== true || typeof uploadedAssetId !== 'string' || uploadedAssetId.trim().length === 0) {
-                reportValidationError(
-                    'Asset upload failed. Please try again.'
-                );
-                setUploadStatusByField((current) => ({
-                    ...current,
-                    [key]: 'Upload failed'
-                }));
-                return;
-            }
-            updateAssetConfigWithUploadedId(key, uploadedAssetId);
-            clearValidationError();
-            setUploadStatusByField((current) => ({
-                ...current,
-                [key]: `Uploaded: ${uploadedAssetId}`
-            }));
-        } catch {
-            reportValidationError(
-                'Asset upload failed due to network or payload error.'
-            );
-            setUploadStatusByField((current) => ({
-                ...current,
-                [key]: 'Upload failed'
-            }));
-        } finally {
-            setUploadingFieldKey(undefined);
-        }
-    };
-
-    const getConnectedCount = (direction: TPortDirection, portKey: string): number => (
-        getConnectedBindingCountForPort(props.definition, node.nodeId, direction, portKey)
-    );
 
     const schemaRoot = (
         typeof props.manifest?.configSchema === 'object' &&
@@ -231,9 +212,7 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                                 uploadStatusByField={uploadStatusByField}
                                 onUpdateConfigValue={updateConfigValue}
                                 onReportValidationError={reportValidationError}
-                                onHandleAssetUpload={(fieldKey, file) => {
-                                    void handleAssetUpload(fieldKey, file);
-                                }}
+                                onHandleAssetUpload={stableHandleAssetUpload}
                             />
                         );
                     })}
