@@ -168,7 +168,7 @@ export async function startDagServer(options: import('./routes/route-types.js').
     app.get('/health', (_req: Request, res: Response) => {
         res.json({
             status: 'ok',
-            service: 'robota-dag-dev-server',
+            service: 'robota-dag-server',
             timestamp: new Date().toISOString()
         });
     });

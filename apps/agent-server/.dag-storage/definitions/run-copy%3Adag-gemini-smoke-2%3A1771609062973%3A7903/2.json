@@ -1,0 +1,109 @@
+{
+  "dagId": "run-copy:dag-gemini-smoke-2:1771609062973:7903",
+  "version": 2,
+  "status": "published",
+  "nodes": [
+    {
+      "nodeId": "loader",
+      "nodeType": "image-loader",
+      "dependsOn": [],
+      "inputs": [],
+      "outputs": [
+        {
+          "key": "image",
+          "label": "Image",
+          "order": 0,
+          "type": "binary",
+          "required": true,
+          "binaryKind": "image",
+          "mimeTypes": [
+            "image/png"
+          ]
+        }
+      ],
+      "config": {}
+    },
+    {
+      "nodeId": "prompt",
+      "nodeType": "input",
+      "dependsOn": [],
+      "inputs": [],
+      "outputs": [
+        {
+          "key": "text",
+          "label": "Text",
+          "order": 0,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "config": {
+        "text": "edit this"
+      }
+    },
+    {
+      "nodeId": "edit",
+      "nodeType": "gemini-image-edit",
+      "dependsOn": [
+        "loader",
+        "prompt"
+      ],
+      "inputs": [
+        {
+          "key": "image",
+          "label": "Image",
+          "order": 0,
+          "type": "binary",
+          "required": true,
+          "binaryKind": "image",
+          "mimeTypes": [
+            "image/png"
+          ]
+        },
+        {
+          "key": "prompt",
+          "label": "Prompt",
+          "order": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        {
+          "key": "image",
+          "label": "Image",
+          "order": 0,
+          "type": "binary",
+          "required": true,
+          "binaryKind": "image",
+          "mimeTypes": [
+            "image/png"
+          ]
+        }
+      ],
+      "config": {}
+    }
+  ],
+  "edges": [
+    {
+      "from": "loader",
+      "to": "edit",
+      "bindings": [
+        {
+          "outputKey": "image",
+          "inputKey": "image"
+        }
+      ]
+    },
+    {
+      "from": "prompt",
+      "to": "edit",
+      "bindings": [
+        {
+          "outputKey": "text",
+          "inputKey": "prompt"
+        }
+      ]
+    }
+  ]
+}

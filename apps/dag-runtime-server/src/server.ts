@@ -60,13 +60,13 @@ function resolveDefaultWorkerTimeoutMs(): number {
 }
 
 function resolvePort(): number {
-    const raw = process.env.DAG_DEV_PORT;
+    const raw = process.env.DAG_PORT;
     if (typeof raw === 'undefined' || raw.trim().length === 0) {
         return 3011;
     }
     const parsed = Number.parseInt(raw, 10);
     if (!Number.isFinite(parsed) || parsed <= 0) {
-        throw new Error('DAG_DEV_PORT must be a positive integer when provided.');
+        throw new Error('DAG_PORT must be a positive integer when provided.');
     }
     return parsed;
 }
@@ -91,7 +91,7 @@ function resolveDagStorageRoot(): string {
     return path.resolve(process.cwd(), '.dag-storage');
 }
 
-async function bootstrapDagDevServer(): Promise<void> {
+async function bootstrapDagServer(): Promise<void> {
     const assetStoreRoot = process.env.ASSET_STORAGE_ROOT
         ? path.resolve(process.env.ASSET_STORAGE_ROOT)
         : path.resolve(process.cwd(), '.local-assets');
@@ -137,4 +137,4 @@ async function bootstrapDagDevServer(): Promise<void> {
     });
 }
 
-void bootstrapDagDevServer();
+void bootstrapDagServer();

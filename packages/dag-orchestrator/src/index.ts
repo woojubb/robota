@@ -15,3 +15,4 @@ export type {
     ICostPolicyEvaluatorPort,
 } from './interfaces/orchestrator-policy-port.js';
 export { PromptOrchestratorService } from './services/prompt-orchestrator-service.js';
+export { HttpPromptApiClient } from './adapters/http-prompt-api-client.js';

@@ -17,6 +17,9 @@ function createMockProvider(name: string): IAIProvider {
             content: 'mock response',
             timestamp: new Date(),
         }),
+        generateResponse: async () => ({ content: '' }),
+        supportsTools: () => false,
+        validateConfig: () => true,
     };
 }
 
@@ -140,7 +143,12 @@ describe('Validator', () => {
             const manyTools = Array.from({ length: 21 }, (_, i) => ({
                 name: `tool_${i}`,
                 description: `Tool ${i}`,
-                execute: async () => `result_${i}`,
+                schema: { name: `tool_${i}`, description: `Tool ${i}`, parameters: { type: 'object' as const, properties: {} } },
+                execute: async () => ({ success: true, data: `result_${i}` }),
+                validate: () => true,
+                validateParameters: () => ({ isValid: true, errors: [] }),
+                getDescription: () => `Tool ${i}`,
+                getName: () => `tool_${i}`,
                 setEventService: () => { /* noop */ },
             }));
             const config = createValidConfig({

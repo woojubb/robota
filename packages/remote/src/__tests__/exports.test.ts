@@ -4,58 +4,52 @@
  * Verifies that the public API surface exports are accessible.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import * as mainExports from '../index';
+import * as browserExports from '../browser';
 
 describe('Browser entry (index.ts)', () => {
-    it('should export RemoteExecutor', async () => {
-        const mod = await import('../index');
-        expect(mod.RemoteExecutor).toBeDefined();
+    it('should export RemoteExecutor', () => {
+        expect(mainExports.RemoteExecutor).toBeDefined();
     });
 
-    it('should export HttpClient', async () => {
-        const mod = await import('../index');
-        expect(mod.HttpClient).toBeDefined();
+    it('should export HttpClient', () => {
+        expect(mainExports.HttpClient).toBeDefined();
     });
 
-    it('should export WebSocketTransport', async () => {
-        const mod = await import('../index');
-        expect(mod.WebSocketTransport).toBeDefined();
+    it('should export WebSocketTransport', () => {
+        expect(mainExports.WebSocketTransport).toBeDefined();
     });
 
-    it('should export utility functions', async () => {
-        const mod = await import('../index');
-        expect(typeof mod.toRequestMessage).toBe('function');
-        expect(typeof mod.toResponseMessage).toBe('function');
-        expect(typeof mod.createHttpRequest).toBe('function');
-        expect(typeof mod.createHttpResponse).toBe('function');
-        expect(typeof mod.extractContent).toBe('function');
-        expect(typeof mod.generateId).toBe('function');
-        expect(typeof mod.normalizeHeaders).toBe('function');
-        expect(typeof mod.safeJsonParse).toBe('function');
+    it('should export utility functions', () => {
+        expect(typeof mainExports.toRequestMessage).toBe('function');
+        expect(typeof mainExports.toResponseMessage).toBe('function');
+        expect(typeof mainExports.createHttpRequest).toBe('function');
+        expect(typeof mainExports.createHttpResponse).toBe('function');
+        expect(typeof mainExports.extractContent).toBe('function');
+        expect(typeof mainExports.generateId).toBe('function');
+        expect(typeof mainExports.normalizeHeaders).toBe('function');
+        expect(typeof mainExports.safeJsonParse).toBe('function');
     });
 });
 
 describe('Browser entry (browser.ts)', () => {
-    it('should export RemoteExecutor', async () => {
-        const mod = await import('../browser');
-        expect(mod.RemoteExecutor).toBeDefined();
+    it('should export RemoteExecutor', () => {
+        expect(browserExports.RemoteExecutor).toBeDefined();
     });
 
-    it('should export HttpClient', async () => {
-        const mod = await import('../browser');
-        expect(mod.HttpClient).toBeDefined();
+    it('should export HttpClient', () => {
+        expect(browserExports.HttpClient).toBeDefined();
     });
 
-    it('should export WebSocketTransport', async () => {
-        const mod = await import('../browser');
-        expect(mod.WebSocketTransport).toBeDefined();
+    it('should export WebSocketTransport', () => {
+        expect(browserExports.WebSocketTransport).toBeDefined();
     });
 
-    it('should export utility functions', async () => {
-        const mod = await import('../browser');
-        expect(typeof mod.toRequestMessage).toBe('function');
-        expect(typeof mod.toResponseMessage).toBe('function');
-        expect(typeof mod.generateId).toBe('function');
+    it('should export utility functions', () => {
+        expect(typeof browserExports.toRequestMessage).toBe('function');
+        expect(typeof browserExports.toResponseMessage).toBe('function');
+        expect(typeof browserExports.generateId).toBe('function');
     });
 });
 
@@ -76,9 +70,8 @@ describe('Server entry (server.ts)', () => {
         vi.mock('cors', () => ({ default: vi.fn(() => 'cors') }));
         vi.mock('helmet', () => ({ default: vi.fn(() => 'helmet') }));
 
+        // eslint-disable-next-line no-restricted-syntax -- dynamic import required: vi.mock must run before module loads
         const mod = await import('../server');
         expect(mod.RemoteServer).toBeDefined();
     });
 });
-
-import { vi } from 'vitest';

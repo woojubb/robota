@@ -9,6 +9,7 @@ function makeTemplate(overrides: Partial<IAgentTemplate> = {}): IAgentTemplate {
         description: 'A test template',
         config: {
             name: 'test-agent',
+            aiProviders: [],
             defaultModel: { provider: 'openai', model: 'gpt-4' }
         },
         category: 'general',
@@ -78,11 +79,11 @@ describe('AgentTemplates', () => {
         beforeEach(() => {
             templates.registerTemplate(makeTemplate({
                 id: 'chat', category: 'chat', tags: ['conversational'],
-                config: { name: 'chat-agent', defaultModel: { provider: 'openai', model: 'gpt-4' } }
+                config: { name: 'chat-agent', aiProviders: [], defaultModel: { provider: 'openai', model: 'gpt-4' } }
             }));
             templates.registerTemplate(makeTemplate({
                 id: 'code', category: 'coding', tags: ['developer'],
-                config: { name: 'code-agent', defaultModel: { provider: 'anthropic', model: 'claude-3' } }
+                config: { name: 'code-agent', aiProviders: [], defaultModel: { provider: 'anthropic', model: 'claude-3' } }
             }));
         });
 
@@ -154,11 +155,11 @@ describe('AgentTemplates', () => {
         it('returns statistics', () => {
             templates.registerTemplate(makeTemplate({
                 id: 'a', category: 'chat', tags: ['tag1'],
-                config: { name: 'x', defaultModel: { provider: 'openai', model: 'gpt-4' } }
+                config: { name: 'x', aiProviders: [], defaultModel: { provider: 'openai', model: 'gpt-4' } }
             }));
             templates.registerTemplate(makeTemplate({
                 id: 'b', category: 'code', tags: ['tag2'],
-                config: { name: 'y', defaultModel: { provider: 'anthropic', model: 'claude' } }
+                config: { name: 'y', aiProviders: [], defaultModel: { provider: 'anthropic', model: 'claude' } }
             }));
             const stats = templates.getStats();
             expect(stats.totalTemplates).toBe(2);

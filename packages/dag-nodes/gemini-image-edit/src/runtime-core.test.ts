@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { IPortBinaryValue } from '@robota-sdk/dag-core';
 import type { IImageGenerationResult, TProviderMediaResult } from '@robota-sdk/agents';
 import { GeminiImageRuntime, isImageBinaryValue } from './runtime-core.js';
+import { GoogleProvider } from '@robota-sdk/google';
 
 // Mock GoogleProvider so no real API calls are made
 vi.mock('@robota-sdk/google', () => ({
@@ -66,13 +67,13 @@ describe('GeminiImageRuntime', () => {
             DAG_GEMINI_IMAGE_DEFAULT_MODEL: process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL,
             DAG_GEMINI_IMAGE_ALLOWED_MODELS: process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS,
             DAG_RUNTIME_BASE_URL: process.env.DAG_RUNTIME_BASE_URL,
-            DAG_DEV_PORT: process.env.DAG_DEV_PORT
+            DAG_PORT: process.env.DAG_PORT
         };
         delete process.env.GEMINI_API_KEY;
         delete process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL;
         delete process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS;
         delete process.env.DAG_RUNTIME_BASE_URL;
-        delete process.env.DAG_DEV_PORT;
+        delete process.env.DAG_PORT;
         vi.clearAllMocks();
     });
 
@@ -140,7 +141,7 @@ describe('GeminiImageRuntime', () => {
 
         it('successfully edits an image with data URI input', async () => {
             // GoogleProvider mock will have editImage
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: mockEditImage,
@@ -164,7 +165,7 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when provider editImage call fails', async () => {
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             const mockEditImage = vi.fn().mockResolvedValue({
                 ok: false,
                 error: {
@@ -194,7 +195,7 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when provider response has no image output', async () => {
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             const mockEditImage = vi.fn().mockResolvedValue({
                 ok: true,
                 value: { model: 'gemini-2.5-flash-image', outputs: [] }
@@ -222,7 +223,7 @@ describe('GeminiImageRuntime', () => {
 
         it('uses env GEMINI_API_KEY when no explicit key given', async () => {
             process.env.GEMINI_API_KEY = 'env-test-key';
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: mockEditImage,
@@ -244,7 +245,7 @@ describe('GeminiImageRuntime', () => {
             process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL = 'gemini-2.0-flash-exp';
             process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS = 'gemini-2.0-flash-exp';
 
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: mockEditImage,
@@ -265,7 +266,7 @@ describe('GeminiImageRuntime', () => {
             process.env.GEMINI_API_KEY = 'test-key';
             process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS = 'model-a, model-b';
 
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: mockEditImage,
@@ -283,7 +284,7 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when provider lacks editImage capability', async () => {
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: undefined,
                 composeImage: vi.fn(),
@@ -305,7 +306,7 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when input image resolution fails for asset ref', async () => {
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
                 composeImage: vi.fn(),
@@ -366,7 +367,7 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when fewer than 2 images are provided', async () => {
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
                 composeImage: vi.fn(),
@@ -389,7 +390,7 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('successfully composes images with data URI inputs', async () => {
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             const mockComposeImage = vi.fn().mockResolvedValue(makeSuccessComposeResult());
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
@@ -413,7 +414,7 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when provider composeImage call fails', async () => {
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             const mockComposeImage = vi.fn().mockResolvedValue({
                 ok: false,
                 error: {
@@ -443,7 +444,7 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when compose response has no image output', async () => {
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             const mockComposeImage = vi.fn().mockResolvedValue({
                 ok: true,
                 value: { model: 'gemini-2.5-flash-image', outputs: [] }
@@ -470,7 +471,7 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when one compose input image fails to resolve', async () => {
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
                 composeImage: vi.fn(),
@@ -506,7 +507,7 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when provider lacks composeImage capability', async () => {
-            const { GoogleProvider } = await import('@robota-sdk/google');
+
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
                 composeImage: undefined,

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { IToolSchema } from '../../interfaces/provider';
-import type { TToolParameters, IToolExecutionContext } from '../../interfaces/tool';
+import type { TToolParameters, IToolExecutionContext, TToolExecutor } from '../../interfaces/tool';
 import { ValidationError, ToolExecutionError } from '../../utils/errors';
 
 // Mock the logger used by AbstractTool (via SilentLogger default, but also the module logger)
@@ -77,13 +77,13 @@ describe('FunctionTool', () => {
 
         it('should throw when function is not provided', () => {
             expect(
-                () => new FunctionTool(buildSchema(), undefined as unknown as typeof vi.fn),
+                () => new FunctionTool(buildSchema(), undefined as unknown as TToolExecutor),
             ).toThrow(ValidationError);
         });
 
         it('should throw when function is not callable', () => {
             expect(
-                () => new FunctionTool(buildSchema(), 'notAFunction' as unknown as typeof vi.fn),
+                () => new FunctionTool(buildSchema(), 'notAFunction' as unknown as TToolExecutor),
             ).toThrow(ValidationError);
         });
     });

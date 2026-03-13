@@ -65,7 +65,7 @@ describe('Prompt types (derived from OpenAPI spec)', () => {
       input: {
         required: {
           model: ['MODEL'],
-          seed: ['INT', { default: 0, min: 0, max: 18446744073709551615 }],
+          seed: ['INT', { default: 0, min: 0, max: Number.MAX_SAFE_INTEGER }],
         },
         optional: {},
       },

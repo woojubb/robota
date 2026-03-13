@@ -118,6 +118,6 @@ describe('stopPeriodicTask', () => {
     });
 
     it('should handle null gracefully', () => {
-        expect(() => stopPeriodicTask(null)).not.toThrow();
+        expect(() => stopPeriodicTask(null as unknown as undefined)).not.toThrow();
     });
 });

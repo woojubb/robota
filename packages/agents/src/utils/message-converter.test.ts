@@ -47,7 +47,7 @@ describe('MessageConverter', () => {
 
             const result = MessageConverter.toProviderFormat(messages, 'openai');
 
-            const openaiMsg = result[0] as Record<string, unknown>;
+            const openaiMsg = result[0] as unknown as Record<string, unknown>;
             expect(openaiMsg.role).toBe('assistant');
             expect(openaiMsg.content).toBeNull();
             expect(openaiMsg.tool_calls).toBeDefined();
@@ -66,7 +66,7 @@ describe('MessageConverter', () => {
 
             const result = MessageConverter.toProviderFormat(messages, 'openai');
 
-            const openaiMsg = result[0] as Record<string, unknown>;
+            const openaiMsg = result[0] as unknown as Record<string, unknown>;
             expect(openaiMsg.role).toBe('tool');
             expect(openaiMsg.tool_call_id).toBe('call_1');
         });
@@ -84,7 +84,7 @@ describe('MessageConverter', () => {
 
             expect(result).toHaveLength(2);
             expect(result.every(m => {
-                const msg = m as Record<string, unknown>;
+                const msg = m as unknown as Record<string, unknown>;
                 return msg.role !== 'system';
             })).toBe(true);
         });
@@ -120,7 +120,7 @@ describe('MessageConverter', () => {
 
             const result = MessageConverter.toProviderFormat(messages, 'google');
 
-            const googleMsg = result[0] as Record<string, unknown>;
+            const googleMsg = result[0] as unknown as Record<string, unknown>;
             expect(googleMsg.role).toBe('model');
         });
 
@@ -131,7 +131,7 @@ describe('MessageConverter', () => {
 
             const result = MessageConverter.toProviderFormat(messages, 'google');
 
-            const googleMsg = result[0] as Record<string, unknown>;
+            const googleMsg = result[0] as unknown as Record<string, unknown>;
             expect(googleMsg.role).toBe('user');
         });
 
@@ -142,7 +142,7 @@ describe('MessageConverter', () => {
 
             const result = MessageConverter.toProviderFormat(messages, 'google');
 
-            const googleMsg = result[0] as Record<string, unknown>;
+            const googleMsg = result[0] as unknown as Record<string, unknown>;
             expect(googleMsg.parts).toEqual([{ text: 'hello' }]);
         });
 
@@ -153,7 +153,7 @@ describe('MessageConverter', () => {
 
             const result = MessageConverter.toProviderFormat(messages, 'google');
 
-            const googleMsg = result[0] as Record<string, unknown>;
+            const googleMsg = result[0] as unknown as Record<string, unknown>;
             expect(googleMsg.role).toBe('user');
         });
     });

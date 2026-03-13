@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { SeedanceVideoRuntime, type ISeedanceGenerateVideoRequest } from './runtime.js';
+import { resolveImageInputSource } from './runtime-helpers.js';
 
 // Mock BytedanceProvider
 const mockCreateVideo = vi.fn();
@@ -252,7 +253,6 @@ describe('SeedanceVideoRuntime', () => {
         });
 
         it('returns error when image resolution fails', async () => {
-            const { resolveImageInputSource } = await import('./runtime-helpers.js');
             vi.mocked(resolveImageInputSource).mockResolvedValueOnce({
                 ok: false,
                 error: {
