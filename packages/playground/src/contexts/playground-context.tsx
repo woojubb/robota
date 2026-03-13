@@ -36,6 +36,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
     const logger = SilentLogger;
     const [state, dispatch] = useReducer(playgroundReducer, defaultServerUrl, (url) => ({ ...initialState, serverUrl: url }));
     const executorRef = useRef<PlaygroundExecutor | null>(null);
+    const isInitializedRef = useRef(state.isInitialized);
+    isInitializedRef.current = state.isInitialized;
+    const modeRef = useRef(state.mode);
+    modeRef.current = state.mode;
 
     useEffect(() => {
         if (!state.executor && defaultServerUrl) {
@@ -52,10 +56,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
     }, [defaultServerUrl]);
 
     const createAgent = useCallback(async (config: IPlaygroundAgentConfig) => {
-        if (!state.executor || !state.isInitialized) throw new Error('Executor not initialized');
+        if (!executorRef.current || !isInitializedRef.current) throw new Error('Executor not initialized');
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
-            await state.executor.createAgent(config);
+            await executorRef.current.createAgent(config);
             dispatch({ type: 'ADD_AGENT_CONFIG', payload: config });
             dispatch({ type: 'SET_LOADING', payload: false });
         } catch (error) {
@@ -63,7 +67,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
             dispatch({ type: 'SET_LOADING', payload: false });
             throw error;
         }
-    }, [state.executor, state.isInitialized]);
+    }, []);
 
     const runExecution = useCallback(async (
         executor: PlaygroundExecutor,
@@ -91,10 +95,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
     }, []);
 
     const executePrompt = useCallback(async (prompt: string): Promise<IPlaygroundExecutorResult> => {
-        if (!state.executor || !state.isInitialized) throw new Error('Executor not initialized');
-        const executor = state.executor;
+        if (!executorRef.current || !isInitializedRef.current) throw new Error('Executor not initialized');
+        const executor = executorRef.current;
         try {
-            return await runExecution(executor, prompt, state.mode, () => executor.run(prompt));
+            return await runExecution(executor, prompt, modeRef.current, () => executor.run(prompt));
         } catch (error) {
             const errorResult = buildErrorResult(error);
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: errorResult });
@@ -103,13 +107,13 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
         } finally {
             dispatch({ type: 'SET_EXECUTING', payload: false });
         }
-    }, [state.executor, state.isInitialized, state.mode, runExecution]);
+    }, [runExecution]);
 
     const executeStreamPrompt = useCallback(async (prompt: string, onChunk: (chunk: string) => void): Promise<IPlaygroundExecutorResult> => {
-        if (!state.executor || !state.isInitialized) throw new Error('Executor not initialized');
-        const executor = state.executor;
+        if (!executorRef.current || !isInitializedRef.current) throw new Error('Executor not initialized');
+        const executor = executorRef.current;
         try {
-            return await runExecution(executor, prompt, state.mode, () => executor.execute(prompt, onChunk));
+            return await runExecution(executor, prompt, modeRef.current, () => executor.execute(prompt, onChunk));
         } catch (error) {
             logger.error('executeStreamPrompt error', { error: error instanceof Error ? error.message : String(error) });
             const errorResult = buildErrorResult(error);
@@ -119,12 +123,12 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
         } finally {
             dispatch({ type: 'SET_EXECUTING', payload: false });
         }
-    }, [state.executor, state.isInitialized, state.mode, runExecution]);
+    }, [runExecution]);
 
     const clearHistory = useCallback(() => {
-        if (state.executor && state.isInitialized) state.executor.clearHistory();
+        if (executorRef.current && isInitializedRef.current) executorRef.current.clearHistory();
         dispatch({ type: 'CLEAR_CONVERSATION_HISTORY' });
-    }, [state.executor, state.isInitialized]);
+    }, []);
 
     const setAuth = useCallback((userId: string, sessionId: string, authToken: string) => {
         dispatch({ type: 'SET_AUTH', payload: { userId, sessionId, authToken } });

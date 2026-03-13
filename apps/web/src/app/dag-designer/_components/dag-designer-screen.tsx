@@ -189,6 +189,10 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     () => buildDagTemplate("blank", { dagId: props.initialDagId, version: 1 })
   );
   const definitionRef = useRef<IDagDefinition>(definition);
+  const dagIdRef = useRef(dagId);
+  dagIdRef.current = dagId;
+  const versionRef = useRef(version);
+  versionRef.current = version;
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [catalogNodes, setCatalogNodes] = useState<INodeManifest[]>([]);
   const [isNodeExplorerOpen, setIsNodeExplorerOpen] = useState<boolean>(true);
@@ -248,21 +252,25 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   const toggleNodeExplorer = useCallback(() => setIsNodeExplorerOpen(c => !c), []);
   const toggleInspector = useCallback(() => setIsInspectorOpen(c => !c), []);
 
-  const saveDefinition = async (): Promise<void> => {
-    if (hasBindingBlockingError) {
-      setLog(`Save blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
-      showActionToast(actionButtonDisabledReason ?? "Save blocked.", "error");
+  const bindingBlockingErrorsRef = useRef(bindingBlockingErrors);
+  bindingBlockingErrorsRef.current = bindingBlockingErrors;
+
+  const saveDefinition = useCallback(async (): Promise<void> => {
+    const errors = bindingBlockingErrorsRef.current;
+    if (errors.length > 0) {
+      setLog(`Save blocked: ${errors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
+      showActionToast(getActionButtonDisabledReason(errors) ?? "Save blocked.", "error");
       return;
     }
-    if (isSaving) {
-      return;
-    }
-    setIsSaving(true);
+    setIsSaving((current) => {
+      if (current) return current;
+      return true;
+    });
     try {
       const nextDefinition: IDagDefinition = {
         ...definitionRef.current,
-        dagId,
-        version: version + 1,
+        dagId: dagIdRef.current,
+        version: versionRef.current + 1,
         status: "draft",
       };
       const saved = await designApi.createDraft({
@@ -288,22 +296,23 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [designApi, applyDefinitionChange, showActionToast]);
 
-  const publishDraft = async (): Promise<void> => {
-    if (hasBindingBlockingError) {
-      setLog(`Publish blocked: ${bindingBlockingErrors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
-      showActionToast(actionButtonDisabledReason ?? "Publish blocked.", "error");
+  const publishDraft = useCallback(async (): Promise<void> => {
+    const errors = bindingBlockingErrorsRef.current;
+    if (errors.length > 0) {
+      setLog(`Publish blocked: ${errors[0]?.code ?? "DAG_VALIDATION_BINDING_REQUIRED"}`);
+      showActionToast(getActionButtonDisabledReason(errors) ?? "Publish blocked.", "error");
       return;
     }
-    if (isPublishing) {
-      return;
-    }
-    setIsPublishing(true);
+    setIsPublishing((current) => {
+      if (current) return current;
+      return true;
+    });
     try {
       const published = await designApi.publish({
-        dagId,
-        version,
+        dagId: dagIdRef.current,
+        version: versionRef.current,
         correlationId: "web-dag-publish",
       });
       if (published.ok) {
@@ -323,9 +332,9 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     } finally {
       setIsPublishing(false);
     }
-  };
+  }, [designApi, showActionToast]);
 
-  const onRunResult = (result: TResult<IRunResult, IDagError>): void => {
+  const onRunResult = useCallback((result: TResult<IRunResult, IDagError>): void => {
     if (result.ok) {
       setLog(
         `Run success: dagRunId=${result.value.dagRunId}, totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}`
@@ -340,9 +349,9 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     }
     setLog("Run failed: UNKNOWN_ERROR");
     showActionToast("Run failed.", "error");
-  };
+  }, [showActionToast]);
 
-  const runOnServer = async (input: {
+  const runOnServer = useCallback(async (input: {
     definition: IDagDefinition;
     input: TPortPayload;
   }, hooks?: IRunProgressHooks): Promise<TResult<IRunResult, IDagError>> => {
@@ -440,16 +449,16 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
       }
     }
     return { ok: false, error: toDagError("DAG_VALIDATION_RUN_NOT_TERMINAL") };
-  };
+  }, [designApi]);
 
-  const refreshNodeCatalog = async (): Promise<void> => {
+  const refreshNodeCatalog = useCallback(async (): Promise<void> => {
     const listed = await designApi.listNodeCatalog();
     if (listed.ok) {
       setCatalogNodes(listed.value);
       return;
     }
     setLog(`Node catalog refresh failed: ${"error" in listed ? listed.error[0]?.code : "UNKNOWN_ERROR"}`);
-  };
+  }, [designApi]);
 
   useEffect(() => {
     const load = async (): Promise<void> => {

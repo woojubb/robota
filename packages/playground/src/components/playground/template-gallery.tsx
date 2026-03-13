@@ -3,7 +3,7 @@
 const MAX_VISIBLE_FEATURES = 3;
 const CODE_PREVIEW_LENGTH = 500;
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -57,7 +57,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: ITemplateGalleryP
         return matchesSearch && matchesCategory && matchesProvider;
     }), [searchTerm, selectedCategory, selectedProvider]);
 
-    const handleUseTemplate = (template: ITemplate) => {
+    const handleUseTemplate = useCallback((template: ITemplate) => {
         onSelectTemplate(template);
         onClose?.();
 
@@ -65,9 +65,9 @@ export function TemplateGallery({ onSelectTemplate, onClose }: ITemplateGalleryP
             title: "Template Applied",
             description: `"${template.name}" has been loaded successfully`
         });
-    };
+    }, [onSelectTemplate, onClose, toast]);
 
-    const handleCreateProject = (template: ITemplate) => {
+    const handleCreateProject = useCallback((template: ITemplate) => {
         const projectManager = ProjectManager.getInstance();
         const project = projectManager.createProject(
             template.name,
@@ -93,7 +93,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: ITemplateGalleryP
             title: "Project Created",
             description: `New project "${template.name}" created from template`
         });
-    };
+    }, [onSelectTemplate, onClose, toast]);
 
     return (
         <div className="space-y-6">
