@@ -65,10 +65,9 @@ export interface IDagDesignerRootProps {
     className?: string;
 }
 
-export interface IDagDesignerContextValue {
+interface IDagDesignerStateValue {
     definition: IDagDefinition;
     manifests: INodeManifest[];
-    onDefinitionChange: (definition: IDagDefinition) => void;
     assetUploadBaseUrl?: string;
     onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
     onRun?: (input: {
@@ -84,6 +83,11 @@ export interface IDagDesignerContextValue {
     liveNodeTraceByNodeId: Record<string, IDagNodeIoTrace>;
     nodeUiStateByNodeId: Record<string, INodeUiState>;
     runProgress: IRunProgressState;
+    bindingErrors: string[];
+}
+
+interface IDagDesignerActionsValue {
+    onDefinitionChange: (definition: IDagDefinition) => void;
     setSelectedNodeId: (nodeId: string | undefined) => void;
     setSelectedEdgeId: (edgeId: string | undefined) => void;
     setConnectError: (error: string | undefined) => void;
@@ -91,7 +95,6 @@ export interface IDagDesignerContextValue {
     resetRunProgress: () => void;
     setActiveDagRunId: (dagRunId: string) => void;
     applyRunProgressEvent: (event: TRunProgressEvent) => void;
-    bindingErrors: string[];
     addNodeFromManifest: (manifest: INodeManifest) => void;
     updateNode: (nextNode: IDagNode) => void;
     updateEdge: (nextEdge: IDagEdgeDefinition) => void;
@@ -99,7 +102,10 @@ export interface IDagDesignerContextValue {
     removeEdgeById: (edgeId: string) => void;
 }
 
-const DagDesignerContext = createContext<IDagDesignerContextValue | undefined>(undefined);
+export interface IDagDesignerContextValue extends IDagDesignerStateValue, IDagDesignerActionsValue {}
+
+const DagDesignerStateContext = createContext<IDagDesignerStateValue | undefined>(undefined);
+const DagDesignerActionsContext = createContext<IDagDesignerActionsValue | undefined>(undefined);
 
 const INITIAL_RUN_PROGRESS_STATE: IRunProgressState = {
     runStatus: 'idle',
@@ -160,12 +166,33 @@ function applyRunProgressEventToState(
     };
 }
 
+/**
+ * Returns both state and actions. Prefer useDagDesignerState() or useDagDesignerActions()
+ * when you only need one — this hook re-renders on every state change.
+ */
 export function useDagDesignerContext(): IDagDesignerContextValue {
-    const context = useContext(DagDesignerContext);
-    if (!context) {
+    const state = useContext(DagDesignerStateContext);
+    const actions = useContext(DagDesignerActionsContext);
+    if (!state || !actions) {
         throw new Error('DagDesigner components must be rendered under DagDesigner.Root');
     }
-    return context;
+    return useMemo(() => ({ ...state, ...actions }), [state, actions]);
+}
+
+export function useDagDesignerState(): IDagDesignerStateValue {
+    const state = useContext(DagDesignerStateContext);
+    if (!state) {
+        throw new Error('DagDesigner components must be rendered under DagDesigner.Root');
+    }
+    return state;
+}
+
+export function useDagDesignerActions(): IDagDesignerActionsValue {
+    const actions = useContext(DagDesignerActionsContext);
+    if (!actions) {
+        throw new Error('DagDesigner components must be rendered under DagDesigner.Root');
+    }
+    return actions;
 }
 
 export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
@@ -429,10 +456,9 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         }));
     }, [resetRunProgress]);
 
-    const contextValue = useMemo<IDagDesignerContextValue>(() => ({
+    const stateValue = useMemo<IDagDesignerStateValue>(() => ({
         definition: props.definition,
         manifests: props.manifests,
-        onDefinitionChange: props.onDefinitionChange,
         assetUploadBaseUrl: props.assetUploadBaseUrl,
         onRunResult: props.onRunResult,
         onRun: props.onRun,
@@ -445,23 +471,10 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         liveNodeTraceByNodeId,
         nodeUiStateByNodeId,
         runProgress,
-        setSelectedNodeId,
-        setSelectedEdgeId,
-        setConnectError,
-        setRunResult,
-        resetRunProgress,
-        setActiveDagRunId,
-        applyRunProgressEvent,
         bindingErrors,
-        addNodeFromManifest,
-        updateNode,
-        updateEdge,
-        removeNodeById,
-        removeEdgeById
     }), [
         props.definition,
         props.manifests,
-        props.onDefinitionChange,
         props.assetUploadBaseUrl,
         props.onRunResult,
         props.onRun,
@@ -475,6 +488,14 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         nodeUiStateByNodeId,
         runProgress,
         bindingErrors,
+    ]);
+
+    const actionsValue = useMemo<IDagDesignerActionsValue>(() => ({
+        onDefinitionChange: props.onDefinitionChange,
+        setSelectedNodeId,
+        setSelectedEdgeId,
+        setConnectError,
+        setRunResult,
         resetRunProgress,
         setActiveDagRunId,
         applyRunProgressEvent,
@@ -482,14 +503,26 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         updateNode,
         updateEdge,
         removeNodeById,
-        removeEdgeById
+        removeEdgeById,
+    }), [
+        props.onDefinitionChange,
+        resetRunProgress,
+        setActiveDagRunId,
+        applyRunProgressEvent,
+        addNodeFromManifest,
+        updateNode,
+        updateEdge,
+        removeNodeById,
+        removeEdgeById,
     ]);
 
     return (
-        <DagDesignerContext.Provider value={contextValue}>
-            <div className={`robota-dag-root min-h-0 ${props.className ?? ''}`}>
-                {props.children}
-            </div>
-        </DagDesignerContext.Provider>
+        <DagDesignerStateContext.Provider value={stateValue}>
+            <DagDesignerActionsContext.Provider value={actionsValue}>
+                <div className={`robota-dag-root min-h-0 ${props.className ?? ''}`}>
+                    {props.children}
+                </div>
+            </DagDesignerActionsContext.Provider>
+        </DagDesignerStateContext.Provider>
     );
 }

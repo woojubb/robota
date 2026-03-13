@@ -11,8 +11,7 @@ import { type IPlaygroundState, type IPlaygroundExecutionStats, type TPlayground
 
 export type { IPlaygroundState, IPlaygroundExecutionStats, TPlaygroundReducerAction } from './playground-reducer';
 
-interface IPlaygroundContextValue {
-    state: IPlaygroundState;
+interface IPlaygroundActionsValue {
     createAgent: (config: IPlaygroundAgentConfig) => Promise<void>;
     addAgentConfig: (config: IPlaygroundAgentConfig) => void;
     updateAgentConfig: (index: number, config: IPlaygroundAgentConfig) => void;
@@ -28,7 +27,13 @@ interface IPlaygroundContextValue {
     getConnectionStatus: () => { connected: boolean; url: string };
 }
 
-const PlaygroundContext = createContext<IPlaygroundContextValue | undefined>(undefined);
+/** @deprecated Use usePlaygroundState() or usePlaygroundActions() for better performance. */
+interface IPlaygroundContextValue extends IPlaygroundActionsValue {
+    state: IPlaygroundState;
+}
+
+const PlaygroundStateContext = createContext<IPlaygroundState | undefined>(undefined);
+const PlaygroundActionsContext = createContext<IPlaygroundActionsValue | undefined>(undefined);
 
 interface IPlaygroundProviderProps { children: ReactNode; defaultServerUrl?: string; }
 
@@ -181,8 +186,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
     connectionStatusRef.current = { connected: state.isWebSocketConnected, url: state.serverUrl };
     const getConnectionStatus = useCallback(() => connectionStatusRef.current, []);
 
-    const contextValue: IPlaygroundContextValue = useMemo(() => ({
-        state,
+    const actionsValue: IPlaygroundActionsValue = useMemo(() => ({
         createAgent,
         addAgentConfig,
         updateAgentConfig,
@@ -196,24 +200,37 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
         addToolToAgentOverlay,
         getVisualizationData,
         getConnectionStatus,
-    }), [state, createAgent, addAgentConfig, updateAgentConfig, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor, setExecuting, setToolItems, addToolToAgentOverlay, getVisualizationData, getConnectionStatus]);
+    }), [createAgent, addAgentConfig, updateAgentConfig, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor, setExecuting, setToolItems, addToolToAgentOverlay, getVisualizationData, getConnectionStatus]);
 
-    return <PlaygroundContext.Provider value={contextValue}>{children}</PlaygroundContext.Provider>;
+    return (
+        <PlaygroundStateContext.Provider value={state}>
+            <PlaygroundActionsContext.Provider value={actionsValue}>
+                {children}
+            </PlaygroundActionsContext.Provider>
+        </PlaygroundStateContext.Provider>
+    );
 }
 
-export function usePlayground() {
-    const context = useContext(PlaygroundContext);
-    if (context === undefined) throw new Error('usePlayground must be used within a PlaygroundProvider');
-    return context;
+export function usePlaygroundState(): IPlaygroundState {
+    const state = useContext(PlaygroundStateContext);
+    if (state === undefined) throw new Error('usePlaygroundState must be used within a PlaygroundProvider');
+    return state;
 }
 
-export function usePlaygroundState() {
-    return usePlayground().state;
+export function usePlaygroundActions(): IPlaygroundActionsValue {
+    const actions = useContext(PlaygroundActionsContext);
+    if (actions === undefined) throw new Error('usePlaygroundActions must be used within a PlaygroundProvider');
+    return actions;
 }
 
-export function usePlaygroundActions() {
-    const { createAgent, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor } = usePlayground();
-    return useMemo(() => ({ createAgent, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor }), [createAgent, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor]);
+/**
+ * Returns both state and actions. Prefer usePlaygroundState() or usePlaygroundActions()
+ * when you only need one — this hook re-renders on every state change.
+ */
+export function usePlayground(): IPlaygroundContextValue {
+    const state = usePlaygroundState();
+    const actions = usePlaygroundActions();
+    return useMemo(() => ({ state, ...actions }), [state, actions]);
 }
 
 function buildConversationEvents(executor: PlaygroundExecutor): IConversationEvent[] {
