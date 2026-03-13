@@ -17,7 +17,7 @@ export interface IPromptNodeDef {
 }
 
 /** OpenAPI: Prompt schema — nodeId → node definition */
-export type IPrompt = Record<string, IPromptNodeDef>;
+export type TPrompt = Record<string, IPromptNodeDef>;
 
 // --- API request/response types (OpenAPI: POST /prompt) ---
 
@@ -28,7 +28,7 @@ export interface IWorkflowJson {
 }
 
 export interface IPromptRequest {
-    prompt: IPrompt;
+    prompt: TPrompt;
     client_id?: string;
     prompt_id?: string;
     extra_data?: {
@@ -76,7 +76,7 @@ export interface IOutputAsset {
 }
 
 export interface IHistoryEntry {
-    prompt: IPrompt;
+    prompt: TPrompt;
     outputs: Record<string, { images?: IOutputAsset[] }>;
     status: {
         status_str: 'success' | 'error';
@@ -109,7 +109,7 @@ export interface INodeObjectInfo {
     description: string;
 }
 
-export type IObjectInfo = Record<string, INodeObjectInfo>;
+export type TObjectInfo = Record<string, INodeObjectInfo>;
 
 // --- System stats types (OpenAPI: /system_stats) ---
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type {
-  IPrompt,
+  TPrompt,
   TPromptInputValue,
   TPromptLink,
   IPromptRequest,
@@ -13,7 +13,7 @@ import type {
 
 describe('Prompt types (derived from OpenAPI spec)', () => {
   it('should represent a valid prompt matching OpenAPI Prompt schema', () => {
-    const prompt: IPrompt = {
+    const prompt: TPrompt = {
       '4': {
         class_type: 'CheckpointLoaderSimple',
         inputs: { ckpt_name: 'v1-5-pruned-emaonly.safetensors' },

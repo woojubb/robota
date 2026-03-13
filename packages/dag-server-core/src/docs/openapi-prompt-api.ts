@@ -199,7 +199,11 @@ export const PROMPT_API_OPENAPI_DOCUMENT = {
                         properties: {
                           status_str: { type: 'string' as const, enum: ['success', 'error'] },
                           completed: { type: 'boolean' as const },
-                          messages: { type: 'array' as const, items: {} },
+                          messages: {
+                            type: 'array' as const,
+                            items: {},
+                            description: 'Execution progress messages. Schema intentionally open for forward compatibility.',
+                          },
                         },
                       },
                     },

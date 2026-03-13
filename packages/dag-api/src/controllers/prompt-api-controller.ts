@@ -5,11 +5,11 @@ import type {
     IQueueStatus,
     IQueueAction,
     THistory,
-    IObjectInfo,
+    TObjectInfo,
     ISystemStats,
+    TResult,
+    IDagError,
 } from '@robota-sdk/dag-core';
-import type { TResult } from '@robota-sdk/dag-core';
-import type { IDagError } from '@robota-sdk/dag-core';
 
 export class PromptApiController {
     constructor(private readonly backend: IPromptBackendPort) {}
@@ -57,7 +57,7 @@ export class PromptApiController {
         return this.backend.getHistory(promptId);
     }
 
-    async getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>> {
+    async getObjectInfo(nodeType?: string): Promise<TResult<TObjectInfo, IDagError>> {
         return this.backend.getObjectInfo(nodeType);
     }
 

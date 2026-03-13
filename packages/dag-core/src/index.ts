@@ -30,11 +30,11 @@ export * from './value-objects/media-reference.js';
 export * from './testing/index.js';
 
 export type {
-    IPrompt, IPromptNodeDef, TPromptInputValue, TPromptLink,
+    TPrompt, IPromptNodeDef, TPromptInputValue, TPromptLink,
     IPromptRequest, IPromptResponse,
     IQueueStatus, IQueueAction,
     IHistoryEntry, THistory, IOutputAsset,
-    INodeObjectInfo, IObjectInfo, TInputTypeSpec,
+    INodeObjectInfo, TObjectInfo, TInputTypeSpec,
     ISystemStats, IWorkflowJson, INodeError,
 } from './types/prompt-types.js';
 export { isPromptLink } from './types/prompt-types.js';
