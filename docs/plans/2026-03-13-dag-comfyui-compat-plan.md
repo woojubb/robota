@@ -31,11 +31,12 @@
 
 **Tech Stack:** TypeScript, Express, Zod, Vitest, OpenAPI 3.0.3
 
-**Execution order:** API spec first, then types and implementation.
+**SSOT principle:** The OpenAPI spec (`PROMPT_API_OPENAPI_DOCUMENT`) is the single source of truth for all API contracts. TypeScript types, controller signatures, route handlers, and client ports must conform to the OpenAPI spec. When in doubt, the OpenAPI spec wins.
+
+**Task execution order:**
 ```
-Task 3 (OpenAPI spec) → Task 1 (types) → Task 2 (port) → Task 4 → Task 5 → Task 6 → Task 7
+Task 1 (OpenAPI spec) → Task 2 (types from spec) → Task 3 (backend port) → Task 4 (controller) → Task 5 (routes) → Task 6 (orchestrator setup) → Task 7 (orchestrator service)
 ```
-The OpenAPI spec is the contract — types and implementations must conform to it.
 
 **Key references:**
 - Design doc: `docs/plans/2026-03-13-dag-json-spec-design.md`
@@ -47,481 +48,9 @@ The OpenAPI spec is the contract — types and implementations must conform to i
 
 ---
 
-## Task 1: Prompt Types in dag-core
+## Task 1: OpenAPI Spec for Prompt API Endpoints (SSOT)
 
-Define the prompt format type contracts in dag-core as the SSOT.
-
-**Files:**
-- Create: `packages/dag-core/src/types/prompt-types.ts`
-- Modify: `packages/dag-core/src/index.ts` (re-export new types)
-- Test: `packages/dag-core/src/__tests__/prompt-types.test.ts`
-
-**Step 1: Write the failing test**
-
-```typescript
-// packages/dag-core/src/__tests__/prompt-types.test.ts
-import { describe, it, expect } from 'vitest';
-import type {
-  IPrompt,
-  IPromptNodeDef,
-  TPromptInputValue,
-  TPromptLink,
-  IPromptRequest,
-  IPromptResponse,
-  IQueueStatus,
-  IHistoryEntry,
-  IObjectInfo,
-  INodeObjectInfo,
-  ISystemStats,
-} from '../types/prompt-types.js';
-
-describe('Prompt types', () => {
-  it('should represent a valid prompt with nodes and links', () => {
-    const prompt: IPrompt = {
-      '4': {
-        class_type: 'CheckpointLoaderSimple',
-        inputs: {
-          ckpt_name: 'v1-5-pruned-emaonly.safetensors',
-        },
-      },
-      '3': {
-        class_type: 'KSampler',
-        inputs: {
-          seed: 8566257,
-          steps: 20,
-          cfg: 8.0,
-          sampler_name: 'euler',
-          model: ['4', 0],
-        },
-        _meta: { title: 'KSampler' },
-      },
-    };
-
-    expect(prompt['3'].class_type).toBe('KSampler');
-    expect(prompt['3'].inputs.model).toEqual(['4', 0]);
-    expect(prompt['3'].inputs.seed).toBe(8566257);
-    expect(prompt['3']._meta?.title).toBe('KSampler');
-  });
-
-  it('should represent a prompt request with client_id and extra_data', () => {
-    const request: IPromptRequest = {
-      prompt: {
-        '1': { class_type: 'InputNode', inputs: { text: 'hello' } },
-      },
-      client_id: 'test-client-uuid',
-      extra_data: {
-        extra_pnginfo: {
-          workflow: { nodes: [], links: [], version: 0.4 },
-        },
-      },
-    };
-
-    expect(request.client_id).toBe('test-client-uuid');
-    expect(request.extra_data?.extra_pnginfo?.workflow.version).toBe(0.4);
-  });
-
-  it('should represent a prompt response with prompt_id', () => {
-    const response: IPromptResponse = {
-      prompt_id: 'abc-123',
-      number: 1,
-      node_errors: {},
-    };
-
-    expect(response.prompt_id).toBe('abc-123');
-  });
-
-  it('should represent queue status', () => {
-    const queue: IQueueStatus = {
-      queue_running: [],
-      queue_pending: [],
-    };
-
-    expect(queue.queue_running).toEqual([]);
-  });
-
-  it('should represent history entry', () => {
-    const entry: IHistoryEntry = {
-      prompt: {
-        '1': { class_type: 'InputNode', inputs: { text: 'hello' } },
-      },
-      outputs: {
-        '2': { images: [{ filename: 'out.png', subfolder: '', type: 'output' }] },
-      },
-      status: {
-        status_str: 'success',
-        completed: true,
-        messages: [],
-      },
-    };
-
-    expect(entry.status.status_str).toBe('success');
-  });
-
-  it('should represent object_info for a node type', () => {
-    const info: INodeObjectInfo = {
-      display_name: 'KSampler',
-      category: 'sampling',
-      input: {
-        required: {
-          model: ['MODEL'],
-          seed: ['INT', { default: 0, min: 0, max: 18446744073709551615 }],
-        },
-        optional: {},
-      },
-      output: ['LATENT'],
-      output_is_list: [false],
-      output_name: ['LATENT'],
-      output_node: false,
-      description: '',
-    };
-
-    expect(info.category).toBe('sampling');
-    expect(info.output).toEqual(['LATENT']);
-  });
-
-  it('should represent system stats', () => {
-    const stats: ISystemStats = {
-      system: {
-        os: 'darwin',
-        runtime_version: '',
-        embedded_python: false,
-      },
-      devices: [],
-    };
-
-    expect(stats.system.os).toBe('darwin');
-  });
-
-  it('should distinguish links from config values', () => {
-    const link: TPromptLink = ['4', 0];
-    const configValue: TPromptInputValue = 'euler';
-
-    expect(Array.isArray(link)).toBe(true);
-    expect(Array.isArray(configValue)).toBe(false);
-  });
-});
-```
-
-**Step 2: Run test to verify it fails**
-
-Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-types.test.ts`
-Expected: FAIL — module not found
-
-**Step 3: Write minimal implementation**
-
-```typescript
-// packages/dag-core/src/types/prompt-types.ts
-
-// --- Prompt format types ---
-
-/** Link reference: [sourceNodeId, outputSlotIndex] */
-export type TPromptLink = [string, number];
-
-/** A single input value: scalar or link */
-export type TPromptInputValue = string | number | boolean | TPromptLink;
-
-/** A single node in the prompt */
-export interface IPromptNodeDef {
-  class_type: string;
-  inputs: Record<string, TPromptInputValue>;
-  _meta?: { title?: string };
-}
-
-/** The full prompt: nodeId → node definition */
-export type IPrompt = Record<string, IPromptNodeDef>;
-
-// --- API request/response types ---
-
-export interface IWorkflowJson {
-  nodes: unknown[];
-  links: unknown[];
-  version: number;
-}
-
-export interface IPromptRequest {
-  prompt: IPrompt;
-  client_id?: string;
-  prompt_id?: string;
-  extra_data?: {
-    extra_pnginfo?: {
-      workflow: IWorkflowJson;
-    };
-  };
-  front?: boolean;
-  number?: number;
-}
-
-export interface INodeError {
-  type: string;
-  message: string;
-  details: string;
-  extra_info: Record<string, unknown>;
-}
-
-export interface IPromptResponse {
-  prompt_id: string;
-  number: number;
-  node_errors: Record<string, INodeError>;
-}
-
-// --- Queue types ---
-
-export interface IQueueStatus {
-  queue_running: unknown[];
-  queue_pending: unknown[];
-}
-
-export interface IQueueAction {
-  clear?: boolean;
-  delete?: string[];
-}
-
-// --- History types ---
-
-export interface IOutputAsset {
-  filename: string;
-  subfolder: string;
-  type: string;
-}
-
-export interface IHistoryEntry {
-  prompt: IPrompt;
-  outputs: Record<string, { images?: IOutputAsset[] }>;
-  status: {
-    status_str: 'success' | 'error';
-    completed: boolean;
-    messages: unknown[];
-  };
-}
-
-export type THistory = Record<string, IHistoryEntry>;
-
-// --- Object info types ---
-
-export type TInputTypeSpec =
-  | [string]                                      // type only: ["MODEL"]
-  | [string, Record<string, unknown>];            // type + constraints: ["INT", {default: 0}]
-
-export interface INodeObjectInfo {
-  display_name: string;
-  category: string;
-  input: {
-    required: Record<string, TInputTypeSpec | string[]>;
-    optional?: Record<string, TInputTypeSpec | string[]>;
-    hidden?: Record<string, string>;
-  };
-  output: string[];
-  output_is_list: boolean[];
-  output_name: string[];
-  output_node: boolean;
-  description: string;
-}
-
-export type IObjectInfo = Record<string, INodeObjectInfo>;
-
-// --- System stats types ---
-
-/**
- * System statistics. Field names match the external protocol for compatibility.
- * When Robota DAG runtime is used as backend, `runtime_version` replaces `python_version`
- * and `embedded_python` is always false.
- */
-export interface ISystemStats {
-  system: {
-    os: string;
-    runtime_version: string;
-    embedded_python: boolean;
-  };
-  devices: {
-    name: string;
-    type: string;
-    vram_total: number;
-    vram_free: number;
-  }[];
-}
-
-// --- Utility ---
-
-export function isPromptLink(value: TPromptInputValue): value is TPromptLink {
-  return Array.isArray(value)
-    && value.length === 2
-    && typeof value[0] === 'string'
-    && typeof value[1] === 'number';
-}
-```
-
-**Step 4: Run test to verify it passes**
-
-Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-types.test.ts`
-Expected: PASS
-
-**Step 5: Export from dag-core index**
-
-Add to `packages/dag-core/src/index.ts`:
-```typescript
-export type {
-  IPrompt, IPromptNodeDef, TPromptInputValue, TPromptLink,
-  IPromptRequest, IPromptResponse,
-  IQueueStatus, IQueueAction,
-  IHistoryEntry, THistory, IOutputAsset,
-  INodeObjectInfo, IObjectInfo, TInputTypeSpec,
-  ISystemStats, IWorkflowJson, INodeError,
-} from './types/prompt-types.js';
-export { isPromptLink } from './types/prompt-types.js';
-```
-
-**Step 6: Build and verify**
-
-Run: `pnpm --filter @robota-sdk/dag-core build`
-Expected: Success
-
-**Step 7: Commit**
-
-```bash
-git add packages/dag-core/src/types/prompt-types.ts \
-  packages/dag-core/src/__tests__/prompt-types.test.ts \
-  packages/dag-core/src/index.ts
-git commit -m "feat(dag-core): add prompt format types"
-```
-
----
-
-## Task 2: Backend Port in dag-core
-
-Define the port interface that both external proxy and Robota DAG runtime will implement.
-
-**Files:**
-- Create: `packages/dag-core/src/interfaces/prompt-backend-port.ts`
-- Modify: `packages/dag-core/src/index.ts` (re-export)
-- Test: `packages/dag-core/src/__tests__/prompt-backend-port.test.ts`
-
-**Step 1: Write the failing test**
-
-```typescript
-// packages/dag-core/src/__tests__/prompt-backend-port.test.ts
-import { describe, it, expect } from 'vitest';
-import type { IPromptBackendPort } from '../interfaces/prompt-backend-port.js';
-import type {
-  IPromptRequest,
-  IPromptResponse,
-  IQueueStatus,
-  IQueueAction,
-  THistory,
-  IObjectInfo,
-  ISystemStats,
-} from '../types/prompt-types.js';
-import type { TResult, IDagError } from '../types/index.js';
-
-describe('IPromptBackendPort', () => {
-  it('should be implementable as an in-memory stub', async () => {
-    const stub: IPromptBackendPort = {
-      submitPrompt: async (_request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>> => ({
-        ok: true,
-        value: { prompt_id: 'test-id', number: 1, node_errors: {} },
-      }),
-      getQueue: async (): Promise<TResult<IQueueStatus, IDagError>> => ({
-        ok: true,
-        value: { queue_running: [], queue_pending: [] },
-      }),
-      manageQueue: async (_action: IQueueAction): Promise<TResult<void, IDagError>> => ({
-        ok: true, value: undefined,
-      }),
-      getHistory: async (_promptId?: string): Promise<TResult<THistory, IDagError>> => ({
-        ok: true, value: {},
-      }),
-      getObjectInfo: async (_nodeType?: string): Promise<TResult<IObjectInfo, IDagError>> => ({
-        ok: true, value: {},
-      }),
-      getSystemStats: async (): Promise<TResult<ISystemStats, IDagError>> => ({
-        ok: true,
-        value: {
-          system: { os: 'darwin', runtime_version: '', embedded_python: false },
-          devices: [],
-        },
-      }),
-    };
-
-    const result = await stub.submitPrompt({
-      prompt: { '1': { class_type: 'Test', inputs: {} } },
-    });
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.prompt_id).toBe('test-id');
-    }
-  });
-});
-```
-
-**Step 2: Run test to verify it fails**
-
-Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-backend-port.test.ts`
-Expected: FAIL — module not found
-
-**Step 3: Write minimal implementation**
-
-```typescript
-// packages/dag-core/src/interfaces/prompt-backend-port.ts
-import type { TResult, IDagError } from '../types/index.js';
-import type {
-  IPromptRequest,
-  IPromptResponse,
-  IQueueStatus,
-  IQueueAction,
-  THistory,
-  IObjectInfo,
-  ISystemStats,
-} from '../types/prompt-types.js';
-
-/**
- * Port interface for prompt-compatible backends.
- * Implemented by Robota DAG runtime adapter or external HTTP proxy.
- */
-export interface IPromptBackendPort {
-  submitPrompt(request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>>;
-  getQueue(): Promise<TResult<IQueueStatus, IDagError>>;
-  manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>>;
-  getHistory(promptId?: string): Promise<TResult<THistory, IDagError>>;
-  getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>>;
-  getSystemStats(): Promise<TResult<ISystemStats, IDagError>>;
-}
-```
-
-**Step 4: Run test to verify it passes**
-
-Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-backend-port.test.ts`
-Expected: PASS
-
-**Step 5: Export from dag-core index**
-
-Add to `packages/dag-core/src/index.ts`:
-```typescript
-export type { IPromptBackendPort } from './interfaces/prompt-backend-port.js';
-```
-
-**Step 6: Build and verify**
-
-Run: `pnpm --filter @robota-sdk/dag-core build`
-Expected: Success
-
-**Step 7: Commit**
-
-```bash
-git add packages/dag-core/src/interfaces/prompt-backend-port.ts \
-  packages/dag-core/src/__tests__/prompt-backend-port.test.ts \
-  packages/dag-core/src/index.ts
-git commit -m "feat(dag-core): add IPromptBackendPort interface"
-```
-
----
-
-**Implementation note:** Tasks 4, 5, and 7 all use a similar `createStubBackend()` helper. During implementation, extract a shared `createStubPromptBackend()` factory into `packages/dag-core/src/testing/` and import it in each test file to avoid duplication.
-
----
-
-## Task 3: OpenAPI Spec for Prompt API Endpoints
-
-Define the complete OpenAPI 3.0.3 spec matching the prompt API format.
+Define the complete OpenAPI 3.0.3 spec. This is the **single source of truth** for all Prompt API contracts — endpoints, request/response schemas, error formats. All subsequent tasks derive from this spec.
 
 **Files:**
 - Create: `packages/dag-server-core/src/docs/openapi-prompt-api.ts`
@@ -616,6 +145,8 @@ Run: `pnpm --filter @robota-sdk/dag-server-core test -- --run src/__tests__/open
 Expected: FAIL — module not found
 
 **Step 3: Write the OpenAPI spec**
+
+The full spec defines all schemas (PromptNodeDef, Prompt, NodeError, NodeObjectInfo, etc.), all endpoints, request/response formats, and error responses. This is the authoritative document — all TypeScript types in subsequent tasks must match these schemas exactly.
 
 ```typescript
 // packages/dag-server-core/src/docs/openapi-prompt-api.ts
@@ -944,14 +475,405 @@ Expected: Success
 ```bash
 git add packages/dag-server-core/src/docs/openapi-prompt-api.ts \
   packages/dag-server-core/src/__tests__/openapi-prompt-api.test.ts
-git commit -m "feat(dag-server-core): add prompt API OpenAPI spec"
+git commit -m "feat(dag-server-core): add prompt API OpenAPI spec (SSOT)"
 ```
+
+---
+
+## Task 2: Prompt Types in dag-core (derived from OpenAPI spec)
+
+Define TypeScript type contracts that mirror the OpenAPI spec schemas. These types are the TypeScript projection of the OpenAPI SSOT — field names, structures, and constraints must match exactly.
+
+**Derive from:** `PROMPT_API_OPENAPI_DOCUMENT` schemas (Task 1)
+
+**Files:**
+- Create: `packages/dag-core/src/types/prompt-types.ts`
+- Modify: `packages/dag-core/src/index.ts` (re-export new types)
+- Test: `packages/dag-core/src/__tests__/prompt-types.test.ts`
+
+**Step 1: Write the failing test**
+
+Tests verify that TypeScript types can represent the same structures defined in the OpenAPI spec.
+
+```typescript
+// packages/dag-core/src/__tests__/prompt-types.test.ts
+import { describe, it, expect } from 'vitest';
+import type {
+  IPrompt,
+  TPromptInputValue,
+  TPromptLink,
+  IPromptRequest,
+  IPromptResponse,
+  IQueueStatus,
+  IHistoryEntry,
+  INodeObjectInfo,
+  ISystemStats,
+} from '../types/prompt-types.js';
+
+describe('Prompt types (derived from OpenAPI spec)', () => {
+  it('should represent a valid prompt matching OpenAPI Prompt schema', () => {
+    const prompt: IPrompt = {
+      '4': {
+        class_type: 'CheckpointLoaderSimple',
+        inputs: { ckpt_name: 'v1-5-pruned-emaonly.safetensors' },
+      },
+      '3': {
+        class_type: 'KSampler',
+        inputs: { seed: 8566257, model: ['4', 0] },
+        _meta: { title: 'KSampler' },
+      },
+    };
+
+    expect(prompt['3'].class_type).toBe('KSampler');
+    expect(prompt['3'].inputs.model).toEqual(['4', 0]);
+  });
+
+  it('should represent request/response matching OpenAPI /prompt schemas', () => {
+    const request: IPromptRequest = {
+      prompt: { '1': { class_type: 'InputNode', inputs: { text: 'hello' } } },
+      client_id: 'test-client-uuid',
+    };
+    const response: IPromptResponse = {
+      prompt_id: 'abc-123',
+      number: 1,
+      node_errors: {},
+    };
+
+    expect(request.client_id).toBe('test-client-uuid');
+    expect(response.prompt_id).toBe('abc-123');
+  });
+
+  it('should represent queue status matching OpenAPI /queue schema', () => {
+    const queue: IQueueStatus = { queue_running: [], queue_pending: [] };
+    expect(queue.queue_running).toEqual([]);
+  });
+
+  it('should represent history entry matching OpenAPI /history schema', () => {
+    const entry: IHistoryEntry = {
+      prompt: { '1': { class_type: 'InputNode', inputs: { text: 'hello' } } },
+      outputs: {},
+      status: { status_str: 'success', completed: true, messages: [] },
+    };
+    expect(entry.status.status_str).toBe('success');
+  });
+
+  it('should represent system stats matching OpenAPI /system_stats schema', () => {
+    const stats: ISystemStats = {
+      system: { os: 'darwin', runtime_version: '', embedded_python: false },
+      devices: [],
+    };
+    expect(stats.system.os).toBe('darwin');
+  });
+
+  it('should distinguish links from config values via Array.isArray', () => {
+    const link: TPromptLink = ['4', 0];
+    const configValue: TPromptInputValue = 'euler';
+    expect(Array.isArray(link)).toBe(true);
+    expect(Array.isArray(configValue)).toBe(false);
+  });
+});
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-types.test.ts`
+Expected: FAIL — module not found
+
+**Step 3: Write types matching OpenAPI schemas**
+
+Each type corresponds to an OpenAPI schema component. See `PROMPT_API_OPENAPI_DOCUMENT` for the authoritative field definitions.
+
+```typescript
+// packages/dag-core/src/types/prompt-types.ts
+
+// --- Prompt format types (OpenAPI: Prompt, PromptNodeDef) ---
+
+/** Link reference: [sourceNodeId, outputSlotIndex] */
+export type TPromptLink = [string, number];
+
+/** A single input value: scalar or link */
+export type TPromptInputValue = string | number | boolean | TPromptLink;
+
+/** OpenAPI: PromptNodeDef schema */
+export interface IPromptNodeDef {
+  class_type: string;
+  inputs: Record<string, TPromptInputValue>;
+  _meta?: { title?: string };
+}
+
+/** OpenAPI: Prompt schema — nodeId → node definition */
+export type IPrompt = Record<string, IPromptNodeDef>;
+
+// --- API request/response types (OpenAPI: POST /prompt) ---
+
+export interface IWorkflowJson {
+  nodes: unknown[];
+  links: unknown[];
+  version: number;
+}
+
+export interface IPromptRequest {
+  prompt: IPrompt;
+  client_id?: string;
+  prompt_id?: string;
+  extra_data?: {
+    extra_pnginfo?: {
+      workflow: IWorkflowJson;
+    };
+  };
+  front?: boolean;
+  number?: number;
+}
+
+/** OpenAPI: NodeError schema */
+export interface INodeError {
+  type: string;
+  message: string;
+  details: string;
+  extra_info: Record<string, unknown>;
+}
+
+/** OpenAPI: POST /prompt 200 response */
+export interface IPromptResponse {
+  prompt_id: string;
+  number: number;
+  node_errors: Record<string, INodeError>;
+}
+
+// --- Queue types (OpenAPI: /queue) ---
+
+export interface IQueueStatus {
+  queue_running: unknown[];
+  queue_pending: unknown[];
+}
+
+export interface IQueueAction {
+  clear?: boolean;
+  delete?: string[];
+}
+
+// --- History types (OpenAPI: /history) ---
+
+export interface IOutputAsset {
+  filename: string;
+  subfolder: string;
+  type: string;
+}
+
+export interface IHistoryEntry {
+  prompt: IPrompt;
+  outputs: Record<string, { images?: IOutputAsset[] }>;
+  status: {
+    status_str: 'success' | 'error';
+    completed: boolean;
+    messages: unknown[];
+  };
+}
+
+export type THistory = Record<string, IHistoryEntry>;
+
+// --- Object info types (OpenAPI: /object_info) ---
+
+export type TInputTypeSpec =
+  | [string]
+  | [string, Record<string, unknown>];
+
+/** OpenAPI: NodeObjectInfo schema */
+export interface INodeObjectInfo {
+  display_name: string;
+  category: string;
+  input: {
+    required: Record<string, TInputTypeSpec | string[]>;
+    optional?: Record<string, TInputTypeSpec | string[]>;
+    hidden?: Record<string, string>;
+  };
+  output: string[];
+  output_is_list: boolean[];
+  output_name: string[];
+  output_node: boolean;
+  description: string;
+}
+
+export type IObjectInfo = Record<string, INodeObjectInfo>;
+
+// --- System stats types (OpenAPI: /system_stats) ---
+
+export interface ISystemStats {
+  system: {
+    os: string;
+    runtime_version: string;
+    embedded_python: boolean;
+  };
+  devices: {
+    name: string;
+    type: string;
+    vram_total: number;
+    vram_free: number;
+  }[];
+}
+
+// --- Utility ---
+
+export function isPromptLink(value: TPromptInputValue): value is TPromptLink {
+  return Array.isArray(value)
+    && value.length === 2
+    && typeof value[0] === 'string'
+    && typeof value[1] === 'number';
+}
+```
+
+**Step 4: Run test to verify it passes**
+
+Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-types.test.ts`
+Expected: PASS
+
+**Step 5: Export from dag-core index**
+
+Add to `packages/dag-core/src/index.ts`:
+```typescript
+export type {
+  IPrompt, IPromptNodeDef, TPromptInputValue, TPromptLink,
+  IPromptRequest, IPromptResponse,
+  IQueueStatus, IQueueAction,
+  IHistoryEntry, THistory, IOutputAsset,
+  INodeObjectInfo, IObjectInfo, TInputTypeSpec,
+  ISystemStats, IWorkflowJson, INodeError,
+} from './types/prompt-types.js';
+export { isPromptLink } from './types/prompt-types.js';
+```
+
+**Step 6: Build and verify**
+
+Run: `pnpm --filter @robota-sdk/dag-core build`
+Expected: Success
+
+**Step 7: Commit**
+
+```bash
+git add packages/dag-core/src/types/prompt-types.ts \
+  packages/dag-core/src/__tests__/prompt-types.test.ts \
+  packages/dag-core/src/index.ts
+git commit -m "feat(dag-core): add prompt types derived from OpenAPI spec"
+```
+
+---
+
+## Task 3: Backend Port in dag-core
+
+Define the port interface that backends (Robota DAG runtime or external proxy) implement. Method signatures match the OpenAPI spec operations.
+
+**Derive from:** OpenAPI spec operation signatures (Task 1)
+
+**Files:**
+- Create: `packages/dag-core/src/interfaces/prompt-backend-port.ts`
+- Modify: `packages/dag-core/src/index.ts` (re-export)
+- Test: `packages/dag-core/src/__tests__/prompt-backend-port.test.ts`
+
+**Step 1: Write the failing test**
+
+```typescript
+// packages/dag-core/src/__tests__/prompt-backend-port.test.ts
+import { describe, it, expect } from 'vitest';
+import type { IPromptBackendPort } from '../interfaces/prompt-backend-port.js';
+
+describe('IPromptBackendPort', () => {
+  it('should be implementable as an in-memory stub', async () => {
+    const stub: IPromptBackendPort = {
+      submitPrompt: async () => ({
+        ok: true as const,
+        value: { prompt_id: 'test-id', number: 1, node_errors: {} },
+      }),
+      getQueue: async () => ({
+        ok: true as const,
+        value: { queue_running: [], queue_pending: [] },
+      }),
+      manageQueue: async () => ({ ok: true as const, value: undefined }),
+      getHistory: async () => ({ ok: true as const, value: {} }),
+      getObjectInfo: async () => ({ ok: true as const, value: {} }),
+      getSystemStats: async () => ({
+        ok: true as const,
+        value: {
+          system: { os: 'darwin', runtime_version: '', embedded_python: false },
+          devices: [],
+        },
+      }),
+    };
+
+    const result = await stub.submitPrompt({
+      prompt: { '1': { class_type: 'Test', inputs: {} } },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.prompt_id).toBe('test-id');
+    }
+  });
+});
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-backend-port.test.ts`
+Expected: FAIL — module not found
+
+**Step 3: Write minimal implementation**
+
+Method signatures mirror the OpenAPI spec operations. See `PROMPT_API_OPENAPI_DOCUMENT` for the authoritative request/response contracts.
+
+```typescript
+// packages/dag-core/src/interfaces/prompt-backend-port.ts
+import type { TResult, IDagError } from '../types/index.js';
+import type {
+  IPromptRequest, IPromptResponse,
+  IQueueStatus, IQueueAction,
+  THistory, IObjectInfo, ISystemStats,
+} from '../types/prompt-types.js';
+
+/**
+ * Port interface for prompt-compatible backends.
+ * Method signatures derived from OpenAPI spec operations.
+ * Implemented by Robota DAG runtime adapter or external HTTP proxy.
+ */
+export interface IPromptBackendPort {
+  submitPrompt(request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>>;
+  getQueue(): Promise<TResult<IQueueStatus, IDagError>>;
+  manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>>;
+  getHistory(promptId?: string): Promise<TResult<THistory, IDagError>>;
+  getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>>;
+  getSystemStats(): Promise<TResult<ISystemStats, IDagError>>;
+}
+```
+
+**Step 4: Run test, export, build, commit**
+
+Run: `pnpm --filter @robota-sdk/dag-core test -- --run src/__tests__/prompt-backend-port.test.ts`
+Expected: PASS
+
+Add to `packages/dag-core/src/index.ts`:
+```typescript
+export type { IPromptBackendPort } from './interfaces/prompt-backend-port.js';
+```
+
+Run: `pnpm --filter @robota-sdk/dag-core build`
+Expected: Success
+
+```bash
+git add packages/dag-core/src/interfaces/prompt-backend-port.ts \
+  packages/dag-core/src/__tests__/prompt-backend-port.test.ts \
+  packages/dag-core/src/index.ts
+git commit -m "feat(dag-core): add IPromptBackendPort derived from OpenAPI spec"
+```
+
+---
+
+**Implementation note:** Tasks 4, 5, and 7 all use a similar stub backend/client. During implementation, extract a shared `createStubPromptBackend()` factory into `packages/dag-core/src/testing/` and import it in each test file to avoid duplication.
 
 ---
 
 ## Task 4: Prompt API Controller
 
-Implement the controller that handles all prompt API endpoints, delegating to `IPromptBackendPort`.
+Implement the controller that handles all prompt API endpoints. Method signatures and validation rules conform to the OpenAPI spec.
+
+**Derive from:** OpenAPI spec operations and error responses (Task 1)
 
 **Files:**
 - Create: `packages/dag-api/src/controllers/prompt-api-controller.ts`
@@ -990,11 +912,9 @@ function createStubBackend(): IPromptBackendPort {
 
 describe('PromptApiController', () => {
   let controller: PromptApiController;
-  let backend: IPromptBackendPort;
 
   beforeEach(() => {
-    backend = createStubBackend();
-    controller = new PromptApiController(backend);
+    controller = new PromptApiController(createStubBackend());
   });
 
   describe('submitPrompt', () => {
@@ -1002,11 +922,8 @@ describe('PromptApiController', () => {
       const result = await controller.submitPrompt({
         prompt: { '1': { class_type: 'Test', inputs: { value: 'hello' } } },
       });
-
       expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.value.prompt_id).toBe('stub-id');
-      }
+      if (result.ok) expect(result.value.prompt_id).toBe('stub-id');
     });
 
     it('should reject empty prompt', async () => {
@@ -1015,48 +932,21 @@ describe('PromptApiController', () => {
     });
   });
 
-  describe('getQueue', () => {
-    it('should return queue status', async () => {
-      const result = await controller.getQueue();
-      expect(result.ok).toBe(true);
+  describe('delegated operations', () => {
+    it('getQueue should return queue status', async () => {
+      expect((await controller.getQueue()).ok).toBe(true);
     });
-  });
-
-  describe('manageQueue', () => {
-    it('should accept clear action', async () => {
-      const result = await controller.manageQueue({ clear: true });
-      expect(result.ok).toBe(true);
+    it('manageQueue should accept clear action', async () => {
+      expect((await controller.manageQueue({ clear: true })).ok).toBe(true);
     });
-  });
-
-  describe('getHistory', () => {
-    it('should return all history', async () => {
-      const result = await controller.getHistory();
-      expect(result.ok).toBe(true);
+    it('getHistory should return history', async () => {
+      expect((await controller.getHistory()).ok).toBe(true);
     });
-
-    it('should return history for specific prompt_id', async () => {
-      const result = await controller.getHistory('some-id');
-      expect(result.ok).toBe(true);
+    it('getObjectInfo should return node types', async () => {
+      expect((await controller.getObjectInfo()).ok).toBe(true);
     });
-  });
-
-  describe('getObjectInfo', () => {
-    it('should return all node types', async () => {
-      const result = await controller.getObjectInfo();
-      expect(result.ok).toBe(true);
-    });
-
-    it('should return specific node type', async () => {
-      const result = await controller.getObjectInfo('KSampler');
-      expect(result.ok).toBe(true);
-    });
-  });
-
-  describe('getSystemStats', () => {
-    it('should return system stats', async () => {
-      const result = await controller.getSystemStats();
-      expect(result.ok).toBe(true);
+    it('getSystemStats should return stats', async () => {
+      expect((await controller.getSystemStats()).ok).toBe(true);
     });
   });
 });
@@ -1069,95 +959,53 @@ Expected: FAIL — module not found
 
 **Step 3: Write minimal implementation**
 
+Validation rules (e.g., empty prompt rejection) match the OpenAPI spec 400 error response. Error format uses the `NodeError` schema from the spec.
+
 ```typescript
 // packages/dag-api/src/controllers/prompt-api-controller.ts
 import type {
-  IPromptBackendPort,
-  IPromptRequest,
-  IPromptResponse,
-  IQueueStatus,
-  IQueueAction,
-  THistory,
-  IObjectInfo,
-  ISystemStats,
-  TResult,
-  IDagError,
+  IPromptBackendPort, IPromptRequest, IPromptResponse,
+  IQueueStatus, IQueueAction, THistory, IObjectInfo, ISystemStats,
+  TResult, IDagError,
 } from '@robota-sdk/dag-core';
 
 export class PromptApiController {
-  private readonly backend: IPromptBackendPort;
+  constructor(private readonly backend: IPromptBackendPort) {}
 
-  constructor(backend: IPromptBackendPort) {
-    this.backend = backend;
-  }
-
-  async submitPrompt(
-    request: IPromptRequest,
-  ): Promise<TResult<IPromptResponse, IDagError>> {
+  async submitPrompt(request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>> {
     const nodeIds = Object.keys(request.prompt);
     if (nodeIds.length === 0) {
       return {
         ok: false,
-        error: {
-          code: 'PROMPT_NO_OUTPUTS',
-          category: 'validation',
-          message: 'Prompt has no nodes',
-          retryable: false,
-        },
+        error: { code: 'PROMPT_NO_OUTPUTS', category: 'validation', message: 'Prompt has no nodes', retryable: false },
       };
     }
-
     for (const nodeId of nodeIds) {
-      const node = request.prompt[nodeId];
-      if (!node.class_type) {
+      if (!request.prompt[nodeId].class_type) {
         return {
           ok: false,
-          error: {
-            code: 'INVALID_NODE',
-            category: 'validation',
-            message: `Node ${nodeId} missing class_type`,
-            retryable: false,
-          },
+          error: { code: 'INVALID_NODE', category: 'validation', message: `Node ${nodeId} missing class_type`, retryable: false },
         };
       }
     }
-
     return this.backend.submitPrompt(request);
   }
 
-  async getQueue(): Promise<TResult<IQueueStatus, IDagError>> {
-    return this.backend.getQueue();
-  }
-
-  async manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>> {
-    return this.backend.manageQueue(action);
-  }
-
-  async getHistory(promptId?: string): Promise<TResult<THistory, IDagError>> {
-    return this.backend.getHistory(promptId);
-  }
-
-  async getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>> {
-    return this.backend.getObjectInfo(nodeType);
-  }
-
-  async getSystemStats(): Promise<TResult<ISystemStats, IDagError>> {
-    return this.backend.getSystemStats();
-  }
+  async getQueue(): Promise<TResult<IQueueStatus, IDagError>> { return this.backend.getQueue(); }
+  async manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>> { return this.backend.manageQueue(action); }
+  async getHistory(promptId?: string): Promise<TResult<THistory, IDagError>> { return this.backend.getHistory(promptId); }
+  async getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>> { return this.backend.getObjectInfo(nodeType); }
+  async getSystemStats(): Promise<TResult<ISystemStats, IDagError>> { return this.backend.getSystemStats(); }
 }
 ```
 
-**Step 4: Run test to verify it passes**
+**Step 4: Run test, build, commit**
 
 Run: `pnpm --filter @robota-sdk/dag-api test -- --run src/__tests__/prompt-api-controller.test.ts`
 Expected: PASS
 
-**Step 5: Build and verify**
-
 Run: `pnpm --filter @robota-sdk/dag-api build`
 Expected: Success
-
-**Step 6: Commit**
 
 ```bash
 git add packages/dag-api/src/controllers/prompt-api-controller.ts \
@@ -1169,7 +1017,9 @@ git commit -m "feat(dag-api): add PromptApiController"
 
 ## Task 5: Express Routes for Prompt API Endpoints
 
-Wire the PromptApiController to Express routes.
+Wire the PromptApiController to Express routes. Route paths and HTTP methods match the OpenAPI spec exactly. Error responses use the `sendError` helper to produce the OpenAPI-defined error format.
+
+**Derive from:** OpenAPI spec paths and methods (Task 1)
 
 **Files:**
 - Create: `packages/dag-server-core/src/routes/prompt-routes.ts`
@@ -1219,68 +1069,58 @@ function createStubBackend(): IPromptBackendPort {
   };
 }
 
-describe('Prompt API routes', () => {
+describe('Prompt API routes (matches OpenAPI spec paths)', () => {
   let app: express.Express;
 
   beforeEach(() => {
     app = express();
     app.use(express.json());
-    const backend = createStubBackend();
-    const controller = new PromptApiController(backend);
-    mountPromptRoutes(app, controller);
+    mountPromptRoutes(app, new PromptApiController(createStubBackend()));
   });
 
-  it('POST /prompt should return prompt_id', async () => {
+  it('POST /prompt → 200 with prompt_id', async () => {
     const res = await request(app)
       .post('/prompt')
       .send({ prompt: { '1': { class_type: 'TestNode', inputs: {} } } });
-
     expect(res.status).toBe(200);
     expect(res.body.prompt_id).toBe('test-prompt-id');
   });
 
-  it('POST /prompt should reject empty prompt', async () => {
-    const res = await request(app)
-      .post('/prompt')
-      .send({ prompt: {} });
-
+  it('POST /prompt → 400 on empty prompt', async () => {
+    const res = await request(app).post('/prompt').send({ prompt: {} });
     expect(res.status).toBe(400);
   });
 
-  it('GET /queue should return queue status', async () => {
+  it('GET /queue → 200', async () => {
     const res = await request(app).get('/queue');
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('queue_running');
-    expect(res.body).toHaveProperty('queue_pending');
   });
 
-  it('POST /queue should accept clear action', async () => {
+  it('POST /queue → 200', async () => {
     const res = await request(app).post('/queue').send({ clear: true });
     expect(res.status).toBe(200);
   });
 
-  it('GET /history should return history', async () => {
-    const res = await request(app).get('/history');
-    expect(res.status).toBe(200);
+  it('GET /history → 200', async () => {
+    expect((await request(app).get('/history')).status).toBe(200);
   });
 
-  it('GET /history/:prompt_id should return specific history', async () => {
-    const res = await request(app).get('/history/some-id');
-    expect(res.status).toBe(200);
+  it('GET /history/:prompt_id → 200', async () => {
+    expect((await request(app).get('/history/some-id')).status).toBe(200);
   });
 
-  it('GET /object_info should return all node types', async () => {
+  it('GET /object_info → 200', async () => {
     const res = await request(app).get('/object_info');
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('TestNode');
   });
 
-  it('GET /object_info/:node_type should return specific type', async () => {
-    const res = await request(app).get('/object_info/TestNode');
-    expect(res.status).toBe(200);
+  it('GET /object_info/:node_type → 200', async () => {
+    expect((await request(app).get('/object_info/TestNode')).status).toBe(200);
   });
 
-  it('GET /system_stats should return stats', async () => {
+  it('GET /system_stats → 200', async () => {
     const res = await request(app).get('/system_stats');
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('system');
@@ -1295,6 +1135,8 @@ Expected: FAIL — module not found
 
 **Step 3: Write minimal implementation**
 
+Error response format matches the OpenAPI 400 schema (`{ error: NodeError, node_errors: {} }`).
+
 ```typescript
 // packages/dag-server-core/src/routes/prompt-routes.ts
 import type { Express, Request, Response } from 'express';
@@ -1303,105 +1145,61 @@ import type { IDagError } from '@robota-sdk/dag-core';
 
 function sendError(res: Response, error: IDagError, status = 500): void {
   res.status(status).json({
-    error: {
-      type: error.code,
-      message: error.message,
-      details: '',
-      extra_info: {},
-    },
+    error: { type: error.code, message: error.message, details: '', extra_info: {} },
     node_errors: {},
   });
 }
 
-export function mountPromptRoutes(
-  app: Express,
-  controller: PromptApiController,
-): void {
+export function mountPromptRoutes(app: Express, controller: PromptApiController): void {
   app.post('/prompt', async (req: Request, res: Response) => {
     const result = await controller.submitPrompt(req.body);
-    if (result.ok) {
-      res.status(200).json(result.value);
-    } else {
-      sendError(res, result.error, 400);
-    }
+    result.ok ? res.status(200).json(result.value) : sendError(res, result.error, 400);
   });
 
   app.get('/queue', async (_req: Request, res: Response) => {
     const result = await controller.getQueue();
-    if (result.ok) {
-      res.status(200).json(result.value);
-    } else {
-      sendError(res, result.error);
-    }
+    result.ok ? res.status(200).json(result.value) : sendError(res, result.error);
   });
 
   app.post('/queue', async (req: Request, res: Response) => {
     const result = await controller.manageQueue(req.body);
-    if (result.ok) {
-      res.status(200).json({});
-    } else {
-      sendError(res, result.error);
-    }
+    result.ok ? res.status(200).json({}) : sendError(res, result.error);
   });
 
   app.get('/history', async (_req: Request, res: Response) => {
     const result = await controller.getHistory();
-    if (result.ok) {
-      res.status(200).json(result.value);
-    } else {
-      sendError(res, result.error);
-    }
+    result.ok ? res.status(200).json(result.value) : sendError(res, result.error);
   });
 
   app.get('/history/:prompt_id', async (req: Request, res: Response) => {
     const result = await controller.getHistory(req.params.prompt_id);
-    if (result.ok) {
-      res.status(200).json(result.value);
-    } else {
-      sendError(res, result.error);
-    }
+    result.ok ? res.status(200).json(result.value) : sendError(res, result.error);
   });
 
   app.get('/object_info', async (_req: Request, res: Response) => {
     const result = await controller.getObjectInfo();
-    if (result.ok) {
-      res.status(200).json(result.value);
-    } else {
-      sendError(res, result.error);
-    }
+    result.ok ? res.status(200).json(result.value) : sendError(res, result.error);
   });
 
   app.get('/object_info/:node_type', async (req: Request, res: Response) => {
     const result = await controller.getObjectInfo(req.params.node_type);
-    if (result.ok) {
-      res.status(200).json(result.value);
-    } else {
-      sendError(res, result.error);
-    }
+    result.ok ? res.status(200).json(result.value) : sendError(res, result.error);
   });
 
   app.get('/system_stats', async (_req: Request, res: Response) => {
     const result = await controller.getSystemStats();
-    if (result.ok) {
-      res.status(200).json(result.value);
-    } else {
-      sendError(res, result.error);
-    }
+    result.ok ? res.status(200).json(result.value) : sendError(res, result.error);
   });
 }
 ```
 
-**Step 4: Run test to verify it passes**
+**Step 4: Run test, build, commit**
 
 Run: `pnpm --filter @robota-sdk/dag-server-core test -- --run src/__tests__/prompt-routes.test.ts`
 Expected: PASS
 
-**Step 5: Build and verify**
-
 Run: `pnpm --filter @robota-sdk/dag-server-core build`
 Expected: Success
-
-**Step 6: Commit**
 
 ```bash
 git add packages/dag-server-core/src/routes/prompt-routes.ts \
@@ -1414,6 +1212,8 @@ git commit -m "feat(dag-server-core): add prompt API Express routes"
 ## Task 6: Orchestration Layer — Package Setup, Types, and HTTP Client Port
 
 Create the `dag-orchestrator` package as an **independent program**. It communicates with Prompt API Server over HTTP — no in-process dependency on `IPromptBackendPort` or the API layer.
+
+`IPromptApiClientPort` mirrors the OpenAPI spec operations but is owned by the orchestrator. It is the orchestrator's abstraction for calling Prompt API Server over HTTP.
 
 **Files:**
 - Create: `packages/dag-orchestrator/package.json`
@@ -1435,23 +1235,17 @@ Create the `dag-orchestrator` package as an **independent program**. It communic
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc",
-    "test": "vitest"
-  },
-  "dependencies": {
-    "@robota-sdk/dag-core": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^5.4.0",
-    "vitest": "^3.0.0"
-  }
+  "scripts": { "build": "tsc", "test": "vitest" },
+  "dependencies": { "@robota-sdk/dag-core": "workspace:*" },
+  "devDependencies": { "typescript": "^5.4.0", "vitest": "^3.0.0" }
 }
 ```
 
-Copy `tsconfig.json` and `vitest.config.ts` patterns from another dag-* package (e.g., `dag-runtime`).
+Copy `tsconfig.json` and `vitest.config.ts` patterns from another dag-* package.
 
-**Step 2: Define orchestrator types**
+**Step 2: Define orchestrator-specific types**
+
+These types are owned by the orchestrator layer — not in the OpenAPI spec.
 
 ```typescript
 // packages/dag-orchestrator/src/types/orchestrator-types.ts
@@ -1462,19 +1256,9 @@ export interface ICostEstimate {
   perNode: Record<string, { nodeType: string; estimatedCostUsd: number }>;
 }
 
-export interface ICostPolicy {
-  maxCostPerPromptUsd: number;
-}
-
-export interface IRetryPolicy {
-  maxRetries: number;
-  backoffMs: number;
-  retryableErrors: string[];
-}
-
-export interface ITimeoutPolicy {
-  promptTimeoutMs: number;
-}
+export interface ICostPolicy { maxCostPerPromptUsd: number; }
+export interface IRetryPolicy { maxRetries: number; backoffMs: number; retryableErrors: string[]; }
+export interface ITimeoutPolicy { promptTimeoutMs: number; }
 
 export interface IOrchestratorConfig {
   costPolicy?: ICostPolicy;
@@ -1495,27 +1279,20 @@ export interface IOrchestratedPromptResponse {
 
 **Step 3: Define the HTTP client port**
 
-This port abstracts Prompt API Server communication. The Orchestrator depends on this port, not on `IPromptBackendPort`. A concrete HTTP adapter (future task) implements this port by calling Prompt API Server endpoints over HTTP.
+Method signatures mirror the OpenAPI spec operations. The concrete adapter (future task) calls Prompt API Server endpoints over HTTP.
 
 ```typescript
 // packages/dag-orchestrator/src/interfaces/prompt-api-client-port.ts
 import type {
-  IPromptRequest,
-  IPromptResponse,
-  IQueueStatus,
-  IQueueAction,
-  THistory,
-  IObjectInfo,
-  ISystemStats,
-  TResult,
-  IDagError,
+  IPromptRequest, IPromptResponse, IQueueStatus, IQueueAction,
+  THistory, IObjectInfo, ISystemStats, TResult, IDagError,
 } from '@robota-sdk/dag-core';
 
 /**
  * Port for communicating with a Prompt API Server over HTTP.
- * Mirrors the Prompt API endpoints. Implemented by an HTTP client adapter.
+ * Method signatures derived from OpenAPI spec operations.
  *
- * This is NOT the same as IPromptBackendPort:
+ * NOT the same as IPromptBackendPort:
  * - IPromptBackendPort: used inside Prompt API Server to talk to backend runtime
  * - IPromptApiClientPort: used by Orchestrator to call Prompt API Server over HTTP
  */
@@ -1537,93 +1314,17 @@ import type { TResult, IDagError, IObjectInfo } from '@robota-sdk/dag-core';
 import type { ICostEstimate, ICostPolicy } from '../types/orchestrator-types.js';
 
 export interface ICostEstimatorPort {
-  estimateCost(
-    nodeTypes: string[],
-    objectInfo: IObjectInfo,
-  ): Promise<TResult<ICostEstimate, IDagError>>;
+  estimateCost(nodeTypes: string[], objectInfo: IObjectInfo): Promise<TResult<ICostEstimate, IDagError>>;
 }
 
 export interface ICostPolicyEvaluatorPort {
-  evaluate(
-    estimate: ICostEstimate,
-    policy: ICostPolicy,
-  ): TResult<void, IDagError>;
+  evaluate(estimate: ICostEstimate, policy: ICostPolicy): TResult<void, IDagError>;
 }
 ```
 
-**Step 5: Write the failing test for IPromptApiClientPort**
+**Step 5: Write test, create index, install, build, commit**
 
-```typescript
-// packages/dag-orchestrator/src/__tests__/prompt-api-client-port.test.ts
-import { describe, it, expect } from 'vitest';
-import type { IPromptApiClientPort } from '../interfaces/prompt-api-client-port.js';
-
-describe('IPromptApiClientPort', () => {
-  it('should be implementable as an in-memory stub', async () => {
-    const stub: IPromptApiClientPort = {
-      submitPrompt: async () => ({
-        ok: true as const,
-        value: { prompt_id: 'test-id', number: 1, node_errors: {} },
-      }),
-      getQueue: async () => ({
-        ok: true as const,
-        value: { queue_running: [], queue_pending: [] },
-      }),
-      manageQueue: async () => ({ ok: true as const, value: undefined }),
-      getHistory: async () => ({ ok: true as const, value: {} }),
-      getObjectInfo: async () => ({ ok: true as const, value: {} }),
-      getSystemStats: async () => ({
-        ok: true as const,
-        value: {
-          system: { os: 'darwin', runtime_version: '', embedded_python: false },
-          devices: [],
-        },
-      }),
-    };
-
-    const result = await stub.submitPrompt({
-      prompt: { '1': { class_type: 'Test', inputs: {} } },
-    });
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.prompt_id).toBe('test-id');
-    }
-  });
-});
-```
-
-**Step 6: Run test to verify it passes**
-
-Run: `pnpm --filter @robota-sdk/dag-orchestrator test -- --run src/__tests__/prompt-api-client-port.test.ts`
-Expected: PASS
-
-**Step 7: Create index.ts with exports**
-
-```typescript
-// packages/dag-orchestrator/src/index.ts
-export type {
-  ICostEstimate, ICostPolicy, IRetryPolicy, ITimeoutPolicy,
-  IOrchestratorConfig, IOrchestratedPromptRequest, IOrchestratedPromptResponse,
-} from './types/orchestrator-types.js';
-export type {
-  IPromptApiClientPort,
-} from './interfaces/prompt-api-client-port.js';
-export type {
-  ICostEstimatorPort, ICostPolicyEvaluatorPort,
-} from './interfaces/orchestrator-policy-port.js';
-```
-
-**Step 8: Install deps, build, verify**
-
-Run:
-```bash
-pnpm install
-pnpm --filter @robota-sdk/dag-orchestrator build
-```
-Expected: Success
-
-**Step 9: Commit**
+Test, index, build steps same as before (see previous version). Commit:
 
 ```bash
 git add packages/dag-orchestrator/
@@ -1634,7 +1335,7 @@ git commit -m "feat(dag-orchestrator): scaffold orchestration layer with HTTP cl
 
 ## Task 7: Orchestration Layer — Service Implementation
 
-Implement the orchestrator service. Uses `IPromptApiClientPort` (HTTP client to Prompt API Server), **not** `IPromptBackendPort`. The Orchestrator is an independent program that calls Prompt API over HTTP.
+Implement the orchestrator service. Uses `IPromptApiClientPort` (HTTP client to Prompt API Server), **not** `IPromptBackendPort`.
 
 **Files:**
 - Create: `packages/dag-orchestrator/src/services/prompt-orchestrator-service.ts`
@@ -1686,18 +1387,13 @@ function createStubCostEstimator(): ICostEstimatorPort {
   return {
     estimateCost: async () => ({
       ok: true as const,
-      value: {
-        totalEstimatedCostUsd: 0.05,
-        perNode: { '1': { nodeType: 'TestNode', estimatedCostUsd: 0.05 } },
-      },
+      value: { totalEstimatedCostUsd: 0.05, perNode: { '1': { nodeType: 'TestNode', estimatedCostUsd: 0.05 } } },
     }),
   };
 }
 
 function createStubPolicyEvaluator(): ICostPolicyEvaluatorPort {
-  return {
-    evaluate: () => ({ ok: true as const, value: undefined }),
-  };
+  return { evaluate: () => ({ ok: true as const, value: undefined }) };
 }
 
 describe('PromptOrchestratorService', () => {
@@ -1706,90 +1402,53 @@ describe('PromptOrchestratorService', () => {
 
   beforeEach(() => {
     apiClient = createStubApiClient();
-    service = new PromptOrchestratorService(
-      apiClient,
-      createStubCostEstimator(),
-      createStubPolicyEvaluator(),
-    );
+    service = new PromptOrchestratorService(apiClient, createStubCostEstimator(), createStubPolicyEvaluator());
   });
 
-  it('should submit prompt when no cost policy is set', async () => {
+  it('should submit prompt without cost policy', async () => {
     const result = await service.submitPrompt({
-      promptRequest: {
-        prompt: { '1': { class_type: 'TestNode', inputs: {} } },
-      },
+      promptRequest: { prompt: { '1': { class_type: 'TestNode', inputs: {} } } },
     });
-
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.promptResponse.prompt_id).toBe('test-id');
-    }
+    if (result.ok) expect(result.value.promptResponse.prompt_id).toBe('test-id');
   });
 
   it('should estimate cost and enforce policy when configured', async () => {
     const result = await service.submitPrompt({
-      promptRequest: {
-        prompt: { '1': { class_type: 'TestNode', inputs: {} } },
-      },
-      config: {
-        costPolicy: { maxCostPerPromptUsd: 1.0 },
-      },
+      promptRequest: { prompt: { '1': { class_type: 'TestNode', inputs: {} } } },
+      config: { costPolicy: { maxCostPerPromptUsd: 1.0 } },
     });
-
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.costEstimate).toBeDefined();
-      expect(result.value.costEstimate?.totalEstimatedCostUsd).toBe(0.05);
-    }
+    if (result.ok) expect(result.value.costEstimate?.totalEstimatedCostUsd).toBe(0.05);
   });
 
   it('should reject prompt when cost exceeds policy', async () => {
     const rejectingEvaluator: ICostPolicyEvaluatorPort = {
       evaluate: () => ({
         ok: false as const,
-        error: {
-          code: 'COST_LIMIT_EXCEEDED',
-          category: 'validation' as const,
-          message: 'Estimated cost $0.05 exceeds limit $0.01',
-          retryable: false,
-        },
+        error: { code: 'COST_LIMIT_EXCEEDED', category: 'validation' as const, message: 'Exceeds limit', retryable: false },
       }),
     };
-
-    service = new PromptOrchestratorService(
-      apiClient,
-      createStubCostEstimator(),
-      rejectingEvaluator,
-    );
+    service = new PromptOrchestratorService(apiClient, createStubCostEstimator(), rejectingEvaluator);
 
     const result = await service.submitPrompt({
-      promptRequest: {
-        prompt: { '1': { class_type: 'TestNode', inputs: {} } },
-      },
-      config: {
-        costPolicy: { maxCostPerPromptUsd: 0.01 },
-      },
+      promptRequest: { prompt: { '1': { class_type: 'TestNode', inputs: {} } } },
+      config: { costPolicy: { maxCostPerPromptUsd: 0.01 } },
     });
-
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe('COST_LIMIT_EXCEEDED');
-    }
+    if (!result.ok) expect(result.error.code).toBe('COST_LIMIT_EXCEEDED');
   });
 
   it('should delegate getQueue to API client', async () => {
-    const result = await service.getQueue();
-    expect(result.ok).toBe(true);
+    expect((await service.getQueue()).ok).toBe(true);
   });
 
   it('should delegate getHistory to API client', async () => {
-    const result = await service.getHistory();
-    expect(result.ok).toBe(true);
+    expect((await service.getHistory()).ok).toBe(true);
   });
 
   it('should delegate getSystemStats to API client', async () => {
-    const result = await service.getSystemStats();
-    expect(result.ok).toBe(true);
+    expect((await service.getSystemStats()).ok).toBe(true);
   });
 });
 ```
@@ -1804,30 +1463,16 @@ Expected: FAIL — module not found
 ```typescript
 // packages/dag-orchestrator/src/services/prompt-orchestrator-service.ts
 import type {
-  TResult,
-  IDagError,
-  IQueueStatus,
-  IQueueAction,
-  THistory,
-  IObjectInfo,
-  ISystemStats,
+  TResult, IDagError, IQueueStatus, IQueueAction,
+  THistory, IObjectInfo, ISystemStats,
 } from '@robota-sdk/dag-core';
 import type { IPromptApiClientPort } from '../interfaces/prompt-api-client-port.js';
-import type {
-  IOrchestratedPromptRequest,
-  IOrchestratedPromptResponse,
-} from '../types/orchestrator-types.js';
-import type {
-  ICostEstimatorPort,
-  ICostPolicyEvaluatorPort,
-} from '../interfaces/orchestrator-policy-port.js';
+import type { IOrchestratedPromptRequest, IOrchestratedPromptResponse } from '../types/orchestrator-types.js';
+import type { ICostEstimatorPort, ICostPolicyEvaluatorPort } from '../interfaces/orchestrator-policy-port.js';
 
 /**
- * Orchestrator service that acts as a gateway to Prompt API Server.
- * Adds cost estimation, policy enforcement, and other extended features
- * on top of the standard Prompt API.
- *
- * Communicates with Prompt API Server via IPromptApiClientPort (HTTP).
+ * Orchestrator service — gateway to Prompt API Server.
+ * Communicates via IPromptApiClientPort (HTTP), not IPromptBackendPort.
  */
 export class PromptOrchestratorService {
   constructor(
@@ -1836,90 +1481,40 @@ export class PromptOrchestratorService {
     private readonly costPolicyEvaluator: ICostPolicyEvaluatorPort,
   ) {}
 
-  async submitPrompt(
-    request: IOrchestratedPromptRequest,
-  ): Promise<TResult<IOrchestratedPromptResponse, IDagError>> {
+  async submitPrompt(request: IOrchestratedPromptRequest): Promise<TResult<IOrchestratedPromptResponse, IDagError>> {
     const { promptRequest, config } = request;
 
     if (config?.costPolicy) {
       const objectInfoResult = await this.apiClient.getObjectInfo();
-      if (!objectInfoResult.ok) {
-        return objectInfoResult;
-      }
+      if (!objectInfoResult.ok) return objectInfoResult;
 
-      const nodeTypes = Object.values(promptRequest.prompt).map(
-        (node) => node.class_type,
-      );
+      const nodeTypes = Object.values(promptRequest.prompt).map((n) => n.class_type);
+      const estimateResult = await this.costEstimator.estimateCost(nodeTypes, objectInfoResult.value);
+      if (!estimateResult.ok) return estimateResult;
 
-      const estimateResult = await this.costEstimator.estimateCost(
-        nodeTypes,
-        objectInfoResult.value,
-      );
-      if (!estimateResult.ok) {
-        return estimateResult;
-      }
-
-      const policyResult = this.costPolicyEvaluator.evaluate(
-        estimateResult.value,
-        config.costPolicy,
-      );
-      if (!policyResult.ok) {
-        return policyResult;
-      }
+      const policyResult = this.costPolicyEvaluator.evaluate(estimateResult.value, config.costPolicy);
+      if (!policyResult.ok) return policyResult;
 
       const submitResult = await this.apiClient.submitPrompt(promptRequest);
-      if (!submitResult.ok) {
-        return submitResult;
-      }
+      if (!submitResult.ok) return submitResult;
 
-      return {
-        ok: true,
-        value: {
-          promptResponse: submitResult.value,
-          costEstimate: estimateResult.value,
-        },
-      };
+      return { ok: true, value: { promptResponse: submitResult.value, costEstimate: estimateResult.value } };
     }
 
     const submitResult = await this.apiClient.submitPrompt(promptRequest);
-    if (!submitResult.ok) {
-      return submitResult;
-    }
-
-    return {
-      ok: true,
-      value: { promptResponse: submitResult.value },
-    };
+    if (!submitResult.ok) return submitResult;
+    return { ok: true, value: { promptResponse: submitResult.value } };
   }
 
-  async getQueue(): Promise<TResult<IQueueStatus, IDagError>> {
-    return this.apiClient.getQueue();
-  }
-
-  async manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>> {
-    return this.apiClient.manageQueue(action);
-  }
-
-  async getHistory(promptId?: string): Promise<TResult<THistory, IDagError>> {
-    return this.apiClient.getHistory(promptId);
-  }
-
-  async getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>> {
-    return this.apiClient.getObjectInfo(nodeType);
-  }
-
-  async getSystemStats(): Promise<TResult<ISystemStats, IDagError>> {
-    return this.apiClient.getSystemStats();
-  }
+  async getQueue(): Promise<TResult<IQueueStatus, IDagError>> { return this.apiClient.getQueue(); }
+  async manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>> { return this.apiClient.manageQueue(action); }
+  async getHistory(promptId?: string): Promise<TResult<THistory, IDagError>> { return this.apiClient.getHistory(promptId); }
+  async getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>> { return this.apiClient.getObjectInfo(nodeType); }
+  async getSystemStats(): Promise<TResult<ISystemStats, IDagError>> { return this.apiClient.getSystemStats(); }
 }
 ```
 
-**Step 4: Run test to verify it passes**
-
-Run: `pnpm --filter @robota-sdk/dag-orchestrator test -- --run src/__tests__/prompt-orchestrator-service.test.ts`
-Expected: PASS
-
-**Step 5: Export from index and build**
+**Step 4: Export, build, commit**
 
 Add to `packages/dag-orchestrator/src/index.ts`:
 ```typescript
@@ -1928,8 +1523,6 @@ export { PromptOrchestratorService } from './services/prompt-orchestrator-servic
 
 Run: `pnpm --filter @robota-sdk/dag-orchestrator build`
 Expected: Success
-
-**Step 6: Commit**
 
 ```bash
 git add packages/dag-orchestrator/src/services/prompt-orchestrator-service.ts \
@@ -1942,18 +1535,20 @@ git commit -m "feat(dag-orchestrator): add PromptOrchestratorService with cost p
 
 ## Task Summary
 
-| Task | Package | What | Depends on API? | Depends on Orchestrator? |
-|------|---------|------|-----------------|--------------------------|
-| 1 | dag-core | Prompt types (SSOT) | No | No |
-| 2 | dag-core | `IPromptBackendPort` | No | No |
-| 3 | dag-server-core | OpenAPI spec | No | No |
-| 4 | dag-api | `PromptApiController` | — (is the API) | No |
-| 5 | dag-server-core | Express routes | Yes | No |
-| 6 | dag-orchestrator | Package scaffold + types + `IPromptApiClientPort` + policy ports | No | — (is the orchestrator) |
-| 7 | dag-orchestrator | `PromptOrchestratorService` (uses HTTP client port) | No | — (is the orchestrator) |
+| Task | Package | What | SSOT reference |
+|------|---------|------|----------------|
+| 1 | dag-server-core | **OpenAPI spec (SSOT)** | — (is the SSOT) |
+| 2 | dag-core | TypeScript types | Derived from OpenAPI schemas |
+| 3 | dag-core | `IPromptBackendPort` | Derived from OpenAPI operations |
+| 4 | dag-api | `PromptApiController` | Validates per OpenAPI spec |
+| 5 | dag-server-core | Express routes | Paths/methods match OpenAPI spec |
+| 6 | dag-orchestrator | Package + `IPromptApiClientPort` | Mirrors OpenAPI operations |
+| 7 | dag-orchestrator | `PromptOrchestratorService` | Uses client port (HTTP) |
 
 **Dependency graph:**
 ```
+OpenAPI Spec (SSOT)
+    ↓ derives
 dag-core (types + ports)
     ↑                ↑
 dag-api          dag-orchestrator
@@ -1962,7 +1557,6 @@ dag-server-core
 ```
 
 API and Orchestrator never depend on each other. Both depend only on dag-core for shared types.
-Orchestrator communicates with Prompt API Server over HTTP via `IPromptApiClientPort`.
 
 **Key distinction:**
 - `IPromptBackendPort` (dag-core): used **inside** Prompt API Server to call backend runtime
@@ -1970,10 +1564,10 @@ Orchestrator communicates with Prompt API Server over HTTP via `IPromptApiClient
 
 ## Not In Scope (future tasks)
 
-- **Orchestrator HTTP server**: Express app for `apps/dag-orchestrator/` that exposes orchestrator endpoints to dag-designer
-- **Prompt API HTTP client adapter**: Concrete implementation of `IPromptApiClientPort` using `fetch`/`undici` to call Prompt API Server
-- **Prompt API Server entry point**: `apps/dag-server/` Express bootstrap wiring `PromptApiController` + `mountPromptRoutes` + backend adapter
-- Robota DAG runtime adapter implementing `IPromptBackendPort` (wraps existing dag-runtime/dag-worker)
+- **Orchestrator HTTP server**: Express app for `apps/dag-orchestrator/`
+- **Prompt API HTTP client adapter**: Concrete `IPromptApiClientPort` implementation using `fetch`/`undici`
+- **Prompt API Server entry point**: `apps/dag-server/` Express bootstrap
+- Robota DAG runtime adapter implementing `IPromptBackendPort`
 - External proxy adapter implementing `IPromptBackendPort`
 - WebSocket progress events
 - dag-designer React Flow ↔ prompt format converter
