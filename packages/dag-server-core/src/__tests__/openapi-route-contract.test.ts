@@ -8,7 +8,8 @@ import { registerAssetRoutes } from '../routes/asset-routes.js';
 import { registerSseRoutes } from '../routes/sse-routes.js';
 import { registerDevRoutes } from '../routes/dev-routes.js';
 import { mountPromptRoutes } from '../routes/prompt-routes.js';
-import type { IAssetStore } from '../asset-store-contract.js';
+import type { IAssetStore, IAssetContentResult, IStoredAssetMetadata } from '../asset-store-contract.js';
+import type { IClockPort } from '@robota-sdk/dag-core';
 
 /**
  * Converts OpenAPI path parameters `{param}` to Express `:param` format.
@@ -75,13 +76,17 @@ const stubDagRunService = new Proxy({}, { get: () => NOOP_ASYNC }) as Parameters
 const stubRuntimeController = new Proxy({}, { get: () => NOOP_ASYNC }) as Parameters<typeof registerRunRoutes>[2];
 const stubObservabilityController = new Proxy({}, { get: () => NOOP_ASYNC }) as Parameters<typeof registerRunRoutes>[3];
 const stubAssetStore: IAssetStore = {
-    create: async () => ({ assetId: '', fileName: '', mediaType: '', sizeBytes: 0, createdAt: new Date() }),
-    getMetadata: async () => null,
-    getContent: async () => null,
+    save: async () => ({ assetId: '', fileName: '', mediaType: '', sizeBytes: 0, createdAt: '' }),
+    saveReference: async () => ({ assetId: '', fileName: '', mediaType: '', sizeBytes: 0, createdAt: '' }),
+    getMetadata: async (): Promise<IStoredAssetMetadata | undefined> => undefined,
+    getContent: async (): Promise<IAssetContentResult | undefined> => undefined,
 };
 const stubPromptController = new Proxy({}, { get: () => NOOP_ASYNC }) as Parameters<typeof mountPromptRoutes>[1];
 const stubWorkerLoop = new Proxy({}, { get: () => NOOP_ASYNC }) as Parameters<typeof registerDevRoutes>[2];
-const stubEventBus = new Proxy({}, { get: () => NOOP_ASYNC }) as Parameters<typeof registerSseRoutes>[1];
+const stubSseClients = new Map<string, Set<express.Response>>();
+const stubRunQuery = NOOP_ASYNC as unknown as Parameters<typeof registerSseRoutes>[2];
+const stubClock: IClockPort = { nowIso: () => new Date().toISOString(), nowEpochMs: () => Date.now() };
+const SSE_KEEPALIVE_MS = 30000;
 
 describe('OpenAPI spec ↔ route implementation contract', () => {
     let dagRoutes: Set<string>;
@@ -96,7 +101,7 @@ describe('OpenAPI spec ↔ route implementation contract', () => {
         registerDefinitionRoutes(router, stubDesignController, stubAssetStore);
         registerRunRoutes(router, stubDagRunService, stubRuntimeController, stubObservabilityController, stubAssetStore);
         registerAssetRoutes(router, stubAssetStore);
-        registerSseRoutes(router, stubEventBus);
+        registerSseRoutes(router, stubSseClients, stubRunQuery, stubClock, SSE_KEEPALIVE_MS);
         registerDevRoutes(router, stubDesignController, stubWorkerLoop, undefined);
         dagApp.use(router);
         dagRoutes = extractExpressRoutes(dagApp);
