@@ -4,11 +4,17 @@
 
 **Goal:** Refactor DAG API to use ComfyUI-compatible prompt format with a separate orchestration layer for extended features (cost, retry, auth).
 
-**Architecture:**
+**Architecture:** Three independent programs communicating over HTTP.
 ```
-[Orchestration Layer]  packages/dag-orchestrator/
-    ↓ queries object_info via backend port, enforces policies, delegates
-[Prompt API Layer]  packages/dag-api/ (refactored)
+[dag-designer (UI)]
+    ↓ HTTP
+[Orchestrator API Server]  apps/dag-orchestrator/
+    |  gateway + extension pack (auth, cost, retry, timeout)
+    |  contains HTTP client for Prompt API
+    ↓ HTTP
+[Prompt API Server]  apps/dag-server/
+    |  standalone execution engine
+    |  packages: dag-api (controllers), dag-server-core (routes, bootstrap)
     ↓
 [Backend Port]  IPromptBackendPort (in dag-core)
     ↓
@@ -18,10 +24,10 @@
 
 **Naming convention:** No external product names in code. Use generic domain names.
 
-**Separation principle:** Prompt API layer and Orchestrator are completely independent.
-- API layer: protocol/format handling
-- Orchestrator: policy enforcement (cost, retry, auth)
-- Both depend on `IPromptBackendPort`, never on each other.
+**Separation principle:** Prompt API Server and Orchestrator API Server are independent programs.
+- Prompt API Server: fully functional standalone. No knowledge of Orchestrator.
+- Orchestrator API Server: connects to Prompt API Server via HTTP. Optional extension.
+- dag-designer connects only to Orchestrator API Server.
 
 **Tech Stack:** TypeScript, Express, Zod, Vitest, OpenAPI 3.0.3
 
@@ -1399,17 +1405,19 @@ git commit -m "feat(dag-server-core): add prompt API Express routes"
 
 ---
 
-## Task 6: Orchestration Layer — Package Setup and Ports
+## Task 6: Orchestration Layer — Package Setup, Types, and HTTP Client Port
 
-Create the `dag-orchestrator` package. Completely independent from the API layer.
-Depends only on `dag-core` (for `IPromptBackendPort` and prompt types).
+Create the `dag-orchestrator` package as an **independent program**. It communicates with Prompt API Server over HTTP — no in-process dependency on `IPromptBackendPort` or the API layer.
 
 **Files:**
 - Create: `packages/dag-orchestrator/package.json`
 - Create: `packages/dag-orchestrator/tsconfig.json`
+- Create: `packages/dag-orchestrator/vitest.config.ts`
 - Create: `packages/dag-orchestrator/src/index.ts`
 - Create: `packages/dag-orchestrator/src/types/orchestrator-types.ts`
+- Create: `packages/dag-orchestrator/src/interfaces/prompt-api-client-port.ts`
 - Create: `packages/dag-orchestrator/src/interfaces/orchestrator-policy-port.ts`
+- Test: `packages/dag-orchestrator/src/__tests__/prompt-api-client-port.test.ts`
 
 **Step 1: Scaffold package**
 
@@ -1479,7 +1487,43 @@ export interface IOrchestratedPromptResponse {
 }
 ```
 
-**Step 3: Define policy ports**
+**Step 3: Define the HTTP client port**
+
+This port abstracts Prompt API Server communication. The Orchestrator depends on this port, not on `IPromptBackendPort`. A concrete HTTP adapter (future task) implements this port by calling Prompt API Server endpoints over HTTP.
+
+```typescript
+// packages/dag-orchestrator/src/interfaces/prompt-api-client-port.ts
+import type {
+  IPromptRequest,
+  IPromptResponse,
+  IQueueStatus,
+  IQueueAction,
+  THistory,
+  IObjectInfo,
+  ISystemStats,
+  TResult,
+  IDagError,
+} from '@robota-sdk/dag-core';
+
+/**
+ * Port for communicating with a Prompt API Server over HTTP.
+ * Mirrors the Prompt API endpoints. Implemented by an HTTP client adapter.
+ *
+ * This is NOT the same as IPromptBackendPort:
+ * - IPromptBackendPort: used inside Prompt API Server to talk to backend runtime
+ * - IPromptApiClientPort: used by Orchestrator to call Prompt API Server over HTTP
+ */
+export interface IPromptApiClientPort {
+  submitPrompt(request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>>;
+  getQueue(): Promise<TResult<IQueueStatus, IDagError>>;
+  manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>>;
+  getHistory(promptId?: string): Promise<TResult<THistory, IDagError>>;
+  getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>>;
+  getSystemStats(): Promise<TResult<ISystemStats, IDagError>>;
+}
+```
+
+**Step 4: Define policy ports**
 
 ```typescript
 // packages/dag-orchestrator/src/interfaces/orchestrator-policy-port.ts
@@ -1501,7 +1545,54 @@ export interface ICostPolicyEvaluatorPort {
 }
 ```
 
-**Step 4: Create index.ts with exports**
+**Step 5: Write the failing test for IPromptApiClientPort**
+
+```typescript
+// packages/dag-orchestrator/src/__tests__/prompt-api-client-port.test.ts
+import { describe, it, expect } from 'vitest';
+import type { IPromptApiClientPort } from '../interfaces/prompt-api-client-port.js';
+
+describe('IPromptApiClientPort', () => {
+  it('should be implementable as an in-memory stub', async () => {
+    const stub: IPromptApiClientPort = {
+      submitPrompt: async () => ({
+        ok: true as const,
+        value: { prompt_id: 'test-id', number: 1, node_errors: {} },
+      }),
+      getQueue: async () => ({
+        ok: true as const,
+        value: { queue_running: [], queue_pending: [] },
+      }),
+      manageQueue: async () => ({ ok: true as const, value: undefined }),
+      getHistory: async () => ({ ok: true as const, value: {} }),
+      getObjectInfo: async () => ({ ok: true as const, value: {} }),
+      getSystemStats: async () => ({
+        ok: true as const,
+        value: {
+          system: { os: 'darwin', runtime_version: '', embedded_python: false },
+          devices: [],
+        },
+      }),
+    };
+
+    const result = await stub.submitPrompt({
+      prompt: { '1': { class_type: 'Test', inputs: {} } },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.prompt_id).toBe('test-id');
+    }
+  });
+});
+```
+
+**Step 6: Run test to verify it passes**
+
+Run: `pnpm --filter @robota-sdk/dag-orchestrator test -- --run src/__tests__/prompt-api-client-port.test.ts`
+Expected: PASS
+
+**Step 7: Create index.ts with exports**
 
 ```typescript
 // packages/dag-orchestrator/src/index.ts
@@ -1510,11 +1601,14 @@ export type {
   IOrchestratorConfig, IOrchestratedPromptRequest, IOrchestratedPromptResponse,
 } from './types/orchestrator-types.js';
 export type {
+  IPromptApiClientPort,
+} from './interfaces/prompt-api-client-port.js';
+export type {
   ICostEstimatorPort, ICostPolicyEvaluatorPort,
 } from './interfaces/orchestrator-policy-port.js';
 ```
 
-**Step 5: Install deps, build, verify**
+**Step 8: Install deps, build, verify**
 
 Run:
 ```bash
@@ -1523,18 +1617,18 @@ pnpm --filter @robota-sdk/dag-orchestrator build
 ```
 Expected: Success
 
-**Step 6: Commit**
+**Step 9: Commit**
 
 ```bash
 git add packages/dag-orchestrator/
-git commit -m "feat(dag-orchestrator): scaffold orchestration layer package"
+git commit -m "feat(dag-orchestrator): scaffold orchestration layer with HTTP client port"
 ```
 
 ---
 
 ## Task 7: Orchestration Layer — Service Implementation
 
-Implement the orchestrator service. Uses `IPromptBackendPort` directly (not the API controller).
+Implement the orchestrator service. Uses `IPromptApiClientPort` (HTTP client to Prompt API Server), **not** `IPromptBackendPort`. The Orchestrator is an independent program that calls Prompt API over HTTP.
 
 **Files:**
 - Create: `packages/dag-orchestrator/src/services/prompt-orchestrator-service.ts`
@@ -1546,10 +1640,10 @@ Implement the orchestrator service. Uses `IPromptBackendPort` directly (not the 
 // packages/dag-orchestrator/src/__tests__/prompt-orchestrator-service.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PromptOrchestratorService } from '../services/prompt-orchestrator-service.js';
-import type { IPromptBackendPort } from '@robota-sdk/dag-core';
+import type { IPromptApiClientPort } from '../interfaces/prompt-api-client-port.js';
 import type { ICostEstimatorPort, ICostPolicyEvaluatorPort } from '../interfaces/orchestrator-policy-port.js';
 
-function createStubBackend(): IPromptBackendPort {
+function createStubApiClient(): IPromptApiClientPort {
   return {
     submitPrompt: async () => ({
       ok: true as const,
@@ -1602,12 +1696,12 @@ function createStubPolicyEvaluator(): ICostPolicyEvaluatorPort {
 
 describe('PromptOrchestratorService', () => {
   let service: PromptOrchestratorService;
-  let backend: IPromptBackendPort;
+  let apiClient: IPromptApiClientPort;
 
   beforeEach(() => {
-    backend = createStubBackend();
+    apiClient = createStubApiClient();
     service = new PromptOrchestratorService(
-      backend,
+      apiClient,
       createStubCostEstimator(),
       createStubPolicyEvaluator(),
     );
@@ -1657,7 +1751,7 @@ describe('PromptOrchestratorService', () => {
     };
 
     service = new PromptOrchestratorService(
-      backend,
+      apiClient,
       createStubCostEstimator(),
       rejectingEvaluator,
     );
@@ -1676,6 +1770,21 @@ describe('PromptOrchestratorService', () => {
       expect(result.error.code).toBe('COST_LIMIT_EXCEEDED');
     }
   });
+
+  it('should delegate getQueue to API client', async () => {
+    const result = await service.getQueue();
+    expect(result.ok).toBe(true);
+  });
+
+  it('should delegate getHistory to API client', async () => {
+    const result = await service.getHistory();
+    expect(result.ok).toBe(true);
+  });
+
+  it('should delegate getSystemStats to API client', async () => {
+    const result = await service.getSystemStats();
+    expect(result.ok).toBe(true);
+  });
 });
 ```
 
@@ -1689,10 +1798,15 @@ Expected: FAIL — module not found
 ```typescript
 // packages/dag-orchestrator/src/services/prompt-orchestrator-service.ts
 import type {
-  IPromptBackendPort,
   TResult,
   IDagError,
+  IQueueStatus,
+  IQueueAction,
+  THistory,
+  IObjectInfo,
+  ISystemStats,
 } from '@robota-sdk/dag-core';
+import type { IPromptApiClientPort } from '../interfaces/prompt-api-client-port.js';
 import type {
   IOrchestratedPromptRequest,
   IOrchestratedPromptResponse,
@@ -1702,9 +1816,16 @@ import type {
   ICostPolicyEvaluatorPort,
 } from '../interfaces/orchestrator-policy-port.js';
 
+/**
+ * Orchestrator service that acts as a gateway to Prompt API Server.
+ * Adds cost estimation, policy enforcement, and other extended features
+ * on top of the standard Prompt API.
+ *
+ * Communicates with Prompt API Server via IPromptApiClientPort (HTTP).
+ */
 export class PromptOrchestratorService {
   constructor(
-    private readonly backend: IPromptBackendPort,
+    private readonly apiClient: IPromptApiClientPort,
     private readonly costEstimator: ICostEstimatorPort,
     private readonly costPolicyEvaluator: ICostPolicyEvaluatorPort,
   ) {}
@@ -1715,7 +1836,7 @@ export class PromptOrchestratorService {
     const { promptRequest, config } = request;
 
     if (config?.costPolicy) {
-      const objectInfoResult = await this.backend.getObjectInfo();
+      const objectInfoResult = await this.apiClient.getObjectInfo();
       if (!objectInfoResult.ok) {
         return objectInfoResult;
       }
@@ -1740,7 +1861,7 @@ export class PromptOrchestratorService {
         return policyResult;
       }
 
-      const submitResult = await this.backend.submitPrompt(promptRequest);
+      const submitResult = await this.apiClient.submitPrompt(promptRequest);
       if (!submitResult.ok) {
         return submitResult;
       }
@@ -1754,7 +1875,7 @@ export class PromptOrchestratorService {
       };
     }
 
-    const submitResult = await this.backend.submitPrompt(promptRequest);
+    const submitResult = await this.apiClient.submitPrompt(promptRequest);
     if (!submitResult.ok) {
       return submitResult;
     }
@@ -1763,6 +1884,26 @@ export class PromptOrchestratorService {
       ok: true,
       value: { promptResponse: submitResult.value },
     };
+  }
+
+  async getQueue(): Promise<TResult<IQueueStatus, IDagError>> {
+    return this.apiClient.getQueue();
+  }
+
+  async manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>> {
+    return this.apiClient.manageQueue(action);
+  }
+
+  async getHistory(promptId?: string): Promise<TResult<THistory, IDagError>> {
+    return this.apiClient.getHistory(promptId);
+  }
+
+  async getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>> {
+    return this.apiClient.getObjectInfo(nodeType);
+  }
+
+  async getSystemStats(): Promise<TResult<ISystemStats, IDagError>> {
+    return this.apiClient.getSystemStats();
   }
 }
 ```
@@ -1802,23 +1943,30 @@ git commit -m "feat(dag-orchestrator): add PromptOrchestratorService with cost p
 | 3 | dag-server-core | OpenAPI spec | No | No |
 | 4 | dag-api | `PromptApiController` | — (is the API) | No |
 | 5 | dag-server-core | Express routes | Yes | No |
-| 6 | dag-orchestrator | Package scaffold + types + policy ports | No | — (is the orchestrator) |
-| 7 | dag-orchestrator | `PromptOrchestratorService` | No | — (is the orchestrator) |
+| 6 | dag-orchestrator | Package scaffold + types + `IPromptApiClientPort` + policy ports | No | — (is the orchestrator) |
+| 7 | dag-orchestrator | `PromptOrchestratorService` (uses HTTP client port) | No | — (is the orchestrator) |
 
 **Dependency graph:**
 ```
 dag-core (types + ports)
     ↑                ↑
 dag-api          dag-orchestrator
-    ↑
+    ↑                (uses IPromptApiClientPort → HTTP → Prompt API Server)
 dag-server-core
 ```
 
-API and Orchestrator never depend on each other. Both depend only on dag-core.
+API and Orchestrator never depend on each other. Both depend only on dag-core for shared types.
+Orchestrator communicates with Prompt API Server over HTTP via `IPromptApiClientPort`.
+
+**Key distinction:**
+- `IPromptBackendPort` (dag-core): used **inside** Prompt API Server to call backend runtime
+- `IPromptApiClientPort` (dag-orchestrator): used by Orchestrator to call Prompt API Server over HTTP
 
 ## Not In Scope (future tasks)
 
-- **Server bootstrap composition**: Define how API layer and Orchestrator are wired at startup. Options: (a) routes → orchestrator → backend, (b) routes → API controller → backend with orchestrator as middleware, (c) separate HTTP servers. Must be decided before production deployment.
+- **Orchestrator HTTP server**: Express app for `apps/dag-orchestrator/` that exposes orchestrator endpoints to dag-designer
+- **Prompt API HTTP client adapter**: Concrete implementation of `IPromptApiClientPort` using `fetch`/`undici` to call Prompt API Server
+- **Prompt API Server entry point**: `apps/dag-server/` Express bootstrap wiring `PromptApiController` + `mountPromptRoutes` + backend adapter
 - Robota DAG runtime adapter implementing `IPromptBackendPort` (wraps existing dag-runtime/dag-worker)
 - External proxy adapter implementing `IPromptBackendPort`
 - WebSocket progress events
