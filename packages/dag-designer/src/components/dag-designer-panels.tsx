@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useMemo, type ReactElement } from 'react';
 import { NodeConfigPanel } from './node-config-panel.js';
 import { NodeIoTracePanel } from './node-io-trace-panel.js';
 import { NodeExplorerPanel } from './node-explorer-panel.js';
@@ -102,9 +102,17 @@ export function DagDesignerNodeIoTrace(props: IDagDesignerNodeIoTraceProps): Rea
 export function DagDesignerRunProgressSummary(props: IDagDesignerRunProgressSummaryProps): ReactElement {
     const context = useDagDesignerContext();
     const state = context.runProgress;
-    const runningNodeCount = Object.values(context.nodeUiStateByNodeId).filter((nodeState) => nodeState.executionStatus === 'running').length;
-    const failedNodeCount = Object.values(context.nodeUiStateByNodeId).filter((nodeState) => nodeState.executionStatus === 'failed').length;
-    const successNodeCount = Object.values(context.nodeUiStateByNodeId).filter((nodeState) => nodeState.executionStatus === 'success').length;
+    const { runningNodeCount, failedNodeCount, successNodeCount } = useMemo(() => {
+        let running = 0;
+        let failed = 0;
+        let success = 0;
+        for (const nodeState of Object.values(context.nodeUiStateByNodeId)) {
+            if (nodeState.executionStatus === 'running') running++;
+            else if (nodeState.executionStatus === 'failed') failed++;
+            else if (nodeState.executionStatus === 'success') success++;
+        }
+        return { runningNodeCount: running, failedNodeCount: failed, successNodeCount: success };
+    }, [context.nodeUiStateByNodeId]);
     const summaryText = state.activeDagRunId
         ? `run=${state.activeDagRunId} status=${state.runStatus} running=${runningNodeCount} success=${successNodeCount} failed=${failedNodeCount} completed=${state.completedTaskCount}`
         : 'run=none status=idle';
