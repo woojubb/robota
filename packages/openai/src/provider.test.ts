@@ -377,7 +377,7 @@ describe('OpenAIProvider', () => {
         it('should throw when client is not available (executor mode)', async () => {
             const mockExecutor = {
                 chat: vi.fn(),
-                chatStream: vi.fn().mockImplementation(function* () {
+                chatStream: vi.fn().mockImplementation(function () {
                     throw new Error('Executor stream error');
                 }),
             };

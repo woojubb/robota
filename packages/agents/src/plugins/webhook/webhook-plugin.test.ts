@@ -29,7 +29,7 @@ function createContext(overrides: Partial<IPluginExecutionContext> = {}): IPlugi
         executionId: 'exec_1',
         sessionId: 'session_1',
         userId: 'user_1',
-        messages: [{ role: 'user', content: 'hello' }],
+        messages: [{ role: 'user', content: 'hello', timestamp: new Date() }],
         config: { model: 'gpt-4' },
         ...overrides
     };
@@ -246,6 +246,7 @@ describe('WebhookPlugin', () => {
 
             const error = new Error('Test error');
             const errorContext: IPluginErrorContext = {
+                action: 'test',
                 executionId: 'exec_1',
                 sessionId: 'session_1',
                 userId: 'user_1'

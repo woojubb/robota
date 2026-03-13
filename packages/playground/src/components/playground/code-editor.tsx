@@ -9,6 +9,7 @@ import type { editor } from 'monaco-editor'
 import { WebLogger } from '../../lib/web-logger'
 import { defaultCode } from './code-editor-templates'
 
+// eslint-disable-next-line no-restricted-syntax -- React.lazy requires dynamic import for code splitting
 const LazyEditor = lazy(() => import('@monaco-editor/react').then(m => ({ default: m.default })));
 
 // Re-export templates for external consumers

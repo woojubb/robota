@@ -7,7 +7,7 @@ Owns the Robota web application. A Next.js 15 host that serves the Playground UI
 ## Boundaries
 
 - Does not own package-level runtime contracts; imports from `@robota-sdk/agents`, `@robota-sdk/playground`, `@robota-sdk/dag-core`, and `@robota-sdk/dag-designer`.
-- Does not own API server behavior; that belongs to `apps/api-server`.
+- Does not own API server behavior; that belongs to `apps/agent-server`.
 - Keeps deployment, auth configuration, and frontend integration behavior within this app.
 - Styling uses Tailwind CSS v4 utility classes only.
 

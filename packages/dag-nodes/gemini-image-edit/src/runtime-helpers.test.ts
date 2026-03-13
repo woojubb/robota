@@ -47,10 +47,10 @@ describe('resolveRuntimeBaseUrl', () => {
     beforeEach(() => {
         savedEnv = {
             DAG_RUNTIME_BASE_URL: process.env.DAG_RUNTIME_BASE_URL,
-            DAG_DEV_PORT: process.env.DAG_DEV_PORT
+            DAG_PORT: process.env.DAG_PORT
         };
         delete process.env.DAG_RUNTIME_BASE_URL;
-        delete process.env.DAG_DEV_PORT;
+        delete process.env.DAG_PORT;
     });
 
     afterEach(() => {
@@ -59,10 +59,10 @@ describe('resolveRuntimeBaseUrl', () => {
         } else {
             process.env.DAG_RUNTIME_BASE_URL = savedEnv.DAG_RUNTIME_BASE_URL;
         }
-        if (savedEnv.DAG_DEV_PORT === undefined) {
-            delete process.env.DAG_DEV_PORT;
+        if (savedEnv.DAG_PORT === undefined) {
+            delete process.env.DAG_PORT;
         } else {
-            process.env.DAG_DEV_PORT = savedEnv.DAG_DEV_PORT;
+            process.env.DAG_PORT = savedEnv.DAG_PORT;
         }
     });
 
@@ -81,8 +81,8 @@ describe('resolveRuntimeBaseUrl', () => {
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
     });
 
-    it('uses DAG_DEV_PORT when DAG_RUNTIME_BASE_URL is not set', () => {
-        process.env.DAG_DEV_PORT = '4000';
+    it('uses DAG_PORT when DAG_RUNTIME_BASE_URL is not set', () => {
+        process.env.DAG_PORT = '4000';
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:4000');
     });
 
@@ -90,18 +90,18 @@ describe('resolveRuntimeBaseUrl', () => {
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
     });
 
-    it('falls back to default port when DAG_DEV_PORT is not a valid number', () => {
-        process.env.DAG_DEV_PORT = 'notanumber';
+    it('falls back to default port when DAG_PORT is not a valid number', () => {
+        process.env.DAG_PORT = 'notanumber';
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
     });
 
-    it('falls back to default port when DAG_DEV_PORT is zero', () => {
-        process.env.DAG_DEV_PORT = '0';
+    it('falls back to default port when DAG_PORT is zero', () => {
+        process.env.DAG_PORT = '0';
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
     });
 
-    it('falls back to default port when DAG_DEV_PORT is negative', () => {
-        process.env.DAG_DEV_PORT = '-1';
+    it('falls back to default port when DAG_PORT is negative', () => {
+        process.env.DAG_PORT = '-1';
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
     });
 });

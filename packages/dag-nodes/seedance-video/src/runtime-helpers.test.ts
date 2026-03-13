@@ -8,7 +8,7 @@ describe('resolveRuntimeBaseUrl', () => {
     beforeEach(() => {
         savedEnv = { ...process.env };
         delete process.env.DAG_RUNTIME_BASE_URL;
-        delete process.env.DAG_DEV_PORT;
+        delete process.env.DAG_PORT;
     });
 
     afterEach(() => {
@@ -35,8 +35,8 @@ describe('resolveRuntimeBaseUrl', () => {
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
     });
 
-    it('returns http://127.0.0.1:{port} when only DAG_DEV_PORT is set', () => {
-        process.env.DAG_DEV_PORT = '4000';
+    it('returns http://127.0.0.1:{port} when only DAG_PORT is set', () => {
+        process.env.DAG_PORT = '4000';
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:4000');
     });
 
@@ -44,24 +44,24 @@ describe('resolveRuntimeBaseUrl', () => {
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
     });
 
-    it('falls back to default port when DAG_DEV_PORT is not a valid number', () => {
-        process.env.DAG_DEV_PORT = 'abc';
+    it('falls back to default port when DAG_PORT is not a valid number', () => {
+        process.env.DAG_PORT = 'abc';
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
     });
 
-    it('falls back to default port when DAG_DEV_PORT is zero', () => {
-        process.env.DAG_DEV_PORT = '0';
+    it('falls back to default port when DAG_PORT is zero', () => {
+        process.env.DAG_PORT = '0';
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
     });
 
-    it('falls back to default port when DAG_DEV_PORT is negative', () => {
-        process.env.DAG_DEV_PORT = '-1';
+    it('falls back to default port when DAG_PORT is negative', () => {
+        process.env.DAG_PORT = '-1';
         expect(resolveRuntimeBaseUrl()).toBe('http://127.0.0.1:3011');
     });
 
-    it('prefers DAG_RUNTIME_BASE_URL over DAG_DEV_PORT', () => {
+    it('prefers DAG_RUNTIME_BASE_URL over DAG_PORT', () => {
         process.env.DAG_RUNTIME_BASE_URL = 'https://preferred.example.com';
-        process.env.DAG_DEV_PORT = '9999';
+        process.env.DAG_PORT = '9999';
         expect(resolveRuntimeBaseUrl()).toBe('https://preferred.example.com');
     });
 });

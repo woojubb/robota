@@ -29,7 +29,7 @@ export const health = onRequest({
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        service: 'robota-api-server',
+        service: 'robota-agent-server',
         version: '1.0.0',
         environment: process.env.NODE_ENV || 'production'
     });

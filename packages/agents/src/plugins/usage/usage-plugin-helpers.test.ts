@@ -96,7 +96,7 @@ describe('usage-plugin-helpers', () => {
         });
 
         it('returns false for unrelated events', () => {
-            expect(isModuleSuccessEvent('some.random.event')).toBe(false);
+            expect(isModuleSuccessEvent('some.random.event' as any)).toBe(false);
         });
     });
 

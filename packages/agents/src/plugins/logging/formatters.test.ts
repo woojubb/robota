@@ -7,7 +7,7 @@ const entry: ILogEntry = {
     level: 'info',
     message: 'Test message',
     context: { module: 'test' },
-    metadata: { key: 'value' }
+    metadata: { operation: 'value' }
 };
 
 describe('ConsoleLogFormatter', () => {
@@ -31,7 +31,7 @@ describe('ConsoleLogFormatter', () => {
     it('formats entry without metadata', () => {
         const noMeta: ILogEntry = { ...entry, metadata: undefined };
         const result = formatter.format(noMeta);
-        expect(result).not.toContain('"key"');
+        expect(result).not.toContain('"operation"');
     });
 });
 

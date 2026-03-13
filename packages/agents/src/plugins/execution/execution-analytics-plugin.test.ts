@@ -81,7 +81,7 @@ describe('ExecutionAnalyticsPlugin', () => {
             const plugin = new ExecutionAnalyticsPlugin();
 
             await plugin.beforeToolCall('calculator', { a: 1, b: 2 });
-            await plugin.afterToolCall('calculator', { a: 1, b: 2 }, { result: '3' });
+            await plugin.afterToolCall('calculator', { a: 1, b: 2 }, { success: true, result: '3' });
 
             const stats = plugin.getExecutionStats('tool-call');
             expect(stats).toHaveLength(1);
@@ -93,7 +93,7 @@ describe('ExecutionAnalyticsPlugin', () => {
             const plugin = new ExecutionAnalyticsPlugin({ trackErrors: true });
 
             await plugin.beforeToolCall('failing-tool', {});
-            await plugin.afterToolCall('failing-tool', {}, { error: 'tool failed' });
+            await plugin.afterToolCall('failing-tool', {}, { success: false, error: 'tool failed' });
 
             const stats = plugin.getExecutionStats('tool-call');
             expect(stats).toHaveLength(1);
@@ -141,7 +141,7 @@ describe('ExecutionAnalyticsPlugin', () => {
             await plugin.afterRun('input2', 'output2');
 
             await plugin.beforeToolCall('tool1', {});
-            await plugin.afterToolCall('tool1', {}, { error: 'fail' });
+            await plugin.afterToolCall('tool1', {}, { success: false, error: 'fail' });
 
             const aggregated = plugin.getAggregatedStats();
             expect(aggregated.totalExecutions).toBe(3);

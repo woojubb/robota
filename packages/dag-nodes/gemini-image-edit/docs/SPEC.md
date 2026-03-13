@@ -44,7 +44,7 @@
 
 - Both node classes extend `AbstractNodeDefinition` and override `estimateCostWithConfig` and `executeWithConfig`.
 - Runtime options allow injecting `apiKey`, `defaultModel`, and `allowedModels` at construction time.
-- Environment variables: `GEMINI_API_KEY`, `DAG_GEMINI_IMAGE_DEFAULT_MODEL`, `DAG_GEMINI_IMAGE_ALLOWED_MODELS`, `DAG_RUNTIME_BASE_URL`, `DAG_DEV_PORT`.
+- Environment variables: `GEMINI_API_KEY`, `DAG_GEMINI_IMAGE_DEFAULT_MODEL`, `DAG_GEMINI_IMAGE_ALLOWED_MODELS`, `DAG_RUNTIME_BASE_URL`, `DAG_PORT`.
 
 ## Error Taxonomy
 

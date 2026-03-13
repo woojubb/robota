@@ -105,7 +105,7 @@ describe('ToolRegistry', () => {
         it('should throw when schema has no parameters', () => {
             const schema = buildSchema();
             // Force-remove parameters for this validation test
-            (schema as Record<string, unknown>).parameters = undefined;
+            (schema as unknown as Record<string, unknown>).parameters = undefined;
             const tool = createMockTool(schema);
 
             expect(() => registry.register(tool)).toThrow(ValidationError);
