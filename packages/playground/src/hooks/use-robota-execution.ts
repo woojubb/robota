@@ -19,7 +19,7 @@ const EXECUTION_TIMEOUT_MS = 30000;
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { usePlayground } from '../contexts/playground-context';
+import { usePlaygroundState, usePlaygroundActions } from '../contexts/playground-context';
 import type { IPlaygroundExecutorResult, IPlaygroundAgentConfig } from '../lib/playground/robota-executor';
 import { WebLogger } from '../lib/web-logger';
 
@@ -67,12 +67,12 @@ export interface IRobotaExecutionHookReturn {
 }
 
 export function useRobotaExecution(): IRobotaExecutionHookReturn {
+    const state = usePlaygroundState();
     const {
-        state,
         createAgent: contextCreateAgent,
         executePrompt: contextExecutePrompt,
         executeStreamPrompt: contextExecuteStreamPrompt
-    } = usePlayground();
+    } = usePlaygroundActions();
 
     // Local state for execution management
     const [executionState, setExecutionState] = useState<TExecutionState>('idle');
