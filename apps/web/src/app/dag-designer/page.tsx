@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDagDesignApi, type IDefinitionListItem } from "@robota-sdk/dag-designer";
 import type { IDagDefinition } from "@robota-sdk/dag-core";
 import {
@@ -36,7 +36,7 @@ export default function DagDesignerListPage() {
     [items]
   );
 
-  const refreshList = async (): Promise<void> => {
+  const refreshList = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     const listed = await designApi.list({ correlationId: "web-dag-list-page" });
     if (listed.ok) {
@@ -47,11 +47,11 @@ export default function DagDesignerListPage() {
     }
     setErrorMessage(`List failed: ${"error" in listed ? listed.error[0]?.code : "UNKNOWN_ERROR"}`);
     setIsLoading(false);
-  };
+  }, [designApi]);
 
   useEffect(() => {
     void refreshList();
-  }, []);
+  }, [refreshList]);
 
   const createNewDag = async (): Promise<void> => {
     if (isCreating) {

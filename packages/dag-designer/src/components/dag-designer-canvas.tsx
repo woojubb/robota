@@ -70,6 +70,17 @@ export {
 
 const FIT_VIEW_OPTIONS = { padding: 0.35, maxZoom: 0.8 } as const;
 
+function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+        return false;
+    }
+    const tagName = target.tagName.toLowerCase();
+    if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
+        return true;
+    }
+    return target.isContentEditable;
+}
+
 export interface IDagDesignerCanvasProps {
     className?: string;
 }
@@ -188,17 +199,6 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         context.onDefinitionChange({ ...context.definition, nodes: nextNodes });
         context.resetRunProgress();
     }, [context.definition, context.onDefinitionChange, context.resetRunProgress]);
-
-    const isEditableTarget = (target: EventTarget | null): boolean => {
-        if (!(target instanceof HTMLElement)) {
-            return false;
-        }
-        const tagName = target.tagName.toLowerCase();
-        if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
-            return true;
-        }
-        return target.isContentEditable;
-    };
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent): void => {

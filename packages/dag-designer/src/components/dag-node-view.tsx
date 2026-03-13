@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useMemo, type ReactElement } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { buildListPortHandleKey, type IPortDefinition, type TPortPayload } from '@robota-sdk/dag-core';
 import type { TNodeExecutionStatus } from './dag-designer-canvas.js';
@@ -34,8 +34,8 @@ function sortPorts(ports: IPortDefinition[]): IPortDefinition[] {
 }
 
 export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
-    const inputs = sortPorts(props.data.inputs);
-    const outputs = sortPorts(props.data.outputs);
+    const inputs = useMemo(() => sortPorts(props.data.inputs), [props.data.inputs]);
+    const outputs = useMemo(() => sortPorts(props.data.outputs), [props.data.outputs]);
     const executionStatus = props.data.executionStatus ?? 'idle';
     const isSelected = props.data.isSelected ?? false;
     const statusRootClassName = executionStatus === 'running'

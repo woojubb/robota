@@ -209,7 +209,7 @@ export function usePlaygroundState() {
 
 export function usePlaygroundActions() {
     const { createAgent, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor } = usePlayground();
-    return { createAgent, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor };
+    return useMemo(() => ({ createAgent, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor }), [createAgent, executePrompt, executeStreamPrompt, clearHistory, setAuth, disposeExecutor]);
 }
 
 function buildConversationEvents(executor: PlaygroundExecutor): IConversationEvent[] {

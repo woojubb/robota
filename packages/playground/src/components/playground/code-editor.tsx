@@ -3,7 +3,7 @@
 const RULER_COLUMN_WARNING = 80;
 const RULER_COLUMN_ERROR = 120;
 
-import { useRef, useCallback, lazy, Suspense } from 'react'
+import { useRef, useCallback, useMemo, lazy, Suspense } from 'react'
 import type { OnMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { WebLogger } from '../../lib/web-logger'
@@ -74,6 +74,35 @@ export function CodeEditor({
     })
   }, [])
 
+  const editorOptions = useMemo(() => ({
+    readOnly,
+    fontFamily: '"Geist Mono", "SF Mono", Monaco, Inconsolata, "Roboto Mono", Consolas, "Courier New", monospace',
+    fontSize: 14,
+    lineHeight: 20,
+    padding: { top: 16, bottom: 16 },
+    selectOnLineNumbers: true,
+    roundedSelection: false,
+    cursorStyle: 'line' as const,
+    automaticLayout: true,
+    minimap: { enabled: false },
+    wordWrap: 'on' as const,
+    lineNumbers: 'on' as const,
+    rulers: [RULER_COLUMN_WARNING, RULER_COLUMN_ERROR],
+    renderLineHighlight: 'line' as const,
+    renderWhitespace: 'boundary' as const,
+    cursorBlinking: 'blink' as const,
+    cursorSmoothCaretAnimation: 'on' as const,
+    contextmenu: true,
+    mouseWheelZoom: true,
+    quickSuggestions: false,
+    suggestOnTriggerCharacters: false,
+    acceptSuggestionOnEnter: 'off' as const,
+    tabCompletion: 'off' as const,
+    snippetSuggestions: 'none' as const,
+    parameterHints: { enabled: false },
+    hover: { enabled: false }
+  }), [readOnly])
+
   return (
     <div className="w-full h-full border rounded-md overflow-hidden">
       <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-gray-500">Loading editor...</div>}>
@@ -84,34 +113,7 @@ export function CodeEditor({
           onChange={onChange}
           theme={getPreferredMonacoTheme()}
           onMount={handleEditorDidMount}
-          options={{
-            readOnly,
-            fontFamily: '"Geist Mono", "SF Mono", Monaco, Inconsolata, "Roboto Mono", Consolas, "Courier New", monospace',
-            fontSize: 14,
-            lineHeight: 20,
-            padding: { top: 16, bottom: 16 },
-            selectOnLineNumbers: true,
-            roundedSelection: false,
-            cursorStyle: 'line',
-            automaticLayout: true,
-            minimap: { enabled: false },
-            wordWrap: 'on',
-            lineNumbers: 'on',
-            rulers: [RULER_COLUMN_WARNING, RULER_COLUMN_ERROR],
-            renderLineHighlight: 'line',
-            renderWhitespace: 'boundary',
-            cursorBlinking: 'blink',
-            cursorSmoothCaretAnimation: 'on',
-            contextmenu: true,
-            mouseWheelZoom: true,
-            quickSuggestions: false,
-            suggestOnTriggerCharacters: false,
-            acceptSuggestionOnEnter: 'off',
-            tabCompletion: 'off',
-            snippetSuggestions: 'none',
-            parameterHints: { enabled: false },
-            hover: { enabled: false }
-          }}
+          options={editorOptions}
         />
       </Suspense>
     </div>
