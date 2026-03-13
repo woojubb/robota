@@ -171,7 +171,7 @@ describe('Prompt types', () => {
     const stats: ISystemStats = {
       system: {
         os: 'darwin',
-        python_version: '',
+        runtime_version: '',
         embedded_python: false,
       },
       devices: [],
@@ -309,10 +309,15 @@ export type IObjectInfo = Record<string, INodeObjectInfo>;
 
 // --- System stats types ---
 
+/**
+ * System statistics. Field names match the external protocol for compatibility.
+ * When Robota DAG runtime is used as backend, `runtime_version` replaces `python_version`
+ * and `embedded_python` is always false.
+ */
 export interface ISystemStats {
   system: {
     os: string;
-    python_version: string;
+    runtime_version: string;
     embedded_python: boolean;
   };
   devices: {
@@ -418,7 +423,7 @@ describe('IPromptBackendPort', () => {
       getSystemStats: async (): Promise<TResult<ISystemStats, IDagError>> => ({
         ok: true,
         value: {
-          system: { os: 'darwin', python_version: '', embedded_python: false },
+          system: { os: 'darwin', runtime_version: '', embedded_python: false },
           devices: [],
         },
       }),
@@ -495,6 +500,10 @@ git add packages/dag-core/src/interfaces/prompt-backend-port.ts \
   packages/dag-core/src/index.ts
 git commit -m "feat(dag-core): add IPromptBackendPort interface"
 ```
+
+---
+
+**Implementation note:** Tasks 4, 5, and 7 all use a similar `createStubBackend()` helper. During implementation, extract a shared `createStubPromptBackend()` factory into `packages/dag-core/src/testing/` and import it in each test file to avoid duplication.
 
 ---
 
@@ -880,7 +889,7 @@ export const PROMPT_API_OPENAPI_DOCUMENT = {
                       type: 'object' as const,
                       properties: {
                         os: { type: 'string' as const },
-                        python_version: { type: 'string' as const },
+                        runtime_version: { type: 'string' as const },
                         embedded_python: { type: 'boolean' as const },
                       },
                     },
@@ -960,7 +969,7 @@ function createStubBackend(): IPromptBackendPort {
     getSystemStats: async () => ({
       ok: true as const,
       value: {
-        system: { os: 'darwin', python_version: '', embedded_python: false },
+        system: { os: 'darwin', runtime_version: '', embedded_python: false },
         devices: [],
       },
     }),
@@ -1191,7 +1200,7 @@ function createStubBackend(): IPromptBackendPort {
     getSystemStats: async () => ({
       ok: true as const,
       value: {
-        system: { os: 'darwin', python_version: '', embedded_python: false },
+        system: { os: 'darwin', runtime_version: '', embedded_python: false },
         devices: [],
       },
     }),
@@ -1278,6 +1287,19 @@ Expected: FAIL — module not found
 // packages/dag-server-core/src/routes/prompt-routes.ts
 import type { Express, Request, Response } from 'express';
 import type { PromptApiController } from '@robota-sdk/dag-api';
+import type { IDagError } from '@robota-sdk/dag-core';
+
+function sendError(res: Response, error: IDagError, status = 500): void {
+  res.status(status).json({
+    error: {
+      type: error.code,
+      message: error.message,
+      details: '',
+      extra_info: {},
+    },
+    node_errors: {},
+  });
+}
 
 export function mountPromptRoutes(
   app: Express,
@@ -1288,15 +1310,7 @@ export function mountPromptRoutes(
     if (result.ok) {
       res.status(200).json(result.value);
     } else {
-      res.status(400).json({
-        error: {
-          type: result.error.code,
-          message: result.error.message,
-          details: '',
-          extra_info: {},
-        },
-        node_errors: {},
-      });
+      sendError(res, result.error, 400);
     }
   });
 
@@ -1305,7 +1319,7 @@ export function mountPromptRoutes(
     if (result.ok) {
       res.status(200).json(result.value);
     } else {
-      res.status(500).json({ error: result.error.message });
+      sendError(res, result.error);
     }
   });
 
@@ -1314,7 +1328,7 @@ export function mountPromptRoutes(
     if (result.ok) {
       res.status(200).json({});
     } else {
-      res.status(500).json({ error: result.error.message });
+      sendError(res, result.error);
     }
   });
 
@@ -1323,7 +1337,7 @@ export function mountPromptRoutes(
     if (result.ok) {
       res.status(200).json(result.value);
     } else {
-      res.status(500).json({ error: result.error.message });
+      sendError(res, result.error);
     }
   });
 
@@ -1332,7 +1346,7 @@ export function mountPromptRoutes(
     if (result.ok) {
       res.status(200).json(result.value);
     } else {
-      res.status(500).json({ error: result.error.message });
+      sendError(res, result.error);
     }
   });
 
@@ -1341,7 +1355,7 @@ export function mountPromptRoutes(
     if (result.ok) {
       res.status(200).json(result.value);
     } else {
-      res.status(500).json({ error: result.error.message });
+      sendError(res, result.error);
     }
   });
 
@@ -1350,7 +1364,7 @@ export function mountPromptRoutes(
     if (result.ok) {
       res.status(200).json(result.value);
     } else {
-      res.status(500).json({ error: result.error.message });
+      sendError(res, result.error);
     }
   });
 
@@ -1359,7 +1373,7 @@ export function mountPromptRoutes(
     if (result.ok) {
       res.status(200).json(result.value);
     } else {
-      res.status(500).json({ error: result.error.message });
+      sendError(res, result.error);
     }
   });
 }
@@ -1421,7 +1435,7 @@ Depends only on `dag-core` (for `IPromptBackendPort` and prompt types).
 }
 ```
 
-Copy `tsconfig.json` pattern from another dag-* package (e.g., `dag-runtime`).
+Copy `tsconfig.json` and `vitest.config.ts` patterns from another dag-* package (e.g., `dag-runtime`).
 
 **Step 2: Define orchestrator types**
 
@@ -1561,7 +1575,7 @@ function createStubBackend(): IPromptBackendPort {
     getSystemStats: async () => ({
       ok: true as const,
       value: {
-        system: { os: 'darwin', python_version: '', embedded_python: false },
+        system: { os: 'darwin', runtime_version: '', embedded_python: false },
         devices: [],
       },
     }),
@@ -1804,6 +1818,7 @@ API and Orchestrator never depend on each other. Both depend only on dag-core.
 
 ## Not In Scope (future tasks)
 
+- **Server bootstrap composition**: Define how API layer and Orchestrator are wired at startup. Options: (a) routes → orchestrator → backend, (b) routes → API controller → backend with orchestrator as middleware, (c) separate HTTP servers. Must be decided before production deployment.
 - Robota DAG runtime adapter implementing `IPromptBackendPort` (wraps existing dag-runtime/dag-worker)
 - External proxy adapter implementing `IPromptBackendPort`
 - WebSocket progress events
