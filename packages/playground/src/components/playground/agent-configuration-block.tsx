@@ -102,14 +102,14 @@ export function AgentConfigurationBlock({
 
     // Auto-save configuration changes when not executing
     const handleConfigUpdate = useCallback((updates: Partial<IPlaygroundAgentConfig>) => {
-        if (isExecuting) return; // Prevent changes during execution
+        if (isExecuting) return;
 
-        const newConfig = { ...editedConfig, ...updates };
-        setEditedConfig(newConfig);
-
-        // Auto-save changes
-        onConfigChange(newConfig);
-    }, [editedConfig, isExecuting, onConfigChange]);
+        setEditedConfig(prev => {
+            const newConfig = { ...prev, ...updates };
+            onConfigChange(newConfig);
+            return newConfig;
+        });
+    }, [isExecuting, onConfigChange]);
 
     // Status indicators
     const statusIcon = useMemo(() => {

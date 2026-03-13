@@ -138,18 +138,21 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: IPlaygro
         }
     }, []);
 
+    const wsConnectedRef = useRef(state.isWebSocketConnected);
+    wsConnectedRef.current = state.isWebSocketConnected;
+
     useEffect(() => {
         if (state.executor) {
             const executor = state.executor;
             const checkConnection = () => {
                 const isConnected = executor.isWebSocketConnected();
-                if (isConnected !== state.isWebSocketConnected) dispatch({ type: 'SET_WEBSOCKET_CONNECTED', payload: isConnected });
+                if (isConnected !== wsConnectedRef.current) dispatch({ type: 'SET_WEBSOCKET_CONNECTED', payload: isConnected });
             };
             const interval = setInterval(checkConnection, WS_CHECK_INTERVAL_MS);
             return () => clearInterval(interval);
         }
         return;
-    }, [state.executor, state.isWebSocketConnected]);
+    }, [state.executor]);
 
     useEffect(() => {
         return () => {

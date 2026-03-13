@@ -68,6 +68,8 @@ export {
     DagDesignerRunProgressSummary
 } from './dag-designer-panels.js';
 
+const FIT_VIEW_OPTIONS = { padding: 0.35, maxZoom: 0.8 } as const;
+
 export interface IDagDesignerCanvasProps {
     className?: string;
 }
@@ -149,14 +151,21 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         });
     }, [context.definition.edges, setEdges, selectEdgeById]);
 
-    const onNodeClick: NodeMouseHandler = (_event, node): void => {
+    const onNodeClick: NodeMouseHandler = useCallback((_event, node): void => {
         context.setSelectedNodeId(node.id);
         context.setSelectedEdgeId(undefined);
-    };
-    const onEdgeClick: EdgeMouseHandler = (_event, edge): void => {
+    }, [context.setSelectedNodeId, context.setSelectedEdgeId]);
+
+    const onEdgeClick: EdgeMouseHandler = useCallback((_event, edge): void => {
         context.setSelectedEdgeId(edge.id);
         context.setSelectedNodeId(undefined);
-    };
+    }, [context.setSelectedEdgeId, context.setSelectedNodeId]);
+
+    const onPaneClick = useCallback((): void => {
+        context.setSelectedNodeId(undefined);
+        context.setSelectedEdgeId(undefined);
+    }, [context.setSelectedNodeId, context.setSelectedEdgeId]);
+
     const onNodeDragStop: NodeMouseHandler = (_event, node): void => {
         const originalNode = context.definition.nodes.find((n) => n.nodeId === node.id);
         if (!originalNode) {
@@ -346,16 +355,13 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                     onConnect={onConnect}
                     onNodeClick={onNodeClick}
                     onEdgeClick={onEdgeClick}
-                    onPaneClick={() => {
-                        context.setSelectedNodeId(undefined);
-                        context.setSelectedEdgeId(undefined);
-                    }}
+                    onPaneClick={onPaneClick}
                     onNodeDragStop={onNodeDragStop}
                     panOnDrag={false}
                     panOnScroll
                     connectionLineType={ConnectionLineType.Bezier}
                     fitView
-                    fitViewOptions={{ padding: 0.35, maxZoom: 0.8 }}
+                    fitViewOptions={FIT_VIEW_OPTIONS}
                 >
                     <Background />
                     <Controls />
