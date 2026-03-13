@@ -3,7 +3,7 @@
 const MAX_VISIBLE_FEATURES = 3;
 const CODE_PREVIEW_LENGTH = 500;
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -47,7 +47,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: ITemplateGalleryP
         setSelectedProvider(value);
     };
 
-    const filteredTemplates = templates.filter(template => {
+    const filteredTemplates = useMemo(() => templates.filter(template => {
         const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
             template.useCases.some(useCase => useCase.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -55,7 +55,7 @@ export function TemplateGallery({ onSelectTemplate, onClose }: ITemplateGalleryP
         const matchesProvider = selectedProvider === 'all' || template.provider === selectedProvider;
 
         return matchesSearch && matchesCategory && matchesProvider;
-    });
+    }), [searchTerm, selectedCategory, selectedProvider]);
 
     const handleUseTemplate = (template: ITemplate) => {
         onSelectTemplate(template);

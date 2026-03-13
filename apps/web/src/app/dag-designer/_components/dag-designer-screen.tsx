@@ -161,9 +161,11 @@ function getToastClassName(type: IActionToastState["type"]): string {
   return "border-gray-300 bg-gray-50 text-gray-700";
 }
 
+const DAG_API_BASE_URL = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
+const DAG_API_CONFIG = { baseUrl: DAG_API_BASE_URL };
+
 export function DagDesignerScreen(props: IDagDesignerScreenProps) {
-  const baseUrl = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
-  const designApi = useDagDesignApi({ baseUrl });
+  const designApi = useDagDesignApi(DAG_API_CONFIG);
   const [log, setLog] = useState<string>("Ready");
   const [dagIdOverride, setDagIdOverride] = useState<string | undefined>(undefined);
   const prevInitialDagIdRef = useRef<string>(props.initialDagId);
@@ -175,7 +177,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   const setDagId = setDagIdOverride;
   const [version, setVersion] = useState<number>(1);
   const [definition, setDefinition] = useState<IDagDefinition>(
-    buildDagTemplate("blank", { dagId: props.initialDagId, version: 1 })
+    () => buildDagTemplate("blank", { dagId: props.initialDagId, version: 1 })
   );
   const definitionRef = useRef<IDagDefinition>(definition);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
@@ -494,7 +496,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
           definition={definition}
           manifests={catalogNodes}
           onDefinitionChange={applyDefinitionChange}
-          assetUploadBaseUrl={baseUrl}
+          assetUploadBaseUrl={DAG_API_BASE_URL}
           onRunResult={onRunResult}
           onRun={runOnServer}
           initialInput={EMPTY_INITIAL_INPUT}

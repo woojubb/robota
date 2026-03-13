@@ -52,8 +52,14 @@ export function DagDesignerInspector(props: IDagDesignerInspectorProps): ReactEl
 
 export function DagDesignerNodeConfig(props: IDagDesignerNodeConfigProps): ReactElement {
     const context = useDagDesignerContext();
-    const selectedNode = context.definition.nodes.find((node) => node.nodeId === context.selectedNodeId);
-    const selectedManifest = context.manifests.find((manifest) => manifest.nodeType === selectedNode?.nodeType);
+    const selectedNode = useMemo(
+        () => context.definition.nodes.find((node) => node.nodeId === context.selectedNodeId),
+        [context.definition.nodes, context.selectedNodeId]
+    );
+    const selectedManifest = useMemo(
+        () => context.manifests.find((manifest) => manifest.nodeType === selectedNode?.nodeType),
+        [context.manifests, selectedNode?.nodeType]
+    );
     return (
         <div className={props.className ?? ''}>
             <NodeConfigPanel
@@ -84,10 +90,14 @@ export function DagDesignerEdgeInspector(props: IDagDesignerEdgeInspectorProps):
 
 export function DagDesignerNodeIoTrace(props: IDagDesignerNodeIoTraceProps): ReactElement {
     const context = useDagDesignerContext();
+    const traces = useMemo(
+        () => Object.values(context.liveNodeTraceByNodeId),
+        [context.liveNodeTraceByNodeId]
+    );
     return (
         <div className={props.className ?? ''}>
             <NodeIoTracePanel
-                traces={Object.values(context.liveNodeTraceByNodeId)}
+                traces={traces}
                 selectedNodeId={context.selectedNodeId}
                 selectedNodeExecutionStatus={
                     context.selectedNodeId
