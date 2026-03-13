@@ -122,7 +122,7 @@ These items were explicitly excluded from the DAG JSON and assigned to other lay
 
 Separate from DAG JSON. Used by dag-designer for canvas layout. Attached to `/prompt` via `extra_data` for workflow embedding in outputs.
 
-dag-designer needs a converter: **ComfyUI API format ↔ React Flow nodes/edges data structure**.
+dag-designer needs a converter: **prompt API format ↔ React Flow nodes/edges data structure**.
 
 ## Confirmed Decisions Log
 
@@ -144,5 +144,4 @@ dag-designer needs a converter: **ComfyUI API format ↔ React Flow nodes/edges 
 
 ## Next Steps
 
-1. Define OpenAPI spec for ComfyUI-compatible endpoints
-2. Implement API layer
+See implementation plan: `docs/plans/2026-03-13-dag-comfyui-compat-plan.md`
