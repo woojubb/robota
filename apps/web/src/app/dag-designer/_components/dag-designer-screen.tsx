@@ -161,6 +161,15 @@ function getToastClassName(type: IActionToastState["type"]): string {
   return "border-gray-300 bg-gray-50 text-gray-700";
 }
 
+function toDagError(code?: string): IDagError {
+  return {
+    code: code ?? "DAG_VALIDATION_RUN_UNKNOWN",
+    category: "validation",
+    message: "Run request failed.",
+    retryable: false,
+  };
+}
+
 const DAG_API_BASE_URL = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
 const DAG_API_CONFIG = { baseUrl: DAG_API_BASE_URL };
 
@@ -238,13 +247,6 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
 
   const toggleNodeExplorer = useCallback(() => setIsNodeExplorerOpen(c => !c), []);
   const toggleInspector = useCallback(() => setIsInspectorOpen(c => !c), []);
-
-  const toDagError = (code?: string): IDagError => ({
-    code: code ?? "DAG_VALIDATION_RUN_UNKNOWN",
-    category: "validation",
-    message: "Run request failed.",
-    retryable: false,
-  });
 
   const saveDefinition = async (): Promise<void> => {
     if (hasBindingBlockingError) {
