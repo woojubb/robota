@@ -3,44 +3,7 @@ import express from 'express';
 import http from 'node:http';
 import { mountPromptRoutes } from '../routes/prompt-routes.js';
 import { PromptApiController } from '@robota-sdk/dag-api';
-import type { IPromptBackendPort } from '@robota-sdk/dag-core';
-
-function createStubBackend(): IPromptBackendPort {
-    return {
-        submitPrompt: async () => ({
-            ok: true as const,
-            value: { prompt_id: 'test-prompt-id', number: 1, node_errors: {} },
-        }),
-        getQueue: async () => ({
-            ok: true as const,
-            value: { queue_running: [], queue_pending: [] },
-        }),
-        manageQueue: async () => ({ ok: true as const, value: undefined }),
-        getHistory: async () => ({ ok: true as const, value: {} }),
-        getObjectInfo: async () => ({
-            ok: true as const,
-            value: {
-                TestNode: {
-                    display_name: 'Test Node',
-                    category: 'test',
-                    input: { required: {}, optional: {} },
-                    output: ['STRING'],
-                    output_is_list: [false],
-                    output_name: ['output'],
-                    output_node: false,
-                    description: '',
-                },
-            },
-        }),
-        getSystemStats: async () => ({
-            ok: true as const,
-            value: {
-                system: { os: 'darwin', runtime_version: '', embedded_python: false },
-                devices: [],
-            },
-        }),
-    };
-}
+import { createStubPromptBackend } from '@robota-sdk/dag-core';
 
 async function makeRequest(
     app: express.Express,
@@ -101,7 +64,7 @@ describe('Prompt API routes (matches OpenAPI spec paths)', () => {
     beforeEach(() => {
         app = express();
         app.use(express.json());
-        mountPromptRoutes(app, new PromptApiController(createStubBackend()));
+        mountPromptRoutes(app, new PromptApiController(createStubPromptBackend()));
     });
 
     it('POST /prompt → 200 with prompt_id', async () => {
@@ -109,7 +72,7 @@ describe('Prompt API routes (matches OpenAPI spec paths)', () => {
             prompt: { '1': { class_type: 'TestNode', inputs: {} } },
         });
         expect(res.status).toBe(200);
-        expect((res.body as Record<string, unknown>).prompt_id).toBe('test-prompt-id');
+        expect((res.body as Record<string, unknown>).prompt_id).toBe('stub-prompt-id');
     });
 
     it('POST /prompt → 400 on empty prompt', async () => {

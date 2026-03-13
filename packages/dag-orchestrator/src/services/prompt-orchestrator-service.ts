@@ -4,7 +4,7 @@ import type {
     IQueueStatus,
     IQueueAction,
     THistory,
-    IObjectInfo,
+    TObjectInfo,
     ISystemStats,
 } from '@robota-sdk/dag-core';
 import type { IPromptApiClientPort } from '../interfaces/prompt-api-client-port.js';
@@ -83,7 +83,7 @@ export class PromptOrchestratorService {
         return this.apiClient.getHistory(promptId);
     }
 
-    async getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>> {
+    async getObjectInfo(nodeType?: string): Promise<TResult<TObjectInfo, IDagError>> {
         return this.apiClient.getObjectInfo(nodeType);
     }
 

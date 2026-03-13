@@ -6,7 +6,7 @@ import type {
     IQueueStatus,
     IQueueAction,
     THistory,
-    IObjectInfo,
+    TObjectInfo,
     ISystemStats,
 } from '../types/prompt-types.js';
 
@@ -20,6 +20,6 @@ export interface IPromptBackendPort {
     getQueue(): Promise<TResult<IQueueStatus, IDagError>>;
     manageQueue(action: IQueueAction): Promise<TResult<void, IDagError>>;
     getHistory(promptId?: string): Promise<TResult<THistory, IDagError>>;
-    getObjectInfo(nodeType?: string): Promise<TResult<IObjectInfo, IDagError>>;
+    getObjectInfo(nodeType?: string): Promise<TResult<TObjectInfo, IDagError>>;
     getSystemStats(): Promise<TResult<ISystemStats, IDagError>>;
 }

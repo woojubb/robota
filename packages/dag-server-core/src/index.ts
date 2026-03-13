@@ -19,3 +19,5 @@ export {
 } from './dag-run-service.js';
 export { BundledNodeCatalogService } from './bundled-node-catalog-service.js';
 export { DAG_OPENAPI_DOCUMENT } from './docs/openapi-dag.js';
+export { PROMPT_API_OPENAPI_DOCUMENT } from './docs/openapi-prompt-api.js';
+export { mountPromptRoutes } from './routes/prompt-routes.js';

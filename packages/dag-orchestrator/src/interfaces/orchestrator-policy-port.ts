@@ -1,10 +1,10 @@
-import type { TResult, IDagError, IObjectInfo } from '@robota-sdk/dag-core';
+import type { TResult, IDagError, TObjectInfo } from '@robota-sdk/dag-core';
 import type { ICostEstimate, ICostPolicy } from '../types/orchestrator-types.js';
 
 export interface ICostEstimatorPort {
     estimateCost(
         nodeTypes: string[],
-        objectInfo: IObjectInfo,
+        objectInfo: TObjectInfo,
     ): Promise<TResult<ICostEstimate, IDagError>>;
 }
 
