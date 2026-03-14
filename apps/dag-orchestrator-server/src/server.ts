@@ -44,6 +44,7 @@ import { registerRunRoutes } from './routes/run-routes.js';
 import { registerAssetRoutes } from './routes/asset-routes.js';
 import { registerWsRoutes } from './routes/ws-routes.js';
 import { registerAdminRoutes } from './routes/admin-routes.js';
+import { registerRuntimeAssetRoutes } from './routes/runtime-asset-routes.js';
 
 dotenv.config({
     path: path.resolve(process.cwd(), '.env')
@@ -179,6 +180,9 @@ async function bootstrapOrchestratorServer(): Promise<void> {
     registerAssetRoutes(app, assetStore);
     registerWsRoutes(server, runService, backendUrl);
     registerAdminRoutes(app, controllers.design);
+
+    // Runtime asset mapped routes (validated forwarding, not blind proxy)
+    registerRuntimeAssetRoutes(app, backendUrl);
 
     // Orchestration proxy routes (ComfyUI compat passthrough)
     app.post('/prompt', async (req, res) => {
