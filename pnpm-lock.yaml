@@ -701,6 +701,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
       '@robota-sdk/google':
         specifier: workspace:*
         version: link:../../google
@@ -732,6 +735,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
       zod:
         specifier: ^3.24.4
         version: 3.25.76
@@ -757,6 +763,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
       zod:
         specifier: ^3.24.4
         version: 3.25.76
@@ -782,6 +791,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
       zod:
         specifier: ^3.24.4
         version: 3.25.76
@@ -810,6 +822,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
       '@robota-sdk/openai':
         specifier: workspace:*
         version: link:../../openai
@@ -841,6 +856,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
       zod:
         specifier: ^3.24.4
         version: 3.25.76
@@ -872,6 +890,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
       zod:
         specifier: ^3.24.4
         version: 3.25.76
@@ -900,6 +921,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
       zod:
         specifier: ^3.24.4
         version: 3.25.76
@@ -925,6 +949,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
       zod:
         specifier: ^3.24.4
         version: 3.25.76
@@ -950,6 +977,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../dag-node
       zod:
         specifier: ^3.24.4
         version: 3.25.76

@@ -1,6 +1,5 @@
+import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
-    AbstractNodeDefinition,
-    NodeIoAccessor,
     type ICostEstimate,
     type IDagError,
     type IDagNodeDefinition,
