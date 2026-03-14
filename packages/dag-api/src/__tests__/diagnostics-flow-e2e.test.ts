@@ -6,7 +6,7 @@ import {
     InMemoryQueuePort,
     InMemoryStoragePort,
     MockTaskExecutorPort
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import { RunOrchestratorService, RunQueryService } from '@robota-sdk/dag-runtime';
 import { DlqReinjectService } from '@robota-sdk/dag-worker';
 import { createDagExecutionComposition } from '../composition/create-dag-execution-composition.js';

@@ -10,7 +10,7 @@ import {
     InMemoryLeasePort,
     InMemoryQueuePort,
     SystemClockPort,
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import {
     createDagControllerComposition,
@@ -24,7 +24,8 @@ import type {
     ICostPolicyEvaluatorPort,
 } from '@robota-sdk/dag-orchestrator';
 import { CelCostEstimatorAdapter } from '@robota-sdk/dag-orchestrator';
-import { FileCostMetaStorage, CelCostEvaluator } from '@robota-sdk/dag-cost';
+import { CelCostEvaluator } from '@robota-sdk/dag-cost';
+import { FileCostMetaStorage } from '@robota-sdk/dag-adapters-local';
 import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
 import { TransformNodeDefinition } from '@robota-sdk/dag-node-transform';
 import { LlmTextOpenAiNodeDefinition } from '@robota-sdk/dag-node-llm-text-openai';

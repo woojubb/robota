@@ -5,7 +5,7 @@ import {
     InMemoryLeasePort,
     InMemoryQueuePort,
     InMemoryStoragePort
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import { DlqReinjectService } from '../services/dlq-reinject-service.js';
 
 function createDeadLetterMessage(): IQueueMessage {

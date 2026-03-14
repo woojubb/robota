@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PromptApiController } from '../controllers/prompt-api-controller.js';
-import { createStubPromptBackend } from '@robota-sdk/dag-adapters-memory';
+import { createStubPromptBackend } from '@robota-sdk/dag-adapters-local';
 
 describe('PromptApiController', () => {
     let controller: PromptApiController;

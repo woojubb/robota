@@ -4,7 +4,7 @@ import {
     FakeClockPort,
     InMemoryQueuePort,
     InMemoryStoragePort
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import { RunOrchestratorService } from '../services/run-orchestrator-service.js';
 
 function createPublishedDefinition(): IDagDefinition {

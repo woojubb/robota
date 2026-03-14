@@ -1,23 +1,22 @@
-# DAG Adapters Memory Specification
+# DAG Adapters Local Specification
 
 ## Scope
 
-`@robota-sdk/dag-adapters-memory` provides lightweight in-memory implementations of the port interfaces defined by `@robota-sdk/dag-core`. These adapters are designed for local development, testing, single-machine deployment, and demos where external infrastructure (databases, message queues, distributed locks) is not needed.
+`@robota-sdk/dag-adapters-local` provides lightweight local implementations of port interfaces defined by `@robota-sdk/dag-core` and `@robota-sdk/dag-cost`. These adapters include both in-memory implementations (for state that does not need persistence) and file-based implementations (for state that should survive process restarts). They are designed for local development, testing, single-machine deployment, and demos where external infrastructure (databases, message queues, distributed locks) is not needed.
 
 ## Boundaries
 
-- **No persistence.** All state is held in memory and lost on process restart.
+- **In-memory adapters have no persistence.** State is held in memory and lost on process restart.
+- **File-based adapters use local filesystem only.** No network or cloud storage.
 - **No distributed semantics.** Lease and queue implementations are single-process only.
 - **No domain logic.** This package implements port interfaces; it does not define or extend domain contracts.
-- **No infrastructure dependencies.** Zero external dependencies beyond `dag-core`.
 
 ## Dependencies
 
 | Dependency | Purpose |
 |------------|---------|
 | `@robota-sdk/dag-core` | Port interface definitions (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`) |
-
-No other production dependencies.
+| `@robota-sdk/dag-cost` | Cost meta port interface (`ICostMetaStoragePort`, `ICostMeta`) |
 
 ## Public API Surface
 
@@ -31,6 +30,7 @@ No other production dependencies.
 | `MockTaskExecutorPort` | Class | `ITaskExecutorPort` | Configurable mock for task execution |
 | `TTaskExecutorHandler` | Type | -- | Handler function type for `MockTaskExecutorPort` |
 | `createStubPromptBackend` | Function | -- | Factory for stub prompt backend used in node testing |
+| `FileCostMetaStorage` | Class | `ICostMetaStoragePort` | File-based JSON storage for cost metadata |
 
 ## Use Cases
 

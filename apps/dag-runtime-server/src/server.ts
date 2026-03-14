@@ -14,7 +14,7 @@ import {
     InMemoryLeasePort,
     InMemoryQueuePort,
     SystemClockPort,
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import {
     buildNodeDefinitionAssembly,
     StaticNodeLifecycleFactory,
