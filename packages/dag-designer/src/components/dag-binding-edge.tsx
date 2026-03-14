@@ -28,12 +28,41 @@ export function DagBindingEdge(props: EdgeProps): ReactElement {
         data?.onSelectEdge?.(props.id);
     };
 
+    const edgeStyle = hasBinding
+        ? { stroke: 'var(--studio-border, #363650)', strokeWidth: 2 }
+        : { stroke: 'var(--studio-accent-rose, #fb7185)', strokeWidth: 2 };
+
+    const labelStyle: React.CSSProperties = hasBinding
+        ? {
+            width: '100%',
+            borderRadius: 6,
+            padding: '2px 8px',
+            fontSize: 10,
+            background: 'var(--studio-bg-surface, #2a2a3d)',
+            border: '1px solid var(--studio-border-subtle, #2d2d44)',
+            color: 'var(--studio-text-secondary, #8b8ba3)',
+            cursor: 'pointer',
+            transition: 'border-color 150ms, color 150ms'
+        }
+        : {
+            width: '100%',
+            borderRadius: 6,
+            padding: '2px 8px',
+            fontSize: 10,
+            background: 'var(--studio-accent-rose-dim, rgba(251, 113, 133, 0.15))',
+            border: '1px solid var(--studio-accent-rose, #fb7185)',
+            color: 'var(--studio-accent-rose, #fb7185)',
+            cursor: 'pointer',
+            transition: 'border-color 150ms, color 150ms'
+        };
+
     return (
         <>
             <BaseEdge
                 id={props.id}
                 path={edgePath}
                 markerEnd={props.markerEnd}
+                style={edgeStyle}
             />
             <foreignObject
                 x={labelXPos}
@@ -44,11 +73,7 @@ export function DagBindingEdge(props: EdgeProps): ReactElement {
             >
                 <button
                     type="button"
-                    className={
-                        hasBinding
-                            ? 'w-full rounded bg-gray-100 px-2 py-[2px] text-[10px] text-gray-700'
-                            : 'w-full rounded bg-red-50 px-2 py-[2px] text-[10px] text-red-700'
-                    }
+                    style={labelStyle}
                     onClick={handleSelectEdge}
                     title={fullLabel}
                 >
