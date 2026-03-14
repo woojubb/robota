@@ -10,5 +10,4 @@ export * from './lifecycle/default-node-task-handlers.js';
 export * from './registry/static-node-manifest-registry.js';
 export * from './value-objects/media-reference.js';
 export * from './schemas/media-reference-schema.js';
-export * from './utils/node-descriptor.js';
 export * from './port-definition-helpers.js';

@@ -8,9 +8,9 @@
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/node/index.d.ts",
       "import": "./dist/node/index.js",
-      "require": "./dist/node/index.cjs",
-      "types": "./dist/node/index.d.ts"
+      "require": "./dist/node/index.cjs"
     }
   },
   "scripts": {
