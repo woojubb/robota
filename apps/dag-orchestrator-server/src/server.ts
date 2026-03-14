@@ -231,6 +231,16 @@ async function bootstrapOrchestratorServer(): Promise<void> {
         res.json(result.value);
     });
 
+    // Robota API: node catalog via object_info
+    app.get('/v1/dag/object_info', async (_req: Request, res: Response) => {
+        const result = await orchestrator.getObjectInfo();
+        if (!result.ok) {
+            res.status(502).json({ ok: false, error: result.error });
+            return;
+        }
+        res.json({ ok: true, status: 200, data: result.value });
+    });
+
     app.get('/system_stats', async (_req, res) => {
         const result = await orchestrator.getSystemStats();
         if (!result.ok) { res.status(502).json({ error: result.error }); return; }
