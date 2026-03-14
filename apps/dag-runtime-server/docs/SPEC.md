@@ -107,12 +107,13 @@ All endpoints are ComfyUI-compatible. The reference spec is `.design/dag-benchma
 | `/interrupt` | POST | Stub (no-op) | (none) | `{}` |
 | `/free` | POST | Stub (no-op) | (none) | `{}` |
 | `/health` | GET | Implemented | (none) | `{ status, service, timestamp }` |
-| `/view` | GET | **Not implemented** | query params | image binary |
-| `/upload/image` | POST | **Not implemented** | multipart/form-data | upload result |
+| `/view` | GET | Implemented | query: `filename` (assetId) | binary stream with Content-Type |
+| `/upload/image` | POST | Implemented | multipart/form-data (`image` file) | `{ name, subfolder, type }` |
 
 **Notes:**
 - `/interrupt` and `/free` are intentional no-op stubs. ComfyUI uses `/interrupt` for GPU job cancellation and `/free` for VRAM model unloading; neither applies to this Node.js runtime.
-- `/view` and `/upload/image` are not yet implemented. These are required by the ComfyUI spec for image serving and upload.
+- `/view` serves assets by assetId via `LocalFsAssetStore.getContent()`. The `filename` query param is the assetId returned in `executed` WS events and `/upload/image` responses.
+- `/upload/image` accepts `multipart/form-data` with an `image` file field. Uses `multer` for parsing. Returns `{ name: assetId, subfolder: "", type: "input" }`.
 - `/health` is a non-ComfyUI operational endpoint (acceptable as a server health probe).
 
 ### WebSocket Events
@@ -126,14 +127,13 @@ WebSocket endpoint: `/ws`
 | `executed` | Server -> Client | `{ node, output, prompt_id }` | `executed` |
 | `execution_error` | Server -> Client | `{ prompt_id, node_id, exception_message }` | `execution_error` |
 | `execution_success` | Server -> Client | `{ prompt_id }` | `execution_success` |
+| `status` | Server -> Client | `{ status: { exec_info: { queue_remaining } } }` | `status` |
+| `execution_cached` | Server -> Client | `{ nodes: [], prompt_id }` | `execution_cached` |
 
-**Not implemented WebSocket events:**
-
-| Event Type | ComfyUI Description | Status |
-|---|---|---|
-| `status` | Queue status broadcast (`{ exec_info: { queue_remaining } }`) | Not implemented |
-| `execution_cached` | Cached node list (`{ nodes, prompt_id }`) | Not implemented |
-| `progress` | Sampling progress (`{ value, max, prompt_id, node }`) | Not implemented |
+**Notes:**
+- `status` is broadcast on `execution.started` (queue_remaining: 1), `execution.completed` (queue_remaining: 0), and `execution.failed` (queue_remaining: 0). Approximates single-worker queue state.
+- `execution_cached` always sends empty nodes array — no caching engine exists in this runtime.
+- `progress` event (`{ value, max, prompt_id, node }`) mapping infrastructure exists but no node currently emits progress data. Will be populated when nodes support per-step progress reporting.
 
 ## Extension Points
 
@@ -209,13 +209,14 @@ Execution errors are broadcast as `execution_error` events with:
 
 | Test File | Scope | Tests |
 |---|---|---|
-| `src/__tests__/endpoint-contract.test.ts` | Endpoint contract | Verifies each HTTP endpoint returns ComfyUI-compatible response shapes (prompt, queue, history, object_info, system_stats, interrupt, free, health) |
+| `src/__tests__/endpoint-contract.test.ts` | Endpoint contract | Verifies each HTTP endpoint returns ComfyUI-compatible response shapes (prompt, queue, history, object_info, system_stats, interrupt, free, health, view, upload/image) |
+| `src/__tests__/ws-events-contract.test.ts` | WS event contract | Verifies `toComfyUiMessages` mapping for all event types including status, execution_cached |
 
 ### Coverage Gaps
 
 | Test Type | Scope | Priority |
 |---|---|---|
-| WebSocket event contract tests | Verify WS messages match ComfyUI event format | P0 |
+| ~~WebSocket event contract tests~~ | ~~Verify WS messages match ComfyUI event format~~ | ~~P0~~ (done: `ws-events-contract.test.ts`) |
 | Error format contract tests | Verify all error responses use ComfyUI format (not IProblemDetails) | P0 |
 | `DagPromptBackend` unit tests | Prompt-to-DAG translation, history recording, object info mapping | P1 |
 | `AssetAwareTaskExecutorPort` unit tests | Binary output interception, asset reference mapping | P1 |
@@ -286,4 +287,5 @@ pnpm --filter @robota-sdk/dag-runtime-server lint
 | `ws` | WebSocket server |
 | `cors` | CORS middleware |
 | `helmet` | Security headers |
+| `multer` | Multipart form-data parsing for `/upload/image` |
 | `dotenv` | Environment variable loading |
