@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import type { IQueueMessage, ITaskRun } from '@robota-sdk/dag-core';
 import {
     FakeClockPort,
     InMemoryLeasePort,
     InMemoryQueuePort,
-    InMemoryStoragePort,
-    type IQueueMessage,
-    type ITaskRun
-} from '@robota-sdk/dag-core';
+    InMemoryStoragePort
+} from '@robota-sdk/dag-adapters-memory';
 import { DlqReinjectService } from '../services/dlq-reinject-service.js';
 
 function createDeadLetterMessage(): IQueueMessage {

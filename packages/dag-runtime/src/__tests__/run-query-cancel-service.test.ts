@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-    FakeClockPort,
-    InMemoryStoragePort,
-    type IDagRun,
-    type ITaskRun
-} from '@robota-sdk/dag-core';
+import type { IDagRun, ITaskRun } from '@robota-sdk/dag-core';
+import { FakeClockPort, InMemoryStoragePort } from '@robota-sdk/dag-adapters-memory';
 import { RunCancelService } from '../services/run-cancel-service.js';
 import { RunQueryService } from '../services/run-query-service.js';
 

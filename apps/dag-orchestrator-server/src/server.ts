@@ -4,13 +4,13 @@ import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import http from 'node:http';
+import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
 import {
-    type IDagNodeDefinition,
     InMemoryStoragePort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     SystemClockPort,
-} from '@robota-sdk/dag-core';
+} from '@robota-sdk/dag-adapters-memory';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import {
     createDagControllerComposition,

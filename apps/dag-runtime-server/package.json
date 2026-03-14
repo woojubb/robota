@@ -17,6 +17,7 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
+        "@robota-sdk/dag-adapters-memory": "workspace:*",
         "@robota-sdk/dag-api": "workspace:*",
         "@robota-sdk/dag-core": "workspace:*",
         "@robota-sdk/dag-node": "workspace:*",
