@@ -4,7 +4,7 @@ import {
     InMemoryLeasePort,
     InMemoryQueuePort,
     InMemoryStoragePort
-} from '@robota-sdk/dag-core';
+} from '@robota-sdk/dag-adapters-local';
 import { createDagControllerComposition } from '../composition/create-dag-controller-composition.js';
 
 describe('createDagControllerComposition', () => {

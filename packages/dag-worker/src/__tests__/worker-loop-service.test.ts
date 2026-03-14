@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type { IDagDefinition, IDagRun, IQueueMessage, ITaskRun } from '@robota-sdk/dag-core';
 import {
     FakeClockPort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     InMemoryStoragePort,
-    MockTaskExecutorPort,
-    type IDagDefinition,
-    type IDagRun,
-    type IQueueMessage,
-    type ITaskRun
-} from '@robota-sdk/dag-core';
+    MockTaskExecutorPort
+} from '@robota-sdk/dag-adapters-local';
 import { WorkerLoopService } from '../services/worker-loop-service.js';
 
 function createQueuedTaskFixture() {

@@ -163,12 +163,18 @@ importers:
 
   apps/dag-orchestrator-server:
     dependencies:
+      '@robota-sdk/dag-adapters-local':
+        specifier: workspace:*
+        version: link:../../packages/dag-adapters-local
       '@robota-sdk/dag-api':
         specifier: workspace:*
         version: link:../../packages/dag-api
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../packages/dag-core
+      '@robota-sdk/dag-cost':
+        specifier: workspace:*
+        version: link:../../packages/dag-cost
       '@robota-sdk/dag-node':
         specifier: workspace:*
         version: link:../../packages/dag-node
@@ -254,6 +260,9 @@ importers:
 
   apps/dag-runtime-server:
     dependencies:
+      '@robota-sdk/dag-adapters-local':
+        specifier: workspace:*
+        version: link:../../packages/dag-adapters-local
       '@robota-sdk/dag-api':
         specifier: workspace:*
         version: link:../../packages/dag-api
@@ -548,6 +557,28 @@ importers:
         specifier: ^1.1.0
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/dag-adapters-local:
+    dependencies:
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
+      '@robota-sdk/dag-cost':
+        specifier: workspace:*
+        version: link:../dag-cost
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
   packages/dag-api:
     dependencies:
       '@robota-sdk/dag-core':
@@ -566,6 +597,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-worker
     devDependencies:
+      '@robota-sdk/dag-adapters-local':
+        specifier: workspace:*
+        version: link:../dag-adapters-local
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -591,12 +625,37 @@ importers:
         specifier: ^3.24.6
         version: 3.24.6(zod@3.25.76)
     devDependencies:
+      '@robota-sdk/dag-adapters-local':
+        specifier: workspace:*
+        version: link:../dag-adapters-local
       '@robota-sdk/dag-node':
         specifier: workspace:*
         version: link:../dag-node
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/dag-cost:
+    dependencies:
+      '@marcbachmann/cel-js':
+        specifier: ^7.5.3
+        version: 7.5.3
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
+    devDependencies:
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
@@ -1011,6 +1070,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
+      '@robota-sdk/dag-cost':
+        specifier: workspace:*
+        version: link:../dag-cost
     devDependencies:
       '@types/express':
         specifier: ^5.0.6
@@ -1037,6 +1099,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-core
     devDependencies:
+      '@robota-sdk/dag-adapters-local':
+        specifier: workspace:*
+        version: link:../dag-adapters-local
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -1059,6 +1124,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-core
     devDependencies:
+      '@robota-sdk/dag-adapters-local':
+        specifier: workspace:*
+        version: link:../dag-adapters-local
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -1084,6 +1152,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-runtime
     devDependencies:
+      '@robota-sdk/dag-adapters-local':
+        specifier: workspace:*
+        version: link:../dag-adapters-local
       '@robota-sdk/dag-worker':
         specifier: workspace:*
         version: link:../dag-worker
@@ -1109,6 +1180,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-core
     devDependencies:
+      '@robota-sdk/dag-adapters-local':
+        specifier: workspace:*
+        version: link:../dag-adapters-local
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -3945,6 +4019,12 @@ packages:
       globby: 11.1.0
       read-yaml-file: 1.1.0
     dev: true
+
+  /@marcbachmann/cel-js@7.5.3:
+    resolution: {integrity: sha512-C59EFR5ALOyKMS43oWDjaVlfBtfEEpy49x7OPYOxY9ECWK1NLjaTuTiGyQiBn2L6L52eapmqjrQ9ChzjinsDrg==}
+    engines: {node: '>=20.19.0'}
+    hasBin: true
+    dev: false
 
   /@modelcontextprotocol/sdk@1.16.0:
     resolution: {integrity: sha512-8ofX7gkZcLj9H9rSd50mCgm3SSF8C7XoclxJuLoV0Cz3rEQ1tv9MZRYYvJtm9n1BiEQQMzSmE/w2AEkNacLYfg==}

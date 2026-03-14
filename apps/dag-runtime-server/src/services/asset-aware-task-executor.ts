@@ -48,8 +48,8 @@ export class AssetAwareTaskExecutorPort implements ITaskExecutorPort {
         return {
             ok: true,
             output,
-            estimatedCostUsd: result.estimatedCostUsd,
-            totalCostUsd: result.totalCostUsd
+            estimatedCredits: result.estimatedCredits,
+            totalCredits: result.totalCredits
         };
     }
 

@@ -37,7 +37,7 @@ function createContext(config: Record<string, string | number> = {}): INodeExecu
         },
         attempt: 1,
         executionPath: [],
-        currentTotalCostUsd: 0
+        currentTotalCredits: 0
     };
 }
 
@@ -134,17 +134,17 @@ describe('LlmTextOpenAiNodeDefinition', () => {
     });
 
     describe('estimateCost', () => {
-        it('calculates cost based on prompt length and baseCostUsd', async () => {
+        it('calculates cost based on prompt length and baseCredits', async () => {
             const node = new LlmTextOpenAiNodeDefinition();
             // 500 chars -> 500/1000 * 0.001 = 0.0005, baseCost=0.01
             const prompt = 'x'.repeat(500);
             const result = await node.taskHandler.estimateCost!(
                 { prompt },
-                createContext({ baseCostUsd: 0.01 })
+                createContext({ baseCredits: 0.01 })
             );
             expect(result.ok).toBe(true);
             if (result.ok) {
-                expect(result.value.estimatedCostUsd).toBeCloseTo(0.0105, 4);
+                expect(result.value.estimatedCredits).toBeCloseTo(0.0105, 4);
             }
         });
 
@@ -156,7 +156,7 @@ describe('LlmTextOpenAiNodeDefinition', () => {
             );
             expect(result.ok).toBe(true);
             if (result.ok) {
-                expect(result.value.estimatedCostUsd).toBe(0);
+                expect(result.value.estimatedCredits).toBe(0);
             }
         });
 

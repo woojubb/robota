@@ -37,9 +37,8 @@ export class PromptOrchestratorService {
             const objectInfoResult = await this.apiClient.getObjectInfo();
             if (!objectInfoResult.ok) return objectInfoResult;
 
-            const nodeTypes = Object.values(promptRequest.prompt).map((n) => n.class_type);
             const estimateResult = await this.costEstimator.estimateCost(
-                nodeTypes,
+                promptRequest.prompt,
                 objectInfoResult.value,
             );
             if (!estimateResult.ok) return estimateResult;

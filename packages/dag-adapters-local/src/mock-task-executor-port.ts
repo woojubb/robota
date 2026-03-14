@@ -2,7 +2,7 @@ import type {
     ITaskExecutionInput,
     ITaskExecutorPort,
     TTaskExecutionResult
-} from '../interfaces/ports.js';
+} from '@robota-sdk/dag-core';
 
 export type TTaskExecutorHandler = (input: ITaskExecutionInput) => Promise<TTaskExecutionResult>;
 

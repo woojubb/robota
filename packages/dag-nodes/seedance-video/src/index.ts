@@ -39,7 +39,7 @@ const SeedanceVideoConfigSchema = z.object({
     seed: z.number().int().optional(),
     pollIntervalMs: z.number().int().positive().default(DEFAULT_POLL_INTERVAL_MS),
     pollTimeoutMs: z.number().int().positive().default(DEFAULT_POLL_TIMEOUT_MS),
-    baseCostUsd: z.number().default(DEFAULT_BASE_COST_USD)
+    baseCredits: z.number().default(DEFAULT_BASE_COST_USD)
 });
 
 class SeedanceVideoNodeTaskHandler {
@@ -56,10 +56,10 @@ class SeedanceVideoNodeTaskHandler {
     ): Promise<TResult<ICostEstimate, IDagError>> {
         const imagesInput = input.images;
         const imageSurcharge = Array.isArray(imagesInput) && imagesInput.length > 0 ? IMAGE_INPUT_SURCHARGE_USD : 0;
-        const estimatedCostUsd = config.baseCostUsd + imageSurcharge;
+        const estimatedCredits = config.baseCredits + imageSurcharge;
         return {
             ok: true,
-            value: { estimatedCostUsd }
+            value: { estimatedCredits }
         };
     }
 

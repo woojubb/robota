@@ -35,7 +35,7 @@ function makeContext(overrides?: Partial<INodeExecutionContext>): INodeExecution
         },
         attempt: 1,
         executionPath: [],
-        currentTotalCostUsd: 0,
+        currentTotalCredits: 0,
         ...overrides
     };
 }
@@ -44,7 +44,7 @@ function createSuccessLifecycle(): INodeLifecycle {
     return {
         initialize: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
         validateInput: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
-        estimateCost: vi.fn().mockResolvedValue({ ok: true, value: { estimatedCostUsd: 0.01 } }),
+        estimateCost: vi.fn().mockResolvedValue({ ok: true, value: { estimatedCredits: 0.01 } }),
         execute: vi.fn().mockResolvedValue({ ok: true, value: { result: 'done' } }),
         validateOutput: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
         dispose: vi.fn().mockResolvedValue({ ok: true, value: undefined })
@@ -78,14 +78,14 @@ describe('RunCostPolicyEvaluator', () => {
         const result = evaluator.assertWithinBudget(0, -1);
         expect(result.ok).toBe(false);
         if (result.ok) return;
-        expect(result.error.code).toBe('DAG_VALIDATION_NEGATIVE_ESTIMATED_COST');
+        expect(result.error.code).toBe('DAG_VALIDATION_NEGATIVE_ESTIMATED_CREDITS');
     });
 
     it('returns error when cost exceeds limit', () => {
         const result = evaluator.assertWithinBudget(0.8, 0.3, 1.0);
         expect(result.ok).toBe(false);
         if (result.ok) return;
-        expect(result.error.code).toBe('DAG_VALIDATION_COST_LIMIT_EXCEEDED');
+        expect(result.error.code).toBe('DAG_VALIDATION_CREDIT_LIMIT_EXCEEDED');
     });
 
     it('allows exact budget match', () => {
@@ -109,8 +109,8 @@ describe('NodeLifecycleRunner', () => {
         expect(result.ok).toBe(true);
         if (!result.ok) return;
         expect(result.value.output).toEqual({ result: 'done' });
-        expect(result.value.estimatedCostUsd).toBe(0.01);
-        expect(result.value.totalCostUsd).toBe(0.01);
+        expect(result.value.estimatedCredits).toBe(0.01);
+        expect(result.value.totalCredits).toBe(0.01);
 
         expect(lifecycle.initialize).toHaveBeenCalled();
         expect(lifecycle.validateInput).toHaveBeenCalled();
@@ -173,12 +173,12 @@ describe('NodeLifecycleRunner', () => {
         const lifecycle = createSuccessLifecycle();
         (lifecycle.estimateCost as ReturnType<typeof vi.fn>).mockResolvedValue({
             ok: true,
-            value: { estimatedCostUsd: 2.0 }
+            value: { estimatedCredits: 2.0 }
         });
         const runner = new NodeLifecycleRunner(createFactory(lifecycle), new RunCostPolicyEvaluator());
         const result = await runner.runNode({
             input: {},
-            context: makeContext({ runCostLimitUsd: 1.0, currentTotalCostUsd: 0 })
+            context: makeContext({ runCreditLimit: 1.0, currentTotalCredits: 0 })
         });
         expect(result.ok).toBe(false);
         expect(lifecycle.dispose).toHaveBeenCalled();

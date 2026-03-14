@@ -1,4 +1,4 @@
-import type { IPromptBackendPort } from '../interfaces/prompt-backend-port.js';
+import type { IPromptBackendPort } from '@robota-sdk/dag-core';
 
 /**
  * Creates an in-memory stub implementing IPromptBackendPort.

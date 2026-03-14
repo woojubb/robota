@@ -1,12 +1,12 @@
 import type { IPromptRequest, IPromptResponse } from '@robota-sdk/dag-core';
 
 export interface ICostEstimate {
-    totalEstimatedCostUsd: number;
-    perNode: Record<string, { nodeType: string; estimatedCostUsd: number }>;
+    totalEstimatedCredits: number;
+    perNode: Record<string, { nodeType: string; estimatedCredits: number }>;
 }
 
 export interface ICostPolicy {
-    maxCostPerPromptUsd: number;
+    maxCreditsPerPrompt: number;
 }
 
 export interface IRetryPolicy {

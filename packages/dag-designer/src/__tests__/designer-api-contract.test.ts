@@ -8,8 +8,8 @@ describe('hasValidRunResult contract validation', () => {
         nodeType: 'text-output',
         input: { text: 'hello' },
         output: { result: 'ok' },
-        estimatedCostUsd: 0.001,
-        totalCostUsd: 0.001
+        estimatedCredits: 0.001,
+        totalCredits: 0.001
     };
 
     const validNodeError = {
@@ -30,7 +30,7 @@ describe('hasValidRunResult contract validation', () => {
             status: 'success',
             traces: [validTrace],
             nodeErrors: [],
-            totalCostUsd: 0.001
+            totalCredits: 0.001
         };
         expect(hasValidRunResult(result)).toBe(true);
     });
@@ -41,7 +41,7 @@ describe('hasValidRunResult contract validation', () => {
             status: 'failed',
             traces: [],
             nodeErrors: [validNodeError],
-            totalCostUsd: 0
+            totalCredits: 0
         };
         expect(hasValidRunResult(result)).toBe(true);
     });
@@ -51,7 +51,7 @@ describe('hasValidRunResult contract validation', () => {
             dagRunId: 'run-1',
             traces: [],
             nodeErrors: [],
-            totalCostUsd: 0
+            totalCredits: 0
         } as unknown as IRunResult;
         expect(hasValidRunResult(result)).toBe(false);
     });
@@ -61,7 +61,7 @@ describe('hasValidRunResult contract validation', () => {
             dagRunId: 'run-1',
             status: 'success',
             traces: [],
-            totalCostUsd: 0
+            totalCredits: 0
         } as unknown as IRunResult;
         expect(hasValidRunResult(result)).toBe(false);
     });
@@ -71,7 +71,7 @@ describe('hasValidRunResult contract validation', () => {
             status: 'success',
             traces: [],
             nodeErrors: [],
-            totalCostUsd: 0
+            totalCredits: 0
         } as unknown as IRunResult;
         expect(hasValidRunResult(result)).toBe(false);
     });
@@ -81,12 +81,12 @@ describe('hasValidRunResult contract validation', () => {
             dagRunId: 'run-1',
             status: 'success',
             nodeErrors: [],
-            totalCostUsd: 0
+            totalCredits: 0
         } as unknown as IRunResult;
         expect(hasValidRunResult(result)).toBe(false);
     });
 
-    it('rejects when totalCostUsd field is missing', () => {
+    it('rejects when totalCredits field is missing', () => {
         const result = {
             dagRunId: 'run-1',
             status: 'success',
@@ -102,7 +102,7 @@ describe('hasValidRunResult contract validation', () => {
             status: 'success',
             traces: [{ nodeId: 'n1' } as unknown as IRunResult['traces'][number]],
             nodeErrors: [],
-            totalCostUsd: 0
+            totalCredits: 0
         };
         expect(hasValidRunResult(result)).toBe(false);
     });
@@ -113,7 +113,7 @@ describe('hasValidRunResult contract validation', () => {
             status: 'success',
             traces: [],
             nodeErrors: [],
-            totalCostUsd: 0
+            totalCredits: 0
         };
         expect(hasValidRunResult(result)).toBe(true);
     });

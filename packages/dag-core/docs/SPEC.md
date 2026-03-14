@@ -32,14 +32,14 @@ dag-core/
     schemas/         -- (emptied — extracted to node authoring package)
     value-objects/   -- (emptied — extracted to node authoring package)
     utils/           -- Error builder helpers
-    testing/         -- In-memory port implementations for test harnesses
+    testing/         -- (emptied — extracted to dag-adapters-local package)
     __tests__/       -- Unit tests
 ```
 
 ### Design Patterns
 
 - **Result pattern (`TResult<T, E>`)**: All domain operations return discriminated unions (`{ ok: true; value: T } | { ok: false; error: E }`) instead of throwing exceptions. This enforces explicit error handling at every call site.
-- **Port/adapter (hexagonal)**: Infrastructure concerns are defined as port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`). `dag-core` owns the ports; consumer packages provide adapters. The `testing/` directory provides in-memory adapters for test harnesses.
+- **Port/adapter (hexagonal)**: Infrastructure concerns are defined as port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`). `dag-core` owns the ports; consumer packages provide adapters. In-memory adapters for test harnesses are provided by `@robota-sdk/dag-adapters-local`.
 - **Finite state machines**: `DagRunStateMachine` and `TaskRunStateMachine` encode all legal state transitions as a lookup table. Invalid transitions return errors rather than silently succeeding. Terminal states (`success`, `failed`, `cancelled`) have no outgoing transitions except the explicit `RETRY` gate on `TaskRun.failed -> queued`.
 - **Abstract template pattern**: `AbstractNodeDefinition<TSchema>` provides a config-parsing template that delegates to `*WithConfig` methods, ensuring every lifecycle step receives a validated, typed config object. (Owned by node authoring package.)
 - **Value object**: `MediaReference` is an immutable value object with factory methods (`fromAssetReference`, `fromBinary`, `fromCandidate`) and no public constructor. (Owned by node authoring package.)
@@ -124,11 +124,8 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `EXECUTION_PROGRESS_EVENTS`, `TASK_PROGRESS_EVENTS` | Constants | Progress event name constants |
 | `RUN_EVENT_PREFIX`, `TASK_EVENT_PREFIX`, `WORKER_EVENT_PREFIX`, `SCHEDULER_EVENT_PREFIX`, `EXECUTION_EVENT_PREFIX` | Constants | Event prefix strings |
 | `DAG_CORE_PACKAGE_NAME` | Constant | Package name string `@robota-sdk/dag-core` |
-| `InMemoryStoragePort` | Class (testing) | In-memory `IStoragePort` for tests |
-| `InMemoryQueuePort` | Class (testing) | In-memory `IQueuePort` for tests |
-| `InMemoryLeasePort` | Class (testing) | In-memory `ILeasePort` for tests |
-| `FakeClockPort` | Class (testing) | Deterministic `IClockPort` for tests |
-| `MockTaskExecutorPort` | Class (testing) | Mock `ITaskExecutorPort` for tests |
+
+> **Note:** 인메모리 포트 구현체들은 `@robota-sdk/dag-adapters-local` 패키지로 분리됨. `InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `FakeClockPort`, `SystemClockPort`, `MockTaskExecutorPort` 등은 해당 패키지에서 import.
 
 ## Extension Points
 
@@ -328,12 +325,8 @@ Implementations owned by this package:
 | `INodeLifecycleFactory` | `MissingNodeLifecycleFactory` | sentinel | `src/lifecycle/node-lifecycle-runner.ts` |
 | `IRunCostPolicyEvaluator` | `RunCostPolicyEvaluator` | production | `src/lifecycle/node-lifecycle-runner.ts` |
 | `ITaskExecutorPort` | `LifecycleTaskExecutorPort` | production | `src/lifecycle/lifecycle-task-executor-port.ts` |
-| `IStoragePort` | `InMemoryStoragePort` | test adapter | `src/testing/in-memory-storage-port.ts` |
-| `IQueuePort` | `InMemoryQueuePort` | test adapter | `src/testing/in-memory-queue-port.ts` |
-| `ILeasePort` | `InMemoryLeasePort` | test adapter | `src/testing/in-memory-lease-port.ts` |
-| `IClockPort` | `FakeClockPort` | test adapter | `src/testing/fake-clock-port.ts` |
-| `IClockPort` | `SystemClockPort` | test adapter | `src/testing/fake-clock-port.ts` |
-| `ITaskExecutorPort` | `MockTaskExecutorPort` | test adapter | `src/testing/mock-task-executor-port.ts` |
+
+> **Note:** 인메모리 포트 어댑터(`InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `FakeClockPort`, `SystemClockPort`, `MockTaskExecutorPort`)는 `@robota-sdk/dag-adapters-local` 패키지로 분리됨. 해당 패키지의 SPEC.md 참조.
 
 ### Interfaces Designed for External Implementation
 
@@ -371,4 +364,4 @@ The following areas lack dedicated unit tests in this package:
 - **LifecycleTaskExecutorPort**: No tests for manifest lookup, node definition validation, or runner delegation.
 - **DagDefinitionValidator**: Partial coverage. Missing tests for edge binding validation, port type compatibility, cost policy validation, list port handle resolution, and many specific validation codes.
 - **MediaReference**, **StaticNodeManifestRegistry**, **StaticNodeTaskHandlerRegistry**: Owned by the node authoring package; tested there.
-- **In-memory testing ports**: No tests verifying the correctness of test double implementations.
+- **In-memory testing ports**: Extracted to `@robota-sdk/dag-adapters-local`. Tests belong there.

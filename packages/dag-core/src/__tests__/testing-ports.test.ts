@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { InMemoryStoragePort } from '../testing/in-memory-storage-port.js';
-import { InMemoryQueuePort } from '../testing/in-memory-queue-port.js';
-import { InMemoryLeasePort } from '../testing/in-memory-lease-port.js';
-import { FakeClockPort, SystemClockPort } from '../testing/fake-clock-port.js';
-import { MockTaskExecutorPort } from '../testing/mock-task-executor-port.js';
+import {
+    InMemoryStoragePort,
+    InMemoryQueuePort,
+    InMemoryLeasePort,
+    FakeClockPort,
+    SystemClockPort,
+    MockTaskExecutorPort
+} from '@robota-sdk/dag-adapters-local';
 import type { IDagDefinition, IDagRun, ITaskRun } from '../types/domain.js';
 import type { IQueueMessage } from '../interfaces/ports.js';
 
@@ -229,8 +232,8 @@ describe('InMemoryStoragePort', () => {
             const task = await storage.getTaskRun('task-1');
             expect(task?.inputSnapshot).toBe('{"in":1}');
             expect(task?.outputSnapshot).toBe('{"out":2}');
-            expect(task?.estimatedCostUsd).toBe(0.5);
-            expect(task?.totalCostUsd).toBe(1.0);
+            expect(task?.estimatedCredits).toBe(0.5);
+            expect(task?.totalCredits).toBe(1.0);
         });
 
         it('increments task attempt', async () => {

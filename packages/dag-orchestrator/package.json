@@ -27,7 +27,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@robota-sdk/dag-core": "workspace:*"
+    "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-cost": "workspace:*"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

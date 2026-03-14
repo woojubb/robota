@@ -24,7 +24,7 @@ function createContext(): INodeExecutionContext {
         },
         attempt: 1,
         executionPath: [],
-        currentTotalCostUsd: 0
+        currentTotalCredits: 0
     };
 }
 
@@ -60,7 +60,7 @@ describe('ImageLoaderNodeDefinition', () => {
         const result = await node.taskHandler.estimateCost!({}, createContext());
         expect(result.ok).toBe(true);
         if (result.ok) {
-            expect(result.value.estimatedCostUsd).toBe(0);
+            expect(result.value.estimatedCredits).toBe(0);
         }
     });
 });
