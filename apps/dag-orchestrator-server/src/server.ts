@@ -4,14 +4,12 @@ import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import http from 'node:http';
-import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
 import {
     InMemoryStoragePort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     SystemClockPort,
 } from '@robota-sdk/dag-adapters-local';
-import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import {
     createDagControllerComposition,
 } from '@robota-sdk/dag-api';
@@ -26,21 +24,8 @@ import type {
 import { CelCostEstimatorAdapter } from '@robota-sdk/dag-orchestrator';
 import { CelCostEvaluator } from '@robota-sdk/dag-cost';
 import { FileCostMetaStorage } from '@robota-sdk/dag-adapters-local';
-import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
-import { TransformNodeDefinition } from '@robota-sdk/dag-node-transform';
-import { LlmTextOpenAiNodeDefinition } from '@robota-sdk/dag-node-llm-text-openai';
-import { ImageLoaderNodeDefinition } from '@robota-sdk/dag-node-image-loader';
-import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
-import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
-import { TextOutputNodeDefinition } from '@robota-sdk/dag-node-text-output';
-import { TextTemplateNodeDefinition } from '@robota-sdk/dag-node-text-template';
-import {
-    GeminiImageComposeNodeDefinition,
-    GeminiImageEditNodeDefinition
-} from '@robota-sdk/dag-node-gemini-image-edit';
-import { SeedanceVideoNodeDefinition } from '@robota-sdk/dag-node-seedance-video';
 import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
-import { BundledNodeCatalogService } from './services/bundled-node-catalog-service.js';
+
 import { registerDefinitionRoutes } from './routes/definition-routes.js';
 import { registerRunRoutes } from './routes/run-routes.js';
 import { registerAssetRoutes } from './routes/asset-routes.js';
@@ -106,25 +91,6 @@ async function bootstrapOrchestratorServer(): Promise<void> {
     );
     const runService = new OrchestratorRunService(apiClient);
 
-    const defaultNodeDefinitions: IDagNodeDefinition[] = [
-        new InputNodeDefinition(),
-        new TransformNodeDefinition(),
-        new LlmTextOpenAiNodeDefinition(),
-        new TextTemplateNodeDefinition(),
-        new TextOutputNodeDefinition(),
-        new ImageLoaderNodeDefinition(),
-        new ImageSourceNodeDefinition(),
-        new GeminiImageEditNodeDefinition(),
-        new GeminiImageComposeNodeDefinition(),
-        new SeedanceVideoNodeDefinition(),
-        new OkEmitterNodeDefinition()
-    ];
-    const assemblyResult = buildNodeDefinitionAssembly(defaultNodeDefinitions);
-    if (!assemblyResult.ok) {
-        throw new Error(`Failed to build node definition assembly: ${assemblyResult.error.message}`);
-    }
-    const nodeCatalogService = new BundledNodeCatalogService(assemblyResult.value.manifests);
-
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const deadLetterQueue = new InMemoryQueuePort();
@@ -134,8 +100,7 @@ async function bootstrapOrchestratorServer(): Promise<void> {
     const controllers = createDagControllerComposition(
         { storage, queue, deadLetterQueue, lease, clock },
         {
-            diagnosticsPolicy: { reinjectEnabled: false },
-            nodeCatalogService
+            diagnosticsPolicy: { reinjectEnabled: false }
         }
     );
 
@@ -231,8 +196,8 @@ async function bootstrapOrchestratorServer(): Promise<void> {
         res.json(result.value);
     });
 
-    // Robota API: node catalog via object_info
-    app.get('/v1/dag/object_info', async (_req: Request, res: Response) => {
+    // Robota API: node catalog via object_info proxy
+    app.get('/v1/dag/nodes', async (_req: Request, res: Response) => {
         const result = await orchestrator.getObjectInfo();
         if (!result.ok) {
             res.status(502).json({ ok: false, error: result.error });
