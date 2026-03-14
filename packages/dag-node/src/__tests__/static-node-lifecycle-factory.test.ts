@@ -4,7 +4,7 @@ import {
     createStaticNodeLifecycleFactory
 } from '../lifecycle/static-node-lifecycle-factory.js';
 import { StaticNodeTaskHandlerRegistry } from '../lifecycle/default-node-task-handlers.js';
-import type { INodeTaskHandler } from '../types/node-lifecycle.js';
+import type { INodeTaskHandler } from '@robota-sdk/dag-core';
 
 describe('StaticNodeLifecycleFactory', () => {
     const handler: INodeTaskHandler = {

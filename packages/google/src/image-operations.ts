@@ -128,10 +128,10 @@ export function buildResponseModalities(
 
 /** Checks whether the specified model is configured as image-capable. */
 export function isImageCapableModel(model: string, configuredImageModels: string[] | undefined): boolean {
-    if (configuredImageModels && configuredImageModels.length > 0) {
-        return configuredImageModels.includes(model);
+    if (!configuredImageModels || configuredImageModels.length === 0) {
+        return true;
     }
-    return model.includes('image');
+    return configuredImageModels.includes(model);
 }
 
 /** Builds the Gemini generation config including response modalities. */

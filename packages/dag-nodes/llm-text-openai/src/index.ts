@@ -1,6 +1,5 @@
+import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
-    AbstractNodeDefinition,
-    NodeIoAccessor,
     buildTaskExecutionError,
     buildValidationError,
     type ICostEstimate,

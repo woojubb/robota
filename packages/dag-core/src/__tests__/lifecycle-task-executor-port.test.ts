@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LifecycleTaskExecutorPort } from '../services/lifecycle-task-executor-port.js';
-import { StaticNodeManifestRegistry } from '../registry/static-node-manifest-registry.js';
+import { StaticNodeManifestRegistry, createStaticNodeLifecycleFactory } from '@robota-sdk/dag-node';
 import type { INodeManifest } from '../types/domain.js';
 import type { ITaskExecutionInput } from '../interfaces/ports.js';
 import type { INodeLifecycleFactory, INodeTaskHandler } from '../types/node-lifecycle.js';
-import { createStaticNodeLifecycleFactory } from '../lifecycle/static-node-lifecycle-factory.js';
 
 const testManifest: INodeManifest = {
     nodeType: 'test-node',

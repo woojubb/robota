@@ -1,15 +1,13 @@
-import type { IDagDefinition, INodeManifest, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
+import type { IDagDefinition, INodeManifest, IRunResult, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
+import type { IProblemDetails, IDefinitionListItem } from '@robota-sdk/dag-api';
 import type {
     IDesignerCreateRunInput,
     ICreateDefinitionInput,
-    IDefinitionListItem,
     IGetRunResultInput,
-    IRunResult,
     IDesignerApiClient,
     IDesignerApiClientConfig,
     IGetDefinitionInput,
     IListDefinitionsInput,
-    IProblemDetails,
     IPublishDefinitionInput,
     IDesignerStartRunInput,
     ISubscribeRunProgressInput,
@@ -206,7 +204,7 @@ export class DesignerApiClient implements IDesignerApiClient {
             'POST',
             JSON.stringify({
                 definition: input.definition,
-                input: input.input ?? {}
+                input: input.input
             }),
             input.correlationId
         );

@@ -40,6 +40,7 @@
   "dependencies": {
     "@robota-sdk/agents": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-node": "workspace:*",
     "@robota-sdk/google": "workspace:*",
     "zod": "^3.24.4"
   },

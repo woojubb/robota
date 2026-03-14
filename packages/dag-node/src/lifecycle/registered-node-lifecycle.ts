@@ -1,14 +1,14 @@
-import { buildValidationError } from '../utils/error-builders.js';
-import type { IPortBinaryValue, TPortPayload, TPortValue } from '../interfaces/ports.js';
-import type { IDagError } from '../types/error.js';
-import type { TResult } from '../types/result.js';
-import type { IPortDefinition } from '../types/domain.js';
+import { buildValidationError } from '@robota-sdk/dag-core';
+import type { IPortBinaryValue, TPortPayload, TPortValue } from '@robota-sdk/dag-core';
+import type { IDagError } from '@robota-sdk/dag-core';
+import type { TResult } from '@robota-sdk/dag-core';
+import type { IPortDefinition } from '@robota-sdk/dag-core';
 import type {
     ICostEstimate,
     INodeExecutionContext,
     INodeLifecycle,
     INodeTaskHandler
-} from '../types/node-lifecycle.js';
+} from '@robota-sdk/dag-core';
 
 function isBinaryValue(value: TPortValue): value is IPortBinaryValue {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {

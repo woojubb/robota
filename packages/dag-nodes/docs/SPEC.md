@@ -12,25 +12,25 @@
 
 ### Inheritance Chains
 
-All node definitions extend `AbstractNodeDefinition` from `dag-core`:
+All node definitions extend `AbstractNodeDefinition` from `@robota-sdk/dag-node` (previously in `dag-core`):
 
 | Base (Owner) | Derived | Location |
 |------|---------|----------|
-| `AbstractNodeDefinition` (dag-core) | `ImageLoaderNodeDefinition` | `src/image-loader/` |
-| `AbstractNodeDefinition` (dag-core) | `ImageSourceNodeDefinition` | `src/image-source/` |
-| `AbstractNodeDefinition` (dag-core) | `InputNodeDefinition` | `src/input/` |
-| `AbstractNodeDefinition` (dag-core) | `TextOutputNodeDefinition` | `src/text-output/` |
-| `AbstractNodeDefinition` (dag-core) | `TextTemplateNodeDefinition` | `src/text-template/` |
-| `AbstractNodeDefinition` (dag-core) | `TransformNodeDefinition` | `src/transform/` |
-| `AbstractNodeDefinition` (dag-core) | `LlmTextOpenAiNodeDefinition` | `src/llm-text-openai/` |
-| `AbstractNodeDefinition` (dag-core) | `OkEmitterNodeDefinition` | `src/ok-emitter/` |
-| `AbstractNodeDefinition` (dag-core) | `GeminiImageEditNodeDefinition` | `src/gemini-image-edit/` |
-| `AbstractNodeDefinition` (dag-core) | `GeminiImageComposeNodeDefinition` | `src/gemini-image-compose/` |
-| `AbstractNodeDefinition` (dag-core) | `SeedanceVideoNodeDefinition` | `src/seedance-video/` |
+| `AbstractNodeDefinition` (dag-node) | `ImageLoaderNodeDefinition` | `src/image-loader/` |
+| `AbstractNodeDefinition` (dag-node) | `ImageSourceNodeDefinition` | `src/image-source/` |
+| `AbstractNodeDefinition` (dag-node) | `InputNodeDefinition` | `src/input/` |
+| `AbstractNodeDefinition` (dag-node) | `TextOutputNodeDefinition` | `src/text-output/` |
+| `AbstractNodeDefinition` (dag-node) | `TextTemplateNodeDefinition` | `src/text-template/` |
+| `AbstractNodeDefinition` (dag-node) | `TransformNodeDefinition` | `src/transform/` |
+| `AbstractNodeDefinition` (dag-node) | `LlmTextOpenAiNodeDefinition` | `src/llm-text-openai/` |
+| `AbstractNodeDefinition` (dag-node) | `OkEmitterNodeDefinition` | `src/ok-emitter/` |
+| `AbstractNodeDefinition` (dag-node) | `GeminiImageEditNodeDefinition` | `src/gemini-image-edit/` |
+| `AbstractNodeDefinition` (dag-node) | `GeminiImageComposeNodeDefinition` | `src/gemini-image-compose/` |
+| `AbstractNodeDefinition` (dag-node) | `SeedanceVideoNodeDefinition` | `src/seedance-video/` |
 
 ### Cross-Package Port Consumers
 
 | Port (Owner) | Consumer | Notes |
 |--------------|---------|-------|
-| `AbstractNodeDefinition` (dag-core) | All 11 node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
-| `NodeIoAccessor` (dag-core) | All 11 node definitions | Used for input reading and output assembly |
+| `AbstractNodeDefinition` (dag-node) | All 11 node definitions | Each implements `executeWithConfig` and `estimateCostWithConfig` |
+| `NodeIoAccessor` (dag-node) | All 11 node definitions | Used for input reading and output assembly |

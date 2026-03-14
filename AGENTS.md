@@ -88,6 +88,14 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule group 
 | API Boundary | [api-boundary.md](.agents/rules/api-boundary.md) | Runtime=ComfyUI immutable, orchestrator=Robota own |
 | Naming & Style | [naming-style.md](.agents/rules/naming-style.md) | Language policy, agent identity, Tailwind only |
 | Git & Branch | [git-branch.md](.agents/rules/git-branch.md) | Branch policy, conventional commits, worktree |
+| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports |
+
+### Package Dependency Direction (Non-negotiable)
+
+- Bidirectional production dependencies between packages are **prohibited**. If A depends on B, B must NOT depend on A.
+- Pass-through re-exports (`export * from '@robota-sdk/other-package'`) are **prohibited**. Consumers must import from the owning package.
+- devDependencies for test fixtures do not constitute a production dependency cycle.
+- See [`.agents/project-structure.md`](.agents/project-structure.md) for the full dependency graph and per-package rules.
 
 ## Skills Reference
 

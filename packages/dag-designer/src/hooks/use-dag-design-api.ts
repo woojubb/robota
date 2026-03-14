@@ -4,16 +4,15 @@ import type {
     INodeManifest,
     TResult,
     TPortPayload,
-    TRunProgressEvent
+    TRunProgressEvent,
+    IRunResult
 } from '@robota-sdk/dag-core';
+import type { IProblemDetails, IDefinitionListItem } from '@robota-sdk/dag-api';
 import {
     DesignerApiClient
 } from '../client/designer-api-client.js';
 import type {
-    IDefinitionListItem,
     IDesignerApiClient,
-    IRunResult,
-    IProblemDetails
 } from '../contracts/designer-api.js';
 
 export interface IUseDagDesignApiOptions {

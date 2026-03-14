@@ -106,9 +106,59 @@ None. Classes are standalone.
 |--------------|---------|----------|
 | Domain types from dag-core (`IDagDefinition`, `INodeManifest`, `TRunProgressEvent`) | `DesignerApiClient`, hooks, components | Throughout `src/` |
 
+## List Port Handle Behavior
+
+Ports with `isList: true` support multiple connections via dynamically generated handle slots.
+
+### Handle Rendering (`DagNodeView`)
+
+- **Connected handles**: One handle per existing binding to this list port across all incoming edges. Display: full opacity, label shows `#N` (1-based).
+- **Placeholder handle**: Exactly one extra handle rendered beyond the connected count. Display: `opacity-50`, represents the next available slot for a new connection.
+- **No connections**: One placeholder handle at index 0.
+- **Formula**: `handleCount = connectedBindingCount + 1`. Handle IDs follow `portKey[index]` format (e.g., `images[0]`, `images[1]`).
+
+### Connection (`onConnect` in `DagDesignerCanvas`)
+
+- Connecting to a placeholder handle creates a new binding with the placeholder's handle ID as `inputKey`.
+- Connecting to an already-bound handle is rejected with `"Connection rejected: input handle is already bound."`.
+- After connection, `compactListBindings()` re-indexes all list bindings to ensure sequential indices starting from 0.
+- A new connection may create a new edge (if no edge exists between source and target) or append a binding to an existing edge.
+
+### Compaction (`compactListBindings` in `canvas-utils`)
+
+- Re-indexes list binding `inputKey` values to be sequential starting from 0 per (targetNodeId, listPortKey) pair.
+- Indices are tracked **across all edges** to the same target node, not per-edge. This ensures that bindings from different source nodes to the same list port receive unique, sequential indices.
+- Non-list bindings are not modified.
+- Compaction runs on: `onConnect`, `updateEdge`, `removeEdgeById`, `removeNodeById`.
+
+### Handle Computation (`computeInputHandlesByPortKey`)
+
+- Counts connected bindings across ALL incoming edges to the target node for each list port.
+- Generates `connectedCount + 1` handle IDs (connected slots + 1 placeholder).
+- Result is passed to `DagNodeView` as `inputHandlesByPortKey` prop, driving handle rendering.
+
+### Disconnection (Edge/Node Removal)
+
+- When an edge is removed (`removeEdgeById`), `compactListBindings()` re-indexes remaining list bindings so indices remain sequential with no gaps.
+- When a node is removed (`removeNodeById`), all edges involving that node are removed, then compaction runs on remaining edges.
+- **Handle shrinkage**: After disconnection and compaction, `computeInputHandlesByPortKey` recalculates handles. The placeholder count adjusts to `remainingConnections + 1`, so previously occupied slots disappear. There is no stale handle retention.
+
+### Edge-to-ReactFlow Mapping (`toEdge`)
+
+- Each `IDagEdgeDefinition` maps to one React Flow `Edge`.
+- `sourceHandle` and `targetHandle` are set from the **first binding** of the edge.
+- An edge with multiple bindings (e.g., same source node sending to `images[0]` and `prompt`) is visually rendered as a single edge line; the full binding list is shown in the edge label/tooltip.
+
+### Invariants
+
+1. List binding indices for a given (targetNodeId, listPortKey) are always sequential `[0, 1, 2, ...]` with no gaps after any mutation.
+2. Exactly one placeholder handle exists per list port at all times (connected count + 1).
+3. No two bindings across all edges may share the same (targetNodeId, listInputKey) identity.
+4. `dependsOn` is recomputed from edges after any edge addition or removal.
+
 ## Test Strategy
 
-- Unit tests: `port-editor-utils.test.ts` (port editing helpers), `schema-defaults.test.ts` (config schema default generation).
+- Unit tests: `port-editor-utils.test.ts` (port editing helpers), `schema-defaults.test.ts` (config schema default generation), `canvas-utils.test.ts` (list binding compaction across multi-edge scenarios, handle computation).
 - Contract tests: `designer-api-contract.test.ts` (validates `hasValidRunResult` contract for `IRunResult` shape — status, dagRunId, traces, nodeErrors, totalCostUsd).
 - API client HTTP request/response shape tests and WebSocket reconnection logic tests are planned.
 - The designer also relies on integration testing through app-level UI tests.

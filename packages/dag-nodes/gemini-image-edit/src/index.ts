@@ -2,9 +2,11 @@ import {
     AbstractNodeDefinition,
     BINARY_PORT_PRESETS,
     NodeIoAccessor,
+    createBinaryPortDefinition
+} from '@robota-sdk/dag-node';
+import {
     buildTaskExecutionError,
     buildValidationError,
-    createBinaryPortDefinition,
     type ICostEstimate,
     type IDagError,
     type IDagNodeDefinition,
@@ -30,17 +32,16 @@ export interface IGeminiImageEditNodeDefinitionOptions extends IGeminiImageRunti
 /** Options for constructing a {@link GeminiImageComposeNodeDefinition}. */
 export interface IGeminiImageComposeNodeDefinitionOptions extends IGeminiImageRuntimeOptions {}
 
-const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
 const DEFAULT_IMAGE_EDIT_COST_USD = 0.01;
 const DEFAULT_IMAGE_COMPOSE_COST_USD = 0.015;
 
 const GeminiImageEditConfigSchema = z.object({
-    model: z.string().default(DEFAULT_GEMINI_IMAGE_MODEL),
+    model: z.string().default(''),
     baseCostUsd: z.number().default(DEFAULT_IMAGE_EDIT_COST_USD)
 });
 
 const GeminiImageComposeConfigSchema = z.object({
-    model: z.string().default(DEFAULT_GEMINI_IMAGE_MODEL),
+    model: z.string().default(''),
     baseCostUsd: z.number().default(DEFAULT_IMAGE_COMPOSE_COST_USD)
 });
 
