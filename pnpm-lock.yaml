@@ -610,6 +610,28 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/dag-cost:
+    dependencies:
+      '@marcbachmann/cel-js':
+        specifier: ^7.5.3
+        version: 7.5.3
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../dag-core
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
   packages/dag-designer:
     dependencies:
       '@robota-sdk/dag-api':
@@ -1011,6 +1033,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
+      '@robota-sdk/dag-cost':
+        specifier: workspace:*
+        version: link:../dag-cost
     devDependencies:
       '@types/express':
         specifier: ^5.0.6
@@ -3945,6 +3970,12 @@ packages:
       globby: 11.1.0
       read-yaml-file: 1.1.0
     dev: true
+
+  /@marcbachmann/cel-js@7.5.3:
+    resolution: {integrity: sha512-C59EFR5ALOyKMS43oWDjaVlfBtfEEpy49x7OPYOxY9ECWK1NLjaTuTiGyQiBn2L6L52eapmqjrQ9ChzjinsDrg==}
+    engines: {node: '>=20.19.0'}
+    hasBin: true
+    dev: false
 
   /@modelcontextprotocol/sdk@1.16.0:
     resolution: {integrity: sha512-8ofX7gkZcLj9H9rSd50mCgm3SSF8C7XoclxJuLoV0Cz3rEQ1tv9MZRYYvJtm9n1BiEQQMzSmE/w2AEkNacLYfg==}
