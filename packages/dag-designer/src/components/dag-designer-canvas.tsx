@@ -325,9 +325,9 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
     }, [edges]);
 
     return (
-        <div className={`flex min-h-[420px] flex-col overflow-hidden rounded border border-gray-300 ${props.className ?? ''}`}>
+        <div className={`flex min-h-[420px] flex-col overflow-hidden rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg)] ${props.className ?? ''}`}>
             {context.bindingErrors.length > 0 ? (
-                <div className="relative z-10 shrink-0 border-b border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+                <div className="relative z-10 shrink-0 border-b border-[var(--studio-accent-rose)] bg-[var(--studio-accent-rose-dim)] px-3 py-2 text-xs text-[var(--studio-accent-rose)]">
                     <div className="font-medium">Blocking Binding Errors (from recent edits)</div>
                     {context.bindingErrors.map((error) => (
                         <div key={error}>- {error}</div>
@@ -335,13 +335,13 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 </div>
             ) : null}
             {context.connectError ? (
-                <div className="relative z-10 shrink-0 border-b border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+                <div className="relative z-10 shrink-0 border-b border-[var(--studio-accent-rose)] bg-[var(--studio-accent-rose-dim)] px-3 py-2 text-xs text-[var(--studio-accent-rose)]">
                     <div className="font-medium">Connection Rejected</div>
                     <div>- {context.connectError}</div>
                 </div>
             ) : null}
             {context.bindingCleanupMessage ? (
-                <div className="relative z-10 shrink-0 border-b border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <div className="relative z-10 shrink-0 border-b border-[var(--studio-accent-amber)] bg-[var(--studio-accent-amber-dim)] px-3 py-2 text-xs text-[var(--studio-accent-amber)]">
                     <div className="font-medium">Port Update Applied</div>
                     <div>- {context.bindingCleanupMessage}</div>
                 </div>
@@ -368,7 +368,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                     fitView
                     fitViewOptions={FIT_VIEW_OPTIONS}
                 >
-                    <Background />
+                    <Background gap={20} size={1} color="var(--studio-border-subtle, #2d2d44)" />
                     <Controls />
                 </ReactFlow>
             </div>
