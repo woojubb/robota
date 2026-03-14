@@ -19,6 +19,8 @@ vi.mock('@robota-sdk/google', () => ({
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
+const TEST_MODEL = 'test-image-model';
+
 function makeImageBinary(overrides?: Partial<IPortBinaryValue>): IPortBinaryValue {
     return {
         kind: 'image',
@@ -32,7 +34,7 @@ function makeSuccessEditResult(): TProviderMediaResult<IImageGenerationResult> {
     return {
         ok: true,
         value: {
-            model: 'gemini-2.5-flash-image',
+            model: TEST_MODEL,
             outputs: [{
                 kind: 'uri',
                 uri: 'data:image/png;base64,RESULT_DATA',
@@ -47,7 +49,7 @@ function makeSuccessComposeResult(): TProviderMediaResult<IImageGenerationResult
     return {
         ok: true,
         value: {
-            model: 'gemini-2.5-flash-image',
+            model: TEST_MODEL,
             outputs: [{
                 kind: 'uri',
                 uri: 'data:image/png;base64,COMPOSED_DATA',
@@ -110,12 +112,25 @@ describe('GeminiImageRuntime', () => {
     // editImage
     // -----------------------------------------------------------------------
     describe('editImage', () => {
-        it('returns API key required error when no API key is configured', async () => {
-            const runtime = new GeminiImageRuntime();
+        it('returns model required error when no model is configured', async () => {
+            const runtime = new GeminiImageRuntime({ apiKey: 'test-key' });
             const result = await runtime.editImage({
                 image: makeImageBinary(),
                 prompt: 'Make it blue',
-                model: 'gemini-2.5-flash-image'
+                model: ''
+            });
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error.code).toBe('DAG_VALIDATION_GEMINI_IMAGE_MODEL_REQUIRED');
+            }
+        });
+
+        it('returns API key required error when no API key is configured', async () => {
+            const runtime = new GeminiImageRuntime({ defaultModel: TEST_MODEL });
+            const result = await runtime.editImage({
+                image: makeImageBinary(),
+                prompt: 'Make it blue',
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
             if (!result.ok) {
@@ -126,7 +141,8 @@ describe('GeminiImageRuntime', () => {
         it('returns model not allowed error when model is not in allowlist', async () => {
             const runtime = new GeminiImageRuntime({
                 apiKey: 'test-key',
-                allowedModels: ['gemini-2.5-flash-image']
+                defaultModel: TEST_MODEL,
+                allowedModels: [TEST_MODEL]
             });
             const result = await runtime.editImage({
                 image: makeImageBinary(),
@@ -140,8 +156,6 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('successfully edits an image with data URI input', async () => {
-            // GoogleProvider mock will have editImage
-
             const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: mockEditImage,
@@ -151,12 +165,12 @@ describe('GeminiImageRuntime', () => {
 
             const runtime = new GeminiImageRuntime({
                 apiKey: 'test-key',
-                allowedModels: ['gemini-2.5-flash-image']
+                defaultModel: TEST_MODEL
             });
             const result = await runtime.editImage({
                 image: makeImageBinary(),
                 prompt: 'Make it blue',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(true);
             if (result.ok) {
@@ -165,7 +179,6 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when provider editImage call fails', async () => {
-
             const mockEditImage = vi.fn().mockResolvedValue({
                 ok: false,
                 error: {
@@ -181,12 +194,12 @@ describe('GeminiImageRuntime', () => {
 
             const runtime = new GeminiImageRuntime({
                 apiKey: 'test-key',
-                allowedModels: ['gemini-2.5-flash-image']
+                defaultModel: TEST_MODEL
             });
             const result = await runtime.editImage({
                 image: makeImageBinary(),
                 prompt: 'Make it blue',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
             if (!result.ok) {
@@ -195,10 +208,9 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when provider response has no image output', async () => {
-
             const mockEditImage = vi.fn().mockResolvedValue({
                 ok: true,
-                value: { model: 'gemini-2.5-flash-image', outputs: [] }
+                value: { model: TEST_MODEL, outputs: [] }
             });
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: mockEditImage,
@@ -208,12 +220,12 @@ describe('GeminiImageRuntime', () => {
 
             const runtime = new GeminiImageRuntime({
                 apiKey: 'test-key',
-                allowedModels: ['gemini-2.5-flash-image']
+                defaultModel: TEST_MODEL
             });
             const result = await runtime.editImage({
                 image: makeImageBinary(),
                 prompt: 'Make it blue',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
             if (!result.ok) {
@@ -231,11 +243,11 @@ describe('GeminiImageRuntime', () => {
                 generateImage: vi.fn()
             }) as unknown as InstanceType<typeof GoogleProvider>);
 
-            const runtime = new GeminiImageRuntime();
+            const runtime = new GeminiImageRuntime({ defaultModel: TEST_MODEL });
             const result = await runtime.editImage({
                 image: makeImageBinary(),
                 prompt: 'Make it blue',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(true);
         });
@@ -243,8 +255,6 @@ describe('GeminiImageRuntime', () => {
         it('uses env DAG_GEMINI_IMAGE_DEFAULT_MODEL for default model', async () => {
             process.env.GEMINI_API_KEY = 'test-key';
             process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL = 'gemini-2.0-flash-exp';
-            process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS = 'gemini-2.0-flash-exp';
-
 
             const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
             vi.mocked(GoogleProvider).mockImplementation(() => ({
@@ -264,8 +274,8 @@ describe('GeminiImageRuntime', () => {
 
         it('uses env DAG_GEMINI_IMAGE_ALLOWED_MODELS as CSV', async () => {
             process.env.GEMINI_API_KEY = 'test-key';
+            process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL = 'model-a';
             process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS = 'model-a, model-b';
-
 
             const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
             vi.mocked(GoogleProvider).mockImplementation(() => ({
@@ -283,43 +293,58 @@ describe('GeminiImageRuntime', () => {
             expect(result.ok).toBe(true);
         });
 
-        it('returns error when provider lacks editImage capability', async () => {
+        it('allows any model when no allowlist is configured', async () => {
+            const mockEditImage = vi.fn().mockResolvedValue(makeSuccessEditResult());
+            vi.mocked(GoogleProvider).mockImplementation(() => ({
+                editImage: mockEditImage,
+                composeImage: vi.fn(),
+                generateImage: vi.fn()
+            }) as unknown as InstanceType<typeof GoogleProvider>);
 
+            const runtime = new GeminiImageRuntime({
+                apiKey: 'test-key',
+                defaultModel: TEST_MODEL
+            });
+            const result = await runtime.editImage({
+                image: makeImageBinary(),
+                prompt: 'Make it blue',
+                model: 'any-arbitrary-model'
+            });
+            expect(result.ok).toBe(true);
+        });
+
+        it('returns error when provider lacks editImage capability', async () => {
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: undefined,
                 composeImage: vi.fn(),
                 generateImage: vi.fn()
             }) as unknown as InstanceType<typeof GoogleProvider>);
 
-            const runtime = new GeminiImageRuntime({ apiKey: 'test-key' });
+            const runtime = new GeminiImageRuntime({ apiKey: 'test-key', defaultModel: TEST_MODEL });
             const result = await runtime.editImage({
                 image: makeImageBinary(),
                 prompt: 'Make it blue',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                // Provider without editImage triggers API_KEY_REQUIRED because
-                // getImageProviderCapability checks typeof provider[methodName] === 'function'
                 expect(result.error.code).toBe('DAG_VALIDATION_GEMINI_API_KEY_REQUIRED');
             }
         });
 
         it('returns error when input image resolution fails for asset ref', async () => {
-
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
                 composeImage: vi.fn(),
                 generateImage: vi.fn()
             }) as unknown as InstanceType<typeof GoogleProvider>);
 
-            // Asset reference image that will trigger fetch which we mock to fail
             mockFetch.mockResolvedValue({
                 ok: false,
                 body: null
             });
 
-            const runtime = new GeminiImageRuntime({ apiKey: 'test-key' });
+            const runtime = new GeminiImageRuntime({ apiKey: 'test-key', defaultModel: TEST_MODEL });
             const result = await runtime.editImage({
                 image: makeImageBinary({
                     uri: 'asset://test-asset-id',
@@ -327,7 +352,7 @@ describe('GeminiImageRuntime', () => {
                     assetId: 'test-asset-id'
                 }),
                 prompt: 'Make it blue',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
         });
@@ -337,12 +362,25 @@ describe('GeminiImageRuntime', () => {
     // composeImages
     // -----------------------------------------------------------------------
     describe('composeImages', () => {
-        it('returns API key required error when no API key is configured', async () => {
-            const runtime = new GeminiImageRuntime();
+        it('returns model required error when no model is configured', async () => {
+            const runtime = new GeminiImageRuntime({ apiKey: 'test-key' });
             const result = await runtime.composeImages({
                 images: [makeImageBinary(), makeImageBinary()],
                 prompt: 'Combine these images',
-                model: 'gemini-2.5-flash-image'
+                model: ''
+            });
+            expect(result.ok).toBe(false);
+            if (!result.ok) {
+                expect(result.error.code).toBe('DAG_VALIDATION_GEMINI_IMAGE_MODEL_REQUIRED');
+            }
+        });
+
+        it('returns API key required error when no API key is configured', async () => {
+            const runtime = new GeminiImageRuntime({ defaultModel: TEST_MODEL });
+            const result = await runtime.composeImages({
+                images: [makeImageBinary(), makeImageBinary()],
+                prompt: 'Combine these images',
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
             if (!result.ok) {
@@ -353,7 +391,8 @@ describe('GeminiImageRuntime', () => {
         it('returns model not allowed error for disallowed model', async () => {
             const runtime = new GeminiImageRuntime({
                 apiKey: 'test-key',
-                allowedModels: ['gemini-2.5-flash-image']
+                defaultModel: TEST_MODEL,
+                allowedModels: [TEST_MODEL]
             });
             const result = await runtime.composeImages({
                 images: [makeImageBinary(), makeImageBinary()],
@@ -367,7 +406,6 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when fewer than 2 images are provided', async () => {
-
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
                 composeImage: vi.fn(),
@@ -376,12 +414,12 @@ describe('GeminiImageRuntime', () => {
 
             const runtime = new GeminiImageRuntime({
                 apiKey: 'test-key',
-                allowedModels: ['gemini-2.5-flash-image']
+                defaultModel: TEST_MODEL
             });
             const result = await runtime.composeImages({
                 images: [makeImageBinary()],
                 prompt: 'Combine these images',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
             if (!result.ok) {
@@ -390,7 +428,6 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('successfully composes images with data URI inputs', async () => {
-
             const mockComposeImage = vi.fn().mockResolvedValue(makeSuccessComposeResult());
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
@@ -400,12 +437,12 @@ describe('GeminiImageRuntime', () => {
 
             const runtime = new GeminiImageRuntime({
                 apiKey: 'test-key',
-                allowedModels: ['gemini-2.5-flash-image']
+                defaultModel: TEST_MODEL
             });
             const result = await runtime.composeImages({
                 images: [makeImageBinary(), makeImageBinary()],
                 prompt: 'Combine these images',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(true);
             if (result.ok) {
@@ -414,7 +451,6 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when provider composeImage call fails', async () => {
-
             const mockComposeImage = vi.fn().mockResolvedValue({
                 ok: false,
                 error: {
@@ -430,12 +466,12 @@ describe('GeminiImageRuntime', () => {
 
             const runtime = new GeminiImageRuntime({
                 apiKey: 'test-key',
-                allowedModels: ['gemini-2.5-flash-image']
+                defaultModel: TEST_MODEL
             });
             const result = await runtime.composeImages({
                 images: [makeImageBinary(), makeImageBinary()],
                 prompt: 'Combine these images',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
             if (!result.ok) {
@@ -444,10 +480,9 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when compose response has no image output', async () => {
-
             const mockComposeImage = vi.fn().mockResolvedValue({
                 ok: true,
-                value: { model: 'gemini-2.5-flash-image', outputs: [] }
+                value: { model: TEST_MODEL, outputs: [] }
             });
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
@@ -457,12 +492,12 @@ describe('GeminiImageRuntime', () => {
 
             const runtime = new GeminiImageRuntime({
                 apiKey: 'test-key',
-                allowedModels: ['gemini-2.5-flash-image']
+                defaultModel: TEST_MODEL
             });
             const result = await runtime.composeImages({
                 images: [makeImageBinary(), makeImageBinary()],
                 prompt: 'Combine these images',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
             if (!result.ok) {
@@ -471,14 +506,12 @@ describe('GeminiImageRuntime', () => {
         });
 
         it('returns error when one compose input image fails to resolve', async () => {
-
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
                 composeImage: vi.fn(),
                 generateImage: vi.fn()
             }) as unknown as InstanceType<typeof GoogleProvider>);
 
-            // First fetch succeeds (asset image 1), second fails (asset image 2)
             mockFetch
                 .mockResolvedValueOnce({
                     ok: true,
@@ -493,7 +526,7 @@ describe('GeminiImageRuntime', () => {
 
             const runtime = new GeminiImageRuntime({
                 apiKey: 'test-key',
-                allowedModels: ['gemini-2.5-flash-image']
+                defaultModel: TEST_MODEL
             });
             const result = await runtime.composeImages({
                 images: [
@@ -501,28 +534,26 @@ describe('GeminiImageRuntime', () => {
                     makeImageBinary({ uri: 'asset://img2', referenceType: 'asset', assetId: 'img2' })
                 ],
                 prompt: 'Combine these images',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
         });
 
         it('returns error when provider lacks composeImage capability', async () => {
-
             vi.mocked(GoogleProvider).mockImplementation(() => ({
                 editImage: vi.fn(),
                 composeImage: undefined,
                 generateImage: vi.fn()
             }) as unknown as InstanceType<typeof GoogleProvider>);
 
-            const runtime = new GeminiImageRuntime({ apiKey: 'test-key' });
+            const runtime = new GeminiImageRuntime({ apiKey: 'test-key', defaultModel: TEST_MODEL });
             const result = await runtime.composeImages({
                 images: [makeImageBinary(), makeImageBinary()],
                 prompt: 'Combine these images',
-                model: 'gemini-2.5-flash-image'
+                model: TEST_MODEL
             });
             expect(result.ok).toBe(false);
             if (!result.ok) {
-                // Provider without composeImage triggers API_KEY_REQUIRED
                 expect(result.error.code).toBe('DAG_VALIDATION_GEMINI_API_KEY_REQUIRED');
             }
         });

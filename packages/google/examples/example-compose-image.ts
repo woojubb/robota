@@ -29,7 +29,10 @@ async function main(): Promise<void> {
 
     const prompt = process.env.GEMINI_COMPOSE_PROMPT
         ?? 'Use the first image subject and render with the second image style. Keep composition natural.';
-    const model = process.env.GEMINI_IMAGE_MODEL ?? 'gemini-2.5-flash-image';
+    const model = process.env.GEMINI_IMAGE_MODEL;
+    if (!model) {
+        throw new Error('GEMINI_IMAGE_MODEL environment variable is required');
+    }
 
     const provider = new GoogleProvider({
         apiKey: resolveApiKey(),
