@@ -169,6 +169,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../packages/dag-core
+      '@robota-sdk/dag-cost':
+        specifier: workspace:*
+        version: link:../../packages/dag-cost
       '@robota-sdk/dag-node':
         specifier: workspace:*
         version: link:../../packages/dag-node
