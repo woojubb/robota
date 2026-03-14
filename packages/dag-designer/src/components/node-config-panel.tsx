@@ -11,7 +11,6 @@ import {
     getConnectedBindingCountForPort,
     type TPortDirection
 } from './port-editor-utils.js';
-import { isNodeConfigValue } from './schema-defaults.js';
 import {
     toBase64,
     type IAssetUploadResponse
@@ -27,6 +26,24 @@ export interface INodeConfigPanelProps {
     assetUploadBaseUrl?: string;
     bindingCleanupMessage?: string;
     onUpdateNode: (nextNode: IDagNode) => void;
+}
+
+function isNodeConfigValue(value: unknown): value is TNodeConfigValue {
+    if (
+        typeof value === 'string'
+        || typeof value === 'number'
+        || typeof value === 'boolean'
+        || value === null
+    ) {
+        return true;
+    }
+    if (Array.isArray(value)) {
+        return value.every((item) => isNodeConfigValue(item));
+    }
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
+    return Object.values(value).every((item) => isNodeConfigValue(item));
 }
 
 function isNodeConfigRecord(value: unknown): value is INodeConfigObject {
