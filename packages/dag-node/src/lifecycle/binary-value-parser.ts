@@ -1,7 +1,7 @@
-import { buildValidationError } from '../utils/error-builders.js';
-import type { IDagError } from '../types/error.js';
-import type { TResult } from '../types/result.js';
-import type { TPortValue } from '../interfaces/ports.js';
+import { buildValidationError } from '@robota-sdk/dag-core';
+import type { IDagError } from '@robota-sdk/dag-core';
+import type { TResult } from '@robota-sdk/dag-core';
+import type { TPortValue } from '@robota-sdk/dag-core';
 
 /** Validated binary port value with kind, MIME type, and URI. */
 export interface IParsedBinaryValue {

@@ -1,12 +1,12 @@
-import type { IDagError } from '../types/error.js';
-import type { TResult } from '../types/result.js';
+import type { IDagError } from '@robota-sdk/dag-core';
+import type { TResult } from '@robota-sdk/dag-core';
 import type {
     INodeLifecycle,
     INodeLifecycleFactory,
     INodeTaskHandlerRegistry,
     INodeTaskHandler
-} from '../types/node-lifecycle.js';
-import { buildValidationError } from '../utils/error-builders.js';
+} from '@robota-sdk/dag-core';
+import { buildValidationError } from '@robota-sdk/dag-core';
 import { StaticNodeTaskHandlerRegistry } from './default-node-task-handlers.js';
 import { RegisteredNodeLifecycle } from './registered-node-lifecycle.js';
 
