@@ -8,7 +8,8 @@
 
 - **No infrastructure adapters.** Storage, queue, and lease implementations belong to consumer packages (e.g., `dag-runtime`, `dag-worker`). `dag-core` defines only the port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`).
 - **No orchestration runtime.** DAG scheduling, worker polling, and run coordination belong to `dag-runtime`, `dag-scheduler`, and `dag-worker`.
-- **No node implementations.** Concrete node types (e.g., `llm-text-openai`, `image-source`) belong to `dag-nodes`. `dag-core` provides the abstract base class (`AbstractNodeDefinition`) and lifecycle contracts.
+- **No node implementations.** Concrete node types (e.g., `llm-text-openai`, `image-source`) belong to `dag-nodes`.
+- **No node authoring infrastructure.** `AbstractNodeDefinition`, `NodeIoAccessor`, `RegisteredNodeLifecycle`, `StaticNodeLifecycleFactory`, `StaticNodeTaskHandlerRegistry`, `StaticNodeManifestRegistry`, `MediaReference`, and related helpers have been extracted to `@robota-sdk/dag-node`. See the [`dag-node` SPEC](../../dag-node/docs/SPEC.md). `dag-core` re-exports these symbols for backward compatibility but does not own them.
 - **No projection or read models.** Event-sourced projections belong to `dag-projection`.
 - **No API layer.** HTTP/REST composition belongs to `dag-api`.
 - **No designer UI.** Visual graph editing belongs to `dag-designer`.
@@ -25,11 +26,11 @@ dag-core/
     interfaces/      -- Port interfaces for infrastructure boundaries
     constants/       -- Status enums, event name constants
     state-machines/  -- DagRun and TaskRun finite state machines
-    lifecycle/       -- Node lifecycle abstraction and IO accessor
+    lifecycle/       -- Node lifecycle runner, cost policy evaluator, task executor port
     services/        -- Domain services (validation, definition mgmt, cost policy)
-    registry/        -- Static manifest and handler registries
-    schemas/         -- Zod schemas for structured validation (media references)
-    value-objects/   -- Domain value objects (MediaReference)
+    registry/        -- (emptied — registries extracted to @robota-sdk/dag-node)
+    schemas/         -- (emptied — schemas extracted to @robota-sdk/dag-node)
+    value-objects/   -- (emptied — value objects extracted to @robota-sdk/dag-node)
     utils/           -- Error builder helpers, config schema conversion
     testing/         -- In-memory port implementations for test harnesses
     __tests__/       -- Unit tests
@@ -40,8 +41,8 @@ dag-core/
 - **Result pattern (`TResult<T, E>`)**: All domain operations return discriminated unions (`{ ok: true; value: T } | { ok: false; error: E }`) instead of throwing exceptions. This enforces explicit error handling at every call site.
 - **Port/adapter (hexagonal)**: Infrastructure concerns are defined as port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`). `dag-core` owns the ports; consumer packages provide adapters. The `testing/` directory provides in-memory adapters for test harnesses.
 - **Finite state machines**: `DagRunStateMachine` and `TaskRunStateMachine` encode all legal state transitions as a lookup table. Invalid transitions return errors rather than silently succeeding. Terminal states (`success`, `failed`, `cancelled`) have no outgoing transitions except the explicit `RETRY` gate on `TaskRun.failed -> queued`.
-- **Abstract template pattern**: `AbstractNodeDefinition<TSchema>` provides a config-parsing template that delegates to `*WithConfig` methods, ensuring every lifecycle step receives a validated, typed config object.
-- **Value object**: `MediaReference` is an immutable value object with factory methods (`fromAssetReference`, `fromBinary`, `fromCandidate`) and no public constructor.
+- **Abstract template pattern**: `AbstractNodeDefinition<TSchema>` provides a config-parsing template that delegates to `*WithConfig` methods, ensuring every lifecycle step receives a validated, typed config object. (Implementation extracted to `@robota-sdk/dag-node`; re-exported for backward compatibility.)
+- **Value object**: `MediaReference` is an immutable value object with factory methods (`fromAssetReference`, `fromBinary`, `fromCandidate`) and no public constructor. (Implementation extracted to `@robota-sdk/dag-node`; re-exported for backward compatibility.)
 - **SSOT ownership**: Every domain type is defined exactly once in this package. Other packages import from `@robota-sdk/dag-core` and never re-declare these contracts.
 
 ## Type Ownership
@@ -345,7 +346,9 @@ Progress event types are defined as `TRunProgressEvent` (discriminated union) wi
 | `zod` | Runtime schema validation for node configs and media references |
 | `zod-to-json-schema` | Converts Zod schemas to JSON Schema 7 for manifest `configSchema` |
 
-No peer dependencies. No runtime dependencies on other `@robota-sdk/*` packages.
+| `@robota-sdk/dag-node` | Node authoring infrastructure (re-exported for backward compatibility) |
+
+No peer dependencies.
 
 ## Class Contract Registry
 
@@ -353,12 +356,12 @@ No peer dependencies. No runtime dependencies on other `@robota-sdk/*` packages.
 
 | Interface | Implementor | Kind | Location |
 |-----------|------------|------|----------|
-| `IDagNodeDefinition` | `AbstractNodeDefinition` | abstract base | `src/lifecycle/abstract-node-definition.ts` |
-| `INodeLifecycle` | `RegisteredNodeLifecycle` | production | `src/lifecycle/registered-node-lifecycle.ts` |
-| `INodeLifecycleFactory` | `StaticNodeLifecycleFactory` | production | `src/lifecycle/static-node-lifecycle-factory.ts` |
+| `IDagNodeDefinition` | `AbstractNodeDefinition` | abstract base | `@robota-sdk/dag-node` (re-exported) |
+| `INodeLifecycle` | `RegisteredNodeLifecycle` | production | `@robota-sdk/dag-node` (re-exported) |
+| `INodeLifecycleFactory` | `StaticNodeLifecycleFactory` | production | `@robota-sdk/dag-node` (re-exported) |
 | `INodeLifecycleFactory` | `MissingNodeLifecycleFactory` | sentinel | `src/lifecycle/node-lifecycle-runner.ts` |
-| `INodeManifestRegistry` | `StaticNodeManifestRegistry` | production | `src/registry/static-node-manifest-registry.ts` |
-| `INodeTaskHandlerRegistry` | `StaticNodeTaskHandlerRegistry` | production | `src/registry/default-node-task-handlers.ts` |
+| `INodeManifestRegistry` | `StaticNodeManifestRegistry` | production | `@robota-sdk/dag-node` (re-exported) |
+| `INodeTaskHandlerRegistry` | `StaticNodeTaskHandlerRegistry` | production | `@robota-sdk/dag-node` (re-exported) |
 | `IRunCostPolicyEvaluator` | `RunCostPolicyEvaluator` | production | `src/lifecycle/node-lifecycle-runner.ts` |
 | `ITaskExecutorPort` | `LifecycleTaskExecutorPort` | production | `src/lifecycle/lifecycle-task-executor-port.ts` |
 | `IStoragePort` | `InMemoryStoragePort` | test adapter | `src/testing/in-memory-storage-port.ts` |
@@ -380,17 +383,17 @@ No peer dependencies. No runtime dependencies on other `@robota-sdk/*` packages.
 |--------------|---------------------------|----------|
 | `ITaskExecutorPort` (dag-core) | `AssetAwareTaskExecutorPort` (dag-server-core) | `packages/dag-server-core/src/` |
 | `IStoragePort` (dag-core) | `FileStoragePort` (dag-server-core) | `packages/dag-server-core/src/` |
-| `AbstractNodeDefinition` (dag-core) | `ImageLoaderNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/image-loader/` |
-| `AbstractNodeDefinition` (dag-core) | `ImageSourceNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/image-source/` |
-| `AbstractNodeDefinition` (dag-core) | `InputNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/input/` |
-| `AbstractNodeDefinition` (dag-core) | `TextOutputNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/text-output/` |
-| `AbstractNodeDefinition` (dag-core) | `TextTemplateNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/text-template/` |
-| `AbstractNodeDefinition` (dag-core) | `TransformNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/transform/` |
-| `AbstractNodeDefinition` (dag-core) | `LlmTextOpenAiNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/llm-text-openai/` |
-| `AbstractNodeDefinition` (dag-core) | `OkEmitterNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/ok-emitter/` |
-| `AbstractNodeDefinition` (dag-core) | `GeminiImageEditNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/gemini-image-edit/` |
-| `AbstractNodeDefinition` (dag-core) | `GeminiImageComposeNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/gemini-image-compose/` |
-| `AbstractNodeDefinition` (dag-core) | `SeedanceVideoNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/seedance-video/` |
+| `AbstractNodeDefinition` (dag-node) | `ImageLoaderNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/image-loader/` |
+| `AbstractNodeDefinition` (dag-node) | `ImageSourceNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/image-source/` |
+| `AbstractNodeDefinition` (dag-node) | `InputNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/input/` |
+| `AbstractNodeDefinition` (dag-node) | `TextOutputNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/text-output/` |
+| `AbstractNodeDefinition` (dag-node) | `TextTemplateNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/text-template/` |
+| `AbstractNodeDefinition` (dag-node) | `TransformNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/transform/` |
+| `AbstractNodeDefinition` (dag-node) | `LlmTextOpenAiNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/llm-text-openai/` |
+| `AbstractNodeDefinition` (dag-node) | `OkEmitterNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/ok-emitter/` |
+| `AbstractNodeDefinition` (dag-node) | `GeminiImageEditNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/gemini-image-edit/` |
+| `AbstractNodeDefinition` (dag-node) | `GeminiImageComposeNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/gemini-image-compose/` |
+| `AbstractNodeDefinition` (dag-node) | `SeedanceVideoNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/seedance-video/` |
 
 ## Test Strategy
 
