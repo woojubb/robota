@@ -224,7 +224,7 @@ describe('MediaReference', () => {
                 assetId: 'a1'
             });
             expect(mr.toAssetContentUrl('https://api.example.com')).toBe(
-                'https://api.example.com/v1/dag/assets/a1/content'
+                'https://api.example.com/view?filename=a1'
             );
         });
 
@@ -234,7 +234,7 @@ describe('MediaReference', () => {
                 assetId: 'a1'
             });
             expect(mr.toAssetContentUrl('https://api.example.com/')).toBe(
-                'https://api.example.com/v1/dag/assets/a1/content'
+                'https://api.example.com/view?filename=a1'
             );
         });
 

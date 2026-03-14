@@ -1,6 +1,6 @@
 import type { Router, Request, Response } from 'express';
 import { toProblemDetails } from '@robota-sdk/dag-api';
-import type { IDagDefinition, TPortPayload, IAssetStore } from '@robota-sdk/dag-core';
+import type { IDagDefinition, TPortPayload, IAssetStore, IPromptRequest } from '@robota-sdk/dag-core';
 import type { OrchestratorRunService } from '@robota-sdk/dag-orchestrator';
 import {
     toRunProblemDetails,
@@ -13,10 +13,88 @@ import {
     HTTP_CONFLICT
 } from './route-utils.js';
 
+interface IAssetReference {
+    referenceType: 'asset';
+    assetId: string;
+}
+
+function isAssetReference(value: unknown): value is IAssetReference {
+    return typeof value === 'object'
+        && value !== null
+        && !Array.isArray(value)
+        && 'referenceType' in value
+        && (value as Record<string, unknown>).referenceType === 'asset'
+        && typeof (value as Record<string, unknown>).assetId === 'string';
+}
+
+/**
+ * Upload referenced assets from orchestrator's asset store to the runtime backend.
+ * Scans prompt inputs for asset references, uploads each to runtime's /upload/image,
+ * and replaces the assetId in the prompt with the runtime's assetId.
+ */
+async function uploadAssetsToRuntime(
+    promptRequest: IPromptRequest,
+    assetStore: IAssetStore,
+    backendUrl: string,
+): Promise<void> {
+    const prompt = promptRequest.prompt;
+
+    for (const nodeEntry of Object.values(prompt)) {
+        const inputs = nodeEntry.inputs;
+        for (const [inputKey, inputValue] of Object.entries(inputs)) {
+            if (!isAssetReference(inputValue)) continue;
+
+            const assetId = (inputValue as IAssetReference).assetId;
+            const contentResult = await assetStore.getContent(assetId);
+            if (!contentResult) continue;
+
+            // Collect binary data from stream
+            const chunks: Buffer[] = [];
+            for await (const chunk of contentResult.stream) {
+                chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
+            }
+            const binary = Buffer.concat(chunks);
+
+            // Build multipart/form-data body
+            const boundary = `----AssetUpload${Date.now()}${assetId.slice(0, 8)}`;
+            const fileName = contentResult.metadata.fileName;
+            const mediaType = contentResult.metadata.mediaType;
+
+            const header = Buffer.from(
+                `--${boundary}\r\n`
+                + `Content-Disposition: form-data; name="image"; filename="${fileName}"\r\n`
+                + `Content-Type: ${mediaType}\r\n`
+                + `\r\n`
+            );
+            const footer = Buffer.from(`\r\n--${boundary}--\r\n`);
+            const body = Buffer.concat([header, binary, footer]);
+
+            const response = await fetch(`${backendUrl}/upload/image`, {
+                method: 'POST',
+                headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+                body,
+            });
+
+            if (!response.ok) continue;
+
+            const result = await response.json() as { name: string };
+            const runtimeAssetId = result.name;
+
+            // Update the prompt input with the runtime's assetId
+            const ref = inputValue as Record<string, unknown>;
+            ref.assetId = runtimeAssetId;
+            if (typeof ref.uri === 'string') {
+                ref.uri = `asset://${runtimeAssetId}`;
+            }
+        }
+    }
+}
+
 export function registerRunRoutes(
     router: Router,
     runService: OrchestratorRunService,
-    assetStore: IAssetStore
+    assetStore: IAssetStore,
+    backendUrl: string,
 ): void {
     router.post('/v1/dag/runs', async (req: Request, res: Response) => {
         const runInstance = '/v1/dag/runs';
@@ -60,7 +138,15 @@ export function registerRunRoutes(
 
     router.post('/v1/dag/runs/:id/start', async (req: Request<{ id: string }>, res: Response) => {
         const instance = `/v1/dag/runs/${req.params.id}/start`;
-        const result = await runService.startRun(req.params.id);
+        const preparationId = req.params.id;
+
+        // Upload referenced assets to runtime before submitting prompt
+        const promptRequest = runService.getPendingPromptRequest(preparationId);
+        if (promptRequest) {
+            await uploadAssetsToRuntime(promptRequest, assetStore, backendUrl);
+        }
+
+        const result = await runService.startRun(preparationId);
         if (!result.ok) {
             const statusCode = result.error.code === 'ORCHESTRATOR_RUN_NOT_FOUND' ? HTTP_NOT_FOUND : HTTP_BAD_REQUEST;
             res.status(statusCode).json({

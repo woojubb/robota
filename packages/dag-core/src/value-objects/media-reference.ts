@@ -207,7 +207,7 @@ export class MediaReference {
         if (!this.isAsset() || typeof this.value.assetId !== 'string') {
             return undefined;
         }
-        return `${baseUrl.replace(/\/$/, '')}/v1/dag/assets/${this.value.assetId}/content`;
+        return `${baseUrl.replace(/\/$/, '')}/view?filename=${encodeURIComponent(this.value.assetId)}`;
     }
 
     public toBinary(kind: TBinaryKind, defaultMimeType: string): IPortBinaryValue {

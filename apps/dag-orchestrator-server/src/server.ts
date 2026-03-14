@@ -176,7 +176,7 @@ async function bootstrapOrchestratorServer(): Promise<void> {
 
     // Robota API routes
     registerDefinitionRoutes(app, controllers.design, assetStore);
-    registerRunRoutes(app, runService, assetStore);
+    registerRunRoutes(app, runService, assetStore, backendUrl);
     registerAssetRoutes(app, assetStore);
     registerWsRoutes(server, runService, backendUrl);
     registerAdminRoutes(app, controllers.design);

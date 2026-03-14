@@ -40,6 +40,26 @@ export class OrchestratorRunService {
     }
 
     /**
+     * Get the prompt request for a pending run, allowing pre-submit mutation
+     * (e.g., uploading assets to runtime and updating asset references).
+     * Returns undefined if run not found or already started.
+     */
+    getPendingPromptRequest(preparationId: string): IPromptRequest | undefined {
+        const run = this.runs.get(preparationId);
+        if (!run || run.status !== 'pending') return undefined;
+        return run.promptRequest;
+    }
+
+    /**
+     * Get the definition for a pending run, for scanning asset references.
+     */
+    getPendingDefinition(preparationId: string): IDagDefinition | undefined {
+        const run = this.runs.get(preparationId);
+        if (!run || run.status !== 'pending') return undefined;
+        return run.definition;
+    }
+
+    /**
      * Look up a run by dagRunId (= promptId) or preparationId.
      * Tries dagRunId index first, then falls back to preparationId direct lookup.
      */
