@@ -525,6 +525,58 @@ describe('dag-runtime-server endpoint contract tests', () => {
     });
 
     // -----------------------------------------------------------------------
+    // POST /upload/image
+    // -----------------------------------------------------------------------
+    describe('POST /upload/image', () => {
+        it('returns 200 with { name, subfolder, type } for valid image upload', async () => {
+            const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+            const formData = new FormData();
+            formData.append('image', new Blob([pngBytes], { type: 'image/png' }), 'upload-test.png');
+
+            const res = await fetch(`${baseUrl}/upload/image`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            expect(res.status).toBe(200);
+            const body = await res.json() as Record<string, unknown>;
+            expect(typeof body.name).toBe('string');
+            expect((body.name as string).length).toBeGreaterThan(0);
+            expect(body.subfolder).toBe('');
+            expect(body.type).toBe('input');
+        });
+
+        it('returns 400 when no image file is provided', async () => {
+            const res = await fetch(`${baseUrl}/upload/image`, {
+                method: 'POST',
+                body: new FormData(),
+            });
+
+            expect(res.status).toBe(400);
+        });
+
+        it('uploaded image is retrievable via GET /view', async () => {
+            const content = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
+            const formData = new FormData();
+            formData.append('image', new Blob([content], { type: 'image/jpeg' }), 'round-trip.jpg');
+
+            const uploadRes = await fetch(`${baseUrl}/upload/image`, {
+                method: 'POST',
+                body: formData,
+            });
+            expect(uploadRes.status).toBe(200);
+            const uploadBody = await uploadRes.json() as Record<string, unknown>;
+            const assetName = uploadBody.name as string;
+
+            const viewRes = await fetch(`${baseUrl}/view?filename=${assetName}`);
+            expect(viewRes.status).toBe(200);
+            expect(viewRes.headers.get('content-type')).toBe('image/jpeg');
+            const body = new Uint8Array(await viewRes.arrayBuffer());
+            expect(body).toEqual(content);
+        });
+    });
+
+    // -----------------------------------------------------------------------
     // Error format contract: all errors use ComfyUI shape, NOT IProblemDetails
     // -----------------------------------------------------------------------
     describe('error response format', () => {
