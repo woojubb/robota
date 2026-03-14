@@ -93,6 +93,12 @@ export default function DagDesignerListPage() {
                 ))}
               </select>
             </label>
+            <Link
+              href="/dag-designer/cost-management"
+              className="rounded border border-gray-300 bg-white px-3 py-2 text-xs hover:bg-gray-50"
+            >
+              비용 관리
+            </Link>
             <button
               type="button"
               className="rounded border border-gray-300 bg-white px-3 py-2 text-xs hover:bg-gray-50"
