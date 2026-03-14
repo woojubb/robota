@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MediaReference } from '../value-objects/media-reference.js';
-import type { IPortBinaryValue } from '../interfaces/ports.js';
-import type { TAssetReference } from '../types/domain.js';
+import type { IPortBinaryValue, TAssetReference } from '@robota-sdk/dag-core';
 
 describe('MediaReference', () => {
     describe('fromAssetReference', () => {

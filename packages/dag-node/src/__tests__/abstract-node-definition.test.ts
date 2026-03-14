@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { AbstractNodeDefinition } from '../lifecycle/abstract-node-definition.js';
-import type { TPortPayload } from '../interfaces/ports.js';
-import type { INodeExecutionContext, ICostEstimate } from '../types/node-lifecycle.js';
-import type { IDagError } from '../types/error.js';
-import type { TResult } from '../types/result.js';
-import type { IPortDefinition, INodeConfigObject } from '../types/domain.js';
+import type {
+    TPortPayload, INodeExecutionContext, ICostEstimate,
+    IDagError, TResult, IPortDefinition, INodeConfigObject
+} from '@robota-sdk/dag-core';
 
 const TestSchema = z.object({
     prompt: z.string(),
