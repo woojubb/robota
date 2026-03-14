@@ -6,8 +6,8 @@ export interface IRunNodeTrace {
     nodeType: string;
     input: TPortPayload;
     output: TPortPayload;
-    estimatedCostUsd: number;
-    totalCostUsd: number;
+    estimatedCredits: number;
+    totalCredits: number;
 }
 
 export interface IRunNodeError {
@@ -22,5 +22,5 @@ export interface IRunResult {
     status: 'success' | 'failed';
     traces: IRunNodeTrace[];
     nodeErrors: IRunNodeError[];
-    totalCostUsd: number;
+    totalCredits: number;
 }
