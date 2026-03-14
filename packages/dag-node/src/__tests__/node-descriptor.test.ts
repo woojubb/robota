@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { buildConfigSchema } from '../utils/node-descriptor.js';
+import { buildConfigSchema } from '@robota-sdk/dag-core';
 
 describe('buildConfigSchema', () => {
     it('converts a valid Zod schema to JSON Schema', () => {

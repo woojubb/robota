@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
     buildListPortHandleKey,
-    parseListPortHandleKey,
-    createBinaryPortDefinition,
-    BINARY_PORT_PRESETS
+    parseListPortHandleKey
 } from '../types/domain.js';
+import { createBinaryPortDefinition, BINARY_PORT_PRESETS } from '@robota-sdk/dag-node';
 import { buildNodeDefinitionAssembly } from '../types/node-lifecycle.js';
 import { z } from 'zod';
 import type { INodeTaskHandler } from '../types/node-lifecycle.js';
