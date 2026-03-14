@@ -17,7 +17,7 @@ describe('hasValidRunResult contract validation', () => {
         nodeType: 'llm-text',
         error: {
             code: 'NODE_EXECUTION_FAILED',
-            category: 'execution' as const,
+            category: 'task_execution' as const,
             message: 'Provider returned 500.',
             retryable: true
         },

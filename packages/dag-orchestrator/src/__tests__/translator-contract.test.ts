@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { translateDefinitionToPrompt } from '../adapters/definition-to-prompt-translator.js';
-import type { IDagDefinition, TPortPayload } from '@robota-sdk/dag-core';
+import type { IDagDefinition, IDagNode, INodeConfigObject, TPortPayload } from '@robota-sdk/dag-core';
 
 function makeDefinition(
     overrides: Partial<IDagDefinition> = {}
@@ -18,8 +18,8 @@ function makeDefinition(
 function makeNode(
     nodeId: string,
     nodeType: string,
-    config: Record<string, unknown> = {}
-) {
+    config: INodeConfigObject = {}
+): IDagNode {
     return {
         nodeId,
         nodeType,
