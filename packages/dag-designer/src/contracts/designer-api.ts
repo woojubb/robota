@@ -1,6 +1,7 @@
 import type {
     IDagDefinition,
     INodeManifest,
+    TObjectInfo,
     TResult,
     TPortPayload,
     TRunProgressEvent
@@ -75,6 +76,7 @@ export interface IDesignerApiClient {
     getDefinition(input: IGetDefinitionInput): Promise<TResult<IDagDefinition, IProblemDetails[]>>;
     listDefinitions(input?: IListDefinitionsInput): Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>>;
+    listObjectInfo(): Promise<TResult<TObjectInfo, IProblemDetails[]>>;
     createRun(input: IDesignerCreateRunInput): Promise<TResult<{ preparationId: string }, IProblemDetails[]>>;
     startRun(input: IDesignerStartRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
     getRunResult(input: IGetRunResultInput): Promise<TResult<IRunResult, IProblemDetails[]>>;

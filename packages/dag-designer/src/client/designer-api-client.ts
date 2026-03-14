@@ -1,4 +1,4 @@
-import type { IDagDefinition, INodeManifest, IRunResult, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
+import type { IDagDefinition, INodeManifest, IRunResult, TObjectInfo, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
 import type { IProblemDetails, IDefinitionListItem } from '@robota-sdk/dag-api';
 import type {
     IDesignerCreateRunInput,
@@ -195,6 +195,19 @@ export class DesignerApiClient implements IDesignerApiClient {
             ok: false,
             error: [createContractViolationProblem(200, path)]
         };
+    }
+
+    public async listObjectInfo(): Promise<TResult<TObjectInfo, IProblemDetails[]>> {
+        const path = '/v1/dag/object_info';
+        const payloadResult = await this.requestPayload(path, 'GET', undefined);
+        if (!payloadResult.ok) {
+            return payloadResult;
+        }
+        const data = payloadResult.value.data;
+        if (data && typeof data === 'object') {
+            return { ok: true, value: data as TObjectInfo };
+        }
+        return { ok: false, error: [createContractViolationProblem(200, path)] };
     }
 
     public async createRun(input: IDesignerCreateRunInput): Promise<TResult<{ preparationId: string }, IProblemDetails[]>> {
