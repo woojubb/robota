@@ -12,6 +12,7 @@ packages/
 ├── playground/         # Playground UI package
 ├── remote/             # Remote execution package
 ├── dag-core/           # DAG domain contracts and state rules (SSOT)
+├── dag-adapters-memory/ # In-memory port adapters (Storage, Queue, Lease, Clock)
 ├── dag-node/           # Node authoring infrastructure (base class, IO, registries)
 ├── dag-runtime/        # DAG orchestration runtime
 ├── dag-worker/         # DAG worker execution layer
@@ -35,6 +36,7 @@ apps/
 ```
 dag-core  (contracts: interfaces, types, state machines, execution engine)
   ↑
+dag-adapters-memory  (in-memory port adapters: Storage, Queue, Lease, Clock)
 dag-node  (node infrastructure: base class, IO, registries, schemas)
   ↑
 dag-nodes/*  (concrete node implementations)
@@ -43,6 +45,7 @@ dag-nodes/*  (concrete node implementations)
 **Rules:**
 
 - `dag-core` is the SSOT contract package. It defines interfaces and types only. It must NOT depend on `dag-node` or any implementation package in production dependencies.
+- `dag-adapters-memory` depends on `dag-core` only. It provides lightweight in-memory implementations of port interfaces for testing, local development, and demos.
 - `dag-node` depends on `dag-core` for type imports. It provides node authoring infrastructure (classes, factories, registries).
 - `dag-nodes/*` depend on both `dag-node` (infrastructure) and `dag-core` (types).
 - All other dag packages (`dag-runtime`, `dag-worker`, `dag-scheduler`, `dag-projection`, `dag-api`, `dag-designer`) depend on `dag-core` for contracts.
