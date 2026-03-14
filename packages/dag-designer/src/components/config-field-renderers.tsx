@@ -34,11 +34,11 @@ function FieldLabel(props: {
     description?: string;
 }): ReactElement {
     return (
-        <div className="col-span-4 text-xs font-medium text-gray-700">
+        <div className="col-span-4 text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">
             {props.label}
             {props.isRequired ? ' *' : ''}
             {props.description ? (
-                <div className="mt-1 text-[11px] font-normal text-gray-500">{props.description}</div>
+                <div className="mt-1 normal-case tracking-normal text-[11px] font-normal text-[var(--studio-text-muted)]">{props.description}</div>
             ) : null}
         </div>
     );
@@ -51,13 +51,13 @@ function AssetUploadSection(props: {
     onHandleAssetUpload: (key: string, file: File) => void;
 }): ReactElement {
     return (
-        <div className="rounded border border-gray-200 bg-gray-50 p-2">
-            <div className="mb-2 text-[11px] text-gray-600">
+        <div className="rounded-md border border-dashed border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2 transition-all hover:border-[var(--studio-accent-violet)]">
+            <div className="mb-2 text-[11px] text-[var(--studio-text-muted)]">
                 Upload file to asset store and set `{props.fieldKey}` automatically.
             </div>
             <input
                 type="file"
-                className="block w-full text-xs"
+                className="block w-full text-xs text-[var(--studio-text-secondary)]"
                 onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (!file) {
@@ -68,10 +68,10 @@ function AssetUploadSection(props: {
                 }}
             />
             {props.uploadStatusByField[props.fieldKey] ? (
-                <div className="mt-2 text-[11px] text-gray-600">{props.uploadStatusByField[props.fieldKey]}</div>
+                <div className="mt-2 text-[11px] text-[var(--studio-text-muted)]">{props.uploadStatusByField[props.fieldKey]}</div>
             ) : null}
             {props.uploadingFieldKey === props.fieldKey ? (
-                <div className="mt-1 text-[11px] text-gray-500">Uploading...</div>
+                <div className="mt-1 text-[11px] text-[var(--studio-text-muted)]">Uploading...</div>
             ) : null}
         </div>
     );
@@ -96,11 +96,11 @@ function AssetReferenceField(props: {
         ? String(assetConfigValue.sizeBytes)
         : '';
     return (
-        <div className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+        <div className="grid grid-cols-12 items-start gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
             <FieldLabel label={props.fieldKey} isRequired={props.isRequired} description={props.fieldDescription} />
             <div className="col-span-8 space-y-2">
                 <select
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                    className="w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                     value={assetConfigValue.referenceType}
                     onChange={(event) => {
                         const nextReferenceType = event.target.value === 'uri' ? 'uri' : 'asset';
@@ -117,7 +117,7 @@ function AssetReferenceField(props: {
                 </select>
                 {assetConfigValue.referenceType === 'asset' ? (
                     <input
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                        className="w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                         value={assetConfigValue.assetId ?? ''}
                         placeholder="assetId"
                         onChange={(event) => {
@@ -130,7 +130,7 @@ function AssetReferenceField(props: {
                     />
                 ) : (
                     <input
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                        className="w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                         value={assetConfigValue.uri ?? ''}
                         placeholder="uri"
                         onChange={(event) => {
@@ -143,7 +143,7 @@ function AssetReferenceField(props: {
                     />
                 )}
                 <input
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                    className="w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                     value={assetConfigValue.mediaType ?? ''}
                     placeholder="mediaType (optional)"
                     onChange={(event) => {
@@ -154,7 +154,7 @@ function AssetReferenceField(props: {
                     }}
                 />
                 <input
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                    className="w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                     value={assetConfigValue.name ?? ''}
                     placeholder="name (optional)"
                     onChange={(event) => {
@@ -165,7 +165,7 @@ function AssetReferenceField(props: {
                     }}
                 />
                 <input
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                    className="w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                     type="number"
                     min={0}
                     value={sizeBytesValue}
@@ -238,11 +238,11 @@ export function SchemaField(props: ISchemaFieldProps): ReactElement {
     if (enumValues.length > 0) {
         const selectedValue = typeof effectiveValue === 'string' ? effectiveValue : '';
         return (
-            <div className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+            <div className="grid grid-cols-12 items-start gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
                 <FieldLabel label={props.fieldKey} isRequired={props.isRequired} description={fieldDescription} />
                 <div className="col-span-8">
                     <select
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                        className="w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                         value={selectedValue}
                         onChange={(event) => {
                             const nextValue = event.target.value;
@@ -262,11 +262,11 @@ export function SchemaField(props: ISchemaFieldProps): ReactElement {
     if (hasUnionSchema || schemaType === 'object' || schemaType === 'array') {
         const rawValue = typeof effectiveValue === 'undefined' ? '' : JSON.stringify(effectiveValue, null, 2);
         return (
-            <div className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+            <div className="grid grid-cols-12 items-start gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
                 <FieldLabel label={props.fieldKey} isRequired={props.isRequired} description={fieldDescription} />
                 <div className="col-span-8 space-y-2">
                     <textarea
-                        className="min-h-[90px] w-full rounded border border-gray-300 px-2 py-1 font-mono text-xs"
+                        className="min-h-[90px] w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 font-mono text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                         value={rawValue}
                         onChange={(event) => {
                             const nextValue = event.target.value;
@@ -305,12 +305,13 @@ export function SchemaField(props: ISchemaFieldProps): ReactElement {
 
     if (schemaType === 'boolean') {
         return (
-            <div className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+            <div className="grid grid-cols-12 items-start gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
                 <FieldLabel label={props.fieldKey} isRequired={props.isRequired} description={fieldDescription} />
                 <div className="col-span-8">
-                    <label className="inline-flex items-center gap-2 rounded border border-gray-300 px-2 py-2 text-xs">
+                    <label className="inline-flex items-center gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text-secondary)] cursor-pointer transition-all hover:border-[var(--studio-accent-violet)]">
                         <input
                             type="checkbox"
+                            className="accent-[var(--studio-accent-violet)]"
                             checked={effectiveValue === true}
                             onChange={(event) => props.onUpdateConfigValue(props.fieldKey, event.target.checked)}
                         />
@@ -324,11 +325,11 @@ export function SchemaField(props: ISchemaFieldProps): ReactElement {
     if (schemaType === 'number' || schemaType === 'integer') {
         const inputValue = typeof effectiveValue === 'number' ? String(effectiveValue) : '';
         return (
-            <div className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+            <div className="grid grid-cols-12 items-start gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
                 <FieldLabel label={props.fieldKey} isRequired={props.isRequired} description={fieldDescription} />
                 <div className="col-span-8">
                     <input
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                        className="w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                         type="number"
                         value={inputValue}
                         onChange={(event) => {
@@ -355,12 +356,12 @@ export function SchemaField(props: ISchemaFieldProps): ReactElement {
     const textValue = typeof effectiveValue === 'string' ? effectiveValue : '';
     const useTextareaForText = schemaType === 'string' && !isAssetIdField;
     return (
-        <div className="grid grid-cols-12 items-start gap-2 rounded border border-gray-200 p-2">
+        <div className="grid grid-cols-12 items-start gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
             <FieldLabel label={props.fieldKey} isRequired={props.isRequired} description={fieldDescription} />
             <div className="col-span-8 space-y-2">
                 {useTextareaForText ? (
                     <textarea
-                        className="min-h-[90px] w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                        className="min-h-[90px] w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                         value={textValue}
                         onChange={(event) => {
                             const nextValue = event.target.value;
@@ -369,7 +370,7 @@ export function SchemaField(props: ISchemaFieldProps): ReactElement {
                     />
                 ) : (
                     <input
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                        className="w-full rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                         value={textValue}
                         onChange={(event) => {
                             const nextValue = event.target.value;

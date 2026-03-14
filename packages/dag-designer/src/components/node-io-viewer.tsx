@@ -34,9 +34,9 @@ function resolveRenderableUri(binary: IPortBinaryValue, assetBaseUrl?: string): 
 
 function renderPrimitive(value: string | number | boolean | null): ReactElement {
     if (typeof value === 'string') {
-        return <div className="whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 px-2 py-1 text-[10px]">{value}</div>;
+        return <div className="whitespace-pre-wrap break-words rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1 font-mono text-[10px] text-[var(--studio-text-secondary)]">{value}</div>;
     }
-    return <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-[10px]">{String(value)}</div>;
+    return <div className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1 font-mono text-[10px] text-[var(--studio-text-secondary)]">{String(value)}</div>;
 }
 
 function renderBinary(
@@ -48,12 +48,12 @@ function renderBinary(
     const isImage = binary.kind === 'image';
     const isVideo = binary.kind === 'video';
     return (
-        <div className="flex flex-col gap-1 rounded border border-gray-200 bg-gray-50 p-2">
-            <div className="text-[10px] text-gray-600">{binary.kind} · {binary.mimeType}</div>
+        <div className="flex flex-col gap-1 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
+            <div className="text-[10px] text-[var(--studio-text-muted)]">{binary.kind} · {binary.mimeType}</div>
             {isImage ? (
                 <button
                     type="button"
-                    className="rounded border border-gray-300 bg-white p-1"
+                    className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-1"
                     onClick={() => onImageClick(resolvedUri)}
                 >
                     <img
@@ -64,7 +64,7 @@ function renderBinary(
                 </button>
             ) : null}
             {isVideo ? (
-                <div className="rounded border border-gray-300 bg-black p-1">
+                <div className="rounded-md border border-[var(--studio-border)] bg-black p-1">
                     <video
                         controls
                         preload="metadata"
@@ -74,7 +74,7 @@ function renderBinary(
                     </video>
                 </div>
             ) : null}
-            <a href={resolvedUri} target="_blank" rel="noreferrer" className="break-all text-[10px] text-blue-600 underline">
+            <a href={resolvedUri} target="_blank" rel="noreferrer" className="break-all text-[10px] text-[var(--studio-accent-cyan)] underline">
                 {binary.uri}
             </a>
         </div>
@@ -94,16 +94,16 @@ function renderValue(
     }
     if (Array.isArray(value)) {
         return (
-            <details className="rounded border border-gray-200 bg-gray-50 p-2">
-                <summary className="cursor-pointer text-[10px] text-gray-700">array[{value.length}]</summary>
-                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words text-[10px] text-gray-700">{stringifyValue(value)}</pre>
+            <details className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
+                <summary className="cursor-pointer text-[10px] text-[var(--studio-text-secondary)]">array[{value.length}]</summary>
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] text-[var(--studio-text-secondary)]">{stringifyValue(value)}</pre>
             </details>
         );
     }
     return (
-        <details className="rounded border border-gray-200 bg-gray-50 p-2">
-            <summary className="cursor-pointer text-[10px] text-gray-700">object</summary>
-            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words text-[10px] text-gray-700">{stringifyValue(value)}</pre>
+        <details className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
+            <summary className="cursor-pointer text-[10px] text-[var(--studio-text-secondary)]">object</summary>
+            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] text-[var(--studio-text-secondary)]">{stringifyValue(value)}</pre>
         </details>
     );
 }
@@ -116,13 +116,13 @@ function renderPayload(
 ): ReactElement {
     return (
         <div className="flex flex-col gap-1">
-            <div className="text-[10px] font-semibold text-gray-600">{title}</div>
+            <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">{title}</div>
             {!payload || Object.keys(payload).length === 0 ? (
-                <div className="text-[10px] text-gray-400">No data</div>
+                <div className="text-[10px] text-[var(--studio-text-muted)]">No data</div>
             ) : (
                 Object.entries(payload).map(([key, value]) => (
-                    <div key={`${title}-${key}`} className="rounded border border-gray-200 bg-white p-2">
-                        <div className="mb-1 text-[10px] font-medium text-gray-700">{key}</div>
+                    <div key={`${title}-${key}`} className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-2">
+                        <div className="mb-1 text-[10px] font-medium text-[var(--studio-text-secondary)]">{key}</div>
                         {renderValue(value, assetBaseUrl, onImageClick)}
                     </div>
                 ))
@@ -136,8 +136,8 @@ export function NodeIoViewer(props: INodeIoViewerProps): ReactElement {
     const hasDom = typeof document !== 'undefined';
 
     return (
-        <div className="nodrag border-t border-gray-200 px-3 py-2">
-            <div className="mb-1 text-[11px] font-semibold text-gray-600">Node I/O Viewer</div>
+        <div className="nodrag border-t border-[var(--studio-border)] px-3 py-2">
+            <div className="mb-1 text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Node I/O Viewer</div>
             <div className="grid grid-cols-1 gap-2">
                 {renderPayload('Output', props.output, props.assetBaseUrl, setPopupImageUri)}
             </div>
@@ -147,20 +147,20 @@ export function NodeIoViewer(props: INodeIoViewerProps): ReactElement {
                     onClick={() => setPopupImageUri(undefined)}
                 >
                     <div
-                        className="fixed bottom-[100px] left-[100px] right-[100px] top-[100px] flex min-h-0 flex-col rounded border border-gray-300 bg-white p-3"
+                        className="fixed bottom-[100px] left-[100px] right-[100px] top-[100px] flex min-h-0 flex-col rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="mb-2 flex items-center justify-between">
-                            <div className="text-xs font-semibold text-gray-700">Image Viewer</div>
+                            <div className="text-xs font-semibold text-[var(--studio-text)]">Image Viewer</div>
                             <button
                                 type="button"
-                                className="rounded border border-gray-300 px-2 py-1 text-[11px] hover:bg-gray-50"
+                                className="border border-[var(--studio-border)] text-[var(--studio-text-secondary)] rounded-md px-3 py-1.5 text-xs hover:bg-[var(--studio-bg-surface)] transition-all"
                                 onClick={() => setPopupImageUri(undefined)}
                             >
                                 Close
                             </button>
                         </div>
-                        <div className="flex min-h-0 flex-1 items-center justify-center rounded border border-gray-200 bg-gray-50">
+                        <div className="flex min-h-0 flex-1 items-center justify-center rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)]">
                             <img
                                 src={popupImageUri}
                                 alt="Node IO popup preview"
