@@ -7,7 +7,11 @@ for authoring DAG definitions, managing node catalogs, and executing runs with r
 progress streaming. Run execution is server-authoritative via API; the designer does not
 perform local orchestration.
 
-Run client contract: `createRun -> startRun -> getRunResult` with `traces/totalCostUsd` in results.
+Run client contract: `createRun -> startRun -> getRunResult`.
+- `createRun` returns `{ dagRunId }`.
+- `startRun` accepts `dagRunId`, returns `{ dagRunId }` where `dagRunId` = `promptId` from runtime.
+- `getRunResult` uses `dagRunId`.
+- `IRunResult` has `status` (`'success' | 'failed'`), `traces`, `nodeErrors: IRunNodeError[]`, and `totalCostUsd`.
 
 `text-template` node template syntax:
 - `%s`: replace with input text
@@ -24,7 +28,7 @@ Run client contract: `createRun -> startRun -> getRunResult` with `traces/totalC
 ## Architecture Overview
 
 - **Contracts** (`contracts/designer-api.ts`): Defines the `IDesignerApiClient` interface and all request/response types for the designer-to-server communication.
-- **API Client** (`client/designer-api-client.ts`): `DesignerApiClient` implements `IDesignerApiClient` using `fetch` for REST calls and `EventSource` for SSE-based run progress streaming with exponential backoff reconnection.
+- **API Client** (`client/designer-api-client.ts`): `DesignerApiClient` implements `IDesignerApiClient` using `fetch` for REST calls and `WebSocket` for run progress streaming with exponential backoff reconnection.
 - **React Hooks**:
   - `useDagDesignerState()` -- accesses designer state (definition, manifests, selection, run result, run progress, errors).
   - `useDagDesignerActions()` -- accesses designer mutation actions (updateDefinition, addNode, updateNode, updateEdge, setSelection, etc.).
@@ -53,14 +57,14 @@ This package is SSOT for:
 Imported from other packages (not owned here):
 
 - `IProblemDetails`, `IDefinitionListItem` -- imported from `@robota-sdk/dag-api`
-- `IRunNodeTrace`, `IRunResult` -- imported from `@robota-sdk/dag-server-core`
+- `IRunNodeTrace`, `IRunResult`, `IRunNodeError` -- imported from `@robota-sdk/dag-core`
 - `IDagDesignerState`, `IDagDesignerActions` -- React state/action interfaces
 - `IUseDagDesignApi`, `IUseDagDesignApiOptions` -- hook interfaces
 - `IRunProgressState` -- run progress tracking state (from canvas component)
 
 ## Public API Surface
 
-- `DesignerApiClient` -- HTTP/SSE client implementing `IDesignerApiClient`
+- `DesignerApiClient` -- HTTP/WebSocket client implementing `IDesignerApiClient`
 - `useDagDesignerState()` -- React hook for read-only designer state
 - `useDagDesignerActions()` -- React hook for designer mutations
 - `useDagDesignApi(options)` -- React hook wrapping API client
@@ -81,7 +85,7 @@ Client-side errors use `IProblemDetails` (mirroring the server shape):
 
 - `DESIGNER_API_CONTRACT_VIOLATION` -- response payload does not match the expected designer API contract (type: `urn:robota:problems:dag:contract`)
 - Server-originated `IProblemDetails` errors are passed through from the API response.
-- `EventSource` errors surface via `onError` callback: `"EventSource is not available"`, `"Run progress stream disconnected"`, `"Failed to parse run progress event payload"`.
+- WebSocket errors surface via `onError` callback: `"WebSocket is not available in this environment."`, `"Run progress stream disconnected."`, `"Failed to parse run progress event payload."`.
 
 ## Class Contract Registry
 
@@ -103,7 +107,8 @@ None. Classes are standalone.
 
 ## Test Strategy
 
-- No dedicated test files found in this package currently.
-- The designer relies on integration testing through `dag-api` E2E tests and app-level UI tests.
-- Coverage priorities: API client request/response contract validation, SSE reconnection logic, hook state management, component rendering with manifests and definitions.
+- Unit tests: `port-editor-utils.test.ts` (port editing helpers), `schema-defaults.test.ts` (config schema default generation).
+- API client contract tests are planned to validate request/response shapes and WebSocket reconnection logic.
+- The designer also relies on integration testing through app-level UI tests.
+- Coverage priorities: API client request/response contract validation, WebSocket reconnection logic, hook state management, component rendering with manifests and definitions.
 - Run: `pnpm --filter @robota-sdk/dag-designer test`
