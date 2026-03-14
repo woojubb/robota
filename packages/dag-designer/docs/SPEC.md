@@ -8,8 +8,9 @@ progress streaming. Run execution is server-authoritative via API; the designer 
 perform local orchestration.
 
 Run client contract: `createRun -> startRun -> getRunResult`.
-- `createRun` returns `{ dagRunId }`.
-- `startRun` accepts `dagRunId`, returns `{ dagRunId }` where `dagRunId` = `promptId` from runtime.
+- `createRun` returns `{ preparationId }` (orchestrator-internal pre-start key).
+- `startRun` accepts `preparationId`, returns `{ dagRunId }` where `dagRunId` = `promptId` from runtime.
+- `subscribeRunProgress` uses `preparationId` (WS connects before start).
 - `getRunResult` uses `dagRunId`.
 - `IRunResult` has `status` (`'success' | 'failed'`), `traces`, `nodeErrors: IRunNodeError[]`, and `totalCostUsd`.
 
@@ -108,7 +109,8 @@ None. Classes are standalone.
 ## Test Strategy
 
 - Unit tests: `port-editor-utils.test.ts` (port editing helpers), `schema-defaults.test.ts` (config schema default generation).
-- API client contract tests are planned to validate request/response shapes and WebSocket reconnection logic.
+- Contract tests: `designer-api-contract.test.ts` (validates `hasValidRunResult` contract for `IRunResult` shape — status, dagRunId, traces, nodeErrors, totalCostUsd).
+- API client HTTP request/response shape tests and WebSocket reconnection logic tests are planned.
 - The designer also relies on integration testing through app-level UI tests.
 - Coverage priorities: API client request/response contract validation, WebSocket reconnection logic, hook state management, component rendering with manifests and definitions.
 - Run: `pnpm --filter @robota-sdk/dag-designer test`

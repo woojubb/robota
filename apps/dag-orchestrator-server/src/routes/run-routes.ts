@@ -79,7 +79,11 @@ export function registerRunRoutes(
         const instance = `/v1/dag/runs/${req.params.dagRunId}/result`;
         const result = await runService.getRunResult(req.params.dagRunId);
         if (!result.ok) {
-            const statusCode = result.error.code === 'ORCHESTRATOR_RUN_NOT_COMPLETED' ? HTTP_CONFLICT : HTTP_BAD_REQUEST;
+            const statusCode = result.error.code === 'ORCHESTRATOR_RUN_NOT_FOUND'
+                ? HTTP_NOT_FOUND
+                : result.error.code === 'ORCHESTRATOR_RUN_NOT_COMPLETED'
+                    ? HTTP_CONFLICT
+                    : HTTP_BAD_REQUEST;
             res.status(statusCode).json({
                 ok: false, status: statusCode,
                 errors: [toProblemDetails(result.error, instance)]
@@ -93,11 +97,12 @@ export function registerRunRoutes(
     });
 
     router.get('/v1/dag/runs/:dagRunId', async (req: Request<{ dagRunId: string }>, res: Response) => {
+        const instance = `/v1/dag/runs/${req.params.dagRunId}`;
         const result = await runService.getRunStatus(req.params.dagRunId);
         if (!result.ok) {
             res.status(HTTP_NOT_FOUND).json({
                 ok: false, status: HTTP_NOT_FOUND,
-                errors: [result.error]
+                errors: [toProblemDetails(result.error, instance)]
             });
             return;
         }

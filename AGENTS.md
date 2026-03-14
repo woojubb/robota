@@ -102,6 +102,7 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 | [`repo-writing`](.agents/skills/repo-writing/SKILL.md) | Writing rules for docs, `.design/`, commits |
 | [`spec-writing-standard`](.agents/skills/spec-writing-standard/SKILL.md) | SPEC.md required sections and quality gates |
 | [`spec-first-development`](.agents/skills/spec-first-development/SKILL.md) | Spec-first workflow for contract boundary changes |
+| [`spec-code-conformance`](.agents/skills/spec-code-conformance/SKILL.md) | Spec-code conformance verification loop after spec changes |
 | [`dag-node-standard`](.agents/skills/dag-node-standard/SKILL.md) | Node implementation, execution safety |
 | [`execution-caching`](.agents/skills/execution-caching/SKILL.md) | Cache-first execution workflows |
 | [`package-code-review`](.agents/skills/package-code-review/SKILL.md) | 6-perspective code review with severity labels |
