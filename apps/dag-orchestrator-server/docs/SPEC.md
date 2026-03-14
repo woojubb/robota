@@ -87,10 +87,10 @@ All Robota endpoints use a standard response envelope:
 
 | Endpoint | Method | Purpose | Request Body | Success Response |
 |---|---|---|---|---|
-| `/v1/dag/runs` | POST | Create run | `{ definition, input? }` | `201 { ok, data: { dagRunId } }` |
-| `/v1/dag/runs/:dagRunId/start` | POST | Start run execution | None | `202 { ok, data: { dagRunId, promptId } }` |
-| `/v1/dag/runs/:dagRunId/result` | GET | Get run result | None | `200 { ok, data: { run } }` |
-| `/v1/dag/runs/:dagRunId` | GET | Get run status | None | `200 { ok, data: { dagRunId, status } }` |
+| `/v1/dag/runs` | POST | Create run | `{ definition, input? }` | `201 { ok, data: { preparationId } }` |
+| `/v1/dag/runs/:id/start` | POST | Start run execution | None | `202 { ok, data: { dagRunId, preparationId } }` |
+| `/v1/dag/runs/:id/result` | GET | Get run result | None | `200 { ok, data: { run } }` |
+| `/v1/dag/runs/:id` | GET | Get run status | None | `200 { ok, data: { dagRunId, status } }` |
 
 #### Asset Routes
 
@@ -130,14 +130,14 @@ These endpoints forward requests to the ComfyUI-compatible backend and return th
 
 | URL Pattern | Protocol | Direction | Envelope |
 |---|---|---|---|
-| `/v1/dag/runs/:dagRunId/ws` | WebSocket (upgrade) | Server to client | `{ event: TRunProgressEvent }` |
+| `/v1/dag/runs/:id/ws` | WebSocket (upgrade) | Server to client | `{ event: TRunProgressEvent }` |
 
 **WebSocket bridge behavior:**
 
-1. Client connects with `dagRunId` in URL.
-2. Server opens a parallel WebSocket to the ComfyUI backend (`/ws?clientId=orch-{dagRunId}`).
-3. Server polls `runService.getPromptIdForRun(dagRunId)` every 100ms until a `promptId` is available, buffering incoming ComfyUI messages.
-4. Once `promptId` is known, buffered and subsequent ComfyUI messages are translated via `translateComfyUiEvent` and forwarded to the designer client.
+1. Client connects with `id` in URL (can be `preparationId` before start, or `dagRunId` after start).
+2. Server opens a parallel WebSocket to the ComfyUI backend (`/ws?clientId=orch-{id}`).
+3. Server polls `runService.getDagRunId(id)` every 100ms until the `dagRunId` (= `promptId`) is available, buffering incoming ComfyUI messages.
+4. Once `dagRunId` is resolved, buffered and subsequent ComfyUI messages are translated via `translateComfyUiEvent` using `dagRunId` as both the event identifier and the `promptId` filter, and forwarded to the designer client.
 5. Terminal events (`execution.completed`, `execution.failed`) close both WebSocket connections.
 
 ## Extension Points
@@ -212,10 +212,11 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | Test File | Scope | Tests |
 |---|---|---|
 | `src/__tests__/comfyui-event-translator.test.ts` | `translateComfyUiEvent` pure function | ComfyUI message type mapping, prompt_id filtering, terminal events |
+| `src/__tests__/endpoint-contract.test.ts` | Run route endpoint contracts | Response envelope shapes, preparationId/dagRunId flow, error format (IProblemDetails) |
 
 ### Coverage Gaps
 
-- **Endpoint contract tests:** No tests for any route module. Definition, run, asset, admin routes are untested.
+- **Endpoint contract tests:** Definition, asset, admin routes are untested.
 - **WebSocket bridge tests:** No tests for ws-routes connection lifecycle, message buffering, or cleanup.
 - **Route utility tests:** No tests for `validateAssetReferences`, `parseOptionalPositiveIntegerQuery`, `toRunProblemDetails`.
 - **Integration tests:** No tests for the bootstrap sequence or middleware configuration.
