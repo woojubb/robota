@@ -1,6 +1,7 @@
 // packages/dag-designer/src/components/comfyui-field-renderers.tsx
-import { type ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import type { TInputTypeSpec } from '@robota-sdk/dag-core';
+import { toBase64 } from './asset-upload-utils.js';
 
 const PARAMETER_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'BOOL']);
 
@@ -11,6 +12,8 @@ export interface IParsedInputField {
     isRequired: boolean;
     metadata: Record<string, unknown>;
     enumOptions?: string[];  // for string[] enum specs
+    imageUpload?: boolean;   // ComfyUI image_upload flag
+    videoUpload?: boolean;   // ComfyUI video_upload flag
 }
 
 /**
@@ -21,6 +24,29 @@ export function parseInputSpec(
     spec: TInputTypeSpec | string[],
     required: boolean,
 ): IParsedInputField {
+    // Detect ComfyUI upload tuple: [string[], { image_upload: true }] or [string[], { video_upload: true }]
+    if (
+        Array.isArray(spec) && spec.length === 2
+        && Array.isArray(spec[0])
+        && typeof spec[1] === 'object' && spec[1] !== null && !Array.isArray(spec[1])
+    ) {
+        const enumValues = spec[0] as unknown[];
+        const metadata = spec[1] as Record<string, unknown>;
+        if (enumValues.every(item => typeof item === 'string')) {
+            const field: IParsedInputField = {
+                key,
+                typeName: 'ENUM',
+                isParameter: true,
+                isRequired: required,
+                metadata,
+                enumOptions: enumValues as string[],
+            };
+            if (metadata.image_upload === true) field.imageUpload = true;
+            if (metadata.video_upload === true) field.videoUpload = true;
+            return field;
+        }
+    }
+
     // string[] enum: every item is a string AND first item is not a known type
     if (Array.isArray(spec) && spec.length > 0 && spec.every(item => typeof item === 'string')) {
         const firstItem = spec[0] as string;
@@ -30,13 +56,16 @@ export function parseInputSpec(
             if (spec.length === 1 || (spec.length === 2 && typeof spec[1] === 'object' && spec[1] !== null)) {
                 const typeName = firstItem.toUpperCase();
                 const metadata = (spec.length === 2 && typeof spec[1] === 'object') ? spec[1] as Record<string, unknown> : {};
-                return {
+                const field: IParsedInputField = {
                     key,
                     typeName,
                     isParameter: PARAMETER_TYPES.has(typeName),
                     isRequired: required,
                     metadata,
                 };
+                if (metadata.image_upload === true) field.imageUpload = true;
+                if (metadata.video_upload === true) field.videoUpload = true;
+                return field;
             }
         }
         // Otherwise it's an enum
@@ -56,13 +85,16 @@ export function parseInputSpec(
         ? spec[1] as Record<string, unknown>
         : {};
 
-    return {
+    const field: IParsedInputField = {
         key,
         typeName,
         isParameter: PARAMETER_TYPES.has(typeName),
         isRequired: required,
         metadata,
     };
+    if (metadata.image_upload === true) field.imageUpload = true;
+    if (metadata.video_upload === true) field.videoUpload = true;
+    return field;
 }
 
 /**
@@ -236,6 +268,113 @@ export function ComfyHandleField(props: IComfyHandleFieldProps): ReactElement {
             ) : field.isRequired && !isConnected ? (
                 <span className="ml-auto text-[10px] text-[var(--studio-accent-rose)]">연결 필요</span>
             ) : null}
+        </div>
+    );
+}
+
+export interface IComfyFileUploadFieldProps {
+    field: IParsedInputField;
+    value: unknown;
+    onChange: (key: string, value: unknown) => void;
+    assetUploadBaseUrl?: string;
+}
+
+export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactElement {
+    const { field, value, onChange, assetUploadBaseUrl } = props;
+    const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+        const file = e.target.files?.[0];
+        if (!file || !assetUploadBaseUrl) return;
+
+        const normalizedBaseUrl = assetUploadBaseUrl.endsWith('/')
+            ? assetUploadBaseUrl.slice(0, -1)
+            : assetUploadBaseUrl;
+
+        setUploadStatus('uploading');
+        try {
+            const base64Data = await toBase64(file);
+
+            const response = await fetch(`${normalizedBaseUrl}/v1/dag/assets`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fileName: file.name,
+                    mediaType: file.type,
+                    base64Data,
+                }),
+            });
+
+            if (response.ok) {
+                const result = (await response.json()) as Record<string, unknown>;
+                const data = result.data as Record<string, unknown> | undefined;
+                const asset = data?.asset as Record<string, unknown> | undefined;
+                const assetId = asset?.assetId ?? (data as Record<string, unknown> | undefined)?.assetId;
+                onChange(field.key, {
+                    referenceType: 'asset',
+                    assetId: typeof assetId === 'string' ? assetId : String(assetId),
+                    mediaType: file.type,
+                });
+                setUploadStatus('done');
+            } else {
+                setUploadStatus('error');
+            }
+        } catch {
+            setUploadStatus('error');
+        }
+    };
+
+    const accept = field.videoUpload === true ? 'video/*' : 'image/*';
+
+    const valueRecord = typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : undefined;
+
+    return (
+        <div className="flex flex-col gap-1">
+            <FieldLabel field={field} />
+            <div className="flex flex-col gap-2 rounded-md border border-dashed border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-3">
+                {/* Current value display */}
+                {valueRecord?.assetId ? (
+                    <div className="text-[10px] text-[var(--studio-accent-emerald)]">
+                        Asset: {String(valueRecord.assetId)}
+                    </div>
+                ) : typeof value === 'string' && value.length > 0 ? (
+                    <div className="text-[10px] text-[var(--studio-text-secondary)]">{value}</div>
+                ) : (
+                    <div className="text-[10px] text-[var(--studio-text-muted)]">No file selected</div>
+                )}
+
+                {/* Enum dropdown if there are existing files */}
+                {field.enumOptions && field.enumOptions.length > 0 ? (
+                    <select
+                        value={typeof value === 'string' ? value : ''}
+                        onChange={(e) => onChange(field.key, e.target.value)}
+                        className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg)] px-2 py-1 text-xs text-[var(--studio-text)]"
+                    >
+                        <option value="">Select...</option>
+                        {field.enumOptions.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                    </select>
+                ) : null}
+
+                {/* File upload button */}
+                <label className="cursor-pointer rounded-md bg-[var(--studio-accent-violet)] px-3 py-1.5 text-center text-[11px] text-white hover:brightness-110 transition-all">
+                    {uploadStatus === 'uploading' ? 'Uploading...' : 'Choose File'}
+                    <input
+                        type="file"
+                        accept={accept}
+                        onChange={(e) => void handleFileChange(e)}
+                        className="hidden"
+                        disabled={uploadStatus === 'uploading'}
+                    />
+                </label>
+
+                {uploadStatus === 'error' ? (
+                    <div className="text-[10px] text-[var(--studio-accent-rose)]">Upload failed</div>
+                ) : null}
+            </div>
         </div>
     );
 }
