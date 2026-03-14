@@ -11,9 +11,8 @@
     "nodes": [],
     "edges": [],
     "costPolicy": {
-      "runCostLimitUsd": 10,
-      "costCurrency": "USD",
-      "costPolicyVersion": 1
+      "runCreditLimit": 100,
+      "costPolicyVersion": 2
     }
   }
 }
