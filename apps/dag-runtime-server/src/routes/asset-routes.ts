@@ -32,7 +32,16 @@ export function mountAssetRoutes(app: Express, assetStore: IAssetStore): void {
         const readable = result.stream instanceof Readable
             ? result.stream
             : Readable.from(result.stream);
-        await pipeline(readable, res);
+        try {
+            await pipeline(readable, res);
+        } catch {
+            if (!res.headersSent) {
+                res.status(500).json({
+                    error: { type: 'stream_error', message: 'Failed to stream asset content', details: '', extra_info: {} },
+                    node_errors: {},
+                });
+            }
+        }
     });
 
     app.post('/upload/image', upload.single('image'), async (req: Request, res: Response) => {

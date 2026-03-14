@@ -44,6 +44,10 @@ export function registerRuntimeAssetRoutes(app: Express, backendUrl: string): vo
                 res.end();
             }
         } catch (error: unknown) {
+            if (res.headersSent) {
+                res.end();
+                return;
+            }
             const message = error instanceof Error ? error.message : 'Runtime backend unreachable';
             res.status(HTTP_BAD_GATEWAY).json({
                 ok: false,
