@@ -269,12 +269,33 @@ export class DagPromptBackend implements IPromptBackendPort {
         const outputNames: string[] = [];
         const outputTypes: string[] = [];
 
+        // Convert port definitions (handles/connections)
         for (const port of manifest.inputs) {
             const spec: TInputTypeSpec = [port.type];
             if (port.required !== false) {
                 requiredInputs[port.key] = spec;
             } else {
                 optionalInputs[port.key] = spec;
+            }
+        }
+
+        // Convert configSchema properties (parameters) into input specs
+        if (manifest.configSchema && typeof manifest.configSchema === 'object') {
+            const properties = (manifest.configSchema as Record<string, unknown>).properties;
+            const requiredKeys = (manifest.configSchema as Record<string, unknown>).required;
+            const requiredSet = new Set(Array.isArray(requiredKeys) ? requiredKeys as string[] : []);
+
+            if (properties && typeof properties === 'object') {
+                for (const [key, propRaw] of Object.entries(properties as Record<string, unknown>)) {
+                    if (requiredInputs[key] || optionalInputs[key]) continue; // port already defined
+                    const prop = propRaw as Record<string, unknown>;
+                    const spec = this.jsonSchemaPropertyToInputSpec(prop);
+                    if (requiredSet.has(key)) {
+                        requiredInputs[key] = spec;
+                    } else {
+                        optionalInputs[key] = spec;
+                    }
+                }
             }
         }
 
@@ -296,5 +317,38 @@ export class DagPromptBackend implements IPromptBackendPort {
             output_node: manifest.outputs.length === 0,
             description: '',
         };
+    }
+
+    private jsonSchemaPropertyToInputSpec(prop: Record<string, unknown>): TInputTypeSpec | string[] {
+        // Enum → string[]
+        if (Array.isArray(prop.enum)) {
+            return prop.enum.map(String);
+        }
+
+        const meta: Record<string, unknown> = {};
+        if (prop.default !== undefined) meta.default = prop.default;
+
+        const type = typeof prop.type === 'string' ? prop.type : 'string';
+
+        switch (type) {
+            case 'integer':
+                if (typeof prop.minimum === 'number') meta.min = prop.minimum;
+                if (typeof prop.maximum === 'number') meta.max = prop.maximum;
+                return Object.keys(meta).length > 0 ? ['INT', meta] : ['INT'];
+            case 'number':
+                if (typeof prop.minimum === 'number') meta.min = prop.minimum;
+                if (typeof prop.maximum === 'number') meta.max = prop.maximum;
+                return Object.keys(meta).length > 0 ? ['FLOAT', meta] : ['FLOAT'];
+            case 'boolean':
+                return Object.keys(meta).length > 0 ? ['BOOLEAN', meta] : ['BOOLEAN'];
+            case 'object':
+            case 'array':
+                return Object.keys(meta).length > 0 ? ['STRING', { ...meta, multiline: true }] : ['STRING', { multiline: true }];
+            default:
+                if (typeof prop.maxLength === 'number' && prop.maxLength > 200) {
+                    return Object.keys(meta).length > 0 ? ['STRING', { ...meta, multiline: true }] : ['STRING', { multiline: true }];
+                }
+                return Object.keys(meta).length > 0 ? ['STRING', meta] : ['STRING'];
+        }
     }
 }
