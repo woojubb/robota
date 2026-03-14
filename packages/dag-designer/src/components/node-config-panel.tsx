@@ -4,6 +4,7 @@ import {
     type IDagNode,
     type INodeManifest,
     type INodeConfigObject,
+    type INodeObjectInfo,
     type TNodeConfigValue
 } from '@robota-sdk/dag-core';
 import {
@@ -22,6 +23,7 @@ export interface INodeConfigPanelProps {
     node?: IDagNode;
     definition?: IDagDefinition;
     manifest?: INodeManifest;
+    nodeObjectInfo?: INodeObjectInfo;
     assetUploadBaseUrl?: string;
     bindingCleanupMessage?: string;
     onUpdateNode: (nextNode: IDagNode) => void;
@@ -216,6 +218,41 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                             />
                         );
                     })}
+                </div>
+            ) : null}
+
+            {props.nodeObjectInfo ? (
+                <div className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Object Info Inputs</div>
+                    {props.nodeObjectInfo.input.required ? (
+                        <div className="mt-1 flex flex-col gap-1">
+                            {Object.entries(props.nodeObjectInfo.input.required).map(([key, spec]) => {
+                                const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'enum';
+                                return (
+                                    <div key={key} className="flex items-center justify-between text-xs">
+                                        <span className="font-mono text-[var(--studio-text-secondary)]">{key}</span>
+                                        <span className="text-[var(--studio-text-muted)]">{typeName}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : null}
+                    {props.nodeObjectInfo.input.optional ? (
+                        <div className="mt-2">
+                            <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Optional</div>
+                            <div className="mt-1 flex flex-col gap-1">
+                                {Object.entries(props.nodeObjectInfo.input.optional).map(([key, spec]) => {
+                                    const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'enum';
+                                    return (
+                                        <div key={key} className="flex items-center justify-between text-xs">
+                                            <span className="font-mono text-[var(--studio-text-secondary)]">{key}</span>
+                                            <span className="text-[var(--studio-text-muted)]">{typeName}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
             ) : null}
 

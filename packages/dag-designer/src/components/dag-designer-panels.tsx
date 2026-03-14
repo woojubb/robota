@@ -34,7 +34,9 @@ export function DagDesignerNodeExplorer(props: IDagDesignerNodeExplorerProps): R
     return (
         <NodeExplorerPanel
             manifests={context.manifests}
+            objectInfo={context.objectInfo}
             onAddNode={context.addNodeFromManifest}
+            onAddNodeFromObjectInfo={context.addNodeFromObjectInfo}
             className={props.className}
         />
     );
@@ -60,12 +62,17 @@ export function DagDesignerNodeConfig(props: IDagDesignerNodeConfigProps): React
         () => context.manifests.find((manifest) => manifest.nodeType === selectedNode?.nodeType),
         [context.manifests, selectedNode?.nodeType]
     );
+    const selectedObjectInfo = useMemo(
+        () => selectedNode?.nodeType ? context.objectInfo[selectedNode.nodeType] : undefined,
+        [context.objectInfo, selectedNode?.nodeType]
+    );
     return (
         <div className={props.className ?? ''}>
             <NodeConfigPanel
                 node={selectedNode}
                 definition={context.definition}
                 manifest={selectedManifest}
+                nodeObjectInfo={selectedObjectInfo}
                 assetUploadBaseUrl={context.assetUploadBaseUrl}
                 bindingCleanupMessage={context.bindingCleanupMessage}
                 onUpdateNode={context.updateNode}

@@ -17,7 +17,9 @@ import {
     type IDagError,
     type IDagNode,
     type INodeManifest,
+    type INodeObjectInfo,
     type IRunResult,
+    type TObjectInfo,
     type TRunProgressEvent,
     type TPortPayload,
     type TResult
@@ -28,6 +30,7 @@ import {
     compactListBindings,
     computeBindingErrors,
     createNodeFromManifest,
+    createNodeFromObjectInfo,
     recomputeNodeDependencies
 } from './canvas-utils.js';
 
@@ -53,6 +56,7 @@ export interface IRunProgressHooks {
 export interface IDagDesignerRootProps {
     definition: IDagDefinition;
     manifests: INodeManifest[];
+    objectInfo?: TObjectInfo;
     onDefinitionChange: (definition: IDagDefinition) => void;
     assetUploadBaseUrl?: string;
     onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
@@ -68,6 +72,7 @@ export interface IDagDesignerRootProps {
 interface IDagDesignerStateValue {
     definition: IDagDefinition;
     manifests: INodeManifest[];
+    objectInfo: TObjectInfo;
     assetUploadBaseUrl?: string;
     onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
     onRun?: (input: {
@@ -96,6 +101,7 @@ interface IDagDesignerActionsValue {
     setActiveDagRunId: (dagRunId: string) => void;
     applyRunProgressEvent: (event: TRunProgressEvent) => void;
     addNodeFromManifest: (manifest: INodeManifest) => void;
+    addNodeFromObjectInfo: (nodeType: string, info: INodeObjectInfo) => void;
     updateNode: (nextNode: IDagNode) => void;
     updateEdge: (nextEdge: IDagEdgeDefinition) => void;
     removeNodeById: (nodeId: string) => void;
@@ -400,6 +406,17 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         });
     }, [resetRunProgress]);
 
+    const addNodeFromObjectInfo = useCallback((nodeType: string, info: INodeObjectInfo): void => {
+        const def = definitionRef.current;
+        const nextNode = createNodeFromObjectInfo(nodeType, info, def.nodes.length);
+        setBindingCleanupMessage(undefined);
+        resetRunProgress();
+        onDefinitionChangeRef.current({
+            ...def,
+            nodes: [...def.nodes, nextNode]
+        });
+    }, [resetRunProgress]);
+
     const updateNode = useCallback((nextNode: IDagNode): void => {
         const def = definitionRef.current;
         const reconciled = reconcileNodePortsAndEdges(def, nextNode);
@@ -459,6 +476,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const stateValue = useMemo<IDagDesignerStateValue>(() => ({
         definition: props.definition,
         manifests: props.manifests,
+        objectInfo: props.objectInfo ?? {},
         assetUploadBaseUrl: props.assetUploadBaseUrl,
         onRunResult: props.onRunResult,
         onRun: props.onRun,
@@ -475,6 +493,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     }), [
         props.definition,
         props.manifests,
+        props.objectInfo,
         props.assetUploadBaseUrl,
         props.onRunResult,
         props.onRun,
@@ -500,6 +519,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         setActiveDagRunId,
         applyRunProgressEvent,
         addNodeFromManifest,
+        addNodeFromObjectInfo,
         updateNode,
         updateEdge,
         removeNodeById,
@@ -510,6 +530,7 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         setActiveDagRunId,
         applyRunProgressEvent,
         addNodeFromManifest,
+        addNodeFromObjectInfo,
         updateNode,
         updateEdge,
         removeNodeById,
