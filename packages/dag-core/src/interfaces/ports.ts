@@ -101,8 +101,8 @@ export interface IStoragePort {
         taskRunId: string,
         inputSnapshot?: string,
         outputSnapshot?: string,
-        estimatedCostUsd?: number,
-        totalCostUsd?: number
+        estimatedCredits?: number,
+        totalCredits?: number
     ): Promise<void>;
     incrementTaskAttempt(taskRunId: string): Promise<void>;
     deleteDefinition(dagId: string, version: number): Promise<void>;
@@ -119,15 +119,15 @@ export interface ITaskExecutionInput {
     input: TPortPayload;
     nodeDefinition?: IDagNode;
     costPolicy?: ICostPolicy;
-    currentTotalCostUsd?: number;
+    currentTotalCredits?: number;
 }
 
 /** Successful task execution outcome with output payload and optional costs. */
 export interface ITaskExecutionSuccess {
     ok: true;
     output: TPortPayload;
-    estimatedCostUsd?: number;
-    totalCostUsd?: number;
+    estimatedCredits?: number;
+    totalCredits?: number;
 }
 
 /** Failed task execution outcome with structured error. */
