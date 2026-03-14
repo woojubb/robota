@@ -133,6 +133,34 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Studio dark theme for all form elements */
+  input,
+  textarea,
+  select {
+    background-color: var(--studio-bg-surface);
+    border: 1px solid var(--studio-border);
+    color: var(--studio-text);
+    border-radius: 6px;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--studio-accent-violet);
+    box-shadow: 0 0 0 1px var(--studio-accent-violet);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--studio-text-muted);
+  }
+
+  select option {
+    background-color: var(--studio-bg-elevated);
+    color: var(--studio-text);
+  }
 }
 
 /* ========================================
