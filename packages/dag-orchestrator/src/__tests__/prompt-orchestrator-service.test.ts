@@ -45,8 +45,8 @@ function createStubCostEstimator(): ICostEstimatorPort {
         estimateCost: async () => ({
             ok: true as const,
             value: {
-                totalEstimatedCostUsd: 0.05,
-                perNode: { '1': { nodeType: 'TestNode', estimatedCostUsd: 0.05 } },
+                totalEstimatedCredits: 0.05,
+                perNode: { '1': { nodeType: 'TestNode', estimatedCredits: 0.05 } },
             },
         }),
     };
@@ -84,10 +84,10 @@ describe('PromptOrchestratorService', () => {
             promptRequest: {
                 prompt: { '1': { class_type: 'TestNode', inputs: {} } },
             },
-            config: { costPolicy: { maxCostPerPromptUsd: 1.0 } },
+            config: { costPolicy: { maxCreditsPerPrompt: 1.0 } },
         });
         expect(result.ok).toBe(true);
-        if (result.ok) expect(result.value.costEstimate?.totalEstimatedCostUsd).toBe(0.05);
+        if (result.ok) expect(result.value.costEstimate?.totalEstimatedCredits).toBe(0.05);
     });
 
     it('should reject prompt when cost exceeds policy', async () => {
@@ -112,7 +112,7 @@ describe('PromptOrchestratorService', () => {
             promptRequest: {
                 prompt: { '1': { class_type: 'TestNode', inputs: {} } },
             },
-            config: { costPolicy: { maxCostPerPromptUsd: 0.01 } },
+            config: { costPolicy: { maxCreditsPerPrompt: 0.01 } },
         });
         expect(result.ok).toBe(false);
         if (!result.ok) expect(result.error.code).toBe('COST_LIMIT_EXCEEDED');
