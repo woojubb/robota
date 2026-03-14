@@ -27,7 +27,7 @@ function isBinaryValue(value: TPortValue): value is IPortBinaryValue {
 function resolveRenderableUri(binary: IPortBinaryValue, assetBaseUrl?: string): string {
     if (binary.uri.startsWith('asset://') && assetBaseUrl) {
         const assetId = binary.assetId ?? binary.uri.replace('asset://', '');
-        return `${assetBaseUrl}/v1/dag/assets/${assetId}/content`;
+        return `${assetBaseUrl}/view?filename=${encodeURIComponent(assetId)}`;
     }
     return binary.uri;
 }

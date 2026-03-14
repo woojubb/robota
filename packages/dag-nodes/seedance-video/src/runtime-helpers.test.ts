@@ -242,7 +242,7 @@ describe('resolveImageInputSource', () => {
                 expect(typeof result.value.data).toBe('string');
             }
         }
-        expect(mockFetch).toHaveBeenCalledWith('http://127.0.0.1:3011/v1/dag/assets/img-001/content');
+        expect(mockFetch).toHaveBeenCalledWith('http://127.0.0.1:3011/view?filename=img-001');
     });
 
     it('returns error when asset fetch fails (404)', async () => {
@@ -408,6 +408,6 @@ describe('resolveImageInputSource', () => {
         if (result.ok) {
             expect(result.value.kind).toBe('inline');
         }
-        expect(mockFetch).toHaveBeenCalledWith('http://127.0.0.1:3011/v1/dag/assets/img-from-uri/content');
+        expect(mockFetch).toHaveBeenCalledWith('http://127.0.0.1:3011/view?filename=img-from-uri');
     });
 });
