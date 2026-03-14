@@ -56,6 +56,12 @@ Use [`contract-audit`](../contract-audit/SKILL.md) for contract consistency chec
 - Follow TDD cycle (see [`tdd-red-green-refactor`](../tdd-red-green-refactor/SKILL.md))
 - Build and verify (see [`repo-change-loop`](../repo-change-loop/SKILL.md))
 
+### Step 6: Verify conformance
+
+- After implementation, run the full conformance verification loop
+- See [`spec-code-conformance`](../spec-code-conformance/SKILL.md)
+- This step is mandatory — implementation is not complete until conformance is verified with zero gaps and regression tests pass
+
 ## Orchestrated Skills
 
 | Skill | Role in this workflow |
@@ -65,3 +71,4 @@ Use [`contract-audit`](../contract-audit/SKILL.md) for contract consistency chec
 | `contract-audit` | Contract consistency verification |
 | `tdd-red-green-refactor` | Implementation cycle |
 | `repo-change-loop` | Build and verify loop |
+| `spec-code-conformance` | Post-implementation conformance verification loop |

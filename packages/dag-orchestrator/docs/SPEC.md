@@ -119,15 +119,11 @@ All errors use `IDagError` from `@robota-sdk/dag-core` with `TResult<T, IDagErro
 | `prompt-orchestrator-service.test.ts` | Unit | Submits with/without cost policy, cost rejection, delegation of getQueue/getHistory/getSystemStats |
 | `prompt-api-client-port.test.ts` | Contract | Verifies `IPromptApiClientPort` is implementable as an in-memory stub |
 | `backend-interchangeability.test.ts` | Contract (integration-style) | Proves `HttpPromptApiClient` works identically against mock Robota and ComfyUI servers; cross-backend response shape parity |
+| `translator-contract.test.ts` | Contract | Validates `translateDefinitionToPrompt`: primitive/object/array config, edge bindings, slot indices, input node, class_type, _meta, empty definition error |
+| `run-service-contract.test.ts` | Contract | Validates `OrchestratorRunService`: createRun/startRun lifecycle, dagRunId=promptId, recordEvent accumulation, getRunStatus/getRunResult shapes, dual-index lookup |
 
 ### Coverage gaps
 
-- **`OrchestratorRunService`**: No unit tests. Missing coverage for `createRun`, `startRun`, `createAndStartRun`, `getRunStatus`, `getRunResult`, and `recordEvent`.
-- **`translateDefinitionToPrompt`**: No unit tests. Missing coverage for edge binding translation, output slot tracking, input node config merging, and the empty-definition error path.
-- **Object config values bug**: `translateDefinitionToPrompt` currently drops non-primitive config values (objects, arrays). The filter at line 44 only passes `string | number | boolean`. The correct behavior is to pass through all config values, including objects and arrays, since ComfyUI prompt inputs can contain complex structures.
-- **`dagRunId = promptId` principle**: Current `createRun` generates its own `randomUUID()` for dagRunId instead of using the runtime's `prompt_id`. The orchestrator should use the `prompt_id` returned by `submitPrompt` as the canonical `dagRunId`, eliminating the dual-ID mapping.
-- **`recordEvent` accumulation**: `recordEvent` pushes `TRunProgressEvent` into `nodeEvents` and updates run status on `execution.completed` / `execution.failed`. This is used by `getRunResult` to extract `IRunNodeError[]` for failed runs. No tests verify this event-to-error-report pipeline.
-- **Failed run result shape**: `getRunResult` for failed runs returns `{ ok: true, value: { status: 'failed', nodeErrors: [...] } }` (not `ok: false`). This is intentional: the operation succeeded in retrieving the result, but the run itself failed. No tests verify this distinction.
 - **Retry and timeout policies**: `IRetryPolicy` and `ITimeoutPolicy` are defined in types but not implemented in any service. No tests exist for these paths.
 
 ### Verification commands

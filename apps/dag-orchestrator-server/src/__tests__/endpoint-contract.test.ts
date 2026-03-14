@@ -350,6 +350,15 @@ describe('dag-orchestrator-server endpoint contract tests', () => {
             expect(envelope.ok).toBe(false);
             expect(envelope.errors[0].code).toBe('ORCHESTRATOR_RUN_NOT_COMPLETED');
         });
+
+        it('returns 404 when run does not exist', async () => {
+            const { status, body } = await get('/v1/dag/runs/nonexistent-id/result');
+
+            expect(status).toBe(404);
+            const envelope = body as { ok: boolean; errors: Array<{ code: string }> };
+            expect(envelope.ok).toBe(false);
+            expect(envelope.errors[0].code).toBe('ORCHESTRATOR_RUN_NOT_FOUND');
+        });
     });
 
     // -----------------------------------------------------------------------
@@ -374,13 +383,22 @@ describe('dag-orchestrator-server endpoint contract tests', () => {
             expect(envelope.data.status).toBe('pending');
         });
 
-        it('returns 404 for unknown run id', async () => {
+        it('returns 404 with IProblemDetails for unknown run id', async () => {
             const { status, body } = await get('/v1/dag/runs/nonexistent-id');
 
             expect(status).toBe(404);
-            const envelope = body as { ok: boolean; errors: unknown[] };
+            const envelope = body as { ok: boolean; errors: Array<Record<string, unknown>> };
             expect(envelope.ok).toBe(false);
             expect(Array.isArray(envelope.errors)).toBe(true);
+
+            const error = envelope.errors[0];
+            expect(typeof error.type).toBe('string');
+            expect(typeof error.title).toBe('string');
+            expect(typeof error.status).toBe('number');
+            expect(typeof error.detail).toBe('string');
+            expect(typeof error.instance).toBe('string');
+            expect(typeof error.code).toBe('string');
+            expect(typeof error.retryable).toBe('boolean');
         });
     });
 

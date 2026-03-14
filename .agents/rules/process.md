@@ -14,6 +14,15 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Implementation code that does not conform to its governing spec is a bug.
 - See [`spec-first-development`](../skills/spec-first-development/SKILL.md) skill for the procedural workflow.
 
+### Spec-Code Conformance Verification
+
+- Any SPEC.md or contract document change MUST be followed by a conformance verification loop before the change is considered complete.
+- The spec is the source of truth. The loop compares every spec assertion against implementation code, lists all gaps, and fixes the **code** (not the spec) to match.
+- Each code fix MUST include a corresponding contract test.
+- The loop repeats until zero discrepancies remain, then regression tests for all affected packages MUST pass.
+- A spec change without conformance verification is an incomplete change.
+- See [`spec-code-conformance`](../skills/spec-code-conformance/SKILL.md) skill for the full procedure.
+
 ### No Fallback Policy
 
 - Fallback logic is prohibited. There must be a single, correct, verifiable path.

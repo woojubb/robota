@@ -205,21 +205,22 @@ Execution errors are broadcast as `execution_error` events with:
 
 ## Test Strategy
 
-### Current State
+### Current Coverage
 
-**No test files exist** for `dag-runtime-server`. This is a critical gap.
+| Test File | Scope | Tests |
+|---|---|---|
+| `src/__tests__/endpoint-contract.test.ts` | Endpoint contract | Verifies each HTTP endpoint returns ComfyUI-compatible response shapes (prompt, queue, history, object_info, system_stats, interrupt, free, health) |
 
-### Recommended Test Plan
+### Coverage Gaps
 
 | Test Type | Scope | Priority |
 |---|---|---|
-| Endpoint contract tests | Verify each HTTP endpoint returns ComfyUI-compatible response shapes | P0 |
 | WebSocket event contract tests | Verify WS messages match ComfyUI event format | P0 |
+| Error format contract tests | Verify all error responses use ComfyUI format (not IProblemDetails) | P0 |
 | `DagPromptBackend` unit tests | Prompt-to-DAG translation, history recording, object info mapping | P1 |
 | `AssetAwareTaskExecutorPort` unit tests | Binary output interception, asset reference mapping | P1 |
 | `FileStoragePort` integration tests | File-system persistence, atomic writes, cleanup | P2 |
 | `LocalFsAssetStore` integration tests | Save, retrieve, reference-based asset storage | P2 |
-| Error format contract tests | Verify all error responses use ComfyUI format (not IProblemDetails) | P0 |
 
 ### Verification Commands
 
