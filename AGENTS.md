@@ -9,7 +9,7 @@ This file contains only domain-free rules and routing. It does not contain packa
 **Progressive discovery model:**
 
 1. **Start here.** Read this file for non-negotiable rules and document routing.
-2. **Follow links.** For domain details, follow the references to skills, specs, or structure documents.
+2. **Follow links.** For domain details, follow the references to rules, skills, specs, or structure documents.
 3. **Dig into packages.** For package-specific contracts, read `packages/<name>/docs/SPEC.md`.
 
 **Principles:**
@@ -17,21 +17,22 @@ This file contains only domain-free rules and routing. It does not contain packa
 - This file must remain domain-free. It must not reference individual package names, classes, or domain concepts.
 - Domain-specific rules belong in skills (`.agents/skills/`) or package specs (`docs/SPEC.md`).
 - Never duplicate content across levels. Each fact has exactly one owner document.
-- Intermediate index files (e.g., `.agents/project-structure.md`) may be introduced to group and route to related documents when the tree grows deep.
+- Intermediate index files (e.g., `.agents/rules/index.md`, `.agents/project-structure.md`) group and route to related documents.
 - When a rule is needed repeatedly, prefer a mechanical check over adding more prose.
 
 **Document tree:**
 
 ```
-AGENTS.md                              ← rules + routing (this file)
+AGENTS.md                              ← routing + overview (this file)
+├── .agents/rules/                     ← mandatory rule details
+│   ├── index.md                       ← rule group listing
+│   ├── code-quality.md                ← type system, imports, dev patterns
+│   ├── process.md                     ← spec-first, TDD, no fallback, planning, build
+│   ├── api-boundary.md                ← API spec, runtime/orchestrator boundary
+│   ├── naming-style.md                ← language, identity, styling
+│   └── git-branch.md                  ← git ops, branch policy, worktree
 ├── .agents/project-structure.md       ← package listing and dependency rules
 ├── .agents/skills/*/SKILL.md          ← procedural workflows and domain rules
-│   ├── branch-guard/                  ← branch, merge, worktree, deploy procedures
-│   ├── dag-node-standard/             ← DAG node implementation and execution safety
-│   ├── execution-caching/             ← cache-first execution rules
-│   ├── package-code-review/           ← review perspectives and domain checklists
-│   ├── spec-writing-standard/         ← SPEC.md quality gates
-│   └── ...                            ← see Skills Reference below
 ├── .agents/tasks/                     ← active and completed task tracking
 ├── packages/*/docs/SPEC.md            ← package-level contracts (SSOT)
 └── .design/                           ← design documents (Korean)
@@ -78,111 +79,15 @@ pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
 
 ## Mandatory Rules
 
-All rules below are mandatory, non-negotiable, and domain-free. Domain-specific rules live in skills and specs.
+All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md).
 
-### Language Policy
-
-- Code and comments: English only.
-- Conversations with the user: Korean only.
-- Documents in `.design/`: Korean only.
-- Documents in all other folders: English only.
-- Commit messages: English only and conventional commits format.
-
-### Type System (Strict)
-
-- TypeScript strict mode is immutable and must never be disabled.
-- `any` and `{}` are prohibited in production code.
-- `unknown` is allowed only at trust boundaries and `catch` boundaries, and must be narrowed before domain use.
-- `// @ts-ignore` and `// @ts-nocheck` are prohibited.
-- `I*` prefix is for interfaces only. `T*` prefix is for type aliases only. Type aliases with `I*` prefix or interfaces with `T*` prefix are naming violations and must be renamed.
-- In test files (`*.test.ts`, `*.spec.ts`), `any` and `unknown` may be used only for mocks or boundary fixtures.
-- Follow owner-based SSOT: every concept has exactly one owner module. Import from the owner's public surface and never re-declare owned contracts.
-- To use another package's type: import and use it directly, or re-export it (`export type { X } from`). Do not create a wrapper alias.
-- A new type that structurally overlaps with an existing type is allowed only when the package cannot expose the original (e.g., exposing only a subset of fields, decoupling from an internal dependency). The new type must have a distinct name that reflects its narrowed purpose.
-- Trivial 1:1 type aliases (`type X = Y`) are prohibited. Union, intersection, mapped, and conditional types are valid uses of type aliases.
-- Object shapes must use `interface`. Type aliases are for unions, intersections, tuples, mapped types, and primitives.
-- Prefer `undefined` over `null` for absence of value. `null` is allowed only at API boundaries (JSON serialization).
-
-### No Fallback Policy
-
-- Fallback logic is prohibited. There must be a single, correct, verifiable path.
-- No `try/catch` that silently switches to alternative implementations.
-- No logical OR fallbacks for core behavior (`primary() || fallback()`).
-- Terminal failure states must remain terminal by default.
-- Retry or requeue is allowed only through an explicit policy gate, never as an implicit fallback.
-- Public domain functions that can fail MUST return `Result<T, E>`. Throwing is reserved for truly unexpected programmer errors.
-
-### Test-Driven Development
-
-- Follow Kent Beck's Red-Green-Refactor cycle.
-- Never write production code without a failing test that demands it.
-- Never refactor while tests are failing.
-- Bug fixes start with a test that reproduces the bug.
-
-### Build Requirements
-
-- ANY modification to `packages/*/src/` REQUIRES immediate build of the affected scope.
-- Never commit code that does not build successfully.
-- Mandatory loop: change -> build -> test -> fix -> re-verify.
-
-### Import Standards
-
-- Static ES module imports at the top of files are the default.
-- Dynamic import is allowed only for optional modules with explicit ownership and error handling.
-
-### Development Patterns
-
-- NEVER use `console.*` directly in production code.
-- ALWAYS use dependency injection for logging and side concerns.
-- No blind type assertions without proper validation.
-- Separate core behavior from side concerns.
-- Prefer `readonly` properties and parameters. Mutation should be explicit and localized.
-- Never mutate function parameters directly. Clone or create new objects instead.
-- No magic numbers or strings. Use named constants with descriptive names. Exceptions: `0`, `1`, `-1` as array/math primitives.
-- Production files should not exceed 300 lines. Functions should not exceed 50 lines. Exceptions require justification in code review.
-
-### API Specification
-
-- Applications with external API endpoints must maintain standardized API specifications (e.g., OpenAPI for HTTP). See `api-spec-management` skill for workflow details.
-
-### Process Lifecycle
-
-- Applications in `apps/` must handle SIGTERM and SIGINT for graceful shutdown.
-- In-progress work must complete or be safely cancelled within a configurable timeout.
-- All acquired resources (connections, file handles) must be released on shutdown.
-
-### Agent Identity
-
-- Prohibited: `main agent`, `sub-agent`, `parent-agent`, `child-agent`, and any hierarchy-implying naming.
-- Approved: `agent`, `agent instance`, `agent replica`, with flat identifiers.
-
-### Styling
-
-- Tailwind CSS utility classes only.
-- No inline `style` attributes, custom CSS, or CSS-in-JS.
-
-### Git Operations
-
-- No `git commit` or `git push` without explicit user approval.
-- Conventional commit format: `<type>(<scope>): <message>` (max 72 chars).
-- Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`.
-
-### Branch Policy
-
-- `main` is the production branch. Direct commits and pushes to `main` are prohibited.
-- `develop` is the integration branch. All feature work branches from `develop`.
-- Feature branches must be created from `develop` and merged back into `develop`.
-- Merging `develop` into `main` requires explicit user approval and is a release-level action.
-- When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.
-- If the agent wants to suggest a different merge target than the fork origin, it must explicitly recommend and receive user approval before proceeding.
-- Never assume `main` as the default merge target. Always check the actual fork point.
-- See [`branch-guard`](.agents/skills/branch-guard/SKILL.md) skill for detailed procedures including worktree isolation and deployment.
-
-### Worktree Isolation
-
-- When performing a large, independent task that requires a different branch context, commit and push current work first, then switch branches. Return to the original branch when done.
-- For tasks that must not affect the current working tree, use `git worktree` or a separate clone in a temporary location.
-- Always clean up worktrees and temporary clones after the task is complete.
+| Group | Document | Key rules |
+|-------|----------|-----------|
+| Code Quality | [code-quality.md](.agents/rules/code-quality.md) | Strict TS, no `any`, SSOT types, `interface` for shapes |
+| Process | [process.md](.agents/rules/process.md) | Spec-first, TDD, no fallback, build verification |
+| API Boundary | [api-boundary.md](.agents/rules/api-boundary.md) | Runtime=ComfyUI immutable, orchestrator=Robota own |
+| Naming & Style | [naming-style.md](.agents/rules/naming-style.md) | Language policy, agent identity, Tailwind only |
+| Git & Branch | [git-branch.md](.agents/rules/git-branch.md) | Branch policy, conventional commits, worktree |
 
 ## Skills Reference
 
@@ -196,6 +101,7 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 | [`type-boundary-and-ssot`](.agents/skills/type-boundary-and-ssot/SKILL.md) | Boundary validation, SSOT ownership |
 | [`repo-writing`](.agents/skills/repo-writing/SKILL.md) | Writing rules for docs, `.design/`, commits |
 | [`spec-writing-standard`](.agents/skills/spec-writing-standard/SKILL.md) | SPEC.md required sections and quality gates |
+| [`spec-first-development`](.agents/skills/spec-first-development/SKILL.md) | Spec-first workflow for contract boundary changes |
 | [`dag-node-standard`](.agents/skills/dag-node-standard/SKILL.md) | Node implementation, execution safety |
 | [`execution-caching`](.agents/skills/execution-caching/SKILL.md) | Cache-first execution workflows |
 | [`package-code-review`](.agents/skills/package-code-review/SKILL.md) | 6-perspective code review with severity labels |
@@ -223,8 +129,8 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 
 ## Rules and Skills Boundary
 
-- **Rules** (this file): mandatory constraints. Rules always win on conflict.
-- **Skills** (`.agents/skills/`): procedural workflows and domain-specific rules. Skills must not redefine rules in this file.
+- **Rules** (`.agents/rules/`): mandatory constraints. Rules always win on conflict.
+- **Skills** (`.agents/skills/`): procedural workflows and domain-specific rules. Skills must not redefine rules.
 - **Specs** (`packages/*/docs/SPEC.md`): package-level contracts and domain truth.
 - If skill text conflicts with a rule, the rule wins.
 
@@ -238,7 +144,7 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 ## Conflict Scan Commands
 
 ```bash
-rg -n "any/unknown may|fallback to|temporary workaround" .agents/skills AGENTS.md
-rg -n "main agent|sub-agent|parent-agent|child-agent" .agents/skills AGENTS.md
+rg -n "any/unknown may|fallback to|temporary workaround" .agents/skills .agents/rules AGENTS.md
+rg -n "main agent|sub-agent|parent-agent|child-agent" .agents/skills .agents/rules AGENTS.md
 rg -n '^## ' AGENTS.md
 ```
