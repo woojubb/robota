@@ -56,9 +56,9 @@ export interface IUseDagDesignApi {
         definition: IDagDefinition;
         input?: TPortPayload;
         correlationId?: string;
-    }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    }) => Promise<TResult<{ preparationId: string }, IProblemDetails[]>>;
     startRun: (input: {
-        dagRunId: string;
+        preparationId: string;
         correlationId?: string;
     }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
     getRunResult: (input: {
@@ -66,7 +66,7 @@ export interface IUseDagDesignApi {
         correlationId?: string;
     }) => Promise<TResult<IRunResult, IProblemDetails[]>>;
     subscribeRunProgress: (input: {
-        dagRunId: string;
+        preparationId: string;
         onEvent: (event: TRunProgressEvent) => void;
         onError?: (error: Error) => void;
         maxReconnectAttempts?: number;
@@ -122,7 +122,7 @@ export function useDagDesignApi(options: IUseDagDesignApiOptions): IUseDagDesign
             correlationId: input.correlationId
         }),
         startRun: async (input) => client.startRun({
-            dagRunId: input.dagRunId,
+            preparationId: input.preparationId,
             correlationId: input.correlationId
         }),
         getRunResult: async (input) => client.getRunResult({
