@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import express from 'express';
 import { PromptApiController } from '@robota-sdk/dag-api';
 import type {
@@ -15,6 +18,8 @@ import type {
     IDagError,
 } from '@robota-sdk/dag-core';
 import { mountPromptRoutes } from '../routes/prompt-routes.js';
+import { LocalFsAssetStore } from '../services/local-fs-asset-store.js';
+import { mountAssetRoutes } from '../routes/asset-routes.js';
 
 // ---------------------------------------------------------------------------
 // Stub backend that returns known shapes without side-effects
@@ -143,6 +148,8 @@ class StubPromptBackend implements IPromptBackendPort {
 
 let server: http.Server;
 let baseUrl: string;
+let assetStore: LocalFsAssetStore;
+let tempAssetDir: string;
 
 function createTestApp(): express.Express {
     const app = express();
@@ -160,11 +167,16 @@ function createTestApp(): express.Express {
     const backend = new StubPromptBackend();
     const controller = new PromptApiController(backend);
     mountPromptRoutes(app, controller);
+    mountAssetRoutes(app, assetStore);
 
     return app;
 }
 
 beforeAll(async () => {
+    tempAssetDir = await mkdtemp(path.join(tmpdir(), 'dag-test-assets-'));
+    assetStore = new LocalFsAssetStore(tempAssetDir);
+    await assetStore.initialize();
+
     const app = createTestApp();
     server = http.createServer(app);
     await new Promise<void>((resolve) => {
@@ -181,6 +193,7 @@ afterAll(async () => {
     await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
     });
+    await rm(tempAssetDir, { recursive: true, force: true });
 });
 
 // ---------------------------------------------------------------------------
@@ -479,6 +492,35 @@ describe('dag-runtime-server endpoint contract tests', () => {
 
             expect(status).toBe(200);
             expect(body).toEqual({});
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // GET /view
+    // -----------------------------------------------------------------------
+    describe('GET /view', () => {
+        it('returns 200 with binary content for existing asset', async () => {
+            const content = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+            const saved = await assetStore.save({
+                fileName: 'test.png',
+                mediaType: 'image/png',
+                content,
+            });
+            const res = await fetch(`${baseUrl}/view?filename=${saved.assetId}`);
+            expect(res.status).toBe(200);
+            expect(res.headers.get('content-type')).toBe('image/png');
+            const body = new Uint8Array(await res.arrayBuffer());
+            expect(body).toEqual(content);
+        });
+
+        it('returns 404 when asset does not exist', async () => {
+            const { status } = await get('/view?filename=nonexistent-id');
+            expect(status).toBe(404);
+        });
+
+        it('returns 400 when filename query param is missing', async () => {
+            const { status } = await get('/view');
+            expect(status).toBe(400);
         });
     });
 

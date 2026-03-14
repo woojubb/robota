@@ -38,6 +38,7 @@ import { FileStoragePort } from './services/file-storage-port.js';
 import { AssetAwareTaskExecutorPort } from './services/asset-aware-task-executor.js';
 import { DagPromptBackend } from './adapters/dag-prompt-backend.js';
 import { mountPromptRoutes } from './routes/prompt-routes.js';
+import { mountAssetRoutes } from './routes/asset-routes.js';
 import { mountWsRoutes } from './routes/ws-routes.js';
 import { resolveApiDocsEnabled } from './utils/env-flags.js';
 
@@ -211,6 +212,7 @@ async function bootstrapRuntimeServer(): Promise<void> {
     });
 
     mountPromptRoutes(app, promptController);
+    mountAssetRoutes(app, assetStore);
     const httpServer = http.createServer(app);
     mountWsRoutes(httpServer, execution.runProgressEventBus, promptBackend);
 
