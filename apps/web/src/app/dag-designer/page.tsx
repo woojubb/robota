@@ -73,15 +73,16 @@ export default function DagDesignerListPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-800">DAG List</h1>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 text-xs text-gray-700">
-              <span>Template</span>
+    <div className="studio-grid-bg min-h-screen p-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+        {/* Header */}
+        <div className="flex items-center justify-between rounded-xl border border-[var(--studio-border-subtle)] bg-[var(--studio-bg-elevated)]/80 px-6 py-4 backdrop-blur-sm">
+          <h1 className="font-sans text-xl font-semibold text-[var(--studio-text)]">DAG List</h1>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-[var(--studio-text-secondary)]">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--studio-text-muted)]">Template</span>
               <select
-                className="rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+                className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-1.5 text-xs text-[var(--studio-text)] outline-none transition-all duration-200 focus:border-[var(--studio-accent-violet)] focus:ring-1 focus:ring-[var(--studio-accent-violet-dim)]"
                 value={selectedTemplateId}
                 onChange={(event) => setSelectedTemplateId(event.target.value as TDagTemplateKey)}
                 disabled={isCreating}
@@ -95,13 +96,13 @@ export default function DagDesignerListPage() {
             </label>
             <Link
               href="/dag-designer/cost-management"
-              className="rounded border border-gray-300 bg-white px-3 py-2 text-xs hover:bg-gray-50"
+              className="rounded-lg bg-[var(--studio-accent-amber-dim)] px-4 py-2 text-xs font-medium text-[var(--studio-accent-amber)] transition-all duration-200 hover:bg-[var(--studio-accent-amber)]/25 hover:shadow-[0_0_12px_var(--studio-accent-amber-dim)]"
             >
               비용 관리
             </Link>
             <button
               type="button"
-              className="rounded border border-gray-300 bg-white px-3 py-2 text-xs hover:bg-gray-50"
+              className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-4 py-2 text-xs text-[var(--studio-text-secondary)] transition-all duration-200 hover:border-[var(--studio-border)] hover:bg-[var(--studio-bg-elevated)] hover:text-[var(--studio-text)]"
               onClick={() => {
                 void refreshList();
               }}
@@ -111,7 +112,7 @@ export default function DagDesignerListPage() {
             </button>
             <button
               type="button"
-              className="rounded bg-black px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-[var(--studio-accent-violet)] px-4 py-2 text-xs font-medium text-white shadow-[0_0_16px_var(--studio-accent-violet-dim)] transition-all duration-200 hover:bg-[var(--studio-accent-violet)]/90 hover:shadow-[0_0_24px_var(--studio-accent-violet-dim)] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => {
                 void createNewDag();
               }}
@@ -121,43 +122,53 @@ export default function DagDesignerListPage() {
             </button>
           </div>
         </div>
+
+        {/* Template Info */}
         {selectedTemplate ? (
-          <div className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
-            <span className="font-semibold text-gray-800">{selectedTemplate.name}</span>
-            <span className="ml-2">{selectedTemplate.description}</span>
+          <div className="rounded-lg border border-[var(--studio-border-subtle)] bg-[var(--studio-bg-elevated)] px-4 py-3 text-xs">
+            <span className="font-medium text-[var(--studio-text)]">{selectedTemplate.name}</span>
+            <span className="ml-2 text-[var(--studio-text-secondary)]">{selectedTemplate.description}</span>
           </div>
         ) : null}
 
+        {/* Error */}
         {errorMessage.length > 0 ? (
-          <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{errorMessage}</div>
+          <div className="rounded-lg border border-[var(--studio-accent-rose)]/30 bg-[var(--studio-accent-rose-dim)] px-4 py-3 text-xs text-[var(--studio-accent-rose)]">{errorMessage}</div>
         ) : null}
 
-        <div className="overflow-hidden rounded border border-gray-300">
-          <div className="grid grid-cols-[2fr_100px_140px] border-b border-gray-300 bg-gray-50 px-3 py-2 text-[11px] font-semibold text-gray-600">
-            <span>DAG ID</span>
-            <span>Latest</span>
-            <span>Status</span>
+        {/* DAG Cards */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <span className="text-sm text-[var(--studio-text-muted)]">Loading...</span>
           </div>
-          {isLoading ? (
-            <div className="px-3 py-4 text-xs text-gray-600">Loading...</div>
-          ) : sortedItems.length === 0 ? (
-            <div className="px-3 py-4 text-xs text-gray-600">No DAG definitions found.</div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {sortedItems.map((item) => (
-                <Link
-                  key={item.dagId}
-                  href={`/dag-designer/${encodeURIComponent(item.dagId)}`}
-                  className="grid grid-cols-[2fr_100px_140px] px-3 py-2 text-xs hover:bg-gray-50"
-                >
-                  <span className="font-mono text-gray-800">{item.dagId}</span>
-                  <span className="text-gray-700">{item.latestVersion}</span>
-                  <span className="text-gray-700">{item.statuses.join(", ")}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        ) : sortedItems.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <span className="text-sm text-[var(--studio-text-muted)]">No DAG definitions found.</span>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {sortedItems.map((item) => (
+              <Link
+                key={item.dagId}
+                href={`/dag-designer/${encodeURIComponent(item.dagId)}`}
+                className="studio-surface group grid grid-cols-[2fr_100px_160px] items-center rounded-xl border border-[var(--studio-border-subtle)] bg-[var(--studio-bg-elevated)] px-5 py-4 transition-all duration-200 hover:border-[var(--studio-accent-violet)]/30 hover:bg-[var(--studio-bg-surface)] hover:shadow-[0_0_20px_var(--studio-accent-violet-dim)]"
+              >
+                <span className="font-mono text-sm text-[var(--studio-text)] group-hover:text-[var(--studio-accent-violet)]">{item.dagId}</span>
+                <span className="text-xs text-[var(--studio-text-secondary)]">v{item.latestVersion}</span>
+                <div className="flex gap-1.5">
+                  {item.statuses.map((status) => (
+                    <span
+                      key={status}
+                      className="rounded-full bg-[var(--studio-accent-violet-dim)] px-2.5 py-0.5 text-[10px] font-medium text-[var(--studio-accent-violet)]"
+                    >
+                      {status}
+                    </span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

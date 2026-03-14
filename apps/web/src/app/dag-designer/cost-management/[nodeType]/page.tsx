@@ -250,72 +250,73 @@ export default function CostMetaEditPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white p-6">
-        <div className="mx-auto w-full max-w-3xl">
-          <p className="text-xs text-gray-600">Loading...</p>
+      <div className="studio-grid-bg min-h-screen p-8">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-center py-20">
+          <span className="text-sm text-[var(--studio-text-muted)]">Loading...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+    <div className="studio-grid-bg min-h-screen p-8">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         {/* Header */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4 rounded-xl border border-[var(--studio-border-subtle)] bg-[var(--studio-bg-elevated)]/80 px-6 py-4 backdrop-blur-sm">
           <Link
             href="/dag-designer/cost-management"
-            className="text-xs text-gray-500 hover:text-gray-700"
+            className="text-xs text-[var(--studio-text-muted)] transition-all duration-200 hover:text-[var(--studio-accent-violet)]"
           >
             &larr; Cost Management
           </Link>
-          <h1 className="text-lg font-semibold text-gray-800">
+          <div className="h-4 w-px bg-[var(--studio-border)]" />
+          <h1 className="font-sans text-xl font-semibold text-[var(--studio-text)]">
             {isCreateMode ? "New Cost Meta" : `Edit: ${nodeTypeParam}`}
           </h1>
         </div>
 
         {/* Messages */}
         {errorMessage.length > 0 ? (
-          <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{errorMessage}</div>
+          <div className="rounded-lg border border-[var(--studio-accent-rose)]/30 bg-[var(--studio-accent-rose-dim)] px-4 py-3 text-xs text-[var(--studio-accent-rose)]">{errorMessage}</div>
         ) : null}
         {successMessage.length > 0 ? (
-          <div className="rounded border border-green-300 bg-green-50 px-3 py-2 text-xs text-green-700">{successMessage}</div>
+          <div className="rounded-lg border border-[var(--studio-accent-emerald)]/30 bg-[var(--studio-accent-emerald-dim)] px-4 py-3 text-xs text-[var(--studio-accent-emerald)]">{successMessage}</div>
         ) : null}
 
         {/* Form */}
-        <div className="flex flex-col gap-4 rounded border border-gray-300 p-4">
+        <div className="flex flex-col gap-5 rounded-xl border border-[var(--studio-border-subtle)] bg-[var(--studio-bg-elevated)] p-6">
           {/* nodeType */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold text-gray-600">Node Type</label>
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[var(--studio-text-muted)]">Node Type</label>
             <input
               type="text"
               value={form.nodeType}
               onChange={(e) => { updateField("nodeType", e.target.value); }}
               disabled={!isCreateMode}
               placeholder="e.g. openai-gpt4o"
-              className="rounded border border-gray-300 px-3 py-2 font-mono text-xs text-gray-800 disabled:bg-gray-100 disabled:text-gray-500"
+              className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-4 py-2.5 font-mono text-sm text-[var(--studio-text)] outline-none transition-all duration-200 placeholder:text-[var(--studio-text-muted)] focus:border-[var(--studio-accent-violet)] focus:shadow-[0_0_12px_var(--studio-accent-violet-dim)] disabled:bg-[var(--studio-bg)] disabled:text-[var(--studio-text-muted)]"
             />
           </div>
 
           {/* displayName */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold text-gray-600">Display Name</label>
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[var(--studio-text-muted)]">Display Name</label>
             <input
               type="text"
               value={form.displayName}
               onChange={(e) => { updateField("displayName", e.target.value); }}
               placeholder="e.g. OpenAI GPT-4o"
-              className="rounded border border-gray-300 px-3 py-2 text-xs text-gray-800"
+              className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-4 py-2.5 text-sm text-[var(--studio-text)] outline-none transition-all duration-200 placeholder:text-[var(--studio-text-muted)] focus:border-[var(--studio-accent-violet)] focus:shadow-[0_0_12px_var(--studio-accent-violet-dim)]"
             />
           </div>
 
           {/* category */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold text-gray-600">Category</label>
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[var(--studio-text-muted)]">Category</label>
             <select
               value={form.category}
               onChange={(e) => { updateField("category", e.target.value); }}
-              className="rounded border border-gray-300 px-3 py-2 text-xs text-gray-800"
+              className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-4 py-2.5 text-sm text-[var(--studio-text)] outline-none transition-all duration-200 focus:border-[var(--studio-accent-violet)] focus:shadow-[0_0_12px_var(--studio-accent-violet-dim)]"
             >
               {CATEGORY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -324,16 +325,22 @@ export default function CostMetaEditPage() {
           </div>
 
           {/* estimateFormula */}
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] font-semibold text-gray-600">Estimate Formula</label>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] font-medium uppercase tracking-wider text-[var(--studio-text-muted)]">Estimate Formula</label>
               {isValidating ? (
-                <span className="text-[10px] text-gray-400">validating...</span>
+                <span className="text-[10px] text-[var(--studio-text-muted)]">validating...</span>
               ) : estimateValid !== null ? (
                 estimateValid.valid ? (
-                  <span className="text-[10px] text-green-600">&#10003; valid</span>
+                  <span className="flex items-center gap-1 text-[10px] text-[var(--studio-accent-emerald)]">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--studio-accent-emerald)] shadow-[0_0_6px_var(--studio-accent-emerald-dim)]" />
+                    valid
+                  </span>
                 ) : (
-                  <span className="text-[10px] text-red-600">&#10007; {estimateValid.error ?? "invalid"}</span>
+                  <span className="flex items-center gap-1 text-[10px] text-[var(--studio-accent-rose)]">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--studio-accent-rose)] shadow-[0_0_6px_var(--studio-accent-rose-dim)]" />
+                    {estimateValid.error ?? "invalid"}
+                  </span>
                 )
               ) : null}
             </div>
@@ -342,28 +349,31 @@ export default function CostMetaEditPage() {
               onChange={(e) => { updateField("estimateFormula", e.target.value); }}
               placeholder="e.g. inputTokens * 0.003 + outputTokens * 0.006"
               rows={3}
-              className="rounded border border-gray-300 px-3 py-2 font-mono text-xs text-gray-800"
+              className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg)] px-4 py-3 font-mono text-sm text-[var(--studio-accent-cyan)] outline-none transition-all duration-200 placeholder:text-[var(--studio-text-muted)] focus:border-[var(--studio-accent-violet)] focus:shadow-[0_0_12px_var(--studio-accent-violet-dim)]"
             />
           </div>
 
           {/* calculateFormula */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold text-gray-600">Calculate Formula (optional)</label>
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[var(--studio-text-muted)]">Calculate Formula <span className="normal-case tracking-normal text-[var(--studio-text-muted)]">(optional)</span></label>
             <textarea
               value={form.calculateFormula}
               onChange={(e) => { updateField("calculateFormula", e.target.value); }}
               placeholder="e.g. actualTokens * 0.003"
               rows={3}
-              className="rounded border border-gray-300 px-3 py-2 font-mono text-xs text-gray-800"
+              className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg)] px-4 py-3 font-mono text-sm text-[var(--studio-accent-cyan)] outline-none transition-all duration-200 placeholder:text-[var(--studio-text-muted)] focus:border-[var(--studio-accent-violet)] focus:shadow-[0_0_12px_var(--studio-accent-violet-dim)]"
             />
           </div>
 
           {/* variables */}
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] font-semibold text-gray-600">Variables (JSON)</label>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] font-medium uppercase tracking-wider text-[var(--studio-text-muted)]">Variables (JSON)</label>
               {variablesError.length > 0 ? (
-                <span className="text-[10px] text-red-600">&#10007; {variablesError}</span>
+                <span className="flex items-center gap-1 text-[10px] text-[var(--studio-accent-rose)]">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--studio-accent-rose)] shadow-[0_0_6px_var(--studio-accent-rose-dim)]" />
+                  {variablesError}
+                </span>
               ) : null}
             </div>
             <textarea
@@ -371,35 +381,45 @@ export default function CostMetaEditPage() {
               onChange={(e) => { updateField("variables", e.target.value); }}
               placeholder='{ "inputTokens": 1000, "outputTokens": 500 }'
               rows={4}
-              className="rounded border border-gray-300 px-3 py-2 font-mono text-xs text-gray-800"
+              className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg)] px-4 py-3 font-mono text-sm text-[var(--studio-text-secondary)] outline-none transition-all duration-200 placeholder:text-[var(--studio-text-muted)] focus:border-[var(--studio-accent-violet)] focus:shadow-[0_0_12px_var(--studio-accent-violet-dim)]"
             />
           </div>
 
           {/* enabled */}
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="enabled-toggle"
-              checked={form.enabled}
-              onChange={(e) => { updateField("enabled", e.target.checked); }}
-              className="h-4 w-4 rounded border-gray-300"
-            />
-            <label htmlFor="enabled-toggle" className="text-xs text-gray-700">Enabled</label>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.enabled}
+              onClick={() => { updateField("enabled", !form.enabled); }}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 ${
+                form.enabled
+                  ? "bg-[var(--studio-accent-emerald)] shadow-[0_0_10px_var(--studio-accent-emerald-dim)]"
+                  : "bg-[var(--studio-border)]"
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform duration-200 ${
+                  form.enabled ? "translate-x-[18px]" : "translate-x-[3px]"
+                }`}
+              />
+            </button>
+            <label className="text-xs text-[var(--studio-text-secondary)]">Enabled</label>
           </div>
 
           {/* Save */}
-          <div className="flex items-center gap-2 pt-2">
+          <div className="flex items-center gap-3 border-t border-[var(--studio-border-subtle)] pt-5">
             <button
               type="button"
               onClick={() => { void handleSave(); }}
               disabled={isSaving || form.nodeType.trim().length === 0}
-              className="rounded bg-black px-4 py-2 text-xs text-white hover:bg-gray-800 disabled:bg-gray-400"
+              className="rounded-lg bg-[var(--studio-accent-violet)] px-5 py-2.5 text-xs font-medium text-white shadow-[0_0_16px_var(--studio-accent-violet-dim)] transition-all duration-200 hover:bg-[var(--studio-accent-violet)]/90 hover:shadow-[0_0_24px_var(--studio-accent-violet-dim)] disabled:opacity-40 disabled:shadow-none"
             >
               {isSaving ? "Saving..." : isCreateMode ? "Create" : "Save"}
             </button>
             <Link
               href="/dag-designer/cost-management"
-              className="rounded border border-gray-300 bg-white px-4 py-2 text-xs text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-5 py-2.5 text-xs text-[var(--studio-text-secondary)] transition-all duration-200 hover:bg-[var(--studio-bg-elevated)] hover:text-[var(--studio-text)]"
             >
               Cancel
             </Link>
@@ -407,38 +427,41 @@ export default function CostMetaEditPage() {
         </div>
 
         {/* Preview Section */}
-        <div className="flex flex-col gap-3 rounded border border-gray-300 p-4">
-          <h2 className="text-sm font-semibold text-gray-700">Formula Preview</h2>
+        <div className="flex flex-col gap-4 rounded-xl border border-[var(--studio-border-subtle)] bg-[var(--studio-bg-elevated)] p-6">
+          <h2 className="text-sm font-semibold text-[var(--studio-text)]">Formula Preview</h2>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold text-gray-600">Test Context (JSON)</label>
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-medium uppercase tracking-wider text-[var(--studio-text-muted)]">Test Context (JSON)</label>
             <textarea
               value={previewContext}
               onChange={(e) => { setPreviewContext(e.target.value); }}
               rows={5}
-              className="rounded border border-gray-300 px-3 py-2 font-mono text-xs text-gray-800"
+              className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg)] px-4 py-3 font-mono text-sm text-[var(--studio-text-secondary)] outline-none transition-all duration-200 placeholder:text-[var(--studio-text-muted)] focus:border-[var(--studio-accent-violet)] focus:shadow-[0_0_12px_var(--studio-accent-violet-dim)]"
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={() => { void handlePreview(); }}
               disabled={isPreviewing || form.estimateFormula.trim().length === 0}
-              className="rounded border border-gray-300 bg-white px-3 py-2 text-xs hover:bg-gray-50 disabled:text-gray-400"
+              className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-4 py-2 text-xs text-[var(--studio-text-secondary)] transition-all duration-200 hover:bg-[var(--studio-bg-elevated)] hover:text-[var(--studio-text)] disabled:opacity-40"
             >
               {isPreviewing ? "Computing..." : "미리보기"}
             </button>
 
             {previewResult !== null ? (
-              <span className="text-xs font-medium text-gray-800">
-                예상 크레딧: {previewResult.estimatedCredits}
-              </span>
+              <div className="flex items-center gap-2 rounded-lg bg-[var(--studio-accent-amber-dim)] px-4 py-2">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--studio-accent-amber)]">예상 크레딧</span>
+                <span className="font-mono text-lg font-semibold text-[var(--studio-accent-amber)] drop-shadow-[0_0_8px_var(--studio-accent-amber-dim)]">
+                  {previewResult.estimatedCredits}
+                </span>
+              </div>
             ) : null}
           </div>
 
           {previewError.length > 0 ? (
-            <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{previewError}</div>
+            <div className="rounded-lg border border-[var(--studio-accent-rose)]/30 bg-[var(--studio-accent-rose-dim)] px-4 py-3 text-xs text-[var(--studio-accent-rose)]">{previewError}</div>
           ) : null}
         </div>
       </div>
