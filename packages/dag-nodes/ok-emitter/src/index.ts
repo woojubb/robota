@@ -2,9 +2,11 @@ import {
     AbstractNodeDefinition,
     BINARY_PORT_PRESETS,
     NodeIoAccessor,
+    createBinaryPortDefinition
+} from '@robota-sdk/dag-node';
+import {
     buildTaskExecutionError,
     buildValidationError,
-    createBinaryPortDefinition,
     type ICostEstimate,
     type IDagNodeDefinition,
     type IDagError,

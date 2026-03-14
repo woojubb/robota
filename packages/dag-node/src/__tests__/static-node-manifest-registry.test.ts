@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { StaticNodeManifestRegistry } from '../registry/static-node-manifest-registry.js';
-import type { INodeManifest } from '../types/domain.js';
+import type { INodeManifest } from '@robota-sdk/dag-core';
 
 const manifest1: INodeManifest = {
     nodeType: 'type-a',

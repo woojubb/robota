@@ -377,6 +377,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
       return { ok: false, error: toDagError(created.error[0]?.code) };
     }
     const { preparationId } = created.value;
+    const PER_NODE_TIMEOUT_MS = 600_000;
     let unsubscribe: (() => void) | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const cleanupRunSubscription = (): void => {
@@ -389,16 +390,21 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
         unsubscribe = undefined;
       }
     };
-    const waitForTerminalEvent = new Promise<void>((resolve, reject) => {
+    const resetNodeTimeout = (reject: (reason: Error) => void): void => {
+      if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         cleanupRunSubscription();
         reject(new Error("DAG_VALIDATION_RUN_EVENT_TIMEOUT"));
-      }, 120000);
+      }, PER_NODE_TIMEOUT_MS);
+    };
+    const waitForTerminalEvent = new Promise<void>((resolve, reject) => {
+      resetNodeTimeout(reject);
       unsubscribe = designApi.subscribeRunProgress({
         preparationId,
         maxReconnectAttempts: 5,
         initialReconnectDelayMs: 500,
         onEvent: (event) => {
+          resetNodeTimeout(reject);
           hooks?.onRunProgressEvent(event);
           if (
             event.eventType === EXECUTION_PROGRESS_EVENTS.COMPLETED

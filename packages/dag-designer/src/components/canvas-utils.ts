@@ -106,13 +106,17 @@ export function hasSameCanvasNodeState(currentNodes: Node[], nextNodes: Node[]):
         const nextSelected = (nextNode.data as { isSelected?: boolean } | undefined)?.isSelected ?? false;
         const currentTraceSignature = (currentNode.data as { traceSignature?: string } | undefined)?.traceSignature;
         const nextTraceSignature = (nextNode.data as { traceSignature?: string } | undefined)?.traceSignature;
+        const currentHandles = (currentNode.data as { inputHandlesByPortKey?: Record<string, string[]> } | undefined)?.inputHandlesByPortKey;
+        const nextHandles = (nextNode.data as { inputHandlesByPortKey?: Record<string, string[]> } | undefined)?.inputHandlesByPortKey;
+        const handlesChanged = JSON.stringify(currentHandles) !== JSON.stringify(nextHandles);
         return (
             currentNode.id === nextNode.id &&
             currentNode.position.x === nextNode.position.x &&
             currentNode.position.y === nextNode.position.y &&
             currentExecutionStatus === nextExecutionStatus &&
             currentSelected === nextSelected &&
-            currentTraceSignature === nextTraceSignature
+            currentTraceSignature === nextTraceSignature &&
+            !handlesChanged
         );
     });
 }
@@ -144,6 +148,9 @@ export function createNodeFromManifest(manifest: INodeManifest, index: number): 
 }
 
 export function compactListBindings(definition: IDagDefinition): IDagDefinition {
+    // Track list binding indices across ALL edges per (targetNodeId, listPortKey)
+    const indexCounterByTargetAndPort = new Map<string, number>();
+
     const nextEdges = definition.edges.map((edge) => {
         if (!edge.bindings || edge.bindings.length === 0) {
             return edge;
@@ -156,7 +163,6 @@ export function compactListBindings(definition: IDagDefinition): IDagDefinition 
         if (listInputPorts.length === 0) {
             return edge;
         }
-        const bindingIndexByListKey = new Map<string, number>();
         const nextBindings = edge.bindings.map((binding) => {
             const listHandle = parseListPortHandleKey(binding.inputKey);
             const directListPort = targetNode.inputs.find((port) => port.key === binding.inputKey && port.isList);
@@ -170,8 +176,9 @@ export function compactListBindings(definition: IDagDefinition): IDagDefinition 
             if (!listPort) {
                 return binding;
             }
-            const nextIndex = bindingIndexByListKey.get(listPortKey) ?? 0;
-            bindingIndexByListKey.set(listPortKey, nextIndex + 1);
+            const counterKey = `${edge.to}::${listPortKey}`;
+            const nextIndex = indexCounterByTargetAndPort.get(counterKey) ?? 0;
+            indexCounterByTargetAndPort.set(counterKey, nextIndex + 1);
             return {
                 ...binding,
                 inputKey: buildListPortHandleKey(listPortKey, nextIndex)

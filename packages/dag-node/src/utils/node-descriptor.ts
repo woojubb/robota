@@ -1,8 +1,7 @@
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { z, type ZodType } from 'zod';
-import type { TResult } from '../types/result.js';
-import type { IDagError } from '../types/error.js';
-import { buildValidationError } from './error-builders.js';
+import type { TResult, IDagError } from '@robota-sdk/dag-core';
+import { buildValidationError } from '@robota-sdk/dag-core';
 
 function isZodSchema(input: unknown): input is ZodType {
     if (typeof input !== 'object' || input === null) {

@@ -1,8 +1,7 @@
-import { buildValidationError } from '../utils/error-builders.js';
-import { parseListPortHandleKey } from '../types/domain.js';
-import type { IDagError } from '../types/error.js';
-import type { TResult } from '../types/result.js';
-import type { TPortPayload, TPortValue } from '../interfaces/ports.js';
+import { buildValidationError, parseListPortHandleKey } from '@robota-sdk/dag-core';
+import type { IDagError } from '@robota-sdk/dag-core';
+import type { TResult } from '@robota-sdk/dag-core';
+import type { TPortPayload, TPortValue } from '@robota-sdk/dag-core';
 import { MediaReference, type IMediaReferenceCandidate } from '../value-objects/media-reference.js';
 import { parseBinaryValue, type IParsedBinaryValue } from './binary-value-parser.js';
 

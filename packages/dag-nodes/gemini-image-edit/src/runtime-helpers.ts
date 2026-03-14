@@ -1,5 +1,5 @@
+import { MediaReference } from '@robota-sdk/dag-node';
 import {
-    MediaReference,
     buildValidationError,
     type IDagError,
     type IPortBinaryValue,

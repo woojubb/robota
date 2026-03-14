@@ -5,13 +5,13 @@ import cors from 'cors';
 import helmet from 'helmet';
 import http from 'node:http';
 import {
-    buildNodeDefinitionAssembly,
     type IDagNodeDefinition,
     InMemoryStoragePort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     SystemClockPort,
 } from '@robota-sdk/dag-core';
+import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import {
     createDagControllerComposition,
 } from '@robota-sdk/dag-api';

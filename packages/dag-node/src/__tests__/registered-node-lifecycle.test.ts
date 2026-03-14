@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RegisteredNodeLifecycle } from '../lifecycle/registered-node-lifecycle.js';
-import type { INodeTaskHandler, INodeExecutionContext } from '../types/node-lifecycle.js';
-import type { TPortPayload } from '../interfaces/ports.js';
-import type { IPortDefinition } from '../types/domain.js';
+import type { INodeTaskHandler, INodeExecutionContext, TPortPayload, IPortDefinition } from '@robota-sdk/dag-core';
 
 function makeContext(
     inputs: IPortDefinition[] = [],

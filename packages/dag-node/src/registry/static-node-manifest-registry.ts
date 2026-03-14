@@ -1,5 +1,5 @@
-import type { INodeManifest } from '../types/domain.js';
-import type { INodeManifestRegistry } from '../types/node-lifecycle.js';
+import type { INodeManifest } from '@robota-sdk/dag-core';
+import type { INodeManifestRegistry } from '@robota-sdk/dag-core';
 
 /** In-memory registry of node manifests, queryable by node type. */
 export class StaticNodeManifestRegistry implements INodeManifestRegistry {

@@ -1,14 +1,14 @@
 import { z } from 'zod';
-import type { TPortPayload } from '../interfaces/ports.js';
-import type { IDagError } from '../types/error.js';
-import type { TResult } from '../types/result.js';
+import type { TPortPayload } from '@robota-sdk/dag-core';
+import type { IDagError } from '@robota-sdk/dag-core';
+import type { TResult } from '@robota-sdk/dag-core';
 import type {
     ICostEstimate,
     IDagNodeDefinition,
     INodeExecutionContext,
     INodeTaskHandler
-} from '../types/node-lifecycle.js';
-import { buildValidationError } from '../utils/error-builders.js';
+} from '@robota-sdk/dag-core';
+import { buildValidationError } from '@robota-sdk/dag-core';
 
 function createConfigValidationError(
     nodeType: string,

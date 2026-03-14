@@ -1,8 +1,8 @@
-import type { IPortBinaryValue } from '../interfaces/ports.js';
-import type { TAssetReference, TAssetReferenceType, TBinaryKind } from '../types/domain.js';
-import type { IDagError } from '../types/error.js';
-import type { TResult } from '../types/result.js';
-import { buildValidationError } from '../utils/error-builders.js';
+import type { IPortBinaryValue } from '@robota-sdk/dag-core';
+import type { TAssetReference, TAssetReferenceType, TBinaryKind } from '@robota-sdk/dag-core';
+import type { IDagError } from '@robota-sdk/dag-core';
+import type { TResult } from '@robota-sdk/dag-core';
+import { buildValidationError } from '@robota-sdk/dag-core';
 
 const ASSET_URI_PREFIX = 'asset://';
 
@@ -105,65 +105,39 @@ export class MediaReference {
             && (options?.allowEmptyUri === true || candidate.uri.trim().length > 0);
 
         if (hasAssetId === hasUri) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_MEDIA_REFERENCE_XOR_REQUIRED',
-                    'Exactly one of assetId or uri must be provided'
-                )
-            };
+            return { ok: false, error: buildValidationError('DAG_VALIDATION_MEDIA_REFERENCE_XOR_REQUIRED', 'Exactly one of assetId or uri must be provided') };
         }
-
         if (candidate.referenceType === 'asset' && !hasAssetId) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_MEDIA_REFERENCE_TYPE_MISMATCH',
-                    'referenceType asset requires assetId'
-                )
-            };
+            return { ok: false, error: buildValidationError('DAG_VALIDATION_MEDIA_REFERENCE_TYPE_MISMATCH', 'referenceType asset requires assetId') };
         }
         if (candidate.referenceType === 'uri' && !hasUri) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_MEDIA_REFERENCE_TYPE_MISMATCH',
-                    'referenceType uri requires uri'
-                )
-            };
+            return { ok: false, error: buildValidationError('DAG_VALIDATION_MEDIA_REFERENCE_TYPE_MISMATCH', 'referenceType uri requires uri') };
         }
 
+        return this.buildFromValidatedCandidate(candidate, hasAssetId);
+    }
+
+    private static buildFromValidatedCandidate(
+        candidate: IMediaReferenceCandidate,
+        hasAssetId: boolean,
+    ): TResult<MediaReference, IDagError> {
         if (hasAssetId && typeof candidate.assetId === 'string') {
             return {
                 ok: true,
                 value: new MediaReference({
-                    referenceType: 'asset',
-                    assetId: candidate.assetId.trim(),
-                    mediaType: candidate.mediaType,
-                    name: candidate.name,
-                    sizeBytes: candidate.sizeBytes
+                    referenceType: 'asset', assetId: candidate.assetId.trim(),
+                    mediaType: candidate.mediaType, name: candidate.name, sizeBytes: candidate.sizeBytes
                 })
             };
         }
-
         if (typeof candidate.uri !== 'string') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_MEDIA_REFERENCE_INVALID',
-                    'uri must be a string when referenceType is uri'
-                )
-            };
+            return { ok: false, error: buildValidationError('DAG_VALIDATION_MEDIA_REFERENCE_INVALID', 'uri must be a string when referenceType is uri') };
         }
-
         return {
             ok: true,
             value: new MediaReference({
-                referenceType: 'uri',
-                uri: candidate.uri,
-                mediaType: candidate.mediaType,
-                name: candidate.name,
-                sizeBytes: candidate.sizeBytes
+                referenceType: 'uri', uri: candidate.uri,
+                mediaType: candidate.mediaType, name: candidate.name, sizeBytes: candidate.sizeBytes
             })
         };
     }

@@ -3,7 +3,9 @@ import {
     BINARY_PORT_PRESETS,
     createMediaReferenceConfigSchema,
     createBinaryPortDefinition,
-    MediaReference,
+    MediaReference
+} from '@robota-sdk/dag-node';
+import {
     type ICostEstimate,
     type IDagNodeDefinition,
     type IDagError,
