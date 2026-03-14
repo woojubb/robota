@@ -1,4 +1,4 @@
-import type { INodeTaskHandler, INodeTaskHandlerRegistry } from '../types/node-lifecycle.js';
+import type { INodeTaskHandler, INodeTaskHandlerRegistry } from '@robota-sdk/dag-core';
 
 /** In-memory registry of task handlers, keyed by node type. */
 export class StaticNodeTaskHandlerRegistry implements INodeTaskHandlerRegistry {
