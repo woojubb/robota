@@ -51,7 +51,7 @@ export abstract class AbstractNodeDefinition<TSchema extends z.ZodTypeAny> imple
 
     public readonly taskHandler: INodeTaskHandler;
 
-    protected constructor() {
+    constructor() {
         this.taskHandler = {
             initialize: async (context) => {
                 const configResult = this.parseNodeConfig(context);

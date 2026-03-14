@@ -163,46 +163,9 @@ importers:
 
   apps/dag-orchestrator-server:
     dependencies:
-      '@robota-sdk/dag-core':
+      '@robota-sdk/dag-api':
         specifier: workspace:*
-        version: link:../../packages/dag-core
-      '@robota-sdk/dag-orchestrator':
-        specifier: workspace:*
-        version: link:../../packages/dag-orchestrator
-      cors:
-        specifier: ^2.8.5
-        version: 2.8.5
-      dotenv:
-        specifier: ^16.3.1
-        version: 16.6.1
-      express:
-        specifier: ^4.18.2
-        version: 4.21.2
-    devDependencies:
-      '@types/cors':
-        specifier: ^2.8.17
-        version: 2.8.19
-      '@types/express':
-        specifier: ^4.17.21
-        version: 4.17.23
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.9
-      tsup:
-        specifier: ^8.5.0
-        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
-      tsx:
-        specifier: ^4.6.0
-        version: 4.21.0
-      typescript:
-        specifier: ^5.3.0
-        version: 5.8.3
-      vitest:
-        specifier: ^1.0.0
-        version: 1.6.1(@types/node@20.19.9)
-
-  apps/dag-runtime-server:
-    dependencies:
+        version: link:../../packages/dag-api
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../packages/dag-core
@@ -236,22 +199,116 @@ importers:
       '@robota-sdk/dag-node-transform':
         specifier: workspace:*
         version: link:../../packages/dag-nodes/transform
-      '@robota-sdk/dag-server-core':
+      '@robota-sdk/dag-orchestrator':
         specifier: workspace:*
-        version: link:../../packages/dag-server-core
+        version: link:../../packages/dag-orchestrator
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.5
       dotenv:
         specifier: ^16.3.1
         version: 16.6.1
       express:
         specifier: ^4.18.2
         version: 4.21.2
+      helmet:
+        specifier: ^7.1.0
+        version: 7.2.0
+      ws:
+        specifier: ^8.18.3
+        version: 8.18.3
     devDependencies:
+      '@types/cors':
+        specifier: ^2.8.17
+        version: 2.8.19
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.23
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.9
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      tsx:
+        specifier: ^4.6.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.3.0
+        version: 5.8.3
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.9)
+
+  apps/dag-runtime-server:
+    dependencies:
+      '@robota-sdk/dag-api':
+        specifier: workspace:*
+        version: link:../../packages/dag-api
+      '@robota-sdk/dag-core':
+        specifier: workspace:*
+        version: link:../../packages/dag-core
+      '@robota-sdk/dag-node-gemini-image-edit':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/gemini-image-edit
+      '@robota-sdk/dag-node-image-loader':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/image-loader
+      '@robota-sdk/dag-node-image-source':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/image-source
+      '@robota-sdk/dag-node-input':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/input
+      '@robota-sdk/dag-node-llm-text-openai':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/llm-text-openai
+      '@robota-sdk/dag-node-ok-emitter':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/ok-emitter
+      '@robota-sdk/dag-node-seedance-video':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/seedance-video
+      '@robota-sdk/dag-node-text-output':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/text-output
+      '@robota-sdk/dag-node-text-template':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/text-template
+      '@robota-sdk/dag-node-transform':
+        specifier: workspace:*
+        version: link:../../packages/dag-nodes/transform
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.5
+      dotenv:
+        specifier: ^16.3.1
+        version: 16.6.1
+      express:
+        specifier: ^4.18.2
+        version: 4.21.2
+      helmet:
+        specifier: ^7.1.0
+        version: 7.2.0
+      ws:
+        specifier: ^8.18.3
+        version: 8.18.3
+    devDependencies:
+      '@types/cors':
+        specifier: ^2.8.17
+        version: 2.8.19
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.23
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.9
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       tsup:
         specifier: ^8.5.0
         version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
@@ -561,9 +618,6 @@ importers:
       '@robota-sdk/dag-node-transform':
         specifier: workspace:*
         version: link:../dag-nodes/transform
-      '@robota-sdk/dag-server-core':
-        specifier: workspace:*
-        version: link:../dag-server-core
       '@xyflow/react':
         specifier: ^12.8.2
         version: 12.8.2(@types/react@19.1.8)(react-dom@19.1.0)(react@19.1.0)
@@ -954,52 +1008,6 @@ importers:
       '@robota-sdk/dag-worker':
         specifier: workspace:*
         version: link:../dag-worker
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsup:
-        specifier: ^8.0.1
-        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.3.3
-        version: 5.8.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/dag-server-core:
-    dependencies:
-      '@robota-sdk/dag-api':
-        specifier: workspace:*
-        version: link:../dag-api
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      cors:
-        specifier: ^2.8.5
-        version: 2.8.5
-      express:
-        specifier: ^4.18.2
-        version: 4.21.2
-      helmet:
-        specifier: ^7.1.0
-        version: 7.2.0
-      swagger-ui-express:
-        specifier: ^5.0.1
-        version: 5.0.1(express@4.21.2)
-    devDependencies:
-      '@types/cors':
-        specifier: ^2.8.17
-        version: 2.8.19
-      '@types/express':
-        specifier: ^4.17.21
-        version: 4.17.23
-      '@types/swagger-ui-express':
-        specifier: ^4.1.8
-        version: 4.1.8
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -5937,7 +5945,6 @@ packages:
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
     dependencies:
       '@types/node': 20.19.9
-    dev: false
 
   /@types/yargs-parser@21.0.3:
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}

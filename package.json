@@ -29,6 +29,8 @@
     "docs:build": "node scripts/docs/prepare-docs.js",
     "docs:preview": "pnpm --filter robota-docs run preview",
     "docs:validate-structure": "node scripts/docs/validate-package-docs-structure.mjs",
+    "dag:dev": "pnpm --filter @robota-sdk/dag-runtime-server --filter @robota-sdk/dag-orchestrator-server --filter @robota-sdk/web -r --parallel dev",
+    "dag:build": "pnpm --filter @robota-sdk/dag-core build && pnpm --filter @robota-sdk/dag-api build && pnpm --filter @robota-sdk/dag-orchestrator build && pnpm --filter @robota-sdk/dag-designer build",
     "web:dev": "pnpm --filter @robota-sdk/web run dev",
     "web:build": "pnpm --filter @robota-sdk/web run build",
     "web:start": "pnpm --filter @robota-sdk/web run start",

@@ -94,6 +94,7 @@ apps/**/README.md
 .pnpm*
 
 .local-assets
+.dag-storage/
 apps/api-server/.local-assets/
 apps/api-server/.dag-storage/
 

@@ -81,7 +81,9 @@ function hasValidNodeManifests(nodes: INodeManifest[]): boolean {
 function hasValidRunResult(run: IRunResult): boolean {
     if (
         typeof run.dagRunId !== 'string'
+        || typeof run.status !== 'string'
         || !Array.isArray(run.traces)
+        || !Array.isArray(run.nodeErrors)
         || typeof run.totalCostUsd !== 'number'
     ) {
         return false;
@@ -279,62 +281,50 @@ export class DesignerApiClient implements IDesignerApiClient {
         maxReconnectAttempts?: number;
         initialReconnectDelayMs?: number;
     }): () => void {
-        if (typeof EventSource === 'undefined') {
-            input.onError?.(new Error('EventSource is not available in this environment.'));
-            return () => {
-                return;
-            };
+        if (typeof WebSocket === 'undefined') {
+            input.onError?.(new Error('WebSocket is not available in this environment.'));
+            return () => { return; };
         }
-        const path = `/v1/dag/runs/${encodeURIComponent(input.dagRunId)}/events`;
+        const wsProtocol = this.baseUrl.startsWith('https') ? 'wss' : 'ws';
+        const wsHost = this.baseUrl.replace(/^https?:\/\//, '');
+        const path = `/v1/dag/runs/${encodeURIComponent(input.dagRunId)}/ws`;
+        const wsUrl = `${wsProtocol}://${wsHost}${path}`;
+
         const maxReconnectAttempts = input.maxReconnectAttempts ?? 5;
         const initialReconnectDelayMs = input.initialReconnectDelayMs ?? 500;
         let reconnectAttempt = 0;
         let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-        let reconnectScheduled = false;
         let closed = false;
-        let eventSource: EventSource | undefined;
+        let ws: WebSocket | undefined;
 
         const clearReconnectTimer = (): void => {
-            if (!reconnectTimer) {
-                return;
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = undefined;
             }
-            clearTimeout(reconnectTimer);
-            reconnectTimer = undefined;
-            reconnectScheduled = false;
         };
 
         const connect = (): void => {
-            if (closed) {
-                return;
-            }
-            const nextEventSource = new EventSource(`${this.baseUrl}${path}`);
-            eventSource = nextEventSource;
-            reconnectScheduled = false;
-            nextEventSource.onopen = () => {
-                reconnectAttempt = 0;
-            };
-            nextEventSource.onmessage = (event) => {
+            if (closed) return;
+            const nextWs = new WebSocket(wsUrl);
+            ws = nextWs;
+            nextWs.onopen = () => { reconnectAttempt = 0; };
+            nextWs.onmessage = (msgEvent) => {
                 try {
-                    const parsed = JSON.parse(event.data) as IRunProgressEnvelope;
-                    if (!parsed.event) {
-                        return;
+                    const parsed = JSON.parse(String(msgEvent.data)) as IRunProgressEnvelope;
+                    if (parsed.event) {
+                        input.onEvent(parsed.event);
                     }
-                    input.onEvent(parsed.event);
                 } catch {
                     input.onError?.(new Error('Failed to parse run progress event payload.'));
                 }
             };
-            nextEventSource.onerror = () => {
-                if (closed) {
-                    return;
-                }
-                if (eventSource !== nextEventSource) {
-                    return;
-                }
-                nextEventSource.close();
-                if (reconnectScheduled) {
-                    return;
-                }
+            nextWs.onerror = () => {
+                // onerror is always followed by onclose in browsers
+            };
+            nextWs.onclose = () => {
+                if (closed) return;
+                if (ws !== nextWs) return;
                 if (reconnectAttempt >= maxReconnectAttempts) {
                     input.onError?.(new Error('Run progress stream disconnected.'));
                     return;
@@ -342,10 +332,7 @@ export class DesignerApiClient implements IDesignerApiClient {
                 const delay = initialReconnectDelayMs * (2 ** reconnectAttempt);
                 reconnectAttempt += 1;
                 clearReconnectTimer();
-                reconnectScheduled = true;
-                reconnectTimer = setTimeout(() => {
-                    connect();
-                }, delay);
+                reconnectTimer = setTimeout(() => { connect(); }, delay);
             };
         };
 
@@ -354,7 +341,9 @@ export class DesignerApiClient implements IDesignerApiClient {
         return () => {
             closed = true;
             clearReconnectTimer();
-            eventSource?.close();
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                ws.close();
+            }
         };
     }
 

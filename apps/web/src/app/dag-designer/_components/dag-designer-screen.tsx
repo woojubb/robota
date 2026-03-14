@@ -171,7 +171,7 @@ function toDagError(code?: string): IDagError {
   };
 }
 
-const DAG_API_BASE_URL = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011";
+const DAG_API_BASE_URL = process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3012";
 const DAG_API_CONFIG = { baseUrl: DAG_API_BASE_URL };
 
 export function DagDesignerScreen(props: IDagDesignerScreenProps) {
@@ -337,6 +337,16 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
 
   const onRunResult = useCallback((result: TResult<IRunResult, IDagError>): void => {
     if (result.ok) {
+      if (result.value.status === "failed") {
+        const errorSummary = result.value.nodeErrors
+          .map((ne) => `${ne.nodeId}(${ne.nodeType}): ${ne.error.message}`)
+          .join("; ");
+        setLog(
+          `Run failed: dagRunId=${result.value.dagRunId}, errors=[${errorSummary}]`
+        );
+        showActionToast("Run failed.", "error");
+        return;
+      }
       setLog(
         `Run success: dagRunId=${result.value.dagRunId}, totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}`
       );

@@ -12,8 +12,6 @@ import type {
     IAssetContentResult
 } from '@robota-sdk/dag-core';
 
-export type { IStoredAssetMetadata } from '@robota-sdk/dag-core';
-
 export class LocalFsAssetStore implements IAssetStore {
     private readonly rootDir: string;
 

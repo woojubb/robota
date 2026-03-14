@@ -16,3 +16,5 @@ export type {
 } from './interfaces/orchestrator-policy-port.js';
 export { PromptOrchestratorService } from './services/prompt-orchestrator-service.js';
 export { HttpPromptApiClient } from './adapters/http-prompt-api-client.js';
+export { translateDefinitionToPrompt } from './adapters/definition-to-prompt-translator.js';
+export { OrchestratorRunService } from './services/orchestrator-run-service.js';

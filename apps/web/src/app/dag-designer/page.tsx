@@ -16,7 +16,7 @@ function buildAutoDagId(): string {
   return `dag-${Date.now()}`;
 }
 
-const DAG_API_CONFIG = { baseUrl: process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3011" };
+const DAG_API_CONFIG = { baseUrl: process.env.NEXT_PUBLIC_DAG_API_BASE_URL ?? "http://localhost:3012" };
 const TEMPLATE_METADATA_LIST = listDagTemplatePresets();
 
 export default function DagDesignerListPage() {
