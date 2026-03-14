@@ -84,7 +84,7 @@ export function hasValidRunResult(run: IRunResult): boolean {
         || typeof run.status !== 'string'
         || !Array.isArray(run.traces)
         || !Array.isArray(run.nodeErrors)
-        || typeof run.totalCostUsd !== 'number'
+        || typeof run.totalCredits !== 'number'
     ) {
         return false;
     }
@@ -93,8 +93,8 @@ export function hasValidRunResult(run: IRunResult): boolean {
         typeof trace.nodeType === 'string' &&
         typeof trace.input === 'object' && trace.input !== null &&
         typeof trace.output === 'object' && trace.output !== null &&
-        typeof trace.estimatedCostUsd === 'number' &&
-        typeof trace.totalCostUsd === 'number'
+        typeof trace.estimatedCredits === 'number' &&
+        typeof trace.totalCredits === 'number'
     );
 }
 

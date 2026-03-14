@@ -27,7 +27,7 @@ function makeContext(
         },
         attempt: 1,
         executionPath: [],
-        currentTotalCostUsd: 0
+        currentTotalCredits: 0
     };
 }
 
@@ -168,19 +168,19 @@ describe('RegisteredNodeLifecycle', () => {
             const result = await lifecycle.estimateCost({}, makeContext());
             expect(result.ok).toBe(true);
             if (!result.ok) return;
-            expect(result.value.estimatedCostUsd).toBe(0);
+            expect(result.value.estimatedCredits).toBe(0);
         });
 
         it('delegates to handler.estimateCost when present', async () => {
             const handler: INodeTaskHandler = {
-                estimateCost: vi.fn().mockResolvedValue({ ok: true, value: { estimatedCostUsd: 0.5 } }),
+                estimateCost: vi.fn().mockResolvedValue({ ok: true, value: { estimatedCredits: 0.5 } }),
                 execute: vi.fn()
             };
             const lifecycle = new RegisteredNodeLifecycle(handler);
             const result = await lifecycle.estimateCost({}, makeContext());
             expect(result.ok).toBe(true);
             if (!result.ok) return;
-            expect(result.value.estimatedCostUsd).toBe(0.5);
+            expect(result.value.estimatedCredits).toBe(0.5);
         });
     });
 

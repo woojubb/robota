@@ -24,7 +24,7 @@ function createContext(config: INodeConfigObject = { text: 'hello' }): INodeExec
         },
         attempt: 1,
         executionPath: ['dagId:dag-1', 'dagRunId:run-1', 'nodeId:input-1', 'attempt:1'],
-        currentTotalCostUsd: 0
+        currentTotalCredits: 0
     };
 }
 
@@ -61,7 +61,7 @@ describe('InputNodeDefinition', () => {
         const result = await node.taskHandler.estimateCost!({}, createContext());
         expect(result.ok).toBe(true);
         if (result.ok) {
-            expect(result.value.estimatedCostUsd).toBe(0);
+            expect(result.value.estimatedCredits).toBe(0);
         }
     });
 });

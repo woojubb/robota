@@ -28,7 +28,7 @@ class TestNodeDefinition extends AbstractNodeDefinition<typeof TestSchema> {
         _context: INodeExecutionContext,
         _config: z.output<typeof TestSchema>
     ): Promise<TResult<ICostEstimate, IDagError>> {
-        return { ok: true, value: { estimatedCostUsd: 0.01 } };
+        return { ok: true, value: { estimatedCredits: 0.01 } };
     }
 
     protected async executeWithConfig(
@@ -62,7 +62,7 @@ function makeContext(config: INodeConfigObject = { prompt: 'hello' }): INodeExec
         },
         attempt: 1,
         executionPath: ['dag-1', 'run-1', 'node-1'],
-        currentTotalCostUsd: 0
+        currentTotalCredits: 0
     };
 }
 
@@ -114,7 +114,7 @@ describe('AbstractNodeDefinition', () => {
         const result = await node.taskHandler.estimateCost!({}, ctx);
         expect(result.ok).toBe(true);
         if (!result.ok) return;
-        expect(result.value.estimatedCostUsd).toBe(0.01);
+        expect(result.value.estimatedCredits).toBe(0.01);
     });
 
     it('taskHandler.validateOutput succeeds with default implementation', async () => {

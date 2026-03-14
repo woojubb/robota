@@ -348,7 +348,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
         return;
       }
       setLog(
-        `Run success: dagRunId=${result.value.dagRunId}, totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}`
+        `Run success: dagRunId=${result.value.dagRunId}, totalCredits=${result.value.totalCredits.toFixed(6)}, nodes=${result.value.traces.length}`
       );
       showActionToast("Run completed.", "success");
       return;

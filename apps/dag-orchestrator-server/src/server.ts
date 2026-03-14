@@ -82,7 +82,7 @@ function parseCorsOrigins(): string[] {
 
 const stubCostEstimator: ICostEstimatorPort = {
     async estimateCost() {
-        return { ok: true, value: { totalEstimatedCostUsd: 0, perNode: {} } };
+        return { ok: true, value: { totalEstimatedCredits: 0, perNode: {} } };
     }
 };
 

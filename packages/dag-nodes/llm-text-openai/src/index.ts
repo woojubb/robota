@@ -22,7 +22,7 @@ const LlmTextOpenAiConfigSchema = z.object({
     model: z.string().default(DEFAULT_OPENAI_LLM_MODEL),
     temperature: z.number().default(DEFAULT_TEMPERATURE),
     maxTokens: z.number().int().positive().optional(),
-    baseCostUsd: z.number().default(0)
+    baseCredits: z.number().default(0)
 });
 
 /** Options for constructing a {@link LlmTextOpenAiNodeDefinition}, including model restrictions. */
@@ -133,10 +133,10 @@ export class LlmTextOpenAiNodeDefinition extends AbstractNodeDefinition<typeof L
                 )
             };
         }
-        const estimatedCostUsd = config.baseCostUsd + (prompt.length / CHARS_PER_TOKEN_ESTIMATE) * COST_PER_TOKEN_USD;
+        const estimatedCredits = config.baseCredits + (prompt.length / CHARS_PER_TOKEN_ESTIMATE) * COST_PER_TOKEN_USD;
         return {
             ok: true,
-            value: { estimatedCostUsd }
+            value: { estimatedCredits }
         };
     }
 
