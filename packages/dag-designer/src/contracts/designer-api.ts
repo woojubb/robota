@@ -59,8 +59,16 @@ export interface IGetRunResultInput {
 }
 
 export interface IDesignerStartRunInput {
-    dagRunId: string;
+    preparationId: string;
     correlationId?: string;
+}
+
+export interface ISubscribeRunProgressInput {
+    preparationId: string;
+    onEvent: (event: TRunProgressEvent) => void;
+    onError?: (error: Error) => void;
+    maxReconnectAttempts?: number;
+    initialReconnectDelayMs?: number;
 }
 
 export interface IDesignerApiClient {
@@ -71,16 +79,10 @@ export interface IDesignerApiClient {
     getDefinition(input: IGetDefinitionInput): Promise<TResult<IDagDefinition, IProblemDetails[]>>;
     listDefinitions(input?: IListDefinitionsInput): Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>>;
-    createRun(input: IDesignerCreateRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    createRun(input: IDesignerCreateRunInput): Promise<TResult<{ preparationId: string }, IProblemDetails[]>>;
     startRun(input: IDesignerStartRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
     getRunResult(input: IGetRunResultInput): Promise<TResult<IRunResult, IProblemDetails[]>>;
-    subscribeRunProgress: (input: {
-        dagRunId: string;
-        onEvent: (event: TRunProgressEvent) => void;
-        onError?: (error: Error) => void;
-        maxReconnectAttempts?: number;
-        initialReconnectDelayMs?: number;
-    }) => () => void;
+    subscribeRunProgress: (input: ISubscribeRunProgressInput) => () => void;
 }
 
 export interface IDesignerApiClientConfig {

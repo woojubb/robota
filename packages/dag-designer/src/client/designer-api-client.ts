@@ -12,6 +12,7 @@ import type {
     IProblemDetails,
     IPublishDefinitionInput,
     IDesignerStartRunInput,
+    ISubscribeRunProgressInput,
     IUpdateDraftInput,
     IValidateDefinitionInput
 } from '../contracts/designer-api.js';
@@ -22,6 +23,7 @@ interface ILooseDesignerPayload {
         definition?: IDagDefinition;
         items?: IDefinitionListItem[];
         nodes?: INodeManifest[];
+        preparationId?: string;
         dagRunId?: string;
         run?: IRunResult;
     };
@@ -78,7 +80,7 @@ function hasValidNodeManifests(nodes: INodeManifest[]): boolean {
     );
 }
 
-function hasValidRunResult(run: IRunResult): boolean {
+export function hasValidRunResult(run: IRunResult): boolean {
     if (
         typeof run.dagRunId !== 'string'
         || typeof run.status !== 'string'
@@ -197,7 +199,7 @@ export class DesignerApiClient implements IDesignerApiClient {
         };
     }
 
-    public async createRun(input: IDesignerCreateRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
+    public async createRun(input: IDesignerCreateRunInput): Promise<TResult<{ preparationId: string }, IProblemDetails[]>> {
         const path = '/v1/dag/runs';
         const payloadResult = await this.requestPayload(
             path,
@@ -211,11 +213,11 @@ export class DesignerApiClient implements IDesignerApiClient {
         if (!payloadResult.ok) {
             return payloadResult;
         }
-        const dagRunId = payloadResult.value.data?.dagRunId;
-        if (typeof dagRunId === 'string' && dagRunId.length > 0) {
+        const preparationId = payloadResult.value.data?.preparationId;
+        if (typeof preparationId === 'string' && preparationId.length > 0) {
             return {
                 ok: true,
-                value: { dagRunId }
+                value: { preparationId }
             };
         }
         return {
@@ -227,7 +229,7 @@ export class DesignerApiClient implements IDesignerApiClient {
     public async startRun(
         input: IDesignerStartRunInput
     ): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
-        const path = `/v1/dag/runs/${input.dagRunId}/start`;
+        const path = `/v1/dag/runs/${input.preparationId}/start`;
         const payloadResult = await this.requestPayload(
             path,
             'POST',
@@ -274,20 +276,14 @@ export class DesignerApiClient implements IDesignerApiClient {
         };
     }
 
-    public subscribeRunProgress(input: {
-        dagRunId: string;
-        onEvent: (event: TRunProgressEvent) => void;
-        onError?: (error: Error) => void;
-        maxReconnectAttempts?: number;
-        initialReconnectDelayMs?: number;
-    }): () => void {
+    public subscribeRunProgress(input: ISubscribeRunProgressInput): () => void {
         if (typeof WebSocket === 'undefined') {
             input.onError?.(new Error('WebSocket is not available in this environment.'));
             return () => { return; };
         }
         const wsProtocol = this.baseUrl.startsWith('https') ? 'wss' : 'ws';
         const wsHost = this.baseUrl.replace(/^https?:\/\//, '');
-        const path = `/v1/dag/runs/${encodeURIComponent(input.dagRunId)}/ws`;
+        const path = `/v1/dag/runs/${encodeURIComponent(input.preparationId)}/ws`;
         const wsUrl = `${wsProtocol}://${wsHost}${path}`;
 
         const maxReconnectAttempts = input.maxReconnectAttempts ?? 5;

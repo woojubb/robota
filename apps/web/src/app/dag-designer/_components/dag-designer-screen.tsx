@@ -368,15 +368,15 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   }, hooks?: IRunProgressHooks): Promise<TResult<IRunResult, IDagError>> => {
     const waitFor = async (ms: number): Promise<void> =>
       new Promise((resolve) => setTimeout(resolve, ms));
-    const started = await designApi.createRun({
+    const created = await designApi.createRun({
       definition: input.definition,
       input: input.input,
       correlationId: "web-dag-run-create",
     });
-    if ("error" in started) {
-      return { ok: false, error: toDagError(started.error[0]?.code) };
+    if ("error" in created) {
+      return { ok: false, error: toDagError(created.error[0]?.code) };
     }
-    hooks?.onRunStarted(started.value.dagRunId);
+    const { preparationId } = created.value;
     let unsubscribe: (() => void) | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const cleanupRunSubscription = (): void => {
@@ -395,7 +395,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
         reject(new Error("DAG_VALIDATION_RUN_EVENT_TIMEOUT"));
       }, 120000);
       unsubscribe = designApi.subscribeRunProgress({
-        dagRunId: started.value.dagRunId,
+        preparationId,
         maxReconnectAttempts: 5,
         initialReconnectDelayMs: 500,
         onEvent: (event) => {
@@ -414,14 +414,16 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
         },
       });
     });
+    hooks?.onRunStarted(preparationId);
     const startExecution = await designApi.startRun({
-      dagRunId: started.value.dagRunId,
+      preparationId,
       correlationId: "web-dag-run-start",
     });
     if ("error" in startExecution) {
       cleanupRunSubscription();
       return { ok: false, error: toDagError(startExecution.error[0]?.code) };
     }
+    const { dagRunId } = startExecution.value;
     try {
       await waitForTerminalEvent;
     } catch (error) {
@@ -433,7 +435,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     }
     cleanupRunSubscription();
     const result = await designApi.getRunResult({
-      dagRunId: started.value.dagRunId,
+      dagRunId,
       correlationId: "web-dag-run-result:0",
     });
     if ("value" in result) {
@@ -447,7 +449,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       await waitFor(Math.min(4000, 250 * (2 ** attempt)));
       const nextResult = await designApi.getRunResult({
-        dagRunId: started.value.dagRunId,
+        dagRunId,
         correlationId: `web-dag-run-result:${attempt}`,
       });
       if ("value" in nextResult) {
