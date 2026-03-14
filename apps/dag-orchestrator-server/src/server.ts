@@ -1,25 +1,60 @@
 import dotenv from 'dotenv';
 import path from 'node:path';
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import http from 'node:http';
+import {
+    buildNodeDefinitionAssembly,
+    type IDagNodeDefinition,
+    InMemoryStoragePort,
+    InMemoryLeasePort,
+    InMemoryQueuePort,
+    SystemClockPort,
+} from '@robota-sdk/dag-core';
+import {
+    createDagControllerComposition,
+} from '@robota-sdk/dag-api';
 import {
     HttpPromptApiClient,
     PromptOrchestratorService,
+    OrchestratorRunService,
 } from '@robota-sdk/dag-orchestrator';
 import type {
     ICostEstimatorPort,
     ICostPolicyEvaluatorPort,
 } from '@robota-sdk/dag-orchestrator';
+import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
+import { TransformNodeDefinition } from '@robota-sdk/dag-node-transform';
+import { LlmTextOpenAiNodeDefinition } from '@robota-sdk/dag-node-llm-text-openai';
+import { ImageLoaderNodeDefinition } from '@robota-sdk/dag-node-image-loader';
+import { ImageSourceNodeDefinition } from '@robota-sdk/dag-node-image-source';
+import { OkEmitterNodeDefinition } from '@robota-sdk/dag-node-ok-emitter';
+import { TextOutputNodeDefinition } from '@robota-sdk/dag-node-text-output';
+import { TextTemplateNodeDefinition } from '@robota-sdk/dag-node-text-template';
+import {
+    GeminiImageComposeNodeDefinition,
+    GeminiImageEditNodeDefinition
+} from '@robota-sdk/dag-node-gemini-image-edit';
+import { SeedanceVideoNodeDefinition } from '@robota-sdk/dag-node-seedance-video';
+import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
+import { BundledNodeCatalogService } from './services/bundled-node-catalog-service.js';
+import { registerDefinitionRoutes } from './routes/definition-routes.js';
+import { registerRunRoutes } from './routes/run-routes.js';
+import { registerAssetRoutes } from './routes/asset-routes.js';
+import { registerWsRoutes } from './routes/ws-routes.js';
+import { registerAdminRoutes } from './routes/admin-routes.js';
 
 dotenv.config({
     path: path.resolve(process.cwd(), '.env')
 });
 
+const DEFAULT_PORT = 3012;
+
 function resolvePort(): number {
     const raw = process.env.ORCHESTRATOR_PORT;
     if (typeof raw === 'undefined' || raw.trim().length === 0) {
-        return 3012;
+        return DEFAULT_PORT;
     }
     const parsed = Number.parseInt(raw, 10);
     if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -44,14 +79,12 @@ function parseCorsOrigins(): string[] {
     return raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
 }
 
-/** Stub cost estimator — returns zero cost. Replace with real implementation. */
 const stubCostEstimator: ICostEstimatorPort = {
     async estimateCost() {
-        return { ok: true, value: { totalCostUsd: 0, breakdown: [] } };
+        return { ok: true, value: { totalEstimatedCostUsd: 0, perNode: {} } };
     }
 };
 
-/** Stub cost policy evaluator — always approves. Replace with real implementation. */
 const stubCostPolicyEvaluator: ICostPolicyEvaluatorPort = {
     evaluate() {
         return { ok: true, value: undefined };
@@ -66,110 +99,147 @@ async function bootstrapOrchestratorServer(): Promise<void> {
         stubCostEstimator,
         stubCostPolicyEvaluator,
     );
+    const runService = new OrchestratorRunService(apiClient);
+
+    const defaultNodeDefinitions: IDagNodeDefinition[] = [
+        new InputNodeDefinition(),
+        new TransformNodeDefinition(),
+        new LlmTextOpenAiNodeDefinition(),
+        new TextTemplateNodeDefinition(),
+        new TextOutputNodeDefinition(),
+        new ImageLoaderNodeDefinition(),
+        new ImageSourceNodeDefinition(),
+        new GeminiImageEditNodeDefinition(),
+        new GeminiImageComposeNodeDefinition(),
+        new SeedanceVideoNodeDefinition(),
+        new OkEmitterNodeDefinition()
+    ];
+    const assemblyResult = buildNodeDefinitionAssembly(defaultNodeDefinitions);
+    if (!assemblyResult.ok) {
+        throw new Error(`Failed to build node definition assembly: ${assemblyResult.error.message}`);
+    }
+    const nodeCatalogService = new BundledNodeCatalogService(assemblyResult.value.manifests);
+
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const deadLetterQueue = new InMemoryQueuePort();
+    const lease = new InMemoryLeasePort();
+    const clock = new SystemClockPort();
+
+    const controllers = createDagControllerComposition(
+        { storage, queue, deadLetterQueue, lease, clock },
+        {
+            diagnosticsPolicy: { reinjectEnabled: false },
+            nodeCatalogService
+        }
+    );
+
+    const assetStoreRoot = process.env.ASSET_STORAGE_ROOT
+        ? path.resolve(process.env.ASSET_STORAGE_ROOT)
+        : path.resolve(process.cwd(), '.local-assets');
+    const assetStore = new LocalFsAssetStore(assetStoreRoot);
+    await assetStore.initialize();
 
     const app = express();
-    app.use(cors({ origin: parseCorsOrigins(), credentials: true }));
-    app.use(express.json({ limit: '10mb' }));
+    app.use(cors({
+        origin: parseCorsOrigins(),
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Correlation-Id'],
+        credentials: true
+    }));
+    app.use(helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'none'"],
+                scriptSrc: ["'self'"],
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                imgSrc: ["'self'", "data:"],
+                connectSrc: ["'self'"],
+                frameAncestors: ["'none'"]
+            }
+        },
+        crossOriginResourcePolicy: { policy: 'same-origin' }
+    }));
+    app.use(express.json({ limit: '15mb' }));
 
-    app.get('/health', (_req, res) => {
+    app.get('/health', (_req: Request, res: Response) => {
         res.json({
             status: 'ok',
-            service: 'robota-dag-orchestrator-server',
+            service: 'dag-orchestrator-server',
             backend: backendUrl,
             timestamp: new Date().toISOString()
         });
     });
 
+    const server = http.createServer(app);
+
+    // Robota API routes
+    registerDefinitionRoutes(app, controllers.design, assetStore);
+    registerRunRoutes(app, runService, assetStore);
+    registerAssetRoutes(app, assetStore);
+    registerWsRoutes(server, runService, backendUrl);
+    registerAdminRoutes(app, controllers.design);
+
+    // Orchestration proxy routes (ComfyUI compat passthrough)
     app.post('/prompt', async (req, res) => {
         const result = await orchestrator.submitPrompt({
             promptRequest: req.body,
             config: req.body._orchestrator,
         });
-        if (!result.ok) {
-            res.status(400).json({ error: result.error });
-            return;
-        }
+        if (!result.ok) { res.status(400).json({ error: result.error }); return; }
         res.json(result.value.promptResponse);
     });
 
     app.get('/queue', async (_req, res) => {
         const result = await orchestrator.getQueue();
-        if (!result.ok) {
-            res.status(502).json({ error: result.error });
-            return;
-        }
+        if (!result.ok) { res.status(502).json({ error: result.error }); return; }
         res.json(result.value);
-    });
-
-    app.post('/queue', async (req, res) => {
-        const result = await orchestrator.manageQueue(req.body);
-        if (!result.ok) {
-            res.status(502).json({ error: result.error });
-            return;
-        }
-        res.json({});
     });
 
     app.get('/history', async (_req, res) => {
         const result = await orchestrator.getHistory();
-        if (!result.ok) {
-            res.status(502).json({ error: result.error });
-            return;
-        }
+        if (!result.ok) { res.status(502).json({ error: result.error }); return; }
         res.json(result.value);
     });
 
     app.get('/history/:promptId', async (req, res) => {
         const result = await orchestrator.getHistory(req.params.promptId);
-        if (!result.ok) {
-            res.status(502).json({ error: result.error });
-            return;
-        }
+        if (!result.ok) { res.status(502).json({ error: result.error }); return; }
         res.json(result.value);
     });
 
     app.get('/object_info', async (_req, res) => {
         const result = await orchestrator.getObjectInfo();
-        if (!result.ok) {
-            res.status(502).json({ error: result.error });
-            return;
-        }
+        if (!result.ok) { res.status(502).json({ error: result.error }); return; }
         res.json(result.value);
     });
 
     app.get('/object_info/:nodeType', async (req, res) => {
         const result = await orchestrator.getObjectInfo(req.params.nodeType);
-        if (!result.ok) {
-            res.status(502).json({ error: result.error });
-            return;
-        }
+        if (!result.ok) { res.status(502).json({ error: result.error }); return; }
         res.json(result.value);
     });
 
     app.get('/system_stats', async (_req, res) => {
         const result = await orchestrator.getSystemStats();
-        if (!result.ok) {
-            res.status(502).json({ error: result.error });
-            return;
-        }
+        if (!result.ok) { res.status(502).json({ error: result.error }); return; }
         res.json(result.value);
     });
 
     const port = resolvePort();
-    const server = http.createServer(app);
     server.listen(port, () => {
-        console.log(`DAG Orchestrator Server listening on port ${port}`);
-        console.log(`Backend: ${backendUrl}`);
+        process.stdout.write(`DAG orchestrator server started at http://localhost:${port}\n`);
+        process.stdout.write(`Backend: ${backendUrl}\n`);
     });
 
-    process.on('SIGTERM', () => {
-        server.close();
-        process.exit(0);
-    });
-    process.on('SIGINT', () => {
-        server.close();
-        process.exit(0);
-    });
+    const shutdown = (): void => {
+        process.stdout.write('Shutting down dag-orchestrator-server...\n');
+        server.close(() => {
+            process.exit(0);
+        });
+    };
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
 }
 
 void bootstrapOrchestratorServer();

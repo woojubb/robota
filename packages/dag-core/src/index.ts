@@ -39,5 +39,13 @@ export type {
 } from './types/prompt-types.js';
 export { isPromptLink } from './types/prompt-types.js';
 export type { IPromptBackendPort } from './interfaces/prompt-backend-port.js';
+export type {
+    IAssetStore,
+    IStoredAssetMetadata,
+    ICreateAssetInput,
+    ICreateAssetReferenceInput,
+    IAssetContentResult
+} from './interfaces/asset-store-port.js';
+export * from './types/run-result.js';
 
 export const DAG_CORE_PACKAGE_NAME = '@robota-sdk/dag-core';
