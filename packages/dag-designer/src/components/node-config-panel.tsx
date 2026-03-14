@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
     type IDagDefinition,
     type IDagNode,
@@ -11,12 +11,12 @@ import {
     getConnectedBindingCountForPort,
     type TPortDirection
 } from './port-editor-utils.js';
-import { extractConfigDefaultsFromSchema, isNodeConfigValue } from './schema-defaults.js';
+import { isNodeConfigValue } from './schema-defaults.js';
 import {
     toBase64,
     type IAssetUploadResponse
 } from './asset-upload-utils.js';
-import { SchemaField } from './config-field-renderers.js';
+import { parseAllInputs, ComfyParameterField, ComfyHandleField } from './comfyui-field-renderers.js';
 import { PortSection } from './port-section.js';
 
 export interface INodeConfigPanelProps {
@@ -27,11 +27,6 @@ export interface INodeConfigPanelProps {
     assetUploadBaseUrl?: string;
     bindingCleanupMessage?: string;
     onUpdateNode: (nextNode: IDagNode) => void;
-}
-
-interface IJsonSchemaObject {
-    properties?: Record<string, unknown>;
-    required?: string[];
 }
 
 function isNodeConfigRecord(value: unknown): value is INodeConfigObject {
@@ -144,6 +139,44 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         return getConnectedBindingCountForPort(props.definition, currentNode.nodeId, direction, portKey);
     }, [props.definition]);
 
+    // Parse ComfyUI object-info inputs into parameters and handles
+    const parsedFields = useMemo(
+        () => props.nodeObjectInfo ? parseAllInputs(props.nodeObjectInfo.input) : [],
+        [props.nodeObjectInfo]
+    );
+    const parameters = useMemo(
+        () => parsedFields.filter(f => f.isParameter),
+        [parsedFields]
+    );
+    const handles = useMemo(
+        () => parsedFields.filter(f => !f.isParameter),
+        [parsedFields]
+    );
+
+    // Check handle connections from edges
+    // Edge shape: { from: string; to: string; bindings?: { outputKey, inputKey }[] }
+    const isHandleConnected = useCallback((key: string): { connected: boolean; from?: string } => {
+        if (!node || !props.definition) {
+            return { connected: false };
+        }
+        for (const edge of props.definition.edges) {
+            if (edge.to !== node.nodeId) {
+                continue;
+            }
+            // If bindings exist, check if any binding's inputKey matches
+            if (edge.bindings && edge.bindings.length > 0) {
+                const match = edge.bindings.some(b => b.inputKey === key);
+                if (match) {
+                    return { connected: true, from: edge.from };
+                }
+            } else {
+                // Edge without bindings targets the node as a whole — treat all handles as connected
+                return { connected: true, from: edge.from };
+            }
+        }
+        return { connected: false };
+    }, [node, props.definition]);
+
     if (!node) {
         return (
             <div className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3">
@@ -167,16 +200,6 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
         }
     };
 
-    const schemaRoot = (
-        typeof props.manifest?.configSchema === 'object' &&
-        props.manifest?.configSchema !== null
-    )
-        ? (props.manifest.configSchema as IJsonSchemaObject)
-        : undefined;
-    const schemaDefaults = extractConfigDefaultsFromSchema(props.manifest?.configSchema);
-    const schemaProperties = schemaRoot?.properties ?? {};
-    const requiredSet = new Set<string>(schemaRoot?.required ?? []);
-
     return (
         <div className="flex h-full flex-col gap-3 rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3">
             <h2 className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Node Config</h2>
@@ -196,63 +219,34 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 </div>
             ) : null}
 
-            {Object.keys(schemaProperties).length > 0 ? (
+            {parameters.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
-                    <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Config Form</div>
-                    {Object.entries(schemaProperties).map(([key, propertySchema]) => {
-                        const currentValue = node.config[key];
-                        const schemaDefaultValue = schemaDefaults[key];
-                        const effectiveValue = typeof currentValue === 'undefined' ? schemaDefaultValue : currentValue;
-                        return (
-                            <SchemaField
-                                key={key}
-                                fieldKey={key}
-                                propertySchemaRaw={propertySchema}
-                                effectiveValue={effectiveValue}
-                                isRequired={requiredSet.has(key)}
-                                uploadingFieldKey={uploadingFieldKey}
-                                uploadStatusByField={uploadStatusByField}
-                                onUpdateConfigValue={updateConfigValue}
-                                onReportValidationError={reportValidationError}
-                                onHandleAssetUpload={stableHandleAssetUpload}
-                            />
-                        );
-                    })}
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Parameters</div>
+                    {parameters.map(field => (
+                        <ComfyParameterField
+                            key={field.key}
+                            field={field}
+                            value={node.config[field.key]}
+                            onChange={(key, value) => updateConfigValue(key, value as TNodeConfigValue)}
+                        />
+                    ))}
                 </div>
             ) : null}
 
-            {props.nodeObjectInfo ? (
-                <div className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
-                    <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Object Info Inputs</div>
-                    {props.nodeObjectInfo.input.required ? (
-                        <div className="mt-1 flex flex-col gap-1">
-                            {Object.entries(props.nodeObjectInfo.input.required).map(([key, spec]) => {
-                                const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'enum';
-                                return (
-                                    <div key={key} className="flex items-center justify-between text-xs">
-                                        <span className="font-mono text-[var(--studio-text-secondary)]">{key}</span>
-                                        <span className="text-[var(--studio-text-muted)]">{typeName}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : null}
-                    {props.nodeObjectInfo.input.optional ? (
-                        <div className="mt-2">
-                            <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Optional</div>
-                            <div className="mt-1 flex flex-col gap-1">
-                                {Object.entries(props.nodeObjectInfo.input.optional).map(([key, spec]) => {
-                                    const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'enum';
-                                    return (
-                                        <div key={key} className="flex items-center justify-between text-xs">
-                                            <span className="font-mono text-[var(--studio-text-secondary)]">{key}</span>
-                                            <span className="text-[var(--studio-text-muted)]">{typeName}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    ) : null}
+            {handles.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Handles</div>
+                    {handles.map(field => {
+                        const conn = isHandleConnected(field.key);
+                        return (
+                            <ComfyHandleField
+                                key={field.key}
+                                field={field}
+                                isConnected={conn.connected}
+                                connectedFrom={conn.from}
+                            />
+                        );
+                    })}
                 </div>
             ) : null}
 
