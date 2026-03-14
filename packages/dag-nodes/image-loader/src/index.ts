@@ -43,7 +43,7 @@ export class ImageLoaderNodeDefinition extends AbstractNodeDefinition<typeof Ima
     public readonly configSchemaDefinition = ImageLoaderConfigSchema;
 
     public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
-        return { ok: true, value: { estimatedCostUsd: 0 } };
+        return { ok: true, value: { estimatedCredits: 0 } };
     }
 
     protected override async executeWithConfig(

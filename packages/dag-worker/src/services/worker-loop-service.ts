@@ -120,7 +120,7 @@ export class WorkerLoopService {
         const executionResult = await executeWithTimeout(this.executor, executionInput, timeoutMs, message.taskRunId);
 
         if (executionResult.ok) {
-            return this.handleSuccessPath(message, taskRun.taskRunId, dagRun, definition, executionResult.output, executionResult.estimatedCostUsd, executionResult.totalCostUsd);
+            return this.handleSuccessPath(message, taskRun.taskRunId, dagRun, definition, executionResult.output, executionResult.estimatedCredits, executionResult.totalCredits);
         }
 
         return this.handleFailurePath(message, taskRun.taskRunId, executionResult.error);
@@ -151,7 +151,7 @@ export class WorkerLoopService {
         nodeDefinition: IDagDefinition['nodes'][number]
     ): Promise<ITaskExecutionInput> {
         const allTaskRunsForCost = await this.storage.listTaskRunsByDagRunId(message.dagRunId);
-        const currentTotalCostUsd = resolveCurrentTotalCostUsd(allTaskRunsForCost);
+        const currentTotalCredits = resolveCurrentTotalCredits(allTaskRunsForCost);
         return {
             dagId: dagRun.dagId,
             dagRunId: message.dagRunId,
@@ -162,7 +162,7 @@ export class WorkerLoopService {
             input: message.payload,
             nodeDefinition,
             costPolicy: definition.costPolicy,
-            currentTotalCostUsd
+            currentTotalCredits
         };
     }
 
@@ -172,8 +172,8 @@ export class WorkerLoopService {
         dagRun: IDagRun,
         definition: IDagDefinition,
         output: TPortPayload,
-        estimatedCostUsd?: number,
-        totalCostUsd?: number
+        estimatedCredits?: number,
+        totalCredits?: number
     ): Promise<TResult<IWorkerLoopResult, IDagError>> {
         const completeTransition = TaskRunStateMachine.transition('running', 'COMPLETE_SUCCESS');
         if (!completeTransition.ok) {
@@ -181,7 +181,7 @@ export class WorkerLoopService {
         }
 
         await this.storage.updateTaskRunStatus(taskRunId, completeTransition.value.nextStatus);
-        await this.storage.saveTaskRunSnapshots(taskRunId, undefined, JSON.stringify(output), estimatedCostUsd, totalCostUsd);
+        await this.storage.saveTaskRunSnapshots(taskRunId, undefined, JSON.stringify(output), estimatedCredits, totalCredits);
         this.runProgressEventReporter?.publish({
             dagRunId: message.dagRunId,
             eventType: TASK_PROGRESS_EVENTS.COMPLETED,
@@ -243,16 +243,16 @@ export class WorkerLoopService {
     }
 }
 
-/** Finds the maximum totalCostUsd across all task runs. */
-function resolveCurrentTotalCostUsd(taskRuns: ITaskRun[]): number {
-    let currentTotalCostUsd = 0;
+/** Finds the maximum totalCredits across all task runs. */
+function resolveCurrentTotalCredits(taskRuns: ITaskRun[]): number {
+    let currentTotalCredits = 0;
     for (const taskRun of taskRuns) {
-        if (typeof taskRun.totalCostUsd !== 'number') {
+        if (typeof taskRun.totalCredits !== 'number') {
             continue;
         }
-        if (taskRun.totalCostUsd > currentTotalCostUsd) {
-            currentTotalCostUsd = taskRun.totalCostUsd;
+        if (taskRun.totalCredits > currentTotalCredits) {
+            currentTotalCredits = taskRun.totalCredits;
         }
     }
-    return currentTotalCostUsd;
+    return currentTotalCredits;
 }

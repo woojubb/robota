@@ -38,7 +38,7 @@ export class InputNodeDefinition extends AbstractNodeDefinition<typeof InputNode
     ): Promise<TResult<ICostEstimate, IDagError>> {
         return {
             ok: true,
-            value: { estimatedCostUsd: 0 }
+            value: { estimatedCredits: 0 }
         };
     }
 

@@ -37,12 +37,12 @@ const DEFAULT_IMAGE_COMPOSE_COST_USD = 0.015;
 
 const GeminiImageEditConfigSchema = z.object({
     model: z.string().default(''),
-    baseCostUsd: z.number().default(DEFAULT_IMAGE_EDIT_COST_USD)
+    baseCredits: z.number().default(DEFAULT_IMAGE_EDIT_COST_USD)
 });
 
 const GeminiImageComposeConfigSchema = z.object({
     model: z.string().default(''),
-    baseCostUsd: z.number().default(DEFAULT_IMAGE_COMPOSE_COST_USD)
+    baseCredits: z.number().default(DEFAULT_IMAGE_COMPOSE_COST_USD)
 });
 
 /**
@@ -89,7 +89,7 @@ export class GeminiImageEditNodeDefinition extends AbstractNodeDefinition<typeof
         _context: INodeExecutionContext,
         config: z.output<typeof GeminiImageEditConfigSchema>
     ): Promise<TResult<ICostEstimate, IDagError>> {
-        return { ok: true, value: { estimatedCostUsd: config.baseCostUsd } };
+        return { ok: true, value: { estimatedCredits: config.baseCredits } };
     }
 
     protected override async executeWithConfig(
@@ -192,7 +192,7 @@ export class GeminiImageComposeNodeDefinition extends AbstractNodeDefinition<typ
         _context: INodeExecutionContext,
         config: z.output<typeof GeminiImageComposeConfigSchema>
     ): Promise<TResult<ICostEstimate, IDagError>> {
-        return { ok: true, value: { estimatedCostUsd: config.baseCostUsd } };
+        return { ok: true, value: { estimatedCredits: config.baseCredits } };
     }
 
     protected override async executeWithConfig(

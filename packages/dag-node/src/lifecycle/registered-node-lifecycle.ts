@@ -193,7 +193,7 @@ export class RegisteredNodeLifecycle implements INodeLifecycle {
         if (!this.handler.estimateCost) {
             return {
                 ok: true,
-                value: { estimatedCostUsd: 0 }
+                value: { estimatedCredits: 0 }
             };
         }
         return this.handler.estimateCost(input, context);
