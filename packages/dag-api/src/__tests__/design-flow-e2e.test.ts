@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DagDefinitionService } from '@robota-sdk/dag-core';
 import type { IDagDefinition, INodeManifest } from '@robota-sdk/dag-core';
-import { InMemoryStoragePort } from '@robota-sdk/dag-adapters-memory';
+import { InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
 import { DagDesignController, type INodeCatalogService } from '../controllers/dag-design-controller.js';
 
 function createDefinition(): IDagDefinition {

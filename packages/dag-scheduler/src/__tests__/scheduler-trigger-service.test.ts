@@ -4,7 +4,7 @@ import {
     FakeClockPort,
     InMemoryQueuePort,
     InMemoryStoragePort
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import { RunOrchestratorService } from '@robota-sdk/dag-runtime';
 import { SchedulerTriggerService } from '../services/scheduler-trigger-service.js';
 

@@ -1,7 +1,7 @@
 {
-  "name": "@robota-sdk/dag-adapters-memory",
+  "name": "@robota-sdk/dag-adapters-local",
   "version": "0.1.0",
-  "description": "In-memory adapter implementations for DAG core ports",
+  "description": "Local adapter implementations for DAG ports (in-memory and file-based)",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -28,7 +28,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@robota-sdk/dag-core": "workspace:*"
+    "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-cost": "workspace:*"
   },
   "devDependencies": {
     "rimraf": "^5.0.5",

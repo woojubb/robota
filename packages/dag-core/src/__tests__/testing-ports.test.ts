@@ -6,7 +6,7 @@ import {
     FakeClockPort,
     SystemClockPort,
     MockTaskExecutorPort
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import type { IDagDefinition, IDagRun, ITaskRun } from '../types/domain.js';
 import type { IQueueMessage } from '../interfaces/ports.js';
 

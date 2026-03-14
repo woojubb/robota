@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ICostMetaStoragePort } from '../interfaces/cost-meta-storage-port.js';
-import type { ICostMeta } from '../types/cost-meta-types.js';
+import type { ICostMetaStoragePort } from '@robota-sdk/dag-cost';
+import type { ICostMeta } from '@robota-sdk/dag-cost';
 
 export class FileCostMetaStorage implements ICostMetaStoragePort {
     private readonly filePath: string;

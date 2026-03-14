@@ -6,7 +6,7 @@ import {
     InMemoryQueuePort,
     InMemoryStoragePort,
     MockTaskExecutorPort
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import { ProjectionReadModelService } from '@robota-sdk/dag-projection';
 import { createDagExecutionComposition } from '../composition/create-dag-execution-composition.js';
 import { DagObservabilityController } from '../controllers/dag-observability-controller.js';

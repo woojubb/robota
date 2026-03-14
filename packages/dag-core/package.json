@@ -51,7 +51,7 @@
     "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
-    "@robota-sdk/dag-adapters-memory": "workspace:*",
+    "@robota-sdk/dag-adapters-local": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",

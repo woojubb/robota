@@ -6,7 +6,7 @@ import {
     InMemoryQueuePort,
     InMemoryStoragePort,
     MockTaskExecutorPort
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import { WorkerLoopService } from '@robota-sdk/dag-worker';
 import { RunOrchestratorService } from '@robota-sdk/dag-runtime';
 import { SchedulerTriggerService } from '../services/scheduler-trigger-service.js';

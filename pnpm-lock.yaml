@@ -163,9 +163,9 @@ importers:
 
   apps/dag-orchestrator-server:
     dependencies:
-      '@robota-sdk/dag-adapters-memory':
+      '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
-        version: link:../../packages/dag-adapters-memory
+        version: link:../../packages/dag-adapters-local
       '@robota-sdk/dag-api':
         specifier: workspace:*
         version: link:../../packages/dag-api
@@ -260,9 +260,9 @@ importers:
 
   apps/dag-runtime-server:
     dependencies:
-      '@robota-sdk/dag-adapters-memory':
+      '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
-        version: link:../../packages/dag-adapters-memory
+        version: link:../../packages/dag-adapters-local
       '@robota-sdk/dag-api':
         specifier: workspace:*
         version: link:../../packages/dag-api
@@ -557,11 +557,14 @@ importers:
         specifier: ^1.1.0
         version: 1.6.1(@types/node@20.19.9)
 
-  packages/dag-adapters-memory:
+  packages/dag-adapters-local:
     dependencies:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
+      '@robota-sdk/dag-cost':
+        specifier: workspace:*
+        version: link:../dag-cost
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -594,9 +597,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-worker
     devDependencies:
-      '@robota-sdk/dag-adapters-memory':
+      '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
-        version: link:../dag-adapters-memory
+        version: link:../dag-adapters-local
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -622,9 +625,9 @@ importers:
         specifier: ^3.24.6
         version: 3.24.6(zod@3.25.76)
     devDependencies:
-      '@robota-sdk/dag-adapters-memory':
+      '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
-        version: link:../dag-adapters-memory
+        version: link:../dag-adapters-local
       '@robota-sdk/dag-node':
         specifier: workspace:*
         version: link:../dag-node
@@ -1096,9 +1099,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-core
     devDependencies:
-      '@robota-sdk/dag-adapters-memory':
+      '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
-        version: link:../dag-adapters-memory
+        version: link:../dag-adapters-local
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -1121,9 +1124,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-core
     devDependencies:
-      '@robota-sdk/dag-adapters-memory':
+      '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
-        version: link:../dag-adapters-memory
+        version: link:../dag-adapters-local
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
@@ -1149,9 +1152,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-runtime
     devDependencies:
-      '@robota-sdk/dag-adapters-memory':
+      '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
-        version: link:../dag-adapters-memory
+        version: link:../dag-adapters-local
       '@robota-sdk/dag-worker':
         specifier: workspace:*
         version: link:../dag-worker
@@ -1177,9 +1180,9 @@ importers:
         specifier: workspace:*
         version: link:../dag-core
     devDependencies:
-      '@robota-sdk/dag-adapters-memory':
+      '@robota-sdk/dag-adapters-local':
         specifier: workspace:*
-        version: link:../dag-adapters-memory
+        version: link:../dag-adapters-local
       eslint:
         specifier: ^8.56.0
         version: 8.57.1

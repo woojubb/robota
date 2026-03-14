@@ -6,7 +6,7 @@ import {
     InMemoryQueuePort,
     InMemoryStoragePort,
     MockTaskExecutorPort
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import { createDagExecutionComposition } from '../composition/create-dag-execution-composition.js';
 
 function createPublishedDefinition(): IDagDefinition {

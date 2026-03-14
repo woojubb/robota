@@ -6,7 +6,7 @@ import {
     InMemoryQueuePort,
     InMemoryStoragePort,
     MockTaskExecutorPort
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import { createWorkerLoopService } from '../composition/create-worker-loop-service.js';
 
 function createQueuedTaskFixture() {

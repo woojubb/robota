@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
-import { FileCostMetaStorage } from '../adapters/file-cost-meta-storage.js';
-import type { ICostMeta } from '../types/cost-meta-types.js';
+import { FileCostMetaStorage } from '../file-cost-meta-storage.js';
+import type { ICostMeta } from '@robota-sdk/dag-cost';
 
 const TEST_DIR = '/tmp/robota-cost-meta-test';
 

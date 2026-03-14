@@ -4,7 +4,7 @@ import {
     FakeClockPort,
     InMemoryQueuePort,
     InMemoryStoragePort
-} from '@robota-sdk/dag-adapters-memory';
+} from '@robota-sdk/dag-adapters-local';
 import { RunCancelService, RunOrchestratorService, RunQueryService } from '@robota-sdk/dag-runtime';
 import { DagRuntimeController } from '../controllers/dag-runtime-controller.js';
 
