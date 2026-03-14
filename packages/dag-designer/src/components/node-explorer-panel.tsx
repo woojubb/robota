@@ -31,9 +31,9 @@ export function NodeExplorerPanel(props: INodeExplorerPanelProps): ReactElement 
     const visibleManifests = categoryMap.get(activeCategory) ?? [];
 
     return (
-        <div className={`flex h-full flex-col gap-3 rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3 ${props.className ?? ''}`}>
-            <h2 className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Node Explorer</h2>
-            <div className="flex items-center gap-2 overflow-x-auto" role="tablist" aria-label="Node Explorer categories">
+        <div className={`flex h-full flex-col rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] ${props.className ?? ''}`}>
+            <h2 className="px-2 pt-2 text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Node Explorer</h2>
+            <div className="flex border-b border-[var(--studio-border)]" role="tablist" aria-label="Node Explorer categories">
                 {categories.map((category) => {
                     const isActive = activeCategory === category;
                     return (
@@ -42,25 +42,28 @@ export function NodeExplorerPanel(props: INodeExplorerPanelProps): ReactElement 
                             type="button"
                             role="tab"
                             aria-selected={isActive}
-                            className={`rounded-md px-3 py-1 text-xs transition-all ${
+                            className={`relative flex-1 px-1 py-1.5 text-[11px] text-center transition-all ${
                                 isActive
-                                    ? 'bg-[var(--studio-accent-violet)] text-white shadow-[0_0_8px_var(--studio-accent-violet-dim)]'
-                                    : 'bg-[var(--studio-bg-surface)] text-[var(--studio-text-muted)] hover:bg-[var(--studio-bg-surface)] hover:text-[var(--studio-text-secondary)]'
+                                    ? 'text-[var(--studio-accent-violet)]'
+                                    : 'text-[var(--studio-text-muted)] hover:text-[var(--studio-text-secondary)]'
                             }`}
                             onClick={() => setActiveCategory(category)}
                         >
                             {category}
-                            <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] ${
-                                isActive ? 'bg-white/20 text-white' : 'bg-[var(--studio-bg-elevated)] text-[var(--studio-text-muted)]'
+                            <span className={`ml-1 text-[9px] ${
+                                isActive ? 'text-[var(--studio-accent-violet)]' : 'text-[var(--studio-text-muted)]'
                             }`}
                             >
                                 {(categoryMap.get(category) ?? []).length}
                             </span>
+                            {isActive ? (
+                                <span className="absolute bottom-0 left-1 right-1 h-[2px] rounded-full bg-[var(--studio-accent-violet)]" />
+                            ) : null}
                         </button>
                     );
                 })}
             </div>
-            <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
+            <div className="flex min-h-0 flex-col gap-1.5 overflow-y-auto p-2">
                 {visibleManifests.map((manifest) => (
                     <button
                         key={manifest.nodeType}
