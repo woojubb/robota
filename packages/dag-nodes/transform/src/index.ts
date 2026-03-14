@@ -55,7 +55,7 @@ export class TransformNodeDefinition extends AbstractNodeDefinition<typeof Trans
     }
 
     public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
-        return { ok: true, value: { estimatedCostUsd: 0.0001 } };
+        return { ok: true, value: { estimatedCredits: 0.0001 } };
     }
 
     protected override async executeWithConfig(

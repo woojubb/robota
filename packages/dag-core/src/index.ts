@@ -17,8 +17,6 @@ export * from './services/time-semantics.js';
 export * from './services/node-lifecycle-runner.js';
 export * from './services/lifecycle-task-executor-port.js';
 export * from './utils/error-builders.js';
-export * from './testing/index.js';
-
 export type {
     TPrompt, IPromptNodeDef, TPromptInputValue, TPromptLink,
     IPromptRequest, IPromptResponse,

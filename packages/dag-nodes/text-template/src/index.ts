@@ -54,7 +54,7 @@ export class TextTemplateNodeDefinition extends AbstractNodeDefinition<typeof Te
     public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
         return {
             ok: true,
-            value: { estimatedCostUsd: 0 }
+            value: { estimatedCredits: 0 }
         };
     }
 

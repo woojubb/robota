@@ -6,13 +6,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import {
     LifecycleTaskExecutorPort,
-    InMemoryLeasePort,
-    InMemoryQueuePort,
-    SystemClockPort,
     type IDagNodeDefinition,
     type INodeManifest,
     type INodeManifestRegistry,
 } from '@robota-sdk/dag-core';
+import {
+    InMemoryLeasePort,
+    InMemoryQueuePort,
+    SystemClockPort,
+} from '@robota-sdk/dag-adapters-local';
 import {
     buildNodeDefinitionAssembly,
     StaticNodeLifecycleFactory,

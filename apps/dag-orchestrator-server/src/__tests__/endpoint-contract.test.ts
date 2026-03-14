@@ -297,7 +297,7 @@ describe('dag-orchestrator-server endpoint contract tests', () => {
     // GET /v1/dag/runs/:id/result — success
     // -----------------------------------------------------------------------
     describe('GET /v1/dag/runs/:id/result', () => {
-        it('returns run result with { dagRunId, status, traces, nodeErrors, totalCostUsd } on success', async () => {
+        it('returns run result with { dagRunId, status, traces, nodeErrors, totalCredits } on success', async () => {
             // Create and start a run
             const createResult = await post('/v1/dag/runs', {
                 definition: createMinimalDefinition(),
@@ -320,7 +320,7 @@ describe('dag-orchestrator-server endpoint contract tests', () => {
                         status: string;
                         traces: unknown[];
                         nodeErrors: unknown[];
-                        totalCostUsd: number;
+                        totalCredits: number;
                     };
                 };
             };
@@ -333,7 +333,7 @@ describe('dag-orchestrator-server endpoint contract tests', () => {
             expect(Array.isArray(run.traces)).toBe(true);
             expect(Array.isArray(run.nodeErrors)).toBe(true);
             expect(run.nodeErrors).toHaveLength(0);
-            expect(typeof run.totalCostUsd).toBe('number');
+            expect(typeof run.totalCredits).toBe('number');
         });
 
         it('returns 409 when run has not been started yet', async () => {

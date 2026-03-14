@@ -17,8 +17,10 @@
         "clean": "rm -rf dist"
     },
     "dependencies": {
+        "@robota-sdk/dag-adapters-local": "workspace:*",
         "@robota-sdk/dag-api": "workspace:*",
         "@robota-sdk/dag-core": "workspace:*",
+        "@robota-sdk/dag-cost": "workspace:*",
         "@robota-sdk/dag-node": "workspace:*",
         "@robota-sdk/dag-node-gemini-image-edit": "workspace:*",
         "@robota-sdk/dag-node-image-loader": "workspace:*",

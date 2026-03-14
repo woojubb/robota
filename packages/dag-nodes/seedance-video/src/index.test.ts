@@ -37,7 +37,7 @@ function createContext(config: Record<string, string | number | boolean> = {}): 
         },
         attempt: 1,
         executionPath: [],
-        currentTotalCostUsd: 0
+        currentTotalCredits: 0
     };
 }
 
@@ -81,7 +81,7 @@ describe('SeedanceVideoNodeDefinition', () => {
             const result = await node.taskHandler.estimateCost({ prompt: 'test' }, context);
             expect(result.ok).toBe(true);
             if (result.ok) {
-                expect(result.value.estimatedCostUsd).toBe(0.08);
+                expect(result.value.estimatedCredits).toBe(0.08);
             }
         });
 
@@ -94,17 +94,17 @@ describe('SeedanceVideoNodeDefinition', () => {
             const result = await node.taskHandler.estimateCost({ prompt: 'test', images }, context);
             expect(result.ok).toBe(true);
             if (result.ok) {
-                expect(result.value.estimatedCostUsd).toBe(0.10);
+                expect(result.value.estimatedCredits).toBe(0.10);
             }
         });
 
-        it('uses custom baseCostUsd from config', async () => {
+        it('uses custom baseCredits from config', async () => {
             const node = new SeedanceVideoNodeDefinition();
-            const context = createContext({ baseCostUsd: 0.20 });
+            const context = createContext({ baseCredits: 0.20 });
             const result = await node.taskHandler.estimateCost({ prompt: 'test' }, context);
             expect(result.ok).toBe(true);
             if (result.ok) {
-                expect(result.value.estimatedCostUsd).toBe(0.20);
+                expect(result.value.estimatedCredits).toBe(0.20);
             }
         });
 

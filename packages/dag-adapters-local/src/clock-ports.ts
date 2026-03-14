@@ -1,4 +1,4 @@
-import type { IClockPort } from '../interfaces/ports.js';
+import type { IClockPort } from '@robota-sdk/dag-core';
 
 export class FakeClockPort implements IClockPort {
     private nowMs: number;

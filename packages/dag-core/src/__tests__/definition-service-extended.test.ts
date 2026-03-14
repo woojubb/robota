@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DagDefinitionService } from '../services/definition-service.js';
 import { DagDefinitionValidator } from '../services/definition-validator.js';
-import { InMemoryStoragePort } from '../testing/in-memory-storage-port.js';
+import { InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
 import type { IDagDefinition } from '../types/domain.js';
 
 function createValidDefinition(version: number = 1): IDagDefinition {
@@ -283,7 +283,7 @@ describe('DagDefinitionValidator extended', () => {
 
     it('validates cost policy with invalid limit', () => {
         const def = createValidDefinition();
-        def.costPolicy = { runCostLimitUsd: 0, costCurrency: 'USD', costPolicyVersion: 1 };
+        def.costPolicy = { runCreditLimit: 0, costPolicyVersion: 1 };
         const result = DagDefinitionValidator.validate(def);
         expect(result.ok).toBe(false);
         if (result.ok) return;
@@ -292,7 +292,7 @@ describe('DagDefinitionValidator extended', () => {
 
     it('validates cost policy with invalid version', () => {
         const def = createValidDefinition();
-        def.costPolicy = { runCostLimitUsd: 10, costCurrency: 'USD', costPolicyVersion: 0 };
+        def.costPolicy = { runCreditLimit: 10, costPolicyVersion: 0 };
         const result = DagDefinitionValidator.validate(def);
         expect(result.ok).toBe(false);
         if (result.ok) return;

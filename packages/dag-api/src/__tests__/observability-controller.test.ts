@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InMemoryStoragePort } from '@robota-sdk/dag-core';
+import { InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
 import { ProjectionReadModelService } from '@robota-sdk/dag-projection';
 import { DagObservabilityController } from '../controllers/dag-observability-controller.js';
 

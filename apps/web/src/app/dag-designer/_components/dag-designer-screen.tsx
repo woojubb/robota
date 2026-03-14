@@ -177,6 +177,7 @@ const DAG_API_CONFIG = { baseUrl: DAG_API_BASE_URL };
 export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   const designApi = useDagDesignApi(DAG_API_CONFIG);
   const [log, setLog] = useState<string>("Ready");
+  const [lastRunResult, setLastRunResult] = useState<IRunResult | undefined>(undefined);
   const [dagIdOverride, setDagIdOverride] = useState<string | undefined>(undefined);
   const prevInitialDagIdRef = useRef<string>(props.initialDagId);
   if (prevInitialDagIdRef.current !== props.initialDagId) {
@@ -337,6 +338,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
 
   const onRunResult = useCallback((result: TResult<IRunResult, IDagError>): void => {
     if (result.ok) {
+      setLastRunResult(result.value);
       if (result.value.status === "failed") {
         const errorSummary = result.value.nodeErrors
           .map((ne) => `${ne.nodeId}(${ne.nodeType}): ${ne.error.message}`)
@@ -348,11 +350,12 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
         return;
       }
       setLog(
-        `Run success: dagRunId=${result.value.dagRunId}, totalCostUsd=${result.value.totalCostUsd.toFixed(6)}, nodes=${result.value.traces.length}`
+        `Run success: dagRunId=${result.value.dagRunId}, totalCredits=${result.value.totalCredits.toFixed(6)}, nodes=${result.value.traces.length}`
       );
       showActionToast("Run completed.", "success");
       return;
     }
+    setLastRunResult(undefined);
     if ("error" in result) {
       setLog(`Run failed: ${result.error.code}`);
       showActionToast("Run failed.", "error");
@@ -602,6 +605,43 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
                   <p className="mb-1 text-xs font-medium">Latest Result</p>
                   <DagDesigner.RunProgressSummary className="mb-1 font-mono text-[11px] text-gray-700" />
                   <pre className="max-h-20 overflow-auto text-xs">{log}</pre>
+                  {lastRunResult && lastRunResult.status === "success" ? (
+                    <div className="mt-2 border-t border-gray-200 pt-2">
+                      <p className="mb-1 text-[11px] font-medium text-gray-700">Cost Summary</p>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xs font-semibold text-gray-900">
+                          Total: {lastRunResult.totalCredits.toFixed(6)} credits
+                        </span>
+                        {lastRunResult.traces.length > 0 ? (
+                          <span className="text-[10px] text-gray-500">
+                            (est. {lastRunResult.traces.reduce((sum, t) => sum + t.estimatedCredits, 0).toFixed(6)})
+                          </span>
+                        ) : null}
+                      </div>
+                      {lastRunResult.traces.length > 0 ? (
+                        <div className="mt-1 max-h-16 overflow-auto">
+                          <table className="w-full text-[10px] text-gray-600">
+                            <thead>
+                              <tr className="border-b border-gray-100">
+                                <th className="py-0.5 pr-2 text-left font-medium">Node</th>
+                                <th className="py-0.5 pr-2 text-right font-medium">Estimated</th>
+                                <th className="py-0.5 text-right font-medium">Actual</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {lastRunResult.traces.map((trace) => (
+                                <tr key={trace.nodeId} className="border-b border-gray-50">
+                                  <td className="py-0.5 pr-2 font-mono">{trace.nodeId}</td>
+                                  <td className="py-0.5 pr-2 text-right font-mono">{trace.estimatedCredits.toFixed(6)}</td>
+                                  <td className="py-0.5 text-right font-mono">{trace.totalCredits.toFixed(6)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
               {actionToast ? (

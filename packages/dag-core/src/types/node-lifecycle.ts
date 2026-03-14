@@ -5,7 +5,7 @@ import type { IDagNode, INodeManifest } from './domain.js';
 
 /** Estimated execution cost for a node, returned by cost estimation lifecycle phase. */
 export interface ICostEstimate {
-    estimatedCostUsd: number;
+    estimatedCredits: number;
     details?: Record<string, string | number | boolean>;
 }
 
@@ -18,15 +18,15 @@ export interface INodeExecutionContext {
     nodeManifest: INodeManifest;
     attempt: number;
     executionPath: string[];
-    runCostLimitUsd?: number;
-    currentTotalCostUsd: number;
+    runCreditLimit?: number;
+    currentTotalCredits: number;
 }
 
 /** Final output of a node execution including payload and cost accounting. */
 export interface INodeExecutionResult {
     output: TPortPayload;
-    estimatedCostUsd: number;
-    totalCostUsd: number;
+    estimatedCredits: number;
+    totalCredits: number;
 }
 
 /** Full node lifecycle contract: initialize → validate input → estimate cost → execute → validate output → dispose. */
@@ -98,8 +98,8 @@ export interface INodeDefinitionAssembly {
 /** Evaluates whether a pending cost stays within the run's budget limit. */
 export interface IRunCostPolicyEvaluator {
     assertWithinBudget(
-        currentTotalCostUsd: number,
-        nextEstimatedCostUsd: number,
-        runCostLimitUsd?: number
+        currentTotalCredits: number,
+        nextEstimatedCredits: number,
+        runCreditLimit?: number
     ): TResult<number, IDagError>;
 }

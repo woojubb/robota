@@ -69,7 +69,7 @@ function makeExecutionContext(nodeId: string = 'node-1'): INodeExecutionContext 
         },
         attempt: 1,
         executionPath: [],
-        currentTotalCostUsd: 0
+        currentTotalCredits: 0
     };
 }
 
@@ -123,17 +123,17 @@ describe('GeminiImageEditNodeDefinition', () => {
             const result = await node.taskHandler.estimateCost!({}, context);
             expect(result.ok).toBe(true);
             if (result.ok) {
-                expect(result.value.estimatedCostUsd).toBe(0.01);
+                expect(result.value.estimatedCredits).toBe(0.01);
             }
         });
 
         it('returns custom cost from config', async () => {
             const context = makeExecutionContext();
-            context.nodeDefinition.config = { baseCostUsd: 0.05 };
+            context.nodeDefinition.config = { baseCredits: 0.05 };
             const result = await node.taskHandler.estimateCost!({}, context);
             expect(result.ok).toBe(true);
             if (result.ok) {
-                expect(result.value.estimatedCostUsd).toBe(0.05);
+                expect(result.value.estimatedCredits).toBe(0.05);
             }
         });
     });
@@ -295,7 +295,7 @@ describe('GeminiImageComposeNodeDefinition', () => {
             const result = await node.taskHandler.estimateCost!({}, context);
             expect(result.ok).toBe(true);
             if (result.ok) {
-                expect(result.value.estimatedCostUsd).toBe(0.015);
+                expect(result.value.estimatedCredits).toBe(0.015);
             }
         });
     });

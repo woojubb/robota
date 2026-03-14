@@ -94,8 +94,7 @@ export interface INodeManifest {
 
 /** Budget constraints for a DAG run or individual node execution. */
 export interface ICostPolicy {
-    runCostLimitUsd: number;
-    costCurrency: 'USD';
+    runCreditLimit: number;
     costPolicyVersion: number;
 }
 
@@ -190,8 +189,8 @@ export interface ITaskRun {
     leaseUntil?: string;
     inputSnapshot?: string;
     outputSnapshot?: string;
-    estimatedCostUsd?: number;
-    totalCostUsd?: number;
+    estimatedCredits?: number;
+    totalCredits?: number;
     errorCode?: string;
     errorMessage?: string;
 }

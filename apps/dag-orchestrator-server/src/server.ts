@@ -4,13 +4,13 @@ import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import http from 'node:http';
+import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
 import {
-    type IDagNodeDefinition,
     InMemoryStoragePort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     SystemClockPort,
-} from '@robota-sdk/dag-core';
+} from '@robota-sdk/dag-adapters-local';
 import { buildNodeDefinitionAssembly } from '@robota-sdk/dag-node';
 import {
     createDagControllerComposition,
@@ -21,9 +21,11 @@ import {
     OrchestratorRunService,
 } from '@robota-sdk/dag-orchestrator';
 import type {
-    ICostEstimatorPort,
     ICostPolicyEvaluatorPort,
 } from '@robota-sdk/dag-orchestrator';
+import { CelCostEstimatorAdapter } from '@robota-sdk/dag-orchestrator';
+import { CelCostEvaluator } from '@robota-sdk/dag-cost';
+import { FileCostMetaStorage } from '@robota-sdk/dag-adapters-local';
 import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
 import { TransformNodeDefinition } from '@robota-sdk/dag-node-transform';
 import { LlmTextOpenAiNodeDefinition } from '@robota-sdk/dag-node-llm-text-openai';
@@ -45,6 +47,7 @@ import { registerAssetRoutes } from './routes/asset-routes.js';
 import { registerWsRoutes } from './routes/ws-routes.js';
 import { registerAdminRoutes } from './routes/admin-routes.js';
 import { registerRuntimeAssetRoutes } from './routes/runtime-asset-routes.js';
+import { registerCostMetaRoutes } from './routes/cost-meta-routes.js';
 
 dotenv.config({
     path: path.resolve(process.cwd(), '.env')
@@ -80,12 +83,6 @@ function parseCorsOrigins(): string[] {
     return raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
 }
 
-const stubCostEstimator: ICostEstimatorPort = {
-    async estimateCost() {
-        return { ok: true, value: { totalEstimatedCostUsd: 0, perNode: {} } };
-    }
-};
-
 const stubCostPolicyEvaluator: ICostPolicyEvaluatorPort = {
     evaluate() {
         return { ok: true, value: undefined };
@@ -93,11 +90,18 @@ const stubCostPolicyEvaluator: ICostPolicyEvaluatorPort = {
 };
 
 async function bootstrapOrchestratorServer(): Promise<void> {
+    const costMetaDir = process.env.COST_META_DIR
+        ? path.resolve(process.env.COST_META_DIR)
+        : path.resolve(process.cwd(), 'data');
+    const costMetaStorage = new FileCostMetaStorage(costMetaDir);
+    const celCostEvaluator = new CelCostEvaluator();
+    const costEstimator = new CelCostEstimatorAdapter(costMetaStorage);
+
     const backendUrl = resolveBackendUrl();
     const apiClient = new HttpPromptApiClient(backendUrl);
     const orchestrator = new PromptOrchestratorService(
         apiClient,
-        stubCostEstimator,
+        costEstimator,
         stubCostPolicyEvaluator,
     );
     const runService = new OrchestratorRunService(apiClient);
@@ -180,6 +184,9 @@ async function bootstrapOrchestratorServer(): Promise<void> {
     registerAssetRoutes(app, assetStore);
     registerWsRoutes(server, runService, backendUrl);
     registerAdminRoutes(app, controllers.design);
+
+    // Cost meta CRUD + validate/preview
+    registerCostMetaRoutes(app, costMetaStorage, celCostEvaluator);
 
     // Runtime asset mapped routes (validated forwarding, not blind proxy)
     registerRuntimeAssetRoutes(app, backendUrl);

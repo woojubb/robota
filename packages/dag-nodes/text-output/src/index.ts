@@ -37,7 +37,7 @@ export class TextOutputNodeDefinition extends AbstractNodeDefinition<typeof Text
     ): Promise<TResult<ICostEstimate, IDagError>> {
         return {
             ok: true,
-            value: { estimatedCostUsd: 0 }
+            value: { estimatedCredits: 0 }
         };
     }
 

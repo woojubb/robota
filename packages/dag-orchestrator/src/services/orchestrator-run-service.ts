@@ -224,7 +224,7 @@ export class OrchestratorRunService {
             status: 'failed',
             traces: [],
             nodeErrors,
-            totalCostUsd: 0,
+            totalCredits: 0,
         };
     }
 
@@ -243,8 +243,8 @@ export class OrchestratorRunService {
                 nodeType: node.nodeType,
                 input: completedEvt?.input ?? {},
                 output: completedEvt?.output ?? {},
-                estimatedCostUsd: 0,
-                totalCostUsd: 0,
+                estimatedCredits: 0,
+                totalCredits: 0,
             };
         });
 
@@ -253,7 +253,7 @@ export class OrchestratorRunService {
             status: 'success',
             traces,
             nodeErrors: [],
-            totalCostUsd: 0,
+            totalCredits: 0,
         };
     }
 
