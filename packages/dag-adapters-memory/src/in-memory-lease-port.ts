@@ -1,4 +1,4 @@
-import type { ILeasePort, ILeaseRecord } from '../interfaces/ports.js';
+import type { ILeasePort, ILeaseRecord } from '@robota-sdk/dag-core';
 
 export class InMemoryLeasePort implements ILeasePort {
     private readonly records = new Map<string, ILeaseRecord>();
