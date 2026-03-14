@@ -72,7 +72,7 @@ function makeEvent(
             return {
                 ...base,
                 eventType,
-                error: { category: 'execution', code: 'FAIL', message: 'failed', context: {} },
+                error: { category: 'task_execution', code: 'FAIL', message: 'failed', retryable: false },
                 ...extra,
             } as TRunProgressEvent;
         case 'task.started':
@@ -90,7 +90,7 @@ function makeEvent(
                 eventType,
                 taskRunId: 'task-1',
                 nodeId: 'node1',
-                error: { category: 'execution', code: 'NODE_FAIL', message: 'node failed', context: {} },
+                error: { category: 'task_execution', code: 'NODE_FAIL', message: 'node failed', retryable: false },
                 ...extra,
             } as TRunProgressEvent;
         default:
