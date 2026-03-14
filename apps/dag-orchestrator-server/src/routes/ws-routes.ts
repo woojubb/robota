@@ -6,7 +6,7 @@ import {
     type IComfyUiWsMessage,
 } from '../services/comfyui-event-translator.js';
 
-const PROMPT_ID_POLL_INTERVAL_MS = 100;
+const DAG_RUN_ID_POLL_INTERVAL_MS = 100;
 const TERMINAL_EVENT_TYPES: ReadonlySet<string> = new Set([
     'execution.completed',
     'execution.failed',
@@ -15,7 +15,11 @@ const TERMINAL_EVENT_TYPES: ReadonlySet<string> = new Set([
 /**
  * Register WebSocket upgrade handler for DAG run progress events.
  *
- * Route: /v1/dag/runs/:dagRunId/ws
+ * Route: /v1/dag/runs/:id/ws
+ *
+ * The URL parameter `:id` can be either a preparationId (before startRun)
+ * or a dagRunId (after startRun). The handler resolves the dagRunId
+ * (= promptId) via `runService.getDagRunId()` for prompt filtering.
  *
  * The orchestrator bridges designer WS clients to the ComfyUI backend WS,
  * translating ComfyUI messages into Robota run progress events.
@@ -41,24 +45,29 @@ export function registerWsRoutes(
             return;
         }
 
-        const dagRunId = match[1];
+        const urlId = match[1];
 
         wss.handleUpgrade(request, socket, head, (designerWs) => {
             wss.emit('connection', designerWs, request);
-            handleConnection(designerWs, dagRunId, runService, backendBaseUrl);
+            handleConnection(designerWs, urlId, runService, backendBaseUrl);
         });
     });
 }
 
+/**
+ * Handle a single designer WebSocket connection.
+ *
+ * @param urlId - The ID from the URL path. Can be a preparationId or dagRunId.
+ */
 function handleConnection(
     designerWs: WebSocket,
-    dagRunId: string,
+    urlId: string,
     runService: OrchestratorRunService,
     backendBaseUrl: string,
 ): void {
     let comfyWs: WebSocket | undefined;
-    let promptId: string | undefined;
-    let promptIdPollTimer: ReturnType<typeof setInterval> | undefined;
+    let dagRunId: string | undefined;
+    let dagRunIdPollTimer: ReturnType<typeof setInterval> | undefined;
     let cleaned = false;
     const pendingMessages: (Buffer | string)[] = [];
 
@@ -66,9 +75,9 @@ function handleConnection(
         if (cleaned) return;
         cleaned = true;
 
-        if (promptIdPollTimer !== undefined) {
-            clearInterval(promptIdPollTimer);
-            promptIdPollTimer = undefined;
+        if (dagRunIdPollTimer !== undefined) {
+            clearInterval(dagRunIdPollTimer);
+            dagRunIdPollTimer = undefined;
         }
 
         if (comfyWs && comfyWs.readyState !== WebSocket.CLOSED) {
@@ -81,7 +90,7 @@ function handleConnection(
 
     const sendFailedAndCleanup = (message: string): void => {
         const event = {
-            dagRunId,
+            dagRunId: dagRunId ?? urlId,
             eventType: 'execution.failed',
             occurredAt: new Date().toISOString(),
             error: {
@@ -109,7 +118,7 @@ function handleConnection(
     const wsBaseUrl = backendBaseUrl
         .replace(/^http:/, 'ws:')
         .replace(/^https:/, 'wss:');
-    const comfyWsUrl = `${wsBaseUrl}/ws?clientId=orch-${dagRunId}`;
+    const comfyWsUrl = `${wsBaseUrl}/ws?clientId=orch-${urlId}`;
 
     comfyWs = new WebSocket(comfyWsUrl);
 
@@ -122,7 +131,7 @@ function handleConnection(
     });
 
     const processRawMessage = (raw: Buffer | string): void => {
-        if (cleaned || typeof promptId !== 'string') return;
+        if (cleaned || typeof dagRunId !== 'string') return;
 
         let parsed: IComfyUiWsMessage;
         try {
@@ -131,7 +140,8 @@ function handleConnection(
             return;
         }
 
-        const events = translateComfyUiEvent(parsed, dagRunId, promptId);
+        // dagRunId = promptId, so use dagRunId as both the event dagRunId and the prompt_id filter
+        const events = translateComfyUiEvent(parsed, dagRunId, dagRunId);
         let isTerminal = false;
 
         for (const event of events) {
@@ -149,25 +159,26 @@ function handleConnection(
         }
     };
 
-    // Poll for promptId until it becomes available, then flush buffered messages
-    promptIdPollTimer = setInterval(() => {
-        const id = runService.getPromptIdForRun(dagRunId);
-        if (typeof id === 'string') {
-            promptId = id;
-            if (promptIdPollTimer !== undefined) {
-                clearInterval(promptIdPollTimer);
-                promptIdPollTimer = undefined;
+    // Poll for dagRunId (= promptId) until it becomes available, then flush buffered messages.
+    // The URL param may be a preparationId (before startRun), so we resolve the actual dagRunId.
+    dagRunIdPollTimer = setInterval(() => {
+        const resolvedId = runService.getDagRunId(urlId);
+        if (typeof resolvedId === 'string') {
+            dagRunId = resolvedId;
+            if (dagRunIdPollTimer !== undefined) {
+                clearInterval(dagRunIdPollTimer);
+                dagRunIdPollTimer = undefined;
             }
             for (const buffered of pendingMessages) {
                 processRawMessage(buffered);
             }
             pendingMessages.length = 0;
         }
-    }, PROMPT_ID_POLL_INTERVAL_MS);
+    }, DAG_RUN_ID_POLL_INTERVAL_MS);
 
     comfyWs.on('message', (raw: Buffer | string) => {
         if (cleaned) return;
-        if (typeof promptId !== 'string') {
+        if (typeof dagRunId !== 'string') {
             pendingMessages.push(raw);
             return;
         }

@@ -54,13 +54,13 @@ export function registerRunRoutes(
         }
         res.status(HTTP_CREATED).json({
             ok: true, status: HTTP_CREATED,
-            data: { dagRunId: result.value.dagRunId }
+            data: { preparationId: result.value.preparationId }
         });
     });
 
-    router.post('/v1/dag/runs/:dagRunId/start', async (req: Request<{ dagRunId: string }>, res: Response) => {
-        const instance = `/v1/dag/runs/${req.params.dagRunId}/start`;
-        const result = await runService.startRun(req.params.dagRunId);
+    router.post('/v1/dag/runs/:id/start', async (req: Request<{ id: string }>, res: Response) => {
+        const instance = `/v1/dag/runs/${req.params.id}/start`;
+        const result = await runService.startRun(req.params.id);
         if (!result.ok) {
             const statusCode = result.error.code === 'ORCHESTRATOR_RUN_NOT_FOUND' ? HTTP_NOT_FOUND : HTTP_BAD_REQUEST;
             res.status(statusCode).json({
@@ -71,7 +71,7 @@ export function registerRunRoutes(
         }
         res.status(HTTP_ACCEPTED).json({
             ok: true, status: HTTP_ACCEPTED,
-            data: { dagRunId: result.value.dagRunId, promptId: result.value.promptId }
+            data: { dagRunId: result.value.dagRunId, preparationId: result.value.preparationId }
         });
     });
 
