@@ -43,6 +43,10 @@ export function translateDefinitionToPrompt(
         for (const [key, value] of Object.entries(node.config)) {
             if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
                 inputs[key] = value;
+            } else if (typeof value === 'object' && value !== null) {
+                // ComfyUI accepts arbitrary JSON values in inputs (e.g., asset references).
+                // Cast at translator boundary since TPromptInputValue only covers primitives + links.
+                inputs[key] = value as TPromptInputValue;
             }
         }
 

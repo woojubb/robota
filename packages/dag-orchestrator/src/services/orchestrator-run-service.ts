@@ -17,7 +17,7 @@ import { translateDefinitionToPrompt } from '../adapters/definition-to-prompt-tr
 type TRunStatus = 'pending' | 'running' | 'success' | 'failed';
 
 interface IRunState {
-    promptId: string | undefined;
+    dagRunId: string | undefined;
     promptRequest: IPromptRequest;
     definition: IDagDefinition;
     status: TRunStatus;
@@ -26,39 +26,61 @@ interface IRunState {
 }
 
 export class OrchestratorRunService {
+    /** Keyed by preparationId (pre-start internal key). */
     private readonly runs = new Map<string, IRunState>();
+    /** Maps dagRunId (= promptId) → preparationId for post-start lookups. */
+    private readonly dagRunIdIndex = new Map<string, string>();
 
-    constructor(private readonly promptClient: IPromptApiClientPort) {}
+    /**
+     * Resolve a dagRunId to its preparationId.
+     * After startRun, dagRunId = promptId from the runtime.
+     */
+    getDagRunId(preparationId: string): string | undefined {
+        return this.runs.get(preparationId)?.dagRunId ?? undefined;
+    }
 
-    getPromptIdForRun(dagRunId: string): string | undefined {
-        return this.runs.get(dagRunId)?.promptId ?? undefined;
+    /**
+     * Look up a run by dagRunId (= promptId) or preparationId.
+     * Tries dagRunId index first, then falls back to preparationId direct lookup.
+     */
+    private findRun(id: string): { run: IRunState; preparationId: string } | undefined {
+        // Try dagRunId index first
+        const prepId = this.dagRunIdIndex.get(id);
+        if (prepId !== undefined) {
+            const run = this.runs.get(prepId);
+            if (run) return { run, preparationId: prepId };
+        }
+        // Try direct preparationId lookup
+        const run = this.runs.get(id);
+        if (run) return { run, preparationId: id };
+        return undefined;
     }
 
     recordEvent(dagRunId: string, event: TRunProgressEvent): void {
-        const run = this.runs.get(dagRunId);
-        if (!run) return;
+        const found = this.findRun(dagRunId);
+        if (!found) return;
 
-        run.nodeEvents.push(event);
+        found.run.nodeEvents.push(event);
 
         if (event.eventType === 'execution.completed') {
-            run.status = 'success';
+            found.run.status = 'success';
         } else if (event.eventType === 'execution.failed') {
-            run.status = 'failed';
+            found.run.status = 'failed';
         }
     }
 
     async createRun(
         definition: IDagDefinition,
         input: TPortPayload
-    ): Promise<TResult<{ dagRunId: string }, IDagError>> {
+    ): Promise<TResult<{ preparationId: string }, IDagError>> {
         const translationResult = translateDefinitionToPrompt(definition, input);
         if (!translationResult.ok) {
             return translationResult;
         }
 
-        const dagRunId = randomUUID();
-        this.runs.set(dagRunId, {
-            promptId: undefined,
+        const preparationId = randomUUID();
+        this.runs.set(preparationId, {
+            dagRunId: undefined,
             promptRequest: translationResult.value,
             definition,
             status: 'pending',
@@ -68,19 +90,19 @@ export class OrchestratorRunService {
 
         return {
             ok: true,
-            value: { dagRunId },
+            value: { preparationId },
         };
     }
 
-    async startRun(dagRunId: string): Promise<TResult<{ dagRunId: string; promptId: string }, IDagError>> {
-        const run = this.runs.get(dagRunId);
+    async startRun(preparationId: string): Promise<TResult<{ dagRunId: string; preparationId: string }, IDagError>> {
+        const run = this.runs.get(preparationId);
         if (!run) {
             return {
                 ok: false,
                 error: buildValidationError(
                     'ORCHESTRATOR_RUN_NOT_FOUND',
                     'Run not found',
-                    { dagRunId }
+                    { preparationId }
                 ),
             };
         }
@@ -90,7 +112,7 @@ export class OrchestratorRunService {
                 error: buildValidationError(
                     'ORCHESTRATOR_RUN_ALREADY_STARTED',
                     'Run has already been started',
-                    { dagRunId }
+                    { preparationId }
                 ),
             };
         }
@@ -102,29 +124,30 @@ export class OrchestratorRunService {
         }
 
         const promptId = submitResult.value.prompt_id;
-        run.promptId = promptId;
+        run.dagRunId = promptId;
         run.status = 'running';
+        this.dagRunIdIndex.set(promptId, preparationId);
 
         return {
             ok: true,
-            value: { dagRunId, promptId },
+            value: { dagRunId: promptId, preparationId },
         };
     }
 
     async createAndStartRun(
         definition: IDagDefinition,
         input: TPortPayload
-    ): Promise<TResult<{ dagRunId: string; promptId: string }, IDagError>> {
+    ): Promise<TResult<{ dagRunId: string; preparationId: string }, IDagError>> {
         const createResult = await this.createRun(definition, input);
         if (!createResult.ok) {
             return createResult;
         }
-        return this.startRun(createResult.value.dagRunId);
+        return this.startRun(createResult.value.preparationId);
     }
 
     async getRunStatus(dagRunId: string): Promise<TResult<{ status: TRunStatus }, IDagError>> {
-        const run = this.runs.get(dagRunId);
-        if (!run) {
+        const found = this.findRun(dagRunId);
+        if (!found) {
             return {
                 ok: false,
                 error: buildValidationError(
@@ -135,10 +158,12 @@ export class OrchestratorRunService {
             };
         }
 
-        if (run.status === 'running' && typeof run.promptId === 'string') {
-            const historyResult = await this.promptClient.getHistory(run.promptId);
+        const { run } = found;
+
+        if (run.status === 'running' && typeof run.dagRunId === 'string') {
+            const historyResult = await this.promptClient.getHistory(run.dagRunId);
             if (historyResult.ok) {
-                const entry = historyResult.value[run.promptId];
+                const entry = historyResult.value[run.dagRunId];
                 if (entry) {
                     const newStatus = entry.status.status_str === 'success' ? 'success' : 'failed';
                     run.status = newStatus;
@@ -150,8 +175,8 @@ export class OrchestratorRunService {
     }
 
     async getRunResult(dagRunId: string): Promise<TResult<IRunResult, IDagError>> {
-        const run = this.runs.get(dagRunId);
-        if (!run) {
+        const found = this.findRun(dagRunId);
+        if (!found) {
             return {
                 ok: false,
                 error: buildValidationError(
@@ -162,7 +187,9 @@ export class OrchestratorRunService {
             };
         }
 
-        if (typeof run.promptId !== 'string') {
+        const { run } = found;
+
+        if (typeof run.dagRunId !== 'string') {
             return {
                 ok: false,
                 error: buildValidationError(
@@ -173,7 +200,7 @@ export class OrchestratorRunService {
             };
         }
 
-        const promptId = run.promptId;
+        const promptId = run.dagRunId;
         const historyResult = await this.promptClient.getHistory(promptId);
         if (!historyResult.ok) {
             return historyResult;
@@ -211,7 +238,7 @@ export class OrchestratorRunService {
             return {
                 ok: true,
                 value: {
-                    dagRunId,
+                    dagRunId: promptId,
                     status: 'failed',
                     traces: [],
                     nodeErrors,
@@ -233,7 +260,7 @@ export class OrchestratorRunService {
         return {
             ok: true,
             value: {
-                dagRunId,
+                dagRunId: promptId,
                 status: 'success',
                 traces,
                 nodeErrors: [],
@@ -241,4 +268,6 @@ export class OrchestratorRunService {
             },
         };
     }
+
+    constructor(private readonly promptClient: IPromptApiClientPort) {}
 }
