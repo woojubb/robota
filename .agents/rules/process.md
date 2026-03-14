@@ -47,6 +47,14 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - For each task in the plan, test steps (write failing test → verify fail → implement → verify pass) must be explicit, not implied.
 - When reviewing or approving a plan, verify the test strategy exists and covers the critical paths before proceeding.
 
+### Idea Capture Policy
+
+- When the user mentions an idea, suggestion, or future task (e.g., "~하면 좋겠다", "나중에 ~하자", "~해야한다"), do NOT start implementation immediately.
+- Instead, record it as a task file in `.agents/tasks/` with status `backlog` and acknowledge briefly ("기록했습니다").
+- Continue the current work without interruption.
+- Only start implementation when the user explicitly requests it (e.g., "이거 진행해", "할일 목록에서 X 해줘").
+- When the user asks to see the backlog ("할일 목록 보여줘"), list all recorded tasks from `.agents/tasks/`.
+
 ### Build Requirements
 
 - ANY modification to `packages/*/src/` REQUIRES immediate build of the affected scope.
