@@ -268,14 +268,25 @@ export class OrchestratorRunService {
         }
 
         run.status = 'success';
-        const traces: IRunNodeTrace[] = run.definition.nodes.map((node) => ({
-            nodeId: node.nodeId,
-            nodeType: node.nodeType,
-            input: {},
-            output: {},
-            estimatedCostUsd: 0,
-            totalCostUsd: 0,
-        }));
+
+        const completedEventsByNode = new Map<string, TRunProgressEvent & { eventType: 'task.completed' }>();
+        for (const evt of run.nodeEvents) {
+            if (evt.eventType === 'task.completed') {
+                completedEventsByNode.set(evt.nodeId, evt);
+            }
+        }
+
+        const traces: IRunNodeTrace[] = run.definition.nodes.map((node) => {
+            const completedEvt = completedEventsByNode.get(node.nodeId);
+            return {
+                nodeId: node.nodeId,
+                nodeType: node.nodeType,
+                input: completedEvt?.input ?? {},
+                output: completedEvt?.output ?? {},
+                estimatedCostUsd: 0,
+                totalCostUsd: 0,
+            };
+        });
 
         return {
             ok: true,

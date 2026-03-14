@@ -36,6 +36,7 @@ export function registerRuntimeAssetRoutes(app: Express, backendUrl: string): vo
             const contentLength = upstream.headers.get('content-length');
             if (contentType) { res.setHeader('Content-Type', contentType); }
             if (contentLength) { res.setHeader('Content-Length', contentLength); }
+            res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
             if (upstream.body) {
                 const readable = Readable.fromWeb(upstream.body as import('node:stream/web').ReadableStream);

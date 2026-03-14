@@ -27,7 +27,9 @@ export function mountAssetRoutes(app: Express, assetStore: IAssetStore): void {
         }
 
         res.setHeader('Content-Type', result.metadata.mediaType);
-        res.setHeader('Content-Length', String(result.metadata.sizeBytes));
+        if (result.metadata.sizeBytes > 0) {
+            res.setHeader('Content-Length', String(result.metadata.sizeBytes));
+        }
 
         const readable = result.stream instanceof Readable
             ? result.stream
