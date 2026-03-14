@@ -6,11 +6,7 @@ import type {
     TRunProgressEvent
 } from '@robota-sdk/dag-core';
 import type { IProblemDetails, IDefinitionListItem } from '@robota-sdk/dag-api';
-import type { IRunNodeTrace, IRunResult } from '@robota-sdk/dag-core';
-
-// Re-export SSOT types for downstream consumers
-export type { IProblemDetails, IDefinitionListItem };
-export type { IRunNodeTrace, IRunResult };
+import type { IRunResult } from '@robota-sdk/dag-core';
 
 export interface ICreateDefinitionInput {
     definition: IDagDefinition;

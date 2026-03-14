@@ -31,46 +31,28 @@ export class OrchestratorRunService {
     /** Maps dagRunId (= promptId) → preparationId for post-start lookups. */
     private readonly dagRunIdIndex = new Map<string, string>();
 
-    /**
-     * Resolve a dagRunId to its preparationId.
-     * After startRun, dagRunId = promptId from the runtime.
-     */
     getDagRunId(preparationId: string): string | undefined {
         return this.runs.get(preparationId)?.dagRunId ?? undefined;
     }
 
-    /**
-     * Get the prompt request for a pending run, allowing pre-submit mutation
-     * (e.g., uploading assets to runtime and updating asset references).
-     * Returns undefined if run not found or already started.
-     */
     getPendingPromptRequest(preparationId: string): IPromptRequest | undefined {
         const run = this.runs.get(preparationId);
         if (!run || run.status !== 'pending') return undefined;
         return run.promptRequest;
     }
 
-    /**
-     * Get the definition for a pending run, for scanning asset references.
-     */
     getPendingDefinition(preparationId: string): IDagDefinition | undefined {
         const run = this.runs.get(preparationId);
         if (!run || run.status !== 'pending') return undefined;
         return run.definition;
     }
 
-    /**
-     * Look up a run by dagRunId (= promptId) or preparationId.
-     * Tries dagRunId index first, then falls back to preparationId direct lookup.
-     */
     private findRun(id: string): { run: IRunState; preparationId: string } | undefined {
-        // Try dagRunId index first
         const prepId = this.dagRunIdIndex.get(id);
         if (prepId !== undefined) {
             const run = this.runs.get(prepId);
             if (run) return { run, preparationId: prepId };
         }
-        // Try direct preparationId lookup
         const run = this.runs.get(id);
         if (run) return { run, preparationId: id };
         return undefined;
@@ -197,78 +179,56 @@ export class OrchestratorRunService {
     async getRunResult(dagRunId: string): Promise<TResult<IRunResult, IDagError>> {
         const found = this.findRun(dagRunId);
         if (!found) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'ORCHESTRATOR_RUN_NOT_FOUND',
-                    'Run not found',
-                    { dagRunId }
-                ),
-            };
+            return { ok: false, error: buildValidationError('ORCHESTRATOR_RUN_NOT_FOUND', 'Run not found', { dagRunId }) };
         }
 
         const { run } = found;
-
         if (typeof run.dagRunId !== 'string') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'ORCHESTRATOR_RUN_NOT_COMPLETED',
-                    'Run has not been started yet',
-                    { dagRunId }
-                ),
-            };
+            return { ok: false, error: buildValidationError('ORCHESTRATOR_RUN_NOT_COMPLETED', 'Run has not been started yet', { dagRunId }) };
         }
 
         const promptId = run.dagRunId;
         const historyResult = await this.promptClient.getHistory(promptId);
-        if (!historyResult.ok) {
-            return historyResult;
-        }
+        if (!historyResult.ok) return historyResult;
 
         const entry = historyResult.value[promptId];
         if (!entry) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'ORCHESTRATOR_RUN_NOT_COMPLETED',
-                    'Run has not completed yet',
-                    { dagRunId, promptId }
-                ),
-            };
+            return { ok: false, error: buildValidationError('ORCHESTRATOR_RUN_NOT_COMPLETED', 'Run has not completed yet', { dagRunId, promptId }) };
         }
-
-        const nodeTypeMap = new Map(
-            run.definition.nodes.map((node) => [node.nodeId, node.nodeType])
-        );
 
         if (entry.status.status_str !== 'success') {
             run.status = 'failed';
-            const nodeErrors: IRunNodeError[] = run.nodeEvents
-                .filter((evt): evt is Extract<TRunProgressEvent, { eventType: 'task.failed' }> =>
-                    evt.eventType === 'task.failed'
-                )
-                .map((evt) => ({
-                    nodeId: evt.nodeId,
-                    nodeType: nodeTypeMap.get(evt.nodeId) ?? 'unknown',
-                    error: evt.error,
-                    occurredAt: evt.occurredAt,
-                }));
-
-            return {
-                ok: true,
-                value: {
-                    dagRunId: promptId,
-                    status: 'failed',
-                    traces: [],
-                    nodeErrors,
-                    totalCostUsd: 0,
-                },
-            };
+            return { ok: true, value: this.buildFailedRunResult(run, promptId) };
         }
-
         run.status = 'success';
+        return { ok: true, value: this.buildSuccessRunResult(run, promptId) };
+    }
 
+    private buildFailedRunResult(run: IRunState, promptId: string): IRunResult {
+        const nodeTypeMap = new Map(
+            run.definition.nodes.map((node) => [node.nodeId, node.nodeType])
+        );
+        const nodeErrors: IRunNodeError[] = run.nodeEvents
+            .filter((evt): evt is Extract<TRunProgressEvent, { eventType: 'task.failed' }> =>
+                evt.eventType === 'task.failed'
+            )
+            .map((evt) => ({
+                nodeId: evt.nodeId,
+                nodeType: nodeTypeMap.get(evt.nodeId) ?? 'unknown',
+                error: evt.error,
+                occurredAt: evt.occurredAt,
+            }));
+
+        return {
+            dagRunId: promptId,
+            status: 'failed',
+            traces: [],
+            nodeErrors,
+            totalCostUsd: 0,
+        };
+    }
+
+    private buildSuccessRunResult(run: IRunState, promptId: string): IRunResult {
         const completedEventsByNode = new Map<string, TRunProgressEvent & { eventType: 'task.completed' }>();
         for (const evt of run.nodeEvents) {
             if (evt.eventType === 'task.completed') {
@@ -289,14 +249,11 @@ export class OrchestratorRunService {
         });
 
         return {
-            ok: true,
-            value: {
-                dagRunId: promptId,
-                status: 'success',
-                traces,
-                nodeErrors: [],
-                totalCostUsd: 0,
-            },
+            dagRunId: promptId,
+            status: 'success',
+            traces,
+            nodeErrors: [],
+            totalCostUsd: 0,
         };
     }
 

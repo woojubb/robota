@@ -10,7 +10,7 @@
 - **No concrete node implementations.** Specific node types (e.g., `llm-text-openai`, `image-source`) belong to `@robota-sdk/dag-nodes`.
 - **No orchestration or runtime.** DAG scheduling, worker execution, and run coordination belong to `dag-runtime`, `dag-worker`, `dag-scheduler`.
 - **No API layer.** HTTP/REST composition belongs to application packages.
-- **No node descriptor utilities.** The `node-descriptor.ts` utility remains in `dag-core` as it operates on core interfaces without requiring node infrastructure.
+- **No execution engine or lifecycle runner.** The `NodeLifecycleRunner` and `LifecycleTaskExecutorPort` belong to `@robota-sdk/dag-core`.
 
 ## Architecture Overview
 
@@ -22,8 +22,10 @@ dag-node/
     lifecycle/           -- Abstract base class, IO accessor, lifecycle wrappers, factory
     registry/            -- Static manifest registry
     schemas/             -- Zod schemas for media references
+    utils/               -- Node descriptor (buildConfigSchema)
     value-objects/       -- MediaReference immutable value object
-    port-definition-helpers.ts -- Binary port definition factory and presets
+    node-definition-assembly.ts -- buildNodeDefinitionAssembly factory
+    port-definition-helpers.ts  -- Binary port definition factory and presets
     __tests__/           -- Unit tests
 ```
 
@@ -83,6 +85,9 @@ Types imported from `@robota-sdk/dag-core` (not owned):
 | `parseBinaryValue` | Function | Parses and validates a raw port value as a binary payload |
 | `createBinaryPortDefinition` | Function | Creates an `IPortDefinition` for binary ports using a preset |
 | `BINARY_PORT_PRESETS` | Constant | Predefined binary port presets (IMAGE_PNG, IMAGE_COMMON, VIDEO_MP4, etc.) |
+| `buildNodeDefinitionAssembly` | Function | Builds manifests and handler registry from an array of `IDagNodeDefinition` |
+| `buildConfigSchema` | Function | Converts a Zod schema to JSON Schema 7 for node config |
+| `createStaticNodeLifecycleFactory` | Function | Factory function that creates a `StaticNodeLifecycleFactory` from a handler map |
 
 ## Extension Points
 
@@ -154,6 +159,8 @@ All errors use codes and categories defined in `@robota-sdk/dag-core`. This pack
 | `NodeIoAccessor` | `dag-nodes` (11 node definitions) | Used for input reading and output assembly |
 | `MediaReference` | `dag-nodes` (media-handling nodes) | Used for asset reference handling |
 | `BINARY_PORT_PRESETS`, `createBinaryPortDefinition` | `dag-nodes` (binary-handling nodes) | Used for port definitions |
+| `buildNodeDefinitionAssembly` | `dag-runtime-server`, `dag-orchestrator-server` | Builds manifests + handler map from node definitions |
+| `StaticNodeLifecycleFactory`, `StaticNodeTaskHandlerRegistry` | `dag-runtime-server` | Creates lifecycle instances for node execution |
 
 ## Dependencies
 
@@ -177,4 +184,5 @@ All errors use codes and categories defined in `@robota-sdk/dag-core`. This pack
 | `__tests__/media-reference.test.ts` | Factory methods, XOR validation, conversion helpers |
 | `__tests__/media-reference-schema.test.ts` | Zod schema validation for media references |
 | `__tests__/binary-value-parser.test.ts` | Binary value parsing and validation |
-| `__tests__/node-descriptor.test.ts` | Node descriptor utility tests (utility remains in dag-core) |
+| `__tests__/node-descriptor.test.ts` | `buildConfigSchema` Zod-to-JSON-Schema conversion and validation |
+| `__tests__/node-definition-assembly.test.ts` | `buildNodeDefinitionAssembly` assembly, port definition helpers, presets |

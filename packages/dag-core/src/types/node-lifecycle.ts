@@ -2,7 +2,6 @@ import type { TPortPayload } from '../interfaces/ports.js';
 import type { IDagError } from './error.js';
 import type { TResult } from './result.js';
 import type { IDagNode, INodeManifest } from './domain.js';
-import { buildConfigSchema } from '../utils/node-descriptor.js';
 
 /** Estimated execution cost for a node, returned by cost estimation lifecycle phase. */
 export interface ICostEstimate {
@@ -94,39 +93,6 @@ export interface IDagNodeDefinition {
 export interface INodeDefinitionAssembly {
     manifests: INodeManifest[];
     handlersByType: Record<string, INodeTaskHandler>;
-}
-
-/**
- * Build manifests and handler registry from an array of node definitions.
- * @param nodeDefinitions - Node definitions to assemble
- * @returns Assembly of manifests and handlers, or an error if config schema validation fails
- */
-export function buildNodeDefinitionAssembly(nodeDefinitions: IDagNodeDefinition[]): TResult<INodeDefinitionAssembly, IDagError> {
-    const manifests: INodeManifest[] = [];
-    const handlersByType: Record<string, INodeTaskHandler> = {};
-    for (const nodeDefinition of nodeDefinitions) {
-        const configSchemaResult = buildConfigSchema(nodeDefinition.configSchemaDefinition);
-        if (!configSchemaResult.ok) {
-            return configSchemaResult;
-        }
-        const manifest: INodeManifest = {
-            nodeType: nodeDefinition.nodeType,
-            displayName: nodeDefinition.displayName,
-            category: nodeDefinition.category,
-            inputs: nodeDefinition.inputs,
-            outputs: nodeDefinition.outputs,
-            configSchema: configSchemaResult.value
-        };
-        manifests.push(manifest);
-        handlersByType[manifest.nodeType] = nodeDefinition.taskHandler;
-    }
-    return {
-        ok: true,
-        value: {
-            manifests,
-            handlersByType
-        }
-    };
 }
 
 /** Evaluates whether a pending cost stays within the run's budget limit. */

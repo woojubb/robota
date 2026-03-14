@@ -56,10 +56,49 @@ export class DagPromptBackend implements IPromptBackendPort {
 
     async submitPrompt(request: IPromptRequest): Promise<TResult<IPromptResponse, IDagError>> {
         const promptId = request.prompt_id ?? randomUUID();
-        const prompt = request.prompt;
+        const definition = this.buildDefinitionFromPrompt(promptId, request.prompt);
 
+        const createdDraft = await this.definitionService.createDraft(definition);
+        if (!createdDraft.ok) {
+            return { ok: false, error: createdDraft.error[0] };
+        }
+
+        const published = await this.definitionService.publish(definition.dagId, definition.version);
+        if (!published.ok) {
+            return { ok: false, error: published.error[0] };
+        }
+
+        const createdRun = await this.execution.runOrchestrator.createRun({
+            dagId: published.value.dagId,
+            version: published.value.version,
+            trigger: 'manual',
+            input: {},
+        });
+        if (!createdRun.ok) {
+            return { ok: false, error: createdRun.error };
+        }
+
+        const started = await this.execution.runOrchestrator.startCreatedRun(createdRun.value.dagRunId);
+        if (!started.ok) {
+            return { ok: false, error: started.error };
+        }
+
+        this.promptIdToDagRunId.set(promptId, createdRun.value.dagRunId);
+        this.dagRunIdToPromptId.set(createdRun.value.dagRunId, promptId);
+
+        void this.processRunUntilTerminal(createdRun.value.dagRunId, promptId, request.prompt);
+
+        return {
+            ok: true,
+            value: { prompt_id: promptId, number: 0, node_errors: {} },
+        };
+    }
+
+    private buildDefinitionFromPrompt(
+        promptId: string,
+        prompt: IPromptRequest['prompt']
+    ): IDagDefinition {
         const manifestByType = new Map(this.manifests.map((m) => [m.nodeType, m]));
-
         const nodeIds = Object.keys(prompt);
         const edges: IDagDefinition['edges'] = [];
 
@@ -97,7 +136,6 @@ export class DagPromptBackend implements IPromptBackendPort {
             };
         });
 
-        // Populate dependsOn from edges
         for (const edge of edges) {
             const targetNode = nodes.find((n) => n.nodeId === edge.to);
             if (targetNode && !targetNode.dependsOn.includes(edge.from)) {
@@ -105,63 +143,12 @@ export class DagPromptBackend implements IPromptBackendPort {
             }
         }
 
-        const definition: IDagDefinition = {
+        return {
             dagId: `prompt:${promptId}`,
             version: 1,
             status: 'draft',
             nodes,
             edges,
-        };
-
-        const createdDraft = await this.definitionService.createDraft(definition);
-        if (!createdDraft.ok) {
-            return {
-                ok: false,
-                error: createdDraft.error[0],
-            };
-        }
-
-        const published = await this.definitionService.publish(definition.dagId, definition.version);
-        if (!published.ok) {
-            return {
-                ok: false,
-                error: published.error[0],
-            };
-        }
-
-        const createdRun = await this.execution.runOrchestrator.createRun({
-            dagId: published.value.dagId,
-            version: published.value.version,
-            trigger: 'manual',
-            input: {},
-        });
-        if (!createdRun.ok) {
-            return {
-                ok: false,
-                error: createdRun.error,
-            };
-        }
-
-        const started = await this.execution.runOrchestrator.startCreatedRun(createdRun.value.dagRunId);
-        if (!started.ok) {
-            return {
-                ok: false,
-                error: started.error,
-            };
-        }
-
-        this.promptIdToDagRunId.set(promptId, createdRun.value.dagRunId);
-        this.dagRunIdToPromptId.set(createdRun.value.dagRunId, promptId);
-
-        void this.processRunUntilTerminal(createdRun.value.dagRunId, promptId, request.prompt);
-
-        return {
-            ok: true,
-            value: {
-                prompt_id: promptId,
-                number: 0,
-                node_errors: {},
-            },
         };
     }
 

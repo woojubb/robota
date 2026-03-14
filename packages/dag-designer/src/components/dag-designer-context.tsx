@@ -17,13 +17,13 @@ import {
     type IDagError,
     type IDagNode,
     type INodeManifest,
+    type IRunResult,
     type TRunProgressEvent,
     type TPortPayload,
     type TResult
 } from '@robota-sdk/dag-core';
 import type { IDagNodeIoTrace } from './dag-node-view.js';
 import { reconcileNodePortsAndEdges, summarizeRemovedBindings } from './port-editor-utils.js';
-import type { IRunResult } from '../contracts/designer-api.js';
 import {
     compactListBindings,
     computeBindingErrors,

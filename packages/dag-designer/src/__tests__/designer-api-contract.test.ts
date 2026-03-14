@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { hasValidRunResult } from '../client/designer-api-client.js';
-import type { IRunResult } from '../contracts/designer-api.js';
+import type { IRunResult } from '@robota-sdk/dag-core';
 
 describe('hasValidRunResult contract validation', () => {
     const validTrace = {

@@ -5,10 +5,10 @@ import type {
     IDagError,
     IDagNode,
     INodeManifest,
+    IRunResult,
     TPortPayload,
     TResult
 } from '@robota-sdk/dag-core';
-import type { IRunResult } from '../contracts/designer-api.js';
 import type { IRunProgressState } from '../components/dag-designer-canvas.js';
 import { useDagDesignerContext } from '../components/dag-designer-canvas.js';
 

@@ -54,43 +54,90 @@ export function registerWsRoutes(
     });
 }
 
-/**
- * Handle a single designer WebSocket connection.
- *
- * @param urlId - The ID from the URL path. Can be a preparationId or dagRunId.
- */
+interface IWsBridgeState {
+    comfyWs: WebSocket | undefined;
+    dagRunId: string | undefined;
+    dagRunIdPollTimer: ReturnType<typeof setInterval> | undefined;
+    cleaned: boolean;
+    readonly pendingMessages: (Buffer | string)[];
+}
+
+function createCleanup(
+    state: IWsBridgeState,
+    designerWs: WebSocket,
+): () => void {
+    return (): void => {
+        if (state.cleaned) return;
+        state.cleaned = true;
+
+        if (state.dagRunIdPollTimer !== undefined) {
+            clearInterval(state.dagRunIdPollTimer);
+            state.dagRunIdPollTimer = undefined;
+        }
+
+        if (state.comfyWs && state.comfyWs.readyState !== WebSocket.CLOSED) {
+            state.comfyWs.close();
+        }
+        if (designerWs.readyState !== WebSocket.CLOSED) {
+            designerWs.close();
+        }
+    };
+}
+
+function processRawMessage(
+    raw: Buffer | string,
+    state: IWsBridgeState,
+    designerWs: WebSocket,
+    runService: OrchestratorRunService,
+    cleanup: () => void,
+): void {
+    if (state.cleaned || typeof state.dagRunId !== 'string') return;
+
+    let parsed: IComfyUiWsMessage;
+    try {
+        parsed = JSON.parse(typeof raw === 'string' ? raw : raw.toString('utf-8')) as IComfyUiWsMessage;
+    } catch {
+        return;
+    }
+
+    const dagRunId = state.dagRunId;
+    const events = translateComfyUiEvent(parsed, dagRunId, dagRunId);
+    let isTerminal = false;
+
+    for (const event of events) {
+        runService.recordEvent(dagRunId, event);
+        if (designerWs.readyState === WebSocket.OPEN) {
+            designerWs.send(JSON.stringify({ event }));
+        }
+        if (TERMINAL_EVENT_TYPES.has(event.eventType)) {
+            isTerminal = true;
+        }
+    }
+
+    if (isTerminal) {
+        cleanup();
+    }
+}
+
 function handleConnection(
     designerWs: WebSocket,
     urlId: string,
     runService: OrchestratorRunService,
     backendBaseUrl: string,
 ): void {
-    let comfyWs: WebSocket | undefined;
-    let dagRunId: string | undefined;
-    let dagRunIdPollTimer: ReturnType<typeof setInterval> | undefined;
-    let cleaned = false;
-    const pendingMessages: (Buffer | string)[] = [];
-
-    const cleanup = (): void => {
-        if (cleaned) return;
-        cleaned = true;
-
-        if (dagRunIdPollTimer !== undefined) {
-            clearInterval(dagRunIdPollTimer);
-            dagRunIdPollTimer = undefined;
-        }
-
-        if (comfyWs && comfyWs.readyState !== WebSocket.CLOSED) {
-            comfyWs.close();
-        }
-        if (designerWs.readyState !== WebSocket.CLOSED) {
-            designerWs.close();
-        }
+    const state: IWsBridgeState = {
+        comfyWs: undefined,
+        dagRunId: undefined,
+        dagRunIdPollTimer: undefined,
+        cleaned: false,
+        pendingMessages: [],
     };
+
+    const cleanup = createCleanup(state, designerWs);
 
     const sendFailedAndCleanup = (message: string): void => {
         const event = {
-            dagRunId: dagRunId ?? urlId,
+            dagRunId: state.dagRunId ?? urlId,
             eventType: 'execution.failed',
             occurredAt: new Date().toISOString(),
             error: {
@@ -106,82 +153,40 @@ function handleConnection(
         cleanup();
     };
 
-    // Designer disconnect -> cleanup ComfyUI WS
-    designerWs.on('close', () => {
-        cleanup();
-    });
-    designerWs.on('error', () => {
-        cleanup();
-    });
+    designerWs.on('close', () => { cleanup(); });
+    designerWs.on('error', () => { cleanup(); });
 
-    // Build ComfyUI WS URL
     const wsBaseUrl = backendBaseUrl
         .replace(/^http:/, 'ws:')
         .replace(/^https:/, 'wss:');
-    const comfyWsUrl = `${wsBaseUrl}/ws?clientId=orch-${urlId}`;
+    state.comfyWs = new WebSocket(`${wsBaseUrl}/ws?clientId=orch-${urlId}`);
 
-    comfyWs = new WebSocket(comfyWsUrl);
-
-    comfyWs.on('error', () => {
+    state.comfyWs.on('error', () => {
         sendFailedAndCleanup('Failed to connect to ComfyUI backend');
     });
+    state.comfyWs.on('close', () => { cleanup(); });
 
-    comfyWs.on('close', () => {
-        cleanup();
-    });
-
-    const processRawMessage = (raw: Buffer | string): void => {
-        if (cleaned || typeof dagRunId !== 'string') return;
-
-        let parsed: IComfyUiWsMessage;
-        try {
-            parsed = JSON.parse(typeof raw === 'string' ? raw : raw.toString('utf-8')) as IComfyUiWsMessage;
-        } catch {
-            return;
-        }
-
-        // dagRunId = promptId, so use dagRunId as both the event dagRunId and the prompt_id filter
-        const events = translateComfyUiEvent(parsed, dagRunId, dagRunId);
-        let isTerminal = false;
-
-        for (const event of events) {
-            runService.recordEvent(dagRunId, event);
-            if (designerWs.readyState === WebSocket.OPEN) {
-                designerWs.send(JSON.stringify({ event }));
-            }
-            if (TERMINAL_EVENT_TYPES.has(event.eventType)) {
-                isTerminal = true;
-            }
-        }
-
-        if (isTerminal) {
-            cleanup();
-        }
-    };
-
-    // Poll for dagRunId (= promptId) until it becomes available, then flush buffered messages.
-    // The URL param may be a preparationId (before startRun), so we resolve the actual dagRunId.
-    dagRunIdPollTimer = setInterval(() => {
+    state.dagRunIdPollTimer = setInterval(() => {
         const resolvedId = runService.getDagRunId(urlId);
         if (typeof resolvedId === 'string') {
-            dagRunId = resolvedId;
-            if (dagRunIdPollTimer !== undefined) {
-                clearInterval(dagRunIdPollTimer);
-                dagRunIdPollTimer = undefined;
+            state.dagRunId = resolvedId;
+            if (state.dagRunIdPollTimer !== undefined) {
+                clearInterval(state.dagRunIdPollTimer);
+                state.dagRunIdPollTimer = undefined;
             }
-            for (const buffered of pendingMessages) {
-                processRawMessage(buffered);
+            for (const buffered of state.pendingMessages) {
+                processRawMessage(buffered, state, designerWs, runService, cleanup);
             }
-            pendingMessages.length = 0;
+            state.pendingMessages.length = 0;
         }
     }, DAG_RUN_ID_POLL_INTERVAL_MS);
 
-    comfyWs.on('message', (raw: Buffer | string) => {
-        if (cleaned) return;
-        if (typeof dagRunId !== 'string') {
-            pendingMessages.push(raw);
+    state.comfyWs.on('message', (raw: Buffer | string) => {
+        if (state.cleaned) return;
+        if (typeof state.dagRunId !== 'string') {
+            state.pendingMessages.push(raw);
             return;
         }
-        processRawMessage(raw);
+        processRawMessage(raw, state, designerWs, runService, cleanup);
     });
 }
