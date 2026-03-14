@@ -144,9 +144,9 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
 
     if (!node) {
         return (
-            <div className="rounded border border-gray-300 p-3">
-                <h2 className="text-sm font-semibold">Node Config</h2>
-                <p className="mt-2 text-xs text-gray-500">Select a node to edit config.</p>
+            <div className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3">
+                <h2 className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Node Config</h2>
+                <p className="mt-2 text-xs text-[var(--studio-text-muted)]">Select a node to edit config.</p>
             </div>
         );
     }
@@ -176,27 +176,27 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
     const requiredSet = new Set<string>(schemaRoot?.required ?? []);
 
     return (
-        <div className="flex h-full flex-col gap-3 rounded border border-gray-300 p-3">
-            <h2 className="text-sm font-semibold">Node Config</h2>
-            <div className="text-xs text-gray-500">
-                <div>nodeId: {node.nodeId}</div>
-                <div>nodeType: {node.nodeType}</div>
+        <div className="flex h-full flex-col gap-3 rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3">
+            <h2 className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Node Config</h2>
+            <div className="text-xs text-[var(--studio-text-muted)]">
+                <div>nodeId: <span className="font-mono text-[var(--studio-text-secondary)]">{node.nodeId}</span></div>
+                <div>nodeType: <span className="font-mono text-[var(--studio-text-secondary)]">{node.nodeType}</span></div>
             </div>
             {inlineValidationError ? (
-                <div className="rounded border border-red-300 bg-red-50 px-2 py-2 text-xs text-red-700">
+                <div className="rounded-md border border-[var(--studio-accent-rose)] bg-[var(--studio-accent-rose-dim)] px-2 py-2 text-xs text-[var(--studio-accent-rose)]">
                     {inlineValidationError}
                 </div>
             ) : null}
 
             {props.bindingCleanupMessage ? (
-                <div className="rounded border border-amber-300 bg-amber-50 px-2 py-2 text-xs text-amber-800">
+                <div className="rounded-md border border-[var(--studio-accent-amber)] bg-[var(--studio-accent-amber-dim)] px-2 py-2 text-xs text-[var(--studio-accent-amber)]">
                     {props.bindingCleanupMessage}
                 </div>
             ) : null}
 
             {Object.keys(schemaProperties).length > 0 ? (
-                <div className="grid grid-cols-1 gap-2 rounded border border-gray-200 p-2">
-                    <div className="text-xs font-medium">Config Form</div>
+                <div className="grid grid-cols-1 gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Config Form</div>
                     {Object.entries(schemaProperties).map(([key, propertySchema]) => {
                         const currentValue = node.config[key];
                         const schemaDefaultValue = schemaDefaults[key];
@@ -231,22 +231,22 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 getConnectedCount={getConnectedCount}
             />
 
-            <div className="rounded border border-gray-200 p-2">
+            <div className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
                 <div className="flex items-center justify-between">
-                    <div className="text-xs font-medium">Advanced JSON</div>
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Advanced JSON</div>
                     <button
                         type="button"
-                        className="rounded border border-gray-300 px-2 py-1 text-[11px] hover:bg-gray-50"
+                        className="border border-[var(--studio-border)] text-[var(--studio-text-secondary)] rounded-md px-3 py-1.5 text-xs hover:bg-[var(--studio-bg-surface)] transition-all"
                         onClick={() => setIsAdvancedJsonOpen((current) => !current)}
                     >
                         {isAdvancedJsonOpen ? 'Hide' : 'Show'}
                     </button>
                 </div>
                 {isAdvancedJsonOpen ? (
-                    <label className="mt-2 flex flex-col gap-2 text-xs">
+                    <label className="mt-2 flex flex-col gap-2 text-xs text-[var(--studio-text-secondary)]">
                         Config JSON
                         <textarea
-                            className="min-h-[180px] rounded border border-gray-300 px-2 py-2 font-mono text-xs"
+                            className="min-h-[180px] rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 font-mono text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                             value={JSON.stringify(node.config, null, 2)}
                             onChange={(event) => updateConfigByText(event.target.value)}
                         />
