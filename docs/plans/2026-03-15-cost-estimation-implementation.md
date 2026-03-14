@@ -249,18 +249,52 @@ git commit -m "refactor: update preset costPolicy to Credits"
 
 ---
 
-## Phase 2: CEL 수식 엔진 + 스토리지
+## Phase 2: `dag-cost` 패키지 + CEL 수식 엔진
 
-### Task 6: CEL 의존성 추가 및 수식 평가 서비스
+> **아키텍처 변경:** 코스트 계산 모델을 `dag-orchestrator`에서 분리하여 `packages/dag-cost` 독립 패키지로 생성.
+> 의존 방향: `dag-orchestrator → dag-cost → dag-core`
+
+### Task 6: `dag-cost` 패키지 scaffold + CEL 수식 평가 서비스
 
 **Files:**
-- Modify: `packages/dag-orchestrator/package.json` (add `@marcbachmann/cel-js`)
-- Create: `packages/dag-orchestrator/src/services/cel-cost-evaluator.ts`
-- Test: `packages/dag-orchestrator/src/__tests__/cel-cost-evaluator.test.ts`
+- Create: `packages/dag-cost/package.json`
+- Create: `packages/dag-cost/tsconfig.json`
+- Create: `packages/dag-cost/tsup.config.ts` (또는 기존 패키지 빌드 패턴 참조)
+- Create: `packages/dag-cost/src/index.ts`
+- Create: `packages/dag-cost/src/services/cel-cost-evaluator.ts`
+- Test: `packages/dag-cost/src/__tests__/cel-cost-evaluator.test.ts`
 
-**Step 1: Install dependency**
+**Step 1: Scaffold package (기존 dag-* 패키지 구조 참조)**
 
-Run: `pnpm --filter @robota-sdk/dag-orchestrator add @marcbachmann/cel-js`
+```json
+{
+  "name": "@robota-sdk/dag-cost",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": { ".": { "import": "./dist/node/index.js", "require": "./dist/node/index.cjs" } },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@marcbachmann/cel-js": "latest",
+    "@robota-sdk/dag-core": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "catalog:",
+    "tsup": "catalog:",
+    "rimraf": "catalog:",
+    "typescript": "catalog:"
+  }
+}
+```
+
+Run: `pnpm install`
+
+**Step 2: Install CEL dependency**
+
+Run: `pnpm --filter @robota-sdk/dag-cost add @marcbachmann/cel-js`
 
 **Step 2: Write failing tests**
 
@@ -319,7 +353,7 @@ describe('CelCostEvaluator', () => {
 
 **Step 3: Run tests to verify they fail**
 
-Run: `pnpm --filter @robota-sdk/dag-orchestrator test -- cel-cost-evaluator`
+Run: `pnpm --filter @robota-sdk/dag-cost test -- cel-cost-evaluator`
 Expected: FAIL (module not found)
 
 **Step 4: Implement CelCostEvaluator**
@@ -382,7 +416,7 @@ Note: `validate`의 정확한 구현은 `@marcbachmann/cel-js`의 실제 에러 
 
 **Step 5: Run tests**
 
-Run: `pnpm --filter @robota-sdk/dag-orchestrator test -- cel-cost-evaluator`
+Run: `pnpm --filter @robota-sdk/dag-cost test -- cel-cost-evaluator`
 Expected: All pass
 
 **Step 6: Commit**
@@ -397,10 +431,9 @@ git commit -m "feat(dag-orchestrator): add CelCostEvaluator with CEL formula eng
 ### Task 7: ICostMeta 타입 + ICostMetaStoragePort 인터페이스
 
 **Files:**
-- Create: `packages/dag-orchestrator/src/types/cost-meta-types.ts`
-- Modify: `packages/dag-orchestrator/src/interfaces/` (add new port file)
-- Create: `packages/dag-orchestrator/src/interfaces/cost-meta-storage-port.ts`
-- Modify: `packages/dag-orchestrator/src/index.ts` (export new types)
+- Create: `packages/dag-cost/src/types/cost-meta-types.ts`
+- Create: `packages/dag-cost/src/interfaces/cost-meta-storage-port.ts`
+- Modify: `packages/dag-cost/src/index.ts` (export new types)
 
 **Step 1: Create cost-meta-types.ts**
 
@@ -436,14 +469,14 @@ export interface ICostMetaStoragePort {
 
 **Step 4: Run typecheck**
 
-Run: `pnpm --filter @robota-sdk/dag-orchestrator typecheck`
+Run: `pnpm --filter @robota-sdk/dag-cost typecheck`
 Expected: Pass
 
 **Step 5: Commit**
 
 ```bash
-git add packages/dag-orchestrator/
-git commit -m "feat(dag-orchestrator): add ICostMeta types and ICostMetaStoragePort"
+git add packages/dag-cost/
+git commit -m "feat(dag-cost): add ICostMeta types and ICostMetaStoragePort"
 ```
 
 ---
@@ -451,8 +484,8 @@ git commit -m "feat(dag-orchestrator): add ICostMeta types and ICostMetaStorageP
 ### Task 8: 파일 기반 스토리지 어댑터
 
 **Files:**
-- Create: `packages/dag-orchestrator/src/adapters/file-cost-meta-storage.ts`
-- Test: `packages/dag-orchestrator/src/__tests__/file-cost-meta-storage.test.ts`
+- Create: `packages/dag-cost/src/adapters/file-cost-meta-storage.ts`
+- Test: `packages/dag-cost/src/__tests__/file-cost-meta-storage.test.ts`
 
 **Step 1: Write failing tests**
 
@@ -520,7 +553,7 @@ describe('FileCostMetaStorage', () => {
 
 **Step 2: Run tests to verify they fail**
 
-Run: `pnpm --filter @robota-sdk/dag-orchestrator test -- file-cost-meta-storage`
+Run: `pnpm --filter @robota-sdk/dag-cost test -- file-cost-meta-storage`
 Expected: FAIL
 
 **Step 3: Implement FileCostMetaStorage**
@@ -573,21 +606,24 @@ export class FileCostMetaStorage implements ICostMetaStoragePort {
 
 **Step 4: Run tests**
 
-Run: `pnpm --filter @robota-sdk/dag-orchestrator test -- file-cost-meta-storage`
+Run: `pnpm --filter @robota-sdk/dag-cost test -- file-cost-meta-storage`
 Expected: All pass
 
 **Step 5: Commit**
 
 ```bash
-git add packages/dag-orchestrator/
-git commit -m "feat(dag-orchestrator): add FileCostMetaStorage adapter"
+git add packages/dag-cost/
+git commit -m "feat(dag-cost): add FileCostMetaStorage adapter"
 ```
 
 ---
 
-### Task 9: CEL 기반 ICostEstimatorPort 구현
+### Task 9: CelCostEstimatorAdapter + 포트 시그니처 변경
+
+> 이 태스크는 `dag-orchestrator`에서 `dag-cost`를 소비하는 어댑터를 만듭니다.
 
 **Files:**
+- Modify: `packages/dag-orchestrator/package.json` (add `@robota-sdk/dag-cost` dependency)
 - Modify: `packages/dag-orchestrator/src/interfaces/orchestrator-policy-port.ts` (expand signature)
 - Create: `packages/dag-orchestrator/src/adapters/cel-cost-estimator-adapter.ts`
 - Test: `packages/dag-orchestrator/src/__tests__/cel-cost-estimator-adapter.test.ts`
@@ -607,8 +643,7 @@ estimateCost(prompt: TPrompt, objectInfo: TObjectInfo): Promise<TResult<ICostEst
 ```typescript
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CelCostEstimatorAdapter } from '../adapters/cel-cost-estimator-adapter.js';
-import type { ICostMetaStoragePort } from '../interfaces/cost-meta-storage-port.js';
-import type { ICostMeta } from '../types/cost-meta-types.js';
+import type { ICostMetaStoragePort, ICostMeta } from '@robota-sdk/dag-cost';
 import type { TPrompt, TObjectInfo } from '@robota-sdk/dag-core';
 
 describe('CelCostEstimatorAdapter', () => {
@@ -693,8 +728,7 @@ describe('CelCostEstimatorAdapter', () => {
 import type { TPrompt, TObjectInfo, TResult, IDagError } from '@robota-sdk/dag-core';
 import type { ICostEstimatorPort } from '../interfaces/orchestrator-policy-port.js';
 import type { ICostEstimate } from '../types/orchestrator-types.js';
-import type { ICostMetaStoragePort } from '../interfaces/cost-meta-storage-port.js';
-import { CelCostEvaluator } from '../services/cel-cost-evaluator.js';
+import { type ICostMetaStoragePort, CelCostEvaluator } from '@robota-sdk/dag-cost';
 
 export class CelCostEstimatorAdapter implements ICostEstimatorPort {
     private readonly evaluator = new CelCostEvaluator();
