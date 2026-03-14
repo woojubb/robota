@@ -1,4 +1,4 @@
-import type { IQueueMessage, IQueuePort } from '../interfaces/ports.js';
+import type { IQueueMessage, IQueuePort } from '@robota-sdk/dag-core';
 
 interface IInFlightMessage {
     message: IQueueMessage;

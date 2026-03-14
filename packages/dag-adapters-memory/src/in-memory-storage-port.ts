@@ -4,9 +4,9 @@ import type {
     ITaskRun,
     TDagRunStatus,
     TTaskRunStatus
-} from '../types/domain.js';
-import type { IDagError } from '../types/error.js';
-import type { IStoragePort } from '../interfaces/ports.js';
+} from '@robota-sdk/dag-core';
+import type { IDagError } from '@robota-sdk/dag-core';
+import type { IStoragePort } from '@robota-sdk/dag-core';
 
 function buildTaskRunKey(dagRunId: string, taskRunId: string): string {
     return `${dagRunId}:${taskRunId}`;
