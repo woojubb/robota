@@ -15,7 +15,7 @@ import {
     toBase64,
     type IAssetUploadResponse
 } from './asset-upload-utils.js';
-import { parseAllInputs, ComfyParameterField, ComfyHandleField } from './comfyui-field-renderers.js';
+import { parseAllInputs, ComfyParameterField, ComfyHandleField, ComfyFileUploadField } from './comfyui-field-renderers.js';
 import { PortSection } from './port-section.js';
 
 export interface INodeConfigPanelProps {
@@ -240,12 +240,22 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 <div className="grid grid-cols-1 gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
                     <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Parameters</div>
                     {parameters.map(field => (
-                        <ComfyParameterField
-                            key={field.key}
-                            field={field}
-                            value={node.config[field.key]}
-                            onChange={(key, value) => updateConfigValue(key, value as TNodeConfigValue)}
-                        />
+                        field.imageUpload === true || field.videoUpload === true ? (
+                            <ComfyFileUploadField
+                                key={field.key}
+                                field={field}
+                                value={node.config[field.key]}
+                                onChange={(key, value) => updateConfigValue(key, value as TNodeConfigValue)}
+                                assetUploadBaseUrl={props.assetUploadBaseUrl}
+                            />
+                        ) : (
+                            <ComfyParameterField
+                                key={field.key}
+                                field={field}
+                                value={node.config[field.key]}
+                                onChange={(key, value) => updateConfigValue(key, value as TNodeConfigValue)}
+                            />
+                        )
                     ))}
                 </div>
             ) : null}

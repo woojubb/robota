@@ -341,7 +341,16 @@ export class DagPromptBackend implements IPromptBackendPort {
                 return Object.keys(meta).length > 0 ? ['FLOAT', meta] : ['FLOAT'];
             case 'boolean':
                 return Object.keys(meta).length > 0 ? ['BOOLEAN', meta] : ['BOOLEAN'];
-            case 'object':
+            case 'object': {
+                // Check if this looks like an asset reference (has referenceType or assetId properties)
+                const objProps = prop.properties as Record<string, unknown> | undefined;
+                if (objProps && ('referenceType' in objProps || 'assetId' in objProps)) {
+                    return Object.keys(meta).length > 0
+                        ? ['STRING', { ...meta, image_upload: true }]
+                        : ['STRING', { image_upload: true }];
+                }
+                return Object.keys(meta).length > 0 ? ['STRING', { ...meta, multiline: true }] : ['STRING', { multiline: true }];
+            }
             case 'array':
                 return Object.keys(meta).length > 0 ? ['STRING', { ...meta, multiline: true }] : ['STRING', { multiline: true }];
             default:
