@@ -270,14 +270,14 @@ describe('isImageCapableModel', () => {
         expect(isImageCapableModel('gemini-pro', ['my-custom-model'])).toBe(false);
     });
 
-    it('uses name heuristic when no allowlist provided', () => {
+    it('allows any model when no allowlist provided', () => {
         expect(isImageCapableModel('gemini-2.5-flash-image', undefined)).toBe(true);
-        expect(isImageCapableModel('gemini-pro', undefined)).toBe(false);
+        expect(isImageCapableModel('gemini-pro', undefined)).toBe(true);
     });
 
-    it('uses name heuristic when allowlist is empty', () => {
+    it('allows any model when allowlist is empty', () => {
         expect(isImageCapableModel('some-image-model', [])).toBe(true);
-        expect(isImageCapableModel('gemini-pro', [])).toBe(false);
+        expect(isImageCapableModel('gemini-pro', [])).toBe(true);
     });
 });
 
@@ -305,13 +305,12 @@ describe('buildGenerationConfig', () => {
         expect(result.maxOutputTokens).toBe(1000);
     });
 
-    it('throws when IMAGE modality is requested with a non-image-capable model', () => {
-        expect(() =>
-            buildGenerationConfig([textMessage], undefined, undefined, {
-                model: 'gemini-pro',
-                google: { responseModalities: ['IMAGE'] }
-            })
-        ).toThrow('Selected model "gemini-pro" is not configured as image-capable');
+    it('allows IMAGE modality with any model when no allowlist configured', () => {
+        const result = buildGenerationConfig([textMessage], undefined, undefined, {
+            model: 'gemini-pro',
+            google: { responseModalities: ['IMAGE'] }
+        });
+        expect(result.responseModalities).toEqual(['IMAGE']);
     });
 
     it('does not throw when IMAGE modality with an image-capable model', () => {

@@ -16,7 +16,6 @@ import {
     type IInlineImageSource
 } from './runtime-helpers.js';
 
-const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
 
 /** Request payload for editing a single image via the Gemini runtime. */
 export interface IGeminiImageEditRequest {
@@ -73,18 +72,22 @@ export class GeminiImageRuntime {
         this.explicitAllowedModels = options?.allowedModels;
     }
 
-    private resolveDefaultModel(): string {
+    private resolveDefaultModel(): TResult<string, IDagError> {
         const defaultModelValue = this.explicitDefaultModel ?? process.env.DAG_GEMINI_IMAGE_DEFAULT_MODEL;
-        return typeof defaultModelValue === 'string' && defaultModelValue.trim().length > 0
-            ? defaultModelValue.trim()
-            : DEFAULT_GEMINI_IMAGE_MODEL;
+        if (typeof defaultModelValue !== 'string' || defaultModelValue.trim().length === 0) {
+            return {
+                ok: false,
+                error: buildValidationError(
+                    'DAG_VALIDATION_GEMINI_IMAGE_MODEL_REQUIRED',
+                    'DAG_GEMINI_IMAGE_DEFAULT_MODEL must be configured or model must be specified in node config'
+                )
+            };
+        }
+        return { ok: true, value: defaultModelValue.trim() };
     }
 
-    private resolveAllowedModels(defaultModel: string): string[] {
-        const allowedModelsValue = this.explicitAllowedModels ?? parseCsv(process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS);
-        return Array.isArray(allowedModelsValue) && allowedModelsValue.length > 0
-            ? allowedModelsValue
-            : [defaultModel];
+    private resolveAllowedModels(): string[] {
+        return this.explicitAllowedModels ?? parseCsv(process.env.DAG_GEMINI_IMAGE_ALLOWED_MODELS);
     }
 
     private resolveProvider(allowedModels: string[]): IImageGenerationProvider | undefined {
@@ -171,15 +174,16 @@ export class GeminiImageRuntime {
     }
 
     public async editImage(request: IGeminiImageEditRequest): Promise<TResult<IPortBinaryValue, IDagError>> {
-        const defaultModel = this.resolveDefaultModel();
-        const allowedModels = this.resolveAllowedModels(defaultModel);
+        const defaultModelResult = this.resolveDefaultModel();
+        if (!defaultModelResult.ok) return defaultModelResult;
+        const allowedModels = this.resolveAllowedModels();
         const resolvedProvider = this.resolveProvider(allowedModels);
         const providerCapabilityResult = this.getImageProviderCapability(resolvedProvider, 'editImage');
         if (!providerCapabilityResult.ok) {
             return providerCapabilityResult;
         }
         const provider = providerCapabilityResult.value;
-        const modelResult = resolveModel(request.model, defaultModel, allowedModels);
+        const modelResult = resolveModel(request.model, defaultModelResult.value, allowedModels);
         if (!modelResult.ok) {
             return modelResult;
         }
@@ -229,15 +233,16 @@ export class GeminiImageRuntime {
     }
 
     public async composeImages(request: IGeminiImageComposeRequest): Promise<TResult<IPortBinaryValue, IDagError>> {
-        const defaultModel = this.resolveDefaultModel();
-        const allowedModels = this.resolveAllowedModels(defaultModel);
+        const defaultModelResult = this.resolveDefaultModel();
+        if (!defaultModelResult.ok) return defaultModelResult;
+        const allowedModels = this.resolveAllowedModels();
         const resolvedProvider = this.resolveProvider(allowedModels);
         const providerCapabilityResult = this.getImageProviderCapability(resolvedProvider, 'composeImage');
         if (!providerCapabilityResult.ok) {
             return providerCapabilityResult;
         }
         const provider = providerCapabilityResult.value;
-        const modelResult = resolveModel(request.model, defaultModel, allowedModels);
+        const modelResult = resolveModel(request.model, defaultModelResult.value, allowedModels);
         if (!modelResult.ok) {
             return modelResult;
         }

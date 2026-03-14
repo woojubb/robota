@@ -14,7 +14,10 @@ function resolveApiKey(): string {
 async function main(): Promise<void> {
     const prompt = process.env.GEMINI_IMAGE_PROMPT
         ?? 'Create a cinematic cyberpunk cityscape at night with neon reflections.';
-    const model = process.env.GEMINI_IMAGE_MODEL ?? 'gemini-2.5-flash-image';
+    const model = process.env.GEMINI_IMAGE_MODEL;
+    if (!model) {
+        throw new Error('GEMINI_IMAGE_MODEL environment variable is required');
+    }
     if (process.env.DRY_RUN === '1') {
         process.stdout.write(`DRY_RUN enabled. model=${model}, promptLength=${prompt.length}\n`);
         return;
