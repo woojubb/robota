@@ -9,39 +9,39 @@ import type {
 } from '../types/node-lifecycle.js';
 import { buildTaskExecutionError, buildValidationError } from '../utils/error-builders.js';
 
-/** Default cost policy evaluator that checks if the next estimated cost stays within the run budget. */
+/** Default cost policy evaluator that checks if the next estimated credits stays within the run budget. */
 export class RunCostPolicyEvaluator implements IRunCostPolicyEvaluator {
     public assertWithinBudget(
-        currentTotalCostUsd: number,
-        nextEstimatedCostUsd: number,
-        runCostLimitUsd?: number
+        currentTotalCredits: number,
+        nextEstimatedCredits: number,
+        runCreditLimit?: number
     ): TResult<number, IDagError> {
-        if (nextEstimatedCostUsd < 0) {
+        if (nextEstimatedCredits < 0) {
             return {
                 ok: false,
                 error: buildValidationError(
-                    'DAG_VALIDATION_NEGATIVE_ESTIMATED_COST',
-                    'estimatedCostUsd must be zero or positive',
-                    { nextEstimatedCostUsd }
+                    'DAG_VALIDATION_NEGATIVE_ESTIMATED_CREDITS',
+                    'estimatedCredits must be zero or positive',
+                    { nextEstimatedCredits }
                 )
             };
         }
 
-        const nextTotalCostUsd = currentTotalCostUsd + nextEstimatedCostUsd;
-        if (typeof runCostLimitUsd === 'number' && nextTotalCostUsd > runCostLimitUsd) {
+        const nextTotalCredits = currentTotalCredits + nextEstimatedCredits;
+        if (typeof runCreditLimit === 'number' && nextTotalCredits > runCreditLimit) {
             return {
                 ok: false,
                 error: buildValidationError(
-                    'DAG_VALIDATION_COST_LIMIT_EXCEEDED',
-                    'Estimated run cost exceeds runCostLimitUsd',
-                    { nextTotalCostUsd, runCostLimitUsd }
+                    'DAG_VALIDATION_CREDIT_LIMIT_EXCEEDED',
+                    'Estimated run credits exceeds runCreditLimit',
+                    { nextTotalCredits, runCreditLimit }
                 )
             };
         }
 
         return {
             ok: true,
-            value: nextTotalCostUsd
+            value: nextTotalCredits
         };
     }
 }
@@ -85,9 +85,9 @@ export class NodeLifecycleRunner {
         }
 
         const budgetCheck = this.costPolicyEvaluator.assertWithinBudget(
-            input.context.currentTotalCostUsd,
-            estimated.value.estimatedCostUsd,
-            input.context.runCostLimitUsd
+            input.context.currentTotalCredits,
+            estimated.value.estimatedCredits,
+            input.context.runCreditLimit
         );
         if (!budgetCheck.ok) {
             await lifecycle.value.dispose(input.context);
@@ -126,8 +126,8 @@ export class NodeLifecycleRunner {
             ok: true,
             value: {
                 output: executed.value,
-                estimatedCostUsd: estimated.value.estimatedCostUsd,
-                totalCostUsd: budgetCheck.value
+                estimatedCredits: estimated.value.estimatedCredits,
+                totalCredits: budgetCheck.value
             }
         };
     }

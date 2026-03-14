@@ -61,8 +61,8 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
                 nodeManifest,
                 attempt: input.attempt,
                 executionPath: input.executionPath,
-                runCostLimitUsd: input.costPolicy?.runCostLimitUsd,
-                currentTotalCostUsd: input.currentTotalCostUsd ?? 0
+                runCreditLimit: input.costPolicy?.runCreditLimit,
+                currentTotalCredits: input.currentTotalCredits ?? 0
             }
         });
 
@@ -73,8 +73,8 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
         return {
             ok: true,
             output: executed.value.output,
-            estimatedCostUsd: executed.value.estimatedCostUsd,
-            totalCostUsd: executed.value.totalCostUsd
+            estimatedCredits: executed.value.estimatedCredits,
+            totalCredits: executed.value.totalCredits
         };
     }
 }

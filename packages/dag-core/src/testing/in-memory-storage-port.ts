@@ -164,8 +164,8 @@ export class InMemoryStoragePort implements IStoragePort {
         taskRunId: string,
         inputSnapshot?: string,
         outputSnapshot?: string,
-        estimatedCostUsd?: number,
-        totalCostUsd?: number
+        estimatedCredits?: number,
+        totalCredits?: number
     ): Promise<void> {
         for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
             if (taskRun.taskRunId !== taskRunId) {
@@ -176,8 +176,8 @@ export class InMemoryStoragePort implements IStoragePort {
                 ...taskRun,
                 inputSnapshot: typeof inputSnapshot === 'string' ? inputSnapshot : taskRun.inputSnapshot,
                 outputSnapshot: typeof outputSnapshot === 'string' ? outputSnapshot : taskRun.outputSnapshot,
-                estimatedCostUsd: typeof estimatedCostUsd === 'number' ? estimatedCostUsd : taskRun.estimatedCostUsd,
-                totalCostUsd: typeof totalCostUsd === 'number' ? totalCostUsd : taskRun.totalCostUsd
+                estimatedCredits: typeof estimatedCredits === 'number' ? estimatedCredits : taskRun.estimatedCredits,
+                totalCredits: typeof totalCredits === 'number' ? totalCredits : taskRun.totalCredits
             };
 
             this.taskRuns.set(taskRunKey, next);

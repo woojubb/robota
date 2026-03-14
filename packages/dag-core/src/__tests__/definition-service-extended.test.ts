@@ -283,7 +283,7 @@ describe('DagDefinitionValidator extended', () => {
 
     it('validates cost policy with invalid limit', () => {
         const def = createValidDefinition();
-        def.costPolicy = { runCostLimitUsd: 0, costCurrency: 'USD', costPolicyVersion: 1 };
+        def.costPolicy = { runCreditLimit: 0, costPolicyVersion: 1 };
         const result = DagDefinitionValidator.validate(def);
         expect(result.ok).toBe(false);
         if (result.ok) return;
@@ -292,7 +292,7 @@ describe('DagDefinitionValidator extended', () => {
 
     it('validates cost policy with invalid version', () => {
         const def = createValidDefinition();
-        def.costPolicy = { runCostLimitUsd: 10, costCurrency: 'USD', costPolicyVersion: 0 };
+        def.costPolicy = { runCreditLimit: 10, costPolicyVersion: 0 };
         const result = DagDefinitionValidator.validate(def);
         expect(result.ok).toBe(false);
         if (result.ok) return;
