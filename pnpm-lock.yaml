@@ -169,6 +169,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../packages/dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../packages/dag-node
       '@robota-sdk/dag-node-gemini-image-edit':
         specifier: workspace:*
         version: link:../../packages/dag-nodes/gemini-image-edit
@@ -257,6 +260,9 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../../packages/dag-core
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../../packages/dag-node
       '@robota-sdk/dag-node-gemini-image-edit':
         specifier: workspace:*
         version: link:../../packages/dag-nodes/gemini-image-edit
@@ -578,9 +584,6 @@ importers:
 
   packages/dag-core:
     dependencies:
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../dag-node
       zod:
         specifier: ^3.24.4
         version: 3.25.76
@@ -588,6 +591,9 @@ importers:
         specifier: ^3.24.6
         version: 3.24.6(zod@3.25.76)
     devDependencies:
+      '@robota-sdk/dag-node':
+        specifier: workspace:*
+        version: link:../dag-node
       eslint:
         specifier: ^8.56.0
         version: 8.57.1

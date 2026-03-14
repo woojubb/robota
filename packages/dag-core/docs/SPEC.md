@@ -6,13 +6,13 @@
 
 ## Boundaries
 
-- **No infrastructure adapters.** Storage, queue, and lease implementations belong to consumer packages (e.g., `dag-runtime`, `dag-worker`). `dag-core` defines only the port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`).
-- **No orchestration runtime.** DAG scheduling, worker polling, and run coordination belong to `dag-runtime`, `dag-scheduler`, and `dag-worker`.
-- **No node implementations.** Concrete node types (e.g., `llm-text-openai`, `image-source`) belong to `dag-nodes`.
-- **No node authoring infrastructure.** `AbstractNodeDefinition`, `NodeIoAccessor`, `RegisteredNodeLifecycle`, `StaticNodeLifecycleFactory`, `StaticNodeTaskHandlerRegistry`, `StaticNodeManifestRegistry`, `MediaReference`, and related helpers have been extracted to `@robota-sdk/dag-node`. See the [`dag-node` SPEC](../../dag-node/docs/SPEC.md). `dag-core` re-exports these symbols for backward compatibility but does not own them.
-- **No projection or read models.** Event-sourced projections belong to `dag-projection`.
-- **No API layer.** HTTP/REST composition belongs to `dag-api`.
-- **No designer UI.** Visual graph editing belongs to `dag-designer`.
+- **No infrastructure adapters.** Storage, queue, and lease implementations belong to consumer packages. `dag-core` defines only the port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`).
+- **No orchestration runtime.** DAG scheduling, worker polling, and run coordination belong to runtime and orchestration packages.
+- **No node implementations.** Concrete node types belong to node implementation packages.
+- **No node authoring infrastructure.** Base classes (`AbstractNodeDefinition`), accessors (`NodeIoAccessor`), registries, lifecycle wrappers, and value objects (`MediaReference`) belong to a dedicated node authoring package. `dag-core` defines the interfaces they implement but does not own the implementations.
+- **No projection or read models.** Event-sourced projections belong to projection packages.
+- **No API layer.** HTTP/REST composition belongs to API packages.
+- **No designer UI.** Visual graph editing belongs to designer packages.
 - **Contract behavior must be deterministic and fail-fast.** No fallback logic.
 
 ## Architecture Overview
@@ -28,10 +28,10 @@ dag-core/
     state-machines/  -- DagRun and TaskRun finite state machines
     lifecycle/       -- Node lifecycle runner, cost policy evaluator, task executor port
     services/        -- Domain services (validation, definition mgmt, cost policy)
-    registry/        -- (emptied — registries extracted to @robota-sdk/dag-node)
-    schemas/         -- (emptied — schemas extracted to @robota-sdk/dag-node)
-    value-objects/   -- (emptied — value objects extracted to @robota-sdk/dag-node)
-    utils/           -- Error builder helpers, config schema conversion
+    registry/        -- (emptied — extracted to node authoring package)
+    schemas/         -- (emptied — extracted to node authoring package)
+    value-objects/   -- (emptied — extracted to node authoring package)
+    utils/           -- Error builder helpers
     testing/         -- In-memory port implementations for test harnesses
     __tests__/       -- Unit tests
 ```
@@ -41,8 +41,8 @@ dag-core/
 - **Result pattern (`TResult<T, E>`)**: All domain operations return discriminated unions (`{ ok: true; value: T } | { ok: false; error: E }`) instead of throwing exceptions. This enforces explicit error handling at every call site.
 - **Port/adapter (hexagonal)**: Infrastructure concerns are defined as port interfaces (`IStoragePort`, `IQueuePort`, `ILeasePort`, `IClockPort`, `ITaskExecutorPort`). `dag-core` owns the ports; consumer packages provide adapters. The `testing/` directory provides in-memory adapters for test harnesses.
 - **Finite state machines**: `DagRunStateMachine` and `TaskRunStateMachine` encode all legal state transitions as a lookup table. Invalid transitions return errors rather than silently succeeding. Terminal states (`success`, `failed`, `cancelled`) have no outgoing transitions except the explicit `RETRY` gate on `TaskRun.failed -> queued`.
-- **Abstract template pattern**: `AbstractNodeDefinition<TSchema>` provides a config-parsing template that delegates to `*WithConfig` methods, ensuring every lifecycle step receives a validated, typed config object. (Implementation extracted to `@robota-sdk/dag-node`; re-exported for backward compatibility.)
-- **Value object**: `MediaReference` is an immutable value object with factory methods (`fromAssetReference`, `fromBinary`, `fromCandidate`) and no public constructor. (Implementation extracted to `@robota-sdk/dag-node`; re-exported for backward compatibility.)
+- **Abstract template pattern**: `AbstractNodeDefinition<TSchema>` provides a config-parsing template that delegates to `*WithConfig` methods, ensuring every lifecycle step receives a validated, typed config object. (Owned by node authoring package.)
+- **Value object**: `MediaReference` is an immutable value object with factory methods (`fromAssetReference`, `fromBinary`, `fromCandidate`) and no public constructor. (Owned by node authoring package.)
 - **SSOT ownership**: Every domain type is defined exactly once in this package. Other packages import from `@robota-sdk/dag-core` and never re-declare these contracts.
 
 ## Type Ownership
@@ -101,13 +101,6 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `AbstractNodeDefinition<TSchema>` | Abstract class | Base class for all node implementations; parses config via Zod, delegates to `*WithConfig` template methods |
-| `NodeIoAccessor` | Class | Helper for reading typed input values and building output payloads within node execution |
-| `RegisteredNodeLifecycle` | Class | Wraps an `INodeTaskHandler` into a full `INodeLifecycle` with base port validation |
-| `StaticNodeLifecycleFactory` | Class | Creates `INodeLifecycle` instances from a static handler registry |
-| `createStaticNodeLifecycleFactory` | Function | Convenience factory for `StaticNodeLifecycleFactory` |
-| `StaticNodeTaskHandlerRegistry` | Class | In-memory registry of `INodeTaskHandler` by node type |
-| `StaticNodeManifestRegistry` | Class | In-memory registry of `INodeManifest` by node type |
 | `DagRunStateMachine` | Class | Static state machine for DAG run status transitions |
 | `TaskRunStateMachine` | Class | Static state machine for task run status transitions |
 | `DagDefinitionValidator` | Class | Validates `IDagDefinition` structure (graph acyclicity, port compatibility, binding integrity) |
@@ -117,11 +110,6 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `RunCostPolicyEvaluator` | Class | Evaluates whether estimated cost fits within the run budget |
 | `MissingNodeLifecycleFactory` | Class | Sentinel factory that always returns an error (used as default) |
 | `LifecycleTaskExecutorPort` | Class | `ITaskExecutorPort` adapter that delegates to `NodeLifecycleRunner` |
-| `MediaReference` | Value object | Immutable media reference with factory methods and conversion helpers |
-| `MediaReferenceSchema` | Zod schema | Zod validation schema for media reference config |
-| `createMediaReferenceConfigSchema` | Function | Creates a Zod schema wrapping `MediaReferenceSchema` under an `asset` key |
-| `buildNodeDefinitionAssembly` | Function | Builds manifests and handler map from an array of `IDagNodeDefinition` |
-| `buildConfigSchema` | Function | Converts a Zod schema to JSON Schema 7 via `zod-to-json-schema` |
 | `buildValidationError` | Function | Error builder for `validation` category |
 | `buildDispatchError` | Function | Error builder for `dispatch` category |
 | `buildLeaseError` | Function | Error builder for `lease` category |
@@ -129,8 +117,6 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `buildDagError` | Function | Generic error builder for any category |
 | `buildListPortHandleKey` | Function | Builds a list-port handle key string (e.g., `images[0]`) |
 | `parseListPortHandleKey` | Function | Parses a list-port handle key back to port key and index |
-| `createBinaryPortDefinition` | Function | Creates an `IPortDefinition` for binary ports using a preset |
-| `BINARY_PORT_PRESETS` | Constant | Predefined binary port presets (IMAGE_PNG, IMAGE_COMMON, VIDEO_MP4, etc.) |
 | `DAG_DEFINITION_STATUS` | Constant | Definition status enum object |
 | `DAG_RUN_STATUS` | Constant | DAG run status enum object |
 | `TASK_RUN_STATUS` | Constant | Task run status enum object |
@@ -148,24 +134,7 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 
 ### AbstractNodeDefinition\<TSchema\>
 
-The primary extension point for node implementors. Concrete node classes must:
-
-1. Extend `AbstractNodeDefinition<TSchema>` where `TSchema` is a Zod schema type.
-2. Declare `nodeType`, `displayName`, `category`, `inputs`, `outputs`, and `configSchemaDefinition`.
-3. Implement `executeWithConfig(input, context, config)` -- the core execution logic.
-4. Implement `estimateCostWithConfig(input, context, config)` -- cost estimation before execution.
-5. Optionally override `initializeWithConfig`, `validateInputWithConfig`, `validateOutputWithConfig`, and `disposeWithConfig`.
-
-The base class automatically parses and validates node config against the Zod schema before delegating to any `*WithConfig` method. Config parse failures produce `DAG_VALIDATION_NODE_CONFIG_SCHEMA_INVALID` errors.
-
-### NodeIoAccessor
-
-Provides typed input reading within node execution:
-
-- `requireInput(key)` / `requireInputString(key)` / `requireInputArray(key)` -- scalar and array access with validation errors.
-- `requireInputBinary(key, kind?)` / `requireInputBinaryList(key, kind?, options?)` -- binary payload access with kind and mime-type validation.
-- `requireInputMediaReference(key, options?)` / `requireInputBinaryReference(key, kind?)` -- media reference access returning `MediaReference` value objects.
-- `setOutput(key, value)` / `toOutput()` -- output assembly.
+The primary extension point for node implementors. `dag-core` defines the `IDagNodeDefinition` and `INodeLifecycle` interfaces; the abstract base class and supporting infrastructure are owned by the node authoring package.
 
 ### Port Interfaces
 
@@ -247,24 +216,24 @@ interface IDagError {
 | `DAG_VALIDATION_PUBLISH_ONLY_DRAFT` | `DagDefinitionService` | only draft definitions can be published |
 | `DAG_VALIDATION_MISSING_LOGICAL_DATE` | `TimeSemanticsService` | scheduled trigger requires logicalDate |
 | `DAG_VALIDATION_INVALID_LOGICAL_DATE` | `TimeSemanticsService` | logicalDate is not valid ISO-8601 |
-| `DAG_VALIDATION_NODE_CONFIG_SCHEMA_INVALID` | `AbstractNodeDefinition` | node config fails Zod schema parse |
-| `DAG_VALIDATION_NODE_INPUT_MISSING` | `NodeIoAccessor` | required input key is missing |
-| `DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH` | `NodeIoAccessor`, `RegisteredNodeLifecycle` | input value type does not match port type |
-| `DAG_VALIDATION_NODE_INPUT_MIN_ITEMS_NOT_SATISFIED` | `NodeIoAccessor`, `RegisteredNodeLifecycle` | list input has fewer items than minItems |
-| `DAG_VALIDATION_NODE_INPUT_MAX_ITEMS_EXCEEDED` | `NodeIoAccessor`, `RegisteredNodeLifecycle` | list input has more items than maxItems |
-| `DAG_VALIDATION_NODE_REQUIRED_INPUT_MISSING` | `RegisteredNodeLifecycle` | required input port value is missing |
-| `DAG_VALIDATION_NODE_REQUIRED_OUTPUT_MISSING` | `RegisteredNodeLifecycle` | required output port value is missing |
-| `DAG_VALIDATION_NODE_OUTPUT_TYPE_MISMATCH` | `RegisteredNodeLifecycle` | output value type does not match port type |
-| `DAG_VALIDATION_NODE_OUTPUT_MIN_ITEMS_NOT_SATISFIED` | `RegisteredNodeLifecycle` | list output has fewer items than minItems |
-| `DAG_VALIDATION_NODE_OUTPUT_MAX_ITEMS_EXCEEDED` | `RegisteredNodeLifecycle` | list output has more items than maxItems |
-| `DAG_VALIDATION_NODE_LIFECYCLE_NOT_REGISTERED` | `StaticNodeLifecycleFactory`, `MissingNodeLifecycleFactory` | no lifecycle registered for node type |
+| `DAG_VALIDATION_NODE_CONFIG_SCHEMA_INVALID` | node definition base class | node config fails Zod schema parse |
+| `DAG_VALIDATION_NODE_INPUT_MISSING` | node I/O accessor | required input key is missing |
+| `DAG_VALIDATION_NODE_INPUT_TYPE_MISMATCH` | node I/O accessor, lifecycle wrapper | input value type does not match port type |
+| `DAG_VALIDATION_NODE_INPUT_MIN_ITEMS_NOT_SATISFIED` | node I/O accessor, lifecycle wrapper | list input has fewer items than minItems |
+| `DAG_VALIDATION_NODE_INPUT_MAX_ITEMS_EXCEEDED` | node I/O accessor, lifecycle wrapper | list input has more items than maxItems |
+| `DAG_VALIDATION_NODE_REQUIRED_INPUT_MISSING` | lifecycle wrapper | required input port value is missing |
+| `DAG_VALIDATION_NODE_REQUIRED_OUTPUT_MISSING` | lifecycle wrapper | required output port value is missing |
+| `DAG_VALIDATION_NODE_OUTPUT_TYPE_MISMATCH` | lifecycle wrapper | output value type does not match port type |
+| `DAG_VALIDATION_NODE_OUTPUT_MIN_ITEMS_NOT_SATISFIED` | lifecycle wrapper | list output has fewer items than minItems |
+| `DAG_VALIDATION_NODE_OUTPUT_MAX_ITEMS_EXCEEDED` | lifecycle wrapper | list output has more items than maxItems |
+| `DAG_VALIDATION_NODE_LIFECYCLE_NOT_REGISTERED` | lifecycle factory, `MissingNodeLifecycleFactory` | no lifecycle registered for node type |
 | `DAG_VALIDATION_NODE_DEFINITION_MISSING` | `LifecycleTaskExecutorPort` | task execution input lacks nodeDefinition |
 | `DAG_VALIDATION_NODE_MANIFEST_NOT_FOUND` | `LifecycleTaskExecutorPort` | no manifest registered for node type |
 | `DAG_VALIDATION_NEGATIVE_ESTIMATED_COST` | `RunCostPolicyEvaluator` | estimated cost is negative |
 | `DAG_VALIDATION_COST_LIMIT_EXCEEDED` | `RunCostPolicyEvaluator` | estimated run cost exceeds budget |
-| `DAG_VALIDATION_MEDIA_REFERENCE_INVALID` | `MediaReference` | media reference structure is invalid |
-| `DAG_VALIDATION_MEDIA_REFERENCE_XOR_REQUIRED` | `MediaReference` | exactly one of assetId or uri must be provided |
-| `DAG_VALIDATION_MEDIA_REFERENCE_TYPE_MISMATCH` | `MediaReference` | referenceType does not match provided fields |
+| `DAG_VALIDATION_MEDIA_REFERENCE_INVALID` | media reference value object | media reference structure is invalid |
+| `DAG_VALIDATION_MEDIA_REFERENCE_XOR_REQUIRED` | media reference value object | exactly one of assetId or uri must be provided |
+| `DAG_VALIDATION_MEDIA_REFERENCE_TYPE_MISMATCH` | media reference value object | referenceType does not match provided fields |
 
 **State transition errors** (category: `state_transition`, retryable: `false`):
 
@@ -302,7 +271,7 @@ States: `created`, `queued`, `running`, `success`, `failed`, `upstream_failed`, 
 
 Terminal states: `success`, `upstream_failed`, `skipped`, `cancelled`
 
-**Note**: The `failed` state is NOT terminal — it has a single explicit policy gate: `RETRY` transitions back to `queued`. This is intentional: a failed task may be retried via the DLQ reinject mechanism. Consumer packages (e.g., `dag-worker`'s `DagRunFinalizer`) must treat `failed` as terminal only for finalization purposes (i.e., a failed task with no remaining retries is effectively terminal for DAG completion evaluation).
+**Note**: The `failed` state is NOT terminal — it has a single explicit policy gate: `RETRY` transitions back to `queued`. This is intentional: a failed task may be retried via the DLQ reinject mechanism. Consumer packages implementing run finalization must treat `failed` as terminal only when no remaining retries exist (i.e., a failed task with no remaining retries is effectively terminal for DAG completion evaluation).
 
 ### Finalization Semantics
 
@@ -346,22 +315,17 @@ Progress event types are defined as `TRunProgressEvent` (discriminated union) wi
 | `zod` | Runtime schema validation for node configs and media references |
 | `zod-to-json-schema` | Converts Zod schemas to JSON Schema 7 for manifest `configSchema` |
 
-| `@robota-sdk/dag-node` | Node authoring infrastructure (re-exported for backward compatibility) |
-
 No peer dependencies.
 
 ## Class Contract Registry
 
-### Interface Implementations
+### Internal Implementations
+
+Implementations owned by this package:
 
 | Interface | Implementor | Kind | Location |
 |-----------|------------|------|----------|
-| `IDagNodeDefinition` | `AbstractNodeDefinition` | abstract base | `@robota-sdk/dag-node` (re-exported) |
-| `INodeLifecycle` | `RegisteredNodeLifecycle` | production | `@robota-sdk/dag-node` (re-exported) |
-| `INodeLifecycleFactory` | `StaticNodeLifecycleFactory` | production | `@robota-sdk/dag-node` (re-exported) |
 | `INodeLifecycleFactory` | `MissingNodeLifecycleFactory` | sentinel | `src/lifecycle/node-lifecycle-runner.ts` |
-| `INodeManifestRegistry` | `StaticNodeManifestRegistry` | production | `@robota-sdk/dag-node` (re-exported) |
-| `INodeTaskHandlerRegistry` | `StaticNodeTaskHandlerRegistry` | production | `@robota-sdk/dag-node` (re-exported) |
 | `IRunCostPolicyEvaluator` | `RunCostPolicyEvaluator` | production | `src/lifecycle/node-lifecycle-runner.ts` |
 | `ITaskExecutorPort` | `LifecycleTaskExecutorPort` | production | `src/lifecycle/lifecycle-task-executor-port.ts` |
 | `IStoragePort` | `InMemoryStoragePort` | test adapter | `src/testing/in-memory-storage-port.ts` |
@@ -371,29 +335,22 @@ No peer dependencies.
 | `IClockPort` | `SystemClockPort` | test adapter | `src/testing/fake-clock-port.ts` |
 | `ITaskExecutorPort` | `MockTaskExecutorPort` | test adapter | `src/testing/mock-task-executor-port.ts` |
 
-### Inheritance Chains
+### Interfaces Designed for External Implementation
 
-| Base | Derived | Location | Notes |
-|------|---------|----------|-------|
-| `AbstractNodeDefinition` | (11 node definitions) | `packages/dag-nodes/src/` | See cross-package table below |
+The following interfaces are defined by `dag-core` and intended to be implemented by consumer packages. Each consumer package documents its own implementations in its SPEC.md.
 
-### Cross-Package Port Consumers
-
-| Port (Owner) | Adapter (Consumer Package) | Location |
-|--------------|---------------------------|----------|
-| `ITaskExecutorPort` (dag-core) | `AssetAwareTaskExecutorPort` (dag-server-core) | `packages/dag-server-core/src/` |
-| `IStoragePort` (dag-core) | `FileStoragePort` (dag-server-core) | `packages/dag-server-core/src/` |
-| `AbstractNodeDefinition` (dag-node) | `ImageLoaderNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/image-loader/` |
-| `AbstractNodeDefinition` (dag-node) | `ImageSourceNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/image-source/` |
-| `AbstractNodeDefinition` (dag-node) | `InputNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/input/` |
-| `AbstractNodeDefinition` (dag-node) | `TextOutputNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/text-output/` |
-| `AbstractNodeDefinition` (dag-node) | `TextTemplateNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/text-template/` |
-| `AbstractNodeDefinition` (dag-node) | `TransformNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/transform/` |
-| `AbstractNodeDefinition` (dag-node) | `LlmTextOpenAiNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/llm-text-openai/` |
-| `AbstractNodeDefinition` (dag-node) | `OkEmitterNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/ok-emitter/` |
-| `AbstractNodeDefinition` (dag-node) | `GeminiImageEditNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/gemini-image-edit/` |
-| `AbstractNodeDefinition` (dag-node) | `GeminiImageComposeNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/gemini-image-compose/` |
-| `AbstractNodeDefinition` (dag-node) | `SeedanceVideoNodeDefinition` (dag-nodes) | `packages/dag-nodes/src/seedance-video/` |
+| Interface | Expected Implementor Role |
+|-----------|--------------------------|
+| `IDagNodeDefinition` | Node authoring packages (abstract base class) |
+| `INodeLifecycle` | Node authoring packages (lifecycle wrapper) |
+| `INodeLifecycleFactory` | Node authoring packages (factory from handler registry) |
+| `INodeManifestRegistry` | Node authoring packages (manifest lookup) |
+| `INodeTaskHandlerRegistry` | Node authoring packages (handler lookup) |
+| `IStoragePort` | Persistence adapters (file, database) |
+| `IQueuePort` | Message queue adapters |
+| `ILeasePort` | Distributed lease adapters |
+| `IClockPort` | Clock adapters (system, deterministic) |
+| `ITaskExecutorPort` | Task execution adapters |
 
 ## Test Strategy
 
@@ -408,14 +365,10 @@ No peer dependencies.
 
 The following areas lack dedicated unit tests in this package:
 
-- **DagRunStateMachine** and **TaskRunStateMachine**: No tests for valid transitions, invalid transitions, or domain event emission. These may be tested indirectly in `dag-runtime`.
-- **NodeIoAccessor**: No tests for `requireInput`, `requireInputString`, `requireInputArray`, `requireInputBinary`, `requireInputBinaryList`, `requireInputMediaReference`, `requireInputBinaryReference`, list-port handle collection, or output assembly.
-- **AbstractNodeDefinition**: No tests for config parsing, `*WithConfig` delegation, or config validation error generation.
-- **RegisteredNodeLifecycle**: No tests for base port validation (required ports, type matching, list constraints) or handler delegation.
+- **DagRunStateMachine** and **TaskRunStateMachine**: No tests for valid transitions, invalid transitions, or domain event emission. May be tested indirectly by consumer packages.
 - **NodeLifecycleRunner**: No tests for the full lifecycle sequence (init, validate, estimate, budget check, execute, validate output, dispose) or cost policy evaluation.
 - **RunCostPolicyEvaluator**: No tests for budget enforcement (negative cost, limit exceeded, within budget).
 - **LifecycleTaskExecutorPort**: No tests for manifest lookup, node definition validation, or runner delegation.
 - **DagDefinitionValidator**: Partial coverage. Missing tests for edge binding validation, port type compatibility, cost policy validation, list port handle resolution, and many specific validation codes.
-- **MediaReference**: No tests for `fromAssetReference`, `fromBinary`, `fromCandidate`, `toBinary`, `toAssetContentUrl`, or XOR validation.
-- **StaticNodeManifestRegistry** and **StaticNodeTaskHandlerRegistry**: No tests for registry lookup or listing.
+- **MediaReference**, **StaticNodeManifestRegistry**, **StaticNodeTaskHandlerRegistry**: Owned by the node authoring package; tested there.
 - **In-memory testing ports**: No tests verifying the correctness of test double implementations.

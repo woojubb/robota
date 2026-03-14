@@ -27,64 +27,54 @@ function isAssetReference(value: unknown): value is IAssetReference {
         && typeof (value as Record<string, unknown>).assetId === 'string';
 }
 
-/**
- * Upload referenced assets from orchestrator's asset store to the runtime backend.
- * Scans prompt inputs for asset references, uploads each to runtime's /upload/image,
- * and replaces the assetId in the prompt with the runtime's assetId.
- */
+function buildMultipartImageBody(
+    binary: Buffer,
+    fileName: string,
+    mediaType: string,
+    assetId: string,
+): { body: Buffer; boundary: string } {
+    const boundary = `----AssetUpload${Date.now()}${assetId.slice(0, 8)}`;
+    const header = Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="${fileName}"\r\nContent-Type: ${mediaType}\r\n\r\n`
+    );
+    const footer = Buffer.from(`\r\n--${boundary}--\r\n`);
+    return { body: Buffer.concat([header, binary, footer]), boundary };
+}
+
 async function uploadAssetsToRuntime(
     promptRequest: IPromptRequest,
     assetStore: IAssetStore,
     backendUrl: string,
 ): Promise<void> {
-    const prompt = promptRequest.prompt;
-
-    for (const nodeEntry of Object.values(prompt)) {
-        const inputs = nodeEntry.inputs;
-        for (const [inputKey, inputValue] of Object.entries(inputs)) {
+    for (const nodeEntry of Object.values(promptRequest.prompt)) {
+        for (const [, inputValue] of Object.entries(nodeEntry.inputs)) {
             if (!isAssetReference(inputValue)) continue;
 
             const assetId = (inputValue as IAssetReference).assetId;
             const contentResult = await assetStore.getContent(assetId);
             if (!contentResult) continue;
 
-            // Collect binary data from stream
             const chunks: Buffer[] = [];
             for await (const chunk of contentResult.stream) {
                 chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
             }
-            const binary = Buffer.concat(chunks);
 
-            // Build multipart/form-data body
-            const boundary = `----AssetUpload${Date.now()}${assetId.slice(0, 8)}`;
-            const fileName = contentResult.metadata.fileName;
-            const mediaType = contentResult.metadata.mediaType;
-
-            const header = Buffer.from(
-                `--${boundary}\r\n`
-                + `Content-Disposition: form-data; name="image"; filename="${fileName}"\r\n`
-                + `Content-Type: ${mediaType}\r\n`
-                + `\r\n`
+            const { body, boundary } = buildMultipartImageBody(
+                Buffer.concat(chunks), contentResult.metadata.fileName, contentResult.metadata.mediaType, assetId
             );
-            const footer = Buffer.from(`\r\n--${boundary}--\r\n`);
-            const body = Buffer.concat([header, binary, footer]);
 
             const response = await fetch(`${backendUrl}/upload/image`, {
                 method: 'POST',
                 headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
                 body,
             });
-
             if (!response.ok) continue;
 
             const result = await response.json() as { name: string };
-            const runtimeAssetId = result.name;
-
-            // Update the prompt input with the runtime's assetId
             const ref = inputValue as Record<string, unknown>;
-            ref.assetId = runtimeAssetId;
+            ref.assetId = result.name;
             if (typeof ref.uri === 'string') {
-                ref.uri = `asset://${runtimeAssetId}`;
+                ref.uri = `asset://${result.name}`;
             }
         }
     }
