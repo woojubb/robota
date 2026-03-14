@@ -14,7 +14,7 @@ import {
   DagDefinitionValidator,
   type IDagDefinition,
   type IDagError,
-  type INodeManifest,
+  type TObjectInfo,
   type TPortPayload,
   type TResult,
 } from "@robota-sdk/dag-core";
@@ -196,7 +196,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   const versionRef = useRef(version);
   versionRef.current = version;
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
-  const [catalogNodes, setCatalogNodes] = useState<INodeManifest[]>([]);
+  const [objectInfo, setObjectInfo] = useState<TObjectInfo>({});
   const [isNodeExplorerOpen, setIsNodeExplorerOpen] = useState<boolean>(true);
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -474,12 +474,12 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
   }, [designApi]);
 
   const refreshNodeCatalog = useCallback(async (): Promise<void> => {
-    const listed = await designApi.listNodeCatalog();
-    if (listed.ok) {
-      setCatalogNodes(listed.value);
+    const result = await designApi.listObjectInfo();
+    if (result.ok) {
+      setObjectInfo(result.value);
       return;
     }
-    setLog(`Node catalog refresh failed: ${"error" in listed ? listed.error[0]?.code : "UNKNOWN_ERROR"}`);
+    setLog(`Node catalog refresh failed: ${"error" in result ? result.error[0]?.code : "UNKNOWN_ERROR"}`);
   }, [designApi]);
 
   useEffect(() => {
@@ -524,7 +524,8 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
       <div className="absolute inset-0">
         <DagDesigner.Root
           definition={definition}
-          manifests={catalogNodes}
+          manifests={[]}
+          objectInfo={objectInfo}
           onDefinitionChange={applyDefinitionChange}
           assetUploadBaseUrl={DAG_API_BASE_URL}
           onRunResult={onRunResult}
