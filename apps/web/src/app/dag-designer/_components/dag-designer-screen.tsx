@@ -78,15 +78,15 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
     <div className="flex flex-col items-end gap-1">
       <div className="flex items-center gap-2">
         <button
-          className="rounded bg-[var(--studio-accent-violet)] px-3 py-2 text-xs text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+          className="rounded bg-[var(--studio-accent-violet)] px-2 py-1 text-[11px] text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           onClick={() => void props.onSave()}
           disabled={isActionBlocked || props.isSaving}
           title={isActionBlocked ? props.disabledReason : undefined}
         >
-          {props.isSaving ? "Saving..." : "Save Changes"}
+          {props.isSaving ? "Saving..." : "Save"}
         </button>
         <button
-          className="rounded bg-[var(--studio-accent-violet)] px-3 py-2 text-xs text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+          className="rounded bg-[var(--studio-accent-violet)] px-2 py-1 text-[11px] text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           onClick={() => void props.onPublish()}
           disabled={isActionBlocked || props.isPublishing}
           title={isActionBlocked ? props.disabledReason : undefined}
@@ -94,7 +94,7 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
           {props.isPublishing ? "Publishing..." : "Publish"}
         </button>
         <button
-          className="rounded bg-[var(--studio-accent-violet)] px-3 py-2 text-xs text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+          className="rounded bg-[var(--studio-accent-emerald)] px-2 py-1 text-[11px] text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           onClick={() => void run()}
           disabled={isActionBlocked || isRunStarting}
           title={isActionBlocked ? props.disabledReason : undefined}
@@ -569,7 +569,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
               <DagDesigner.Canvas className="h-full w-full" />
 
               {isNodeExplorerOpen ? (
-                <div className="absolute bottom-0 left-0 top-0 z-20 w-[320px]">
+                <div className="absolute bottom-0 left-0 top-0 z-20 w-[260px]">
                   <div className="flex h-full min-h-0 flex-col rounded-none border-r border-[var(--studio-border)] bg-[var(--studio-bg-elevated)]/95 shadow-lg shadow-black/20 backdrop-blur-sm">
                     <div className="flex items-center justify-between border-b border-[var(--studio-border)] px-3 py-2">
                       <span className="text-xs font-semibold text-[var(--studio-text)]">Node Catalog</span>
@@ -589,7 +589,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
               ) : null}
 
               {isInspectorOpen ? (
-                <div className="absolute bottom-0 right-0 top-0 z-20 w-[380px]">
+                <div className="absolute bottom-0 right-0 top-0 z-20 w-[300px]">
                   <div className="h-full overflow-auto border-l border-[var(--studio-border)] bg-[var(--studio-bg-elevated)]/95 shadow-lg shadow-black/20 backdrop-blur-sm">
                     <div className="flex flex-col gap-2 p-2">
                       <DagDesigner.NodeConfig />
