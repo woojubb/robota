@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FakeClockPort } from '../testing/fake-clock-port.js';
+import { FakeClockPort } from '@robota-sdk/dag-adapters-memory';
 import { TimeSemanticsService } from '../services/time-semantics.js';
 
 describe('TimeSemanticsService', () => {

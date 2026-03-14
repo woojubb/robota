@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type { IDagDefinition } from '@robota-sdk/dag-core';
 import {
     FakeClockPort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     InMemoryStoragePort,
-    MockTaskExecutorPort,
-    type IDagDefinition
-} from '@robota-sdk/dag-core';
+    MockTaskExecutorPort
+} from '@robota-sdk/dag-adapters-memory';
 import { RunOrchestratorService, RunQueryService } from '@robota-sdk/dag-runtime';
 import { DlqReinjectService } from '@robota-sdk/dag-worker';
 import { createDagExecutionComposition } from '../composition/create-dag-execution-composition.js';

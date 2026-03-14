@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { IDagDefinition } from '@robota-sdk/dag-core';
 import {
     FakeClockPort,
     InMemoryQueuePort,
-    InMemoryStoragePort,
-    type IDagDefinition
-} from '@robota-sdk/dag-core';
+    InMemoryStoragePort
+} from '@robota-sdk/dag-adapters-memory';
 import { RunOrchestratorService } from '@robota-sdk/dag-runtime';
 import { SchedulerTriggerService } from '../services/scheduler-trigger-service.js';
 

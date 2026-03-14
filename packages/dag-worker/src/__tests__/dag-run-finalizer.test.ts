@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-    FakeClockPort,
-    InMemoryStoragePort,
-    type IDagRun,
-    type IRunProgressEventReporter
-} from '@robota-sdk/dag-core';
+import type { IDagRun, IRunProgressEventReporter } from '@robota-sdk/dag-core';
+import { FakeClockPort, InMemoryStoragePort } from '@robota-sdk/dag-adapters-memory';
 import { finalizeDagRunIfTerminal } from '../services/dag-run-finalizer.js';
 
 function createRunningDagRun(): IDagRun {

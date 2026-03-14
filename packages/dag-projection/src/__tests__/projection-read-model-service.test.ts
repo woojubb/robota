@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-    InMemoryStoragePort,
-    type IDagDefinition,
-    type IDagRun,
-    type ITaskRun
-} from '@robota-sdk/dag-core';
+import type { IDagDefinition, IDagRun, ITaskRun } from '@robota-sdk/dag-core';
+import { InMemoryStoragePort } from '@robota-sdk/dag-adapters-memory';
 import { ProjectionReadModelService } from '../services/projection-read-model-service.js';
 
 function createDefinition(): IDagDefinition {

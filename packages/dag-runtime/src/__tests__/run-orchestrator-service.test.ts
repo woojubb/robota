@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { IDagRun, IDagDefinition, IQueueMessage, IQueuePort } from '@robota-sdk/dag-core';
 import {
     FakeClockPort,
     InMemoryQueuePort,
-    InMemoryStoragePort,
-    type IDagRun,
-    type IDagDefinition,
-    type IQueueMessage,
-    type IQueuePort
-} from '@robota-sdk/dag-core';
+    InMemoryStoragePort
+} from '@robota-sdk/dag-adapters-memory';
 import { RunOrchestratorService } from '../services/run-orchestrator-service.js';
 
 function createPublishedDefinition(): IDagDefinition {
