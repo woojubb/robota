@@ -194,10 +194,10 @@ describe('DagDefinitionValidator', () => {
     });
 
     describe('costPolicy validation', () => {
-        it('should fail when runCostLimitUsd is zero', () => {
+        it('should fail when runCreditLimit is zero', () => {
             const result = DagDefinitionValidator.validate(
                 createValidDefinition({
-                    costPolicy: { runCostLimitUsd: 0, costCurrency: 'USD', costPolicyVersion: 1 },
+                    costPolicy: { runCreditLimit: 0, costPolicyVersion: 1 },
                 })
             );
             expect(findErrorCode(result, 'DAG_VALIDATION_INVALID_COST_LIMIT')).toBe(true);
@@ -206,7 +206,7 @@ describe('DagDefinitionValidator', () => {
         it('should fail when costPolicyVersion is negative', () => {
             const result = DagDefinitionValidator.validate(
                 createValidDefinition({
-                    costPolicy: { runCostLimitUsd: 10, costCurrency: 'USD', costPolicyVersion: -1 },
+                    costPolicy: { runCreditLimit: 10, costPolicyVersion: -1 },
                 })
             );
             expect(findErrorCode(result, 'DAG_VALIDATION_INVALID_COST_POLICY_VERSION')).toBe(true);

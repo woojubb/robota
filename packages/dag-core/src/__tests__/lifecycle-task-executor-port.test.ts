@@ -75,7 +75,7 @@ describe('LifecycleTaskExecutorPort', () => {
         expect(result.error.code).toBe('DAG_VALIDATION_NODE_LIFECYCLE_NOT_REGISTERED');
     });
 
-    it('passes cost policy and currentTotalCostUsd through', async () => {
+    it('passes cost policy and currentTotalCredits through', async () => {
         const handler: INodeTaskHandler = {
             execute: vi.fn().mockResolvedValue({ ok: true, value: {} })
         };
@@ -83,8 +83,8 @@ describe('LifecycleTaskExecutorPort', () => {
         const lifecycleFactory = createStaticNodeLifecycleFactory({ 'test-node': handler });
         const port = new LifecycleTaskExecutorPort(registry, lifecycleFactory);
         const result = await port.execute(makeInput({
-            costPolicy: { runCostLimitUsd: 10, costCurrency: 'USD', costPolicyVersion: 1 },
-            currentTotalCostUsd: 5
+            costPolicy: { runCreditLimit: 10, costPolicyVersion: 1 },
+            currentTotalCredits: 5
         }));
         expect(result.ok).toBe(true);
     });

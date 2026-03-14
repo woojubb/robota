@@ -229,8 +229,8 @@ describe('InMemoryStoragePort', () => {
             const task = await storage.getTaskRun('task-1');
             expect(task?.inputSnapshot).toBe('{"in":1}');
             expect(task?.outputSnapshot).toBe('{"out":2}');
-            expect(task?.estimatedCostUsd).toBe(0.5);
-            expect(task?.totalCostUsd).toBe(1.0);
+            expect(task?.estimatedCredits).toBe(0.5);
+            expect(task?.totalCredits).toBe(1.0);
         });
 
         it('increments task attempt', async () => {

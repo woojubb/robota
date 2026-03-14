@@ -201,12 +201,12 @@ export class DagDefinitionValidator {
         errors.push(...validateEdgesAndBindings(definition, nodeIdSet, nodeById));
 
         if (definition.costPolicy) {
-            if (definition.costPolicy.runCostLimitUsd <= 0) {
+            if (definition.costPolicy.runCreditLimit <= 0) {
                 errors.push(
                     buildValidationError(
                         'DAG_VALIDATION_INVALID_COST_LIMIT',
-                        'costPolicy.runCostLimitUsd must be positive',
-                        { runCostLimitUsd: definition.costPolicy.runCostLimitUsd }
+                        'costPolicy.runCreditLimit must be positive',
+                        { runCreditLimit: definition.costPolicy.runCreditLimit }
                     )
                 );
             }
