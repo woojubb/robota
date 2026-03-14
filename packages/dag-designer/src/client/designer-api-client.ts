@@ -1,4 +1,4 @@
-import type { IDagDefinition, INodeManifest, IRunResult, TObjectInfo, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
+import type { IDagDefinition, IRunResult, TObjectInfo, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
 import type { IProblemDetails, IDefinitionListItem } from '@robota-sdk/dag-api';
 import type {
     IDesignerCreateRunInput,
@@ -20,7 +20,6 @@ interface ILooseDesignerPayload {
     data?: {
         definition?: IDagDefinition;
         items?: IDefinitionListItem[];
-        nodes?: INodeManifest[];
         preparationId?: string;
         dagRunId?: string;
         run?: IRunResult;
@@ -65,16 +64,6 @@ function hasValidDefinitionListItems(items: IDefinitionListItem[]): boolean {
         typeof item.dagId === 'string'
         && typeof item.latestVersion === 'number'
         && Array.isArray(item.statuses)
-    );
-}
-
-function hasValidNodeManifests(nodes: INodeManifest[]): boolean {
-    return nodes.every((node) =>
-        typeof node.nodeType === 'string'
-        && typeof node.displayName === 'string'
-        && typeof node.category === 'string'
-        && Array.isArray(node.inputs)
-        && Array.isArray(node.outputs)
     );
 }
 
@@ -178,27 +167,8 @@ export class DesignerApiClient implements IDesignerApiClient {
         };
     }
 
-    public async listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>> {
-        const path = '/v1/dag/nodes';
-        const payloadResult = await this.requestPayload(path, 'GET', undefined);
-        if (!payloadResult.ok) {
-            return payloadResult;
-        }
-        const nodes = payloadResult.value.data?.nodes;
-        if (Array.isArray(nodes) && hasValidNodeManifests(nodes)) {
-            return {
-                ok: true,
-                value: nodes
-            };
-        }
-        return {
-            ok: false,
-            error: [createContractViolationProblem(200, path)]
-        };
-    }
-
     public async listObjectInfo(): Promise<TResult<TObjectInfo, IProblemDetails[]>> {
-        const path = '/v1/dag/object_info';
+        const path = '/v1/dag/nodes';
         const payloadResult = await this.requestPayload(path, 'GET', undefined);
         if (!payloadResult.ok) {
             return payloadResult;
