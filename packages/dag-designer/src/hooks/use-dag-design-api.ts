@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type {
     IDagDefinition,
     INodeManifest,
+    TObjectInfo,
     TResult,
     TPortPayload,
     TRunProgressEvent,
@@ -51,6 +52,7 @@ export interface IUseDagDesignApi {
         correlationId?: string;
     }) => Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
     listNodeCatalog: () => Promise<TResult<INodeManifest[], IProblemDetails[]>>;
+    listObjectInfo: () => Promise<TResult<TObjectInfo, IProblemDetails[]>>;
     createRun: (input: {
         definition: IDagDefinition;
         input?: TPortPayload;
@@ -115,6 +117,7 @@ export function useDagDesignApi(options: IUseDagDesignApiOptions): IUseDagDesign
             correlationId: input?.correlationId
         }),
         listNodeCatalog: async () => client.listNodeCatalog(),
+        listObjectInfo: async () => client.listObjectInfo(),
         createRun: async (input) => client.createRun({
             definition: input.definition,
             input: input.input,
