@@ -360,13 +360,13 @@ export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactEl
                 ) : null}
 
                 {/* File upload button */}
-                <label className="cursor-pointer rounded-md bg-[var(--studio-accent-violet)] px-3 py-1.5 text-center text-[11px] text-white hover:brightness-110 transition-all">
+                <label className="relative cursor-pointer rounded-md bg-[var(--studio-accent-violet)] px-3 py-1.5 text-center text-[11px] text-white hover:brightness-110 transition-all overflow-hidden">
                     {uploadStatus === 'uploading' ? 'Uploading...' : 'Choose File'}
                     <input
                         type="file"
                         accept={accept}
                         onChange={(e) => void handleFileChange(e)}
-                        className="hidden"
+                        className="absolute inset-0 cursor-pointer opacity-0"
                         disabled={uploadStatus === 'uploading'}
                     />
                 </label>
