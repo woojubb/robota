@@ -39,7 +39,7 @@ export class ImageSourceNodeDefinition extends AbstractNodeDefinition<typeof Ima
             order: 0,
             required: true,
             description: 'Test image output',
-            preset: BINARY_PORT_PRESETS.IMAGE_PNG
+            preset: BINARY_PORT_PRESETS.IMAGE_COMMON
         })
     ];
     public readonly configSchemaDefinition = ImageSourceConfigSchema;

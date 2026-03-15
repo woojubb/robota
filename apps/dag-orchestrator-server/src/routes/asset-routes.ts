@@ -48,6 +48,10 @@ export function registerAssetRoutes(
                 return;
             }
             const metadata = await assetStore.save({ fileName: body.fileName, mediaType: body.mediaType, content });
+
+            // Runtime upload happens at execution time via uploadAssetsToRuntime in run-routes.
+            // The orchestrator's assetId is always the authoritative reference.
+
             res.status(HTTP_CREATED).json({
                 ok: true, status: HTTP_CREATED,
                 data: { asset: toAssetReference(metadata, getAssetContentUri(req, metadata.assetId)) }
