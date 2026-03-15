@@ -175,39 +175,6 @@ importers:
       '@robota-sdk/dag-cost':
         specifier: workspace:*
         version: link:../../packages/dag-cost
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../packages/dag-node
-      '@robota-sdk/dag-node-gemini-image-edit':
-        specifier: workspace:*
-        version: link:../../packages/dag-nodes/gemini-image-edit
-      '@robota-sdk/dag-node-image-loader':
-        specifier: workspace:*
-        version: link:../../packages/dag-nodes/image-loader
-      '@robota-sdk/dag-node-image-source':
-        specifier: workspace:*
-        version: link:../../packages/dag-nodes/image-source
-      '@robota-sdk/dag-node-input':
-        specifier: workspace:*
-        version: link:../../packages/dag-nodes/input
-      '@robota-sdk/dag-node-llm-text-openai':
-        specifier: workspace:*
-        version: link:../../packages/dag-nodes/llm-text-openai
-      '@robota-sdk/dag-node-ok-emitter':
-        specifier: workspace:*
-        version: link:../../packages/dag-nodes/ok-emitter
-      '@robota-sdk/dag-node-seedance-video':
-        specifier: workspace:*
-        version: link:../../packages/dag-nodes/seedance-video
-      '@robota-sdk/dag-node-text-output':
-        specifier: workspace:*
-        version: link:../../packages/dag-nodes/text-output
-      '@robota-sdk/dag-node-text-template':
-        specifier: workspace:*
-        version: link:../../packages/dag-nodes/text-template
-      '@robota-sdk/dag-node-transform':
-        specifier: workspace:*
-        version: link:../../packages/dag-nodes/transform
       '@robota-sdk/dag-orchestrator':
         specifier: workspace:*
         version: link:../../packages/dag-orchestrator

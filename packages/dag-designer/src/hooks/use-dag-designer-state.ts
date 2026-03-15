@@ -6,6 +6,7 @@ import type {
     IDagNode,
     INodeManifest,
     IRunResult,
+    TObjectInfo,
     TPortPayload,
     TResult
 } from '@robota-sdk/dag-core';
@@ -15,6 +16,7 @@ import { useDagDesignerContext } from '../components/dag-designer-canvas.js';
 export interface IDagDesignerState {
     definition: IDagDefinition;
     manifests: INodeManifest[];
+    objectInfo: TObjectInfo;
     runResult?: IRunResult;
     initialInput?: TPortPayload;
     selectedNodeId?: string;
@@ -39,6 +41,7 @@ export function useDagDesignerState(): IDagDesignerState {
     return useMemo(() => ({
         definition: context.definition,
         manifests: context.manifests,
+        objectInfo: context.objectInfo,
         runResult: context.runResult,
         initialInput: context.initialInput,
         selectedNodeId: context.selectedNodeId,
@@ -52,6 +55,7 @@ export function useDagDesignerState(): IDagDesignerState {
         context.definition,
         context.initialInput,
         context.manifests,
+        context.objectInfo,
         context.runResult,
         context.runProgress,
         context.selectedEdgeId,

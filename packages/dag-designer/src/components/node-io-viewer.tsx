@@ -34,9 +34,9 @@ function resolveRenderableUri(binary: IPortBinaryValue, assetBaseUrl?: string): 
 
 function renderPrimitive(value: string | number | boolean | null): ReactElement {
     if (typeof value === 'string') {
-        return <div className="whitespace-pre-wrap break-words rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1 font-mono text-[10px] text-[var(--studio-text-secondary)]">{value}</div>;
+        return <div className="whitespace-pre-wrap break-words rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1 font-mono text-xs text-[var(--studio-text-secondary)]">{value}</div>;
     }
-    return <div className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1 font-mono text-[10px] text-[var(--studio-text-secondary)]">{String(value)}</div>;
+    return <div className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1 font-mono text-xs text-[var(--studio-text-secondary)]">{String(value)}</div>;
 }
 
 function renderBinary(
@@ -49,7 +49,7 @@ function renderBinary(
     const isVideo = binary.kind === 'video';
     return (
         <div className="flex flex-col gap-1 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
-            <div className="text-[10px] text-[var(--studio-text-muted)]">{binary.kind} · {binary.mimeType}</div>
+            <div className="text-xs text-[var(--studio-text-muted)]">{binary.kind} · {binary.mimeType}</div>
             {isImage ? (
                 <button
                     type="button"
@@ -74,7 +74,7 @@ function renderBinary(
                     </video>
                 </div>
             ) : null}
-            <a href={resolvedUri} target="_blank" rel="noreferrer" className="break-all text-[10px] text-[var(--studio-accent-cyan)] underline">
+            <a href={resolvedUri} target="_blank" rel="noreferrer" className="break-all text-xs text-[var(--studio-accent-cyan)] underline">
                 {binary.uri}
             </a>
         </div>
@@ -95,15 +95,15 @@ function renderValue(
     if (Array.isArray(value)) {
         return (
             <details className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
-                <summary className="cursor-pointer text-[10px] text-[var(--studio-text-secondary)]">array[{value.length}]</summary>
-                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] text-[var(--studio-text-secondary)]">{stringifyValue(value)}</pre>
+                <summary className="cursor-pointer text-xs text-[var(--studio-text-secondary)]">array[{value.length}]</summary>
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-[var(--studio-text-secondary)]">{stringifyValue(value)}</pre>
             </details>
         );
     }
     return (
         <details className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
-            <summary className="cursor-pointer text-[10px] text-[var(--studio-text-secondary)]">object</summary>
-            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] text-[var(--studio-text-secondary)]">{stringifyValue(value)}</pre>
+            <summary className="cursor-pointer text-xs text-[var(--studio-text-secondary)]">object</summary>
+            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-[var(--studio-text-secondary)]">{stringifyValue(value)}</pre>
         </details>
     );
 }
@@ -116,13 +116,13 @@ function renderPayload(
 ): ReactElement {
     return (
         <div className="flex flex-col gap-1">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">{title}</div>
+            <div className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">{title}</div>
             {!payload || Object.keys(payload).length === 0 ? (
-                <div className="text-[10px] text-[var(--studio-text-muted)]">No data</div>
+                <div className="text-xs text-[var(--studio-text-muted)]">No data</div>
             ) : (
                 Object.entries(payload).map(([key, value]) => (
                     <div key={`${title}-${key}`} className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-2">
-                        <div className="mb-1 text-[10px] font-medium text-[var(--studio-text-secondary)]">{key}</div>
+                        <div className="mb-1 text-xs font-medium text-[var(--studio-text-secondary)]">{key}</div>
                         {renderValue(value, assetBaseUrl, onImageClick)}
                     </div>
                 ))
@@ -137,7 +137,7 @@ export function NodeIoViewer(props: INodeIoViewerProps): ReactElement {
 
     return (
         <div className="nodrag border-t border-[var(--studio-border)] px-3 py-2">
-            <div className="mb-1 text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Node I/O Viewer</div>
+            <div className="mb-1 text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Node I/O Viewer</div>
             <div className="grid grid-cols-1 gap-2">
                 {renderPayload('Output', props.output, props.assetBaseUrl, setPopupImageUri)}
             </div>
@@ -151,10 +151,10 @@ export function NodeIoViewer(props: INodeIoViewerProps): ReactElement {
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="mb-2 flex items-center justify-between">
-                            <div className="text-xs font-semibold text-[var(--studio-text)]">Image Viewer</div>
+                            <div className="text-sm font-semibold text-[var(--studio-text)]">Image Viewer</div>
                             <button
                                 type="button"
-                                className="border border-[var(--studio-border)] text-[var(--studio-text-secondary)] rounded-md px-3 py-1.5 text-xs hover:bg-[var(--studio-bg-surface)] transition-all"
+                                className="border border-[var(--studio-border)] text-[var(--studio-text-secondary)] rounded-md px-3 py-2 text-sm hover:bg-[var(--studio-bg-surface)] transition-all"
                                 onClick={() => setPopupImageUri(undefined)}
                             >
                                 Close
