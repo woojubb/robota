@@ -44,9 +44,14 @@ Run client contract: `createRun -> startRun -> getRunResult`.
   - `NodeIoViewer` -- input/output data viewer
   - `NodeIoTracePanel` -- execution trace viewer
 - **Lifecycle** (`lifecycle/run-engine.ts`): Re-exports `IRunNodeTrace` and `IRunResult` types.
-- **Utilities**: `schema-defaults.ts` (config schema default generation), `port-editor-utils.ts` (port editing helpers).
+- **Utilities**: `port-editor-utils.ts` (port editing helpers).
 - **Config Form**: Node configuration uses ComfyUI `TInputTypeSpec` (from `/object_info`) instead of Zod schemas for field rendering.
 - **Node Catalog**: `NodeExplorerPanel` uses `INodeObjectInfo`/`TObjectInfo` from the `/object_info` endpoint for node discovery and categorization.
+
+**INodeManifest vs TObjectInfo coexistence:**
+- `TObjectInfo`/`INodeObjectInfo` is the preferred path for node discovery (sourced from the `/object_info` API).
+- `INodeManifest` is retained for backward compatibility in component props where existing consumers pass manifests directly.
+- Config form rendering uses ComfyUI `TInputTypeSpec` (from `/object_info`), not Zod schemas.
 
 ## Type Ownership
 
@@ -56,14 +61,17 @@ This package is SSOT for:
 - `IDesignerApiClientConfig` -- client configuration (baseUrl)
 - `ICreateDefinitionInput`, `IUpdateDraftInput`, `IValidateDefinitionInput`, `IPublishDefinitionInput`, `IGetDefinitionInput`, `IListDefinitionsInput` -- client-side input types
 - `IDesignerCreateRunInput`, `IDesignerStartRunInput`, `IGetRunResultInput` -- run operation inputs (designer-prefixed to avoid collision with dag-runtime)
+- `ISubscribeRunProgressInput` -- run progress subscription input
+- `IDagDesignerState` -- React designer state interface
+- `IDagDesignerActions` -- React designer action interface
+- `IUseDagDesignApi` -- hook return type interface
+- `IUseDagDesignApiOptions` -- hook options interface
+- `IRunProgressState` -- run progress tracking state
 
 Imported from other packages (not owned here):
 
 - `IProblemDetails`, `IDefinitionListItem` -- imported from `@robota-sdk/dag-api`
 - `IRunNodeTrace`, `IRunResult`, `IRunNodeError` -- imported from `@robota-sdk/dag-core`
-- `IDagDesignerState`, `IDagDesignerActions` -- React state/action interfaces
-- `IUseDagDesignApi`, `IUseDagDesignApiOptions` -- hook interfaces
-- `IRunProgressState` -- run progress tracking state (from canvas component)
 
 ## Public API Surface
 
@@ -75,6 +83,7 @@ Imported from other packages (not owned here):
 - `DagNodeView`, `DagBindingEdge` -- graph element components
 - `NodeExplorerPanel`, `NodeConfigPanel`, `EdgeInspectorPanel` -- panel components
 - `NodeIoViewer`, `NodeIoTracePanel` -- data/trace viewer components
+- `listObjectInfo()` -- primary method on `IDesignerApiClient` for node catalog discovery (fetches `/object_info` from runtime)
 
 ## Extension Points
 
@@ -169,7 +178,7 @@ Ports with `isList: true` support multiple connections via dynamically generated
 
 ## Test Strategy
 
-- Unit tests: `port-editor-utils.test.ts` (port editing helpers), `schema-defaults.test.ts` (config schema default generation), `canvas-utils.test.ts` (list binding compaction across multi-edge scenarios, handle computation).
+- Unit tests: `port-editor-utils.test.ts` (port editing helpers), `canvas-utils.test.ts` (list binding compaction across multi-edge scenarios, handle computation), `comfyui-field-renderers.test.ts` (ComfyUI input spec parsing tests).
 - Contract tests: `designer-api-contract.test.ts` (validates `hasValidRunResult` contract for `IRunResult` shape — status, dagRunId, traces, nodeErrors, totalCredits).
 - API client HTTP request/response shape tests and WebSocket reconnection logic tests are planned.
 - The designer also relies on integration testing through app-level UI tests.

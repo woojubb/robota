@@ -644,6 +644,16 @@ importers:
       '@robota-sdk/dag-core':
         specifier: workspace:*
         version: link:../dag-core
+      '@xyflow/react':
+        specifier: ^12.8.2
+        version: 12.8.2(@types/react@19.1.8)(react-dom@19.1.0)(react@19.1.0)
+      react:
+        specifier: '>=19'
+        version: 19.1.0
+      react-dom:
+        specifier: '>=19'
+        version: 19.1.0(react@19.1.0)
+    devDependencies:
       '@robota-sdk/dag-node-image-loader':
         specifier: workspace:*
         version: link:../dag-nodes/image-loader
@@ -665,16 +675,6 @@ importers:
       '@robota-sdk/dag-node-transform':
         specifier: workspace:*
         version: link:../dag-nodes/transform
-      '@xyflow/react':
-        specifier: ^12.8.2
-        version: 12.8.2(@types/react@19.1.8)(react-dom@19.1.0)(react@19.1.0)
-      react:
-        specifier: '>=19'
-        version: 19.1.0
-      react-dom:
-        specifier: '>=19'
-        version: 19.1.0(react@19.1.0)
-    devDependencies:
       '@types/react':
         specifier: ^19
         version: 19.1.8
