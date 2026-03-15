@@ -55,6 +55,18 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - After implementation is complete, the relevant `packages/*/docs/SPEC.md` files MUST be updated to reflect the changes.
 - A plan without a saved design document must not be executed. A completed implementation without updated SPEC.md is incomplete.
 
+### Harness Verification Requirement
+
+- After completing a batch of changes (feature branch merge, major refactoring, release prep), a harness verification MUST be performed.
+- Run the following in order:
+  1. `pnpm build` — full monorepo build must pass
+  2. `pnpm test` — all tests must pass with zero failures
+  3. `pnpm harness:scan` — consistency, specs, docs structure check
+  4. `pnpm typecheck` — TypeScript strict mode verification
+- If any step fails, fix the issue before proceeding.
+- The harness results must be reported with counts (total tests, failures, build status).
+- This is a blocking gate — no merge to `main` or `release/*` without harness pass.
+
 ### Idea Capture Policy
 
 - When the user mentions an idea, suggestion, or future task (e.g., "~하면 좋겠다", "나중에 ~하자", "~해야한다"), do NOT start implementation immediately.
