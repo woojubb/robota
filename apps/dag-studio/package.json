@@ -1,10 +1,10 @@
 {
-  "name": "@robota-sdk/web",
+  "name": "@robota-sdk/dag-studio",
   "version": "0.1.0",
   "private": true,
-  "description": "Minimal Next.js host for Robota Agent Playground (/playground)",
+  "description": "Dedicated Next.js host for DAG Designer (/dag-designer)",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -13,11 +13,12 @@
     "test:coverage": "jest --coverage --passWithNoTests",
     "test:ci": "jest --ci --coverage --watchAll=false --passWithNoTests",
     "analyze": "ANALYZE=true npm run build",
-    "lighthouse": "lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html"
+    "lighthouse": "lighthouse http://localhost:3001 --output html --output-path ./lighthouse-report.html"
   },
   "dependencies": {
-    "@robota-sdk/agents": "workspace:^",
-    "@robota-sdk/playground": "workspace:^",
+    "@robota-sdk/dag-core": "workspace:^",
+    "@robota-sdk/dag-designer": "workspace:^",
+    "@xyflow/react": "^12.8.2",
     "next": "15.4.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"
