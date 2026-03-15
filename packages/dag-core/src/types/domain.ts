@@ -108,8 +108,8 @@ export interface IDagNode {
     retryPolicy?: string;
     timeoutMs?: number;
     config: INodeConfigObject;
-    inputs: IPortDefinition[];
-    outputs: IPortDefinition[];
+    inputs?: IPortDefinition[];
+    outputs?: IPortDefinition[];
     costPolicy?: ICostPolicy;
 }
 
