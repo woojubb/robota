@@ -183,6 +183,11 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 | [`logging-level-guide`](.agents/skills/logging-level-guide/SKILL.md)                     | Log level usage guide                                      |
 | [`api-error-standard`](.agents/skills/api-error-standard/SKILL.md)                       | RFC 7807 API error responses                               |
 | [`api-spec-management`](.agents/skills/api-spec-management/SKILL.md)                     | API specification management                               |
+| [`deploy-to-vercel`](.agents/skills/deploy-to-vercel/SKILL.md)                           | Deploy applications and websites to Vercel                 |
+| [`vercel-composition-patterns`](.agents/skills/vercel-composition-patterns/SKILL.md)     | React composition patterns and component architecture      |
+| [`vercel-react-best-practices`](.agents/skills/vercel-react-best-practices/SKILL.md)     | React and Next.js performance optimization                 |
+| [`vercel-react-native-skills`](.agents/skills/vercel-react-native-skills/SKILL.md)       | React Native and Expo best practices for mobile apps       |
+| [`web-design-guidelines`](.agents/skills/web-design-guidelines/SKILL.md)                 | UI code review for Web Interface Guidelines compliance     |
 
 ## Rules and Skills Boundary
 
