@@ -1,16 +1,16 @@
 import type { TResult, IDagError, TObjectInfo, TPrompt } from '@robota-sdk/dag-core';
-import type { ICostEstimate, ICostPolicy } from '../types/orchestrator-types.js';
+import type { IPromptCostEstimate, IPromptCostPolicy } from '../types/orchestrator-types.js';
 
 export interface ICostEstimatorPort {
     estimateCost(
         prompt: TPrompt,
         objectInfo: TObjectInfo,
-    ): Promise<TResult<ICostEstimate, IDagError>>;
+    ): Promise<TResult<IPromptCostEstimate, IDagError>>;
 }
 
 export interface ICostPolicyEvaluatorPort {
     evaluate(
-        estimate: ICostEstimate,
-        policy: ICostPolicy,
+        estimate: IPromptCostEstimate,
+        policy: IPromptCostPolicy,
     ): TResult<void, IDagError>;
 }

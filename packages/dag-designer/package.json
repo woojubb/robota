@@ -49,6 +49,9 @@
   "dependencies": {
     "@robota-sdk/dag-api": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
+    "@xyflow/react": "^12.8.2"
+  },
+  "devDependencies": {
     "@robota-sdk/dag-node-image-loader": "workspace:*",
     "@robota-sdk/dag-node-image-source": "workspace:*",
     "@robota-sdk/dag-node-input": "workspace:*",
@@ -56,9 +59,6 @@
     "@robota-sdk/dag-node-ok-emitter": "workspace:*",
     "@robota-sdk/dag-node-text-output": "workspace:*",
     "@robota-sdk/dag-node-transform": "workspace:*",
-    "@xyflow/react": "^12.8.2"
-  },
-  "devDependencies": {
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",

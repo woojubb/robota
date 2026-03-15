@@ -1,6 +1,6 @@
 export type {
-    ICostEstimate,
-    ICostPolicy,
+    IPromptCostEstimate,
+    IPromptCostPolicy,
     IRetryPolicy,
     ITimeoutPolicy,
     IOrchestratorConfig,

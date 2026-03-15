@@ -1,6 +1,6 @@
 import type { TPrompt, TObjectInfo, TResult, IDagError } from '@robota-sdk/dag-core';
 import type { ICostEstimatorPort } from '../interfaces/orchestrator-policy-port.js';
-import type { ICostEstimate } from '../types/orchestrator-types.js';
+import type { IPromptCostEstimate } from '../types/orchestrator-types.js';
 import { type ICostMetaStoragePort, CelCostEvaluator } from '@robota-sdk/dag-cost';
 
 /**
@@ -17,9 +17,9 @@ export class CelCostEstimatorAdapter implements ICostEstimatorPort {
     async estimateCost(
         prompt: TPrompt,
         _objectInfo: TObjectInfo,
-    ): Promise<TResult<ICostEstimate, IDagError>> {
+    ): Promise<TResult<IPromptCostEstimate, IDagError>> {
         let totalEstimatedCredits = 0;
-        const perNode: ICostEstimate['perNode'] = {};
+        const perNode: IPromptCostEstimate['perNode'] = {};
 
         for (const [nodeId, nodeDef] of Object.entries(prompt)) {
             const costMeta = await this.storage.get(nodeDef.class_type);

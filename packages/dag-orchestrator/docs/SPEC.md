@@ -52,8 +52,8 @@ Types **owned** by this package (SSOT):
 
 | Type | Location | Purpose |
 |---|---|---|
-| `ICostEstimate` | `types/orchestrator-types.ts` | Per-prompt cost estimation result |
-| `ICostPolicy` | `types/orchestrator-types.ts` | Max cost threshold configuration |
+| `IPromptCostEstimate` | `types/orchestrator-types.ts` | Per-prompt cost estimation result (`totalEstimatedCredits`, `perNode` with `estimatedCredits`) |
+| `IPromptCostPolicy` | `types/orchestrator-types.ts` | Max cost threshold configuration (`maxCreditsPerPrompt`) |
 | `IRetryPolicy` | `types/orchestrator-types.ts` | Retry configuration (max retries, backoff, retryable error codes) |
 | `ITimeoutPolicy` | `types/orchestrator-types.ts` | Prompt timeout configuration |
 | `IOrchestratorConfig` | `types/orchestrator-types.ts` | Combined orchestrator configuration (cost + retry + timeout policies) |
@@ -78,20 +78,21 @@ Types **imported** from `@robota-sdk/dag-core` (not owned here):
 | `IPromptApiClientPort` | interface (type export) | Port for Prompt API server communication |
 | `ICostEstimatorPort` | interface (type export) | Port for cost estimation logic |
 | `ICostPolicyEvaluatorPort` | interface (type export) | Port for cost policy evaluation logic |
-| `ICostEstimate` | interface (type export) | Cost estimation result shape |
-| `ICostPolicy` | interface (type export) | Cost policy configuration shape |
+| `IPromptCostEstimate` | interface (type export) | Cost estimation result shape |
+| `IPromptCostPolicy` | interface (type export) | Cost policy configuration shape |
 | `IRetryPolicy` | interface (type export) | Retry policy configuration shape |
 | `ITimeoutPolicy` | interface (type export) | Timeout policy configuration shape |
 | `IOrchestratorConfig` | interface (type export) | Combined orchestrator configuration |
 | `IOrchestratedPromptRequest` | interface (type export) | Request bundled with config |
 | `IOrchestratedPromptResponse` | interface (type export) | Response bundled with cost estimate |
+| `CelCostEstimatorAdapter` | class | `ICostEstimatorPort` adapter using CEL-based cost formulas from `@robota-sdk/dag-cost` |
 
 ## Extension Points
 
 | Port | Purpose | Implementors |
 |---|---|---|
 | `IPromptApiClientPort` | Communicate with a Prompt API server (ComfyUI or Robota runtime) | `HttpPromptApiClient` (built-in), in-memory stubs (tests) |
-| `ICostEstimatorPort` | Estimate execution cost given node types and object info | Consumer-provided; no built-in implementation |
+| `ICostEstimatorPort` | Estimate execution cost given `TPrompt` and `TObjectInfo` | `CelCostEstimatorAdapter` (built-in), consumer-provided |
 | `ICostPolicyEvaluatorPort` | Evaluate whether an estimated cost passes a policy threshold | Consumer-provided; no built-in implementation |
 
 All three ports are injected via constructor DI. Consumers can provide custom implementations without modifying this package.
@@ -138,6 +139,7 @@ pnpm --filter @robota-sdk/dag-orchestrator build
 | Class / Function | Implements / Extends | Port Consumer |
 |---|---|---|
 | `HttpPromptApiClient` | implements `IPromptApiClientPort` | -- |
+| `CelCostEstimatorAdapter` | implements `ICostEstimatorPort` | Injects `ICostMetaStoragePort` from `@robota-sdk/dag-cost` |
 | `PromptOrchestratorService` | -- | Injects `IPromptApiClientPort`, `ICostEstimatorPort`, `ICostPolicyEvaluatorPort` |
 | `OrchestratorRunService` | -- | Injects `IPromptApiClientPort` |
 | `translateDefinitionToPrompt` | pure function (no port) | -- |
@@ -153,6 +155,7 @@ pnpm --filter @robota-sdk/dag-orchestrator build
 | Dependency | Kind | Purpose |
 |---|---|---|
 | `@robota-sdk/dag-core` | production | Domain types (`IDagDefinition`, `IPromptRequest`, `TResult`, `IDagError`, etc.) |
+| `@robota-sdk/dag-cost` | production | Cost meta types and CEL evaluator (`ICostMetaStoragePort`, `CelCostEvaluator`) |
 | `express` | dev | Mock server for backend interchangeability tests |
 | `vitest` | dev | Test runner |
 | `tsup` | dev | Build tool |
