@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { TUniversalMessage, IChatOptions, IToolSchema, IExecutor } from '@robota-sdk/agents';
+import type { TUniversalMessage, IChatOptions, IToolSchema, IExecutor, IAssistantMessage } from '@robota-sdk/agents';
 
 // Mock the @anthropic-ai/sdk module
 vi.mock('@anthropic-ai/sdk', () => {
@@ -93,7 +93,11 @@ describe('AnthropicProvider', () => {
         it('should accept an executor without apiKey or client', () => {
             const executor: IExecutor = {
                 executeChat: vi.fn(),
-                executeChatStream: vi.fn()
+                executeChatStream: vi.fn(),
+                supportsTools: () => true,
+                validateConfig: () => true,
+                name: 'mock-executor',
+                version: '1.0.0',
             };
             const provider = new AnthropicProvider({ executor });
             expect(provider).toBeDefined();
@@ -274,8 +278,9 @@ describe('AnthropicProvider', () => {
 
             expect(result.role).toBe('assistant');
             expect(result.content).toBeNull();
-            expect(result.toolCalls).toHaveLength(1);
-            expect(result.toolCalls![0]).toEqual({
+            const assistantResult = result as IAssistantMessage;
+            expect(assistantResult.toolCalls).toHaveLength(1);
+            expect(assistantResult.toolCalls![0]).toEqual({
                 id: 'call_1',
                 type: 'function',
                 function: {
@@ -338,7 +343,7 @@ describe('AnthropicProvider', () => {
 
         it('should omit stopReason from metadata when stop_reason is null', async () => {
             const response = makeTextResponse('done');
-            (response as Record<string, unknown>).stop_reason = null;
+            (response as unknown as Record<string, unknown>).stop_reason = null;
             mockClient.messages.create.mockResolvedValue(response);
 
             const messages: TUniversalMessage[] = [
@@ -447,7 +452,11 @@ describe('AnthropicProvider', () => {
             };
             const executor: IExecutor = {
                 executeChat: vi.fn().mockResolvedValue(expectedResponse),
-                executeChatStream: vi.fn()
+                executeChatStream: vi.fn(),
+                supportsTools: () => true,
+                validateConfig: () => true,
+                name: 'mock-executor',
+                version: '1.0.0',
             };
 
             const provider = new AnthropicProvider({ executor });
@@ -466,7 +475,11 @@ describe('AnthropicProvider', () => {
         it('should propagate executor errors', async () => {
             const executor: IExecutor = {
                 executeChat: vi.fn().mockRejectedValue(new Error('executor failed')),
-                executeChatStream: vi.fn()
+                executeChatStream: vi.fn(),
+                supportsTools: () => true,
+                validateConfig: () => true,
+                name: 'mock-executor',
+                version: '1.0.0',
             };
 
             const provider = new AnthropicProvider({ executor });
@@ -610,7 +623,11 @@ describe('AnthropicProvider', () => {
                     for (const c of streamChunks) {
                         yield c;
                     }
-                })
+                }),
+                supportsTools: () => true,
+                validateConfig: () => true,
+                name: 'mock-executor',
+                version: '1.0.0',
             };
 
             const provider = new AnthropicProvider({ executor });

@@ -258,7 +258,7 @@ describe('SeedanceVideoRuntime', () => {
                 error: {
                     code: 'DAG_VALIDATION_SEEDANCE_IMAGE_ASSET_NOT_FOUND',
                     message: 'Image not found',
-                    layer: 'validation',
+                    category: 'validation',
                     retryable: false
                 }
             });

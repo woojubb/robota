@@ -62,7 +62,7 @@ describe('createDagControllerComposition', () => {
             { storage, queue, deadLetterQueue, lease, clock },
             {
                 nodeCatalogService: {
-                    listManifests: async () => [{ nodeType: 'input', displayName: 'Input', version: '1.0.0', inputs: [], outputs: [] }],
+                    listManifests: async () => [{ nodeType: 'input', displayName: 'Input', category: 'general', inputs: [], outputs: [] }],
                     hasNodeType: (nodeType: string) => nodeType === 'input'
                 }
             }

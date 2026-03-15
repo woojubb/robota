@@ -71,7 +71,7 @@ describe('DagDesignController', () => {
     it('listNodeCatalog returns manifests when catalog configured', async () => {
         const storage = new InMemoryStoragePort();
         const catalog: INodeCatalogService = {
-            listManifests: async () => [{ nodeType: 'input', displayName: 'Input', version: '1.0.0', inputs: [], outputs: [] }],
+            listManifests: async () => [{ nodeType: 'input', displayName: 'Input', category: 'general', inputs: [], outputs: [] }],
             hasNodeType: () => true
         };
         const controller = new DagDesignController(new DagDefinitionService(storage), catalog);

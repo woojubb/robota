@@ -9,6 +9,7 @@ function createMockLogger(): ILogger {
         warn: vi.fn(),
         error: vi.fn(),
         debug: vi.fn(),
+        log: vi.fn(),
     };
 }
 
@@ -148,7 +149,7 @@ describe('OpenAIResponseParser', () => {
 
             const result = parser.parseResponse(response);
             expect(result).toHaveProperty('usage');
-            const withUsage = result as { usage: { promptTokens: number; completionTokens: number; totalTokens: number } };
+            const withUsage = result as unknown as { usage: { promptTokens: number; completionTokens: number; totalTokens: number } };
             expect(withUsage.usage.promptTokens).toBe(10);
             expect(withUsage.usage.completionTokens).toBe(20);
             expect(withUsage.usage.totalTokens).toBe(30);

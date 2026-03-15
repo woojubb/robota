@@ -155,7 +155,7 @@ describe('convertToGeminiFormat', () => {
 
     it('converts tool messages with role "user"', () => {
         const messages: TUniversalMessage[] = [
-            { role: 'tool', content: 'tool result', timestamp: new Date() }
+            { role: 'tool', content: 'tool result', toolCallId: 'call_1', timestamp: new Date() }
         ];
         const result = convertToGeminiFormat(messages);
         expect(result[0]?.role).toBe('user');

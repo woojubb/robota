@@ -45,7 +45,8 @@ function createToolExecutionContext(): IToolExecutionContext {
 
 describe('listTemplateCategoriesTool', () => {
     it('returns a default category', async () => {
-        const result = await listTemplateCategoriesTool.execute({});
+        const ctx = createToolExecutionContext();
+        const result = await listTemplateCategoriesTool.execute({}, ctx);
         expect(result.success).toBe(true);
         const data = getData(result);
         const categories = data.categories as Array<Record<string, unknown>>;
@@ -56,7 +57,8 @@ describe('listTemplateCategoriesTool', () => {
 
 describe('listTemplatesTool', () => {
     it('returns template summaries', async () => {
-        const result = await listTemplatesTool.execute({});
+        const ctx = createToolExecutionContext();
+        const result = await listTemplatesTool.execute({}, ctx);
         expect(result.success).toBe(true);
         const data = getData(result);
         const templates = data.templates as Array<Record<string, unknown>>;
@@ -66,7 +68,8 @@ describe('listTemplatesTool', () => {
     });
 
     it('all templates have required fields', async () => {
-        const result = await listTemplatesTool.execute({});
+        const ctx = createToolExecutionContext();
+        const result = await listTemplatesTool.execute({}, ctx);
         const data = getData(result);
         const templates = data.templates as Array<Record<string, unknown>>;
         for (const tmpl of templates) {
@@ -78,7 +81,8 @@ describe('listTemplatesTool', () => {
 
 describe('getTemplateDetailTool', () => {
     it('returns full template entry by id', async () => {
-        const result = await getTemplateDetailTool.execute({ templateId: 'general' });
+        const ctx = createToolExecutionContext();
+        const result = await getTemplateDetailTool.execute({ templateId: 'general' }, ctx);
         expect(result.success).toBe(true);
         const detail = getData(result);
         expect(detail.id).toBe('general');
@@ -88,18 +92,21 @@ describe('getTemplateDetailTool', () => {
     });
 
     it('returns task_coordinator template', async () => {
-        const result = await getTemplateDetailTool.execute({ templateId: 'task_coordinator' });
+        const ctx = createToolExecutionContext();
+        const result = await getTemplateDetailTool.execute({ templateId: 'task_coordinator' }, ctx);
         expect(result.success).toBe(true);
         const detail = getData(result);
         expect(detail.id).toBe('task_coordinator');
     });
 
     it('throws when templateId is missing', async () => {
-        await expect(getTemplateDetailTool.execute({})).rejects.toThrow();
+        const ctx = createToolExecutionContext();
+        await expect(getTemplateDetailTool.execute({}, ctx)).rejects.toThrow();
     });
 
     it('throws when templateId is not found', async () => {
-        await expect(getTemplateDetailTool.execute({ templateId: 'nonexistent' })).rejects.toThrow();
+        const ctx = createToolExecutionContext();
+        await expect(getTemplateDetailTool.execute({ templateId: 'nonexistent' }, ctx)).rejects.toThrow();
     });
 });
 

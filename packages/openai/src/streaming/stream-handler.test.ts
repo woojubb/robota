@@ -11,6 +11,7 @@ function createMockLogger(): ILogger {
         warn: vi.fn(),
         error: vi.fn(),
         debug: vi.fn(),
+        log: vi.fn(),
     };
 }
 

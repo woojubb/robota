@@ -102,7 +102,8 @@ describe('RemoteServer', () => {
                 info: vi.fn(),
                 warn: vi.fn(),
                 error: vi.fn(),
-                debug: vi.fn()
+                debug: vi.fn(),
+                log: vi.fn(),
             };
             clearRouteHandlers();
             const s = new RemoteServer({ logger: mockLogger });
@@ -132,7 +133,8 @@ describe('RemoteServer', () => {
                 info: vi.fn(),
                 warn: vi.fn(),
                 error: vi.fn(),
-                debug: vi.fn()
+                debug: vi.fn(),
+                log: vi.fn(),
             };
             clearRouteHandlers();
             const s = new RemoteServer({ logger: mockLogger });
