@@ -55,6 +55,14 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - After implementation is complete, the relevant `packages/*/docs/SPEC.md` files MUST be updated to reflect the changes.
 - A plan without a saved design document must not be executed. A completed implementation without updated SPEC.md is incomplete.
 
+### Browser Verification Requirement
+
+- After changes to web apps (apps/web, apps/dag-studio) or dag-designer UI components, you MUST verify in a browser before reporting completion.
+- Use Playwright MCP to navigate to the app URL, take a screenshot, and verify the UI renders correctly.
+- Check for: page loads without error, key elements visible, no console errors.
+- If the dev server is not running, start it and wait for it to be ready before checking.
+- This is non-negotiable — do NOT claim UI changes work without browser verification.
+
 ### Harness Verification Requirement
 
 - After completing a batch of changes (feature branch merge, major refactoring, release prep), a harness verification MUST be performed.

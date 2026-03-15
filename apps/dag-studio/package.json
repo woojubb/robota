@@ -4,7 +4,7 @@
   "private": true,
   "description": "Dedicated Next.js host for DAG Designer (/dag-designer)",
   "scripts": {
-    "dev": "next dev --port 3001",
+    "dev": "next dev --port 3002",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
