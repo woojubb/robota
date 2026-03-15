@@ -227,6 +227,10 @@ export class DagPromptBackend implements IPromptBackendPort {
         prompt: IPromptRequest['prompt']
     ): Promise<void> {
         let iteration = 0;
+        let emptyQueueRetries = 0;
+        const MAX_EMPTY_QUEUE_RETRIES = 20;
+        const EMPTY_QUEUE_WAIT_MS = 100;
+
         while (iteration < MAX_PROCESS_ITERATIONS) {
             const queried = await this.execution.runQuery.getRun(dagRunId);
             if (!queried.ok) {
@@ -239,10 +243,22 @@ export class DagPromptBackend implements IPromptBackendPort {
                 return;
             }
             const processed = await this.execution.workerLoop.processOnce();
-            if (!processed.ok || !processed.value.processed) {
+            if (!processed.ok) {
                 this.recordHistory(promptId, prompt, 'error');
                 return;
             }
+            if (!processed.value.processed) {
+                // Queue is empty but run is not terminal — downstream tasks may not be enqueued yet.
+                // Wait briefly and retry instead of immediately failing.
+                emptyQueueRetries += 1;
+                if (emptyQueueRetries > MAX_EMPTY_QUEUE_RETRIES) {
+                    this.recordHistory(promptId, prompt, 'error');
+                    return;
+                }
+                await new Promise((resolve) => setTimeout(resolve, EMPTY_QUEUE_WAIT_MS));
+                continue;
+            }
+            emptyQueueRetries = 0;
             iteration += 1;
         }
     }
