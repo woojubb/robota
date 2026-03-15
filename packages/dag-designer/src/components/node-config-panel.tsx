@@ -279,13 +279,13 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
 
             <PortSection
                 direction="inputs"
-                ports={node.inputs}
+                ports={node.inputs ?? []}
                 getConnectedCount={getConnectedCount}
             />
 
             <PortSection
                 direction="outputs"
-                ports={node.outputs}
+                ports={node.outputs ?? []}
                 getConnectedCount={getConnectedCount}
             />
 

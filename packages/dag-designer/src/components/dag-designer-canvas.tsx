@@ -29,7 +29,8 @@ import {
     hasSameCanvasNodeState,
     hasSameCanvasEdgeState,
     compactListBindings,
-    computeInputHandlesByPortKey
+    computeInputHandlesByPortKey,
+    enrichNodeWithPorts
 } from './canvas-utils.js';
 import { useDagDesignerContext, DagDesignerRoot } from './dag-designer-context.js';
 import {
@@ -105,16 +106,20 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
     }, [context.liveNodeTraceByNodeId]);
 
     const initialNodes = useMemo(
-        () => context.definition.nodes.map((node, index) => toNode(
-            node,
-            index,
-            context.nodeUiStateByNodeId[node.nodeId],
-            latestTraceByNodeId.get(node.nodeId),
-            context.assetUploadBaseUrl,
-            undefined,
-            computeInputHandlesByPortKey(context.definition, node.nodeId, node.inputs)
-        )),
-        [context.assetUploadBaseUrl, context.definition.nodes, context.nodeUiStateByNodeId, latestTraceByNodeId]
+        () => context.definition.nodes.map((node, index) => {
+            const enriched = enrichNodeWithPorts(node, context.objectInfo);
+            return toNode(
+                enriched,
+                index,
+                context.nodeUiStateByNodeId[node.nodeId],
+                latestTraceByNodeId.get(node.nodeId),
+                context.assetUploadBaseUrl,
+                undefined,
+                computeInputHandlesByPortKey(context.definition, node.nodeId, enriched.inputs ?? []),
+                context.objectInfo
+            );
+        }),
+        [context.assetUploadBaseUrl, context.definition.nodes, context.nodeUiStateByNodeId, latestTraceByNodeId, context.objectInfo]
     );
     const initialEdges = useMemo(
         () => context.definition.edges.map((edge) => toEdge(edge, selectEdgeById)),
@@ -129,19 +134,21 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 currentNodes.map((node) => [node.id, node.position])
             );
             const mappedNodes = context.definition.nodes.map((node, index) => {
+                const enriched = enrichNodeWithPorts(node, context.objectInfo);
                 const inputHandlesByPortKey = computeInputHandlesByPortKey(
                     context.definition,
                     node.nodeId,
-                    node.inputs
+                    enriched.inputs ?? []
                 );
                 return toNode(
-                    node,
+                    enriched,
                     index,
                     context.nodeUiStateByNodeId[node.nodeId],
                     latestTraceByNodeId.get(node.nodeId),
                     context.assetUploadBaseUrl,
                     positionByNodeId.get(node.nodeId),
-                    inputHandlesByPortKey
+                    inputHandlesByPortKey,
+                    context.objectInfo
                 );
             });
             if (hasSameCanvasNodeState(currentNodes, mappedNodes)) {
@@ -149,7 +156,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             }
             return mappedNodes;
         });
-    }, [context.assetUploadBaseUrl, context.definition.nodes, context.nodeUiStateByNodeId, latestTraceByNodeId, setNodes]);
+    }, [context.assetUploadBaseUrl, context.definition.nodes, context.nodeUiStateByNodeId, latestTraceByNodeId, setNodes, context.objectInfo]);
 
     useEffect(() => {
         const mappedEdges = context.definition.edges.map((edge) => toEdge(edge, selectEdgeById));
@@ -239,9 +246,10 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         context.setConnectError(undefined);
 
         const sourceNode = context.definition.nodes.find((node) => node.nodeId === connection.source);
-        const targetNode = context.definition.nodes.find((node) => node.nodeId === connection.target);
+        const rawTargetNode = context.definition.nodes.find((node) => node.nodeId === connection.target);
+        const targetNode = rawTargetNode ? enrichNodeWithPorts(rawTargetNode, context.objectInfo) : undefined;
         const targetInputPort = targetNode
-            ? resolveInputPort(targetNode.inputs, connection.targetHandle).port
+            ? resolveInputPort(targetNode.inputs ?? [], connection.targetHandle).port
             : undefined;
         if (!targetInputPort) {
             context.setConnectError(`Connection rejected: input handle "${connection.targetHandle}" is invalid.`);
@@ -263,13 +271,14 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             return;
         }
         const nextNodes = context.definition.nodes.map((node) => {
+            const enriched = enrichNodeWithPorts(node, context.objectInfo);
             if (node.nodeId !== connection.target || !sourceNode) {
-                return node;
+                return enriched;
             }
-            const nextDependsOn = node.dependsOn.includes(sourceNode.nodeId)
-                ? node.dependsOn
-                : [...node.dependsOn, sourceNode.nodeId];
-            return { ...node, dependsOn: nextDependsOn };
+            const nextDependsOn = enriched.dependsOn.includes(sourceNode.nodeId)
+                ? enriched.dependsOn
+                : [...enriched.dependsOn, sourceNode.nodeId];
+            return { ...enriched, dependsOn: nextDependsOn };
         });
 
         const newBinding = {

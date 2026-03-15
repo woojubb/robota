@@ -7,6 +7,7 @@ import {
     type INodeManifest,
     type INodeObjectInfo,
     type IPortDefinition,
+    type TObjectInfo,
     type TPortValueType
 } from '@robota-sdk/dag-core';
 import type { Edge, Node, XYPosition } from '@xyflow/react';
@@ -21,8 +22,21 @@ export function toNode(
     latestTrace?: IDagNodeIoTrace,
     assetBaseUrl?: string,
     positionOverride?: XYPosition,
-    inputHandlesByPortKey?: Record<string, string[]>
+    inputHandlesByPortKey?: Record<string, string[]>,
+    objectInfo?: TObjectInfo
 ): TDagCanvasNode {
+    const nodeInfo = objectInfo?.[nodeDefinition.nodeType];
+    const inputs = (nodeDefinition.inputs && nodeDefinition.inputs.length > 0)
+        ? nodeDefinition.inputs
+        : nodeInfo
+            ? deriveInputPorts(nodeInfo)
+            : [];
+    const outputs = (nodeDefinition.outputs && nodeDefinition.outputs.length > 0)
+        ? nodeDefinition.outputs
+        : nodeInfo
+            ? deriveOutputPorts(nodeInfo)
+            : [];
+
     const traceSignature = latestTrace
         ? JSON.stringify({
             nodeId: latestTrace.nodeId,
@@ -37,8 +51,8 @@ export function toNode(
         data: {
             label: nodeDefinition.nodeId,
             nodeType: nodeDefinition.nodeType,
-            inputs: nodeDefinition.inputs,
-            outputs: nodeDefinition.outputs,
+            inputs,
+            outputs,
             executionStatus: nodeUiState?.executionStatus ?? 'idle',
             isSelected: nodeUiState?.isSelected ?? false,
             latestTrace,
@@ -163,12 +177,45 @@ export function createNodeFromObjectInfo(
     info: INodeObjectInfo,
     index: number
 ): IDagNode {
-    const inputs: IPortDefinition[] = [];
-    const outputs: IPortDefinition[] = [];
+    return {
+        nodeId: `${nodeType}_${index + 1}`,
+        nodeType,
+        position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 },
+        dependsOn: [],
+        config: {},
+    };
+}
 
-    // Convert outputs
+export function deriveInputPorts(info: INodeObjectInfo): IPortDefinition[] {
+    const ports: IPortDefinition[] = [];
+    let order = 0;
+    for (const [key, spec] of Object.entries(info.input.required ?? {})) {
+        const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'STRING';
+        ports.push({
+            key,
+            label: key.charAt(0).toUpperCase() + key.slice(1),
+            order: order++,
+            type: mapComfyTypeToPortType(typeName),
+            required: true,
+        });
+    }
+    for (const [key, spec] of Object.entries(info.input.optional ?? {})) {
+        const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'STRING';
+        ports.push({
+            key,
+            label: key.charAt(0).toUpperCase() + key.slice(1),
+            order: order++,
+            type: mapComfyTypeToPortType(typeName),
+            required: false,
+        });
+    }
+    return ports;
+}
+
+export function deriveOutputPorts(info: INodeObjectInfo): IPortDefinition[] {
+    const ports: IPortDefinition[] = [];
     for (let i = 0; i < info.output.length; i++) {
-        outputs.push({
+        ports.push({
             key: (info.output_name[i] ?? info.output[i] ?? `output_${i}`).toLowerCase(),
             label: info.output_name[i] ?? info.output[i],
             order: i,
@@ -177,30 +224,25 @@ export function createNodeFromObjectInfo(
             isList: info.output_is_list[i] ?? false,
         });
     }
+    return ports;
+}
 
-    // Convert required inputs
-    if (info.input.required) {
-        let order = 0;
-        for (const [key, spec] of Object.entries(info.input.required)) {
-            const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'STRING';
-            inputs.push({
-                key,
-                label: key.charAt(0).toUpperCase() + key.slice(1),
-                order: order++,
-                type: mapComfyTypeToPortType(typeName),
-                required: true,
-            });
-        }
+/**
+ * Enriches a node with port definitions derived from objectInfo when the node
+ * does not have its own inputs/outputs (new nodes created without port data).
+ */
+export function enrichNodeWithPorts(node: IDagNode, objectInfo?: TObjectInfo): IDagNode {
+    if (node.inputs && node.inputs.length > 0 && node.outputs && node.outputs.length > 0) {
+        return node;
     }
-
+    const info = objectInfo?.[node.nodeType];
+    if (!info) {
+        return node;
+    }
     return {
-        nodeId: `${nodeType}_${index + 1}`,
-        nodeType,
-        position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 },
-        dependsOn: [],
-        config: {},
-        inputs,
-        outputs,
+        ...node,
+        inputs: (node.inputs && node.inputs.length > 0) ? node.inputs : deriveInputPorts(info),
+        outputs: (node.outputs && node.outputs.length > 0) ? node.outputs : deriveOutputPorts(info),
     };
 }
 
@@ -216,20 +258,20 @@ export function compactListBindings(definition: IDagDefinition): IDagDefinition 
         if (!targetNode) {
             return edge;
         }
-        const listInputPorts = targetNode.inputs.filter((port) => port.isList);
+        const listInputPorts = (targetNode.inputs ?? []).filter((port) => port.isList);
         if (listInputPorts.length === 0) {
             return edge;
         }
         const nextBindings = edge.bindings.map((binding) => {
             const listHandle = parseListPortHandleKey(binding.inputKey);
-            const directListPort = targetNode.inputs.find((port) => port.key === binding.inputKey && port.isList);
+            const directListPort = (targetNode.inputs ?? []).find((port) => port.key === binding.inputKey && port.isList);
             const listPortKey = directListPort
                 ? directListPort.key
                 : listHandle?.portKey;
             if (!listPortKey) {
                 return binding;
             }
-            const listPort = targetNode.inputs.find((port) => port.key === listPortKey && port.isList);
+            const listPort = (targetNode.inputs ?? []).find((port) => port.key === listPortKey && port.isList);
             if (!listPort) {
                 return binding;
             }
@@ -304,13 +346,13 @@ export function computeBindingErrors(definition: IDagDefinition): string[] {
 
         const usedInEdge = new Set<string>();
         for (const binding of edge.bindings) {
-            const outputPort = findPort(fromNode.outputs, binding.outputKey);
+            const outputPort = findPort(fromNode.outputs ?? [], binding.outputKey);
             if (!outputPort) {
                 errors.push(
                     `Edge ${edge.from}->${edge.to}: output key "${binding.outputKey}" was removed or not found.`
                 );
             }
-            const resolvedInput = resolveInputPort(toNode.inputs, binding.inputKey);
+            const resolvedInput = resolveInputPort(toNode.inputs ?? [], binding.inputKey);
             const inputPort = resolvedInput.port;
             if (!inputPort) {
                 errors.push(

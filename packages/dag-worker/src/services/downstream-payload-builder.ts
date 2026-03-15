@@ -6,6 +6,7 @@ import {
     type ITaskRun,
     type TPortPayload,
     type TPortValue,
+    type IPortDefinition,
     type TResult
 } from '@robota-sdk/dag-core';
 
@@ -61,7 +62,7 @@ export function buildDownstreamPayload(
         }
     }
 
-    compactListPorts(payload, downstreamNode.inputs);
+    compactListPorts(payload, downstreamNode.inputs ?? []);
 
     return { ok: true, value: payload };
 }
@@ -167,7 +168,7 @@ function applySingleBinding(
         };
     }
 
-    const directInputPort = downstreamNode.inputs.find((port) => port.key === binding.inputKey);
+    const directInputPort = (downstreamNode.inputs ?? []).find((port) => port.key === binding.inputKey);
     if (directInputPort?.isList) {
         return applyListBinding(payload, binding.inputKey, outputValue, edge.to);
     }
@@ -226,7 +227,7 @@ function applyIndexedListBinding(
     toNodeId: string,
     downstreamNode: IDagDefinition['nodes'][number]
 ): TResult<void, IDagError> {
-    const listPort = downstreamNode.inputs.find((port) => port.key === listHandle.portKey);
+    const listPort = (downstreamNode.inputs ?? []).find((port) => port.key === listHandle.portKey);
     if (!listPort?.isList) {
         return {
             ok: false,
@@ -247,7 +248,7 @@ function applyIndexedListBinding(
 /** Removes undefined holes from list-type port values. */
 function compactListPorts(
     payload: TPortPayload,
-    inputs: IDagDefinition['nodes'][number]['inputs']
+    inputs: IPortDefinition[]
 ): void {
     for (const port of inputs) {
         if (!port.isList) {
