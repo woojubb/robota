@@ -53,7 +53,7 @@ dotenv.config({
 
 const WORKER_LEASE_DURATION_MS = 30_000;
 const WORKER_MAX_ATTEMPTS = 1;
-const DEFAULT_PORT = 3011;
+const DEFAULT_PORT = 8188; // ComfyUI default port for compatibility
 const DEFAULT_CORS_ORIGINS = ['http://localhost:3000'];
 const DEFAULT_REQUEST_BODY_LIMIT = '15mb';
 const DEFAULT_WORKER_TIMEOUT_MS = 30_000;
