@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Robota Harness Report Schema",
+  "description": "Unified schema for all harness script outputs (scan, verify, review)",
+  "oneOf": [
+    { "$ref": "#/$defs/ScanReport" },
+    { "$ref": "#/$defs/VerifyReport" },
+    { "$ref": "#/$defs/ReviewReport" }
+  ],
+  "$defs": {
+    "ScanReport": {
+      "type": "object",
+      "required": ["type", "timestamp", "passed", "findings"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "scan" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "passed": { "type": "boolean" },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ScanFinding" }
+        }
+      }
+    },
+    "ScanFinding": {
+      "type": "object",
+      "required": ["file", "type", "detail"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string", "description": "Relative path from workspace root" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "workspace-drift",
+            "missing-root-harness-script",
+            "missing-anchor",
+            "undefined-path-only",
+            "reversed-dependency-direction",
+            "implicit-failed-retry",
+            "legacy-unknown-ban",
+            "unchecked-example-cast",
+            "missing-scenario-verify-script",
+            "missing-scenario-record-script",
+            "missing-scenario-record-artifacts",
+            "invalid-scenario-record-artifact",
+            "duplicate-scenario-record-command",
+            "scenario-record-command-count-mismatch",
+            "missing-scenario-record-command",
+            "unexpected-scenario-record-command"
+          ]
+        },
+        "detail": { "type": "string" }
+      }
+    },
+    "VerifyReport": {
+      "type": "object",
+      "required": ["type", "timestamp", "passed", "scopes"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "verify" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "passed": { "type": "boolean" },
+        "scopes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/VerifyScopeResult" }
+        }
+      }
+    },
+    "VerifyScopeResult": {
+      "type": "object",
+      "required": ["scope", "build", "test", "lint", "typecheck", "scenarios", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "scope": { "type": "string" },
+        "build": { "$ref": "#/$defs/StepStatus" },
+        "test": { "$ref": "#/$defs/StepStatus" },
+        "lint": { "$ref": "#/$defs/StepStatus" },
+        "typecheck": { "$ref": "#/$defs/StepStatus" },
+        "scenarios": { "$ref": "#/$defs/StepStatusExtended" },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "StepStatus": {
+      "type": "string",
+      "enum": ["pass", "fail", "skip"]
+    },
+    "StepStatusExtended": {
+      "type": "string",
+      "enum": ["pass", "fail", "skip", "not-applicable"]
+    },
+    "ReviewReport": {
+      "type": "object",
+      "required": [
+        "type",
+        "timestamp",
+        "changedFiles",
+        "selectedScopes",
+        "outsideSelectedScopeFiles",
+        "findings",
+        "recommendedCommands"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "review" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "changedFiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "selectedScopes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ScopeInfo" }
+        },
+        "outsideSelectedScopeFiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ReviewFinding" }
+        },
+        "recommendedCommands": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "ScopeInfo": {
+      "type": "object",
+      "required": ["kind", "relativeDir", "workspaceName"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["package", "app"] },
+        "relativeDir": { "type": "string" },
+        "workspaceName": { "type": "string" }
+      }
+    },
+    "ReviewFinding": {
+      "type": "object",
+      "required": ["priority", "scope", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+        "scope": { "type": "string" },
+        "message": { "type": "string" }
+      }
+    }
+  }
+}
