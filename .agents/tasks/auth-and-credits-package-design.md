@@ -50,3 +50,31 @@ apps/web → auth → orchestrator (auth middleware)
 orchestrator → credits → dag-cost
 billing → credits (추후)
 ```
+
+## Published API 실행 시 인증/크레딧 흐름 (고난도)
+
+```
+외부 API 호출 (POST /api/v1/workflows/{dagId})
+  ↓
+1. 인증 (API key 검증)
+  ↓
+2. 크레딧 확인 (잔액 충분한지 사전 추정)
+  ↓
+3. 크레딧 선차감? or 예약?
+  ↓
+4. DAG 실행 (노드별 순차 실행)
+  ↓
+5. 노드별 실제 비용 확정 (실행 후에야 알 수 있음)
+  ↓
+6. 크레딧 정산 (추정 vs 실제 차이 조정)
+  ↓
+7. 결과 반환
+```
+
+### 핵심 난제
+
+- **사전 추정 vs 사후 확정**: 실행 전 CEL 수식으로 추정 가능하지만 실제 비용은 다를 수 있음 (Gemini 토큰 등)
+- **선차감 vs 사후차감**: 선차감하면 실패 시 환불 필요, 사후차감하면 잔액 부족 위험
+- **중간 중단**: 크레딧 소진 시 DAG 실행 중간에 멈춰야 하는지
+- **외부 API key와 내부 크레딧**: 외부 사용자의 API key가 어떤 크레딧 계정에 매핑되는지
+- **동시 실행**: 여러 API 호출이 동시에 크레딧을 소비할 때 race condition
