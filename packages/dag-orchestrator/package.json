@@ -24,6 +24,8 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
     "test": "vitest run --passWithNoTests",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
     "clean": "rimraf dist"
   },
   "dependencies": {

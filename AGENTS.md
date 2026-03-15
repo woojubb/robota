@@ -81,14 +81,14 @@ pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
 
 All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md).
 
-| Group | Document | Key rules |
-|-------|----------|-----------|
-| Code Quality | [code-quality.md](.agents/rules/code-quality.md) | Strict TS, no `any`, SSOT types, `interface` for shapes |
-| Process | [process.md](.agents/rules/process.md) | Spec-first, TDD, no fallback, build verification |
-| API Boundary | [api-boundary.md](.agents/rules/api-boundary.md) | Runtime=ComfyUI immutable, orchestrator=Robota own |
-| Naming & Style | [naming-style.md](.agents/rules/naming-style.md) | Language policy, agent identity, Tailwind only |
-| Git & Branch | [git-branch.md](.agents/rules/git-branch.md) | Branch policy, conventional commits, worktree |
-| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports |
+| Group                | Document                                                       | Key rules                                               |
+| -------------------- | -------------------------------------------------------------- | ------------------------------------------------------- |
+| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes |
+| Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification        |
+| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | Runtime=ComfyUI immutable, orchestrator=Robota own      |
+| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only          |
+| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy, conventional commits, worktree           |
+| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports     |
 
 ### Type System (Strict)
 
@@ -149,40 +149,40 @@ See [naming-style.md](.agents/rules/naming-style.md).
 
 Procedural workflows and domain-specific rules live under `.agents/skills/`. Each skill owns its domain details and should be consulted when working in that domain.
 
-| Skill | Purpose |
-|-------|---------|
-| [`repo-change-loop`](.agents/skills/repo-change-loop/SKILL.md) | Change -> build -> test -> verify workflow |
-| [`scenario-verification-harness`](.agents/skills/scenario-verification-harness/SKILL.md) | Scenario pre-check, record, verify |
-| [`harness-governance`](.agents/skills/harness-governance/SKILL.md) | Rule/skill/owner drift checks |
-| [`type-boundary-and-ssot`](.agents/skills/type-boundary-and-ssot/SKILL.md) | Boundary validation, SSOT ownership |
-| [`repo-writing`](.agents/skills/repo-writing/SKILL.md) | Writing rules for docs, `.design/`, commits |
-| [`spec-writing-standard`](.agents/skills/spec-writing-standard/SKILL.md) | SPEC.md required sections and quality gates |
-| [`spec-first-development`](.agents/skills/spec-first-development/SKILL.md) | Spec-first workflow for contract boundary changes |
-| [`spec-code-conformance`](.agents/skills/spec-code-conformance/SKILL.md) | Spec-code conformance verification loop after spec changes |
-| [`dag-node-standard`](.agents/skills/dag-node-standard/SKILL.md) | Node implementation, execution safety |
-| [`execution-caching`](.agents/skills/execution-caching/SKILL.md) | Cache-first execution workflows |
-| [`package-code-review`](.agents/skills/package-code-review/SKILL.md) | 6-perspective code review with severity labels |
-| [`branch-guard`](.agents/skills/branch-guard/SKILL.md) | Branch protection, merge direction, worktree, deploy |
-| [`task-tracking`](.agents/skills/task-tracking/SKILL.md) | Task files in `.agents/tasks/` |
-| [`contract-audit`](.agents/skills/contract-audit/SKILL.md) | Class contract review and SPEC.md registry |
-| [`pnpm-monorepo-build`](.agents/skills/pnpm-monorepo-build/SKILL.md) | Build commands and workflow |
-| [`tdd-red-green-refactor`](.agents/skills/tdd-red-green-refactor/SKILL.md) | TDD cycle |
-| [`vitest-testing-strategy`](.agents/skills/vitest-testing-strategy/SKILL.md) | Testing strategy |
-| [`architecture-patterns`](.agents/skills/architecture-patterns/SKILL.md) | DI, ports-and-adapters |
-| [`contract-testing`](.agents/skills/contract-testing/SKILL.md) | Consumer-driven contract testing |
-| [`state-machine-design`](.agents/skills/state-machine-design/SKILL.md) | FSM design patterns |
-| [`ddd-tactical-patterns`](.agents/skills/ddd-tactical-patterns/SKILL.md) | DDD patterns |
-| [`cqrs-event-projection-basics`](.agents/skills/cqrs-event-projection-basics/SKILL.md) | CQRS and event projection |
-| [`async-concurrency-patterns`](.agents/skills/async-concurrency-patterns/SKILL.md) | Concurrent async |
-| [`effect-style-error-modeling`](.agents/skills/effect-style-error-modeling/SKILL.md) | Result/Either error modeling |
-| [`architecture-decision-records`](.agents/skills/architecture-decision-records/SKILL.md) | ADR format |
-| [`semver-api-surface`](.agents/skills/semver-api-surface/SKILL.md) | Semantic versioning |
-| [`plugin-development`](.agents/skills/plugin-development/SKILL.md) | Plugin development |
-| [`robota-sdk-usage`](.agents/skills/robota-sdk-usage/SKILL.md) | SDK usage patterns |
-| [`tailwind-truncation`](.agents/skills/tailwind-truncation/SKILL.md) | Tailwind truncation |
-| [`logging-level-guide`](.agents/skills/logging-level-guide/SKILL.md) | Log level usage guide |
-| [`api-error-standard`](.agents/skills/api-error-standard/SKILL.md) | RFC 7807 API error responses |
-| [`api-spec-management`](.agents/skills/api-spec-management/SKILL.md) | API specification management |
+| Skill                                                                                    | Purpose                                                    |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [`repo-change-loop`](.agents/skills/repo-change-loop/SKILL.md)                           | Change -> build -> test -> verify workflow                 |
+| [`scenario-verification-harness`](.agents/skills/scenario-verification-harness/SKILL.md) | Scenario pre-check, record, verify                         |
+| [`harness-governance`](.agents/skills/harness-governance/SKILL.md)                       | Rule/skill/owner drift checks                              |
+| [`type-boundary-and-ssot`](.agents/skills/type-boundary-and-ssot/SKILL.md)               | Boundary validation, SSOT ownership                        |
+| [`repo-writing`](.agents/skills/repo-writing/SKILL.md)                                   | Writing rules for docs, `.design/`, commits                |
+| [`spec-writing-standard`](.agents/skills/spec-writing-standard/SKILL.md)                 | SPEC.md required sections and quality gates                |
+| [`spec-first-development`](.agents/skills/spec-first-development/SKILL.md)               | Spec-first workflow for contract boundary changes          |
+| [`spec-code-conformance`](.agents/skills/spec-code-conformance/SKILL.md)                 | Spec-code conformance verification loop after spec changes |
+| [`dag-node-standard`](.agents/skills/dag-node-standard/SKILL.md)                         | Node implementation, execution safety                      |
+| [`execution-caching`](.agents/skills/execution-caching/SKILL.md)                         | Cache-first execution workflows                            |
+| [`package-code-review`](.agents/skills/package-code-review/SKILL.md)                     | 6-perspective code review with severity labels             |
+| [`branch-guard`](.agents/skills/branch-guard/SKILL.md)                                   | Branch protection, merge direction, worktree, deploy       |
+| [`task-tracking`](.agents/skills/task-tracking/SKILL.md)                                 | Task files in `.agents/tasks/`                             |
+| [`contract-audit`](.agents/skills/contract-audit/SKILL.md)                               | Class contract review and SPEC.md registry                 |
+| [`pnpm-monorepo-build`](.agents/skills/pnpm-monorepo-build/SKILL.md)                     | Build commands and workflow                                |
+| [`tdd-red-green-refactor`](.agents/skills/tdd-red-green-refactor/SKILL.md)               | TDD cycle                                                  |
+| [`vitest-testing-strategy`](.agents/skills/vitest-testing-strategy/SKILL.md)             | Testing strategy                                           |
+| [`architecture-patterns`](.agents/skills/architecture-patterns/SKILL.md)                 | DI, ports-and-adapters                                     |
+| [`contract-testing`](.agents/skills/contract-testing/SKILL.md)                           | Consumer-driven contract testing                           |
+| [`state-machine-design`](.agents/skills/state-machine-design/SKILL.md)                   | FSM design patterns                                        |
+| [`ddd-tactical-patterns`](.agents/skills/ddd-tactical-patterns/SKILL.md)                 | DDD patterns                                               |
+| [`cqrs-event-projection-basics`](.agents/skills/cqrs-event-projection-basics/SKILL.md)   | CQRS and event projection                                  |
+| [`async-concurrency-patterns`](.agents/skills/async-concurrency-patterns/SKILL.md)       | Concurrent async                                           |
+| [`effect-style-error-modeling`](.agents/skills/effect-style-error-modeling/SKILL.md)     | Result/Either error modeling                               |
+| [`architecture-decision-records`](.agents/skills/architecture-decision-records/SKILL.md) | ADR format                                                 |
+| [`semver-api-surface`](.agents/skills/semver-api-surface/SKILL.md)                       | Semantic versioning                                        |
+| [`plugin-development`](.agents/skills/plugin-development/SKILL.md)                       | Plugin development                                         |
+| [`robota-sdk-usage`](.agents/skills/robota-sdk-usage/SKILL.md)                           | SDK usage patterns                                         |
+| [`tailwind-truncation`](.agents/skills/tailwind-truncation/SKILL.md)                     | Tailwind truncation                                        |
+| [`logging-level-guide`](.agents/skills/logging-level-guide/SKILL.md)                     | Log level usage guide                                      |
+| [`api-error-standard`](.agents/skills/api-error-standard/SKILL.md)                       | RFC 7807 API error responses                               |
+| [`api-spec-management`](.agents/skills/api-spec-management/SKILL.md)                     | API specification management                               |
 
 ## Rules and Skills Boundary
 
@@ -197,6 +197,23 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 - Detailed domain truth lives in specs, ADRs, or contract definitions — not in this file.
 - The `spec-writing-standard` skill defines SPEC.md required sections and quality gates.
 - When modifying a package, check if `docs/SPEC.md` reflects the current architecture and update if needed.
+
+## Common Mistakes
+
+Mistakes observed repeatedly in this codebase. Every item below has caused a real failure.
+
+| #   | Mistake                                                          | Correct approach                                                              |
+| --- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 1   | Using `any` or `{}` in production code                           | Use `unknown` + narrowing, or define a proper interface                       |
+| 2   | Forgetting `pnpm build` before `pnpm test` in a dependency chain | Always run `pnpm build:deps` first, or use `harness:verify`                   |
+| 3   | Creating bidirectional package dependencies                      | Dependency direction is one-way; see `.agents/project-structure.md`           |
+| 4   | Pass-through re-exports (`export * from '@robota-sdk/other'`)    | Import from the owning package directly                                       |
+| 5   | Committing without running `pnpm typecheck`                      | Pre-commit hook runs lint-staged; always verify locally                       |
+| 6   | Adding a new package without `docs/SPEC.md`                      | Every workspace package requires a SPEC.md; see `spec-writing-standard` skill |
+| 7   | Using `console.*` in production code                             | Use dependency-injected logger                                                |
+| 8   | Modifying a spec without running the conformance loop            | Every spec change requires `spec-code-conformance` verification               |
+| 9   | Using `try/catch` as a fallback mechanism                        | No fallback policy; terminal failures stay terminal                           |
+| 10  | Writing implementation before a failing test                     | TDD: red-green-refactor; write the test first                                 |
 
 ## Conflict Scan Commands
 
