@@ -57,7 +57,7 @@ function resolveBackendUrl(): string {
     if (typeof raw === 'string' && raw.trim().length > 0) {
         return raw.trim().replace(/\/$/, '');
     }
-    return 'http://127.0.0.1:3011';
+    return 'http://127.0.0.1:8188'; // ComfyUI default port
 }
 
 function parseCorsOrigins(): string[] {
