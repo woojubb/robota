@@ -90,6 +90,54 @@ All rules below are mandatory, non-negotiable, and domain-free. Each rule group 
 | Git & Branch | [git-branch.md](.agents/rules/git-branch.md) | Branch policy, conventional commits, worktree |
 | Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports |
 
+### Type System (Strict)
+
+See [code-quality.md](.agents/rules/code-quality.md).
+
+### Development Patterns
+
+See [code-quality.md](.agents/rules/code-quality.md).
+
+### Build Requirements
+
+See [process.md](.agents/rules/process.md).
+
+### No Fallback Policy
+
+See [process.md](.agents/rules/process.md).
+
+### Test-Driven Development
+
+See [process.md](.agents/rules/process.md).
+
+### Execution Safety
+
+See [process.md](.agents/rules/process.md) and the [`dag-node-standard`](.agents/skills/dag-node-standard/SKILL.md) skill.
+
+### Execution Caching
+
+See the [`execution-caching`](.agents/skills/execution-caching/SKILL.md) skill.
+
+### Harness Direction
+
+See [process.md](.agents/rules/process.md) and [Harness Entrypoints](#harness-entrypoints).
+
+### Harness Operating Model
+
+See [process.md](.agents/rules/process.md) and [Harness Entrypoints](#harness-entrypoints).
+
+### Git Operations
+
+See [git-branch.md](.agents/rules/git-branch.md).
+
+### Language Policy
+
+See [naming-style.md](.agents/rules/naming-style.md).
+
+### Styling
+
+See [naming-style.md](.agents/rules/naming-style.md).
+
 ### Package Dependency Direction (Non-negotiable)
 
 - Bidirectional production dependencies between packages are **prohibited**. If A depends on B, B must NOT depend on A.
