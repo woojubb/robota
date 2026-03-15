@@ -277,10 +277,13 @@ export interface IComfyFileUploadFieldProps {
     value: unknown;
     onChange: (key: string, value: unknown) => void;
     assetUploadBaseUrl?: string;
+    nodeId?: string;
+    onPendingOperation?: (nodeId: string, description: string) => void;
+    onPendingOperationDone?: (nodeId: string) => void;
 }
 
 export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactElement {
-    const { field, value, onChange, assetUploadBaseUrl } = props;
+    const { field, value, onChange, assetUploadBaseUrl, nodeId, onPendingOperation, onPendingOperationDone } = props;
     const [uploadStatus, setUploadStatus] = useState<string | undefined>(undefined);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -294,6 +297,9 @@ export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactEl
             : assetUploadBaseUrl;
 
         setUploadStatus(`Uploading ${file.name}...`);
+        if (nodeId) {
+            onPendingOperation?.(nodeId, `Uploading ${file.name}...`);
+        }
 
         void (async (): Promise<void> => {
             try {
@@ -317,6 +323,10 @@ export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactEl
                 setUploadStatus(`Uploaded: ${assetId}`);
             } catch {
                 setUploadStatus('Upload failed');
+            } finally {
+                if (nodeId) {
+                    onPendingOperationDone?.(nodeId);
+                }
             }
         })();
     };

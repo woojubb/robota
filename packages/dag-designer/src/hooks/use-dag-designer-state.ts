@@ -24,6 +24,8 @@ export interface IDagDesignerState {
     connectError?: string;
     bindingErrors: string[];
     runProgress: IRunProgressState;
+    pendingOperations: Map<string, string>;
+    hasPendingOperations: boolean;
 }
 
 export interface IDagDesignerActions {
@@ -34,6 +36,8 @@ export interface IDagDesignerActions {
     setSelection: (selection: { nodeId?: string; edgeId?: string }) => void;
     setConnectError: (error: string | undefined) => void;
     onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
+    addPendingOperation: (nodeId: string, description: string) => void;
+    removePendingOperation: (nodeId: string) => void;
 }
 
 export function useDagDesignerState(): IDagDesignerState {
@@ -48,7 +52,9 @@ export function useDagDesignerState(): IDagDesignerState {
         selectedEdgeId: context.selectedEdgeId,
         connectError: context.connectError,
         bindingErrors: context.bindingErrors,
-        runProgress: context.runProgress
+        runProgress: context.runProgress,
+        pendingOperations: context.pendingOperations,
+        hasPendingOperations: context.hasPendingOperations
     }), [
         context.bindingErrors,
         context.connectError,
@@ -59,7 +65,9 @@ export function useDagDesignerState(): IDagDesignerState {
         context.runResult,
         context.runProgress,
         context.selectedEdgeId,
-        context.selectedNodeId
+        context.selectedNodeId,
+        context.pendingOperations,
+        context.hasPendingOperations
     ]);
 }
 
@@ -75,7 +83,9 @@ export function useDagDesignerActions(): IDagDesignerActions {
             context.setSelectedEdgeId(selection.edgeId);
         },
         setConnectError: context.setConnectError,
-        onRunResult: context.onRunResult
+        onRunResult: context.onRunResult,
+        addPendingOperation: context.addPendingOperation,
+        removePendingOperation: context.removePendingOperation
     }), [
         context.addNodeFromManifest,
         context.onDefinitionChange,
@@ -84,6 +94,8 @@ export function useDagDesignerActions(): IDagDesignerActions {
         context.setSelectedEdgeId,
         context.setSelectedNodeId,
         context.updateEdge,
-        context.updateNode
+        context.updateNode,
+        context.addPendingOperation,
+        context.removePendingOperation
     ]);
 }
