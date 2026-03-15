@@ -57,9 +57,6 @@ class MockAIProvider extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(_messages: TUniversalMessage[], _options?: IChatOptions): AsyncIterable<TUniversalMessage> {
-        throw new Error('chatStream not implemented in MockAIProvider');
-    }
 }
 
 /**

@@ -157,7 +157,7 @@ export abstract class AbstractAIProvider<TConfig = IProviderConfig>
      * @param options - Chat options including tools, model settings, etc.
      * @returns AsyncIterable of response chunks
      */
-    abstract chatStream?(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage>;
+    chatStream?(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage>;
 
     /**
      * Provider-agnostic raw response API.
