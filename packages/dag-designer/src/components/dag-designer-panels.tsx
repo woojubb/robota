@@ -66,6 +66,10 @@ export function DagDesignerNodeConfig(props: IDagDesignerNodeConfigProps): React
         () => selectedNode?.nodeType ? context.objectInfo[selectedNode.nodeType] : undefined,
         [context.objectInfo, selectedNode?.nodeType]
     );
+    const pendingOperationDescription = selectedNode
+        ? context.pendingOperations.get(selectedNode.nodeId)
+        : undefined;
+
     return (
         <div className={props.className ?? ''}>
             <NodeConfigPanel
@@ -76,6 +80,9 @@ export function DagDesignerNodeConfig(props: IDagDesignerNodeConfigProps): React
                 assetUploadBaseUrl={context.assetUploadBaseUrl}
                 bindingCleanupMessage={context.bindingCleanupMessage}
                 onUpdateNode={context.updateNode}
+                pendingOperationDescription={pendingOperationDescription}
+                onPendingOperation={context.addPendingOperation}
+                onPendingOperationDone={context.removePendingOperation}
             />
         </div>
     );

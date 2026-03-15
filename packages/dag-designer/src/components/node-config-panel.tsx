@@ -26,6 +26,9 @@ export interface INodeConfigPanelProps {
     assetUploadBaseUrl?: string;
     bindingCleanupMessage?: string;
     onUpdateNode: (nextNode: IDagNode) => void;
+    pendingOperationDescription?: string;
+    onPendingOperation?: (nodeId: string, description: string) => void;
+    onPendingOperationDone?: (nodeId: string) => void;
 }
 
 function isNodeConfigValue(value: unknown): value is TNodeConfigValue {
@@ -236,6 +239,12 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 </div>
             ) : null}
 
+            {props.pendingOperationDescription ? (
+                <div className="text-xs text-[var(--studio-accent-amber)]">
+                    {props.pendingOperationDescription}
+                </div>
+            ) : null}
+
             {parameters.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-3">
                     <div className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Parameters</div>
@@ -247,6 +256,9 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                                 value={node.config[field.key]}
                                 onChange={(key, value) => updateConfigValue(key, value as TNodeConfigValue)}
                                 assetUploadBaseUrl={props.assetUploadBaseUrl}
+                                nodeId={node.nodeId}
+                                onPendingOperation={props.onPendingOperation}
+                                onPendingOperationDone={props.onPendingOperationDone}
                             />
                         ) : (
                             <ComfyParameterField
