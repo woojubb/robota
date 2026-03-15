@@ -10,6 +10,7 @@ created: 2026-03-15
 
 ## 기능
 
+### DAG 오케스트레이션
 - `robota dag list` — DAG 목록 조회
 - `robota dag create` — DAG 생성
 - `robota dag run <dagId>` — DAG 실행
@@ -17,6 +18,13 @@ created: 2026-03-15
 - `robota dag publish <dagId>` — DAG 발행
 - `robota nodes list` — 노드 카탈로그 조회
 - `robota cost estimate <dagId>` — 비용 추정
+
+### Robota Agent 제어
+- `robota agent list` — 에이전트 목록 조회
+- `robota agent run <agentId>` — 에이전트 실행
+- `robota agent chat <agentId>` — 에이전트와 대화
+- `robota agent status <agentId>` — 에이전트 상태 확인
+- @robota-sdk/agents 패키지의 기능을 CLI로 노출
 
 ## AI 에이전트 사용
 
