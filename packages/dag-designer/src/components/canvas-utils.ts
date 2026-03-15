@@ -7,6 +7,7 @@ import {
     type INodeManifest,
     type INodeObjectInfo,
     type IPortDefinition,
+    type TObjectInfo,
     type TPortValueType
 } from '@robota-sdk/dag-core';
 import type { Edge, Node, XYPosition } from '@xyflow/react';
@@ -21,8 +22,21 @@ export function toNode(
     latestTrace?: IDagNodeIoTrace,
     assetBaseUrl?: string,
     positionOverride?: XYPosition,
-    inputHandlesByPortKey?: Record<string, string[]>
+    inputHandlesByPortKey?: Record<string, string[]>,
+    objectInfo?: TObjectInfo
 ): TDagCanvasNode {
+    const nodeInfo = objectInfo?.[nodeDefinition.nodeType];
+    const inputs = (nodeDefinition.inputs && nodeDefinition.inputs.length > 0)
+        ? nodeDefinition.inputs
+        : nodeInfo
+            ? deriveInputPorts(nodeInfo)
+            : [];
+    const outputs = (nodeDefinition.outputs && nodeDefinition.outputs.length > 0)
+        ? nodeDefinition.outputs
+        : nodeInfo
+            ? deriveOutputPorts(nodeInfo)
+            : [];
+
     const traceSignature = latestTrace
         ? JSON.stringify({
             nodeId: latestTrace.nodeId,
@@ -37,8 +51,8 @@ export function toNode(
         data: {
             label: nodeDefinition.nodeId,
             nodeType: nodeDefinition.nodeType,
-            inputs: nodeDefinition.inputs,
-            outputs: nodeDefinition.outputs,
+            inputs,
+            outputs,
             executionStatus: nodeUiState?.executionStatus ?? 'idle',
             isSelected: nodeUiState?.isSelected ?? false,
             latestTrace,
@@ -169,6 +183,66 @@ export function createNodeFromObjectInfo(
         position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 },
         dependsOn: [],
         config: {},
+    };
+}
+
+export function deriveInputPorts(info: INodeObjectInfo): IPortDefinition[] {
+    const ports: IPortDefinition[] = [];
+    let order = 0;
+    for (const [key, spec] of Object.entries(info.input.required ?? {})) {
+        const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'STRING';
+        ports.push({
+            key,
+            label: key.charAt(0).toUpperCase() + key.slice(1),
+            order: order++,
+            type: mapComfyTypeToPortType(typeName),
+            required: true,
+        });
+    }
+    for (const [key, spec] of Object.entries(info.input.optional ?? {})) {
+        const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'STRING';
+        ports.push({
+            key,
+            label: key.charAt(0).toUpperCase() + key.slice(1),
+            order: order++,
+            type: mapComfyTypeToPortType(typeName),
+            required: false,
+        });
+    }
+    return ports;
+}
+
+export function deriveOutputPorts(info: INodeObjectInfo): IPortDefinition[] {
+    const ports: IPortDefinition[] = [];
+    for (let i = 0; i < info.output.length; i++) {
+        ports.push({
+            key: (info.output_name[i] ?? info.output[i] ?? `output_${i}`).toLowerCase(),
+            label: info.output_name[i] ?? info.output[i],
+            order: i,
+            type: mapComfyTypeToPortType(info.output[i] ?? 'STRING'),
+            required: true,
+            isList: info.output_is_list[i] ?? false,
+        });
+    }
+    return ports;
+}
+
+/**
+ * Enriches a node with port definitions derived from objectInfo when the node
+ * does not have its own inputs/outputs (new nodes created without port data).
+ */
+export function enrichNodeWithPorts(node: IDagNode, objectInfo?: TObjectInfo): IDagNode {
+    if (node.inputs && node.inputs.length > 0 && node.outputs && node.outputs.length > 0) {
+        return node;
+    }
+    const info = objectInfo?.[node.nodeType];
+    if (!info) {
+        return node;
+    }
+    return {
+        ...node,
+        inputs: (node.inputs && node.inputs.length > 0) ? node.inputs : deriveInputPorts(info),
+        outputs: (node.outputs && node.outputs.length > 0) ? node.outputs : deriveOutputPorts(info),
     };
 }
 

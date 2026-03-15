@@ -31,6 +31,7 @@ import {
     computeBindingErrors,
     createNodeFromManifest,
     createNodeFromObjectInfo,
+    enrichNodeWithPorts,
     recomputeNodeDependencies
 } from './canvas-utils.js';
 
@@ -205,6 +206,9 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const definitionRef = useRef(props.definition);
     definitionRef.current = props.definition;
 
+    const objectInfoRef = useRef(props.objectInfo);
+    objectInfoRef.current = props.objectInfo;
+
     const onDefinitionChangeRef = useRef(props.onDefinitionChange);
     onDefinitionChangeRef.current = props.onDefinitionChange;
 
@@ -239,7 +243,11 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
 
     const nodeRunningSinceRef = useRef<Map<string, number>>(new Map());
     const pendingStatusTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-    const bindingErrors = useMemo(() => computeBindingErrors(props.definition), [props.definition]);
+    const enrichedDefinition = useMemo<IDagDefinition>(() => {
+        const enrichedNodes = props.definition.nodes.map((node) => enrichNodeWithPorts(node, props.objectInfo));
+        return { ...props.definition, nodes: enrichedNodes };
+    }, [props.definition, props.objectInfo]);
+    const bindingErrors = useMemo(() => computeBindingErrors(enrichedDefinition), [enrichedDefinition]);
 
     const clearPendingStatusTimers = useCallback((): void => {
         for (const timerId of pendingStatusTimersRef.current.values()) {
@@ -419,7 +427,11 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
 
     const updateNode = useCallback((nextNode: IDagNode): void => {
         const def = definitionRef.current;
-        const reconciled = reconcileNodePortsAndEdges(def, nextNode);
+        const enrichedDef = {
+            ...def,
+            nodes: def.nodes.map((node) => enrichNodeWithPorts(node, objectInfoRef.current))
+        };
+        const reconciled = reconcileNodePortsAndEdges(enrichedDef, nextNode);
         setBindingCleanupMessage(summarizeRemovedBindings(reconciled.removedBindings));
         resetRunProgress();
         onDefinitionChangeRef.current(reconciled.nextDefinition);
@@ -427,10 +439,12 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
 
     const updateEdge = useCallback((nextEdge: IDagEdgeDefinition): void => {
         const def = definitionRef.current;
+        const enrichedNodes = def.nodes.map((node) => enrichNodeWithPorts(node, objectInfoRef.current));
         setBindingCleanupMessage(undefined);
         resetRunProgress();
         onDefinitionChangeRef.current(compactListBindings({
             ...def,
+            nodes: enrichedNodes,
             edges: def.edges.map((edge) => (
                 edge.from === nextEdge.from && edge.to === nextEdge.to ? nextEdge : edge
             ))
@@ -446,7 +460,8 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         setBindingCleanupMessage(undefined);
         resetRunProgress();
         setSelectedEdgeId(undefined);
-        const nextNodes = recomputeNodeDependencies(def.nodes, nextEdges);
+        const enrichedNodes = def.nodes.map((node) => enrichNodeWithPorts(node, objectInfoRef.current));
+        const nextNodes = recomputeNodeDependencies(enrichedNodes, nextEdges);
         onDefinitionChangeRef.current(compactListBindings({
             ...def,
             nodes: nextNodes,
@@ -461,7 +476,8 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
             return;
         }
         const nextEdges = def.edges.filter((edge) => edge.from !== nodeId && edge.to !== nodeId);
-        const reconciledNodes = recomputeNodeDependencies(nextNodes, nextEdges);
+        const enrichedNodes = nextNodes.map((node) => enrichNodeWithPorts(node, objectInfoRef.current));
+        const reconciledNodes = recomputeNodeDependencies(enrichedNodes, nextEdges);
         setBindingCleanupMessage(undefined);
         resetRunProgress();
         setSelectedNodeId(undefined);
