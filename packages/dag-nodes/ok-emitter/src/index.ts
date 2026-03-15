@@ -50,7 +50,7 @@ export class OkEmitterNodeDefinition extends AbstractNodeDefinition<typeof OkEmi
             order: 0,
             required: true,
             description: 'Binary image from upstream',
-            preset: BINARY_PORT_PRESETS.IMAGE_PNG
+            preset: BINARY_PORT_PRESETS.IMAGE_COMMON
         })
     ];
     public readonly outputs: IDagNodeDefinition['outputs'] = [
