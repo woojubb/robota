@@ -3,7 +3,8 @@ import { NodeConfigPanel } from './node-config-panel.js';
 import { NodeIoTracePanel } from './node-io-trace-panel.js';
 import { NodeExplorerPanel } from './node-explorer-panel.js';
 import { EdgeInspectorPanel } from './edge-inspector-panel.js';
-import { useDagDesignerContext } from './dag-designer-context.js';
+import { useDagDesignerContext, type TNodeExecutionStatus } from './dag-designer-context.js';
+import type { IDagNodeIoTrace } from './dag-node-view.js';
 
 export interface IDagDesignerNodeExplorerProps {
     className?: string;
@@ -67,7 +68,7 @@ export function DagDesignerNodeConfig(props: IDagDesignerNodeConfigProps): React
         [context.objectInfo, selectedNode?.nodeType]
     );
     const pendingOperationDescription = selectedNode
-        ? context.pendingOperations.get(selectedNode.nodeId)
+        ? context.nodeStateMap[selectedNode.nodeId]?.pendingDescription
         : undefined;
 
     return (
@@ -81,8 +82,8 @@ export function DagDesignerNodeConfig(props: IDagDesignerNodeConfigProps): React
                 bindingCleanupMessage={context.bindingCleanupMessage}
                 onUpdateNode={context.updateNode}
                 pendingOperationDescription={pendingOperationDescription}
-                onPendingOperation={context.addPendingOperation}
-                onPendingOperationDone={context.removePendingOperation}
+                onPendingOperation={context.setNodeUploading}
+                onPendingOperationDone={context.setNodeUploadDone}
             />
         </div>
     );
@@ -105,19 +106,29 @@ export function DagDesignerEdgeInspector(props: IDagDesignerEdgeInspectorProps):
 export function DagDesignerNodeIoTrace(props: IDagDesignerNodeIoTraceProps): ReactElement {
     const context = useDagDesignerContext();
     const traces = useMemo(
-        () => Object.values(context.liveNodeTraceByNodeId),
-        [context.liveNodeTraceByNodeId]
+        () => {
+            const result: IDagNodeIoTrace[] = [];
+            for (const state of Object.values(context.nodeStateMap)) {
+                if (state.trace) {
+                    result.push(state.trace);
+                }
+            }
+            return result;
+        },
+        [context.nodeStateMap]
     );
+    const selectedNodeState = context.selectedNodeId
+        ? context.nodeStateMap[context.selectedNodeId]
+        : undefined;
+    const selectedExecutionStatus = selectedNodeState?.operationStatus === 'uploading'
+        ? 'idle' as const
+        : (selectedNodeState?.operationStatus ?? 'idle') as TNodeExecutionStatus;
     return (
         <div className={props.className ?? ''}>
             <NodeIoTracePanel
                 traces={traces}
                 selectedNodeId={context.selectedNodeId}
-                selectedNodeExecutionStatus={
-                    context.selectedNodeId
-                        ? context.nodeUiStateByNodeId[context.selectedNodeId]?.executionStatus
-                        : undefined
-                }
+                selectedNodeExecutionStatus={selectedExecutionStatus}
             />
         </div>
     );
@@ -130,13 +141,13 @@ export function DagDesignerRunProgressSummary(props: IDagDesignerRunProgressSumm
         let running = 0;
         let failed = 0;
         let success = 0;
-        for (const nodeState of Object.values(context.nodeUiStateByNodeId)) {
-            if (nodeState.executionStatus === 'running') running++;
-            else if (nodeState.executionStatus === 'failed') failed++;
-            else if (nodeState.executionStatus === 'success') success++;
+        for (const nodeState of Object.values(context.nodeStateMap)) {
+            if (nodeState.operationStatus === 'running') running++;
+            else if (nodeState.operationStatus === 'failed') failed++;
+            else if (nodeState.operationStatus === 'success') success++;
         }
         return { runningNodeCount: running, failedNodeCount: failed, successNodeCount: success };
-    }, [context.nodeUiStateByNodeId]);
+    }, [context.nodeStateMap]);
     const summaryText = state.activeDagRunId
         ? `run=${state.activeDagRunId} status=${state.runStatus} running=${runningNodeCount} success=${successNodeCount} failed=${failedNodeCount} completed=${state.completedTaskCount}`
         : 'run=none status=idle';

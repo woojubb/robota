@@ -10,7 +10,7 @@ import type {
     TPortPayload,
     TResult
 } from '@robota-sdk/dag-core';
-import type { IRunProgressState } from '../components/dag-designer-canvas.js';
+import type { INodeState, IRunProgressState } from '../components/dag-designer-canvas.js';
 import { useDagDesignerContext } from '../components/dag-designer-canvas.js';
 
 export interface IDagDesignerState {
@@ -24,8 +24,8 @@ export interface IDagDesignerState {
     connectError?: string;
     bindingErrors: string[];
     runProgress: IRunProgressState;
-    pendingOperations: Map<string, string>;
-    hasPendingOperations: boolean;
+    nodeStateMap: Record<string, INodeState>;
+    isRunnable: boolean;
 }
 
 export interface IDagDesignerActions {
@@ -36,8 +36,8 @@ export interface IDagDesignerActions {
     setSelection: (selection: { nodeId?: string; edgeId?: string }) => void;
     setConnectError: (error: string | undefined) => void;
     onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
-    addPendingOperation: (nodeId: string, description: string) => void;
-    removePendingOperation: (nodeId: string) => void;
+    setNodeUploading: (nodeId: string, description: string) => void;
+    setNodeUploadDone: (nodeId: string) => void;
 }
 
 export function useDagDesignerState(): IDagDesignerState {
@@ -53,8 +53,8 @@ export function useDagDesignerState(): IDagDesignerState {
         connectError: context.connectError,
         bindingErrors: context.bindingErrors,
         runProgress: context.runProgress,
-        pendingOperations: context.pendingOperations,
-        hasPendingOperations: context.hasPendingOperations
+        nodeStateMap: context.nodeStateMap,
+        isRunnable: context.isRunnable
     }), [
         context.bindingErrors,
         context.connectError,
@@ -66,8 +66,8 @@ export function useDagDesignerState(): IDagDesignerState {
         context.runProgress,
         context.selectedEdgeId,
         context.selectedNodeId,
-        context.pendingOperations,
-        context.hasPendingOperations
+        context.nodeStateMap,
+        context.isRunnable
     ]);
 }
 
@@ -84,8 +84,8 @@ export function useDagDesignerActions(): IDagDesignerActions {
         },
         setConnectError: context.setConnectError,
         onRunResult: context.onRunResult,
-        addPendingOperation: context.addPendingOperation,
-        removePendingOperation: context.removePendingOperation
+        setNodeUploading: context.setNodeUploading,
+        setNodeUploadDone: context.setNodeUploadDone
     }), [
         context.addNodeFromManifest,
         context.onDefinitionChange,
@@ -95,7 +95,7 @@ export function useDagDesignerActions(): IDagDesignerActions {
         context.setSelectedNodeId,
         context.updateEdge,
         context.updateNode,
-        context.addPendingOperation,
-        context.removePendingOperation
+        context.setNodeUploading,
+        context.setNodeUploadDone
     ]);
 }
