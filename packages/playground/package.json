@@ -30,6 +30,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
+    "test": "vitest run --passWithNoTests",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
