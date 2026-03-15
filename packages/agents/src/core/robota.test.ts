@@ -28,7 +28,7 @@ class TrackingProvider extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
+    override async *chatStream(messages: TUniversalMessage[], options?: IChatOptions): AsyncIterable<TUniversalMessage> {
         this.chatCalls.push({ messages, options });
         yield {
             role: 'assistant',
@@ -56,7 +56,7 @@ class SecondProvider extends AbstractAIProvider {
         };
     }
 
-    async *chatStream(): AsyncIterable<TUniversalMessage> {
+    override async *chatStream(): AsyncIterable<TUniversalMessage> {
         yield { role: 'assistant', content: 'chunk', timestamp: new Date() };
     }
 }
