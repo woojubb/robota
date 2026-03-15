@@ -13,12 +13,12 @@ import {
 import type { Edge, Node, XYPosition } from '@xyflow/react';
 import type { IDagNodeIoTrace, IDagNodeViewData, TDagCanvasNode } from './dag-node-view.js';
 import type { IDagBindingEdgeData } from './dag-binding-edge.js';
-import type { INodeUiState, TNodeExecutionStatus } from './dag-designer-context.js';
+import type { INodeState, TNodeExecutionStatus } from './dag-designer-context.js';
 
 export function toNode(
     nodeDefinition: IDagNode,
     index: number,
-    nodeUiState: INodeUiState | undefined,
+    nodeState: INodeState | undefined,
     latestTrace?: IDagNodeIoTrace,
     assetBaseUrl?: string,
     positionOverride?: XYPosition,
@@ -53,8 +53,8 @@ export function toNode(
             nodeType: nodeDefinition.nodeType,
             inputs,
             outputs,
-            executionStatus: nodeUiState?.executionStatus ?? 'idle',
-            isSelected: nodeUiState?.isSelected ?? false,
+            executionStatus: nodeState?.operationStatus === 'uploading' ? 'idle' : (nodeState?.operationStatus ?? 'idle') as TNodeExecutionStatus,
+            isSelected: nodeState?.isSelected ?? false,
             latestTrace,
             assetBaseUrl,
             traceSignature,
