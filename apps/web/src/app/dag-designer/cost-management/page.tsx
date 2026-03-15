@@ -54,8 +54,8 @@ export default function CostManagementListPage() {
         setIsLoading(false);
         return;
       }
-      const data: ICostMeta[] = await response.json();
-      setItems(data);
+      const json = await response.json() as { ok?: boolean; data?: ICostMeta[] };
+      setItems(Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : []);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       setErrorMessage(`Failed to fetch cost metas: ${message}`);
