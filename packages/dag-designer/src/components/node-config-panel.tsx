@@ -197,8 +197,8 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
     if (!node) {
         return (
             <div className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3">
-                <h2 className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Node Config</h2>
-                <p className="mt-2 text-xs text-[var(--studio-text-muted)]">Select a node to edit config.</p>
+                <h2 className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Node Config</h2>
+                <p className="mt-2 text-sm text-[var(--studio-text-muted)]">Select a node to edit config.</p>
             </div>
         );
     }
@@ -219,26 +219,26 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
 
     return (
         <div className="flex h-full flex-col gap-3 rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3">
-            <h2 className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Node Config</h2>
-            <div className="text-xs text-[var(--studio-text-muted)]">
+            <h2 className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Node Config</h2>
+            <div className="text-sm text-[var(--studio-text-muted)]">
                 <div>nodeId: <span className="font-mono text-[var(--studio-text-secondary)]">{node.nodeId}</span></div>
                 <div>nodeType: <span className="font-mono text-[var(--studio-text-secondary)]">{node.nodeType}</span></div>
             </div>
             {inlineValidationError ? (
-                <div className="rounded-md border border-[var(--studio-accent-rose)] bg-[var(--studio-accent-rose-dim)] px-2 py-2 text-xs text-[var(--studio-accent-rose)]">
+                <div className="rounded-md border border-[var(--studio-accent-rose)] bg-[var(--studio-accent-rose-dim)] px-3 py-2 text-sm text-[var(--studio-accent-rose)]">
                     {inlineValidationError}
                 </div>
             ) : null}
 
             {props.bindingCleanupMessage ? (
-                <div className="rounded-md border border-[var(--studio-accent-amber)] bg-[var(--studio-accent-amber-dim)] px-2 py-2 text-xs text-[var(--studio-accent-amber)]">
+                <div className="rounded-md border border-[var(--studio-accent-amber)] bg-[var(--studio-accent-amber-dim)] px-3 py-2 text-sm text-[var(--studio-accent-amber)]">
                     {props.bindingCleanupMessage}
                 </div>
             ) : null}
 
             {parameters.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
-                    <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Parameters</div>
+                <div className="grid grid-cols-1 gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-3">
+                    <div className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Parameters</div>
                     {parameters.map(field => (
                         field.imageUpload === true || field.videoUpload === true ? (
                             <ComfyFileUploadField
@@ -261,8 +261,8 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
             ) : null}
 
             {handles.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
-                    <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Handles</div>
+                <div className="grid grid-cols-1 gap-2 rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-3">
+                    <div className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Handles</div>
                     {handles.map(field => {
                         const conn = isHandleConnected(field.key);
                         return (
@@ -289,22 +289,22 @@ export function NodeConfigPanel(props: INodeConfigPanelProps): ReactElement {
                 getConnectedCount={getConnectedCount}
             />
 
-            <div className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2">
+            <div className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-3">
                 <div className="flex items-center justify-between">
-                    <div className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Advanced JSON</div>
+                    <div className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Advanced JSON</div>
                     <button
                         type="button"
-                        className="border border-[var(--studio-border)] text-[var(--studio-text-secondary)] rounded-md px-3 py-1.5 text-xs hover:bg-[var(--studio-bg-surface)] transition-all"
+                        className="border border-[var(--studio-border)] text-[var(--studio-text-secondary)] rounded-md px-3 py-2 text-sm hover:bg-[var(--studio-bg-surface)] transition-all"
                         onClick={() => setIsAdvancedJsonOpen((current) => !current)}
                     >
                         {isAdvancedJsonOpen ? 'Hide' : 'Show'}
                     </button>
                 </div>
                 {isAdvancedJsonOpen ? (
-                    <label className="mt-2 flex flex-col gap-2 text-xs text-[var(--studio-text-secondary)]">
+                    <label className="mt-2 flex flex-col gap-2 text-sm text-[var(--studio-text-secondary)]">
                         Config JSON
                         <textarea
-                            className="min-h-[180px] rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 font-mono text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
+                            className="min-h-[180px] rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 font-mono text-sm text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                             value={JSON.stringify(node.config, null, 2)}
                             onChange={(event) => updateConfigByText(event.target.value)}
                         />

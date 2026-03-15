@@ -78,7 +78,7 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
     <div className="flex flex-col items-end gap-1">
       <div className="flex items-center gap-2">
         <button
-          className="rounded bg-[var(--studio-accent-violet)] px-2 py-1 text-[11px] text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+          className="rounded bg-[var(--studio-accent-violet)] px-2.5 py-1.5 text-xs text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           onClick={() => void props.onSave()}
           disabled={isActionBlocked || props.isSaving}
           title={isActionBlocked ? props.disabledReason : undefined}
@@ -86,7 +86,7 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
           {props.isSaving ? "Saving..." : "Save"}
         </button>
         <button
-          className="rounded bg-[var(--studio-accent-violet)] px-2 py-1 text-[11px] text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+          className="rounded bg-[var(--studio-accent-violet)] px-2.5 py-1.5 text-xs text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           onClick={() => void props.onPublish()}
           disabled={isActionBlocked || props.isPublishing}
           title={isActionBlocked ? props.disabledReason : undefined}
@@ -94,7 +94,7 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
           {props.isPublishing ? "Publishing..." : "Publish"}
         </button>
         <button
-          className="rounded bg-[var(--studio-accent-emerald)] px-2 py-1 text-[11px] text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+          className="rounded bg-[var(--studio-accent-emerald)] px-2.5 py-1.5 text-xs text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           onClick={() => void run()}
           disabled={isActionBlocked || isRunStarting}
           title={isActionBlocked ? props.disabledReason : undefined}
@@ -103,7 +103,7 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
         </button>
       </div>
       {isActionBlocked && props.disabledReason ? (
-        <div className="text-[11px] text-[var(--studio-accent-rose)]">{props.disabledReason}</div>
+        <div className="text-xs text-[var(--studio-accent-rose)]">{props.disabledReason}</div>
       ) : null}
     </div>
   );
@@ -512,7 +512,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
       <div className="p-6 text-sm text-[var(--studio-accent-rose)]">
         <p className="mb-3 font-semibold">Failed to load DAG.</p>
         <p className="mb-4">{log}</p>
-        <Link className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all" href="/dag-designer">
+        <Link className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-sm text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all" href="/dag-designer">
           Back to DAG List
         </Link>
       </div>
@@ -536,21 +536,21 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
           <InitialNodeSelectionEffect nodeId={initialSelectedNodeId} />
           <div className="flex h-full min-h-0 flex-col">
             <header className="z-40 flex h-9 shrink-0 items-center justify-between border-b border-[var(--studio-border)] bg-[var(--studio-bg-elevated)]/95 px-3 backdrop-blur-sm">
-              <div className="min-w-0 text-xs font-semibold text-[var(--studio-text)]">DAG Designer: {dagId}</div>
+              <div className="min-w-0 text-sm font-semibold text-[var(--studio-text)]">DAG Designer: {dagId}</div>
               <div className="flex items-center gap-2">
-                <Link className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1 text-[11px] text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all" href="/dag-designer">
+                <Link className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2.5 py-1.5 text-xs text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all" href="/dag-designer">
                   DAG List
                 </Link>
                 <button
                   type="button"
-                  className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1 text-[11px] text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all"
+                  className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2.5 py-1.5 text-xs text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all"
                   onClick={toggleNodeExplorer}
                 >
                   {isNodeExplorerOpen ? "Hide Explorer" : "Show Explorer"}
                 </button>
                 <button
                   type="button"
-                  className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1 text-[11px] text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all"
+                  className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2.5 py-1.5 text-xs text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all"
                   onClick={toggleInspector}
                 >
                   {isInspectorOpen ? "Hide Inspector" : "Show Inspector"}
@@ -573,16 +573,16 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
                 <div className="absolute bottom-0 left-0 top-0 z-20 w-[260px]">
                   <div className="flex h-full min-h-0 flex-col rounded-none border-r border-[var(--studio-border)] bg-[var(--studio-bg-elevated)]/95 shadow-lg shadow-black/20 backdrop-blur-sm">
                     <div className="flex items-center justify-between border-b border-[var(--studio-border)] px-3 py-2">
-                      <span className="text-xs font-semibold text-[var(--studio-text)]">Node Catalog</span>
+                      <span className="text-sm font-semibold text-[var(--studio-text)]">Node Catalog</span>
                       <button
                         type="button"
-                        className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1 text-[11px] text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all"
+                        className="rounded border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2.5 py-1.5 text-xs text-[var(--studio-text-secondary)] hover:bg-[var(--studio-bg)] hover:text-[var(--studio-text)] transition-all"
                         onClick={refreshNodeCatalog}
                       >
                         Refresh
                       </button>
                     </div>
-                    <div className="min-h-0 flex-1 p-2">
+                    <div className="min-h-0 flex-1 p-3">
                       <DagDesigner.NodeExplorer className="h-full border-0 p-0" />
                     </div>
                   </div>
@@ -592,7 +592,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
               {isInspectorOpen ? (
                 <div className="absolute bottom-0 right-0 top-0 z-20 w-[300px]">
                   <div className="h-full overflow-auto border-l border-[var(--studio-border)] bg-[var(--studio-bg-elevated)]/95 shadow-lg shadow-black/20 backdrop-blur-sm">
-                    <div className="flex flex-col gap-2 p-2">
+                    <div className="flex flex-col gap-2 p-3">
                       <DagDesigner.NodeConfig />
                       <DagDesigner.NodeIoTrace />
                       <DagDesigner.EdgeInspector />
@@ -603,25 +603,25 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
 
               <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 w-[min(96vw,800px)] -translate-x-1/2">
                 <div className="pointer-events-auto rounded border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)]/95 px-3 py-2 shadow-lg shadow-black/20 backdrop-blur-sm">
-                  <p className="mb-1 text-xs font-medium text-[var(--studio-text-secondary)]">Latest Result</p>
-                  <DagDesigner.RunProgressSummary className="mb-1 font-mono text-[11px] text-[var(--studio-text)]" />
-                  <pre className="max-h-20 overflow-auto text-xs text-[var(--studio-text)]">{log}</pre>
+                  <p className="mb-1 text-sm font-medium text-[var(--studio-text-secondary)]">Latest Result</p>
+                  <DagDesigner.RunProgressSummary className="mb-1 font-mono text-xs text-[var(--studio-text)]" />
+                  <pre className="max-h-20 overflow-auto text-sm text-[var(--studio-text)]">{log}</pre>
                   {lastRunResult && lastRunResult.status === "success" ? (
                     <div className="mt-2 border-t border-[var(--studio-border-subtle)] pt-2">
-                      <p className="mb-1 text-[11px] font-medium text-[var(--studio-text-secondary)]">Cost Summary</p>
+                      <p className="mb-1 text-xs font-medium text-[var(--studio-text-secondary)]">Cost Summary</p>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-xs text-[var(--studio-accent-amber)] font-semibold">
+                        <span className="text-sm text-[var(--studio-accent-amber)] font-semibold">
                           Total: {lastRunResult.totalCredits.toFixed(6)} credits
                         </span>
                         {lastRunResult.traces.length > 0 ? (
-                          <span className="text-[10px] text-[var(--studio-text-muted)]">
+                          <span className="text-xs text-[var(--studio-text-muted)]">
                             (est. {lastRunResult.traces.reduce((sum, t) => sum + t.estimatedCredits, 0).toFixed(6)})
                           </span>
                         ) : null}
                       </div>
                       {lastRunResult.traces.length > 0 ? (
                         <div className="mt-1 max-h-16 overflow-auto">
-                          <table className="w-full text-[10px] text-[var(--studio-text-secondary)]">
+                          <table className="w-full text-xs text-[var(--studio-text-secondary)]">
                             <thead>
                               <tr className="border-b border-[var(--studio-border-subtle)]">
                                 <th className="py-0.5 pr-2 text-left font-medium">Node</th>
@@ -647,7 +647,7 @@ export function DagDesignerScreen(props: IDagDesignerScreenProps) {
               </div>
               {actionToast ? (
                 <div className="pointer-events-none absolute right-3 top-3 z-50">
-                  <div className={`rounded border px-3 py-2 text-xs shadow ${getToastClassName(actionToast.type)}`}>
+                  <div className={`rounded border px-3 py-2 text-sm shadow ${getToastClassName(actionToast.type)}`}>
                     {actionToast.message}
                   </div>
                 </div>
