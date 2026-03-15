@@ -112,7 +112,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             latestTraceByNodeId.get(node.nodeId),
             context.assetUploadBaseUrl,
             undefined,
-            computeInputHandlesByPortKey(context.definition, node.nodeId, node.inputs)
+            computeInputHandlesByPortKey(context.definition, node.nodeId, node.inputs ?? [])
         )),
         [context.assetUploadBaseUrl, context.definition.nodes, context.nodeUiStateByNodeId, latestTraceByNodeId]
     );
@@ -132,7 +132,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 const inputHandlesByPortKey = computeInputHandlesByPortKey(
                     context.definition,
                     node.nodeId,
-                    node.inputs
+                    node.inputs ?? []
                 );
                 return toNode(
                     node,
@@ -241,7 +241,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
         const sourceNode = context.definition.nodes.find((node) => node.nodeId === connection.source);
         const targetNode = context.definition.nodes.find((node) => node.nodeId === connection.target);
         const targetInputPort = targetNode
-            ? resolveInputPort(targetNode.inputs, connection.targetHandle).port
+            ? resolveInputPort(targetNode.inputs ?? [], connection.targetHandle).port
             : undefined;
         if (!targetInputPort) {
             context.setConnectError(`Connection rejected: input handle "${connection.targetHandle}" is invalid.`);

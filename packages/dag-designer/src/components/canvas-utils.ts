@@ -163,44 +163,12 @@ export function createNodeFromObjectInfo(
     info: INodeObjectInfo,
     index: number
 ): IDagNode {
-    const inputs: IPortDefinition[] = [];
-    const outputs: IPortDefinition[] = [];
-
-    // Convert outputs
-    for (let i = 0; i < info.output.length; i++) {
-        outputs.push({
-            key: (info.output_name[i] ?? info.output[i] ?? `output_${i}`).toLowerCase(),
-            label: info.output_name[i] ?? info.output[i],
-            order: i,
-            type: mapComfyTypeToPortType(info.output[i] ?? 'STRING'),
-            required: true,
-            isList: info.output_is_list[i] ?? false,
-        });
-    }
-
-    // Convert required inputs
-    if (info.input.required) {
-        let order = 0;
-        for (const [key, spec] of Object.entries(info.input.required)) {
-            const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'STRING';
-            inputs.push({
-                key,
-                label: key.charAt(0).toUpperCase() + key.slice(1),
-                order: order++,
-                type: mapComfyTypeToPortType(typeName),
-                required: true,
-            });
-        }
-    }
-
     return {
         nodeId: `${nodeType}_${index + 1}`,
         nodeType,
         position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 },
         dependsOn: [],
         config: {},
-        inputs,
-        outputs,
     };
 }
 
@@ -216,20 +184,20 @@ export function compactListBindings(definition: IDagDefinition): IDagDefinition 
         if (!targetNode) {
             return edge;
         }
-        const listInputPorts = targetNode.inputs.filter((port) => port.isList);
+        const listInputPorts = (targetNode.inputs ?? []).filter((port) => port.isList);
         if (listInputPorts.length === 0) {
             return edge;
         }
         const nextBindings = edge.bindings.map((binding) => {
             const listHandle = parseListPortHandleKey(binding.inputKey);
-            const directListPort = targetNode.inputs.find((port) => port.key === binding.inputKey && port.isList);
+            const directListPort = (targetNode.inputs ?? []).find((port) => port.key === binding.inputKey && port.isList);
             const listPortKey = directListPort
                 ? directListPort.key
                 : listHandle?.portKey;
             if (!listPortKey) {
                 return binding;
             }
-            const listPort = targetNode.inputs.find((port) => port.key === listPortKey && port.isList);
+            const listPort = (targetNode.inputs ?? []).find((port) => port.key === listPortKey && port.isList);
             if (!listPort) {
                 return binding;
             }
@@ -304,13 +272,13 @@ export function computeBindingErrors(definition: IDagDefinition): string[] {
 
         const usedInEdge = new Set<string>();
         for (const binding of edge.bindings) {
-            const outputPort = findPort(fromNode.outputs, binding.outputKey);
+            const outputPort = findPort(fromNode.outputs ?? [], binding.outputKey);
             if (!outputPort) {
                 errors.push(
                     `Edge ${edge.from}->${edge.to}: output key "${binding.outputKey}" was removed or not found.`
                 );
             }
-            const resolvedInput = resolveInputPort(toNode.inputs, binding.inputKey);
+            const resolvedInput = resolveInputPort(toNode.inputs ?? [], binding.inputKey);
             const inputPort = resolvedInput.port;
             if (!inputPort) {
                 errors.push(
