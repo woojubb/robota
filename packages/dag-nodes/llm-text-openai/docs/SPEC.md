@@ -39,7 +39,7 @@
 
 - Extends `AbstractNodeDefinition` and overrides `validateInputWithConfig`, `estimateCostWithConfig`, and `executeWithConfig`.
 - Constructor options: `defaultModel` (defaults to `gpt-4o-mini`), `allowedModels`.
-- Config schema: `model`, `temperature` (0.2), `maxTokens` (optional), `baseCostUsd` (0).
+- Config schema: `model`, `temperature` (0.2), `maxTokens` (optional), `baseCredits` (0).
 - Environment variables: `OPENAI_API_KEY`.
 
 ## Error Taxonomy

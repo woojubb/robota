@@ -154,7 +154,7 @@ function mapComfyTypeToPortType(comfyType: string): TPortValueType {
     if (upper === 'INT' || upper === 'FLOAT') return 'number';
     if (upper === 'STRING') return 'string';
     if (upper === 'BOOLEAN' || upper === 'BOOL') return 'boolean';
-    if (upper === 'IMAGE' || upper === 'MASK' || upper === 'VIDEO' || upper === 'AUDIO') return 'binary';
+    if (upper === 'IMAGE' || upper === 'MASK' || upper === 'VIDEO' || upper === 'AUDIO' || upper === 'BINARY') return 'binary';
     return 'object';
 }
 
