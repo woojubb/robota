@@ -29,8 +29,8 @@ describe('compactListBindings', () => {
 
         const result = compactListBindings(definition);
 
-        expect(result.edges[0].bindings[0].inputKey).toBe('images[0]');
-        expect(result.edges[1].bindings[0].inputKey).toBe('images[1]');
+        expect(result.edges[0]!.bindings![0]!.inputKey).toBe('images[0]');
+        expect(result.edges[1]!.bindings![0]!.inputKey).toBe('images[1]');
     });
 
     it('handles three edges to the same list port', () => {
@@ -53,9 +53,9 @@ describe('compactListBindings', () => {
 
         const result = compactListBindings(definition);
 
-        expect(result.edges[0].bindings[0].inputKey).toBe('items[0]');
-        expect(result.edges[1].bindings[0].inputKey).toBe('items[1]');
-        expect(result.edges[2].bindings[0].inputKey).toBe('items[2]');
+        expect(result.edges[0]!.bindings![0]!.inputKey).toBe('items[0]');
+        expect(result.edges[1]!.bindings![0]!.inputKey).toBe('items[1]');
+        expect(result.edges[2]!.bindings![0]!.inputKey).toBe('items[2]');
     });
 
     it('does not affect scalar bindings', () => {
@@ -74,7 +74,7 @@ describe('compactListBindings', () => {
 
         const result = compactListBindings(definition);
 
-        expect(result.edges[0].bindings[0].inputKey).toBe('prompt');
+        expect(result.edges[0]!.bindings![0]!.inputKey).toBe('prompt');
     });
 
     it('handles mixed scalar and list bindings in the same edge', () => {
@@ -102,8 +102,8 @@ describe('compactListBindings', () => {
 
         const result = compactListBindings(definition);
 
-        expect(result.edges[0].bindings[0].inputKey).toBe('prompt');
-        expect(result.edges[0].bindings[1].inputKey).toBe('images[0]');
+        expect(result.edges[0]!.bindings![0]!.inputKey).toBe('prompt');
+        expect(result.edges[0]!.bindings![1]!.inputKey).toBe('images[0]');
     });
 
     it('keeps independent target nodes separate', () => {
@@ -125,8 +125,8 @@ describe('compactListBindings', () => {
         const result = compactListBindings(definition);
 
         // Each target starts its own counter at 0
-        expect(result.edges[0].bindings[0].inputKey).toBe('items[0]');
-        expect(result.edges[1].bindings[0].inputKey).toBe('items[0]');
+        expect(result.edges[0]!.bindings![0]!.inputKey).toBe('items[0]');
+        expect(result.edges[1]!.bindings![0]!.inputKey).toBe('items[0]');
     });
 });
 

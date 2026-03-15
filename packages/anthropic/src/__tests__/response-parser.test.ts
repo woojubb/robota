@@ -17,7 +17,11 @@ vi.mock('@robota-sdk/agents', async () => {
 
 import { AnthropicResponseParser } from '../parsers/response-parser';
 import { logger } from '@robota-sdk/agents';
+import type { IAssistantMessage } from '@robota-sdk/agents';
 import type { IAnthropicMessage } from '../types/api-types';
+
+/** Helper to cast parseResponse result to IAssistantMessage with usage for test assertions */
+type TAssistantWithUsage = IAssistantMessage & { usage?: { promptTokens: number; completionTokens: number; totalTokens: number } };
 
 // Helper: build a minimal IAnthropicMessage
 function makeMessage(overrides: Partial<IAnthropicMessage> = {}): IAnthropicMessage {
@@ -57,7 +61,7 @@ describe('AnthropicResponseParser', () => {
             const msg = makeMessage({
                 usage: { input_tokens: 50, output_tokens: 100 }
             });
-            const result = AnthropicResponseParser.parseResponse(msg);
+            const result = AnthropicResponseParser.parseResponse(msg) as TAssistantWithUsage;
 
             expect(result.usage).toEqual({
                 promptTokens: 50,
@@ -69,8 +73,8 @@ describe('AnthropicResponseParser', () => {
         it('should handle missing usage gracefully', () => {
             const msg = makeMessage();
             // Remove usage to test undefined path
-            (msg as Record<string, unknown>).usage = undefined;
-            const result = AnthropicResponseParser.parseResponse(msg);
+            (msg as unknown as Record<string, unknown>).usage = undefined;
+            const result = AnthropicResponseParser.parseResponse(msg) as TAssistantWithUsage;
 
             expect(result.usage).toBeUndefined();
         });
@@ -88,7 +92,7 @@ describe('AnthropicResponseParser', () => {
                 ]
             });
 
-            const result = AnthropicResponseParser.parseResponse(msg);
+            const result = AnthropicResponseParser.parseResponse(msg) as IAssistantMessage;
 
             expect(result.toolCalls).toHaveLength(1);
             expect(result.toolCalls![0]).toEqual({
@@ -109,7 +113,7 @@ describe('AnthropicResponseParser', () => {
                 ]
             });
 
-            const result = AnthropicResponseParser.parseResponse(msg);
+            const result = AnthropicResponseParser.parseResponse(msg) as IAssistantMessage;
             expect(result.toolCalls).toBeUndefined();
         });
 
@@ -137,7 +141,7 @@ describe('AnthropicResponseParser', () => {
                 ]
             });
 
-            const result = AnthropicResponseParser.parseResponse(msg);
+            const result = AnthropicResponseParser.parseResponse(msg) as IAssistantMessage;
             expect(result.toolCalls![0].function.arguments).toBe('{}');
         });
 
@@ -183,9 +187,10 @@ describe('AnthropicResponseParser', () => {
             const result = AnthropicResponseParser.parseStreamingChunk(chunk);
 
             expect(result).not.toBeNull();
-            expect(result!.toolCalls).toHaveLength(1);
-            expect(result!.toolCalls![0].id).toBe('tool_1');
-            expect(result!.toolCalls![0].function.name).toBe('search');
+            const assistantResult = result as IAssistantMessage;
+            expect(assistantResult.toolCalls).toHaveLength(1);
+            expect(assistantResult.toolCalls![0].id).toBe('tool_1');
+            expect(assistantResult.toolCalls![0].function.name).toBe('search');
         });
 
         it('should handle content_block_delta with text_delta', () => {
@@ -301,7 +306,7 @@ describe('AnthropicResponseParser', () => {
             const result = AnthropicResponseParser.parseStreamingChunk(chunk);
 
             expect(result).not.toBeNull();
-            expect(result!.toolCalls![0].function.name).toBe('');
+            expect((result as IAssistantMessage).toolCalls![0].function.name).toBe('');
         });
 
         it('should handle text_delta with empty text', () => {

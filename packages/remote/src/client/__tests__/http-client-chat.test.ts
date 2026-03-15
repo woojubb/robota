@@ -59,7 +59,7 @@ describe('HttpClient chat methods', () => {
                 headers: new Map()
             });
 
-            const tools = [{ name: 'get_weather', description: 'Get weather', parameters: {} }];
+            const tools = [{ name: 'get_weather', description: 'Get weather', parameters: { type: 'object' as const, properties: {} } }];
             await httpClient.chat([{ role: 'user' as const, content: 'weather?' }], 'openai', 'gpt-4', tools);
 
             const [, init] = mockFetch.mock.calls[0];
@@ -313,7 +313,7 @@ describe('HttpClient chat methods', () => {
                 body
             });
 
-            const tools = [{ name: 'test', description: 'Test tool', parameters: {} }];
+            const tools = [{ name: 'test', description: 'Test tool', parameters: { type: 'object' as const, properties: {} } }];
             const chunks = [];
             for await (const chunk of httpClient.chatStream(
                 [{ role: 'user' as const, content: 'test' }],

@@ -9,6 +9,7 @@ function createMockLogger(): ILogger & { group: ReturnType<typeof vi.fn>; groupE
         warn: vi.fn(),
         error: vi.fn(),
         debug: vi.fn(),
+        log: vi.fn(),
         group: vi.fn(),
         groupEnd: vi.fn(),
     };

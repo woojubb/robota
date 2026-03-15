@@ -35,7 +35,7 @@ export class OpenAIStreamHandler {
      * @param requestParams - OpenAI API request parameters
      * @returns AsyncGenerator yielding universal messages
      */
-    async *handleStream(requestParams: IOpenAIStreamRequestParams): AsyncGenerator<TUniversalMessage, void, never> {
+    async *handleStream(requestParams: IOpenAIStreamRequestParams): AsyncGenerator<TUniversalMessage, void, undefined> {
         try {
             // Log payload for debugging if logger is available
             if (this.payloadLogger?.isEnabled()) {
@@ -84,7 +84,7 @@ export class OpenAIStreamHandler {
      * @param request - Raw request payload from ConversationService
      * @returns AsyncGenerator yielding universal messages
      */
-    async *generateStreamingResponse(request: IOpenAIChatRequestParams): AsyncGenerator<TUniversalMessage, void, never> {
+    async *generateStreamingResponse(request: IOpenAIChatRequestParams): AsyncGenerator<TUniversalMessage, void, undefined> {
         try {
             // Extract parameters from request payload
             const model = request.model;

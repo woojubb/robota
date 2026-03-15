@@ -279,7 +279,11 @@ describe('GoogleProvider - constructor with executor', () => {
                 role: 'assistant',
                 content: 'executor response',
                 timestamp: new Date()
-            })
+            }),
+            supportsTools: () => false,
+            validateConfig: () => true,
+            name: 'mock-executor',
+            version: '1.0.0',
         };
         const provider = new GoogleProvider({
             apiKey: 'placeholder',
@@ -295,7 +299,11 @@ describe('GoogleProvider - constructor with executor', () => {
 
     it('propagates executor chat errors', async () => {
         const mockExecutor: IExecutor = {
-            executeChat: vi.fn().mockRejectedValue(new Error('executor failed'))
+            executeChat: vi.fn().mockRejectedValue(new Error('executor failed')),
+            supportsTools: () => false,
+            validateConfig: () => true,
+            name: 'mock-executor',
+            version: '1.0.0',
         };
         const provider = new GoogleProvider({
             apiKey: 'placeholder',

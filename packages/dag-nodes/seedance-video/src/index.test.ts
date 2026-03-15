@@ -78,7 +78,7 @@ describe('SeedanceVideoNodeDefinition', () => {
         it('returns base cost when no images provided', async () => {
             const node = new SeedanceVideoNodeDefinition();
             const context = createContext();
-            const result = await node.taskHandler.estimateCost({ prompt: 'test' }, context);
+            const result = await node.taskHandler.estimateCost!({ prompt: 'test' }, context);
             expect(result.ok).toBe(true);
             if (result.ok) {
                 expect(result.value.estimatedCredits).toBe(0.08);
@@ -91,7 +91,7 @@ describe('SeedanceVideoNodeDefinition', () => {
             const images: IPortBinaryValue[] = [
                 { kind: 'image', mimeType: 'image/png', uri: 'asset://img-1' }
             ];
-            const result = await node.taskHandler.estimateCost({ prompt: 'test', images }, context);
+            const result = await node.taskHandler.estimateCost!({ prompt: 'test', images }, context);
             expect(result.ok).toBe(true);
             if (result.ok) {
                 expect(result.value.estimatedCredits).toBe(0.10);
@@ -101,7 +101,7 @@ describe('SeedanceVideoNodeDefinition', () => {
         it('uses custom baseCredits from config', async () => {
             const node = new SeedanceVideoNodeDefinition();
             const context = createContext({ baseCredits: 0.20 });
-            const result = await node.taskHandler.estimateCost({ prompt: 'test' }, context);
+            const result = await node.taskHandler.estimateCost!({ prompt: 'test' }, context);
             expect(result.ok).toBe(true);
             if (result.ok) {
                 expect(result.value.estimatedCredits).toBe(0.20);
@@ -111,7 +111,7 @@ describe('SeedanceVideoNodeDefinition', () => {
         it('returns validation error for invalid config schema', async () => {
             const node = new SeedanceVideoNodeDefinition();
             const context = createContext({ pollIntervalMs: -1 });
-            const result = await node.taskHandler.estimateCost({ prompt: 'test' }, context);
+            const result = await node.taskHandler.estimateCost!({ prompt: 'test' }, context);
             expect(result.ok).toBe(false);
             if (!result.ok) {
                 expect(result.error.code).toBe('DAG_VALIDATION_NODE_CONFIG_SCHEMA_INVALID');

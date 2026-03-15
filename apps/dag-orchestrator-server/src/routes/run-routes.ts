@@ -71,7 +71,7 @@ async function uploadAssetsToRuntime(
             if (!response.ok) continue;
 
             const result = await response.json() as { name: string };
-            const ref = inputValue as Record<string, unknown>;
+            const ref = inputValue as unknown as Record<string, unknown>;
             ref.assetId = result.name;
             if (typeof ref.uri === 'string') {
                 ref.uri = `asset://${result.name}`;

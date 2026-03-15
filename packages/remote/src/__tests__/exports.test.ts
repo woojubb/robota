@@ -62,9 +62,10 @@ describe('Server entry (server.ts)', () => {
                 post: vi.fn()
             };
             const mockApp = { use: vi.fn() };
-            const expressFn = vi.fn(() => mockApp);
-            expressFn.Router = vi.fn(() => mockRouter);
-            expressFn.json = vi.fn(() => 'json');
+            const expressFn = Object.assign(vi.fn(() => mockApp), {
+                Router: vi.fn(() => mockRouter),
+                json: vi.fn(() => 'json'),
+            });
             return { default: expressFn };
         });
         vi.mock('cors', () => ({ default: vi.fn(() => 'cors') }));
