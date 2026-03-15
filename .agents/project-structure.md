@@ -23,7 +23,8 @@ packages/
 ├── dag-designer/       # DAG web designer layer
 └── dag-nodes/          # DAG node implementations
 apps/
-├── web/                    # Web application
+├── web/                    # Web application (Agent Playground)
+├── dag-studio/             # DAG Designer application
 ├── docs/                   # Documentation site
 ├── agent-server/           # AI provider proxy + Playground WebSocket
 ├── dag-runtime-server/     # DAG execution server (ComfyUI-compatible)
