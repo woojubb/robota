@@ -17,16 +17,6 @@
           "y": 220
         },
         "dependsOn": [],
-        "inputs": [],
-        "outputs": [
-          {
-            "key": "text",
-            "label": "Text",
-            "order": 0,
-            "type": "string",
-            "required": true
-          }
-        ],
         "config": {
           "text": "Write a short greeting for a new user."
         }
@@ -40,24 +30,6 @@
         },
         "dependsOn": [
           "input_1"
-        ],
-        "inputs": [
-          {
-            "key": "prompt",
-            "label": "Prompt",
-            "order": 0,
-            "type": "string",
-            "required": true
-          }
-        ],
-        "outputs": [
-          {
-            "key": "completion",
-            "label": "Completion",
-            "order": 0,
-            "type": "string",
-            "required": true
-          }
         ],
         "config": {
           "provider": "openai",
@@ -74,24 +46,6 @@
         },
         "dependsOn": [
           "llm_text_1"
-        ],
-        "inputs": [
-          {
-            "key": "text",
-            "label": "Text",
-            "order": 0,
-            "type": "string",
-            "required": true
-          }
-        ],
-        "outputs": [
-          {
-            "key": "text",
-            "label": "Text",
-            "order": 0,
-            "type": "string",
-            "required": true
-          }
         ],
         "config": {}
       }
