@@ -90,6 +90,8 @@ interface IDagDesignerStateValue {
     nodeUiStateByNodeId: Record<string, INodeUiState>;
     runProgress: IRunProgressState;
     bindingErrors: string[];
+    pendingOperations: Map<string, string>;
+    hasPendingOperations: boolean;
 }
 
 interface IDagDesignerActionsValue {
@@ -107,6 +109,8 @@ interface IDagDesignerActionsValue {
     updateEdge: (nextEdge: IDagEdgeDefinition) => void;
     removeNodeById: (nodeId: string) => void;
     removeEdgeById: (edgeId: string) => void;
+    addPendingOperation: (nodeId: string, description: string) => void;
+    removePendingOperation: (nodeId: string) => void;
 }
 
 export interface IDagDesignerContextValue extends IDagDesignerStateValue, IDagDesignerActionsValue {}
@@ -248,6 +252,22 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         return { ...props.definition, nodes: enrichedNodes };
     }, [props.definition, props.objectInfo]);
     const bindingErrors = useMemo(() => computeBindingErrors(enrichedDefinition), [enrichedDefinition]);
+
+    const [pendingOperations, setPendingOperations] = useState<Map<string, string>>(new Map());
+
+    const addPendingOperation = useCallback((nodeId: string, description: string): void => {
+        setPendingOperations(prev => new Map(prev).set(nodeId, description));
+    }, []);
+
+    const removePendingOperation = useCallback((nodeId: string): void => {
+        setPendingOperations(prev => {
+            const next = new Map(prev);
+            next.delete(nodeId);
+            return next;
+        });
+    }, []);
+
+    const hasPendingOperations = pendingOperations.size > 0;
 
     const clearPendingStatusTimers = useCallback((): void => {
         for (const timerId of pendingStatusTimersRef.current.values()) {
@@ -506,6 +526,8 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         nodeUiStateByNodeId,
         runProgress,
         bindingErrors,
+        pendingOperations,
+        hasPendingOperations,
     }), [
         props.definition,
         props.manifests,
@@ -523,6 +545,8 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         nodeUiStateByNodeId,
         runProgress,
         bindingErrors,
+        pendingOperations,
+        hasPendingOperations,
     ]);
 
     const actionsValue = useMemo<IDagDesignerActionsValue>(() => ({
@@ -540,6 +564,8 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         updateEdge,
         removeNodeById,
         removeEdgeById,
+        addPendingOperation,
+        removePendingOperation,
     }), [
         props.onDefinitionChange,
         resetRunProgress,
@@ -551,6 +577,8 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         updateEdge,
         removeNodeById,
         removeEdgeById,
+        addPendingOperation,
+        removePendingOperation,
     ]);
 
     return (
