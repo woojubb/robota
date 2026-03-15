@@ -325,6 +325,18 @@ export class DagPromptBackend implements IPromptBackendPort {
             return prop.enum.map(String);
         }
 
+        // anyOf/oneOf containing asset reference → image_upload
+        if (Array.isArray(prop.anyOf) || Array.isArray(prop.oneOf)) {
+            const variants = (prop.anyOf ?? prop.oneOf) as Record<string, unknown>[];
+            const hasAssetRef = variants.some((v) => {
+                const vProps = v.properties as Record<string, unknown> | undefined;
+                return vProps && ('referenceType' in vProps || 'assetId' in vProps);
+            });
+            if (hasAssetRef) {
+                return ['STRING', { image_upload: true }];
+            }
+        }
+
         const meta: Record<string, unknown> = {};
         if (prop.default !== undefined) meta.default = prop.default;
 
