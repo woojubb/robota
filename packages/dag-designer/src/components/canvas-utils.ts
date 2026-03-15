@@ -5,7 +5,9 @@ import {
     type IDagEdgeDefinition,
     type IDagNode,
     type INodeManifest,
-    type IPortDefinition
+    type INodeObjectInfo,
+    type IPortDefinition,
+    type TPortValueType
 } from '@robota-sdk/dag-core';
 import type { Edge, Node, XYPosition } from '@xyflow/react';
 import type { IDagNodeIoTrace, IDagNodeViewData, TDagCanvasNode } from './dag-node-view.js';
@@ -144,6 +146,61 @@ export function createNodeFromManifest(manifest: INodeManifest, index: number): 
         config: {},
         inputs: manifest.inputs,
         outputs: manifest.outputs
+    };
+}
+
+function mapComfyTypeToPortType(comfyType: string): TPortValueType {
+    const upper = comfyType.toUpperCase();
+    if (upper === 'INT' || upper === 'FLOAT') return 'number';
+    if (upper === 'STRING') return 'string';
+    if (upper === 'BOOLEAN' || upper === 'BOOL') return 'boolean';
+    if (upper === 'IMAGE' || upper === 'MASK' || upper === 'VIDEO' || upper === 'AUDIO') return 'binary';
+    return 'object';
+}
+
+export function createNodeFromObjectInfo(
+    nodeType: string,
+    info: INodeObjectInfo,
+    index: number
+): IDagNode {
+    const inputs: IPortDefinition[] = [];
+    const outputs: IPortDefinition[] = [];
+
+    // Convert outputs
+    for (let i = 0; i < info.output.length; i++) {
+        outputs.push({
+            key: (info.output_name[i] ?? info.output[i] ?? `output_${i}`).toLowerCase(),
+            label: info.output_name[i] ?? info.output[i],
+            order: i,
+            type: mapComfyTypeToPortType(info.output[i] ?? 'STRING'),
+            required: true,
+            isList: info.output_is_list[i] ?? false,
+        });
+    }
+
+    // Convert required inputs
+    if (info.input.required) {
+        let order = 0;
+        for (const [key, spec] of Object.entries(info.input.required)) {
+            const typeName = Array.isArray(spec) && typeof spec[0] === 'string' ? spec[0] : 'STRING';
+            inputs.push({
+                key,
+                label: key.charAt(0).toUpperCase() + key.slice(1),
+                order: order++,
+                type: mapComfyTypeToPortType(typeName),
+                required: true,
+            });
+        }
+    }
+
+    return {
+        nodeId: `${nodeType}_${index + 1}`,
+        nodeType,
+        position: { x: 120 + (index % 3) * 260, y: 100 + Math.floor(index / 3) * 180 },
+        dependsOn: [],
+        config: {},
+        inputs,
+        outputs,
     };
 }
 

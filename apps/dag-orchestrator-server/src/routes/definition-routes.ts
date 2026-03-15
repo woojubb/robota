@@ -109,10 +109,4 @@ export function registerDefinitionRoutes(
         res.status(listed.status).json(listed);
     });
 
-    router.get('/v1/dag/nodes', async (req: Request, res: Response) => {
-        const listed = await designController.listNodeCatalog({
-            correlationId: resolveCorrelationId(req, 'dag-nodes-list')
-        });
-        res.status(listed.status).json(listed);
-    });
 }

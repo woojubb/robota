@@ -107,3 +107,4 @@ bun.lock
 
 # Audit script output (local-only, not committed)
 scripts/audit/output/
+.playwright-mcp/
