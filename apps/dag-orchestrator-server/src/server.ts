@@ -60,10 +60,10 @@ function resolveBackendUrl(): string {
     return 'http://127.0.0.1:8188'; // ComfyUI default port
 }
 
-function parseCorsOrigins(): string[] {
+function parseCorsOrigins(): string | string[] {
     const raw = process.env.CORS_ORIGINS;
     if (typeof raw === 'undefined' || raw.trim().length === 0) {
-        return ['http://localhost:3000'];
+        return '*';
     }
     return raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
 }
