@@ -46,7 +46,7 @@ function getCategoryColor(nodeType: string): { accent: string; dim: string } {
 
 const NO_TRACE_FALLBACK = (
     <div
-        className="nodrag px-3 py-2 text-[10px]"
+        className="nodrag px-3 py-2 text-xs"
         style={{
             borderTop: '1px solid var(--studio-border-subtle, #2d2d44)',
             color: 'var(--studio-text-muted, #5c5c7a)'
@@ -72,9 +72,11 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
         const base: React.CSSProperties = {
             minWidth: 280,
             borderRadius: 8,
-            border: '1px solid var(--studio-border, #363650)',
+            borderWidth: 1,
+            borderStyle: 'solid',
+            borderColor: 'var(--studio-border, #363650)',
             background: 'var(--studio-bg-elevated, #262637)',
-            fontSize: 12,
+            fontSize: 13,
             transition: 'background-color 500ms ease-out, border-color 500ms ease-out, box-shadow 500ms ease-out'
         };
 
@@ -108,7 +110,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
         const base: React.CSSProperties = {
             borderRadius: 4,
             padding: '1px 8px',
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: 500
         };
         if (executionStatus === 'running') {
@@ -142,7 +144,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                 </div>
                 <div
                     className="font-mono"
-                    style={{ fontSize: 11, color: 'var(--studio-text-muted, #5c5c7a)' }}
+                    style={{ fontSize: 12, color: 'var(--studio-text-muted, #5c5c7a)' }}
                 >
                     {props.data.nodeType}
                 </div>
@@ -150,14 +152,14 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
             <div className="grid grid-cols-2 gap-3 py-3">
                 <div className="nodrag flex flex-col gap-2">
                     <div
-                        className="px-3 text-[11px] font-semibold"
+                        className="px-3 text-xs font-semibold"
                         style={{ color: 'var(--studio-text-secondary, #8b8ba3)' }}
                     >
                         Inputs
                     </div>
                     {inputs.length === 0 ? (
                         <div
-                            className="px-3 text-[11px]"
+                            className="px-3 text-xs"
                             style={{ color: 'var(--studio-text-muted, #5c5c7a)' }}
                         >
                             No inputs
@@ -184,14 +186,14 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                                                 />
                                                 <div className={`leading-tight ${isPendingSlot ? 'opacity-50' : ''}`}>
                                                     <div
-                                                        className="text-[10px] font-medium"
+                                                        className="text-xs font-medium"
                                                         style={{ color: 'var(--studio-text, #e4e4ef)' }}
                                                     >
                                                         {port.label ?? port.key}
                                                         {port.isList ? ` #${handleIndex + 1}` : ''}
                                                     </div>
                                                     <div
-                                                        className="text-[9px]"
+                                                        className="text-[10px]"
                                                         style={{ color: 'var(--studio-text-muted, #5c5c7a)' }}
                                                     >
                                                         {port.isList ? handleId : port.key} · {port.type} · {port.required ? 'required' : 'optional'}
@@ -201,7 +203,7 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                                         );
                                     })}
                                     <div
-                                        className="text-[9px]"
+                                        className="text-[10px]"
                                         style={{ color: 'var(--studio-text-muted, #5c5c7a)' }}
                                     >
                                         {port.key} · {port.type} · {port.required ? 'required' : 'optional'}{port.isList ? ' · list' : ''}
@@ -213,14 +215,14 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                 </div>
                 <div className="nodrag flex flex-col gap-2">
                     <div
-                        className="px-3 text-right text-[11px] font-semibold"
+                        className="px-3 text-right text-xs font-semibold"
                         style={{ color: 'var(--studio-text-secondary, #8b8ba3)' }}
                     >
                         Outputs
                     </div>
                     {outputs.length === 0 ? (
                         <div
-                            className="px-3 text-right text-[11px]"
+                            className="px-3 text-right text-xs"
                             style={{ color: 'var(--studio-text-muted, #5c5c7a)' }}
                         >
                             No outputs
@@ -239,13 +241,13 @@ export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
                                 />
                                 <div className="leading-tight">
                                     <div
-                                        className="text-[10px] font-medium"
+                                        className="text-xs font-medium"
                                         style={{ color: 'var(--studio-text, #e4e4ef)' }}
                                     >
                                         {port.label ?? port.key}
                                     </div>
                                     <div
-                                        className="text-[9px]"
+                                        className="text-[10px]"
                                         style={{ color: 'var(--studio-text-muted, #5c5c7a)' }}
                                     >
                                         {port.key} · {port.type} · {port.required ? 'required' : 'optional'}

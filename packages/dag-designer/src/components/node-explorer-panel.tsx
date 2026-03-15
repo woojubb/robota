@@ -75,7 +75,7 @@ export function NodeExplorerPanel(props: INodeExplorerPanelProps): ReactElement 
 
     return (
         <div className={`flex h-full flex-col rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] ${props.className ?? ''}`}>
-            <h2 className="px-2 pt-2 text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Node Explorer</h2>
+            <h2 className="px-2 pt-2 text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Node Explorer</h2>
             <div className="flex border-b border-[var(--studio-border)]" role="tablist" aria-label="Node Explorer categories">
                 {categories.map((category) => {
                     const isActive = activeCategory === category;
@@ -85,7 +85,7 @@ export function NodeExplorerPanel(props: INodeExplorerPanelProps): ReactElement 
                             type="button"
                             role="tab"
                             aria-selected={isActive}
-                            className={`relative flex-1 px-1 py-1.5 text-[11px] text-center transition-all ${
+                            className={`relative flex-1 px-1 py-1.5 text-xs text-center transition-all ${
                                 isActive
                                     ? 'text-[var(--studio-accent-violet)]'
                                     : 'text-[var(--studio-text-muted)] hover:text-[var(--studio-text-secondary)]'
@@ -93,7 +93,7 @@ export function NodeExplorerPanel(props: INodeExplorerPanelProps): ReactElement 
                             onClick={() => setActiveCategory(category)}
                         >
                             {category}
-                            <span className={`ml-1 text-[9px] ${
+                            <span className={`ml-1 text-[10px] ${
                                 isActive ? 'text-[var(--studio-accent-violet)]' : 'text-[var(--studio-text-muted)]'
                             }`}
                             >
@@ -106,16 +106,16 @@ export function NodeExplorerPanel(props: INodeExplorerPanelProps): ReactElement 
                     );
                 })}
             </div>
-            <div className="flex min-h-0 flex-col gap-1.5 overflow-y-auto p-2">
+            <div className="flex min-h-0 flex-col gap-1.5 overflow-y-auto p-3">
                 {visibleEntries.map((entry) => (
                     <button
                         key={entry.nodeType}
                         type="button"
-                        className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-left text-xs transition-all hover:border-[var(--studio-accent-violet)] hover:shadow-[0_0_6px_var(--studio-accent-violet-dim)]"
+                        className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-left text-sm transition-all hover:border-[var(--studio-accent-violet)] hover:shadow-[0_0_6px_var(--studio-accent-violet-dim)]"
                         onClick={() => handleAddNode(entry)}
                     >
                         <div className="font-medium text-[var(--studio-text)]">{entry.displayName}</div>
-                        <div className="text-[11px] text-[var(--studio-text-muted)]">{entry.nodeType}</div>
+                        <div className="text-xs text-[var(--studio-text-muted)]">{entry.nodeType}</div>
                     </button>
                 ))}
             </div>

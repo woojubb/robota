@@ -77,8 +77,8 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
     if (!props.selectedEdgeId) {
         return (
             <div className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3">
-                <h2 className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Edge Inspector</h2>
-                <p className="mt-2 text-xs text-[var(--studio-text-muted)]">Select an edge to edit bindings.</p>
+                <h2 className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Edge Inspector</h2>
+                <p className="mt-2 text-sm text-[var(--studio-text-muted)]">Select an edge to edit bindings.</p>
             </div>
         );
     }
@@ -87,8 +87,8 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
     if (!selectedEdge) {
         return (
             <div className="rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3">
-                <h2 className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Edge Inspector</h2>
-                <p className="mt-2 text-xs text-[var(--studio-accent-rose)]">Selected edge was not found.</p>
+                <h2 className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Edge Inspector</h2>
+                <p className="mt-2 text-sm text-[var(--studio-accent-rose)]">Selected edge was not found.</p>
             </div>
         );
     }
@@ -165,27 +165,27 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
 
     return (
         <div className="flex h-full flex-col gap-3 rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3">
-            <h2 className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">Edge Inspector</h2>
-            <div className="text-xs text-[var(--studio-text-muted)]">
+            <h2 className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Edge Inspector</h2>
+            <div className="text-sm text-[var(--studio-text-muted)]">
                 <span className="font-mono text-[var(--studio-text-secondary)]">{selectedEdge.from}</span>
                 {' -> '}
                 <span className="font-mono text-[var(--studio-text-secondary)]">{selectedEdge.to}</span>
             </div>
             {operationError ? (
-                <div className="rounded-md border border-[var(--studio-accent-rose)] bg-[var(--studio-accent-rose-dim)] px-2 py-1 text-xs text-[var(--studio-accent-rose)]">
+                <div className="rounded-md border border-[var(--studio-accent-rose)] bg-[var(--studio-accent-rose-dim)] px-3 py-1.5 text-sm text-[var(--studio-accent-rose)]">
                     Edit validation error: {operationError}
                 </div>
             ) : null}
             <button
                 type="button"
-                className="border border-[var(--studio-border)] text-[var(--studio-text-secondary)] rounded-md px-3 py-1.5 text-xs hover:bg-[var(--studio-bg-surface)] transition-all"
+                className="border border-[var(--studio-border)] text-[var(--studio-text-secondary)] rounded-md px-3 py-2 text-sm hover:bg-[var(--studio-bg-surface)] transition-all"
                 onClick={addBinding}
             >
                 Add Binding
             </button>
             <button
                 type="button"
-                className="border border-[var(--studio-accent-rose)] text-[var(--studio-accent-rose)] rounded-md px-3 py-1.5 text-xs hover:bg-[var(--studio-accent-rose-dim)] transition-all"
+                className="border border-[var(--studio-accent-rose)] text-[var(--studio-accent-rose)] rounded-md px-3 py-2 text-sm hover:bg-[var(--studio-accent-rose-dim)] transition-all"
                 onClick={() => props.onDeleteEdge(edgeId(selectedEdge))}
             >
                 Delete Edge
@@ -194,7 +194,7 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
                 {(selectedEdge.bindings ?? []).map((binding, index) => (
                     <div key={`${binding.outputKey}:${binding.inputKey}:${index}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                         <select
-                            className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
+                            className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-sm text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                             value={binding.outputKey}
                             onChange={(event) => updateBinding(index, event.target.value, 'output')}
                         >
@@ -205,7 +205,7 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
                             ))}
                         </select>
                         <select
-                            className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
+                            className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-sm text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)] focus:border-[var(--studio-accent-violet)] transition-all"
                             value={binding.inputKey}
                             onChange={(event) => updateBinding(index, event.target.value, 'input')}
                         >
@@ -217,7 +217,7 @@ export function EdgeInspectorPanel(props: IEdgeInspectorPanelProps): ReactElemen
                         </select>
                         <button
                             type="button"
-                            className="border border-[var(--studio-border)] text-[var(--studio-text-secondary)] rounded-md px-3 py-1.5 text-xs hover:bg-[var(--studio-bg-surface)] transition-all"
+                            className="border border-[var(--studio-border)] text-[var(--studio-text-secondary)] rounded-md px-3 py-2 text-sm hover:bg-[var(--studio-bg-surface)] transition-all"
                             onClick={() => removeBinding(index)}
                         >
                             Remove

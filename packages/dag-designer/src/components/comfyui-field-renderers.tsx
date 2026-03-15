@@ -137,7 +137,7 @@ export function ComfyParameterField(props: IComfyFieldProps): ReactElement {
                 <select
                     value={String(value ?? field.enumOptions[0] ?? '')}
                     onChange={(e) => onChange(field.key, e.target.value)}
-                    className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1.5 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)]"
+                    className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-sm text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)]"
                 >
                     {field.enumOptions.map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
@@ -177,7 +177,7 @@ export function ComfyParameterField(props: IComfyFieldProps): ReactElement {
                     max={max}
                     step={step}
                     onChange={(e) => onChange(field.key, parseInt(e.target.value, 10))}
-                    className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1.5 text-xs font-mono text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)]"
+                    className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-sm font-mono text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)]"
                 />
             </div>
         );
@@ -198,7 +198,7 @@ export function ComfyParameterField(props: IComfyFieldProps): ReactElement {
                     max={max}
                     step={step}
                     onChange={(e) => onChange(field.key, parseFloat(e.target.value))}
-                    className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1.5 text-xs font-mono text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)]"
+                    className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-sm font-mono text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)]"
                 />
             </div>
         );
@@ -214,7 +214,7 @@ export function ComfyParameterField(props: IComfyFieldProps): ReactElement {
                     value={String(value ?? field.metadata.default ?? '')}
                     onChange={(e) => onChange(field.key, e.target.value)}
                     rows={3}
-                    className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1.5 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)]"
+                    className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-sm text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)]"
                 />
             </div>
         );
@@ -227,7 +227,7 @@ export function ComfyParameterField(props: IComfyFieldProps): ReactElement {
                 type="text"
                 value={String(value ?? field.metadata.default ?? '')}
                 onChange={(e) => onChange(field.key, e.target.value)}
-                className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-2 py-1.5 text-xs text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)]"
+                className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-2 text-sm text-[var(--studio-text)] focus:outline-none focus:ring-1 focus:ring-[var(--studio-accent-violet)]"
             />
         </div>
     );
@@ -236,7 +236,7 @@ export function ComfyParameterField(props: IComfyFieldProps): ReactElement {
 function FieldLabel(props: { field: IParsedInputField; inline?: boolean }): ReactElement {
     const { field, inline } = props;
     return (
-        <label className={`text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)] ${inline ? '' : 'mb-0'}`}>
+        <label className={`text-xs uppercase tracking-widest text-[var(--studio-text-muted)] ${inline ? '' : 'mb-0'}`}>
             {field.key}
             {field.isRequired ? <span className="ml-1 text-[var(--studio-accent-rose)]">*</span> : null}
             <span className="ml-2 normal-case tracking-normal text-[var(--studio-text-muted)] opacity-60">{field.typeName}</span>
@@ -253,7 +253,7 @@ export interface IComfyHandleFieldProps {
 export function ComfyHandleField(props: IComfyHandleFieldProps): ReactElement {
     const { field, isConnected, connectedFrom } = props;
     return (
-        <div className="flex items-center gap-2 rounded-md border border-[var(--studio-border-subtle)] bg-[var(--studio-bg-surface)] px-2 py-1.5">
+        <div className="flex items-center gap-2 rounded-md border border-[var(--studio-border-subtle)] bg-[var(--studio-bg-surface)] px-3 py-2">
             <span className={`inline-block h-2 w-2 rounded-full ${
                 isConnected
                     ? 'bg-[var(--studio-accent-emerald)] shadow-[0_0_4px_var(--studio-accent-emerald)]'
@@ -261,12 +261,12 @@ export function ComfyHandleField(props: IComfyHandleFieldProps): ReactElement {
                         ? 'bg-[var(--studio-accent-rose)] shadow-[0_0_4px_var(--studio-accent-rose)]'
                         : 'bg-[var(--studio-text-muted)]'
             }`} />
-            <span className="text-[10px] uppercase tracking-widest text-[var(--studio-text-muted)]">{field.key}</span>
-            <span className="text-[10px] text-[var(--studio-text-muted)] opacity-60">{field.typeName}</span>
+            <span className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">{field.key}</span>
+            <span className="text-xs text-[var(--studio-text-muted)] opacity-60">{field.typeName}</span>
             {isConnected && connectedFrom ? (
-                <span className="ml-auto text-[10px] text-[var(--studio-accent-emerald)]">&larr; {connectedFrom}</span>
+                <span className="ml-auto text-xs text-[var(--studio-accent-emerald)]">&larr; {connectedFrom}</span>
             ) : field.isRequired && !isConnected ? (
-                <span className="ml-auto text-[10px] text-[var(--studio-accent-rose)]">연결 필요</span>
+                <span className="ml-auto text-xs text-[var(--studio-accent-rose)]">연결 필요</span>
             ) : null}
         </div>
     );
@@ -281,52 +281,44 @@ export interface IComfyFileUploadFieldProps {
 
 export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactElement {
     const { field, value, onChange, assetUploadBaseUrl } = props;
-    const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
+    const [uploadStatus, setUploadStatus] = useState<string | undefined>(undefined);
 
-    const uploadFile = async (file: File): Promise<void> => {
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        event.target.value = '';
+
         if (!assetUploadBaseUrl) return;
         const normalizedBaseUrl = assetUploadBaseUrl.endsWith('/')
             ? assetUploadBaseUrl.slice(0, -1)
             : assetUploadBaseUrl;
 
-        setUploadStatus('uploading');
-        try {
-            const base64Data = await toBase64(file);
-            const response = await fetch(`${normalizedBaseUrl}/v1/dag/assets`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileName: file.name, mediaType: file.type, base64Data }),
-            });
+        setUploadStatus(`Uploading ${file.name}...`);
 
-            if (response.ok) {
+        void (async (): Promise<void> => {
+            try {
+                const base64Data = await toBase64(file);
+                const response = await fetch(`${normalizedBaseUrl}/v1/dag/assets`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ fileName: file.name, mediaType: file.type, base64Data }),
+                });
                 const result = (await response.json()) as Record<string, unknown>;
                 const data = result.data as Record<string, unknown> | undefined;
                 const asset = data?.asset as Record<string, unknown> | undefined;
-                const assetId = asset?.assetId ?? (data as Record<string, unknown> | undefined)?.assetId;
-                onChange(field.key, {
-                    referenceType: 'asset',
-                    assetId: typeof assetId === 'string' ? assetId : String(assetId),
-                    mediaType: file.type,
-                });
-                setUploadStatus('done');
-            } else {
-                setUploadStatus('error');
-            }
-        } catch {
-            setUploadStatus('error');
-        }
-    };
+                const assetId = asset?.assetId ?? data?.assetId;
 
-    const openFilePicker = (): void => {
-        const accept = field.videoUpload === true ? 'video/*' : 'image/*';
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = accept;
-        input.onchange = () => {
-            const file = input.files?.[0];
-            if (file) void uploadFile(file);
-        };
-        input.click();
+                if (!response.ok || typeof assetId !== 'string') {
+                    setUploadStatus('Upload failed');
+                    return;
+                }
+
+                onChange(field.key, { referenceType: 'asset', assetId, mediaType: file.type });
+                setUploadStatus(`Uploaded: ${assetId}`);
+            } catch {
+                setUploadStatus('Upload failed');
+            }
+        })();
     };
 
     const valueRecord = typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -336,41 +328,19 @@ export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactEl
     return (
         <div className="flex flex-col gap-1">
             <FieldLabel field={field} />
-            <div className="flex flex-col gap-2 rounded-md border border-dashed border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-3">
+            <div className="rounded-md border border-dashed border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-3">
                 {valueRecord?.assetId ? (
-                    <div className="text-[10px] text-[var(--studio-accent-emerald)]">
+                    <div className="mb-2 text-xs text-[var(--studio-accent-emerald)]">
                         Asset: {String(valueRecord.assetId)}
                     </div>
-                ) : typeof value === 'string' && value.length > 0 ? (
-                    <div className="text-[10px] text-[var(--studio-text-secondary)]">{value}</div>
-                ) : (
-                    <div className="text-[10px] text-[var(--studio-text-muted)]">No file selected</div>
-                )}
-
-                {field.enumOptions && field.enumOptions.length > 0 ? (
-                    <select
-                        value={typeof value === 'string' ? value : ''}
-                        onChange={(e) => onChange(field.key, e.target.value)}
-                        className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg)] px-2 py-1 text-xs text-[var(--studio-text)]"
-                    >
-                        <option value="">Select...</option>
-                        {field.enumOptions.map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                    </select>
                 ) : null}
-
-                <button
-                    type="button"
-                    onClick={openFilePicker}
-                    disabled={uploadStatus === 'uploading'}
-                    className="cursor-pointer rounded-md bg-[var(--studio-accent-violet)] px-3 py-1.5 text-center text-[11px] text-white hover:brightness-110 transition-all disabled:opacity-50"
-                >
-                    {uploadStatus === 'uploading' ? 'Uploading...' : 'Choose File'}
-                </button>
-
-                {uploadStatus === 'error' ? (
-                    <div className="text-[10px] text-[var(--studio-accent-rose)]">Upload failed</div>
+                <input
+                    type="file"
+                    className="block w-full text-sm text-[var(--studio-text-secondary)]"
+                    onChange={handleFileChange}
+                />
+                {uploadStatus ? (
+                    <div className="mt-1 text-xs text-[var(--studio-text-muted)]">{uploadStatus}</div>
                 ) : null}
             </div>
         </div>
