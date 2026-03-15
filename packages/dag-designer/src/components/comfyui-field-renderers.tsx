@@ -1,5 +1,5 @@
 // packages/dag-designer/src/components/comfyui-field-renderers.tsx
-import { useState, type ReactElement } from 'react';
+import { useRef, useState, type ReactElement } from 'react';
 import type { TInputTypeSpec } from '@robota-sdk/dag-core';
 import { toBase64 } from './asset-upload-utils.js';
 
@@ -282,6 +282,7 @@ export interface IComfyFileUploadFieldProps {
 export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactElement {
     const { field, value, onChange, assetUploadBaseUrl } = props;
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
         const file = e.target.files?.[0];
@@ -360,16 +361,22 @@ export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactEl
                 ) : null}
 
                 {/* File upload button */}
-                <label className="relative cursor-pointer rounded-md bg-[var(--studio-accent-violet)] px-3 py-1.5 text-center text-[11px] text-white hover:brightness-110 transition-all overflow-hidden">
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={accept}
+                    onChange={(e) => void handleFileChange(e)}
+                    className="sr-only"
+                    disabled={uploadStatus === 'uploading'}
+                />
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadStatus === 'uploading'}
+                    className="cursor-pointer rounded-md bg-[var(--studio-accent-violet)] px-3 py-1.5 text-center text-[11px] text-white hover:brightness-110 transition-all disabled:opacity-50"
+                >
                     {uploadStatus === 'uploading' ? 'Uploading...' : 'Choose File'}
-                    <input
-                        type="file"
-                        accept={accept}
-                        onChange={(e) => void handleFileChange(e)}
-                        className="absolute inset-0 cursor-pointer opacity-0"
-                        disabled={uploadStatus === 'uploading'}
-                    />
-                </label>
+                </button>
 
                 {uploadStatus === 'error' ? (
                     <div className="text-[10px] text-[var(--studio-accent-rose)]">Upload failed</div>
