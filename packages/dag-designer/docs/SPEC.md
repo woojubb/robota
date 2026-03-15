@@ -158,6 +158,15 @@ Ports with `isList: true` support multiple connections via dynamically generated
 3. No two bindings across all edges may share the same (targetNodeId, listInputKey) identity.
 4. `dependsOn` is recomputed from edges after any edge addition or removal.
 
+## Dependencies
+
+| Package | Role |
+|---|---|
+| `@robota-sdk/dag-core` | Domain types (`IDagDefinition`, `IDagNode`, `INodeManifest`, `TRunProgressEvent`, etc.) |
+| `@robota-sdk/dag-api` | Controller contracts (`IProblemDetails`, `IDefinitionListItem`) |
+| `@xyflow/react` | React Flow graph rendering |
+| `@robota-sdk/dag-node-*` | devDependencies only — used for testing node catalog and port definitions |
+
 ## Test Strategy
 
 - Unit tests: `port-editor-utils.test.ts` (port editing helpers), `schema-defaults.test.ts` (config schema default generation), `canvas-utils.test.ts` (list binding compaction across multi-edge scenarios, handle computation).

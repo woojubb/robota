@@ -52,8 +52,8 @@ Types **owned** by this package (SSOT):
 
 | Type | Location | Purpose |
 |---|---|---|
-| `ICostEstimate` | `types/orchestrator-types.ts` | Per-prompt cost estimation result (`totalEstimatedCredits`, `perNode` with `estimatedCredits`) |
-| `ICostPolicy` | `types/orchestrator-types.ts` | Max cost threshold configuration (`maxCreditsPerPrompt`) |
+| `IPromptCostEstimate` | `types/orchestrator-types.ts` | Per-prompt cost estimation result (`totalEstimatedCredits`, `perNode` with `estimatedCredits`) |
+| `IPromptCostPolicy` | `types/orchestrator-types.ts` | Max cost threshold configuration (`maxCreditsPerPrompt`) |
 | `IRetryPolicy` | `types/orchestrator-types.ts` | Retry configuration (max retries, backoff, retryable error codes) |
 | `ITimeoutPolicy` | `types/orchestrator-types.ts` | Prompt timeout configuration |
 | `IOrchestratorConfig` | `types/orchestrator-types.ts` | Combined orchestrator configuration (cost + retry + timeout policies) |
@@ -78,8 +78,8 @@ Types **imported** from `@robota-sdk/dag-core` (not owned here):
 | `IPromptApiClientPort` | interface (type export) | Port for Prompt API server communication |
 | `ICostEstimatorPort` | interface (type export) | Port for cost estimation logic |
 | `ICostPolicyEvaluatorPort` | interface (type export) | Port for cost policy evaluation logic |
-| `ICostEstimate` | interface (type export) | Cost estimation result shape |
-| `ICostPolicy` | interface (type export) | Cost policy configuration shape |
+| `IPromptCostEstimate` | interface (type export) | Cost estimation result shape |
+| `IPromptCostPolicy` | interface (type export) | Cost policy configuration shape |
 | `IRetryPolicy` | interface (type export) | Retry policy configuration shape |
 | `ITimeoutPolicy` | interface (type export) | Timeout policy configuration shape |
 | `IOrchestratorConfig` | interface (type export) | Combined orchestrator configuration |

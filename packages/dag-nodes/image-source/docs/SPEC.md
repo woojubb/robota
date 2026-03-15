@@ -7,10 +7,10 @@
 
 ## Boundaries
 
-- Extends `AbstractNodeDefinition` from `dag-core`. Does not redefine core DAG contracts.
-- Uses `createMediaReferenceConfigSchema` from `dag-core` for config validation.
+- Extends `AbstractNodeDefinition` from `dag-node`. Does not redefine core DAG contracts.
+- Uses `createMediaReferenceConfigSchema` from `dag-node` for config validation.
 - Uses `MediaReference.fromAssetReference` for reference construction and `toBinary` for output conversion.
-- Uses `BINARY_PORT_PRESETS.IMAGE_COMMON` for the output port definition.
+- Uses `BINARY_PORT_PRESETS.IMAGE_COMMON` from `dag-node` for the output port definition.
 - No external provider dependencies. No inputs (source node).
 
 ## Architecture Overview
