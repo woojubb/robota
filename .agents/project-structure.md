@@ -12,6 +12,7 @@ packages/
 ├── playground/         # Playground UI package
 ├── remote/             # Remote execution package
 ├── dag-core/           # DAG domain contracts and state rules (SSOT)
+├── dag-cost/           # Cost domain (CEL evaluator, cost meta types, storage port)
 ├── dag-adapters-local/ # Local adapters (in-memory ports + file-based storage)
 ├── dag-node/           # Node authoring infrastructure (base class, IO, registries)
 ├── dag-runtime/        # DAG orchestration runtime
@@ -36,10 +37,12 @@ apps/
 ```
 dag-core  (contracts: interfaces, types, state machines, execution engine)
   ↑
-dag-adapters-local  (local adapters: in-memory ports + file-based storage)
+dag-cost  (cost domain: CEL evaluator, cost meta types, storage port)
+dag-adapters-local  (local adapters: in-memory ports + file-based storage; depends on dag-core + dag-cost)
 dag-node  (node infrastructure: base class, IO, registries, schemas)
   ↑
 dag-nodes/*  (concrete node implementations)
+dag-orchestrator  (orchestration layer; depends on dag-core + dag-cost)
 ```
 
 **Rules:**

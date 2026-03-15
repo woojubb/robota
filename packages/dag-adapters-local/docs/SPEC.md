@@ -30,6 +30,7 @@
 | `MockTaskExecutorPort` | Class | `ITaskExecutorPort` | Configurable mock for task execution |
 | `TTaskExecutorHandler` | Type | -- | Handler function type for `MockTaskExecutorPort` |
 | `createStubPromptBackend` | Function | -- | Factory for stub prompt backend used in node testing |
+| `FileStoragePort` | Class | `IStoragePort` | File-based JSON storage for DAG definitions, runs, and tasks |
 | `FileCostMetaStorage` | Class | `ICostMetaStoragePort` | File-based JSON storage for cost metadata |
 
 ## Use Cases

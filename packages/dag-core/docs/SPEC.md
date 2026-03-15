@@ -62,7 +62,7 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `TDagTriggerType` | `types/domain.ts` | Trigger types: `manual`, `scheduled`, `api` |
 | `IPortDefinition` | `types/domain.ts` | Port schema (key, type, required, binary constraints, list constraints) |
 | `INodeManifest` | `types/domain.ts` | Node registration manifest (type, display name, category, ports, config schema) |
-| `ICostPolicy` | `types/domain.ts` | Run-level cost budget configuration |
+| `ICostPolicy` | `types/domain.ts` | Run-level cost budget configuration (`runCreditLimit`, `costPolicyVersion`) |
 | `IDagNode` | `types/domain.ts` | Node instance within a DAG definition |
 | `IEdgeBinding` | `types/domain.ts` | Single output-to-input port binding on an edge |
 | `IDagEdgeDefinition` | `types/domain.ts` | Edge connecting two nodes with bindings |
@@ -82,7 +82,7 @@ All types below are the canonical SSOT definitions. Other `dag-*` packages must 
 | `INodeDefinitionAssembly` | `types/node-lifecycle.ts` | Assembly result of manifests and handlers from node definitions |
 | `INodeExecutionContext` | `types/node-lifecycle.ts` | Execution context passed to lifecycle methods |
 | `INodeExecutionResult` | `types/node-lifecycle.ts` | Execution result with output payload and cost data |
-| `ICostEstimate` | `types/node-lifecycle.ts` | Cost estimate returned from `estimateCost` |
+| `ICostEstimate` | `types/node-lifecycle.ts` | Cost estimate returned from `estimateCost` (`estimatedCredits`, `details?`) |
 | `IRunCostPolicyEvaluator` | `types/node-lifecycle.ts` | Interface for budget enforcement |
 | `TRunProgressEvent` | `types/run-progress.ts` | Discriminated union of all run progress event types |
 | `IRunProgressEventReporter` | `types/run-progress.ts` | Interface for publishing progress events |
@@ -364,4 +364,4 @@ The following areas lack dedicated unit tests in this package:
 - **LifecycleTaskExecutorPort**: No tests for manifest lookup, node definition validation, or runner delegation.
 - **DagDefinitionValidator**: Partial coverage. Missing tests for edge binding validation, port type compatibility, cost policy validation, list port handle resolution, and many specific validation codes.
 - **MediaReference**, **StaticNodeManifestRegistry**, **StaticNodeTaskHandlerRegistry**: Owned by the node authoring package; tested there.
-- **In-memory testing ports**: Extracted to `@robota-sdk/dag-adapters-local`. Tests belong there.
+- **In-memory testing ports**: Extracted to `@robota-sdk/dag-adapters-local`. Tests belong there. That package also provides `FileStoragePort` (file-based `IStoragePort`) and `FileCostMetaStorage` (file-based `ICostMetaStoragePort` from `@robota-sdk/dag-cost`).

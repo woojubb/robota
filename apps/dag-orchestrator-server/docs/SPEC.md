@@ -44,7 +44,7 @@ Express Application (http.Server)
 2. Create `HttpPromptApiClient` pointing to the backend URL.
 3. Build node definition assembly from bundled `dag-node-*` packages.
 4. Create `BundledNodeCatalogService` from manifests.
-5. Compose in-memory infrastructure ports (`InMemoryStoragePort`, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort`).
+5. Compose infrastructure ports (`FileStoragePort` for persistence, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort`).
 6. Create `DagDesignController` via `createDagControllerComposition`.
 7. Initialize `LocalFsAssetStore`.
 8. Register all route modules.
@@ -100,6 +100,18 @@ All Robota endpoints use a standard response envelope:
 | `/v1/dag/assets/:assetId` | GET | Get asset metadata | None | `200 { ok, data: { asset } }` |
 | `/v1/dag/assets/:assetId/content` | GET | Download asset content | None | Binary stream with Content-Type |
 
+#### Cost Meta Routes
+
+| Endpoint | Method | Purpose | Request Body | Success Response |
+|---|---|---|---|---|
+| `/v1/cost-meta` | GET | List all cost meta | None | `200 { ok, data: [...] }` |
+| `/v1/cost-meta` | POST | Create cost meta | `ICostMeta` | `201 { ok, data }` |
+| `/v1/cost-meta/validate` | POST | Validate CEL formula | `{ formula }` | `200 { ok }` or `{ ok: false, errors }` |
+| `/v1/cost-meta/preview` | POST | Evaluate formula with test context | `{ formula, variables?, testContext? }` | `200 { ok, result }` |
+| `/v1/cost-meta/:nodeType` | GET | Get single cost meta | None | `200 { ok, data }` |
+| `/v1/cost-meta/:nodeType` | PUT | Update cost meta | `ICostMeta` | `200 { ok, data }` |
+| `/v1/cost-meta/:nodeType` | DELETE | Delete cost meta | None | `200 { ok }` |
+
 #### Admin Routes
 
 | Endpoint | Method | Purpose | Request Body | Success Response |
@@ -146,7 +158,7 @@ These endpoints forward requests to the ComfyUI-compatible backend and return th
 |---|---|---|
 | `INodeCatalogService` (dag-api) | `BundledNodeCatalogService` | Provides node manifests from bundled dag-node packages |
 | `IAssetStore` (dag-core) | `LocalFsAssetStore` | File-system-based asset storage with metadata JSON files |
-| `ICostEstimatorPort` (dag-orchestrator) | Stub (inline) | Cost estimation (currently returns 0) |
+| `ICostEstimatorPort` (dag-orchestrator) | `CelCostEstimatorAdapter` | CEL-based cost estimation using cost meta formulas |
 | `ICostPolicyEvaluatorPort` (dag-orchestrator) | Stub (inline) | Cost policy evaluation (currently always passes) |
 
 Consumers can swap `LocalFsAssetStore` for a cloud-backed `IAssetStore` implementation without changing route code.
@@ -274,7 +286,9 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 |---|---|
 | `@robota-sdk/dag-core` | Domain types, node assembly, infrastructure ports |
 | `@robota-sdk/dag-api` | Controller composition, `INodeCatalogService` |
-| `@robota-sdk/dag-orchestrator` | `PromptOrchestratorService`, `OrchestratorRunService`, `HttpPromptApiClient` |
+| `@robota-sdk/dag-orchestrator` | `PromptOrchestratorService`, `OrchestratorRunService`, `HttpPromptApiClient`, `CelCostEstimatorAdapter` |
+| `@robota-sdk/dag-cost` | Cost meta types, `CelCostEvaluator`, `ICostMetaStoragePort` |
+| `@robota-sdk/dag-adapters-local` | `FileStoragePort`, `FileCostMetaStorage`, in-memory ports |
 | `@robota-sdk/dag-node-*` (11 packages) | Bundled node definitions |
 | `express` | HTTP framework |
 | `ws` | WebSocket server and client |

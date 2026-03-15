@@ -9,7 +9,7 @@
 
 - Extends `AbstractNodeDefinition` from `dag-core`. Does not redefine core DAG contracts.
 - Uses `NodeIoAccessor` for input validation and output construction.
-- Uses `createBinaryPortDefinition` with `BINARY_PORT_PRESETS.IMAGE_PNG` for the input port.
+- Uses `createBinaryPortDefinition` with `BINARY_PORT_PRESETS.IMAGE_COMMON` for the input port.
 - No external provider dependencies. Category: `Test`.
 
 ## Architecture Overview

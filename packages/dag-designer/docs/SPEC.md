@@ -12,7 +12,7 @@ Run client contract: `createRun -> startRun -> getRunResult`.
 - `startRun` accepts `preparationId`, returns `{ dagRunId }` where `dagRunId` = `promptId` from runtime.
 - `subscribeRunProgress` uses `preparationId` (WS connects before start).
 - `getRunResult` uses `dagRunId`.
-- `IRunResult` has `status` (`'success' | 'failed'`), `traces`, `nodeErrors: IRunNodeError[]`, and `totalCostUsd`.
+- `IRunResult` has `status` (`'success' | 'failed'`), `traces`, `nodeErrors: IRunNodeError[]`, and `totalCredits`.
 
 `text-template` node template syntax:
 - `%s`: replace with input text
@@ -45,6 +45,8 @@ Run client contract: `createRun -> startRun -> getRunResult`.
   - `NodeIoTracePanel` -- execution trace viewer
 - **Lifecycle** (`lifecycle/run-engine.ts`): Re-exports `IRunNodeTrace` and `IRunResult` types.
 - **Utilities**: `schema-defaults.ts` (config schema default generation), `port-editor-utils.ts` (port editing helpers).
+- **Config Form**: Node configuration uses ComfyUI `TInputTypeSpec` (from `/object_info`) instead of Zod schemas for field rendering.
+- **Node Catalog**: `NodeExplorerPanel` uses `INodeObjectInfo`/`TObjectInfo` from the `/object_info` endpoint for node discovery and categorization.
 
 ## Type Ownership
 
@@ -159,7 +161,7 @@ Ports with `isList: true` support multiple connections via dynamically generated
 ## Test Strategy
 
 - Unit tests: `port-editor-utils.test.ts` (port editing helpers), `schema-defaults.test.ts` (config schema default generation), `canvas-utils.test.ts` (list binding compaction across multi-edge scenarios, handle computation).
-- Contract tests: `designer-api-contract.test.ts` (validates `hasValidRunResult` contract for `IRunResult` shape — status, dagRunId, traces, nodeErrors, totalCostUsd).
+- Contract tests: `designer-api-contract.test.ts` (validates `hasValidRunResult` contract for `IRunResult` shape — status, dagRunId, traces, nodeErrors, totalCredits).
 - API client HTTP request/response shape tests and WebSocket reconnection logic tests are planned.
 - The designer also relies on integration testing through app-level UI tests.
 - Coverage priorities: API client request/response contract validation, WebSocket reconnection logic, hook state management, component rendering with manifests and definitions.
