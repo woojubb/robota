@@ -13,7 +13,7 @@ Robota API gateway application that serves the dag-designer frontend. It orchest
 | Orchestration logic (`OrchestratorRunService`, `PromptOrchestratorService`) | `dag-orchestrator` | Does not own orchestration business logic |
 | Controller composition (`DagDesignController`) | `dag-api` | Does not own controller contracts |
 | Designer UI | `dag-designer` / `web` | Does not own frontend |
-| Node definitions | `dag-node-*` packages | Bundles nodes but does not define them |
+| Node definitions | `dag-node-*` packages | Does not define or bundle nodes |
 
 ## Architecture Overview
 
@@ -33,22 +33,19 @@ Express Application (http.Server)
 │   └── PromptOrchestratorService → HttpPromptApiClient → Backend
 │
 └── Services
-    ├── BundledNodeCatalogService (INodeCatalogService)
     ├── LocalFsAssetStore (IAssetStore)
     └── comfyui-event-translator (pure function)
 ```
 
 **Bootstrap sequence:**
 
-1. Load environment variables (`ORCHESTRATOR_PORT`, `BACKEND_URL`, `CORS_ORIGINS`, `ASSET_STORAGE_ROOT`).
+1. Load environment variables (`ORCHESTRATOR_PORT`, `BACKEND_URL`, `CORS_ORIGINS`, `ASSET_STORAGE_ROOT`, `COST_META_DIR`, `DAG_STORAGE_ROOT`).
 2. Create `HttpPromptApiClient` pointing to the backend URL.
-3. Build node definition assembly from bundled `dag-node-*` packages.
-4. Create `BundledNodeCatalogService` from manifests.
-5. Compose infrastructure ports (`FileStoragePort` for persistence, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort`).
-6. Create `DagDesignController` via `createDagControllerComposition`.
-7. Initialize `LocalFsAssetStore`.
-8. Register all route modules.
-9. Start HTTP server and register SIGTERM/SIGINT handlers.
+3. Compose infrastructure ports (`FileStoragePort` for persistence, `InMemoryQueuePort`, `InMemoryLeasePort`, `SystemClockPort`).
+4. Create `DagDesignController` via `createDagControllerComposition`.
+5. Initialize `LocalFsAssetStore`.
+6. Register all route modules.
+7. Start HTTP server and register SIGTERM/SIGINT handlers.
 
 **Design patterns:** Dependency injection via constructor/function parameters. Route modules receive pre-configured service instances. No service locator or global state.
 
@@ -81,7 +78,7 @@ All Robota endpoints use a standard response envelope:
 | `/v1/dag/definitions/:dagId/publish` | POST | Publish definition | `{ version }` | `200 { ok, data }` |
 | `/v1/dag/definitions/:dagId` | GET | Get definition | Query: `?version=<int>` | `200 { ok, data: { definition } }` |
 | `/v1/dag/definitions` | GET | List definitions | Query: `?dagId=<string>` | `200 { ok, data: { definitions } }` |
-| `/v1/dag/nodes` | GET | List node catalog | None | `200 { ok, data: { nodes } }` |
+| `/v1/dag/nodes` | GET | List node catalog (proxies to runtime `/object_info`) | None | `200 { ok, data: <TObjectInfo> }` |
 
 #### Run Routes
 
@@ -137,6 +134,7 @@ These endpoints forward requests to the ComfyUI-compatible backend and return th
 | `/object_info` | GET | `GET /object_info` | `502 { error }` |
 | `/object_info/:nodeType` | GET | `GET /object_info/:nodeType` | `502 { error }` |
 | `/system_stats` | GET | `GET /system_stats` | `502 { error }` |
+| `/view` | GET | `GET /view?filename=...` | `400 { error }` / `502 { error }` |
 
 ### WebSocket
 
@@ -156,7 +154,6 @@ These endpoints forward requests to the ComfyUI-compatible backend and return th
 
 | Interface | Implementation | Purpose |
 |---|---|---|
-| `INodeCatalogService` (dag-api) | `BundledNodeCatalogService` | Provides node manifests from bundled dag-node packages |
 | `IAssetStore` (dag-core) | `LocalFsAssetStore` | File-system-based asset storage with metadata JSON files |
 | `ICostEstimatorPort` (dag-orchestrator) | `CelCostEstimatorAdapter` | CEL-based cost estimation using cost meta formulas |
 | `ICostPolicyEvaluatorPort` (dag-orchestrator) | Stub (inline) | Cost policy evaluation (currently always passes) |
@@ -244,7 +241,6 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 
 | Class | Implements | Source Package | Purpose |
 |---|---|---|---|
-| `BundledNodeCatalogService` | `INodeCatalogService` (dag-api) | Local | Provides node manifests from bundled definitions |
 | `LocalFsAssetStore` | `IAssetStore` (dag-core) | Local | File-system asset storage with binary + JSON metadata |
 
 ### Route Registration Functions
@@ -255,6 +251,8 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | `registerRunRoutes` | `routes/run-routes.ts` | `OrchestratorRunService`, `IAssetStore` |
 | `registerAssetRoutes` | `routes/asset-routes.ts` | `IAssetStore` |
 | `registerAdminRoutes` | `routes/admin-routes.ts` | `DagDesignController` |
+| `registerRuntimeAssetRoutes` | `routes/runtime-asset-routes.ts` | `backendUrl` |
+| `registerCostMetaRoutes` | `routes/cost-meta-routes.ts` | `ICostMetaStoragePort`, `CelCostEvaluator` |
 | `registerWsRoutes` | `routes/ws-routes.ts` | `http.Server`, `OrchestratorRunService`, `backendBaseUrl` |
 
 ### Utility Functions (route-utils.ts)
@@ -279,6 +277,8 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | `BACKEND_URL` | `http://127.0.0.1:3011` | ComfyUI-compatible backend URL |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed CORS origins |
 | `ASSET_STORAGE_ROOT` | `.local-assets` (relative to cwd) | Directory for local asset file storage |
+| `COST_META_DIR` | `data` (relative to cwd) | Directory for cost meta JSON storage |
+| `DAG_STORAGE_ROOT` | `.dag-storage` (relative to cwd) | Directory for DAG definition file storage |
 
 ## Dependencies
 
@@ -289,7 +289,6 @@ ComfyUI proxy endpoints (`/prompt`, `/queue`, `/history`, etc.) use the backend'
 | `@robota-sdk/dag-orchestrator` | `PromptOrchestratorService`, `OrchestratorRunService`, `HttpPromptApiClient`, `CelCostEstimatorAdapter` |
 | `@robota-sdk/dag-cost` | Cost meta types, `CelCostEvaluator`, `ICostMetaStoragePort` |
 | `@robota-sdk/dag-adapters-local` | `FileStoragePort`, `FileCostMetaStorage`, in-memory ports |
-| `@robota-sdk/dag-node-*` (11 packages) | Bundled node definitions |
 | `express` | HTTP framework |
 | `ws` | WebSocket server and client |
 | `cors` | CORS middleware |

@@ -1,11 +1,11 @@
 import type { IPromptRequest, IPromptResponse } from '@robota-sdk/dag-core';
 
-export interface ICostEstimate {
+export interface IPromptCostEstimate {
     totalEstimatedCredits: number;
     perNode: Record<string, { nodeType: string; estimatedCredits: number }>;
 }
 
-export interface ICostPolicy {
+export interface IPromptCostPolicy {
     maxCreditsPerPrompt: number;
 }
 
@@ -20,7 +20,7 @@ export interface ITimeoutPolicy {
 }
 
 export interface IOrchestratorConfig {
-    costPolicy?: ICostPolicy;
+    costPolicy?: IPromptCostPolicy;
     retryPolicy?: IRetryPolicy;
     timeoutPolicy?: ITimeoutPolicy;
 }
@@ -32,5 +32,5 @@ export interface IOrchestratedPromptRequest {
 
 export interface IOrchestratedPromptResponse {
     promptResponse: IPromptResponse;
-    costEstimate?: ICostEstimate;
+    costEstimate?: IPromptCostEstimate;
 }

@@ -53,6 +53,7 @@ dag-orchestrator  (orchestration layer; depends on dag-core + dag-cost)
 - `dag-nodes/*` depend on both `dag-node` (infrastructure) and `dag-core` (types).
 - All other dag packages (`dag-runtime`, `dag-worker`, `dag-scheduler`, `dag-projection`, `dag-api`, `dag-designer`) depend on `dag-core` for contracts.
 - `dag-designer` must NOT import runtime, worker, or scheduler implementations directly.
+- `dag-designer` has devDependencies on `dag-node-*` packages for testing node catalog and port definitions. These are not production dependencies.
 - **Bidirectional dependencies are prohibited.** If package A depends on package B in production dependencies, B must NOT depend on A.
 - devDependencies for testing (e.g., using implementation fixtures in contract tests) are allowed and do not constitute a production dependency cycle.
 - Pass-through re-exports (`export * from '@robota-sdk/other-package'`) from lower-level to higher-level packages are prohibited. Consumers must import from the owning package directly.

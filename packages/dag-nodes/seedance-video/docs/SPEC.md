@@ -42,7 +42,7 @@
 
 - Extends `AbstractNodeDefinition` and overrides `estimateCostWithConfig` and `executeWithConfig`.
 - Constructor options: `apiKey`, `baseUrl`, `defaultModel`, `allowedModels`.
-- Config schema: `model`, `durationSeconds`, `aspectRatio`, `seed`, `pollIntervalMs` (3s), `pollTimeoutMs` (180s), `baseCostUsd` (0.08).
+- Config schema: `model`, `durationSeconds`, `aspectRatio`, `seed`, `pollIntervalMs` (3s), `pollTimeoutMs` (180s), `baseCredits` (0.08).
 - Environment variables: `BYTEDANCE_API_KEY` / `ARK_API_KEY`, `BYTEDANCE_BASE_URL`, `DAG_SEEDANCE_DEFAULT_MODEL`, `DAG_SEEDANCE_ALLOWED_MODELS`, `DAG_RUNTIME_BASE_URL`, `DAG_PORT`.
 
 ## Error Taxonomy
