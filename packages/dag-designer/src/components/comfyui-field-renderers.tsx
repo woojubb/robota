@@ -1,5 +1,5 @@
 // packages/dag-designer/src/components/comfyui-field-renderers.tsx
-import { useRef, useState, type ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import type { TInputTypeSpec } from '@robota-sdk/dag-core';
 import { toBase64 } from './asset-upload-utils.js';
 
@@ -282,12 +282,9 @@ export interface IComfyFileUploadFieldProps {
 export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactElement {
     const { field, value, onChange, assetUploadBaseUrl } = props;
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
-        const file = e.target.files?.[0];
-        if (!file || !assetUploadBaseUrl) return;
-
+    const uploadFile = async (file: File): Promise<void> => {
+        if (!assetUploadBaseUrl) return;
         const normalizedBaseUrl = assetUploadBaseUrl.endsWith('/')
             ? assetUploadBaseUrl.slice(0, -1)
             : assetUploadBaseUrl;
@@ -295,15 +292,10 @@ export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactEl
         setUploadStatus('uploading');
         try {
             const base64Data = await toBase64(file);
-
             const response = await fetch(`${normalizedBaseUrl}/v1/dag/assets`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    fileName: file.name,
-                    mediaType: file.type,
-                    base64Data,
-                }),
+                body: JSON.stringify({ fileName: file.name, mediaType: file.type, base64Data }),
             });
 
             if (response.ok) {
@@ -325,7 +317,17 @@ export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactEl
         }
     };
 
-    const accept = field.videoUpload === true ? 'video/*' : 'image/*';
+    const openFilePicker = (): void => {
+        const accept = field.videoUpload === true ? 'video/*' : 'image/*';
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = accept;
+        input.onchange = () => {
+            const file = input.files?.[0];
+            if (file) void uploadFile(file);
+        };
+        input.click();
+    };
 
     const valueRecord = typeof value === 'object' && value !== null && !Array.isArray(value)
         ? value as Record<string, unknown>
@@ -335,7 +337,6 @@ export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactEl
         <div className="flex flex-col gap-1">
             <FieldLabel field={field} />
             <div className="flex flex-col gap-2 rounded-md border border-dashed border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-3">
-                {/* Current value display */}
                 {valueRecord?.assetId ? (
                     <div className="text-[10px] text-[var(--studio-accent-emerald)]">
                         Asset: {String(valueRecord.assetId)}
@@ -346,7 +347,6 @@ export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactEl
                     <div className="text-[10px] text-[var(--studio-text-muted)]">No file selected</div>
                 )}
 
-                {/* Enum dropdown if there are existing files */}
                 {field.enumOptions && field.enumOptions.length > 0 ? (
                     <select
                         value={typeof value === 'string' ? value : ''}
@@ -360,18 +360,9 @@ export function ComfyFileUploadField(props: IComfyFileUploadFieldProps): ReactEl
                     </select>
                 ) : null}
 
-                {/* File upload button */}
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={accept}
-                    onChange={(e) => void handleFileChange(e)}
-                    className="sr-only"
-                    disabled={uploadStatus === 'uploading'}
-                />
                 <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={openFilePicker}
                     disabled={uploadStatus === 'uploading'}
                     className="cursor-pointer rounded-md bg-[var(--studio-accent-violet)] px-3 py-1.5 text-center text-[11px] text-white hover:brightness-110 transition-all disabled:opacity-50"
                 >
