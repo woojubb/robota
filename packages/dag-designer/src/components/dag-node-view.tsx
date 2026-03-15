@@ -13,8 +13,8 @@ export interface IDagNodeIoTrace {
 export interface IDagNodeViewData extends Record<string, unknown> {
     label: string;
     nodeType: string;
-    inputs: IPortDefinition[];
-    outputs: IPortDefinition[];
+    inputs?: IPortDefinition[];
+    outputs?: IPortDefinition[];
     executionStatus?: TNodeExecutionStatus;
     isSelected?: boolean;
     latestTrace?: IDagNodeIoTrace;
@@ -61,8 +61,8 @@ function sortPorts(ports: IPortDefinition[]): IPortDefinition[] {
 }
 
 export function DagNodeView(props: NodeProps<TDagCanvasNode>): ReactElement {
-    const inputs = useMemo(() => sortPorts(props.data.inputs), [props.data.inputs]);
-    const outputs = useMemo(() => sortPorts(props.data.outputs), [props.data.outputs]);
+    const inputs = useMemo(() => sortPorts(props.data.inputs ?? []), [props.data.inputs]);
+    const outputs = useMemo(() => sortPorts(props.data.outputs ?? []), [props.data.outputs]);
     const executionStatus = props.data.executionStatus ?? 'idle';
     const isSelected = props.data.isSelected ?? false;
     const categoryColor = getCategoryColor(props.data.nodeType);
