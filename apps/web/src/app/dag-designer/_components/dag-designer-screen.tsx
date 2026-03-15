@@ -41,7 +41,7 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
   const context = useDagDesignerContext();
   const [isRunStarting, setIsRunStarting] = useState<boolean>(false);
   const isActionBlocked = props.hasBindingBlockingError;
-  const isRunBlocked = isActionBlocked || context.hasPendingOperations;
+  const isRunBlocked = isActionBlocked || !context.isRunnable;
 
   const contextRef = useRef(context);
   contextRef.current = context;
@@ -98,7 +98,7 @@ function DagHeaderActionBar(props: IDagHeaderActionBarProps): ReactElement {
           className="rounded bg-[var(--studio-accent-emerald)] px-2.5 py-1.5 text-xs text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
           onClick={() => void run()}
           disabled={isRunBlocked || isRunStarting}
-          title={context.hasPendingOperations ? "업로드 진행 중..." : isActionBlocked ? props.disabledReason : undefined}
+          title={!context.isRunnable ? "업로드 진행 중..." : isActionBlocked ? props.disabledReason : undefined}
         >
           {isRunStarting ? "Running..." : "Run"}
         </button>

@@ -37,9 +37,25 @@ import {
 
 export type TNodeExecutionStatus = 'idle' | 'running' | 'success' | 'failed';
 
+export type TNodeOperationStatus = 'idle' | 'uploading' | 'running' | 'success' | 'failed';
+
+export interface INodeState {
+    operationStatus: TNodeOperationStatus;
+    pendingDescription?: string;
+    trace?: IDagNodeIoTrace;
+    isSelected: boolean;
+}
+
+/** @deprecated Use INodeState instead */
 export interface INodeUiState {
     executionStatus: TNodeExecutionStatus;
     isSelected: boolean;
+}
+
+const DEFAULT_NODE_STATE: INodeState = { operationStatus: 'idle', isSelected: false };
+
+function getNodeStateOrDefault(map: Record<string, INodeState>, nodeId: string): INodeState {
+    return map[nodeId] ?? DEFAULT_NODE_STATE;
 }
 
 export interface IRunProgressState {
@@ -86,12 +102,10 @@ interface IDagDesignerStateValue {
     connectError?: string;
     bindingCleanupMessage?: string;
     runResult?: IRunResult;
-    liveNodeTraceByNodeId: Record<string, IDagNodeIoTrace>;
-    nodeUiStateByNodeId: Record<string, INodeUiState>;
+    nodeStateMap: Record<string, INodeState>;
+    isRunnable: boolean;
     runProgress: IRunProgressState;
     bindingErrors: string[];
-    pendingOperations: Map<string, string>;
-    hasPendingOperations: boolean;
 }
 
 interface IDagDesignerActionsValue {
@@ -109,8 +123,8 @@ interface IDagDesignerActionsValue {
     updateEdge: (nextEdge: IDagEdgeDefinition) => void;
     removeNodeById: (nodeId: string) => void;
     removeEdgeById: (edgeId: string) => void;
-    addPendingOperation: (nodeId: string, description: string) => void;
-    removePendingOperation: (nodeId: string) => void;
+    setNodeUploading: (nodeId: string, description: string) => void;
+    setNodeUploadDone: (nodeId: string) => void;
 }
 
 export interface IDagDesignerContextValue extends IDagDesignerStateValue, IDagDesignerActionsValue {}
@@ -221,18 +235,14 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const [connectError, setConnectError] = useState<string | undefined>(undefined);
     const [bindingCleanupMessage, setBindingCleanupMessage] = useState<string | undefined>(undefined);
     const [runResult, setRunResult] = useState<IRunResult | undefined>(undefined);
-    const [liveNodeTraceByNodeId, setLiveNodeTraceByNodeId] = useState<Record<string, IDagNodeIoTrace>>({});
-    const [nodeUiStateByNodeId, setNodeUiStateByNodeId] = useState<Record<string, INodeUiState>>({});
+    const [nodeStateMap, setNodeStateMap] = useState<Record<string, INodeState>>({});
     const [runProgress, setRunProgress] = useState<IRunProgressState>(INITIAL_RUN_PROGRESS_STATE);
     useEffect(() => {
-        setNodeUiStateByNodeId((currentState) => {
-            const nextState: Record<string, INodeUiState> = {};
+        setNodeStateMap((currentState) => {
+            const nextState: Record<string, INodeState> = {};
             for (const node of props.definition.nodes) {
                 const existingState = currentState[node.nodeId];
-                nextState[node.nodeId] = {
-                    executionStatus: existingState?.executionStatus ?? 'idle',
-                    isSelected: existingState?.isSelected ?? false
-                };
+                nextState[node.nodeId] = existingState ?? DEFAULT_NODE_STATE;
             }
             return nextState;
         });
@@ -253,21 +263,24 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     }, [props.definition, props.objectInfo]);
     const bindingErrors = useMemo(() => computeBindingErrors(enrichedDefinition), [enrichedDefinition]);
 
-    const [pendingOperations, setPendingOperations] = useState<Map<string, string>>(new Map());
-
-    const addPendingOperation = useCallback((nodeId: string, description: string): void => {
-        setPendingOperations(prev => new Map(prev).set(nodeId, description));
+    const setNodeUploading = useCallback((nodeId: string, description: string): void => {
+        setNodeStateMap(prev => ({
+            ...prev,
+            [nodeId]: { ...getNodeStateOrDefault(prev, nodeId), operationStatus: 'uploading', pendingDescription: description }
+        }));
     }, []);
 
-    const removePendingOperation = useCallback((nodeId: string): void => {
-        setPendingOperations(prev => {
-            const next = new Map(prev);
-            next.delete(nodeId);
-            return next;
-        });
+    const setNodeUploadDone = useCallback((nodeId: string): void => {
+        setNodeStateMap(prev => ({
+            ...prev,
+            [nodeId]: { ...getNodeStateOrDefault(prev, nodeId), operationStatus: 'idle', pendingDescription: undefined }
+        }));
     }, []);
 
-    const hasPendingOperations = pendingOperations.size > 0;
+    const isRunnable = useMemo(
+        () => Object.values(nodeStateMap).every(s => s.operationStatus !== 'uploading'),
+        [nodeStateMap]
+    );
 
     const clearPendingStatusTimers = useCallback((): void => {
         for (const timerId of pendingStatusTimersRef.current.values()) {
@@ -288,16 +301,20 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         if (traces.length === 0) {
             return;
         }
-        setLiveNodeTraceByNodeId((currentTraceByNodeId) => {
-            const nextTraceByNodeId: Record<string, IDagNodeIoTrace> = { ...currentTraceByNodeId };
+        setNodeStateMap((currentState) => {
+            const nextState: Record<string, INodeState> = { ...currentState };
             for (const trace of traces) {
-                nextTraceByNodeId[trace.nodeId] = {
-                    nodeId: trace.nodeId,
-                    input: trace.input,
-                    output: trace.output
+                const existing = getNodeStateOrDefault(nextState, trace.nodeId);
+                nextState[trace.nodeId] = {
+                    ...existing,
+                    trace: {
+                        nodeId: trace.nodeId,
+                        input: trace.input,
+                        output: trace.output
+                    }
                 };
             }
-            return nextTraceByNodeId;
+            return nextState;
         });
     }, [runResult]);
 
@@ -309,11 +326,11 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
 
     const setSelectedNodeId = useCallback((nodeId: string | undefined): void => {
         setSelectedNodeIdState(nodeId);
-        setNodeUiStateByNodeId((currentState) => {
-            const nextState: Record<string, INodeUiState> = {};
-            for (const [currentNodeId, nodeState] of Object.entries(currentState)) {
+        setNodeStateMap((currentState) => {
+            const nextState: Record<string, INodeState> = {};
+            for (const [currentNodeId, state] of Object.entries(currentState)) {
                 nextState[currentNodeId] = {
-                    ...nodeState,
+                    ...state,
                     isSelected: typeof nodeId === 'string' && currentNodeId === nodeId
                 };
             }
@@ -328,13 +345,12 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
     const setActiveDagRunId = useCallback((dagRunId: string): void => {
         clearPendingStatusTimers();
         nodeRunningSinceRef.current.clear();
-        setLiveNodeTraceByNodeId({});
-        setNodeUiStateByNodeId((currentState) => {
-            const nextState: Record<string, INodeUiState> = {};
+        setNodeStateMap((currentState) => {
+            const nextState: Record<string, INodeState> = {};
             for (const node of definitionRef.current.nodes) {
                 const existingState = currentState[node.nodeId];
                 nextState[node.nodeId] = {
-                    executionStatus: 'idle',
+                    operationStatus: 'idle',
                     isSelected: existingState?.isSelected ?? false
                 };
             }
@@ -353,31 +369,26 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
             || event.eventType === TASK_PROGRESS_EVENTS.COMPLETED
             || event.eventType === TASK_PROGRESS_EVENTS.FAILED
         ) {
-            const executionStatus = event.eventType === TASK_PROGRESS_EVENTS.STARTED
+            const operationStatus: TNodeOperationStatus = event.eventType === TASK_PROGRESS_EVENTS.STARTED
                 ? 'running'
                 : event.eventType === TASK_PROGRESS_EVENTS.COMPLETED
                     ? 'success'
                     : 'failed';
-            setNodeUiStateByNodeId((currentState) => {
-                const existingState = currentState[event.nodeId];
-                return {
-                    ...currentState,
-                    [event.nodeId]: {
-                        executionStatus,
-                        isSelected: existingState?.isSelected ?? false
-                    }
-                };
-            });
-            setLiveNodeTraceByNodeId((currentTraceByNodeId) => {
-                const currentTrace = currentTraceByNodeId[event.nodeId];
+            setNodeStateMap((currentState) => {
+                const existing = getNodeStateOrDefault(currentState, event.nodeId);
+                const currentTrace = existing.trace;
                 const nextTrace: IDagNodeIoTrace = {
                     nodeId: event.nodeId,
                     input: event.input ?? currentTrace?.input,
                     output: event.output ?? currentTrace?.output
                 };
                 return {
-                    ...currentTraceByNodeId,
-                    [event.nodeId]: nextTrace
+                    ...currentState,
+                    [event.nodeId]: {
+                        ...existing,
+                        operationStatus,
+                        trace: nextTrace
+                    }
                 };
             });
         }
@@ -522,12 +533,10 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         connectError,
         bindingCleanupMessage,
         runResult,
-        liveNodeTraceByNodeId,
-        nodeUiStateByNodeId,
+        nodeStateMap,
+        isRunnable,
         runProgress,
         bindingErrors,
-        pendingOperations,
-        hasPendingOperations,
     }), [
         props.definition,
         props.manifests,
@@ -541,12 +550,10 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         connectError,
         bindingCleanupMessage,
         runResult,
-        liveNodeTraceByNodeId,
-        nodeUiStateByNodeId,
+        nodeStateMap,
+        isRunnable,
         runProgress,
         bindingErrors,
-        pendingOperations,
-        hasPendingOperations,
     ]);
 
     const actionsValue = useMemo<IDagDesignerActionsValue>(() => ({
@@ -564,8 +571,8 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         updateEdge,
         removeNodeById,
         removeEdgeById,
-        addPendingOperation,
-        removePendingOperation,
+        setNodeUploading,
+        setNodeUploadDone,
     }), [
         props.onDefinitionChange,
         resetRunProgress,
@@ -577,8 +584,8 @@ export function DagDesignerRoot(props: IDagDesignerRootProps): ReactElement {
         updateEdge,
         removeNodeById,
         removeEdgeById,
-        addPendingOperation,
-        removePendingOperation,
+        setNodeUploading,
+        setNodeUploadDone,
     ]);
 
     return (

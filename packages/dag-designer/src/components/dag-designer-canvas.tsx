@@ -46,6 +46,8 @@ import '@xyflow/react/dist/style.css';
 // Re-export public types and components so existing consumers are unaffected.
 export type {
     TNodeExecutionStatus,
+    TNodeOperationStatus,
+    INodeState,
     IRunProgressState,
     IRunProgressHooks,
     IDagDesignerRootProps,
@@ -99,11 +101,13 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
 
     const latestTraceByNodeId = useMemo(() => {
         const map = new Map<string, IDagNodeIoTrace>();
-        for (const trace of Object.values(context.liveNodeTraceByNodeId)) {
-            map.set(trace.nodeId, trace);
+        for (const [nodeId, state] of Object.entries(context.nodeStateMap)) {
+            if (state.trace) {
+                map.set(nodeId, state.trace);
+            }
         }
         return map;
-    }, [context.liveNodeTraceByNodeId]);
+    }, [context.nodeStateMap]);
 
     const initialNodes = useMemo(
         () => context.definition.nodes.map((node, index) => {
@@ -111,7 +115,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             return toNode(
                 enriched,
                 index,
-                context.nodeUiStateByNodeId[node.nodeId],
+                context.nodeStateMap[node.nodeId],
                 latestTraceByNodeId.get(node.nodeId),
                 context.assetUploadBaseUrl,
                 undefined,
@@ -119,7 +123,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 context.objectInfo
             );
         }),
-        [context.assetUploadBaseUrl, context.definition.nodes, context.nodeUiStateByNodeId, latestTraceByNodeId, context.objectInfo]
+        [context.assetUploadBaseUrl, context.definition.nodes, context.nodeStateMap, latestTraceByNodeId, context.objectInfo]
     );
     const initialEdges = useMemo(
         () => context.definition.edges.map((edge) => toEdge(edge, selectEdgeById)),
@@ -143,7 +147,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
                 return toNode(
                     enriched,
                     index,
-                    context.nodeUiStateByNodeId[node.nodeId],
+                    context.nodeStateMap[node.nodeId],
                     latestTraceByNodeId.get(node.nodeId),
                     context.assetUploadBaseUrl,
                     positionByNodeId.get(node.nodeId),
@@ -156,7 +160,7 @@ export function DagDesignerCanvas(props: IDagDesignerCanvasProps): ReactElement 
             }
             return mappedNodes;
         });
-    }, [context.assetUploadBaseUrl, context.definition.nodes, context.nodeUiStateByNodeId, latestTraceByNodeId, setNodes, context.objectInfo]);
+    }, [context.assetUploadBaseUrl, context.definition.nodes, context.nodeStateMap, latestTraceByNodeId, setNodes, context.objectInfo]);
 
     useEffect(() => {
         const mappedEdges = context.definition.edges.map((edge) => toEdge(edge, selectEdgeById));
