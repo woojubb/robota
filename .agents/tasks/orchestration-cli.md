@@ -18,6 +18,12 @@ created: 2026-03-15
 - `robota nodes list` — 노드 카탈로그 조회
 - `robota cost estimate <dagId>` — 비용 추정
 
+## AI 에이전트 사용
+
+- CLI는 사람뿐 아니라 AI 에이전트가 도구로 이용할 수 있음
+- 에이전트가 shell에서 `robota dag run` 등을 실행하여 DAG를 제어하는 시나리오
+- MCP 서버와 상호보완: MCP는 네이티브 도구 연동, CLI는 shell 기반 범용 연동
+
 ## 패키지 구조
 
 - `@robota-sdk/cli` 또는 apps/cli
