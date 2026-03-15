@@ -11,6 +11,7 @@ import {
     type INodeManifestRegistry,
 } from '@robota-sdk/dag-core';
 import {
+    FileStoragePort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     SystemClockPort,
@@ -38,7 +39,7 @@ import {
 } from '@robota-sdk/dag-node-gemini-image-edit';
 import { SeedanceVideoNodeDefinition } from '@robota-sdk/dag-node-seedance-video';
 import { LocalFsAssetStore } from './services/local-fs-asset-store.js';
-import { FileStoragePort } from './services/file-storage-port.js';
+// FileStoragePort now imported from @robota-sdk/dag-adapters-local
 import { AssetAwareTaskExecutorPort } from './services/asset-aware-task-executor.js';
 import { DagPromptBackend } from './adapters/dag-prompt-backend.js';
 import { mountPromptRoutes } from './routes/prompt-routes.js';

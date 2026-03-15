@@ -5,7 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import http from 'node:http';
 import {
-    InMemoryStoragePort,
+    FileStoragePort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     SystemClockPort,
@@ -91,7 +91,10 @@ async function bootstrapOrchestratorServer(): Promise<void> {
     );
     const runService = new OrchestratorRunService(apiClient);
 
-    const storage = new InMemoryStoragePort();
+    const dagStorageRoot = process.env.DAG_STORAGE_ROOT
+        ? path.resolve(process.env.DAG_STORAGE_ROOT)
+        : path.resolve(process.cwd(), '.dag-storage');
+    const storage = new FileStoragePort(dagStorageRoot);
     const queue = new InMemoryQueuePort();
     const deadLetterQueue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
