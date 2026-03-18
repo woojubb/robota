@@ -6,6 +6,7 @@ import type {
   IChatOptions,
   IToolSchema,
   IAssistantMessage,
+  IToolMessage,
 } from '@robota-sdk/agent-core';
 
 const DEFAULT_MAX_TOKENS = 4096;
@@ -217,6 +218,19 @@ export class AnthropicProvider extends AbstractAIProvider {
         return {
           role: 'assistant',
           content: assistantMsg.content || '',
+        };
+      } else if (msg.role === 'tool') {
+        // Tool result message — convert to Anthropic tool_result content block
+        const toolMsg = msg as IToolMessage;
+        return {
+          role: 'user' as const,
+          content: [
+            {
+              type: 'tool_result' as const,
+              tool_use_id: toolMsg.toolCallId ?? '',
+              content: msg.content || '',
+            },
+          ],
         };
       } else {
         // System messages
