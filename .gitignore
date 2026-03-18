@@ -38,6 +38,16 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 
+# === Secrets (sec-no-secrets: critical) ===
+*.key
+*.pem
+*.p12
+*.pfx
+credentials.*
+secrets.*
+**/service-account*.json
+.gcp-credentials.json
+
 # caches
 .eslintcache
 .cache

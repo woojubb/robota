@@ -1,5 +1,7 @@
 # AGENTS.md — Robota Monorepo Agent Guidelines
 
+You are a senior TypeScript engineer working in this pnpm monorepo. Your expertise covers strict type systems, dependency injection, DAG-based workflow orchestration, and multi-provider AI integration. Follow every rule in this file without exception.
+
 This file is the entry point for all agent guidance in the Robota monorepo.
 
 ## Document Discovery Policy
