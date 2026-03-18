@@ -4,10 +4,10 @@ import type {
   IToolExecutionContext,
   IOpenAPIToolConfig,
   TToolParameters,
+  IParameterValidationResult,
 } from '@robota-sdk/agents';
 import type { IToolSchema, IParameterSchema } from '@robota-sdk/agents';
 import type { OpenAPIV3 } from 'openapi-types';
-import { AbstractTool, type IAbstractToolOptions } from '@robota-sdk/agents';
 import { ToolExecutionError, ValidationError } from '@robota-sdk/agents';
 
 /**
@@ -18,17 +18,17 @@ type THTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'optio
  * OpenAPI tool implementation
  * Executes API calls based on OpenAPI 3.0 specifications
  *
- * @extends AbstractTool<ToolParameters, ToolResult>
+ * Implements ITool without extending AbstractTool to avoid
+ * circular runtime dependency (tools → agents → tools).
  */
-export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> implements ITool {
+export class OpenAPITool implements ITool {
   readonly schema: IToolSchema;
   private readonly apiSpec: OpenAPIV3.Document;
   private readonly operationId: string;
   private readonly baseURL: string;
   private readonly config: IOpenAPIToolConfig;
 
-  constructor(config: IOpenAPIToolConfig, options: IAbstractToolOptions = {}) {
-    super(options);
+  constructor(config: IOpenAPIToolConfig) {
     this.config = config;
     // Runtime validation of required OpenAPI 3.x fields before cast
     if (
@@ -48,41 +48,27 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
   }
 
   /**
-   * Execute the OpenAPI tool implementation
-   * This method is called by the parent's Template Method Pattern
+   * Execute the OpenAPI tool
    */
-  protected async executeImpl(
+  async execute(
     parameters: TToolParameters,
     context?: IToolExecutionContext,
   ): Promise<IToolResult> {
     const toolName = this.schema.name;
 
+    // Validate parameters
+    const validation = this.validateParameters(parameters);
+    if (!validation.isValid) {
+      throw new ValidationError(
+        `Invalid parameters for OpenAPI tool "${toolName}": ${validation.errors.join(', ')}`,
+      );
+    }
+
     try {
-      // Validate parameters
-      const validation = this.validateParameters(parameters);
-      if (!validation.isValid) {
-        throw new ValidationError(
-          `Invalid parameters for OpenAPI tool "${toolName}": ${validation.errors.join(', ')}`,
-        );
-      }
-
-      this.logger.debug(`Executing OpenAPI tool "${toolName}"`, {
-        toolName,
-        operationId: this.operationId,
-        baseURL: this.baseURL,
-        parametersCount: Object.keys(parameters).length,
-      });
-
       // Execute the API call
       const startTime = Date.now();
       const result = await this.executeAPICall(parameters, context);
       const executionTime = Date.now() - startTime;
-
-      this.logger.debug(`OpenAPI tool "${toolName}" executed successfully`, {
-        toolName,
-        executionTime,
-        resultType: typeof result,
-      });
 
       return {
         success: true,
@@ -95,18 +81,11 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
         },
       };
     } catch (error) {
-      const safeError = error instanceof Error ? error : new Error(String(error));
-      this.logger.error(`OpenAPI tool "${toolName}" execution failed`, {
-        toolName,
-        operationId: this.operationId,
-        error: safeError,
-        parameters,
-      });
-
       if (error instanceof ToolExecutionError || error instanceof ValidationError) {
         throw error;
       }
 
+      const safeError = error instanceof Error ? error : new Error(String(error));
       throw new ToolExecutionError(
         `OpenAPI tool execution failed: ${safeError.message}`,
         toolName,
@@ -118,6 +97,39 @@ export class OpenAPITool extends AbstractTool<TToolParameters, IToolResult> impl
         },
       );
     }
+  }
+
+  /**
+   * Validate tool parameters
+   */
+  validate(parameters: TToolParameters): boolean {
+    return this.validateParameters(parameters).isValid;
+  }
+
+  /**
+   * Validate tool parameters with detailed result
+   */
+  validateParameters(parameters: TToolParameters): IParameterValidationResult {
+    const required = this.schema.parameters.required || [];
+    const errors: string[] = [];
+
+    for (const field of required) {
+      if (!(field in parameters)) {
+        errors.push(`Missing required parameter: ${field}`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }
+
+  /**
+   * Get tool description
+   */
+  getDescription(): string {
+    return this.schema.description;
   }
 
   /**

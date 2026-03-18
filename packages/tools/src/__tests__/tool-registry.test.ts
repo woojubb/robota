@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import type {
   ITool,
   IToolResult,
@@ -6,24 +6,8 @@ import type {
   TToolParameters,
 } from '@robota-sdk/agents';
 import type { IToolSchema } from '@robota-sdk/agents';
-import { ValidationError } from '@robota-sdk/agents';
-
-// Mock the logger before importing ToolRegistry
-vi.mock('@robota-sdk/agents', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@robota-sdk/agents')>();
-  return {
-    ...actual,
-    logger: {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    },
-  };
-});
-
+import { ValidationError, logger } from '@robota-sdk/agents';
 import { ToolRegistry } from '../registry/tool-registry';
-import { logger } from '@robota-sdk/agents';
 
 /**
  * Create a mock ITool with the given schema
@@ -64,10 +48,16 @@ function buildSchema(overrides: Partial<IToolSchema> = {}): IToolSchema {
 
 describe('ToolRegistry', () => {
   let registry: ToolRegistry;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let warnSpy: MockInstance<any[], any>;
 
   beforeEach(() => {
     registry = new ToolRegistry();
-    vi.clearAllMocks();
+    warnSpy = vi.spyOn(logger, 'warn');
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
   });
 
   // ----------------------------------------------------------------
@@ -96,7 +86,7 @@ describe('ToolRegistry', () => {
       registry.register(tool1);
       registry.register(tool2);
 
-      expect(logger.warn).toHaveBeenCalledWith(
+      expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('already registered'),
         expect.objectContaining({ toolName: 'testTool' }),
       );
@@ -209,7 +199,7 @@ describe('ToolRegistry', () => {
 
     it('should warn but not throw when unregistering non-existent tool', () => {
       expect(() => registry.unregister('nonExistent')).not.toThrow();
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('non-existent'));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('non-existent'));
     });
   });
 

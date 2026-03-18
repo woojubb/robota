@@ -7,7 +7,6 @@ import type {
   TToolParameters,
 } from '@robota-sdk/agents';
 import type { IToolSchema, IParameterSchema } from '@robota-sdk/agents';
-import { AbstractTool, type IAbstractToolOptions } from '@robota-sdk/agents';
 import { ToolExecutionError, ValidationError } from '@robota-sdk/agents';
 import type { TUniversalValue } from '@robota-sdk/agents';
 
@@ -15,80 +14,44 @@ import type { TUniversalValue } from '@robota-sdk/agents';
 import type { IZodSchema } from './function-tool/types';
 import { zodToJsonSchema } from './function-tool/schema-converter';
 
-// Zod type definitions moved to Facade pattern modules
-
 /**
  * Function tool implementation
  * Wraps a JavaScript function as a tool with schema validation
  *
- * @extends AbstractTool<TToolParameters, ToolResult>
+ * Implements IFunctionTool without extending AbstractTool to avoid
+ * circular runtime dependency (tools → agents → tools).
  */
-export class FunctionTool
-  extends AbstractTool<TToolParameters, IToolResult>
-  implements IFunctionTool
-{
+export class FunctionTool implements IFunctionTool {
   readonly schema: IToolSchema;
   readonly fn: TToolExecutor;
 
-  constructor(schema: IToolSchema, fn: TToolExecutor, options: IAbstractToolOptions = {}) {
-    super(options);
+  constructor(schema: IToolSchema, fn: TToolExecutor) {
     this.schema = schema;
     this.fn = fn;
     this.validateConstructorInputs();
   }
 
   /**
-   * Execute the function tool implementation
-   * This method is called by the parent's Template Method Pattern
+   * Execute the function tool
    */
-  protected async executeImpl(
+  async execute(
     parameters: TToolParameters,
     context?: IToolExecutionContext,
   ): Promise<IToolResult> {
     const toolName = this.schema.name;
 
+    // Validate parameters before execution
+    if (!this.validate(parameters)) {
+      const errors = this.getValidationErrors(parameters);
+      throw new ValidationError(`Invalid parameters for tool "${toolName}": ${errors.join(', ')}`);
+    }
+
+    // Execute the function
+    const startTime = Date.now();
+    let result: TUniversalValue;
     try {
-      // Validate parameters
-      if (!this.validate(parameters)) {
-        const errors = this.getValidationErrors(parameters);
-        throw new ValidationError(
-          `Invalid parameters for tool "${toolName}": ${errors.join(', ')}`,
-        );
-      }
-
-      this.logger.debug(`Executing function tool "${toolName}"`, {
-        toolName,
-        parameterCount: Object.keys(parameters || {}).length,
-        hasContext: !!context,
-      });
-
-      // Execute the function
-      const startTime = Date.now();
-      const result = await this.fn(parameters, context);
-      const executionTime = Date.now() - startTime;
-
-      this.logger.debug(`Function tool "${toolName}" executed successfully`, {
-        toolName,
-        executionTime,
-        resultType: typeof result,
-      });
-
-      return {
-        success: true,
-        data: result,
-        metadata: {
-          executionTime,
-          toolName,
-          parameters,
-        },
-      };
+      result = await this.fn(parameters, context);
     } catch (error) {
-      this.logger.error(`Function tool "${toolName}" execution failed`, {
-        toolName,
-        error: error instanceof Error ? error.message : String(error),
-        parameters,
-      });
-
       if (error instanceof ToolExecutionError || error instanceof ValidationError) {
         throw error;
       }
@@ -103,24 +66,43 @@ export class FunctionTool
         },
       );
     }
+
+    const executionTime = Date.now() - startTime;
+
+    return {
+      success: true,
+      data: result,
+      metadata: {
+        executionTime,
+        toolName,
+        parameters,
+      },
+    };
   }
 
   /**
-   * Enhanced validation with detailed error reporting
+   * Validate parameters (simple boolean result)
    */
-  override validate(parameters: TToolParameters): boolean {
+  validate(parameters: TToolParameters): boolean {
     return this.getValidationErrors(parameters).length === 0;
   }
 
   /**
    * Validate tool parameters with detailed result
    */
-  override validateParameters(parameters: TToolParameters): IParameterValidationResult {
+  validateParameters(parameters: TToolParameters): IParameterValidationResult {
     const errors = this.getValidationErrors(parameters);
     return {
       isValid: errors.length === 0,
       errors,
     };
+  }
+
+  /**
+   * Get tool description
+   */
+  getDescription(): string {
+    return this.schema.description;
   }
 
   /**
@@ -271,7 +253,6 @@ export function createZodFunctionTool(
   description: string,
   zodSchema: IZodSchema,
   fn: TToolExecutor,
-  options?: IAbstractToolOptions,
 ): FunctionTool {
   // Use comprehensive Zod to JSON schema conversion
   const parameters = zodToJsonSchema(zodSchema);
@@ -298,7 +279,7 @@ export function createZodFunctionTool(
     return typeof result === 'string' ? result : JSON.stringify(result);
   };
 
-  return new FunctionTool(schema, wrappedFn, options);
+  return new FunctionTool(schema, wrappedFn);
 }
 
 // zodToJsonSchema function moved to Facade pattern schema-converter module

@@ -1,6 +1,10 @@
-import type { TToolParameters, IToolResult, IToolExecutionContext } from '@robota-sdk/agents';
+import type {
+  TToolParameters,
+  IToolResult,
+  IToolExecutionContext,
+  IParameterValidationResult,
+} from '@robota-sdk/agents';
 import type { IToolSchema } from '@robota-sdk/agents';
-import { AbstractTool, type IAbstractToolOptions } from '@robota-sdk/agents';
 import type { IEventService, IOwnerPathSegment } from '@robota-sdk/agents';
 import { ToolExecutionError } from '@robota-sdk/agents';
 
@@ -18,7 +22,7 @@ export interface IRelayMcpContext {
   agentId: string;
 }
 
-export interface IRelayMcpOptions extends IAbstractToolOptions {
+export interface IRelayMcpOptions {
   /** MCP schema describing this relay tool */
   schema: IToolSchema;
   /**
@@ -35,18 +39,19 @@ export interface IRelayMcpOptions extends IAbstractToolOptions {
  * - Caller provides tool-bound EventService and ownerPath (up to tool segment).
  * - This tool appends a single agent segment and forwards control to the provided run() callback.
  * - No prefix injection, no ownerPath inference, no fallback/clone/context creation inside.
+ *
+ * Implements ITool without extending AbstractTool to avoid circular runtime dependency.
  */
-export class RelayMcpTool extends AbstractTool<TToolParameters, IToolResult> {
+export class RelayMcpTool {
   readonly schema: IToolSchema;
   private readonly runImpl: IRelayMcpOptions['run'];
 
   constructor(options: IRelayMcpOptions) {
-    super(options);
     this.schema = options.schema;
     this.runImpl = options.run;
   }
 
-  protected override async executeImpl(
+  async execute(
     parameters: TToolParameters,
     context?: IToolExecutionContext,
   ): Promise<IToolResult> {
@@ -87,5 +92,29 @@ export class RelayMcpTool extends AbstractTool<TToolParameters, IToolResult> {
     };
 
     return this.runImpl(parameters, ctx);
+  }
+
+  validate(parameters: TToolParameters): boolean {
+    return this.validateParameters(parameters).isValid;
+  }
+
+  validateParameters(parameters: TToolParameters): IParameterValidationResult {
+    const required = this.schema.parameters.required || [];
+    const errors: string[] = [];
+
+    for (const field of required) {
+      if (!(field in parameters)) {
+        errors.push(`Missing required parameter: ${field}`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }
+
+  getDescription(): string {
+    return this.schema.description;
   }
 }
