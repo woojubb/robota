@@ -3,10 +3,10 @@ import type {
   IToolResult,
   IToolExecutionContext,
   TToolParameters,
+  IParameterValidationResult,
 } from '@robota-sdk/agents';
 import type { IToolSchema } from '@robota-sdk/agents';
 import type { IUniversalObjectValue } from '@robota-sdk/agents';
-import { AbstractTool, type IAbstractToolOptions } from '@robota-sdk/agents';
 import { ToolExecutionError, ValidationError } from '@robota-sdk/agents';
 
 const CONNECTION_CHECK_INTERVAL_MS = 100;
@@ -77,15 +77,15 @@ type TMCPConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'disco
  * MCP (Model Context Protocol) tool implementation
  * Executes tools via the Model Context Protocol
  *
- * @extends AbstractTool<TToolParameters, IToolResult>
+ * Implements ITool without extending AbstractTool to avoid
+ * circular runtime dependency (tool-mcp → agents → tools → agents).
  */
-export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implements ITool {
+export class MCPTool implements ITool {
   readonly schema: IToolSchema;
   private readonly mcpConfig: IMCPConfig;
   private connectionStatus: TMCPConnectionStatus = 'disconnected';
 
-  constructor(config: IMCPConfig, schema: IToolSchema, options: IAbstractToolOptions = {}) {
-    super(options);
+  constructor(config: IMCPConfig, schema: IToolSchema) {
     this.mcpConfig = {
       timeout: 30000,
       retries: 3,
@@ -95,10 +95,9 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
   }
 
   /**
-   * Execute the MCP tool implementation
-   * This method is called by the parent's Template Method Pattern
+   * Execute the MCP tool
    */
-  protected async executeImpl(
+  async execute(
     parameters: TToolParameters,
     _context?: IToolExecutionContext,
   ): Promise<IToolResult> {
@@ -106,13 +105,6 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
     const startTime = Date.now();
 
     try {
-      this.logger.debug(`Executing MCP tool "${toolName}"`, {
-        toolName,
-        parametersCount: Object.keys(parameters || {}).length,
-        endpoint: this.mcpConfig.endpoint,
-        connectionStatus: this.connectionStatus,
-      });
-
       // Check connection status
       if (this.connectionStatus !== 'connected') {
         await this.ensureConnection();
@@ -128,12 +120,6 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
       const executionResult = this.processMCPResponse(mcpResponse);
       const executionTime = Date.now() - startTime;
 
-      this.logger.debug(`MCP tool "${toolName}" executed successfully`, {
-        toolName,
-        executionTime,
-        connectionStatus: this.connectionStatus,
-      });
-
       return {
         success: true,
         data: executionResult,
@@ -146,20 +132,12 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      const safeError = error instanceof Error ? error : new Error(String(error));
-
-      this.logger.error(`MCP tool "${toolName}" execution failed`, {
-        toolName,
-        executionTime,
-        connectionStatus: this.connectionStatus,
-        error: safeError,
-        parameters,
-      });
 
       if (error instanceof ToolExecutionError || error instanceof ValidationError) {
         throw error;
       }
 
+      const safeError = error instanceof Error ? error : new Error(String(error));
       throw new ToolExecutionError(
         `MCP tool execution failed: ${safeError.message}`,
         toolName,
@@ -172,6 +150,39 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
         },
       );
     }
+  }
+
+  /**
+   * Validate tool parameters
+   */
+  validate(parameters: TToolParameters): boolean {
+    return this.validateParameters(parameters).isValid;
+  }
+
+  /**
+   * Validate tool parameters with detailed result
+   */
+  validateParameters(parameters: TToolParameters): IParameterValidationResult {
+    const required = this.schema.parameters.required || [];
+    const errors: string[] = [];
+
+    for (const field of required) {
+      if (!(field in parameters)) {
+        errors.push(`Missing required parameter: ${field}`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }
+
+  /**
+   * Get tool description
+   */
+  getDescription(): string {
+    return this.schema.description;
   }
 
   /**
@@ -206,13 +217,11 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
     try {
       // TODO: Implement actual MCP connection logic
       // This would typically involve WebSocket or HTTP connection
-      this.logger.debug('Establishing MCP connection', { endpoint: this.mcpConfig.endpoint });
 
       // Simulate connection delay
       await new Promise((resolve) => setTimeout(resolve, CONNECTION_CHECK_INTERVAL_MS));
 
       this.connectionStatus = 'connected';
-      this.logger.debug('MCP connection established', { endpoint: this.mcpConfig.endpoint });
     } catch (error) {
       this.connectionStatus = 'error';
       throw new Error(
@@ -252,11 +261,6 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
     try {
       // TODO: Implement actual MCP protocol communication
       // This would typically use WebSocket or HTTP POST to the MCP server
-      this.logger.debug('Sending MCP request', {
-        endpoint: this.mcpConfig.endpoint,
-        method: request.method,
-        id: request.id,
-      });
 
       throw new Error('Not implemented: actual MCP execution is not yet available');
     } catch (error) {
@@ -320,16 +324,12 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
 
       try {
         // TODO: Implement actual disconnection logic
-        this.logger.debug('Disconnecting from MCP server', { endpoint: this.mcpConfig.endpoint });
-
         this.connectionStatus = 'disconnected';
-        this.logger.debug('Disconnected from MCP server', { endpoint: this.mcpConfig.endpoint });
       } catch (error) {
         this.connectionStatus = 'error';
-        this.logger.error('Error disconnecting from MCP server', {
-          endpoint: this.mcpConfig.endpoint,
-          error: error instanceof Error ? error.message : String(error),
-        });
+        throw new Error(
+          `Error disconnecting from MCP server: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
   }
@@ -338,10 +338,6 @@ export class MCPTool extends AbstractTool<TToolParameters, IToolResult> implemen
 /**
  * Factory function to create MCP tools
  */
-export function createMCPTool(
-  config: IMCPConfig,
-  schema: IToolSchema,
-  options: IAbstractToolOptions = {},
-): MCPTool {
-  return new MCPTool(config, schema, options);
+export function createMCPTool(config: IMCPConfig, schema: IToolSchema): MCPTool {
+  return new MCPTool(config, schema);
 }

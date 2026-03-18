@@ -2,33 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { IToolSchema } from '@robota-sdk/agents';
 import type { TToolParameters, IToolExecutionContext, TToolExecutor } from '@robota-sdk/agents';
 import { ValidationError, ToolExecutionError } from '@robota-sdk/agents';
-
-// Mock the logger used by AbstractTool (via SilentLogger default, but also the module logger)
-vi.mock('@robota-sdk/agents', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@robota-sdk/agents')>();
-  return {
-    ...actual,
-    logger: {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    },
-    SilentLogger: {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    },
-    createLogger: vi.fn(() => ({
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    })),
-  };
-});
-
 import { FunctionTool, createFunctionTool } from '../implementations/function-tool';
 
 /**
