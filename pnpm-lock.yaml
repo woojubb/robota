@@ -510,6 +510,12 @@ importers:
       '@robota-sdk/event-service':
         specifier: workspace:*
         version: link:../event-service
+      '@robota-sdk/tool-mcp':
+        specifier: workspace:*
+        version: link:../tool-mcp
+      '@robota-sdk/tools':
+        specifier: workspace:*
+        version: link:../tools
       '@types/swagger-schema-official':
         specifier: ^2.0.25
         version: 2.0.25
