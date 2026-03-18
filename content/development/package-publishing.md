@@ -12,12 +12,12 @@ This guide explains how to build and publish Robota SDK packages to npm.
 
 Robota SDK uses a monorepo structure with multiple packages:
 
-- `@robota-sdk/agents`: Comprehensive AI agent framework
-- `@robota-sdk/openai`: OpenAI provider
-- `@robota-sdk/anthropic`: Anthropic provider
-- `@robota-sdk/google`: Google AI provider  
-- `@robota-sdk/agents`: Comprehensive AI agent framework with tools and plugins
-- `@robota-sdk/sessions`: Session and chat management
+- `@robota-sdk/agent-core`: Comprehensive AI agent framework
+- `@robota-sdk/agent-provider-openai`: OpenAI provider
+- `@robota-sdk/agent-provider-anthropic`: Anthropic provider
+- `@robota-sdk/agent-provider-google`: Google AI provider
+- `@robota-sdk/agent-core`: Comprehensive AI agent framework with tools and plugins
+- `@robota-sdk/agent-sessions`: Session and chat management
 
 All packages are published under the `@robota-sdk` scope on npm.
 
@@ -44,6 +44,7 @@ pnpm publish -r --no-git-checks
 ```
 
 **Why?** The `publish:packages` script includes essential pre-processing steps:
+
 - README copying from docs to packages
 - TypeDoc documentation generation
 - Proper changeset version handling
@@ -70,6 +71,7 @@ pnpm changeset
 ```
 
 Follow the interactive prompts to:
+
 1. Select packages to include
 2. Choose version bump types (patch, minor, or major)
 3. Write a summary of changes (keep it concise and descriptive)
@@ -125,6 +127,7 @@ During publishing:
 3. **Cleanup Phase**: Temporary README files are removed from `packages/`
 
 This ensures:
+
 - ✅ Consistent documentation between docs site and npm packages
 - ✅ No manual README management in package directories
 - ✅ Single source of truth for package documentation
@@ -136,8 +139,8 @@ The project uses `workspace:*` dependencies which are automatically resolved:
 ```json
 {
   "peerDependencies": {
-    "@robota-sdk/agents": "workspace:*",
-    "@robota-sdk/agents": "workspace:*"
+    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:*"
   }
 }
 ```
@@ -149,26 +152,28 @@ The project uses `workspace:*` dependencies which are automatically resolved:
 ### Main Publishing Script (`pnpm run publish:packages`)
 
 ```bash
-pnpm run typedoc:convert && 
-pnpm readme:copy && 
-pnpm changeset version && 
-pnpm install && 
-pnpm publish -r && 
-pnpm git:push-tags && 
+pnpm run typedoc:convert &&
+pnpm readme:copy &&
+pnpm changeset version &&
+pnpm install &&
+pnpm publish -r &&
+pnpm git:push-tags &&
 pnpm readme:cleanup
 ```
 
 ### README Management Scripts
 
 **Copy READMEs:**
+
 ```bash
 pnpm readme:copy
 # Runs: node scripts/copy-readme.cjs copy
 ```
 
 **Cleanup READMEs:**
+
 ```bash
-pnpm readme:cleanup  
+pnpm readme:cleanup
 # Runs: node scripts/copy-readme.cjs cleanup
 ```
 
@@ -207,8 +212,9 @@ If you see errors about workspace dependencies:
 - **major**: Breaking changes, API removals
 
 Example changeset summary formats:
+
 - `Fix workspace dependencies & update README docs for all packages`
-- `Add new session management features to @robota-sdk/sessions`
+- `Add new session management features to @robota-sdk/agent-sessions`
 - `Breaking: Update AIProvider interface with new streaming API`
 
 ## Best Practices
@@ -221,4 +227,4 @@ Example changeset summary formats:
 
 ## Conclusion
 
-Following this standardized process ensures consistent package publishing and versioning across the Robota SDK ecosystem. Always use `pnpm run publish:packages` for all package publishing to ensure proper preprocessing and cleanup. 
+Following this standardized process ensures consistent package publishing and versioning across the Robota SDK ecosystem. Always use `pnpm run publish:packages` for all package publishing to ensure proper preprocessing and cleanup.

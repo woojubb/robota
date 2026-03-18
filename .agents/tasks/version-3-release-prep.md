@@ -22,18 +22,21 @@ the codebase will be ready for a 3.0 major version bump.
 ## Version Bump Plan
 
 ### Packages bumping to 3.0.0
-- @robota-sdk/agents
-- @robota-sdk/openai
-- @robota-sdk/anthropic
-- @robota-sdk/google
-- @robota-sdk/sessions
-- @robota-sdk/team
+
+- @robota-sdk/agent-core
+- @robota-sdk/agent-provider-openai
+- @robota-sdk/agent-provider-anthropic
+- @robota-sdk/agent-provider-google
+- @robota-sdk/agent-sessions
+- @robota-sdk/agent-team
 
 ### Packages bumping to 1.0.0 (first stable)
-- @robota-sdk/remote (currently 1.0.0 — evaluate if 1.0.0 or 2.0.0)
-- @robota-sdk/playground (currently 0.1.0)
+
+- @robota-sdk/agent-remote (currently 1.0.0 — evaluate if 1.0.0 or 2.0.0)
+- @robota-sdk/agent-playground (currently 0.1.0)
 
 ### Packages remaining at 0.x (pre-stable)
+
 - @robota-sdk/dag-core
 - @robota-sdk/dag-runtime
 - @robota-sdk/dag-worker
@@ -41,7 +44,7 @@ the codebase will be ready for a 3.0 major version bump.
 - @robota-sdk/dag-projection
 - @robota-sdk/dag-api
 - @robota-sdk/dag-designer
-- @robota-sdk/dag-nodes/*
+- @robota-sdk/dag-nodes/\*
 
 ## Release Checklist
 

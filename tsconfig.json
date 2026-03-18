@@ -3,10 +3,7 @@
     // TypeScript 기본 설정
     "target": "ES2022",
     "module": "ESNext",
-    "lib": [
-      "ESNext",
-      "DOM"
-    ],
+    "lib": ["ESNext", "DOM"],
     "moduleResolution": "Node",
     // 엄격한 타입 검사
     "strict": true,
@@ -22,26 +19,22 @@
     "useDefineForClassFields": true,
     "noEmit": true
   },
-  "exclude": [
-    "**/node_modules",
-    "**/dist",
-    "**/build"
-  ],
+  "exclude": ["**/node_modules", "**/dist", "**/build"],
   "references": [
     {
-      "path": "./packages/agents"
+      "path": "./packages/agent-core"
     },
     {
-      "path": "./packages/openai"
+      "path": "./packages/agent-provider-openai"
     },
     {
-      "path": "./packages/anthropic"
+      "path": "./packages/agent-provider-anthropic"
     },
     {
-      "path": "./packages/google"
+      "path": "./packages/agent-provider-google"
     },
     {
-      "path": "./packages/team"
+      "path": "./packages/agent-team"
     }
   ]
 }

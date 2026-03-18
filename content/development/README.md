@@ -6,7 +6,7 @@ Comprehensive development guides for the Robota SDK v2.0.
 
 The Robota SDK v2.0 is a unified TypeScript library for building AI agents with:
 
-- **🔥 Unified Architecture**: Everything consolidated in `@robota-sdk/agents`
+- **🔥 Unified Architecture**: Everything consolidated in `@robota-sdk/agent-core`
 - **⚡ Type-Safe Design**: Zero `any` types, complete TypeScript safety
 - **🔌 Multi-Provider Support**: OpenAI, Anthropic, Google AI with seamless switching
 - **📊 Built-in Analytics**: Performance monitoring and usage tracking
@@ -15,37 +15,45 @@ The Robota SDK v2.0 is a unified TypeScript library for building AI agents with:
 ## Quick Navigation
 
 ### 🚀 Getting Started
+
 - **[Development Principles](./development-principles.md)** - Core principles and architecture
 - **[TypeScript Standards](./typescript-standards.md)** - Type safety standards and zero any policy
 
 ### 🏗️ Development Process
+
 - **[Development Workflow](./development-workflow.md)** - Code quality processes and guidelines
 - **[Testing Guidelines](./testing-guidelines.md)** - Testing strategies and best practices
 - **[Build and Deployment](./build-and-deployment.md)** - Build configuration and deployment
 
 ### 📚 Standards & Guidelines
+
 - **[Documentation Guidelines](./documentation-guidelines.md)** - Documentation standards
 - **[Error Handling Guidelines](./error-handling-guidelines.md)** - Error handling strategies
 - **[Logging Configuration](./logging-configuration.md)** - Logging setup and practices
 
 ### ⚡ Performance & Architecture
+
 - **[Performance Optimization](./performance-optimization.md)** - Performance best practices
 - **[Code Improvements](./code-improvements.md)** - Architecture patterns and refactoring
 
 ### 🚢 Infrastructure
+
 - **[Package Publishing](./package-publishing.md)** - Release workflow and guidelines
 - **[Documentation Site Setup](./documentation-site-setup.md)** - Documentation site management
 
 ### 🧪 SSOT Tooling
+
 - **Duplicate Declaration Scanner**: `scripts/audit/output/ssot-duplicate-declarations-v3.json`
 - **Alias Cleanup**: Policy enforcement for `type A = B` and same-shape redefinitions
 - **Scanner Classification**: Same-kind vs contract+implementation pair grouping (v3)
 - **Naming Hygiene**: Removal of redundant `Interface`/`Type`/`TypeSafe` naming patterns
 
 ### 📚 API Reference Generation
+
 - **Generation Command Header**: Auto-generated API docs include the generating command.
 
 ### ✅ Process Updates
+
 - Rules-to-skills migration completed; guidance is now consolidated under `.agents/skills/`.
 
 ## Development Workflow
@@ -105,7 +113,7 @@ pnpm test
 ### Unified Package Structure
 
 ```
-@robota-sdk/agents (Core Package)
+@robota-sdk/agent-core (Core Package)
 ├── 🤖 BaseAgent           # Foundation for all agents
 ├── 🔌 BaseAIProvider      # Multi-provider abstraction
 ├── 🛠️ BaseTool            # Tool system foundation
@@ -118,11 +126,11 @@ pnpm test
 ### Supporting Packages
 
 ```
-@robota-sdk/openai         # OpenAI provider implementation
-@robota-sdk/anthropic      # Anthropic provider implementation
-@robota-sdk/google         # Google AI provider implementation
-@robota-sdk/team           # assignTask MCP tool collection (team creation removed)
-@robota-sdk/sessions       # Session management
+@robota-sdk/agent-provider-openai         # OpenAI provider implementation
+@robota-sdk/agent-provider-anthropic      # Anthropic provider implementation
+@robota-sdk/agent-provider-google         # Google AI provider implementation
+@robota-sdk/agent-team           # assignTask MCP tool collection (team creation removed)
+@robota-sdk/agent-sessions       # Session management
 ```
 
 ## Key Development Principles
@@ -134,16 +142,16 @@ pnpm test
 ```typescript
 // ✅ Good: Fully typed
 interface AgentConfig {
-    name: string;
-    model: string;
-    provider: 'openai' | 'anthropic' | 'google';
-    aiProviders: Record<string, BaseAIProvider>;
+  name: string;
+  model: string;
+  provider: 'openai' | 'anthropic' | 'google';
+  aiProviders: Record<string, BaseAIProvider>;
 }
 
 // ❌ Bad: Any types (forbidden)
 interface BadConfig {
-    providers: any; // Never allowed
-    options: any;   // Always type explicitly
+  providers: any; // Never allowed
+  options: any; // Always type explicitly
 }
 ```
 
@@ -152,11 +160,7 @@ interface BadConfig {
 ```typescript
 // Extensible through plugins
 const agent = new Robota({
-    plugins: [
-        new ExecutionAnalyticsPlugin(),
-        new ConversationHistoryPlugin(),
-        new LoggingPlugin()
-    ]
+  plugins: [new ExecutionAnalyticsPlugin(), new ConversationHistoryPlugin(), new LoggingPlugin()],
 });
 ```
 
@@ -204,21 +208,21 @@ test(agents): add unit tests for plugin system
 ```typescript
 // Example test structure
 describe('Robota Agent', () => {
-    let agent: Robota;
-    
-    beforeEach(() => {
-        agent = createTestAgent();
-    });
-    
-    afterEach(async () => {
-        await agent.destroy();
-    });
-    
-    it('should handle basic conversation', async () => {
-        const response = await agent.run('Hello');
-        expect(response).toBeDefined();
-        expect(typeof response).toBe('string');
-    });
+  let agent: Robota;
+
+  beforeEach(() => {
+    agent = createTestAgent();
+  });
+
+  afterEach(async () => {
+    await agent.destroy();
+  });
+
+  it('should handle basic conversation', async () => {
+    const response = await agent.run('Hello');
+    expect(response).toBeDefined();
+    expect(typeof response).toBe('string');
+  });
 });
 ```
 
@@ -227,20 +231,20 @@ describe('Robota Agent', () => {
 ```typescript
 // Test real provider integration
 describe('Provider Integration', () => {
-    it('should work with OpenAI provider', async () => {
-        const provider = new OpenAIProvider({ apiKey: 'test-key' });
-        const agent = new Robota({
-            name: 'TestAgent',
-            aiProviders: [provider],
-            defaultModel: {
-                provider: 'openai',
-                model: 'gpt-3.5-turbo'
-            }
-        });
-        
-        const response = await agent.run('Test message');
-        expect(response).toBeTruthy();
+  it('should work with OpenAI provider', async () => {
+    const provider = new OpenAIProvider({ apiKey: 'test-key' });
+    const agent = new Robota({
+      name: 'TestAgent',
+      aiProviders: [provider],
+      defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+      },
     });
+
+    const response = await agent.run('Test message');
+    expect(response).toBeTruthy();
+  });
 });
 ```
 
@@ -291,11 +295,13 @@ cd packages/agents && pnpm type-check
 ## Resources
 
 ### Documentation
+
 - **[Getting Started](../getting-started/README.md)** - User-facing quick start
 - **[Core Concepts](../guide/core-concepts.md)** - Architecture overview
 - **[API Reference](../api-reference/README.md)** - Complete API documentation
 
 ### Development Tools
+
 - **TypeScript**: Type safety and IntelliSense
 - **Vitest**: Fast unit test runner
 - **ESLint**: Code quality and style enforcement
@@ -303,6 +309,7 @@ cd packages/agents && pnpm type-check
 - **Changeset**: Version management and changelogs
 
 ### Community
+
 - **GitHub Issues**: Bug reports and feature requests
 - **Discussions**: Community support and questions
 - **Examples**: Package-owned usage patterns in `packages/*/examples`
@@ -311,9 +318,9 @@ cd packages/agents && pnpm type-check
 
 ### Major Changes in v2.0
 
-1. **Unified Package**: Everything moved to `@robota-sdk/agents`
+1. **Unified Package**: Everything moved to `@robota-sdk/agent-core`
 2. **API Changes**: `systemPrompt` → `systemMessage`, `close()` → `destroy()`
 3. **Type Safety**: Complete removal of `any` types
 4. **Plugin System**: New extensible architecture
 
-See **[Code Improvements](./code-improvements.md)** for detailed migration guide. 
+See **[Code Improvements](./code-improvements.md)** for detailed migration guide.

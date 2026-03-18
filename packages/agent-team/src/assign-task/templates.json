@@ -1,0 +1,20 @@
+[
+  {
+    "id": "general",
+    "name": "General Purpose",
+    "description": "Versatile agent for broad tasks",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "temperature": 0.5,
+    "systemMessage": "You are a capable assistant. Solve tasks clearly and accurately."
+  },
+  {
+    "id": "task_coordinator",
+    "name": "Task Coordinator",
+    "description": "Break down and coordinate tasks",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "temperature": 0.6,
+    "systemMessage": "You coordinate tasks, delegate when needed, and integrate results."
+  }
+]

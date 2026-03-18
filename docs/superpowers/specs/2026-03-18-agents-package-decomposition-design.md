@@ -2,11 +2,11 @@
 
 ## Summary
 
-Split `@robota-sdk/agents` (202 files) into 12 focused packages: `tools`, `tool-mcp`, `event-service`, and 9 individual `plugin-*` packages. The `agents` package retains the Robota facade, managers, interfaces (SSOT), and abstract base classes.
+Split `@robota-sdk/agent-core` (202 files) into 12 focused packages: `tools`, `tool-mcp`, `event-service`, and 9 individual `plugin-*` packages. The `agents` package retains the Robota facade, managers, interfaces (SSOT), and abstract base classes.
 
 ## Motivation
 
-`@robota-sdk/agents` currently holds too many responsibilities in a single package: core agent runtime, tool ecosystem, event system, and 9 plugins with storage implementations. This violates the single-responsibility principle and makes the package unnecessarily large for consumers who only need a subset.
+`@robota-sdk/agent-core` currently holds too many responsibilities in a single package: core agent runtime, tool ecosystem, event system, and 9 plugins with storage implementations. This violates the single-responsibility principle and makes the package unnecessarily large for consumers who only need a subset.
 
 The DAG subsystem is already well-decomposed into 12 packages. Applying the same discipline to the agents side brings consistency across the monorepo.
 
@@ -18,11 +18,11 @@ The v3.0.0 release has not been published yet. All import path changes are non-b
 
 ### Decision 2: Plugin contracts stay in agents
 
-`AbstractPlugin`, `AbstractTool`, and all interfaces remain in `@robota-sdk/agents` as the SSOT. Extracted packages reference agents via `peerDependency`. This avoids a separate `plugin-core` package and follows the existing pattern.
+`AbstractPlugin`, `AbstractTool`, and all interfaces remain in `@robota-sdk/agent-core` as the SSOT. Extracted packages reference agents via `peerDependency`. This avoids a separate `plugin-core` package and follows the existing pattern.
 
 ### Decision 3: MCP tools separate from core tools
 
-`@robota-sdk/tools` contains `FunctionTool`, `OpenAPITool`, and `ToolRegistry`. MCP-specific tools (`MCPTool`, `RelayMcpTool`) go to `@robota-sdk/tool-mcp` to isolate the `@modelcontextprotocol/sdk` dependency.
+`@robota-sdk/agent-tools` contains `FunctionTool`, `OpenAPITool`, and `ToolRegistry`. MCP-specific tools (`MCPTool`, `RelayMcpTool`) go to `@robota-sdk/agent-tool-mcp` to isolate the `@modelcontextprotocol/sdk` dependency.
 
 ### Decision 4: One package per plugin
 
@@ -34,24 +34,24 @@ Each plugin gets its own package including its storage implementations. This giv
 
 ```
 packages/
-├── tools/                            # @robota-sdk/tools
-├── tool-mcp/                         # @robota-sdk/tool-mcp
-├── event-service/                    # @robota-sdk/event-service
-├── plugin-conversation-history/      # @robota-sdk/plugin-conversation-history
-├── plugin-error-handling/            # @robota-sdk/plugin-error-handling
-├── plugin-event-emitter/             # @robota-sdk/plugin-event-emitter
-├── plugin-execution-analytics/       # @robota-sdk/plugin-execution-analytics
-├── plugin-limits/                    # @robota-sdk/plugin-limits
-├── plugin-logging/                   # @robota-sdk/plugin-logging
-├── plugin-performance/               # @robota-sdk/plugin-performance
-├── plugin-usage/                     # @robota-sdk/plugin-usage
-└── plugin-webhook/                   # @robota-sdk/plugin-webhook
+├── tools/                            # @robota-sdk/agent-tools
+├── tool-mcp/                         # @robota-sdk/agent-tool-mcp
+├── event-service/                    # @robota-sdk/agent-event-service
+├── plugin-conversation-history/      # @robota-sdk/agent-plugin-conversation-history
+├── plugin-error-handling/            # @robota-sdk/agent-plugin-error-handling
+├── plugin-event-emitter/             # @robota-sdk/agent-plugin-event-emitter
+├── plugin-execution-analytics/       # @robota-sdk/agent-plugin-execution-analytics
+├── plugin-limits/                    # @robota-sdk/agent-plugin-limits
+├── plugin-logging/                   # @robota-sdk/agent-plugin-logging
+├── plugin-performance/               # @robota-sdk/agent-plugin-performance
+├── plugin-usage/                     # @robota-sdk/agent-plugin-usage
+└── plugin-webhook/                   # @robota-sdk/agent-plugin-webhook
 ```
 
 ### Dependency graph
 
 ```
-@robota-sdk/agents (SSOT: interfaces, abstracts, core, managers, utils)
+@robota-sdk/agent-core (SSOT: interfaces, abstracts, core, managers, utils)
   ^                ^                ^
   | peerDep        | peerDep        | peerDep
   |                |                |
@@ -64,8 +64,8 @@ tool-mcp ──> peerDep: @modelcontextprotocol/sdk
 
 Rules:
 
-- All new packages declare `@robota-sdk/agents` as `peerDependency`
-- `tool-mcp` also declares `@robota-sdk/tools` as `peerDependency`
+- All new packages declare `@robota-sdk/agent-core` as `peerDependency`
+- `tool-mcp` also declares `@robota-sdk/agent-tools` as `peerDependency`
 - No production dependency cycles
 - No cross-plugin dependencies
 
@@ -86,7 +86,7 @@ Rules:
 
 ## Package Details
 
-### @robota-sdk/tools
+### @robota-sdk/agent-tools
 
 **Source files (from agents):**
 
@@ -98,7 +98,7 @@ Rules:
 
 **Dependencies:**
 
-- `peerDependencies`: `@robota-sdk/agents`, `zod`
+- `peerDependencies`: `@robota-sdk/agent-core`, `zod`
 
 **Exports:**
 
@@ -107,7 +107,7 @@ Rules:
 - `OpenAPITool`
 - Schema converter utilities
 
-### @robota-sdk/tool-mcp
+### @robota-sdk/agent-tool-mcp
 
 **Source files (from agents):**
 
@@ -116,14 +116,14 @@ Rules:
 
 **Dependencies:**
 
-- `peerDependencies`: `@robota-sdk/agents`, `@robota-sdk/tools`, `@modelcontextprotocol/sdk`
+- `peerDependencies`: `@robota-sdk/agent-core`, `@robota-sdk/agent-tools`, `@modelcontextprotocol/sdk`
 
 **Exports:**
 
 - `MCPTool`
 - `RelayMcpTool`
 
-### @robota-sdk/event-service
+### @robota-sdk/agent-event-service
 
 **Source files (from agents):**
 
@@ -133,7 +133,7 @@ Rules:
 
 **Dependencies:**
 
-- `peerDependencies`: `@robota-sdk/agents`
+- `peerDependencies`: `@robota-sdk/agent-core`
 
 **Exports:**
 
@@ -165,7 +165,7 @@ packages/plugin-{name}/
 
 **Common dependencies:**
 
-- `peerDependencies`: `@robota-sdk/agents`
+- `peerDependencies`: `@robota-sdk/agent-core`
 
 **Per-plugin contents:**
 
@@ -188,9 +188,9 @@ Note: `event-emitter-plugin.ts` and `limits-plugin.ts` at `plugins/` root are le
 Plugin registration remains consumer-driven and explicit — the same pattern as today. Consumers import a plugin class from its package and pass it to `Robota` at construction time or via `robota.use()`. There is no auto-discovery, classpath scanning, or plugin registry. This is intentional: explicit registration keeps the dependency graph transparent and tree-shakeable.
 
 ```typescript
-import { Robota } from '@robota-sdk/agents';
-import { LoggingPlugin } from '@robota-sdk/plugin-logging';
-import { UsagePlugin } from '@robota-sdk/plugin-usage';
+import { Robota } from '@robota-sdk/agent-core';
+import { LoggingPlugin } from '@robota-sdk/agent-plugin-logging';
+import { UsagePlugin } from '@robota-sdk/agent-plugin-usage';
 
 const robota = new Robota({
   plugins: [new LoggingPlugin({ level: 'info' }), new UsagePlugin()],
@@ -200,22 +200,22 @@ const robota = new Robota({
 
 ## Import Path Migration Guide
 
-| Before (agents)                                                         | After (new package)                                                                   |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `import { FunctionTool, createFunctionTool } from '@robota-sdk/agents'` | `import { FunctionTool, createFunctionTool } from '@robota-sdk/tools'`                |
-| `import { MCPTool, RelayMcpTool } from '@robota-sdk/agents'`            | `import { MCPTool, RelayMcpTool } from '@robota-sdk/tool-mcp'`                        |
-| `import { EventService } from '@robota-sdk/agents'`                     | `import { EventService } from '@robota-sdk/event-service'`                            |
-| `import { LoggingPlugin } from '@robota-sdk/agents'`                    | `import { LoggingPlugin } from '@robota-sdk/plugin-logging'`                          |
-| `import { UsagePlugin } from '@robota-sdk/agents'`                      | `import { UsagePlugin } from '@robota-sdk/plugin-usage'`                              |
-| `import { ConversationHistoryPlugin } from '@robota-sdk/agents'`        | `import { ConversationHistoryPlugin } from '@robota-sdk/plugin-conversation-history'` |
-| `import { PerformancePlugin } from '@robota-sdk/agents'`                | `import { PerformancePlugin } from '@robota-sdk/plugin-performance'`                  |
-| `import { ExecutionAnalyticsPlugin } from '@robota-sdk/agents'`         | `import { ExecutionAnalyticsPlugin } from '@robota-sdk/plugin-execution-analytics'`   |
-| `import { ErrorHandlingPlugin } from '@robota-sdk/agents'`              | `import { ErrorHandlingPlugin } from '@robota-sdk/plugin-error-handling'`             |
-| `import { LimitsPlugin } from '@robota-sdk/agents'`                     | `import { LimitsPlugin } from '@robota-sdk/plugin-limits'`                            |
-| `import { EventEmitterPlugin } from '@robota-sdk/agents'`               | `import { EventEmitterPlugin } from '@robota-sdk/plugin-event-emitter'`               |
-| `import { WebhookPlugin } from '@robota-sdk/agents'`                    | `import { WebhookPlugin } from '@robota-sdk/plugin-webhook'`                          |
+| Before (agents)                                                             | After (new package)                                                                         |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `import { FunctionTool, createFunctionTool } from '@robota-sdk/agent-core'` | `import { FunctionTool, createFunctionTool } from '@robota-sdk/agent-tools'`                |
+| `import { MCPTool, RelayMcpTool } from '@robota-sdk/agent-core'`            | `import { MCPTool, RelayMcpTool } from '@robota-sdk/agent-tool-mcp'`                        |
+| `import { EventService } from '@robota-sdk/agent-core'`                     | `import { EventService } from '@robota-sdk/agent-event-service'`                            |
+| `import { LoggingPlugin } from '@robota-sdk/agent-core'`                    | `import { LoggingPlugin } from '@robota-sdk/agent-plugin-logging'`                          |
+| `import { UsagePlugin } from '@robota-sdk/agent-core'`                      | `import { UsagePlugin } from '@robota-sdk/agent-plugin-usage'`                              |
+| `import { ConversationHistoryPlugin } from '@robota-sdk/agent-core'`        | `import { ConversationHistoryPlugin } from '@robota-sdk/agent-plugin-conversation-history'` |
+| `import { PerformancePlugin } from '@robota-sdk/agent-core'`                | `import { PerformancePlugin } from '@robota-sdk/agent-plugin-performance'`                  |
+| `import { ExecutionAnalyticsPlugin } from '@robota-sdk/agent-core'`         | `import { ExecutionAnalyticsPlugin } from '@robota-sdk/agent-plugin-execution-analytics'`   |
+| `import { ErrorHandlingPlugin } from '@robota-sdk/agent-core'`              | `import { ErrorHandlingPlugin } from '@robota-sdk/agent-plugin-error-handling'`             |
+| `import { LimitsPlugin } from '@robota-sdk/agent-core'`                     | `import { LimitsPlugin } from '@robota-sdk/agent-plugin-limits'`                            |
+| `import { EventEmitterPlugin } from '@robota-sdk/agent-core'`               | `import { EventEmitterPlugin } from '@robota-sdk/agent-plugin-event-emitter'`               |
+| `import { WebhookPlugin } from '@robota-sdk/agent-core'`                    | `import { WebhookPlugin } from '@robota-sdk/agent-plugin-webhook'`                          |
 
-Imports that stay in `@robota-sdk/agents` (no change): `Robota`, `AbstractPlugin`, `AbstractTool`, `AbstractAIProvider`, `AbstractAgent`, all interfaces (`IAgent`, `IAIProvider`, `ITool`, `TUniversalMessage`, etc.), `LocalExecutor`, `RobotaError`, all manager classes.
+Imports that stay in `@robota-sdk/agent-core` (no change): `Robota`, `AbstractPlugin`, `AbstractTool`, `AbstractAIProvider`, `AbstractAgent`, all interfaces (`IAgent`, `IAIProvider`, `ITool`, `TUniversalMessage`, etc.), `LocalExecutor`, `RobotaError`, all manager classes.
 
 ## Test Strategy
 
@@ -240,7 +240,7 @@ Each extracted package carries its own co-located tests. Tests move with source 
 
 ### Integration tests
 
-Integration tests that span multiple packages (e.g., Robota + plugins + tools) remain in `@robota-sdk/agents` under `src/__tests__/integration/`. These tests import the extracted packages as `devDependencies` and verify end-to-end behavior.
+Integration tests that span multiple packages (e.g., Robota + plugins + tools) remain in `@robota-sdk/agent-core` under `src/__tests__/integration/`. These tests import the extracted packages as `devDependencies` and verify end-to-end behavior.
 
 ### Verification per phase
 
@@ -296,19 +296,19 @@ For each package:
 
 ## Risks and Mitigations
 
-| Risk                                 | Impact                                        | Mitigation                                                                                                          |
-| ------------------------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Circular dependency during migration | Build failure                                 | Move files in dependency order: event-service first, then tools, then plugins                                       |
-| Missed import path updates           | Type errors                                   | Run `pnpm typecheck` after each phase                                                                               |
-| Test fixtures referencing old paths  | Test failures                                 | Update test imports in same PR as source move                                                                       |
-| pnpm workspace resolution            | Install failure                               | Add all new packages to `pnpm-workspace.yaml` before moving files                                                   |
-| Peer dependency version drift        | Incompatible versions after agents minor bump | All packages use `"@robota-sdk/agents": "workspace:*"` in monorepo; published versions use `">=3.0.0"` semver range |
-| Increased onboarding complexity      | New contributors confused by 15+ packages     | Import Path Migration Guide in this doc; README updated; each package has SPEC.md                                   |
+| Risk                                 | Impact                                        | Mitigation                                                                                                              |
+| ------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Circular dependency during migration | Build failure                                 | Move files in dependency order: event-service first, then tools, then plugins                                           |
+| Missed import path updates           | Type errors                                   | Run `pnpm typecheck` after each phase                                                                                   |
+| Test fixtures referencing old paths  | Test failures                                 | Update test imports in same PR as source move                                                                           |
+| pnpm workspace resolution            | Install failure                               | Add all new packages to `pnpm-workspace.yaml` before moving files                                                       |
+| Peer dependency version drift        | Incompatible versions after agents minor bump | All packages use `"@robota-sdk/agent-core": "workspace:*"` in monorepo; published versions use `">=3.0.0"` semver range |
+| Increased onboarding complexity      | New contributors confused by 15+ packages     | Import Path Migration Guide in this doc; README updated; each package has SPEC.md                                       |
 
 ## Success Criteria
 
 - [ ] All 12 new packages build independently
-- [ ] `@robota-sdk/agents` builds with reduced scope
+- [ ] `@robota-sdk/agent-core` builds with reduced scope
 - [ ] No circular dependencies between packages
 - [ ] `pnpm typecheck` passes across entire monorepo
 - [ ] All existing tests pass (relocated to new packages)

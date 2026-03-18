@@ -38,8 +38,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@robota-sdk/agents": "workspace:*",
-    "@robota-sdk/bytedance": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-provider-bytedance": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
     "zod": "^3.24.4"

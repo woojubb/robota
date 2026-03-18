@@ -30,9 +30,24 @@ apps/docs/
 
 # Examples
 apps/examples/
+packages/*/examples/
 
 # Other
 .next/
 .turbo/
 .vscode/
-.idea/ 
+.idea/
+
+# Scripts directory (utility scripts, not package code)
+scripts/
+
+# Jest setup and config files
+**/jest.setup.js
+**/jest.config.js
+
+# ESLint config files
+**/.eslintrc.cjs
+
+# Vitest setup files
+vitest.setup.ts
+**/vitest.setup.ts

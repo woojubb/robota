@@ -5,6 +5,7 @@ This guide demonstrates the most fundamental usage of Robota for basic AI conver
 ## Overview
 
 The basic conversation example shows how to:
+
 - Set up Robota with an AI provider
 - Send simple messages and receive responses
 - Monitor agent statistics
@@ -15,7 +16,7 @@ The basic conversation example shows how to:
 ```typescript
 /**
  * 01-basic-conversation.ts
- * 
+ *
  * This example demonstrates the most basic usage of Robota:
  * - Simple conversation using OpenAI
  * - Message sending and responses
@@ -24,74 +25,74 @@ The basic conversation example shows how to:
  */
 
 import OpenAI from 'openai';
-import { Robota } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
+import { Robota } from '@robota-sdk/agent-core';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import dotenv from 'dotenv';
 
 // Load environment variables from examples directory
 dotenv.config();
 
 async function main() {
-    try {
-        console.log('🤖 Basic Conversation Example Started...\n');
+  try {
+    console.log('🤖 Basic Conversation Example Started...\n');
 
-        // Validate API key
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            throw new Error('OPENAI_API_KEY environment variable is required');
-        }
-
-        // Create OpenAI client
-        const openaiClient = new OpenAI({ apiKey });
-
-        // Create OpenAI Provider
-        const openaiProvider = new OpenAIProvider({
-            apiKey: apiKey
-        });
-
-        // Create Robota instance with basic configuration
-        const robota = new Robota({
-            name: 'BasicAgent',
-            aiProviders: [openaiProvider],
-            defaultModel: {
-                provider: 'openai',
-                model: 'gpt-3.5-turbo',
-                systemMessage: 'You are a helpful AI assistant. Provide concise and useful responses.'
-            }
-        });
-
-        // === Simple Conversation ===
-        console.log('📝 Simple Question:');
-        const query = 'Hi, what is TypeScript?';
-        console.log(`User: ${query}`);
-
-        const response = await robota.run(query);
-        console.log(`Assistant: ${response}\n`);
-
-        // === Show Statistics ===
-        console.log('📊 Session Statistics:');
-        const stats = robota.getStats();
-        console.log(`- Agent name: ${stats.name}`);
-        console.log(`- History length: ${stats.historyLength}`);
-        console.log(`- Available tools: ${stats.tools.length}`);
-        console.log(`- Plugins: ${stats.plugins.length}`);
-        console.log(`- Uptime: ${Math.round(stats.uptime)}ms\n`);
-
-        console.log('✅ Basic Conversation Example Completed!');
-
-        // Clean up resources
-        await robota.destroy();
-
-        // Ensure process exits cleanly
-        console.log('🧹 Cleanup completed. Exiting...');
-        process.exit(0);
-    } catch (error) {
-        console.error('❌ Error occurred:', error);
-        if (error instanceof Error) {
-            console.error('Stack trace:', error.stack);
-        }
-        process.exit(1);
+    // Validate API key
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY environment variable is required');
     }
+
+    // Create OpenAI client
+    const openaiClient = new OpenAI({ apiKey });
+
+    // Create OpenAI Provider
+    const openaiProvider = new OpenAIProvider({
+      apiKey: apiKey,
+    });
+
+    // Create Robota instance with basic configuration
+    const robota = new Robota({
+      name: 'BasicAgent',
+      aiProviders: [openaiProvider],
+      defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful AI assistant. Provide concise and useful responses.',
+      },
+    });
+
+    // === Simple Conversation ===
+    console.log('📝 Simple Question:');
+    const query = 'Hi, what is TypeScript?';
+    console.log(`User: ${query}`);
+
+    const response = await robota.run(query);
+    console.log(`Assistant: ${response}\n`);
+
+    // === Show Statistics ===
+    console.log('📊 Session Statistics:');
+    const stats = robota.getStats();
+    console.log(`- Agent name: ${stats.name}`);
+    console.log(`- History length: ${stats.historyLength}`);
+    console.log(`- Available tools: ${stats.tools.length}`);
+    console.log(`- Plugins: ${stats.plugins.length}`);
+    console.log(`- Uptime: ${Math.round(stats.uptime)}ms\n`);
+
+    console.log('✅ Basic Conversation Example Completed!');
+
+    // Clean up resources
+    await robota.destroy();
+
+    // Ensure process exits cleanly
+    console.log('🧹 Cleanup completed. Exiting...');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error occurred:', error);
+    if (error instanceof Error) {
+      console.error('Stack trace:', error.stack);
+    }
+    process.exit(1);
+  }
 }
 
 // Execute
@@ -103,13 +104,14 @@ main();
 Before running this example, ensure you have:
 
 1. **Environment Variables**: Create a `.env` file with your API key:
+
    ```
    OPENAI_API_KEY=your_openai_api_key_here
    ```
 
 2. **Dependencies**: Install required packages:
    ```bash
-   npm install @robota-sdk/agents @robota-sdk/openai openai dotenv
+   npm install @robota-sdk/agent-core @robota-sdk/agent-provider-openai openai dotenv
    ```
 
 ## Key Concepts
@@ -120,7 +122,7 @@ The example uses the OpenAI provider with API key configuration:
 
 ```typescript
 const openaiProvider = new OpenAIProvider({
-    apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
 });
 ```
 
@@ -128,13 +130,13 @@ const openaiProvider = new OpenAIProvider({
 
 ```typescript
 const robota = new Robota({
-    name: 'BasicAgent',
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-3.5-turbo',
-        systemMessage: 'You are a helpful AI assistant.'
-    }
+  name: 'BasicAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-3.5-turbo',
+    systemMessage: 'You are a helpful AI assistant.',
+  },
 });
 ```
 
@@ -193,4 +195,4 @@ Assistant: TypeScript is a strongly typed programming language developed by Micr
 
 - Try [Tool Calling](./ai-with-tools.md) to add function calling capabilities
 - Explore [Multi-Provider](./multi-provider.md) setup for using different AI services
-- Learn about [Advanced Features](./session-management.md) like analytics and limits 
+- Learn about [Advanced Features](./session-management.md) like analytics and limits
