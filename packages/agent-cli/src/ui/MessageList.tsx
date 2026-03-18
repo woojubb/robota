@@ -17,7 +17,7 @@ function RoleLabel({ role }: { role: IChatMessage['role'] }): React.ReactElement
     case 'assistant':
       return (
         <Text color="cyan" bold>
-          AI:{' '}
+          Robota:{' '}
         </Text>
       );
     case 'system':
