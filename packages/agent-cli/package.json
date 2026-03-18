@@ -4,7 +4,7 @@
   "description": "AI coding assistant CLI built on Robota SDK",
   "type": "module",
   "bin": {
-    "robota": "./dist/bin.js"
+    "robota": "./dist/node/bin.js"
   },
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -25,7 +25,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
+    "build": "tsup src/index.ts src/bin.ts --format esm,cjs --dts --out-dir dist/node --clean",
     "dev": "tsx src/bin.ts",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
