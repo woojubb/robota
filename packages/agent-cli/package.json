@@ -26,7 +26,8 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts src/bin.ts --format esm,cjs --dts --out-dir dist/node --clean",
-    "dev": "tsx src/bin.ts",
+    "dev": "tsx --env-file=.env src/bin.ts",
+    "start": "node --env-file=.env dist/node/bin.js",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts,.tsx",
