@@ -18,14 +18,14 @@ import { parseArgs } from 'node:util';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as readline from 'node:readline';
 import { loadConfig } from './config/config-loader.js';
 import { loadContext } from './context/context-loader.js';
 import { detectProject } from './context/project-detector.js';
 import { Session } from './session.js';
 import { SessionStore } from './session-store.js';
-import { ReplRenderer } from './repl/repl-renderer.js';
 import { renderApp } from './ui/render.js';
-import type { TPermissionMode } from './types.js';
+import type { ITerminalOutput, ISpinner, TPermissionMode } from './types.js';
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
 
@@ -111,6 +111,60 @@ function parseCliArgs(): {
 }
 
 /**
+ * Minimal ITerminalOutput for print mode (-p).
+ *
+ * Writes to stdout/stderr directly. The readline-based prompt and select are
+ * only invoked if the agent triggers a permission-gated tool, which is rare in
+ * one-shot print mode but must still work correctly.
+ */
+class PrintTerminal implements ITerminalOutput {
+  write(text: string): void {
+    process.stdout.write(text);
+  }
+  writeLine(text: string): void {
+    process.stdout.write(text + '\n');
+  }
+  writeMarkdown(md: string): void {
+    // Print mode outputs plain text — no markdown rendering needed
+    process.stdout.write(md);
+  }
+  writeError(text: string): void {
+    process.stderr.write(text + '\n');
+  }
+  prompt(question: string): Promise<string> {
+    return new Promise<string>((resolve) => {
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        terminal: false,
+        historySize: 0,
+      });
+      rl.question(question, (answer) => {
+        rl.close();
+        resolve(answer);
+      });
+    });
+  }
+  async select(options: string[], initialIndex = 0): Promise<number> {
+    for (let i = 0; i < options.length; i++) {
+      const marker = i === initialIndex ? '>' : ' ';
+      process.stdout.write(`  ${marker} ${i + 1}) ${options[i]}\n`);
+    }
+    const answer = await this.prompt(
+      `  Choose [1-${options.length}] (default: ${options[initialIndex]}): `,
+    );
+    const trimmed = answer.trim().toLowerCase();
+    if (trimmed === '') return initialIndex;
+    const num = parseInt(trimmed, 10);
+    if (!isNaN(num) && num >= 1 && num <= options.length) return num - 1;
+    return initialIndex;
+  }
+  spinner(_message: string): ISpinner {
+    return { stop(): void {}, update(): void {} };
+  }
+}
+
+/**
  * Main CLI orchestration function.
  * Called from bin.ts as the top-level entry.
  */
@@ -139,14 +193,14 @@ export async function startCli(): Promise<void> {
 
   const sessionStore = new SessionStore();
 
-  // Print mode: send single prompt, output response, exit (uses legacy terminal)
+  // Print mode: send single prompt, output response, exit
   if (args.printMode) {
     const prompt = args.positional.join(' ').trim();
     if (prompt.length === 0) {
       process.stderr.write('Print mode (-p) requires a prompt argument.\n');
       process.exit(1);
     }
-    const terminal = new ReplRenderer();
+    const terminal = new PrintTerminal();
     const session = new Session({
       config,
       context,
