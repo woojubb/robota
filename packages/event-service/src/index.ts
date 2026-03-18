@@ -1,5 +1,5 @@
 // @robota-sdk/event-service
-// Re-exports types from @robota-sdk/agents (interfaces are owned by agents)
+// Owns and exports event service interfaces and implementations
 export type {
   IAgentEventData,
   IBaseEventData,
@@ -10,7 +10,11 @@ export type {
   IOwnerPathSegment,
   IToolEventData,
   TEventListener,
-} from '@robota-sdk/agents';
+  TEventExtensionValue,
+  TEventUniversalValue,
+  TEventLoggerData,
+  IEventObjectValue,
+} from './interfaces';
 
 export {
   AbstractEventService,

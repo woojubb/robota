@@ -5,7 +5,7 @@ import type {
   IEventService,
   IEventServiceOwnerBinding,
   TEventListener,
-} from '@robota-sdk/agents';
+} from '../interfaces';
 import {
   bindEventServiceOwner,
   bindWithOwnerPath,
@@ -14,7 +14,13 @@ import {
   ObservableEventService,
   StructuredEventService,
 } from '../event-service';
-import { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from '@robota-sdk/agents';
+// Test constants (mirrors EXECUTION_EVENTS and EXECUTION_EVENT_PREFIX from @robota-sdk/agents)
+const EXECUTION_EVENT_PREFIX = 'execution' as const;
+const EXECUTION_EVENTS = {
+  START: 'start',
+  COMPLETE: 'complete',
+  ERROR: 'error',
+} as const;
 
 class MockEventService implements IEventService {
   public events: Array<{ eventType: string; data: IBaseEventData; context?: IEventContext }> = [];

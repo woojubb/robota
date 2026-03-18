@@ -5,6 +5,7 @@ import type {
   IOpenAPIToolConfig,
   TToolParameters,
   IParameterValidationResult,
+  IEventService,
 } from '@robota-sdk/agents';
 import type { IToolSchema, IParameterSchema } from '@robota-sdk/agents';
 import type { OpenAPIV3 } from 'openapi-types';
@@ -27,6 +28,7 @@ export class OpenAPITool implements ITool {
   private readonly operationId: string;
   private readonly baseURL: string;
   private readonly config: IOpenAPIToolConfig;
+  private eventService: IEventService | undefined;
 
   constructor(config: IOpenAPIToolConfig) {
     this.config = config;
@@ -123,6 +125,20 @@ export class OpenAPITool implements ITool {
       isValid: errors.length === 0,
       errors,
     };
+  }
+
+  /**
+   * Get tool name
+   */
+  getName(): string {
+    return this.schema.name;
+  }
+
+  /**
+   * Set EventService for post-construction injection.
+   */
+  setEventService(eventService: IEventService | undefined): void {
+    this.eventService = eventService;
   }
 
   /**
