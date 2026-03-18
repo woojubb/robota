@@ -310,18 +310,9 @@ export { AgentTemplates, type ITemplateApplicationResult } from './managers/agen
 export { ConversationHistory, ConversationSession } from './managers/conversation-history-manager';
 
 // ===== TOOL SYSTEM EXPORTS =====
-/**
- * Tool management and function calling infrastructure.
- * Provides schema-based validation and execution for AI tool calls.
- *
- * @public
- */
-export { ToolRegistry } from './tools/registry/tool-registry';
-export {
-  FunctionTool,
-  createFunctionTool,
-  createZodFunctionTool,
-} from './tools/implementations/function-tool';
+// NOTE: ToolRegistry, FunctionTool, createFunctionTool, createZodFunctionTool, OpenAPITool
+// have been moved to @robota-sdk/tools.
+// NOTE: MCPTool, RelayMcpTool have been moved to @robota-sdk/tool-mcp.
 
 // ===== CORE TYPE EXPORTS =====
 /**
@@ -344,11 +335,7 @@ export type {
 } from './interfaces/history-module';
 export { EventHistoryModule } from './services/history-module';
 
-export {
-  RelayMcpTool,
-  type IRelayMcpOptions,
-  type IRelayMcpContext,
-} from './tools/implementations/relay-mcp-tool';
+// NOTE: RelayMcpTool, IRelayMcpOptions, IRelayMcpContext moved to @robota-sdk/tool-mcp
 
 // ===== EVENT EMITTER (PLUGIN) EXPORTS =====
 export { EVENT_EMITTER_EVENTS } from './plugins/event-emitter/types';

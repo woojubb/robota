@@ -1,10 +1,14 @@
 import type { IToolManager } from '../interfaces/manager';
 import type { IToolSchema } from '../interfaces/provider';
-import type { ITool, TToolExecutor, TToolParameters, IToolExecutionContext } from '../interfaces/tool';
+import type {
+  ITool,
+  TToolExecutor,
+  TToolParameters,
+  IToolExecutionContext,
+} from '../interfaces/tool';
 import type { TUniversalValue } from '../interfaces/types';
 import { AbstractManager } from '../abstracts/abstract-manager';
-import { ToolRegistry } from '../tools/registry/tool-registry';
-import { FunctionTool } from '../tools/implementations/function-tool';
+import { ToolRegistry, FunctionTool } from '@robota-sdk/tools';
 import { ToolExecutionError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
@@ -15,163 +19,166 @@ import { logger } from '../utils/logger';
  * @internal
  */
 export class Tools extends AbstractManager implements IToolManager {
-    private registry: ToolRegistry;
-    private allowedTools?: string[];
+  private registry: ToolRegistry;
+  private allowedTools?: string[];
 
-    constructor() {
-        super();
-        this.registry = new ToolRegistry();
+  constructor() {
+    super();
+    this.registry = new ToolRegistry();
+  }
+
+  /**
+   * Initialize the manager
+   */
+  protected async doInitialize(): Promise<void> {
+    logger.debug('Tools initialized');
+  }
+
+  /**
+   * Cleanup manager resources
+   */
+  protected async doDispose(): Promise<void> {
+    this.registry.clear();
+    delete this.allowedTools;
+    logger.debug('Tools disposed');
+  }
+
+  /**
+   * Register a tool with schema and executor function
+   */
+  addTool(schema: IToolSchema, executor: TToolExecutor): void {
+    this.ensureInitialized();
+
+    const tool = new FunctionTool(schema, executor);
+    this.registry.register(tool);
+
+    logger.debug(`Tool "${schema.name}" registered successfully`);
+  }
+
+  /**
+   * Remove a tool by name
+   */
+  removeTool(name: string): void {
+    this.ensureInitialized();
+    this.registry.unregister(name);
+  }
+
+  /**
+   * Get tool interface by name
+   */
+  getTool(name: string): ITool | undefined {
+    this.ensureInitialized();
+    return this.registry.get(name);
+  }
+
+  /**
+   * Get tool schema by name
+   */
+  getToolSchema(name: string): IToolSchema | undefined {
+    this.ensureInitialized();
+    const tool = this.registry.get(name);
+    return tool?.schema;
+  }
+
+  /**
+   * Get all registered tool schemas
+   */
+  getTools(): IToolSchema[] {
+    this.ensureInitialized();
+
+    const schemas = this.registry.getSchemas();
+
+    // Filter by allowed tools if set
+    if (this.allowedTools) {
+      return schemas.filter((schema) => this.allowedTools!.includes(schema.name));
     }
 
-    /**
-     * Initialize the manager
-     */
-    protected async doInitialize(): Promise<void> {
-        logger.debug('Tools initialized');
+    return schemas;
+  }
+
+  /**
+   * Execute a tool with parameters
+   */
+  async executeTool(
+    name: string,
+    parameters: TToolParameters,
+    context?: IToolExecutionContext,
+  ): Promise<TUniversalValue> {
+    this.ensureInitialized();
+
+    // Check if tool is allowed
+    if (this.allowedTools && !this.allowedTools.includes(name)) {
+      throw new ToolExecutionError(`Tool "${name}" is not in the allowed tools list`, name);
     }
 
-    /**
-     * Cleanup manager resources
-     */
-    protected async doDispose(): Promise<void> {
-        this.registry.clear();
-        delete this.allowedTools;
-        logger.debug('Tools disposed');
+    const tool = this.registry.get(name);
+    if (!tool) {
+      throw new ToolExecutionError(`Tool "${name}" is not registered`, name);
     }
 
-    /**
-     * Register a tool with schema and executor function
-     */
-    addTool(schema: IToolSchema, executor: TToolExecutor): void {
-        this.ensureInitialized();
-
-        const tool = new FunctionTool(schema, executor);
-        this.registry.register(tool);
-
-        logger.debug(`Tool "${schema.name}" registered successfully`);
+    let result;
+    try {
+      result = await tool.execute(parameters, context);
+    } catch (error) {
+      // Re-wrap errors thrown by tools to ensure instanceof checks work
+      // when tools are loaded from dist packages
+      if (error instanceof Error) {
+        throw new ToolExecutionError(error.message, name, error);
+      }
+      throw new ToolExecutionError(String(error), name);
     }
 
-    /**
-     * Remove a tool by name
-     */
-    removeTool(name: string): void {
-        this.ensureInitialized();
-        this.registry.unregister(name);
+    if (!result.success) {
+      throw new ToolExecutionError(result.error || 'Tool execution failed', name, undefined, {
+        parameters: JSON.stringify(parameters),
+        result: JSON.stringify(result),
+      });
     }
 
-    /**
-     * Get tool interface by name
-     */
-    getTool(name: string): ITool | undefined {
-        this.ensureInitialized();
-        return this.registry.get(name);
+    if (typeof result.data === 'undefined') {
+      throw new ToolExecutionError('Tool execution succeeded but returned no data', name);
     }
+    return result.data;
+  }
 
-    /**
-     * Get tool schema by name
-     */
-    getToolSchema(name: string): IToolSchema | undefined {
-        this.ensureInitialized();
-        const tool = this.registry.get(name);
-        return tool?.schema;
-    }
+  /**
+   * Check if tool exists
+   */
+  hasTool(name: string): boolean {
+    this.ensureInitialized();
+    return this.registry.has(name);
+  }
 
-    /**
-     * Get all registered tool schemas
-     */
-    getTools(): IToolSchema[] {
-        this.ensureInitialized();
+  /**
+   * Set allowed tools for filtering
+   */
+  setAllowedTools(tools: string[]): void {
+    this.ensureInitialized();
+    this.allowedTools = [...tools];
+    logger.debug(`Set allowed tools: ${tools.join(', ')}`);
+  }
 
-        const schemas = this.registry.getSchemas();
+  /**
+   * Get allowed tools
+   */
+  getAllowedTools(): string[] | undefined {
+    this.ensureInitialized();
+    return this.allowedTools ? [...this.allowedTools] : undefined;
+  }
 
-        // Filter by allowed tools if set
-        if (this.allowedTools) {
-            return schemas.filter(schema => this.allowedTools!.includes(schema.name));
-        }
+  /**
+   * Get tool registry instance (for advanced operations)
+   */
+  getRegistry(): ToolRegistry {
+    this.ensureInitialized();
+    return this.registry;
+  }
 
-        return schemas;
-    }
-
-    /**
-     * Execute a tool with parameters
-     */
-    async executeTool(name: string, parameters: TToolParameters, context?: IToolExecutionContext): Promise<TUniversalValue> {
-        this.ensureInitialized();
-
-        // Check if tool is allowed
-        if (this.allowedTools && !this.allowedTools.includes(name)) {
-            throw new ToolExecutionError(
-                `Tool "${name}" is not in the allowed tools list`,
-                name
-            );
-        }
-
-        const tool = this.registry.get(name);
-        if (!tool) {
-            throw new ToolExecutionError(
-                `Tool "${name}" is not registered`,
-                name
-            );
-        }
-
-        const result = await tool.execute(parameters, context);
-
-        if (!result.success) {
-            throw new ToolExecutionError(
-                result.error || 'Tool execution failed',
-                name,
-                undefined,
-                {
-                    parameters: JSON.stringify(parameters),
-                    result: JSON.stringify(result)
-                }
-            );
-        }
-
-        if (typeof result.data === 'undefined') {
-            throw new ToolExecutionError('Tool execution succeeded but returned no data', name);
-        }
-        return result.data;
-    }
-
-    /**
-     * Check if tool exists
-     */
-    hasTool(name: string): boolean {
-        this.ensureInitialized();
-        return this.registry.has(name);
-    }
-
-    /**
-     * Set allowed tools for filtering
-     */
-    setAllowedTools(tools: string[]): void {
-        this.ensureInitialized();
-        this.allowedTools = [...tools];
-        logger.debug(`Set allowed tools: ${tools.join(', ')}`);
-    }
-
-    /**
-     * Get allowed tools
-     */
-    getAllowedTools(): string[] | undefined {
-        this.ensureInitialized();
-        return this.allowedTools ? [...this.allowedTools] : undefined;
-    }
-
-    /**
-     * Get tool registry instance (for advanced operations)
-     */
-    getRegistry(): ToolRegistry {
-        this.ensureInitialized();
-        return this.registry;
-    }
-
-    /**
-     * Get tool count
-     */
-    getToolCount(): number {
-        this.ensureInitialized();
-        return this.registry.size();
-    }
-} 
+  /**
+   * Get tool count
+   */
+  getToolCount(): number {
+    this.ensureInitialized();
+    return this.registry.size();
+  }
+}
