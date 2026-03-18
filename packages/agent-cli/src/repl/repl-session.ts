@@ -17,15 +17,22 @@ import { handleSlashCommand } from './repl-commands.js';
 const PROMPT_SYMBOL = '> ';
 const WELCOME_BANNER_WIDTH = 60;
 
-/** Print the startup banner with project name and permission mode */
+const ASCII_LOGO = `
+  ____   ___  ____   ___ _____  _
+ |  _ \\ / _ \\| __ ) / _ \\_   _|/ \\
+ | |_) | | | |  _ \\| | | || | / _ \\
+ |  _ <| |_| | |_) | |_| || |/ ___ \\
+ |_| \\_\\\\___/|____/ \\___/ |_/_/   \\_\\
+`;
+
+/** Print the startup banner with ASCII art, project name and permission mode */
 function printWelcome(terminal: ITerminalOutput, session: Session, projectName?: string): void {
-  const separator = '─'.repeat(WELCOME_BANNER_WIDTH);
-  const title = projectName ? `Robota — ${projectName}` : 'Robota CLI';
-  terminal.writeLine(separator);
-  terminal.writeLine(title);
-  terminal.writeLine(`Permission mode: ${session.getPermissionMode()}`);
-  terminal.writeLine('Type /help for available commands, /exit or Ctrl+C to quit.');
-  terminal.writeLine(separator);
+  terminal.writeLine(ASCII_LOGO);
+  if (projectName) {
+    terminal.writeLine(`  ${projectName}`);
+  }
+  terminal.writeLine(`  Permission mode: ${session.getPermissionMode()}`);
+  terminal.writeLine('  Type /help for commands, /exit or Ctrl+C to quit.');
   terminal.writeLine('');
 }
 
