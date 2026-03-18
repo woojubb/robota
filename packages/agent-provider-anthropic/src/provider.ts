@@ -200,21 +200,34 @@ export class AnthropicProvider extends AbstractAIProvider {
       } else if (msg.role === 'assistant') {
         const assistantMsg = msg as IAssistantMessage;
 
-        // Anthropic uses content blocks for tool use (not OpenAI-style tool_calls)
+        // Anthropic uses content blocks — include both text and tool_use
         if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
-          const contentBlocks: Anthropic.ToolUseBlockParam[] = assistantMsg.toolCalls.map((tc) => ({
-            type: 'tool_use' as const,
-            id: tc.id,
-            name: tc.function.name,
-            input: JSON.parse(tc.function.arguments),
-          }));
+          const contentBlocks: Array<Anthropic.TextBlockParam | Anthropic.ToolUseBlockParam> = [];
+
+          // Include text content if present alongside tool calls
+          if (assistantMsg.content) {
+            contentBlocks.push({
+              type: 'text' as const,
+              text: assistantMsg.content,
+            });
+          }
+
+          for (const tc of assistantMsg.toolCalls) {
+            contentBlocks.push({
+              type: 'tool_use' as const,
+              id: tc.id,
+              name: tc.function.name,
+              input: JSON.parse(tc.function.arguments),
+            });
+          }
+
           return {
             role: 'assistant' as const,
             content: contentBlocks,
           };
         }
 
-        // Regular assistant message
+        // Regular assistant message (no tool calls)
         return {
           role: 'assistant',
           content: assistantMsg.content || '',
@@ -250,53 +263,58 @@ export class AnthropicProvider extends AbstractAIProvider {
       throw new Error('No content in Anthropic response');
     }
 
-    const content = response.content[0];
+    // Anthropic responses can contain multiple content blocks:
+    // e.g., [text("I'll read the file"), tool_use(Read, {...}), tool_use(Bash, {...})]
+    // We must extract ALL text and ALL tool_use blocks.
+    let textParts: string[] = [];
+    const toolCalls: Array<{
+      id: string;
+      type: 'function';
+      function: { name: string; arguments: string };
+    }> = [];
 
-    if (content && content.type === 'text') {
-      const textContent = content as Anthropic.TextBlock;
-      const result: TUniversalMessage = {
-        role: 'assistant',
-        content: textContent.text,
-        timestamp: new Date(),
-      };
-
-      // Add metadata if available
-      if (response.usage) {
-        result.metadata = {
-          inputTokens: response.usage.input_tokens,
-          outputTokens: response.usage.output_tokens,
-          model: response.model,
-        };
-
-        // Only add stopReason if it's not null
-        if (response.stop_reason) {
-          result.metadata['stopReason'] = response.stop_reason;
+    for (const block of response.content) {
+      if (block.type === 'text') {
+        const textBlock = block as Anthropic.TextBlock;
+        if (textBlock.text) {
+          textParts.push(textBlock.text);
         }
-      }
-
-      return result;
-    } else if (content && content.type === 'tool_use') {
-      const toolContent = content as Anthropic.ToolUseBlock;
-      const result: TUniversalMessage = {
-        role: 'assistant',
-        content: null,
-        timestamp: new Date(),
-        toolCalls: [
-          {
-            id: toolContent.id,
-            type: 'function' as const,
-            function: {
-              name: toolContent.name,
-              arguments: JSON.stringify(toolContent.input),
-            },
+      } else if (block.type === 'tool_use') {
+        const toolBlock = block as Anthropic.ToolUseBlock;
+        toolCalls.push({
+          id: toolBlock.id,
+          type: 'function' as const,
+          function: {
+            name: toolBlock.name,
+            arguments: JSON.stringify(toolBlock.input),
           },
-        ],
-      };
-
-      return result;
+        });
+      }
     }
 
-    throw new Error(`Unsupported content type: ${(content as { type: string }).type}`);
+    const textContent = textParts.join('\n') || null;
+
+    const result: TUniversalMessage = {
+      role: 'assistant',
+      content: textContent,
+      timestamp: new Date(),
+      ...(toolCalls.length > 0 && { toolCalls }),
+    };
+
+    // Add metadata if available
+    if (response.usage) {
+      result.metadata = {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+        model: response.model,
+      };
+
+      if (response.stop_reason) {
+        result.metadata['stopReason'] = response.stop_reason;
+      }
+    }
+
+    return result;
   }
 
   /**

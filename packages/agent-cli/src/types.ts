@@ -29,6 +29,8 @@ export interface ITerminalOutput {
   writeMarkdown(md: string): void;
   writeError(text: string): void;
   prompt(question: string): Promise<string>;
+  /** Arrow-key selector. Returns the index of the chosen option. */
+  select(options: string[], initialIndex?: number): Promise<number>;
   spinner(message: string): ISpinner;
 }
 

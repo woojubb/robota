@@ -13,7 +13,12 @@
 import { Robota } from '@robota-sdk/agent-core';
 import type { IAgentConfig } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { IToolWithEventService } from '@robota-sdk/agent-core';
+import type {
+  IToolWithEventService,
+  IToolResult,
+  TToolParameters,
+  IToolExecutionContext,
+} from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import type { ITerminalOutput, TPermissionMode } from './types.js';
 import type { IResolvedConfig } from './config/config-types.js';
@@ -105,15 +110,11 @@ export class Session {
     // Resolve AI provider
     const aiProvider = provider ?? this.createAnthropicProvider();
 
-    // Register all 6 tools
-    const tools: IToolWithEventService[] = [
-      bashTool as unknown as IToolWithEventService,
-      readTool as unknown as IToolWithEventService,
-      writeTool as unknown as IToolWithEventService,
-      editTool as unknown as IToolWithEventService,
-      globTool as unknown as IToolWithEventService,
-      grepTool as unknown as IToolWithEventService,
-    ];
+    // Register all 6 tools — each wrapped with permission checking
+    const rawTools = [bashTool, readTool, writeTool, editTool, globTool, grepTool];
+    const tools: IToolWithEventService[] = rawTools.map((tool) =>
+      this.wrapToolWithPermission(tool as unknown as IToolWithEventService),
+    );
 
     const agentConfig: IAgentConfig = {
       name: 'robota-cli',
@@ -158,15 +159,6 @@ export class Session {
    * via the beforeToolCall hook registered in the constructor.
    */
   async run(message: string): Promise<string> {
-    // Check permissions for tool calls via Robota's beforeToolCall if needed.
-    // For now, we use a wrapper that intercepts permission checks at the session level.
-    // Robota does not expose a beforeToolCall hook in the current API, so we handle
-    // permissions by wrapping each tool's handler.
-    //
-    // The approach: call robota.run() which will invoke tools. If a tool requires
-    // approval and the user denies it, the tool handler returns an error string.
-    // We rely on the wrapped tools (wrapped at Session construction time) for this.
-
     const response = await this.robota.run(message);
     this.messageCount += 1;
 
@@ -218,6 +210,58 @@ export class Session {
   /** Return the number of run() calls completed */
   getMessageCount(): number {
     return this.messageCount;
+  }
+
+  /**
+   * Wrap a tool with permission checking.
+   * The wrapper intercepts execute() and runs permission evaluation before delegating.
+   * If denied, returns a tool result indicating the action was blocked.
+   */
+  private wrapToolWithPermission(tool: IToolWithEventService): IToolWithEventService {
+    const session = this;
+    const originalExecute = tool.execute.bind(tool);
+
+    // Return success:true so ToolManager doesn't throw ToolExecutionError.
+    // The denial message is in the data — the LLM reads it and adjusts.
+    const DENIED_RESULT: IToolResult = {
+      success: true,
+      data: JSON.stringify({
+        success: false,
+        output: '',
+        error: 'Permission denied. The user did not approve this action.',
+      }),
+      metadata: {},
+    };
+
+    const wrappedTool = Object.create(tool) as IToolWithEventService;
+    wrappedTool.execute = async (
+      parameters: TToolParameters,
+      context?: IToolExecutionContext,
+    ): Promise<IToolResult> => {
+      // Must NEVER throw — if this throws, the execution round records the
+      // assistant tool_use in history but never adds a tool_result, which
+      // corrupts the conversation and causes a 400 error on the next API call.
+      try {
+        const toolName = tool.getName();
+        const allowed = await session.checkPermission(
+          toolName,
+          parameters as Record<string, unknown>,
+        );
+        if (!allowed) {
+          return DENIED_RESULT;
+        }
+        return await originalExecute(parameters, context as IToolExecutionContext);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          success: true,
+          data: JSON.stringify({ success: false, output: '', error: message }),
+          metadata: {},
+        };
+      }
+    };
+
+    return wrappedTool;
   }
 
   /** Evaluate permission for a tool call using the current mode and config */
