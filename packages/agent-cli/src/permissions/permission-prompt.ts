@@ -5,6 +5,7 @@
 
 import chalk from 'chalk';
 import type { ITerminalOutput } from '../types.js';
+import type { TToolArgs } from './permission-gate.js';
 
 const PERMISSION_OPTIONS = ['Allow', 'Deny'];
 const ALLOW_INDEX = 0;
@@ -12,7 +13,7 @@ const ALLOW_INDEX = 0;
 /**
  * Format tool arguments as a human-readable string for display in the prompt.
  */
-function formatArgs(toolArgs: Record<string, unknown>): string {
+function formatArgs(toolArgs: TToolArgs): string {
   const entries = Object.entries(toolArgs);
   if (entries.length === 0) {
     return '(no arguments)';
@@ -35,7 +36,7 @@ function formatArgs(toolArgs: Record<string, unknown>): string {
 export async function promptForApproval(
   terminal: ITerminalOutput,
   toolName: string,
-  toolArgs: Record<string, unknown>,
+  toolArgs: TToolArgs,
 ): Promise<boolean> {
   terminal.writeLine('');
   terminal.writeLine(chalk.yellow(`[Permission Required] Tool: ${toolName}`));

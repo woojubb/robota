@@ -27,6 +27,7 @@ import type { IProjectInfo } from './context/project-detector.js';
 import { buildSystemPrompt } from './context/system-prompt-builder.js';
 import { TRUST_TO_MODE } from './types.js';
 import { evaluatePermission } from './permissions/permission-gate.js';
+import type { TToolArgs } from './permissions/permission-gate.js';
 import { promptForApproval } from './permissions/permission-prompt.js';
 import { bashTool } from './tools/bash-tool.js';
 import { readTool } from './tools/read-tool.js';
@@ -38,6 +39,12 @@ import type { SessionStore, ISessionRecord } from './session-store.js';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
+
+/**
+ * Custom permission handler — called when a tool needs user approval.
+ * Returns true to allow, false to deny.
+ */
+export type TPermissionHandler = (toolName: string, toolArgs: TToolArgs) => Promise<boolean>;
 
 /** Options for constructing a Session */
 export interface ISessionOptions {
@@ -57,6 +64,8 @@ export interface ISessionOptions {
   projectInfo?: IProjectInfo;
   /** Inject a pre-constructed AI provider (used by tests to avoid real API calls) */
   provider?: IAIProvider;
+  /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
+  permissionHandler?: TPermissionHandler;
 }
 
 /** Names of the 6 built-in CLI tools */
@@ -82,16 +91,26 @@ export class Session {
   private readonly terminal: ITerminalOutput;
   private readonly config: IResolvedConfig;
   private readonly sessionStore?: SessionStore;
+  private readonly permissionHandler?: TPermissionHandler;
   private readonly cwd: string;
   private messageCount = 0;
 
   constructor(options: ISessionOptions) {
-    const { config, context, terminal, permissionMode, sessionStore, projectInfo, provider } =
-      options;
+    const {
+      config,
+      context,
+      terminal,
+      permissionMode,
+      sessionStore,
+      projectInfo,
+      provider,
+      permissionHandler,
+    } = options;
 
     this.config = config;
     this.terminal = terminal;
     this.sessionStore = sessionStore;
+    this.permissionHandler = permissionHandler;
     this.cwd = process.cwd();
     this.sessionId = `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
 
@@ -243,10 +262,7 @@ export class Session {
       // corrupts the conversation and causes a 400 error on the next API call.
       try {
         const toolName = tool.getName();
-        const allowed = await session.checkPermission(
-          toolName,
-          parameters as Record<string, unknown>,
-        );
+        const allowed = await session.checkPermission(toolName, parameters as TToolArgs);
         if (!allowed) {
           return DENIED_RESULT;
         }
@@ -265,7 +281,7 @@ export class Session {
   }
 
   /** Evaluate permission for a tool call using the current mode and config */
-  async checkPermission(toolName: string, toolArgs: Record<string, unknown>): Promise<boolean> {
+  async checkPermission(toolName: string, toolArgs: TToolArgs): Promise<boolean> {
     const decision = evaluatePermission(toolName, toolArgs, this.permissionMode, {
       allow: this.config.permissions.allow,
       deny: this.config.permissions.deny,
@@ -274,7 +290,10 @@ export class Session {
     if (decision === 'auto') return true;
     if (decision === 'deny') return false;
 
-    // 'approve' — prompt the user
+    // 'approve' — prompt the user via custom handler or terminal
+    if (this.permissionHandler) {
+      return this.permissionHandler(toolName, toolArgs);
+    }
     return promptForApproval(this.terminal, toolName, toolArgs);
   }
 

@@ -20,7 +20,7 @@ import { MODE_POLICY, UNKNOWN_TOOL_FALLBACK } from './permission-mode.js';
  * Tool arguments passed from the LLM invocation.
  * The values relevant to permission matching are strings.
  */
-export type TToolArgs = Record<string, unknown>;
+export type TToolArgs = Record<string, string | number | boolean | object>;
 
 /**
  * Permission list entries (allow / deny).

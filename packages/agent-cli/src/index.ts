@@ -10,7 +10,7 @@ export type {
 export { TRUST_TO_MODE } from './types.js';
 
 export { Session } from './session.js';
-export type { ISessionOptions } from './session.js';
+export type { ISessionOptions, TPermissionHandler } from './session.js';
 
 export { SessionStore } from './session-store.js';
 export type { ISessionRecord } from './session-store.js';

@@ -1,10 +1,10 @@
 /**
- * CLI entry point — parses arguments, loads config/context, creates a Session,
- * and starts the REPL or runs in print mode.
+ * CLI entry point — parses arguments, loads config/context, and starts the
+ * Ink TUI or runs in print mode.
  *
  * CLI flags:
- *   robota                         REPL mode
- *   robota "prompt"                REPL with initial prompt
+ *   robota                         Interactive TUI mode
+ *   robota "prompt"                TUI with initial prompt (future)
  *   robota -p "prompt"             Print mode (one-shot, exit after response)
  *   robota -c                      Continue last session
  *   robota -r <id>                 Resume session by ID
@@ -24,25 +24,16 @@ import { detectProject } from './context/project-detector.js';
 import { Session } from './session.js';
 import { SessionStore } from './session-store.js';
 import { ReplRenderer } from './repl/repl-renderer.js';
-import { startRepl } from './repl/repl-session.js';
+import { renderApp } from './ui/render.js';
 import type { TPermissionMode } from './types.js';
-import type { ISessionOptions } from './session.js';
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
 
-/** Read version from package.json at runtime.
- *
- * The compiled bin.js lives at dist/node/bin.js, two directories below package.json.
- * The source bin.ts lives at src/bin.ts, one directory below package.json.
- * We try both relative paths so this works in both compiled and dev (tsx) modes.
- */
+/** Read version from package.json at runtime. */
 function readVersion(): string {
   try {
     const thisFile = fileURLToPath(import.meta.url);
     const dir = dirname(thisFile);
-
-    // Try: dist/node → ../../package.json (compiled)
-    // Try: src      → ../package.json    (tsx dev mode)
     const candidates = [join(dir, '..', '..', 'package.json'), join(dir, '..', 'package.json')];
 
     for (const pkgPath of candidates) {
@@ -60,6 +51,27 @@ function readVersion(): string {
   } catch {
     return '0.0.0';
   }
+}
+
+/** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
+function parsePermissionMode(raw: string | undefined): TPermissionMode | undefined {
+  if (raw === undefined) return undefined;
+  if (!VALID_MODES.includes(raw as TPermissionMode)) {
+    process.stderr.write(`Invalid --permission-mode "${raw}". Valid: ${VALID_MODES.join(' | ')}\n`);
+    process.exit(1);
+  }
+  return raw as TPermissionMode;
+}
+
+/** Validate and return a positive integer from a raw CLI string, or exit on error. */
+function parseMaxTurns(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const n = parseInt(raw, 10);
+  if (isNaN(n) || n <= 0) {
+    process.stderr.write(`Invalid --max-turns "${raw}". Must be a positive integer.\n`);
+    process.exit(1);
+  }
+  return n;
 }
 
 /** Parse and validate CLI arguments */
@@ -86,36 +98,14 @@ function parseCliArgs(): {
     },
   });
 
-  let permissionMode: TPermissionMode | undefined;
-  const rawMode = values['permission-mode'];
-  if (rawMode !== undefined) {
-    if (!VALID_MODES.includes(rawMode as TPermissionMode)) {
-      process.stderr.write(
-        `Invalid --permission-mode "${rawMode}". Valid: ${VALID_MODES.join(' | ')}\n`,
-      );
-      process.exit(1);
-    }
-    permissionMode = rawMode as TPermissionMode;
-  }
-
-  let maxTurns: number | undefined;
-  const rawTurns = values['max-turns'];
-  if (rawTurns !== undefined) {
-    maxTurns = parseInt(rawTurns, 10);
-    if (isNaN(maxTurns) || maxTurns <= 0) {
-      process.stderr.write(`Invalid --max-turns "${rawTurns}". Must be a positive integer.\n`);
-      process.exit(1);
-    }
-  }
-
   return {
     positional: positionals,
     printMode: values['p'] ?? false,
     continueMode: values['c'] ?? false,
     resumeId: values['r'],
     model: values['model'],
-    permissionMode,
-    maxTurns,
+    permissionMode: parsePermissionMode(values['permission-mode']),
+    maxTurns: parseMaxTurns(values['max-turns']),
     version: values['version'] ?? false,
   };
 }
@@ -134,7 +124,6 @@ export async function startCli(): Promise<void> {
   }
 
   const cwd = process.cwd();
-  const terminal = new ReplRenderer();
 
   // Load config and context in parallel
   const [config, context, projectInfo] = await Promise.all([
@@ -150,60 +139,33 @@ export async function startCli(): Promise<void> {
 
   const sessionStore = new SessionStore();
 
-  // Build session options
-  const sessionOptions: ISessionOptions = {
-    config,
-    context,
-    terminal,
-    projectInfo,
-    sessionStore,
-    permissionMode: args.permissionMode,
-    maxTurns: args.maxTurns,
-  };
-
-  // Resume session by ID
-  if (args.resumeId !== undefined) {
-    const record = sessionStore.load(args.resumeId);
-    if (!record) {
-      terminal.writeError(`Session "${args.resumeId}" not found.`);
-      process.exit(1);
-    }
-    // Log resume notice; the actual history restoration is not yet implemented
-    terminal.writeLine(`Resuming session: ${args.resumeId}`);
-  }
-
-  // Continue last session (shorthand for -r with latest session id)
-  if (args.continueMode) {
-    const sessions = sessionStore.list();
-    const last = sessions[0];
-    if (!last) {
-      terminal.writeLine('No previous session to continue. Starting a new session.');
-    } else {
-      terminal.writeLine(`Continuing session: ${last.id}`);
-    }
-  }
-
-  const session = new Session(sessionOptions);
-
-  // Print mode: send single prompt, output response, exit
+  // Print mode: send single prompt, output response, exit (uses legacy terminal)
   if (args.printMode) {
     const prompt = args.positional.join(' ').trim();
     if (prompt.length === 0) {
-      terminal.writeError('Print mode (-p) requires a prompt argument.');
+      process.stderr.write('Print mode (-p) requires a prompt argument.\n');
       process.exit(1);
     }
+    const terminal = new ReplRenderer();
+    const session = new Session({
+      config,
+      context,
+      terminal,
+      projectInfo,
+      permissionMode: args.permissionMode,
+    });
     const response = await session.run(prompt);
     process.stdout.write(response + '\n');
     return;
   }
 
-  // REPL mode
-  const initialPrompt = args.positional.join(' ').trim() || undefined;
-
-  await startRepl(session, terminal, sessionStore, projectInfo.name);
-
-  // If there was an initial prompt passed as positional, send it after the REPL
-  // starts (not implemented here — it would require piping it as first line input).
-  // For the MVP we simply ignore it in REPL mode if no -p flag is set.
-  void initialPrompt;
+  // Interactive TUI mode (Ink)
+  renderApp({
+    config,
+    context,
+    projectInfo,
+    sessionStore,
+    permissionMode: args.permissionMode,
+    maxTurns: args.maxTurns,
+  });
 }

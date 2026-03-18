@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { evaluatePermission } from '../permissions/permission-gate.js';
+import type { TToolArgs } from '../permissions/permission-gate.js';
 import type { TPermissionMode, TPermissionDecision } from '../types.js';
 
 // ---------------------------------------------------------------------------
@@ -13,7 +14,7 @@ import type { TPermissionMode, TPermissionDecision } from '../types.js';
 interface IMatrixCase {
   mode: TPermissionMode;
   toolName: string;
-  args: Record<string, unknown>;
+  args: TToolArgs;
   expected: TPermissionDecision;
 }
 
