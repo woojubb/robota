@@ -500,6 +500,9 @@ importers:
 
   packages/agents:
     dependencies:
+      '@robota-sdk/event-service':
+        specifier: workspace:*
+        version: link:../event-service
       jssha:
         specifier: ^3.3.1
         version: 3.3.1
@@ -507,9 +510,6 @@ importers:
         specifier: ^3.24.4
         version: 3.25.76
     devDependencies:
-      '@robota-sdk/event-service':
-        specifier: workspace:*
-        version: link:../event-service
       '@robota-sdk/plugin-conversation-history':
         specifier: workspace:*
         version: link:../plugin-conversation-history
@@ -1276,9 +1276,6 @@ importers:
 
   packages/event-service:
     devDependencies:
-      '@robota-sdk/agents':
-        specifier: workspace:*
-        version: link:../agents
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
@@ -1407,6 +1404,9 @@ importers:
       '@robota-sdk/anthropic':
         specifier: workspace:^
         version: link:../anthropic
+      '@robota-sdk/event-service':
+        specifier: workspace:^
+        version: link:../event-service
       '@robota-sdk/openai':
         specifier: workspace:^
         version: link:../openai
@@ -1416,6 +1416,9 @@ importers:
       '@robota-sdk/team':
         specifier: workspace:^
         version: link:../team
+      '@robota-sdk/tools':
+        specifier: workspace:^
+        version: link:../tools
       '@xyflow/react':
         specifier: ^12.8.2
         version: 12.8.2(@types/react@19.1.8)(react-dom@19.1.0)(react@19.1.0)
@@ -1757,6 +1760,15 @@ importers:
       '@robota-sdk/agents':
         specifier: workspace:*
         version: link:../agents
+      '@robota-sdk/event-service':
+        specifier: workspace:*
+        version: link:../event-service
+      '@robota-sdk/tool-mcp':
+        specifier: workspace:*
+        version: link:../tool-mcp
+      '@robota-sdk/tools':
+        specifier: workspace:*
+        version: link:../tools
       uuid:
         specifier: ^9.0.1
         version: 9.0.1

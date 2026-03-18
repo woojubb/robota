@@ -5,6 +5,7 @@ import type {
   IParameterValidationResult,
   TToolExecutor,
   TToolParameters,
+  IEventService,
 } from '@robota-sdk/agents';
 import type { IToolSchema, IParameterSchema } from '@robota-sdk/agents';
 import { ToolExecutionError, ValidationError } from '@robota-sdk/agents';
@@ -24,11 +25,28 @@ import { zodToJsonSchema } from './function-tool/schema-converter';
 export class FunctionTool implements IFunctionTool {
   readonly schema: IToolSchema;
   readonly fn: TToolExecutor;
+  private eventService: IEventService | undefined;
 
   constructor(schema: IToolSchema, fn: TToolExecutor) {
     this.schema = schema;
     this.fn = fn;
     this.validateConstructorInputs();
+  }
+
+  /**
+   * Get tool name
+   */
+  getName(): string {
+    return this.schema.name;
+  }
+
+  /**
+   * Set EventService for post-construction injection.
+   * Accepts EventService as-is without transformation.
+   * Caller is responsible for providing properly configured EventService.
+   */
+  setEventService(eventService: IEventService | undefined): void {
+    this.eventService = eventService;
   }
 
   /**

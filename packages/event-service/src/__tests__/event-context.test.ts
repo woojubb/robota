@@ -4,7 +4,7 @@ import {
   ObservableEventService,
   bindWithOwnerPath,
 } from '../event-service';
-import type { IEventContext, IBaseEventData } from '@robota-sdk/agents';
+import type { IEventContext, IBaseEventData } from '../interfaces';
 
 describe('Event context depth and spanId', () => {
   it('emits events with depth derived from ownerPath length', () => {

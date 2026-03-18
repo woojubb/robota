@@ -81,10 +81,10 @@
   "license": "MIT",
   "dependencies": {
     "jssha": "^3.3.1",
-    "zod": "^3.24.4"
+    "zod": "^3.24.4",
+    "@robota-sdk/event-service": "workspace:*"
   },
   "devDependencies": {
-    "@robota-sdk/event-service": "workspace:*",
     "@robota-sdk/plugin-conversation-history": "workspace:*",
     "@robota-sdk/plugin-error-handling": "workspace:*",
     "@robota-sdk/plugin-event-emitter": "workspace:*",

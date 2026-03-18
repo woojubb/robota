@@ -8,7 +8,7 @@ export type {
   IOwnerPathSegment,
   IToolEventData,
   TEventListener,
-} from '@robota-sdk/agents';
+} from './interfaces';
 
 import type {
   IBaseEventData,
@@ -16,7 +16,7 @@ import type {
   IEventService,
   IEventServiceOwnerBinding,
   TEventListener,
-} from '@robota-sdk/agents';
+} from './interfaces';
 
 /**
  * Abstract base for event services.
