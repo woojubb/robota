@@ -298,7 +298,7 @@ describe('AnthropicProvider', () => {
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
       expect(result.role).toBe('assistant');
-      expect(result.content).toBeNull();
+      expect(result.content).toBe('');
       const assistantResult = result as IAssistantMessage;
       expect(assistantResult.toolCalls).toHaveLength(1);
       expect(assistantResult.toolCalls![0]).toEqual({
@@ -332,7 +332,7 @@ describe('AnthropicProvider', () => {
       );
     });
 
-    it('should skip unsupported content types and return null content', async () => {
+    it('should skip unsupported content types and return empty content', async () => {
       const weirdResponse = {
         id: 'msg_test',
         type: 'message',
@@ -350,7 +350,7 @@ describe('AnthropicProvider', () => {
       ];
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
       expect(result.role).toBe('assistant');
-      expect(result.content).toBeNull();
+      expect(result.content).toBe('');
     });
 
     it('should include stopReason in metadata when stop_reason is present', async () => {

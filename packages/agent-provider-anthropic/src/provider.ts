@@ -292,7 +292,9 @@ export class AnthropicProvider extends AbstractAIProvider {
       }
     }
 
-    const textContent = textParts.join('\n') || null;
+    // Use empty string instead of null so agent-core's buildFinalResult
+    // doesn't reject the message. Tool-only responses have no text.
+    const textContent = textParts.join('\n') || '';
 
     const result: TUniversalMessage = {
       role: 'assistant',
