@@ -4,21 +4,20 @@ import type { IModule } from '../abstracts/abstract-module';
 import type { IToolWithEventService } from '../abstracts/abstract-tool';
 import type { TUtilLogLevel } from '../utils/logger';
 import type { TMetadata, TConfigValue } from './types';
-import type { IEventService } from '../services/event-service';
-import type { IOwnerPathSegment } from '../services/event-service';
+import type { IEventService, IOwnerPathSegment } from '../interfaces/event-service';
 import type { TUniversalMessageMetadata, TUniversalMessage } from './messages';
 import type { ICacheOptions } from './cache';
 
 export type {
-    TUniversalMessage,
-    TUniversalMessageMetadata,
-    IBaseMessage,
-    IUserMessage,
-    IAssistantMessage,
-    ISystemMessage,
-    IToolMessage,
-    IToolCall,
-    TUniversalMessageRole,
+  TUniversalMessage,
+  TUniversalMessageMetadata,
+  IBaseMessage,
+  IUserMessage,
+  IAssistantMessage,
+  ISystemMessage,
+  IToolMessage,
+  IToolCall,
+  TUniversalMessageRole,
 } from './messages';
 
 /**
@@ -31,11 +30,11 @@ export type {
  * and requires toolName/parameters; agent creation only needs ownerPath and execution linkage.
  */
 export interface IExecutionContextInjection {
-    ownerPath?: IOwnerPathSegment[];
-    parentExecutionId?: string;
-    rootExecutionId?: string;
-    executionLevel?: number;
-    sourceId?: string;
+  ownerPath?: IOwnerPathSegment[];
+  parentExecutionId?: string;
+  rootExecutionId?: string;
+  executionLevel?: number;
+  sourceId?: string;
 }
 
 // Provider config value types are owned by provider axis (`interfaces/provider.ts`).
@@ -44,163 +43,163 @@ export interface IExecutionContextInjection {
  * Provider-specific configuration
  */
 export interface IAgentProviderConfig {
-    openai?: {
-        apiKey?: string;
-        baseURL?: string;
-        organization?: string;
-        [key: string]: TProviderConfigValue | undefined;
-    };
-    anthropic?: {
-        apiKey?: string;
-        baseURL?: string;
-        [key: string]: TProviderConfigValue | undefined;
-    };
-    google?: {
-        apiKey?: string;
-        projectId?: string;
-        location?: string;
-        [key: string]: TProviderConfigValue | undefined;
-    };
-    [provider: string]: Record<string, TProviderConfigValue | undefined> | undefined;
+  openai?: {
+    apiKey?: string;
+    baseURL?: string;
+    organization?: string;
+    [key: string]: TProviderConfigValue | undefined;
+  };
+  anthropic?: {
+    apiKey?: string;
+    baseURL?: string;
+    [key: string]: TProviderConfigValue | undefined;
+  };
+  google?: {
+    apiKey?: string;
+    projectId?: string;
+    location?: string;
+    [key: string]: TProviderConfigValue | undefined;
+  };
+  [provider: string]: Record<string, TProviderConfigValue | undefined> | undefined;
 }
 
 /**
  * Agent configuration options - New design with aiProviders array and defaultModel
  */
 export interface IAgentConfig {
-    id?: string;
-    name: string;
-    aiProviders: IAIProvider[];
-    defaultModel: {
-        provider: string;
-        model: string;
-        temperature?: number;
-        maxTokens?: number;
-        topP?: number;
-        systemMessage?: string;
-    };
-
-    // Tools and plugins
-    tools?: Array<IToolWithEventService>;
-    plugins?: Array<IPluginContract<IPluginOptions, IPluginStats>>;
-
-    // Modules for extended functionality
-    modules?: IModule[];
-
-    // System configuration
+  id?: string;
+  name: string;
+  aiProviders: IAIProvider[];
+  defaultModel: {
+    provider: string;
+    model: string;
+    temperature?: number;
+    maxTokens?: number;
+    topP?: number;
     systemMessage?: string;
-    systemPrompt?: string;
+  };
 
-    // Conversation management
-    conversationId?: string;
-    sessionId?: string;
-    userId?: string;
+  // Tools and plugins
+  tools?: Array<IToolWithEventService>;
+  plugins?: Array<IPluginContract<IPluginOptions, IPluginStats>>;
 
-    // Metadata and context
-    metadata?: TUniversalMessageMetadata;
-    context?: Record<string, TConfigValue>;
+  // Modules for extended functionality
+  modules?: IModule[];
 
-    // Logging configuration
-    logging?: {
-        level?: TUtilLogLevel;
-        enabled?: boolean;
-        format?: string;
-        destination?: string;
-    };
+  // System configuration
+  systemMessage?: string;
+  systemPrompt?: string;
 
-    // Provider-specific configurations
-    providerConfig?: IAgentProviderConfig;
+  // Conversation management
+  conversationId?: string;
+  sessionId?: string;
+  userId?: string;
 
-    // Execution options
-    stream?: boolean;
-    toolChoice?: 'auto' | 'none' | string;
-    responseFormat?: IResponseFormatConfig;
-    safetySettings?: ISafetySetting[];
+  // Metadata and context
+  metadata?: TUniversalMessageMetadata;
+  context?: Record<string, TConfigValue>;
 
-    // Performance and limits
-    timeout?: number;
-    retryAttempts?: number;
-    rateLimiting?: {
-        enabled?: boolean;
-        maxRequests?: number;
-        windowMs?: number;
-    };
+  // Logging configuration
+  logging?: {
+    level?: TUtilLogLevel;
+    enabled?: boolean;
+    format?: string;
+    destination?: string;
+  };
 
-    // Event tracking
-    eventService?: IEventService;
+  // Provider-specific configurations
+  providerConfig?: IAgentProviderConfig;
 
-    // 🎯 [CONTEXT-INJECTION] Execution context for hierarchical agent management
-    executionContext?: IExecutionContextInjection;
+  // Execution options
+  stream?: boolean;
+  toolChoice?: 'auto' | 'none' | string;
+  responseFormat?: IResponseFormatConfig;
+  safetySettings?: ISafetySetting[];
 
-    // Execution caching
-    cache?: ICacheOptions;
+  // Performance and limits
+  timeout?: number;
+  retryAttempts?: number;
+  rateLimiting?: {
+    enabled?: boolean;
+    maxRequests?: number;
+    windowMs?: number;
+  };
+
+  // Event tracking
+  eventService?: IEventService;
+
+  // 🎯 [CONTEXT-INJECTION] Execution context for hierarchical agent management
+  executionContext?: IExecutionContextInjection;
+
+  // Execution caching
+  cache?: ICacheOptions;
 }
 
 /**
  * Agent template interface
  */
 export interface IAgentTemplate {
-    id: string;
-    name: string;
-    description?: string;
-    category?: string;
-    tags?: string[];
-    config: IAgentConfig;
-    version?: string;
-    author?: string;
-    createdAt?: Date;
-    updatedAt?: Date;
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  config: IAgentConfig;
+  version?: string;
+  author?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 /**
  * Agent run options - type-safe interface for all agent execution options
  */
 export interface IRunOptions {
-    temperature?: number;
-    maxTokens?: number;
-    stream?: boolean;
-    toolChoice?: 'auto' | 'none' | string;
-    sessionId?: string;
-    userId?: string;
-    metadata?: TMetadata;
+  temperature?: number;
+  maxTokens?: number;
+  stream?: boolean;
+  toolChoice?: 'auto' | 'none' | string;
+  sessionId?: string;
+  userId?: string;
+  metadata?: TMetadata;
 }
 
 /**
  * Generic agent interface with type parameters for enhanced type safety
- * 
+ *
  * @template TConfig - Agent configuration type (defaults to IAgentConfig for backward compatibility)
  * @template TContext - Execution context type (defaults to IRunOptions for backward compatibility)
  * @template TUniversalMessage - Message type (defaults to TUniversalMessage for backward compatibility)
  */
 export interface IAgent<
-    TConfig = IAgentConfig,
-    TContext = IRunOptions,
-    TMessage = TUniversalMessage
+  TConfig = IAgentConfig,
+  TContext = IRunOptions,
+  TMessage = TUniversalMessage,
 > {
-    /**
-     * Configure the agent with type-safe configuration
-     */
-    configure?(config: TConfig): Promise<void>;
+  /**
+   * Configure the agent with type-safe configuration
+   */
+  configure?(config: TConfig): Promise<void>;
 
-    /**
-     * Run agent with user input and type-safe context
-     */
-    run(input: string, context?: TContext): Promise<string>;
+  /**
+   * Run agent with user input and type-safe context
+   */
+  run(input: string, context?: TContext): Promise<string>;
 
-    /**
-     * Run agent with streaming response and type-safe context
-     */
-    runStream(input: string, context?: TContext): AsyncGenerator<string, void, never>;
+  /**
+   * Run agent with streaming response and type-safe context
+   */
+  runStream(input: string, context?: TContext): AsyncGenerator<string, void, never>;
 
-    /**
-     * Get conversation history with type-safe messages
-     */
-    getHistory(): TMessage[];
+  /**
+   * Get conversation history with type-safe messages
+   */
+  getHistory(): TMessage[];
 
-    /**
-     * Clear conversation history
-     */
-    clearHistory(): void;
+  /**
+   * Clear conversation history
+   */
+  clearHistory(): void;
 }
 
 /**
@@ -208,54 +207,53 @@ export interface IAgent<
  * Supports dynamic provider configurations without hardcoding specific providers
  */
 export interface IExtendedRunContext {
-    temperature?: number;
-    maxTokens?: number;
-    stream?: boolean;
-    toolChoice?: 'auto' | 'none' | string;
-    sessionId?: string;
-    userId?: string;
-    metadata?: TMetadata;
+  temperature?: number;
+  maxTokens?: number;
+  stream?: boolean;
+  toolChoice?: 'auto' | 'none' | string;
+  sessionId?: string;
+  userId?: string;
+  metadata?: TMetadata;
 
-    // Provider-agnostic options that can be used by any provider
-    providerOptions?: Record<string, TConfigValue>;
+  // Provider-agnostic options that can be used by any provider
+  providerOptions?: Record<string, TConfigValue>;
 
-    // Common provider options (provider-agnostic naming)
-    stopSequences?: string[];
-    topK?: number;
-    topP?: number;
-    seed?: number;
+  // Common provider options (provider-agnostic naming)
+  stopSequences?: string[];
+  topK?: number;
+  topP?: number;
+  seed?: number;
 
-    // Advanced configuration with specific types
-    responseFormat?: IResponseFormatConfig;
-    safetySettings?: ISafetySetting[];
-    generationConfig?: IGenerationConfig;
+  // Advanced configuration with specific types
+  responseFormat?: IResponseFormatConfig;
+  safetySettings?: ISafetySetting[];
+  generationConfig?: IGenerationConfig;
 }
 
 /**
  * Response format configuration
  */
 export interface IResponseFormatConfig {
-    type?: 'text' | 'json_object';
-    schema?: Record<string, TConfigValue>;
+  type?: 'text' | 'json_object';
+  schema?: Record<string, TConfigValue>;
 }
 
 /**
  * Safety setting configuration
  */
 export interface ISafetySetting {
-    category: string;
-    threshold: string;
-    [key: string]: TConfigValue;
+  category: string;
+  threshold: string;
+  [key: string]: TConfigValue;
 }
 
 /**
  * Generation configuration
  */
 export interface IGenerationConfig {
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    topK?: number;
-    [key: string]: TConfigValue;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  topK?: number;
+  [key: string]: TConfigValue;
 }
-
