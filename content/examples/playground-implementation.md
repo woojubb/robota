@@ -9,6 +9,7 @@ The Robota Playground is a comprehensive visual interface for designing, configu
 ### Core Infrastructure
 
 #### 1. PlaygroundContext (`apps/web/src/contexts/playground-context.tsx`)
+
 - **Purpose**: Global state management using React Context and useReducer
 - **Features**:
   - Type-safe state management with TypeScript
@@ -17,16 +18,18 @@ The Robota Playground is a comprehensive visual interface for designing, configu
   - Comprehensive error handling and loading states
 
 #### 2. PlaygroundExecutor (`apps/web/src/lib/playground/robota-executor.ts`)
+
 - **Purpose**: Core execution engine following Robota SDK patterns
 - **Features**:
   - Facade pattern with simplified public interface
-  - Browser-compatible type definitions mirroring `@robota-sdk/agents`
+  - Browser-compatible type definitions mirroring `@robota-sdk/agent-core`
   - Real-time WebSocket communication
   - Plugin system integration
 
 ### Custom Hooks
 
 #### 1. usePlaygroundData
+
 ```typescript
 import { usePlaygroundData } from '@/hooks/use-playground-data';
 
@@ -35,52 +38,39 @@ const {
   conversationEvents,
   totalEvents,
   filterEventsByType,
-  getExecutionStatistics
+  getExecutionStatistics,
 } = usePlaygroundData();
 ```
 
 #### 2. useRobotaExecution
+
 ```typescript
 import { useRobotaExecution } from '@/hooks/use-robota-execution';
 
-const {
-  createAgent,
-  executePrompt,
-  executeStreamPrompt,
-  canExecute,
-  executionState
-} = useRobotaExecution();
+const { createAgent, executePrompt, executeStreamPrompt, canExecute, executionState } =
+  useRobotaExecution();
 ```
 
 #### 3. useWebSocketConnection
+
 ```typescript
 import { useWebSocketConnection } from '@/hooks/use-websocket-connection';
 
-const {
-  connectionState,
-  isConnected,
-  connect,
-  disconnect,
-  statistics
-} = useWebSocketConnection();
+const { connectionState, isConnected, connect, disconnect, statistics } = useWebSocketConnection();
 ```
 
 #### 4. useChatInput
+
 ```typescript
 import { useChatInput } from '@/hooks/use-chat-input';
 
-const {
-  inputState,
-  sendMessage,
-  sendStreamingMessage,
-  canSend,
-  inputRef
-} = useChatInput();
+const { inputState, sendMessage, sendStreamingMessage, canSend, inputRef } = useChatInput();
 ```
 
 ### Visual Components
 
 #### 1. AgentConfigurationBlock
+
 ```typescript
 import { AgentConfigurationBlock } from '@/components/playground/agent-configuration-block';
 
@@ -95,12 +85,14 @@ import { AgentConfigurationBlock } from '@/components/playground/agent-configura
 ```
 
 **Features**:
+
 - Real-time model parameter editing (temperature, tokens, system message)
 - AI Provider selection (OpenAI, Anthropic, Google)
 - Tools & Plugins integration
 - Validation feedback and status indicators
 
 #### 2. TeamConfigurationBlock
+
 ```typescript
 import { TeamConfigurationBlock } from '@/components/playground/team-configuration-block';
 
@@ -114,12 +106,14 @@ import { TeamConfigurationBlock } from '@/components/playground/team-configurati
 ```
 
 **Features**:
+
 - Interactive workflow diagrams (Sequential, Parallel, Consensus)
 - Coordinator strategy selection with visual preview
 - Agent container management within teams
 - Team-level settings and metadata
 
 #### 3. ToolContainerBlock
+
 ```typescript
 import { ToolContainerBlock } from '@/components/playground/tool-container-block';
 
@@ -133,12 +127,14 @@ import { ToolContainerBlock } from '@/components/playground/tool-container-block
 ```
 
 **Features**:
+
 - Collapsible tool blocks with parameter configuration
 - Tool library with search and discovery
 - Execution preview and validation
 - Dynamic add/remove with drag & drop support
 
 #### 4. PluginContainerBlock
+
 ```typescript
 import { PluginContainerBlock } from '@/components/playground/plugin-container-block';
 
@@ -151,6 +147,7 @@ import { PluginContainerBlock } from '@/components/playground/plugin-container-b
 ```
 
 **Features**:
+
 - Category-based organization (Storage, Monitoring, Analytics, Security)
 - Plugin statistics and performance monitoring
 - Options configuration with type-safe inputs
@@ -192,7 +189,7 @@ function PlaygroundInterface() {
       tools: [],
       plugins: []
     };
-    
+
     await createAgent(agentConfig);
   };
 
@@ -221,23 +218,25 @@ const advancedAgentConfig = {
     model: 'gpt-4-turbo',
     temperature: 0.3,
     maxTokens: 4000,
-    systemMessage: 'You are an expert developer assistant.'
+    systemMessage: 'You are an expert developer assistant.',
   },
   tools: [
     {
       name: 'web_search',
       description: 'Search the web for information',
-      execute: async (params) => { /* implementation */ }
-    }
+      execute: async (params) => {
+        /* implementation */
+      },
+    },
   ],
   plugins: [
     {
       name: 'HistoryPlugin',
       version: '1.0.0',
       initialize: async () => {},
-      dispose: async () => {}
-    }
-  ]
+      dispose: async () => {},
+    },
+  ],
 };
 
 // Team configuration
@@ -246,8 +245,8 @@ const teamConfig = {
   agents: [leadAgent, assistantAgent, reviewerAgent],
   workflow: {
     coordinator: 'priority',
-    maxDepth: 5
-  }
+    maxDepth: 5,
+  },
 };
 ```
 
@@ -263,7 +262,7 @@ const { connect, disconnect, isConnected } = useWebSocketConnection();
 await connect('ws://localhost:3001', {
   userId: 'user123',
   sessionId: 'session456',
-  authToken: 'token789'
+  authToken: 'token789',
 });
 
 // Connection status monitoring
@@ -275,12 +274,16 @@ console.log('Connected:', isConnected);
 ### Creating Custom Plugins
 
 ```typescript
-import { BasePlugin, PluginCategory, PluginPriority } from '@/lib/playground/plugins/playground-history-plugin';
+import {
+  BasePlugin,
+  PluginCategory,
+  PluginPriority,
+} from '@/lib/playground/plugins/playground-history-plugin';
 
 class CustomPlugin extends BasePlugin {
   readonly name = 'CustomPlugin';
   readonly version = '1.0.0';
-  
+
   constructor(options = {}, logger) {
     super(logger);
     this.category = PluginCategory.CUSTOM;
@@ -299,7 +302,7 @@ class CustomPlugin extends BasePlugin {
   getStats() {
     return {
       ...this.stats,
-      customMetric: this.calculateCustomMetric()
+      customMetric: this.calculateCustomMetric(),
     };
   }
 }
@@ -341,6 +344,7 @@ interface PlaygroundExecutionResult {
 ## Performance Optimization
 
 ### Memoization
+
 All hooks use `useMemo` and `useCallback` for optimal performance:
 
 ```typescript
@@ -348,12 +352,16 @@ const expensiveCalculation = useMemo(() => {
   return calculateStatistics(conversationEvents);
 }, [conversationEvents]);
 
-const handleExecute = useCallback(async (prompt: string) => {
-  return await executePrompt(prompt);
-}, [executePrompt]);
+const handleExecute = useCallback(
+  async (prompt: string) => {
+    return await executePrompt(prompt);
+  },
+  [executePrompt],
+);
 ```
 
 ### Virtual Scrolling
+
 For large datasets, implement virtual scrolling:
 
 ```typescript
@@ -388,22 +396,24 @@ try {
 ## Testing
 
 ### Unit Tests
+
 ```typescript
 import { renderHook, act } from '@testing-library/react';
 import { useRobotaExecution } from '@/hooks/use-robota-execution';
 
 test('should create agent successfully', async () => {
   const { result } = renderHook(() => useRobotaExecution());
-  
+
   await act(async () => {
     await result.current.createAgent(mockAgentConfig);
   });
-  
+
   expect(result.current.currentAgentConfig).toEqual(mockAgentConfig);
 });
 ```
 
 ### Integration Tests
+
 ```typescript
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PlaygroundProvider } from '@/contexts/playground-context';
@@ -418,10 +428,10 @@ test('should update agent configuration', async () => {
       />
     </PlaygroundProvider>
   );
-  
+
   const nameInput = screen.getByPlaceholderText('Agent Name');
   fireEvent.change(nameInput, { target: { value: 'New Name' } });
-  
+
   expect(mockOnChange).toHaveBeenCalledWith(
     expect.objectContaining({ name: 'New Name' })
   );
@@ -431,6 +441,7 @@ test('should update agent configuration', async () => {
 ## Deployment
 
 ### Build Configuration
+
 ```json
 {
   "scripts": {
@@ -442,6 +453,7 @@ test('should update agent configuration', async () => {
 ```
 
 ### Environment Variables
+
 ```env
 NEXT_PUBLIC_PLAYGROUND_WS_URL=ws://localhost:3001
 NEXT_PUBLIC_PLAYGROUND_API_URL=http://localhost:3001
@@ -475,4 +487,4 @@ NEXT_PUBLIC_PLAYGROUND_API_URL=http://localhost:3001
    - Check for memory leaks in WebSocket connections
    - Optimize large datasets with virtual scrolling
 
-For more detailed documentation, see the [Robota SDK Documentation](../README.md). 
+For more detailed documentation, see the [Robota SDK Documentation](../README.md).

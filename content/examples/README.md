@@ -5,36 +5,44 @@ Comprehensive examples demonstrating all aspects of the Robota SDK.
 ## Basic Examples
 
 ### [Basic Conversation](basic-conversation.md)
+
 Learn the fundamentals of Robota with simple AI conversations.
 
 **Features Demonstrated:**
+
 - OpenAI Provider setup and configuration
 - Simple message exchange using `robota.run()`
 - Agent statistics and monitoring
 - Proper resource cleanup
 
-### [AI with Tools](ai-with-tools.md) 
+### [AI with Tools](ai-with-tools.md)
+
 Integrate function calling capabilities with your AI agents.
 
 **Features Demonstrated:**
+
 - Function tool creation with JSON schemas
 - Automatic tool calling by AI agents
 - Tool execution results handling
 - Tool usage statistics
 
 ### [Multi-Provider Support](multi-provider.md)
+
 Use multiple AI providers and models in a single application.
 
 **Features Demonstrated:**
+
 - OpenAI with different models (GPT-3.5, GPT-4o-mini)
 - Model comparison and response analysis
 - Independent agent instances
 - Provider-specific configurations
 
 ### [Browser Usage](browser-usage.md) 🌐
+
 Use Robota SDK in browsers, WebWorkers, and modern JavaScript frameworks.
 
 **Features Demonstrated:**
+
 - Cross-platform compatibility (Node.js, browsers, WebWorkers)
 - React and Vue integration examples
 - Secure API key management with proxy servers
@@ -45,24 +53,30 @@ Use Robota SDK in browsers, WebWorkers, and modern JavaScript frameworks.
 ## Advanced Features
 
 ### [assignTask Tool Collection](team-collaboration.md)
-Use the `@robota-sdk/team` package as an assignTask MCP tool collection (no team creation APIs).
+
+Use the `@robota-sdk/agent-team` package as an assignTask MCP tool collection (no team creation APIs).
 
 **Features Demonstrated:**
+
 - Built-in template registry (bundled JSON)
 - Template listing and detail lookup
 - assignTask tool execution via Relay MCP Tool
 
 ### [Agent Templates](team-templates.md)
+
 Use pre-built agent configurations (templates) for specialized tasks.
 
 **Features Demonstrated:**
+
 - Template-based agent creation
 - Optimized AI provider selection per template
 
 ### [Execution Analytics](execution-analytics.md)
+
 Monitor and analyze agent performance in real-time.
 
 **Features Demonstrated:**
+
 - Real-time performance tracking
 - Execution statistics and metrics
 - Error analysis and reporting
@@ -71,18 +85,22 @@ Monitor and analyze agent performance in real-time.
 ## Agent System
 
 ### [Agents Basic Usage](agents-basic-usage.md)
+
 Explore the comprehensive capabilities of the unified Robota Agent system.
 
 **Features Demonstrated:**
+
 - Unified agent architecture with plugins
 - Real-time statistics and monitoring
 - Runtime configuration updates
 - Plugin ecosystem integration
 
 ### [Agents Streaming](agents-streaming.md)
+
 Implement real-time streaming responses for interactive applications.
 
 **Features Demonstrated:**
+
 - Real-time response streaming
 - Token-by-token processing
 - Performance optimization for streaming
@@ -91,62 +109,76 @@ Implement real-time streaming responses for interactive applications.
 ## Specialized Features
 
 ### [Session Management](session-management.md)
+
 Manage complex conversation sessions with advanced features.
 
 **Features Demonstrated:**
+
 - Multi-session conversation management
 - Session persistence and restoration
 - Context switching between sessions
 
 ### [Conversation History](conversation-history.md)
+
 Implement comprehensive conversation storage and retrieval.
 
 **Features Demonstrated:**
+
 - Memory, file, and database storage options
 - Conversation search and filtering
 - Message lifecycle management
 - Batch processing and optimization
 
 ### [Function Calling with Zod](zod-function-tools.md)
+
 Create type-safe function tools using Zod schemas.
 
 **Features Demonstrated:**
+
 - Zod schema integration
 - Runtime type validation
 - Type-safe parameter handling
 - Schema-to-JSON conversion
 
 ### [Provider Switching](provider-switching.md)
+
 Dynamically switch between AI providers during execution.
 
 **Features Demonstrated:**
+
 - Runtime provider switching
 - Configuration preservation
 - Fallback strategies
 - Provider-specific optimizations
 
 ### [Token Limits](token-limits.md)
+
 Implement intelligent token management and cost control.
 
 **Features Demonstrated:**
+
 - Token usage tracking
 - Cost calculation and monitoring
 - Limit enforcement strategies
 - Budget management
 
 ### [MCP Integration](mcp-integration.md)
+
 Connect to external tools using the Model Context Protocol.
 
 **Features Demonstrated:**
+
 - MCP client integration
 - External tool discovery
 - Protocol communication
 - Tool schema handling
 
 ### [Module System Integration](module-system.md)
+
 Leverage the new Plugin-Module-Separation architecture for enhanced functionality.
 
 **Features Demonstrated:**
+
 - Enhanced plugin classification system
 - Custom module development
 - Event-driven module-plugin communication
@@ -156,9 +188,11 @@ Leverage the new Plugin-Module-Separation architecture for enhanced functionalit
 ## Configuration
 
 ### [Setup Guide](setup.md)
+
 Complete setup instructions for all SDK components.
 
 **Covers:**
+
 - Environment configuration
 - API key management
 - Package installation
@@ -167,6 +201,7 @@ Complete setup instructions for all SDK components.
 ## Real-World Applications
 
 Each example includes:
+
 - ✅ **Complete working code** - Ready to run examples
 - ✅ **Type safety** - Full TypeScript support
 - ✅ **Error handling** - Robust error management
@@ -177,11 +212,13 @@ Each example includes:
 ## Running Examples
 
 1. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 2. **Configure environment:**
+
    ```bash
    cp .env.example .env
    # Add your API keys
@@ -195,11 +232,13 @@ Each example includes:
 ## Example Categories
 
 ### By Complexity
+
 - **Beginner**: Basic conversation, Simple tools
 - **Intermediate**: Multi-provider, Team collaboration
 - **Advanced**: Custom plugins, Complex workflows
 
 ### By Use Case
+
 - **Chatbots**: Basic conversation, Session management
 - **Research**: Team collaboration, Analytics
 - **Development**: Function calling, MCP integration
@@ -212,6 +251,7 @@ All examples are production-ready and demonstrate best practices for building sc
 ### Quick Setup
 
 1. **Clone and Install**:
+
    ```bash
    git clone https://github.com/your-org/robota.git
    cd robota
@@ -219,21 +259,28 @@ All examples are production-ready and demonstrate best practices for building sc
    ```
 
 2. **Environment Setup**:
+
 ```bash
 cd /path/to/robota
 # Set environment variables (or use a root .env)
 # OPENAI_API_KEY=...
-   ```
+```
 
 3. **Run Examples**:
+
    ```bash
+
+   ```
+
 # Run any example
+
 npx tsx packages/agents/examples/basic-conversation.ts
-```
+
+````
 
 ## 🎯 Quick Feature Overview
 
-### New Unified Architecture (`@robota-sdk/agents`)
+### New Unified Architecture (`@robota-sdk/agent-core`)
 The examples showcase the powerful new unified architecture:
 
 - **Zero `any` Types**: Complete TypeScript safety
@@ -264,7 +311,7 @@ The examples showcase the powerful new unified architecture:
 OPENAI_API_KEY=your_openai_key
 ANTHROPIC_API_KEY=your_anthropic_key  # For multi-provider examples
 GOOGLE_AI_API_KEY=your_google_key     # For Google AI examples
-```
+````
 
 ### Individual Examples
 
@@ -293,34 +340,34 @@ Each example follows a consistent structure:
 ```typescript
 /**
  * XX-example-name.ts
- * 
+ *
  * Brief description of what this example demonstrates:
  * - Key feature 1
  * - Key feature 2
  * - Key feature 3
  */
 
-import { /* required imports */ } from '@robota-sdk/agents';
+import {} from /* required imports */ '@robota-sdk/agent-core';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 async function main() {
-    try {
-        // Example implementation
-        console.log('🚀 Example Started...');
-        
-        // Create agents, configure providers, demonstrate features
-        
-        console.log('✅ Example Completed!');
-            } catch (error) {
-        console.error('❌ Error:', error);
-        process.exit(1);
-    } finally {
-        // Cleanup resources
-        process.exit(0);
-            }
-        }
+  try {
+    // Example implementation
+    console.log('🚀 Example Started...');
+
+    // Create agents, configure providers, demonstrate features
+
+    console.log('✅ Example Completed!');
+  } catch (error) {
+    console.error('❌ Error:', error);
+    process.exit(1);
+  } finally {
+    // Cleanup resources
+    process.exit(0);
+  }
+}
 
 main();
 ```
@@ -350,4 +397,4 @@ The examples are optimized for learning and demonstration:
 5. **Use TypeScript**: Examples showcase full type safety benefits
 6. **Monitor Performance**: Use analytics examples to optimize your usage
 
-Happy coding with Robota! 🤖 
+Happy coding with Robota! 🤖

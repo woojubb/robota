@@ -1,0 +1,7 @@
+{
+  "extends": "../../.eslintrc.json",
+  "parserOptions": {
+    "project": ["./packages/agent-provider-anthropic/tsconfig.json"],
+    "tsconfigRootDir": "."
+  }
+}

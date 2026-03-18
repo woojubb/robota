@@ -1,9 +1,9 @@
-# Migration from @robota-sdk/core and @robota-sdk/tools
+# Migration from @robota-sdk/core and @robota-sdk/agent-tools
 
-Both `@robota-sdk/core` and `@robota-sdk/tools` have been deprecated and consolidated into `@robota-sdk/agents`.
+Both `@robota-sdk/core` and `@robota-sdk/agent-tools` have been deprecated and consolidated into `@robota-sdk/agent-core`.
 
 **Deprecated:** December 2024
-**Replacement:** `@robota-sdk/agents`
+**Replacement:** `@robota-sdk/agent-core`
 
 ## @robota-sdk/core Migration
 
@@ -16,23 +16,23 @@ import { Robota } from '@robota-sdk/core';
 **After (current):**
 
 ```typescript
-import { Robota } from '@robota-sdk/agents';
+import { Robota } from '@robota-sdk/agent-core';
 ```
 
-## @robota-sdk/tools Migration
+## @robota-sdk/agent-tools Migration
 
 **Before (deprecated):**
 
 ```typescript
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { createZodFunctionToolProvider } from '@robota-sdk/agent-tools';
 ```
 
 **After (current):**
 
 ```typescript
-import { createZodFunctionToolProvider } from '@robota-sdk/agents';
+import { createZodFunctionToolProvider } from '@robota-sdk/agent-core';
 // or
-import { FunctionTool } from '@robota-sdk/agents';
+import { FunctionTool } from '@robota-sdk/agent-core';
 ```
 
 ## Key Changes
@@ -45,7 +45,7 @@ import { FunctionTool } from '@robota-sdk/agents';
 ## Install
 
 ```bash
-npm install @robota-sdk/agents
+npm install @robota-sdk/agent-core
 ```
 
 All functionality from both packages has been preserved and enhanced in the agents package with:
