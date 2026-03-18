@@ -6,7 +6,7 @@ Core development principles and philosophy for the Robota SDK v2.0.
 
 The Robota SDK v2.0 is a unified TypeScript library for building AI agents with:
 
-- **Unified Architecture**: Everything consolidated in `@robota-sdk/agents`
+- **Unified Architecture**: Everything consolidated in `@robota-sdk/agent-core`
 - **Type-Safe Design**: `any` prohibited in production code, complete TypeScript safety
 - **Multi-Provider Support**: OpenAI, Anthropic, Google AI with seamless switching
 - **Plugin-Based Extensibility**: Modular plugin system for extending functionality
@@ -21,25 +21,25 @@ The Robota SDK v2.0 is a unified TypeScript library for building AI agents with:
 ```typescript
 // ✅ Good: Fully typed
 interface AgentConfig {
-    name: string;
-    model: string;
-    provider: string;
-    aiProviders: IAIProvider[];
-    systemMessage?: string;
-    tools?: IToolInterface[];
-    plugins?: AbstractPlugin[];
+  name: string;
+  model: string;
+  provider: string;
+  aiProviders: IAIProvider[];
+  systemMessage?: string;
+  tools?: IToolInterface[];
+  plugins?: AbstractPlugin[];
 }
 
 // ❌ Bad: Using any
 interface BadConfig {
-    providers: any; // Never use this
-    options: any;   // Always type explicitly
+  providers: any; // Never use this
+  options: any; // Always type explicitly
 }
 ```
 
 ### 2. Unified Package Design
 
-**Single Source of Truth**: `@robota-sdk/agents` contains all core functionality
+**Single Source of Truth**: `@robota-sdk/agent-core` contains all core functionality
 
 - **AbstractAgent**: Foundation for all agent implementations
 - **AbstractAIProvider**: Unified provider interface
@@ -64,12 +64,12 @@ agent.setModel({ provider: 'google', model: 'gemini-1.5-flash' });
 
 ```typescript
 const agent = new Robota({
-    plugins: [
-        new ExecutionAnalyticsPlugin(),
-        new ConversationHistoryPlugin(),
-        new LoggingPlugin(),
-        new ErrorHandlingPlugin()
-    ]
+  plugins: [
+    new ExecutionAnalyticsPlugin(),
+    new ConversationHistoryPlugin(),
+    new LoggingPlugin(),
+    new ErrorHandlingPlugin(),
+  ],
 });
 ```
 
@@ -93,19 +93,19 @@ console.log(`Average duration: ${stats.averageDuration}ms`);
 ```typescript
 // Simple: Basic agent in 3 lines
 const agent = new Robota({
-    name: 'SimpleAgent',
-    provider: 'openai',
-    model: 'gpt-3.5-turbo'
+  name: 'SimpleAgent',
+  provider: 'openai',
+  model: 'gpt-3.5-turbo',
 });
 
 // Complex: Full featured agent with all options
 const advancedAgent = new Robota({
-    name: 'AdvancedAgent',
-    provider: 'openai',
-    model: 'gpt-4',
-    tools: [calculatorTool, weatherTool],
-    plugins: [analyticsPlugin, loggingPlugin],
-    systemMessage: 'Advanced system prompt'
+  name: 'AdvancedAgent',
+  provider: 'openai',
+  model: 'gpt-4',
+  tools: [calculatorTool, weatherTool],
+  plugins: [analyticsPlugin, loggingPlugin],
+  systemMessage: 'Advanced system prompt',
 });
 ```
 
@@ -116,13 +116,13 @@ const advancedAgent = new Robota({
 ```typescript
 // TypeScript catches provider mismatches
 const agent = new Robota({
-    name: 'MyAgent',
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4'
-    }
-    // TypeScript ensures provider exists in aiProviders array
+  name: 'MyAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+  },
+  // TypeScript ensures provider exists in aiProviders array
 });
 ```
 
@@ -133,10 +133,10 @@ const agent = new Robota({
 ```typescript
 // Always clean up
 try {
-    const response = await agent.run(input);
-    return response;
+  const response = await agent.run(input);
+  return response;
 } finally {
-    await agent.destroy(); // Clean up resources
+  await agent.destroy(); // Clean up resources
 }
 ```
 
@@ -154,18 +154,18 @@ try {
 ```typescript
 // Test all public APIs
 describe('Robota Agent', () => {
-    it('should handle basic conversation', async () => {
-        const agent = createTestAgent();
-        const response = await agent.run('Hello');
-        expect(response).toBeDefined();
-        expect(typeof response).toBe('string');
-    });
-    
-    it('should clean up resources', async () => {
-        const agent = createTestAgent();
-        await agent.destroy();
-        // Verify cleanup
-    });
+  it('should handle basic conversation', async () => {
+    const agent = createTestAgent();
+    const response = await agent.run('Hello');
+    expect(response).toBeDefined();
+    expect(typeof response).toBe('string');
+  });
+
+  it('should clean up resources', async () => {
+    const agent = createTestAgent();
+    await agent.destroy();
+    // Verify cleanup
+  });
 });
 ```
 
@@ -193,10 +193,10 @@ describe('Robota Agent', () => {
 
 ```typescript
 export abstract class AbstractPlugin<TStats = PluginStats> {
-    abstract name: string;
-    abstract onAgentStart?(): Promise<void>;
-    abstract onAgentStop?(): Promise<void>;
-    abstract getStats(): TStats;
+  abstract name: string;
+  abstract onAgentStart?(): Promise<void>;
+  abstract onAgentStop?(): Promise<void>;
+  abstract getStats(): TStats;
 }
 ```
 
@@ -206,8 +206,8 @@ export abstract class AbstractPlugin<TStats = PluginStats> {
 
 ```typescript
 const factory = new AgentFactory({
-    providers: { openai: openaiProvider },
-    defaultProvider: 'openai'
+  providers: { openai: openaiProvider },
+  defaultProvider: 'openai',
 });
 
 const agent = await factory.createFromTemplate('helpful-assistant');
@@ -219,9 +219,9 @@ const agent = await factory.createFromTemplate('helpful-assistant');
 
 ```typescript
 export abstract class AbstractAIProvider {
-    abstract generateResponse(messages: UniversalMessage[]): Promise<string>;
-    abstract generateStream(messages: UniversalMessage[]): AsyncIterable<StreamChunk>;
-    abstract getSupportedModels(): string[];
+  abstract generateResponse(messages: UniversalMessage[]): Promise<string>;
+  abstract generateStream(messages: UniversalMessage[]): AsyncIterable<StreamChunk>;
+  abstract getSupportedModels(): string[];
 }
 ```
 
@@ -234,9 +234,9 @@ export abstract class AbstractAIProvider {
 ```typescript
 // Automatic performance tracking
 const plugin = new ExecutionAnalyticsPlugin({
-    maxEntries: 10000,
-    trackErrors: true,
-    performanceThreshold: 5000
+  maxEntries: 10000,
+  trackErrors: true,
+  performanceThreshold: 5000,
 });
 ```
 
@@ -247,7 +247,7 @@ const plugin = new ExecutionAnalyticsPlugin({
 ```typescript
 const stream = await agent.stream(input);
 for await (const chunk of stream) {
-    process.stdout.write(chunk.content);
+  process.stdout.write(chunk.content);
 }
 ```
 
@@ -258,10 +258,10 @@ for await (const chunk of stream) {
 ```typescript
 // Plugin-specific cleanup
 export class ConversationHistoryPlugin extends AbstractPlugin {
-    async onAgentStop(): Promise<void> {
-        // Clean up conversation history
-        this.clearHistory();
-    }
+  async onAgentStop(): Promise<void> {
+    // Clean up conversation history
+    this.clearHistory();
+  }
 }
 ```
 
@@ -274,17 +274,19 @@ export class ConversationHistoryPlugin extends AbstractPlugin {
 ```typescript
 // Tool parameters are validated by TypeScript
 const weatherTool = createFunctionTool(
-    'getWeather',
-    'Get weather information',
-    {
-        type: 'object',
-        properties: {
-            location: { type: 'string' },
-            units: { type: 'string', enum: ['celsius', 'fahrenheit'] }
-        },
-        required: ['location']
+  'getWeather',
+  'Get weather information',
+  {
+    type: 'object',
+    properties: {
+      location: { type: 'string' },
+      units: { type: 'string', enum: ['celsius', 'fahrenheit'] },
     },
-    async (params) => { /* implementation */ }
+    required: ['location'],
+  },
+  async (params) => {
+    /* implementation */
+  },
 );
 ```
 
@@ -295,10 +297,10 @@ const weatherTool = createFunctionTool(
 ```typescript
 // Plugin errors don't crash the agent
 try {
-    await plugin.onAgentStart();
+  await plugin.onAgentStart();
 } catch (error) {
-    console.error(`Plugin ${plugin.name} failed to start:`, error);
-    // Continue without this plugin
+  console.error(`Plugin ${plugin.name} failed to start:`, error);
+  // Continue without this plugin
 }
 ```
 
@@ -311,20 +313,20 @@ try {
 ```typescript
 // v1.x (deprecated)
 const robota = new Robota({
-    systemPrompt: 'You are helpful',
-    aiProviders: { openai: provider },
-    currentProvider: 'openai'
+  systemPrompt: 'You are helpful',
+  aiProviders: { openai: provider },
+  currentProvider: 'openai',
 });
 
 // v2.0 (current)
 const robota = new Robota({
-    name: 'MyAgent',
-    aiProviders: [provider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4',
-        systemMessage: 'You are helpful'
-    }
+  name: 'MyAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+    systemMessage: 'You are helpful',
+  },
 });
 ```
 
@@ -334,27 +336,30 @@ const robota = new Robota({
 
 ```typescript
 const agent = new Robota({
-    features: {
-        experimentalStreaming: true,
-        betaAnalytics: false
-    }
+  features: {
+    experimentalStreaming: true,
+    betaAnalytics: false,
+  },
 });
 ```
 
 ## Development References
 
 ### Core Documentation
+
 - [Getting Started](../getting-started/README.md) - Quick start guide
 - [Core Concepts](../guide/core-concepts.md) - Architecture overview
 - [Building Agents](../guide/building-agents.md) - Advanced patterns
 
 ### Development Guides
+
 - [TypeScript Standards](./typescript-standards.md) - Type safety requirements
 - [Testing Guidelines](./testing-guidelines.md) - Testing strategies
 - [Error Handling](./error-handling-guidelines.md) - Error handling patterns
 - [Performance Optimization](./performance-optimization.md) - Performance best practices
 
 ### Package Information
+
 - [Package Publishing](./package-publishing.md) - Release process
 - [Build and Deployment](./build-and-deployment.md) - Build configuration
 - [Documentation Guidelines](./documentation-guidelines.md) - Documentation standards

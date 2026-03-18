@@ -9,13 +9,11 @@
   This update introduces major build optimizations for better browser performance:
 
   ## 🚀 Environment-Specific Builds
-
   - **Node.js builds**: `dist/node/` with full ESM and CJS support
   - **Browser builds**: `dist/browser/` with optimized ESM bundles
   - **Automatic selection**: Bundlers automatically choose the right build
 
   ## 📦 Bundle Size Optimizations
-
   - **team package**: 36% smaller browser bundles (37.52KB → 24.12KB)
   - **sessions package**: 48% smaller browser bundles (10.64KB → 5.55KB)
   - **Tree-shaking**: Eliminates Node.js-specific code from browser builds
@@ -36,7 +34,6 @@
   ```
 
   ## 🌐 Enhanced Browser Support
-
   - **Zero breaking changes**: Existing code continues to work unchanged
   - **Better performance**: Optimized bundles for faster loading
   - **Smaller footprint**: Reduced JavaScript bundle sizes for web applications
@@ -53,14 +50,12 @@
   ## 🚀 **Breaking Changes**
 
   ### **Provider Interface Simplification**
-
   - **OpenAI Provider**: Removed `model`, `temperature`, `maxTokens`, `topP` from provider options
   - **Anthropic Provider**: Removed `model`, `temperature`, `maxTokens` from provider options
   - **Google Provider**: Removed `model`, `temperature`, `maxTokens` from provider options
   - **All Providers**: `client` is now optional, automatically created from `apiKey`
 
   ### **Centralized Model Configuration**
-
   - Model configuration is now exclusively handled through `defaultModel` in Robota constructor
   - Providers are simplified to handle only connection-related settings
   - Runtime model switching via `setModel()` method is now the recommended approach
@@ -73,7 +68,7 @@
   // Before
   const provider = new OpenAIProvider({
     client: openaiClient,
-    model: "gpt-3.5-turbo",
+    model: 'gpt-3.5-turbo',
   });
 
   // After
@@ -83,26 +78,22 @@
   ```
 
   ### **Enhanced Validation**
-
   - Added strict validation for required model configuration
   - Removed default model fallbacks to prevent ambiguous behavior
   - Clear error messages when model is not specified
 
   ### **Documentation Updates**
-
   - Updated all README files with new usage patterns
   - Regenerated API documentation
   - Updated all example files (11 examples)
 
   ## 🔧 **Migration Guide**
-
   1. **Remove model settings from Provider constructors**
   2. **Use `apiKey` instead of `client` injection (recommended)**
   3. **Ensure `defaultModel` is properly configured in Robota constructor**
   4. **Update any hardcoded model references to use runtime switching**
 
   ## 🎯 **Benefits**
-
   - **Eliminates configuration confusion** - Single source of truth for models
   - **Simplifies provider setup** - Just provide API credentials
   - **Enables better runtime control** - Centralized model management
@@ -113,11 +104,10 @@
 ### Patch Changes
 
 - Browser compatibility improvements
-
   - feat: Implement SimpleLogger system to replace direct console usage for better browser compatibility
-  - feat: Centralize SimpleLogger in @robota-sdk/agents package and export for other packages
+  - feat: Centralize SimpleLogger in @robota-sdk/agent-core package and export for other packages
   - feat: Add support for silent and stderr-only logging modes via SilentLogger and StderrLogger
-  - refactor: Update all packages (@robota-sdk/openai, @robota-sdk/anthropic, etc.) to use centralized SimpleLogger
+  - refactor: Update all packages (@robota-sdk/agent-provider-openai, @robota-sdk/agent-provider-anthropic, etc.) to use centralized SimpleLogger
   - chore: Add ESLint rules to prevent direct console usage while allowing legitimate cases
   - fix: Remove unused AIProvider import from examples to clean up warnings
 
@@ -128,7 +118,6 @@
 ### Patch Changes
 
 - Add browser compatibility by removing Node.js dependencies
-
   - Replace NodeJS.Timeout with cross-platform TimerId type
   - Remove process.env dependency from logger configuration
   - Replace Node.js crypto module with jsSHA library for webhook signatures
@@ -178,7 +167,6 @@
 ### Patch Changes
 
 - Refactor examples and improve resource management
-
   - Simplified examples from 18+ files to 4 core examples (basic conversation, tool calling, multi-providers, advanced features)
   - Added proper resource cleanup with `robota.close()` method to prevent hanging processes
   - Implemented `ToolProviderManager.close()` for proper tool provider cleanup
@@ -198,7 +186,6 @@
 ### Patch Changes
 
 - Major code quality improvements and architectural refactoring:
-
   - **Facade Pattern Implementation**: Simplified Robota class interface with manager-based architecture (ai, system, functions, analytics, tools, limits, conversation)
   - **Deprecated Methods Removal**: Removed 20+ deprecated methods, replaced with clean option-based constructor
   - **File Modularization**: Split large files into focused modules (function.ts → 4 modules, conversation-history refactoring)
@@ -250,8 +237,7 @@
 ### Patch Changes
 
 - Add Google provider documentation and improve docs build process
-
-  - Add comprehensive documentation for @robota-sdk/google package
+  - Add comprehensive documentation for @robota-sdk/agent-provider-google package
   - Update sidebar and navigation to include Google provider
   - Integrate Google provider into automated API docs generation
   - Improve build scripts to auto-generate docs during build/publish
@@ -272,9 +258,8 @@
 ### Patch Changes
 
 - 20fbf3c: Add Anthropic and Google packages to npm registry
-
-  - Enable publishing for @robota-sdk/anthropic package (remove private flag)
-  - Add @robota-sdk/google package to workspace and build configuration
+  - Enable publishing for @robota-sdk/agent-provider-anthropic package (remove private flag)
+  - Add @robota-sdk/agent-provider-google package to workspace and build configuration
   - Fix build scripts for Anthropic package
   - Synchronize package versions across all packages
 
@@ -283,7 +268,6 @@
 ### Patch Changes
 
 - e896862: Update codebase and documentation to English
-
   - Update all comments and error messages to English across all packages
   - Standardize documentation to English-only for better international accessibility
   - Update VitePress configuration for English documentation site

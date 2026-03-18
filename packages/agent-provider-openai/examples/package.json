@@ -1,0 +1,18 @@
+{
+  "name": "robota-openai-examples",
+  "private": true,
+  "type": "module",
+  "description": "Package-owned examples for @robota-sdk/agent-provider-openai (not part of the workspace)",
+  "dependencies": {
+    "@robota-sdk/agent-core": "link:../../agents",
+    "@robota-sdk/agent-provider-openai": "link:.."
+  },
+  "devDependencies": {
+    "tsx": "^4.20.3",
+    "typescript": "^5.3.3"
+  },
+  "scripts": {
+    "payload-logging": "tsx payload-logging.ts",
+    "debug-stream": "tsx debug-openai-stream.ts"
+  }
+}

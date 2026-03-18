@@ -1,0 +1,18 @@
+{
+  "name": "robota-team-examples",
+  "private": true,
+  "type": "module",
+  "description": "Package-owned examples for @robota-sdk/agent-team (not part of the workspace)",
+  "dependencies": {
+    "@robota-sdk/agent-core": "link:../../agents",
+    "@robota-sdk/agent-team": "link:.."
+  },
+  "devDependencies": {
+    "tsx": "^4.20.3",
+    "typescript": "^5.3.3"
+  },
+  "scripts": {
+    "assign-task-basic": "tsx assign-task-basic.ts",
+    "assign-task-categorized": "tsx assign-task-categorized.ts"
+  }
+}

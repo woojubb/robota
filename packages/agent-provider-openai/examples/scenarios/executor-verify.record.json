@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/openai",
+  "packageName": "@robota-sdk/agent-provider-openai",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-provider-openai@2.0.9 scenario:verify /Users/jungyoun/Documents/dev/robota/packages/openai\n> pnpm --filter @robota-sdk/agent-core build && pnpm exec tsx examples/verify-executor.ts\n\n\n> @robota-sdk/agent-core@2.0.9 build /Users/jungyoun/Documents/dev/robota/packages/agents\n> tsup\n\nCLI Building entry: src/index.ts\nCLI Using tsconfig: tsconfig.json\nCLI tsup v8.5.0\nCLI Using tsup config: /Users/jungyoun/Documents/dev/robota/packages/agents/tsup.config.ts\nCLI Building entry: src/index.ts\nCLI Using tsconfig: tsconfig.json\nCLI tsup v8.5.0\nCLI Using tsup config: /Users/jungyoun/Documents/dev/robota/packages/agents/tsup.config.ts\nCLI Target: es2022\nCLI Target: es2022\nCLI Cleaning output folder\nESM Build start\nCJS Build start\nCLI Cleaning output folder\nESM Build start\nDTS Build start\nDTS Build start\nESM dist/node/index.js 184.55 KB\nESM ⚡️ Build success in 337ms\nCJS dist/node/index.cjs 185.17 KB\nCJS ⚡️ Build success in 337ms\nESM dist/browser/index.js 184.55 KB\nESM ⚡️ Build success in 337ms\nDTS ⚡️ Build success in 1024ms\nDTS dist/node/index.d.ts  211.67 KB\nDTS dist/node/index.d.cts 211.67 KB\nDTS ⚡️ Build success in 1028ms\nDTS dist/browser/index.d.ts 211.67 KB\nopenai executor verify passed.\n",
+    "normalized": "openai executor verify passed.",
+    "sha256": "5774703a1fbb8fe98a9672fefc1943d537f125d1d1600c79ca0194c8f5bf11a3"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

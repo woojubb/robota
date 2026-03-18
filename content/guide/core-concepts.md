@@ -11,12 +11,14 @@ Understanding the fundamental concepts and architecture of the Robota SDK.
 ## 🎯 Why Robota's Architecture Matters
 
 ### The Problem with Traditional AI SDKs
+
 - **Vendor Lock-in**: Tied to specific AI providers
 - **Type Unsafety**: Runtime errors from untyped responses
 - **Limited Extensibility**: Hard to add custom functionality
 - **Poor Abstraction**: Provider-specific code everywhere
 
 ### Robota's Solution
+
 - **Provider Agnostic**: Write once, run with any AI provider
 - **100% Type Safe**: Compile-time guarantees — `any` prohibited in production code
 - **Plugin Architecture**: Extend without modifying core
@@ -29,17 +31,18 @@ The Robota SDK is built around a unified agent architecture that provides type-s
 ## 🏗️ Architectural Advantages
 
 ### 1. **Unified Agent Architecture**
+
 Instead of learning different APIs for each AI provider, Robota provides a single, consistent interface:
 
 ```typescript
 // Same code works with OpenAI, Anthropic, and Google
 const agent = new Robota({
-    name: 'UnifiedAgent',
-    aiProviders: [openaiProvider, anthropicProvider, googleProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4'
-    }
+  name: 'UnifiedAgent',
+  aiProviders: [openaiProvider, anthropicProvider, googleProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+  },
 });
 
 // Provider switching is seamless
@@ -47,25 +50,29 @@ agent.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
 ```
 
 ### 2. **Type Safety as a First-Class Citizen**
+
 Every interaction is fully typed, preventing common runtime errors:
 
 ```typescript
 // Full IntelliSense support
-const response = await agent.run('Hello');  // response is typed as string
+const response = await agent.run('Hello'); // response is typed as string
 
 // Tool parameters are validated at compile time
 const tool = createFunctionTool(
-    'calculate',
-    'Math operations',
-    { /* JSON Schema */ },
-    async (params) => {
-        // params is fully typed based on schema
-        return { result: params.a + params.b };
-    }
+  'calculate',
+  'Math operations',
+  {
+    /* JSON Schema */
+  },
+  async (params) => {
+    // params is fully typed based on schema
+    return { result: params.a + params.b };
+  },
 );
 ```
 
 ### 3. **Plugin-Based Extensibility**
+
 Add functionality without touching core code:
 
 ```typescript
@@ -93,13 +100,13 @@ All agents in Robota extend from the `AbstractAgent` class, which provides:
 ```typescript
 // Basic agent creation
 const agent = new Robota({
-    name: 'MyAgent',
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4',
-        systemMessage: 'You are a helpful assistant.'
-    }
+  name: 'MyAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+    systemMessage: 'You are a helpful assistant.',
+  },
 });
 ```
 
@@ -112,6 +119,7 @@ The Robota SDK features a clear separation between **Plugins** and **Modules** t
 **Plugins extend agent lifecycle and behavior with optional functionality**
 
 #### Characteristics:
+
 - **Runtime Control**: Dynamic activation/deactivation
 - **Optional Extensions**: Add/remove without affecting core agent operations
 - **Lifecycle Hooks**: Intervene in agent execution process
@@ -119,6 +127,7 @@ The Robota SDK features a clear separation between **Plugins** and **Modules** t
 - **Cross-cutting Concerns**: Logging, monitoring, notifications, validation
 
 #### Plugin Categories:
+
 - **LOGGING**: Structured logging and audit trails
 - **MONITORING**: Performance, usage, and analytics tracking
 - **STORAGE**: Data persistence and retrieval
@@ -128,38 +137,39 @@ The Robota SDK features a clear separation between **Plugins** and **Modules** t
 - **EVENT**: Event management and propagation
 
 #### Plugin Examples:
+
 ```typescript
 // Usage tracking plugin - collects agent execution statistics
 class UsagePlugin extends AbstractPlugin {
-    category = PluginCategory.MONITORING;
-    priority = PluginPriority.NORMAL;
-    
-    async beforeRun(input: string): Promise<void> {
-        this.startTime = Date.now();
-    }
-    
-    async afterRun(input: string, output: string): Promise<void> {
-        this.recordUsage({
-            duration: Date.now() - this.startTime,
-            inputTokens: this.countTokens(input),
-            outputTokens: this.countTokens(output)
-        });
-    }
+  category = PluginCategory.MONITORING;
+  priority = PluginPriority.NORMAL;
+
+  async beforeRun(input: string): Promise<void> {
+    this.startTime = Date.now();
+  }
+
+  async afterRun(input: string, output: string): Promise<void> {
+    this.recordUsage({
+      duration: Date.now() - this.startTime,
+      inputTokens: this.countTokens(input),
+      outputTokens: this.countTokens(output),
+    });
+  }
 }
 
 // Performance monitoring plugin - tracks execution time and memory usage
 class PerformancePlugin extends AbstractPlugin {
-    category = PluginCategory.MONITORING;
-    priority = PluginPriority.NORMAL;
-    
-    async beforeExecution(): Promise<void> {
-        this.metrics.memoryBefore = process.memoryUsage();
-    }
-    
-    async afterExecution(): Promise<void> {
-        this.metrics.memoryAfter = process.memoryUsage();
-        this.recordPerformance(this.metrics);
-    }
+  category = PluginCategory.MONITORING;
+  priority = PluginPriority.NORMAL;
+
+  async beforeExecution(): Promise<void> {
+    this.metrics.memoryBefore = process.memoryUsage();
+  }
+
+  async afterExecution(): Promise<void> {
+    this.metrics.memoryAfter = process.memoryUsage();
+    this.recordPerformance(this.metrics);
+  }
 }
 ```
 
@@ -168,9 +178,11 @@ class PerformancePlugin extends AbstractPlugin {
 **Modules provide optional capabilities that extend what agents can do**
 
 #### True Meaning of Modules:
+
 **Modules are "optional extensions that add capabilities LLMs cannot do natively"**
 
 #### Characteristics:
+
 - **Capability Providers**: Add specific domain functionality
 - **Optional Extensions**: Agent works without them (basic conversation remains possible)
 - **LLM Limitations**: Handle tasks LLMs cannot perform directly
@@ -178,38 +190,41 @@ class PerformancePlugin extends AbstractPlugin {
 - **Domain Expertise**: Specialized functionality for specific areas
 
 #### What Should Be Modules (LLM cannot do + optional):
+
 ```typescript
 // RAG Search Module - LLMs cannot do real-time document search
 interface RAGModule {
-    addDocument(id: string, content: string): Promise<void>;
-    searchRelevant(query: string): Promise<string[]>;
-    generateAnswer(query: string, context: string[]): Promise<string>;
+  addDocument(id: string, content: string): Promise<void>;
+  searchRelevant(query: string): Promise<string[]>;
+  generateAnswer(query: string, context: string[]): Promise<string>;
 }
 
 // Speech Processing Module - LLMs cannot process audio
 interface SpeechModule {
-    speechToText(audio: Buffer): Promise<string>;
-    textToSpeech(text: string): Promise<Buffer>;
-    detectLanguage(audio: Buffer): Promise<string>;
+  speechToText(audio: Buffer): Promise<string>;
+  textToSpeech(text: string): Promise<Buffer>;
+  detectLanguage(audio: Buffer): Promise<string>;
 }
 
 // File Processing Module - LLMs cannot parse files directly
 interface FileProcessingModule {
-    processImage(image: Buffer): Promise<string>;
-    processPDF(pdf: Buffer): Promise<string>;
-    processAudio(audio: Buffer): Promise<string>;
+  processImage(image: Buffer): Promise<string>;
+  processPDF(pdf: Buffer): Promise<string>;
+  processAudio(audio: Buffer): Promise<string>;
 }
 
 // Database Connector Module - LLMs cannot access databases directly
 interface DatabaseModule {
-    query(sql: string): Promise<Record<string, unknown>[]>;
-    insert(table: string, data: Record<string, unknown>): Promise<void>;
-    update(table: string, id: string, data: Record<string, unknown>): Promise<void>;
+  query(sql: string): Promise<Record<string, unknown>[]>;
+  insert(table: string, data: Record<string, unknown>): Promise<void>;
+  update(table: string, id: string, data: Record<string, unknown>): Promise<void>;
 }
 ```
 
 #### What Should NOT Be Modules (Core internal classes):
+
 **These are essential components - removing them breaks Robota:**
+
 - **AI Providers**: Essential for conversation (internal classes)
 - **Tool Execution**: Core function calling logic (internal classes)
 - **Message Processing**: Message conversion/processing (internal classes)
@@ -218,10 +233,12 @@ interface DatabaseModule {
 ### Key Distinction
 
 #### One-Line Summary:
+
 - **Plugin**: "What should we observe and enhance when the agent runs?" (cross-cutting concerns)
 - **Module**: "What capabilities should the agent have?" (core abilities)
 
 #### Decision Criteria:
+
 1. **"Can Robota work normally without this feature?"**
    - **Yes** → Module or Plugin candidate
    - **No** → Internal core class (not Module/Plugin)
@@ -262,10 +279,10 @@ All AI providers in Robota use a standardized message format for consistency:
 
 ```typescript
 interface UniversalMessage {
-    role: 'system' | 'user' | 'assistant' | 'tool';
-    content: string;
-    toolCalls?: ToolCall[];
-    metadata?: Record<string, unknown>;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  toolCalls?: ToolCall[];
+  metadata?: Record<string, unknown>;
 }
 ```
 
@@ -284,12 +301,12 @@ const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_
 const googleProvider = new GoogleProvider({ apiKey: process.env.GOOGLE_AI_API_KEY });
 
 const agent = new Robota({
-    name: 'MultiProviderAgent',
-    aiProviders: [openaiProvider, anthropicProvider, googleProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4'
-    }
+  name: 'MultiProviderAgent',
+  aiProviders: [openaiProvider, anthropicProvider, googleProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+  },
 });
 
 // Switch providers dynamically
@@ -302,8 +319,8 @@ All providers implement the `AbstractAIProvider` interface:
 
 ```typescript
 abstract class AbstractAIProvider {
-    abstract chat(messages: UniversalMessage[]): Promise<UniversalMessage>;
-    abstract chatStream(messages: UniversalMessage[]): AsyncIterable<UniversalMessage>;
+  abstract chat(messages: UniversalMessage[]): Promise<UniversalMessage>;
+  abstract chatStream(messages: UniversalMessage[]): AsyncIterable<UniversalMessage>;
 }
 ```
 
@@ -314,24 +331,24 @@ abstract class AbstractAIProvider {
 Create type-safe tools with automatic parameter validation:
 
 ```typescript
-import { createFunctionTool } from '@robota-sdk/agents';
+import { createFunctionTool } from '@robota-sdk/agent-core';
 
 const weatherTool = createFunctionTool(
-    'getWeather',
-    'Get current weather for a location',
-    {
-        type: 'object',
-        properties: {
-            location: { type: 'string', description: 'City name' },
-            unit: { type: 'string', enum: ['celsius', 'fahrenheit'] }
-        },
-        required: ['location']
+  'getWeather',
+  'Get current weather for a location',
+  {
+    type: 'object',
+    properties: {
+      location: { type: 'string', description: 'City name' },
+      unit: { type: 'string', enum: ['celsius', 'fahrenheit'] },
     },
-    async (params) => {
-        const { location, unit = 'celsius' } = params;
-        // Implementation
-        return { temperature: 22, unit, location };
-    }
+    required: ['location'],
+  },
+  async (params) => {
+    const { location, unit = 'celsius' } = params;
+    // Implementation
+    return { temperature: 22, unit, location };
+  },
 );
 ```
 
@@ -341,17 +358,17 @@ Tools are automatically registered and available to the AI:
 
 ```typescript
 const agent = new Robota({
-    name: 'ToolAgent',
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4'
-    },
-    tools: [weatherTool]
+  name: 'ToolAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+  },
+  tools: [weatherTool],
 });
 
 // AI can now call these tools automatically
-await agent.run('What\'s the weather like in Paris?');
+await agent.run("What's the weather like in Paris?");
 ```
 
 ## Configuration System
@@ -360,19 +377,19 @@ await agent.run('What\'s the weather like in Paris?');
 
 ```typescript
 interface AgentConfig {
-    name: string;
-    aiProviders: AIProvider[];
-    defaultModel: {
-        provider: string;
-        model: string;
-        temperature?: number;
-        maxTokens?: number;
-        topP?: number;
-        systemMessage?: string;
-    };
-    tools?: AbstractTool[];
-    plugins?: AbstractPlugin[];
-    modules?: AbstractModule[];  // New: Module support
+  name: string;
+  aiProviders: AIProvider[];
+  defaultModel: {
+    provider: string;
+    model: string;
+    temperature?: number;
+    maxTokens?: number;
+    topP?: number;
+    systemMessage?: string;
+  };
+  tools?: AbstractTool[];
+  plugins?: AbstractPlugin[];
+  modules?: AbstractModule[]; // New: Module support
 }
 ```
 
@@ -382,10 +399,10 @@ Configuration can be updated at runtime:
 
 ```typescript
 // Update model settings
-agent.setModel({ 
-    provider: 'openai',
-    model: 'gpt-4-turbo',
-    systemMessage: 'You are now a coding assistant.'
+agent.setModel({
+  provider: 'openai',
+  model: 'gpt-4-turbo',
+  systemMessage: 'You are now a coding assistant.',
 });
 
 // Add plugins dynamically
@@ -404,23 +421,21 @@ Robota uses EventEmitter for loose coupling between components:
 ```typescript
 // Plugins can subscribe to module events
 class LoggingPlugin extends AbstractPlugin {
-    constructor(options) {
-        super();
-        this.moduleEvents = [
-            'module.initialize.complete',
-            'module.execution.complete'
-        ];
-    }
-    
-    async onModuleEvent(eventType: string, eventData: unknown): Promise<void> {
-        console.log(`Module event: ${eventType}`, eventData);
-    }
+  constructor(options) {
+    super();
+    this.moduleEvents = ['module.initialize.complete', 'module.execution.complete'];
+  }
+
+  async onModuleEvent(eventType: string, eventData: unknown): Promise<void> {
+    console.log(`Module event: ${eventType}`, eventData);
+  }
 }
 ```
 
 ### Event Types
 
 Standard events include:
+
 - **Agent Events**: `agent.start`, `agent.stop`, `agent.error`
 - **Execution Events**: `execution.start`, `execution.complete`, `execution.error`
 - **Tool Events**: `tool.call`, `tool.complete`, `tool.error`
@@ -435,22 +450,23 @@ Robota maintains complete type safety throughout:
 ```typescript
 // Type-safe agent configuration
 interface MyAgentConfig extends AgentConfig {
-    customOption: string;
+  customOption: string;
 }
 
 // Type-safe plugin options
 interface MyPluginOptions extends AbstractPluginOptions {
-    setting: number;
+  setting: number;
 }
 
 class MyPlugin extends AbstractPlugin<MyPluginOptions, MyPluginStats> {
-    // Fully typed implementation
+  // Fully typed implementation
 }
 ```
 
 ### Runtime Validation
 
 Type safety is enforced at runtime through:
+
 - JSON Schema validation for tool parameters
 - Configuration validation at startup
 - Provider response validation
@@ -464,8 +480,8 @@ Components are loaded only when needed:
 ```typescript
 // Modules are initialized only when first used
 const ragModule = new RAGModule({
-    vectorStore: 'pinecone',
-    lazyInit: true  // Initialize on first use
+  vectorStore: 'pinecone',
+  lazyInit: true, // Initialize on first use
 });
 ```
 
@@ -476,7 +492,7 @@ Real-time response streaming for better user experience:
 ```typescript
 // Stream responses for immediate feedback
 for await (const chunk of agent.runStream('Tell me a story')) {
-    process.stdout.write(chunk);
+  process.stdout.write(chunk);
 }
 ```
 
@@ -525,7 +541,7 @@ This architecture provides a solid foundation for building sophisticated AI agen
 
 ## Unified Architecture
 
-Robota SDK v2.0 introduces a unified architecture centered around the `@robota-sdk/agents` package, which consolidates all core functionality into a single, cohesive system.
+Robota SDK v2.0 introduces a unified architecture centered around the `@robota-sdk/agent-core` package, which consolidates all core functionality into a single, cohesive system.
 
 ### Key Design Principles
 
@@ -542,17 +558,17 @@ Robota SDK v2.0 introduces a unified architecture centered around the `@robota-s
 The `Robota` class is the main entry point for creating AI agents:
 
 ```typescript
-import { Robota } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
+import { Robota } from '@robota-sdk/agent-core';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const agent = new Robota({
-    name: 'MyAgent',
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4',
-        systemMessage: 'You are helpful.'
-    }
+  name: 'MyAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+    systemMessage: 'You are helpful.',
+  },
 });
 ```
 
@@ -563,15 +579,15 @@ All agents inherit from `AbstractAgent`, providing:
 ```typescript
 // Core agent capabilities
 export abstract class AbstractAgent<TStats = AgentStats> {
-    abstract run(input: string): Promise<string>;
-    abstract stream(input: string): AsyncIterable<StreamChunk>;
-    abstract getStats(): TStats;
-    abstract destroy(): Promise<void>;
-    
-    // Plugin management
-    protected plugins: AbstractPlugin[] = [];
-    addPlugin(plugin: AbstractPlugin): void;
-    getPlugin(name: string): AbstractPlugin | undefined;
+  abstract run(input: string): Promise<string>;
+  abstract stream(input: string): AsyncIterable<StreamChunk>;
+  abstract getStats(): TStats;
+  abstract destroy(): Promise<void>;
+
+  // Plugin management
+  protected plugins: AbstractPlugin[] = [];
+  addPlugin(plugin: AbstractPlugin): void;
+  getPlugin(name: string): AbstractPlugin | undefined;
 }
 ```
 
@@ -581,17 +597,17 @@ The `AbstractAIProvider` creates a unified interface across all AI services:
 
 ```typescript
 export abstract class AbstractAIProvider {
-    abstract generateResponse(
-        messages: UniversalMessage[],
-        options?: GenerationOptions
-    ): Promise<string>;
-    
-    abstract generateStream(
-        messages: UniversalMessage[],
-        options?: GenerationOptions
-    ): AsyncIterable<StreamChunk>;
-    
-    abstract getSupportedModels(): string[];
+  abstract generateResponse(
+    messages: UniversalMessage[],
+    options?: GenerationOptions,
+  ): Promise<string>;
+
+  abstract generateStream(
+    messages: UniversalMessage[],
+    options?: GenerationOptions,
+  ): AsyncIterable<StreamChunk>;
+
+  abstract getSupportedModels(): string[];
 }
 ```
 
@@ -607,42 +623,42 @@ Plugins extend agent functionality through a standardized interface:
 
 ```typescript
 export abstract class AbstractPlugin<TStats = PluginStats> {
-    abstract name: string;
-    abstract onAgentStart?(): Promise<void>;
-    abstract onAgentStop?(): Promise<void>;
-    abstract getStats(): TStats;
+  abstract name: string;
+  abstract onAgentStart?(): Promise<void>;
+  abstract onAgentStop?(): Promise<void>;
+  abstract getStats(): TStats;
 }
 ```
 
 #### Built-in Plugins
 
 ```typescript
-import { 
-    ExecutionAnalyticsPlugin,
-    ConversationHistoryPlugin,
-    LoggingPlugin,
-    ErrorHandlingPlugin 
-} from '@robota-sdk/agents';
+import {
+  ExecutionAnalyticsPlugin,
+  ConversationHistoryPlugin,
+  LoggingPlugin,
+  ErrorHandlingPlugin,
+} from '@robota-sdk/agent-core';
 
 const agent = new Robota({
-    name: 'PluginAgent',
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4'
-    },
-    plugins: [
-        new ExecutionAnalyticsPlugin({
-            maxEntries: 1000,
-            trackErrors: true
-        }),
-        new ConversationHistoryPlugin({
-            maxMessages: 100
-        }),
-        new LoggingPlugin({
-            level: 'info'
-        })
-    ]
+  name: 'PluginAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+  },
+  plugins: [
+    new ExecutionAnalyticsPlugin({
+      maxEntries: 1000,
+      trackErrors: true,
+    }),
+    new ConversationHistoryPlugin({
+      maxMessages: 100,
+    }),
+    new LoggingPlugin({
+      level: 'info',
+    }),
+  ],
 });
 ```
 
@@ -651,46 +667,46 @@ const agent = new Robota({
 Type-safe function calling with automatic schema conversion:
 
 ```typescript
-import { createFunctionTool } from '@robota-sdk/agents';
+import { createFunctionTool } from '@robota-sdk/agent-core';
 
 // Create a tool with JSON Schema
 const weatherTool = createFunctionTool(
-    'getWeather',
-    'Get current weather for a location',
-    {
-        type: 'object',
-        properties: {
-            location: {
-                type: 'string',
-                description: 'City name'
-            },
-            units: {
-                type: 'string',
-                enum: ['celsius', 'fahrenheit'],
-                default: 'celsius'
-            }
-        },
-        required: ['location']
+  'getWeather',
+  'Get current weather for a location',
+  {
+    type: 'object',
+    properties: {
+      location: {
+        type: 'string',
+        description: 'City name',
+      },
+      units: {
+        type: 'string',
+        enum: ['celsius', 'fahrenheit'],
+        default: 'celsius',
+      },
     },
-    async (params) => {
-        // Tool implementation
-        return { 
-            temperature: 22,
-            condition: 'sunny',
-            location: params.location 
-        };
-    }
+    required: ['location'],
+  },
+  async (params) => {
+    // Tool implementation
+    return {
+      temperature: 22,
+      condition: 'sunny',
+      location: params.location,
+    };
+  },
 );
 
 // Add to agent
 const agent = new Robota({
-    name: 'ToolAgent',
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4'
-    },
-    tools: [weatherTool]
+  name: 'ToolAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+  },
+  tools: [weatherTool],
 });
 ```
 
@@ -700,45 +716,49 @@ Universal message format for cross-provider compatibility:
 
 ```typescript
 interface UniversalMessage {
-    role: 'system' | 'user' | 'assistant' | 'tool';
-    content: string;
-    toolCalls?: ToolCall[];
-    toolCallId?: string;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  toolCalls?: ToolCall[];
+  toolCallId?: string;
 }
 ```
 
 ## assignTask Tool Collection (team package)
 
-The `@robota-sdk/team` package now provides assignTask MCP tools (no team creation).
+The `@robota-sdk/agent-team` package now provides assignTask MCP tools (no team creation).
 
 ```typescript
-import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
-import { Robota } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { DefaultEventService, bindWithOwnerPath } from '@robota-sdk/agents';
+import {
+  createAssignTaskRelayTool,
+  listTemplatesTool,
+  getTemplateDetailTool,
+} from '@robota-sdk/agent-team';
+import { Robota } from '@robota-sdk/agent-core';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { DefaultEventService, bindWithOwnerPath } from '@robota-sdk/agent-core';
 
 const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
 const tools = [
-    listTemplatesTool,
-    getTemplateDetailTool,
-    // In real flows, ExecutionService/ToolExecutionService provides a tool-call scoped (ownerPath-bound) EventService.
-    createAssignTaskRelayTool(
-        bindWithOwnerPath(new DefaultEventService(), {
-            ownerType: 'tool',
-            ownerId: 'tool_call_0',
-            ownerPath: [{ type: 'tool', id: 'tool_call_0' }],
-            sourceType: 'tool',
-            sourceId: 'tool_call_0'
-        })
-    )
+  listTemplatesTool,
+  getTemplateDetailTool,
+  // In real flows, ExecutionService/ToolExecutionService provides a tool-call scoped (ownerPath-bound) EventService.
+  createAssignTaskRelayTool(
+    bindWithOwnerPath(new DefaultEventService(), {
+      ownerType: 'tool',
+      ownerId: 'tool_call_0',
+      ownerPath: [{ type: 'tool', id: 'tool_call_0' }],
+      sourceType: 'tool',
+      sourceId: 'tool_call_0',
+    }),
+  ),
 ];
 
 const agent = new Robota({
-    name: 'Assistant',
-    aiProviders: [openaiProvider],
-    defaultModel: { provider: 'openai', model: 'gpt-4' },
-    tools
+  name: 'Assistant',
+  aiProviders: [openaiProvider],
+  defaultModel: { provider: 'openai', model: 'gpt-4' },
+  tools,
 });
 
 const result = await agent.run('Summarize the advantages of TypeScript.');
@@ -751,48 +771,48 @@ The Robota SDK roadmap includes sophisticated planning strategies for autonomous
 ```typescript
 // Future roadmap - Advanced Planning System
 import { createPlanner } from '@robota-sdk/planning';
-import { 
-    ReActPlanner,        // Reason + Act cycles
-    CAMELPlanner,        // Multi-agent communication
-    ReflectionPlanner,   // Self-improvement loops
-    PlanExecutePlanner   // Hierarchical planning
+import {
+  ReActPlanner, // Reason + Act cycles
+  CAMELPlanner, // Multi-agent communication
+  ReflectionPlanner, // Self-improvement loops
+  PlanExecutePlanner, // Hierarchical planning
 } from '@robota-sdk/planner-strategies';
 
 // This is planned for future releases
 const planner = createPlanner({
-    baseAgentConfig: {
-        aiProviders: [openaiProvider],
-        defaultModel: {
-            provider: 'openai',
-            model: 'gpt-4'
-        }
+  baseAgentConfig: {
+    aiProviders: [openaiProvider],
+    defaultModel: {
+      provider: 'openai',
+      model: 'gpt-4',
     },
-    maxAgents: 10,
-    strategies: ['react', 'camel', 'reflection']
+  },
+  maxAgents: 10,
+  strategies: ['react', 'camel', 'reflection'],
 });
 
 // Register planning strategies
 planner.registerPlanner(new ReActPlanner());
-planner.registerPlanner(new CAMELPlanner()); 
+planner.registerPlanner(new CAMELPlanner());
 planner.registerPlanner(new ReflectionPlanner());
 
 // Execute complex autonomous workflows
 await planner.execute(
-    'Build a complete e-commerce website with payment integration',
-    ['camel', 'react', 'reflection'],
-    'sequential'
+  'Build a complete e-commerce website with payment integration',
+  ['camel', 'react', 'reflection'],
+  'sequential',
 );
 ```
 
 ### Planned Planning Strategies
 
-| Strategy | Description | Use Case |
-|----------|-------------|----------|
-| **ReAct** | Reason + Act cycles | Tool-heavy, iterative tasks |
-| **CAMEL** | Multi-agent communication | Complex collaborative projects |
-| **Reflection** | Self-improvement loops | Quality assurance, error correction |
-| **Plan-and-Execute** | Hierarchical planning | Large, structured projects |
-| **AutoGPT Style** | Goal-driven autonomous loops | Long-term autonomous execution |
+| Strategy             | Description                  | Use Case                            |
+| -------------------- | ---------------------------- | ----------------------------------- |
+| **ReAct**            | Reason + Act cycles          | Tool-heavy, iterative tasks         |
+| **CAMEL**            | Multi-agent communication    | Complex collaborative projects      |
+| **Reflection**       | Self-improvement loops       | Quality assurance, error correction |
+| **Plan-and-Execute** | Hierarchical planning        | Large, structured projects          |
+| **AutoGPT Style**    | Goal-driven autonomous loops | Long-term autonomous execution      |
 
 ## Advanced Patterns
 
@@ -801,7 +821,7 @@ await planner.execute(
 Use `AgentFactory` for template-based agent creation:
 
 ```typescript
-import { AgentFactory } from '@robota-sdk/agents';
+import { AgentFactory } from '@robota-sdk/agent-core';
 
 const factory = new AgentFactory();
 
@@ -810,14 +830,14 @@ factory.registerProvider('openai', openaiProvider);
 
 // Create from template
 const assistant = await factory.createFromTemplate(Robota, 'helpful-assistant', {
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4'
-    },
-    customizations: {
-        personality: 'friendly and professional'
-    }
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+  },
+  customizations: {
+    personality: 'friendly and professional',
+  },
 });
 ```
 
@@ -827,18 +847,18 @@ Implement provider-specific optimizations:
 
 ```typescript
 class SmartAgent extends Robota {
-    async run(input: string): Promise<string> {
-        // Use different providers for different tasks
-        if (this.isComplexReasoning(input)) {
-            this.setModel({ provider: 'openai', model: 'gpt-4' });
-        } else if (this.isCreativeTask(input)) {
-            this.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
-        } else {
-            this.setModel({ provider: 'openai', model: 'gpt-3.5-turbo' });
-        }
-        
-        return super.run(input);
+  async run(input: string): Promise<string> {
+    // Use different providers for different tasks
+    if (this.isComplexReasoning(input)) {
+      this.setModel({ provider: 'openai', model: 'gpt-4' });
+    } else if (this.isCreativeTask(input)) {
+      this.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
+    } else {
+      this.setModel({ provider: 'openai', model: 'gpt-3.5-turbo' });
     }
+
+    return super.run(input);
+  }
 }
 ```
 
@@ -848,20 +868,20 @@ Robust streaming implementation:
 
 ```typescript
 async function processStreamWithErrorHandling(agent: Robota, input: string) {
-    try {
-        const stream = agent.runStream(input);
-        let fullResponse = '';
-        
-        for await (const chunk of stream) {
-            process.stdout.write(chunk);
-            fullResponse += chunk;
-        }
-        
-        return fullResponse;
-    } catch (error) {
-        console.error('Streaming failed:', error);
-        throw error;
+  try {
+    const stream = agent.runStream(input);
+    let fullResponse = '';
+
+    for await (const chunk of stream) {
+      process.stdout.write(chunk);
+      fullResponse += chunk;
     }
+
+    return fullResponse;
+  } catch (error) {
+    console.error('Streaming failed:', error);
+    throw error;
+  }
 }
 ```
 
@@ -871,25 +891,25 @@ async function processStreamWithErrorHandling(agent: Robota, input: string) {
 
 ```typescript
 interface AgentConfig {
-    name: string;
-    model: string;
-    provider: string;
-    systemMessage?: string;
-    tools?: Tool[];
-    plugins?: AbstractPlugin[];
+  name: string;
+  model: string;
+  provider: string;
+  systemMessage?: string;
+  tools?: Tool[];
+  plugins?: AbstractPlugin[];
 }
 
 function createProductionAgent(): Robota {
-    return new Robota({
-        name: process.env.AGENT_NAME || 'DefaultAgent',
-        aiProviders: getProviders(),
-        defaultModel: {
-            provider: process.env.AI_PROVIDER || 'openai',
-            model: process.env.AI_MODEL || 'gpt-3.5-turbo',
-            systemMessage: process.env.SYSTEM_MESSAGE
-        },
-        plugins: getProductionPlugins()
-    });
+  return new Robota({
+    name: process.env.AGENT_NAME || 'DefaultAgent',
+    aiProviders: getProviders(),
+    defaultModel: {
+      provider: process.env.AI_PROVIDER || 'openai',
+      model: process.env.AI_MODEL || 'gpt-3.5-turbo',
+      systemMessage: process.env.SYSTEM_MESSAGE,
+    },
+    plugins: getProductionPlugins(),
+  });
 }
 ```
 
@@ -897,21 +917,21 @@ function createProductionAgent(): Robota {
 
 ```typescript
 function getProductionPlugins(): AbstractPlugin[] {
-    return [
-        new ExecutionAnalyticsPlugin({
-            maxEntries: 10000,
-            trackErrors: true,
-            performanceThreshold: 5000
-        }),
-        new LoggingPlugin({
-            level: process.env.LOG_LEVEL || 'info',
-            destination: 'file'
-        }),
-        new ErrorHandlingPlugin({
-            retryAttempts: 3,
-            retryDelay: 1000
-        })
-    ];
+  return [
+    new ExecutionAnalyticsPlugin({
+      maxEntries: 10000,
+      trackErrors: true,
+      performanceThreshold: 5000,
+    }),
+    new LoggingPlugin({
+      level: process.env.LOG_LEVEL || 'info',
+      destination: 'file',
+    }),
+    new ErrorHandlingPlugin({
+      retryAttempts: 3,
+      retryDelay: 1000,
+    }),
+  ];
 }
 ```
 
@@ -922,11 +942,11 @@ function getProductionPlugins(): AbstractPlugin[] {
 ```typescript
 // Always clean up resources
 async function processWithCleanup(agent: Robota, input: string) {
-    try {
-        return await agent.run(input);
-    } finally {
-        await agent.destroy(); // Clean up resources
-    }
+  try {
+    return await agent.run(input);
+  } finally {
+    await agent.destroy(); // Clean up resources
+  }
 }
 ```
 
@@ -940,11 +960,12 @@ console.log(`Messages: ${stats.historyLength}`);
 
 // Plugin-specific analytics
 const analyticsPlugin = agent.getPlugin('ExecutionAnalyticsPlugin') as
-    (AbstractPlugin & { getAggregatedStats(): { successRate: number; averageDuration: number } }) | undefined;
+  | (AbstractPlugin & { getAggregatedStats(): { successRate: number; averageDuration: number } })
+  | undefined;
 if (analyticsPlugin && 'getAggregatedStats' in analyticsPlugin) {
-    const analytics = analyticsPlugin.getAggregatedStats();
-    console.log(`Success rate: ${(analytics.successRate * 100).toFixed(1)}%`);
-    console.log(`Avg duration: ${analytics.averageDuration.toFixed(0)}ms`);
+  const analytics = analyticsPlugin.getAggregatedStats();
+  console.log(`Success rate: ${(analytics.successRate * 100).toFixed(1)}%`);
+  console.log(`Avg duration: ${analytics.averageDuration.toFixed(0)}ms`);
 }
 ```
 
@@ -955,16 +976,16 @@ if (analyticsPlugin && 'getAggregatedStats' in analyticsPlugin) {
 ```typescript
 // Custom agent with specialized stats
 interface CustomAgentStats extends AgentStats {
-    customMetric: number;
+  customMetric: number;
 }
 
 class CustomAgent extends AbstractAgent<CustomAgentStats> {
-    getStats(): CustomAgentStats {
-        return {
-            ...super.getStats(),
-            customMetric: this.calculateCustomMetric()
-        };
-    }
+  getStats(): CustomAgentStats {
+    return {
+      ...super.getStats(),
+      customMetric: this.calculateCustomMetric(),
+    };
+  }
 }
 ```
 
@@ -973,13 +994,13 @@ class CustomAgent extends AbstractAgent<CustomAgentStats> {
 ```typescript
 // No 'any' types allowed - everything is strictly typed
 const agent = new Robota({
-    name: 'TypeSafeAgent',
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-3.5-turbo',
-        systemMessage: 'You are a helpful assistant.'
-    }
+  name: 'TypeSafeAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-3.5-turbo',
+    systemMessage: 'You are a helpful assistant.',
+  },
 });
 ```
 
@@ -987,4 +1008,4 @@ const agent = new Robota({
 
 - **[Function Calling](./function-calling.md)** - Learn about tool integration
 - **[Building Agents](./building-agents.md)** - Advanced agent patterns
-- **[Examples](../examples/README.md)** - See these concepts in action 
+- **[Examples](../examples/README.md)** - See these concepts in action

@@ -1,0 +1,7 @@
+{
+  "extends": ["next/core-web-vitals", "../../.eslintrc.json"],
+  "rules": {
+    "no-restricted-syntax": "off",
+    "no-console": "off"
+  }
+}

@@ -5,9 +5,7 @@
     "es2021": true,
     "node": true
   },
-  "extends": [
-    "eslint:recommended"
-  ],
+  "extends": ["eslint:recommended"],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "ecmaVersion": "latest",
@@ -20,11 +18,7 @@
     ],
     "tsconfigRootDir": "."
   },
-  "plugins": [
-    "@typescript-eslint",
-    "eslint-comments",
-    "jsx-a11y"
-  ],
+  "plugins": ["@typescript-eslint", "eslint-comments", "jsx-a11y"],
   "globals": {
     "NodeJS": "readonly"
   },
@@ -107,19 +101,19 @@
     "max-lines": ["warn", { "max": 300, "skipBlankLines": true, "skipComments": true }],
     "max-lines-per-function": ["warn", { "max": 50, "skipBlankLines": true, "skipComments": true }],
     "no-param-reassign": ["error", { "props": false }],
-    "no-magic-numbers": ["warn", {
-      "ignore": [-1, 0, 1, 2],
-      "ignoreArrayIndexes": true,
-      "ignoreDefaultValues": true,
-      "enforceConst": true
-    }]
+    "no-magic-numbers": [
+      "warn",
+      {
+        "ignore": [-1, 0, 1, 2],
+        "ignoreArrayIndexes": true,
+        "ignoreDefaultValues": true,
+        "enforceConst": true
+      }
+    ]
   },
   "overrides": [
     {
-      "files": [
-        "packages/*/src/**/*",
-        "apps/*/src/**/*"
-      ],
+      "files": ["packages/*/src/**/*", "apps/*/src/**/*"],
       "rules": {
         "eslint-comments/no-restricted-disable": [
           "error",
@@ -129,9 +123,24 @@
       }
     },
     {
-      "files": [
-        "apps/**/*"
-      ],
+      "files": ["apps/**/*"],
+      "rules": {
+        "no-console": "off",
+        "no-restricted-syntax": "off",
+        "@typescript-eslint/no-unused-vars": [
+          "warn",
+          {
+            "argsIgnorePattern": "^_",
+            "varsIgnorePattern": "^_",
+            "ignoreRestSiblings": true,
+            "destructuredArrayIgnorePattern": "^_"
+          }
+        ],
+        "no-unused-vars": "off"
+      }
+    },
+    {
+      "files": ["apps/examples/**/*", "examples/**/*"],
       "rules": {
         "no-console": "off",
         "@typescript-eslint/no-unused-vars": [
@@ -147,29 +156,7 @@
       }
     },
     {
-      "files": [
-        "apps/examples/**/*",
-        "examples/**/*"
-      ],
-      "rules": {
-        "no-console": "off",
-        "@typescript-eslint/no-unused-vars": [
-          "warn",
-          {
-            "argsIgnorePattern": "^_",
-            "varsIgnorePattern": "^_",
-            "ignoreRestSiblings": true,
-            "destructuredArrayIgnorePattern": "^_"
-          }
-        ],
-        "no-unused-vars": "off"
-      }
-    },
-    {
-      "files": [
-        "**/*.test.ts",
-        "**/*.test.tsx"
-      ],
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
       "env": {
         "jest": true
       },
@@ -222,11 +209,9 @@
       "files": [
         "packages/playground/**/*.{ts,tsx,js,jsx}",
         "packages/dag-designer/**/*.{ts,tsx,js,jsx}",
-        "apps/web/**/*.{ts,tsx,js,jsx}"
+        "apps/agent-web/**/*.{ts,tsx,js,jsx}"
       ],
-      "extends": [
-        "plugin:jsx-a11y/recommended"
-      ],
+      "extends": ["plugin:jsx-a11y/recommended"],
       "rules": {
         "jsx-a11y/alt-text": "warn",
         "jsx-a11y/anchor-has-content": "warn",
@@ -268,6 +253,13 @@
     "docs/**/*",
     "apps/docs/**/*",
     "dist",
-    "node_modules"
+    "node_modules",
+    "scripts/**/*",
+    "**/jest.setup.js",
+    "**/jest.config.js",
+    "**/.eslintrc.cjs",
+    "vitest.setup.ts",
+    "**/vitest.setup.ts",
+    "packages/*/examples/**/*"
   ]
 }

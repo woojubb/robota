@@ -38,10 +38,10 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@robota-sdk/agents": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
-    "@robota-sdk/openai": "workspace:*",
+    "@robota-sdk/agent-provider-openai": "workspace:*",
     "zod": "^3.24.4"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
-# Session Management with @robota-sdk/sessions
+# Session Management with @robota-sdk/agent-sessions
 
-The `@robota-sdk/sessions` package provides a clean way to manage multiple independent AI agents across different workspaces. Think of it as a container that lets you run multiple AI conversations simultaneously while keeping them completely isolated from each other.
+The `@robota-sdk/agent-sessions` package provides a clean way to manage multiple independent AI agents across different workspaces. Think of it as a container that lets you run multiple AI conversations simultaneously while keeping them completely isolated from each other.
 
 ## 🎯 Core Purpose
 
@@ -17,41 +17,41 @@ The sessions package is designed for **managing multiple independent AI agents**
 ### Installation
 
 ```bash
-pnpm add @robota-sdk/sessions @robota-sdk/agents @robota-sdk/openai
+pnpm add @robota-sdk/agent-sessions @robota-sdk/agent-core @robota-sdk/agent-provider-openai
 ```
 
 ### Basic Usage
 
 ```typescript
-import { SessionManager } from '@robota-sdk/sessions';
-import { OpenAIProvider } from '@robota-sdk/openai';
+import { SessionManager } from '@robota-sdk/agent-sessions';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 // Create a session manager
 const sessionManager = new SessionManager({
-    maxSessions: 10,
-    maxChatsPerSession: 5,
-    enableWorkspaceIsolation: true,
+  maxSessions: 10,
+  maxChatsPerSession: 5,
+  enableWorkspaceIsolation: true,
 });
 
 // Create a session (workspace)
 const sessionId = sessionManager.createSession({
-    name: 'Development Workspace',
-    userId: 'developer-123',
-    workspaceId: 'workspace-dev',
+  name: 'Development Workspace',
+  userId: 'developer-123',
+  workspaceId: 'workspace-dev',
 });
 
 // Create an AI agent in the session
 const chatId = await sessionManager.createChat(sessionId, {
+  name: 'Coding Assistant',
+  agentConfig: {
     name: 'Coding Assistant',
-    agentConfig: {
-        name: 'Coding Assistant',
-        aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
-        defaultModel: {
-            provider: 'openai',
-            model: 'gpt-4',
-            systemMessage: 'You are a helpful coding assistant.',
-        },
+    aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
+    defaultModel: {
+      provider: 'openai',
+      model: 'gpt-4',
+      systemMessage: 'You are a helpful coding assistant.',
     },
+  },
 });
 
 // Switch to the agent and start chatting
@@ -63,56 +63,59 @@ const response = await chat.sendMessage('Hello! Can you help me with TypeScript?
 ## 📋 Key Features
 
 ### 1. **Multiple Sessions (Workspaces)**
+
 Each session is an isolated workspace that can contain multiple AI agents:
 
 ```typescript
 // Create different workspaces for different purposes
 const devSession = sessionManager.createSession({
-    name: 'Development',
-    workspaceId: 'workspace-dev',
+  name: 'Development',
+  workspaceId: 'workspace-dev',
 });
 
 const researchSession = sessionManager.createSession({
-    name: 'Research',
-    workspaceId: 'workspace-research',
+  name: 'Research',
+  workspaceId: 'workspace-research',
 });
 ```
 
 ### 2. **Multiple AI Agents per Session**
+
 Each session can have multiple specialized AI agents:
 
 ```typescript
 // Create multiple agents in the same session
 const codingAssistant = await sessionManager.createChat(devSession, {
+  name: 'Coding Assistant',
+  agentConfig: {
     name: 'Coding Assistant',
-    agentConfig: {
-        name: 'Coding Assistant',
-        aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
-        defaultModel: {
-            provider: 'openai',
-            model: 'gpt-4',
-            temperature: 0.1,
-            systemMessage: 'You are an expert programmer.',
-        },
+    aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
+    defaultModel: {
+      provider: 'openai',
+      model: 'gpt-4',
+      temperature: 0.1,
+      systemMessage: 'You are an expert programmer.',
     },
+  },
 });
 
 const reviewAssistant = await sessionManager.createChat(devSession, {
+  name: 'Code Review Assistant',
+  agentConfig: {
     name: 'Code Review Assistant',
-    agentConfig: {
-        name: 'Code Review Assistant',
-        aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
-        defaultModel: {
-            provider: 'openai',
-            model: 'gpt-4',
-            temperature: 0.3,
-            systemMessage: 'You are a thorough code reviewer.',
-        },
+    aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
+    defaultModel: {
+      provider: 'openai',
+      model: 'gpt-4',
+      temperature: 0.3,
+      systemMessage: 'You are a thorough code reviewer.',
     },
+  },
 });
 ```
 
 ### 3. **Agent Switching**
+
 Easily switch between different agents within a session:
 
 ```typescript
@@ -128,6 +131,7 @@ await reviewChat.sendMessage('Please review this code');
 ```
 
 ### 4. **Workspace Isolation**
+
 Each session operates independently with its own memory space:
 
 ```typescript
@@ -167,69 +171,71 @@ SessionManager
 ## 🎨 Advanced Use Cases
 
 ### 1. **Multi-Purpose Development Environment**
+
 ```typescript
 const devSession = sessionManager.createSession({ name: 'Development' });
 
 // Create multiple agents
 const coder = await sessionManager.createChat(devSession, {
-    name: 'Coder',
-    agentConfig: {
-        name: 'Coding Assistant',
-        aiProviders: [provider],
-        defaultModel: {
-            provider: 'openai',
-            model: 'gpt-4',
-            temperature: 0.1,
-            systemMessage: 'You are an expert programmer.',
-        },
+  name: 'Coder',
+  agentConfig: {
+    name: 'Coding Assistant',
+    aiProviders: [provider],
+    defaultModel: {
+      provider: 'openai',
+      model: 'gpt-4',
+      temperature: 0.1,
+      systemMessage: 'You are an expert programmer.',
     },
+  },
 });
 
 const reviewer = await sessionManager.createChat(devSession, {
-    name: 'Reviewer',
-    agentConfig: {
-        name: 'Code Reviewer',
-        aiProviders: [provider],
-        defaultModel: {
-            provider: 'openai',
-            model: 'gpt-4',
-            temperature: 0.3,
-            systemMessage: 'You are a thorough code reviewer.',
-        },
+  name: 'Reviewer',
+  agentConfig: {
+    name: 'Code Reviewer',
+    aiProviders: [provider],
+    defaultModel: {
+      provider: 'openai',
+      model: 'gpt-4',
+      temperature: 0.3,
+      systemMessage: 'You are a thorough code reviewer.',
     },
+  },
 });
 
 const documenter = await sessionManager.createChat(devSession, {
-    name: 'Documenter',
-    agentConfig: {
-        name: 'Documentation Assistant',
-        aiProviders: [provider],
-        defaultModel: {
-            provider: 'openai',
-            model: 'gpt-4',
-            temperature: 0.5,
-            systemMessage: 'You are a technical documentation expert.',
-        },
+  name: 'Documenter',
+  agentConfig: {
+    name: 'Documentation Assistant',
+    aiProviders: [provider],
+    defaultModel: {
+      provider: 'openai',
+      model: 'gpt-4',
+      temperature: 0.5,
+      systemMessage: 'You are a technical documentation expert.',
     },
+  },
 });
 
 // Switch between them as needed
-sessionManager.switchChat(devSession, coder);     // For coding
-sessionManager.switchChat(devSession, reviewer);  // For code review
+sessionManager.switchChat(devSession, coder); // For coding
+sessionManager.switchChat(devSession, reviewer); // For code review
 sessionManager.switchChat(devSession, documenter); // For documentation
 ```
 
 ### 2. **Multi-User Support**
+
 ```typescript
 // Create isolated workspaces for different users
-const userASession = sessionManager.createSession({ 
-    userId: 'user-a', 
-    workspaceId: 'workspace-a' 
+const userASession = sessionManager.createSession({
+  userId: 'user-a',
+  workspaceId: 'workspace-a',
 });
 
-const userBSession = sessionManager.createSession({ 
-    userId: 'user-b', 
-    workspaceId: 'workspace-b' 
+const userBSession = sessionManager.createSession({
+  userId: 'user-b',
+  workspaceId: 'workspace-b',
 });
 
 // Each user has their own isolated agents
@@ -238,16 +244,17 @@ const userBAssistant = await sessionManager.createChat(userBSession, config);
 ```
 
 ### 3. **Project-Based Organization**
+
 ```typescript
 // Create sessions for different projects
-const project1 = sessionManager.createSession({ 
-    name: 'Project Alpha',
-    workspaceId: 'project-alpha',
+const project1 = sessionManager.createSession({
+  name: 'Project Alpha',
+  workspaceId: 'project-alpha',
 });
 
-const project2 = sessionManager.createSession({ 
-    name: 'Project Beta',
-    workspaceId: 'project-beta',
+const project2 = sessionManager.createSession({
+  name: 'Project Beta',
+  workspaceId: 'project-beta',
 });
 
 // Each project has its own set of agents
@@ -263,31 +270,34 @@ const betaFrontend = await sessionManager.createChat(project2, frontendConfig);
 ### SessionManager
 
 #### `createSession(options)`
+
 Creates a new session (workspace):
 
 ```typescript
 const sessionId = sessionManager.createSession({
-    name: 'My Workspace',
-    userId: 'user-123',
-    workspaceId: 'workspace-abc',
+  name: 'My Workspace',
+  userId: 'user-123',
+  workspaceId: 'workspace-abc',
 });
 ```
 
 #### `createChat(sessionId, options)`
+
 Creates a new AI agent in a session:
 
 ```typescript
 const chatId = await sessionManager.createChat(sessionId, {
+  name: 'Assistant',
+  agentConfig: {
     name: 'Assistant',
-    agentConfig: {
-        name: 'Assistant',
-        aiProviders: [provider],
-        defaultModel: { provider: 'openai', model: 'gpt-4' },
-    },
+    aiProviders: [provider],
+    defaultModel: { provider: 'openai', model: 'gpt-4' },
+  },
 });
 ```
 
 #### `switchChat(sessionId, chatId)`
+
 Switches to a different agent in the session:
 
 ```typescript
@@ -295,6 +305,7 @@ sessionManager.switchChat(sessionId, chatId);
 ```
 
 #### `getChat(chatId)`
+
 Gets a chat instance for direct interaction:
 
 ```typescript
@@ -305,6 +316,7 @@ const response = await chat.sendMessage('Hello!');
 ### ChatInstance
 
 #### `sendMessage(content)`
+
 Sends a message to the AI agent:
 
 ```typescript
@@ -312,6 +324,7 @@ const response = await chat.sendMessage('Help me with TypeScript');
 ```
 
 #### `getHistory()`
+
 Gets the conversation history:
 
 ```typescript
@@ -319,6 +332,7 @@ const messages = chat.getHistory();
 ```
 
 #### `clearHistory()`
+
 Clears the conversation history:
 
 ```typescript
@@ -356,11 +370,11 @@ bun run basic-session-usage.ts
 ## 📦 Installation
 
 ```bash
-npm install @robota-sdk/sessions @robota-sdk/agents
+npm install @robota-sdk/agent-sessions @robota-sdk/agent-core
 # or
-pnpm add @robota-sdk/sessions @robota-sdk/agents
+pnpm add @robota-sdk/agent-sessions @robota-sdk/agent-core
 ```
 
 ## 🤝 Contributing
 
-This package is part of the Robota SDK monorepo. See the main repository for contribution guidelines. 
+This package is part of the Robota SDK monorepo. See the main repository for contribution guidelines.

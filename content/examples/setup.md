@@ -8,7 +8,7 @@ This guide covers the initial setup required to run Robota SDK examples.
 
 Ensure you have the following installed:
 
-- **Node.js** 18+ 
+- **Node.js** 18+
 - **pnpm** (recommended) or npm
 - **bun** (optional, for faster execution)
 
@@ -46,6 +46,7 @@ GOOGLE_API_KEY=your_google_api_key_here
 ### Getting API Keys
 
 #### OpenAI API Key
+
 1. Visit [OpenAI Platform](https://platform.openai.com/)
 2. Sign up or log in to your account
 3. Navigate to API Keys section
@@ -53,6 +54,7 @@ GOOGLE_API_KEY=your_google_api_key_here
 5. Copy the key to your `.env` file
 
 #### Anthropic API Key (Optional)
+
 1. Visit [Anthropic Console](https://console.anthropic.com/)
 2. Sign up or log in
 3. Navigate to API Keys
@@ -60,6 +62,7 @@ GOOGLE_API_KEY=your_google_api_key_here
 5. Add to your `.env` file
 
 #### Google AI API Key (Optional)
+
 1. Visit [Google AI Studio](https://makersuite.google.com/)
 2. Sign in with your Google account
 3. Create a new API key
@@ -74,11 +77,11 @@ robota/
 ├── docs/examples/          # This documentation
 └── packages/               # SDK packages
     ├── agents/
-    │   └── examples/       # @robota-sdk/agents examples
+    │   └── examples/       # @robota-sdk/agent-core examples
     ├── openai/
-    │   └── examples/       # @robota-sdk/openai examples
+    │   └── examples/       # @robota-sdk/agent-provider-openai examples
     ├── team/
-    │   └── examples/       # @robota-sdk/team examples
+    │   └── examples/       # @robota-sdk/agent-team examples
 ```
 
 ## Running Examples
@@ -102,6 +105,7 @@ pnpm tsx packages/agents/examples/basic-conversation.ts
 ```
 
 Expected output:
+
 ```
 ===== Simple Conversation Example =====
 Response: [AI response about TypeScript]
@@ -115,6 +119,7 @@ Response: [Streaming AI response about TypeScript advantages]
 ### Common Problems
 
 #### 1. Missing Dependencies
+
 ```bash
 # Reinstall dependencies
 rm -rf node_modules package-lock.json
@@ -122,11 +127,13 @@ pnpm install
 ```
 
 #### 2. API Key Issues
+
 - Verify API keys are correctly set in `.env`
 - Check for extra spaces or quotes around keys
 - Ensure `.env` is in the project root, not in examples directory
 
 #### 3. TypeScript Execution Errors
+
 ```bash
 # Install tsx globally if needed
 pnpm add -g tsx
@@ -136,6 +143,7 @@ npx tsx 01-basic/01-simple-conversation.ts
 ```
 
 #### 4. Module Resolution Issues
+
 ```bash
 # Build packages first
 pnpm build
@@ -160,10 +168,10 @@ Once setup is complete, explore the examples:
 
 ## Environment Variables Reference
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OPENAI_API_KEY` | Yes | OpenAI API key for GPT models |
-| `ANTHROPIC_API_KEY` | No | Anthropic API key for Claude models |
-| `GOOGLE_API_KEY` | No | Google AI API key for Gemini models |
+| Variable            | Required | Description                         |
+| ------------------- | -------- | ----------------------------------- |
+| `OPENAI_API_KEY`    | Yes      | OpenAI API key for GPT models       |
+| `ANTHROPIC_API_KEY` | No       | Anthropic API key for Claude models |
+| `GOOGLE_API_KEY`    | No       | Google AI API key for Gemini models |
 
 Examples should fail fast when required environment variables are missing.

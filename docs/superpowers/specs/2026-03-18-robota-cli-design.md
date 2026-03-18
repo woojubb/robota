@@ -2,7 +2,7 @@
 
 ## Summary
 
-A general-purpose AI coding CLI tool (`robota`) built on `@robota-sdk/agents`. Users run it in any project directory to get an AI coding assistant that automatically loads AGENTS.md/CLAUDE.md for project context. Claude Code-compatible hooks, settings, skills, and permission structures.
+A general-purpose AI coding CLI tool (`robota`) built on `@robota-sdk/agent-core`. Users run it in any project directory to get an AI coding assistant that automatically loads AGENTS.md/CLAUDE.md for project context. Claude Code-compatible hooks, settings, skills, and permission structures.
 
 Package: `@robota-sdk/cli` at `packages/cli/`, binary name: `robota`.
 
@@ -18,7 +18,7 @@ REPL is the default. One-shot mode (`robota "fix the bug"`) added in Phase 2. In
 
 ### Decision 2: Single provider first
 
-MVP uses `@robota-sdk/anthropic` only. The Robota agent supports multi-provider switching, so additional providers (OpenAI, Google) can be added later without architectural changes.
+MVP uses `@robota-sdk/agent-provider-anthropic` only. The Robota agent supports multi-provider switching, so additional providers (OpenAI, Google) can be added later without architectural changes.
 
 ### Decision 3: Claude Code-compatible structures
 
@@ -71,14 +71,14 @@ packages/cli/
 
 ### Dependencies
 
-**Prerequisite**: `@robota-sdk/tools` must be created first (see `2026-03-18-agents-package-decomposition-design.md`). Until then, use `createFunctionTool` directly from `@robota-sdk/agents`.
+**Prerequisite**: `@robota-sdk/agent-tools` must be created first (see `2026-03-18-agents-package-decomposition-design.md`). Until then, use `createFunctionTool` directly from `@robota-sdk/agent-core`.
 
 ```json
 {
   "dependencies": {
-    "@robota-sdk/agents": "workspace:*",
-    "@robota-sdk/anthropic": "workspace:*",
-    "@robota-sdk/tools": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-provider-anthropic": "workspace:*",
+    "@robota-sdk/agent-tools": "workspace:*",
     "zod": "^3.23.0",
     "chalk": "^5.3.0",
     "marked": "^14.0.0",
