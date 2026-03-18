@@ -197,59 +197,27 @@ export type {
  *
  * @public
  */
-export { logger, SilentLogger, type ILogger } from './utils/logger';
+export { logger, SilentLogger, createLogger, type ILogger } from './utils/logger';
 
 // ===== PLUGIN SYSTEM EXPORTS =====
 /**
- * Core plugins providing essential functionality through lifecycle hooks.
- * These plugins can be combined to create powerful, extensible agent behaviors.
+ * EventEmitterPlugin and related types.
+ * The plugin implementation for event-driven communication between plugins.
  *
- * ## Available Plugins:
- * - **ConversationHistoryPlugin**: Persistent conversation storage
- * - **LoggingPlugin**: Configurable logging with multiple strategies
- * - **UsagePlugin**: Token usage and cost tracking
- * - **PerformancePlugin**: Performance metrics and monitoring
- * - **ExecutionPlugin**: Execution analytics and insights
- * - **ErrorHandlingPlugin**: Error recovery and retry logic
- * - **LimitsPlugin**: Rate limiting and resource control
- * - **EventEmitterPlugin**: Event-driven plugin communication
- * - **WebhookPlugin**: External system notifications
+ * NOTE: ConversationHistoryPlugin, LoggingPlugin, UsagePlugin, PerformancePlugin,
+ * ExecutionAnalyticsPlugin, ErrorHandlingPlugin, LimitsPlugin, WebhookPlugin have been
+ * moved to their own packages (@robota-sdk/plugin-*).
  *
  * @public
  */
-export * from './plugins/conversation-history';
-export * from './plugins/logging';
-export * from './plugins/usage';
-export * from './plugins/performance';
-export * from './plugins/execution';
-export {
-  ErrorHandlingPlugin,
-  TErrorHandlingStrategy,
-  IErrorHandlingPluginOptions,
-} from './plugins/error-handling/index';
-
-/**
- * Additional specialized plugins for advanced use cases.
- *
- * @public
- */
-export { LimitsPlugin } from './plugins/limits-plugin';
-export type { TLimitsStrategy, ILimitsPluginOptions } from './plugins/limits-plugin';
 export {
   EventEmitterPlugin,
-  TEventName,
-  IEventEmitterEventData,
-  TEventEmitterListener,
-  IEventEmitterPluginOptions,
-  IEventEmitterHierarchicalEventData,
+  type TEventName,
+  type IEventEmitterEventData,
+  type TEventEmitterListener,
+  type IEventEmitterPluginOptions,
+  type IEventEmitterHierarchicalEventData,
 } from './plugins/event-emitter-plugin';
-export { WebhookPlugin } from './plugins/webhook';
-export type {
-  TWebhookEventName,
-  IWebhookPayload,
-  IWebhookEndpoint,
-  IWebhookPluginOptions,
-} from './plugins/webhook';
 
 // ===== CORE AGENT EXPORTS =====
 /**

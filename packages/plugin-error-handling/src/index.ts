@@ -1,2 +1,9 @@
-// @robota-sdk/plugin-error-handling
-export {};
+export { ErrorHandlingPlugin } from './error-handling-plugin';
+export { toErrorContext, createPluginErrorContext } from './context-adapter';
+export type {
+  TErrorHandlingStrategy,
+  IErrorHandlingContextData,
+  IErrorHandlingPluginOptions,
+  IErrorHandlingPluginStats,
+  IErrorContextAdapter,
+} from './types';

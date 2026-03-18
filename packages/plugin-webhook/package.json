@@ -29,6 +29,9 @@
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
     "clean": "rimraf dist"
   },
+  "dependencies": {
+    "jssha": "^3.3.1"
+  },
   "peerDependencies": {
     "@robota-sdk/agents": "workspace:*"
   },

@@ -510,6 +510,33 @@ importers:
       '@robota-sdk/event-service':
         specifier: workspace:*
         version: link:../event-service
+      '@robota-sdk/plugin-conversation-history':
+        specifier: workspace:*
+        version: link:../plugin-conversation-history
+      '@robota-sdk/plugin-error-handling':
+        specifier: workspace:*
+        version: link:../plugin-error-handling
+      '@robota-sdk/plugin-event-emitter':
+        specifier: workspace:*
+        version: link:../plugin-event-emitter
+      '@robota-sdk/plugin-execution-analytics':
+        specifier: workspace:*
+        version: link:../plugin-execution-analytics
+      '@robota-sdk/plugin-limits':
+        specifier: workspace:*
+        version: link:../plugin-limits
+      '@robota-sdk/plugin-logging':
+        specifier: workspace:*
+        version: link:../plugin-logging
+      '@robota-sdk/plugin-performance':
+        specifier: workspace:*
+        version: link:../plugin-performance
+      '@robota-sdk/plugin-usage':
+        specifier: workspace:*
+        version: link:../plugin-usage
+      '@robota-sdk/plugin-webhook':
+        specifier: workspace:*
+        version: link:../plugin-webhook
       '@robota-sdk/tool-mcp':
         specifier: workspace:*
         version: link:../tool-mcp
@@ -1608,6 +1635,10 @@ importers:
         version: 1.6.1(@types/node@20.19.9)
 
   packages/plugin-webhook:
+    dependencies:
+      jssha:
+        specifier: ^3.3.1
+        version: 3.3.1
     devDependencies:
       '@robota-sdk/agents':
         specifier: workspace:*
