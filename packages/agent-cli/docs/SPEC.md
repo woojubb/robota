@@ -90,8 +90,7 @@ Pattern: CLI orchestrator → Session facade → Robota agent core. Permission c
 
 ## Class Contract Registry
 
-| Class        | Implements/Extends | Defined In                  |
-| ------------ | ------------------ | --------------------------- |
-| Session      | —                  | `src/session.ts`            |
-| SessionStore | —                  | `src/session-store.ts`      |
-| ReplRenderer | ITerminalOutput    | `src/repl/repl-renderer.ts` |
+| Class        | Implements/Extends | Defined In             |
+| ------------ | ------------------ | ---------------------- |
+| Session      | —                  | `src/session.ts`       |
+| SessionStore | —                  | `src/session-store.ts` |

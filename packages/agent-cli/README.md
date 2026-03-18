@@ -206,10 +206,7 @@ bin.ts → cli.ts (parseArgs, load config/context, create Session)
                 │       └── permission-prompt.ts — interactive [y/N] prompt
                 ├── tools/                     — 6 built-in tools (Bash, Read, Write, Edit, Glob, Grep)
                 ├── session-store.ts           — JSON file-based session persistence
-                └── repl/
-                    ├── repl-session.ts        — interactive readline loop
-                    ├── repl-commands.ts       — slash command handlers
-                    └── repl-renderer.ts       — terminal output abstraction
+                └── ui/                        — Ink TUI components (App, MessageList, InputArea, etc.)
 ```
 
 Tool calls flow through the permission system:
