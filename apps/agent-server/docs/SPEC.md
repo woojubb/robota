@@ -5,6 +5,7 @@
 AI provider proxy server with Playground WebSocket support. Deployable standalone or as Firebase Functions.
 
 Key endpoints:
+
 - `POST /api/v1/remote/chat` -- chat completion proxy
 - `POST /api/v1/remote/stream` -- SSE streaming proxy
 - `GET /api/v1/remote/health` -- health check
@@ -14,7 +15,7 @@ Key endpoints:
 ## Boundaries
 
 - Host-level composition only. Core package contracts remain in their respective packages.
-- Does not own `RemoteServer` routes (owned by `@robota-sdk/remote-server-core`).
+- Does not own `RemoteServer` routes (owned by `@robota-sdk/agent-remote-server-core`).
 - Does not own DAG concerns (owned by `apps/dag-runtime-server`).
 
 ## Architecture Overview
@@ -35,13 +36,13 @@ This app is SSOT for:
 
 This is a private app with no published package surface. Internal exports:
 
-| Export | Kind | Description |
-|--------|------|-------------|
-| `createApp` | function | Creates configured Express application |
-| `startServer` | function | Standalone HTTP+WS server bootstrap |
-| `PlaygroundWebSocketServer` | class | WebSocket server for playground |
-| `setPlaygroundWebSocketServer` | function | Sets global WS server reference |
-| `api`, `health` | Firebase Functions | Firebase Functions entry points |
+| Export                         | Kind               | Description                            |
+| ------------------------------ | ------------------ | -------------------------------------- |
+| `createApp`                    | function           | Creates configured Express application |
+| `startServer`                  | function           | Standalone HTTP+WS server bootstrap    |
+| `PlaygroundWebSocketServer`    | class              | WebSocket server for playground        |
+| `setPlaygroundWebSocketServer` | function           | Sets global WS server reference        |
+| `api`, `health`                | Firebase Functions | Firebase Functions entry points        |
 
 ## Extension Points
 
@@ -50,27 +51,27 @@ This is a private app with no published package surface. Internal exports:
 
 ## Error Taxonomy
 
-| Source | Response | Condition |
-|--------|----------|-----------|
-| Rate limiter | HTTP 429 `{ error: 'Too many requests' }` | Rate limit exceeded |
-| 404 handler | HTTP 404 `{ error: 'Not Found' }` | Unknown route |
-| Global error handler | HTTP 500/statusCode `{ error: { message, status } }` | Unhandled errors |
-| WebSocket | `{ type: 'auth', data: { error } }` | Invalid message, auth failure |
+| Source               | Response                                             | Condition                     |
+| -------------------- | ---------------------------------------------------- | ----------------------------- |
+| Rate limiter         | HTTP 429 `{ error: 'Too many requests' }`            | Rate limit exceeded           |
+| 404 handler          | HTTP 404 `{ error: 'Not Found' }`                    | Unknown route                 |
+| Global error handler | HTTP 500/statusCode `{ error: { message, status } }` | Unhandled errors              |
+| WebSocket            | `{ type: 'auth', data: { error } }`                  | Invalid message, auth failure |
 
 ## Class Contract Registry
 
 ### Classes
 
-| Class | Kind | Location | Notes |
-|-------|------|----------|-------|
+| Class                       | Kind       | Location                  | Notes                                                   |
+| --------------------------- | ---------- | ------------------------- | ------------------------------------------------------- |
 | `PlaygroundWebSocketServer` | standalone | `src/websocket-server.ts` | WebSocket server for playground real-time communication |
 
 ### Cross-Package Port Consumers
 
-| Port (Owner) | Consumer | Location |
-|--------------|---------|----------|
-| `RemoteServer` (remote) | `createApp` | `src/app.ts` |
-| `IAIProvider` (agents) | Provider registration in `createApp` | `src/app.ts` |
+| Port (Owner)            | Consumer                             | Location     |
+| ----------------------- | ------------------------------------ | ------------ |
+| `RemoteServer` (remote) | `createApp`                          | `src/app.ts` |
+| `IAIProvider` (agents)  | Provider registration in `createApp` | `src/app.ts` |
 
 ## Test Strategy
 

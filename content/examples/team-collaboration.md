@@ -1,12 +1,16 @@
 # assignTask Tool Collection (team package)
 
-Team collaboration features have been removed. The `@robota-sdk/team` package now provides assignTask MCP tools only.
+Team collaboration features have been removed. The `@robota-sdk/agent-team` package now provides assignTask MCP tools only.
 
 ## Quick Start
 
 ```typescript
-import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
-import { DefaultEventService, bindWithOwnerPath } from '@robota-sdk/agents';
+import {
+  createAssignTaskRelayTool,
+  listTemplatesTool,
+  getTemplateDetailTool,
+} from '@robota-sdk/agent-team';
+import { DefaultEventService, bindWithOwnerPath } from '@robota-sdk/agent-core';
 
 // List templates
 const templatesResult = await listTemplatesTool.execute({});
@@ -33,7 +37,7 @@ const toolEventService = bindWithOwnerPath(baseEventService, {
   ownerId: toolCallId,
   ownerPath: [{ type: 'tool', id: toolCallId }],
   sourceType: 'tool',
-  sourceId: toolCallId
+  sourceId: toolCallId,
 });
 
 const assignTask = createAssignTaskRelayTool(toolEventService);
@@ -47,7 +51,7 @@ const assignTask = createAssignTaskRelayTool(toolEventService);
 ```
 
 ## Notes
+
 - No team creation APIs remain; use Robota agents plus assignTask tool collection.
 - Templates are bundled JSON; override provider/model via params when needed.
 - Always use an absolute ownerPath (full path). Do not infer relationships via ID parsing or prefixes.
-

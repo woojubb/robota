@@ -112,8 +112,8 @@ robota/
 ### Basic Conversational AI
 
 ```typescript
-import { Robota } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
+import { Robota } from '@robota-sdk/agent-core';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -138,8 +138,8 @@ import {
   createAssignTaskRelayTool,
   listTemplatesTool,
   getTemplateDetailTool,
-} from '@robota-sdk/team';
-import { OpenAIProvider } from '@robota-sdk/openai';
+} from '@robota-sdk/agent-team';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -167,8 +167,8 @@ console.log(response);
 ### Session Management
 
 ```typescript
-import { SessionManager } from '@robota-sdk/sessions';
-import { OpenAIProvider } from '@robota-sdk/openai';
+import { SessionManager } from '@robota-sdk/agent-sessions';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 // Create a session manager for multiple independent AI agents
 const sessionManager = new SessionManager({
@@ -234,7 +234,7 @@ await researchChat.sendMessage('What are the latest developments in AI?');
 ### AI Agent with Tools
 
 ```typescript
-import { createFunctionTool } from '@robota-sdk/agents';
+import { createFunctionTool } from '@robota-sdk/agent-core';
 import { z } from 'zod';
 
 // Define calculator tool
@@ -278,8 +278,8 @@ const response = await robota.run('Please calculate 15 multiplied by 7.');
 ### Multi-Provider Setup
 
 ```typescript
-import { GoogleProvider } from '@robota-sdk/google';
-import { AnthropicProvider } from '@robota-sdk/anthropic';
+import { GoogleProvider } from '@robota-sdk/agent-provider-google';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 const googleProvider = new GoogleProvider({ apiKey: process.env.GOOGLE_AI_API_KEY });

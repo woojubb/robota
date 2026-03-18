@@ -40,13 +40,13 @@ jobs:
         run: pnpm install
 
       - name: Build SDK packages (for type declarations)
-        run: pnpm --filter @robota-sdk/playground... build
+        run: pnpm --filter @robota-sdk/agent-playground... build
 
       - name: Run linting
-        run: pnpm --filter @robota-sdk/web run lint
+        run: pnpm --filter @robota-sdk/agent-web run lint
 
       - name: Run tests
-        run: pnpm --filter @robota-sdk/web run test:ci
+        run: pnpm --filter @robota-sdk/agent-web run test:ci
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
@@ -85,10 +85,10 @@ jobs:
         run: pnpm install
 
       - name: Build SDK packages (for type declarations)
-        run: pnpm --filter @robota-sdk/playground... build
+        run: pnpm --filter @robota-sdk/agent-playground... build
 
       - name: Build application
-        run: pnpm --filter @robota-sdk/web run build
+        run: pnpm --filter @robota-sdk/agent-web run build
         env:
           NEXT_PUBLIC_APP_ENV: ${{ github.event.inputs.environment }}
           NEXT_PUBLIC_APP_VERSION: ${{ github.sha }}

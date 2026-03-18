@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "recordType": "scenario-record",
+  "scope": "packages/agents",
+  "packageName": "@robota-sdk/agent-core",
+  "command": {
+    "executable": "pnpm",
+    "args": ["scenario:verify"],
+    "rendered": "pnpm scenario:verify"
+  },
+  "cwd": "<cwd>",
+  "status": 0,
+  "stdout": {
+    "raw": "\n> @robota-sdk/agent-core@2.0.9 scenario:verify /Users/jungyoun/Documents/dev/robota/packages/agents\n> pnpm exec tsx examples/verify-offline.ts\n\nagents offline verify passed.\n",
+    "normalized": "agents offline verify passed.",
+    "sha256": "93f9f51ff91b06ef47ab76ee716f31e490e173a45de124336d50d58b77fadb3e"
+  },
+  "stderr": {
+    "raw": "",
+    "normalized": "",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

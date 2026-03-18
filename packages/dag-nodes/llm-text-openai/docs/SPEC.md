@@ -9,7 +9,7 @@
 ## Boundaries
 
 - Extends `AbstractNodeDefinition` from `dag-core`. Does not redefine core DAG contracts.
-- Delegates AI provider calls to `@robota-sdk/openai` (`OpenAIProvider`) via `@robota-sdk/agents` (`Robota`).
+- Delegates AI provider calls to `@robota-sdk/agent-provider-openai` (`OpenAIProvider`) via `@robota-sdk/agent-core` (`Robota`).
 - Does not own provider or agent implementation.
 - Input validation uses `NodeIoAccessor.requireInputString`.
 - Config validation through Zod schema (`LlmTextOpenAiConfigSchema`).
@@ -25,9 +25,9 @@
 
 ## Type Ownership
 
-| Type | Location | Purpose |
-|------|----------|---------|
-| `LlmTextOpenAiNodeDefinition` | `src/index.ts` | Node definition class |
+| Type                                  | Location       | Purpose                                           |
+| ------------------------------------- | -------------- | ------------------------------------------------- |
+| `LlmTextOpenAiNodeDefinition`         | `src/index.ts` | Node definition class                             |
 | `ILlmTextOpenAiNodeDefinitionOptions` | `src/index.ts` | Constructor options (defaultModel, allowedModels) |
 
 ## Public API Surface
@@ -44,13 +44,13 @@
 
 ## Error Taxonomy
 
-| Code | Layer | Description |
-|------|-------|-------------|
-| `DAG_VALIDATION_LLM_PROMPT_REQUIRED` | Validation | Prompt input is empty or missing |
-| `DAG_VALIDATION_LLM_PROMPT_INVALID` | Validation | Prompt is not a string (cost estimation) |
-| `DAG_VALIDATION_LLM_MODEL_NOT_ALLOWED` | Validation | Selected model not in allowlist |
-| `DAG_VALIDATION_OPENAI_API_KEY_REQUIRED` | Validation | OPENAI_API_KEY not configured |
-| `DAG_TASK_EXECUTION_LLM_GENERATION_FAILED` | Execution | Robota agent run threw an error (retryable) |
+| Code                                       | Layer      | Description                                 |
+| ------------------------------------------ | ---------- | ------------------------------------------- |
+| `DAG_VALIDATION_LLM_PROMPT_REQUIRED`       | Validation | Prompt input is empty or missing            |
+| `DAG_VALIDATION_LLM_PROMPT_INVALID`        | Validation | Prompt is not a string (cost estimation)    |
+| `DAG_VALIDATION_LLM_MODEL_NOT_ALLOWED`     | Validation | Selected model not in allowlist             |
+| `DAG_VALIDATION_OPENAI_API_KEY_REQUIRED`   | Validation | OPENAI_API_KEY not configured               |
+| `DAG_TASK_EXECUTION_LLM_GENERATION_FAILED` | Execution  | Robota agent run threw an error (retryable) |
 
 ## Test Strategy
 

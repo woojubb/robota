@@ -1,6 +1,6 @@
 # Performance Optimization Guide
 
-This guide covers the performance optimization features and best practices for Robota SDK, particularly focusing on the `@robota-sdk/agents` package.
+This guide covers the performance optimization features and best practices for Robota SDK, particularly focusing on the `@robota-sdk/agent-core` package.
 
 ## Overview
 
@@ -20,7 +20,7 @@ The caching system prevents redundant computations and transformations, signific
 #### Function Schema Caching
 
 ```typescript
-import { createZodFunctionTool, CacheManager } from '@robota-sdk/agents';
+import { createZodFunctionTool, CacheManager } from '@robota-sdk/agent-core';
 
 // Default caching (recommended)
 const weatherTool = createZodFunctionTool(
@@ -67,11 +67,11 @@ Lazy loading delays resource initialization until they're actually needed, reduc
 #### Tool Lazy Loading
 
 ```typescript
-import { LazyLoader, globalToolLazyLoader } from '@robota-sdk/agents';
+import { LazyLoader, globalToolLazyLoader } from '@robota-sdk/agent-core';
 
 // Register tools with priorities
-globalToolLazyLoader.registerTool('criticalTool', criticalToolDef, 1);    // High priority
-globalToolLazyLoader.registerTool('optionalTool', optionalToolDef, 10);   // Low priority
+globalToolLazyLoader.registerTool('criticalTool', criticalToolDef, 1); // High priority
+globalToolLazyLoader.registerTool('optionalTool', optionalToolDef, 10); // Low priority
 
 // Load on demand
 const tool = await globalToolLazyLoader.load('criticalTool');
@@ -89,8 +89,8 @@ console.log(`Average load time: ${stats.averageLoadTime.toFixed(2)}ms`);
 
 ```typescript
 const customLoader = new LazyLoader({
-  maxConcurrentLoads: 2,  // Limit concurrent loading
-  cache: customCache      // Use existing cache
+  maxConcurrentLoads: 2, // Limit concurrent loading
+  cache: customCache, // Use existing cache
 });
 
 // Register resources
@@ -100,7 +100,7 @@ customLoader.register({
     // Expensive resource initialization
     return await loadHeavyResource();
   },
-  priority: 1
+  priority: 1,
 });
 
 // Load when needed
@@ -114,7 +114,7 @@ Automatic resource cleanup prevents memory leaks and manages system resources ef
 #### Automatic Resource Management
 
 ```typescript
-import { globalResourceManager } from '@robota-sdk/agents';
+import { globalResourceManager } from '@robota-sdk/agent-core';
 
 // Resources are automatically tracked and cleaned up
 // Manual operations if needed:
@@ -136,13 +136,13 @@ console.log(`Average age: ${(stats.averageResourceAge / 1000 / 60).toFixed(1)} m
 #### Custom Resource Management
 
 ```typescript
-import { ResourceManager } from '@robota-sdk/agents';
+import { ResourceManager } from '@robota-sdk/agent-core';
 
 const customResourceManager = new ResourceManager({
-  maxAge: 20 * 60 * 1000,           // 20 minutes max age
+  maxAge: 20 * 60 * 1000, // 20 minutes max age
   maxMemoryUsage: 50 * 1024 * 1024, // 50MB memory limit
   cleanupIntervalMs: 2 * 60 * 1000, // 2 minutes cleanup interval
-  memoryCheckIntervalMs: 30 * 1000  // 30 seconds memory check
+  memoryCheckIntervalMs: 30 * 1000, // 30 seconds memory check
 });
 
 // Register custom resources
@@ -154,7 +154,7 @@ customResourceManager.register({
     await closeConnections();
   },
   memoryUsage: 1024 * 1024, // 1MB
-  description: 'Database connection pool'
+  description: 'Database connection pool',
 });
 ```
 
@@ -165,7 +165,7 @@ Real-time performance tracking helps identify bottlenecks and optimize performan
 #### Basic Monitoring
 
 ```typescript
-import { globalPerformanceMonitor } from '@robota-sdk/agents';
+import { globalPerformanceMonitor } from '@robota-sdk/agent-core';
 
 // Performance monitoring is automatic for all tool calls
 // Access current metrics
@@ -202,12 +202,12 @@ globalPerformanceMonitor.addEventListener((metrics) => {
   if (metrics.averageCallTime > 1000) {
     console.warn('Performance Alert: Average call time exceeds 1 second');
   }
-  
+
   // Alert on low success rate
   if (metrics.successRate < 0.95) {
     console.warn('Reliability Alert: Success rate below 95%');
   }
-  
+
   // Alert on high memory usage
   const memoryMB = metrics.memoryUsage.currentHeapUsed / 1024 / 1024;
   if (memoryMB > 100) {
@@ -232,7 +232,7 @@ const performanceTool = createZodFunctionTool(
   async (params) => {
     // Tool implementation with performance optimization
     return await executeOptimizedTask(params);
-  }
+  },
 );
 ```
 
@@ -240,19 +240,23 @@ const performanceTool = createZodFunctionTool(
 
 ```typescript
 // In long-running applications
-setInterval(async () => {
-  // Periodic cleanup
-  await globalResourceManager.cleanupOld();
-  
-  // Monitor memory usage
-  const stats = globalResourceManager.getStats();
-  const memoryMB = stats.estimatedMemoryUsage / 1024 / 1024;
-  
-  if (memoryMB > 200) { // 200MB threshold
-    console.warn(`High memory usage: ${memoryMB.toFixed(2)}MB`);
-    await globalResourceManager.cleanupHighMemoryUsage();
-  }
-}, 5 * 60 * 1000); // Every 5 minutes
+setInterval(
+  async () => {
+    // Periodic cleanup
+    await globalResourceManager.cleanupOld();
+
+    // Monitor memory usage
+    const stats = globalResourceManager.getStats();
+    const memoryMB = stats.estimatedMemoryUsage / 1024 / 1024;
+
+    if (memoryMB > 200) {
+      // 200MB threshold
+      console.warn(`High memory usage: ${memoryMB.toFixed(2)}MB`);
+      await globalResourceManager.cleanupHighMemoryUsage();
+    }
+  },
+  5 * 60 * 1000,
+); // Every 5 minutes
 ```
 
 ### 3. Performance Monitoring Setup
@@ -264,7 +268,7 @@ class ProductionMonitor {
     this.setupPerformanceMonitoring();
     this.setupResourceMonitoring();
   }
-  
+
   private setupPerformanceMonitoring() {
     globalPerformanceMonitor.addEventListener((metrics) => {
       // Send metrics to monitoring service
@@ -273,27 +277,27 @@ class ProductionMonitor {
         averageCallTime: metrics.averageCallTime,
         successRate: metrics.successRate,
         throughput: metrics.throughput,
-        memoryUsage: metrics.memoryUsage.currentHeapUsed
+        memoryUsage: metrics.memoryUsage.currentHeapUsed,
       });
-      
+
       // Performance alerts
       if (metrics.averageCallTime > 2000) {
         this.sendAlert('HIGH_LATENCY', metrics.averageCallTime);
       }
     });
-    
+
     globalPerformanceMonitor.startMonitoring(10000); // Every 10 seconds
   }
-  
+
   private setupResourceMonitoring() {
     setInterval(async () => {
       const stats = globalResourceManager.getStats();
-      
+
       // Resource alerts
       if (stats.totalResources > 1000) {
         this.sendAlert('HIGH_RESOURCE_COUNT', stats.totalResources);
       }
-      
+
       const memoryMB = stats.estimatedMemoryUsage / 1024 / 1024;
       if (memoryMB > 500) {
         this.sendAlert('HIGH_MEMORY_USAGE', memoryMB);
@@ -301,12 +305,12 @@ class ProductionMonitor {
       }
     }, 30000); // Every 30 seconds
   }
-  
+
   private sendAlert(type: string, value: number) {
     console.error(`ALERT [${type}]: ${value}`);
     // Send to alerting service
   }
-  
+
   private sendMetricsToService(metrics: any) {
     // Send to metrics collection service
   }
@@ -324,13 +328,13 @@ if (process.env.NODE_ENV === 'production') {
 // Ensure clean shutdown
 process.on('SIGINT', async () => {
   console.log('Shutting down gracefully...');
-  
+
   // Stop monitoring
   globalPerformanceMonitor.stopMonitoring();
-  
+
   // Clean up resources
   await globalResourceManager.shutdown();
-  
+
   process.exit(0);
 });
 
@@ -343,6 +347,7 @@ process.on('SIGTERM', async () => {
 ## Performance Metrics Reference
 
 ### Cache Metrics
+
 - `hitRate`: Cache hit ratio (0-1)
 - `totalItems`: Number of cached items
 - `hits`: Number of cache hits
@@ -350,6 +355,7 @@ process.on('SIGTERM', async () => {
 - `estimatedMemoryUsage`: Estimated cache memory usage in bytes
 
 ### Performance Metrics
+
 - `toolCallCount`: Total number of tool calls
 - `averageCallTime`: Average call duration in milliseconds
 - `maxCallTime`: Maximum call duration in milliseconds
@@ -358,6 +364,7 @@ process.on('SIGTERM', async () => {
 - `throughput`: Calls per second (TPS)
 
 ### Memory Metrics
+
 - `currentHeapUsed`: Current heap usage in bytes
 - `maxHeapUsed`: Peak heap usage in bytes
 - `averageHeapUsed`: Average heap usage in bytes
@@ -365,6 +372,7 @@ process.on('SIGTERM', async () => {
 - `rss`: Resident Set Size in bytes
 
 ### Resource Metrics
+
 - `totalResources`: Number of managed resources
 - `byType`: Resource count by type
 - `oldestResourceAge`: Age of oldest resource in milliseconds
@@ -374,19 +382,22 @@ process.on('SIGTERM', async () => {
 ## Troubleshooting Performance Issues
 
 ### High Memory Usage
+
 1. Check resource statistics: `globalResourceManager.getStats()`
 2. Force cleanup: `await globalResourceManager.cleanupOld()`
 3. Monitor cache usage: `provider.getCacheStats()`
 4. Clear caches if needed: `provider.clearCache()`
 
 ### Slow Tool Execution
+
 1. Check performance metrics: `globalPerformanceMonitor.getMetrics()`
 2. Identify slow tools: `globalPerformanceMonitor.getToolMetrics(toolName)`
 3. Enable caching for repeated operations
 4. Use lazy loading for heavy resources
 
 ### Memory Leaks
+
 1. Enable resource monitoring
 2. Set up automatic cleanup intervals
 3. Monitor resource growth over time
-4. Implement proper error handling in tool cleanup functions 
+4. Implement proper error handling in tool cleanup functions
