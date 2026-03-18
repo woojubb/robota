@@ -332,7 +332,7 @@ describe('AnthropicProvider', () => {
       );
     });
 
-    it('should throw when response has unsupported content type', async () => {
+    it('should skip unsupported content types and return null content', async () => {
       const weirdResponse = {
         id: 'msg_test',
         type: 'message',
@@ -348,9 +348,9 @@ describe('AnthropicProvider', () => {
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Hi', timestamp: new Date() },
       ];
-      await expect(provider.chat(messages, { model: 'claude-3-opus-20240229' })).rejects.toThrow(
-        'Unsupported content type: image',
-      );
+      const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
+      expect(result.role).toBe('assistant');
+      expect(result.content).toBeNull();
     });
 
     it('should include stopReason in metadata when stop_reason is present', async () => {

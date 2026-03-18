@@ -1,8 +1,13 @@
 /**
- * Interactive permission prompt — asks the user whether to allow a tool invocation.
+ * Interactive permission prompt — asks the user whether to allow a tool invocation
+ * using an arrow-key selector.
  */
 
+import chalk from 'chalk';
 import type { ITerminalOutput } from '../types.js';
+
+const PERMISSION_OPTIONS = ['Allow', 'Deny'];
+const ALLOW_INDEX = 0;
 
 /**
  * Format tool arguments as a human-readable string for display in the prompt.
@@ -20,8 +25,8 @@ function formatArgs(toolArgs: Record<string, unknown>): string {
 /**
  * Prompt the user for approval before running a tool.
  *
- * Displays the tool name and arguments, then asks "Allow? [y/N]".
- * Returns true if the user types "y" or "yes" (case-insensitive), false otherwise.
+ * Displays the tool name and arguments, then shows an arrow-key selector
+ * with Allow / Deny options. Returns true if the user selects Allow.
  *
  * @param terminal  Terminal output / input abstraction
  * @param toolName  Name of the tool (e.g. "Bash")
@@ -33,10 +38,10 @@ export async function promptForApproval(
   toolArgs: Record<string, unknown>,
 ): Promise<boolean> {
   terminal.writeLine('');
-  terminal.writeLine(`[Permission Required] Tool: ${toolName}`);
-  terminal.writeLine(`  Arguments: ${formatArgs(toolArgs)}`);
+  terminal.writeLine(chalk.yellow(`[Permission Required] Tool: ${toolName}`));
+  terminal.writeLine(chalk.dim(`  ${formatArgs(toolArgs)}`));
+  terminal.writeLine('');
 
-  const answer = await terminal.prompt('Allow? [y/N] ');
-  const normalised = answer.trim().toLowerCase();
-  return normalised === 'y' || normalised === 'yes';
+  const selected = await terminal.select(PERMISSION_OPTIONS, ALLOW_INDEX);
+  return selected === ALLOW_INDEX;
 }

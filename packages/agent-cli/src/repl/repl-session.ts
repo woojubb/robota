@@ -12,6 +12,7 @@ import * as readline from 'node:readline';
 import type { Session } from '../session.js';
 import type { ITerminalOutput } from '../types.js';
 import type { SessionStore } from '../session-store.js';
+import type { ReplRenderer } from './repl-renderer.js';
 import { handleSlashCommand } from './repl-commands.js';
 
 const PROMPT_SYMBOL = '> ';
@@ -58,6 +59,11 @@ export async function startRepl(
     prompt: PROMPT_SYMBOL,
     terminal: true,
   });
+
+  // Share the readline instance with the terminal so permission prompts work
+  if ('setReadline' in terminal) {
+    (terminal as ReplRenderer).setReadline(rl);
+  }
 
   rl.prompt();
 
