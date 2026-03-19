@@ -21,7 +21,7 @@ export default defineConfig([
   // Node.js build
   {
     ...baseConfig,
-    entry: ['src/index.ts', 'src/cli-tools/index.ts'],
+    entry: ['src/index.ts'],
     outDir: 'dist/node',
     format: ['esm', 'cjs'],
     platform: 'node',
@@ -29,7 +29,6 @@ export default defineConfig([
       // External dependencies that should not be bundled
       /^@robota-sdk\/.*/, // All @robota-sdk packages (for peer dependencies)
       'zod',
-      'fast-glob',
       '@dqbd/tiktoken',
     ],
   },
@@ -44,13 +43,6 @@ export default defineConfig([
       // External dependencies that should not be bundled
       /^@robota-sdk\/.*/, // All @robota-sdk packages (for peer dependencies)
       'zod',
-      'fast-glob',
-      // Node.js built-ins (CLI modules are node-only but share the entry point)
-      'fs',
-      'path',
-      'node:child_process',
-      'node:fs/promises',
-      'node:path',
       // Note: @dqbd/tiktoken removed for browser build as it's Node.js specific
     ],
     define: {

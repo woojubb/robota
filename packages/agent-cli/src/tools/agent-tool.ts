@@ -9,10 +9,10 @@
 import { z } from 'zod';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IZodSchema } from '@robota-sdk/agent-tools';
-import type { TToolResult } from '@robota-sdk/agent-core';
-import type { IResolvedConfig } from '@robota-sdk/agent-core';
-import type { ILoadedContext } from '@robota-sdk/agent-core';
-import type { IProjectInfo } from '@robota-sdk/agent-core';
+import type { TToolResult } from '../types.js';
+import type { IResolvedConfig } from '../config/config-types.js';
+import type { ILoadedContext } from '../context/context-loader.js';
+import type { IProjectInfo } from '../context/project-detector.js';
 import { Session } from '../session.js';
 
 /** Cast a Zod schema to the IZodSchema interface expected by createZodFunctionTool */

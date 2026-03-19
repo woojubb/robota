@@ -1,15 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { Session } from '../session.js';
-import type {
-  TPermissionMode,
-  TToolArgs,
-  IResolvedConfig,
-  ILoadedContext,
-  IProjectInfo,
-  IAIProvider,
-} from '@robota-sdk/agent-core';
-import type { ITerminalOutput, ISpinner } from '../types.js';
+import type { TPermissionMode, ITerminalOutput, ISpinner } from '../types.js';
+import type { TToolArgs } from '../permissions/permission-gate.js';
+import type { IResolvedConfig } from '../config/config-types.js';
+import type { ILoadedContext } from '../context/context-loader.js';
+import type { IProjectInfo } from '../context/project-detector.js';
 import type { SessionStore } from '../session-store.js';
 import type { IChatMessage, IPermissionRequest } from './types.js';
 import MessageList from './MessageList.js';
@@ -24,14 +20,6 @@ interface IProps {
   sessionStore?: SessionStore;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
-  /** Factory to create the default AI provider (avoids circular dependency) */
-  providerFactory?: (apiKey: string) => IAIProvider;
-  /** Factory that creates CLI tools — injected to avoid circular dependency */
-  toolsFactory?: (
-    config: IResolvedConfig,
-    context: ILoadedContext,
-    projectInfo?: IProjectInfo,
-  ) => { getName(): string }[];
 }
 
 let msgIdCounter = 0;
@@ -90,8 +78,6 @@ function useSession(props: IProps): {
       maxTurns: props.maxTurns,
       permissionHandler,
       onTextDelta,
-      providerFactory: props.providerFactory,
-      toolsFactory: props.toolsFactory,
     });
   }
 

@@ -1,6 +1,6 @@
 /** UI-layer message types for the Ink TUI */
 
-import type { TToolArgs } from '@robota-sdk/agent-core';
+import type { TToolArgs } from '../permissions/permission-gate.js';
 
 export interface IChatMessage {
   id: string;
