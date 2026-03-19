@@ -29,6 +29,7 @@ export type {
   TJSONSchemaEnum,
   TParameterDefaultValue,
   IChatOptions,
+  TTextDeltaCallback,
   IProviderOptions,
   IProviderRequest,
   IRawProviderResponse,

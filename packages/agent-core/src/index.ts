@@ -96,6 +96,7 @@ export type {
   IToolSchema,
   IProviderOptions,
   IChatOptions,
+  TTextDeltaCallback,
   IAIProvider,
   IMediaOutputRef,
   IProviderMediaError,

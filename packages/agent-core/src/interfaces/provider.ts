@@ -142,6 +142,12 @@ export interface IProviderSpecificOptions {
 }
 
 /**
+ * Callback for receiving text deltas during streaming.
+ * Called for each text chunk as the model generates output.
+ */
+export type TTextDeltaCallback = (delta: string) => void;
+
+/**
  * Options for AI provider chat requests
  */
 export interface IChatOptions extends IProviderSpecificOptions {
@@ -153,6 +159,10 @@ export interface IChatOptions extends IProviderSpecificOptions {
   temperature?: number;
   /** Model to use for the request */
   model?: string;
+  /** Callback for text deltas during streaming. When provided, the provider
+   *  should use streaming internally and call this for each text chunk,
+   *  while still returning the complete assembled message. */
+  onTextDelta?: TTextDeltaCallback;
 }
 
 /**

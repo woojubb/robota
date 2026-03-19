@@ -4,6 +4,7 @@ import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import type {
   TUniversalMessage,
   IChatOptions,
+  TTextDeltaCallback,
   IToolSchema,
   IAssistantMessage,
   IToolMessage,
@@ -30,6 +31,14 @@ export class AnthropicProvider extends AbstractAIProvider {
 
   private readonly client?: Anthropic;
   private readonly options: IAnthropicProviderOptions;
+
+  /**
+   * Optional callback for text deltas during streaming.
+   * Set by the consumer (e.g., Session) to receive real-time text chunks.
+   * When set, chat() uses streaming internally while still returning
+   * the complete assembled message.
+   */
+  onTextDelta?: TTextDeltaCallback;
 
   constructor(options: IAnthropicProviderOptions) {
     super();
@@ -90,23 +99,123 @@ export class AnthropicProvider extends AbstractAIProvider {
       );
     }
 
-    const requestParams: Anthropic.MessageCreateParams = {
+    const baseParams = {
       model: options.model as string,
       messages: anthropicMessages,
       max_tokens: options?.maxTokens || DEFAULT_MAX_TOKENS,
+      ...(options?.temperature !== undefined && { temperature: options.temperature }),
+      ...(options?.tools && { tools: this.convertToolsToAnthropicFormat(options.tools) }),
     };
 
-    if (options?.temperature !== undefined) {
-      requestParams.temperature = options.temperature;
+    // When onTextDelta callback is available (from options or instance property),
+    // use streaming internally but still return the complete assembled message.
+    const textDeltaCb = options?.onTextDelta ?? this.onTextDelta;
+    if (textDeltaCb) {
+      return this.chatWithStreaming(baseParams, textDeltaCb);
     }
 
-    if (options?.tools) {
-      requestParams.tools = this.convertToolsToAnthropicFormat(options.tools);
-    }
-
-    const response = await this.client.messages.create(requestParams);
-
+    const response = await this.client.messages.create(baseParams);
     return this.convertFromAnthropicResponse(response);
+  }
+
+  /**
+   * Stream internally and assemble a complete response.
+   * Calls onTextDelta for each text chunk as it arrives.
+   * Returns the fully assembled TUniversalMessage when done.
+   */
+  private async chatWithStreaming(
+    params: Anthropic.MessageCreateParamsNonStreaming,
+    onTextDelta: TTextDeltaCallback,
+  ): Promise<TUniversalMessage> {
+    const streamParams: Anthropic.MessageCreateParamsStreaming = {
+      ...params,
+      stream: true,
+    };
+
+    const stream = await this.client!.messages.create(streamParams);
+
+    // Accumulate the full response from stream events
+    const textParts: string[] = [];
+    const toolCalls: Array<{
+      id: string;
+      type: 'function';
+      function: { name: string; arguments: string };
+    }> = [];
+    let currentToolId = '';
+    let currentToolName = '';
+    let currentToolJson = '';
+    let usage = { input_tokens: 0, output_tokens: 0 };
+    let model = '';
+    let stopReason: string | null = null;
+
+    for await (const event of stream) {
+      switch (event.type) {
+        case 'message_start':
+          usage = event.message.usage;
+          model = event.message.model;
+          break;
+
+        case 'content_block_start':
+          if (event.content_block.type === 'tool_use') {
+            currentToolId = event.content_block.id;
+            currentToolName = event.content_block.name;
+            currentToolJson = '';
+          }
+          break;
+
+        case 'content_block_delta':
+          if (event.delta.type === 'text_delta') {
+            textParts.push(event.delta.text);
+            onTextDelta(event.delta.text);
+          } else if (event.delta.type === 'input_json_delta') {
+            currentToolJson += event.delta.partial_json;
+          }
+          break;
+
+        case 'content_block_stop':
+          if (currentToolId) {
+            toolCalls.push({
+              id: currentToolId,
+              type: 'function' as const,
+              function: {
+                name: currentToolName,
+                arguments: currentToolJson || '{}',
+              },
+            });
+            currentToolId = '';
+            currentToolName = '';
+            currentToolJson = '';
+          }
+          break;
+
+        case 'message_delta':
+          if (event.usage) {
+            usage.output_tokens = event.usage.output_tokens;
+          }
+          stopReason = event.delta.stop_reason;
+          break;
+      }
+    }
+
+    const textContent = textParts.join('') || '';
+
+    const result: TUniversalMessage = {
+      role: 'assistant',
+      content: textContent,
+      timestamp: new Date(),
+      ...(toolCalls.length > 0 && { toolCalls }),
+    };
+
+    result.metadata = {
+      inputTokens: usage.input_tokens,
+      outputTokens: usage.output_tokens,
+      model,
+    };
+    if (stopReason) {
+      result.metadata['stopReason'] = stopReason;
+    }
+
+    return result;
   }
 
   /**

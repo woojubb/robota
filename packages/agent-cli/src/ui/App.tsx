@@ -39,13 +39,15 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
 };
 
-/** Hook: create a Session instance once and provide a stable permission handler. */
+/** Hook: create a Session instance once and provide a stable permission handler + streaming. */
 function useSession(props: IProps): {
   session: Session;
   permissionRequest: IPermissionRequest | null;
-  setPermissionRequest: React.Dispatch<React.SetStateAction<IPermissionRequest | null>>;
+  streamingText: string;
+  clearStreamingText: () => void;
 } {
   const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
+  const [streamingText, setStreamingText] = useState('');
 
   const sessionRef = useRef<Session | null>(null);
   if (sessionRef.current === null) {
@@ -62,6 +64,10 @@ function useSession(props: IProps): {
       });
     };
 
+    const onTextDelta = (delta: string): void => {
+      setStreamingText((prev) => prev + delta);
+    };
+
     sessionRef.current = new Session({
       config: props.config,
       context: props.context,
@@ -71,10 +77,13 @@ function useSession(props: IProps): {
       permissionMode: props.permissionMode,
       maxTurns: props.maxTurns,
       permissionHandler,
+      onTextDelta,
     });
   }
 
-  return { session: sessionRef.current, permissionRequest, setPermissionRequest };
+  const clearStreamingText = useCallback(() => setStreamingText(''), []);
+
+  return { session: sessionRef.current, permissionRequest, streamingText, clearStreamingText };
 }
 
 /** Hook: manage chat messages list. */
@@ -172,7 +181,7 @@ function handleModeCommand(
 
 export default function App(props: IProps): React.ReactElement {
   const { exit } = useApp();
-  const { session, permissionRequest } = useSession(props);
+  const { session, permissionRequest, streamingText, clearStreamingText } = useSession(props);
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
 
@@ -197,11 +206,14 @@ export default function App(props: IProps): React.ReactElement {
 
       addMessage({ role: 'user', content: input });
       setIsThinking(true);
+      clearStreamingText();
 
       try {
         const response = await session.run(input);
+        clearStreamingText();
         addMessage({ role: 'assistant', content: response || '(empty response)' });
       } catch (err: unknown) {
+        clearStreamingText();
         const errMsg = err instanceof Error ? err.message : String(err);
         addMessage({ role: 'system', content: `Error: ${errMsg}` });
       } finally {
@@ -225,8 +237,19 @@ export default function App(props: IProps): React.ReactElement {
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
         <MessageList messages={messages} />
         {isThinking && (
-          <Box marginBottom={1}>
-            <Text color="yellow">Thinking...</Text>
+          <Box flexDirection="column" marginBottom={1}>
+            {streamingText ? (
+              <Box flexDirection="column">
+                <Text color="cyan" bold>
+                  Robota:{' '}
+                </Text>
+                <Box marginLeft={2}>
+                  <Text wrap="wrap">{streamingText}</Text>
+                </Box>
+              </Box>
+            ) : (
+              <Text color="yellow">Thinking...</Text>
+            )}
           </Box>
         )}
       </Box>
