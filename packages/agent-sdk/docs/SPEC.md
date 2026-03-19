@@ -2,124 +2,194 @@
 
 ## Overview
 
-Robota SDK는 기존 Robota 패키지들을 **조립**하여 만든 프로그래밍 SDK입니다.
-독자적인 재구현이 아니라, 기존 패키지를 연결하고 통합하는 레이어입니다.
+Robota SDK is a programming SDK built by **assembling** existing Robota packages.
+It provides a single entry point corresponding to Claude Agent SDK's `query()`.
 
-## 핵심 원칙
+## Core Principles
 
-1. **조립 우선**: 모든 기능은 기존 패키지를 사용하여 구현. 독자 구현 금지.
-2. **이중화 금지**: 기존 패키지에 동일 기능이 있으면 그것을 사용. 필요시 기존 패키지를 리팩토링.
-3. **연결 필수**: agent-sdk의 모든 기능은 Robota 패키지 생태계와 연결되어야 함.
+1. **Assembly first**: All features are implemented using existing packages. Independent implementation is prohibited.
+2. **No duplication**: If the same functionality exists in an existing package, use it. Refactor the existing package if needed.
+3. **Connection required**: All features in agent-sdk must be connected to the Robota package ecosystem.
+4. **General/specialized separation**: General-purpose features (permissions, hooks, tools) belong in their respective packages; only SDK-specific features (config, context) are kept in agent-sdk.
 
-## 패키지 조립 구조
+## Architecture
+
+### Package Dependency Chain
 
 ```
-@robota-sdk/agent-sdk (조립 레이어)
-├── agent-core          ← Robota 엔진, 실행 루프, 대화 관리
-├── agent-sessions      ← 세션/챗 관리, 멀티세션, 템플릿
-├── agent-tools         ← tool 생성 인프라 (FunctionTool, Zod)
-├── agent-tool-mcp      ← MCP 서버 통합
-├── agent-team          ← 멀티에이전트 위임, sub-agent
-├── agent-event-service ← 이벤트 시스템, 관찰 가능성
-├── agent-provider-*    ← AI provider (Anthropic, OpenAI, Google 등)
-└── agent-plugin-*      ← 플러그인 (로깅, 분석, 에러핸들링 등)
+agent-cli → agent-sdk → agent-sessions → agent-tools → agent-core
+                                        → agent-provider-anthropic → agent-core
 ```
 
-## 기능별 패키지 매핑
+### Package Roles
 
-### Session 관리
+| Package            | Role                                                                    | General/Specialized |
+| ------------------ | ----------------------------------------------------------------------- | ------------------- |
+| **agent-core**     | Robota engine, execution loop, provider abstraction, permissions, hooks | General             |
+| **agent-tools**    | Tool creation infrastructure + 6 built-in tools                         | General             |
+| **agent-sessions** | Session class, SessionStore (persistence)                               | General             |
+| **agent-sdk**      | Assembly layer (config, context, query, agent-tool)                     | SDK-specific        |
+| **agent-cli**      | Ink TUI (terminal UI, permission-prompt)                                | CLI-specific        |
 
-- **사용**: `agent-sessions` (SessionManager, ChatInstance)
-- **금지**: 독자적 Session 클래스 재구현
-- **역할**: agent-sdk는 agent-sessions의 SessionManager를 설정하고 초기화하는 팩토리를 제공
-- **리팩토링**: agent-sessions에 부족한 기능(permission, hooks, streaming)을 추가
+### Feature Layout (Current Implementation State)
 
-### Persistence
+```
+agent-core
+├── src/permissions/          ← permission-gate, permission-mode, types
+├── src/hooks/                ← hook-runner, hook types
+└── (existing) Robota, execution, providers, plugins
 
-- **사용**: `agent-sessions`의 persistence 인터페이스
-- **역할**: agent-sdk는 파일 기반 persistence 어댑터를 구현하여 agent-sessions에 주입
-- **리팩토링**: agent-sessions의 no-op persistence를 실제 구현으로 교체
+agent-tools
+├── src/builtins/             ← bash, read, write, edit, glob, grep tools
+├── src/types/tool-result.ts  ← TToolResult
+└── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
-### Tool 시스템
+agent-sessions
+├── src/session.ts            ← Session (Robota wrapper, permission check, tool wiring, streaming)
+├── src/session-store.ts      ← SessionStore (JSON file persistence)
+└── src/index.ts
 
-- **사용**: `agent-tools` (createZodFunctionTool, FunctionTool)
-- **역할**: agent-sdk는 built-in tool 구현체(Bash, Read 등)를 제공하되, agent-tools의 인프라 위에 구축
-- **현재 상태**: 이미 올바르게 사용 중 ✓
+agent-sdk (assembly layer — SDK-specific features only)
+├── src/config/               ← settings.json loading (3-layer merge, $ENV substitution)
+├── src/context/              ← AGENTS.md/CLAUDE.md walk-up discovery, project detection, system prompt
+├── src/tools/agent-tool.ts   ← Agent sub-session tool (SDK-specific: Session creation)
+├── src/query.ts              ← query() SDK entry point
+└── src/index.ts              ← assembly + re-export
 
-### MCP 통합
+agent-cli (Ink TUI — CLI-specific)
+├── src/ui/                   ← App, MessageList, InputArea, StatusBar, PermissionPrompt
+├── src/permissions/          ← permission-prompt.ts (terminal arrow-key selection)
+├── src/types.ts              ← ITerminalOutput, ISpinner
+├── src/cli.ts                ← CLI argument parsing, Ink render
+└── src/bin.ts                ← Binary entry point
+```
 
-- **사용**: `agent-tool-mcp` (MCPTool, RelayMcpTool)
-- **역할**: agent-sdk의 query() 옵션에서 MCP 서버를 설정하면 agent-tool-mcp를 통해 연결
-- **현재 상태**: 미연결 → 연결 필요
+## Feature Details
 
-### Sub-agent / 멀티에이전트
+### Session Management
 
-- **사용**: `agent-team` (createAssignTaskRelayTool, 템플릿 레지스트리)
-- **금지**: 독자적 agentTool 구현
-- **역할**: agent-sdk의 Agent tool은 agent-team의 위임 패턴을 사용
-- **현재 상태**: 독자 구현됨 → agent-team 사용으로 교체
+- **Package**: `agent-sessions`
+- **Implementation**: Session class wraps Robota and integrates permission check, hook execution, tool wiring, and streaming
+- **Persistence**: SessionStore saves/loads/lists/deletes JSON at `~/.robota/sessions/{id}.json`
+- **History**: The original agent-sessions SessionManager/ChatInstance had zero consumers and no persistence implementation, so they were replaced with the actual implementation from agent-sdk
 
-### 이벤트 시스템
+### Permission System
 
-- **사용**: `agent-event-service` (IEventService, StructuredEventService)
-- **역할**: Session 생명주기 이벤트 (시작, 종료, tool 호출, 에러)를 agent-event-service로 발행
-- **현재 상태**: 미연결 → 연결 필요
+- **Package**: `agent-core` (general-purpose security layer)
+- **Implementation**: 3-step evaluation — deny list → allow list → mode policy
+- **Modes**: `plan` (read-only), `default` (write requires approval), `acceptEdits` (write auto-approved), `bypassPermissions` (all auto-approved)
+- **Pattern syntax**: `Bash(pnpm *)`, `Read(/src/**)`, `Write(*)` etc. with glob matching
+- **Terminal prompt**: Handled in `agent-cli`'s permission-prompt.ts (CLI-specific)
 
-### AI Provider
+### Hooks System
 
-- **사용**: `agent-provider-anthropic` (기본), 다른 provider도 설정 가능
-- **현재 상태**: 이미 사용 중 ✓ (다만 Anthropic 하드코딩됨 → 설정 가능하게 변경)
+- **Package**: `agent-core` (general-purpose extension points)
+- **Events**: `PreToolUse`, `PostToolUse`, `SessionStart`, `Stop`
+- **Implementation**: Executes shell commands, passes JSON via stdin, determines allow(0)/deny(2) by exit code
+- **Matcher**: Tool name regex pattern matching
 
-### 플러그인
+### Tool System
 
-- **사용**: `agent-plugin-*` (logging, analytics, error-handling 등)
-- **역할**: agent-sdk 생성 시 플러그인 목록을 설정하여 Robota에 주입
-- **현재 상태**: 미연결 → 연결 필요
+- **Infrastructure**: `agent-tools` (createZodFunctionTool, FunctionTool, Zod→JSON conversion)
+- **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep
+- **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific)
+- **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
 
-## query() API
+### Streaming
+
+- **Implementation**: `TTextDeltaCallback` type (IChatOptions in agent-core)
+- **Behavior**: AnthropicProvider uses the streaming API, returning the completed message while calling the callback for each text delta
+- **UI connection**: Session → onTextDelta → App.tsx streamingText state
+
+### Config Loading (SDK-Specific)
+
+- **Package**: `agent-sdk/config/`
+- **Rationale**: `.robota/settings.json` file-based configuration is for local development environments only (servers use environment variables/DB)
+- **Implementation**: 3-layer merge (user global → project → local), `$ENV:VAR` substitution, Zod validation
+
+### Context Loading (SDK-Specific)
+
+- **Package**: `agent-sdk/context/`
+- **Rationale**: AGENTS.md/CLAUDE.md walk-up discovery is for local development environments only
+- **Implementation**: Directory traversal from cwd to root, project type/language detection, system prompt assembly
+
+## Public API
+
+### query() — SDK Entry Point
 
 ```typescript
 import { query } from '@robota-sdk/agent-sdk';
 
-// 기본 사용
-const response = await query('파일 목록을 보여줘');
+const response = await query('Show me the file list');
 
-// 전체 옵션
-const response = await query('코드를 분석해줘', {
+const response = await query('Analyze the code', {
   cwd: '/path/to/project',
-  provider: 'anthropic',           // agent-provider-* 선택
-  model: 'claude-sonnet-4-6',
   permissionMode: 'acceptEdits',
-  plugins: ['logging', 'analytics'], // agent-plugin-* 활성화
-  mcpServers: { ... },              // agent-tool-mcp 연결
-  hooks: { ... },
-  onTextDelta: (delta) => {},       // streaming
-  sessionId: 'resume-session',     // agent-sessions 세션 재개
+  maxTurns: 10,
+  onTextDelta: (delta) => process.stdout.write(delta),
 });
 ```
 
-## 리팩토링 우선순위
+### Session — Direct Usage
 
-1. **Session**: agent-sessions의 ChatInstance를 기반으로 재구성
-2. **Persistence**: agent-sessions에 실제 persistence 구현 주입
-3. **Events**: agent-event-service 연결
-4. **Sub-agent**: agent-team 사용으로 교체
-5. **MCP**: agent-tool-mcp 연결
-6. **Plugins**: agent-plugin-\* 설정 지원
-7. **Provider**: 다중 provider 설정 지원
+```typescript
+import { Session } from '@robota-sdk/agent-sessions';
 
-## 의존성 방향
-
-```
-agent-sdk
-  ├── agent-core (엔진)
-  ├── agent-sessions (세션 관리)
-  ├── agent-tools (tool 인프라)
-  ├── agent-tool-mcp (MCP)
-  ├── agent-team (멀티에이전트)
-  ├── agent-event-service (이벤트)
-  ├── agent-provider-anthropic (기본 provider)
-  └── agent-plugin-* (선택적 플러그인)
+const session = new Session({ config, context, terminal, permissionMode });
+const response = await session.run('Hello');
+session.getHistory();
+session.clearHistory();
 ```
 
-역방향 의존 금지: 위 패키지들은 agent-sdk에 의존하지 않음.
+### Built-in Tools — Direct Usage
+
+```typescript
+import { bashTool, readTool, writeTool } from '@robota-sdk/agent-tools';
+```
+
+### Permissions — Direct Usage
+
+```typescript
+import { evaluatePermission } from '@robota-sdk/agent-core';
+```
+
+## Design Decision Records
+
+### Claude Code vs Claude Agent SDK Relationship (Research)
+
+- Claude Agent SDK extracts the Claude Code runtime (running the CLI as a subprocess)
+- Robota adopts a direct code sharing approach rather than subprocess
+- Layer hierarchy: agent-cli → agent-sdk → agent-sessions → agent-core (upper layers import lower layers)
+- Research document: `docs/superpowers/research/2026-03-19-claude-code-vs-agent-sdk.md`
+
+### General/Specialized Separation Criteria
+
+Each module's placement is determined by "Is this used only in the SDK, or is it general-purpose?":
+
+| Module          | Verdict                      | Rationale                                                          |
+| --------------- | ---------------------------- | ------------------------------------------------------------------ |
+| Permissions     | **General** → agent-core     | Tool permission checks are needed on servers too                   |
+| Hooks           | **General** → agent-core     | Audit/validation is needed on servers too                          |
+| Built-in tools  | **General** → agent-tools    | File system tools are needed in playground/server environments too |
+| Session         | **General** → agent-sessions | Session management is needed in any environment                    |
+| Config loading  | **SDK-specific** → agent-sdk | `.robota/settings.json` is for local environments only             |
+| Context loading | **SDK-specific** → agent-sdk | AGENTS.md walk-up is for local environments only                   |
+| Agent tool      | **SDK-specific** → agent-sdk | Sub-session creation is an SDK assembly concern                    |
+| ITerminalOutput | **CLI-specific** → agent-cli | Terminal UI abstraction                                            |
+
+### Existing Package Refactoring History
+
+- **agent-sessions**: Removed existing SessionManager/ChatInstance (zero consumers, no-op persistence), replaced with Session/SessionStore from agent-sdk
+- **agent-tools**: Added 6 built-in tools in `builtins/` directory, added `TToolResult` type
+- **agent-core**: Added `permissions/` and `hooks/` directories
+- **agent-provider-anthropic**: Multi-block content handling (text + tool_use), streaming `chatWithStreaming`, `onTextDelta` support
+
+## Unconnected Packages (Future Integration Targets)
+
+| Package                                    | Current State | Integration Direction                                    |
+| ------------------------------------------ | ------------- | -------------------------------------------------------- |
+| **agent-tool-mcp**                         | Unconnected   | Connect when MCP server is configured in query() options |
+| **agent-team**                             | Unconnected   | Replace agent-tool.ts with agent-team delegation pattern |
+| **agent-event-service**                    | Unconnected   | Publish Session lifecycle events                         |
+| **agent-plugin-\***                        | Unconnected   | Inject plugins during Session/Robota creation            |
+| **agent-provider-openai/google/bytedance** | Unconnected   | Select provider in query() options                       |

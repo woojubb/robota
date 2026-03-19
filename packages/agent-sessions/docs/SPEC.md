@@ -2,159 +2,143 @@
 
 ## Scope
 
-Owns session and chat management behavior for the Robota SDK. This package provides multi-session support with independent workspace isolation, chat instance lifecycle management, and agent template integration. It acts as the orchestration layer between consumer code and `@robota-sdk/agent-core`, giving each session its own set of chat instances backed by `Robota` agent instances.
+Owns the CLI session lifecycle for the Robota SDK. This package provides the `Session` class that wraps a `Robota` agent instance with project context loading, permission-gated tool execution, hook-based lifecycle events, and optional JSON file persistence via `SessionStore`. It is the primary entry point used by the CLI application (`agent-cli`) to conduct interactive AI conversations.
 
 ## Boundaries
 
-- Does not own provider-specific transport behavior. All AI provider interactions are delegated to `@robota-sdk/agent-core` via `Robota` instances.
-- Does not own conversation history storage. Re-exports `ConversationHistory` and `ConversationSession` from `@robota-sdk/agent-core`.
-- Does not own agent configuration types (`IAgentConfig`, `TUniversalMessage`, `IRunOptions`, `IAgent`). These are re-exported from `@robota-sdk/agent-core` as the SSOT.
-- Does not own agent template definitions (`IAgentTemplate`, `AgentTemplates`). Adapts them through `TemplateManagerAdapter`.
-- Keeps session lifecycle, workspace isolation, and chat-level state management explicit within this package.
-- Persistence (`save`/`load` on `ChatInstance`) is declared but not yet implemented.
+- Does not own AI provider behavior. Defaults to `@robota-sdk/agent-provider-anthropic` but accepts any `IAIProvider` via injection.
+- Does not own tool implementations. Consumes built-in tools from `@robota-sdk/agent-tools` and the permission/hook systems from `@robota-sdk/agent-core`.
+- Does not own configuration resolution. Accepts a pre-resolved `IResolvedConfig` from the consuming application.
+- Does not own the permission evaluation algorithm or hook execution engine. Those belong to `@robota-sdk/agent-core` (`evaluatePermission`, `runHooks`).
+- Does not own system prompt building logic beyond a minimal fallback. The consuming application can inject a custom `systemPromptBuilder`.
 
 ## Architecture Overview
 
-The package follows a three-layer structure:
+The package follows a flat two-file structure:
 
 ```
-types/          -- Domain contracts (interfaces, enums, type aliases)
-session/        -- SessionManager: top-level orchestrator for sessions and chats
-chat/           -- ChatInstance: single chat wrapper around a Robota agent
-adapters/       -- TemplateManagerAdapter: bridges agents template system to sessions interface
+session.ts        -- Session class: wraps Robota + permission checking + tool wiring + streaming + hooks
+session-store.ts  -- SessionStore: JSON file persistence for conversation sessions
 ```
 
 **Design patterns used:**
 
-- **Adapter pattern** -- `TemplateManagerAdapter` adapts `AgentFactory` and `AgentTemplates` from `@robota-sdk/agent-core` to the local `ITemplateManager` interface.
-- **Facade pattern** -- `SessionManager` provides a single entry point for creating sessions, creating chats, switching active chats, and querying session/chat state.
-- **Delegation** -- `ChatInstance` delegates all AI execution (`run`, `getHistory`, `clearHistory`, `configure`) to the underlying `Robota` instance.
-- **Factory delegation** -- `SessionManager` uses `AgentFactory` from `@robota-sdk/agent-core` to create `Robota` instances for each chat.
+- **Facade** -- `Session` hides Robota agent creation, tool registration, permission wiring, and hook execution behind a single `run()` method.
+- **Decorator** -- Each tool is wrapped with a permission-checking proxy via `wrapToolWithPermission()` before being registered with the Robota agent.
+- **Strategy (injected)** -- Permission approval can be handled by a `TPermissionHandler` callback, an injected `promptForApproval` function, or denied by default. The system prompt builder is also replaceable.
+- **Null Object** -- When no `SessionStore` is provided, persistence is silently skipped.
 
-**Dependency direction:** `@robota-sdk/agent-sessions` depends on `@robota-sdk/agent-core`. No reverse dependency exists.
+**Dependency direction:**
+
+- `@robota-sdk/agent-sessions` depends on `@robota-sdk/agent-core`, `@robota-sdk/agent-tools`, and `@robota-sdk/agent-provider-anthropic`.
+- No reverse dependency exists.
 
 ## Type Ownership
 
 Types owned by this package (SSOT):
 
-| Type                    | Kind       | File            | Description                                                              |
-| ----------------------- | ---------- | --------------- | ------------------------------------------------------------------------ |
-| `SessionState`          | Enum       | `types/core.ts` | Session lifecycle states: `ACTIVE`, `PAUSED`, `TERMINATED`               |
-| `ISessionConfig`        | Interface  | `types/core.ts` | Session configuration (name, maxChats, userId, workspaceId)              |
-| `ISessionInfo`          | Interface  | `types/core.ts` | Session runtime information and metadata                                 |
-| `IChatInfo`             | Interface  | `types/core.ts` | Summary information for a chat within a session                          |
-| `ISessionManagerConfig` | Interface  | `types/core.ts` | Manager-level configuration (maxSessions, maxChatsPerSession)            |
-| `ICreateSessionOptions` | Interface  | `types/core.ts` | Options for creating a new session                                       |
-| `ICreateChatOptions`    | Interface  | `types/core.ts` | Options for creating a new chat (requires `agentConfig`)                 |
-| `TMessageContent`       | Type alias | `types/chat.ts` | Message content type (currently `string`)                                |
-| `IChatConfig`           | Interface  | `types/chat.ts` | Chat-level configuration (robotaConfig, agentTemplate, description)      |
-| `IChatMetadata`         | Interface  | `types/chat.ts` | Chat metadata (id, timestamps, messageCount, isActive)                   |
-| `IChatStats`            | Interface  | `types/chat.ts` | Chat statistics (messageCount, timestamps, optional token/timing)        |
-| `ITemplateManager`      | Interface  | `types/chat.ts` | Template manager contract (getTemplate, listTemplates, validateTemplate) |
-| `IChatInstance`         | Interface  | `types/chat.ts` | Full chat instance contract (not exported publicly)                      |
+| Type                  | Kind      | File               | Description                                                        |
+| --------------------- | --------- | ------------------ | ------------------------------------------------------------------ |
+| `ISessionOptions`     | Interface | `session.ts`       | Constructor options for Session (config, context, terminal, hooks) |
+| `TPermissionHandler`  | Type      | `session.ts`       | Async callback `(toolName, toolArgs) => Promise<boolean>`          |
+| `ITerminalOutput`     | Interface | `session.ts`       | Terminal I/O abstraction (write, prompt, select, spinner)          |
+| `ISpinner`            | Interface | `session.ts`       | Spinner handle returned by `ITerminalOutput.spinner()`             |
+| `IResolvedConfig`     | Interface | `session.ts`       | Resolved CLI configuration (provider, permissions, trust, env)     |
+| `ILoadedContext`      | Interface | `session.ts`       | Loaded AGENTS.md / CLAUDE.md context                               |
+| `IProjectInfo`        | Interface | `session.ts`       | Project metadata (type, language)                                  |
+| `ISystemPromptParams` | Interface | `session.ts`       | Parameters for system prompt builder function                      |
+| `ISessionRecord`      | Interface | `session-store.ts` | Persisted session record (id, cwd, timestamps, messages)           |
 
-Types re-exported from `@robota-sdk/agent-core` (not owned here):
+Types consumed from other packages (not owned here):
 
-| Type                  | Source                   |
-| --------------------- | ------------------------ |
-| `IAgent`              | `@robota-sdk/agent-core` |
-| `IAgentConfig`        | `@robota-sdk/agent-core` |
-| `TUniversalMessage`   | `@robota-sdk/agent-core` |
-| `IRunOptions`         | `@robota-sdk/agent-core` |
-| `ConversationHistory` | `@robota-sdk/agent-core` |
-| `ConversationSession` | `@robota-sdk/agent-core` |
+| Type                                                                    | Source                                 |
+| ----------------------------------------------------------------------- | -------------------------------------- |
+| `Robota`                                                                | `@robota-sdk/agent-core`               |
+| `IAgentConfig`                                                          | `@robota-sdk/agent-core`               |
+| `IAIProvider`                                                           | `@robota-sdk/agent-core`               |
+| `TPermissionMode`                                                       | `@robota-sdk/agent-core`               |
+| `TToolArgs`                                                             | `@robota-sdk/agent-core`               |
+| `THooksConfig`                                                          | `@robota-sdk/agent-core`               |
+| `IHookInput`                                                            | `@robota-sdk/agent-core`               |
+| `evaluatePermission`                                                    | `@robota-sdk/agent-core`               |
+| `runHooks`                                                              | `@robota-sdk/agent-core`               |
+| `TRUST_TO_MODE`                                                         | `@robota-sdk/agent-core`               |
+| `TUniversalMessage`                                                     | `@robota-sdk/agent-core`               |
+| `AnthropicProvider`                                                     | `@robota-sdk/agent-provider-anthropic` |
+| `bashTool`, `readTool`, `writeTool`, `editTool`, `globTool`, `grepTool` | `@robota-sdk/agent-tools`              |
 
 ## Public API Surface
 
-| Export                   | Kind                   | Description                                                                                    |
-| ------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `SessionManager`         | Class                  | Top-level manager: creates/deletes sessions, creates/deletes/switches chats, enforces limits   |
-| `ChatInstance`           | Class                  | Wraps a `Robota` instance with session-scoped metadata, activation state, and template support |
-| `TemplateManagerAdapter` | Class                  | Adapts `AgentFactory`/`AgentTemplates` from agents package to `ITemplateManager`               |
-| `ConversationHistory`    | Class (re-export)      | Re-exported from `@robota-sdk/agent-core`                                                      |
-| `ConversationSession`    | Class (re-export)      | Re-exported from `@robota-sdk/agent-core`                                                      |
-| `SessionState`           | Enum (via type export) | Exported through `types/core.ts` re-export                                                     |
-| `ITemplateManager`       | Interface              | Template manager contract                                                                      |
-| `IChatConfig`            | Interface              | Chat configuration                                                                             |
-| `IChatMetadata`          | Interface              | Chat metadata                                                                                  |
-| `IChatStats`             | Interface              | Chat statistics                                                                                |
-| `TMessageContent`        | Type alias             | Message content type                                                                           |
-| `ISessionConfig`         | Interface              | Session configuration                                                                          |
-| `ISessionInfo`           | Interface              | Session runtime info                                                                           |
-| `IChatInfo`              | Interface              | Chat summary info                                                                              |
-| `ISessionManagerConfig`  | Interface              | Manager configuration                                                                          |
-| `ICreateSessionOptions`  | Interface              | Session creation options                                                                       |
-| `ICreateChatOptions`     | Interface              | Chat creation options                                                                          |
-| `IAgent`                 | Interface (re-export)  | From `@robota-sdk/agent-core`                                                                  |
-| `IAgentConfig`           | Interface (re-export)  | From `@robota-sdk/agent-core`                                                                  |
-| `TUniversalMessage`      | Type alias (re-export) | From `@robota-sdk/agent-core`                                                                  |
-| `IRunOptions`            | Interface (re-export)  | From `@robota-sdk/agent-core`                                                                  |
+| Export                | Kind      | Description                                                            |
+| --------------------- | --------- | ---------------------------------------------------------------------- |
+| `Session`             | Class     | Wraps Robota agent with permissions, hooks, streaming, and persistence |
+| `SessionStore`        | Class     | JSON file persistence for session records (`~/.robota/sessions/`)      |
+| `ISessionOptions`     | Interface | Constructor options for Session                                        |
+| `TPermissionHandler`  | Type      | Custom permission approval callback                                    |
+| `ITerminalOutput`     | Interface | Terminal I/O abstraction                                               |
+| `ISpinner`            | Interface | Spinner handle                                                         |
+| `IResolvedConfig`     | Interface | Resolved CLI configuration                                             |
+| `ILoadedContext`      | Interface | Loaded project context                                                 |
+| `IProjectInfo`        | Interface | Project metadata                                                       |
+| `ISystemPromptParams` | Interface | System prompt builder parameters                                       |
+| `ISessionRecord`      | Interface | Persisted session record shape                                         |
 
-### Key SessionManager Methods
+### Key Session Methods
 
-| Method            | Signature                                                             | Description                                                      |
-| ----------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `createSession`   | `(options?: ICreateSessionOptions) => string`                         | Creates a session, returns session ID. Throws on limit exceeded. |
-| `getSession`      | `(sessionId: string) => ISessionInfo \| undefined`                    | Retrieves session info by ID.                                    |
-| `listSessions`    | `() => ISessionInfo[]`                                                | Lists all sessions.                                              |
-| `deleteSession`   | `(sessionId: string) => boolean`                                      | Deletes session and all its chats.                               |
-| `createChat`      | `(sessionId: string, options: ICreateChatOptions) => Promise<string>` | Creates a chat with a new `Robota` instance via `AgentFactory`.  |
-| `getChat`         | `(chatId: string) => ChatInstance \| undefined`                       | Retrieves a chat instance by ID.                                 |
-| `getSessionChats` | `(sessionId: string) => IChatInfo[]`                                  | Lists all chats in a session.                                    |
-| `switchChat`      | `(sessionId: string, chatId: string) => boolean`                      | Deactivates current active chat, activates the target chat.      |
-| `deleteChat`      | `(chatId: string) => boolean`                                         | Deletes a chat and updates session state.                        |
+| Method              | Signature                                  | Description                                                            |
+| ------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
+| `run`               | `(message: string) => Promise<string>`     | Send a message; returns AI response. Persists session if store exists. |
+| `getPermissionMode` | `() => TPermissionMode`                    | Returns the active permission mode.                                    |
+| `setPermissionMode` | `(mode: TPermissionMode) => void`          | Changes the permission mode for future tool calls.                     |
+| `getSessionId`      | `() => string`                             | Returns the stable session identifier.                                 |
+| `getMessageCount`   | `() => number`                             | Returns the number of completed `run()` calls.                         |
+| `checkPermission`   | `(toolName, toolArgs) => Promise<boolean>` | Evaluates permission and prompts if needed. Used internally.           |
+| `clearHistory`      | `() => void`                               | Clears the underlying Robota conversation history.                     |
+| `getHistory`        | `() => TUniversalMessage[]`                | Returns the current conversation history.                              |
 
-### Key ChatInstance Methods
+### Key SessionStore Methods
 
-| Method                        | Signature                                       | Description                                             |
-| ----------------------------- | ----------------------------------------------- | ------------------------------------------------------- |
-| `sendMessage`                 | `(content: TMessageContent) => Promise<string>` | Sends message via `robota.run()`, updates metadata.     |
-| `regenerateResponse`          | `() => Promise<string>`                         | Re-sends the last user message.                         |
-| `updateRobotaConfig`          | `(config: IAgentConfig) => Promise<void>`       | Updates the underlying Robota configuration.            |
-| `getRobotaConfig`             | `() => IAgentConfig`                            | Returns current agent config.                           |
-| `upgradeToTemplate`           | `(templateName: string) => Promise<void>`       | Applies an agent template via `TemplateManagerAdapter`. |
-| `activate` / `deactivate`     | `() => void`                                    | Toggles active state in metadata.                       |
-| `getHistory` / `clearHistory` | `() => TUniversalMessage[]` / `() => void`      | Delegates to `Robota` history management.               |
-| `getStats`                    | `() => IChatStats`                              | Returns chat statistics.                                |
-| `save` / `load`               | `() => Promise<void>`                           | Not yet implemented. Throws on call.                    |
+| Method   | Signature                                     | Description                                                    |
+| -------- | --------------------------------------------- | -------------------------------------------------------------- |
+| `save`   | `(session: ISessionRecord) => void`           | Persist a session record to disk. Creates directory if needed. |
+| `load`   | `(id: string) => ISessionRecord \| undefined` | Load a session by ID. Returns undefined if not found.          |
+| `list`   | `() => ISessionRecord[]`                      | List all sessions, sorted by updatedAt descending.             |
+| `delete` | `(id: string) => void`                        | Delete a session file. No-ops if not found.                    |
 
 ## Extension Points
 
-1. **ITemplateManager interface** -- Consumers can provide a custom template manager implementation. The default `TemplateManagerAdapter` bridges to the agents package, but the `ITemplateManager` interface allows replacement.
+1. **`ISessionOptions.provider`** -- Inject a custom `IAIProvider` to replace the default Anthropic provider (used in tests with mock providers).
 
-2. **TemplateManagerAdapter.registerTemplate / unregisterTemplate** -- Consumers can register custom `IAgentTemplate` instances at runtime to extend available templates.
+2. **`ISessionOptions.permissionHandler`** -- Inject a custom permission approval callback (used by Ink-based UI to show approval prompts in React components).
 
-3. **TemplateManagerAdapter.applyTemplate** -- Consumers can apply a template with partial overrides to derive customized agent configurations.
+3. **`ISessionOptions.promptForApproval`** -- Alternative approval function that receives the terminal handle.
 
-4. **ICreateChatOptions.agentConfig** -- Each chat creation accepts a full `IAgentConfig`, allowing consumers to configure provider, model, system prompt, and other agent parameters per chat.
+4. **`ISessionOptions.systemPromptBuilder`** -- Replace the default system prompt builder with a custom implementation (injected from `agent-sdk`).
 
-5. **ISessionManagerConfig** -- Consumers control session and chat limits through the manager configuration.
+5. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI.
+
+6. **`ISessionOptions.additionalTools`** -- Register additional tools beyond the 6 built-ins (e.g., agent-tool from `agent-sdk`).
+
+7. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
 
 ## Error Taxonomy
 
-This package does not define a custom error hierarchy. All errors are thrown as standard `Error` instances with descriptive messages. Error scenarios include:
+This package does not define a custom error hierarchy. All errors are thrown as standard `Error` instances. Error scenarios include:
 
-| Error Condition                  | Thrown By                                 | Message Pattern                                                                 |
-| -------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------- |
-| Session limit exceeded           | `SessionManager.createSession`            | `"Maximum sessions limit (N) reached..."`                                       |
-| Session not found                | `SessionManager.createChat`               | `"Session {id} not found"`                                                      |
-| Chat limit exceeded              | `SessionManager.createChat`               | `"Maximum chats per session (N) reached"`                                       |
-| Message send failure             | `ChatInstance.sendMessage`                | `"Failed to send message: {cause}"`                                             |
-| No user message for regeneration | `ChatInstance.regenerateResponse`         | `"No user message found to regenerate response for"`                            |
-| Template not found               | `ChatInstance.upgradeToTemplate`          | `"Template '{name}' not found"`                                                 |
-| Config update failure            | `ChatInstance.updateRobotaConfig`         | `"Failed to update robota config: {cause}"`                                     |
-| Persistence not implemented      | `ChatInstance.save` / `ChatInstance.load` | `"Chat persistence not yet implemented"` / `"Chat loading not yet implemented"` |
+| Error Condition        | Thrown By                | Message Pattern                                             |
+| ---------------------- | ------------------------ | ----------------------------------------------------------- |
+| Missing API key        | `Session` constructor    | `"ANTHROPIC_API_KEY is not set..."`                         |
+| Tool permission denied | `wrapToolWithPermission` | Returns `IToolResult` with `"Permission denied"` (no throw) |
+| Hook blocked tool      | `wrapToolWithPermission` | Returns `IToolResult` with `"Blocked by hook: {reason}"`    |
+| Tool execution error   | `wrapToolWithPermission` | Returns `IToolResult` with error message (never throws)     |
 
-Underlying AI provider errors propagate from `@robota-sdk/agent-core` and are wrapped in the message send/config update error paths.
+The permission wrapper deliberately catches all errors and returns them as `IToolResult` objects to avoid corrupting the conversation history with unmatched tool_use/tool_result pairs.
 
 ## Class Contract Registry
 
 ### Interface Implementations
 
-| Interface          | Implementor              | Kind                 | Location                                   |
-| ------------------ | ------------------------ | -------------------- | ------------------------------------------ |
-| `IChatInstance`    | `ChatInstance`           | production           | `src/chat/chat-instance.ts`                |
-| `ITemplateManager` | `TemplateManagerAdapter` | production (adapter) | `src/adapters/template-manager-adapter.ts` |
+No formal interface implementations. `Session` and `SessionStore` are standalone classes.
 
 ### Inheritance Chains
 
@@ -162,33 +146,31 @@ None. Classes are standalone.
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)              | Consumer Class           | Location                                   |
-| ------------------------- | ------------------------ | ------------------------------------------ |
-| `Robota` (agents)         | `ChatInstance`           | `src/chat/chat-instance.ts`                |
-| `AgentFactory` (agents)   | `SessionManager`         | `src/session/session-manager.ts`           |
-| `AgentTemplates` (agents) | `TemplateManagerAdapter` | `src/adapters/template-manager-adapter.ts` |
+| Port (Owner)                                   | Consumer Class | Location         |
+| ---------------------------------------------- | -------------- | ---------------- |
+| `Robota` (agent-core)                          | `Session`      | `src/session.ts` |
+| `IAIProvider` (agent-core)                     | `Session`      | `src/session.ts` |
+| `evaluatePermission` (agent-core)              | `Session`      | `src/session.ts` |
+| `runHooks` (agent-core)                        | `Session`      | `src/session.ts` |
+| `AnthropicProvider` (agent-provider-anthropic) | `Session`      | `src/session.ts` |
+| Built-in tools (agent-tools)                   | `Session`      | `src/session.ts` |
 
 ## Test Strategy
 
 ### Current Test Coverage
 
-| File                                  | Scope | Description                                                                                 |
-| ------------------------------------- | ----- | ------------------------------------------------------------------------------------------- |
-| `src/session/session-manager.test.ts` | Unit  | Tests session CRUD, session limit enforcement, chat creation structure, workspace isolation |
-
-### Test Characteristics
-
-- Uses `vitest` as the test runner.
-- Session management tests are fully synchronous and self-contained.
-- Chat creation tests use `try/catch` to handle expected failures when AI providers are not configured (no mock providers injected).
-- No integration tests with real AI providers.
+No dedicated unit tests exist yet for the new `Session` and `SessionStore` classes.
 
 ### Gaps
 
-- **ChatInstance** -- No dedicated unit tests. `sendMessage`, `regenerateResponse`, `updateRobotaConfig`, `upgradeToTemplate`, `activate`/`deactivate`, `getHistory`, `clearHistory`, `getStats`, and `updateConfig` are untested.
-- **TemplateManagerAdapter** -- No unit tests for template lookup, listing, validation, registration, or `applyTemplate`.
-- **Chat switching** -- `switchChat` is not covered in the existing test suite.
-- **Chat deletion** -- `deleteChat` is not covered.
-- **Session deletion cascade** -- Verifying that all child chats are cleaned up when a session is deleted.
-- **Type import correctness** -- The test file imports `CreateSessionOptions` and `CreateChatOptions` (without `I` prefix), which may not match the actual exported type names (`ICreateSessionOptions`, `ICreateChatOptions`). This could indicate the test file is out of date or does not pass type checking.
-- **Persistence stubs** -- `save`/`load` throw errors by design; no tests verify this behavior.
+- **Session** -- `run()`, `checkPermission()`, `wrapToolWithPermission()`, permission mode switching, hook integration, streaming callback wiring, and session persistence are untested.
+- **SessionStore** -- `save()`, `load()`, `list()`, `delete()`, directory creation, and malformed file handling are untested.
+- Both classes should be testable with mock `IAIProvider` and mock `ITerminalOutput` injections.
+
+## Dependencies
+
+### Production (3)
+
+- `@robota-sdk/agent-core` -- Robota agent, permission system, hook system, core types
+- `@robota-sdk/agent-tools` -- Built-in CLI tools (bash, read, write, edit, glob, grep)
+- `@robota-sdk/agent-provider-anthropic` -- Default AI provider (Anthropic Claude)

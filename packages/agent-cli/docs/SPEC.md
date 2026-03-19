@@ -2,95 +2,87 @@
 
 ## Scope
 
-AI coding assistant CLI that runs in any project directory. Loads AGENTS.md/CLAUDE.md for context, provides a REPL with 6 built-in tools (Bash, Read, Write, Edit, Glob, Grep), and supports Claude Code-compatible permission modes and settings.
+Interactive terminal AI coding assistant. A React + Ink-based TUI, corresponding to Claude Code.
+A **thin CLI layer** built on top of agent-sdk, responsible only for the terminal UI.
 
 ## Boundaries
 
-- Does NOT own AI provider logic — delegates to `@robota-sdk/agent-provider-anthropic`
-- Does NOT own agent runtime or tool execution loop — delegates to `@robota-sdk/agent-core`
-- Does NOT own tool implementations (FunctionTool, schema conversion) — uses `@robota-sdk/agent-tools`
-- Hook system (Phase 2), MCP integration (Phase 3), and sub-agent dispatch (Phase 2) are not yet implemented
+- Does NOT own Session/SessionStore — imported from `@robota-sdk/agent-sessions`
+- Does NOT own tools — imported from `@robota-sdk/agent-tools`
+- Does NOT own permissions/hooks — imported from `@robota-sdk/agent-core`
+- Does NOT own config/context loading — imported from `@robota-sdk/agent-sdk`
+- Does NOT own AI provider — imported from `@robota-sdk/agent-provider-anthropic`
+- OWNS: Ink TUI components, ITerminalOutput, permission-prompt (terminal UI), CLI argument parsing
 
-## Architecture Overview
+## Architecture
 
 ```
-bin.ts → cli.ts (arg parsing, orchestration)
-              ├── config/config-loader.ts    (settings discovery + Zod validation)
-              ├── context/context-loader.ts   (AGENTS.md/CLAUDE.md walk-up)
-              ├── context/project-detector.ts (package.json/tsconfig detection)
-              ├── context/system-prompt-builder.ts (context → system message)
-              ├── session.ts                  (Robota wrapper + permission gate)
-              ├── session-store.ts            (JSON file persistence)
-              ├── permissions/permission-gate.ts (mode-based policy evaluation)
-              ├── tools/                      (6 FunctionTool implementations)
-              └── repl/                       (readline loop + renderer + slash commands)
+bin.ts → cli.ts (arg parsing)
+              └── ui/render.tsx → App.tsx (Ink TUI)
+                    ├── MessageList.tsx    (conversation list)
+                    ├── InputArea.tsx      (bottom input area)
+                    ├── StatusBar.tsx      (status bar)
+                    ├── PermissionPrompt.tsx (arrow-key selection)
+                    └── Session (from @robota-sdk/agent-sessions)
 ```
 
-Pattern: CLI orchestrator → Session facade → Robota agent core. Permission checks run before each tool execution via the permission gate.
+Dependency chain: `agent-cli → agent-sdk → agent-sessions → agent-tools → agent-core`
 
 ## Type Ownership
 
-| Type                | Location                          | Purpose                                 |
-| ------------------- | --------------------------------- | --------------------------------------- |
-| TToolResult         | `src/types.ts`                    | Structured tool return value            |
-| ITerminalOutput     | `src/types.ts`                    | DI interface for terminal I/O           |
-| TPermissionMode     | `src/types.ts`                    | Claude Code-compatible permission modes |
-| TTrustLevel         | `src/types.ts`                    | Friendly aliases for permission modes   |
-| TPermissionDecision | `src/types.ts`                    | auto/approve/deny decision              |
-| ISessionRecord      | `src/session-store.ts`            | Persisted session structure             |
-| ISessionOptions     | `src/session.ts`                  | Session constructor options             |
-| IResolvedConfig     | `src/config/config-types.ts`      | Validated settings                      |
-| ILoadedContext      | `src/context/context-loader.ts`   | Discovered AGENTS.md/CLAUDE.md content  |
-| IProjectInfo        | `src/context/project-detector.ts` | Detected project metadata               |
+| Type               | Location          | Purpose                       |
+| ------------------ | ----------------- | ----------------------------- |
+| ITerminalOutput    | `src/types.ts`    | Terminal I/O DI interface     |
+| ISpinner           | `src/types.ts`    | Spinner handle                |
+| IChatMessage       | `src/ui/types.ts` | UI message model              |
+| IPermissionRequest | `src/ui/types.ts` | Permission prompt React state |
 
 ## Public API Surface
 
-| Export              | Kind      | Description                                               |
-| ------------------- | --------- | --------------------------------------------------------- |
-| Session             | class     | Wraps Robota agent with context, permissions, persistence |
-| SessionStore        | class     | JSON file-based session persistence                       |
-| startCli            | function  | CLI entry point orchestrator                              |
-| TRUST_TO_MODE       | const     | Maps TTrustLevel → TPermissionMode                        |
-| TToolResult         | type      | Tool execution result                                     |
-| ITerminalOutput     | interface | Terminal I/O contract                                     |
-| TPermissionMode     | type      | Permission mode union                                     |
-| TTrustLevel         | type      | Trust level union                                         |
-| TPermissionDecision | type      | Permission decision union                                 |
-| ISessionOptions     | type      | Session constructor options                               |
-| ISessionRecord      | type      | Persisted session shape                                   |
+| Export       | Kind     | Description                                                                 |
+| ------------ | -------- | --------------------------------------------------------------------------- |
+| startCli     | function | CLI entry point                                                             |
+| (re-exports) | various  | Backward-compatible re-exports of Session, query, types etc. from agent-sdk |
 
-## Extension Points
+## File Structure
 
-- **AI Provider**: Session accepts an optional `provider` parameter for injecting any `IAIProvider` implementation
-- **Terminal I/O**: `ITerminalOutput` interface allows replacing the terminal renderer (e.g., for testing or alternative UIs)
-- **Session Store**: `SessionStore` accepts a `baseDir` parameter for custom storage locations
-- **Permission modes**: `TPermissionMode` can be extended with new modes in future phases
+```
+src/
+├── bin.ts                    ← Binary entry point
+├── cli.ts                    ← CLI argument parsing, Ink render invocation
+├── types.ts                  ← ITerminalOutput, ISpinner
+├── index.ts                  ← Re-exports
+├── permissions/
+│   └── permission-prompt.ts  ← Terminal Allow/Deny prompt
+└── ui/
+    ├── App.tsx               ← Main layout, Session creation, state management
+    ├── render.tsx            ← Ink render() invocation
+    ├── MessageList.tsx       ← Conversation message list (Robota: label)
+    ├── InputArea.tsx         ← Bottom fixed input (ink-text-input)
+    ├── StatusBar.tsx         ← Mode, message count, Thinking status
+    ├── PermissionPrompt.tsx  ← Allow/Deny arrow-key selection (useInput)
+    ├── InkTerminal.ts        ← No-op ITerminalOutput
+    └── types.ts              ← IChatMessage, IPermissionRequest
+```
 
-## Error Taxonomy
+## CLI Usage
 
-| Error                     | Context          | Recoverable                                  |
-| ------------------------- | ---------------- | -------------------------------------------- |
-| Missing ANTHROPIC_API_KEY | Session creation | No — exit with message                       |
-| Invalid settings.json     | Config loading   | No — exit with Zod error details             |
-| Tool execution failure    | Tool handler     | Yes — returns TToolResult with success:false |
-| Permission denied         | Permission gate  | Yes — tool blocked, LLM notified             |
-| Session not found         | --resume flag    | No — exit with message                       |
+```bash
+robota                              # Interactive TUI
+robota -p "prompt"                  # Print mode (one-shot)
+robota -c                           # Continue last session
+robota -r <id>                      # Resume session
+robota --model <model>              # Model override
+robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
+robota --max-turns <n>              # Limit turns
+robota --version                    # Version
+```
 
-## Test Strategy
+## Dependencies
 
-- 13 test files, 145 tests
-- Config loader: mock filesystem, Zod validation, merge precedence
-- Context loader: mock walk-up discovery, concatenation order
-- Project detector: fixture directories
-- System prompt builder: snapshot tests
-- Permission gate: table-driven tests (40 cases) for all mode×tool combinations
-- Tools: mock child_process (Bash), temp directories (Read/Write/Edit/Glob/Grep)
-- Slash commands: mock session and terminal
-- Session store: temp directory persistence
-
-## Class Contract Registry
-
-| Class        | Implements/Extends | Defined In             |
-| ------------ | ------------------ | ---------------------- |
-| Session      | —                  | `src/session.ts`       |
-| SessionStore | —                  | `src/session-store.ts` |
+| Package                 | Purpose                         |
+| ----------------------- | ------------------------------- |
+| `@robota-sdk/agent-sdk` | Session, query, config, context |
+| `ink`, `react`          | TUI rendering                   |
+| `ink-text-input`        | Text input                      |
+| `chalk`                 | Terminal colors                 |
