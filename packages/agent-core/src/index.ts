@@ -350,45 +350,6 @@ export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils
 
 // ExecutionHierarchyTracker removed
 
-// ===== CLI CONFIG, CONTEXT, PERMISSIONS, HOOKS — migrated from agent-cli =====
-
-// CLI config
-export * from './cli-config/config-types';
-export { loadConfig } from './cli-config/config-loader';
-
-// CLI context
-export * from './cli-context/context-loader';
-export * from './cli-context/project-detector';
-export { buildSystemPrompt } from './cli-context/system-prompt-builder';
-export type { ISystemPromptParams } from './cli-context/system-prompt-builder';
-
-// CLI permissions
-export * from './cli-permissions/permission-gate';
-export * from './cli-permissions/permission-mode';
-export * from './cli-permissions/types';
-
-// CLI hooks
-export * from './cli-hooks/types';
-export { runHooks } from './cli-hooks/hook-runner';
-
-// CLI session
-export { Session } from './cli-session/session';
-export type {
-  ISessionOptions,
-  TPermissionHandler,
-  ITerminalOutput,
-  ISpinner,
-} from './cli-session/session';
-export { SessionStore } from './cli-session/session-store';
-export type { ISessionRecord } from './cli-session/session-store';
-export { query } from './cli-session/query';
-export type { IQueryOptions } from './cli-session/query';
-
-// CLI tools — available via the './cli-tools' subpath export (@robota-sdk/agent-core/cli-tools).
-// Not re-exported from the main barrel to avoid circular dependency with @robota-sdk/agent-tools at load time.
-// Session receives tools via the injected toolsFactory callback.
-export type { IAgentToolDeps } from './cli-tools/agent-tool';
-
 // ================================
 // Real-Time System (Phase 3)
 // ================================

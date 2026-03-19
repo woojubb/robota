@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { IPermissionRequest } from './types.js';
-import type { TToolArgs } from '@robota-sdk/agent-core';
+import type { TToolArgs } from '../permissions/permission-gate.js';
 
 interface IProps {
   request: IPermissionRequest;
@@ -50,13 +50,13 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
         {OPTIONS.map((opt, i) => (
           <Box key={opt} marginRight={2}>
             <Text color={i === selected ? 'cyan' : undefined} bold={i === selected}>
-              {i === selected ? '❯ ' : '  '}
+              {i === selected ? '> ' : '  '}
               {opt}
             </Text>
           </Box>
         ))}
       </Box>
-      <Text dimColor> ←/→ to select, Enter to confirm</Text>
+      <Text dimColor> left/right to select, Enter to confirm</Text>
     </Box>
   );
 }
