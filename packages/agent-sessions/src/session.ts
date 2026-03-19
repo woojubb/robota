@@ -22,6 +22,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import { evaluatePermission, runHooks, TRUST_TO_MODE } from '@robota-sdk/agent-core';
 import type { TPermissionMode, TToolArgs, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
+import type { IContextWindowState } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import {
   bashTool,
@@ -46,6 +47,20 @@ const PERMISSION_DENIED_RESULT: IToolResult = {
   }),
   metadata: {},
 };
+
+/** Known model context window sizes (tokens) */
+const MODEL_CONTEXT_SIZES: Record<string, number> = {
+  'claude-sonnet-4-6': 200_000,
+  'claude-opus-4-6': 1_000_000,
+  'claude-haiku-4-5': 200_000,
+};
+const DEFAULT_CONTEXT_SIZE = 200_000;
+
+/** Auto-compact when context usage reaches this fraction */
+const AUTO_COMPACT_THRESHOLD = 0.835;
+
+/** Percentage conversion factor */
+const PERCENT = 100;
 
 /**
  * Spinner handle returned by ITerminalOutput.spinner()
@@ -175,6 +190,10 @@ export interface ISessionOptions {
   ) => Promise<boolean>;
   /** Additional tools to register (e.g. agent-tool from agent-sdk) */
   additionalTools?: IToolWithEventService[];
+  /** Callback when context is compacted */
+  onCompact?: (summary: string) => void;
+  /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
+  compactInstructions?: string;
 }
 
 /** Names of the 6 built-in CLI tools */
@@ -207,7 +226,12 @@ export class Session {
     toolArgs: TToolArgs,
   ) => Promise<boolean>;
   private readonly cwd: string;
+  private readonly onCompactCallback?: (summary: string) => void;
+  private readonly compactInstructions?: string;
+  private readonly aiProvider: IAIProvider;
   private messageCount = 0;
+  private contextUsedTokens = 0;
+  private contextMaxTokens = DEFAULT_CONTEXT_SIZE;
 
   constructor(options: ISessionOptions) {
     const {
@@ -226,6 +250,8 @@ export class Session {
     this.sessionStore = sessionStore;
     this.permissionHandler = permissionHandler;
     this.promptForApprovalFn = options.promptForApproval;
+    this.onCompactCallback = options.onCompact;
+    this.compactInstructions = options.compactInstructions;
     this.cwd = process.cwd();
     this.sessionId = `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
 
@@ -244,6 +270,8 @@ export class Session {
 
     // Resolve AI provider and wire up streaming if callback provided
     const aiProvider = provider ?? this.createAnthropicProvider();
+    this.aiProvider = aiProvider;
+    this.contextMaxTokens = MODEL_CONTEXT_SIZES[config.provider.model] ?? DEFAULT_CONTEXT_SIZE;
     if (options.onTextDelta && 'onTextDelta' in aiProvider) {
       (aiProvider as { onTextDelta?: (delta: string) => void }).onTextDelta = options.onTextDelta;
     }
@@ -305,6 +333,14 @@ export class Session {
   async run(message: string): Promise<string> {
     const response = await this.robota.run(message);
     this.messageCount += 1;
+
+    // Update token usage from the latest assistant message metadata
+    this.updateTokenUsageFromHistory();
+
+    // Auto-compact if threshold exceeded
+    if (this.getContextState().usedPercentage >= AUTO_COMPACT_THRESHOLD * PERCENT) {
+      await this.compact();
+    }
 
     if (this.sessionStore) {
       this.persistSession();
@@ -464,9 +500,125 @@ export class Session {
     return false;
   }
 
+  /** Get current context window state */
+  getContextState(): IContextWindowState {
+    const usedPercentage = Math.min(
+      PERCENT,
+      (this.contextUsedTokens / this.contextMaxTokens) * PERCENT,
+    );
+    return {
+      maxTokens: this.contextMaxTokens,
+      usedTokens: this.contextUsedTokens,
+      usedPercentage: Math.round(usedPercentage * PERCENT) / PERCENT,
+      remainingPercentage: Math.round((PERCENT - usedPercentage) * PERCENT) / PERCENT,
+    };
+  }
+
+  /**
+   * Run compaction — summarize the conversation to free context space.
+   * @param instructions - Optional focus instructions for the summary
+   */
+  async compact(instructions?: string): Promise<void> {
+    const history = this.robota.getHistory();
+    if (history.length === 0) return;
+
+    const trigger: 'auto' | 'manual' = instructions !== undefined ? 'manual' : 'auto';
+
+    // Fire PreCompact hook
+    const preHookInput: IHookInput = {
+      session_id: this.sessionId,
+      cwd: this.cwd,
+      hook_event_name: 'PreCompact',
+      trigger,
+    };
+    await runHooks(this.config.hooks as THooksConfig | undefined, 'PreCompact', preHookInput);
+
+    // Build compaction prompt
+    const compactPrompt = this.buildCompactionPrompt(history, instructions);
+
+    // Call provider to generate summary
+    const summaryMessage = await this.aiProvider.chat(
+      [{ role: 'user', content: compactPrompt, timestamp: new Date() }],
+      { model: this.config.provider.model },
+    );
+    const summary =
+      typeof summaryMessage.content === 'string' ? summaryMessage.content : '(compaction failed)';
+
+    // Replace history with summary message
+    this.robota.clearHistory();
+    // Re-inject summary as a system-level context message
+    await this.robota.run(
+      `[Context Summary]\n${summary}\n\nPlease continue from where we left off.`,
+    );
+
+    // Reset token tracking based on the new shorter history
+    this.updateTokenUsageFromHistory();
+
+    // Fire PostCompact hook
+    const postHookInput: IHookInput = {
+      session_id: this.sessionId,
+      cwd: this.cwd,
+      hook_event_name: 'PostCompact',
+      trigger,
+      compact_summary: summary,
+    };
+    runHooks(this.config.hooks as THooksConfig | undefined, 'PostCompact', postHookInput).catch(
+      () => {},
+    );
+
+    // Notify via callback
+    if (this.onCompactCallback) {
+      this.onCompactCallback(summary);
+    }
+  }
+
+  /** Build the compaction prompt from conversation history */
+  private buildCompactionPrompt(history: TUniversalMessage[], instructions?: string): string {
+    const instructionBlock = instructions ?? this.compactInstructions ?? '';
+    const instructionSection = instructionBlock ? `\nAdditional focus:\n${instructionBlock}\n` : '';
+
+    const formattedHistory = history
+      .map((msg) => {
+        const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+        return `${msg.role}: ${content}`;
+      })
+      .join('\n');
+
+    return [
+      'Summarize the following conversation concisely, preserving:',
+      "- User's original requests and goals",
+      '- Key decisions and conclusions',
+      '- Important code changes and file paths',
+      '- Current task status and next steps',
+      instructionSection,
+      "Drop verbose tool outputs, debugging steps, and exploratory work that didn't lead to results.",
+      '',
+      'Conversation:',
+      formattedHistory,
+    ].join('\n');
+  }
+
+  /** Extract token usage from the latest assistant messages in history */
+  private updateTokenUsageFromHistory(): void {
+    const history = this.robota.getHistory();
+    let totalInputTokens = 0;
+
+    for (const msg of history) {
+      if (msg.metadata) {
+        const input = msg.metadata['inputTokens'];
+        const output = msg.metadata['outputTokens'];
+        if (typeof input === 'number') totalInputTokens += input;
+        if (typeof output === 'number') totalInputTokens += output;
+      }
+    }
+
+    this.contextUsedTokens = totalInputTokens;
+  }
+
   /** Clear conversation history */
   clearHistory(): void {
     this.robota.clearHistory();
+    this.contextUsedTokens = 0;
   }
 
   /** Get conversation history */

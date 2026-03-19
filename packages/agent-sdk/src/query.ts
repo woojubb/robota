@@ -19,6 +19,8 @@ export interface IQueryOptions {
   provider?: IAIProvider;
   permissionHandler?: (toolName: string, toolArgs: TToolArgs) => Promise<boolean>;
   onTextDelta?: (delta: string) => void;
+  /** Callback when context is compacted */
+  onCompact?: (summary: string) => void;
 }
 
 /**
@@ -56,6 +58,8 @@ export async function query(prompt: string, options?: IQueryOptions): Promise<st
     provider: options?.provider,
     permissionHandler: options?.permissionHandler,
     onTextDelta: options?.onTextDelta,
+    onCompact: options?.onCompact,
+    compactInstructions: context.compactInstructions,
     systemPromptBuilder: buildSystemPrompt as (params: {
       agentsMd: string;
       claudeMd: string;

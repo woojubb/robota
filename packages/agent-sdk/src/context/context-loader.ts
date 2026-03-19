@@ -11,6 +11,8 @@ export interface ILoadedContext {
   agentsMd: string;
   /** Concatenated content of all CLAUDE.md files found (root-first) */
   claudeMd: string;
+  /** Extracted "Compact Instructions" section from CLAUDE.md, if present */
+  compactInstructions?: string;
 }
 
 const AGENTS_FILENAME = 'AGENTS.md';
@@ -43,6 +45,39 @@ function collectFilesWalkingUp(startDir: string, filename: string): string[] {
 }
 
 /**
+ * Extract the "Compact Instructions" section from CLAUDE.md content.
+ * Looks for a markdown heading (any level) containing "Compact Instructions"
+ * and returns all content until the next heading of the same or higher level.
+ */
+function extractCompactInstructions(content: string): string | undefined {
+  const lines = content.split('\n');
+  let capturing = false;
+  let headingLevel = 0;
+  const captured: string[] = [];
+
+  for (const line of lines) {
+    const headingMatch = /^(#{1,6})\s+/.exec(line);
+    if (headingMatch) {
+      if (capturing) {
+        // Stop if we hit a heading of same or higher level
+        if (headingMatch[1].length <= headingLevel) break;
+      }
+      if (/compact\s+instructions/i.test(line)) {
+        capturing = true;
+        headingLevel = headingMatch[1].length;
+        continue;
+      }
+    }
+    if (capturing) {
+      captured.push(line);
+    }
+  }
+
+  const result = captured.join('\n').trim();
+  return result || undefined;
+}
+
+/**
  * Load all AGENTS.md and CLAUDE.md files found by walking up from `cwd`.
  * Files from higher directories appear before files from lower directories.
  *
@@ -56,5 +91,7 @@ export async function loadContext(cwd: string): Promise<ILoadedContext> {
 
   const claudeMd = claudePaths.map((p) => readFileSync(p, 'utf-8')).join('\n\n');
 
-  return { agentsMd, claudeMd };
+  const compactInstructions = extractCompactInstructions(claudeMd);
+
+  return { agentsMd, claudeMd, compactInstructions };
 }

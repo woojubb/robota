@@ -385,6 +385,14 @@ export {
   UNKNOWN_TOOL_FALLBACK,
 } from './permissions/index.js';
 
+// ===== CONTEXT WINDOW TRACKING =====
+/**
+ * Context window tracking types — token usage and context state.
+ *
+ * @public
+ */
+export type { IContextTokenUsage, IContextWindowState } from './context/index.js';
+
 // ===== HOOKS MODULE =====
 /**
  * Hook system — Claude Code compatible lifecycle hooks.

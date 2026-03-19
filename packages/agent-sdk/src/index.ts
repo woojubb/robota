@@ -24,6 +24,9 @@ export { loadConfig } from './config/config-loader.js';
 // Context
 export type { ILoadedContext } from './context/context-loader.js';
 export { loadContext } from './context/context-loader.js';
+
+// Context window state (re-exported from agent-core)
+export type { IContextWindowState, IContextTokenUsage } from '@robota-sdk/agent-core';
 export type { IProjectInfo } from './context/project-detector.js';
 export { detectProject } from './context/project-detector.js';
 export type { ISystemPromptParams } from './context/system-prompt-builder.js';
