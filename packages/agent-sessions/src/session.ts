@@ -51,7 +51,9 @@ const PERMISSION_DENIED_RESULT: IToolResult = {
 /** Known model context window sizes (tokens) */
 const MODEL_CONTEXT_SIZES: Record<string, number> = {
   'claude-sonnet-4-6': 200_000,
+  'claude-sonnet-4-5': 200_000,
   'claude-opus-4-6': 1_000_000,
+  'claude-opus-4-5': 200_000,
   'claude-haiku-4-5': 200_000,
 };
 const DEFAULT_CONTEXT_SIZE = 200_000;
