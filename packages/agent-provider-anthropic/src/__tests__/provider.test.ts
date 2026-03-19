@@ -702,12 +702,258 @@ describe('AnthropicProvider', () => {
 
   describe('chat — no client for direct execution', () => {
     it('should throw when executor is not set and client is unavailable', async () => {
-      // This error path is guarded by the constructor, which always requires
-      // at least one of client/apiKey/executor. We verify the constructor
-      // guard in the constructor tests above.
       expect(() => new AnthropicProvider({} as IAnthropicProviderOptions)).toThrow(
         'Either Anthropic client, apiKey, or executor is required',
       );
+    });
+  });
+
+  // ── chatWithStreaming — content block parsing ──────────────
+
+  describe('chatWithStreaming — content block parsing', () => {
+    let provider: AnthropicProvider;
+    let textDeltas: string[];
+
+    beforeEach(() => {
+      provider = new AnthropicProvider({
+        client: mockClient as unknown as Anthropic,
+      });
+      textDeltas = [];
+      provider.onTextDelta = (delta: string) => textDeltas.push(delta);
+    });
+
+    function makeStream(events: Array<Record<string, unknown>>) {
+      return (async function* () {
+        for (const e of events) yield e;
+      })();
+    }
+
+    it('should parse text-only streaming response', async () => {
+      mockClient.messages.create.mockResolvedValue(
+        makeStream([
+          {
+            type: 'message_start',
+            message: { usage: { input_tokens: 10, output_tokens: 0 }, model: 'test' },
+          },
+          { type: 'content_block_start', content_block: { type: 'text' } },
+          { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hello' } },
+          { type: 'content_block_delta', delta: { type: 'text_delta', text: ' world' } },
+          { type: 'content_block_stop' },
+          {
+            type: 'message_delta',
+            delta: { stop_reason: 'end_turn' },
+            usage: { output_tokens: 5 },
+          },
+        ]),
+      );
+
+      const messages: TUniversalMessage[] = [
+        { role: 'user', content: 'Hi', timestamp: new Date() },
+      ];
+      const result = await provider.chat(messages, { model: 'test' });
+
+      expect(result.content).toBe('Hello world');
+      expect(textDeltas).toEqual(['Hello', ' world']);
+      expect(result.metadata?.['stopReason']).toBe('end_turn');
+    });
+
+    it('should parse tool_use blocks in streaming', async () => {
+      mockClient.messages.create.mockResolvedValue(
+        makeStream([
+          {
+            type: 'message_start',
+            message: { usage: { input_tokens: 10, output_tokens: 0 }, model: 'test' },
+          },
+          {
+            type: 'content_block_start',
+            content_block: { type: 'tool_use', id: 'call_1', name: 'Bash', input: {} },
+          },
+          {
+            type: 'content_block_delta',
+            delta: { type: 'input_json_delta', partial_json: '{"command":' },
+          },
+          {
+            type: 'content_block_delta',
+            delta: { type: 'input_json_delta', partial_json: '"ls"}' },
+          },
+          { type: 'content_block_stop' },
+          {
+            type: 'message_delta',
+            delta: { stop_reason: 'tool_use' },
+            usage: { output_tokens: 10 },
+          },
+        ]),
+      );
+
+      const result = await provider.chat(
+        [{ role: 'user', content: 'list files', timestamp: new Date() }],
+        { model: 'test' },
+      );
+
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls?.[0]?.function.name).toBe('Bash');
+      expect(JSON.parse(result.toolCalls?.[0]?.function.arguments ?? '{}')).toEqual({
+        command: 'ls',
+      });
+    });
+
+    it('should parse server_tool_use (web_search) in streaming', async () => {
+      mockClient.messages.create.mockResolvedValue(
+        makeStream([
+          {
+            type: 'message_start',
+            message: { usage: { input_tokens: 10, output_tokens: 0 }, model: 'test' },
+          },
+          {
+            type: 'content_block_start',
+            content_block: {
+              type: 'server_tool_use',
+              name: 'web_search',
+              input: { query: 'Next.js latest' },
+            },
+          },
+          { type: 'content_block_stop' },
+          {
+            type: 'content_block_start',
+            content_block: {
+              type: 'web_search_tool_result',
+              content: [
+                {
+                  type: 'web_search_result',
+                  title: 'Next.js 16.2 Released',
+                  url: 'https://nextjs.org/blog/16.2',
+                },
+                {
+                  type: 'web_search_result',
+                  title: 'Next.js GitHub',
+                  url: 'https://github.com/vercel/next.js',
+                },
+              ],
+            },
+          },
+          { type: 'content_block_stop' },
+          { type: 'content_block_start', content_block: { type: 'text' } },
+          {
+            type: 'content_block_delta',
+            delta: { type: 'text_delta', text: 'Based on search results...' },
+          },
+          { type: 'content_block_stop' },
+          {
+            type: 'message_delta',
+            delta: { stop_reason: 'end_turn' },
+            usage: { output_tokens: 20 },
+          },
+        ]),
+      );
+
+      const serverToolCalls: Array<{ name: string; input: Record<string, string> }> = [];
+      provider.onServerToolUse = (name, input) => serverToolCalls.push({ name, input });
+
+      const result = await provider.chat(
+        [{ role: 'user', content: 'search Next.js', timestamp: new Date() }],
+        { model: 'test' },
+      );
+
+      // Should contain search label + results + answer text
+      expect(result.content).toContain('Searching: "Next.js latest"');
+      expect(result.content).toContain('Next.js 16.2 Released');
+      expect(result.content).toContain('Based on search results...');
+
+      // onServerToolUse callback should have fired
+      expect(serverToolCalls).toHaveLength(1);
+      expect(serverToolCalls[0]?.name).toBe('web_search');
+      expect(serverToolCalls[0]?.input.query).toBe('Next.js latest');
+
+      // onTextDelta should have received search indicator
+      expect(textDeltas.some((d) => d.includes('Searching'))).toBe(true);
+    });
+
+    it('should parse mixed text + tool_use + server_tool_use', async () => {
+      mockClient.messages.create.mockResolvedValue(
+        makeStream([
+          {
+            type: 'message_start',
+            message: { usage: { input_tokens: 10, output_tokens: 0 }, model: 'test' },
+          },
+          { type: 'content_block_start', content_block: { type: 'text' } },
+          {
+            type: 'content_block_delta',
+            delta: { type: 'text_delta', text: 'Let me search and read.' },
+          },
+          { type: 'content_block_stop' },
+          {
+            type: 'content_block_start',
+            content_block: {
+              type: 'server_tool_use',
+              name: 'web_search',
+              input: { query: 'test' },
+            },
+          },
+          { type: 'content_block_stop' },
+          {
+            type: 'content_block_start',
+            content_block: {
+              type: 'web_search_tool_result',
+              content: [
+                { type: 'web_search_result', title: 'Result 1', url: 'https://example.com' },
+              ],
+            },
+          },
+          { type: 'content_block_stop' },
+          {
+            type: 'content_block_start',
+            content_block: { type: 'tool_use', id: 'call_2', name: 'Read', input: {} },
+          },
+          {
+            type: 'content_block_delta',
+            delta: { type: 'input_json_delta', partial_json: '{"filePath":"test.ts"}' },
+          },
+          { type: 'content_block_stop' },
+          {
+            type: 'message_delta',
+            delta: { stop_reason: 'tool_use' },
+            usage: { output_tokens: 30 },
+          },
+        ]),
+      );
+
+      const result = await provider.chat(
+        [{ role: 'user', content: 'search and read', timestamp: new Date() }],
+        { model: 'test' },
+      );
+
+      // Text parts present
+      expect(result.content).toContain('Let me search and read.');
+      expect(result.content).toContain('Searching: "test"');
+      expect(result.content).toContain('Result 1');
+
+      // FunctionTool call present
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls?.[0]?.function.name).toBe('Read');
+    });
+
+    it('should handle empty streaming response', async () => {
+      mockClient.messages.create.mockResolvedValue(
+        makeStream([
+          {
+            type: 'message_start',
+            message: { usage: { input_tokens: 5, output_tokens: 0 }, model: 'test' },
+          },
+          {
+            type: 'message_delta',
+            delta: { stop_reason: 'end_turn' },
+            usage: { output_tokens: 0 },
+          },
+        ]),
+      );
+
+      const result = await provider.chat(
+        [{ role: 'user', content: 'empty', timestamp: new Date() }],
+        { model: 'test' },
+      );
+
+      expect(result.content).toBe('');
+      expect(textDeltas).toEqual([]);
     });
   });
 });
