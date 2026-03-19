@@ -90,25 +90,13 @@ function useAutocomplete(
 }
 
 /**
- * IME composition tracking.
- * Terminal raw mode has no compositionstart/compositionend events.
- * Heuristic: if onChange fires, we're likely composing. After onChange
- * stops for IME_COMPOSE_TIMEOUT_MS, composition is considered done.
- * If Enter is pressed during composition, defer submit until composition ends.
- *
+ * Known limitation: Korean IME last character may be dropped on Enter.
+ * This is an Ink raw mode limitation — no compositionstart/compositionend
+ * events are available in terminal raw mode.
  * Reference: https://github.com/anthropics/claude-code/issues/3045
  */
-const IME_COMPOSE_TIMEOUT_MS = 100;
-
 export default function InputArea({ onSubmit, isDisabled, registry }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
-  const valueRef = React.useRef(value);
-  valueRef.current = value;
-
-  // IME composition state
-  const composingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isComposingRef = React.useRef(false);
-  const pendingSubmitRef = React.useRef(false);
 
   const {
     showPopup,
@@ -119,49 +107,21 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
     setShowPopup,
   } = useAutocomplete(value, registry);
 
-  /** Execute the actual submit with current value */
-  const doSubmit = useCallback((): void => {
-    const current = valueRef.current.trim();
-    if (current.length === 0) return;
+  const handleSubmit = useCallback(
+    (text: string): void => {
+      const trimmed = text.trim();
+      if (trimmed.length === 0) return;
 
-    if (showPopup && filteredCommands[selectedIndex]) {
-      selectCommand(filteredCommands[selectedIndex]);
-      return;
-    }
+      if (showPopup && filteredCommands[selectedIndex]) {
+        selectCommand(filteredCommands[selectedIndex]);
+        return;
+      }
 
-    setValue('');
-    onSubmit(current);
-  }, [showPopup, filteredCommands, selectedIndex, onSubmit]);
-
-  /** onChange handler — tracks IME composition state */
-  const handleChange = useCallback(
-    (newValue: string): void => {
-      setValue(newValue);
-
-      // Mark as composing and reset timer
-      isComposingRef.current = true;
-      if (composingTimerRef.current) clearTimeout(composingTimerRef.current);
-      composingTimerRef.current = setTimeout(() => {
-        isComposingRef.current = false;
-        // If Enter was pressed during composition, submit now
-        if (pendingSubmitRef.current) {
-          pendingSubmitRef.current = false;
-          doSubmit();
-        }
-      }, IME_COMPOSE_TIMEOUT_MS);
+      setValue('');
+      onSubmit(trimmed);
     },
-    [doSubmit],
+    [showPopup, filteredCommands, selectedIndex, onSubmit],
   );
-
-  /** Enter handler — defers if composing */
-  const handleSubmit = useCallback((): void => {
-    if (isComposingRef.current) {
-      // Composing — defer submit until composition ends
-      pendingSubmitRef.current = true;
-      return;
-    }
-    doSubmit();
-  }, [doSubmit]);
 
   const selectCommand = useCallback(
     (cmd: ISlashCommand): void => {
@@ -230,8 +190,8 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
             </Text>
             <TextInput
               value={value}
-              onChange={handleChange}
-              onSubmit={() => handleSubmit()}
+              onChange={setValue}
+              onSubmit={handleSubmit}
               placeholder="Type a message or /help"
             />
           </Box>
