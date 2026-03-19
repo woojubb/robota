@@ -10,6 +10,8 @@ The `@robota-sdk/agent-core` package is the unified core of the Robota SDK, prov
 
 ```bash
 npm install @robota-sdk/agent-core
+# or
+pnpm add @robota-sdk/agent-core
 ```
 
 ## Quick Start

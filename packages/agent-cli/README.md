@@ -2,7 +2,37 @@
 
 AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides tool-calling REPL with Claude Code-compatible permission modes.
 
-## Setup
+## Installation
+
+```bash
+# Global install
+npm install -g @robota-sdk/agent-cli
+
+# Or run directly with npx
+npx @robota-sdk/agent-cli
+```
+
+After installing globally, the `robota` command is available system-wide:
+
+```bash
+robota                        # Interactive REPL
+robota "prompt"               # REPL with initial prompt
+robota -p "List all files"    # Print mode (one-shot, exit after response)
+```
+
+### Environment Variables
+
+| Variable            | Description       | Required |
+| ------------------- | ----------------- | -------- |
+| `ANTHROPIC_API_KEY` | Anthropic API key | Yes      |
+
+Set your key before running:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+## Development Setup (Monorepo)
 
 ```bash
 # 1. Copy .env.example and add your Anthropic API key
@@ -14,7 +44,7 @@ pnpm build:deps
 pnpm --filter @robota-sdk/agent-cli build
 ```
 
-## Usage
+## Usage (Monorepo)
 
 ```bash
 # From monorepo root

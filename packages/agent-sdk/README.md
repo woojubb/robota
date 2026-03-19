@@ -7,6 +7,8 @@ This is the **assembly layer** of the Robota ecosystem -- it composes lower-leve
 ## Installation
 
 ```bash
+npm install @robota-sdk/agent-sdk
+# or
 pnpm add @robota-sdk/agent-sdk
 ```
 
