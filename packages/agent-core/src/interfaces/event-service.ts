@@ -1,7 +1,7 @@
 /**
  * Event service interface re-exports.
  *
- * These types are owned by @robota-sdk/agent-event-service.
+ * These types are owned by the local event-service module within agent-core.
  * This file re-exports them for use within the agents package.
  */
 export type {
@@ -15,4 +15,4 @@ export type {
   IEventService,
   IEventServiceOwnerBinding,
   TEventExtensionValue,
-} from '@robota-sdk/agent-event-service';
+} from '../event-service/index';

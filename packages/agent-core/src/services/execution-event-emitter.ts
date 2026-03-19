@@ -8,7 +8,7 @@ import type {
   IToolEventData,
   IBaseEventData,
 } from '../interfaces/event-service';
-import { isDefaultEventService, bindWithOwnerPath } from '@robota-sdk/agent-event-service';
+import { isDefaultEventService, bindWithOwnerPath } from '../event-service/index';
 import { TOOL_EVENT_PREFIX } from './tool-execution-service';
 import { EXECUTION_EVENT_PREFIX, EXECUTION_EVENTS } from './execution-constants';
 import {

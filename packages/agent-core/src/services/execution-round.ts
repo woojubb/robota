@@ -9,7 +9,7 @@ import type { ExecutionCacheService } from './cache/execution-cache-service';
 import type { ConversationSession } from '../managers/conversation-history-manager';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import { callPluginHook } from './plugin-hook-dispatcher';
-import { bindWithOwnerPath } from '@robota-sdk/agent-event-service';
+import { bindWithOwnerPath } from '../event-service/index';
 import { EXECUTION_EVENTS } from './execution-constants';
 import {
   type IResolvedProviderInfo,

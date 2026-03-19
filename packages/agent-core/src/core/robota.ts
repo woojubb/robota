@@ -43,7 +43,7 @@ import {
   DEFAULT_ABSTRACT_EVENT_SERVICE,
   isDefaultEventService,
   bindWithOwnerPath,
-} from '@robota-sdk/agent-event-service';
+} from '../event-service/index';
 import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-tool';
 import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
 import type { IModuleResultData } from '../abstracts/abstract-module';
