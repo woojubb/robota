@@ -5,6 +5,8 @@ Tool registry, tool creation infrastructure, and built-in CLI tools for the Robo
 ## Installation
 
 ```bash
+npm install @robota-sdk/agent-tools
+# or
 pnpm add @robota-sdk/agent-tools
 ```
 

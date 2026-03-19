@@ -24,6 +24,8 @@ Anthropic Provider for Robota SDK - Complete type-safe integration with Anthropi
 
 ```bash
 npm install @robota-sdk/agent-provider-anthropic @robota-sdk/agent-core @anthropic-ai/sdk
+# or
+pnpm add @robota-sdk/agent-provider-anthropic @robota-sdk/agent-core @anthropic-ai/sdk
 ```
 
 ## 🔧 Basic Usage

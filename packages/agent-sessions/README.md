@@ -14,7 +14,15 @@ The sessions package is designed for **managing multiple independent AI agents**
 - **Agent Switching**: Easy switching between different AI agents
 - **Template Integration**: Uses AgentFactory and AgentTemplates from the agents package
 
-## 🚀 Quick Start
+## Installation
+
+```bash
+npm install @robota-sdk/agent-sessions @robota-sdk/agent-core
+# or
+pnpm add @robota-sdk/agent-sessions @robota-sdk/agent-core
+```
+
+## Quick Start
 
 ```typescript
 import { SessionManager } from '@robota-sdk/agent-sessions';
@@ -300,15 +308,7 @@ The sessions package focuses on session management and does NOT include:
 - ❌ Advanced configuration tracking
 - ❌ Built-in persistence (use agents ConversationHistoryPlugin)
 
-## 📦 Installation
-
-```bash
-npm install @robota-sdk/agent-sessions @robota-sdk/agent-core
-# or
-pnpm add @robota-sdk/agent-sessions @robota-sdk/agent-core
-```
-
-## 🤝 Contributing
+## Contributing
 
 This package is part of the Robota SDK monorepo. See the main repository for contribution guidelines.
 
