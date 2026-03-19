@@ -46,6 +46,9 @@ export class AnthropicProvider extends AbstractAIProvider {
    */
   onTextDelta?: TTextDeltaCallback;
 
+  /** Callback when a server tool (web_search etc.) is invoked by the API */
+  onServerToolUse?: (toolName: string, input: Record<string, string>) => void;
+
   constructor(options: IAnthropicProviderOptions) {
     super();
     this.options = options;
@@ -181,6 +184,27 @@ export class AnthropicProvider extends AbstractAIProvider {
             currentToolId = event.content_block.id;
             currentToolName = event.content_block.name;
             currentToolJson = '';
+          } else if (event.content_block.type === 'server_tool_use') {
+            const serverBlock = event.content_block as {
+              name?: string;
+              input?: { query?: string };
+            };
+            const query = serverBlock.input?.query ?? '';
+            const toolLabel = query
+              ? `\n🔍 Searching: "${query}"\n`
+              : `\n🔍 [${serverBlock.name ?? 'server_tool'}]\n`;
+            textParts.push(toolLabel);
+            onTextDelta(toolLabel);
+            if (this.onServerToolUse) {
+              this.onServerToolUse(serverBlock.name ?? 'server_tool', { query });
+            }
+          } else if (event.content_block.type === 'web_search_tool_result') {
+            const resultBlock = event.content_block as Anthropic.Messages.WebSearchToolResultBlock;
+            const formatted = this.formatWebSearchResults(resultBlock);
+            if (formatted) {
+              textParts.push(`\n${formatted}\n\n`);
+              onTextDelta(`\n${formatted}\n\n`);
+            }
           }
           break;
 

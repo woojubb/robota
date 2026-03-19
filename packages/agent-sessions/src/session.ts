@@ -306,6 +306,16 @@ export class Session {
       (aiProvider as { onTextDelta?: (delta: string) => void }).onTextDelta = options.onTextDelta;
     }
 
+    // Wire server tool logging
+    if ('onServerToolUse' in aiProvider) {
+      const sessionRef = this;
+      (
+        aiProvider as { onServerToolUse?: (name: string, input: Record<string, string>) => void }
+      ).onServerToolUse = (name: string, input: Record<string, string>) => {
+        sessionRef.log('server_tool', { tool: name, ...input });
+      };
+    }
+
     const tools = this.initializeTools(options.additionalTools);
 
     const agentConfig: IAgentConfig = {
