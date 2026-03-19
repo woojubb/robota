@@ -23,7 +23,7 @@ const DEFAULTS: IResolvedConfig = {
   defaultTrustLevel: 'moderate',
   provider: {
     name: 'anthropic',
-    model: 'claude-sonnet-4-6',
+    model: 'claude-opus-4-5',
     apiKey: undefined,
   },
   permissions: {

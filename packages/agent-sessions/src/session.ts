@@ -354,9 +354,13 @@ export class Session {
     this.log('user', { content: message });
 
     const history = this.robota.getHistory();
+    const historyJson = JSON.stringify(history);
     this.log('pre_run', {
       historyLength: history.length,
-      estimatedChars: JSON.stringify(history).length,
+      historyChars: historyJson.length,
+      historyEstTokens: Math.ceil(historyJson.length / 4),
+      model: this.config.provider.model,
+      maxTokens: this.contextMaxTokens,
     });
 
     const response = await this.robota.run(message);
@@ -492,7 +496,13 @@ export class Session {
         }
 
         const result = await originalExecute(parameters, context as IToolExecutionContext);
-        session.log('tool_result', { tool: toolName, success: result.success });
+        const dataSize =
+          typeof result.data === 'string' ? result.data.length : JSON.stringify(result.data).length;
+        session.log('tool_result', {
+          tool: toolName,
+          success: result.success,
+          dataChars: dataSize,
+        });
         session.firePostToolHook(hookInput, result);
         return result;
       } catch (err) {
