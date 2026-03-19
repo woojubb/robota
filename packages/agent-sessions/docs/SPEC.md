@@ -107,6 +107,15 @@ Types consumed from other packages (not owned here):
 | `list`   | `() => ISessionRecord[]`                      | List all sessions, sorted by updatedAt descending.             |
 | `delete` | `(id: string) => void`                        | Delete a session file. No-ops if not found.                    |
 
+## Session Logging
+
+The session log records structured events to a JSONL file for diagnostics and replay:
+
+- **`server_tool` event** -- Recorded when a server-managed tool (e.g., web search) executes during streaming. Includes the tool name and query.
+- **`pre_run` event** -- Recorded at the start of each `run()` call. Includes the provider name and `webToolsEnabled` flag.
+- **`assistant` event** -- Recorded after each assistant response. Includes `historyStructure`: an array with per-message metadata (role, contentLength, hasToolCalls, toolCallNames, metadata).
+- **`onServerToolUse` callback wiring** -- When session logging is enabled, the `onServerToolUse` callback from the provider is automatically wired to emit `server_tool` log events.
+
 ## Extension Points
 
 1. **`ISessionOptions.provider`** -- Inject a custom `IAIProvider` to replace the default Anthropic provider (used in tests with mock providers).

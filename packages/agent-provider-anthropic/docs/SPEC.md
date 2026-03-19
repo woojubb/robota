@@ -71,6 +71,20 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 | `createAnthropicProvider`               | function         | `src/index.ts`                   | Factory function for creating an Anthropic provider (stub implementation).                                                                             |
 | All types from `src/types/api-types.ts` | interfaces/types | `src/types/api-types.ts`         | Anthropic API type definitions (messages, requests, tools, streaming, errors). Exported transitively via `src/types.ts` re-export pattern.             |
 
+## Web Search Support
+
+The provider supports Anthropic's server-side web search tool:
+
+- **`enableWebTools` flag** -- When set to `true` in chat options, includes the `web_search_20250305` server tool in API requests. This is a server-managed tool (not a `FunctionTool`) that Anthropic executes during response generation.
+- **`onServerToolUse` callback** -- Fires when a server tool executes during streaming. The callback receives the tool name and input (e.g., query string). Consumers use this to display search status indicators.
+- **Streaming block handling** -- The streaming parser handles `server_tool_use` and `web_search_tool_result` content blocks. When a `server_tool_use` block is encountered, the provider emits a search indicator (e.g., "Searching...").
+- **`formatWebSearchResults()`** -- Utility function that converts raw web search result blocks into human-readable text with source URLs and snippets.
+
+## SDK Version and Message Format
+
+- **Anthropic SDK**: `@anthropic-ai/sdk` v0.80.0 (upgraded from v0.24.3).
+- **System message extraction**: System messages are extracted from the message array and sent via the dedicated `system` parameter in the API request, rather than being included as a `role: user` message. This follows the current Anthropic API best practice.
+
 ## Extension Points
 
 - **Executor injection**: The provider accepts an `IExecutor` via `IAnthropicProviderOptions.executor`, enabling delegation of chat operations to local or remote executors without modifying the provider.

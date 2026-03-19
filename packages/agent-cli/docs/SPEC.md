@@ -218,6 +218,19 @@ robota --max-turns <n>              # Limit turns
 robota --version                    # Version
 ```
 
+## Tool Output Limits
+
+- **Universal cap**: Tool output is capped at 30,000 characters. Outputs exceeding this limit are middle-truncated (first and last portions are kept, with a truncation marker in the middle).
+- **Glob entry limit**: The Glob tool defaults to a maximum of 1,000 entries per invocation to prevent oversized responses.
+
+## Session Logging
+
+Session logging is enabled by default. Log files are written to `.robota/logs/{sessionId}.jsonl` in JSONL format, capturing structured events (pre_run, assistant, server_tool, etc.) for diagnostics and replay.
+
+## Known Limitations
+
+- **Korean IME (Input Method Editor)**: Ink's raw mode does not fully support Korean IME composition. This is a known upstream limitation shared with Claude Code (see Claude Code issue #3045). Composed Korean characters may not display correctly during input.
+
 ## Dependencies
 
 | Package                 | Purpose                         |
