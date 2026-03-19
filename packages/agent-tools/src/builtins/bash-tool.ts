@@ -42,6 +42,7 @@ async function runBash(args: TBashArgs): Promise<string> {
     const child = spawn('sh', ['-c', command], {
       cwd: workingDirectory ?? process.cwd(),
       env: process.env,
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     child.stdout.on('data', (chunk: Buffer) => {
