@@ -91,6 +91,10 @@ function useAutocomplete(
 
 export default function InputArea({ onSubmit, isDisabled, registry }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
+  // Ref tracks the latest value for IME-safe submit
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+
   const {
     showPopup,
     filteredCommands,
@@ -100,10 +104,11 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
     setShowPopup,
   } = useAutocomplete(value, registry);
 
-  const handleSubmit = useCallback(
-    (text: string): void => {
-      const trimmed = text.trim();
-      if (trimmed.length === 0) return;
+  // Use setTimeout(0) to let IME composition complete before reading value
+  const handleSubmit = useCallback((): void => {
+    setTimeout(() => {
+      const current = valueRef.current.trim();
+      if (current.length === 0) return;
 
       if (showPopup && filteredCommands[selectedIndex]) {
         selectCommand(filteredCommands[selectedIndex]);
@@ -111,10 +116,9 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
       }
 
       setValue('');
-      onSubmit(trimmed);
-    },
-    [showPopup, filteredCommands, selectedIndex, onSubmit],
-  );
+      onSubmit(current);
+    }, 0);
+  }, [showPopup, filteredCommands, selectedIndex, onSubmit]);
 
   const selectCommand = useCallback(
     (cmd: ISlashCommand): void => {
@@ -184,7 +188,7 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
             <TextInput
               value={value}
               onChange={setValue}
-              onSubmit={handleSubmit}
+              onSubmit={() => handleSubmit()}
               placeholder="Type a message or /help"
             />
           </Box>
