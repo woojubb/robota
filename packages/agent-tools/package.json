@@ -29,9 +29,12 @@
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
     "clean": "rimraf dist"
   },
-  "peerDependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
+  "dependencies": {
+    "fast-glob": "^3.3.0",
     "zod": "^3.24.0"
+  },
+  "peerDependencies": {
+    "@robota-sdk/agent-core": "workspace:*"
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",

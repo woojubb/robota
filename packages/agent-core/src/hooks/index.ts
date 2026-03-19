@@ -1,6 +1,5 @@
-/**
- * Hook types — re-exported from @robota-sdk/agent-core.
- */
+// Hooks module
+export { runHooks } from './hook-runner.js';
 export type {
   THookEvent,
   THooksConfig,
@@ -8,4 +7,4 @@ export type {
   IHookDefinition,
   IHookInput,
   IHookResult,
-} from '@robota-sdk/agent-core';
+} from './types.js';

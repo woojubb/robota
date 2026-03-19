@@ -16,6 +16,12 @@
   "references": [
     {
       "path": "../agent-core"
+    },
+    {
+      "path": "../agent-tools"
+    },
+    {
+      "path": "../agent-provider-anthropic"
     }
   ]
 }

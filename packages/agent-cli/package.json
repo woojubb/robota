@@ -34,7 +34,9 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-sdk": "workspace:*",
+    "chalk": "^5.3.0",
     "cli-highlight": "^2.1.0",
     "ink": "^6.8.0",
     "ink-select-input": "^6.2.0",

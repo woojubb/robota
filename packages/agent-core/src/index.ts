@@ -363,3 +363,40 @@ export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils
 // These exports have been moved to maintain clean architecture separation
 
 // Real-Time System Integration Test - MOVED to apps/web due to React-Flow dependencies
+
+// ===== PERMISSIONS MODULE =====
+/**
+ * Permission system — Claude Code compatible permission evaluation.
+ *
+ * @public
+ */
+export type {
+  TPermissionMode,
+  TTrustLevel,
+  TPermissionDecision,
+  TToolArgs,
+  IPermissionLists,
+  TKnownToolName,
+} from './permissions/index.js';
+export {
+  TRUST_TO_MODE,
+  evaluatePermission,
+  MODE_POLICY,
+  UNKNOWN_TOOL_FALLBACK,
+} from './permissions/index.js';
+
+// ===== HOOKS MODULE =====
+/**
+ * Hook system — Claude Code compatible lifecycle hooks.
+ *
+ * @public
+ */
+export type {
+  THookEvent,
+  THooksConfig,
+  IHookGroup,
+  IHookDefinition,
+  IHookInput,
+  IHookResult,
+} from './hooks/index.js';
+export { runHooks } from './hooks/index.js';

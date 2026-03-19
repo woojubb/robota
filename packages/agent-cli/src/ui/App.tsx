@@ -2,15 +2,13 @@ import React, { useState, useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { Session } from '@robota-sdk/agent-sdk';
 import type {
-  TPermissionMode,
-  ITerminalOutput,
-  ISpinner,
-  TToolArgs,
   IResolvedConfig,
   ILoadedContext,
   IProjectInfo,
   SessionStore,
 } from '@robota-sdk/agent-sdk';
+import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
+import type { ITerminalOutput, ISpinner } from '../types.js';
 import type { IChatMessage, IPermissionRequest } from './types.js';
 import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
