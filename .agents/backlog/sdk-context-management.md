@@ -49,3 +49,16 @@ Criteria for decision (same as permissions/hooks/tools split):
 - Is it **SDK-specific** (only local dev environment)? → agent-sdk
 
 The token counting itself likely belongs in **agent-core** (provider response includes usage tokens), while the percentage calculation and threshold logic could live in **agent-sessions** (Session tracks conversation state).
+
+## Implementation Prerequisite: Research
+
+Before implementation, research how Claude Code handles context management:
+
+1. How does Claude Code track context window usage?
+2. What is the auto-compaction algorithm (threshold, what gets dropped first)?
+3. How does `/compact` work (what prompt is used for summarization)?
+4. How is "Compact Instructions" in CLAUDE.md used during compaction?
+5. How does the context indicator in the UI work?
+6. How are tool outputs handled differently from conversation messages during compaction?
+
+**Process**: Research → present findings with source links → discuss design decisions with user → implement.
