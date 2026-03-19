@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { IChatMessage } from './types.js';
+import { renderMarkdown } from './render-markdown.js';
 
 interface IProps {
   messages: IChatMessage[];
@@ -48,7 +49,9 @@ function MessageItem({ message }: { message: IChatMessage }): React.ReactElement
       </Box>
       <Text> </Text>
       <Box marginLeft={2}>
-        <Text wrap="wrap">{message.content}</Text>
+        <Text wrap="wrap">
+          {message.role === 'assistant' ? renderMarkdown(message.content) : message.content}
+        </Text>
       </Box>
     </Box>
   );
