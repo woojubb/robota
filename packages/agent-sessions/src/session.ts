@@ -708,21 +708,43 @@ export class Session {
     ].join('\n');
   }
 
-  /** Extract token usage from the latest assistant messages in history */
+  /**
+   * Estimate token usage from conversation history.
+   *
+   * First tries to read actual token counts from message metadata
+   * (provider response). Falls back to character-based estimation
+   * (chars / 4) which is a reasonable approximation for English/code.
+   */
   private updateTokenUsageFromHistory(): void {
     const history = this.robota.getHistory();
-    let totalInputTokens = 0;
 
+    // Try metadata-based counting first
+    let metadataTokens = 0;
+    let hasMetadata = false;
     for (const msg of history) {
       if (msg.metadata) {
         const input = msg.metadata['inputTokens'];
+        if (typeof input === 'number') {
+          metadataTokens += input;
+          hasMetadata = true;
+        }
         const output = msg.metadata['outputTokens'];
-        if (typeof input === 'number') totalInputTokens += input;
-        if (typeof output === 'number') totalInputTokens += output;
+        if (typeof output === 'number') {
+          metadataTokens += output;
+          hasMetadata = true;
+        }
       }
     }
 
-    this.contextUsedTokens = totalInputTokens;
+    if (hasMetadata) {
+      this.contextUsedTokens = metadataTokens;
+      return;
+    }
+
+    // Fallback: estimate from character count (chars / 4)
+    const CHARS_PER_TOKEN = 4;
+    const totalChars = JSON.stringify(history).length;
+    this.contextUsedTokens = Math.ceil(totalChars / CHARS_PER_TOKEN);
   }
 
   /** Clear conversation history */
