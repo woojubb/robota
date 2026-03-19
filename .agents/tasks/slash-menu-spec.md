@@ -192,13 +192,13 @@ Commands are grouped by source with subtle separators:
 
 ## Implementation Plan
 
-### Phase 1: Core Autocomplete (this branch)
+### Phase 1: Core Autocomplete (DONE)
 
-- [ ] `ISlashCommand` and `ICommandSource` types
-- [ ] Built-in command source (hardcoded commands)
-- [ ] `SlashAutocomplete` Ink component (popup, filtering, navigation)
-- [ ] Wire into `InputArea` — detect `/` and show popup
-- [ ] Subcommand navigation for /mode and /model
+- [x] `ISlashCommand` and `ICommandSource` types
+- [x] Built-in command source (9 commands + subcommands)
+- [x] `SlashAutocomplete` Ink component (popup, filtering, scroll)
+- [x] Wire into `InputArea` — detect `/` and show popup
+- [x] Subcommand navigation for /mode and /model
 
 ### Phase 2: Skill Discovery
 

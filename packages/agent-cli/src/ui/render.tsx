@@ -20,6 +20,7 @@ export interface IRenderOptions {
   sessionStore?: SessionStore;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
+  cwd?: string;
 }
 
 export function renderApp(options: IRenderOptions): void {
