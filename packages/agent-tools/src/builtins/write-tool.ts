@@ -10,8 +10,8 @@ import type { IZodSchema } from '../implementations/function-tool/types';
 import type { TToolResult } from '../types/tool-result.js';
 
 const WriteSchema = z.object({
-  filePath: z.string().describe('Absolute or relative path to the file to write'),
-  content: z.string().describe('Content to write into the file'),
+  filePath: z.string().describe('The absolute path to the file to write'),
+  content: z.string().describe('The content to write to the file'),
 });
 
 type TWriteArgs = z.infer<typeof WriteSchema>;
@@ -44,7 +44,7 @@ async function writeFileTool(args: TWriteArgs): Promise<string> {
  */
 export const writeTool = createZodFunctionTool(
   'Write',
-  'Write content to a file, automatically creating parent directories if needed.',
+  'Writes a file to the local filesystem. This will overwrite an existing file if one exists.\n\nALWAYS prefer the Edit tool for modifying existing files — it only sends the diff. Only use this tool to create new files or for complete rewrites.\n\nNEVER create documentation files (*.md) or README files unless explicitly requested by the user.',
   WriteSchema as unknown as IZodSchema,
   async (params) => {
     return writeFileTool(params as TWriteArgs);

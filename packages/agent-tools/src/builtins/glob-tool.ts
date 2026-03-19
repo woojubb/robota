@@ -16,12 +16,21 @@ import type { TToolResult } from '../types/tool-result.js';
 const DEFAULT_MAX_RESULTS = 1000;
 
 const GlobSchema = z.object({
-  pattern: z.string().describe('Glob pattern to match (e.g. "**/*.ts")'),
+  pattern: z
+    .string()
+    .describe('The glob pattern to match files against (e.g. "**/*.ts", "src/**/*.tsx")'),
   path: z
     .string()
     .optional()
-    .describe('Base directory to search in (default: current working directory)'),
-  limit: z.number().optional().describe('Maximum number of results to return (default: 1000)'),
+    .describe(
+      'The directory to search in. Defaults to the current working directory. Must be a valid directory path if provided',
+    ),
+  limit: z
+    .number()
+    .optional()
+    .describe(
+      'Maximum number of results to return (default: 1000). Use a smaller limit to save context space',
+    ),
 });
 
 type TGlobArgs = z.infer<typeof GlobSchema>;
@@ -90,7 +99,7 @@ async function globFileTool(args: TGlobArgs): Promise<string> {
  */
 export const globTool = createZodFunctionTool(
   'Glob',
-  'Find files matching a glob pattern. Results sorted by modification time (most recent first).',
+  "Fast file pattern matching tool that works with any codebase size.\n\nSupports glob patterns like '**/*.js' or 'src/**/*.ts'. Returns matching file paths sorted by modification time.\n\nUse this tool when you need to find files by name patterns. When doing an open-ended search that may require multiple rounds, use the Agent tool instead.\n\nDefault limit is 1000 results. Use the limit parameter if you need fewer results to save context space.",
   GlobSchema as unknown as IZodSchema,
   async (params) => {
     return globFileTool(params as TGlobArgs);
