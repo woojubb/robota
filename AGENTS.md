@@ -83,14 +83,14 @@ pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
 
 All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md).
 
-| Group                | Document                                                       | Key rules                                               |
-| -------------------- | -------------------------------------------------------------- | ------------------------------------------------------- |
-| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes |
-| Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification        |
-| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | Runtime=ComfyUI immutable, orchestrator=Robota own      |
-| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only          |
-| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy, conventional commits, worktree           |
-| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports     |
+| Group                | Document                                                       | Key rules                                                             |
+| -------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes               |
+| Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification, publish safety gate |
+| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | Runtime=ComfyUI immutable, orchestrator=Robota own                    |
+| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                        |
+| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy, conventional commits, worktree                         |
+| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                   |
 
 ### Type System (Strict)
 
@@ -221,6 +221,7 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 8   | Modifying a spec without running the conformance loop            | Every spec change requires `spec-code-conformance` verification               |
 | 9   | Using `try/catch` as a fallback mechanism                        | No fallback policy; terminal failures stay terminal                           |
 | 10  | Writing implementation before a failing test                     | TDD: red-green-refactor; write the test first                                 |
+| 11  | Publishing without dry-run                                       | Always run `publish --dry-run` first; see `process.md` Publish Safety Gate    |
 
 ## Conflict Scan Commands
 
