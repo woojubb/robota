@@ -18,6 +18,7 @@ import type {
   IToolResult,
   TToolParameters,
   IToolExecutionContext,
+  TUniversalMessage,
 } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import type { ITerminalOutput, TPermissionMode } from './types.js';
@@ -35,12 +36,24 @@ import { writeTool } from './tools/write-tool.js';
 import { editTool } from './tools/edit-tool.js';
 import { globTool } from './tools/glob-tool.js';
 import { grepTool } from './tools/grep-tool.js';
+import { agentTool, setAgentToolDeps } from './tools/agent-tool.js';
 import type { SessionStore, ISessionRecord } from './session-store.js';
 import { runHooks } from './hooks/hook-runner.js';
 import type { THooksConfig, IHookInput } from './hooks/types.js';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
+
+/** Returned when the user denies a permission prompt. success:true prevents ToolExecutionError. */
+const PERMISSION_DENIED_RESULT: IToolResult = {
+  success: true,
+  data: JSON.stringify({
+    success: false,
+    output: '',
+    error: 'Permission denied. The user did not approve this action.',
+  }),
+  metadata: {},
+};
 
 /**
  * Custom permission handler — called when a tool needs user approval.
@@ -80,6 +93,7 @@ const TOOL_DESCRIPTIONS = [
   'Edit — replace a string in a file',
   'Glob — find files matching a pattern',
   'Grep — search file contents with regex',
+  'Agent — spawn a sub-agent with isolated context for complex tasks',
 ];
 
 /**
@@ -136,11 +150,7 @@ export class Session {
       (aiProvider as { onTextDelta?: (delta: string) => void }).onTextDelta = options.onTextDelta;
     }
 
-    // Register all 6 tools — each wrapped with permission checking
-    const rawTools = [bashTool, readTool, writeTool, editTool, globTool, grepTool];
-    const tools: IToolWithEventService[] = rawTools.map((tool) =>
-      this.wrapToolWithPermission(tool as unknown as IToolWithEventService),
-    );
+    const tools = this.initializeTools(config, context, projectInfo);
 
     const agentConfig: IAgentConfig = {
       name: 'robota-cli',
@@ -178,6 +188,22 @@ export class Session {
     return new AnthropicProvider({ apiKey });
   }
 
+  /** Initialize agent tool dependencies and wrap all tools with permission checking */
+  private initializeTools(
+    config: IResolvedConfig,
+    context: ILoadedContext,
+    projectInfo?: IProjectInfo,
+  ): IToolWithEventService[] {
+    setAgentToolDeps({
+      config,
+      context,
+      projectInfo: projectInfo ?? { type: 'unknown', language: 'unknown' },
+    });
+
+    const rawTools = [bashTool, readTool, writeTool, editTool, globTool, grepTool, agentTool];
+    return rawTools.map((tool) => this.wrapToolWithPermission(tool as IToolWithEventService));
+  }
+
   /**
    * Send a message to the agent and return the response.
    *
@@ -209,7 +235,7 @@ export class Session {
       cwd: this.cwd,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
-      messages: history as unknown[],
+      messages: history,
     };
 
     this.sessionStore.save(record);
@@ -247,18 +273,6 @@ export class Session {
     const session = this;
     const originalExecute = tool.execute.bind(tool);
 
-    // Return success:true so ToolManager doesn't throw ToolExecutionError.
-    // The denial message is in the data — the LLM reads it and adjusts.
-    const DENIED_RESULT: IToolResult = {
-      success: true,
-      data: JSON.stringify({
-        success: false,
-        output: '',
-        error: 'Permission denied. The user did not approve this action.',
-      }),
-      metadata: {},
-    };
-
     const wrappedTool = Object.create(tool) as IToolWithEventService;
     wrappedTool.execute = async (
       parameters: TToolParameters,
@@ -269,54 +283,18 @@ export class Session {
       // corrupts the conversation and causes a 400 error on the next API call.
       try {
         const toolName = tool.getName();
+        const hookInput = session.buildHookInput(toolName, parameters);
 
-        // Run PreToolUse hooks — exit code 2 blocks the tool
-        const hookInput: IHookInput = {
-          session_id: session.sessionId,
-          cwd: session.cwd,
-          hook_event_name: 'PreToolUse',
-          tool_name: toolName,
-          tool_input: parameters as Record<string, string | number | boolean | object>,
-        };
-        const hookResult = await runHooks(
-          session.config.hooks as THooksConfig | undefined,
-          'PreToolUse',
-          hookInput,
-        );
-        if (hookResult.blocked) {
-          return {
-            success: true,
-            data: JSON.stringify({
-              success: false,
-              output: '',
-              error: `Blocked by hook: ${hookResult.reason}`,
-            }),
-            metadata: {},
-          };
-        }
+        const preResult = await session.runPreToolHook(hookInput);
+        if (preResult) return preResult;
 
-        // Permission check
         const allowed = await session.checkPermission(toolName, parameters as TToolArgs);
-        if (!allowed) {
-          return DENIED_RESULT;
-        }
+        if (!allowed) return PERMISSION_DENIED_RESULT;
 
         const result = await originalExecute(parameters, context as IToolExecutionContext);
-
-        // Run PostToolUse hooks (fire and forget — don't block)
-        const postHookInput: IHookInput = {
-          ...hookInput,
-          hook_event_name: 'PostToolUse',
-          tool_output: typeof result.data === 'string' ? result.data : JSON.stringify(result.data),
-        };
-        runHooks(
-          session.config.hooks as THooksConfig | undefined,
-          'PostToolUse',
-          postHookInput,
-        ).catch(() => {});
-
+        session.firePostToolHook(hookInput, result);
         return result;
-      } catch (err: unknown) {
+      } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
           success: true,
@@ -327,6 +305,50 @@ export class Session {
     };
 
     return wrappedTool;
+  }
+
+  /** Build a hook input object for tool execution hooks */
+  private buildHookInput(toolName: string, parameters: TToolParameters): IHookInput {
+    return {
+      session_id: this.sessionId,
+      cwd: this.cwd,
+      hook_event_name: 'PreToolUse',
+      tool_name: toolName,
+      tool_input: parameters as Record<string, string | number | boolean | object>,
+    };
+  }
+
+  /** Run PreToolUse hooks; returns a denial IToolResult if blocked, or null to proceed */
+  private async runPreToolHook(hookInput: IHookInput): Promise<IToolResult | null> {
+    const hookResult = await runHooks(
+      this.config.hooks as THooksConfig | undefined,
+      'PreToolUse',
+      hookInput,
+    );
+    if (hookResult.blocked) {
+      return {
+        success: true,
+        data: JSON.stringify({
+          success: false,
+          output: '',
+          error: `Blocked by hook: ${hookResult.reason}`,
+        }),
+        metadata: {},
+      };
+    }
+    return null;
+  }
+
+  /** Fire PostToolUse hooks (fire and forget) */
+  private firePostToolHook(hookInput: IHookInput, result: IToolResult): void {
+    const postHookInput: IHookInput = {
+      ...hookInput,
+      hook_event_name: 'PostToolUse',
+      tool_output: typeof result.data === 'string' ? result.data : JSON.stringify(result.data),
+    };
+    runHooks(this.config.hooks as THooksConfig | undefined, 'PostToolUse', postHookInput).catch(
+      () => {},
+    );
   }
 
   /** Evaluate permission for a tool call using the current mode and config */
@@ -352,7 +374,7 @@ export class Session {
   }
 
   /** Get conversation history */
-  getHistory(): unknown[] {
-    return this.robota.getHistory() as unknown[];
+  getHistory(): TUniversalMessage[] {
+    return this.robota.getHistory();
   }
 }
