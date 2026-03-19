@@ -31,6 +31,8 @@ import {
   editTool,
   globTool,
   grepTool,
+  webFetchTool,
+  webSearchTool,
 } from '@robota-sdk/agent-tools';
 import { mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -208,7 +210,7 @@ export interface ISessionOptions {
   logDir?: string;
 }
 
-/** Names of the 6 built-in CLI tools */
+/** Names of the built-in tools */
 const TOOL_DESCRIPTIONS = [
   'Bash — execute shell commands',
   'Read — read file contents with line numbers',
@@ -216,6 +218,8 @@ const TOOL_DESCRIPTIONS = [
   'Edit — replace a string in a file',
   'Glob — find files matching a pattern',
   'Grep — search file contents with regex',
+  'WebFetch — fetch a URL and return content as text',
+  'WebSearch — search the internet (requires BRAVE_API_KEY)',
 ];
 
 /**
@@ -342,6 +346,8 @@ export class Session {
       editTool as IToolWithEventService,
       globTool as IToolWithEventService,
       grepTool as IToolWithEventService,
+      webFetchTool as IToolWithEventService,
+      webSearchTool as IToolWithEventService,
       ...(additionalTools ?? []),
     ];
     return rawTools.map((tool) => this.wrapToolWithPermission(tool));
