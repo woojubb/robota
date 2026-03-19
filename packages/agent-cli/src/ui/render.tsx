@@ -24,12 +24,21 @@ export interface IRenderOptions {
 }
 
 export function renderApp(options: IRenderOptions): void {
+  // Catch unhandled rejections to prevent silent Ink crashes
+  process.on('unhandledRejection', (reason) => {
+    process.stderr.write(`\n[UNHANDLED REJECTION] ${reason}\n`);
+    if (reason instanceof Error) {
+      process.stderr.write(`${reason.stack}\n`);
+    }
+  });
+
   const instance = render(<App {...options} />, {
-    // Exit on Ctrl+C
     exitOnCtrlC: true,
   });
 
-  instance.waitUntilExit().catch(() => {
-    // Silently handle exit
+  instance.waitUntilExit().catch((err) => {
+    if (err) {
+      process.stderr.write(`\n[EXIT ERROR] ${err}\n`);
+    }
   });
 }
