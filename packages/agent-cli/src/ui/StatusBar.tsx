@@ -2,11 +2,23 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
+/** Threshold boundaries for context percentage color coding */
+const CONTEXT_YELLOW_THRESHOLD = 70;
+const CONTEXT_RED_THRESHOLD = 90;
+
 interface IProps {
   permissionMode: TPermissionMode;
   sessionId: string;
   messageCount: number;
   isThinking: boolean;
+  contextPercentage: number;
+}
+
+/** Return the color for the context percentage indicator */
+function getContextColor(percentage: number): string {
+  if (percentage >= CONTEXT_RED_THRESHOLD) return 'red';
+  if (percentage >= CONTEXT_YELLOW_THRESHOLD) return 'yellow';
+  return 'green';
 }
 
 export default function StatusBar({
@@ -14,7 +26,10 @@ export default function StatusBar({
   sessionId: _sessionId,
   messageCount,
   isThinking,
+  contextPercentage,
 }: IProps): React.ReactElement {
+  const contextColor = getContextColor(contextPercentage);
+
   return (
     <Box
       borderStyle="single"
@@ -28,6 +43,8 @@ export default function StatusBar({
           Mode:
         </Text>{' '}
         <Text>{permissionMode}</Text>
+        {'  |  '}
+        <Text color={contextColor}>Context: {Math.round(contextPercentage)}%</Text>
       </Text>
       <Text>
         {isThinking && <Text color="yellow">Thinking... </Text>}

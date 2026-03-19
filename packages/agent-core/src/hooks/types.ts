@@ -3,7 +3,13 @@
  */
 
 /** Hook lifecycle events */
-export type THookEvent = 'PreToolUse' | 'PostToolUse' | 'SessionStart' | 'Stop';
+export type THookEvent =
+  | 'PreToolUse'
+  | 'PostToolUse'
+  | 'SessionStart'
+  | 'Stop'
+  | 'PreCompact'
+  | 'PostCompact';
 
 /** A single hook definition */
 export interface IHookDefinition {
@@ -30,6 +36,10 @@ export interface IHookInput {
   tool_name?: string;
   tool_input?: Record<string, string | number | boolean | object>;
   tool_output?: string;
+  /** Compaction trigger source (PreCompact/PostCompact only) */
+  trigger?: 'auto' | 'manual';
+  /** Compaction summary text (PostCompact only) */
+  compact_summary?: string;
 }
 
 /** Hook execution result */

@@ -105,11 +105,12 @@ type TAddMessage = (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
 
 const HELP_TEXT = [
   'Available commands:',
-  '  /help      — Show this help',
-  '  /clear     — Clear conversation',
-  '  /mode [m]  — Show/change permission mode',
-  '  /cost      — Show session info',
-  '  /exit      — Exit CLI',
+  '  /help              — Show this help',
+  '  /clear             — Clear conversation',
+  '  /compact [instr]   — Compact context (optional focus instructions)',
+  '  /mode [m]          — Show/change permission mode',
+  '  /cost              — Show session info',
+  '  /exit              — Exit CLI',
 ].join('\n');
 
 /** Handle the /mode slash command. */
@@ -130,15 +131,15 @@ function handleModeCommand(
   return true;
 }
 
-/** Execute a parsed slash command. */
-function executeSlashCommand(
+/** Execute a parsed slash command. Returns true if handled. */
+async function executeSlashCommand(
   cmd: string,
   parts: string[],
   session: Session,
   addMessage: TAddMessage,
   setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
   exit: () => void,
-): boolean {
+): Promise<boolean> {
   switch (cmd) {
     case 'help':
       addMessage({ role: 'system', content: HELP_TEXT });
@@ -148,6 +149,18 @@ function executeSlashCommand(
       session.clearHistory();
       addMessage({ role: 'system', content: 'Conversation cleared.' });
       return true;
+    case 'compact': {
+      const instructions = parts.slice(1).join(' ').trim() || undefined;
+      const before = session.getContextState().usedPercentage;
+      addMessage({ role: 'system', content: 'Compacting context...' });
+      await session.compact(instructions);
+      const after = session.getContextState().usedPercentage;
+      addMessage({
+        role: 'system',
+        content: `Context compacted: ${Math.round(before)}% -> ${Math.round(after)}%`,
+      });
+      return true;
+    }
     case 'mode':
       return handleModeCommand(parts[1], session, addMessage);
     case 'cost':
@@ -165,15 +178,15 @@ function executeSlashCommand(
   }
 }
 
-/** Hook: handle slash commands. Returns a handler function. */
+/** Hook: handle slash commands. Returns an async handler function. */
 function useSlashCommands(
   session: Session,
   addMessage: TAddMessage,
   setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
   exit: () => void,
-): (input: string) => boolean {
+): (input: string) => Promise<boolean> {
   return useCallback(
-    (input: string): boolean => {
+    async (input: string): Promise<boolean> => {
       const parts = input.slice(1).split(/\s+/);
       const cmd = parts[0]?.toLowerCase() ?? '';
       return executeSlashCommand(cmd, parts, session, addMessage, setMessages, exit);
@@ -203,14 +216,17 @@ function StreamingIndicator({ text }: { text: string }): React.ReactElement {
 function useSubmitHandler(
   session: Session,
   addMessage: TAddMessage,
-  handleSlashCommand: (input: string) => boolean,
+  handleSlashCommand: (input: string) => Promise<boolean>,
   clearStreamingText: () => void,
   setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
+  setContextPercentage: React.Dispatch<React.SetStateAction<number>>,
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
       if (input.startsWith('/')) {
-        handleSlashCommand(input);
+        await handleSlashCommand(input);
+        // Update context percentage after slash commands (e.g. /compact, /clear)
+        setContextPercentage(session.getContextState().usedPercentage);
         return;
       }
 
@@ -222,6 +238,8 @@ function useSubmitHandler(
         const response = await session.run(input);
         clearStreamingText();
         addMessage({ role: 'assistant', content: response || '(empty response)' });
+        // Update context percentage after each run
+        setContextPercentage(session.getContextState().usedPercentage);
       } catch (err) {
         clearStreamingText();
         const errMsg = err instanceof Error ? err.message : String(err);
@@ -230,7 +248,14 @@ function useSubmitHandler(
         setIsThinking(false);
       }
     },
-    [session, addMessage, handleSlashCommand, clearStreamingText, setIsThinking],
+    [
+      session,
+      addMessage,
+      handleSlashCommand,
+      clearStreamingText,
+      setIsThinking,
+      setContextPercentage,
+    ],
   );
 }
 
@@ -239,6 +264,7 @@ export default function App(props: IProps): React.ReactElement {
   const { session, permissionRequest, streamingText, clearStreamingText } = useSession(props);
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
+  const [contextPercentage, setContextPercentage] = useState(0);
 
   const handleSlashCommand = useSlashCommands(session, addMessage, setMessages, exit);
   const handleSubmit = useSubmitHandler(
@@ -247,6 +273,7 @@ export default function App(props: IProps): React.ReactElement {
     handleSlashCommand,
     clearStreamingText,
     setIsThinking,
+    setContextPercentage,
   );
 
   useInput(
@@ -278,6 +305,7 @@ export default function App(props: IProps): React.ReactElement {
         sessionId={session.getSessionId()}
         messageCount={messages.length}
         isThinking={isThinking}
+        contextPercentage={contextPercentage}
       />
       <InputArea onSubmit={handleSubmit} isDisabled={isThinking || !!permissionRequest} />
     </Box>
