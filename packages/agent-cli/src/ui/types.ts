@@ -1,6 +1,6 @@
 /** UI-layer message types for the Ink TUI */
 
-import type { TToolArgs } from '@robota-sdk/agent-sdk';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 
 export interface IChatMessage {
   id: string;

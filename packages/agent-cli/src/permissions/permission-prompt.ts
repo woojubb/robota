@@ -1,12 +1,11 @@
 /**
- * Permission prompt — this is now CLI-specific.
- * Re-exported here for backward compatibility.
- * The canonical implementation lives in @robota-sdk/agent-cli.
+ * Interactive permission prompt — asks the user whether to allow a tool invocation
+ * using an arrow-key selector.
  */
 
 import chalk from 'chalk';
 import type { ITerminalOutput } from '../types.js';
-import type { TToolArgs } from './permission-gate.js';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 
 const PERMISSION_OPTIONS = ['Allow', 'Deny'];
 const ALLOW_INDEX = 0;
@@ -26,6 +25,13 @@ function formatArgs(toolArgs: TToolArgs): string {
 
 /**
  * Prompt the user for approval before running a tool.
+ *
+ * Displays the tool name and arguments, then shows an arrow-key selector
+ * with Allow / Deny options. Returns true if the user selects Allow.
+ *
+ * @param terminal  Terminal output / input abstraction
+ * @param toolName  Name of the tool (e.g. "Bash")
+ * @param toolArgs  Arguments passed to the tool
  */
 export async function promptForApproval(
   terminal: ITerminalOutput,

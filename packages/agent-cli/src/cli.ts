@@ -25,8 +25,11 @@ import {
   detectProject,
   Session,
   SessionStore,
+  buildSystemPrompt,
 } from '@robota-sdk/agent-sdk';
-import type { ITerminalOutput, ISpinner, TPermissionMode } from '@robota-sdk/agent-sdk';
+import type { TPermissionMode } from '@robota-sdk/agent-sdk';
+import type { ITerminalOutput, ISpinner } from './types.js';
+import { promptForApproval } from './permissions/permission-prompt.js';
 import { renderApp } from './ui/render.js';
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
@@ -207,8 +210,16 @@ export async function startCli(): Promise<void> {
       config,
       context,
       terminal,
-      projectInfo,
+      projectInfo: projectInfo as { type: string; language: string },
       permissionMode: args.permissionMode,
+      systemPromptBuilder: buildSystemPrompt as (params: {
+        agentsMd: string;
+        claudeMd: string;
+        toolDescriptions: string[];
+        trustLevel: 'safe' | 'moderate' | 'full';
+        projectInfo: { type: string; language: string };
+      }) => string,
+      promptForApproval: promptForApproval,
     });
     const response = await session.run(prompt);
     process.stdout.write(response + '\n');

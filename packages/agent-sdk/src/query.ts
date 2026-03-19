@@ -4,12 +4,13 @@
  */
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import { loadConfig } from './config/config-loader.js';
 import { loadContext } from './context/context-loader.js';
 import { detectProject } from './context/project-detector.js';
-import { Session } from './session.js';
-import type { TPermissionMode } from './types.js';
-import type { TToolArgs } from './permissions/permission-gate.js';
+import { buildSystemPrompt } from './context/system-prompt-builder.js';
+import { Session } from '@robota-sdk/agent-sessions';
+import { promptForApproval } from './permissions/permission-prompt.js';
 
 export interface IQueryOptions {
   cwd?: string;
@@ -49,12 +50,20 @@ export async function query(prompt: string, options?: IQueryOptions): Promise<st
     config,
     context,
     terminal: noopTerminal,
-    projectInfo,
+    projectInfo: projectInfo as { type: string; language: string },
     permissionMode: options?.permissionMode ?? 'bypassPermissions',
     maxTurns: options?.maxTurns,
     provider: options?.provider,
     permissionHandler: options?.permissionHandler,
     onTextDelta: options?.onTextDelta,
+    systemPromptBuilder: buildSystemPrompt as (params: {
+      agentsMd: string;
+      claudeMd: string;
+      toolDescriptions: string[];
+      trustLevel: 'safe' | 'moderate' | 'full';
+      projectInfo: { type: string; language: string };
+    }) => string,
+    promptForApproval: promptForApproval,
   });
 
   return session.run(prompt);

@@ -9,9 +9,9 @@ import type {
   IResolvedConfig,
   ILoadedContext,
   IProjectInfo,
-  TPermissionMode,
   SessionStore,
 } from '@robota-sdk/agent-sdk';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface IRenderOptions {
   config: IResolvedConfig;

@@ -1,10 +1,9 @@
-// @robota-sdk/agent-cli — Re-export SDK types for backward compatibility
+// @robota-sdk/agent-cli
 
+// Re-export SDK types for backward compatibility
 export { Session, SessionStore, query, TRUST_TO_MODE } from '@robota-sdk/agent-sdk';
 export type {
   TToolResult,
-  ITerminalOutput,
-  ISpinner,
   TTrustLevel,
   TPermissionDecision,
   TPermissionMode,
@@ -14,4 +13,11 @@ export type {
   IQueryOptions,
 } from '@robota-sdk/agent-sdk';
 
+// Permission types from agent-core
+export type { TToolArgs } from '@robota-sdk/agent-core';
+
+// Local CLI types
+export type { ITerminalOutput, ISpinner } from './types.js';
+
+// CLI entry point
 export { startCli } from './cli.js';

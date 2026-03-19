@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { TPermissionMode } from '@robota-sdk/agent-sdk';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 interface IProps {
   permissionMode: TPermissionMode;

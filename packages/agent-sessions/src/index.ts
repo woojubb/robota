@@ -1,27 +1,18 @@
-// Main components
-export { ChatInstance } from './chat/chat-instance';
-export { SessionManager } from './session/session-manager';
+// @robota-sdk/agent-sessions
 
-// Adapters
-export { TemplateManagerAdapter } from './adapters/template-manager-adapter';
-
-// Interfaces and types
-export type { ITemplateManager } from './types/chat';
-export type { IChatConfig, IChatMetadata, IChatStats } from './types/chat';
-
+// Session
+export { Session } from './session.js';
 export type {
-  SessionState,
-  ISessionConfig,
-  ISessionInfo,
-  IChatInfo,
-  ISessionManagerConfig,
-  ICreateSessionOptions,
-  ICreateChatOptions,
-  IAgent,
-  IAgentConfig,
-  TUniversalMessage,
-  IRunOptions,
-} from './types/core';
+  ISessionOptions,
+  TPermissionHandler,
+  ITerminalOutput,
+  ISpinner,
+  IResolvedConfig,
+  ILoadedContext,
+  IProjectInfo,
+  ISystemPromptParams,
+} from './session.js';
 
-// Re-export ConversationHistory from agents (unified implementation)
-export { ConversationHistory, ConversationSession } from '@robota-sdk/agent-core';
+// Session persistence
+export { SessionStore } from './session-store.js';
+export type { ISessionRecord } from './session-store.js';

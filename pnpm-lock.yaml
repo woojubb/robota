@@ -500,9 +500,15 @@ importers:
 
   packages/agent-cli:
     dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
+      chalk:
+        specifier: ^5.3.0
+        version: 5.6.2
       cli-highlight:
         specifier: ^2.1.0
         version: 2.1.11
@@ -1142,15 +1148,15 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../agent-provider-anthropic
+      '@robota-sdk/agent-sessions':
+        specifier: workspace:*
+        version: link:../agent-sessions
       '@robota-sdk/agent-tools':
         specifier: workspace:*
         version: link:../agent-tools
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
-      fast-glob:
-        specifier: ^3.3.0
-        version: 3.3.3
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -1173,6 +1179,12 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-provider-anthropic':
+        specifier: workspace:*
+        version: link:../agent-provider-anthropic
+      '@robota-sdk/agent-tools':
+        specifier: workspace:*
+        version: link:../agent-tools
     devDependencies:
       eslint:
         specifier: ^8.56.0
@@ -1257,6 +1269,9 @@ importers:
 
   packages/agent-tools:
     dependencies:
+      fast-glob:
+        specifier: ^3.3.0
+        version: 3.3.3
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -9970,6 +9985,7 @@ packages:
         integrity: sha512-zgVZuo2WcZgfUEmsn6eO3kINexW8RAE4maiQ8QNs8CtpPCSyMiYsULR3HQYkm3w8FIA3SberyMJMSldGsW+U3w==,
       }
     engines: { node: ^12.17.0 || ^14.13 || >=16.0.0 }
+    dev: true
 
   /chalk@5.6.2:
     resolution:
@@ -13836,7 +13852,7 @@ packages:
       ink: '>=5'
       react: '>=18'
     dependencies:
-      chalk: 5.4.1
+      chalk: 5.6.2
       ink: 6.8.0(@types/react@19.2.14)(react@19.2.4)
       react: 19.2.4
       type-fest: 4.41.0
