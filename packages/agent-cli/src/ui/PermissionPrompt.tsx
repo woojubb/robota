@@ -19,18 +19,29 @@ function formatArgs(args: TToolArgs): string {
 
 export default function PermissionPrompt({ request }: IProps): React.ReactElement {
   const [selected, setSelected] = React.useState(0);
+  const resolvedRef = React.useRef(false);
+
+  const doResolve = React.useCallback(
+    (allowed: boolean) => {
+      if (resolvedRef.current) return;
+      resolvedRef.current = true;
+      request.resolve(allowed);
+    },
+    [request],
+  );
 
   useInput((input, key) => {
+    if (resolvedRef.current) return;
     if (key.upArrow || key.leftArrow) {
       setSelected((prev) => (prev > 0 ? prev - 1 : prev));
     } else if (key.downArrow || key.rightArrow) {
       setSelected((prev) => (prev < OPTIONS.length - 1 ? prev + 1 : prev));
     } else if (key.return) {
-      request.resolve(selected === 0);
+      doResolve(selected === 0);
     } else if (input === 'y' || input === 'a' || input === '1') {
-      request.resolve(true);
+      doResolve(true);
     } else if (input === 'n' || input === 'd' || input === '2') {
-      request.resolve(false);
+      doResolve(false);
     }
   });
 
