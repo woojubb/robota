@@ -95,6 +95,13 @@ agent-cli (Ink TUI — CLI-specific)
 - **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific)
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
 
+### Web Search
+
+- **Implementation**: Anthropic server tool (`web_search_20250305`), not a `FunctionTool`
+- **Behavior**: Enabled automatically when the provider is Anthropic. The system prompt includes an instruction that the agent must use `web_search` when the user asks to search the web.
+- **Activation**: `enableWebTools: true` is passed in chat options for the Anthropic provider. No tool registration is required because the tool is server-managed.
+- **Callback**: `onServerToolUse` fires during streaming when the server tool executes, allowing the UI to display search status.
+
 ### Streaming
 
 - **Implementation**: `TTextDeltaCallback` type (IChatOptions in agent-core)
