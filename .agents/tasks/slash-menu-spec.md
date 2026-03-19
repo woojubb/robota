@@ -67,13 +67,13 @@ interface ICommandSource {
 
 ### Source Types
 
-| Source             | Location                                   | Loading                | Priority |
-| ------------------ | ------------------------------------------ | ---------------------- | -------- |
-| Built-in           | Hardcoded in CLI                           | Sync, always available | Highest  |
-| Local Skills       | `.agents/skills/*/SKILL.md`                | Scan at session start  | Medium   |
-| User Skills        | `~/.robota/skills/` or `~/.claude/skills/` | Scan at session start  | Medium   |
-| Plugin Skills      | Installed plugins (local cache)            | Scan at session start  | Medium   |
-| Plugin Marketplace | Remote registry                            | On-demand (future)     | Lowest   |
+| Source             | Location                        | Loading                | Priority |
+| ------------------ | ------------------------------- | ---------------------- | -------- |
+| Built-in           | Hardcoded in CLI                | Sync, always available | Highest  |
+| Project Skills     | `.agents/skills/*/SKILL.md`     | Scan at session start  | Medium   |
+| User Skills        | `~/.claude/skills/*/SKILL.md`   | Scan at session start  | Medium   |
+| Plugin Skills      | Installed plugins (local cache) | Scan at session start  | Low      |
+| Plugin Marketplace | Remote registry                 | On-demand (future)     | Lowest   |
 
 ### Skill Discovery
 
@@ -86,12 +86,11 @@ description: Commit changes with conventional format
 ---
 ```
 
-Discovery paths (all scanned, merged):
+Discovery paths (scanned in order, merged):
 
-1. `.agents/skills/*/SKILL.md` — project-level skills
-2. `~/.robota/skills/*/SKILL.md` — user-level skills
-3. `~/.claude/skills/*/SKILL.md` — Claude Code compatible path
-4. Plugin-provided skills (from installed plugins)
+1. `.agents/skills/*/SKILL.md` — project-level skills (primary, AGENTS.md standard)
+2. `~/.claude/skills/*/SKILL.md` — Claude Code compatible path (read-only)
+3. Plugin-provided skills (from installed plugins, future)
 
 ### Plugin System (future, design now for extensibility)
 

@@ -2,62 +2,57 @@
 
 ## What
 
-Define and implement the `.robota/` directory structure as the canonical storage location for all Robota CLI data — settings, sessions, skills, plugins, agents.
+Define `.robota/` directory as Robota CLI runtime-only storage. Respect existing `.agents/` and `AGENTS.md`/`CLAUDE.md` standards — do not duplicate or replace them.
 
-## Why
+## Principle
 
-Multiple features need persistent storage (settings, sessions, skills, plugins). A consistent directory convention must be established before building features that depend on it. Currently config-loader already uses `.robota/settings.json`, but the full directory structure is not formalized.
+- `.agents/` owns project structure: skills, tasks, rules, specs, backlog
+- `AGENTS.md` / `CLAUDE.md` own project instructions
+- `.robota/` owns CLI runtime data only: settings, sessions, plugin cache
+- No `.robota/skills/` — skills live in `.agents/skills/`
 
 ## Storage Structure
 
-### Project Level (`.robota/` in project root)
+### Project Level (`.robota/`)
 
 ```
 .robota/
-├── settings.json           ← project settings (shared, committed)
+├── settings.json           ← CLI settings (shared, committed)
 ├── settings.local.json     ← local overrides (gitignored)
-├── sessions/               ← session persistence files
-│   └── {session_id}.json
-├── skills/                 ← project-specific skills
-│   └── {skill-name}/
-│       └── SKILL.md
-├── agents/                 ← project-specific agent definitions
-│   └── {agent-name}.md
-└── commands/               ← project-specific slash commands
-    └── {command-name}.md
+└── sessions/               ← session persistence files
+    └── {session_id}.json
 ```
 
 ### User Level (`~/.robota/`)
 
 ```
 ~/.robota/
-├── settings.json           ← user global settings
+├── settings.json           ← user global CLI settings
 ├── sessions/               ← global session storage
-├── skills/                 ← user-level skills (all projects)
-├── agents/                 ← user-level agent definitions
-├── plugins/
-│   ├── cache/              ← installed plugin files
-│   │   └── {publisher}/{plugin-name}/{version}/
-│   └── registry.json       ← installed plugins manifest
-└── commands/               ← user-level slash commands
+└── plugins/
+    ├── cache/              ← installed plugin files (future)
+    └── registry.json       ← installed plugins manifest (future)
 ```
 
-### Claude Code Compatibility (read-only)
+### Existing Paths (not owned by .robota/, read-only)
 
-When scanning for skills, also check these paths (read, not write):
-
-- `.claude/skills/` — project-level Claude Code skills
-- `~/.claude/skills/` — user-level Claude Code skills
+| Path                | Owner              | Used by CLI for                        |
+| ------------------- | ------------------ | -------------------------------------- |
+| `.agents/skills/`   | AGENTS.md standard | Skill discovery for slash menu         |
+| `.agents/tasks/`    | AGENTS.md standard | Task tracking hooks                    |
+| `AGENTS.md`         | Project standard   | Context loading                        |
+| `CLAUDE.md`         | Project standard   | Context loading + Compact Instructions |
+| `~/.claude/skills/` | Claude Code compat | Additional skill discovery (read-only) |
 
 ## Scope
 
-- Formalize `.robota/` directory structure in SDK spec
-- Ensure config-loader uses `.robota/` consistently
-- SessionStore uses `.robota/sessions/` (or `~/.robota/sessions/`)
-- Add `.robota/settings.local.json` and `.robota/sessions/` to default .gitignore patterns
-- Skill discovery scans `.robota/skills/` + `~/.robota/skills/` + Claude compat paths
-- Document the structure in agent-sdk SPEC
+- Formalize `.robota/` as runtime-only storage in SDK spec
+- Ensure config-loader uses `.robota/` for settings (already does)
+- SessionStore uses `~/.robota/sessions/`
+- Add `.robota/settings.local.json` and `.robota/sessions/` to gitignore
+- Skill discovery scans `.agents/skills/` (primary) + `~/.claude/skills/` (compat)
+- Document the boundary in agent-sdk SPEC
 
 ## Priority
 
-This should be implemented before slash menu (skill discovery depends on it) and before plugin system.
+Implement before slash menu (skill discovery path must be defined).
