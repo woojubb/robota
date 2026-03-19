@@ -105,3 +105,4 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - When publishing multiple packages, each must pass its own dry-run independently.
 - A publish without prior gate success is a process violation.
 - Publishing from a branch other than `main` or `release/*` is prohibited unless explicitly approved.
+- `pnpm pre-publish:check` runs `scripts/pre-publish-docs-check.sh` which validates all publishable packages have: README.md (10+ lines), docs/SPEC.md, package.json description, license, and usage documentation. This is automatically run as part of `pnpm publish:packages`.
