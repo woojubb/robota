@@ -292,6 +292,16 @@ export class Session {
       projectInfo: projectInfo ?? { type: 'unknown', language: 'unknown' },
     });
 
+    // Log session initialization context
+    this.log('session_init', {
+      cwd: this.cwd,
+      agentsMdLength: context.agentsMd.length,
+      claudeMdLength: context.claudeMd.length,
+      systemPromptLength: systemMessage.length,
+      model: config.provider.model,
+      provider: config.provider.name,
+    });
+
     // Resolve AI provider and wire up streaming if callback provided
     const aiProvider = provider ?? this.createAnthropicProvider();
     this.aiProvider = aiProvider;
