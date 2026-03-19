@@ -12,13 +12,17 @@ import type { IZodSchema } from '../implementations/function-tool/types';
 import type { TToolResult } from '../types/tool-result.js';
 
 const EditSchema = z.object({
-  filePath: z.string().describe('Absolute or relative path to the file'),
-  oldString: z.string().describe('Exact string to find and replace'),
-  newString: z.string().describe('Replacement string'),
+  filePath: z.string().describe('The absolute path to the file to modify'),
+  oldString: z
+    .string()
+    .describe('The text to replace (must be an exact match of existing content)'),
+  newString: z.string().describe('The text to replace it with (must be different from old_string)'),
   replaceAll: z
     .boolean()
     .optional()
-    .describe('Replace all occurrences instead of requiring uniqueness (default: false)'),
+    .describe(
+      'Replace all occurrences of old_string (default: false). Useful for renaming variables',
+    ),
 });
 
 type TEditArgs = z.infer<typeof EditSchema>;
@@ -94,7 +98,7 @@ async function editFileTool(args: TEditArgs): Promise<string> {
  */
 export const editTool = createZodFunctionTool(
   'Edit',
-  'Replace a string in a file. Requires the string to be unique unless replaceAll is true.',
+  'Performs exact string replacements in files.\n\nYou must use the Read tool at least once before editing. When editing text from Read output, preserve the exact indentation.\n\nThe edit will FAIL if old_string is not unique in the file. Either provide more surrounding context to make it unique, or use replace_all to change every instance.\n\nALWAYS prefer editing existing files over creating new ones.',
   EditSchema as unknown as IZodSchema,
   async (params) => {
     return editFileTool(params as TEditArgs);

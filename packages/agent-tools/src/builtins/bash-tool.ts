@@ -15,12 +15,15 @@ import type { TToolResult } from '../types/tool-result.js';
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
 
 const BashSchema = z.object({
-  command: z.string().describe('Shell command to execute'),
-  timeout: z.number().optional().describe('Timeout in milliseconds (default 120000)'),
+  command: z.string().describe('The bash command to execute'),
+  timeout: z
+    .number()
+    .optional()
+    .describe('Optional timeout in milliseconds (max 600000). Default is 120000 (2 minutes)'),
   workingDirectory: z
     .string()
     .optional()
-    .describe('Working directory for the command (default: process.cwd())'),
+    .describe('Working directory for the command. Defaults to the current working directory'),
 });
 
 type TBashArgs = z.infer<typeof BashSchema>;
@@ -104,7 +107,7 @@ async function runBash(args: TBashArgs): Promise<string> {
  */
 export const bashTool = createZodFunctionTool(
   'Bash',
-  'Execute a shell command and return stdout/stderr. Non-zero exit codes are returned in exitCode.',
+  'Executes a given bash command and returns its output.\n\nThe working directory persists between commands, but shell state does not.\n\nIMPORTANT: Avoid using this tool to run `find`, `grep`, `cat`, `head`, `tail`, `sed`, `awk`, or `echo` commands. Instead, use the appropriate dedicated tool:\n - File search: Use Glob (NOT find or ls)\n - Content search: Use Grep (NOT grep or rg)\n - Read files: Use Read (NOT cat/head/tail)\n - Edit files: Use Edit (NOT sed/awk)\n\nFor simple commands, keep the description brief (5-10 words). For complex commands, include enough context to clarify what the command does.\n\nOutput is limited to 30,000 characters. Longer output will be middle-truncated.',
   BashSchema as unknown as IZodSchema,
   async (params) => {
     // createZodFunctionTool passes validated params; cast is safe

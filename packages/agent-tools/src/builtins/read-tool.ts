@@ -14,12 +14,19 @@ import type { TToolResult } from '../types/tool-result.js';
 const DEFAULT_LIMIT = 2000;
 
 const ReadSchema = z.object({
-  filePath: z.string().describe('Absolute or relative path to the file'),
-  offset: z.number().optional().describe('1-based line number to start reading from (default: 1)'),
+  filePath: z.string().describe('The absolute path to the file to read'),
+  offset: z
+    .number()
+    .optional()
+    .describe(
+      'The line number to start reading from (1-based). Only provide if the file is too large to read at once',
+    ),
   limit: z
     .number()
     .optional()
-    .describe(`Maximum number of lines to return (default: ${DEFAULT_LIMIT})`),
+    .describe(
+      `The number of lines to read (default: ${DEFAULT_LIMIT}). Only provide if the file is too large to read at once`,
+    ),
 });
 
 type TReadArgs = z.infer<typeof ReadSchema>;
@@ -128,7 +135,7 @@ async function readFileTool(args: TReadArgs): Promise<string> {
  */
 export const readTool = createZodFunctionTool(
   'Read',
-  'Read a file and return its contents with line numbers. Supports offset/limit for partial reads.',
+  'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe file_path parameter must be an absolute path, not a relative path.',
   ReadSchema as unknown as IZodSchema,
   async (params) => {
     return readFileTool(params as TReadArgs);

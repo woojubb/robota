@@ -14,23 +14,29 @@ import type { IZodSchema } from '../implementations/function-tool/types';
 import type { TToolResult } from '../types/tool-result.js';
 
 const GrepSchema = z.object({
-  pattern: z.string().describe('Regular expression pattern to search for'),
+  pattern: z.string().describe('The regular expression pattern to search for in file contents'),
   path: z
     .string()
     .optional()
-    .describe('File or directory to search in (default: current working directory)'),
+    .describe('File or directory to search in. Defaults to the current working directory'),
   glob: z
     .string()
     .optional()
-    .describe('Glob pattern to filter which files are searched (e.g. "*.ts")'),
+    .describe(
+      'Glob pattern to filter files (e.g. "*.ts", "*.{ts,tsx}"). Only files matching this pattern will be searched',
+    ),
   contextLines: z
     .number()
     .optional()
-    .describe('Number of lines of context to include before and after each match (default: 0)'),
+    .describe(
+      'Number of context lines to show before and after each match. Only applies when outputMode is "content". Default: 0',
+    ),
   outputMode: z
     .enum(['files_with_matches', 'content'])
     .optional()
-    .describe('Output mode: "files_with_matches" (default) or "content"'),
+    .describe(
+      'Output mode: "files_with_matches" shows only file paths (default), "content" shows matching lines with context',
+    ),
 });
 
 type TGrepArgs = z.infer<typeof GrepSchema>;
@@ -218,7 +224,7 @@ async function grepFileTool(args: TGrepArgs): Promise<string> {
  */
 export const grepTool = createZodFunctionTool(
   'Grep',
-  'Search file contents using a regular expression. Returns matching file paths or matching lines with context.',
+  "A powerful search tool built on regex matching.\n\nSupports full regex syntax (e.g., 'log.*Error', 'function\\\\s+\\\\w+'). Filter files with glob parameter (e.g., '*.js', '**/*.tsx').\n\nOutput modes: 'content' shows matching lines with context, 'files_with_matches' shows only file paths (default), 'count' shows match counts.\n\nUse this tool for ALL search tasks. NEVER invoke grep or rg as a Bash command.\n\nUse head_limit to control result size and save context space.",
   GrepSchema as unknown as IZodSchema,
   async (params) => {
     return grepFileTool(params as TGrepArgs);
