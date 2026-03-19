@@ -119,6 +119,7 @@ function toResolvedConfig(merged: TSettings): IResolvedConfig {
       deny: merged.permissions?.deny ?? DEFAULTS.permissions.deny,
     },
     env: merged.env ?? DEFAULTS.env,
+    hooks: merged.hooks ?? undefined,
   };
 }
 

@@ -18,8 +18,24 @@ const PermissionsSchema = z.object({
 
 const EnvSchema = z.record(z.string()).optional();
 
-/** Phase 2 placeholder — hooks are not implemented yet */
-const HooksSchema = z.record(z.unknown()).optional();
+const HookDefinitionSchema = z.object({
+  type: z.literal('command'),
+  command: z.string(),
+});
+
+const HookGroupSchema = z.object({
+  matcher: z.string(),
+  hooks: z.array(HookDefinitionSchema),
+});
+
+const HooksSchema = z
+  .object({
+    PreToolUse: z.array(HookGroupSchema).optional(),
+    PostToolUse: z.array(HookGroupSchema).optional(),
+    SessionStart: z.array(HookGroupSchema).optional(),
+    Stop: z.array(HookGroupSchema).optional(),
+  })
+  .optional();
 
 export const SettingsSchema = z.object({
   /** Trust level used when no --permission-mode flag is given */
@@ -49,4 +65,5 @@ export interface IResolvedConfig {
     deny: string[];
   };
   env: Record<string, string>;
+  hooks?: z.infer<typeof HooksSchema>;
 }
