@@ -12,6 +12,7 @@ import type { ITerminalOutput, ISpinner } from '../types.js';
 import type { IChatMessage, IPermissionRequest } from './types.js';
 import { CommandRegistry } from '../commands/command-registry.js';
 import { BuiltinCommandSource } from '../commands/builtin-source.js';
+import { SkillCommandSource } from '../commands/skill-source.js';
 import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
 import InputArea from './InputArea.js';
@@ -24,6 +25,7 @@ interface IProps {
   sessionStore?: SessionStore;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
+  cwd?: string;
 }
 
 let msgIdCounter = 0;
@@ -141,6 +143,7 @@ async function executeSlashCommand(
   addMessage: TAddMessage,
   setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
   exit: () => void,
+  registry: CommandRegistry,
 ): Promise<boolean> {
   switch (cmd) {
     case 'help':
@@ -174,9 +177,15 @@ async function executeSlashCommand(
     case 'exit':
       exit();
       return true;
-    default:
+    default: {
+      const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
+      if (skillCmd) {
+        addMessage({ role: 'system', content: `Invoking skill: ${cmd}` });
+        return false; // Signal caller to run as session prompt
+      }
       addMessage({ role: 'system', content: `Unknown command "/${cmd}". Type /help for help.` });
       return true;
+    }
   }
 }
 
@@ -186,14 +195,15 @@ function useSlashCommands(
   addMessage: TAddMessage,
   setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
   exit: () => void,
+  registry: CommandRegistry,
 ): (input: string) => Promise<boolean> {
   return useCallback(
     async (input: string): Promise<boolean> => {
       const parts = input.slice(1).split(/\s+/);
       const cmd = parts[0]?.toLowerCase() ?? '';
-      return executeSlashCommand(cmd, parts, session, addMessage, setMessages, exit);
+      return executeSlashCommand(cmd, parts, session, addMessage, setMessages, exit, registry);
     },
-    [session, addMessage, setMessages, exit],
+    [session, addMessage, setMessages, exit, registry],
   );
 }
 
@@ -214,6 +224,44 @@ function StreamingIndicator({ text }: { text: string }): React.ReactElement {
   return <Text color="yellow">Thinking...</Text>;
 }
 
+/** Run a prompt through the session with thinking/streaming state management */
+async function runSessionPrompt(
+  prompt: string,
+  session: Session,
+  addMessage: TAddMessage,
+  clearStreamingText: () => void,
+  setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
+  setContextPercentage: React.Dispatch<React.SetStateAction<number>>,
+): Promise<void> {
+  setIsThinking(true);
+  clearStreamingText();
+
+  try {
+    const response = await session.run(prompt);
+    clearStreamingText();
+    addMessage({ role: 'assistant', content: response || '(empty response)' });
+    setContextPercentage(session.getContextState().usedPercentage);
+  } catch (err) {
+    clearStreamingText();
+    const errMsg = err instanceof Error ? err.message : String(err);
+    addMessage({ role: 'system', content: `Error: ${errMsg}` });
+  } finally {
+    setIsThinking(false);
+  }
+}
+
+/** Build a skill prompt from a slash command input and registry */
+function buildSkillPrompt(input: string, registry: CommandRegistry): string | null {
+  const parts = input.slice(1).split(/\s+/);
+  const cmd = parts[0]?.toLowerCase() ?? '';
+  const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
+  if (!skillCmd) return null;
+  const args = parts.slice(1).join(' ').trim();
+  return args
+    ? `Use the "${cmd}" skill: ${args}`
+    : `Use the "${cmd}" skill: ${skillCmd.description}`;
+}
+
 /** Hook: build the handleSubmit callback for user input */
 function useSubmitHandler(
   session: Session,
@@ -222,33 +270,38 @@ function useSubmitHandler(
   clearStreamingText: () => void,
   setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
   setContextPercentage: React.Dispatch<React.SetStateAction<number>>,
+  registry: CommandRegistry,
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
       if (input.startsWith('/')) {
-        await handleSlashCommand(input);
-        // Update context percentage after slash commands (e.g. /compact, /clear)
-        setContextPercentage(session.getContextState().usedPercentage);
-        return;
+        const handled = await handleSlashCommand(input);
+        if (handled) {
+          setContextPercentage(session.getContextState().usedPercentage);
+          return;
+        }
+        // Skill command — send as session prompt
+        const prompt = buildSkillPrompt(input, registry);
+        if (!prompt) return;
+        return runSessionPrompt(
+          prompt,
+          session,
+          addMessage,
+          clearStreamingText,
+          setIsThinking,
+          setContextPercentage,
+        );
       }
 
       addMessage({ role: 'user', content: input });
-      setIsThinking(true);
-      clearStreamingText();
-
-      try {
-        const response = await session.run(input);
-        clearStreamingText();
-        addMessage({ role: 'assistant', content: response || '(empty response)' });
-        // Update context percentage after each run
-        setContextPercentage(session.getContextState().usedPercentage);
-      } catch (err) {
-        clearStreamingText();
-        const errMsg = err instanceof Error ? err.message : String(err);
-        addMessage({ role: 'system', content: `Error: ${errMsg}` });
-      } finally {
-        setIsThinking(false);
-      }
+      return runSessionPrompt(
+        input,
+        session,
+        addMessage,
+        clearStreamingText,
+        setIsThinking,
+        setContextPercentage,
+      );
     },
     [
       session,
@@ -257,16 +310,18 @@ function useSubmitHandler(
       clearStreamingText,
       setIsThinking,
       setContextPercentage,
+      registry,
     ],
   );
 }
 
-/** Hook: create a CommandRegistry once with builtin commands */
-function useCommandRegistry(): CommandRegistry {
+/** Hook: create a CommandRegistry once with builtin and skill commands */
+function useCommandRegistry(cwd: string): CommandRegistry {
   const registryRef = useRef<CommandRegistry | null>(null);
   if (registryRef.current === null) {
     const registry = new CommandRegistry();
     registry.addSource(new BuiltinCommandSource());
+    registry.addSource(new SkillCommandSource(cwd));
     registryRef.current = registry;
   }
   return registryRef.current;
@@ -278,9 +333,9 @@ export default function App(props: IProps): React.ReactElement {
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
   const [contextPercentage, setContextPercentage] = useState(0);
-  const registry = useCommandRegistry();
+  const registry = useCommandRegistry(props.cwd ?? process.cwd());
 
-  const handleSlashCommand = useSlashCommands(session, addMessage, setMessages, exit);
+  const handleSlashCommand = useSlashCommands(session, addMessage, setMessages, exit, registry);
   const handleSubmit = useSubmitHandler(
     session,
     addMessage,
@@ -288,6 +343,7 @@ export default function App(props: IProps): React.ReactElement {
     clearStreamingText,
     setIsThinking,
     setContextPercentage,
+    registry,
   );
 
   useInput(
