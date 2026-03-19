@@ -17,6 +17,7 @@ import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
 import InputArea from './InputArea.js';
 import PermissionPrompt from './PermissionPrompt.js';
+import { renderMarkdown } from './render-markdown.js';
 
 interface IProps {
   config: IResolvedConfig;
@@ -243,7 +244,7 @@ function StreamingIndicator({ text }: { text: string }): React.ReactElement {
         </Text>
         <Text> </Text>
         <Box marginLeft={2}>
-          <Text wrap="wrap">{text}</Text>
+          <Text wrap="wrap">{renderMarkdown(text)}</Text>
         </Box>
       </Box>
     );
