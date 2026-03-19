@@ -85,16 +85,18 @@ Types consumed from other packages (not owned here):
 
 ### Key Session Methods
 
-| Method              | Signature                                  | Description                                                            |
-| ------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
-| `run`               | `(message: string) => Promise<string>`     | Send a message; returns AI response. Persists session if store exists. |
-| `getPermissionMode` | `() => TPermissionMode`                    | Returns the active permission mode.                                    |
-| `setPermissionMode` | `(mode: TPermissionMode) => void`          | Changes the permission mode for future tool calls.                     |
-| `getSessionId`      | `() => string`                             | Returns the stable session identifier.                                 |
-| `getMessageCount`   | `() => number`                             | Returns the number of completed `run()` calls.                         |
-| `checkPermission`   | `(toolName, toolArgs) => Promise<boolean>` | Evaluates permission and prompts if needed. Used internally.           |
-| `clearHistory`      | `() => void`                               | Clears the underlying Robota conversation history.                     |
-| `getHistory`        | `() => TUniversalMessage[]`                | Returns the current conversation history.                              |
+| Method              | Signature                                  | Description                                                                  |
+| ------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `run`               | `(message: string) => Promise<string>`     | Send a message; returns AI response. Persists session if store exists.       |
+| `getPermissionMode` | `() => TPermissionMode`                    | Returns the active permission mode.                                          |
+| `setPermissionMode` | `(mode: TPermissionMode) => void`          | Changes the permission mode for future tool calls.                           |
+| `getSessionId`      | `() => string`                             | Returns the stable session identifier.                                       |
+| `getMessageCount`   | `() => number`                             | Returns the number of completed `run()` calls.                               |
+| `checkPermission`   | `(toolName, toolArgs) => Promise<boolean>` | Evaluates permission and prompts if needed. Used internally.                 |
+| `clearHistory`      | `() => void`                               | Clears the underlying Robota conversation history and resets token usage.    |
+| `getHistory`        | `() => TUniversalMessage[]`                | Returns the current conversation history.                                    |
+| `getContextState`   | `() => IContextWindowState`                | Returns real-time context window usage (tokens, percentage).                 |
+| `compact`           | `(instructions?: string) => Promise<void>` | Compresses conversation via LLM summary. Fires PreCompact/PostCompact hooks. |
 
 ### Key SessionStore Methods
 
@@ -119,7 +121,11 @@ Types consumed from other packages (not owned here):
 
 6. **`ISessionOptions.additionalTools`** -- Register additional tools beyond the 6 built-ins (e.g., agent-tool from `agent-sdk`).
 
-7. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
+7. **`ISessionOptions.onCompact`** -- Callback invoked when compaction occurs (auto or manual), receives the generated summary string.
+
+8. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from CLAUDE.md "Compact Instructions" section).
+
+9. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
 
 ## Error Taxonomy
 

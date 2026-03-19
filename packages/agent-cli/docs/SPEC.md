@@ -28,6 +28,60 @@ bin.ts → cli.ts (arg parsing)
 
 Dependency chain: `agent-cli → agent-sdk → agent-sessions → agent-tools → agent-core`
 
+## StatusBar Display
+
+The StatusBar shows real-time session information:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ Mode: default  |  Model: claude-sonnet-4-6  |  Context: 45%  |  msgs: 12 │
+└──────────────────────────────────────────────────────────┘
+```
+
+| Field    | Source                                     | Description                            |
+| -------- | ------------------------------------------ | -------------------------------------- |
+| Mode     | `session.getPermissionMode()`              | Current permission mode                |
+| Model    | `config.provider.model`                    | Active AI model name                   |
+| Context  | `session.getContextState().usedPercentage` | Context window usage with color coding |
+| msgs     | message count                              | Number of messages in conversation     |
+| Thinking | isThinking state                           | Shown during `session.run()` execution |
+
+### Context Color Coding
+
+| Range  | Color  | Meaning                         |
+| ------ | ------ | ------------------------------- |
+| 0-69%  | Green  | Healthy                         |
+| 70-89% | Yellow | Approaching limit               |
+| 90%+   | Red    | Near limit, compaction imminent |
+
+## Context Management (CLI Layer)
+
+### `/compact` Slash Command
+
+```
+/compact                          # Default compaction
+/compact focus on API changes     # Custom focus instructions
+```
+
+- Calls `session.compact(instructions)`
+- Displays before/after context percentage
+- Shows "Context compressed: 85% → 32%" message
+
+### Auto-Compaction Notification
+
+When auto-compaction triggers (at ~83.5% threshold), the UI shows a system message notifying the user.
+
+## Slash Commands
+
+| Command                   | Description                 |
+| ------------------------- | --------------------------- |
+| `/help`                   | Show available commands     |
+| `/clear`                  | Clear conversation history  |
+| `/mode [mode]`            | Show/change permission mode |
+| `/compact [instructions]` | Compress context window     |
+| `/cost`                   | Show session info           |
+| `/exit`                   | Exit CLI                    |
+
 ## Type Ownership
 
 | Type               | Location          | Purpose                       |
@@ -59,7 +113,7 @@ src/
     ├── render.tsx            ← Ink render() invocation
     ├── MessageList.tsx       ← Conversation message list (Robota: label)
     ├── InputArea.tsx         ← Bottom fixed input (ink-text-input)
-    ├── StatusBar.tsx         ← Mode, message count, Thinking status
+    ├── StatusBar.tsx         ← Mode, model, context %, message count, Thinking
     ├── PermissionPrompt.tsx  ← Allow/Deny arrow-key selection (useInput)
     ├── InkTerminal.ts        ← No-op ITerminalOutput
     └── types.ts              ← IChatMessage, IPermissionRequest
