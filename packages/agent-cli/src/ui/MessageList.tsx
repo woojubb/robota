@@ -46,6 +46,7 @@ function MessageItem({ message }: { message: IChatMessage }): React.ReactElement
           </Text>
         )}
       </Box>
+      <Text> </Text>
       <Box marginLeft={2}>
         <Text wrap="wrap">{message.content}</Text>
       </Box>
