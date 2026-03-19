@@ -31,6 +31,13 @@ Robota (Facade)
   │     ├── ExecutionService        — message handling, LLM calls, response assembly
   │     ├── ToolExecutionService    — schema validation, tool lookup, batch execution
   │     └── EventService            — unified event emission with ownerPath binding
+  ├── Permission Layer
+  │     ├── permission-gate.ts      — evaluatePermission(): 3-step deterministic policy
+  │     ├── permission-mode.ts      — MODE_POLICY matrix, UNKNOWN_TOOL_FALLBACK
+  │     └── types.ts                — TPermissionMode, TTrustLevel, TPermissionDecision
+  ├── Hook Layer
+  │     ├── hook-runner.ts          — runHooks(): shell command hook execution engine
+  │     └── types.ts                — THookEvent, THooksConfig, IHookInput, IHookResult
   └── Plugin Layer (10 built-in plugins)
         ├── ConversationHistoryPlugin
         ├── LoggingPlugin
@@ -67,18 +74,31 @@ Safe defaults use the Null Object pattern:
 
 This package is the single source of truth (SSOT) for the following types:
 
-| Type                | Location                    | Purpose                                                 |
-| ------------------- | --------------------------- | ------------------------------------------------------- |
-| `TUniversalMessage` | `interfaces/messages.ts`    | Canonical message union (User, Assistant, System, Tool) |
-| `TUniversalValue`   | `interfaces/types.ts`       | Recursive value type without `any`                      |
-| `TMetadata`         | `interfaces/types.ts`       | Metadata record type                                    |
-| `IAgentConfig`      | `interfaces/agent.ts`       | Agent configuration contract                            |
-| `IAIProvider`       | `interfaces/provider.ts`    | Provider integration contract                           |
-| `IToolSchema`       | `interfaces/provider.ts`    | Tool schema contract                                    |
-| `TToolParameters`   | `interfaces/tool.ts`        | Tool parameter type                                     |
-| `IEventService`     | `services/event-service.ts` | Event emission contract                                 |
-| `IOwnerPathSegment` | `services/event-service.ts` | Execution path tracking                                 |
-| `RobotaError`       | `utils/errors.ts`           | Base error hierarchy                                    |
+| Type                  | Location                         | Purpose                                                            |
+| --------------------- | -------------------------------- | ------------------------------------------------------------------ |
+| `TUniversalMessage`   | `interfaces/messages.ts`         | Canonical message union (User, Assistant, System, Tool)            |
+| `TUniversalValue`     | `interfaces/types.ts`            | Recursive value type without `any`                                 |
+| `TMetadata`           | `interfaces/types.ts`            | Metadata record type                                               |
+| `IAgentConfig`        | `interfaces/agent.ts`            | Agent configuration contract                                       |
+| `IAIProvider`         | `interfaces/provider.ts`         | Provider integration contract                                      |
+| `IToolSchema`         | `interfaces/provider.ts`         | Tool schema contract                                               |
+| `TToolParameters`     | `interfaces/tool.ts`             | Tool parameter type                                                |
+| `IEventService`       | `services/event-service.ts`      | Event emission contract                                            |
+| `IOwnerPathSegment`   | `services/event-service.ts`      | Execution path tracking                                            |
+| `RobotaError`         | `utils/errors.ts`                | Base error hierarchy                                               |
+| `TTextDeltaCallback`  | `interfaces/provider.ts`         | Streaming text delta callback `(delta: string) => void`            |
+| `TPermissionMode`     | `permissions/types.ts`           | Permission modes: plan, default, acceptEdits, bypassPermissions    |
+| `TTrustLevel`         | `permissions/types.ts`           | Friendly trust aliases: safe, moderate, full                       |
+| `TPermissionDecision` | `permissions/types.ts`           | Evaluation outcome: auto, approve, deny                            |
+| `TToolArgs`           | `permissions/permission-gate.ts` | Tool arguments record for permission matching                      |
+| `IPermissionLists`    | `permissions/permission-gate.ts` | Allow/deny pattern lists for permission config                     |
+| `TKnownToolName`      | `permissions/permission-mode.ts` | Known tool names in the permission system                          |
+| `THookEvent`          | `hooks/types.ts`                 | Hook lifecycle events: PreToolUse, PostToolUse, SessionStart, Stop |
+| `THooksConfig`        | `hooks/types.ts`                 | Complete hooks configuration: event to hook groups                 |
+| `IHookGroup`          | `hooks/types.ts`                 | Hook group: matcher pattern + hook definitions                     |
+| `IHookDefinition`     | `hooks/types.ts`                 | Single hook definition (type: command, command string)             |
+| `IHookInput`          | `hooks/types.ts`                 | Input passed to hook commands via stdin                            |
+| `IHookResult`         | `hooks/types.ts`                 | Hook execution result (exitCode, stdout, stderr)                   |
 
 Provider packages import these types. They must not re-declare them.
 
@@ -98,13 +118,42 @@ Provider packages import these types. They must not re-declare them.
 
 ### Tools
 
-| Export                  | Kind     | Description                 |
-| ----------------------- | -------- | --------------------------- |
-| `FunctionTool`          | class    | JS function with Zod schema |
-| `createFunctionTool`    | function | Factory for function tools  |
-| `createZodFunctionTool` | function | Factory with Zod validation |
-| `ToolRegistry`          | class    | Central tool management     |
-| `RelayMcpTool`          | class    | MCP relay tool              |
+NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTool`, and `OpenAPITool` have been moved to `@robota-sdk/agent-tools`. `MCPTool` and `RelayMcpTool` have been moved to `@robota-sdk/agent-tool-mcp`.
+
+### Permissions
+
+| Export                  | Kind     | Description                                                   |
+| ----------------------- | -------- | ------------------------------------------------------------- |
+| `evaluatePermission`    | function | 3-step deterministic policy: deny list, allow list, mode      |
+| `MODE_POLICY`           | const    | Permission mode to tool decision matrix                       |
+| `TRUST_TO_MODE`         | const    | Maps TTrustLevel to TPermissionMode                           |
+| `UNKNOWN_TOOL_FALLBACK` | const    | Fallback decisions for unknown tools per mode                 |
+| `TPermissionMode`       | type     | `'plan' \| 'default' \| 'acceptEdits' \| 'bypassPermissions'` |
+| `TTrustLevel`           | type     | `'safe' \| 'moderate' \| 'full'`                              |
+| `TPermissionDecision`   | type     | `'auto' \| 'approve' \| 'deny'`                               |
+| `TToolArgs`             | type     | Tool arguments record for permission matching                 |
+| `IPermissionLists`      | type     | Allow/deny pattern lists                                      |
+| `TKnownToolName`        | type     | Known tool names: Bash, Read, Write, Edit, Glob, Grep         |
+
+### Hooks
+
+| Export            | Kind     | Description                                                 |
+| ----------------- | -------- | ----------------------------------------------------------- |
+| `runHooks`        | function | Execute shell command hooks for lifecycle events            |
+| `THookEvent`      | type     | `'PreToolUse' \| 'PostToolUse' \| 'SessionStart' \| 'Stop'` |
+| `THooksConfig`    | type     | Event to hook group array mapping                           |
+| `IHookGroup`      | type     | Matcher pattern + hook definitions                          |
+| `IHookDefinition` | type     | Single hook definition (command type)                       |
+| `IHookInput`      | type     | JSON input passed to hooks via stdin                        |
+| `IHookResult`     | type     | Hook result: exitCode (0=allow, 2=block), stdout, stderr    |
+
+### Streaming
+
+| Export               | Kind | Description                                         |
+| -------------------- | ---- | --------------------------------------------------- |
+| `TTextDeltaCallback` | type | `(delta: string) => void` — streaming text callback |
+
+This callback is declared in `IChatOptions.onTextDelta` and used by providers to emit text chunks during streaming responses.
 
 ### Managers
 
@@ -180,6 +229,59 @@ interface IOwnerPathSegment {
 ```
 
 Events are bound to their owner via `bindWithOwnerPath()`.
+
+## Permission System
+
+The permission module (`src/permissions/`) provides a deterministic, three-step policy evaluation for tool calls. It is consumed by `@robota-sdk/agent-sessions` to gate tool execution before delegating to the actual tool.
+
+### Evaluation Algorithm (`evaluatePermission`)
+
+1. **Deny list match** -- If any deny pattern matches the tool invocation, return `'deny'`.
+2. **Allow list match** -- If any allow pattern matches, return `'auto'` (proceed without prompting).
+3. **Mode policy lookup** -- Look up the tool in `MODE_POLICY[mode]`. If found, return the mapped decision. Otherwise, return `UNKNOWN_TOOL_FALLBACK[mode]`.
+
+### Permission Modes
+
+| Mode                | Read tools | Write tools      | Bash             |
+| ------------------- | ---------- | ---------------- | ---------------- |
+| `plan`              | auto       | deny             | deny             |
+| `default`           | auto       | approve (prompt) | approve (prompt) |
+| `acceptEdits`       | auto       | auto             | approve (prompt) |
+| `bypassPermissions` | auto       | auto             | auto             |
+
+### Pattern Syntax
+
+Patterns follow the format `ToolName(argGlob)`:
+
+- `Bash(pnpm *)` -- Bash tool whose command starts with "pnpm "
+- `Read(/src/**)` -- Read tool whose filePath is under /src/
+- `Write(*)` -- Write tool with any argument
+- `ToolName` -- Match any invocation of that tool (no argument constraint)
+
+## Hook System
+
+The hook module (`src/hooks/`) provides a shell command-based lifecycle hook mechanism. Hooks receive JSON input on stdin and communicate results via exit codes.
+
+### Hook Events
+
+| Event          | Timing                 | Purpose                              |
+| -------------- | ---------------------- | ------------------------------------ |
+| `PreToolUse`   | Before tool execution  | Validation, blocking, transformation |
+| `PostToolUse`  | After tool execution   | Logging, auditing, notification      |
+| `SessionStart` | Session initialization | Setup, environment checks            |
+| `Stop`         | Session termination    | Cleanup, reporting                   |
+
+### Exit Code Protocol
+
+| Code  | Meaning                        |
+| ----- | ------------------------------ |
+| 0     | Allow / proceed                |
+| 2     | Block / deny (stderr = reason) |
+| other | Proceed with warning           |
+
+### Hook Configuration
+
+Hooks are configured as a `THooksConfig` object mapping events to arrays of `IHookGroup` entries. Each group has a `matcher` regex pattern (empty = match all) and an array of `IHookDefinition` commands. Hooks have a 10-second timeout.
 
 ## Extension Points
 
