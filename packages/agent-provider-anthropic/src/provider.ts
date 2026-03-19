@@ -33,6 +33,12 @@ export class AnthropicProvider extends AbstractAIProvider {
   private readonly options: IAnthropicProviderOptions;
 
   /**
+   * When true, Anthropic server tools (web_search) are included in every request.
+   * The server executes these tools internally — no local tool registration needed.
+   */
+  enableWebTools = false;
+
+  /**
    * Optional callback for text deltas during streaming.
    * Set by the consumer (e.g., Session) to receive real-time text chunks.
    * When set, chat() uses streaming internally while still returning
@@ -99,13 +105,19 @@ export class AnthropicProvider extends AbstractAIProvider {
       );
     }
 
+    const functionTools = options?.tools ? this.convertToolsToAnthropicFormat(options.tools) : [];
+    const serverTools = this.enableWebTools
+      ? [{ type: 'web_search_20250305', name: 'web_search' }]
+      : [];
+    const allTools = [...functionTools, ...serverTools];
+
     const baseParams = {
       model: options.model as string,
       messages: anthropicMessages,
       max_tokens: options?.maxTokens || DEFAULT_MAX_TOKENS,
       ...(options?.temperature !== undefined && { temperature: options.temperature }),
-      ...(options?.tools && { tools: this.convertToolsToAnthropicFormat(options.tools) }),
-    };
+      ...(allTools.length > 0 && { tools: allTools }),
+    } as Anthropic.MessageCreateParamsNonStreaming;
 
     // When onTextDelta callback is available (from options or instance property),
     // use streaming internally but still return the complete assembled message.
@@ -161,6 +173,8 @@ export class AnthropicProvider extends AbstractAIProvider {
             currentToolName = event.content_block.name;
             currentToolJson = '';
           }
+          // server_tool_use and web_search_tool_result blocks are handled
+          // via the full response content after stream completion
           break;
 
         case 'content_block_delta':
@@ -398,6 +412,13 @@ export class AnthropicProvider extends AbstractAIProvider {
             arguments: JSON.stringify(toolBlock.input),
           },
         });
+      } else if ((block as { type: string }).type === 'server_tool_use') {
+        // Server tool invocation (e.g., web_search) — results come in a separate block
+      } else if ((block as { type: string }).type === 'web_search_tool_result') {
+        const searchResults = this.formatWebSearchResults(block as { type: string });
+        if (searchResults) {
+          textParts.push(searchResults);
+        }
       }
     }
 
@@ -426,6 +447,24 @@ export class AnthropicProvider extends AbstractAIProvider {
     }
 
     return result;
+  }
+
+  /**
+   * Format a web_search_tool_result block into readable text.
+   */
+  private formatWebSearchResults(block: { type: string }): string {
+    const resultBlock = block as {
+      type: string;
+      content?: Array<{ type: string; title?: string; url?: string; encrypted_content?: string }>;
+    };
+    if (!Array.isArray(resultBlock.content)) return '';
+
+    const searchResults = resultBlock.content
+      .filter((r) => r.type === 'web_search_result' && r.title && r.url)
+      .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}`)
+      .join('\n');
+
+    return searchResults ? `[Web Search Results]\n${searchResults}` : '';
   }
 
   /**

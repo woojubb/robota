@@ -28,5 +28,3 @@ export { writeTool } from './builtins/write-tool';
 export { editTool } from './builtins/edit-tool';
 export { globTool } from './builtins/glob-tool';
 export { grepTool } from './builtins/grep-tool';
-export { webFetchTool } from './builtins/web-fetch-tool';
-export { webSearchTool } from './builtins/web-search-tool';

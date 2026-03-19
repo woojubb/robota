@@ -31,8 +31,6 @@ import {
   editTool,
   globTool,
   grepTool,
-  webFetchTool,
-  webSearchTool,
 } from '@robota-sdk/agent-tools';
 import { mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -218,8 +216,7 @@ const TOOL_DESCRIPTIONS = [
   'Edit — replace a string in a file',
   'Glob — find files matching a pattern',
   'Grep — search file contents with regex',
-  'WebFetch — fetch a URL and return content as text',
-  'WebSearch — search the internet (requires BRAVE_API_KEY)',
+  'WebSearch — search the internet (Anthropic built-in)',
 ];
 
 /**
@@ -299,6 +296,12 @@ export class Session {
     const aiProvider = provider ?? this.createAnthropicProvider();
     this.aiProvider = aiProvider;
     this.contextMaxTokens = MODEL_CONTEXT_SIZES[config.provider.model] ?? DEFAULT_CONTEXT_SIZE;
+
+    // Enable Anthropic server web tools (web_search)
+    if (aiProvider.name === 'anthropic' && 'enableWebTools' in aiProvider) {
+      (aiProvider as { enableWebTools: boolean }).enableWebTools = true;
+    }
+
     if (options.onTextDelta && 'onTextDelta' in aiProvider) {
       (aiProvider as { onTextDelta?: (delta: string) => void }).onTextDelta = options.onTextDelta;
     }
@@ -346,8 +349,6 @@ export class Session {
       editTool as IToolWithEventService,
       globTool as IToolWithEventService,
       grepTool as IToolWithEventService,
-      webFetchTool as IToolWithEventService,
-      webSearchTool as IToolWithEventService,
       ...(additionalTools ?? []),
     ];
     return rawTools.map((tool) => this.wrapToolWithPermission(tool));
