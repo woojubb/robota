@@ -30,8 +30,23 @@ ok() {
   echo -e "${GREEN}OK: $1${NC}"
 }
 
-# Find all publishable packages (those with "files" in package.json)
-PACKAGES=$(find packages -maxdepth 1 -mindepth 1 -type d | sort)
+# Usage: pre-publish-docs-check.sh [--scope pkg1,pkg2,...]
+# If --scope is provided, only check those packages.
+# Otherwise check all non-private packages.
+SCOPE_FILTER=""
+if [[ "${1:-}" == "--scope" ]] && [[ -n "${2:-}" ]]; then
+  SCOPE_FILTER="$2"
+fi
+
+if [[ -n "$SCOPE_FILTER" ]]; then
+  PACKAGES=""
+  IFS=',' read -ra SCOPE_PKGS <<< "$SCOPE_FILTER"
+  for sp in "${SCOPE_PKGS[@]}"; do
+    PACKAGES="$PACKAGES packages/$sp"
+  done
+else
+  PACKAGES=$(find packages -maxdepth 1 -mindepth 1 -type d | sort)
+fi
 
 echo "=== Pre-Publish Documentation Check ==="
 echo ""

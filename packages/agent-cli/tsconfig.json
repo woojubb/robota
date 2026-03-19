@@ -8,6 +8,7 @@
     "declarationMap": true,
     "downlevelIteration": true,
     "jsx": "react-jsx",
+    "moduleResolution": "bundler",
     "lib": ["ES2022"],
     "types": ["node"]
   },
