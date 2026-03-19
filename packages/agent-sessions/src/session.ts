@@ -40,6 +40,9 @@ import type { SessionStore, ISessionRecord } from './session-store.js';
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
 
+/** Maximum chars for any single tool output. Matches Claude Code's 30K limit. */
+const MAX_TOOL_OUTPUT_CHARS = 30_000;
+
 /** Returned when the user denies a permission prompt. success:true prevents ToolExecutionError. */
 const PERMISSION_DENIED_RESULT: IToolResult = {
   success: true,
@@ -496,15 +499,22 @@ export class Session {
         }
 
         const result = await originalExecute(parameters, context as IToolExecutionContext);
+
+        // Truncate oversized tool output (Claude Code uses 30K char limit)
+        const truncatedResult = session.truncateToolResult(result);
+
         const dataSize =
-          typeof result.data === 'string' ? result.data.length : JSON.stringify(result.data).length;
+          typeof truncatedResult.data === 'string'
+            ? truncatedResult.data.length
+            : JSON.stringify(truncatedResult.data).length;
         session.log('tool_result', {
           tool: toolName,
-          success: result.success,
+          success: truncatedResult.success,
           dataChars: dataSize,
+          truncated: truncatedResult !== result,
         });
-        session.firePostToolHook(hookInput, result);
-        return result;
+        session.firePostToolHook(hookInput, truncatedResult);
+        return truncatedResult;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
@@ -516,6 +526,23 @@ export class Session {
     };
 
     return wrappedTool;
+  }
+
+  /**
+   * Truncate tool result data if it exceeds MAX_TOOL_OUTPUT_CHARS.
+   * Uses middle-truncation: keeps first and last portions, removes middle.
+   */
+  private truncateToolResult(result: IToolResult): IToolResult {
+    if (typeof result.data !== 'string') return result;
+    if (result.data.length <= MAX_TOOL_OUTPUT_CHARS) return result;
+
+    const halfLimit = Math.floor(MAX_TOOL_OUTPUT_CHARS / 2);
+    const head = result.data.substring(0, halfLimit);
+    const tail = result.data.substring(result.data.length - halfLimit);
+    const originalSize = result.data.length;
+    const truncatedData = `${head}\n\n[... output truncated: ${originalSize.toLocaleString()} chars total, showing first and last ${halfLimit.toLocaleString()} chars ...]\n\n${tail}`;
+
+    return { ...result, data: truncatedData };
   }
 
   /** Build a hook input object for tool execution hooks */

@@ -13,12 +13,15 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 import type { IZodSchema } from '../implementations/function-tool/types';
 import type { TToolResult } from '../types/tool-result.js';
 
+const DEFAULT_MAX_RESULTS = 1000;
+
 const GlobSchema = z.object({
   pattern: z.string().describe('Glob pattern to match (e.g. "**/*.ts")'),
   path: z
     .string()
     .optional()
     .describe('Base directory to search in (default: current working directory)'),
+  limit: z.number().optional().describe('Maximum number of results to return (default: 1000)'),
 });
 
 type TGlobArgs = z.infer<typeof GlobSchema>;
@@ -63,11 +66,21 @@ async function globFileTool(args: TGlobArgs): Promise<string> {
   );
 
   withMtime.sort((a, b) => b.mtime - a.mtime);
-  const sorted = withMtime.map((f) => f.path);
+
+  const maxResults = args.limit ?? DEFAULT_MAX_RESULTS;
+  const totalMatches = withMtime.length;
+  const truncated = totalMatches > maxResults;
+  const limited = truncated ? withMtime.slice(0, maxResults) : withMtime;
+  const sorted = limited.map((f) => f.path);
+
+  let output = sorted.length > 0 ? sorted.join('\n') : '(no matches)';
+  if (truncated) {
+    output += `\n\n[Showing ${maxResults} of ${totalMatches} matches. Use limit parameter to see more.]`;
+  }
 
   const result: TToolResult = {
     success: true,
-    output: sorted.length > 0 ? sorted.join('\n') : '(no matches)',
+    output,
   };
   return JSON.stringify(result);
 }
