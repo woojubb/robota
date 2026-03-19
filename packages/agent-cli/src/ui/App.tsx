@@ -10,6 +10,8 @@ import type {
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, ISpinner } from '../types.js';
 import type { IChatMessage, IPermissionRequest } from './types.js';
+import { CommandRegistry } from '../commands/command-registry.js';
+import { BuiltinCommandSource } from '../commands/builtin-source.js';
 import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
 import InputArea from './InputArea.js';
@@ -259,12 +261,24 @@ function useSubmitHandler(
   );
 }
 
+/** Hook: create a CommandRegistry once with builtin commands */
+function useCommandRegistry(): CommandRegistry {
+  const registryRef = useRef<CommandRegistry | null>(null);
+  if (registryRef.current === null) {
+    const registry = new CommandRegistry();
+    registry.addSource(new BuiltinCommandSource());
+    registryRef.current = registry;
+  }
+  return registryRef.current;
+}
+
 export default function App(props: IProps): React.ReactElement {
   const { exit } = useApp();
   const { session, permissionRequest, streamingText, clearStreamingText } = useSession(props);
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
   const [contextPercentage, setContextPercentage] = useState(0);
+  const registry = useCommandRegistry();
 
   const handleSlashCommand = useSlashCommands(session, addMessage, setMessages, exit);
   const handleSubmit = useSubmitHandler(
@@ -308,7 +322,11 @@ export default function App(props: IProps): React.ReactElement {
         isThinking={isThinking}
         contextPercentage={contextPercentage}
       />
-      <InputArea onSubmit={handleSubmit} isDisabled={isThinking || !!permissionRequest} />
+      <InputArea
+        onSubmit={handleSubmit}
+        isDisabled={isThinking || !!permissionRequest}
+        registry={registry}
+      />
     </Box>
   );
 }
