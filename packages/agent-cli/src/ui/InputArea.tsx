@@ -104,7 +104,9 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
     setShowPopup,
   } = useAutocomplete(value, registry);
 
-  // Use setTimeout(0) to let IME composition complete before reading value
+  // Delay submit to let Korean IME composition complete and React re-render.
+  // 50ms is enough for IME commit → onChange → setState → ref update cycle.
+  const IME_SETTLE_MS = 50;
   const handleSubmit = useCallback((): void => {
     setTimeout(() => {
       const current = valueRef.current.trim();
@@ -117,7 +119,7 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
 
       setValue('');
       onSubmit(current);
-    }, 0);
+    }, IME_SETTLE_MS);
   }, [showPopup, filteredCommands, selectedIndex, onSubmit]);
 
   const selectCommand = useCallback(
