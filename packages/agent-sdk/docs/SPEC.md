@@ -112,6 +112,18 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sdk/context/`
 - **Rationale**: AGENTS.md/CLAUDE.md walk-up discovery is for local development environments only
 - **Implementation**: Directory traversal from cwd to root, project type/language detection, system prompt assembly
+- **Compact Instructions**: Extracts "Compact Instructions" section from CLAUDE.md and passes to Session for compaction
+
+### Context Window Management
+
+- **Token tracking**: `agent-sessions` Session tracks cumulative input tokens from provider response metadata
+- **Usage state**: `session.getContextState()` returns `IContextWindowState` (usedTokens, maxTokens, usedPercentage)
+- **Auto-compaction**: Triggers at ~83.5% of model context window (configurable per model)
+- **Manual compaction**: `session.compact(instructions?)` generates LLM summary, replaces history
+- **Model sizes**: Lookup table per model (200k for Sonnet/Haiku, 1M for Opus)
+- **Compact Instructions**: Extracted from CLAUDE.md "Compact Instructions" section, passed to summary prompt
+- **Hooks**: PreCompact/PostCompact events in agent-core, fired before/after compaction
+- **Callbacks**: `onCompact` in query() options for notification when compaction occurs
 
 ## Public API
 
