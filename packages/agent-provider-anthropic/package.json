@@ -74,7 +74,7 @@
   "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.0"
+    "@anthropic-ai/sdk": "^0.80.0"
   },
   "peerDependencies": {
     "@robota-sdk/agent-core": "workspace:*"

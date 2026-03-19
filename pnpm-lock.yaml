@@ -949,8 +949,8 @@ importers:
   packages/agent-provider-anthropic:
     dependencies:
       '@anthropic-ai/sdk':
-        specifier: ^0.24.0
-        version: 0.24.3
+        specifier: ^0.80.0
+        version: 0.80.0(zod@3.25.76)
     devDependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*
@@ -2192,22 +2192,20 @@ packages:
       '@jridgewell/gen-mapping': 0.3.12
       '@jridgewell/trace-mapping': 0.3.29
 
-  /@anthropic-ai/sdk@0.24.3:
+  /@anthropic-ai/sdk@0.80.0(zod@3.25.76):
     resolution:
       {
-        integrity: sha512-916wJXO6T6k8R6BAAcLhLPv/pnLGy7YSEBZXZ1XTFbLcTZE8oTy3oDW9WJf9KKZwMvVcePIfoTSvzXHRcGxkQQ==,
+        integrity: sha512-WeXLn7zNVk3yjeshn+xZHvld6AoFUOR3Sep6pSoHho5YbSi6HwcirqgPA5ccFuW8QTVJAAU7N8uQQC6Wa9TG+g==,
       }
+    hasBin: true
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      zod:
+        optional: true
     dependencies:
-      '@types/node': 18.19.120
-      '@types/node-fetch': 2.6.12
-      abort-controller: 3.0.0
-      agentkeepalive: 4.6.0
-      form-data-encoder: 1.7.2
-      formdata-node: 4.4.1
-      node-fetch: 2.7.0
-      web-streams-polyfill: 3.3.3
-    transitivePeerDependencies:
-      - encoding
+      json-schema-to-ts: 3.1.1
+      zod: 3.25.76
     dev: false
 
   /@asamuzakjp/css-color@3.2.0:
@@ -2626,7 +2624,6 @@ packages:
         integrity: sha512-vbavdySgbTTrmFE+EsiqUTzlOr5bzlnJtUv9PynGCAKvfQqjIXbvFdumPM/GxMDfyuGMJaJAU6TO4zc1Jf1i8Q==,
       }
     engines: { node: '>=6.9.0' }
-    dev: true
 
   /@babel/template@7.27.2:
     resolution:
@@ -15182,6 +15179,17 @@ packages:
       }
     dev: true
 
+  /json-schema-to-ts@3.1.1:
+    resolution:
+      {
+        integrity: sha512-+DWg8jCJG2TEnpy7kOm/7/AxaYoaRbjVB4LFZLySZlWn8exGs3A4OLJR966cVvU26N7X9TWxl+Jsw7dzAqKT6g==,
+      }
+    engines: { node: '>=16' }
+    dependencies:
+      '@babel/runtime': 7.27.6
+      ts-algebra: 2.0.0
+    dev: false
+
   /json-schema-traverse@0.4.1:
     resolution:
       {
@@ -19886,6 +19894,13 @@ packages:
       }
     dev: false
 
+  /ts-algebra@2.0.0:
+    resolution:
+      {
+        integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==,
+      }
+    dev: false
+
   /ts-api-utils@1.4.3(typescript@5.8.3):
     resolution:
       {
@@ -20839,14 +20854,6 @@ packages:
     engines: { node: ^20.12||^22.13||>=24.0 }
     hasBin: true
     dev: true
-
-  /web-streams-polyfill@3.3.3:
-    resolution:
-      {
-        integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==,
-      }
-    engines: { node: '>= 8' }
-    dev: false
 
   /web-streams-polyfill@4.0.0-beta.3:
     resolution:
