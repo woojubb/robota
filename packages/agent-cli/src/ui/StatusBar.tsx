@@ -13,6 +13,8 @@ interface IProps {
   messageCount: number;
   isThinking: boolean;
   contextPercentage: number;
+  contextUsedTokens: number;
+  contextMaxTokens: number;
 }
 
 /** Return the color for the context percentage indicator */
@@ -29,6 +31,8 @@ export default function StatusBar({
   messageCount,
   isThinking,
   contextPercentage,
+  contextUsedTokens,
+  contextMaxTokens,
 }: IProps): React.ReactElement {
   const contextColor = getContextColor(contextPercentage);
 
@@ -48,7 +52,10 @@ export default function StatusBar({
         {'  |  '}
         <Text dimColor>{modelName}</Text>
         {'  |  '}
-        <Text color={contextColor}>Context: {Math.round(contextPercentage)}%</Text>
+        <Text color={contextColor}>
+          Context: {Math.round(contextPercentage)}% ({(contextUsedTokens / 1000).toFixed(1)}k/
+          {(contextMaxTokens / 1000).toFixed(0)}k)
+        </Text>
       </Text>
       <Text>
         {isThinking && <Text color="yellow">Thinking... </Text>}

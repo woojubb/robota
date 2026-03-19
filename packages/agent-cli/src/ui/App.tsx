@@ -403,6 +403,8 @@ export default function App(props: IProps): React.ReactElement {
         messageCount={messages.length}
         isThinking={isThinking}
         contextPercentage={contextPercentage}
+        contextUsedTokens={session.getContextState().usedTokens}
+        contextMaxTokens={session.getContextState().maxTokens}
       />
       <InputArea
         onSubmit={handleSubmit}
