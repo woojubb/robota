@@ -233,17 +233,44 @@ function useSlashCommands(
   );
 }
 
+/** Render a line of text with tool indicators highlighted */
+function HighlightedLine({ line }: { line: string }): React.ReactElement {
+  if (line.includes('🔍 Searching:') || line.includes('🔍 [')) {
+    return (
+      <Text backgroundColor="blue" color="white" bold>
+        {' '}
+        {line.trim()}{' '}
+      </Text>
+    );
+  }
+  if (line.startsWith('[Web Search Results]')) {
+    return (
+      <Text color="yellow" bold>
+        {line}
+      </Text>
+    );
+  }
+  if (/^\d+\.\s/.test(line.trim())) {
+    // Search result numbered item
+    return <Text color="gray">{line}</Text>;
+  }
+  return <Text wrap="wrap">{line}</Text>;
+}
+
 /** Streaming text indicator shown while the agent is generating a response */
 function StreamingIndicator({ text }: { text: string }): React.ReactElement {
   if (text) {
+    const lines = text.split('\n');
     return (
       <Box flexDirection="column">
         <Text color="cyan" bold>
           Robota:{' '}
         </Text>
         <Text> </Text>
-        <Box marginLeft={2}>
-          <Text wrap="wrap">{text}</Text>
+        <Box marginLeft={2} flexDirection="column">
+          {lines.map((line, i) => (
+            <HighlightedLine key={i} line={line} />
+          ))}
         </Box>
       </Box>
     );

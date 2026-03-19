@@ -35,7 +35,41 @@ function RoleLabel({ role }: { role: IChatMessage['role'] }): React.ReactElement
   }
 }
 
+/** Render content with tool indicators highlighted */
+function HighlightedContent({ content }: { content: string }): React.ReactElement {
+  const lines = content.split('\n');
+  return (
+    <Box flexDirection="column">
+      {lines.map((line, i) => {
+        if (line.includes('🔍 Searching:') || line.includes('🔍 [')) {
+          return (
+            <Text key={i} backgroundColor="blue" color="white" bold>
+              {' '}
+              {line.trim()}{' '}
+            </Text>
+          );
+        }
+        if (line.startsWith('[Web Search Results]')) {
+          return (
+            <Text key={i} color="yellow" bold>
+              {line}
+            </Text>
+          );
+        }
+        return (
+          <Text key={i} wrap="wrap">
+            {line}
+          </Text>
+        );
+      })}
+    </Box>
+  );
+}
+
 function MessageItem({ message }: { message: IChatMessage }): React.ReactElement {
+  const hasToolIndicators =
+    message.content.includes('🔍') || message.content.includes('[Web Search Results]');
+
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
@@ -48,7 +82,11 @@ function MessageItem({ message }: { message: IChatMessage }): React.ReactElement
       </Box>
       <Text> </Text>
       <Box marginLeft={2}>
-        <Text wrap="wrap">{message.content}</Text>
+        {hasToolIndicators ? (
+          <HighlightedContent content={message.content} />
+        ) : (
+          <Text wrap="wrap">{message.content}</Text>
+        )}
       </Box>
     </Box>
   );
