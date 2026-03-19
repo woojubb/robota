@@ -1,4 +1,6 @@
-// @robota-sdk/agent-cli
+// @robota-sdk/agent-cli — Re-export SDK types for backward compatibility
+
+export { Session, SessionStore, query, TRUST_TO_MODE } from '@robota-sdk/agent-sdk';
 export type {
   TToolResult,
   ITerminalOutput,
@@ -6,16 +8,10 @@ export type {
   TTrustLevel,
   TPermissionDecision,
   TPermissionMode,
-} from './types.js';
-export { TRUST_TO_MODE } from './types.js';
-
-export { Session } from './session.js';
-export type { ISessionOptions, TPermissionHandler } from './session.js';
-
-export { SessionStore } from './session-store.js';
-export type { ISessionRecord } from './session-store.js';
-
-export { query } from './query.js';
-export type { IQueryOptions } from './query.js';
+  ISessionOptions,
+  TPermissionHandler,
+  ISessionRecord,
+  IQueryOptions,
+} from '@robota-sdk/agent-sdk';
 
 export { startCli } from './cli.js';
