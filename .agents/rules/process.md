@@ -83,6 +83,14 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Only start implementation when the user explicitly requests it (e.g., "이거 진행해", "할일 목록에서 X 해줘").
 - When the user asks to see the backlog ("할일 목록 보여줘"), list all recorded tasks from `.agents/tasks/`.
 
+### Foundation Package Dependency Rule
+
+- `agent-core` is the foundation package. It MUST NOT depend on any `@robota-sdk/agent-*` package.
+- Before any publish, verify that `agent-core/package.json` has zero `@robota-sdk/agent-*` entries in `dependencies`.
+- If agent-core needs functionality from another package, that functionality must be moved INTO agent-core or the dependency must be inverted.
+- This rule also applies to any package that is a transitive dependency of agent-core.
+- Violation of this rule blocks publishing — `npm install` will fail with 404 for unpublished upstream packages.
+
 ### Build Requirements
 
 - ANY modification to `packages/*/src/` REQUIRES immediate build of the affected scope.
