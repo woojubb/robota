@@ -89,6 +89,16 @@ export function buildSystemPrompt(params: ISystemPromptParams): string {
     sections.push(['## Project Notes', claudeMd].join('\n'));
   }
 
+  // Web search capability
+  sections.push(
+    [
+      '## Web Search',
+      'You have access to web search. When the user asks to search, look up, or find current/latest information,',
+      'you MUST use the web_search tool. Do NOT answer from training data when the user explicitly asks to search.',
+      'Always prefer web search for: news, latest versions, current events, live documentation.',
+    ].join('\n'),
+  );
+
   // Tool list
   const toolsSection = buildToolsSection(toolDescriptions);
   if (toolsSection.length > 0) {
