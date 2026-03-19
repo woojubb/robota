@@ -302,6 +302,7 @@ export default function App(props: IProps): React.ReactElement {
       {permissionRequest && <PermissionPrompt request={permissionRequest} />}
       <StatusBar
         permissionMode={session.getPermissionMode()}
+        modelName={props.config.provider.model}
         sessionId={session.getSessionId()}
         messageCount={messages.length}
         isThinking={isThinking}

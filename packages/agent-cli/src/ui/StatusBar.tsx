@@ -8,6 +8,7 @@ const CONTEXT_RED_THRESHOLD = 90;
 
 interface IProps {
   permissionMode: TPermissionMode;
+  modelName: string;
   sessionId: string;
   messageCount: number;
   isThinking: boolean;
@@ -23,6 +24,7 @@ function getContextColor(percentage: number): string {
 
 export default function StatusBar({
   permissionMode,
+  modelName,
   sessionId: _sessionId,
   messageCount,
   isThinking,
@@ -43,6 +45,8 @@ export default function StatusBar({
           Mode:
         </Text>{' '}
         <Text>{permissionMode}</Text>
+        {'  |  '}
+        <Text dimColor>{modelName}</Text>
         {'  |  '}
         <Text color={contextColor}>Context: {Math.round(contextPercentage)}%</Text>
       </Text>
