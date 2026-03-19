@@ -200,11 +200,11 @@ Commands are grouped by source with subtle separators:
 - [x] Wire into `InputArea` — detect `/` and show popup
 - [x] Subcommand navigation for /mode and /model
 
-### Phase 2: Skill Discovery
+### Phase 2: Skill Discovery (DONE)
 
-- [ ] Skill command source (scan `.agents/skills/`)
-- [ ] User skill source (scan `~/.robota/skills/`)
-- [ ] Dynamic loading at session start
+- [x] Skill command source (scan `.agents/skills/`) — `SkillCommandSource` in `skill-source.ts`
+- [x] User skill source (scan `~/.claude/skills/`) — included in `SkillCommandSource`
+- [x] Dynamic loading at session start — cached after first scan, project skills take precedence
 
 ### Phase 3: Plugin System (future)
 

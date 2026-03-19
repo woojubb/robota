@@ -99,6 +99,8 @@ This package is the single source of truth (SSOT) for the following types:
 | `IHookDefinition`     | `hooks/types.ts`                 | Single hook definition (type: command, command string)             |
 | `IHookInput`          | `hooks/types.ts`                 | Input passed to hook commands via stdin                            |
 | `IHookResult`         | `hooks/types.ts`                 | Hook execution result (exitCode, stdout, stderr)                   |
+| `IContextTokenUsage`  | `context/types.ts`               | Token usage from a single API call (input, output, cache tokens)   |
+| `IContextWindowState` | `context/types.ts`               | Context window state snapshot (maxTokens, usedTokens, percentage)  |
 
 Provider packages import these types. They must not re-declare them.
 
@@ -137,15 +139,15 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 
 ### Hooks
 
-| Export            | Kind     | Description                                                 |
-| ----------------- | -------- | ----------------------------------------------------------- |
-| `runHooks`        | function | Execute shell command hooks for lifecycle events            |
-| `THookEvent`      | type     | `'PreToolUse' \| 'PostToolUse' \| 'SessionStart' \| 'Stop'` |
-| `THooksConfig`    | type     | Event to hook group array mapping                           |
-| `IHookGroup`      | type     | Matcher pattern + hook definitions                          |
-| `IHookDefinition` | type     | Single hook definition (command type)                       |
-| `IHookInput`      | type     | JSON input passed to hooks via stdin                        |
-| `IHookResult`     | type     | Hook result: exitCode (0=allow, 2=block), stdout, stderr    |
+| Export            | Kind     | Description                                                                                  |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `runHooks`        | function | Execute shell command hooks for lifecycle events                                             |
+| `THookEvent`      | type     | `'PreToolUse' \| 'PostToolUse' \| 'SessionStart' \| 'Stop' \| 'PreCompact' \| 'PostCompact'` |
+| `THooksConfig`    | type     | Event to hook group array mapping                                                            |
+| `IHookGroup`      | type     | Matcher pattern + hook definitions                                                           |
+| `IHookDefinition` | type     | Single hook definition (command type)                                                        |
+| `IHookInput`      | type     | JSON input passed to hooks via stdin                                                         |
+| `IHookResult`     | type     | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                     |
 
 ### Streaming
 
@@ -154,6 +156,15 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 | `TTextDeltaCallback` | type | `(delta: string) => void` — streaming text callback |
 
 This callback is declared in `IChatOptions.onTextDelta` and used by providers to emit text chunks during streaming responses.
+
+### Context Window Tracking
+
+| Export                | Kind      | Description                                                           |
+| --------------------- | --------- | --------------------------------------------------------------------- |
+| `IContextTokenUsage`  | interface | Token usage from a single API call (inputTokens, outputTokens, cache) |
+| `IContextWindowState` | interface | Context window state snapshot (maxTokens, usedTokens, usedPercentage) |
+
+These types are consumed by `@robota-sdk/agent-sessions` to track cumulative token usage and context window state across conversation turns.
 
 ### Managers
 
@@ -264,12 +275,14 @@ The hook module (`src/hooks/`) provides a shell command-based lifecycle hook mec
 
 ### Hook Events
 
-| Event          | Timing                 | Purpose                              |
-| -------------- | ---------------------- | ------------------------------------ |
-| `PreToolUse`   | Before tool execution  | Validation, blocking, transformation |
-| `PostToolUse`  | After tool execution   | Logging, auditing, notification      |
-| `SessionStart` | Session initialization | Setup, environment checks            |
-| `Stop`         | Session termination    | Cleanup, reporting                   |
+| Event          | Timing                    | Purpose                                          |
+| -------------- | ------------------------- | ------------------------------------------------ |
+| `PreToolUse`   | Before tool execution     | Validation, blocking, transformation             |
+| `PostToolUse`  | After tool execution      | Logging, auditing, notification                  |
+| `SessionStart` | Session initialization    | Setup, environment checks                        |
+| `Stop`         | Session termination       | Cleanup, reporting                               |
+| `PreCompact`   | Before context compaction | Validation, logging (trigger: auto/manual)       |
+| `PostCompact`  | After context compaction  | Logging, notification (includes compact_summary) |
 
 ### Exit Code Protocol
 
