@@ -32,6 +32,9 @@ import {
   globTool,
   grepTool,
 } from '@robota-sdk/agent-tools';
+import { mkdirSync, appendFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import type { SessionStore, ISessionRecord } from './session-store.js';
 
 const ID_RADIX = 36;
@@ -196,6 +199,10 @@ export interface ISessionOptions {
   onCompact?: (summary: string) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
+  /** Enable conversation logging to .robota/logs/{sessionId}.jsonl */
+  enableLogging?: boolean;
+  /** Custom log directory (default: .robota/logs/) */
+  logDir?: string;
 }
 
 /** Names of the 6 built-in CLI tools */
@@ -231,6 +238,7 @@ export class Session {
   private readonly onCompactCallback?: (summary: string) => void;
   private readonly compactInstructions?: string;
   private readonly aiProvider: IAIProvider;
+  private readonly logDir?: string;
   private messageCount = 0;
   private contextUsedTokens = 0;
   private contextMaxTokens = DEFAULT_CONTEXT_SIZE;
@@ -255,6 +263,16 @@ export class Session {
     this.onCompactCallback = options.onCompact;
     this.compactInstructions = options.compactInstructions;
     this.cwd = process.cwd();
+
+    // Setup conversation logging
+    if (options.enableLogging !== false) {
+      this.logDir = options.logDir ?? join(this.cwd, '.robota', 'logs');
+      try {
+        mkdirSync(this.logDir, { recursive: true });
+      } catch {
+        this.logDir = undefined;
+      }
+    }
     this.sessionId = `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
 
     // Resolve permission mode from explicit arg or config default
@@ -333,14 +351,38 @@ export class Session {
    * via the beforeToolCall hook registered in the constructor.
    */
   async run(message: string): Promise<string> {
+    this.log('user', { content: message });
+
+    const history = this.robota.getHistory();
+    this.log('pre_run', {
+      historyLength: history.length,
+      estimatedChars: JSON.stringify(history).length,
+    });
+
     const response = await this.robota.run(message);
     this.messageCount += 1;
+
+    // Log the response and full history state
+    const postHistory = this.robota.getHistory();
+    this.log('assistant', {
+      content: response.substring(0, 500),
+      historyLength: postHistory.length,
+      estimatedChars: JSON.stringify(postHistory).length,
+    });
 
     // Update token usage from the latest assistant message metadata
     this.updateTokenUsageFromHistory();
 
+    const ctxState = this.getContextState();
+    this.log('context', {
+      maxTokens: ctxState.maxTokens,
+      usedTokens: ctxState.usedTokens,
+      usedPercentage: ctxState.usedPercentage,
+      remainingPercentage: ctxState.remainingPercentage,
+    });
+
     // Auto-compact if threshold exceeded
-    if (this.getContextState().usedPercentage >= AUTO_COMPACT_THRESHOLD * PERCENT) {
+    if (ctxState.usedPercentage >= AUTO_COMPACT_THRESHOLD * PERCENT) {
       await this.compact();
     }
 
@@ -349,6 +391,23 @@ export class Session {
     }
 
     return response;
+  }
+
+  /** Append a log entry to the session log file */
+  private log(event: string, data: Record<string, string | number | boolean | object>): void {
+    if (!this.logDir) return;
+    try {
+      const entry = JSON.stringify({
+        timestamp: new Date().toISOString(),
+        sessionId: this.sessionId,
+        event,
+        ...data,
+      });
+      const logFile = join(this.logDir, `${this.sessionId}.jsonl`);
+      appendFileSync(logFile, entry + '\n');
+    } catch {
+      // Logging failure should never break the session
+    }
   }
 
   /** Persist the current session to the store */
@@ -413,15 +472,27 @@ export class Session {
       // corrupts the conversation and causes a 400 error on the next API call.
       try {
         const toolName = tool.getName();
+        session.log('tool_call', {
+          tool: toolName,
+          args: parameters as Record<string, string | number | boolean | object>,
+        });
+
         const hookInput = session.buildHookInput(toolName, parameters);
 
         const preResult = await session.runPreToolHook(hookInput);
-        if (preResult) return preResult;
+        if (preResult) {
+          session.log('tool_blocked', { tool: toolName, reason: 'hook' });
+          return preResult;
+        }
 
         const allowed = await session.checkPermission(toolName, parameters as TToolArgs);
-        if (!allowed) return PERMISSION_DENIED_RESULT;
+        if (!allowed) {
+          session.log('tool_denied', { tool: toolName, reason: 'permission' });
+          return PERMISSION_DENIED_RESULT;
+        }
 
         const result = await originalExecute(parameters, context as IToolExecutionContext);
+        session.log('tool_result', { tool: toolName, success: result.success });
         session.firePostToolHook(hookInput, result);
         return result;
       } catch (err) {
