@@ -66,6 +66,8 @@ export interface ISessionOptions {
   provider?: IAIProvider;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
   permissionHandler?: TPermissionHandler;
+  /** Callback for text deltas — enables streaming text to the UI in real-time */
+  onTextDelta?: (delta: string) => void;
 }
 
 /** Names of the 6 built-in CLI tools */
@@ -126,8 +128,11 @@ export class Session {
       projectInfo: projectInfo ?? { type: 'unknown', language: 'unknown' },
     });
 
-    // Resolve AI provider
+    // Resolve AI provider and wire up streaming if callback provided
     const aiProvider = provider ?? this.createAnthropicProvider();
+    if (options.onTextDelta && 'onTextDelta' in aiProvider) {
+      (aiProvider as { onTextDelta?: (delta: string) => void }).onTextDelta = options.onTextDelta;
+    }
 
     // Register all 6 tools — each wrapped with permission checking
     const rawTools = [bashTool, readTool, writeTool, editTool, globTool, grepTool];
