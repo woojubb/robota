@@ -106,18 +106,18 @@ export class AnthropicProvider extends AbstractAIProvider {
     }
 
     const functionTools = options?.tools ? this.convertToolsToAnthropicFormat(options.tools) : [];
-    const serverTools = this.enableWebTools
-      ? [{ type: 'web_search_20250305', name: 'web_search' }]
+    const serverTools: Anthropic.Messages.ToolUnion[] = this.enableWebTools
+      ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
       : [];
-    const allTools = [...functionTools, ...serverTools];
+    const allTools: Anthropic.Messages.ToolUnion[] = [...functionTools, ...serverTools];
 
-    const baseParams = {
+    const baseParams: Anthropic.MessageCreateParamsNonStreaming = {
       model: options.model as string,
       messages: anthropicMessages,
       max_tokens: options?.maxTokens || DEFAULT_MAX_TOKENS,
       ...(options?.temperature !== undefined && { temperature: options.temperature }),
       ...(allTools.length > 0 && { tools: allTools }),
-    } as Anthropic.MessageCreateParamsNonStreaming;
+    };
 
     // When onTextDelta callback is available (from options or instance property),
     // use streaming internally but still return the complete assembled message.
@@ -412,10 +412,11 @@ export class AnthropicProvider extends AbstractAIProvider {
             arguments: JSON.stringify(toolBlock.input),
           },
         });
-      } else if ((block as { type: string }).type === 'server_tool_use') {
+      } else if (block.type === 'server_tool_use') {
         // Server tool invocation (e.g., web_search) — results come in a separate block
-      } else if ((block as { type: string }).type === 'web_search_tool_result') {
-        const searchResults = this.formatWebSearchResults(block as { type: string });
+      } else if (block.type === 'web_search_tool_result') {
+        const resultBlock = block as Anthropic.Messages.WebSearchToolResultBlock;
+        const searchResults = this.formatWebSearchResults(resultBlock);
         if (searchResults) {
           textParts.push(searchResults);
         }
@@ -449,22 +450,19 @@ export class AnthropicProvider extends AbstractAIProvider {
     return result;
   }
 
-  /**
-   * Format a web_search_tool_result block into readable text.
-   */
-  private formatWebSearchResults(block: { type: string }): string {
-    const resultBlock = block as {
-      type: string;
-      content?: Array<{ type: string; title?: string; url?: string; encrypted_content?: string }>;
-    };
-    if (!Array.isArray(resultBlock.content)) return '';
+  /** Format a WebSearchToolResultBlock into readable text. */
+  private formatWebSearchResults(block: Anthropic.Messages.WebSearchToolResultBlock): string {
+    if (!Array.isArray(block.content)) return '';
 
-    const searchResults = resultBlock.content
-      .filter((r) => r.type === 'web_search_result' && r.title && r.url)
+    const results = block.content
+      .filter(
+        (r): r is Anthropic.Messages.WebSearchResultBlock =>
+          r.type === 'web_search_result' && 'title' in r && 'url' in r,
+      )
       .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}`)
       .join('\n');
 
-    return searchResults ? `[Web Search Results]\n${searchResults}` : '';
+    return results ? `[Web Search Results]\n${results}` : '';
   }
 
   /**
