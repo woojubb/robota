@@ -19,13 +19,15 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as readline from 'node:readline';
-import { loadConfig } from './config/config-loader.js';
-import { loadContext } from './context/context-loader.js';
-import { detectProject } from './context/project-detector.js';
-import { Session } from './session.js';
-import { SessionStore } from './session-store.js';
+import {
+  loadConfig,
+  loadContext,
+  detectProject,
+  Session,
+  SessionStore,
+} from '@robota-sdk/agent-sdk';
+import type { ITerminalOutput, ISpinner, TPermissionMode } from '@robota-sdk/agent-sdk';
 import { renderApp } from './ui/render.js';
-import type { ITerminalOutput, ISpinner, TPermissionMode } from './types.js';
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
 

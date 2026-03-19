@@ -6,8 +6,7 @@
  * All other output methods are no-ops since Ink manages rendering.
  */
 
-import type { ITerminalOutput, ISpinner } from '../types.js';
-import type { TToolArgs } from '../permissions/permission-gate.js';
+import type { ITerminalOutput, ISpinner, TToolArgs } from '@robota-sdk/agent-sdk';
 
 export type TPermissionResolver = (toolName: string, toolArgs: TToolArgs) => Promise<boolean>;
 
