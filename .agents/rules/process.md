@@ -106,3 +106,13 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - A publish without prior gate success is a process violation.
 - Publishing from a branch other than `main` or `release/*` is prohibited unless explicitly approved.
 - `pnpm pre-publish:check` runs `scripts/pre-publish-docs-check.sh` which validates all publishable packages have: README.md (10+ lines), docs/SPEC.md, package.json description, license, and usage documentation. This is automatically run as part of `pnpm publish:packages`.
+
+### Publish Scope Approval
+
+- The set of packages to publish MUST be explicitly confirmed by the user before any publish action.
+- When packages are added, removed, renamed, or reorganized, the publish manifest MUST be updated in the release spec document (`.agents/tasks/` or `docs/`) before publishing.
+- If no publish manifest exists for the current release, the agent MUST ask the user which packages to publish and record the answer in the release document.
+- NEVER assume which packages to publish — always verify against the spec or ask the user.
+- Each publishable package must be listed with: package name, version, and publish decision (yes/no/skip).
+- Packages marked as `private: true` in package.json are never published.
+- New packages that have never been published require explicit user approval on their first publish.
