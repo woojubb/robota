@@ -2,7 +2,7 @@ import type { IBaseEventData, IEventService } from '../interfaces/event-service'
 import { EXECUTION_EVENTS } from '../services/execution-service';
 import { TOOL_EVENTS } from '../services/tool-execution-service';
 import { AGENT_EVENTS } from '../agents/constants';
-import { TASK_EVENTS } from '@robota-sdk/agent-event-service';
+import { TASK_EVENTS } from '../event-service/index';
 import type { IUniversalObjectValue, TUniversalValue } from '../interfaces/types';
 
 const ID_RADIX = 36;

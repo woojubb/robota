@@ -8,7 +8,7 @@ import type {
 } from '../interfaces/tool';
 import type { TUniversalValue } from '../interfaces/types';
 import { AbstractManager } from '../abstracts/abstract-manager';
-import { ToolRegistry, FunctionTool } from '@robota-sdk/agent-tools';
+import { ToolRegistry, FunctionTool } from '../tool-registry';
 import { ToolExecutionError } from '../utils/errors';
 import { logger } from '../utils/logger';
 

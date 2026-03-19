@@ -558,9 +558,6 @@ importers:
 
   packages/agent-core:
     dependencies:
-      '@robota-sdk/agent-event-service':
-        specifier: workspace:*
-        version: link:../agent-event-service
       jssha:
         specifier: ^3.3.1
         version: 3.3.1
@@ -568,39 +565,6 @@ importers:
         specifier: ^3.24.4
         version: 3.25.76
     devDependencies:
-      '@robota-sdk/agent-plugin-conversation-history':
-        specifier: workspace:*
-        version: link:../agent-plugin-conversation-history
-      '@robota-sdk/agent-plugin-error-handling':
-        specifier: workspace:*
-        version: link:../agent-plugin-error-handling
-      '@robota-sdk/agent-plugin-event-emitter':
-        specifier: workspace:*
-        version: link:../agent-plugin-event-emitter
-      '@robota-sdk/agent-plugin-execution-analytics':
-        specifier: workspace:*
-        version: link:../agent-plugin-execution-analytics
-      '@robota-sdk/agent-plugin-limits':
-        specifier: workspace:*
-        version: link:../agent-plugin-limits
-      '@robota-sdk/agent-plugin-logging':
-        specifier: workspace:*
-        version: link:../agent-plugin-logging
-      '@robota-sdk/agent-plugin-performance':
-        specifier: workspace:*
-        version: link:../agent-plugin-performance
-      '@robota-sdk/agent-plugin-usage':
-        specifier: workspace:*
-        version: link:../agent-plugin-usage
-      '@robota-sdk/agent-plugin-webhook':
-        specifier: workspace:*
-        version: link:../agent-plugin-webhook
-      '@robota-sdk/agent-tool-mcp':
-        specifier: workspace:*
-        version: link:../agent-tool-mcp
-      '@robota-sdk/agent-tools':
-        specifier: workspace:*
-        version: link:../agent-tools
       '@types/swagger-schema-official':
         specifier: ^2.0.25
         version: 2.0.25
