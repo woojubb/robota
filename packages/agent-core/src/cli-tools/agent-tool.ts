@@ -8,17 +8,14 @@
 
 import { z } from 'zod';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import type { IZodSchema } from '@robota-sdk/agent-tools';
-import type { TToolResult } from '@robota-sdk/agent-core';
-import type { IResolvedConfig } from '@robota-sdk/agent-core';
-import type { ILoadedContext } from '@robota-sdk/agent-core';
-import type { IProjectInfo } from '@robota-sdk/agent-core';
-import { Session } from '../session.js';
-
-/** Cast a Zod schema to the IZodSchema interface expected by createZodFunctionTool */
-function asZodSchema(schema: z.ZodType): IZodSchema {
-  return schema as IZodSchema;
-}
+import type { TToolParameters } from '../interfaces/tool.js';
+import type { TToolResult } from '../cli-permissions/types.js';
+import type { IAIProvider } from '../interfaces/provider.js';
+import type { IResolvedConfig } from '../cli-config/config-types.js';
+import type { ILoadedContext } from '../cli-context/context-loader.js';
+import type { IProjectInfo } from '../cli-context/project-detector.js';
+import { Session } from '../cli-session/session.js';
+import { asZodSchema } from './schema-cast.js';
 
 const AgentSchema = z.object({
   prompt: z.string().describe('Task description for the sub-agent'),
@@ -35,6 +32,8 @@ export interface IAgentToolDeps {
   config: IResolvedConfig;
   context: ILoadedContext;
   projectInfo?: IProjectInfo;
+  /** Factory to create the default AI provider */
+  providerFactory?: (apiKey: string) => IAIProvider;
 }
 
 let agentToolDeps: IAgentToolDeps | undefined;
@@ -70,6 +69,7 @@ async function runAgent(args: TAgentArgs): Promise<string> {
     },
     // Sub-agents bypass permissions — they inherit parent's trust
     permissionMode: 'bypassPermissions',
+    providerFactory: agentToolDeps.providerFactory,
   });
 
   try {
@@ -94,7 +94,7 @@ export const agentTool = createZodFunctionTool(
   'Agent',
   'Spawn a sub-agent with isolated context to handle a task. The sub-agent has its own conversation history and can use all tools.',
   asZodSchema(AgentSchema),
-  async (params) => {
+  async (params: TToolParameters) => {
     return runAgent(params as TAgentArgs);
   },
 );

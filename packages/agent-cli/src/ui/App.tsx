@@ -1,11 +1,15 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { Session } from '../session.js';
-import type { TPermissionMode, ITerminalOutput, ISpinner } from '../types.js';
-import type { TToolArgs } from '../permissions/permission-gate.js';
-import type { IResolvedConfig } from '../config/config-types.js';
-import type { ILoadedContext } from '../context/context-loader.js';
-import type { IProjectInfo } from '../context/project-detector.js';
+import type {
+  TPermissionMode,
+  TToolArgs,
+  IResolvedConfig,
+  ILoadedContext,
+  IProjectInfo,
+  IAIProvider,
+} from '@robota-sdk/agent-core';
+import type { ITerminalOutput, ISpinner } from '../types.js';
 import type { SessionStore } from '../session-store.js';
 import type { IChatMessage, IPermissionRequest } from './types.js';
 import MessageList from './MessageList.js';
@@ -20,6 +24,14 @@ interface IProps {
   sessionStore?: SessionStore;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
+  /** Factory to create the default AI provider (avoids circular dependency) */
+  providerFactory?: (apiKey: string) => IAIProvider;
+  /** Factory that creates CLI tools — injected to avoid circular dependency */
+  toolsFactory?: (
+    config: IResolvedConfig,
+    context: ILoadedContext,
+    projectInfo?: IProjectInfo,
+  ) => { getName(): string }[];
 }
 
 let msgIdCounter = 0;
@@ -78,6 +90,8 @@ function useSession(props: IProps): {
       maxTurns: props.maxTurns,
       permissionHandler,
       onTextDelta,
+      providerFactory: props.providerFactory,
+      toolsFactory: props.toolsFactory,
     });
   }
 
@@ -99,70 +113,22 @@ function useMessages(): {
   return { messages, setMessages, addMessage };
 }
 
-/** Hook: handle slash commands. Returns a handler function. */
-function useSlashCommands(
-  session: Session,
-  addMessage: (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void,
-  setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
-  exit: () => void,
-): (input: string) => boolean {
-  return useCallback(
-    (input: string): boolean => {
-      const parts = input.slice(1).split(/\s+/);
-      const cmd = parts[0]?.toLowerCase() ?? '';
+type TAddMessage = (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
 
-      switch (cmd) {
-        case 'help':
-          addMessage({
-            role: 'system',
-            content: [
-              'Available commands:',
-              '  /help      — Show this help',
-              '  /clear     — Clear conversation',
-              '  /mode [m]  — Show/change permission mode',
-              '  /cost      — Show session info',
-              '  /exit      — Exit CLI',
-            ].join('\n'),
-          });
-          return true;
-
-        case 'clear':
-          setMessages([]);
-          session.clearHistory();
-          addMessage({ role: 'system', content: 'Conversation cleared.' });
-          return true;
-
-        case 'mode':
-          return handleModeCommand(parts[1], session, addMessage);
-
-        case 'cost':
-          addMessage({
-            role: 'system',
-            content: `Session: ${session.getSessionId()}\nMessages: ${session.getMessageCount()}`,
-          });
-          return true;
-
-        case 'exit':
-          exit();
-          return true;
-
-        default:
-          addMessage({
-            role: 'system',
-            content: `Unknown command "/${cmd}". Type /help for help.`,
-          });
-          return true;
-      }
-    },
-    [session, addMessage, setMessages, exit],
-  );
-}
+const HELP_TEXT = [
+  'Available commands:',
+  '  /help      — Show this help',
+  '  /clear     — Clear conversation',
+  '  /mode [m]  — Show/change permission mode',
+  '  /cost      — Show session info',
+  '  /exit      — Exit CLI',
+].join('\n');
 
 /** Handle the /mode slash command. */
 function handleModeCommand(
   arg: string | undefined,
   session: Session,
-  addMessage: (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void,
+  addMessage: TAddMessage,
 ): boolean {
   const validModes: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
   if (!arg) {
@@ -171,33 +137,89 @@ function handleModeCommand(
     session.setPermissionMode(arg as TPermissionMode);
     addMessage({ role: 'system', content: `Permission mode set to: ${arg}` });
   } else {
-    addMessage({
-      role: 'system',
-      content: `Invalid mode. Valid: ${validModes.join(' | ')}`,
-    });
+    addMessage({ role: 'system', content: `Invalid mode. Valid: ${validModes.join(' | ')}` });
   }
   return true;
 }
 
-export default function App(props: IProps): React.ReactElement {
-  const { exit } = useApp();
-  const { session, permissionRequest, streamingText, clearStreamingText } = useSession(props);
-  const { messages, setMessages, addMessage } = useMessages();
-  const [isThinking, setIsThinking] = useState(false);
+/** Execute a parsed slash command. */
+function executeSlashCommand(
+  cmd: string,
+  parts: string[],
+  session: Session,
+  addMessage: TAddMessage,
+  setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
+  exit: () => void,
+): boolean {
+  switch (cmd) {
+    case 'help':
+      addMessage({ role: 'system', content: HELP_TEXT });
+      return true;
+    case 'clear':
+      setMessages([]);
+      session.clearHistory();
+      addMessage({ role: 'system', content: 'Conversation cleared.' });
+      return true;
+    case 'mode':
+      return handleModeCommand(parts[1], session, addMessage);
+    case 'cost':
+      addMessage({
+        role: 'system',
+        content: `Session: ${session.getSessionId()}\nMessages: ${session.getMessageCount()}`,
+      });
+      return true;
+    case 'exit':
+      exit();
+      return true;
+    default:
+      addMessage({ role: 'system', content: `Unknown command "/${cmd}". Type /help for help.` });
+      return true;
+  }
+}
 
-  const handleSlashCommand = useSlashCommands(session, addMessage, setMessages, exit);
-
-  // Ctrl+C to exit (only when permission prompt is not shown)
-  useInput(
-    (_input, key) => {
-      if (key.ctrl && _input === 'c') {
-        exit();
-      }
+/** Hook: handle slash commands. Returns a handler function. */
+function useSlashCommands(
+  session: Session,
+  addMessage: TAddMessage,
+  setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
+  exit: () => void,
+): (input: string) => boolean {
+  return useCallback(
+    (input: string): boolean => {
+      const parts = input.slice(1).split(/\s+/);
+      const cmd = parts[0]?.toLowerCase() ?? '';
+      return executeSlashCommand(cmd, parts, session, addMessage, setMessages, exit);
     },
-    { isActive: !permissionRequest && !isThinking },
+    [session, addMessage, setMessages, exit],
   );
+}
 
-  const handleSubmit = useCallback(
+/** Streaming text indicator shown while the agent is generating a response */
+function StreamingIndicator({ text }: { text: string }): React.ReactElement {
+  if (text) {
+    return (
+      <Box flexDirection="column">
+        <Text color="cyan" bold>
+          Robota:{' '}
+        </Text>
+        <Box marginLeft={2}>
+          <Text wrap="wrap">{text}</Text>
+        </Box>
+      </Box>
+    );
+  }
+  return <Text color="yellow">Thinking...</Text>;
+}
+
+/** Hook: build the handleSubmit callback for user input */
+function useSubmitHandler(
+  session: Session,
+  addMessage: TAddMessage,
+  handleSlashCommand: (input: string) => boolean,
+  clearStreamingText: () => void,
+  setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
+): (input: string) => Promise<void> {
+  return useCallback(
     async (input: string) => {
       if (input.startsWith('/')) {
         handleSlashCommand(input);
@@ -212,7 +234,7 @@ export default function App(props: IProps): React.ReactElement {
         const response = await session.run(input);
         clearStreamingText();
         addMessage({ role: 'assistant', content: response || '(empty response)' });
-      } catch (err: unknown) {
+      } catch (err) {
         clearStreamingText();
         const errMsg = err instanceof Error ? err.message : String(err);
         addMessage({ role: 'system', content: `Error: ${errMsg}` });
@@ -220,52 +242,55 @@ export default function App(props: IProps): React.ReactElement {
         setIsThinking(false);
       }
     },
-    [session, addMessage, handleSlashCommand],
+    [session, addMessage, handleSlashCommand, clearStreamingText, setIsThinking],
+  );
+}
+
+export default function App(props: IProps): React.ReactElement {
+  const { exit } = useApp();
+  const { session, permissionRequest, streamingText, clearStreamingText } = useSession(props);
+  const { messages, setMessages, addMessage } = useMessages();
+  const [isThinking, setIsThinking] = useState(false);
+
+  const handleSlashCommand = useSlashCommands(session, addMessage, setMessages, exit);
+  const handleSubmit = useSubmitHandler(
+    session,
+    addMessage,
+    handleSlashCommand,
+    clearStreamingText,
+    setIsThinking,
+  );
+
+  useInput(
+    (_input: string, key: { ctrl: boolean }) => {
+      if (key.ctrl && _input === 'c') exit();
+    },
+    { isActive: !permissionRequest && !isThinking },
   );
 
   return (
     <Box flexDirection="column">
-      {/* Header */}
       <Box paddingX={1}>
         <Text color="cyan" bold>
           ROBOTA
         </Text>
         {props.projectInfo?.name && <Text dimColor> — {props.projectInfo.name}</Text>}
       </Box>
-
-      {/* Messages */}
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
         <MessageList messages={messages} />
         {isThinking && (
           <Box flexDirection="column" marginBottom={1}>
-            {streamingText ? (
-              <Box flexDirection="column">
-                <Text color="cyan" bold>
-                  Robota:{' '}
-                </Text>
-                <Box marginLeft={2}>
-                  <Text wrap="wrap">{streamingText}</Text>
-                </Box>
-              </Box>
-            ) : (
-              <Text color="yellow">Thinking...</Text>
-            )}
+            <StreamingIndicator text={streamingText} />
           </Box>
         )}
       </Box>
-
-      {/* Permission prompt */}
       {permissionRequest && <PermissionPrompt request={permissionRequest} />}
-
-      {/* Status bar */}
       <StatusBar
         permissionMode={session.getPermissionMode()}
         sessionId={session.getSessionId()}
         messageCount={messages.length}
         isThinking={isThinking}
       />
-
-      {/* Input */}
       <InputArea onSubmit={handleSubmit} isDisabled={isThinking || !!permissionRequest} />
     </Box>
   );
