@@ -97,7 +97,11 @@ export class AnthropicProvider extends AbstractAIProvider {
       );
     }
 
-    const anthropicMessages = this.convertToAnthropicFormat(messages);
+    // Separate system messages for the Anthropic system parameter
+    const systemMessages = messages.filter((m) => m.role === 'system');
+    const nonSystemMessages = messages.filter((m) => m.role !== 'system');
+    const anthropicMessages = this.convertToAnthropicFormat(nonSystemMessages);
+    const systemPrompt = systemMessages.map((m) => m.content || '').join('\n\n') || undefined;
 
     if (!options?.model) {
       throw new Error(
@@ -115,6 +119,7 @@ export class AnthropicProvider extends AbstractAIProvider {
       model: options.model as string,
       messages: anthropicMessages,
       max_tokens: options?.maxTokens || DEFAULT_MAX_TOKENS,
+      ...(systemPrompt && { system: systemPrompt }),
       ...(options?.temperature !== undefined && { temperature: options.temperature }),
       ...(allTools.length > 0 && { tools: allTools }),
     };
@@ -156,9 +161,12 @@ export class AnthropicProvider extends AbstractAIProvider {
     let currentToolId = '';
     let currentToolName = '';
     let currentToolJson = '';
+    let currentBlockType = '';
     let usage = { input_tokens: 0, output_tokens: 0 };
     let model = '';
     let stopReason: string | null = null;
+    // Accumulate server tool result content (web search results)
+    const serverToolResults: Array<{ type: string; title?: string; url?: string }> = [];
 
     for await (const event of stream) {
       switch (event.type) {
@@ -168,13 +176,12 @@ export class AnthropicProvider extends AbstractAIProvider {
           break;
 
         case 'content_block_start':
+          currentBlockType = event.content_block.type;
           if (event.content_block.type === 'tool_use') {
             currentToolId = event.content_block.id;
             currentToolName = event.content_block.name;
             currentToolJson = '';
           }
-          // server_tool_use and web_search_tool_result blocks are handled
-          // via the full response content after stream completion
           break;
 
         case 'content_block_delta':
@@ -200,6 +207,7 @@ export class AnthropicProvider extends AbstractAIProvider {
             currentToolName = '';
             currentToolJson = '';
           }
+          currentBlockType = '';
           break;
 
         case 'message_delta':

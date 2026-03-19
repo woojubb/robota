@@ -399,15 +399,16 @@ describe('AnthropicProvider', () => {
       expect(sentMessages).toEqual([{ role: 'user', content: 'Hello' }]);
     });
 
-    it('should convert system messages to user role', async () => {
+    it('should extract system messages to system parameter', async () => {
       const messages: TUniversalMessage[] = [
         { role: 'system', content: 'You are helpful', timestamp: new Date() },
         { role: 'user', content: 'Hi', timestamp: new Date() },
       ];
       await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
-      const sentMessages = mockClient.messages.create.mock.calls[0][0].messages;
-      expect(sentMessages[0]).toEqual({ role: 'user', content: 'You are helpful' });
+      const params = mockClient.messages.create.mock.calls[0][0];
+      expect(params.system).toBe('You are helpful');
+      expect(params.messages).toEqual([{ role: 'user', content: 'Hi' }]);
     });
 
     it('should convert assistant messages with toolCalls to content blocks', async () => {
