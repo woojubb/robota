@@ -365,23 +365,43 @@ export class Session {
 
     const history = this.robota.getHistory();
     const historyJson = JSON.stringify(history);
+    const providerHasWebTools =
+      'enableWebTools' in this.aiProvider &&
+      (this.aiProvider as { enableWebTools?: boolean }).enableWebTools === true;
     this.log('pre_run', {
       historyLength: history.length,
       historyChars: historyJson.length,
       historyEstTokens: Math.ceil(historyJson.length / 4),
       model: this.config.provider.model,
+      provider: this.aiProvider.name,
       maxTokens: this.contextMaxTokens,
+      webToolsEnabled: providerHasWebTools,
     });
 
     const response = await this.robota.run(message);
     this.messageCount += 1;
 
-    // Log the response and full history state
+    // Log the response and full history structure
     const postHistory = this.robota.getHistory();
+    const historyStructure = postHistory.map((msg) => {
+      const hasToolCalls =
+        'toolCalls' in msg && Array.isArray(msg.toolCalls) && msg.toolCalls.length > 0;
+      const toolCallNames = hasToolCalls
+        ? (msg.toolCalls as Array<{ function: { name: string } }>).map((tc) => tc.function.name)
+        : [];
+      return {
+        role: msg.role,
+        contentLength: typeof msg.content === 'string' ? msg.content.length : 0,
+        hasToolCalls,
+        toolCallNames,
+        ...(msg.metadata ? { metadata: msg.metadata } : {}),
+      };
+    });
     this.log('assistant', {
       content: response.substring(0, 500),
       historyLength: postHistory.length,
       estimatedChars: JSON.stringify(postHistory).length,
+      historyStructure,
     });
 
     // Update token usage from the latest assistant message metadata
