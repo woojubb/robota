@@ -790,9 +790,10 @@ describe('AnthropicProvider', () => {
         { model: 'test' },
       );
 
-      expect(result.toolCalls).toHaveLength(1);
-      expect(result.toolCalls?.[0]?.function.name).toBe('Bash');
-      expect(JSON.parse(result.toolCalls?.[0]?.function.arguments ?? '{}')).toEqual({
+      const msg = result as IAssistantMessage;
+      expect(msg.toolCalls).toHaveLength(1);
+      expect(msg.toolCalls?.[0]?.function.name).toBe('Bash');
+      expect(JSON.parse(msg.toolCalls?.[0]?.function.arguments ?? '{}')).toEqual({
         command: 'ls',
       });
     });
@@ -928,8 +929,9 @@ describe('AnthropicProvider', () => {
       expect(result.content).toContain('Result 1');
 
       // FunctionTool call present
-      expect(result.toolCalls).toHaveLength(1);
-      expect(result.toolCalls?.[0]?.function.name).toBe('Read');
+      const msg = result as IAssistantMessage;
+      expect(msg.toolCalls).toHaveLength(1);
+      expect(msg.toolCalls?.[0]?.function.name).toBe('Read');
     });
 
     it('should handle empty streaming response', async () => {
