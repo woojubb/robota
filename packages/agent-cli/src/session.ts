@@ -36,6 +36,8 @@ import { editTool } from './tools/edit-tool.js';
 import { globTool } from './tools/glob-tool.js';
 import { grepTool } from './tools/grep-tool.js';
 import type { SessionStore, ISessionRecord } from './session-store.js';
+import { runHooks } from './hooks/hook-runner.js';
+import type { THooksConfig, IHookInput } from './hooks/types.js';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
@@ -267,11 +269,53 @@ export class Session {
       // corrupts the conversation and causes a 400 error on the next API call.
       try {
         const toolName = tool.getName();
+
+        // Run PreToolUse hooks — exit code 2 blocks the tool
+        const hookInput: IHookInput = {
+          session_id: session.sessionId,
+          cwd: session.cwd,
+          hook_event_name: 'PreToolUse',
+          tool_name: toolName,
+          tool_input: parameters as Record<string, string | number | boolean | object>,
+        };
+        const hookResult = await runHooks(
+          session.config.hooks as THooksConfig | undefined,
+          'PreToolUse',
+          hookInput,
+        );
+        if (hookResult.blocked) {
+          return {
+            success: true,
+            data: JSON.stringify({
+              success: false,
+              output: '',
+              error: `Blocked by hook: ${hookResult.reason}`,
+            }),
+            metadata: {},
+          };
+        }
+
+        // Permission check
         const allowed = await session.checkPermission(toolName, parameters as TToolArgs);
         if (!allowed) {
           return DENIED_RESULT;
         }
-        return await originalExecute(parameters, context as IToolExecutionContext);
+
+        const result = await originalExecute(parameters, context as IToolExecutionContext);
+
+        // Run PostToolUse hooks (fire and forget — don't block)
+        const postHookInput: IHookInput = {
+          ...hookInput,
+          hook_event_name: 'PostToolUse',
+          tool_output: typeof result.data === 'string' ? result.data : JSON.stringify(result.data),
+        };
+        runHooks(
+          session.config.hooks as THooksConfig | undefined,
+          'PostToolUse',
+          postHookInput,
+        ).catch(() => {});
+
+        return result;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         return {
