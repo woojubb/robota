@@ -55,18 +55,44 @@ function useSession(props: IProps): {
   const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
   const [streamingText, setStreamingText] = useState('');
 
+  // Permission queue — handles concurrent tool permission requests sequentially
+  const permissionQueueRef = useRef<
+    Array<{
+      toolName: string;
+      toolArgs: TToolArgs;
+      resolve: (allowed: boolean) => void;
+    }>
+  >([]);
+  const processingRef = useRef(false);
+
+  const processNextPermission = useCallback(() => {
+    if (processingRef.current) return;
+    const next = permissionQueueRef.current[0];
+    if (!next) {
+      setPermissionRequest(null);
+      return;
+    }
+    processingRef.current = true;
+    setPermissionRequest({
+      toolName: next.toolName,
+      toolArgs: next.toolArgs,
+      resolve: (allowed: boolean) => {
+        permissionQueueRef.current.shift();
+        processingRef.current = false;
+        setPermissionRequest(null);
+        next.resolve(allowed);
+        // Process next in queue after a tick
+        setTimeout(() => processNextPermission(), 0);
+      },
+    });
+  }, []);
+
   const sessionRef = useRef<Session | null>(null);
   if (sessionRef.current === null) {
     const permissionHandler = (toolName: string, toolArgs: TToolArgs): Promise<boolean> => {
       return new Promise<boolean>((resolve) => {
-        setPermissionRequest({
-          toolName,
-          toolArgs,
-          resolve: (allowed: boolean) => {
-            setPermissionRequest(null);
-            resolve(allowed);
-          },
-        });
+        permissionQueueRef.current.push({ toolName, toolArgs, resolve });
+        processNextPermission();
       });
     };
 
