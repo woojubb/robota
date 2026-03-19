@@ -91,13 +91,17 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 
 ### Publish Safety Gate
 
-- NEVER run `npm publish` or `pnpm publish` without a successful dry-run first.
+- NEVER run `npm publish` or `pnpm publish` without passing ALL gates first.
 - Required sequence before any publish:
   1. `pnpm build` — full monorepo build must pass
-  2. `pnpm test` — all tests must pass
-  3. `pnpm typecheck` — strict mode verification
-  4. `pnpm --filter <package> publish --dry-run` — must complete with zero errors
-- If the dry-run reports ANY error (missing files, invalid package.json, dependency issues), publishing is BLOCKED until the error is resolved.
+  2. `pnpm test` — all tests must pass with zero failures
+  3. `pnpm typecheck` — TypeScript strict mode verification
+  4. `pnpm lint` — linting must pass
+  5. `pnpm harness:scan` — harness consistency check
+  6. **CI pipeline must pass** — all GitHub Actions checks (ci.yml) must be green. Do NOT publish from a commit with failing CI.
+  7. `pnpm --filter <package> publish --dry-run` — must complete with zero errors
+- If ANY gate fails, publishing is BLOCKED until the issue is resolved.
 - This rule applies to all packages — no exceptions for "small changes" or "docs only".
 - When publishing multiple packages, each must pass its own dry-run independently.
-- A publish without prior dry-run success is a process violation.
+- A publish without prior gate success is a process violation.
+- Publishing from a branch other than `main` or `release/*` is prohibited unless explicitly approved.
