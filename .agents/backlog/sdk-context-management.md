@@ -27,3 +27,25 @@ When conversation history exceeds the model's context limit, automatic compressi
 - The compression itself uses an LLM call to generate the summary
 - Compressed messages replace the originals in history (irreversible within session)
 - User should be notified when compression occurs ("Context compressed: N messages → summary")
+
+## Design Decision Required: Package Placement
+
+Context tracking state (current tokens, max tokens, usage percentage) must be accessible to both SDK and CLI:
+
+- **CLI needs it**: StatusBar displays "Context: 45% used" in real-time
+- **SDK needs it**: query() callers need to monitor context usage programmatically
+
+Options to evaluate before implementation:
+
+| Option                | Where                               | Pros                                      | Cons                                              |
+| --------------------- | ----------------------------------- | ----------------------------------------- | ------------------------------------------------- |
+| **A. agent-core**     | Token tracking in execution service | General-purpose, all consumers benefit    | Core becomes heavier                              |
+| **B. agent-sessions** | Token tracking in Session class     | Session already wraps Robota, natural fit | Tied to Session lifecycle                         |
+| **C. agent-sdk**      | Token tracking in query/SDK layer   | SDK-specific, simple                      | Other consumers (playground, server) can't use it |
+
+Criteria for decision (same as permissions/hooks/tools split):
+
+- Is context tracking **general-purpose** (needed in server/playground)? → agent-core or agent-sessions
+- Is it **SDK-specific** (only local dev environment)? → agent-sdk
+
+The token counting itself likely belongs in **agent-core** (provider response includes usage tokens), while the percentage calculation and threshold logic could live in **agent-sessions** (Session tracks conversation state).
