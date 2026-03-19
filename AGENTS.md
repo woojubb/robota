@@ -222,6 +222,7 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 9   | Using `try/catch` as a fallback mechanism                        | No fallback policy; terminal failures stay terminal                           |
 | 10  | Writing implementation before a failing test                     | TDD: red-green-refactor; write the test first                                 |
 | 11  | Publishing without dry-run                                       | Always run `publish --dry-run` first; see `process.md` Publish Safety Gate    |
+| 12  | Publishing packages without user approval on scope               | Confirm publish manifest with user; see `process.md` Publish Scope Approval   |
 
 ## Conflict Scan Commands
 
