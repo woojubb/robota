@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { IPermissionRequest } from './types.js';
-import type { TToolArgs } from '../permissions/permission-gate.js';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 
 interface IProps {
   request: IPermissionRequest;

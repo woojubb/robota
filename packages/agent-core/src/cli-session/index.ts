@@ -1,0 +1,6 @@
+export { Session } from './session.js';
+export type { ISessionOptions, TPermissionHandler, ITerminalOutput, ISpinner } from './session.js';
+export { SessionStore } from './session-store.js';
+export type { ISessionRecord } from './session-store.js';
+export { query } from './query.js';
+export type { IQueryOptions } from './query.js';

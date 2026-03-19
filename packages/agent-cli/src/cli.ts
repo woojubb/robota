@@ -19,15 +19,22 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as readline from 'node:readline';
-import { loadConfig } from './config/config-loader.js';
-import { loadContext } from './context/context-loader.js';
-import { detectProject } from './context/project-detector.js';
+import { loadConfig, loadContext, detectProject } from '@robota-sdk/agent-core';
+import type { TPermissionMode, IAIProvider } from '@robota-sdk/agent-core';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { Session } from './session.js';
 import { SessionStore } from './session-store.js';
+import { promptForApproval } from './permissions/permission-prompt.js';
 import { renderApp } from './ui/render.js';
-import type { ITerminalOutput, ISpinner, TPermissionMode } from './types.js';
+import { buildToolsFactory } from './tool-factory.js';
+import type { ITerminalOutput, ISpinner } from './types.js';
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
+
+/** Factory that creates an AnthropicProvider from an API key */
+function createAnthropicProvider(apiKey: string): IAIProvider {
+  return new AnthropicProvider({ apiKey }) as IAIProvider;
+}
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -201,12 +208,16 @@ export async function startCli(): Promise<void> {
       process.exit(1);
     }
     const terminal = new PrintTerminal();
+    const toolsFactory = buildToolsFactory(createAnthropicProvider);
     const session = new Session({
       config,
       context,
       terminal,
       projectInfo,
       permissionMode: args.permissionMode,
+      promptForApproval,
+      providerFactory: createAnthropicProvider,
+      toolsFactory,
     });
     const response = await session.run(prompt);
     process.stdout.write(response + '\n');
@@ -221,5 +232,7 @@ export async function startCli(): Promise<void> {
     sessionStore,
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
+    providerFactory: createAnthropicProvider,
+    toolsFactory: buildToolsFactory(createAnthropicProvider),
   });
 }

@@ -5,10 +5,13 @@
 import React from 'react';
 import { render } from 'ink';
 import App from './App.js';
-import type { IResolvedConfig } from '../config/config-types.js';
-import type { ILoadedContext } from '../context/context-loader.js';
-import type { IProjectInfo } from '../context/project-detector.js';
-import type { TPermissionMode } from '../types.js';
+import type {
+  IResolvedConfig,
+  ILoadedContext,
+  IProjectInfo,
+  TPermissionMode,
+  IAIProvider,
+} from '@robota-sdk/agent-core';
 import type { SessionStore } from '../session-store.js';
 
 export interface IRenderOptions {
@@ -18,6 +21,13 @@ export interface IRenderOptions {
   sessionStore?: SessionStore;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
+  providerFactory?: (apiKey: string) => IAIProvider;
+  /** Factory that creates CLI tools — injected to avoid circular dependency */
+  toolsFactory?: (
+    config: IResolvedConfig,
+    context: ILoadedContext,
+    projectInfo?: IProjectInfo,
+  ) => { getName(): string }[];
 }
 
 export function renderApp(options: IRenderOptions): void {

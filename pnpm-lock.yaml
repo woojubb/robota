@@ -561,6 +561,15 @@ importers:
       '@robota-sdk/agent-event-service':
         specifier: workspace:*
         version: link:../agent-event-service
+      '@robota-sdk/agent-provider-anthropic':
+        specifier: workspace:*
+        version: link:../agent-provider-anthropic
+      '@robota-sdk/agent-tools':
+        specifier: workspace:*
+        version: link:../agent-tools
+      fast-glob:
+        specifier: ^3.3.0
+        version: 3.3.3
       jssha:
         specifier: ^3.3.1
         version: 3.3.1
@@ -598,9 +607,6 @@ importers:
       '@robota-sdk/agent-tool-mcp':
         specifier: workspace:*
         version: link:../agent-tool-mcp
-      '@robota-sdk/agent-tools':
-        specifier: workspace:*
-        version: link:../agent-tools
       '@types/swagger-schema-official':
         specifier: ^2.0.25
         version: 2.0.25

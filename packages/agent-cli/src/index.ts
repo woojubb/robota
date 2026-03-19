@@ -1,18 +1,21 @@
-// @robota-sdk/agent-cli
+// @robota-sdk/agent-cli — re-exports from agent-core + CLI-specific exports
 export type {
   TToolResult,
-  ITerminalOutput,
-  ISpinner,
   TTrustLevel,
   TPermissionDecision,
   TPermissionMode,
-} from './types.js';
-export { TRUST_TO_MODE } from './types.js';
+  ITerminalOutput,
+  ISpinner,
+} from '@robota-sdk/agent-core';
+export { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 
-export { Session } from './session.js';
-export type { ISessionOptions, TPermissionHandler } from './session.js';
+export { Session } from '@robota-sdk/agent-core';
+export type { ISessionOptions, TPermissionHandler } from '@robota-sdk/agent-core';
 
-export { SessionStore } from './session-store.js';
-export type { ISessionRecord } from './session-store.js';
+export { SessionStore } from '@robota-sdk/agent-core';
+export type { ISessionRecord } from '@robota-sdk/agent-core';
+
+export { query } from '@robota-sdk/agent-core';
+export type { IQueryOptions } from '@robota-sdk/agent-core';
 
 export { startCli } from './cli.js';
