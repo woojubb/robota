@@ -19,10 +19,14 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 ```
 bin.ts → cli.ts (arg parsing)
               └── ui/render.tsx → App.tsx (Ink TUI)
-                    ├── MessageList.tsx    (conversation list)
-                    ├── InputArea.tsx      (bottom input area)
-                    ├── StatusBar.tsx      (status bar)
-                    ├── PermissionPrompt.tsx (arrow-key selection)
+                    ├── MessageList.tsx        (conversation list)
+                    ├── InputArea.tsx          (bottom input area, slash detection)
+                    ├── StatusBar.tsx          (status bar)
+                    ├── PermissionPrompt.tsx   (arrow-key selection)
+                    ├── SlashAutocomplete.tsx  (command popup with scroll)
+                    ├── CommandRegistry        (aggregates command sources)
+                    │   ├── BuiltinCommandSource  (9 built-in commands)
+                    │   └── SkillCommandSource    (discovered from .agents/skills/)
                     └── Session (from @robota-sdk/agent-sessions)
 ```
 
@@ -78,18 +82,94 @@ When auto-compaction triggers (at ~83.5% threshold), the UI shows a system messa
 | `/help`                   | Show available commands     |
 | `/clear`                  | Clear conversation history  |
 | `/mode [mode]`            | Show/change permission mode |
+| `/model [model]`          | Select AI model             |
 | `/compact [instructions]` | Compress context window     |
 | `/cost`                   | Show session info           |
+| `/context`                | Context window info         |
+| `/permissions`            | Permission rules            |
 | `/exit`                   | Exit CLI                    |
+
+### Slash Command Autocomplete
+
+Typing `/` as the first character in the input triggers an autocomplete popup. The popup filters commands in real-time as the user types.
+
+**Interaction:**
+
+- Arrow Up/Down: Navigate items
+- Enter: Select highlighted item (inserts command, executes if no args needed)
+- Tab: Complete to common prefix
+- Esc: Dismiss popup, keep typed text
+- Backspace past `/`: Dismiss popup
+
+**Subcommand Navigation:**
+
+Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu when selected:
+
+```
+> /mode
++-------------------------------------+
+|   plan                              |
+|   default                           |
+|   acceptEdits                       |
+|   bypassPermissions                 |
++-------------------------------------+
+```
+
+**Visual Grouping:**
+
+Commands are grouped by source with separators: built-in commands appear first, followed by discovered skill commands.
+
+## Command Registry Architecture
+
+The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them.
+
+### ICommandSource Interface
+
+```typescript
+interface ICommandSource {
+  name: string;
+  getCommands(): ISlashCommand[];
+}
+```
+
+### ISlashCommand Interface
+
+```typescript
+interface ISlashCommand {
+  name: string;
+  description: string;
+  source: string;
+  subcommands?: ISlashCommand[];
+  execute?: (args: string) => void | Promise<void>;
+}
+```
+
+### Command Sources
+
+| Source   | Class                  | Description                                             |
+| -------- | ---------------------- | ------------------------------------------------------- |
+| Built-in | `BuiltinCommandSource` | 9 hardcoded commands with subcommands for /mode, /model |
+| Skills   | `SkillCommandSource`   | Discovered from .agents/skills/ and ~/.claude/skills/   |
+
+### Skill Discovery
+
+Skills are discovered at session start from two directories (scanned in order, deduplicated):
+
+1. `.agents/skills/*/SKILL.md` -- project-level skills (primary)
+2. `~/.claude/skills/*/SKILL.md` -- user-level skills (Claude Code compatible)
+
+Each `SKILL.md` may contain YAML frontmatter with `name` and `description` fields. If no frontmatter is found, the directory name is used as the command name.
 
 ## Type Ownership
 
-| Type               | Location          | Purpose                       |
-| ------------------ | ----------------- | ----------------------------- |
-| ITerminalOutput    | `src/types.ts`    | Terminal I/O DI interface     |
-| ISpinner           | `src/types.ts`    | Spinner handle                |
-| IChatMessage       | `src/ui/types.ts` | UI message model              |
-| IPermissionRequest | `src/ui/types.ts` | Permission prompt React state |
+| Type               | Location                | Purpose                         |
+| ------------------ | ----------------------- | ------------------------------- |
+| ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface       |
+| ISpinner           | `src/types.ts`          | Spinner handle                  |
+| IChatMessage       | `src/ui/types.ts`       | UI message model                |
+| IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state   |
+| ISlashCommand      | `src/commands/types.ts` | Slash command entry definition  |
+| ICommandSource     | `src/commands/types.ts` | Interface for command providers |
 
 ## Public API Surface
 
@@ -102,21 +182,27 @@ When auto-compaction triggers (at ~83.5% threshold), the UI shows a system messa
 
 ```
 src/
-├── bin.ts                    ← Binary entry point
-├── cli.ts                    ← CLI argument parsing, Ink render invocation
-├── types.ts                  ← ITerminalOutput, ISpinner
-├── index.ts                  ← Re-exports
+├── bin.ts                           ← Binary entry point
+├── cli.ts                           ← CLI argument parsing, Ink render invocation
+├── types.ts                         ← ITerminalOutput, ISpinner
+├── index.ts                         ← Re-exports
+├── commands/
+│   ├── types.ts                     ← ISlashCommand, ICommandSource interfaces
+│   ├── builtin-source.ts            ← BuiltinCommandSource (9 commands + subcommands)
+│   ├── skill-source.ts              ← SkillCommandSource (discovers from .agents/skills/)
+│   └── command-registry.ts          ← CommandRegistry (aggregates multiple sources)
 ├── permissions/
-│   └── permission-prompt.ts  ← Terminal Allow/Deny prompt
+│   └── permission-prompt.ts         ← Terminal Allow/Deny prompt
 └── ui/
-    ├── App.tsx               ← Main layout, Session creation, state management
-    ├── render.tsx            ← Ink render() invocation
-    ├── MessageList.tsx       ← Conversation message list (Robota: label)
-    ├── InputArea.tsx         ← Bottom fixed input (ink-text-input)
-    ├── StatusBar.tsx         ← Mode, model, context %, message count, Thinking
-    ├── PermissionPrompt.tsx  ← Allow/Deny arrow-key selection (useInput)
-    ├── InkTerminal.ts        ← No-op ITerminalOutput
-    └── types.ts              ← IChatMessage, IPermissionRequest
+    ├── App.tsx                      ← Main layout, Session creation, state management
+    ├── render.tsx                   ← Ink render() invocation
+    ├── MessageList.tsx              ← Conversation message list (Robota: label)
+    ├── InputArea.tsx                ← Bottom fixed input (ink-text-input), slash detection
+    ├── StatusBar.tsx                ← Mode, model, context %, message count, Thinking
+    ├── PermissionPrompt.tsx         ← Allow/Deny arrow-key selection (useInput)
+    ├── SlashAutocomplete.tsx        ← Command autocomplete popup (scroll, highlight)
+    ├── InkTerminal.ts               ← No-op ITerminalOutput
+    └── types.ts                     ← IChatMessage, IPermissionRequest
 ```
 
 ## CLI Usage

@@ -1,6 +1,6 @@
 # CLI Ink TUI 전환
 
-## Status: in_progress
+## Status: completed
 
 ## Goal
 
