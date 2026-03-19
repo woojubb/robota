@@ -241,6 +241,7 @@ function StreamingIndicator({ text }: { text: string }): React.ReactElement {
         <Text color="cyan" bold>
           Robota:{' '}
         </Text>
+        <Text> </Text>
         <Box marginLeft={2}>
           <Text wrap="wrap">{text}</Text>
         </Box>
