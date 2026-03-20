@@ -10,6 +10,8 @@ export interface ISlashCommand {
   subcommands?: ISlashCommand[];
   /** Execute the command. Args is everything after the command name. */
   execute?: (args: string) => void | Promise<void>;
+  /** Full SKILL.md content (only for skill commands) */
+  skillContent?: string;
 }
 
 /** A source that provides slash commands */
