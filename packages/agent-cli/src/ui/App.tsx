@@ -27,6 +27,7 @@ interface IProps {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   cwd?: string;
+  version?: string;
 }
 
 let msgIdCounter = 0;
@@ -383,11 +384,16 @@ export default function App(props: IProps): React.ReactElement {
 
   return (
     <Box flexDirection="column">
-      <Box paddingX={1}>
-        <Text color="cyan" bold>
-          ROBOTA
-        </Text>
-        {props.projectInfo?.name && <Text dimColor> — {props.projectInfo.name}</Text>}
+      <Box flexDirection="column" paddingX={1} marginBottom={1}>
+        <Text color="cyan" bold>{`
+  ____   ___  ____   ___ _____  _
+ |  _ \\ / _ \\| __ ) / _ \\_   _|/ \\
+ | |_) | | | |  _ \\| | | || | / _ \\
+ |  _ <| |_| | |_) | |_| || |/ ___ \\
+ |_| \\_\\\\___/|____/ \\___/ |_/_/   \\_\\
+`}</Text>
+        <Text dimColor> v{props.version ?? '0.0.0'}</Text>
+        {props.projectInfo?.name && <Text dimColor> {props.projectInfo.name}</Text>}
       </Box>
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
         <MessageList messages={messages} />
