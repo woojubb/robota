@@ -79,7 +79,7 @@
   "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
-    "@google/generative-ai": "^0.20.0"
+    "@google/generative-ai": "^0.24.1"
   },
   "peerDependencies": {
     "@robota-sdk/agent-core": "workspace:*"
