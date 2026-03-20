@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import { Session, FileSessionLogger } from '@robota-sdk/agent-sdk';
+import { Session, FileSessionLogger, projectPaths } from '@robota-sdk/agent-sdk';
 import type {
   IResolvedConfig,
   ILoadedContext,
@@ -105,12 +105,12 @@ function useSession(props: IProps): {
       setStreamingText((prev) => prev + delta);
     };
 
-    const logDir = (props.cwd ?? process.cwd()) + '/.robota/logs';
+    const paths = projectPaths(props.cwd ?? process.cwd());
     sessionRef.current = new Session({
       config: props.config,
       context: props.context,
       terminal: NOOP_TERMINAL,
-      sessionLogger: new FileSessionLogger(logDir),
+      sessionLogger: new FileSessionLogger(paths.logs),
       projectInfo: props.projectInfo,
       sessionStore: props.sessionStore,
       permissionMode: props.permissionMode,
