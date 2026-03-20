@@ -418,6 +418,8 @@ export async function executeRound(
 
   // Pre-send context check: estimate tokens and abort if near context limit.
   // Uses chars/4 approximation. Prevents sending requests that will fail due to overflow.
+  // NOTE: When parallel tool execution is implemented, this check must account for
+  // partial results — only count completed tool results, not pending ones.
   const CHARS_PER_TOKEN = 4;
   const CONTEXT_OVERFLOW_THRESHOLD = 0.9;
   const estimatedTokens = Math.ceil(JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN);
