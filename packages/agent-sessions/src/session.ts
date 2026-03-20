@@ -89,6 +89,7 @@ export class Session {
   private readonly model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly onCompactCallback?: (summary: string) => void;
+  private pendingCompactSummary: string | null = null;
   private readonly sessionLogger?: ISessionLogger;
   private readonly permissionEnforcer: PermissionEnforcer;
   private readonly contextTracker: ContextWindowTracker;
@@ -196,7 +197,14 @@ export class Session {
    * Send a message to the agent and return the response.
    */
   async run(message: string): Promise<string> {
-    this.log('user', { content: message });
+    // Prepend compaction summary to the user message if pending
+    let effectiveMessage = message;
+    if (this.pendingCompactSummary) {
+      effectiveMessage = `[Context Summary from previous conversation]\n${this.pendingCompactSummary}\n\n---\n\n${message}`;
+      this.pendingCompactSummary = null;
+    }
+
+    this.log('user', { content: effectiveMessage });
 
     const history = this.robota.getHistory();
     const historyJson = JSON.stringify(history);
@@ -225,7 +233,7 @@ export class Session {
         }
         const onAbort = (): void => reject(new DOMException('Aborted', 'AbortError'));
         signal.addEventListener('abort', onAbort, { once: true });
-        this.robota.run(message).then(
+        this.robota.run(effectiveMessage).then(
           (result) => {
             signal.removeEventListener('abort', onAbort);
             resolve(result);
@@ -387,14 +395,14 @@ export class Session {
       instructions,
     );
 
-    // Replace history with summary message
+    // Clear history and store summary for next run() call.
+    // Do NOT call robota.run() here — it would trigger a new execution round
+    // with streaming, causing mid-conversation interference and language switching.
     this.robota.clearHistory();
-    await this.robota.run(
-      `[Context Summary]\n${summary}\n\nPlease continue from where we left off.`,
-    );
+    this.pendingCompactSummary = summary;
 
-    // Reset token tracking based on the new shorter history
-    this.contextTracker.updateFromHistory(this.robota.getHistory());
+    // Reset token tracking
+    this.contextTracker.reset();
 
     // Fire PostCompact hook after history replacement is complete
     const postHookInput: IHookInput = {
