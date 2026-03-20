@@ -1,6 +1,6 @@
 ---
 title: SDK/CLI Spec Conformance Audit
-status: in-progress
+status: completed
 priority: high
 created: 2026-03-20
 branch: refactor/sdk-cli-spec-conformance
@@ -20,9 +20,9 @@ agent-cli, agent-sdk, agent-sessions are recently created and have gone through 
 
 - [x] Phase 1: Spec Review — gap report produced
 - [x] Phase 2: Spec Improvement — HIGH/MEDIUM issues fixed in all 3 SPECs
-- [ ] Phase 3: Code Alignment — remaining items below
+- [x] Phase 3: Code Alignment — 7 LOW items fixed
 
-## Remaining (LOW)
+## Resolved (LOW)
 
 | #   | Package  | Issue                                                          |
 | --- | -------- | -------------------------------------------------------------- |
