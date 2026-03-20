@@ -26,7 +26,8 @@
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
