@@ -263,7 +263,12 @@ function useSlashCommands(
 
 /** Streaming text indicator shown while the agent is generating a response */
 function StreamingIndicator({ text }: { text: string }): React.ReactElement {
-  if (text) {
+  // Filter out empty lines from round separators
+  const displayText = text
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .join('\n');
+  if (displayText) {
     return (
       <Box flexDirection="column">
         <Text color="cyan" bold>
@@ -271,7 +276,7 @@ function StreamingIndicator({ text }: { text: string }): React.ReactElement {
         </Text>
         <Text> </Text>
         <Box marginLeft={2}>
-          <Text wrap="wrap">{text}</Text>
+          <Text wrap="wrap">{displayText}</Text>
         </Box>
       </Box>
     );
