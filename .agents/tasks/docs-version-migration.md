@@ -9,40 +9,66 @@ created: 2026-03-20
 
 ## Goal
 
-The `docs/` directory contains plans and research documents from the v2→v3 transition period. These need to be:
+Two documentation directories exist with different roles:
 
-1. Verified that they accurately represent the v2.0.0-era architecture
-2. Backed up into a `docs/v2.0.0/` archive folder
-3. A new `docs/v3.0.0/` folder created with fresh documentation reflecting the current 3.0.0-beta architecture
+- `docs/` — internal-only documents (plans, research, design specs). Not deployed to web.
+- `content/` — web documentation source, consumed by `apps/docs/` VitePress build. Currently contains stale v2.0.0-era content.
+
+The `content/` v2.0.0 documents need to be archived and replaced with v3.0.0 documentation.
 
 ## Current State
 
 ```
-docs/
-├── plans/           ← 15 design/plan documents (2026-03-13 ~ 2026-03-15)
-└── superpowers/
-    ├── plans/       ← 2 plans (agents decomposition, CLI MVP)
-    ├── research/    ← 4 research docs (Claude Code, CJK input, context mgmt)
-    └── specs/       ← 2 specs (agents decomposition, CLI design)
-```
+content/                    ← VitePress web docs source (STALE — v2.0.0 era)
+├── api-reference/          ← Auto-generated API reference (v2 classes: SessionManager, ChatInstance, etc.)
+├── development/            ← 14 dev guides
+├── examples/               ← 20 examples
+├── getting-started/
+├── guide/                  ← Architecture, core concepts
+└── README.md
 
-All documents are from the v2→v3 refactoring period. Most describe the transition plan, not the final v3 state.
+docs/                       ← Internal-only (plans, research, design)
+├── plans/                  ← 15 design/plan documents (2026-03-13~15)
+└── superpowers/            ← plans, research, specs (2026-03-18~20)
+
+apps/docs/                  ← VitePress build app
+├── scripts/copy-docs.js    ← Copies content/ → .temp/, then packages/*/docs/
+└── package.json
+```
 
 ## Phases
 
-### Phase 1: Verify v2.0.0 accuracy
+### Phase 1: Archive v2.0.0 content
 
-- Read each document and confirm it describes v2.0.0-era architecture
-- Flag any documents that already describe v3.0.0 features (these belong in v3.0.0)
-- Classify: v2.0.0 archive / v3.0.0 relevant / transition (both)
+- Move all existing `content/` subdirectories to `content/v2.0.0/`
+- Preserve directory structure (api-reference/, development/, examples/, guide/, getting-started/)
 
-### Phase 2: Archive to v2.0.0
+### Phase 2: Create v3.0.0 web docs
 
-- Create `docs/v2.0.0/` and move verified v2.0.0 documents there
-- Preserve directory structure (plans/, superpowers/)
+- Write new documentation directly in `content/` (no version subfolder for latest)
+- Content should reflect current 3.0.0-beta architecture (10 packages audited, SPECs aligned)
+- Include: architecture overview, getting started, package guide, migration notes
+- API reference should be regenerated from current codebase
 
-### Phase 3: Create v3.0.0 docs
+### Phase 3: Verify apps/docs build
 
-- Create `docs/v3.0.0/` with fresh documentation
-- Content should reflect current architecture (10 packages audited, SPECs aligned)
-- Include: architecture overview, getting started, package guide, migration guide from v2
+- Run `pnpm --filter robota-docs build` to verify VitePress build works
+- Verify copy-docs.js still functions with the new content structure
+
+### Result Structure
+
+```
+content/
+├── v2.0.0/              ← archived old web documents
+│   ├── api-reference/
+│   ├── development/
+│   ├── examples/
+│   ├── guide/
+│   └── getting-started/
+├── (new v3 docs here)   ← latest version, no subfolder
+└── README.md
+
+docs/                    ← internal only (unchanged)
+├── plans/
+└── superpowers/
+```
