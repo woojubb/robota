@@ -152,6 +152,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - OTP must be requested from the user ONLY after all preparation is complete (build, test, typecheck, dry-run all passed). Do NOT ask for OTP before dry-run succeeds — OTP expires in 30 seconds.
 - MUST use `pnpm publish`, NEVER `npm publish`. pnpm resolves `workspace:*` dependencies to actual versions in the tarball. npm does not — it publishes `workspace:*` literally, breaking consumers.
 - `pnpm pre-publish:check` runs `scripts/pre-publish-docs-check.sh` which validates all publishable packages have: README.md (10+ lines), docs/SPEC.md, package.json description, license, and usage documentation. This is automatically run as part of `pnpm publish:packages`.
+- When a package is published for the first time, search `content/` and `docs/` for "not yet published" references to that package and remove them. A newly published package with stale "not yet published" labels in documentation is a process violation.
 
 ### Publish Scope Approval
 

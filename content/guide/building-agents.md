@@ -61,7 +61,7 @@ const provider = new AnthropicProvider({
 
 Supported models: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5`
 
-### OpenAI
+### OpenAI (not yet published)
 
 ```typescript
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
@@ -71,7 +71,7 @@ const provider = new OpenAIProvider({
 });
 ```
 
-### Google
+### Google (not yet published)
 
 ```typescript
 import { GoogleProvider } from '@robota-sdk/agent-provider-google';
@@ -202,7 +202,7 @@ const agent = new Robota({
 
 ### Available Plugins
 
-`EventEmitterPlugin` is built into `agent-core`. 8 additional plugins are available as separate packages:
+`EventEmitterPlugin` is built into `agent-core`. 8 additional plugins are available as separate packages (not yet published — available in the monorepo only):
 
 | Plugin Package                                  | Purpose                       |
 | ----------------------------------------------- | ----------------------------- |

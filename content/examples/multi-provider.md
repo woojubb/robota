@@ -2,6 +2,8 @@
 
 Register multiple providers and switch between them dynamically.
 
+> **Note**: `@robota-sdk/agent-provider-openai` and `@robota-sdk/agent-provider-google` are not yet published to npm. This example works within the monorepo.
+
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
