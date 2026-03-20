@@ -34,10 +34,9 @@ import {
   webFetchTool,
   webSearchTool,
 } from '@robota-sdk/agent-tools';
-import { mkdirSync, appendFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
 import type { SessionStore, ISessionRecord } from './session-store.js';
+import type { ISessionLogger, TSessionLogData } from './session-logger.js';
+import { FileSessionLogger } from './session-logger.js';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
@@ -215,10 +214,8 @@ export interface ISessionOptions {
   onCompact?: (summary: string) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
-  /** Enable conversation logging to .robota/logs/{sessionId}.jsonl */
-  enableLogging?: boolean;
-  /** Custom log directory (default: .robota/logs/) */
-  logDir?: string;
+  /** Session logger — injected for pluggable session event logging. */
+  sessionLogger?: ISessionLogger;
 }
 
 /** Names of the built-in tools */
@@ -255,7 +252,7 @@ export class Session {
   private readonly onCompactCallback?: (summary: string) => void;
   private readonly compactInstructions?: string;
   private readonly aiProvider: IAIProvider;
-  private readonly logDir?: string;
+  private readonly sessionLogger?: ISessionLogger;
   private messageCount = 0;
   private contextUsedTokens = 0;
   private contextMaxTokens = DEFAULT_CONTEXT_SIZE;
@@ -282,16 +279,7 @@ export class Session {
     this.onCompactCallback = options.onCompact;
     this.compactInstructions = options.compactInstructions;
     this.cwd = process.cwd();
-
-    // Setup conversation logging
-    if (options.enableLogging !== false) {
-      this.logDir = options.logDir ?? join(this.cwd, '.robota', 'logs');
-      try {
-        mkdirSync(this.logDir, { recursive: true });
-      } catch {
-        this.logDir = undefined;
-      }
-    }
+    this.sessionLogger = options.sessionLogger;
     this.sessionId = `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
 
     // Resolve permission mode from explicit arg or config default
@@ -491,21 +479,9 @@ export class Session {
     return response;
   }
 
-  /** Append a log entry to the session log file */
-  private log(event: string, data: Record<string, string | number | boolean | object>): void {
-    if (!this.logDir) return;
-    try {
-      const entry = JSON.stringify({
-        timestamp: new Date().toISOString(),
-        sessionId: this.sessionId,
-        event,
-        ...data,
-      });
-      const logFile = join(this.logDir, `${this.sessionId}.jsonl`);
-      appendFileSync(logFile, entry + '\n');
-    } catch {
-      // Logging failure should never break the session
-    }
+  /** Delegate session event to the injected logger. */
+  private log(event: string, data: TSessionLogData): void {
+    this.sessionLogger?.log(this.sessionId, event, data);
   }
 
   /** Persist the current session to the store */

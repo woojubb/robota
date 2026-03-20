@@ -9,6 +9,10 @@ export type { ITerminalOutput, ISpinner } from './types.js';
 export { Session } from './session.js';
 export type { ISessionOptions, TPermissionHandler, TPermissionResult } from './session.js';
 
+// Session logging (from agent-sessions)
+export { FileSessionLogger, SilentSessionLogger } from '@robota-sdk/agent-sessions';
+export type { ISessionLogger, TSessionLogData } from '@robota-sdk/agent-sessions';
+
 // Session persistence (from agent-sessions)
 export { SessionStore } from './session-store.js';
 export type { ISessionRecord } from './session-store.js';

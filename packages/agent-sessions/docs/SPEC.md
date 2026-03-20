@@ -14,10 +14,11 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
 
 ## Architecture Overview
 
-The package follows a flat two-file structure:
+The package follows a flat structure:
 
 ```
 session.ts        -- Session class: wraps Robota + permission checking + tool wiring + streaming + hooks
+session-logger.ts -- ISessionLogger interface + FileSessionLogger / SilentSessionLogger implementations
 session-store.ts  -- SessionStore: JSON file persistence for conversation sessions
 ```
 
