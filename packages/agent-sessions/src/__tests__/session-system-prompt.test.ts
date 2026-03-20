@@ -123,7 +123,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: agentsContent, claudeMd: '' },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     expect(capturedConfig).not.toBeNull();
@@ -143,7 +143,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: '', claudeMd: claudeContent },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -155,7 +155,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: 'test agents content', claudeMd: 'test claude content' },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -172,7 +172,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: '', claudeMd: '' },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -186,7 +186,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: '', claudeMd: '' },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -200,7 +200,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: '', claudeMd: '' },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
