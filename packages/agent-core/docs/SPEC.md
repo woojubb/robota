@@ -10,7 +10,7 @@
 
 - Keeps provider-specific transport behavior in provider packages (`@robota-sdk/agent-provider-openai`, `@robota-sdk/agent-provider-anthropic`, `@robota-sdk/agent-provider-google`).
 - Keeps package-specific domain contracts owned once and reused through public surfaces.
-- Does not own workflow visualization, DAG orchestration, or session persistence (those belong to `workflow`, `dag-*`, `sessions`).
+- Does not own workflow visualization, DAG orchestration, or session persistence (those belong to `dag-*`, `@robota-sdk/agent-sessions`).
 
 ## Architecture Overview
 
@@ -38,16 +38,11 @@ Robota (Facade)
   ├── Hook Layer
   │     ├── hook-runner.ts          — runHooks(): shell command hook execution engine
   │     └── types.ts                — THookEvent, THooksConfig, IHookInput, IHookResult
-  └── Plugin Layer (10 built-in plugins)
-        ├── ConversationHistoryPlugin
-        ├── LoggingPlugin
-        ├── UsagePlugin
-        ├── PerformancePlugin
-        ├── ExecutionAnalyticsPlugin
-        ├── ErrorHandlingPlugin
-        ├── LimitsPlugin
-        ├── EventEmitterPlugin
-        └── WebhookPlugin
+  └── Plugin Layer (1 built-in + 8 external @robota-sdk/agent-plugin-* packages)
+        ├── EventEmitterPlugin           (built-in — event coordination)
+        └── External plugins (per @robota-sdk/agent-plugin-*):
+              conversation-history, logging, usage, performance,
+              execution-analytics, error-handling, limits, webhook
 ```
 
 ### Design Patterns
@@ -74,33 +69,33 @@ Safe defaults use the Null Object pattern:
 
 This package is the single source of truth (SSOT) for the following types:
 
-| Type                  | Location                         | Purpose                                                            |
-| --------------------- | -------------------------------- | ------------------------------------------------------------------ |
-| `TUniversalMessage`   | `interfaces/messages.ts`         | Canonical message union (User, Assistant, System, Tool)            |
-| `TUniversalValue`     | `interfaces/types.ts`            | Recursive value type without `any`                                 |
-| `TMetadata`           | `interfaces/types.ts`            | Metadata record type                                               |
-| `IAgentConfig`        | `interfaces/agent.ts`            | Agent configuration contract                                       |
-| `IAIProvider`         | `interfaces/provider.ts`         | Provider integration contract                                      |
-| `IToolSchema`         | `interfaces/provider.ts`         | Tool schema contract                                               |
-| `TToolParameters`     | `interfaces/tool.ts`             | Tool parameter type                                                |
-| `IEventService`       | `services/event-service.ts`      | Event emission contract                                            |
-| `IOwnerPathSegment`   | `services/event-service.ts`      | Execution path tracking                                            |
-| `RobotaError`         | `utils/errors.ts`                | Base error hierarchy                                               |
-| `TTextDeltaCallback`  | `interfaces/provider.ts`         | Streaming text delta callback `(delta: string) => void`            |
-| `TPermissionMode`     | `permissions/types.ts`           | Permission modes: plan, default, acceptEdits, bypassPermissions    |
-| `TTrustLevel`         | `permissions/types.ts`           | Friendly trust aliases: safe, moderate, full                       |
-| `TPermissionDecision` | `permissions/types.ts`           | Evaluation outcome: auto, approve, deny                            |
-| `TToolArgs`           | `permissions/permission-gate.ts` | Tool arguments record for permission matching                      |
-| `IPermissionLists`    | `permissions/permission-gate.ts` | Allow/deny pattern lists for permission config                     |
-| `TKnownToolName`      | `permissions/permission-mode.ts` | Known tool names in the permission system                          |
-| `THookEvent`          | `hooks/types.ts`                 | Hook lifecycle events: PreToolUse, PostToolUse, SessionStart, Stop |
-| `THooksConfig`        | `hooks/types.ts`                 | Complete hooks configuration: event to hook groups                 |
-| `IHookGroup`          | `hooks/types.ts`                 | Hook group: matcher pattern + hook definitions                     |
-| `IHookDefinition`     | `hooks/types.ts`                 | Single hook definition (type: command, command string)             |
-| `IHookInput`          | `hooks/types.ts`                 | Input passed to hook commands via stdin                            |
-| `IHookResult`         | `hooks/types.ts`                 | Hook execution result (exitCode, stdout, stderr)                   |
-| `IContextTokenUsage`  | `context/types.ts`               | Token usage from a single API call (input, output, cache tokens)   |
-| `IContextWindowState` | `context/types.ts`               | Context window state snapshot (maxTokens, usedTokens, percentage)  |
+| Type                  | Location                         | Purpose                                                                                     |
+| --------------------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `TUniversalMessage`   | `interfaces/messages.ts`         | Canonical message union (User, Assistant, System, Tool)                                     |
+| `TUniversalValue`     | `interfaces/types.ts`            | Recursive value type without `any`                                                          |
+| `TMetadata`           | `interfaces/types.ts`            | Metadata record type                                                                        |
+| `IAgentConfig`        | `interfaces/agent.ts`            | Agent configuration contract                                                                |
+| `IAIProvider`         | `interfaces/provider.ts`         | Provider integration contract                                                               |
+| `IToolSchema`         | `interfaces/provider.ts`         | Tool schema contract                                                                        |
+| `TToolParameters`     | `interfaces/types.ts`            | Tool parameter type (re-exported via `interfaces/tool.ts`)                                  |
+| `IEventService`       | `event-service/interfaces.ts`    | Event emission contract                                                                     |
+| `IOwnerPathSegment`   | `event-service/interfaces.ts`    | Execution path tracking                                                                     |
+| `RobotaError`         | `utils/errors.ts`                | Base error hierarchy                                                                        |
+| `TTextDeltaCallback`  | `interfaces/provider.ts`         | Streaming text delta callback `(delta: string) => void`                                     |
+| `TPermissionMode`     | `permissions/types.ts`           | Permission modes: plan, default, acceptEdits, bypassPermissions                             |
+| `TTrustLevel`         | `permissions/types.ts`           | Friendly trust aliases: safe, moderate, full                                                |
+| `TPermissionDecision` | `permissions/types.ts`           | Evaluation outcome: auto, approve, deny                                                     |
+| `TToolArgs`           | `permissions/permission-gate.ts` | Tool arguments record for permission matching                                               |
+| `IPermissionLists`    | `permissions/permission-gate.ts` | Allow/deny pattern lists for permission config                                              |
+| `TKnownToolName`      | `permissions/permission-mode.ts` | Known tool names in the permission system                                                   |
+| `THookEvent`          | `hooks/types.ts`                 | Hook lifecycle events: PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop |
+| `THooksConfig`        | `hooks/types.ts`                 | Complete hooks configuration: event to hook groups                                          |
+| `IHookGroup`          | `hooks/types.ts`                 | Hook group: matcher pattern + hook definitions                                              |
+| `IHookDefinition`     | `hooks/types.ts`                 | Single hook definition (type: command, command string)                                      |
+| `IHookInput`          | `hooks/types.ts`                 | Input passed to hook commands via stdin                                                     |
+| `IHookResult`         | `hooks/types.ts`                 | Hook execution result (exitCode, stdout, stderr)                                            |
+| `IContextTokenUsage`  | `context/types.ts`               | Token usage from a single API call (input, output, cache tokens)                            |
+| `IContextWindowState` | `context/types.ts`               | Context window state snapshot (maxTokens, usedTokens, percentage)                           |
 
 Provider packages import these types. They must not re-declare them.
 
@@ -185,19 +180,13 @@ These types are consumed by `@robota-sdk/agent-sessions` to track cumulative tok
 | `ObservableEventService` | class          | RxJS integration    |
 | `EventHistoryModule`     | class          | Event recording     |
 
-### Plugins (10 built-in)
+### Plugins (1 built-in)
 
-| Plugin                      | Category         | Description                                           |
-| --------------------------- | ---------------- | ----------------------------------------------------- |
-| `ConversationHistoryPlugin` | storage          | Persistent history (memory, file, database, remote)   |
-| `LoggingPlugin`             | logging          | Multi-backend logging (console, file, remote, silent) |
-| `UsagePlugin`               | monitoring       | Token usage and cost tracking                         |
-| `PerformancePlugin`         | monitoring       | Metrics collection                                    |
-| `ExecutionAnalyticsPlugin`  | monitoring       | Execution analytics                                   |
-| `ErrorHandlingPlugin`       | error_handling   | Error recovery strategies                             |
-| `LimitsPlugin`              | limits           | Rate limiting                                         |
-| `EventEmitterPlugin`        | event_processing | Event coordination                                    |
-| `WebhookPlugin`             | notification     | External HTTP notifications                           |
+| Plugin               | Category         | Description        |
+| -------------------- | ---------------- | ------------------ |
+| `EventEmitterPlugin` | event_processing | Event coordination |
+
+8 plugins were extracted to `@robota-sdk/agent-plugin-*` packages to comply with the agent-core zero-dependency rule. They extend `AbstractPlugin` (defined here) and are wired by the consuming layer.
 
 ## Plugin Contract
 
@@ -331,86 +320,57 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 
 ### Interface Implementations
 
-| Interface                         | Implementor                   | Kind                     | Location                                                        |
-| --------------------------------- | ----------------------------- | ------------------------ | --------------------------------------------------------------- |
-| `IAgent`                          | `AbstractAgent`               | abstract base            | `src/abstracts/abstract-agent.ts`                               |
-| `IAgent`                          | `Robota`                      | production               | `src/robota.ts`                                                 |
-| `IAIProvider`                     | `AbstractAIProvider`          | abstract base            | `src/abstracts/abstract-provider.ts`                            |
-| `IExecutor`                       | `AbstractExecutor`            | abstract base            | `src/abstracts/abstract-executor.ts`                            |
-| `IPluginContract`, `IPluginHooks` | `AbstractPlugin`              | abstract base            | `src/abstracts/abstract-plugin.ts`                              |
-| `IToolWithEventService`           | `AbstractTool`                | abstract base            | `src/abstracts/abstract-tool.ts`                                |
-| `IModule`, `IModuleHooks`         | `AbstractModule`              | abstract base            | `src/abstracts/abstract-module.ts`                              |
-| `IWorkflowConverter`              | `AbstractWorkflowConverter`   | abstract base            | `src/abstracts/abstract-workflow-converter.ts`                  |
-| `IWorkflowValidator`              | `AbstractWorkflowValidator`   | abstract base            | `src/abstracts/abstract-workflow-validator.ts`                  |
-| `IEventService`                   | `AbstractEventService`        | abstract base            | `src/services/event-service.ts`                                 |
-| `IEventService`                   | `DefaultEventService`         | production (null object) | `src/services/event-service.ts`                                 |
-| `IEventService`                   | `StructuredEventService`      | production               | `src/services/event-service.ts`                                 |
-| `IEventService`                   | `ObservableEventService`      | production               | `src/services/event-service.ts`                                 |
-| `IConversationHistory`            | `BaseConversationHistory`     | abstract base            | `src/managers/conversation-history-manager.ts`                  |
-| `IConversationHistory`            | `ConversationSession`         | production               | `src/managers/conversation-session.ts`                          |
-| `IConversationService`            | `ConversationService`         | production               | `src/services/conversation-service.ts`                          |
-| `IFunctionTool`                   | `FunctionTool`                | production               | `src/tools/implementations/function-tool.ts`                    |
-| `ITool`                           | `MCPTool`                     | production               | `src/tools/implementations/mcp-tool.ts`                         |
-| `ITool`                           | `OpenAPITool`                 | production               | `src/tools/implementations/openapi-tool.ts`                     |
-| `IToolManager`                    | `Tools`                       | production               | `src/managers/tool-manager.ts`                                  |
-| `IToolRegistry`                   | `ToolRegistry`                | production               | `src/tools/tool-registry.ts`                                    |
-| `IAIProviderManager`              | `AIProviders`                 | production               | `src/managers/ai-provider-manager.ts`                           |
-| `IPluginsManager`                 | `Plugins`                     | production               | `src/managers/plugin-manager.ts`                                |
-| `ILogger`                         | `ConsoleLogger`               | production               | `src/utils/logger.ts`                                           |
-| `ILogStorage`                     | `ConsoleLogStorage`           | production               | `src/plugins/logging/storages/console-storage.ts`               |
-| `ILogStorage`                     | `FileLogStorage`              | production               | `src/plugins/logging/storages/file-storage.ts`                  |
-| `ILogStorage`                     | `RemoteLogStorage`            | production               | `src/plugins/logging/storages/remote-storage.ts`                |
-| `ILogStorage`                     | `SilentLogStorage`            | production (null object) | `src/plugins/logging/storages/silent-storage.ts`                |
-| `ILogFormatter`                   | `ConsoleLogFormatter`         | production               | `src/plugins/logging/formatters/console-formatter.ts`           |
-| `ILogFormatter`                   | `JsonLogFormatter`            | production               | `src/plugins/logging/formatters/json-formatter.ts`              |
-| `IUsageStorage`                   | `FileUsageStorage`            | production               | `src/plugins/usage/storages/file-storage.ts`                    |
-| `IUsageStorage`                   | `MemoryUsageStorage`          | production               | `src/plugins/usage/storages/memory-storage.ts`                  |
-| `IUsageStorage`                   | `RemoteUsageStorage`          | production               | `src/plugins/usage/storages/remote-storage.ts`                  |
-| `IUsageStorage`                   | `SilentUsageStorage`          | production (null object) | `src/plugins/usage/storages/silent-storage.ts`                  |
-| `IPerformanceStorage`             | `MemoryPerformanceStorage`    | production               | `src/plugins/performance/storages/memory-storage.ts`            |
-| `IHistoryStorage`                 | `DatabaseHistoryStorage`      | production               | `src/plugins/conversation-history/storages/database-storage.ts` |
-| `IHistoryStorage`                 | `FileHistoryStorage`          | production               | `src/plugins/conversation-history/storages/file-storage.ts`     |
-| `IHistoryStorage`                 | `MemoryHistoryStorage`        | production               | `src/plugins/conversation-history/storages/memory-storage.ts`   |
-| `IEventHistoryModule`             | `EventHistoryModule`          | production               | `src/services/event-history-module.ts`                          |
-| `IEventHistoryModule`             | `InMemoryHistoryStore`        | production               | `src/services/event-history-module.ts`                          |
-| `IEventEmitterMetrics`            | `InMemoryEventEmitterMetrics` | production               | `src/plugins/event-emitter-plugin.ts`                           |
-| `ICacheStorage`                   | `MemoryCacheStorage`          | production               | `src/utils/cache-storage.ts`                                    |
-| `ISystemMetricsCollector`         | `NodeSystemMetricsCollector`  | production               | `src/plugins/performance/collectors/node-system-metrics.ts`     |
+| Interface                         | Implementor                   | Kind                     | Location                                       |
+| --------------------------------- | ----------------------------- | ------------------------ | ---------------------------------------------- |
+| `IAgent`                          | `AbstractAgent`               | abstract base            | `src/abstracts/abstract-agent.ts`              |
+| `IAgent`                          | `Robota`                      | production               | `src/core/robota.ts`                           |
+| `IAIProvider`                     | `AbstractAIProvider`          | abstract base            | `src/abstracts/abstract-ai-provider.ts`        |
+| `IExecutor`                       | `AbstractExecutor`            | abstract base            | `src/abstracts/abstract-executor.ts`           |
+| `IPluginContract`, `IPluginHooks` | `AbstractPlugin`              | abstract base            | `src/abstracts/abstract-plugin.ts`             |
+| `IToolWithEventService`           | `AbstractTool`                | abstract base            | `src/abstracts/abstract-tool.ts`               |
+| `IModule`, `IModuleHooks`         | `AbstractModule`              | abstract base            | `src/abstracts/abstract-module.ts`             |
+| `IWorkflowConverter`              | `AbstractWorkflowConverter`   | abstract base            | `src/abstracts/abstract-workflow-converter.ts` |
+| `IWorkflowValidator`              | `AbstractWorkflowValidator`   | abstract base            | `src/abstracts/abstract-workflow-validator.ts` |
+| `IEventService`                   | `AbstractEventService`        | abstract base            | `src/event-service/event-service.ts`           |
+| `IEventService`                   | `DefaultEventService`         | production (null object) | `src/event-service/event-service.ts`           |
+| `IEventService`                   | `StructuredEventService`      | production               | `src/event-service/event-service.ts`           |
+| `IEventService`                   | `ObservableEventService`      | production               | `src/event-service/event-service.ts`           |
+| `IConversationHistory`            | `ConversationHistory`         | production               | `src/managers/conversation-history-manager.ts` |
+| `IConversationHistory`            | `ConversationSession`         | production               | `src/managers/conversation-session.ts`         |
+| `IConversationService`            | `ConversationService`         | production               | `src/services/conversation-service/index.ts`   |
+| `IToolManager`                    | `Tools`                       | production               | `src/managers/tool-manager.ts`                 |
+| `IAIProviderManager`              | `AIProviders`                 | production               | `src/managers/ai-provider-manager.ts`          |
+| `IPluginsManager`                 | `Plugins`                     | production               | `src/managers/plugins.ts`                      |
+| `ILogger`                         | `ConsoleLogger`               | production               | `src/utils/logger.ts`                          |
+| `IEventHistoryModule`             | `EventHistoryModule`          | production               | `src/services/history-module.ts`               |
+| `IEventHistoryModule`             | `InMemoryHistoryStore`        | production               | `src/services/in-memory-history-store.ts`      |
+| `IEventEmitterMetrics`            | `InMemoryEventEmitterMetrics` | production               | `src/plugins/event-emitter/metrics.ts`         |
+| `ICacheStorage`                   | `MemoryCacheStorage`          | production               | `src/services/cache/memory-cache-storage.ts`   |
 
-### Inheritance Chains
+NOTE: `FunctionTool`, `ToolRegistry`, `OpenAPITool` moved to `@robota-sdk/agent-tools`. `MCPTool`, `RelayMcpTool` moved to `@robota-sdk/agent-tool-mcp`. Plugin storage implementations (ILogStorage, IUsageStorage, IPerformanceStorage, IHistoryStorage, etc.) moved to their respective `@robota-sdk/agent-plugin-*` packages.
 
-| Base                      | Derived                               | Location                                                          | Notes                       |
-| ------------------------- | ------------------------------------- | ----------------------------------------------------------------- | --------------------------- |
-| `AbstractAgent`           | `Robota`                              | `src/robota.ts`                                                   | Main facade                 |
-| `AbstractEventService`    | `DefaultEventService`                 | `src/services/event-service.ts`                                   | Null object                 |
-| `AbstractEventService`    | `StructuredEventService`              | `src/services/event-service.ts`                                   | Owner-bound events          |
-| `AbstractEventService`    | `ObservableEventService`              | `src/services/event-service.ts`                                   | RxJS integration            |
-| `AbstractExecutor`        | `LocalExecutor`                       | `src/executors/local-executor.ts`                                 | Local provider execution    |
-| `AbstractTool`            | `FunctionTool`                        | `src/tools/implementations/function-tool.ts`                      | JS function with Zod schema |
-| `AbstractTool`            | `MCPTool`                             | `src/tools/implementations/mcp-tool.ts`                           | MCP protocol tool           |
-| `AbstractTool`            | `OpenAPITool`                         | `src/tools/implementations/openapi-tool.ts`                       | OpenAPI spec tool           |
-| `AbstractTool`            | `RelayMcpTool`                        | `src/tools/implementations/relay-mcp-tool.ts`                     | MCP relay tool              |
-| `AbstractPlugin`          | `ConversationHistoryPlugin`           | `src/plugins/conversation-history/conversation-history-plugin.ts` | Persistent history          |
-| `AbstractPlugin`          | `ErrorHandlingPlugin`                 | `src/plugins/error-handling/error-handling-plugin.ts`             | Error recovery              |
-| `AbstractPlugin`          | `EventEmitterPlugin`                  | `src/plugins/event-emitter-plugin.ts`                             | Event coordination          |
-| `AbstractPlugin`          | `ExecutionAnalyticsPlugin`            | `src/plugins/execution/execution-analytics-plugin.ts`             | Execution analytics         |
-| `AbstractPlugin`          | `LimitsPlugin`                        | `src/plugins/limits-plugin.ts`                                    | Rate limiting               |
-| `AbstractPlugin`          | `LoggingPlugin`                       | `src/plugins/logging/logging-plugin.ts`                           | Multi-backend logging       |
-| `AbstractPlugin`          | `PerformancePlugin`                   | `src/plugins/performance/performance-plugin.ts`                   | Metrics collection          |
-| `AbstractPlugin`          | `UsagePlugin`                         | `src/plugins/usage/usage-plugin.ts`                               | Token usage tracking        |
-| `AbstractPlugin`          | `WebhookPlugin`                       | `src/plugins/webhook/webhook-plugin.ts`                           | HTTP notifications          |
-| `BaseConversationHistory` | `SimpleConversationHistory`           | `src/managers/conversation-history-manager.ts`                    | Basic history               |
-| `BaseConversationHistory` | `PersistentSystemConversationHistory` | `src/managers/conversation-history-manager.ts`                    | System message persistence  |
+### Inheritance Chains (within agent-core)
+
+| Base                   | Derived                  | Location                              | Notes                    |
+| ---------------------- | ------------------------ | ------------------------------------- | ------------------------ |
+| `AbstractAgent`        | `Robota`                 | `src/core/robota.ts`                  | Main facade              |
+| `AbstractEventService` | `DefaultEventService`    | `src/event-service/event-service.ts`  | Null object              |
+| `AbstractEventService` | `StructuredEventService` | `src/event-service/event-service.ts`  | Owner-bound events       |
+| `AbstractEventService` | `ObservableEventService` | `src/event-service/event-service.ts`  | RxJS integration         |
+| `AbstractExecutor`     | `LocalExecutor`          | `src/executors/local-executor.ts`     | Local provider execution |
+| `AbstractPlugin`       | `EventEmitterPlugin`     | `src/plugins/event-emitter-plugin.ts` | Event coordination       |
+
+NOTE: Tool implementations (`FunctionTool`, `OpenAPITool`) in `@robota-sdk/agent-tools` implement `IFunctionTool`/`ITool` directly without extending `AbstractTool`. Plugin implementations in `@robota-sdk/agent-plugin-*` extend `AbstractPlugin`.
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                  | Adapter (Consumer Package)      | Location                                       |
-| ----------------------------- | ------------------------------- | ---------------------------------------------- |
-| `AbstractAIProvider` (agents) | `OpenAIProvider` (openai)       | `packages/openai/src/provider.ts`              |
-| `AbstractAIProvider` (agents) | `AnthropicProvider` (anthropic) | `packages/anthropic/src/provider.ts`           |
-| `AbstractAIProvider` (agents) | `GoogleProvider` (google)       | `packages/google/src/provider.ts`              |
-| `AbstractAIProvider` (agents) | `MockAIProvider` (sessions)     | `packages/sessions/examples/verify-offline.ts` |
-| `AbstractExecutor` (agents)   | `SimpleRemoteExecutor` (remote) | `packages/remote/src/`                         |
+| Port (Owner)                      | Adapter (Consumer Package)                     | Location                                                     |
+| --------------------------------- | ---------------------------------------------- | ------------------------------------------------------------ |
+| `AbstractAIProvider` (agent-core) | `OpenAIProvider` (agent-provider-openai)       | `packages/agent-provider-openai/src/provider.ts`             |
+| `AbstractAIProvider` (agent-core) | `AnthropicProvider` (agent-provider-anthropic) | `packages/agent-provider-anthropic/src/provider.ts`          |
+| `AbstractAIProvider` (agent-core) | `GoogleProvider` (agent-provider-google)       | `packages/agent-provider-google/src/provider.ts`             |
+| `AbstractAIProvider` (agent-core) | `MockAIProvider` (agent-sessions)              | `packages/agent-sessions/examples/verify-offline.ts`         |
+| `AbstractExecutor` (agent-core)   | `SimpleRemoteExecutor` (agent-remote)          | `packages/agent-remote/src/client/remote-executor-simple.ts` |
 
 ## Test Strategy
 
@@ -432,10 +392,9 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 
 ### Coverage Gaps (Improvement Targets)
 
-- Plugin tests: logging, usage, performance, webhook, limits, error-handling, conversation-history
-- Tool implementation tests: function-tool schema conversion, mcp-tool, openapi-tool
 - Service edge cases: tool-execution-service, task-events, user-events
 - Utility tests: errors, validation, message-converter
+- NOTE: Plugin tests belong to `@robota-sdk/agent-plugin-*` packages. Tool tests belong to `@robota-sdk/agent-tools`.
 
 ## Dependencies
 
@@ -447,5 +406,7 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 ### Key Peer Contracts
 
 - Provider packages implement `AbstractAIProvider` and `IAIProvider`
-- `@robota-sdk/agent-sessions` consumes `ConversationHistory` and `TUniversalMessage`
+- `@robota-sdk/agent-sessions` consumes `Robota`, `runHooks`, `evaluatePermission`, `TUniversalMessage`
+- `@robota-sdk/agent-tools` consumes `AbstractTool`, `IFunctionTool`, `IToolWithEventService`
+- `@robota-sdk/agent-plugin-*` packages extend `AbstractPlugin`
 - `@robota-sdk/agent-team` consumes `Robota`, `IAgentConfig`, event services
