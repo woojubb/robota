@@ -164,6 +164,7 @@ interface ISlashCommand {
   name: string;
   description: string;
   source: string;
+  skillContent?: string; // Full SKILL.md content (skill commands only)
   subcommands?: ISlashCommand[];
   execute?: (args: string) => void | Promise<void>;
 }
@@ -184,6 +185,10 @@ Skills are discovered at session start from two directories (scanned in order, d
 2. `~/.claude/skills/*/SKILL.md` -- user-level skills (Claude Code compatible)
 
 Each `SKILL.md` may contain YAML frontmatter with `name` and `description` fields. If no frontmatter is found, the directory name is used as the command name.
+
+### Skill Execution
+
+When a skill slash command is selected, the full SKILL.md content is injected into the session prompt wrapped in `<skill>` tags. The model receives both the skill instructions and any user-provided arguments.
 
 ## Type Ownership
 
