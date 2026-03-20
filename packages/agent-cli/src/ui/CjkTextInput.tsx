@@ -55,55 +55,67 @@ export default function CjkTextInput({
 
   useInput(
     (input, key) => {
-      if (
-        key.upArrow ||
-        key.downArrow ||
-        (key.ctrl && input === 'c') ||
-        key.tab ||
-        (key.shift && key.tab)
-      ) {
-        return;
-      }
-
-      if (key.return) {
-        onSubmit?.(valueRef.current);
-        return;
-      }
-
-      if (key.leftArrow) {
-        if (cursorRef.current > 0) {
-          cursorRef.current -= 1;
-          forceRender((n) => n + 1);
+      try {
+        if (
+          key.upArrow ||
+          key.downArrow ||
+          (key.ctrl && input === 'c') ||
+          key.tab ||
+          (key.shift && key.tab)
+        ) {
+          return;
         }
-        return;
-      }
 
-      if (key.rightArrow) {
-        if (cursorRef.current < valueRef.current.length) {
-          cursorRef.current += 1;
-          forceRender((n) => n + 1);
+        if (key.return) {
+          onSubmit?.(valueRef.current);
+          return;
         }
-        return;
-      }
 
-      if (key.backspace || key.delete) {
-        if (cursorRef.current > 0) {
-          const v = valueRef.current;
-          const next = v.slice(0, cursorRef.current - 1) + v.slice(cursorRef.current);
-          cursorRef.current -= 1;
-          valueRef.current = next;
-          onChange(next);
+        if (key.leftArrow) {
+          if (cursorRef.current > 0) {
+            cursorRef.current -= 1;
+            forceRender((n) => n + 1);
+          }
+          return;
         }
-        return;
-      }
 
-      // Regular character input — update ref synchronously
-      const v = valueRef.current;
-      const c = cursorRef.current;
-      const next = v.slice(0, c) + input + v.slice(c);
-      cursorRef.current = c + input.length;
-      valueRef.current = next;
-      onChange(next);
+        if (key.rightArrow) {
+          if (cursorRef.current < valueRef.current.length) {
+            cursorRef.current += 1;
+            forceRender((n) => n + 1);
+          }
+          return;
+        }
+
+        if (key.backspace || key.delete) {
+          if (cursorRef.current > 0) {
+            const v = valueRef.current;
+            const next = v.slice(0, cursorRef.current - 1) + v.slice(cursorRef.current);
+            cursorRef.current -= 1;
+            valueRef.current = next;
+            onChange(next);
+          }
+          return;
+        }
+
+        // Guard against IME sending empty or control characters
+        if (!input || input.length === 0) return;
+
+        // Filter out non-printable characters that IME may send during composition
+        const printable = input.replace(/[\x00-\x1f\x7f]/g, '');
+        if (printable.length === 0) return;
+
+        // Regular character input — update ref synchronously
+        const v = valueRef.current;
+        const c = cursorRef.current;
+        const next = v.slice(0, c) + printable + v.slice(c);
+        cursorRef.current = c + printable.length;
+        valueRef.current = next;
+        onChange(next);
+      } catch {
+        // Swallow IME-related errors to prevent terminal crash.
+        // Korean IME in raw mode can produce unexpected byte sequences.
+      }
     },
     { isActive: focus },
   );
@@ -111,9 +123,14 @@ export default function CjkTextInput({
   // Calculate display-width cursor position for IME.
   // x offset accounts for prompt prefix ("│ > ") in InputArea — border(1) + padding(1) + "> "(2) = 4 cols.
   if (showCursor && focus) {
-    const textBeforeCursor = [...valueRef.current].slice(0, cursorRef.current).join('');
-    const cursorX = 4 + stringWidth(textBeforeCursor);
-    setCursorPosition({ x: cursorX, y: 0 });
+    try {
+      const textBeforeCursor = [...valueRef.current].slice(0, cursorRef.current).join('');
+      const cursorX = 4 + stringWidth(textBeforeCursor);
+      setCursorPosition({ x: cursorX, y: 0 });
+    } catch {
+      // Fallback: position at end of visible text if string-width fails on IME bytes
+      setCursorPosition({ x: 4, y: 0 });
+    }
   }
 
   return (
