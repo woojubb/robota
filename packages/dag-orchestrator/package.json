@@ -41,5 +41,9 @@
     "typescript": "^5.3.3",
     "vitest": "^1.6.1"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": true
 }
