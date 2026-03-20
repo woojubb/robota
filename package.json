@@ -32,6 +32,7 @@
     "dag:dev": "pnpm --filter @robota-sdk/dag-designer --filter @robota-sdk/dag-runtime-server --filter @robota-sdk/dag-orchestrator-server --filter @robota-sdk/dag-studio -r --parallel dev",
     "dag:build": "pnpm --filter @robota-sdk/dag-core build && pnpm --filter @robota-sdk/dag-api build && pnpm --filter @robota-sdk/dag-orchestrator build && pnpm --filter @robota-sdk/dag-designer build",
     "cli:dev": "tsx --env-file=packages/agent-cli/.env packages/agent-cli/src/bin.ts",
+    "cli:dev:bun": "bun --env-file=packages/agent-cli/.env packages/agent-cli/dist/node/bin.js",
     "web:dev": "pnpm --filter @robota-sdk/agent-web run dev",
     "web:build": "pnpm --filter @robota-sdk/agent-web run build",
     "web:start": "pnpm --filter @robota-sdk/agent-web run start",
