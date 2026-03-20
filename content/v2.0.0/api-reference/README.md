@@ -2,6 +2,8 @@ agents / [Exports](modules.md)
 
 # @robota-sdk/agent-core
 
+> **This is archived documentation for Robota SDK v2.0.0.** For the latest version, see the [current documentation](/).
+
 The comprehensive AI agent framework with type-safe architecture and advanced plugin system.
 
 ## Overview
