@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
-import TextInput from 'ink-text-input';
+import CjkTextInput from './CjkTextInput.js';
 import type { CommandRegistry } from '../commands/command-registry.js';
 import type { ISlashCommand } from '../commands/types.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
@@ -188,7 +188,7 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
             <Text color="green" bold>
               {'> '}
             </Text>
-            <TextInput
+            <CjkTextInput
               value={value}
               onChange={setValue}
               onSubmit={handleSubmit}
