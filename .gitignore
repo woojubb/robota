@@ -119,3 +119,6 @@ bun.lock
 # Audit script output (local-only, not committed)
 scripts/audit/output/
 .playwright-mcp/
+
+# Harness session log (auto-generated per session)
+.agents/evals/harness-log/sessions.jsonl
