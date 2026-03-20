@@ -416,6 +416,28 @@ export async function executeRound(
     },
   );
 
+  // Pre-send context check: estimate tokens and abort if near context limit.
+  // Uses chars/4 approximation. Prevents sending requests that will fail due to overflow.
+  const CHARS_PER_TOKEN = 4;
+  const CONTEXT_OVERFLOW_THRESHOLD = 0.9;
+  const estimatedTokens = Math.ceil(JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN);
+  const modelContextSizes: Record<string, number> = {
+    'claude-sonnet-4-6': 200_000,
+    'claude-sonnet-4-5': 200_000,
+    'claude-opus-4-6': 1_000_000,
+    'claude-opus-4-5': 200_000,
+    'claude-haiku-4-5': 200_000,
+  };
+  const contextLimit = modelContextSizes[config.defaultModel.model] ?? 200_000;
+  if (estimatedTokens > contextLimit * CONTEXT_OVERFLOW_THRESHOLD) {
+    logger.warn('[ROUND] Context overflow prevention — estimated tokens exceed 90% of context window', {
+      estimatedTokens,
+      contextLimit,
+      round: currentRound,
+    });
+    return true; // Break the execution loop
+  }
+
   // Emit round separator for streaming UI — when round > 1, text from previous
   // round and this round would otherwise concatenate without any line break.
   if (currentRound > 1 && 'onTextDelta' in resolved.provider) {

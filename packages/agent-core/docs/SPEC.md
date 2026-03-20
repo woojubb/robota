@@ -325,6 +325,10 @@ When the execution loop ends without a final assistant text message (e.g., due t
 2. **Preserve conversation history** — all messages up to the point of failure remain in the session
 3. **Return a descriptive response** — e.g., `"(execution interrupted: <reason>)"` so the caller can display it
 
+### Pre-Send Context Check
+
+Before each `provider.chat()` call in the execution loop, the estimated token count of the conversation messages must be checked against the model's context window limit. If the estimated usage exceeds 90% of the context window, the execution loop must stop early rather than sending a request that will fail due to context overflow. The estimated token count uses `JSON.stringify(messages).length / 4` as a character-based approximation.
+
 ## Class Contract Registry
 
 ### Interface Implementations
