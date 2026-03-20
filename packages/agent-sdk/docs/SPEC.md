@@ -98,7 +98,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Implementation**: 3-step evaluation — deny list → allow list → mode policy
 - **Modes**: `plan` (read-only), `default` (write requires approval), `acceptEdits` (write auto-approved), `bypassPermissions` (all auto-approved)
 - **Pattern syntax**: `Bash(pnpm *)`, `Read(/src/**)`, `Write(*)` etc. with glob matching
-- **Terminal prompt**: Both `agent-sdk/src/permissions/permission-prompt.ts` and `agent-cli/src/permissions/permission-prompt.ts` contain terminal approval prompt implementations. The `agent-sdk` version is used by `query()` (print mode); the `agent-cli` version is used by the Ink TUI. This duplication should be consolidated.
+- **Terminal prompt**: `agent-sdk/src/permissions/permission-prompt.ts` provides a terminal approval prompt used by `query()` (print mode). A separate implementation exists in the CLI layer for the Ink TUI.
 
 ### Hooks System
 
