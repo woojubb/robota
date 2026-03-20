@@ -2,8 +2,7 @@ import { defineConfig } from 'vitepress';
 import { enConfig } from './config/en';
 import AutoSidebar from 'vite-plugin-vitepress-auto-sidebar';
 
-// Get Google Analytics ID from environment variables
-const googleAnalyticsId = process.env.VITE_GA_ID;
+const googleAnalyticsId = 'G-ZPV4BX97JF';
 
 export default defineConfig({
   // Basic configuration
