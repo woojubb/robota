@@ -97,6 +97,8 @@ Types consumed from other packages (not owned here):
 | `getHistory`        | `() => TUniversalMessage[]`                | Returns the current conversation history.                                    |
 | `getContextState`   | `() => IContextWindowState`                | Returns real-time context window usage (tokens, percentage).                 |
 | `compact`           | `(instructions?: string) => Promise<void>` | Compresses conversation via LLM summary. Fires PreCompact/PostCompact hooks. |
+| `abort`             | `() => void`                               | Cancels the currently running `run()` call. No-op if not running.            |
+| `isRunning`         | `() => boolean`                            | Returns true if a `run()` call is in progress.                               |
 
 ### Key SessionStore Methods
 

@@ -83,14 +83,14 @@ pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
 
 All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md).
 
-| Group                | Document                                                       | Key rules                                                             |
-| -------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes               |
-| Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification, publish safety gate |
-| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | Runtime=ComfyUI immutable, orchestrator=Robota own                    |
-| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                        |
-| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy, conventional commits, worktree                         |
-| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                   |
+| Group                | Document                                                       | Key rules                                                                           |
+| -------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes                             |
+| Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification, publish safety gate, feature docs |
+| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | Runtime=ComfyUI immutable, orchestrator=Robota own                                  |
+| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                                      |
+| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy, conventional commits, worktree                                       |
+| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                                 |
 
 ### Type System (Strict)
 
@@ -225,6 +225,7 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 12  | Publishing packages without user approval on scope               | Confirm publish manifest with user; see `process.md` Publish Scope Approval     |
 | 13  | agent-core depending on agent-\* packages                        | agent-core MUST NOT depend on any @robota-sdk/agent-\* package                  |
 | 14  | Using `npm publish` instead of `pnpm publish`                    | pnpm resolves workspace:\* deps; npm publishes them literally, breaking install |
+| 15  | Adding a feature without updating SPEC.md/README.md              | Every new feature requires documentation updates in the same commit/PR          |
 
 ## Conflict Scan Commands
 
