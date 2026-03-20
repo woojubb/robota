@@ -34,7 +34,7 @@ Session is now generic (depends only on agent-core). Assembly (wiring tools, pro
 | Package            | Role                                                                    | General/Specialized |
 | ------------------ | ----------------------------------------------------------------------- | ------------------- |
 | **agent-core**     | Robota engine, execution loop, provider abstraction, permissions, hooks | General             |
-| **agent-tools**    | Tool creation infrastructure + 6 built-in tools                         | General             |
+| **agent-tools**    | Tool creation infrastructure + 8 built-in tools                         | General             |
 | **agent-sessions** | Generic Session class, SessionStore (persistence)                       | General             |
 | **agent-sdk**      | Assembly layer (config, context, query, agent-tool, session factory)    | SDK-specific        |
 | **agent-cli**      | Ink TUI (terminal UI, permission-prompt)                                | CLI-specific        |
@@ -48,7 +48,7 @@ agent-core
 └── (existing) Robota, execution, providers, plugins
 
 agent-tools
-├── src/builtins/             ← bash, read, write, edit, glob, grep tools
+├── src/builtins/             ← bash, read, write, edit, glob, grep, web-fetch, web-search tools
 ├── src/types/tool-result.ts  ← TToolResult
 └── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
@@ -66,14 +66,18 @@ agent-sdk (assembly layer — SDK-specific features only)
 ├── src/config/               ← settings.json loading (3-layer merge, $ENV substitution)
 ├── src/context/              ← AGENTS.md/CLAUDE.md walk-up discovery, project detection, system prompt
 ├── src/tools/agent-tool.ts   ← Agent sub-session tool (SDK-specific: uses createSession)
-├── src/permissions/          ← permission-prompt.ts (CLI terminal prompt)
+├── src/permissions/          ← permission-prompt.ts (terminal approval prompt)
+├── src/paths.ts              ← projectPaths / userPaths helpers
+├── src/types.ts              ← re-exports shared types from agent-sessions
 ├── src/query.ts              ← query() SDK entry point (uses createSession)
-└── src/index.ts              ← assembly exports + backward-compatible re-exports
+└── src/index.ts              ← assembly exports + re-exports from agent-sessions/tools/core
 
 agent-cli (Ink TUI — CLI-specific)
-├── src/ui/                   ← App, MessageList, InputArea, StatusBar, PermissionPrompt
+├── src/commands/             ← CommandRegistry, BuiltinCommandSource, SkillCommandSource, types
+├── src/ui/                   ← App, MessageList, InputArea, StatusBar, PermissionPrompt,
+│                                SlashAutocomplete, CjkTextInput, WaveText, InkTerminal, render
 ├── src/permissions/          ← permission-prompt.ts (terminal arrow-key selection)
-├── src/types.ts              ← ITerminalOutput, ISpinner
+├── src/types.ts              ← ITerminalOutput, ISpinner (duplicate — SSOT is agent-sessions)
 ├── src/cli.ts                ← CLI argument parsing, Ink render
 └── src/bin.ts                ← Binary entry point
 ```
@@ -98,14 +102,14 @@ agent-cli (Ink TUI — CLI-specific)
 ### Hooks System
 
 - **Package**: `agent-core` (general-purpose extension points)
-- **Events**: `PreToolUse`, `PostToolUse`, `SessionStart`, `Stop`
+- **Events**: `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `Stop`
 - **Implementation**: Executes shell commands, passes JSON via stdin, determines allow(0)/deny(2) by exit code
 - **Matcher**: Tool name regex pattern matching
 
 ### Tool System
 
 - **Infrastructure**: `agent-tools` (createZodFunctionTool, FunctionTool, Zod→JSON conversion)
-- **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep
+- **Built-in tools**: `agent-tools/builtins/` — Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
 - **Agent tool**: `agent-sdk/tools/agent-tool.ts` — sub-agent Session creation (SDK-specific)
 - **Tool result type**: `TToolResult` in `agent-tools/types/tool-result.ts`
 
@@ -113,7 +117,7 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Implementation**: Anthropic server tool (`web_search_20250305`), not a `FunctionTool`
 - **Behavior**: Enabled automatically when the provider is Anthropic. The system prompt includes an instruction that the agent must use `web_search` when the user asks to search the web.
-- **Activation**: `enableWebTools: true` is passed in chat options for the Anthropic provider. No tool registration is required because the tool is server-managed.
+- **Activation**: `enableWebTools` is set as a property on the AnthropicProvider instance by `Session.configureProvider()`. No tool registration is required because the tool is server-managed.
 - **Callback**: `onServerToolUse` fires during streaming when the server tool executes, allowing the UI to display search status.
 
 ### Streaming
@@ -214,21 +218,21 @@ import { evaluatePermission } from '@robota-sdk/agent-core';
 
 Each module's placement is determined by "Is this used only in the SDK, or is it general-purpose?":
 
-| Module          | Verdict                      | Rationale                                                          |
-| --------------- | ---------------------------- | ------------------------------------------------------------------ |
-| Permissions     | **General** → agent-core     | Tool permission checks are needed on servers too                   |
-| Hooks           | **General** → agent-core     | Audit/validation is needed on servers too                          |
-| Built-in tools  | **General** → agent-tools    | File system tools are needed in playground/server environments too |
-| Session         | **General** → agent-sessions | Session management is needed in any environment                    |
-| Config loading  | **SDK-specific** → agent-sdk | `.robota/settings.json` is for local environments only             |
-| Context loading | **SDK-specific** → agent-sdk | AGENTS.md walk-up is for local environments only                   |
-| Agent tool      | **SDK-specific** → agent-sdk | Sub-session creation is an SDK assembly concern                    |
-| ITerminalOutput | **CLI-specific** → agent-cli | Terminal UI abstraction                                            |
+| Module          | Verdict                      | Rationale                                                                            |
+| --------------- | ---------------------------- | ------------------------------------------------------------------------------------ |
+| Permissions     | **General** → agent-core     | Tool permission checks are needed on servers too                                     |
+| Hooks           | **General** → agent-core     | Audit/validation is needed on servers too                                            |
+| Built-in tools  | **General** → agent-tools    | File system tools are needed in playground/server environments too                   |
+| Session         | **General** → agent-sessions | Session management is needed in any environment                                      |
+| Config loading  | **SDK-specific** → agent-sdk | `.robota/settings.json` is for local environments only                               |
+| Context loading | **SDK-specific** → agent-sdk | AGENTS.md walk-up is for local environments only                                     |
+| Agent tool      | **SDK-specific** → agent-sdk | Sub-session creation is an SDK assembly concern                                      |
+| ITerminalOutput | **General** → agent-sessions | Terminal I/O abstraction (SSOT in permission-enforcer.ts; agent-cli has a duplicate) |
 
 ### Existing Package Refactoring History
 
 - **agent-sessions**: Removed existing SessionManager/ChatInstance (zero consumers, no-op persistence), replaced with Session/SessionStore from agent-sdk
-- **agent-tools**: Added 6 built-in tools in `builtins/` directory, added `TToolResult` type
+- **agent-tools**: Added 8 built-in tools in `builtins/` directory (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch), added `TToolResult` type
 - **agent-core**: Added `permissions/` and `hooks/` directories
 - **agent-provider-anthropic**: Multi-block content handling (text + tool_use), streaming `chatWithStreaming`, `onTextDelta` support
 
