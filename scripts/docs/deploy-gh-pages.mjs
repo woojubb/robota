@@ -60,7 +60,7 @@ try {
   // Clean worktree (preserve CNAME and .nojekyll)
   const preserveFiles = ['CNAME', '.nojekyll'];
   execSync(
-    `find ${tmpDir} -maxdepth 1 -not -name '.git' -not -name '.' ${preserveFiles.map((f) => `-not -name '${f}'`).join(' ')} -exec rm -rf {} +`,
+    `find ${tmpDir} -mindepth 1 -maxdepth 1 -not -name '.git' ${preserveFiles.map((f) => `-not -name '${f}'`).join(' ')} -exec rm -rf {} +`,
     { cwd: rootDir },
   );
 
