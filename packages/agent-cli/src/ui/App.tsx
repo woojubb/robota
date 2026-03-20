@@ -108,9 +108,7 @@ function useSession(props: IProps): {
       toolName: string,
       toolArgs: TToolArgs,
     ): Promise<TPermissionResult> => {
-      // Add line break in streaming text to separate rounds
-      setStreamingText((prev) => (prev.length > 0 ? prev + '\n' : prev));
-      // Track tool call for post-run display (do NOT call addMessage here — breaks permission queue)
+      // Track tool call for post-run display (no React state updates here)
       if (onToolCallRef.current) {
         onToolCallRef.current(toolName, toolArgs);
       }
