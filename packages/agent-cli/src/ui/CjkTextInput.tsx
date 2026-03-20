@@ -5,15 +5,15 @@
  * - Uses string-width for display width calculation
  * - Cursor position based on character index (not display columns)
  * - Renders CJK characters correctly (2 columns each)
- * - Handles backspace, left/right arrow, home/end
+ * - Uses refs for value/cursor to avoid React state batching issues
+ *   (IME sends multiple keystrokes synchronously, state updates are async)
  *
  * Drop-in replacement: same props as ink-text-input.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { Text, useInput } from 'ink';
 import chalk from 'chalk';
-import stringWidth from 'string-width';
 
 interface IProps {
   value: string;
@@ -32,18 +32,23 @@ export default function CjkTextInput({
   focus = true,
   showCursor = true,
 }: IProps): React.ReactElement {
-  const [cursorOffset, setCursorOffset] = useState(value.length);
+  // Use refs for value and cursor to avoid React batching issues.
+  // When IME sends "다" + "." in rapid succession, setState is async
+  // and the second keystroke reads stale state. Refs are synchronous.
+  const valueRef = useRef(value);
+  const cursorRef = useRef(value.length);
+  const [, forceRender] = useState(0);
 
-  // Clamp cursor when value changes externally
-  useEffect(() => {
-    if (cursorOffset > value.length) {
-      setCursorOffset(value.length);
+  // Sync ref when value changes from parent (e.g., setValue(''))
+  if (value !== valueRef.current) {
+    valueRef.current = value;
+    if (cursorRef.current > value.length) {
+      cursorRef.current = value.length;
     }
-  }, [value, cursorOffset]);
+  }
 
   useInput(
     (input, key) => {
-      // Skip keys handled by parent
       if (
         key.upArrow ||
         key.downArrow ||
@@ -55,39 +60,53 @@ export default function CjkTextInput({
       }
 
       if (key.return) {
-        onSubmit?.(value);
+        onSubmit?.(valueRef.current);
         return;
       }
 
       if (key.leftArrow) {
-        setCursorOffset((prev) => Math.max(0, prev - 1));
+        if (cursorRef.current > 0) {
+          cursorRef.current -= 1;
+          forceRender((n) => n + 1);
+        }
         return;
       }
 
       if (key.rightArrow) {
-        setCursorOffset((prev) => Math.min(value.length, prev + 1));
+        if (cursorRef.current < valueRef.current.length) {
+          cursorRef.current += 1;
+          forceRender((n) => n + 1);
+        }
         return;
       }
 
       if (key.backspace || key.delete) {
-        if (cursorOffset > 0) {
-          const next = value.slice(0, cursorOffset - 1) + value.slice(cursorOffset);
-          setCursorOffset((prev) => prev - 1);
+        if (cursorRef.current > 0) {
+          const v = valueRef.current;
+          const next = v.slice(0, cursorRef.current - 1) + v.slice(cursorRef.current);
+          cursorRef.current -= 1;
+          valueRef.current = next;
           onChange(next);
         }
         return;
       }
 
-      // Regular character input
-      const next = value.slice(0, cursorOffset) + input + value.slice(cursorOffset);
-      setCursorOffset((prev) => prev + input.length);
+      // Regular character input — update ref synchronously
+      const v = valueRef.current;
+      const c = cursorRef.current;
+      const next = v.slice(0, c) + input + v.slice(c);
+      cursorRef.current = c + input.length;
+      valueRef.current = next;
       onChange(next);
     },
     { isActive: focus },
   );
 
-  // Render with visual cursor
-  return <Text>{renderWithCursor(value, cursorOffset, placeholder, showCursor && focus)}</Text>;
+  return (
+    <Text>
+      {renderWithCursor(valueRef.current, cursorRef.current, placeholder, showCursor && focus)}
+    </Text>
+  );
 }
 
 /** Render text with an inverse-style cursor at the correct position */
@@ -101,7 +120,6 @@ function renderWithCursor(
     return value.length > 0 ? value : placeholder ? chalk.gray(placeholder) : '';
   }
 
-  // Empty value — show placeholder with cursor
   if (value.length === 0) {
     if (placeholder.length > 0) {
       return chalk.inverse(placeholder[0]) + chalk.gray(placeholder.slice(1));
@@ -109,8 +127,7 @@ function renderWithCursor(
     return chalk.inverse(' ');
   }
 
-  // Build rendered string character by character
-  const chars = [...value]; // Spread handles multi-byte correctly
+  const chars = [...value];
   let rendered = '';
 
   for (let i = 0; i < chars.length; i++) {
@@ -118,7 +135,6 @@ function renderWithCursor(
     rendered += i === cursorOffset ? chalk.inverse(char) : char;
   }
 
-  // Cursor at end — add inverse space
   if (cursorOffset >= chars.length) {
     rendered += chalk.inverse(' ');
   }
