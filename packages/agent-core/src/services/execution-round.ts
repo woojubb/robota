@@ -443,7 +443,12 @@ export async function executeRound(
 
   conversationSession.addAssistantMessage(assistantResponse.content ?? '', assistantToolCalls, {
     round: currentRound,
-    ...(assistantResponse.metadata?.['usage'] && { usage: assistantResponse.metadata['usage'] }),
+    ...(typeof assistantResponse.metadata?.['inputTokens'] === 'number' && {
+      inputTokens: assistantResponse.metadata['inputTokens'],
+    }),
+    ...(typeof assistantResponse.metadata?.['outputTokens'] === 'number' && {
+      outputTokens: assistantResponse.metadata['outputTokens'],
+    }),
   });
   roundState.runningAssistantCount++;
   roundState.lastTrackedAssistantMessage = assistantResponse;
