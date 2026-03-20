@@ -14,7 +14,7 @@ Ordered work items for v3.0.0-beta releases. Each item maps to a backlog file wi
 | #   | Item                                    | Backlog                                     | Status  | Beta   |
 | --- | --------------------------------------- | ------------------------------------------- | ------- | ------ |
 | 1   | Fix context window tracking             | `backlog/fix-context-tracking.md`           | done    | beta.2 |
-| 2   | Cancel execution (Esc/Ctrl+C)           | `backlog/cli-cancel-execution.md`           | pending | beta.2 |
+| 2   | Cancel execution (Esc/Ctrl+C)           | `backlog/cli-cancel-execution.md`           | done    | beta.2 |
 | 3   | WebFetch / WebSearch tools              | `backlog/sdk-webfetch-tool.md`              | pending | beta.3 |
 | 4   | Permission remember choice              | `backlog/sdk-permission-remember-choice.md` | pending | beta.3 |
 | 5   | Context management & compaction         | `backlog/sdk-context-management.md`         | pending | beta.4 |

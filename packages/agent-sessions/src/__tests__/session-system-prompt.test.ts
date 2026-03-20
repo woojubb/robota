@@ -80,6 +80,18 @@ vi.mock('@robota-sdk/agent-tools', () => ({
     getName: () => 'Grep',
     setEventService: vi.fn(),
   },
+  webFetchTool: {
+    schema: { name: 'WebFetch' },
+    execute: vi.fn(),
+    getName: () => 'WebFetch',
+    setEventService: vi.fn(),
+  },
+  webSearchTool: {
+    schema: { name: 'WebSearch' },
+    execute: vi.fn(),
+    getName: () => 'WebSearch',
+    setEventService: vi.fn(),
+  },
 }));
 
 const MOCK_CONFIG = {

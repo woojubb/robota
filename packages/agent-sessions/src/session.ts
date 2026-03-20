@@ -31,6 +31,8 @@ import {
   editTool,
   globTool,
   grepTool,
+  webFetchTool,
+  webSearchTool,
 } from '@robota-sdk/agent-tools';
 import { mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -372,6 +374,8 @@ export class Session {
       editTool as IToolWithEventService,
       globTool as IToolWithEventService,
       grepTool as IToolWithEventService,
+      webFetchTool as IToolWithEventService,
+      webSearchTool as IToolWithEventService,
       ...(additionalTools ?? []),
     ];
     return rawTools.map((tool) => this.wrapToolWithPermission(tool));
