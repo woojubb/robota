@@ -17,8 +17,8 @@ Ordered work items for v3.0.0-beta releases. Each item maps to a backlog file wi
 | 2   | Cancel execution (Esc/Ctrl+C)           | `backlog/cli-cancel-execution.md`           | done    | beta.2 |
 | 3   | WebFetch / WebSearch tools              | `backlog/sdk-webfetch-tool.md`              | done    | beta.3 |
 | 4   | Permission remember choice              | `backlog/sdk-permission-remember-choice.md` | done    | beta.3 |
-| 5   | Context management & compaction         | `backlog/sdk-context-management.md`         | pending | beta.4 |
-| 6   | Slash command autocomplete improvements | `backlog/cli-slash-autocomplete.md`         | pending | beta.4 |
+| 5   | Context management & compaction         | `backlog/sdk-context-management.md`         | done    | beta.4 |
+| 6   | Slash command autocomplete improvements | `backlog/cli-slash-autocomplete.md`         | done    | beta.4 |
 | 7   | Tool output size limits tuning          | `backlog/tool-output-size-limits.md`        | pending | beta.5 |
 
 ## Completion Criteria
