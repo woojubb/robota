@@ -441,13 +441,21 @@ export async function executeRound(
     logger,
   );
 
+  const inputTokens =
+    typeof assistantResponse.metadata?.['inputTokens'] === 'number'
+      ? assistantResponse.metadata['inputTokens']
+      : 0;
+  const outputTokens =
+    typeof assistantResponse.metadata?.['outputTokens'] === 'number'
+      ? assistantResponse.metadata['outputTokens']
+      : 0;
   conversationSession.addAssistantMessage(assistantResponse.content ?? '', assistantToolCalls, {
     round: currentRound,
-    ...(typeof assistantResponse.metadata?.['inputTokens'] === 'number' && {
-      inputTokens: assistantResponse.metadata['inputTokens'],
-    }),
-    ...(typeof assistantResponse.metadata?.['outputTokens'] === 'number' && {
-      outputTokens: assistantResponse.metadata['outputTokens'],
+    ...(inputTokens > 0 && { inputTokens }),
+    ...(outputTokens > 0 && { outputTokens }),
+    // Preserve usage.totalTokens for execution-service token accounting
+    ...((inputTokens > 0 || outputTokens > 0) && {
+      usage: { totalTokens: inputTokens + outputTokens, inputTokens, outputTokens },
     }),
   });
   roundState.runningAssistantCount++;
