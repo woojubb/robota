@@ -416,6 +416,13 @@ export async function executeRound(
     },
   );
 
+  // Emit round separator for streaming UI — when round > 1, text from previous
+  // round and this round would otherwise concatenate without any line break.
+  if (currentRound > 1 && 'onTextDelta' in resolved.provider) {
+    const cb = (resolved.provider as { onTextDelta?: (delta: string) => void }).onTextDelta;
+    if (cb) cb('\n\n');
+  }
+
   const response = await callProviderWithCache(
     conversationMessages,
     config,
