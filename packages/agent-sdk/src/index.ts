@@ -14,7 +14,7 @@ export {
 } from './assembly/index.js';
 export type { ICreateSessionOptions } from './assembly/index.js';
 
-// Session (re-exported from agent-sessions for backward compatibility)
+// Session (re-exported from agent-sessions — generic, requires tools/provider/systemMessage)
 export { Session } from '@robota-sdk/agent-sessions';
 export type {
   ISessionOptions,

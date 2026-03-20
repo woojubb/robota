@@ -228,6 +228,9 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 15  | Adding a feature without updating SPEC.md/README.md              | Every new feature requires documentation updates in the same commit/PR          |
 | 16  | Hardcoding cross-cutting concerns (fs.appendFile, console.log)   | Use plugin/event architecture; see `code-quality.md` Layered Assembly           |
 | 17  | Bypassing layer boundaries (CLI using core internals directly)   | Each layer consumes only its direct dependency's public API                     |
+| 18  | Maintaining separate parallel arrays that must stay in sync      | Use a single data structure (array of objects, Map); see `code-quality.md`      |
+| 19  | Firing post-event hooks before state mutation is complete        | Post hooks/callbacks fire only after all side effects are done                  |
+| 20  | Factory ignoring values available in its config/context object   | Use `options.x ?? context.x`; see `code-quality.md` Layered Assembly            |
 
 ## Conflict Scan Commands
 
