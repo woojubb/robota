@@ -1,6 +1,5 @@
 /**
- * Tests that Session correctly passes AGENTS.md/CLAUDE.md content
- * into the system prompt AND delivers it to the AI provider.
+ * Tests that Session correctly delivers the system prompt to the AI provider.
  *
  * Root cause this prevents: Session was setting systemMessage only in
  * agentConfig.defaultModel, but execution-service reads from
@@ -29,77 +28,32 @@ vi.mock('@robota-sdk/agent-core', async () => {
   };
 });
 
-vi.mock('@robota-sdk/agent-provider-anthropic', () => ({
-  AnthropicProvider: vi.fn().mockImplementation(() => ({
-    name: 'mock-provider',
-    version: '1.0.0',
-    chat: vi.fn().mockResolvedValue({
-      role: 'assistant',
-      content: 'mock',
-      timestamp: new Date(),
-    }),
-    supportsTools: () => true,
-    validateConfig: () => true,
-  })),
-}));
+const MOCK_PROVIDER = {
+  name: 'mock-provider',
+  version: '1.0.0',
+  chat: vi.fn().mockResolvedValue({
+    role: 'assistant',
+    content: 'mock',
+    timestamp: new Date(),
+  }),
+  supportsTools: () => true,
+  validateConfig: () => true,
+};
 
-vi.mock('@robota-sdk/agent-tools', () => ({
-  bashTool: {
+const MOCK_TOOLS = [
+  {
     schema: { name: 'Bash' },
     execute: vi.fn(),
     getName: () => 'Bash',
     setEventService: vi.fn(),
   },
-  readTool: {
+  {
     schema: { name: 'Read' },
     execute: vi.fn(),
     getName: () => 'Read',
     setEventService: vi.fn(),
   },
-  writeTool: {
-    schema: { name: 'Write' },
-    execute: vi.fn(),
-    getName: () => 'Write',
-    setEventService: vi.fn(),
-  },
-  editTool: {
-    schema: { name: 'Edit' },
-    execute: vi.fn(),
-    getName: () => 'Edit',
-    setEventService: vi.fn(),
-  },
-  globTool: {
-    schema: { name: 'Glob' },
-    execute: vi.fn(),
-    getName: () => 'Glob',
-    setEventService: vi.fn(),
-  },
-  grepTool: {
-    schema: { name: 'Grep' },
-    execute: vi.fn(),
-    getName: () => 'Grep',
-    setEventService: vi.fn(),
-  },
-  webFetchTool: {
-    schema: { name: 'WebFetch' },
-    execute: vi.fn(),
-    getName: () => 'WebFetch',
-    setEventService: vi.fn(),
-  },
-  webSearchTool: {
-    schema: { name: 'WebSearch' },
-    execute: vi.fn(),
-    getName: () => 'WebSearch',
-    setEventService: vi.fn(),
-  },
-}));
-
-const MOCK_CONFIG = {
-  defaultTrustLevel: 'moderate' as const,
-  provider: { name: 'anthropic', model: 'test-model', apiKey: 'test-key' },
-  permissions: { allow: [] as string[], deny: [] as string[] },
-  env: {},
-};
+];
 
 const MOCK_TERMINAL = {
   write: vi.fn(),
@@ -118,12 +72,13 @@ describe('Session — system prompt delivery', () => {
 
   it('should include AGENTS.md content in system prompt', () => {
     const agentsContent = '# My Project\nYou are a helpful assistant for this project.';
+    const systemMessage = `Agent Instructions\n${agentsContent}\n\nAvailable tools: Bash, Read`;
 
     new Session({
-      config: MOCK_CONFIG,
-      context: { agentsMd: agentsContent, claudeMd: '' },
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage,
       terminal: MOCK_TERMINAL,
-      // sessionLogger not provided → no logging
     });
 
     expect(capturedConfig).not.toBeNull();
@@ -137,13 +92,14 @@ describe('Session — system prompt delivery', () => {
   });
 
   it('should include CLAUDE.md content in system prompt', () => {
-    const claudeContent = '## Project Notes\nAlways use TypeScript strict mode.';
+    const claudeContent = 'Always use TypeScript strict mode.';
+    const systemMessage = `Project Notes\n${claudeContent}\n\nAvailable tools: Bash`;
 
     new Session({
-      config: MOCK_CONFIG,
-      context: { agentsMd: '', claudeMd: claudeContent },
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage,
       terminal: MOCK_TERMINAL,
-      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -151,11 +107,13 @@ describe('Session — system prompt delivery', () => {
   });
 
   it('should set systemMessage at BOTH top-level and defaultModel', () => {
+    const systemMessage = 'test agents content\ntest claude content\nAvailable tools: Bash';
+
     new Session({
-      config: MOCK_CONFIG,
-      context: { agentsMd: 'test agents content', claudeMd: 'test claude content' },
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage,
       terminal: MOCK_TERMINAL,
-      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -167,26 +125,30 @@ describe('Session — system prompt delivery', () => {
     expect(topLevel).toBe(defaultModel.systemMessage);
   });
 
-  it('should produce non-empty system prompt even with empty AGENTS.md', () => {
+  it('should pass system message through to Robota config', () => {
+    const systemMessage = 'Some base system prompt with tools listed';
+
     new Session({
-      config: MOCK_CONFIG,
-      context: { agentsMd: '', claudeMd: '' },
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage,
       terminal: MOCK_TERMINAL,
-      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
-    // Should still have tool list and project info
     expect(topLevel.length).toBeGreaterThan(10);
-    expect(topLevel).toContain('Available tools');
+    expect(topLevel).toBe(systemMessage);
   });
 
-  it('should include tool descriptions in system prompt', () => {
+  it('should include tool descriptions in system prompt when provided', () => {
+    const systemMessage =
+      'Available tools: Bash — execute shell commands, Read — read files, Grep — search';
+
     new Session({
-      config: MOCK_CONFIG,
-      context: { agentsMd: '', claudeMd: '' },
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage,
       terminal: MOCK_TERMINAL,
-      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -195,12 +157,14 @@ describe('Session — system prompt delivery', () => {
     expect(topLevel).toContain('Grep');
   });
 
-  it('should include trust level in system prompt', () => {
+  it('should include trust level in system prompt when provided', () => {
+    const systemMessage = 'Trust level: moderate\nAvailable tools: Bash';
+
     new Session({
-      config: MOCK_CONFIG,
-      context: { agentsMd: '', claudeMd: '' },
+      tools: MOCK_TOOLS as never,
+      provider: MOCK_PROVIDER as never,
+      systemMessage,
       terminal: MOCK_TERMINAL,
-      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;

@@ -17,9 +17,17 @@ It provides a single entry point corresponding to Claude Agent SDK's `query()`.
 ### Package Dependency Chain
 
 ```
+Before (v3.0.0-beta.3):
 agent-cli → agent-sdk → agent-sessions → agent-tools → agent-core
                                         → agent-provider-anthropic → agent-core
+
+After (assembly refactoring):
+agent-cli → agent-sdk → agent-sessions → agent-core
+                       → agent-tools ──→ agent-core
+                       → agent-provider-anthropic → agent-core
 ```
+
+Session is now generic (depends only on agent-core). Assembly (wiring tools, provider, system prompt) happens in agent-sdk.
 
 ### Package Roles
 
@@ -27,8 +35,8 @@ agent-cli → agent-sdk → agent-sessions → agent-tools → agent-core
 | ------------------ | ----------------------------------------------------------------------- | ------------------- |
 | **agent-core**     | Robota engine, execution loop, provider abstraction, permissions, hooks | General             |
 | **agent-tools**    | Tool creation infrastructure + 6 built-in tools                         | General             |
-| **agent-sessions** | Session class, SessionStore (persistence)                               | General             |
-| **agent-sdk**      | Assembly layer (config, context, query, agent-tool)                     | SDK-specific        |
+| **agent-sessions** | Generic Session class, SessionStore (persistence)                       | General             |
+| **agent-sdk**      | Assembly layer (config, context, query, agent-tool, session factory)    | SDK-specific        |
 | **agent-cli**      | Ink TUI (terminal UI, permission-prompt)                                | CLI-specific        |
 
 ### Feature Layout (Current Implementation State)
@@ -44,17 +52,23 @@ agent-tools
 ├── src/types/tool-result.ts  ← TToolResult
 └── (existing) FunctionTool, createZodFunctionTool, schema conversion
 
-agent-sessions
-├── src/session.ts            ← Session (Robota wrapper, permission check, tool wiring, streaming)
-├── src/session-store.ts      ← SessionStore (JSON file persistence)
+agent-sessions (generic — depends only on agent-core)
+├── src/session.ts                ← Session: orchestrates run loop, delegates to sub-components
+├── src/permission-enforcer.ts    ← PermissionEnforcer: tool wrapping, permission checks, hooks, truncation
+├── src/context-window-tracker.ts ← ContextWindowTracker: token usage, auto-compact threshold
+├── src/compaction-orchestrator.ts ← CompactionOrchestrator: conversation summarization via LLM
+├── src/session-logger.ts         ← ISessionLogger + FileSessionLogger / SilentSessionLogger
+├── src/session-store.ts          ← SessionStore (JSON file persistence)
 └── src/index.ts
 
 agent-sdk (assembly layer — SDK-specific features only)
+├── src/assembly/             ← Session factory: createSession, createDefaultTools, createProvider
 ├── src/config/               ← settings.json loading (3-layer merge, $ENV substitution)
 ├── src/context/              ← AGENTS.md/CLAUDE.md walk-up discovery, project detection, system prompt
-├── src/tools/agent-tool.ts   ← Agent sub-session tool (SDK-specific: Session creation)
-├── src/query.ts              ← query() SDK entry point
-└── src/index.ts              ← assembly + re-export
+├── src/tools/agent-tool.ts   ← Agent sub-session tool (SDK-specific: uses createSession)
+├── src/permissions/          ← permission-prompt.ts (CLI terminal prompt)
+├── src/query.ts              ← query() SDK entry point (uses createSession)
+└── src/index.ts              ← assembly exports + backward-compatible re-exports
 
 agent-cli (Ink TUI — CLI-specific)
 ├── src/ui/                   ← App, MessageList, InputArea, StatusBar, PermissionPrompt
@@ -68,10 +82,10 @@ agent-cli (Ink TUI — CLI-specific)
 
 ### Session Management
 
-- **Package**: `agent-sessions`
-- **Implementation**: Session class wraps Robota and integrates permission check, hook execution, tool wiring, and streaming
+- **Package**: `agent-sessions` (generic, depends only on agent-core)
+- **Implementation**: Session accepts pre-constructed tools, provider, and system message. Internal concerns are delegated to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator.
+- **Assembly**: `agent-sdk/assembly/` provides `createSession()` which wires tools, provider, and system prompt from config/context.
 - **Persistence**: SessionStore saves/loads/lists/deletes JSON at `~/.robota/sessions/{id}.json`
-- **History**: The original agent-sessions SessionManager/ChatInstance had zero consumers and no persistence implementation, so they were replaced with the actual implementation from agent-sdk
 
 ### Permission System
 
@@ -150,15 +164,29 @@ const response = await query('Analyze the code', {
 });
 ```
 
-### Session — Direct Usage
+### createSession() — Assembly Factory
+
+```typescript
+import { createSession, loadConfig, loadContext, detectProject } from '@robota-sdk/agent-sdk';
+
+const [config, context, projectInfo] = await Promise.all([
+  loadConfig(cwd),
+  loadContext(cwd),
+  detectProject(cwd),
+]);
+
+const session = createSession({ config, context, terminal, projectInfo, permissionMode });
+const response = await session.run('Hello');
+```
+
+### Session — Direct Usage (Generic)
 
 ```typescript
 import { Session } from '@robota-sdk/agent-sessions';
 
-const session = new Session({ config, context, terminal, permissionMode });
+// Session now requires pre-constructed tools, provider, and systemMessage
+const session = new Session({ tools, provider, systemMessage, terminal });
 const response = await session.run('Hello');
-session.getHistory();
-session.clearHistory();
 ```
 
 ### Built-in Tools — Direct Usage

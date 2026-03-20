@@ -23,10 +23,9 @@ import {
   loadConfig,
   loadContext,
   detectProject,
-  Session,
+  createSession,
   SessionStore,
   FileSessionLogger,
-  buildSystemPrompt,
   projectPaths,
 } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode } from '@robota-sdk/agent-sdk';
@@ -209,20 +208,13 @@ export async function startCli(): Promise<void> {
     }
     const terminal = new PrintTerminal();
     const paths = projectPaths(cwd);
-    const session = new Session({
+    const session = createSession({
       config,
       context,
       terminal,
       sessionLogger: new FileSessionLogger(paths.logs),
-      projectInfo: projectInfo as { type: string; language: string },
+      projectInfo,
       permissionMode: args.permissionMode,
-      systemPromptBuilder: buildSystemPrompt as (params: {
-        agentsMd: string;
-        claudeMd: string;
-        toolDescriptions: string[];
-        trustLevel: 'safe' | 'moderate' | 'full';
-        projectInfo: { type: string; language: string };
-      }) => string,
       promptForApproval: promptForApproval,
     });
     const response = await session.run(prompt);
