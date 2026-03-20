@@ -298,17 +298,21 @@ async function runSessionPrompt(
     const response = await session.run(prompt);
     clearStreamingText();
 
-    // Extract tool calls from session history
+    // Extract tool calls from session history — group into one message
     const history = session.getHistory();
+    const toolLines: string[] = [];
     for (let i = historyBefore; i < history.length; i++) {
       const msg = history[i] as { role: string; toolCalls?: Array<{ function: { name: string; arguments: string } }> };
       if (msg.role === 'assistant' && msg.toolCalls) {
         for (const tc of msg.toolCalls) {
           const args = tc.function.arguments;
-          const preview = args.length > 80 ? args.slice(0, 77) + '...' : args;
-          addMessage({ role: 'tool', content: `${tc.function.name}(${preview})`, toolName: tc.function.name });
+          const preview = args.length > 60 ? args.slice(0, 57) + '...' : args;
+          toolLines.push(`${tc.function.name}(${preview})`);
         }
       }
+    }
+    if (toolLines.length > 0) {
+      addMessage({ role: 'tool', content: toolLines.join('\n'), toolName: `${toolLines.length} tools` });
     }
 
     addMessage({ role: 'assistant', content: response || '(empty response)' });
