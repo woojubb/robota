@@ -36,7 +36,8 @@ Dependency chain:
 ```
 agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
   │            ├─→ agent-tools ────────────→ agent-core
-  │            └─→ agent-provider-anthropic → agent-core
+  │            ├─→ agent-provider-anthropic → agent-core
+  │            └─────────────────────────→ agent-core  (direct: types, permissions, hooks)
   └──────────────────────────────────────→ agent-core  (direct: types only)
 ```
 
@@ -244,15 +245,15 @@ Session logging is enabled by default. Log files are written to `.robota/logs/{s
 
 ## Dependencies
 
-| Package                   | Purpose                                    |
-| ------------------------- | ------------------------------------------ |
-| `@robota-sdk/agent-sdk`   | Session factory, query, config, context    |
-| `@robota-sdk/agent-core`  | Types (TPermissionMode, TToolArgs)         |
-| `ink`, `react`            | TUI rendering                              |
-| `ink-select-input`        | Arrow-key selection (permission prompt)    |
-| `ink-spinner`             | Loading spinner                            |
-| `chalk`                   | Terminal colors                            |
-| `ink-text-input`          | Base text input (extended by CjkTextInput) |
-| `marked`, `marked-terminal` | Markdown parsing and terminal rendering  |
-| `cli-highlight`           | Syntax highlighting for code blocks        |
-| `string-width`            | Unicode-aware string width calculation     |
+| Package                     | Purpose                                    |
+| --------------------------- | ------------------------------------------ |
+| `@robota-sdk/agent-sdk`     | Session factory, query, config, context    |
+| `@robota-sdk/agent-core`    | Types (TPermissionMode, TToolArgs)         |
+| `ink`, `react`              | TUI rendering                              |
+| `ink-select-input`          | Arrow-key selection (permission prompt)    |
+| `ink-spinner`               | Loading spinner                            |
+| `chalk`                     | Terminal colors                            |
+| `ink-text-input`            | Base text input (extended by CjkTextInput) |
+| `marked`, `marked-terminal` | Markdown parsing and terminal rendering    |
+| `cli-highlight`             | Syntax highlighting for code blocks        |
+| `string-width`              | Unicode-aware string width calculation     |
