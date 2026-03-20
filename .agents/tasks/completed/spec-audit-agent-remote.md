@@ -1,6 +1,6 @@
 ---
 title: 'Spec Audit: agent-remote'
-status: backlog
+status: completed
 priority: medium
 created: 2026-03-20
 packages:
