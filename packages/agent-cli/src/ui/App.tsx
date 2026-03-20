@@ -48,15 +48,27 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
 };
 
+/** Summarize tool args for display (first key=value, truncated) */
+function summarizeToolArgs(args: TToolArgs): string {
+  const entries = Object.entries(args);
+  if (entries.length === 0) return '';
+  const [key, val] = entries[0];
+  const valStr = typeof val === 'string' ? val : JSON.stringify(val);
+  const truncated = valStr.length > 80 ? valStr.slice(0, 77) + '...' : valStr;
+  return `${key}: ${truncated}`;
+}
+
 /** Hook: create a Session instance once and provide a stable permission handler + streaming. */
 function useSession(props: IProps): {
   session: Session;
   permissionRequest: IPermissionRequest | null;
   streamingText: string;
   clearStreamingText: () => void;
+  onToolCallRef: React.MutableRefObject<((toolName: string, toolArgs: TToolArgs) => void) | null>;
 } {
   const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
   const [streamingText, setStreamingText] = useState('');
+  const onToolCallRef = useRef<((toolName: string, toolArgs: TToolArgs) => void) | null>(null);
 
   // Permission queue — handles concurrent tool permission requests sequentially
   const permissionQueueRef = useRef<
@@ -96,6 +108,12 @@ function useSession(props: IProps): {
       toolName: string,
       toolArgs: TToolArgs,
     ): Promise<TPermissionResult> => {
+      // Add line break in streaming text to separate rounds
+      setStreamingText((prev) => (prev.length > 0 ? prev + '\n' : prev));
+      // Notify tool call for real-time display
+      if (onToolCallRef.current) {
+        onToolCallRef.current(toolName, toolArgs);
+      }
       return new Promise<TPermissionResult>((resolve) => {
         permissionQueueRef.current.push({ toolName, toolArgs, resolve });
         processNextPermission();
@@ -123,7 +141,7 @@ function useSession(props: IProps): {
 
   const clearStreamingText = useCallback(() => setStreamingText(''), []);
 
-  return { session: sessionRef.current, permissionRequest, streamingText, clearStreamingText };
+  return { session: sessionRef.current, permissionRequest, streamingText, clearStreamingText, onToolCallRef };
 }
 
 /** Hook: manage chat messages list. */
@@ -279,23 +297,6 @@ function StreamingIndicator({ text }: { text: string }): React.ReactElement {
   return <Text color="yellow">Thinking...</Text>;
 }
 
-/** Extract tool call summaries from session history for display */
-function extractToolCalls(
-  history: Array<{ role: string; content: string | null; toolCalls?: Array<{ function: { name: string } }> }>,
-  startIndex: number,
-): Array<{ toolName: string; summary: string }> {
-  const calls: Array<{ toolName: string; summary: string }> = [];
-  for (let i = startIndex; i < history.length; i++) {
-    const msg = history[i];
-    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
-      for (const tc of msg.toolCalls) {
-        calls.push({ toolName: tc.function.name, summary: `Called ${tc.function.name}` });
-      }
-    }
-  }
-  return calls;
-}
-
 /** Run a prompt through the session with thinking/streaming state management */
 async function runSessionPrompt(
   prompt: string,
@@ -304,27 +305,21 @@ async function runSessionPrompt(
   clearStreamingText: () => void,
   setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
   setContextPercentage: React.Dispatch<React.SetStateAction<number>>,
+  onToolCallRef: React.MutableRefObject<((toolName: string, toolArgs: TToolArgs) => void) | null>,
 ): Promise<void> {
   setIsThinking(true);
   clearStreamingText();
 
-  // Record history length before run to identify new tool calls
-  const historyBefore = session.getHistory().length;
+  // Wire real-time tool call display
+  onToolCallRef.current = (toolName: string, toolArgs: TToolArgs) => {
+    const argsSummary = summarizeToolArgs(toolArgs);
+    const content = argsSummary ? `${toolName}(${argsSummary})` : toolName;
+    addMessage({ role: 'tool', content, toolName });
+  };
 
   try {
     const response = await session.run(prompt);
     clearStreamingText();
-
-    // Add tool call records to chat
-    const history = session.getHistory();
-    const toolCalls = extractToolCalls(
-      history as Array<{ role: string; content: string | null; toolCalls?: Array<{ function: { name: string } }> }>,
-      historyBefore,
-    );
-    for (const tc of toolCalls) {
-      addMessage({ role: 'tool', content: tc.summary, toolName: tc.toolName });
-    }
-
     addMessage({ role: 'assistant', content: response || '(empty response)' });
     setContextPercentage(session.getContextState().usedPercentage);
   } catch (err) {
@@ -336,6 +331,7 @@ async function runSessionPrompt(
       addMessage({ role: 'system', content: `Error: ${errMsg}` });
     }
   } finally {
+    onToolCallRef.current = null;
     setIsThinking(false);
   }
 }
@@ -361,6 +357,7 @@ function useSubmitHandler(
   setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
   setContextPercentage: React.Dispatch<React.SetStateAction<number>>,
   registry: CommandRegistry,
+  onToolCallRef: React.MutableRefObject<((toolName: string, toolArgs: TToolArgs) => void) | null>,
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
@@ -380,6 +377,7 @@ function useSubmitHandler(
           clearStreamingText,
           setIsThinking,
           setContextPercentage,
+          onToolCallRef,
         );
       }
 
@@ -401,6 +399,7 @@ function useSubmitHandler(
       setIsThinking,
       setContextPercentage,
       registry,
+      onToolCallRef,
     ],
   );
 }
@@ -419,7 +418,8 @@ function useCommandRegistry(cwd: string): CommandRegistry {
 
 export default function App(props: IProps): React.ReactElement {
   const { exit } = useApp();
-  const { session, permissionRequest, streamingText, clearStreamingText } = useSession(props);
+  const { session, permissionRequest, streamingText, clearStreamingText, onToolCallRef } =
+    useSession(props);
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
   const [contextPercentage, setContextPercentage] = useState(0);
@@ -434,6 +434,7 @@ export default function App(props: IProps): React.ReactElement {
     setIsThinking,
     setContextPercentage,
     registry,
+    onToolCallRef,
   );
 
   useInput(
