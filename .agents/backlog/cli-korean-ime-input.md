@@ -24,6 +24,16 @@ This is a known limitation in Claude Code as well:
 2. **Custom TextInput** without ink-text-input: Build a Korean-aware input component using raw stdin directly
 3. **Space-then-Enter workaround**: Document that users should add a space before Enter when composing Korean
 
+## macOS Terminal.app Crash (SIGSEGV)
+
+Terminal.app crashes with `EXC_BAD_ACCESS (SIGSEGV)` when using Korean IME with Ink raw mode:
+
+- Thread: `(input method 875 com.apple.inputmethod.Korean)`
+- Crash in: `_platform_memmove` → `[NSTextInputContext handleTSMEvent:]` → `attributedSubstringFromRange:`
+- Cause: Terminal.app queries text buffer via IME, but raw mode has no text buffer → null pointer
+- This is a **Terminal.app bug**, not fixable from our code
+- Same issue exists in Claude Code (documented in issue #3045, #22732)
+
 ## Priority
 
-Medium — affects Korean users. Workaround: add space or period before Enter to commit the composition.
+High for Korean users. **Workaround: use iTerm2 or Ghostty instead of macOS Terminal.app.**
