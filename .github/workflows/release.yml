@@ -20,7 +20,7 @@ jobs:
           ref: ${{ github.event.inputs.tag }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v5
         with:
           version: 8.15.4
           run_install: false
@@ -61,7 +61,7 @@ jobs:
           ref: ${{ github.event.inputs.tag }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v5
         with:
           version: 8.15.4
           run_install: false
