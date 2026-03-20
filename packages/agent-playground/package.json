@@ -32,7 +32,8 @@
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
