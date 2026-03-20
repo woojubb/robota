@@ -7,7 +7,7 @@ export type { ITerminalOutput, ISpinner } from './types.js';
 
 // Session (from agent-sessions)
 export { Session } from './session.js';
-export type { ISessionOptions, TPermissionHandler } from './session.js';
+export type { ISessionOptions, TPermissionHandler, TPermissionResult } from './session.js';
 
 // Session persistence (from agent-sessions)
 export { SessionStore } from './session-store.js';

@@ -6,4 +6,8 @@
  */
 
 export { Session } from '@robota-sdk/agent-sessions';
-export type { ISessionOptions, TPermissionHandler } from '@robota-sdk/agent-sessions';
+export type {
+  ISessionOptions,
+  TPermissionHandler,
+  TPermissionResult,
+} from '@robota-sdk/agent-sessions';

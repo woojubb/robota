@@ -95,10 +95,21 @@ export interface ITerminalOutput {
 }
 
 /**
- * Custom permission handler — called when a tool needs user approval.
- * Returns true to allow, false to deny.
+ * Permission handler result:
+ * - true: allow this invocation
+ * - false: deny this invocation
+ * - 'allow-session': allow this invocation and auto-approve this tool for the rest of the session
  */
-export type TPermissionHandler = (toolName: string, toolArgs: TToolArgs) => Promise<boolean>;
+export type TPermissionResult = boolean | 'allow-session';
+
+/**
+ * Custom permission handler — called when a tool needs user approval.
+ * Returns true to allow, false to deny, or 'allow-session' to remember for the session.
+ */
+export type TPermissionHandler = (
+  toolName: string,
+  toolArgs: TToolArgs,
+) => Promise<TPermissionResult>;
 
 /**
  * Resolved CLI configuration — passed into Session.
@@ -249,6 +260,7 @@ export class Session {
   private contextUsedTokens = 0;
   private contextMaxTokens = DEFAULT_CONTEXT_SIZE;
   private abortController: AbortController | null = null;
+  private readonly sessionAllowedTools = new Set<string>();
 
   constructor(options: ISessionOptions) {
     const {
@@ -678,15 +690,33 @@ export class Session {
     if (decision === 'auto') return true;
     if (decision === 'deny') return false;
 
+    // Check session-scoped allow list before prompting
+    if (this.sessionAllowedTools.has(toolName)) return true;
+
     // 'approve' — prompt the user via custom handler, injected approval fn, or deny
     if (this.permissionHandler) {
-      return this.permissionHandler(toolName, toolArgs);
+      const result = await this.permissionHandler(toolName, toolArgs);
+      if (result === 'allow-session') {
+        this.sessionAllowedTools.add(toolName);
+        return true;
+      }
+      return result;
     }
     if (this.promptForApprovalFn) {
       return this.promptForApprovalFn(this.terminal, toolName, toolArgs);
     }
     // No approval mechanism available — deny by default
     return false;
+  }
+
+  /** Get tools that have been session-approved (via "Allow always" choice). */
+  getSessionAllowedTools(): string[] {
+    return [...this.sessionAllowedTools];
+  }
+
+  /** Clear all session-scoped allow rules. */
+  clearSessionAllowedTools(): void {
+    this.sessionAllowedTools.clear();
   }
 
   /** Abort the currently running execution. No-op if nothing is running. */

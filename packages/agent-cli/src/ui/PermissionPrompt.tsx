@@ -7,7 +7,7 @@ interface IProps {
   request: IPermissionRequest;
 }
 
-const OPTIONS = ['Allow', 'Deny'] as const;
+const OPTIONS = ['Allow', 'Allow always (this session)', 'Deny'] as const;
 
 function formatArgs(args: TToolArgs): string {
   const entries = Object.entries(args);
@@ -30,10 +30,12 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
   }
 
   const doResolve = React.useCallback(
-    (allowed: boolean) => {
+    (index: number) => {
       if (resolvedRef.current) return;
       resolvedRef.current = true;
-      request.resolve(allowed);
+      if (index === 0) request.resolve(true);
+      else if (index === 1) request.resolve('allow-session');
+      else request.resolve(false);
     },
     [request],
   );
@@ -45,11 +47,13 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
     } else if (key.downArrow || key.rightArrow) {
       setSelected((prev) => (prev < OPTIONS.length - 1 ? prev + 1 : prev));
     } else if (key.return) {
-      doResolve(selected === 0);
-    } else if (input === 'y' || input === 'a' || input === '1') {
-      doResolve(true);
-    } else if (input === 'n' || input === 'd' || input === '2') {
-      doResolve(false);
+      doResolve(selected);
+    } else if (input === 'y' || input === '1') {
+      doResolve(0);
+    } else if (input === 'a' || input === '2') {
+      doResolve(1);
+    } else if (input === 'n' || input === 'd' || input === '3') {
+      doResolve(2);
     }
   });
 
