@@ -1,6 +1,6 @@
 ---
 title: Auto-allow access to config folders (.agents, .claude, .robota)
-status: in-progress
+status: completed
 priority: high
 created: 2026-03-21
 packages:

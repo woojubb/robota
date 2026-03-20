@@ -1,6 +1,6 @@
 ---
 title: Expand edit tool test coverage
-status: in-progress
+status: completed
 priority: medium
 created: 2026-03-20
 packages:
