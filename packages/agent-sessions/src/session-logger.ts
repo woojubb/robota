@@ -34,7 +34,11 @@ export class FileSessionLogger implements ISessionLogger {
 
   constructor(logDir: string) {
     this.logDir = logDir;
-    mkdirSync(logDir, { recursive: true });
+    try {
+      mkdirSync(logDir, { recursive: true });
+    } catch {
+      // Best-effort: logging disabled if directory cannot be created
+    }
   }
 
   log(sessionId: string, event: string, data: TSessionLogData): void {
