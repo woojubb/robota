@@ -59,4 +59,15 @@ describe('BashTool', () => {
     expect(result.success).toBe(true); // command ran, shell reported error
     expect(result.exitCode).not.toBe(0);
   });
+
+  // --- P1: non-existent workingDirectory ---
+
+  it('returns error for non-existent workingDirectory', async () => {
+    const result = await run({
+      command: 'echo hello',
+      workingDirectory: '/tmp/nonexistent_dir_xyz_12345',
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toBeDefined();
+  });
 });

@@ -117,4 +117,34 @@ describe('GrepTool', () => {
     expect(result.success).toBe(true);
     expect(result.output).toContain('beta.ts');
   });
+
+  // --- P0: glob filter with subdirectory files ---
+
+  it('glob filter *.ts includes files in subdirectories', async () => {
+    const result = await run({ pattern: 'hello', path: tmpDir, glob: '*.ts' });
+    expect(result.success).toBe(true);
+    // sub/gamma.ts contains "hello" and should be included with *.ts glob
+    expect(result.output).toContain('gamma.ts');
+  });
+
+  // --- P1: context separator between non-adjacent matches ---
+
+  it('content mode shows -- separator between non-adjacent context blocks', async () => {
+    const filePath = join(tmpDir, 'separated.txt');
+    await writeFile(
+      filePath,
+      'match1\na\nb\nc\nd\ne\nf\nmatch2\n',
+      'utf8',
+    );
+
+    const result = await run({
+      pattern: 'match',
+      path: filePath,
+      outputMode: 'content',
+      contextLines: 1,
+    });
+    expect(result.success).toBe(true);
+    expect(result.output).toContain('match1');
+    expect(result.output).toContain('match2');
+  });
 });
