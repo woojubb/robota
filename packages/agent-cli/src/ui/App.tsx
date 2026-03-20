@@ -271,12 +271,29 @@ function StreamingIndicator({ text }: { text: string }): React.ReactElement {
         </Text>
         <Text> </Text>
         <Box marginLeft={2}>
-          <Text wrap="wrap">{renderMarkdown(text)}</Text>
+          <Text wrap="wrap">{text}</Text>
         </Box>
       </Box>
     );
   }
   return <Text color="yellow">Thinking...</Text>;
+}
+
+/** Extract tool call summaries from session history for display */
+function extractToolCalls(
+  history: Array<{ role: string; content: string | null; toolCalls?: Array<{ function: { name: string } }> }>,
+  startIndex: number,
+): Array<{ toolName: string; summary: string }> {
+  const calls: Array<{ toolName: string; summary: string }> = [];
+  for (let i = startIndex; i < history.length; i++) {
+    const msg = history[i];
+    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+      for (const tc of msg.toolCalls) {
+        calls.push({ toolName: tc.function.name, summary: `Called ${tc.function.name}` });
+      }
+    }
+  }
+  return calls;
 }
 
 /** Run a prompt through the session with thinking/streaming state management */
@@ -291,9 +308,23 @@ async function runSessionPrompt(
   setIsThinking(true);
   clearStreamingText();
 
+  // Record history length before run to identify new tool calls
+  const historyBefore = session.getHistory().length;
+
   try {
     const response = await session.run(prompt);
     clearStreamingText();
+
+    // Add tool call records to chat
+    const history = session.getHistory();
+    const toolCalls = extractToolCalls(
+      history as Array<{ role: string; content: string | null; toolCalls?: Array<{ function: { name: string } }> }>,
+      historyBefore,
+    );
+    for (const tc of toolCalls) {
+      addMessage({ role: 'tool', content: tc.summary, toolName: tc.toolName });
+    }
+
     addMessage({ role: 'assistant', content: response || '(empty response)' });
     setContextPercentage(session.getContextState().usedPercentage);
   } catch (err) {
