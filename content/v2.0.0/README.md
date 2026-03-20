@@ -1,11 +1,13 @@
 ---
 layout: home
-title: Robota SDK
+title: Robota SDK (v2.0.0)
 description: A powerful TypeScript library for building AI agents with multi-provider support
 lang: en-US
 ---
 
-# Robota SDK
+> **This is archived documentation for Robota SDK v2.0.0.** For the latest version, see the [current documentation](/).
+
+# Robota SDK (v2.0.0)
 
 A powerful TypeScript library for building AI agents with multi-provider support, function calling, and tool integration.
 

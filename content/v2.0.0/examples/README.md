@@ -1,5 +1,7 @@
 # Examples
 
+> **This is archived documentation for Robota SDK v2.0.0.** For the latest version, see the [current documentation](/).
+
 Comprehensive examples demonstrating all aspects of the Robota SDK.
 
 ## Basic Examples
