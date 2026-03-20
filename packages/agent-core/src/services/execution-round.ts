@@ -417,11 +417,12 @@ export async function executeRound(
   );
 
   // Pre-send context check: estimate tokens and abort if near context limit.
-  // Uses chars/4 approximation. Prevents sending requests that will fail due to overflow.
+  // Uses chars/3 (conservative — accounts for CJK, JSON overhead, tool results).
+  // Threshold at 70% to leave headroom for tool call rounds that add significant context.
   // NOTE: When parallel tool execution is implemented, this check must account for
   // partial results — only count completed tool results, not pending ones.
-  const CHARS_PER_TOKEN = 4;
-  const CONTEXT_OVERFLOW_THRESHOLD = 0.9;
+  const CHARS_PER_TOKEN = 3;
+  const CONTEXT_OVERFLOW_THRESHOLD = 0.7;
   const estimatedTokens = Math.ceil(JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN);
   const modelContextSizes: Record<string, number> = {
     'claude-sonnet-4-6': 200_000,
@@ -432,7 +433,7 @@ export async function executeRound(
   };
   const contextLimit = modelContextSizes[config.defaultModel.model] ?? 200_000;
   if (estimatedTokens > contextLimit * CONTEXT_OVERFLOW_THRESHOLD) {
-    logger.warn('[ROUND] Context overflow prevention — estimated tokens exceed 90% of context window', {
+    logger.warn('[ROUND] Context overflow prevention — estimated tokens exceed 70% of context window', {
       estimatedTokens,
       contextLimit,
       round: currentRound,
