@@ -6,6 +6,8 @@ lang: en-US
 
 # Getting Started
 
+> **This is archived documentation for Robota SDK v2.0.0.** For the latest version, see the [current documentation](/).
+
 Learn how to build powerful AI agents with the Robota SDK.
 
 ## 🎯 What You'll Achieve

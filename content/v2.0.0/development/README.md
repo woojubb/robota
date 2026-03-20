@@ -1,5 +1,7 @@
 # Development Documentation
 
+> **This is archived documentation for Robota SDK v2.0.0.** For the latest version, see the [current documentation](/).
+
 Comprehensive development guides for the Robota SDK v2.0.
 
 ## Project Overview

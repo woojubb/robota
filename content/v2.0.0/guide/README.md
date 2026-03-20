@@ -6,6 +6,8 @@ lang: en-US
 
 # Robota SDK Guide
 
+> **This is archived documentation for Robota SDK v2.0.0.** For the latest version, see the [current documentation](/).
+
 Comprehensive guide to building AI agents with the Robota SDK.
 
 ## What is Robota SDK?
