@@ -205,6 +205,26 @@ async function executeSlashCommand(
         content: `Session: ${session.getSessionId()}\nMessages: ${session.getMessageCount()}`,
       });
       return true;
+    case 'permissions': {
+      const mode = session.getPermissionMode();
+      const sessionAllowed = session.getSessionAllowedTools();
+      const lines = [`Permission mode: ${mode}`];
+      if (sessionAllowed.length > 0) {
+        lines.push(`Session-approved tools: ${sessionAllowed.join(', ')}`);
+      } else {
+        lines.push('No session-approved tools.');
+      }
+      addMessage({ role: 'system', content: lines.join('\n') });
+      return true;
+    }
+    case 'context': {
+      const ctx = session.getContextState();
+      addMessage({
+        role: 'system',
+        content: `Context: ${ctx.usedTokens.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens (${Math.round(ctx.usedPercentage)}%)`,
+      });
+      return true;
+    }
     case 'exit':
       exit();
       return true;
