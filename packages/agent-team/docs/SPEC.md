@@ -8,7 +8,7 @@
 
 ## Boundaries
 
-- Does not redefine core agent contracts that belong to `@robota-sdk/agent-core`. All agent types (`Robota`, `FunctionTool`, `RelayMcpTool`), tool interfaces (`IToolSchema`, `IToolResult`, `TToolParameters`), and event interfaces (`IEventService`) are imported from `@robota-sdk/agent-core`.
+- Does not redefine core agent contracts. `Robota`, tool interfaces (`IToolSchema`, `IToolResult`, `TToolParameters`), and event interfaces (`IEventService`, `IAIProvider`) are imported from `@robota-sdk/agent-core`. `FunctionTool` is imported from `@robota-sdk/agent-tools`. `RelayMcpTool` is imported from `@robota-sdk/agent-tool-mcp`. `bindWithOwnerPath` is imported from `@robota-sdk/agent-event-service`.
 - Keeps team coordination policies explicit and separate from provider integration.
 - Does not own AI provider implementations; provider and model selection is resolved through `@robota-sdk/agent-core` infrastructure.
 - Does not manage session persistence or conversation history; those concerns belong to `@robota-sdk/agent-sessions`.
@@ -37,20 +37,20 @@ src/
 
 This package defines a minimal set of local types. Most types are imported from `@robota-sdk/agent-core`.
 
-| Type            | Kind               | Owner                    | Description                                                                                    |
-| --------------- | ------------------ | ------------------------ | ---------------------------------------------------------------------------------------------- |
-| `TemplateEntry` | type alias (local) | `@robota-sdk/agent-team` | Shape of a template record: id, name, description, provider, model, temperature, systemMessage |
+| Type             | Kind              | Owner                    | Description                                                                                    |
+| ---------------- | ----------------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
+| `ITemplateEntry` | interface (local) | `@robota-sdk/agent-team` | Shape of a template record: id, name, description, provider, model, temperature, systemMessage |
 
-All other types used in the public API (`IToolSchema`, `IToolResult`, `TToolParameters`, `IEventService`, `IAgentConfig`, `IOwnerPathSegment`, `FunctionTool`, `RelayMcpTool`, `Robota`) are owned by `@robota-sdk/agent-core`.
+All other types used in the public API (`IToolSchema`, `IToolResult`, `TToolParameters`, `IEventService`, `IAIProvider`, `IAgentConfig`, `IOwnerPathSegment`, `Robota`) are owned by `@robota-sdk/agent-core`. `FunctionTool` is owned by `@robota-sdk/agent-tools`. `RelayMcpTool` is owned by `@robota-sdk/agent-tool-mcp`.
 
 ## Public API Surface
 
-| Export                       | Kind                    | Description                                                                                                                                                                                                                                                                            |
-| ---------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `listTemplateCategoriesTool` | `FunctionTool` instance | Returns the list of template categories. Currently returns a single "Default Templates" category.                                                                                                                                                                                      |
-| `listTemplatesTool`          | `FunctionTool` instance | Returns available templates, optionally filtered by category. Returns id, name, description, and categoryId for each template.                                                                                                                                                         |
-| `getTemplateDetailTool`      | `FunctionTool` instance | Returns full details of a specific template by `templateId`. Throws if the template is not found.                                                                                                                                                                                      |
-| `createAssignTaskRelayTool`  | factory function        | `(eventService: IEventService) => RelayMcpTool`. Creates a relay tool that spawns a `Robota` agent from a template and runs a job description prompt. Required params: `templateId`, `jobDescription`. Optional overrides: `provider`, `model`, `temperature`, `maxTokens`, `context`. |
+| Export                       | Kind                    | Description                                                                                                                                                                                                                                                                                                        |
+| ---------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `listTemplateCategoriesTool` | `FunctionTool` instance | Returns the list of template categories. Currently returns a single "Default Templates" category.                                                                                                                                                                                                                  |
+| `listTemplatesTool`          | `FunctionTool` instance | Returns available templates, optionally filtered by category. Returns id, name, description, and categoryId for each template.                                                                                                                                                                                     |
+| `getTemplateDetailTool`      | `FunctionTool` instance | Returns full details of a specific template by `templateId`. Throws if the template is not found.                                                                                                                                                                                                                  |
+| `createAssignTaskRelayTool`  | factory function        | `(eventService: IEventService, aiProviders: IAIProvider[]) => RelayMcpTool`. Creates a relay tool that spawns a `Robota` agent from a template and runs a job description prompt. Required params: `templateId`, `jobDescription`. Optional overrides: `provider`, `model`, `temperature`, `maxTokens`, `context`. |
 
 ### Tool Schemas
 
@@ -92,24 +92,23 @@ None. This package defines no classes. All exports are tool instances (`Function
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)             | Consumer                                                                   | Location                               |
-| ------------------------ | -------------------------------------------------------------------------- | -------------------------------------- |
-| `FunctionTool` (agents)  | `listTemplateCategoriesTool`, `listTemplatesTool`, `getTemplateDetailTool` | `src/assign-task/relay-assign-task.ts` |
-| `RelayMcpTool` (agents)  | `createAssignTaskRelayTool` result                                         | `src/assign-task/relay-assign-task.ts` |
-| `IEventService` (agents) | `createAssignTaskRelayTool` parameter                                      | `src/assign-task/relay-assign-task.ts` |
+| Port (Owner)                              | Consumer                                                                   | Location                               |
+| ----------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------- |
+| `FunctionTool` (agent-tools)              | `listTemplateCategoriesTool`, `listTemplatesTool`, `getTemplateDetailTool` | `src/assign-task/relay-assign-task.ts` |
+| `RelayMcpTool` (agent-tool-mcp)           | `createAssignTaskRelayTool` result                                         | `src/assign-task/relay-assign-task.ts` |
+| `IEventService` (agents)                  | `createAssignTaskRelayTool` parameter                                      | `src/assign-task/relay-assign-task.ts` |
+| `IAIProvider` (agents)                    | `createAssignTaskRelayTool` parameter                                      | `src/assign-task/relay-assign-task.ts` |
+| `bindWithOwnerPath` (agent-event-service) | relay tool owner-path propagation                                          | `src/assign-task/relay-assign-task.ts` |
 
 ## Test Strategy
 
 ### Current State
 
-- **No test files exist.** The `pnpm test` script runs `vitest run --passWithNoTests`, confirming no tests are present.
+- **1 test file exists**: `src/assign-task/relay-assign-task.test.ts` (182 lines) covering relay tool execution, parameter validation, and error paths.
 - An offline verification scenario exists at `examples/verify-offline.ts` that exercises `listTemplateCategoriesTool`, `listTemplatesTool`, and `getTemplateDetailTool` without network calls.
 - Scenario record artifact: `examples/scenarios/offline-verify.record.json`.
 
 ### Gaps
 
 - No unit tests for `listTemplateCategoriesTool`, `listTemplatesTool`, or `getTemplateDetailTool`.
-- No unit tests for `createAssignTaskRelayTool` (relay execution, parameter validation, owner path propagation, context validation).
-- No tests for template-not-found error paths.
-- No tests for parameter override behavior in the relay tool.
 - No integration tests verifying event service interaction during relay execution.

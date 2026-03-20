@@ -2,7 +2,7 @@
 
 ## Scope
 
-Owns the tool registry, tool implementations, and tool result types for the Robota SDK. This package provides both the infrastructure for defining and managing tools (`ToolRegistry`, `FunctionTool`, `createZodFunctionTool`) and a set of built-in CLI tools (`bash`, `read`, `write`, `edit`, `glob`, `grep`) used by the agent CLI.
+Owns the tool registry, tool implementations, and tool result types for the Robota SDK. This package provides both the infrastructure for defining and managing tools (`ToolRegistry`, `FunctionTool`, `createZodFunctionTool`) and a set of 8 built-in CLI tools (`bash`, `read`, `write`, `edit`, `glob`, `grep`, `webFetch`, `webSearch`) used by the agent CLI.
 
 ## Boundaries
 
@@ -77,14 +77,16 @@ Types owned by this package (SSOT):
 
 ### Built-in CLI Tools
 
-| Export      | Kind   | Tool Name | Description                                      |
-| ----------- | ------ | --------- | ------------------------------------------------ |
-| `bashTool`  | Object | `Bash`    | Execute shell commands via `child_process.spawn` |
-| `readTool`  | Object | `Read`    | Read file contents with line numbers (cat -n)    |
-| `writeTool` | Object | `Write`   | Write content to a file (creates parent dirs)    |
-| `editTool`  | Object | `Edit`    | Replace a specific string in a file              |
-| `globTool`  | Object | `Glob`    | Find files matching a glob pattern (fast-glob)   |
-| `grepTool`  | Object | `Grep`    | Search file contents with regex patterns         |
+| Export          | Kind   | Tool Name   | Description                                      |
+| --------------- | ------ | ----------- | ------------------------------------------------ |
+| `bashTool`      | Object | `Bash`      | Execute shell commands via `child_process.spawn` |
+| `readTool`      | Object | `Read`      | Read file contents with line numbers (cat -n)    |
+| `writeTool`     | Object | `Write`     | Write content to a file (creates parent dirs)    |
+| `editTool`      | Object | `Edit`      | Replace a specific string in a file              |
+| `globTool`      | Object | `Glob`      | Find files matching a glob pattern (fast-glob)   |
+| `grepTool`      | Object | `Grep`      | Search file contents with regex patterns         |
+| `webFetchTool`  | Object | `WebFetch`  | Fetch URL content with HTML-to-text conversion   |
+| `webSearchTool` | Object | `WebSearch` | Web search via Brave Search API                  |
 
 Each built-in tool is an `IToolWithEventService`-compatible object with `getName()`, `getDescription()`, `getSchema()`, and `execute()` methods.
 
@@ -117,24 +119,22 @@ This package does not define a custom error hierarchy. Built-in tools return err
 
 ### Interface Implementations
 
-| Interface                            | Implementor    | Kind       | Location                               |
-| ------------------------------------ | -------------- | ---------- | -------------------------------------- |
-| `IToolWithEventService` (agent-core) | `FunctionTool` | production | `src/implementations/function-tool.ts` |
-| `IToolRegistry` (agent-core)         | `ToolRegistry` | production | `src/registry/tool-registry.ts`        |
+| Interface                    | Implementor    | Kind       | Location                               |
+| ---------------------------- | -------------- | ---------- | -------------------------------------- |
+| `IFunctionTool` (agent-core) | `FunctionTool` | production | `src/implementations/function-tool.ts` |
+| `ITool` (agent-core)         | `OpenAPITool`  | production | `src/implementations/openapi-tool.ts`  |
+| `IToolRegistry` (agent-core) | `ToolRegistry` | production | `src/registry/tool-registry.ts`        |
 
 ### Inheritance Chains
 
-| Base                        | Derived        | Location                               |
-| --------------------------- | -------------- | -------------------------------------- |
-| `AbstractTool` (agent-core) | `FunctionTool` | `src/implementations/function-tool.ts` |
-| `AbstractTool` (agent-core) | `OpenAPITool`  | `src/implementations/openapi-tool.ts`  |
+None. `FunctionTool` and `OpenAPITool` implement their respective interfaces directly (`implements IFunctionTool`, `implements ITool`) without extending `AbstractTool`, to avoid circular runtime dependencies between agent-tools and agent-core.
 
 ### Cross-Package Port Consumers
 
 | Port (Owner)                  | Consumer           | Location                               |
 | ----------------------------- | ------------------ | -------------------------------------- |
-| `AbstractTool` (agent-core)   | `FunctionTool`     | `src/implementations/function-tool.ts` |
-| `AbstractTool` (agent-core)   | `OpenAPITool`      | `src/implementations/openapi-tool.ts`  |
+| `IFunctionTool` (agent-core)  | `FunctionTool`     | `src/implementations/function-tool.ts` |
+| `ITool` (agent-core)          | `OpenAPITool`      | `src/implementations/openapi-tool.ts`  |
 | `IToolWithEventService` shape | Built-in CLI tools | `src/builtins/*.ts`                    |
 
 ## Test Strategy
@@ -159,6 +159,10 @@ This package does not define a custom error hierarchy. Built-in tools return err
 
 - `fast-glob` -- High-performance glob matching for the glob built-in tool
 - `zod` -- Schema validation for function tool parameters
+
+### Dev (notable)
+
+- `openapi-types` -- OpenAPI V3 type definitions used in `OpenAPITool` type imports. Listed as devDependency since only type-level imports are used, but consumers using `OpenAPITool` may need this installed for `.d.ts` resolution.
 
 ### Peer (1)
 
