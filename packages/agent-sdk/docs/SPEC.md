@@ -22,9 +22,11 @@ agent-cli → agent-sdk → agent-sessions → agent-tools → agent-core
                                         → agent-provider-anthropic → agent-core
 
 After (assembly refactoring):
-agent-cli → agent-sdk → agent-sessions → agent-core
-                       → agent-tools ──→ agent-core
-                       → agent-provider-anthropic → agent-core
+agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
+  │            ├─→ agent-tools ────────────→ agent-core
+  │            ├─→ agent-provider-anthropic → agent-core
+  │            └─────────────────────────→ agent-core  (direct: types, permissions, hooks)
+  └──────────────────────────────────────→ agent-core  (direct: types only)
 ```
 
 Session is now generic (depends only on agent-core). Assembly (wiring tools, provider, system prompt) happens in agent-sdk.
@@ -97,7 +99,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Implementation**: 3-step evaluation — deny list → allow list → mode policy
 - **Modes**: `plan` (read-only), `default` (write requires approval), `acceptEdits` (write auto-approved), `bypassPermissions` (all auto-approved)
 - **Pattern syntax**: `Bash(pnpm *)`, `Read(/src/**)`, `Write(*)` etc. with glob matching
-- **Terminal prompt**: Handled in `agent-cli`'s permission-prompt.ts (CLI-specific)
+- **Terminal prompt**: `agent-sdk/src/permissions/permission-prompt.ts` provides a terminal approval prompt injected into sessions created by `query()`. The CLI layer (`agent-cli`) has its own implementation used for both print mode and the Ink TUI.
 
 ### Hooks System
 
