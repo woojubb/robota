@@ -305,9 +305,16 @@ async function runSessionPrompt(
       const msg = history[i] as { role: string; toolCalls?: Array<{ function: { name: string; arguments: string } }> };
       if (msg.role === 'assistant' && msg.toolCalls) {
         for (const tc of msg.toolCalls) {
-          const args = tc.function.arguments;
-          const preview = args.length > 60 ? args.slice(0, 57) + '...' : args;
-          toolLines.push(`${tc.function.name}(${preview})`);
+          let value = '';
+          try {
+            const parsed = JSON.parse(tc.function.arguments);
+            const firstVal = Object.values(parsed)[0];
+            value = typeof firstVal === 'string' ? firstVal : JSON.stringify(firstVal);
+          } catch {
+            value = tc.function.arguments;
+          }
+          const truncated = value.length > 80 ? value.slice(0, 77) + '...' : value;
+          toolLines.push(`${tc.function.name}(${truncated})`);
         }
       }
     }
