@@ -110,7 +110,7 @@ function useSession(props: IProps): {
     ): Promise<TPermissionResult> => {
       // Add line break in streaming text to separate rounds
       setStreamingText((prev) => (prev.length > 0 ? prev + '\n' : prev));
-      // Notify tool call for real-time display
+      // Track tool call for post-run display (do NOT call addMessage here — breaks permission queue)
       if (onToolCallRef.current) {
         onToolCallRef.current(toolName, toolArgs);
       }
@@ -310,20 +310,33 @@ async function runSessionPrompt(
   setIsThinking(true);
   clearStreamingText();
 
-  // Wire real-time tool call display
+  // Collect tool calls during run — flush to chat after run completes
+  const toolCallLog: Array<{ toolName: string; content: string }> = [];
   onToolCallRef.current = (toolName: string, toolArgs: TToolArgs) => {
     const argsSummary = summarizeToolArgs(toolArgs);
     const content = argsSummary ? `${toolName}(${argsSummary})` : toolName;
-    addMessage({ role: 'tool', content, toolName });
+    toolCallLog.push({ toolName, content });
   };
 
   try {
     const response = await session.run(prompt);
     clearStreamingText();
+
+    // Display tool calls that happened during this run
+    for (const tc of toolCallLog) {
+      addMessage({ role: 'tool', content: tc.content, toolName: tc.toolName });
+    }
+
     addMessage({ role: 'assistant', content: response || '(empty response)' });
     setContextPercentage(session.getContextState().usedPercentage);
   } catch (err) {
     clearStreamingText();
+
+    // Still display tool calls that happened before the error
+    for (const tc of toolCallLog) {
+      addMessage({ role: 'tool', content: tc.content, toolName: tc.toolName });
+    }
+
     if (err instanceof DOMException && err.name === 'AbortError') {
       addMessage({ role: 'system', content: 'Cancelled.' });
     } else {
