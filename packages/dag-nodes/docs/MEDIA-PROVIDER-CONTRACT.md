@@ -1,6 +1,6 @@
 # DAG Media Provider Contract
 
-This document defines how DAG media nodes consume provider capabilities exposed by `@robota-sdk/agents`.
+This document defines how DAG media nodes consume provider capabilities exposed by `@robota-sdk/agent-core`.
 
 ## Capability Contracts
 

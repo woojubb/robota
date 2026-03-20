@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "templateId": "blank",
+    "name": "Custom Workflow (Blank)",
+    "description": "Start from scratch when you want to design a custom workflow from the first node."
+  },
+  "definition": {
+    "dagId": "dag-template-blank",
+    "version": 1,
+    "status": "draft",
+    "nodes": [],
+    "edges": [],
+    "costPolicy": {
+      "runCreditLimit": 100,
+      "costPolicyVersion": 2
+    }
+  }
+}

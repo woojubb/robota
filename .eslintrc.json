@@ -5,9 +5,7 @@
     "es2021": true,
     "node": true
   },
-  "extends": [
-    "eslint:recommended"
-  ],
+  "extends": ["eslint:recommended"],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "ecmaVersion": "latest",
@@ -20,10 +18,7 @@
     ],
     "tsconfigRootDir": "."
   },
-  "plugins": [
-    "@typescript-eslint",
-    "eslint-comments"
-  ],
+  "plugins": ["@typescript-eslint", "eslint-comments", "jsx-a11y"],
   "globals": {
     "NodeJS": "readonly"
   },
@@ -98,14 +93,27 @@
       }
     ],
     // 🚨 require() 사용 금지 (ES modules 사용)
-    "@typescript-eslint/no-require-imports": "error"
+    "@typescript-eslint/no-require-imports": "error",
+    // ==========================================
+    // CODE QUALITY RULES
+    // ==========================================
+    "complexity": ["warn", 15],
+    "max-lines": ["warn", { "max": 300, "skipBlankLines": true, "skipComments": true }],
+    "max-lines-per-function": ["warn", { "max": 50, "skipBlankLines": true, "skipComments": true }],
+    "no-param-reassign": ["error", { "props": false }],
+    "no-magic-numbers": [
+      "warn",
+      {
+        "ignore": [-1, 0, 1, 2],
+        "ignoreArrayIndexes": true,
+        "ignoreDefaultValues": true,
+        "enforceConst": true
+      }
+    ]
   },
   "overrides": [
     {
-      "files": [
-        "packages/*/src/**/*",
-        "apps/*/src/**/*"
-      ],
+      "files": ["packages/*/src/**/*", "apps/*/src/**/*"],
       "rules": {
         "eslint-comments/no-restricted-disable": [
           "error",
@@ -115,9 +123,24 @@
       }
     },
     {
-      "files": [
-        "apps/**/*"
-      ],
+      "files": ["apps/**/*"],
+      "rules": {
+        "no-console": "off",
+        "no-restricted-syntax": "off",
+        "@typescript-eslint/no-unused-vars": [
+          "warn",
+          {
+            "argsIgnorePattern": "^_",
+            "varsIgnorePattern": "^_",
+            "ignoreRestSiblings": true,
+            "destructuredArrayIgnorePattern": "^_"
+          }
+        ],
+        "no-unused-vars": "off"
+      }
+    },
+    {
+      "files": ["apps/examples/**/*", "examples/**/*"],
       "rules": {
         "no-console": "off",
         "@typescript-eslint/no-unused-vars": [
@@ -133,29 +156,7 @@
       }
     },
     {
-      "files": [
-        "apps/examples/**/*",
-        "examples/**/*"
-      ],
-      "rules": {
-        "no-console": "off",
-        "@typescript-eslint/no-unused-vars": [
-          "warn",
-          {
-            "argsIgnorePattern": "^_",
-            "varsIgnorePattern": "^_",
-            "ignoreRestSiblings": true,
-            "destructuredArrayIgnorePattern": "^_"
-          }
-        ],
-        "no-unused-vars": "off"
-      }
-    },
-    {
-      "files": [
-        "**/*.test.ts",
-        "**/*.test.tsx"
-      ],
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
       "env": {
         "jest": true
       },
@@ -182,7 +183,11 @@
         // This exception must NOT be extended to production code
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/ban-types": "off",
-        "no-console": "warn" // ⚠️ WARNING: Console usage in test files should be minimal. Use test framework assertions or mockable loggers for better isolation
+        "no-console": "warn", // ⚠️ WARNING: Console usage in test files should be minimal. Use test framework assertions or mockable loggers for better isolation
+        "complexity": "off",
+        "max-lines": "off",
+        "max-lines-per-function": "off",
+        "no-magic-numbers": "off"
         // ==========================================
       }
     },
@@ -195,7 +200,50 @@
         "**/rollup.config.js"
       ],
       "rules": {
-        "no-restricted-syntax": "off"
+        "no-restricted-syntax": "off",
+        "no-magic-numbers": "off",
+        "max-lines": "off"
+      }
+    },
+    {
+      "files": [
+        "packages/playground/**/*.{ts,tsx,js,jsx}",
+        "packages/dag-designer/**/*.{ts,tsx,js,jsx}",
+        "apps/agent-web/**/*.{ts,tsx,js,jsx}"
+      ],
+      "extends": ["plugin:jsx-a11y/recommended"],
+      "rules": {
+        "jsx-a11y/alt-text": "warn",
+        "jsx-a11y/anchor-has-content": "warn",
+        "jsx-a11y/anchor-is-valid": "warn",
+        "jsx-a11y/aria-activedescendant-has-tabindex": "warn",
+        "jsx-a11y/aria-props": "warn",
+        "jsx-a11y/aria-proptypes": "warn",
+        "jsx-a11y/aria-role": "warn",
+        "jsx-a11y/aria-unsupported-elements": "warn",
+        "jsx-a11y/autocomplete-valid": "warn",
+        "jsx-a11y/click-events-have-key-events": "warn",
+        "jsx-a11y/heading-has-content": "warn",
+        "jsx-a11y/html-has-lang": "warn",
+        "jsx-a11y/iframe-has-title": "warn",
+        "jsx-a11y/img-redundant-alt": "warn",
+        "jsx-a11y/interactive-supports-focus": "warn",
+        "jsx-a11y/label-has-associated-control": "warn",
+        "jsx-a11y/media-has-caption": "warn",
+        "jsx-a11y/mouse-events-have-key-events": "warn",
+        "jsx-a11y/no-access-key": "warn",
+        "jsx-a11y/no-autofocus": "warn",
+        "jsx-a11y/no-distracting-elements": "warn",
+        "jsx-a11y/no-interactive-element-to-noninteractive-role": "warn",
+        "jsx-a11y/no-noninteractive-element-interactions": "warn",
+        "jsx-a11y/no-noninteractive-element-to-interactive-role": "warn",
+        "jsx-a11y/no-noninteractive-tabindex": "warn",
+        "jsx-a11y/no-redundant-roles": "warn",
+        "jsx-a11y/no-static-element-interactions": "warn",
+        "jsx-a11y/role-has-required-aria-props": "warn",
+        "jsx-a11y/role-supports-aria-props": "warn",
+        "jsx-a11y/scope": "warn",
+        "jsx-a11y/tabindex-no-positive": "warn"
       }
     }
   ],
@@ -205,6 +253,13 @@
     "docs/**/*",
     "apps/docs/**/*",
     "dist",
-    "node_modules"
+    "node_modules",
+    "scripts/**/*",
+    "**/jest.setup.js",
+    "**/jest.config.js",
+    "**/.eslintrc.cjs",
+    "vitest.setup.ts",
+    "**/vitest.setup.ts",
+    "packages/*/examples/**/*"
   ]
 }

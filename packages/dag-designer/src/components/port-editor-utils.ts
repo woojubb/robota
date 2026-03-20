@@ -193,12 +193,12 @@ export function reconcileNodePortsAndEdges(
         const usedByTarget = usedInputKeysByTarget.get(edge.to) ?? new Set<string>();
 
         const keptBindings = edge.bindings.filter((binding) => {
-            const outputPort = findPort(sourceNode.outputs, binding.outputKey);
+            const outputPort = findPort(sourceNode.outputs ?? [], binding.outputKey);
             if (!outputPort) {
                 removedBindings.push({ edgeId, binding, reason: 'output_not_found' });
                 return false;
             }
-            const resolvedInput = resolveInputPort(targetNode.inputs, binding.inputKey);
+            const resolvedInput = resolveInputPort(targetNode.inputs ?? [], binding.inputKey);
             const inputPort = resolvedInput.port;
             if (!inputPort) {
                 removedBindings.push({ edgeId, binding, reason: 'input_not_found' });

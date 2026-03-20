@@ -41,10 +41,7 @@ describe('parseScopeArgs', () => {
   });
 
   it('parses --report-file path and --report-format json', () => {
-    const result = parseScopeArgs([
-      '--report-file', 'output.json',
-      '--report-format', 'json',
-    ]);
+    const result = parseScopeArgs(['--report-file', 'output.json', '--report-format', 'json']);
     expect(result.reportFile).toBe('output.json');
     expect(result.reportFormat).toBe('json');
   });
@@ -89,142 +86,86 @@ describe('parseScopeArgs', () => {
 // ---------------------------------------------------------------------------
 describe('classifyScopeChanges', () => {
   const scope = {
-    relativeDir: 'packages/agents',
+    relativeDir: 'packages/agent-core',
     shortName: 'agents',
-    workspaceName: '@robota-sdk/agents',
+    workspaceName: '@robota-sdk/agent-core',
     scripts: {},
     hasTsconfig: true,
   };
 
   it('detects source changes for files in src/', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/src/agent.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/src/agent.ts'], false);
     expect(result.hasSourceChanges).toBe(true);
   });
 
   it('detects test changes for .test.ts files', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/src/agent.test.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/src/agent.test.ts'], false);
     expect(result.hasTestChanges).toBe(true);
   });
 
   it('detects test changes for files in __tests__/', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/__tests__/agent.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/__tests__/agent.ts'], false);
     expect(result.hasTestChanges).toBe(true);
   });
 
   it('detects config changes for package.json', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/package.json'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/package.json'], false);
     expect(result.hasConfigChanges).toBe(true);
   });
 
   it('detects config changes for tsconfig.json', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/tsconfig.json'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/tsconfig.json'], false);
     expect(result.hasConfigChanges).toBe(true);
   });
 
   it('detects scenario changes for files in examples/', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/examples/basic.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/examples/basic.ts'], false);
     expect(result.hasScenarioChanges).toBe(true);
   });
 
   it('detects scenario changes for files containing "scenario"', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/scenario/run.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/scenario/run.ts'], false);
     expect(result.hasScenarioChanges).toBe(true);
   });
 
   it('detects entrypoint changes for src/index.ts', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/src/index.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/src/index.ts'], false);
     expect(result.hasEntrypointChanges).toBe(true);
   });
 
   it('sets needsBuild = true when source changes exist', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/src/core.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/src/core.ts'], false);
     expect(result.needsBuild).toBe(true);
   });
 
   it('sets needsBuild = true when config changes exist', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/package.json'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/package.json'], false);
     expect(result.needsBuild).toBe(true);
   });
 
   it('sets needsTest = true when source changes exist', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/src/core.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/src/core.ts'], false);
     expect(result.needsTest).toBe(true);
   });
 
   it('sets needsTest = true when test changes exist', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/src/agent.test.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/src/agent.test.ts'], false);
     expect(result.needsTest).toBe(true);
   });
 
   it('sets needsTest = true when config changes exist', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/package.json'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/package.json'], false);
     expect(result.needsTest).toBe(true);
   });
 
   it('sets needsTypecheck = true only when hasTsconfig is true', () => {
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/src/core.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/src/core.ts'], false);
     expect(result.needsTypecheck).toBe(true);
 
     const scopeNoTsconfig = { ...scope, hasTsconfig: false };
     const resultNoTsconfig = classifyScopeChanges(
       scopeNoTsconfig,
-      ['packages/agents/src/core.ts'],
+      ['packages/agent-core/src/core.ts'],
       false,
     );
     expect(resultNoTsconfig.needsTypecheck).toBe(false);
@@ -240,18 +181,14 @@ describe('classifyScopeChanges', () => {
 
   it('sets needsBuild = true when test files are under src/', () => {
     // Test files under src/ trigger hasSourceChanges, so needsBuild is true
-    const result = classifyScopeChanges(
-      scope,
-      ['packages/agents/src/agent.test.ts'],
-      false,
-    );
+    const result = classifyScopeChanges(scope, ['packages/agent-core/src/agent.test.ts'], false);
     expect(result.needsBuild).toBe(true);
   });
 
   it('sets needsBuild = false when test files are only in __tests__/', () => {
     const result = classifyScopeChanges(
       scope,
-      ['packages/agents/__tests__/agent.test.ts'],
+      ['packages/agent-core/__tests__/agent.test.ts'],
       false,
     );
     expect(result.needsBuild).toBe(false);
@@ -264,16 +201,16 @@ describe('classifyScopeChanges', () => {
 describe('mapFilesToScopes', () => {
   const scopes = [
     {
-      relativeDir: 'packages/agents',
+      relativeDir: 'packages/agent-core',
       shortName: 'agents',
-      workspaceName: '@robota-sdk/agents',
+      workspaceName: '@robota-sdk/agent-core',
       scripts: {},
       hasTsconfig: true,
     },
     {
-      relativeDir: 'packages/openai',
+      relativeDir: 'packages/agent-provider-openai',
       shortName: 'openai',
-      workspaceName: '@robota-sdk/openai',
+      workspaceName: '@robota-sdk/agent-provider-openai',
       scripts: {},
       hasTsconfig: true,
     },
@@ -281,33 +218,32 @@ describe('mapFilesToScopes', () => {
 
   it('maps files to the correct scope', () => {
     const files = [
-      'packages/agents/src/agent.ts',
-      'packages/openai/src/provider.ts',
+      'packages/agent-core/src/agent.ts',
+      'packages/agent-provider-openai/src/provider.ts',
     ];
     const result = mapFilesToScopes(files, scopes);
 
-    expect(result.get('packages/agents')).toEqual(['packages/agents/src/agent.ts']);
-    expect(result.get('packages/openai')).toEqual(['packages/openai/src/provider.ts']);
+    expect(result.get('packages/agent-core')).toEqual(['packages/agent-core/src/agent.ts']);
+    expect(result.get('packages/agent-provider-openai')).toEqual([
+      'packages/agent-provider-openai/src/provider.ts',
+    ]);
   });
 
   it('does not map files outside any scope', () => {
     const files = ['scripts/harness/shared.mjs'];
     const result = mapFilesToScopes(files, scopes);
 
-    expect(result.get('packages/agents')).toEqual([]);
-    expect(result.get('packages/openai')).toEqual([]);
+    expect(result.get('packages/agent-core')).toEqual([]);
+    expect(result.get('packages/agent-provider-openai')).toEqual([]);
   });
 
   it('maps multiple files to the same scope', () => {
-    const files = [
-      'packages/agents/src/agent.ts',
-      'packages/agents/src/plugin.ts',
-    ];
+    const files = ['packages/agent-core/src/agent.ts', 'packages/agent-core/src/plugin.ts'];
     const result = mapFilesToScopes(files, scopes);
 
-    expect(result.get('packages/agents')).toEqual([
-      'packages/agents/src/agent.ts',
-      'packages/agents/src/plugin.ts',
+    expect(result.get('packages/agent-core')).toEqual([
+      'packages/agent-core/src/agent.ts',
+      'packages/agent-core/src/plugin.ts',
     ]);
   });
 });
@@ -318,16 +254,16 @@ describe('mapFilesToScopes', () => {
 describe('resolveRequestedScopes', () => {
   const scopes = [
     {
-      relativeDir: 'packages/agents',
+      relativeDir: 'packages/agent-core',
       shortName: 'agents',
-      workspaceName: '@robota-sdk/agents',
+      workspaceName: '@robota-sdk/agent-core',
       scripts: {},
       hasTsconfig: true,
     },
     {
-      relativeDir: 'packages/openai',
+      relativeDir: 'packages/agent-provider-openai',
       shortName: 'openai',
-      workspaceName: '@robota-sdk/openai',
+      workspaceName: '@robota-sdk/agent-provider-openai',
       scripts: {},
       hasTsconfig: true,
     },
@@ -341,15 +277,15 @@ describe('resolveRequestedScopes', () => {
   ];
 
   it('matches by relativeDir', () => {
-    const result = resolveRequestedScopes(['packages/agents'], scopes);
+    const result = resolveRequestedScopes(['packages/agent-core'], scopes);
     expect(result).toHaveLength(1);
-    expect(result[0].relativeDir).toBe('packages/agents');
+    expect(result[0].relativeDir).toBe('packages/agent-core');
   });
 
   it('matches by workspaceName', () => {
-    const result = resolveRequestedScopes(['@robota-sdk/openai'], scopes);
+    const result = resolveRequestedScopes(['@robota-sdk/agent-provider-openai'], scopes);
     expect(result).toHaveLength(1);
-    expect(result[0].relativeDir).toBe('packages/openai');
+    expect(result[0].relativeDir).toBe('packages/agent-provider-openai');
   });
 
   it('matches by shortName', () => {
@@ -368,9 +304,9 @@ describe('resolveRequestedScopes', () => {
     const scopesWithAmbiguity = [
       ...scopes,
       {
-        relativeDir: 'packages/openai-v2',
+        relativeDir: 'packages/agent-provider-openai-v2',
         shortName: 'openai',
-        workspaceName: '@robota-sdk/openai-v2',
+        workspaceName: '@robota-sdk/agent-provider-openai-v2',
         scripts: {},
         hasTsconfig: true,
       },
@@ -382,10 +318,10 @@ describe('resolveRequestedScopes', () => {
 
   it('deduplicates resolved scopes', () => {
     const result = resolveRequestedScopes(
-      ['packages/agents', 'agents', '@robota-sdk/agents'],
+      ['packages/agent-core', 'agents', '@robota-sdk/agent-core'],
       scopes,
     );
     expect(result).toHaveLength(1);
-    expect(result[0].relativeDir).toBe('packages/agents');
+    expect(result[0].relativeDir).toBe('packages/agent-core');
   });
 });

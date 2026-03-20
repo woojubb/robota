@@ -6,8 +6,8 @@ description: Models success and failure explicitly in TypeScript using Result or
 # Effect-Style Error Modeling
 
 ## Rule Anchor
+- `AGENTS.md` > "No Fallback Policy" (Result type mandatory for failable public functions)
 - `AGENTS.md` > "Development Patterns"
-- `AGENTS.md` > "Execution Safety"
 
 ## Use This Skill When
 - Error handling is inconsistent (`throw`, `null`, `undefined`, magic strings).
@@ -57,8 +57,21 @@ async function createUser(input: Input, deps: Deps): Promise<Result<User, Create
 - [ ] Logs and responses derive from typed error values.
 - [ ] Terminal failure is not converted to queued/running without explicit policy gate.
 
+## When to Use Result vs Throw
+
+| Scenario | Use | Rationale |
+|----------|-----|-----------|
+| Domain operation that can fail (validation, not found, conflict) | `Result<T, E>` | Caller must handle failure explicitly |
+| Truly unexpected programmer error (assertion, invariant violation) | `throw` | Should crash, not be silently handled |
+| External SDK/API call boundary | `Result<T, E>` via boundary adapter | Convert exception to typed error at boundary |
+| Internal helper called only by functions that already return Result | Either | Match the caller's convention |
+
+**Decision rule:** If the caller should reasonably handle the failure, return `Result`. If the failure means a bug in the code, throw.
+
 ## Anti-Patterns
 - Catching everything and returning generic fallback success.
 - Throwing raw strings or unknown objects from domain logic.
 - Mixing `throw` and `Result` randomly in one flow.
 - Re-queuing failed work silently because "operations need convenience".
+- Using `throw` for expected failures (not found, validation error, conflict).
+- Returning `Result` for programmer errors that should crash.

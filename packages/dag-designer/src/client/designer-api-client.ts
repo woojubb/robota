@@ -1,17 +1,16 @@
-import type { IDagDefinition, INodeManifest, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
+import type { IDagDefinition, IRunResult, TObjectInfo, TResult, TRunProgressEvent } from '@robota-sdk/dag-core';
+import type { IProblemDetails, IDefinitionListItem } from '@robota-sdk/dag-api';
 import type {
     IDesignerCreateRunInput,
     ICreateDefinitionInput,
-    IDefinitionListItem,
     IGetRunResultInput,
-    IRunResult,
     IDesignerApiClient,
     IDesignerApiClientConfig,
     IGetDefinitionInput,
     IListDefinitionsInput,
-    IProblemDetails,
     IPublishDefinitionInput,
     IDesignerStartRunInput,
+    ISubscribeRunProgressInput,
     IUpdateDraftInput,
     IValidateDefinitionInput
 } from '../contracts/designer-api.js';
@@ -21,7 +20,7 @@ interface ILooseDesignerPayload {
     data?: {
         definition?: IDagDefinition;
         items?: IDefinitionListItem[];
-        nodes?: INodeManifest[];
+        preparationId?: string;
         dagRunId?: string;
         run?: IRunResult;
     };
@@ -68,21 +67,13 @@ function hasValidDefinitionListItems(items: IDefinitionListItem[]): boolean {
     );
 }
 
-function hasValidNodeManifests(nodes: INodeManifest[]): boolean {
-    return nodes.every((node) =>
-        typeof node.nodeType === 'string'
-        && typeof node.displayName === 'string'
-        && typeof node.category === 'string'
-        && Array.isArray(node.inputs)
-        && Array.isArray(node.outputs)
-    );
-}
-
-function hasValidRunResult(run: IRunResult): boolean {
+export function hasValidRunResult(run: IRunResult): boolean {
     if (
         typeof run.dagRunId !== 'string'
+        || typeof run.status !== 'string'
         || !Array.isArray(run.traces)
-        || typeof run.totalCostUsd !== 'number'
+        || !Array.isArray(run.nodeErrors)
+        || typeof run.totalCredits !== 'number'
     ) {
         return false;
     }
@@ -91,8 +82,8 @@ function hasValidRunResult(run: IRunResult): boolean {
         typeof trace.nodeType === 'string' &&
         typeof trace.input === 'object' && trace.input !== null &&
         typeof trace.output === 'object' && trace.output !== null &&
-        typeof trace.estimatedCostUsd === 'number' &&
-        typeof trace.totalCostUsd === 'number'
+        typeof trace.estimatedCredits === 'number' &&
+        typeof trace.totalCredits === 'number'
     );
 }
 
@@ -176,44 +167,38 @@ export class DesignerApiClient implements IDesignerApiClient {
         };
     }
 
-    public async listNodeCatalog(): Promise<TResult<INodeManifest[], IProblemDetails[]>> {
+    public async listObjectInfo(): Promise<TResult<TObjectInfo, IProblemDetails[]>> {
         const path = '/v1/dag/nodes';
         const payloadResult = await this.requestPayload(path, 'GET', undefined);
         if (!payloadResult.ok) {
             return payloadResult;
         }
-        const nodes = payloadResult.value.data?.nodes;
-        if (Array.isArray(nodes) && hasValidNodeManifests(nodes)) {
-            return {
-                ok: true,
-                value: nodes
-            };
+        const data = payloadResult.value.data;
+        if (data && typeof data === 'object') {
+            return { ok: true, value: data as TObjectInfo };
         }
-        return {
-            ok: false,
-            error: [createContractViolationProblem(200, path)]
-        };
+        return { ok: false, error: [createContractViolationProblem(200, path)] };
     }
 
-    public async createRun(input: IDesignerCreateRunInput): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
+    public async createRun(input: IDesignerCreateRunInput): Promise<TResult<{ preparationId: string }, IProblemDetails[]>> {
         const path = '/v1/dag/runs';
         const payloadResult = await this.requestPayload(
             path,
             'POST',
             JSON.stringify({
                 definition: input.definition,
-                input: input.input ?? {}
+                input: input.input
             }),
             input.correlationId
         );
         if (!payloadResult.ok) {
             return payloadResult;
         }
-        const dagRunId = payloadResult.value.data?.dagRunId;
-        if (typeof dagRunId === 'string' && dagRunId.length > 0) {
+        const preparationId = payloadResult.value.data?.preparationId;
+        if (typeof preparationId === 'string' && preparationId.length > 0) {
             return {
                 ok: true,
-                value: { dagRunId }
+                value: { preparationId }
             };
         }
         return {
@@ -225,7 +210,7 @@ export class DesignerApiClient implements IDesignerApiClient {
     public async startRun(
         input: IDesignerStartRunInput
     ): Promise<TResult<{ dagRunId: string }, IProblemDetails[]>> {
-        const path = `/v1/dag/runs/${input.dagRunId}/start`;
+        const path = `/v1/dag/runs/${input.preparationId}/start`;
         const payloadResult = await this.requestPayload(
             path,
             'POST',
@@ -272,69 +257,51 @@ export class DesignerApiClient implements IDesignerApiClient {
         };
     }
 
-    public subscribeRunProgress(input: {
-        dagRunId: string;
-        onEvent: (event: TRunProgressEvent) => void;
-        onError?: (error: Error) => void;
-        maxReconnectAttempts?: number;
-        initialReconnectDelayMs?: number;
-    }): () => void {
-        if (typeof EventSource === 'undefined') {
-            input.onError?.(new Error('EventSource is not available in this environment.'));
-            return () => {
-                return;
-            };
+    public subscribeRunProgress(input: ISubscribeRunProgressInput): () => void {
+        if (typeof WebSocket === 'undefined') {
+            input.onError?.(new Error('WebSocket is not available in this environment.'));
+            return () => { return; };
         }
-        const path = `/v1/dag/runs/${encodeURIComponent(input.dagRunId)}/events`;
+        const wsProtocol = this.baseUrl.startsWith('https') ? 'wss' : 'ws';
+        const wsHost = this.baseUrl.replace(/^https?:\/\//, '');
+        const path = `/v1/dag/runs/${encodeURIComponent(input.preparationId)}/ws`;
+        const wsUrl = `${wsProtocol}://${wsHost}${path}`;
+
         const maxReconnectAttempts = input.maxReconnectAttempts ?? 5;
         const initialReconnectDelayMs = input.initialReconnectDelayMs ?? 500;
         let reconnectAttempt = 0;
         let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-        let reconnectScheduled = false;
         let closed = false;
-        let eventSource: EventSource | undefined;
+        let ws: WebSocket | undefined;
 
         const clearReconnectTimer = (): void => {
-            if (!reconnectTimer) {
-                return;
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = undefined;
             }
-            clearTimeout(reconnectTimer);
-            reconnectTimer = undefined;
-            reconnectScheduled = false;
         };
 
         const connect = (): void => {
-            if (closed) {
-                return;
-            }
-            const nextEventSource = new EventSource(`${this.baseUrl}${path}`);
-            eventSource = nextEventSource;
-            reconnectScheduled = false;
-            nextEventSource.onopen = () => {
-                reconnectAttempt = 0;
-            };
-            nextEventSource.onmessage = (event) => {
+            if (closed) return;
+            const nextWs = new WebSocket(wsUrl);
+            ws = nextWs;
+            nextWs.onopen = () => { reconnectAttempt = 0; };
+            nextWs.onmessage = (msgEvent) => {
                 try {
-                    const parsed = JSON.parse(event.data) as IRunProgressEnvelope;
-                    if (!parsed.event) {
-                        return;
+                    const parsed = JSON.parse(String(msgEvent.data)) as IRunProgressEnvelope;
+                    if (parsed.event) {
+                        input.onEvent(parsed.event);
                     }
-                    input.onEvent(parsed.event);
                 } catch {
                     input.onError?.(new Error('Failed to parse run progress event payload.'));
                 }
             };
-            nextEventSource.onerror = () => {
-                if (closed) {
-                    return;
-                }
-                if (eventSource !== nextEventSource) {
-                    return;
-                }
-                nextEventSource.close();
-                if (reconnectScheduled) {
-                    return;
-                }
+            nextWs.onerror = () => {
+                // onerror is always followed by onclose in browsers
+            };
+            nextWs.onclose = () => {
+                if (closed) return;
+                if (ws !== nextWs) return;
                 if (reconnectAttempt >= maxReconnectAttempts) {
                     input.onError?.(new Error('Run progress stream disconnected.'));
                     return;
@@ -342,10 +309,7 @@ export class DesignerApiClient implements IDesignerApiClient {
                 const delay = initialReconnectDelayMs * (2 ** reconnectAttempt);
                 reconnectAttempt += 1;
                 clearReconnectTimer();
-                reconnectScheduled = true;
-                reconnectTimer = setTimeout(() => {
-                    connect();
-                }, delay);
+                reconnectTimer = setTimeout(() => { connect(); }, delay);
             };
         };
 
@@ -354,7 +318,9 @@ export class DesignerApiClient implements IDesignerApiClient {
         return () => {
             closed = true;
             clearReconnectTimer();
-            eventSource?.close();
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                ws.close();
+            }
         };
     }
 

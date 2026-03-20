@@ -13,11 +13,16 @@ import {
     type IValidateDefinitionRequest
 } from '../contracts/design-api.js';
 
+/** Port for querying available node types and their manifests. */
 export interface INodeCatalogService {
     listManifests(): Promise<INodeManifest[]>;
     hasNodeType(nodeType: string): boolean;
 }
 
+/**
+ * API controller for DAG definition lifecycle: create, update, validate, publish, and list.
+ * @see DagDefinitionService
+ */
 export class DagDesignController {
     public constructor(
         private readonly definitionService: DagDefinitionService,
@@ -27,154 +32,79 @@ export class DagDesignController {
     public async createDefinition(
         request: ICreateDefinitionRequest
     ): Promise<TDesignApiResponse<{ definitionId: string; definition: ICreateDefinitionRequest['definition'] }>> {
+        const instance = `/v1/dag/definitions/${request.definition.dagId}/versions/${request.definition.version}`;
         const created = await this.definitionService.createDraft(request.definition);
         if (!created.ok) {
-            return {
-                ok: false,
-                status: 400,
-                errors: created.error.map((error) =>
-                    toProblemDetails(
-                        error,
-                        `/v1/dag/definitions/${request.definition.dagId}/versions/${request.definition.version}`,
-                        request.correlationId
-                    )
-                )
-            };
+            return { ok: false, status: 400, errors: created.error.map((e) => toProblemDetails(e, instance, request.correlationId)) };
         }
-
-        return {
-            ok: true,
-            status: 201,
-            data: {
-                definitionId: `${created.value.dagId}:${created.value.version}`,
-                definition: created.value
-            }
-        };
+        return { ok: true, status: 201, data: { definitionId: `${created.value.dagId}:${created.value.version}`, definition: created.value } };
     }
 
     public async updateDraft(
         request: IUpdateDraftRequest
     ): Promise<TDesignApiResponse<{ definition: IUpdateDraftRequest['definition'] }>> {
+        const instance = `/v1/dag/definitions/${request.dagId}/versions/${request.version}`;
         const updated = await this.definitionService.updateDraft(request.definition);
         if (!updated.ok) {
-            return {
-                ok: false,
-                status: 400,
-                errors: updated.error.map((error) =>
-                    toProblemDetails(
-                        error,
-                        `/v1/dag/definitions/${request.dagId}/versions/${request.version}`,
-                        request.correlationId
-                    )
-                )
-            };
+            return { ok: false, status: 400, errors: updated.error.map((e) => toProblemDetails(e, instance, request.correlationId)) };
         }
-
-        return {
-            ok: true,
-            status: 200,
-            data: {
-                definition: updated.value
-            }
-        };
+        return { ok: true, status: 200, data: { definition: updated.value } };
     }
 
     public async validateDefinition(
         request: IValidateDefinitionRequest
     ): Promise<TDesignApiResponse<IDefinitionValidationResult>> {
+        const instance = `/v1/dag/definitions/${request.dagId}/versions/${request.version}/validate`;
+
         if (this.nodeCatalogService) {
-            const existing = await this.definitionService.getDefinitionByDagId(request.dagId, request.version);
-            if (!existing) {
-                const notFound = buildValidationError(
-                    'DAG_VALIDATION_DEFINITION_NOT_FOUND',
-                    'Definition does not exist',
-                    { dagId: request.dagId, version: request.version }
-                );
-                return {
-                    ok: false,
-                    status: 400,
-                    errors: [
-                        toProblemDetails(
-                            notFound,
-                            `/v1/dag/definitions/${request.dagId}/versions/${request.version}/validate`,
-                            request.correlationId
-                        )
-                    ]
-                };
-            }
-            for (const node of existing.nodes) {
-                if (!this.nodeCatalogService.hasNodeType(node.nodeType)) {
-                    const nodeTypeError = buildValidationError(
-                        'DAG_VALIDATION_NODE_TYPE_NOT_REGISTERED',
-                        'Node type is not registered in node catalog',
-                        { nodeType: node.nodeType, nodeId: node.nodeId }
-                    );
-                    return {
-                        ok: false,
-                        status: 400,
-                        errors: [
-                            toProblemDetails(
-                                nodeTypeError,
-                                `/v1/dag/definitions/${request.dagId}/versions/${request.version}/validate`,
-                                request.correlationId
-                            )
-                        ]
-                    };
-                }
-            }
+            const catalogError = await this.checkNodeCatalog(request, instance);
+            if (catalogError) return catalogError;
         }
 
         const validated = await this.definitionService.validate(request.dagId, request.version);
         if (!validated.ok) {
             return {
-                ok: false,
-                status: 400,
-                errors: validated.error.map((error) =>
-                    toProblemDetails(
-                        error,
-                        `/v1/dag/definitions/${request.dagId}/versions/${request.version}/validate`,
-                        request.correlationId
-                    )
-                )
+                ok: false, status: 400,
+                errors: validated.error.map((error) => toProblemDetails(error, instance, request.correlationId))
             };
         }
 
-        return {
-            ok: true,
-            status: 200,
-            data: {
-                definition: validated.value,
-                valid: true
+        return { ok: true, status: 200, data: { definition: validated.value, valid: true } };
+    }
+
+    private async checkNodeCatalog(
+        request: IValidateDefinitionRequest,
+        instance: string,
+    ): Promise<TDesignApiResponse<IDefinitionValidationResult> | undefined> {
+        const existing = await this.definitionService.getDefinitionByDagId(request.dagId, request.version);
+        if (!existing) {
+            const notFound = buildValidationError(
+                'DAG_VALIDATION_DEFINITION_NOT_FOUND', 'Definition does not exist',
+                { dagId: request.dagId, version: request.version }
+            );
+            return { ok: false, status: 400, errors: [toProblemDetails(notFound, instance, request.correlationId)] };
+        }
+        for (const node of existing.nodes) {
+            if (!this.nodeCatalogService!.hasNodeType(node.nodeType)) {
+                const nodeTypeError = buildValidationError(
+                    'DAG_VALIDATION_NODE_TYPE_NOT_REGISTERED', 'Node type is not registered in node catalog',
+                    { nodeType: node.nodeType, nodeId: node.nodeId }
+                );
+                return { ok: false, status: 400, errors: [toProblemDetails(nodeTypeError, instance, request.correlationId)] };
             }
-        };
+        }
+        return undefined;
     }
 
     public async publishDefinition(
         request: IPublishDefinitionRequest
     ): Promise<TDesignApiResponse<{ definitionId: string; definition: IDagDefinition }>> {
+        const instance = `/v1/dag/definitions/${request.dagId}/versions/${request.version}/publish`;
         const published = await this.definitionService.publish(request.dagId, request.version);
         if (!published.ok) {
-            return {
-                ok: false,
-                status: 400,
-                errors: published.error.map((error) =>
-                    toProblemDetails(
-                        error,
-                        `/v1/dag/definitions/${request.dagId}/versions/${request.version}/publish`,
-                        request.correlationId
-                    )
-                )
-            };
+            return { ok: false, status: 400, errors: published.error.map((e) => toProblemDetails(e, instance, request.correlationId)) };
         }
-
-        return {
-            ok: true,
-            status: 200,
-            data: {
-                definitionId: `${published.value.dagId}:${published.value.version}`,
-                definition: published.value
-            }
-        };
+        return { ok: true, status: 200, data: { definitionId: `${published.value.dagId}:${published.value.version}`, definition: published.value } };
     }
 
     public async getDefinition(
@@ -182,29 +112,11 @@ export class DagDesignController {
     ): Promise<TDesignApiResponse<{ definition: IDagDefinition }>> {
         const definition = await this.definitionService.getDefinitionByDagId(request.dagId, request.version);
         if (!definition) {
-            const error = buildValidationError(
-                'DAG_VALIDATION_DEFINITION_NOT_FOUND',
-                'Definition does not exist',
-                { dagId: request.dagId, version: request.version ?? 'latest' }
-            );
-            return {
-                ok: false,
-                status: 404,
-                errors: [
-                    toProblemDetails(
-                        error,
-                        `/v1/dag/definitions/${request.dagId}${typeof request.version === 'number' ? `?version=${request.version}` : ''}`,
-                        request.correlationId
-                    )
-                ]
-            };
+            const instance = `/v1/dag/definitions/${request.dagId}${typeof request.version === 'number' ? `?version=${request.version}` : ''}`;
+            const error = buildValidationError('DAG_VALIDATION_DEFINITION_NOT_FOUND', 'Definition does not exist', { dagId: request.dagId, version: request.version ?? 'latest' });
+            return { ok: false, status: 404, errors: [toProblemDetails(error, instance, request.correlationId)] };
         }
-
-        return {
-            ok: true,
-            status: 200,
-            data: { definition }
-        };
+        return { ok: true, status: 200, data: { definition } };
     }
 
     public async listDefinitions(
@@ -247,28 +159,11 @@ export class DagDesignController {
         request: IListNodeCatalogRequest
     ): Promise<TDesignApiResponse<{ nodes: INodeManifest[] }>> {
         if (!this.nodeCatalogService) {
-            const error = buildValidationError(
-                'DAG_VALIDATION_NODE_CATALOG_NOT_CONFIGURED',
-                'Node catalog service is not configured'
-            );
-            return {
-                ok: false,
-                status: 400,
-                errors: [
-                    toProblemDetails(
-                        error,
-                        '/v1/dag/nodes',
-                        request.correlationId
-                    )
-                ]
-            };
+            const error = buildValidationError('DAG_VALIDATION_NODE_CATALOG_NOT_CONFIGURED', 'Node catalog service is not configured');
+            return { ok: false, status: 400, errors: [toProblemDetails(error, '/v1/dag/nodes', request.correlationId)] };
         }
         const nodes = await this.nodeCatalogService.listManifests();
-        return {
-            ok: true,
-            status: 200,
-            data: { nodes }
-        };
+        return { ok: true, status: 200, data: { nodes } };
     }
 
 }

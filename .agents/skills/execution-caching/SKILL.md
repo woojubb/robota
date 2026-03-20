@@ -6,8 +6,8 @@ description: Provide execution caching workflows to reduce repeated runs and cos
 # Execution Caching
 
 ## Rule Anchor
-- `AGENTS.md` > "Execution Caching"
-- `AGENTS.md` > "Execution Safety"
+- `AGENTS.md` > "No Fallback Policy"
+- `AGENTS.md` > "Development Patterns"
 
 ## Scope
 Use this skill to design or operate execution caching systems for repeatable runs.

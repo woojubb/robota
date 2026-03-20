@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type { IDagDefinition, IDagRun, IQueueMessage, ITaskRun } from '@robota-sdk/dag-core';
 import {
     FakeClockPort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     InMemoryStoragePort,
-    MockTaskExecutorPort,
-    type IDagDefinition,
-    type IDagRun,
-    type IQueueMessage,
-    type ITaskRun
-} from '@robota-sdk/dag-core';
+    MockTaskExecutorPort
+} from '@robota-sdk/dag-adapters-local';
 import { WorkerLoopService } from '../services/worker-loop-service.js';
 
 function createQueuedTaskFixture() {
@@ -351,11 +348,11 @@ describe('WorkerLoopService', () => {
         );
 
         const firstAttempt = await worker.processOnce();
-        expect(firstAttempt.ok).toBe(false);
-        if (firstAttempt.ok) {
+        expect(firstAttempt.ok).toBe(true);
+        if (!firstAttempt.ok) {
             return;
         }
-        expect(firstAttempt.error.code).toBe('DAG_LEASE_CONTRACT_VIOLATION');
+        expect(firstAttempt.value.processed).toBe(false);
 
         await lease.release(`taskRun:${taskRun.taskRunId}`, 'worker-lock');
 
@@ -486,5 +483,106 @@ describe('WorkerLoopService', () => {
 
         const finalRun = await storage.getDagRun(dagRun.dagRunId);
         expect(finalRun?.status).toBe('success');
+    });
+
+    it('finalizes DAG as success when downstream tasks are upstream_failed', async () => {
+        const storage = new InMemoryStoragePort();
+        const queue = new InMemoryQueuePort();
+        const lease = new InMemoryLeasePort();
+        const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+        const { dagRun, taskRun, message } = createQueuedTaskFixture();
+
+        const definition: IDagDefinition = {
+            dagId: dagRun.dagId,
+            version: dagRun.version,
+            status: 'published',
+            nodes: [
+                {
+                    nodeId: 'entry',
+                    nodeType: 'input',
+                    dependsOn: [],
+                    inputs: [],
+                    outputs: [{ key: 'done', type: 'boolean', required: false }],
+                    config: {}
+                },
+                {
+                    nodeId: 'downstream',
+                    nodeType: 'processor',
+                    dependsOn: ['entry'],
+                    inputs: [],
+                    outputs: [],
+                    config: {}
+                }
+            ],
+            edges: []
+        };
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+        await storage.createTaskRun(taskRun);
+        await storage.createTaskRun({
+            taskRunId: 'task-run-downstream',
+            dagRunId: dagRun.dagRunId,
+            nodeId: 'downstream',
+            status: 'upstream_failed',
+            attempt: 1
+        });
+        await queue.enqueue(message);
+
+        const executor = new MockTaskExecutorPort(async () => ({
+            ok: true,
+            output: { done: true }
+        }));
+
+        const service = createService(executor, storage, queue, lease, clock);
+        const result = await service.processOnce();
+
+        expect(result.ok).toBe(true);
+
+        const run = await storage.getDagRun(dagRun.dagRunId);
+        expect(run?.status).toBe('success');
+    });
+
+    it('returns processed false without error when lease is held by another worker', async () => {
+        const storage = new InMemoryStoragePort();
+        const queue = new InMemoryQueuePort();
+        const lease = new InMemoryLeasePort();
+        const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+        const { dagRun, taskRun, message } = createQueuedTaskFixture();
+
+        const definition = createDefinitionForRun(dagRun);
+        await storage.saveDefinition(definition);
+        await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+        await storage.createTaskRun(taskRun);
+        await queue.enqueue(message);
+
+        await lease.acquire(`taskRun:${taskRun.taskRunId}`, 'other-worker', 60_000);
+
+        const executor = new MockTaskExecutorPort(async () => ({
+            ok: true,
+            output: { done: true }
+        }));
+
+        const worker = new WorkerLoopService(
+            storage,
+            queue,
+            lease,
+            executor,
+            clock,
+            {
+                workerId: 'worker-2',
+                leaseDurationMs: 30_000,
+                visibilityTimeoutMs: 30_000,
+                retryEnabled: false,
+                maxAttempts: 1,
+                defaultTimeoutMs: 50
+            }
+        );
+
+        const result = await worker.processOnce();
+        expect(result.ok).toBe(true);
+        if (!result.ok) {
+            return;
+        }
+        expect(result.value.processed).toBe(false);
     });
 });

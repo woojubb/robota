@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import type { IQueueMessage, ITaskRun } from '@robota-sdk/dag-core';
 import {
     FakeClockPort,
+    InMemoryLeasePort,
     InMemoryQueuePort,
-    InMemoryStoragePort,
-    type IQueueMessage,
-    type ITaskRun
-} from '@robota-sdk/dag-core';
+    InMemoryStoragePort
+} from '@robota-sdk/dag-adapters-local';
 import { DlqReinjectService } from '../services/dlq-reinject-service.js';
 
 function createDeadLetterMessage(): IQueueMessage {
@@ -30,23 +30,26 @@ function createDeadLetterMessage(): IQueueMessage {
     };
 }
 
+function createFailedTaskRun(): ITaskRun {
+    return {
+        taskRunId: 'task-run-1',
+        dagRunId: 'dag-run-1',
+        nodeId: 'entry',
+        status: 'failed',
+        attempt: 3
+    };
+}
+
 describe('DlqReinjectService', () => {
     it('reinjects one dead letter message into main queue', async () => {
         const storage = new InMemoryStoragePort();
         const deadLetterQueue = new InMemoryQueuePort();
         const mainQueue = new InMemoryQueuePort();
+        const lease = new InMemoryLeasePort();
         const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 8, 0, 0));
-        const service = new DlqReinjectService(storage, deadLetterQueue, mainQueue, clock);
+        const service = new DlqReinjectService(storage, deadLetterQueue, mainQueue, lease, clock);
 
-        const failedTaskRun: ITaskRun = {
-            taskRunId: 'task-run-1',
-            dagRunId: 'dag-run-1',
-            nodeId: 'entry',
-            status: 'failed',
-            attempt: 3
-        };
-        await storage.createTaskRun(failedTaskRun);
-
+        await storage.createTaskRun(createFailedTaskRun());
         await deadLetterQueue.enqueue(createDeadLetterMessage());
         const reinjected = await service.reinjectOnce('dlq-worker-1', 10_000);
 
@@ -64,5 +67,29 @@ describe('DlqReinjectService', () => {
         const updatedTaskRun = await storage.getTaskRun('task-run-1');
         expect(updatedTaskRun?.status).toBe('queued');
         expect(updatedTaskRun?.attempt).toBe(4);
+    });
+
+    it('skips reinject when lease is held by another worker', async () => {
+        const storage = new InMemoryStoragePort();
+        const deadLetterQueue = new InMemoryQueuePort();
+        const mainQueue = new InMemoryQueuePort();
+        const lease = new InMemoryLeasePort();
+        const clock = new FakeClockPort(Date.UTC(2026, 1, 14, 8, 0, 0));
+        const service = new DlqReinjectService(storage, deadLetterQueue, mainQueue, lease, clock);
+
+        await storage.createTaskRun(createFailedTaskRun());
+        await deadLetterQueue.enqueue(createDeadLetterMessage());
+        await lease.acquire('taskRun:task-run-1', 'other-worker', 60_000);
+
+        const result = await service.reinjectOnce('dlq-worker-1', 10_000);
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) {
+            return;
+        }
+        expect(result.value.reinjected).toBe(false);
+
+        const taskRun = await storage.getTaskRun('task-run-1');
+        expect(taskRun?.status).toBe('failed');
     });
 });

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-llm-text-openai",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "description": "DAG OpenAI llm-text node for Robota",
   "type": "module",
   "main": "dist/node/index.js",
@@ -38,9 +38,10 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@robota-sdk/agents": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
-    "@robota-sdk/openai": "workspace:*",
+    "@robota-sdk/dag-node": "workspace:*",
+    "@robota-sdk/agent-provider-openai": "workspace:*",
     "zod": "^3.24.4"
   },
   "devDependencies": {
@@ -53,5 +54,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "private": true
 }

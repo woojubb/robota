@@ -1,15 +1,10 @@
 import {
-    EXECUTION_PROGRESS_EVENTS,
-    DagRunStateMachine,
-    TaskRunStateMachine,
     TimeSemanticsService,
     buildDispatchError,
     buildValidationError,
     type IClockPort,
-    type IDagDefinition,
     type IDagError,
     type IRunProgressEventReporter,
-    type IQueueMessage,
     type IQueuePort,
     type IStoragePort,
     type TDagRunStatus,
@@ -17,7 +12,10 @@ import {
     type TPortPayload,
     type TResult
 } from '@robota-sdk/dag-core';
+import { parsePortPayload, parseDefinitionSnapshot } from './snapshot-parser.js';
+import { dispatchEntryTasks } from './entry-task-dispatcher.js';
 
+/** Input parameters for initiating a DAG run. */
 export interface IStartRunInput {
     dagId: string;
     version?: number;
@@ -27,6 +25,7 @@ export interface IStartRunInput {
     input: TPortPayload;
 }
 
+/** Result returned after a DAG run record is created (before task dispatch). */
 export interface ICreateRunResult {
     dagRunId: string;
     dagId: string;
@@ -35,6 +34,7 @@ export interface ICreateRunResult {
     status: TDagRunStatus;
 }
 
+/** Result returned after a DAG run is fully started with entry tasks dispatched. */
 export interface IStartRunResult {
     dagRunId: string;
     dagId: string;
@@ -43,6 +43,14 @@ export interface IStartRunResult {
     taskRunIds: string[];
 }
 
+/**
+ * Orchestrates the lifecycle of DAG runs: creation, validation, state
+ * transitions, and entry-task dispatch.
+ *
+ * @see IStoragePort for persistence contracts
+ * @see IQueuePort for task queue contracts
+ * @see DagRunStateMachine for run state transitions
+ */
 export class RunOrchestratorService {
     private readonly timeSemanticsService: TimeSemanticsService;
 
@@ -55,31 +63,20 @@ export class RunOrchestratorService {
         this.timeSemanticsService = new TimeSemanticsService(clock);
     }
 
+    /**
+     * Creates a DAG run record without dispatching tasks. Validates the
+     * definition, resolves time semantics, and enforces idempotency via run key.
+     */
     public async createRun(input: IStartRunInput): Promise<TResult<ICreateRunResult, IDagError>> {
         const definition = input.version
             ? await this.storage.getDefinition(input.dagId, input.version)
             : await this.storage.getLatestPublishedDefinition(input.dagId);
 
         if (!definition) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_DEFINITION_NOT_FOUND',
-                    'Published DAG definition was not found',
-                    { dagId: input.dagId, hasVersion: Boolean(input.version) }
-                )
-            };
+            return { ok: false, error: buildValidationError('DAG_VALIDATION_DEFINITION_NOT_FOUND', 'Published DAG definition was not found', { dagId: input.dagId, hasVersion: Boolean(input.version) }) };
         }
-
         if (definition.status !== 'published') {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_DEFINITION_NOT_PUBLISHED',
-                    'Only published definitions can be executed',
-                    { dagId: definition.dagId, version: definition.version, status: definition.status }
-                )
-            };
+            return { ok: false, error: buildValidationError('DAG_VALIDATION_DEFINITION_NOT_PUBLISHED', 'Only published definitions can be executed', { dagId: definition.dagId, version: definition.version, status: definition.status }) };
         }
 
         const resolvedTime = this.timeSemanticsService.resolve(input.trigger, input.logicalDate);
@@ -92,20 +89,10 @@ export class RunOrchestratorService {
             : `${definition.dagId}:${resolvedTime.value.logicalDate}`;
         const existingRun = await this.storage.getDagRunByRunKey(runKey);
         if (existingRun) {
-            return {
-                ok: true,
-                value: {
-                    dagRunId: existingRun.dagRunId,
-                    dagId: existingRun.dagId,
-                    version: existingRun.version,
-                    logicalDate: existingRun.logicalDate,
-                    status: existingRun.status
-                }
-            };
+            return { ok: true, value: { dagRunId: existingRun.dagRunId, dagId: existingRun.dagId, version: existingRun.version, logicalDate: existingRun.logicalDate, status: existingRun.status } };
         }
 
         const dagRunId = this.generateDagRunId(definition.dagId, resolvedTime.value.logicalDate, input.rerunKey);
-
         try {
             await this.storage.createDagRun({
                 dagRunId,
@@ -120,210 +107,49 @@ export class RunOrchestratorService {
                 startedAt: this.clock.nowIso()
             });
         } catch (error) {
-            return {
-                ok: false,
-                error: buildDispatchError(
-                    'DAG_DISPATCH_DAG_RUN_CREATE_FAILED',
-                    'Failed to create DagRun',
-                    {
-                        dagId: definition.dagId,
-                        version: definition.version,
-                        runKey,
-                        errorMessage: this.resolveErrorMessage(error instanceof Error ? error : undefined)
-                    }
-                )
-            };
+            return { ok: false, error: buildDispatchError('DAG_DISPATCH_DAG_RUN_CREATE_FAILED', 'Failed to create DagRun', { dagId: definition.dagId, version: definition.version, runKey, errorMessage: this.resolveErrorMessage(error instanceof Error ? error : undefined) }) };
         }
 
-        return {
-            ok: true,
-            value: {
-                dagRunId,
-                dagId: definition.dagId,
-                version: definition.version,
-                logicalDate: resolvedTime.value.logicalDate,
-                status: 'created'
-            }
-        };
+        return { ok: true, value: { dagRunId, dagId: definition.dagId, version: definition.version, logicalDate: resolvedTime.value.logicalDate, status: 'created' } };
     }
 
+    /**
+     * Transitions a previously created run to running and dispatches entry tasks to the queue.
+     */
     public async startCreatedRun(dagRunId: string): Promise<TResult<IStartRunResult, IDagError>> {
         const dagRun = await this.storage.getDagRun(dagRunId);
         if (!dagRun) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_DAG_RUN_NOT_FOUND',
-                    'DagRun was not found',
-                    { dagRunId }
-                )
-            };
+            return { ok: false, error: buildValidationError('DAG_VALIDATION_DAG_RUN_NOT_FOUND', 'DagRun was not found', { dagRunId }) };
         }
         if (dagRun.status !== 'created') {
             const existingTaskRuns = await this.storage.listTaskRunsByDagRunId(dagRunId);
-            return {
-                ok: true,
-                value: {
-                    dagRunId,
-                    dagId: dagRun.dagId,
-                    version: dagRun.version,
-                    logicalDate: dagRun.logicalDate,
-                    taskRunIds: existingTaskRuns.map((taskRun) => taskRun.taskRunId)
-                }
-            };
+            return { ok: true, value: { dagRunId, dagId: dagRun.dagId, version: dagRun.version, logicalDate: dagRun.logicalDate, taskRunIds: existingTaskRuns.map((taskRun) => taskRun.taskRunId) } };
         }
         if (typeof dagRun.definitionSnapshot !== 'string' || dagRun.definitionSnapshot.trim().length === 0) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_DEFINITION_SNAPSHOT_MISSING',
-                    'DagRun definition snapshot is missing',
-                    { dagRunId }
-                )
-            };
+            return { ok: false, error: buildValidationError('DAG_VALIDATION_DEFINITION_SNAPSHOT_MISSING', 'DagRun definition snapshot is missing', { dagRunId }) };
         }
-        const parsedDefinition = this.parseDefinitionSnapshot(dagRun.definitionSnapshot);
+        const parsedDefinition = parseDefinitionSnapshot(dagRun.definitionSnapshot);
         if (!parsedDefinition.ok) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID',
-                    'DagRun definition snapshot is invalid',
-                    { dagRunId }
-                )
-            };
+            return { ok: false, error: buildValidationError('DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID', 'DagRun definition snapshot is invalid', { dagRunId }) };
         }
-        const definition = parsedDefinition.value;
-        const parsedInput = this.parsePortPayload(dagRun.inputSnapshot ?? '{}');
+        const parsedInput = parsePortPayload(dagRun.inputSnapshot ?? '{}');
         if (!parsedInput.ok) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_RUN_INPUT_SNAPSHOT_INVALID',
-                    'DagRun input snapshot is invalid',
-                    { dagRunId }
-                )
-            };
-        }
-        const input = parsedInput.value;
-        const entryNodes = definition.nodes.filter((node) => node.dependsOn.length === 0);
-        if (entryNodes.length === 0) {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_NO_ENTRY_NODE',
-                    'DAG must include at least one entry node (dependsOn = [])',
-                    { dagId: definition.dagId, version: definition.version }
-                )
-            };
+            return { ok: false, error: buildValidationError('DAG_VALIDATION_RUN_INPUT_SNAPSHOT_INVALID', 'DagRun input snapshot is invalid', { dagRunId }) };
         }
 
-        const queuedTransition = DagRunStateMachine.transition('created', 'QUEUE');
-        if (!queuedTransition.ok) {
-            return queuedTransition;
+        const dispatched = await dispatchEntryTasks(
+            { dagRunId, definition: parsedDefinition.value, input: parsedInput.value },
+            this.storage, this.queue, this.clock, this.runProgressEventReporter
+        );
+        if (!dispatched.ok) {
+            return dispatched;
         }
-        await this.storage.updateDagRunStatus(dagRunId, queuedTransition.value.nextStatus);
-        const runningTransition = DagRunStateMachine.transition('queued', 'START');
-        if (!runningTransition.ok) {
-            return runningTransition;
-        }
-        await this.storage.updateDagRunStatus(dagRunId, runningTransition.value.nextStatus);
-        this.runProgressEventReporter?.publish({
-            dagRunId,
-            eventType: EXECUTION_PROGRESS_EVENTS.STARTED,
-            occurredAt: this.clock.nowIso(),
-            dagId: definition.dagId,
-            version: definition.version
-        });
-
-        const taskRunIds: string[] = [];
-        for (const node of entryNodes) {
-            const taskRunId = `${dagRunId}:${node.nodeId}:attempt:1`;
-            taskRunIds.push(taskRunId);
-
-            await this.storage.createTaskRun({
-                taskRunId,
-                dagRunId,
-                nodeId: node.nodeId,
-                status: 'queued',
-                attempt: 1
-            });
-
-            const message: IQueueMessage = {
-                messageId: `${taskRunId}:message`,
-                dagRunId,
-                taskRunId,
-                nodeId: node.nodeId,
-                attempt: 1,
-                executionPath: [
-                    `dagId:${definition.dagId}`,
-                    `dagRunId:${dagRunId}`,
-                    `nodeId:${node.nodeId}`,
-                    `taskRunId:${taskRunId}`,
-                    'attempt:1'
-                ],
-                payload: input,
-                createdAt: this.clock.nowIso()
-            };
-
-            try {
-                await this.queue.enqueue(message);
-            } catch (error) {
-                const dispatchError = buildDispatchError(
-                    'DAG_DISPATCH_ENQUEUE_FAILED',
-                    'Failed to enqueue entry task',
-                    {
-                        dagRunId,
-                        taskRunId,
-                        nodeId: node.nodeId,
-                        errorMessage: this.resolveErrorMessage(error instanceof Error ? error : undefined)
-                    }
-                );
-                const cancelledTaskTransition = TaskRunStateMachine.transition('queued', 'CANCEL');
-                if (cancelledTaskTransition.ok) {
-                    // Cancel the current failed task
-                    await this.storage.updateTaskRunStatus(taskRunId, cancelledTaskTransition.value.nextStatus, dispatchError);
-                    // Cancel previously-enqueued tasks in this batch to prevent orphans
-                    for (const previousTaskRunId of taskRunIds) {
-                        if (previousTaskRunId === taskRunId) {
-                            continue;
-                        }
-                        await this.storage.updateTaskRunStatus(previousTaskRunId, cancelledTaskTransition.value.nextStatus, dispatchError);
-                    }
-                }
-                const failedRunTransition = DagRunStateMachine.transition('running', 'COMPLETE_FAILURE');
-                if (failedRunTransition.ok) {
-                    await this.storage.updateDagRunStatus(
-                        dagRunId,
-                        failedRunTransition.value.nextStatus,
-                        this.clock.nowIso()
-                    );
-                    this.runProgressEventReporter?.publish({
-                        dagRunId,
-                        eventType: EXECUTION_PROGRESS_EVENTS.FAILED,
-                        occurredAt: this.clock.nowIso(),
-                        error: dispatchError
-                    });
-                }
-                return {
-                    ok: false,
-                    error: dispatchError
-                };
-            }
-        }
-
-        return {
-            ok: true,
-            value: {
-                dagRunId,
-                dagId: dagRun.dagId,
-                version: dagRun.version,
-                logicalDate: dagRun.logicalDate,
-                taskRunIds
-            }
-        };
+        return { ok: true, value: { dagRunId, dagId: dagRun.dagId, version: dagRun.version, logicalDate: dagRun.logicalDate, taskRunIds: dispatched.value.taskRunIds } };
     }
 
+    /**
+     * Creates and starts a DAG run in a single call.
+     */
     public async startRun(input: IStartRunInput): Promise<TResult<IStartRunResult, IDagError>> {
         const created = await this.createRun(input);
         if (!created.ok) {
@@ -333,84 +159,7 @@ export class RunOrchestratorService {
             return this.startCreatedRun(created.value.dagRunId);
         }
         const existingTaskRuns = await this.storage.listTaskRunsByDagRunId(created.value.dagRunId);
-        return {
-            ok: true,
-            value: {
-                dagRunId: created.value.dagRunId,
-                dagId: created.value.dagId,
-                version: created.value.version,
-                logicalDate: created.value.logicalDate,
-                taskRunIds: existingTaskRuns.map((taskRun) => taskRun.taskRunId)
-            }
-        };
-    }
-
-    private parsePortPayload(input: string): TResult<TPortPayload, IDagError> {
-        try {
-            const parsed = JSON.parse(input);
-            if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-                return {
-                    ok: false,
-                    error: buildValidationError(
-                        'DAG_VALIDATION_PAYLOAD_INVALID',
-                        'Payload must be a JSON object'
-                    )
-                };
-            }
-            return {
-                ok: true,
-                value: parsed
-            };
-        } catch {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_PAYLOAD_PARSE_FAILED',
-                    'Failed to parse payload JSON'
-                )
-            };
-        }
-    }
-
-    private parseDefinitionSnapshot(input: string): TResult<IDagDefinition, IDagError> {
-        try {
-            const parsed = JSON.parse(input);
-            if (
-                typeof parsed !== 'object'
-                || parsed === null
-                || Array.isArray(parsed)
-                || !('dagId' in parsed)
-                || !('version' in parsed)
-                || !('nodes' in parsed)
-                || !('edges' in parsed)
-                || !('status' in parsed)
-                || typeof parsed.dagId !== 'string'
-                || typeof parsed.version !== 'number'
-                || !Array.isArray(parsed.nodes)
-                || !Array.isArray(parsed.edges)
-                || typeof parsed.status !== 'string'
-            ) {
-                return {
-                    ok: false,
-                    error: buildValidationError(
-                        'DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID',
-                        'Definition snapshot must be a valid DAG definition object'
-                    )
-                };
-            }
-            return {
-                ok: true,
-                value: parsed as IDagDefinition
-            };
-        } catch {
-            return {
-                ok: false,
-                error: buildValidationError(
-                    'DAG_VALIDATION_DEFINITION_SNAPSHOT_PARSE_FAILED',
-                    'Failed to parse definition snapshot JSON'
-                )
-            };
-        }
+        return { ok: true, value: { dagRunId: created.value.dagRunId, dagId: created.value.dagId, version: created.value.version, logicalDate: created.value.logicalDate, taskRunIds: existingTaskRuns.map((taskRun) => taskRun.taskRunId) } };
     }
 
     private generateDagRunId(dagId: string, logicalDate: string, rerunKey?: string): string {

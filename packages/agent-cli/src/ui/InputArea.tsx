@@ -1,0 +1,203 @@
+import React, { useState, useCallback, useMemo } from 'react';
+import { Box, Text, useInput } from 'ink';
+import CjkTextInput from './CjkTextInput.js';
+import WaveText from './WaveText.js';
+import type { CommandRegistry } from '../commands/command-registry.js';
+import type { ISlashCommand } from '../commands/types.js';
+import SlashAutocomplete from './SlashAutocomplete.js';
+
+interface IProps {
+  onSubmit: (value: string) => void;
+  isDisabled: boolean;
+  registry?: CommandRegistry;
+}
+
+/** Parse input to determine autocomplete state */
+function parseSlashInput(value: string): {
+  isSlash: boolean;
+  parentCommand: string;
+  filter: string;
+} {
+  if (!value.startsWith('/')) return { isSlash: false, parentCommand: '', filter: '' };
+  const afterSlash = value.slice(1);
+  const spaceIndex = afterSlash.indexOf(' ');
+  if (spaceIndex === -1) return { isSlash: true, parentCommand: '', filter: afterSlash };
+  const parent = afterSlash.slice(0, spaceIndex);
+  const rest = afterSlash.slice(spaceIndex + 1);
+  return { isSlash: true, parentCommand: parent, filter: rest };
+}
+
+/** Hook: manage autocomplete state */
+function useAutocomplete(
+  value: string,
+  registry: CommandRegistry | undefined,
+): {
+  showPopup: boolean;
+  filteredCommands: ISlashCommand[];
+  selectedIndex: number;
+  setSelectedIndex: React.Dispatch<React.SetStateAction<number>>;
+  isSubcommandMode: boolean;
+  setShowPopup: React.Dispatch<React.SetStateAction<boolean>>;
+} {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+
+  // Reset dismissed when input changes
+  const prevValueRef = React.useRef(value);
+  if (prevValueRef.current !== value) {
+    prevValueRef.current = value;
+    if (dismissed) setDismissed(false);
+  }
+
+  const parsed = parseSlashInput(value);
+  const isSubcommandMode = parsed.isSlash && parsed.parentCommand.length > 0;
+
+  const filteredCommands = useMemo(() => {
+    if (!registry || !parsed.isSlash || dismissed) return [];
+    if (isSubcommandMode) {
+      const subs = registry.getSubcommands(parsed.parentCommand);
+      if (subs.length === 0) return [];
+      if (!parsed.filter) return subs;
+      const lower = parsed.filter.toLowerCase();
+      return subs.filter((c) => c.name.toLowerCase().startsWith(lower));
+    }
+    return registry.getCommands(parsed.filter);
+  }, [registry, parsed.isSlash, parsed.parentCommand, parsed.filter, dismissed, isSubcommandMode]);
+
+  const showPopup = parsed.isSlash && filteredCommands.length > 0 && !dismissed;
+
+  // Clamp selectedIndex
+  if (selectedIndex >= filteredCommands.length && filteredCommands.length > 0) {
+    setSelectedIndex(filteredCommands.length - 1);
+  }
+
+  return {
+    showPopup,
+    filteredCommands,
+    selectedIndex,
+    setSelectedIndex,
+    isSubcommandMode,
+    setShowPopup: (val) => {
+      if (typeof val === 'function') {
+        setDismissed((prev) => {
+          const nextVal = (val as (prev: boolean) => boolean)(!prev);
+          return !nextVal;
+        });
+      } else {
+        setDismissed(!val);
+      }
+    },
+  };
+}
+
+/**
+ * Known limitation: Korean IME last character may be dropped on Enter.
+ * This is an Ink raw mode limitation — no compositionstart/compositionend
+ * events are available in terminal raw mode.
+ * Reference: https://github.com/anthropics/claude-code/issues/3045
+ */
+export default function InputArea({ onSubmit, isDisabled, registry }: IProps): React.ReactElement {
+  const [value, setValue] = useState('');
+
+  const {
+    showPopup,
+    filteredCommands,
+    selectedIndex,
+    setSelectedIndex,
+    isSubcommandMode,
+    setShowPopup,
+  } = useAutocomplete(value, registry);
+
+  const handleSubmit = useCallback(
+    (text: string): void => {
+      const trimmed = text.trim();
+      if (trimmed.length === 0) return;
+
+      if (showPopup && filteredCommands[selectedIndex]) {
+        selectCommand(filteredCommands[selectedIndex]);
+        return;
+      }
+
+      setValue('');
+      onSubmit(trimmed);
+    },
+    [showPopup, filteredCommands, selectedIndex, onSubmit],
+  );
+
+  const selectCommand = useCallback(
+    (cmd: ISlashCommand): void => {
+      const parsed = parseSlashInput(value);
+
+      // If in subcommand mode, execute parent + subcommand
+      if (parsed.parentCommand) {
+        const fullCommand = `/${parsed.parentCommand} ${cmd.name}`;
+        setValue('');
+        onSubmit(fullCommand);
+        return;
+      }
+
+      // If command has subcommands, enter subcommand mode
+      if (cmd.subcommands && cmd.subcommands.length > 0) {
+        setValue(`/${cmd.name} `);
+        setSelectedIndex(0);
+        return;
+      }
+
+      // Execute command directly
+      setValue('');
+      onSubmit(`/${cmd.name}`);
+    },
+    [value, onSubmit, setSelectedIndex],
+  );
+
+  useInput(
+    (
+      _input: string,
+      key: { upArrow: boolean; downArrow: boolean; escape: boolean; tab: boolean },
+    ) => {
+      if (!showPopup) return;
+
+      if (key.upArrow) {
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : filteredCommands.length - 1));
+      } else if (key.downArrow) {
+        setSelectedIndex((prev) => (prev < filteredCommands.length - 1 ? prev + 1 : 0));
+      } else if (key.escape) {
+        setShowPopup(false);
+      } else if (key.tab) {
+        const cmd = filteredCommands[selectedIndex];
+        if (cmd) selectCommand(cmd);
+      }
+    },
+    { isActive: showPopup && !isDisabled },
+  );
+
+  return (
+    <Box flexDirection="column">
+      {showPopup && (
+        <SlashAutocomplete
+          commands={filteredCommands}
+          selectedIndex={selectedIndex}
+          visible={showPopup}
+          isSubcommandMode={isSubcommandMode}
+        />
+      )}
+      <Box borderStyle="single" borderColor={isDisabled ? 'gray' : 'green'} paddingLeft={1}>
+        {isDisabled ? (
+          <WaveText text="  Waiting for response..." />
+        ) : (
+          <Box>
+            <Text color="green" bold>
+              {'> '}
+            </Text>
+            <CjkTextInput
+              value={value}
+              onChange={setValue}
+              onSubmit={handleSubmit}
+              placeholder="Type a message or /help"
+            />
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+}

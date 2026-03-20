@@ -1,4 +1,4 @@
 export type {
     IRunNodeTrace,
     IRunResult
-} from '../contracts/designer-api.js';
+} from '@robota-sdk/dag-core';

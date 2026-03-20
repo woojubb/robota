@@ -1,0 +1,25 @@
+# Default owner for all files
+* @woojubb
+
+# Core SDK packages
+packages/agents/ @woojubb
+packages/core/ @woojubb
+
+# DAG packages
+packages/dag-core/ @woojubb
+packages/dag-api/ @woojubb
+packages/dag-runtime/ @woojubb
+packages/dag-orchestrator/ @woojubb
+
+# Apps
+apps/web/ @woojubb
+apps/api-server/ @woojubb
+apps/dag-runtime-server/ @woojubb
+apps/dag-orchestrator-server/ @woojubb
+apps/dag-studio/ @woojubb
+
+# Harness and CI
+scripts/harness/ @woojubb
+.github/ @woojubb
+AGENTS.md @woojubb
+.agents/ @woojubb

@@ -2,9 +2,11 @@ import {
     AbstractNodeDefinition,
     BINARY_PORT_PRESETS,
     NodeIoAccessor,
+    createBinaryPortDefinition
+} from '@robota-sdk/dag-node';
+import {
     buildTaskExecutionError,
     buildValidationError,
-    createBinaryPortDefinition,
     type ICostEstimate,
     type IDagNodeDefinition,
     type IDagError,
@@ -29,6 +31,14 @@ function isImageBinary(input: TPortPayload): boolean {
 
 const OkEmitterConfigSchema = z.object({});
 
+/**
+ * DAG node used for testing that validates a binary image input and emits an "ok" status.
+ *
+ * Accepts a binary image on the `image` input port and outputs the string `"ok"` on
+ * the `status` output port when the image is valid.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class OkEmitterNodeDefinition extends AbstractNodeDefinition<typeof OkEmitterConfigSchema> {
     public readonly nodeType = 'ok-emitter';
     public readonly displayName = 'OK Emitter';
@@ -40,7 +50,7 @@ export class OkEmitterNodeDefinition extends AbstractNodeDefinition<typeof OkEmi
             order: 0,
             required: true,
             description: 'Binary image from upstream',
-            preset: BINARY_PORT_PRESETS.IMAGE_PNG
+            preset: BINARY_PORT_PRESETS.IMAGE_COMMON
         })
     ];
     public readonly outputs: IDagNodeDefinition['outputs'] = [
@@ -74,7 +84,7 @@ export class OkEmitterNodeDefinition extends AbstractNodeDefinition<typeof OkEmi
     }
 
     public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
-        return { ok: true, value: { estimatedCostUsd: 0 } };
+        return { ok: true, value: { estimatedCredits: 0 } };
     }
 
     protected override async executeWithConfig(

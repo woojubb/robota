@@ -3,6 +3,7 @@ import type { TDagRunStatus } from '../types/domain.js';
 import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
 
+/** Events that can trigger a DAG run state transition. */
 export type TDagRunTransitionEvent =
     | 'QUEUE'
     | 'START'
@@ -10,6 +11,7 @@ export type TDagRunTransitionEvent =
     | 'COMPLETE_FAILURE'
     | 'CANCEL';
 
+/** Result of a successful DAG run state transition. */
 export interface IDagRunTransitionValue {
     nextStatus: TDagRunStatus;
     domainEvents: string[];
@@ -45,6 +47,10 @@ function buildDomainEvent(nextStatus: TDagRunStatus): string {
     return `run.${nextStatus}`;
 }
 
+/**
+ * Finite state machine for DAG run status transitions.
+ * Enforces valid transitions and emits domain events on state change.
+ */
 export class DagRunStateMachine {
     public static transition(
         currentStatus: TDagRunStatus,

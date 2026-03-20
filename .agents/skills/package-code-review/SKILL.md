@@ -9,8 +9,6 @@ description: Systematic per-package code review using six specialist perspective
 - `AGENTS.md` > "Type System (Strict)"
 - `AGENTS.md` > "No Fallback Policy"
 - `AGENTS.md` > "Development Patterns"
-- `AGENTS.md` > "Code Review Focus Areas (dag-* packages)"
-- `AGENTS.md` > "Execution Safety"
 
 ## Use This Skill When
 - Reviewing an entire package for quality and compliance.
@@ -76,9 +74,13 @@ Each package is reviewed through six specialist perspectives, in order:
 ### 6. Maintainability
 - Test coverage for public API surface
 - Naming clarity (functions describe actions, variables describe content)
-- File size and complexity (flag files > 300 lines or functions > 50 lines)
+- File size: production files > 300 lines → **MUST** fix (split into focused modules)
+- Function size: functions > 50 lines → **MUST** fix (extract sub-operations)
+- Cyclomatic complexity: functions with > 15 branches → **SHOULD** simplify
 - Documentation accuracy (SPEC.md reflects current implementation)
 - Dead code (unused exports, unreachable branches)
+- Magic numbers/strings without named constants → **SHOULD** fix
+- Mutable function parameters → **MUST** fix (clone or create new objects)
 
 ## Execution Steps
 
@@ -124,6 +126,15 @@ Each package is reviewed through six specialist perspectives, in order:
 ### Positive Observations
 - Things done well that should be preserved.
 ```
+
+## DAG Package Review Checklist
+
+When reviewing `dag-*` packages, additionally check:
+
+1. Dependency direction: all imports flow toward `dag-core`; no cross-imports between sibling packages.
+2. Node implementation: extends `AbstractNodeDefinition`, uses `NodeIoAccessor`, proper error codes.
+3. Event naming: correct prefixes (`run.*`, `task.*`, `worker.*`, `scheduler.*`) and owned constants.
+4. State machine integrity: terminal states remain terminal unless an explicit policy gate allows reprocessing.
 
 ## Stop Conditions
 - Do not review test files, example files, or generated output (`.d.ts`, `dist/`).

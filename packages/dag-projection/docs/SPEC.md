@@ -19,7 +19,7 @@ deterministic from explicit fields -- no derived heuristics.
 Single-service architecture:
 
 - **ProjectionReadModelService** (`services/projection-read-model-service.ts`): Accepts `IStoragePort` via constructor. Provides three projection builders:
-  1. `buildRunProjection(dagRunId)` -- fetches `IDagRun` and its `ITaskRun[]`, computes a `ITaskStatusSummary` counting tasks by status.
+  1. `buildRunProjection(dagRunId)` -- fetches `IDagRun` and its `ITaskRun[]`, computes a `TTaskStatusSummary` counting tasks by status.
   2. `buildLineageProjection(dagRunId)` -- builds on top of run projection, fetches the definition, maps nodes and edges with optional task status overlay.
   3. `buildDashboardProjection(dagRunId)` -- combines run and lineage projections into a single response.
 
@@ -27,7 +27,7 @@ Single-service architecture:
 
 This package is SSOT for:
 
-- `ITaskStatusSummary` -- counts per task status (created, queued, running, success, failed, upstream_failed, skipped, cancelled)
+- `TTaskStatusSummary` -- counts per task status (created, queued, running, success, failed, upstream_failed, skipped, cancelled)
 - `IRunProjection` -- run projection (dagRun, taskRuns, taskStatusSummary)
 - `ILineageNodeProjection` -- lineage node (nodeId, nodeType, dependsOn, taskStatus?)
 - `ILineageEdgeProjection` -- lineage edge (from, to)

@@ -6,21 +6,25 @@ description: Runs the standard Robota change loop by identifying impact, buildin
 # Repository Change Loop
 
 ## Rule Anchor
+
 - `AGENTS.md` > "Build Requirements"
 - `AGENTS.md` > "Execution Safety"
 - `AGENTS.md` > "Harness Direction"
 
 ## Use This Skill When
+
 - Modifying code under `packages/*/src/` or `apps/*/src/`.
 - Changing execution paths, examples, or verification-related behavior.
 - Reviewing a change and deciding what must be built or verified.
 
 ## Preconditions
+
 - Identify the changed files.
 - Identify the affected package or app scope.
 - Determine whether the change touches execution paths, scenarios, examples, or public contracts.
 
 ## Execution Steps
+
 1. Classify the change scope:
    - code path
    - type surface
@@ -41,12 +45,14 @@ description: Runs the standard Robota change loop by identifying impact, buildin
    - any residual risks
 
 ## Stop Conditions
+
 - The affected package does not build.
 - A targeted test fails.
 - A scenario or example verification flow fails.
 - Logs include strict-policy or contract-violation signals that indicate the path is invalid.
 
 ## Checklist
+
 - [ ] Changed scope is identified before running commands.
 - [ ] Affected package build is run for package source changes.
 - [ ] Targeted tests or smoke checks are run for changed behavior.
@@ -54,11 +60,12 @@ description: Runs the standard Robota change loop by identifying impact, buildin
 - [ ] Final summary distinguishes verified vs unverified areas.
 
 ## Focused Examples
+
 ```bash
-pnpm --filter @robota-sdk/agents build
-pnpm --filter @robota-sdk/agents test
-pnpm --filter @robota-sdk/agents lint
-pnpm --filter @robota-sdk/agents exec tsc -p tsconfig.json --noEmit
+pnpm --filter @robota-sdk/agent-core build
+pnpm --filter @robota-sdk/agent-core test
+pnpm --filter @robota-sdk/agent-core lint
+pnpm --filter @robota-sdk/agent-core exec tsc -p tsconfig.json --noEmit
 ```
 
 ```bash
@@ -69,11 +76,13 @@ pnpm lint
 ```
 
 ## Anti-Patterns
+
 - Editing package source and skipping the build step.
 - Running the full workspace by habit when the affected scope is narrow and known.
 - Reporting success without saying what was actually verified.
 - Treating documentation reading as equivalent to verification.
 
 ## Related Harness Commands
+
 - Current: `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios]`, `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint`
 - Current review support: `pnpm harness:review -- --scope <packages/foo|apps/bar>`

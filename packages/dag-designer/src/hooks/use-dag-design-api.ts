@@ -1,19 +1,18 @@
 import { useMemo } from 'react';
 import type {
     IDagDefinition,
-    INodeManifest,
+    TObjectInfo,
     TResult,
     TPortPayload,
-    TRunProgressEvent
+    TRunProgressEvent,
+    IRunResult
 } from '@robota-sdk/dag-core';
+import type { IProblemDetails, IDefinitionListItem } from '@robota-sdk/dag-api';
 import {
     DesignerApiClient
 } from '../client/designer-api-client.js';
 import type {
-    IDefinitionListItem,
     IDesignerApiClient,
-    IRunResult,
-    IProblemDetails
 } from '../contracts/designer-api.js';
 
 export interface IUseDagDesignApiOptions {
@@ -51,14 +50,14 @@ export interface IUseDagDesignApi {
         dagId?: string;
         correlationId?: string;
     }) => Promise<TResult<IDefinitionListItem[], IProblemDetails[]>>;
-    listNodeCatalog: () => Promise<TResult<INodeManifest[], IProblemDetails[]>>;
+    listObjectInfo: () => Promise<TResult<TObjectInfo, IProblemDetails[]>>;
     createRun: (input: {
         definition: IDagDefinition;
         input?: TPortPayload;
         correlationId?: string;
-    }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
+    }) => Promise<TResult<{ preparationId: string }, IProblemDetails[]>>;
     startRun: (input: {
-        dagRunId: string;
+        preparationId: string;
         correlationId?: string;
     }) => Promise<TResult<{ dagRunId: string }, IProblemDetails[]>>;
     getRunResult: (input: {
@@ -66,7 +65,7 @@ export interface IUseDagDesignApi {
         correlationId?: string;
     }) => Promise<TResult<IRunResult, IProblemDetails[]>>;
     subscribeRunProgress: (input: {
-        dagRunId: string;
+        preparationId: string;
         onEvent: (event: TRunProgressEvent) => void;
         onError?: (error: Error) => void;
         maxReconnectAttempts?: number;
@@ -115,14 +114,14 @@ export function useDagDesignApi(options: IUseDagDesignApiOptions): IUseDagDesign
             dagId: input?.dagId,
             correlationId: input?.correlationId
         }),
-        listNodeCatalog: async () => client.listNodeCatalog(),
+        listObjectInfo: async () => client.listObjectInfo(),
         createRun: async (input) => client.createRun({
             definition: input.definition,
             input: input.input,
             correlationId: input.correlationId
         }),
         startRun: async (input) => client.startRun({
-            dagRunId: input.dagRunId,
+            preparationId: input.preparationId,
             correlationId: input.correlationId
         }),
         getRunResult: async (input) => client.getRunResult({

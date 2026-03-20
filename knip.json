@@ -1,0 +1,41 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.{mjs,js,ts}"],
+      "ignoreDependencies": [
+        "@changesets/cli",
+        "husky",
+        "lint-staged",
+        "prettier",
+        "typedoc",
+        "typedoc-plugin-markdown"
+      ]
+    },
+    "packages/*": {
+      "entry": ["src/index.ts"],
+      "ignore": ["**/examples/**", "**/__tests__/**", "**/*.test.ts", "**/*.spec.ts"]
+    },
+    "packages/dag-nodes/*": {
+      "entry": ["src/index.ts"],
+      "ignore": ["**/examples/**", "**/__tests__/**", "**/*.test.ts"]
+    },
+    "apps/agent-server": {
+      "entry": ["src/index.ts", "src/server.ts", "src/app.ts"],
+      "ignore": ["**/*.test.ts"]
+    },
+    "apps/dag-runtime-server": {
+      "entry": ["src/server.ts"],
+      "ignore": ["**/*.test.ts"]
+    },
+    "apps/dag-orchestrator-server": {
+      "entry": ["src/server.ts"],
+      "ignore": ["**/*.test.ts"]
+    },
+    "apps/web": {
+      "entry": ["src/app/**/*.{ts,tsx}"],
+      "jest": false,
+      "ignore": ["**/*.test.ts", "**/*.test.tsx"]
+    }
+  }
+}

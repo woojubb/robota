@@ -1,213 +1,145 @@
 ---
 layout: home
 title: Robota SDK
-description: A powerful TypeScript library for building AI agents with multi-provider support
+description: A TypeScript framework for building AI agents with multi-provider support
 lang: en-US
 ---
 
 # Robota SDK
 
-A powerful TypeScript library for building AI agents with multi-provider support, function calling, and tool integration.
+A TypeScript framework for building AI agents with multi-provider support, tool calling, and extensible plugin architecture.
 
-## 🚀 Why Choose Robota SDK?
+## Why Robota SDK?
 
-### 🎯 Streamlined Configuration
-- **Runtime Model Switching**: Switch between AI providers and models dynamically using `setModel()`
-- **Centralized Model Configuration**: Single source of truth for model settings through `defaultModel`
-
-### 🔒 Enterprise-Grade Type Safety
-- **100% TypeScript**: Complete type coverage with zero `any` types
-- **Compile-time Validation**: Catch errors before they reach production
-- **IntelliSense Everything**: Full IDE support for all APIs
-
-### ⚡ Performance & Efficiency
-- **Streaming Support**: Real-time responses from all providers with `runStream()`
-- **Built-in Analytics**: Monitor performance, costs, and usage patterns through plugins
-- **Conversation Management**: Built-in history tracking and context preservation
-
-### 🌐 True Multi-Provider Freedom
-- **Provider Agnostic**: Switch between OpenAI, Anthropic, and Google seamlessly
-- **Unified Interface**: Same code works with all providers
-- **Cross-Provider Workflows**: Mix different AI models in one workflow
-
-### 🌍 Universal Platform Support
-- **Cross-Platform**: Works in Node.js, browsers, and WebWorkers
-- **Zero Breaking Changes**: Existing code runs everywhere unchanged
-- **Framework Agnostic**: React, Vue, Svelte, or vanilla JavaScript
-- **Security First**: Proxy server patterns for secure browser deployment
-
-## Features
-
-- **Multi-Provider Support**: OpenAI, Anthropic, Google AI with seamless switching
-- **Cross-Platform Compatibility**: Node.js, browsers, WebWorkers support
-- **assignTask MCP Tools**: Use `@robota-sdk/team` for assignTask tool collection (team creation removed)
-- **Type-Safe Function Calling**: Zod schemas and tool integration
-- **Plugin System**: Extensible architecture with conversation history, analytics, and error handling plugins
-- **Streaming Support**: Real-time responses from all providers
-- **Conversation Management**: Built-in history and context management
-- **Team Workflow Analysis**: Generate flowcharts and relationship diagrams
-- **Modular Architecture**: Clean separation of concerns
+- **Type-Safe**: Strict TypeScript with zero `any` in production code
+- **Multi-Provider**: Anthropic Claude, OpenAI, Google — same API, seamless switching
+- **Tool Calling**: Zod-based schema validation for type-safe function calls
+- **Plugin System**: Extensible lifecycle hooks for logging, analytics, error handling
+- **Streaming**: Real-time text delta streaming from all providers
+- **CLI Ready**: Built-in coding assistant CLI with permission system and context management
 
 ## Quick Start
 
-### Single Agent
+### Build an Agent (agent-core)
+
 ```typescript
-import { Robota } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
+import { Robota } from '@robota-sdk/agent-core';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const robota = new Robota({
-    name: 'MyAssistant',
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4',
-        systemMessage: 'You are a helpful AI assistant.'
-    }
+const agent = new Robota({
+  name: 'MyAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
+    systemMessage: 'You are a helpful assistant.',
+  },
 });
 
-const response = await robota.run('Hello! How can I help you today?');
+const response = await agent.run('Explain TypeScript generics.');
 console.log(response);
 ```
 
-### assignTask MCP Tool Collection (team package)
+### Add Tools
+
 ```typescript
-import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
-import { Robota } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
+import { Robota } from '@robota-sdk/agent-core';
+import { FunctionTool, createZodFunctionTool } from '@robota-sdk/agent-tools';
+import { z } from 'zod';
 
-const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
-
-const tools = [
-    listTemplatesTool,
-    getTemplateDetailTool,
-    // NOTE: eventService must be ownerPath-bound by the caller in real flows
-    createAssignTaskRelayTool({ emit: () => undefined } as any)
-];
-
-const robota = new Robota({
-    name: 'Assistant',
-    aiProviders: [openaiProvider],
-    defaultModel: {
-        provider: 'openai',
-        model: 'gpt-4'
-    },
-    tools
+const calculatorTool = createZodFunctionTool({
+  name: 'calculator',
+  description: 'Perform arithmetic calculations',
+  schema: z.object({
+    expression: z.string().describe('Math expression to evaluate'),
+  }),
+  handler: async ({ expression }) => ({
+    data: String(eval(expression)),
+  }),
 });
 
-const result = await robota.run('Summarize the advantages of TypeScript for large codebases.');
-console.log(result);
-```
-
-### Browser Usage
-```typescript
-// Works the same way in browsers!
-import { Robota, LoggingPlugin } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
-
-const robota = new Robota({
-    name: 'BrowserAgent',
-    aiProviders: [
-        new OpenAIProvider({
-            apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY // or use proxy
-        })
-    ],
-    plugins: [
-        new LoggingPlugin({ strategy: 'console' }) // browser-friendly
-    ]
+const agent = new Robota({
+  name: 'ToolAgent',
+  aiProviders: [provider],
+  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  tools: [calculatorTool],
 });
 
-const response = await robota.run('Hello from browser!');
+const response = await agent.run('What is 42 * 17?');
 ```
+
+### Use the SDK (agent-sdk)
+
+```typescript
+import { query } from '@robota-sdk/agent-sdk';
+
+// One-shot query with automatic config/context loading
+const response = await query('List all TypeScript files in src/');
+```
+
+### Use the CLI (agent-cli)
+
+```bash
+npm install -g @robota-sdk/agent-cli
+robota                              # Interactive TUI
+robota -p "Explain this project"    # Print mode
+```
+
+## Architecture
+
+```
+agent-cli         ← Interactive terminal AI coding assistant
+  ↓
+agent-sdk         ← Assembly layer: config, context, session factory, query()
+  ↓
+agent-sessions    ← Session lifecycle: permissions, hooks, compaction
+agent-tools       ← Tool infrastructure + 8 built-in tools
+agent-providers   ← AI provider implementations
+  ↓
+agent-core        ← Foundation: Robota engine, abstractions, plugins
+```
+
+## Packages
+
+| Package                                                                        | Description                                            |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| [`@robota-sdk/agent-core`](./packages/agent-core/)                             | Core agent runtime, abstractions, and plugin system    |
+| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                           | Tool registry, FunctionTool, and 8 built-in tools      |
+| [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)                     | Session with permissions, hooks, and compaction        |
+| [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                               | Assembly layer with config/context loading and query() |
+| [`@robota-sdk/agent-provider-anthropic`](./packages/agent-provider-anthropic/) | Anthropic Claude provider                              |
+| [`@robota-sdk/agent-cli`](./packages/agent-cli/)                               | Interactive terminal AI coding assistant               |
+
+## Documentation
+
+- [Getting Started](./getting-started/) — Installation and first steps
+- [Guide](./guide/) — Architecture, building agents, SDK, CLI
+- [Examples](./examples/) — Working code samples
+- [Development](./development/) — Contributing and monorepo setup
 
 ## Installation
 
 ```bash
-# Core package
-npm install @robota-sdk/agents
+# Core — build custom agents
+npm install @robota-sdk/agent-core
 
-# AI Providers (choose one or more)
-npm install @robota-sdk/openai openai
-npm install @robota-sdk/anthropic @anthropic-ai/sdk
-npm install @robota-sdk/google @google/generative-ai
+# Provider
+npm install @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
+# npm install @robota-sdk/agent-provider-openai openai        # not yet published
+# npm install @robota-sdk/agent-provider-google @google/generative-ai  # not yet published
 
-# assignTask tool collection (team package)
-npm install @robota-sdk/team
+# Tools — FunctionTool, Zod tools, built-in CLI tools
+npm install @robota-sdk/agent-tools
+
+# SDK — assembly layer with query() and createSession()
+npm install @robota-sdk/agent-sdk
+
+# CLI — terminal AI coding assistant
+npm install -g @robota-sdk/agent-cli
 ```
-
-## 📦 Package Ecosystem
-
-### @robota-sdk/agents
-**The Core Intelligence Hub**
-- 🧠 Complete agent implementation with plugin system
-- 🔌 Extensible architecture for custom functionality
-- 📊 Built-in performance monitoring and analytics
-- 🛠️ Type-safe tool integration framework
-
-### @robota-sdk/openai
-**OpenAI Integration Excellence**
-- ✨ Full GPT-4, GPT-3.5 model support
-- 🔄 Automatic retry with exponential backoff
-- 📈 Token usage tracking and optimization
-- 🖼️ Vision model support (GPT-4V)
-
-### @robota-sdk/anthropic
-**Claude AI Mastery**
-- 🎭 Claude 3.5 Sonnet & Claude 3 family support
-- 📚 100K+ token context window handling
-- 🧪 Advanced reasoning capabilities
-- 🔒 Privacy-focused AI interactions
-
-### @robota-sdk/google
-**Google AI Innovation**
-- 🌟 Gemini 1.5 Pro & Flash models
-- 🎨 Native multimodal support
-- 📏 1M+ token context capability
-- 🚀 Fastest response times
-
-### @robota-sdk/team
-**assignTask Tool Collection**
-- MCP-style tools: listTemplateCategories, listTemplates, getTemplateDetail, assignTask
-- Built-in templates stored in package JSON
-- Team creation removed; use Robota agents + assignTask tools instead
-
-## Documentation
-
-### For Users
-- **[Getting Started](getting-started/)** - Installation, setup, and basic usage
-- **[Guide](guide/)** - Core concepts and advanced features
-- **[AI Providers](providers/)** - OpenAI, Anthropic, Google AI configuration
-- **[Examples](examples/)** - Comprehensive examples and tutorials
-- **[assignTask Tooling](team.md)** - assignTask MCP tool collection (team creation removed)
-- **[Protocols](protocols/)** - Model Context Protocol and integrations
-
-### For Developers
-- **[Development](development/)** - Development guidelines and setup
-- **[Project](project/)** - Project roadmap and information
-- **[Packages](packages/)** - Individual package documentation
-
-## Supported Providers
-
-| Provider | Models | Features | Best For |
-|----------|--------|----------|----------|
-| **OpenAI** | GPT-4, GPT-3.5 | Function calling, streaming, vision | General purpose, code generation |
-| **Anthropic** | Claude 3.5 Sonnet, Claude 3 | Large context, advanced reasoning | Complex analysis, ethical considerations |
-| **Google** | Gemini 1.5 Pro, Gemini Flash | Multimodal, long context | Speed, multimedia processing |
-
-## assignTask Tool Collection
-
-- **MCP-style tools** - `listTemplateCategories`, `listTemplates`, `getTemplateDetail`, `assignTask`
-- **Bundled templates** - JSON templates shipped with `@robota-sdk/team`
-- **No team creation APIs** - Use Robota agents + tools; relationships come from events/ownerPath only
-
-## 🎯 Key Benefits
-
-- **Rapid Development**: Build AI agents with minimal boilerplate code
-- **Type Safety**: Complete TypeScript coverage with zero `any` types
-- **Provider Flexibility**: Easy switching between OpenAI, Anthropic, and Google AI
-- **Extensible Architecture**: Plugin system for custom functionality
 
 ## License
 
-MIT License - see LICENSE file for details. 
+MIT

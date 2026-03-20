@@ -1,10 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   build:
@@ -16,24 +14,26 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 0
+
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
-      
+
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
-      
+
       - name: Build packages
         run: pnpm run build:deps
-      
+
       - name: Type check
         if: matrix.node-version == '22.x'
         run: pnpm run typecheck
@@ -42,5 +42,17 @@ jobs:
         if: matrix.node-version == '22.x'
         run: pnpm run lint
 
-      - name: Test
-        run: pnpm run test 
+      - name: Harness scan
+        if: matrix.node-version == '22.x'
+        run: pnpm run harness:scan
+
+      - name: Harness verify changed scopes
+        if: matrix.node-version == '22.x'
+        run: pnpm run harness:verify -- --base-ref origin/${{ github.base_ref }}
+
+      - name: Test with coverage
+        run: pnpm run test -- --coverage --coverage.thresholds.lines=80
+
+      - name: Security audit
+        if: matrix.node-version == '22.x'
+        run: pnpm audit --audit-level high

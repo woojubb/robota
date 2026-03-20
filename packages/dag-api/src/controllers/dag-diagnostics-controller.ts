@@ -28,6 +28,7 @@ function countFailureCodes(failedTaskRuns: ITaskRun[]): IFailureCodeCount[] {
     return Array.from(counts.entries()).map(([code, count]) => ({ code, count }));
 }
 
+/** Policy configuration controlling which diagnostics operations are enabled. */
 export interface IDiagnosticsPolicy {
     reinjectEnabled: boolean;
 }
@@ -46,6 +47,10 @@ function buildPolicyError(
     };
 }
 
+/**
+ * API controller for DAG diagnostics operations: failure analysis, rerun, and DLQ reinject.
+ * @see IDiagnosticsPolicy
+ */
 export class DagDiagnosticsController {
     public constructor(
         private readonly runQuery: RunQueryService,
@@ -54,6 +59,11 @@ export class DagDiagnosticsController {
         private readonly policy: IDiagnosticsPolicy = { reinjectEnabled: false }
     ) {}
 
+    /**
+     * Analyzes failures in a DAG run, returning failed tasks and error code counts.
+     * @param request - The failure analysis request.
+     * @returns Failure analysis data or problem details on error.
+     */
     public async analyzeFailure(
         request: IAnalyzeFailureRequest
     ): Promise<TDiagnosticsApiResponse<IFailureAnalysis>> {
@@ -83,6 +93,11 @@ export class DagDiagnosticsController {
         };
     }
 
+    /**
+     * Triggers a manual rerun of a previously executed DAG run.
+     * @param request - The rerun request with source run ID and input.
+     * @returns New run identifiers or problem details on error.
+     */
     public async rerun(
         request: IRerunRequest
     ): Promise<TDiagnosticsApiResponse<{
@@ -137,6 +152,11 @@ export class DagDiagnosticsController {
         };
     }
 
+    /**
+     * Reinjects a dead letter queue item back into the main processing queue.
+     * @param request - The reinject request with worker ID and visibility timeout.
+     * @returns Reinject status or problem details if disabled by policy.
+     */
     public async reinjectDeadLetter(
         request: IReinjectDeadLetterRequest
     ): Promise<TDiagnosticsApiResponse<{ reinjected: boolean; taskRunId?: string }>> {
