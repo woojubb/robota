@@ -12,7 +12,8 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own permissions/hooks — imported from `@robota-sdk/agent-core`
 - Does NOT own config/context loading — imported from `@robota-sdk/agent-sdk`
 - Does NOT own AI provider — imported from `@robota-sdk/agent-provider-anthropic`
-- OWNS: Ink TUI components, ITerminalOutput, permission-prompt (terminal UI), CLI argument parsing
+- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-sessions` (permission-enforcer.ts). agent-cli has a local duplicate in `src/types.ts` that should eventually import from agent-sessions.
+- OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, slash command registry
 
 ## Architecture
 
@@ -30,7 +31,8 @@ bin.ts → cli.ts (arg parsing)
                     └── Session (from @robota-sdk/agent-sessions)
 ```
 
-Dependency chain: `agent-cli → agent-sdk → agent-sessions → agent-tools → agent-core`
+Dependency chain: `agent-cli → agent-sdk → agent-sessions → agent-core`
+`→ agent-tools ──→ agent-core`
 
 ## StatusBar Display
 
@@ -162,14 +164,14 @@ Each `SKILL.md` may contain YAML frontmatter with `name` and `description` field
 
 ## Type Ownership
 
-| Type               | Location                | Purpose                         |
-| ------------------ | ----------------------- | ------------------------------- |
-| ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface       |
-| ISpinner           | `src/types.ts`          | Spinner handle                  |
-| IChatMessage       | `src/ui/types.ts`       | UI message model                |
-| IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state   |
-| ISlashCommand      | `src/commands/types.ts` | Slash command entry definition  |
-| ICommandSource     | `src/commands/types.ts` | Interface for command providers |
+| Type               | Location                | Purpose                                                        |
+| ------------------ | ----------------------- | -------------------------------------------------------------- |
+| ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface (duplicate — SSOT is agent-sessions) |
+| ISpinner           | `src/types.ts`          | Spinner handle (duplicate — SSOT is agent-sessions)            |
+| IChatMessage       | `src/ui/types.ts`       | UI message model                                               |
+| IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                                  |
+| ISlashCommand      | `src/commands/types.ts` | Slash command entry definition                                 |
+| ICommandSource     | `src/commands/types.ts` | Interface for command providers                                |
 
 ## Public API Surface
 
@@ -197,10 +199,13 @@ src/
     ├── App.tsx                      ← Main layout, Session creation, state management
     ├── render.tsx                   ← Ink render() invocation
     ├── MessageList.tsx              ← Conversation message list (Robota: label)
-    ├── InputArea.tsx                ← Bottom fixed input (ink-text-input), slash detection
+    ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection
     ├── StatusBar.tsx                ← Mode, model, context %, message count, Thinking
     ├── PermissionPrompt.tsx         ← Allow/Deny arrow-key selection (useInput)
     ├── SlashAutocomplete.tsx        ← Command autocomplete popup (scroll, highlight)
+    ├── CjkTextInput.tsx             ← Custom text input with Korean IME support
+    ├── WaveText.tsx                 ← Wave color animation for waiting indicator
+    ├── render-markdown.ts           ← Markdown rendering for terminal output
     ├── InkTerminal.ts               ← No-op ITerminalOutput
     └── types.ts                     ← IChatMessage, IPermissionRequest
 ```
@@ -229,13 +234,17 @@ Session logging is enabled by default. Log files are written to `.robota/logs/{s
 
 ## Known Limitations
 
-- **Korean IME (Input Method Editor)**: Ink's raw mode does not fully support Korean IME composition. This is a known upstream limitation shared with Claude Code (see Claude Code issue #3045). Composed Korean characters may not display correctly during input.
+- **Korean IME (Input Method Editor)**: Ink's raw mode does not fully support Korean IME composition. This is a known upstream limitation shared with Claude Code (see Claude Code issue #3045). A custom `CjkTextInput` component (replacing `ink-text-input`) mitigates the most common issues using refs-based state management, but edge cases remain on Terminal.app.
 
 ## Dependencies
 
-| Package                 | Purpose                         |
-| ----------------------- | ------------------------------- |
-| `@robota-sdk/agent-sdk` | Session, query, config, context |
-| `ink`, `react`          | TUI rendering                   |
-| `ink-text-input`        | Text input                      |
-| `chalk`                 | Terminal colors                 |
+| Package                   | Purpose                                    |
+| ------------------------- | ------------------------------------------ |
+| `@robota-sdk/agent-sdk`   | Session factory, query, config, context    |
+| `@robota-sdk/agent-core`  | Types (TPermissionMode, TToolArgs)         |
+| `ink`, `react`            | TUI rendering                              |
+| `ink-select-input`        | Arrow-key selection (permission prompt)    |
+| `ink-spinner`             | Loading spinner                            |
+| `chalk`                   | Terminal colors                            |
+| `marked`, `cli-highlight` | Markdown rendering and syntax highlighting |
+| `string-width`            | Unicode-aware string width calculation     |

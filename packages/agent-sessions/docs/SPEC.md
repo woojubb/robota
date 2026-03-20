@@ -52,6 +52,8 @@ Types owned by this package (SSOT):
 | `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`              |
 | `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                         |
 | `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                     |
+| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                            |
+| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, unknown>`)               |
 | `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages)            |
 
 Types consumed from other packages (not owned here):
@@ -87,7 +89,10 @@ Types consumed from other packages (not owned here):
 | `TPermissionResult`      | Type      | Permission decision result                                             |
 | `ITerminalOutput`        | Interface | Terminal I/O abstraction                                               |
 | `ISpinner`               | Interface | Spinner handle                                                         |
+| `ISessionLogger`         | Interface | Pluggable session event logger interface                               |
+| `TSessionLogData`        | Type      | Structured log event data                                              |
 | `ISessionRecord`         | Interface | Persisted session record shape                                         |
+| `IContextWindowState`    | Type      | Context window usage state (re-exported from agent-core)               |
 
 ### Key Session Methods
 
@@ -175,6 +180,7 @@ None. Classes are standalone.
 | `IAIProvider` (agent-core)        | `Session`                | `src/session.ts`                 |
 | `evaluatePermission` (agent-core) | `PermissionEnforcer`     | `src/permission-enforcer.ts`     |
 | `runHooks` (agent-core)           | `PermissionEnforcer`     | `src/permission-enforcer.ts`     |
+| `runHooks` (agent-core)           | `Session`                | `src/session.ts` (PostCompact)   |
 | `runHooks` (agent-core)           | `CompactionOrchestrator` | `src/compaction-orchestrator.ts` |
 
 ## Test Strategy
@@ -189,7 +195,7 @@ None. Classes are standalone.
 - **PermissionEnforcer** -- `wrapTools()`, `checkPermission()`, session-scoped allow, tool truncation are untested.
 - **ContextWindowTracker** -- `updateFromHistory()`, `shouldAutoCompact()`, metadata vs fallback estimation are untested.
 - **CompactionOrchestrator** -- `compact()`, hook firing, prompt building are untested.
-- **SessionStore** -- `save()`, `load()`, `list()`, `delete()`, directory creation, and malformed file handling are untested.
+- **SessionStore** -- Covered by `agent-sdk/src/__tests__/session-store.test.ts` (12 tests: save/load/list/delete/directory creation).
 - All classes should be testable with mock `IAIProvider` and mock `ITerminalOutput` injections.
 
 ## Dependencies
