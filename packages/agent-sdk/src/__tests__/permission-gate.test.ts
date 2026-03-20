@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { evaluatePermission } from '../permissions/permission-gate.js';
-import type { TToolArgs } from '../permissions/permission-gate.js';
-import type { TPermissionMode, TPermissionDecision } from '../types.js';
+import { evaluatePermission } from '@robota-sdk/agent-core';
+import type { TToolArgs } from '@robota-sdk/agent-core';
+import type { TPermissionMode, TPermissionDecision } from '@robota-sdk/agent-core';
 
 // ---------------------------------------------------------------------------
 // Mode × tool matrix

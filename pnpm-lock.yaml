@@ -1155,12 +1155,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: workspace:*
-        version: link:../agent-provider-anthropic
-      '@robota-sdk/agent-tools':
-        specifier: workspace:*
-        version: link:../agent-tools
     devDependencies:
       eslint:
         specifier: ^8.56.0

@@ -33,6 +33,8 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Never mutate function parameters directly. Clone or create new objects instead.
 - No magic numbers or strings. Use named constants with descriptive names. Exceptions: `0`, `1`, `-1` as array/math primitives.
 - Production files should not exceed 300 lines. Functions should not exceed 50 lines. Exceptions require justification in code review.
+- **Parallel collection invariant.** When two or more collections must maintain a 1:1 relationship (e.g., items and their descriptions, tools and their configs), they must be structurally coupled into a single data structure (array of objects, Map, or tuple). Maintaining separate parallel arrays is prohibited — desynchronization is a guaranteed bug.
+- **Post-event hook timing.** Post-event hooks and completion callbacks must fire only after the operation's all state mutations (history replacement, token recalculation, persistence) are fully complete. Firing mid-operation causes observers to see inconsistent state and masks failures in subsequent steps.
 
 ### Layered Assembly Architecture
 
@@ -58,3 +60,4 @@ agent-cli         ← UI layer: consumes SDK, adds terminal UI
 - **Composition over integration.** Features should be assembled from existing building blocks (plugins, event service, tool registry) rather than baked into a single class. A 500-line Session class with hardcoded file I/O is a design smell.
 - **Interface-first extension.** When adding a capability (e.g., session logging), define the interface in agent-core, implement in a plugin or session package, and wire in agent-sdk. Never implement directly in the consuming layer.
 - **Side concerns are injectable.** Any behavior that could vary by deployment (logging destination, storage path, analytics) must be injected, not imported directly.
+- **Factory context auto-forwarding.** When a factory function receives a config/context object, optional parameters derivable from that object must use it as the default value (`options.x ?? context.x`). Callers must not be required to manually extract and forward values that the factory already has access to. Explicit overrides take precedence.

@@ -8,8 +8,7 @@ import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import { loadConfig } from './config/config-loader.js';
 import { loadContext } from './context/context-loader.js';
 import { detectProject } from './context/project-detector.js';
-import { buildSystemPrompt } from './context/system-prompt-builder.js';
-import { Session } from '@robota-sdk/agent-sessions';
+import { createSession } from './assembly/create-session.js';
 import { promptForApproval } from './permissions/permission-prompt.js';
 
 export interface IQueryOptions {
@@ -48,11 +47,11 @@ export async function query(prompt: string, options?: IQueryOptions): Promise<st
     spinner: () => ({ stop: () => {}, update: () => {} }),
   };
 
-  const session = new Session({
+  const session = createSession({
     config,
     context,
     terminal: noopTerminal,
-    projectInfo: projectInfo as { type: string; language: string },
+    projectInfo,
     permissionMode: options?.permissionMode ?? 'bypassPermissions',
     maxTurns: options?.maxTurns,
     provider: options?.provider,
@@ -60,13 +59,6 @@ export async function query(prompt: string, options?: IQueryOptions): Promise<st
     onTextDelta: options?.onTextDelta,
     onCompact: options?.onCompact,
     compactInstructions: context.compactInstructions,
-    systemPromptBuilder: buildSystemPrompt as (params: {
-      agentsMd: string;
-      claudeMd: string;
-      toolDescriptions: string[];
-      trustLevel: 'safe' | 'moderate' | 'full';
-      projectInfo: { type: string; language: string };
-    }) => string,
     promptForApproval: promptForApproval,
   });
 
