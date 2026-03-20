@@ -1,0 +1,106 @@
+# CLI Reference
+
+`@robota-sdk/agent-cli` is an interactive terminal AI coding assistant built on Robota SDK. It loads project context (AGENTS.md, CLAUDE.md) and provides a full TUI with tool execution, permission prompts, and context management.
+
+## Installation
+
+```bash
+npm install -g @robota-sdk/agent-cli
+```
+
+## Usage
+
+```bash
+robota                              # Interactive TUI
+robota "initial prompt"             # TUI with initial message
+robota -p "prompt"                  # Print mode (one-shot, exits after response)
+robota -c                           # Continue last session
+robota -r <session-id>              # Resume specific session
+robota --model claude-opus-4-6      # Model override
+robota --permission-mode plan       # Permission mode override
+robota --max-turns 10               # Limit agentic turns
+robota --version                    # Show version
+```
+
+## Interactive TUI
+
+The TUI (built with React + Ink) provides:
+
+- **Message list** — Conversation history with markdown rendering
+- **Input area** — Text input with slash command autocomplete
+- **Status bar** — Permission mode, model, context usage %, message count
+- **Permission prompts** — Arrow-key Allow/Deny selection for tool calls
+- **Streaming** — Real-time text output as the model responds
+
+## Slash Commands
+
+Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Enter to select.
+
+| Command                   | Description                    |
+| ------------------------- | ------------------------------ |
+| `/help`                   | Show available commands        |
+| `/clear`                  | Clear conversation history     |
+| `/mode [mode]`            | Show or change permission mode |
+| `/model [model]`          | Show or change AI model        |
+| `/compact [instructions]` | Compress context window        |
+| `/cost`                   | Show session info              |
+| `/context`                | Context window details         |
+| `/permissions`            | Show permission rules          |
+| `/exit`                   | Exit CLI                       |
+
+`/mode` and `/model` show nested submenus for selection.
+
+### Skill Commands
+
+Skills discovered from `.agents/skills/*/SKILL.md` (project) and `~/.claude/skills/*/SKILL.md` (user) appear as additional slash commands below the built-in commands.
+
+## Permission Modes
+
+| Mode                | Read | Write  | Bash   |
+| ------------------- | ---- | ------ | ------ |
+| `plan`              | auto | deny   | deny   |
+| `default`           | auto | prompt | prompt |
+| `acceptEdits`       | auto | auto   | prompt |
+| `bypassPermissions` | auto | auto   | auto   |
+
+When a tool requires approval, the TUI shows a permission prompt with arrow-key selection.
+
+## Context Window
+
+The status bar shows context usage with color coding:
+
+| Range  | Color  | Meaning                         |
+| ------ | ------ | ------------------------------- |
+| 0–69%  | Green  | Healthy                         |
+| 70–89% | Yellow | Approaching limit               |
+| 90%+   | Red    | Near limit, compaction imminent |
+
+Auto-compaction triggers at ~83.5% of the model's context window. Use `/compact` with optional instructions for manual compaction:
+
+```
+/compact focus on the API design decisions
+```
+
+## Session Logging
+
+Events are logged to `.robota/logs/{sessionId}.jsonl` in JSONL format. Events include `session_init`, `pre_run`, `assistant`, `server_tool`, and `context`.
+
+## Configuration
+
+The CLI uses the same 3-layer configuration as the SDK:
+
+1. `~/.robota/settings.json` (user global)
+2. `.robota/settings.json` (project)
+3. `.robota/settings.local.json` (local override, gitignored)
+
+See [Using the SDK — Configuration](./sdk.md#configuration) for the full config format.
+
+## Tool Output Limits
+
+- Tool output is capped at 30,000 characters (middle-truncated)
+- Glob tool defaults to a maximum of 1,000 entries per invocation
+
+## Known Limitations
+
+- **Korean IME**: Ink's raw mode does not fully support Korean IME composition. A custom `CjkTextInput` component mitigates common issues, but edge cases remain on Terminal.app.
+- **Abort propagation**: `session.abort()` rejects the run promise but does not cancel the underlying provider API call.
