@@ -1,6 +1,6 @@
 ---
 title: Fix harness:scan scenario record scope errors
-status: backlog
+status: completed
 priority: medium
 created: 2026-03-20
 packages:

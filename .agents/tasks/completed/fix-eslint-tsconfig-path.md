@@ -1,6 +1,6 @@
 ---
 title: Fix ESLint tsconfig path error in agent-core
-status: backlog
+status: completed
 priority: medium
 created: 2026-03-20
 packages:
