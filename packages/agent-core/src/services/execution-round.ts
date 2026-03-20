@@ -420,7 +420,7 @@ export async function executeRound(
   // round and this round would otherwise concatenate without any line break.
   if (currentRound > 1 && 'onTextDelta' in resolved.provider) {
     const cb = (resolved.provider as { onTextDelta?: (delta: string) => void }).onTextDelta;
-    if (cb) cb('\n');
+    if (cb) cb('\n\n');
   }
 
   const response = await callProviderWithCache(
