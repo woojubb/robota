@@ -62,14 +62,22 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 
 ## Public API Surface
 
-| Export                                  | Kind             | Source                           | Description                                                                                                                                            |
-| --------------------------------------- | ---------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `AnthropicProvider`                     | class            | `src/provider.ts`                | Anthropic provider implementing `AbstractAIProvider`. Methods: `chat()`, `chatStream()`, `supportsTools()`, `validateConfig()`, `dispose()`.           |
-| `AnthropicResponseParser`               | class            | `src/parsers/response-parser.ts` | Static utility for parsing Anthropic API responses and streaming chunks into `TUniversalMessage`. Methods: `parseResponse()`, `parseStreamingChunk()`. |
-| `IAnthropicProviderOptions`             | interface        | `src/types.ts`                   | Configuration options for constructing `AnthropicProvider`. Fields: `apiKey`, `timeout`, `baseURL`, `client`, `executor`, plus index signature.        |
-| `TAnthropicProviderOptionValue`         | type alias       | `src/types.ts`                   | Union type for valid provider option values.                                                                                                           |
-| `createAnthropicProvider`               | function         | `src/index.ts`                   | Factory function for creating an Anthropic provider (stub implementation).                                                                             |
-| All types from `src/types/api-types.ts` | interfaces/types | `src/types/api-types.ts`         | Anthropic API type definitions (messages, requests, tools, streaming, errors). Exported transitively via `src/types.ts` re-export pattern.             |
+| Export                                  | Kind             | Source                           | Description                                                                                                                                     |
+| --------------------------------------- | ---------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AnthropicProvider`                     | class            | `src/provider.ts`                | Anthropic provider implementing `AbstractAIProvider`. Methods: `chat()`, `chatStream()`, `supportsTools()`, `validateConfig()`, `dispose()`.    |
+| ~~`AnthropicResponseParser`~~           | class (internal) | `src/parsers/response-parser.ts` | Internal static utility — not exported from `src/index.ts`. Used by `AnthropicProvider` internally for response/streaming parsing.              |
+| `IAnthropicProviderOptions`             | interface        | `src/types.ts`                   | Configuration options for constructing `AnthropicProvider`. Fields: `apiKey`, `timeout`, `baseURL`, `client`, `executor`, plus index signature. |
+| `TAnthropicProviderOptionValue`         | type alias       | `src/types.ts`                   | Union type for valid provider option values.                                                                                                    |
+| `createAnthropicProvider`               | function (stub)  | `src/index.ts`                   | Stub — currently returns `void`. Not yet implemented; placeholder for future factory pattern.                                                   |
+| All types from `src/types/api-types.ts` | interfaces/types | `src/types/api-types.ts`         | Anthropic API type definitions (messages, requests, tools, streaming, errors). Exported transitively via `src/types.ts` re-export pattern.      |
+
+### AnthropicProvider Public Instance Fields
+
+| Field             | Type                                                    | Default | Description                                                       |
+| ----------------- | ------------------------------------------------------- | ------- | ----------------------------------------------------------------- |
+| `enableWebTools`  | `boolean`                                               | `false` | When true, includes `web_search_20250305` server tool in requests |
+| `onTextDelta`     | `TTextDeltaCallback \| undefined`                       | —       | Streaming text delta callback for real-time output                |
+| `onServerToolUse` | `(name: string, input: Record<string, string>) => void` | —       | Callback when server-managed tool executes during streaming       |
 
 ## Web Search Support
 
@@ -78,12 +86,16 @@ The provider supports Anthropic's server-side web search tool:
 - **`enableWebTools` flag** -- When set to `true` in chat options, includes the `web_search_20250305` server tool in API requests. This is a server-managed tool (not a `FunctionTool`) that Anthropic executes during response generation.
 - **`onServerToolUse` callback** -- Fires when a server tool executes during streaming. The callback receives the tool name and input (e.g., query string). Consumers use this to display search status indicators.
 - **Streaming block handling** -- The streaming parser handles `server_tool_use` and `web_search_tool_result` content blocks. When a `server_tool_use` block is encountered, the provider emits a search indicator (e.g., "Searching...").
-- **`formatWebSearchResults()`** -- Utility function that converts raw web search result blocks into human-readable text with source URLs and snippets.
+- **`formatWebSearchResults()`** -- Private method on `AnthropicProvider` that converts raw web search result blocks into human-readable text with source URLs and snippets.
 
 ## SDK Version and Message Format
 
 - **Anthropic SDK**: `@anthropic-ai/sdk` v0.80.0 (upgraded from v0.24.3).
 - **System message extraction**: System messages are extracted from the message array and sent via the dedicated `system` parameter in the API request, rather than being included as a `role: user` message. This follows the current Anthropic API best practice.
+- **`chat()` vs `chatStream()` asymmetry**: `chat()` applies `enableWebTools`, system message extraction, and `onServerToolUse` callbacks. `chatStream()` does NOT apply these features — it uses the native SDK streaming API directly without server tool support. This is a known limitation.
+- **Response parsing**: Two parsing paths coexist — `convertFromAnthropicResponse()` (inline in provider, used by `chat()`) and `AnthropicResponseParser` (separate class, used by `chatStream()`). They have minor behavioral differences (e.g., `null` vs `''` for tool-only content).
+- **Local API types**: `IAnthropicStreamChunk` and other types in `api-types.ts` were written before migration to the native Anthropic SDK. The provider's streaming code now uses native SDK event types directly; local API types are partially unused but retained for backward compatibility.
+- **`validateConfig()` edge case**: Returns `false` for executor-based providers (no client/apiKey) even though the provider is functional. This is a known gap.
 
 ## Extension Points
 
@@ -116,15 +128,15 @@ None. This package has no local interface implementations.
 
 ### Inheritance Chains
 
-| Base (Owner)                  | Derived             | Location          | Notes                           |
-| ----------------------------- | ------------------- | ----------------- | ------------------------------- |
-| `AbstractAIProvider` (agents) | `AnthropicProvider` | `src/provider.ts` | Primary provider implementation |
+| Base (Owner)                      | Derived             | Location          | Notes                           |
+| --------------------------------- | ------------------- | ----------------- | ------------------------------- |
+| `AbstractAIProvider` (agent-core) | `AnthropicProvider` | `src/provider.ts` | Primary provider implementation |
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                  | Adapter             | Location          |
-| ----------------------------- | ------------------- | ----------------- |
-| `AbstractAIProvider` (agents) | `AnthropicProvider` | `src/provider.ts` |
+| Port (Owner)                      | Adapter             | Location          |
+| --------------------------------- | ------------------- | ----------------- |
+| `AbstractAIProvider` (agent-core) | `AnthropicProvider` | `src/provider.ts` |
 
 ## Test Strategy
 
