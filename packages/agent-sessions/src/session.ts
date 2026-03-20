@@ -8,9 +8,9 @@
  * - Internal concerns delegated to PermissionEnforcer, ContextWindowTracker, CompactionOrchestrator.
  */
 
-import { Robota } from '@robota-sdk/agent-core';
+import { Robota, runHooks } from '@robota-sdk/agent-core';
 import type { IAgentConfig, IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
-import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
+import type { TPermissionMode, TToolArgs, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
 import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 import type { SessionStore, ISessionRecord } from './session-store.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
@@ -87,6 +87,8 @@ export class Session {
   private readonly cwd: string;
   private readonly aiProvider: IAIProvider;
   private readonly model: string;
+  private readonly hooks?: Record<string, unknown>;
+  private readonly onCompactCallback?: (summary: string) => void;
   private readonly sessionLogger?: ISessionLogger;
   private readonly permissionEnforcer: PermissionEnforcer;
   private readonly contextTracker: ContextWindowTracker;
@@ -101,6 +103,8 @@ export class Session {
     this.sessionStore = sessionStore;
     this.cwd = process.cwd();
     this.sessionLogger = options.sessionLogger;
+    this.hooks = options.hooks;
+    this.onCompactCallback = options.onCompact;
     this.model = options.model ?? 'claude-sonnet-4-5';
     this.sessionId = `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
 
@@ -144,7 +148,6 @@ export class Session {
       cwd: this.cwd,
       model: this.model,
       hooks: options.hooks,
-      onCompact: options.onCompact,
       compactInstructions: options.compactInstructions,
     });
 
@@ -368,6 +371,8 @@ export class Session {
     const history = this.robota.getHistory();
     if (history.length === 0) return;
 
+    const trigger: 'auto' | 'manual' = instructions !== undefined ? 'manual' : 'auto';
+
     const summary = await this.compactionOrchestrator.compact(
       this.aiProvider,
       history,
@@ -382,6 +387,21 @@ export class Session {
 
     // Reset token tracking based on the new shorter history
     this.contextTracker.updateFromHistory(this.robota.getHistory());
+
+    // Fire PostCompact hook after history replacement is complete
+    const postHookInput: IHookInput = {
+      session_id: this.sessionId,
+      cwd: this.cwd,
+      hook_event_name: 'PostCompact',
+      trigger,
+      compact_summary: summary,
+    };
+    runHooks(this.hooks as THooksConfig | undefined, 'PostCompact', postHookInput).catch(() => {});
+
+    // Notify via callback after compaction is fully complete
+    if (this.onCompactCallback) {
+      this.onCompactCallback(summary);
+    }
   }
 
   /** Clear conversation history */

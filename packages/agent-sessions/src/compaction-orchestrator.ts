@@ -18,7 +18,6 @@ export interface ICompactionOptions {
   cwd: string;
   model: string;
   hooks?: Record<string, unknown>;
-  onCompact?: (summary: string) => void;
   compactInstructions?: string;
 }
 
@@ -27,7 +26,6 @@ export class CompactionOrchestrator {
   private readonly cwd: string;
   private readonly model: string;
   private readonly hooks?: Record<string, unknown>;
-  private readonly onCompactCallback?: (summary: string) => void;
   private readonly compactInstructions?: string;
 
   constructor(options: ICompactionOptions) {
@@ -35,7 +33,6 @@ export class CompactionOrchestrator {
     this.cwd = options.cwd;
     this.model = options.model;
     this.hooks = options.hooks;
-    this.onCompactCallback = options.onCompact;
     this.compactInstructions = options.compactInstructions;
   }
 
@@ -74,21 +71,6 @@ export class CompactionOrchestrator {
     );
     const summary =
       typeof summaryMessage.content === 'string' ? summaryMessage.content : '(compaction failed)';
-
-    // Fire PostCompact hook
-    const postHookInput: IHookInput = {
-      session_id: this.sessionId,
-      cwd: this.cwd,
-      hook_event_name: 'PostCompact',
-      trigger,
-      compact_summary: summary,
-    };
-    runHooks(this.hooks as THooksConfig | undefined, 'PostCompact', postHookInput).catch(() => {});
-
-    // Notify via callback
-    if (this.onCompactCallback) {
-      this.onCompactCallback(summary);
-    }
 
     return summary;
   }

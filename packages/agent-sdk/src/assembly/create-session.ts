@@ -103,7 +103,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     onTextDelta: options.onTextDelta,
     promptForApproval: options.promptForApproval,
     onCompact: options.onCompact,
-    compactInstructions: options.compactInstructions,
+    compactInstructions: options.compactInstructions ?? options.context.compactInstructions,
     sessionLogger: options.sessionLogger,
   });
 }
