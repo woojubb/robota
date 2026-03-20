@@ -317,6 +317,14 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 
 `ErrorUtils` provides `isRecoverable()`, `getErrorCode()`, `fromUnknown()`, and `wrapProviderError()`.
 
+### Execution Loop Error Handling
+
+When the execution loop ends without a final assistant text message (e.g., due to context overflow mid-loop or max turn limit during tool execution), `ExecutionService.buildFinalResult()` must:
+
+1. **Not throw** — return a partial result with an error indicator instead
+2. **Preserve conversation history** — all messages up to the point of failure remain in the session
+3. **Return a descriptive response** — e.g., `"(execution interrupted: <reason>)"` so the caller can display it
+
 ## Class Contract Registry
 
 ### Interface Implementations

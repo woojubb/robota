@@ -395,16 +395,16 @@ export class ExecutionService {
   ): IExecutionResult {
     const finalMessages = conversationSession.getMessages();
     const lastAssistantMessage = finalMessages.filter((msg) => msg.role === 'assistant').pop();
-    if (
-      !lastAssistantMessage ||
-      typeof lastAssistantMessage.content !== 'string' ||
-      lastAssistantMessage.content.length === 0
-    ) {
-      throw new Error('[EXECUTION] Final assistant message is required');
-    }
+    const hasValidResponse: boolean =
+      !!lastAssistantMessage &&
+      typeof lastAssistantMessage.content === 'string' &&
+      lastAssistantMessage.content.length > 0;
+    const response: string = hasValidResponse
+      ? (lastAssistantMessage!.content as string)
+      : '(execution interrupted: no final assistant response — possible context overflow or max turn limit)';
     const duration = Date.now() - startTime.getTime();
     return {
-      response: lastAssistantMessage.content,
+      response,
       messages: finalMessages.map((msg) => {
         if (typeof msg.content !== 'string')
           throw new Error('[EXECUTION] Message content is required');
@@ -432,7 +432,7 @@ export class ExecutionService {
           return sum;
         }, 0),
       toolsExecuted,
-      success: true,
+      success: hasValidResponse,
     };
   }
 
