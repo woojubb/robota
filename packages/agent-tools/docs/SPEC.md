@@ -90,6 +90,8 @@ Types owned by this package (SSOT):
 
 Each built-in tool is an `IToolWithEventService`-compatible object with `getName()`, `getDescription()`, `getSchema()`, and `execute()` methods.
 
+**WriteTool output**: Reports actual UTF-8 byte count via `Buffer.byteLength(content, 'utf8')`, not JS `content.length` (which is character count and differs for multibyte content).
+
 ### TToolResult Shape
 
 ```typescript

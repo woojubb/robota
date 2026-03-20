@@ -84,6 +84,22 @@ The StatusBar shows real-time session information:
 
 When auto-compaction triggers (at ~83.5% threshold), the UI shows a system message notifying the user.
 
+## Tool Call Display
+
+After each `session.run()` completes, tool calls from the session history are extracted and displayed as a single grouped message:
+
+```
+Tool: [5 tools]
+
+  Read(/Users/jungyoun/Documents/dev/robota/.agents/tasks/apps-web-sep...)
+  Bash(ls -la .agents/tasks/)
+  Glob(**/*.md)
+```
+
+- All tool calls from a run are grouped into one `role: 'tool'` message
+- Format: `ToolName(firstArgValue)` — first argument value extracted from JSON, truncated to 80 chars
+- Displayed after the assistant response in the message list
+
 ## Slash Commands
 
 | Command                   | Description                 |
