@@ -12,39 +12,47 @@ Owns the remote execution system for Robota SDK. Provides client-side `RemoteExe
 
 ## Architecture Overview
 
-Two entry points: `./` (browser/client) and `./server` (Node.js server).
+Two entry points: `./` (browser/client, resolved via `browser.ts`) and `./server` (Node.js server, resolved via `server.ts`).
 
 **Client side**: `SimpleRemoteExecutor` composes `HttpClient` for HTTP communication, validates requests, and maps responses to `IAssistantMessage`/`TUniversalMessage`. Supports both chat and streaming execution.
 
 **Server side**: `RemoteServer` creates an Express router with `/health`, `/providers`, `/chat`, `/stream`, and `/providers/:provider/capabilities` endpoints. Delegates to registered `IAIProvider` instances.
 
-**Transport layer**: `ITransport` interface with `HttpTransport` and `SimpleWebSocketTransport` implementations. `TransportError` provides structured transport-level errors.
+**Transport layer**: `ITransport` interface with `HttpTransport` (internal) and `SimpleWebSocketTransport` implementations. `TransportError` provides structured transport-level errors. `HttpTransport` is used internally and is not exported from the public entry point.
 
 ## Type Ownership
 
-This package is SSOT for:
+This package is SSOT for the following types. Types marked **public** are exported from the `.` or `./server` entry points; others are internal SSOT used within this package.
 
-- `IBasicMessage`, `IRequestMessage`, `IResponseMessage`, `IEnhancedResponseMessage` -- message types.
-- `IHttpRequest`, `IHttpResponse`, `IHttpError`, `THttpMethod` -- HTTP types.
-- `ITransport`, `ITransportCapabilities`, `ITransportConfig`, `TransportError` -- transport contracts.
-- `ISimpleRemoteConfig` -- client executor configuration.
-- `IHttpClientConfig` -- HTTP client configuration.
-- `IRemoteServerConfig` -- server configuration.
-- `IRemoteConfig`, `IHealthStatus`, `IUserContext`, `IProviderStatus` -- shared configuration/status types.
-- `IChatRequestBody`, `IChatResponseData`, `ITransportRequest`, `ITransportResponse` -- transport payload shapes.
-- `IExtendedAssistantMessage`, `IExtendedChatExecutionRequest`, `IExtendedStreamExecutionRequest` -- extended request/response types.
-- `CommunicationProtocol` -- supported protocol enum.
-- `IPlaygroundWebSocketMessage`, `TPlaygroundWebSocketMessageKind` -- playground WebSocket message contract.
+- `IBasicMessage`, `IRequestMessage`, `IResponseMessage` -- message types (**public** from `.`).
+- `IHttpRequest`, `IHttpResponse`, `IHttpError`, `THttpMethod` -- HTTP types (**public** from `.`).
+- `IPlaygroundWebSocketMessage`, `TPlaygroundWebSocketMessageKind` -- playground WebSocket message contract (**public** from `.`).
+- `ITransport`, `ITransportCapabilities`, `ITransportConfig`, `TransportError` -- transport contracts (internal).
+- `ISimpleRemoteConfig` -- client executor configuration (internal).
+- `IHttpClientConfig` -- HTTP client configuration (internal).
+- `IRemoteServerConfig` -- server configuration (internal).
+- `IRemoteConfig`, `IHealthStatus`, `IUserContext`, `IProviderStatus` -- shared configuration/status types (internal).
+- `IChatRequestBody`, `IChatResponseData`, `ITransportRequest`, `ITransportResponse` -- transport payload shapes (internal).
+- `IExtendedAssistantMessage`, `IExtendedChatExecutionRequest`, `IExtendedStreamExecutionRequest` -- extended request/response types (internal).
+- `CommunicationProtocol` -- supported protocol enum (internal).
+- `IEnhancedResponseMessage` -- enhanced message type (internal).
+
+Note: `src/shared/types.ts` re-exports some `@robota-sdk/agent-core` types as compatibility shims. These re-exports are internal plumbing and do not represent SSOT ownership.
 
 ## Public API Surface
 
-| Export                                        | Kind      | Entry      | Description                              |
-| --------------------------------------------- | --------- | ---------- | ---------------------------------------- |
-| `RemoteExecutor` (`SimpleRemoteExecutor`)     | class     | `.`        | `IExecutor` for remote AI provider calls |
-| `HttpClient`                                  | class     | `.`        | Low-level HTTP client                    |
-| `WebSocketTransport`                          | class     | `.`        | WebSocket transport implementation       |
-| `toRequestMessage`, `toResponseMessage`, etc. | functions | `.`        | Pure utility transformers                |
-| `RemoteServer`                                | class     | `./server` | Express-based provider proxy server      |
+| Export                                                                | Kind      | Entry      | Description                              |
+| --------------------------------------------------------------------- | --------- | ---------- | ---------------------------------------- |
+| `RemoteExecutor` (`SimpleRemoteExecutor`)                             | class     | `.`        | `IExecutor` for remote AI provider calls |
+| `HttpClient`                                                          | class     | `.`        | Low-level HTTP client                    |
+| `WebSocketTransport` (`SimpleWebSocketTransport`)                     | class     | `.`        | WebSocket transport implementation       |
+| `toRequestMessage`, `toResponseMessage`, etc.                         | functions | `.`        | Pure utility transformers                |
+| `IBasicMessage`, `IRequestMessage`, `IResponseMessage`, `ITokenUsage` | types     | `.`        | Message types                            |
+| `IHttpRequest`, `IHttpResponse`, `IHttpError`, `THttpMethod`          | types     | `.`        | HTTP types                               |
+| `IPlaygroundWebSocketMessage`, `TPlaygroundWebSocketMessageKind`      | types     | `.`        | Playground WebSocket types               |
+| `RemoteServer`                                                        | class     | `./server` | Express-based provider proxy server      |
+
+Note: `HttpTransport` is not exported from the public entry point. It is used internally by the transport layer.
 
 ## Extension Points
 
@@ -69,11 +77,11 @@ This package is SSOT for:
 
 ### Interface Implementations
 
-| Interface            | Implementor                | Kind       | Location                               |
-| -------------------- | -------------------------- | ---------- | -------------------------------------- |
-| `IExecutor` (agents) | `SimpleRemoteExecutor`     | production | `src/client/remote-executor-simple.ts` |
-| `ITransport`         | `HttpTransport`            | production | `src/transport/http-transport.ts`      |
-| `ITransport`         | `SimpleWebSocketTransport` | production | `src/transport/websocket-transport.ts` |
+| Interface            | Implementor                | Kind       | Location                                      |
+| -------------------- | -------------------------- | ---------- | --------------------------------------------- |
+| `IExecutor` (agents) | `SimpleRemoteExecutor`     | production | `src/client/remote-executor-simple.ts`        |
+| `ITransport`         | `HttpTransport`            | production | `src/transport/http-transport.ts`             |
+| `ITransport`         | `SimpleWebSocketTransport` | production | `src/transport/websocket-transport-simple.ts` |
 
 ### Inheritance Chains
 
@@ -91,8 +99,11 @@ This package is SSOT for:
 
 ## Test Strategy
 
-- **Unit tests**: 3 test files under `src/client/__tests__/` and `src/utils/__tests__/`:
-  - `http-client.test.ts` -- HTTP client request/response handling.
-  - `remote-executor-simple.test.ts` -- executor validation and chat execution.
-  - `transformers.test.ts` -- pure utility function tests.
-- **Coverage gaps**: No tests for `RemoteServer`, WebSocket transport, or streaming paths.
+- **Unit tests**: 12 test files covering client, transport, server, shared types, and utilities:
+  - `src/client/__tests__/`: `http-client.test.ts`, `http-client-chat.test.ts`, `remote-executor-simple.test.ts`, `request-handler-simple.test.ts`
+  - `src/transport/__tests__/`: `http-transport.test.ts`, `websocket-transport-simple.test.ts`, `websocket-utils.test.ts`, `transport-error.test.ts`
+  - `src/server/__tests__/remote-server.test.ts` -- RemoteServer route handling
+  - `src/utils/__tests__/transformers.test.ts` -- pure utility function tests
+  - `src/shared/__tests__/types.test.ts` -- shared type validation
+  - `src/__tests__/exports.test.ts` -- public entry point exports
+- **Coverage gaps**: Streaming paths have limited coverage.

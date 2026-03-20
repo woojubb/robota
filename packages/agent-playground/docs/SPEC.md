@@ -13,7 +13,7 @@ Owns the Robota Playground UI package: React components, hooks, executor logic, 
 
 ## Architecture Overview
 
-Facade-pattern executor (`PlaygroundExecutor`) wraps Robota agent instances for browser-based execution. AI providers are constructed with a `RemoteExecutor` so API keys stay server-side. Two plugins (`PlaygroundHistoryPlugin`, `PlaygroundStatisticsPlugin`) collect conversation events and UX metrics. React hooks (`usePlaygroundBoot`, `usePlaygroundData`, `useRobotaExecution`, etc.) provide state management. A `PlaygroundWebSocketClient` enables real-time communication with the API server. Tool catalog (`ToolRegistry`) provides built-in playground tools created via factory functions.
+Facade-pattern executor (`PlaygroundExecutor`) wraps Robota agent instances for browser-based execution. AI providers are constructed with a `RemoteExecutor` so API keys stay server-side. Two plugins (`PlaygroundHistoryPlugin`, `PlaygroundStatisticsPlugin`) are standalone classes that collect conversation events and UX metrics. React hooks (`usePlaygroundBoot`, `usePlaygroundData`, `useRobotaExecution`, etc.) provide state management; these hooks are used internally by the React components and are not part of the public package API. A `PlaygroundWebSocketClient` enables real-time communication with the API server. Block-tracking layer (`PlaygroundBlockCollector`, `LLMTracker`, `PlaygroundBlockVisualizationSubscriber`) handles execution block collection and real-time visualization data. Tool catalog (`ToolRegistry`) provides built-in playground tools created via factory functions; it is used internally and is not exported from the public entry point.
 
 ## Type Ownership
 
@@ -32,14 +32,14 @@ This package is SSOT for:
 
 ## Public API Surface
 
-| Export               | Kind            | Description                                                     |
-| -------------------- | --------------- | --------------------------------------------------------------- |
-| `PlaygroundApp`      | React component | Full playground application shell                               |
-| `PlaygroundDemo`     | React component | Demo-mode playground                                            |
-| `PlaygroundExecutor` | class           | Agent lifecycle and execution facade                            |
-| `usePlaygroundBoot`  | hook            | Boot state management                                           |
-| Various hooks        | hooks           | `usePlaygroundData`, `useRobotaExecution`, `useChatInput`, etc. |
-| `ToolRegistry`       | object          | Built-in tool factory registry                                  |
+| Export               | Kind            | Description                                                        |
+| -------------------- | --------------- | ------------------------------------------------------------------ |
+| `PlaygroundApp`      | React component | Full playground application shell                                  |
+| `PlaygroundDemo`     | React component | Demo-mode playground                                               |
+| `PlaygroundExecutor` | class           | Agent lifecycle and execution facade (re-exported from services)   |
+| `usePlaygroundBoot`  | hook            | Boot state management (internal — not exported from package entry) |
+
+Note: `usePlaygroundData`, `useRobotaExecution`, `useChatInput`, and `ToolRegistry` are used internally by the package's own components and are not exported from the public entry point (`src/index.ts → src/playground/index.ts`).
 
 ## Extension Points
 
@@ -63,26 +63,22 @@ Runtime errors: `'No active agent to execute prompt'`, `'Server URL and auth tok
 
 ### Interface Implementations
 
-| Interface                   | Implementor                | Kind       | Location                          |
-| --------------------------- | -------------------------- | ---------- | --------------------------------- |
-| `IPlaygroundBlockCollector` | `PlaygroundBlockCollector` | production | `src/executor/block-collector.ts` |
+| Interface                   | Implementor                | Kind       | Location                                               |
+| --------------------------- | -------------------------- | ---------- | ------------------------------------------------------ |
+| `IPlaygroundBlockCollector` | `PlaygroundBlockCollector` | production | `src/lib/playground/block-tracking/block-collector.ts` |
 
 ### Inheritance Chains
 
-| Base (Owner)              | Derived                      | Location                           | Notes               |
-| ------------------------- | ---------------------------- | ---------------------------------- | ------------------- |
-| `AbstractPlugin` (agents) | `PlaygroundStatisticsPlugin` | `src/plugins/statistics-plugin.ts` | UX metrics          |
-| `AbstractPlugin` (agents) | `PlaygroundHistoryPlugin`    | `src/plugins/history-plugin.ts`    | Conversation events |
+None. `PlaygroundStatisticsPlugin` and `PlaygroundHistoryPlugin` are standalone classes that do not extend any base class.
 
 ### Cross-Package Port Consumers
 
-| Port (Owner)                           | Consumer                                                | Location                              |
-| -------------------------------------- | ------------------------------------------------------- | ------------------------------------- |
-| `Robota` (agents)                      | `PlaygroundExecutor`                                    | `src/executor/playground-executor.ts` |
-| `AbstractPlugin` (agents)              | `PlaygroundStatisticsPlugin`, `PlaygroundHistoryPlugin` | `src/plugins/`                        |
-| `FunctionTool` (agents)                | Tool factory functions                                  | `src/tools/`                          |
-| `RemoteExecutor` (remote)              | `PlaygroundExecutor`                                    | `src/executor/playground-executor.ts` |
-| `IPlaygroundWebSocketMessage` (remote) | `PlaygroundWebSocketClient`                             | `src/websocket/`                      |
+| Port (Owner)                           | Consumer                    | Location                                 |
+| -------------------------------------- | --------------------------- | ---------------------------------------- |
+| `Robota` (agents)                      | `PlaygroundExecutor`        | `src/lib/playground/robota-executor.ts`  |
+| `FunctionTool` (agents)                | Tool factory functions      | `src/tools/`                             |
+| `RemoteExecutor` (remote)              | `PlaygroundExecutor`        | `src/lib/playground/robota-executor.ts`  |
+| `IPlaygroundWebSocketMessage` (remote) | `PlaygroundWebSocketClient` | `src/lib/playground/websocket-client.ts` |
 
 ## Test Strategy
 
