@@ -84,13 +84,12 @@ describe('WriteTool', () => {
 
   // --- P0: output reports content.length (JS chars, not bytes) ---
 
-  it('reports character count (content.length) for multibyte content', async () => {
+  it('reports correct byte count for multibyte content', async () => {
     const filePath = join(tmpDir, 'multibyte.txt');
     const content = '한글테스트'; // 5 chars, 15 bytes in UTF-8
     const result = await run({ filePath, content });
     expect(result.success).toBe(true);
-    // The implementation uses content.length which is JS char count (5), not byte count (15)
-    expect(result.output).toContain(String(content.length));
+    expect(result.output).toContain('15 bytes');
   });
 
   // --- P1: write to path where directory name conflicts ---
