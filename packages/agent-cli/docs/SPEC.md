@@ -221,8 +221,7 @@ src/
 │   ├── builtin-source.ts            ← BuiltinCommandSource (9 commands + subcommands)
 │   ├── skill-source.ts              ← SkillCommandSource (discovers from .agents/skills/)
 │   └── command-registry.ts          ← CommandRegistry (aggregates multiple sources)
-├── permissions/
-│   └── permission-prompt.ts         ← Terminal Allow/Deny prompt
+├── permissions/                      ← (empty — prompt imported from @robota-sdk/agent-sdk)
 └── ui/
     ├── App.tsx                      ← Main layout, Session creation, state management
     ├── render.tsx                   ← Ink render() invocation

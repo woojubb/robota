@@ -1,7 +1,7 @@
 /**
- * Permission prompt — this is now CLI-specific.
- * Re-exported here for backward compatibility.
- * The canonical implementation lives in @robota-sdk/agent-cli.
+ * Interactive permission prompt — asks the user whether to allow a tool invocation
+ * using an arrow-key selector. Canonical implementation (SSOT).
+ * Used by both agent-sdk query() and agent-cli.
  */
 
 import chalk from 'chalk';

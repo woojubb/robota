@@ -1,6 +1,6 @@
 ---
 title: Skill discovery and slash command execution
-status: in-progress
+status: completed
 priority: high
 created: 2026-03-21
 packages:
