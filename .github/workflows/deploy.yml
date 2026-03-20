@@ -49,7 +49,7 @@ jobs:
         run: pnpm --filter @robota-sdk/agent-web run test:ci
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: apps/web/coverage/lcov.info
           flags: web
