@@ -231,6 +231,9 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 18  | Maintaining separate parallel arrays that must stay in sync      | Use a single data structure (array of objects, Map); see `code-quality.md`      |
 | 19  | Firing post-event hooks before state mutation is complete        | Post hooks/callbacks fire only after all side effects are done                  |
 | 20  | Factory ignoring values available in its config/context object   | Use `options.x ?? context.x`; see `code-quality.md` Layered Assembly            |
+| 21  | Refactoring code without updating SPEC.md                        | Reverse verify SPEC after boundary-affecting refactors; see `process.md`        |
+| 22  | SPEC hardcoding another package's counts or details              | Reference owning SPEC or describe only observable facts; see `process.md`       |
+| 23  | Defining identical interface/type independently in two packages  | One SSOT owner, others import; see `code-quality.md` Type System                |
 
 ## Conflict Scan Commands
 

@@ -12,6 +12,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - `I*` prefix is for interfaces only. `T*` prefix is for type aliases only. Type aliases with `I*` prefix or interfaces with `T*` prefix are naming violations and must be renamed.
 - In test files (`*.test.ts`, `*.spec.ts`), `any` and `unknown` may be used only for mocks or boundary fixtures.
 - Follow owner-based SSOT: every concept has exactly one owner module. Import from the owner's public surface and never re-declare owned contracts.
+- **No cross-package type duplication.** Defining structurally identical interfaces or types independently in multiple packages is prohibited. One package owns the SSOT; others import or re-export. If importing would create a circular dependency, move the type to a lower-level package (e.g., agent-core).
 - To use another package's type: import and use it directly, or re-export it (`export type { X } from`). Do not create a wrapper alias.
 - A new type that structurally overlaps with an existing type is allowed only when the package cannot expose the original (e.g., exposing only a subset of fields, decoupling from an internal dependency). The new type must have a distinct name that reflects its narrowed purpose.
 - Trivial 1:1 type aliases (`type X = Y`) are prohibited. Union, intersection, mapped, and conditional types are valid uses of type aliases.

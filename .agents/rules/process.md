@@ -23,6 +23,18 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - A spec change without conformance verification is an incomplete change.
 - See [`spec-code-conformance`](../skills/spec-code-conformance/SKILL.md) skill for the full procedure.
 
+### Reverse Spec Verification (Code → Spec)
+
+- Any refactoring that affects package boundaries (dependency changes, export additions/removals, class splits/moves) MUST be followed by a reverse verification of the affected package's SPEC.md.
+- The verification checks that the SPEC still accurately describes the current code — not just that the code matches the spec.
+- A refactoring without updated SPEC.md is an incomplete change, same as a spec change without conformance verification.
+
+### Cross-Package SPEC Reference Policy
+
+- SPEC.md MUST NOT hardcode counts, lists, or implementation details owned by another package (e.g., "6 built-in tools" when the tools are owned by a different package).
+- When referencing another package's details, either reference the owning package's SPEC or describe only what is observable from the current package's own code.
+- If cross-package details must be stated, annotate with the owning package name so staleness can be tracked (e.g., "8 built-in tools (per agent-tools)").
+
 ### No Fallback Policy
 
 - Fallback logic is prohibited. There must be a single, correct, verifiable path.
