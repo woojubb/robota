@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { writeTool } from '@robota-sdk/agent-tools';
@@ -80,5 +80,24 @@ describe('WriteTool', () => {
 
     const written = await readFile(filePath, 'utf8');
     expect(written).toBe(content);
+  });
+
+  // --- P0: output reports content.length (JS chars, not bytes) ---
+
+  it('reports correct byte count for multibyte content', async () => {
+    const filePath = join(tmpDir, 'multibyte.txt');
+    const content = '한글테스트'; // 5 chars, 15 bytes in UTF-8
+    const result = await run({ filePath, content });
+    expect(result.success).toBe(true);
+    expect(result.output).toContain('15 bytes');
+  });
+
+  // --- P1: write to path where directory name conflicts ---
+
+  it('errors when writing to a path that is a directory', async () => {
+    const dirPath = join(tmpDir, 'adir');
+    await mkdir(dirPath, { recursive: true });
+    const result = await run({ filePath: dirPath, content: 'test' });
+    expect(result.success).toBe(false);
   });
 });
