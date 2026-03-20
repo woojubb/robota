@@ -8,11 +8,12 @@ export type {
   TPermissionResult,
   ITerminalOutput,
   ISpinner,
-  IResolvedConfig,
-  ILoadedContext,
-  IProjectInfo,
-  ISystemPromptParams,
 } from './session.js';
+
+// Sub-components (exported for advanced use cases)
+export { PermissionEnforcer } from './permission-enforcer.js';
+export { ContextWindowTracker } from './context-window-tracker.js';
+export { CompactionOrchestrator } from './compaction-orchestrator.js';
 
 // Context window state (re-exported from agent-core for convenience)
 export type { IContextWindowState } from '@robota-sdk/agent-core';

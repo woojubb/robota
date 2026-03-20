@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import { Session, FileSessionLogger, projectPaths } from '@robota-sdk/agent-sdk';
+import { createSession, FileSessionLogger, projectPaths } from '@robota-sdk/agent-sdk';
+import type { Session } from '@robota-sdk/agent-sdk';
 import type {
   IResolvedConfig,
   ILoadedContext,
@@ -106,7 +107,7 @@ function useSession(props: IProps): {
     };
 
     const paths = projectPaths(props.cwd ?? process.cwd());
-    sessionRef.current = new Session({
+    sessionRef.current = createSession({
       config: props.config,
       context: props.context,
       terminal: NOOP_TERMINAL,

@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { bashTool } from '../tools/bash-tool.js';
-import type { TToolResult } from '../types.js';
+import { bashTool } from '@robota-sdk/agent-tools';
+import type { TToolResult } from '@robota-sdk/agent-tools';
 import type { TToolParameters } from '@robota-sdk/agent-core';
 
 async function run(params: TToolParameters): Promise<TToolResult> {

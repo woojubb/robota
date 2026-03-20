@@ -8,16 +8,18 @@ How `@robota-sdk/agent-cli` is composed from lower-level packages.
 ┌─────────────────────────────────────────────────────────────┐
 │                      agent-cli                               │
 │  Terminal UI (React + Ink), slash commands, permission UX     │
-│  Assembles: FileSessionLogger → Session → render()           │
+│  Assembles: createSession() → FileSessionLogger → render()   │
 └──────────────┬──────────────────────────┬────────────────────┘
                │                          │
                ▼                          ▼
 ┌──────────────────────────┐   ┌──────────────────────┐
 │        agent-sdk         │   │     agent-core       │
 │  Assembly layer:         │   │  (direct dep for     │
-│  config, context,        │   │   type imports only)  │
-│  system prompt builder,  │   └──────────────────────┘
-│  re-exports              │
+│  createSession(),        │   │   type imports only)  │
+│  createDefaultTools(),   │   └──────────────────────┘
+│  createProvider(),       │
+│  config, context,        │
+│  system prompt builder   │
 └──────────┬───────────────┘
            │ composes
      ┌─────┼──────────┬─────────────────┐
@@ -29,8 +31,9 @@ How `@robota-sdk/agent-cli` is composed from lower-level packages.
 │ Session │ │ Bash, Read │ │ AnthropicProvider     │ │ Robota   │
 │ Logger  │ │ Write,Edit │ │ (Anthropic SDK)       │ │ Plugins  │
 │ Store   │ │ Glob, Grep │ │ Streaming             │ │ Events   │
-│         │ │ WebFetch   │ │ Server tools          │ │ DI       │
-│         │ │ WebSearch  │ │                       │ │          │
+│Enforcer │ │ WebFetch   │ │ Server tools          │ │ DI       │
+│Tracker  │ │ WebSearch  │ │                       │ │          │
+│Compactor│ │            │ │                       │ │          │
 └────┬────┘ └─────┬──────┘ └───────────┬───────────┘ └────┬─────┘
      │            │                    │                   │
      └────────────┴────────────────────┴───────────────────┘
@@ -49,6 +52,8 @@ How `@robota-sdk/agent-cli` is composed from lower-level packages.
                     └──────────────┘
 ```
 
+**Key change:** `agent-sessions` now depends only on `agent-core`. Tools and provider dependencies moved to `agent-sdk` (assembly layer).
+
 ## Layer Responsibilities
 
 ### Layer 0: agent-core (Foundation)
@@ -61,20 +66,21 @@ How `@robota-sdk/agent-cli` is composed from lower-level packages.
 
 - **agent-tools** — Built-in tool implementations (Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch). Depends on core for `IToolWithEventService`.
 - **agent-provider-anthropic** — Anthropic AI provider (chat, streaming, server tools). Depends on core for `IAIProvider`.
-- **agent-sessions** — Session lifecycle (Session class, ISessionLogger, SessionStore). Depends on core + tools + provider.
+- **agent-sessions** — Generic session lifecycle (Session, PermissionEnforcer, ContextWindowTracker, CompactionOrchestrator, SessionStore). Depends on core only. Accepts tools and provider as constructor arguments.
 
 ### Layer 2: agent-sdk (Assembly)
 
-- **Composes** sessions + tools + provider + core into a coherent SDK
+- **Assembles** tools + provider + system prompt → Session via `createSession()`
+- **Factories:** `createDefaultTools()`, `createProvider()`, `createSession()`
 - **Adds** config loading, context loading, system prompt building
-- **Re-exports** everything consumers need from a single entry point
+- **Exports** assembly functions + backward-compatible re-exports
 - **Rule:** SDK is the composition layer. It wires building blocks but adds minimal logic.
 
 ### Layer 3: agent-cli (UI)
 
-- **Consumes** SDK public API only
+- **Consumes** SDK public API (primarily `createSession()`)
 - **Adds** React + Ink terminal UI, slash commands, permission prompt UX, streaming display
-- **Assembles at startup:** Creates `FileSessionLogger`, `SessionStore`, `Session` via SDK, renders UI
+- **Assembles at startup:** Creates `FileSessionLogger`, `SessionStore`, calls `createSession()`, renders UI
 - **Rule:** CLI must not use core internals that should come through SDK/sessions.
 
 ## Assembly Flow (CLI Startup)
@@ -84,19 +90,24 @@ How `@robota-sdk/agent-cli` is composed from lower-level packages.
 2. CLI loads config + context         (via agent-sdk)
 3. CLI creates FileSessionLogger      (from agent-sessions, via agent-sdk)
 4. CLI creates SessionStore           (from agent-sessions, via agent-sdk)
-5. CLI creates Session({              (from agent-sessions, via agent-sdk)
+5. CLI calls createSession({          (from agent-sdk assembly)
      config, context,
      sessionLogger,                   ← injected, not hardcoded
      sessionStore,                    ← injected, not hardcoded
      permissionHandler,               ← injected by CLI (React state callback)
      onTextDelta,                     ← injected by CLI (streaming display)
    })
-6. Session internally creates:
-   - Robota agent                     (from agent-core)
-   - AnthropicProvider                (from agent-provider-anthropic)
-   - Built-in tools                   (from agent-tools)
-   - Permission wrapper               (using agent-core evaluatePermission)
-7. CLI renders Ink TUI with Session
+6. createSession() internally:
+   - Creates AnthropicProvider        (via createProvider)
+   - Creates default tools            (via createDefaultTools)
+   - Builds system prompt             (via buildSystemPrompt)
+   - Passes all to new Session()      (generic Session, no hardcoded deps)
+7. Session internally:
+   - Wraps tools with PermissionEnforcer (using agent-core evaluatePermission)
+   - Creates ContextWindowTracker
+   - Creates CompactionOrchestrator
+   - Creates Robota agent             (from agent-core)
+8. CLI renders Ink TUI with Session
 ```
 
 ## What Goes Where
@@ -105,6 +116,9 @@ How `@robota-sdk/agent-cli` is composed from lower-level packages.
 | ------------------------------ | ------------------- | -------------------- |
 | Terminal UI, React components  | agent-cli           | —                    |
 | Config/context loading         | agent-sdk           | agent-cli            |
+| Session factory (assembly)     | agent-sdk           | agent-sessions       |
+| Tool + provider creation       | agent-sdk           | agent-sessions       |
+| System prompt building         | agent-sdk           | agent-sessions       |
 | Session lifecycle, permissions | agent-sessions      | agent-sdk, agent-cli |
 | Tool implementations           | agent-tools         | agent-sessions       |
 | AI provider calls              | agent-provider-\*   | agent-sessions       |

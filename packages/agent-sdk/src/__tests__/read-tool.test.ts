@@ -6,8 +6,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { readTool } from '../tools/read-tool.js';
-import type { TToolResult } from '../types.js';
+import { readTool } from '@robota-sdk/agent-tools';
+import type { TToolResult } from '@robota-sdk/agent-tools';
 import type { TToolParameters } from '@robota-sdk/agent-core';
 
 async function run(params: TToolParameters): Promise<TToolResult> {
