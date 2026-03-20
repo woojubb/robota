@@ -24,7 +24,7 @@
   "dependencies": {
     "@robota-sdk/dag-core": "workspace:*",
     "zod": "^3.24.4",
-    "zod-to-json-schema": "^3.24.5"
+    "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
     "eslint": "^8.56.0",
