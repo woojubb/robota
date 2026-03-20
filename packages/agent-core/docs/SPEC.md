@@ -329,6 +329,10 @@ When the execution loop ends without a final assistant text message (e.g., due t
 
 Before each `provider.chat()` call in the execution loop, the estimated token count of the conversation messages must be checked against the model's context window limit. If the estimated usage exceeds 90% of the context window, the execution loop must stop early rather than sending a request that will fail due to context overflow. The estimated token count uses `JSON.stringify(messages).length / 4` as a character-based approximation.
 
+### Streaming Round Separator
+
+When the execution loop starts round 2+ (after tool execution), `execution-round.ts` emits `'\n\n'` through `provider.onTextDelta` before calling `provider.chat()`. This separates streaming text from different rounds in the CLI, which would otherwise concatenate without line breaks.
+
 ## Class Contract Registry
 
 ### Interface Implementations
