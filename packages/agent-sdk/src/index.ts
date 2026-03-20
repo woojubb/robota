@@ -45,6 +45,9 @@ export { promptForApproval } from './permissions/permission-prompt.js';
 export { runHooks } from './hooks/hook-runner.js';
 export type { THookEvent, THooksConfig, IHookInput } from './hooks/types.js';
 
+// Standard paths
+export { projectPaths, userPaths } from './paths.js';
+
 // Tools (from agent-tools)
 export { bashTool } from './tools/bash-tool.js';
 export { readTool } from './tools/read-tool.js';
