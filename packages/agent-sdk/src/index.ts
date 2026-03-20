@@ -7,7 +7,11 @@ export type { ITerminalOutput, ISpinner } from './types.js';
 
 // Session (from agent-sessions)
 export { Session } from './session.js';
-export type { ISessionOptions, TPermissionHandler } from './session.js';
+export type { ISessionOptions, TPermissionHandler, TPermissionResult } from './session.js';
+
+// Session logging (from agent-sessions)
+export { FileSessionLogger, SilentSessionLogger } from '@robota-sdk/agent-sessions';
+export type { ISessionLogger, TSessionLogData } from '@robota-sdk/agent-sessions';
 
 // Session persistence (from agent-sessions)
 export { SessionStore } from './session-store.js';
@@ -40,6 +44,9 @@ export { promptForApproval } from './permissions/permission-prompt.js';
 // Hooks (from agent-core)
 export { runHooks } from './hooks/hook-runner.js';
 export type { THookEvent, THooksConfig, IHookInput } from './hooks/types.js';
+
+// Standard paths
+export { projectPaths, userPaths } from './paths.js';
 
 // Tools (from agent-tools)
 export { bashTool } from './tools/bash-tool.js';

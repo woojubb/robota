@@ -5,6 +5,7 @@ export { Session } from './session.js';
 export type {
   ISessionOptions,
   TPermissionHandler,
+  TPermissionResult,
   ITerminalOutput,
   ISpinner,
   IResolvedConfig,
@@ -15,6 +16,10 @@ export type {
 
 // Context window state (re-exported from agent-core for convenience)
 export type { IContextWindowState } from '@robota-sdk/agent-core';
+
+// Session logging
+export { FileSessionLogger, SilentSessionLogger } from './session-logger.js';
+export type { ISessionLogger, TSessionLogData } from './session-logger.js';
 
 // Session persistence
 export { SessionStore } from './session-store.js';

@@ -80,6 +80,18 @@ vi.mock('@robota-sdk/agent-tools', () => ({
     getName: () => 'Grep',
     setEventService: vi.fn(),
   },
+  webFetchTool: {
+    schema: { name: 'WebFetch' },
+    execute: vi.fn(),
+    getName: () => 'WebFetch',
+    setEventService: vi.fn(),
+  },
+  webSearchTool: {
+    schema: { name: 'WebSearch' },
+    execute: vi.fn(),
+    getName: () => 'WebSearch',
+    setEventService: vi.fn(),
+  },
 }));
 
 const MOCK_CONFIG = {
@@ -111,7 +123,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: agentsContent, claudeMd: '' },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     expect(capturedConfig).not.toBeNull();
@@ -131,7 +143,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: '', claudeMd: claudeContent },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -143,7 +155,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: 'test agents content', claudeMd: 'test claude content' },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -160,7 +172,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: '', claudeMd: '' },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -174,7 +186,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: '', claudeMd: '' },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;
@@ -188,7 +200,7 @@ describe('Session — system prompt delivery', () => {
       config: MOCK_CONFIG,
       context: { agentsMd: '', claudeMd: '' },
       terminal: MOCK_TERMINAL,
-      enableLogging: false,
+      // sessionLogger not provided → no logging
     });
 
     const topLevel = capturedConfig!['systemMessage'] as string;

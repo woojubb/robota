@@ -138,6 +138,14 @@ function convertZodTypeToProperty(typeObj: IZodSchema): IParameterSchema {
       }
       throw new Error('ZodDefault is missing innerType; cannot convert to JSON schema.');
 
+    case 'ZodRecord':
+      // Handle Record<string, T> → JSON Schema additionalProperties
+      if (typeDef.valueType) {
+        const valueProperty = convertZodTypeToProperty(typeDef.valueType);
+        return { type: 'object', additionalProperties: valueProperty, ...base };
+      }
+      return { type: 'object', additionalProperties: { type: 'string' }, ...base };
+
     default:
       throw new Error(`Unsupported Zod type: ${String(typeDef.typeName)}`);
   }

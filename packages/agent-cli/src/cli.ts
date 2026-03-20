@@ -25,7 +25,9 @@ import {
   detectProject,
   Session,
   SessionStore,
+  FileSessionLogger,
   buildSystemPrompt,
+  projectPaths,
 } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode } from '@robota-sdk/agent-sdk';
 import type { ITerminalOutput, ISpinner } from './types.js';
@@ -206,10 +208,12 @@ export async function startCli(): Promise<void> {
       process.exit(1);
     }
     const terminal = new PrintTerminal();
+    const paths = projectPaths(cwd);
     const session = new Session({
       config,
       context,
       terminal,
+      sessionLogger: new FileSessionLogger(paths.logs),
       projectInfo: projectInfo as { type: string; language: string },
       permissionMode: args.permissionMode,
       systemPromptBuilder: buildSystemPrompt as (params: {

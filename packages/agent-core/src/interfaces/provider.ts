@@ -55,6 +55,7 @@ export interface IParameterSchema {
   enum?: TJSONSchemaEnum;
   items?: IParameterSchema;
   properties?: Record<string, IParameterSchema>;
+  additionalProperties?: IParameterSchema;
   minimum?: number;
   maximum?: number;
   pattern?: string;

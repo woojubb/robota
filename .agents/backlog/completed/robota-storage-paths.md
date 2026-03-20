@@ -19,7 +19,9 @@ Define `.robota/` directory as Robota CLI runtime-only storage. Respect existing
 .robota/
 ├── settings.json           ← CLI settings (shared, committed)
 ├── settings.local.json     ← local overrides (gitignored)
-└── sessions/               ← session persistence files
+├── logs/                   ← session event logs (gitignored)
+│   └── {session_id}.jsonl
+└── sessions/               ← session persistence files (gitignored)
     └── {session_id}.json
 ```
 
@@ -49,7 +51,7 @@ Define `.robota/` directory as Robota CLI runtime-only storage. Respect existing
 - Formalize `.robota/` as runtime-only storage in SDK spec
 - Ensure config-loader uses `.robota/` for settings (already does)
 - SessionStore uses `~/.robota/sessions/`
-- Add `.robota/settings.local.json` and `.robota/sessions/` to gitignore
+- Add `.robota/settings.local.json`, `.robota/sessions/`, `.robota/logs/` to gitignore
 - Skill discovery scans `.agents/skills/` (primary) + `~/.claude/skills/` (compat)
 - Document the boundary in agent-sdk SPEC
 
