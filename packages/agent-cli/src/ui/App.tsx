@@ -393,7 +393,6 @@ export default function App(props: IProps): React.ReactElement {
  |_| \\_\\\\___/|____/ \\___/ |_/_/   \\_\\
 `}</Text>
         <Text dimColor> v{props.version ?? '0.0.0'}</Text>
-        {props.projectInfo?.name && <Text dimColor> {props.projectInfo.name}</Text>}
       </Box>
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
         <MessageList messages={messages} />
