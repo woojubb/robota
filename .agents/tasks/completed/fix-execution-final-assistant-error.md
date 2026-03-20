@@ -1,6 +1,6 @@
 ---
 title: Fix execution loop crash on missing final assistant message
-status: backlog
+status: completed
 priority: high
 created: 2026-03-20
 packages:
