@@ -52,6 +52,16 @@ Instead of throwing, return a partial result or a synthesized error message:
 
 Add compaction support inside the execution loop itself. If tool results push context past threshold, compact the earlier history while preserving the current tool exchange.
 
+### Fix 4: Error logging and session preservation
+
+Even when execution fails, the session must preserve its state:
+
+- Session history should retain everything up to the point of failure (user message, tool calls, tool results)
+- Errors should be logged to a separate error log (not just thrown and lost)
+- The session should remain usable after an error — the user can continue the conversation or retry
+
+Currently, when `buildFinalResult()` throws, the error propagates up and the session state may be inconsistent (tool results in history but no assistant response). The fix should catch the error at the Session level, log it, and leave the session in a recoverable state.
+
 ## Recommendation
 
-Fix 1 + Fix 2 together. Fix 1 prevents the situation, Fix 2 handles it gracefully when prevention fails.
+Fix 1 + Fix 2 + Fix 4 together. Fix 1 prevents context overflow, Fix 2 handles it gracefully when prevention fails, Fix 4 ensures errors are logged and sessions remain usable.
