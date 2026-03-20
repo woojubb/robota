@@ -102,20 +102,8 @@ function useSession(props: IProps): {
       });
     };
 
-    // Track when last delta arrived to detect round boundaries
-    let lastDeltaTime = 0;
-    const ROUND_GAP_MS = 500; // If no delta for 500ms+, assume new round (tool execution gap)
     const onTextDelta = (delta: string): void => {
-      const now = Date.now();
-      const gap = now - lastDeltaTime;
-      lastDeltaTime = now;
-      setStreamingText((prev) => {
-        // Insert separator when text resumes after a tool execution gap
-        if (prev.length > 0 && gap > ROUND_GAP_MS) {
-          return prev + '\n\n' + delta;
-        }
-        return prev + delta;
-      });
+      setStreamingText((prev) => prev + delta);
     };
 
     const paths = projectPaths(props.cwd ?? process.cwd());
