@@ -125,10 +125,10 @@ agent-core        ← Foundation: Robota engine, abstractions, plugins
 # Core — build custom agents
 npm install @robota-sdk/agent-core
 
-# Provider (choose one or more)
+# Provider
 npm install @robota-sdk/agent-provider-anthropic @anthropic-ai/sdk
-npm install @robota-sdk/agent-provider-openai openai
-npm install @robota-sdk/agent-provider-google @google/generative-ai
+# npm install @robota-sdk/agent-provider-openai openai        # not yet published
+# npm install @robota-sdk/agent-provider-google @google/generative-ai  # not yet published
 
 # Tools — FunctionTool, Zod tools, built-in CLI tools
 npm install @robota-sdk/agent-tools
