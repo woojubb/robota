@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import CjkTextInput from './CjkTextInput.js';
+import WaveText from './WaveText.js';
 import type { CommandRegistry } from '../commands/command-registry.js';
 import type { ISlashCommand } from '../commands/types.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
@@ -182,7 +183,7 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
       )}
       <Box borderStyle="single" borderColor={isDisabled ? 'gray' : 'green'} paddingLeft={1}>
         {isDisabled ? (
-          <Text dimColor> Waiting for response...</Text>
+          <WaveText text="  Waiting for response..." />
         ) : (
           <Box>
             <Text color="green" bold>
