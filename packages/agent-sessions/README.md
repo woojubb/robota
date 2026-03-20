@@ -1,317 +1,80 @@
 # @robota-sdk/agent-sessions
 
-**Multi-session support with independent workspaces for AI agents**
-
-The sessions package provides a clean way to manage multiple independent AI agents across different workspaces. Think of it as a container that lets you run multiple AI conversations simultaneously while keeping them completely isolated from each other.
-
-## 🎯 Core Purpose
-
-The sessions package is designed for **managing multiple independent AI agents** in isolated workspaces:
-
-- **SessionManager**: Manages multiple sessions (workspaces)
-- **ChatInstance**: Simple wrapper around individual Robota agents
-- **Workspace Isolation**: Each session operates in its own memory space
-- **Agent Switching**: Easy switching between different AI agents
-- **Template Integration**: Uses AgentFactory and AgentTemplates from the agents package
+Session lifecycle management for the Robota SDK. Wraps a `Robota` agent instance with permission-gated tool execution, hook-based lifecycle events, context window tracking, conversation compaction, and optional persistence.
 
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-sessions @robota-sdk/agent-core
-# or
-pnpm add @robota-sdk/agent-sessions @robota-sdk/agent-core
+npm install @robota-sdk/agent-sessions
 ```
+
+Peer dependency: `@robota-sdk/agent-core`
 
 ## Quick Start
 
 ```typescript
-import { SessionManager } from '@robota-sdk/agent-sessions';
-import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { Session } from '@robota-sdk/agent-sessions';
 
-// Create a session manager
-const sessionManager = new SessionManager({
-  maxSessions: 10,
-  maxChatsPerSession: 5,
-  enableWorkspaceIsolation: true,
+// Session accepts pre-constructed tools, provider, and systemMessage
+const session = new Session({
+  tools,
+  provider,
+  systemMessage: 'You are a helpful assistant.',
+  terminal,
+  permissions: { allow: ['Read(*)'], deny: [] },
 });
 
-// Create a session (workspace)
-const sessionId = sessionManager.createSession({
-  name: 'Development Workspace',
-  userId: 'developer-123',
-  workspaceId: 'workspace-dev',
-});
+const response = await session.run('Hello!');
 
-// Create an AI agent in the session
-const chatId = await sessionManager.createChat(sessionId, {
-  name: 'Coding Assistant',
-  agentConfig: {
-    name: 'Coding Assistant',
-    aiProviders: [new OpenAIProvider({ apiKey: 'your-key' })],
-    defaultModel: {
-      provider: 'openai',
-      model: 'gpt-4',
-      systemMessage: 'You are a helpful coding assistant.',
-    },
-  },
-});
+// Context tracking
+const state = session.getContextState();
+console.log(`${state.usedPercentage.toFixed(1)}% context used`);
 
-// Switch to the agent and start chatting
-sessionManager.switchChat(sessionId, chatId);
-const chat = sessionManager.getChat(chatId);
-const response = await chat.sendMessage('Hello! Can you help me with TypeScript?');
+// Manual compaction
+await session.compact('Focus on the API changes');
 ```
 
-## 📋 Key Features
+## Features
 
-### 1. **Multiple Sessions (Workspaces)**
+| Feature                    | Description                                                            |
+| -------------------------- | ---------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy) |
+| **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop   |
+| **Context tracking**       | Token usage from provider metadata, auto-compact at ~83.5%             |
+| **Compaction**             | LLM-generated conversation summary to free context space               |
+| **Persistence**            | `SessionStore` for JSON file-based session save/load                   |
+| **Abort**                  | Cancel running `run()` calls with `session.abort()`                    |
+| **Session logging**        | `FileSessionLogger` writes JSONL event logs                            |
 
-Each session is an isolated workspace that can contain multiple AI agents:
+## Key Methods
 
-```typescript
-// Create different workspaces for different purposes
-const devSession = sessionManager.createSession({
-  name: 'Development',
-  workspaceId: 'workspace-dev',
-});
+| Method                                            | Description                                              |
+| ------------------------------------------------- | -------------------------------------------------------- |
+| `run(message)`                                    | Send a message, returns AI response                      |
+| `compact(instructions?)`                          | Compress conversation via LLM summary                    |
+| `getContextState()`                               | Token usage: `{ usedTokens, maxTokens, usedPercentage }` |
+| `getPermissionMode()` / `setPermissionMode(mode)` | Read/change permission mode                              |
+| `getHistory()` / `clearHistory()`                 | Access or clear conversation history                     |
+| `abort()`                                         | Cancel running execution                                 |
+| `getSessionAllowedTools()`                        | Tools approved for this session                          |
 
-const researchSession = sessionManager.createSession({
-  name: 'Research',
-  workspaceId: 'workspace-research',
-});
-```
+## Sub-Components
 
-### 2. **Multiple AI Agents per Session**
+| Component                | Purpose                                                             |
+| ------------------------ | ------------------------------------------------------------------- |
+| `PermissionEnforcer`     | Tool wrapping, permission checks, hook execution, output truncation |
+| `ContextWindowTracker`   | Token usage tracking, auto-compact threshold                        |
+| `CompactionOrchestrator` | Conversation summarization via LLM                                  |
 
-Each session can have multiple AI agents:
+## Session vs Robota
 
-```typescript
-// Create multiple agents in the same session
-const codingAssistant = await sessionManager.createChat(devSession, {
-  name: 'Coding Assistant',
-  agentConfig: {
-    /* coding-focused config */
-  },
-});
+- **`Robota`** (agent-core): Raw agent — conversation + tools + plugins. No permissions, no hooks.
+- **`Session`** (this package): Wraps Robota with permissions, hooks, compaction, and persistence. Used by the CLI and SDK.
 
-const reviewAssistant = await sessionManager.createChat(devSession, {
-  name: 'Code Review Assistant',
-  agentConfig: {
-    /* review-focused config */
-  },
-});
-```
+## Assembly
 
-### 3. **Agent Switching**
+Most users should use `createSession()` from `@robota-sdk/agent-sdk` instead of constructing `Session` directly. The SDK factory wires tools, provider, and system prompt automatically from config and context.
 
-Easily switch between different agents within a session:
+## License
 
-```typescript
-// Switch to coding assistant
-sessionManager.switchChat(devSession, codingAssistant);
-
-// Switch to review assistant
-sessionManager.switchChat(devSession, reviewAssistant);
-```
-
-### 4. **Workspace Isolation**
-
-Each session operates independently with its own memory space:
-
-```typescript
-// Agents in different sessions don't interfere with each other
-const session1 = sessionManager.createSession({ workspaceId: 'workspace-1' });
-const session2 = sessionManager.createSession({ workspaceId: 'workspace-2' });
-
-// These agents are completely isolated
-const agent1 = await sessionManager.createChat(session1, config);
-const agent2 = await sessionManager.createChat(session2, config);
-```
-
-## 🏗️ Architecture
-
-The sessions package follows a clean, simplified architecture:
-
-```
-SessionManager
-├── Session 1 (Workspace)
-│   ├── ChatInstance 1 (Robota Agent)
-│   ├── ChatInstance 2 (Robota Agent)
-│   └── ChatInstance 3 (Robota Agent)
-├── Session 2 (Workspace)
-│   ├── ChatInstance 1 (Robota Agent)
-│   └── ChatInstance 2 (Robota Agent)
-└── Session 3 (Workspace)
-    └── ChatInstance 1 (Robota Agent)
-```
-
-### Key Components
-
-- **SessionManager**: Container for multiple sessions
-- **ChatInstance**: Simple wrapper around Robota agents
-- **TemplateManagerAdapter**: Integrates with agents package templates
-- **Workspace Isolation**: Each session has independent memory
-
-## 🔧 API Reference
-
-### SessionManager
-
-#### `createSession(options)`
-
-Creates a new session (workspace). Throws an error if session limit is reached:
-
-```typescript
-try {
-  const sessionId = sessionManager.createSession({
-    name: 'My Workspace',
-    userId: 'user-123',
-    workspaceId: 'workspace-abc',
-  });
-} catch (error) {
-  // Handle session limit - implement your own cleanup policy
-  console.log('Session limit reached:', error.message);
-
-  // Example: Remove oldest session
-  const sessions = sessionManager.listSessions();
-  const oldest = sessions.reduce((prev, curr) => (prev.createdAt < curr.createdAt ? prev : curr));
-  sessionManager.deleteSession(oldest.id);
-
-  // Now create the new session
-  const sessionId = sessionManager.createSession(options);
-}
-```
-
-#### `createChat(sessionId, options)`
-
-Creates a new AI agent in a session:
-
-```typescript
-const chatId = await sessionManager.createChat(sessionId, {
-  name: 'Assistant',
-  agentConfig: {
-    name: 'Assistant',
-    aiProviders: [provider],
-    defaultModel: { provider: 'openai', model: 'gpt-4' },
-  },
-});
-```
-
-#### `switchChat(sessionId, chatId)`
-
-Switches to a different agent in the session:
-
-```typescript
-sessionManager.switchChat(sessionId, chatId);
-```
-
-#### `getChat(chatId)`
-
-Gets a chat instance for direct interaction:
-
-```typescript
-const chat = sessionManager.getChat(chatId);
-const response = await chat.sendMessage('Hello!');
-```
-
-### ChatInstance
-
-#### `sendMessage(content)`
-
-Sends a message to the AI agent:
-
-```typescript
-const response = await chat.sendMessage('Help me with TypeScript');
-```
-
-#### `getHistory()`
-
-Gets the conversation history:
-
-```typescript
-const messages = chat.getHistory();
-```
-
-#### `clearHistory()`
-
-Clears the conversation history:
-
-```typescript
-chat.clearHistory();
-```
-
-## 🎨 Use Cases
-
-### 1. **Multi-Purpose Development Environment**
-
-```typescript
-const devSession = sessionManager.createSession({ name: 'Development' });
-
-// Create multiple agents
-const coder = await sessionManager.createChat(devSession, {
-  /* coding config */
-});
-const reviewer = await sessionManager.createChat(devSession, {
-  /* review config */
-});
-const documenter = await sessionManager.createChat(devSession, {
-  /* docs config */
-});
-
-// Switch between them as needed
-sessionManager.switchChat(devSession, coder); // For coding
-sessionManager.switchChat(devSession, reviewer); // For code review
-sessionManager.switchChat(devSession, documenter); // For documentation
-```
-
-### 2. **Multi-User Support**
-
-```typescript
-// Create isolated workspaces for different users
-const userASession = sessionManager.createSession({
-  userId: 'user-a',
-  workspaceId: 'workspace-a',
-});
-
-const userBSession = sessionManager.createSession({
-  userId: 'user-b',
-  workspaceId: 'workspace-b',
-});
-
-// Each user has their own isolated agents
-```
-
-### 3. **Project-Based Organization**
-
-```typescript
-// Create sessions for different projects
-const project1 = sessionManager.createSession({ name: 'Project Alpha' });
-const project2 = sessionManager.createSession({ name: 'Project Beta' });
-
-// Each project has its own set of agents
-```
-
-## 🔗 Integration with Agents Package
-
-The sessions package is built on top of the agents package:
-
-- **Robota**: Each ChatInstance wraps a Robota agent
-- **AgentFactory**: Used for creating agents with proper configuration
-- **AgentTemplates**: Template system for creating agents
-- **ConversationHistory**: Leverages the agents package history management
-
-## 🎯 What's NOT Included
-
-The sessions package focuses on session management and does NOT include:
-
-- ❌ Message editing/deletion (use agents package directly)
-- ❌ Complex conversation history manipulation
-- ❌ Advanced configuration tracking
-- ❌ Built-in persistence (use agents ConversationHistoryPlugin)
-
-## Contributing
-
-This package is part of the Robota SDK monorepo. See the main repository for contribution guidelines.
-
-## 📄 License
-
-MIT - See LICENSE file for details.
+MIT
