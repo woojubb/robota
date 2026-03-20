@@ -6,12 +6,23 @@
  */
 import { startCli } from './cli.js';
 
-// Last-resort crash prevention — catches errors from IME/rendering that
-// escape React/Ink error boundaries (e.g., Korean IME in raw mode).
+// Last-resort crash prevention for IME-related errors only.
+// Korean IME in raw mode can cause errors that escape React/Ink.
+// Non-IME errors are re-thrown to preserve normal crash behavior.
 process.on('uncaughtException', (err) => {
-  // Silently ignore IME-related errors to keep the CLI alive.
-  // Log to stderr for debugging but do not exit.
-  process.stderr.write(`[robota] uncaught: ${err.message}\n`);
+  const msg = err.message ?? '';
+  const isLikelyIME =
+    msg.includes('string-width') ||
+    msg.includes('setCursorPosition') ||
+    msg.includes('getStringWidth') ||
+    msg.includes('slice') ||
+    msg.includes('charCodeAt');
+  if (isLikelyIME) {
+    process.stderr.write(`[robota] IME error suppressed: ${msg}\n`);
+    return;
+  }
+  // Re-throw non-IME errors — let them crash normally
+  throw err;
 });
 
 startCli().catch((err: unknown) => {
