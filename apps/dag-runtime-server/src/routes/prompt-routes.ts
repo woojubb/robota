@@ -1,0 +1,136 @@
+import type { Express, Request, Response, NextFunction } from 'express';
+import type { PromptApiController } from '@robota-sdk/dag-api';
+import type { IDagError } from '@robota-sdk/dag-core';
+
+const HTTP_OK = 200;
+const HTTP_BAD_REQUEST = 400;
+const HTTP_INTERNAL_SERVER_ERROR = 500;
+
+function toHttpStatus(error: IDagError): number {
+    switch (error.category) {
+        case 'validation': return HTTP_BAD_REQUEST;
+        default: return HTTP_INTERNAL_SERVER_ERROR;
+    }
+}
+
+function sendError(res: Response, error: IDagError, statusOverride?: number): void {
+    const status = statusOverride ?? toHttpStatus(error);
+    res.status(status).json({
+        error: {
+            type: error.code,
+            message: error.message,
+            details: '',
+            extra_info: {},
+        },
+        node_errors: {},
+    });
+}
+
+type AsyncHandler = (req: Request, res: Response, next: NextFunction) => Promise<void>;
+
+function wrapAsync(handler: AsyncHandler): AsyncHandler {
+    return async (req, res, next) => {
+        try {
+            await handler(req, res, next);
+        } catch (err: unknown) {
+            next(err);
+        }
+    };
+}
+
+export function mountPromptRoutes(
+    app: Express,
+    controller: PromptApiController,
+): void {
+    app.post('/prompt', wrapAsync(async (req, res) => {
+        const result = await controller.submitPrompt(req.body);
+        if (result.ok) {
+            res.status(HTTP_OK).json(result.value);
+        } else {
+            sendError(res, result.error);
+        }
+    }));
+
+    // ComfyUI compat: GET /prompt returns queue status (same as GET /queue)
+    app.get('/prompt', wrapAsync(async (_req, res) => {
+        const result = await controller.getQueue();
+        if (result.ok) {
+            res.status(HTTP_OK).json({ exec_info: { queue_remaining: result.value.queue_running.length + result.value.queue_pending.length } });
+        } else {
+            sendError(res, result.error);
+        }
+    }));
+
+    app.get('/queue', wrapAsync(async (_req, res) => {
+        const result = await controller.getQueue();
+        if (result.ok) {
+            res.status(HTTP_OK).json(result.value);
+        } else {
+            sendError(res, result.error);
+        }
+    }));
+
+    app.post('/queue', wrapAsync(async (req, res) => {
+        const result = await controller.manageQueue(req.body);
+        if (result.ok) {
+            res.status(HTTP_OK).json({});
+        } else {
+            sendError(res, result.error);
+        }
+    }));
+
+    app.get('/history', wrapAsync(async (_req, res) => {
+        const result = await controller.getHistory();
+        if (result.ok) {
+            res.status(HTTP_OK).json(result.value);
+        } else {
+            sendError(res, result.error);
+        }
+    }));
+
+    app.get('/history/:prompt_id', wrapAsync(async (req, res) => {
+        const result = await controller.getHistory(req.params.prompt_id);
+        if (result.ok) {
+            res.status(HTTP_OK).json(result.value);
+        } else {
+            sendError(res, result.error);
+        }
+    }));
+
+    app.get('/object_info', wrapAsync(async (_req, res) => {
+        const result = await controller.getObjectInfo();
+        if (result.ok) {
+            res.status(HTTP_OK).json(result.value);
+        } else {
+            sendError(res, result.error);
+        }
+    }));
+
+    app.get('/object_info/:node_type', wrapAsync(async (req, res) => {
+        const result = await controller.getObjectInfo(req.params.node_type);
+        if (result.ok) {
+            res.status(HTTP_OK).json(result.value);
+        } else {
+            sendError(res, result.error);
+        }
+    }));
+
+    app.get('/system_stats', wrapAsync(async (_req, res) => {
+        const result = await controller.getSystemStats();
+        if (result.ok) {
+            res.status(HTTP_OK).json(result.value);
+        } else {
+            sendError(res, result.error);
+        }
+    }));
+
+    // ComfyUI compat: POST /interrupt — stub (no-op, single worker completes synchronously)
+    app.post('/interrupt', (_req, res) => {
+        res.status(HTTP_OK).json({});
+    });
+
+    // ComfyUI compat: POST /free — stub (no model management in Node.js runtime)
+    app.post('/free', (_req, res) => {
+        res.status(HTTP_OK).json({});
+    });
+}

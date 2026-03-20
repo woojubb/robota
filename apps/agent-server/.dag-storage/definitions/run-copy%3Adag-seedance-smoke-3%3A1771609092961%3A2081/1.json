@@ -1,0 +1,67 @@
+{
+  "dagId": "run-copy:dag-seedance-smoke-3:1771609092961:2081",
+  "version": 1,
+  "status": "draft",
+  "nodes": [
+    {
+      "nodeId": "prompt",
+      "nodeType": "input",
+      "dependsOn": [],
+      "inputs": [],
+      "outputs": [
+        {
+          "key": "text",
+          "label": "Text",
+          "order": 0,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "config": {
+        "text": "make video"
+      }
+    },
+    {
+      "nodeId": "seed",
+      "nodeType": "seedance-video",
+      "dependsOn": [
+        "prompt"
+      ],
+      "inputs": [
+        {
+          "key": "prompt",
+          "label": "Prompt",
+          "order": 0,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        {
+          "key": "video",
+          "label": "Video",
+          "order": 0,
+          "type": "binary",
+          "required": true,
+          "binaryKind": "video",
+          "mimeTypes": [
+            "video/mp4"
+          ]
+        }
+      ],
+      "config": {}
+    }
+  ],
+  "edges": [
+    {
+      "from": "prompt",
+      "to": "seed",
+      "bindings": [
+        {
+          "outputKey": "text",
+          "inputKey": "prompt"
+        }
+      ]
+    }
+  ]
+}

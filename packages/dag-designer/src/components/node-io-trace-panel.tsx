@@ -27,35 +27,35 @@ export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
     }
 
     return (
-        <section className={`rounded border border-gray-300 p-3 ${props.className ?? ''}`}>
+        <section className={`rounded-lg border border-[var(--studio-border)] bg-[var(--studio-bg-elevated)] p-3 ${props.className ?? ''}`}>
             <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Node I/O Trace</h2>
-                <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+                <h2 className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Node I/O Trace</h2>
+                <span className="rounded-md bg-[var(--studio-bg-surface)] px-2 py-0.5 text-xs text-[var(--studio-text-muted)]">
                     {traces.length} trace(s)
                 </span>
             </div>
             {traces.length === 0 ? (
-                <p className="text-xs text-gray-500">Run to inspect node input/output payloads.</p>
+                <p className="text-sm text-[var(--studio-text-muted)]">Run to inspect node input/output payloads.</p>
             ) : null}
 
             {selectedTrace ? (
-                <div className="space-y-2 text-xs">
-                    <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1">
-                        <div className="font-medium">Selected Node</div>
-                        <div>{selectedTrace.nodeId}</div>
-                        <div>
+                <div className="space-y-2 text-sm">
+                    <div className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-1.5">
+                        <div className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Selected Node</div>
+                        <div className="font-mono text-[var(--studio-text-secondary)]">{selectedTrace.nodeId}</div>
+                        <div className="text-[var(--studio-text-muted)]">
                             status={props.selectedNodeExecutionStatus ?? 'idle'}
                         </div>
                     </div>
                     <div>
-                        <div className="mb-1 font-medium text-gray-700">Input</div>
-                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-2 text-[11px]">
+                        <div className="mb-1 text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Input</div>
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2 font-mono text-xs text-[var(--studio-text-secondary)]">
                             {stringifyPayload(selectedTrace.input)}
                         </pre>
                     </div>
                     <div>
-                        <div className="mb-1 font-medium text-gray-700">Output</div>
-                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 p-2 text-[11px]">
+                        <div className="mb-1 text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Output</div>
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] p-2 font-mono text-xs text-[var(--studio-text-secondary)]">
                             {stringifyPayload(selectedTrace.output)}
                         </pre>
                     </div>
@@ -63,11 +63,11 @@ export function NodeIoTracePanel(props: INodeIoTracePanelProps): ReactElement {
             ) : null}
 
             {!selectedTrace && traces.length > 0 ? (
-                <div className="space-y-1 text-xs">
-                    <div className="font-medium text-gray-700">Latest Traces</div>
+                <div className="space-y-1 text-sm">
+                    <div className="text-xs uppercase tracking-widest text-[var(--studio-text-muted)]">Latest Traces</div>
                     {traces.map((trace) => (
-                        <div key={trace.nodeId} className="rounded border border-gray-200 px-2 py-1">
-                            {trace.nodeId} - output keys: {Object.keys(trace.output ?? {}).join(', ') || '(none)'}
+                        <div key={trace.nodeId} className="rounded-md border border-[var(--studio-border)] bg-[var(--studio-bg-surface)] px-3 py-1.5 text-[var(--studio-text-secondary)]">
+                            <span className="font-mono">{trace.nodeId}</span> - output keys: {Object.keys(trace.output ?? {}).join(', ') || '(none)'}
                         </div>
                     ))}
                 </div>

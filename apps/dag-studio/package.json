@@ -1,0 +1,47 @@
+{
+  "name": "@robota-sdk/dag-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dedicated Next.js host for DAG Designer (/dag-designer)",
+  "scripts": {
+    "dev": "next dev --port 3002",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch --passWithNoTests",
+    "test:coverage": "jest --coverage --passWithNoTests",
+    "test:ci": "jest --ci --coverage --watchAll=false --passWithNoTests",
+    "analyze": "ANALYZE=true npm run build",
+    "lighthouse": "lighthouse http://localhost:3001 --output html --output-path ./lighthouse-report.html"
+  },
+  "dependencies": {
+    "@robota-sdk/dag-core": "workspace:^",
+    "@robota-sdk/dag-designer": "workspace:^",
+    "@xyflow/react": "^12.8.2",
+    "next": "15.4.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.4.2",
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "buffer": "^6.0.3",
+    "eslint": "^9",
+    "eslint-config-next": "15.4.1",
+    "jest": "^30.0.4",
+    "jest-environment-jsdom": "^30.0.4",
+    "process": "^0.11.10",
+    "tailwindcss": "^4",
+    "tw-animate-css": "^1.3.5",
+    "typescript": "^5"
+  }
+}

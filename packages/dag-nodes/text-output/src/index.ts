@@ -1,6 +1,5 @@
+import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
-    AbstractNodeDefinition,
-    NodeIoAccessor,
     type ICostEstimate,
     type IDagError,
     type IDagNodeDefinition,
@@ -12,6 +11,13 @@ import { z } from 'zod';
 
 const TextOutputConfigSchema = z.object({});
 
+/**
+ * DAG node that passes through a text input to its output unchanged.
+ *
+ * Typically used as a terminal node to surface the final text result of a pipeline.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class TextOutputNodeDefinition extends AbstractNodeDefinition<typeof TextOutputConfigSchema> {
     public readonly nodeType = 'text-output';
     public readonly displayName = 'Text Output';
@@ -31,7 +37,7 @@ export class TextOutputNodeDefinition extends AbstractNodeDefinition<typeof Text
     ): Promise<TResult<ICostEstimate, IDagError>> {
         return {
             ok: true,
-            value: { estimatedCostUsd: 0 }
+            value: { estimatedCredits: 0 }
         };
     }
 

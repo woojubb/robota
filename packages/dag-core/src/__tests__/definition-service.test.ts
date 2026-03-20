@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DagDefinitionService } from '../services/definition-service.js';
 import { DagDefinitionValidator } from '../services/definition-validator.js';
-import { InMemoryStoragePort } from '../testing/in-memory-storage-port.js';
+import { InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
 import type { IDagDefinition } from '../types/domain.js';
 
 function createValidDefinition(): IDagDefinition {

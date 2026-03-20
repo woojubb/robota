@@ -1,0 +1,7 @@
+{
+  "extends": "../../.eslintrc.json",
+  "parserOptions": {
+    "project": ["./packages/agent-tools/tsconfig.json"],
+    "tsconfigRootDir": "."
+  }
+}

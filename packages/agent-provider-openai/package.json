@@ -1,0 +1,109 @@
+{
+  "name": "@robota-sdk/agent-provider-openai",
+  "version": "3.0.0",
+  "description": "OpenAI integration for Robota SDK - GPT-4, GPT-3.5, function calling, and tool integration with OpenAI's API",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "module": "dist/node/index.mjs",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "browser": {
+        "import": "./dist/browser/index.js"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    },
+    "./loggers/file": {
+      "types": "./dist/loggers/file.d.ts",
+      "import": "./dist/loggers/file.js",
+      "require": "./dist/loggers/file.cjs"
+    },
+    "./loggers/console": {
+      "types": "./dist/loggers/console.d.ts",
+      "import": "./dist/loggers/console.js",
+      "require": "./dist/loggers/console.cjs"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/agent-provider-openai"
+  },
+  "homepage": "https://robota.io/",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "scenario:verify": "pnpm --filter @robota-sdk/agent-core build && pnpm exec tsx examples/verify-executor.ts",
+    "scenario:record": "node ../../scripts/harness/record-owner-scenario.mjs --scope packages/openai --output examples/scenarios/executor-verify.record.json -- pnpm scenario:verify",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "llm",
+    "openai",
+    "gpt",
+    "gpt-4",
+    "gpt-3.5",
+    "chatgpt",
+    "function-calling",
+    "typescript",
+    "javascript",
+    "chatbot",
+    "conversational-ai",
+    "artificial-intelligence",
+    "machine-learning",
+    "nlp",
+    "natural-language-processing",
+    "sdk",
+    "library",
+    "tool-integration",
+    "robota",
+    "openai-api",
+    "ai-integration"
+  ],
+  "author": "Robota SDK Team",
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^4.98.0"
+  },
+  "peerDependencies": {
+    "@robota-sdk/agent-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
+    "@typescript-eslint/eslint-plugin": "^6.18.0",
+    "@typescript-eslint/parser": "^6.18.0",
+    "eslint": "^8.56.0",
+    "rimraf": "^5.0.5",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": true
+}

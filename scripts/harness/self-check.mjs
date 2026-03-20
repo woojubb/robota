@@ -14,16 +14,16 @@ import { listWorkspaceScopes, WORKSPACE_ROOT } from './shared.mjs';
 
 async function main() {
   const scopes = await listWorkspaceScopes();
-  const scope = scopes.find((item) => item.relativeDir === 'packages/agents');
+  const scope = scopes.find((item) => item.relativeDir === 'packages/agent-core');
 
   if (!scope) {
-    throw new Error('packages/agents scope was not found.');
+    throw new Error('packages/agent-core scope was not found.');
   }
 
   const artifacts = await listScenarioRecordArtifacts(scope.relativeDir);
   const artifactPath = artifacts.find((item) => item.endsWith('offline-verify.record.json'));
   if (!artifactPath) {
-    throw new Error('packages/agents canonical scenario record was not found.');
+    throw new Error('packages/agent-core canonical scenario record was not found.');
   }
 
   const record = await readScenarioRecordArtifact(artifactPath);
@@ -35,13 +35,15 @@ async function main() {
   const workdir = path.join(WORKSPACE_ROOT, scope.relativeDir);
   const scenarioVerification = resolveScenarioVerification(scope);
   if (!scenarioVerification || scenarioVerification.commands.length !== 1) {
-    throw new Error('packages/agents self-check expects exactly one owner scenario verification command.');
+    throw new Error(
+      'packages/agent-core self-check expects exactly one owner scenario verification command.',
+    );
   }
 
   const [{ command, args, workdir: commandWorkdir, env }] = scenarioVerification.commands;
   const execution = executeCommandCapture(command, args, commandWorkdir, env);
   if (execution.status !== 0) {
-    throw new Error(`packages/agents scenario:verify failed with status ${execution.status}`);
+    throw new Error(`packages/agent-core scenario:verify failed with status ${execution.status}`);
   }
 
   const executionRecord = createScenarioRecordPayload({

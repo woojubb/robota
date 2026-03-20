@@ -18,10 +18,28 @@ actual run creation to `dag-runtime`'s `RunOrchestratorService`.
 
 Single-service architecture:
 
-- **SchedulerTriggerService** (`services/scheduler-trigger-service.ts`): Internally creates a `RunOrchestratorService` from injected ports. Provides three operations:
+- **SchedulerTriggerService** (`services/scheduler-trigger-service.ts`): Accepts a `RunOrchestratorService` instance via constructor injection. Provides three operations:
   1. `triggerScheduledRun` -- triggers a single scheduled run with a logical date.
   2. `triggerScheduledBatch` -- triggers multiple scheduled runs sequentially, failing fast on any error.
   3. `triggerCatchup` -- computes time slots over a date range at a given interval and triggers a run for each slot. Validates date parsing, interval positivity, slot count limits, and range ordering.
+
+### Behavioral Contracts
+
+#### Catchup Slot Computation
+
+The slot count formula and loop condition must be consistent — i.e., the number of slots the formula predicts must equal the number of iterations the loop produces for all valid inputs.
+
+**Current gap**: The implementation uses `Math.floor(spanMs / interval) + 1` for the slot count and `cursorEpochMs <= rangeEndEpochMs` for the loop condition. When the range exactly aligns with slot boundaries, the `+1` causes the formula to overcount by 1 relative to the actual slots needed. For example, range `[T, T+3000ms]` with 1000ms interval:
+
+- Formula: `Math.floor(3000 / 1000) + 1 = 4`
+- Loop (`<=`): slots at T, T+1000, T+2000, T+3000 = 4 iterations
+
+The formula and loop are internally consistent in this case (both produce 4). However, the `+1` creates a bias: a range of `[T, T]` (zero span) produces 1 slot, and each additional interval adds exactly 1 more slot. Whether this "inclusive endpoint" semantics is intended should be clarified. If half-open `[start, end)` semantics are desired instead, both the formula and loop must change together:
+
+- Formula: `Math.ceil(spanMs / slotIntervalMs)`
+- Loop: `cursorEpochMs < rangeEndEpochMs`
+
+The chosen semantics must be documented explicitly and the `maxSlots` validation must use the same formula as the loop to prevent discrepancies.
 
 ## Type Ownership
 
@@ -36,15 +54,14 @@ This package is SSOT for:
 ## Public API Surface
 
 - `SchedulerTriggerService` -- main service class
-  - `constructor(storage, queue, clock)` -- accepts `dag-core` ports
+  - `constructor(runOrchestrator: RunOrchestratorService)` -- accepts a pre-configured runtime orchestrator
   - `triggerScheduledRun(request): Promise<TResult<IStartRunResult, IDagError>>`
   - `triggerScheduledBatch(request): Promise<TResult<IScheduledBatchTriggerResult, IDagError>>`
   - `triggerCatchup(request): Promise<TResult<ICatchupTriggerResult, IDagError>>`
 
 ## Extension Points
 
-- Accepts `IStoragePort`, `IQueuePort`, and `IClockPort` from `dag-core` via constructor injection.
-- Consumers can provide custom port implementations for different storage/queue backends.
+- Accepts a `RunOrchestratorService` instance via constructor injection. The orchestrator itself accepts `IStoragePort`, `IQueuePort`, and `IClockPort` from `dag-core`, allowing consumers to provide custom port implementations for different storage/queue backends.
 - No abstract classes to extend; the service is used directly.
 
 ## Error Taxonomy
@@ -69,19 +86,18 @@ No classes in this package use the `implements` keyword. All port dependencies a
 
 None. Service classes are standalone (no `extends`).
 
-### Port Consumption via DI
+### Service Dependency via DI
 
-| Service Class | Injected Port (from dag-core) | Location |
-|---------------|------------------------------|----------|
-| `SchedulerTriggerService` | `IStoragePort`, `IQueuePort`, `IClockPort` | `src/services/scheduler-trigger-service.ts` |
+| Service Class | Injected Dependency | Location |
+|---------------|---------------------|----------|
+| `SchedulerTriggerService` | `RunOrchestratorService` (dag-runtime) | `src/services/scheduler-trigger-service.ts` |
 
-### Cross-Package Port Consumers
+### Cross-Package Dependencies
 
-| Port (Owner) | Consumer Class | Location |
-|--------------|---------------|----------|
-| `IStoragePort` (dag-core) | `SchedulerTriggerService` | `src/services/scheduler-trigger-service.ts` |
-| `IQueuePort` (dag-core) | `SchedulerTriggerService` | `src/services/scheduler-trigger-service.ts` |
-| `IClockPort` (dag-core) | `SchedulerTriggerService` | `src/services/scheduler-trigger-service.ts` |
+| Dependency (Owner) | Consumer Class | Location |
+|--------------------|---------------|----------|
+| `RunOrchestratorService` (dag-runtime) | `SchedulerTriggerService` | `src/services/scheduler-trigger-service.ts` |
+| `IStartRunResult` (dag-runtime) | `SchedulerTriggerService` | `src/services/scheduler-trigger-service.ts` |
 
 ## Test Strategy
 

@@ -8,6 +8,10 @@ import { validateEdgesAndBindings } from './definition-edge-validator.js';
 
 export { validateEdgesAndBindings } from './definition-edge-validator.js';
 
+/**
+ * Validates a DAG definition for structural correctness: node IDs, edges,
+ * duplicate detection, cycle detection, and edge binding constraints.
+ */
 export class DagDefinitionValidator {
     public static validate(definition: IDagDefinition): TResult<IDagDefinition, IDagError[]> {
         const errors: IDagError[] = [];
@@ -197,12 +201,12 @@ export class DagDefinitionValidator {
         errors.push(...validateEdgesAndBindings(definition, nodeIdSet, nodeById));
 
         if (definition.costPolicy) {
-            if (definition.costPolicy.runCostLimitUsd <= 0) {
+            if (definition.costPolicy.runCreditLimit <= 0) {
                 errors.push(
                     buildValidationError(
                         'DAG_VALIDATION_INVALID_COST_LIMIT',
-                        'costPolicy.runCostLimitUsd must be positive',
-                        { runCostLimitUsd: definition.costPolicy.runCostLimitUsd }
+                        'costPolicy.runCreditLimit must be positive',
+                        { runCreditLimit: definition.costPolicy.runCreditLimit }
                     )
                 );
             }

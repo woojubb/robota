@@ -38,6 +38,16 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 
+# === Secrets (sec-no-secrets: critical) ===
+*.key
+*.pem
+*.p12
+*.pfx
+credentials.*
+secrets.*
+**/service-account*.json
+.gcp-credentials.json
+
 # caches
 .eslintcache
 .cache
@@ -85,8 +95,9 @@ apps/docs/.vitepress/dist/
 # VitePress temporary directory
 **/.temp
 
-# Markdown files in apps directory
+# Markdown files in apps directory (except docs/)
 apps/**/README.md
+!apps/**/docs/README.md
 
 # Package README files are now preserved and committed to git
 # packages/*/README.md  # REMOVED - README.md files should be included in packages
@@ -94,6 +105,7 @@ apps/**/README.md
 .pnpm*
 
 .local-assets
+.dag-storage/
 apps/api-server/.local-assets/
 apps/api-server/.dag-storage/
 
@@ -103,3 +115,7 @@ bun.lock
 # Runtime/backup directories
 .backup/
 .robota/
+
+# Audit script output (local-only, not committed)
+scripts/audit/output/
+.playwright-mcp/

@@ -2,7 +2,9 @@ import {
     AbstractNodeDefinition,
     BINARY_PORT_PRESETS,
     createBinaryPortDefinition,
-    NodeIoAccessor,
+    NodeIoAccessor
+} from '@robota-sdk/dag-node';
+import {
     type ICostEstimate,
     type IDagError,
     type IDagNodeDefinition,
@@ -14,6 +16,14 @@ import { z } from 'zod';
 
 const ImageLoaderConfigSchema = z.object({});
 
+/**
+ * DAG node that loads a media reference and outputs it as a binary image port value.
+ *
+ * Accepts an object-typed media reference on the `asset` input and converts it to
+ * a binary image output via {@link MediaReference}.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class ImageLoaderNodeDefinition extends AbstractNodeDefinition<typeof ImageLoaderConfigSchema> {
     public readonly nodeType = 'image-loader';
     public readonly displayName = 'Image Loader';
@@ -33,7 +43,7 @@ export class ImageLoaderNodeDefinition extends AbstractNodeDefinition<typeof Ima
     public readonly configSchemaDefinition = ImageLoaderConfigSchema;
 
     public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
-        return { ok: true, value: { estimatedCostUsd: 0 } };
+        return { ok: true, value: { estimatedCredits: 0 } };
     }
 
     protected override async executeWithConfig(

@@ -11,6 +11,10 @@ import type {
 import type { INodeLifecycleFactory, INodeManifestRegistry } from '../types/node-lifecycle.js';
 import { buildValidationError } from '../utils/error-builders.js';
 
+/**
+ * Adapter that implements {@link ITaskExecutorPort} by delegating to {@link NodeLifecycleRunner}.
+ * Bridges the task execution input into the node lifecycle execution model.
+ */
 export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
     private readonly lifecycleFactory: INodeLifecycleFactory;
     private readonly runner: NodeLifecycleRunner;
@@ -57,8 +61,8 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
                 nodeManifest,
                 attempt: input.attempt,
                 executionPath: input.executionPath,
-                runCostLimitUsd: input.costPolicy?.runCostLimitUsd,
-                currentTotalCostUsd: input.currentTotalCostUsd ?? 0
+                runCreditLimit: input.costPolicy?.runCreditLimit,
+                currentTotalCredits: input.currentTotalCredits ?? 0
             }
         });
 
@@ -69,8 +73,8 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
         return {
             ok: true,
             output: executed.value.output,
-            estimatedCostUsd: executed.value.estimatedCostUsd,
-            totalCostUsd: executed.value.totalCostUsd
+            estimatedCredits: executed.value.estimatedCredits,
+            totalCredits: executed.value.totalCredits
         };
     }
 }

@@ -2,9 +2,11 @@ import {
     AbstractNodeDefinition,
     BINARY_PORT_PRESETS,
     NodeIoAccessor,
+    createBinaryPortDefinition
+} from '@robota-sdk/dag-node';
+import {
     buildTaskExecutionError,
     buildValidationError,
-    createBinaryPortDefinition,
     type ICostEstimate,
     type IDagError,
     type IDagNodeDefinition,
@@ -25,21 +27,31 @@ export type {
     IGeminiImageRuntimeOptions
 } from './runtime-core.js';
 
+/** Options for constructing a {@link GeminiImageEditNodeDefinition}. */
 export interface IGeminiImageEditNodeDefinitionOptions extends IGeminiImageRuntimeOptions {}
+/** Options for constructing a {@link GeminiImageComposeNodeDefinition}. */
 export interface IGeminiImageComposeNodeDefinitionOptions extends IGeminiImageRuntimeOptions {}
 
-const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
+const DEFAULT_IMAGE_EDIT_COST_USD = 0.01;
+const DEFAULT_IMAGE_COMPOSE_COST_USD = 0.015;
 
 const GeminiImageEditConfigSchema = z.object({
-    model: z.string().default(DEFAULT_GEMINI_IMAGE_MODEL),
-    baseCostUsd: z.number().default(0.01)
+    model: z.string().default(''),
+    baseCredits: z.number().default(DEFAULT_IMAGE_EDIT_COST_USD)
 });
 
 const GeminiImageComposeConfigSchema = z.object({
-    model: z.string().default(DEFAULT_GEMINI_IMAGE_MODEL),
-    baseCostUsd: z.number().default(0.015)
+    model: z.string().default(''),
+    baseCredits: z.number().default(DEFAULT_IMAGE_COMPOSE_COST_USD)
 });
 
+/**
+ * DAG node that edits a single image using the Gemini image generation API.
+ *
+ * Accepts a binary image and a text prompt, then returns the edited image.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class GeminiImageEditNodeDefinition extends AbstractNodeDefinition<typeof GeminiImageEditConfigSchema> {
     public readonly nodeType = 'gemini-image-edit';
     public readonly displayName = 'Gemini Image Edit';
@@ -77,7 +89,7 @@ export class GeminiImageEditNodeDefinition extends AbstractNodeDefinition<typeof
         _context: INodeExecutionContext,
         config: z.output<typeof GeminiImageEditConfigSchema>
     ): Promise<TResult<ICostEstimate, IDagError>> {
-        return { ok: true, value: { estimatedCostUsd: config.baseCostUsd } };
+        return { ok: true, value: { estimatedCredits: config.baseCredits } };
     }
 
     protected override async executeWithConfig(
@@ -134,6 +146,13 @@ export class GeminiImageEditNodeDefinition extends AbstractNodeDefinition<typeof
     }
 }
 
+/**
+ * DAG node that composes multiple images into one using the Gemini image generation API.
+ *
+ * Accepts a list of binary images (minimum two) and a text prompt, then returns the composed image.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class GeminiImageComposeNodeDefinition extends AbstractNodeDefinition<typeof GeminiImageComposeConfigSchema> {
     public readonly nodeType = 'gemini-image-compose';
     public readonly displayName = 'Gemini Image Compose';
@@ -173,7 +192,7 @@ export class GeminiImageComposeNodeDefinition extends AbstractNodeDefinition<typ
         _context: INodeExecutionContext,
         config: z.output<typeof GeminiImageComposeConfigSchema>
     ): Promise<TResult<ICostEstimate, IDagError>> {
-        return { ok: true, value: { estimatedCostUsd: config.baseCostUsd } };
+        return { ok: true, value: { estimatedCredits: config.baseCredits } };
     }
 
     protected override async executeWithConfig(

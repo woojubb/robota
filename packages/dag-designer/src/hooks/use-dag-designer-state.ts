@@ -5,16 +5,18 @@ import type {
     IDagError,
     IDagNode,
     INodeManifest,
+    IRunResult,
+    TObjectInfo,
     TPortPayload,
     TResult
 } from '@robota-sdk/dag-core';
-import type { IRunResult } from '../contracts/designer-api.js';
-import type { IRunProgressState } from '../components/dag-designer-canvas.js';
+import type { INodeState, IRunProgressState } from '../components/dag-designer-canvas.js';
 import { useDagDesignerContext } from '../components/dag-designer-canvas.js';
 
 export interface IDagDesignerState {
     definition: IDagDefinition;
     manifests: INodeManifest[];
+    objectInfo: TObjectInfo;
     runResult?: IRunResult;
     initialInput?: TPortPayload;
     selectedNodeId?: string;
@@ -22,6 +24,8 @@ export interface IDagDesignerState {
     connectError?: string;
     bindingErrors: string[];
     runProgress: IRunProgressState;
+    nodeStateMap: Record<string, INodeState>;
+    isRunnable: boolean;
 }
 
 export interface IDagDesignerActions {
@@ -32,6 +36,8 @@ export interface IDagDesignerActions {
     setSelection: (selection: { nodeId?: string; edgeId?: string }) => void;
     setConnectError: (error: string | undefined) => void;
     onRunResult?: (result: TResult<IRunResult, IDagError>) => void;
+    setNodeUploading: (nodeId: string, description: string) => void;
+    setNodeUploadDone: (nodeId: string) => void;
 }
 
 export function useDagDesignerState(): IDagDesignerState {
@@ -39,23 +45,29 @@ export function useDagDesignerState(): IDagDesignerState {
     return useMemo(() => ({
         definition: context.definition,
         manifests: context.manifests,
+        objectInfo: context.objectInfo,
         runResult: context.runResult,
         initialInput: context.initialInput,
         selectedNodeId: context.selectedNodeId,
         selectedEdgeId: context.selectedEdgeId,
         connectError: context.connectError,
         bindingErrors: context.bindingErrors,
-        runProgress: context.runProgress
+        runProgress: context.runProgress,
+        nodeStateMap: context.nodeStateMap,
+        isRunnable: context.isRunnable
     }), [
         context.bindingErrors,
         context.connectError,
         context.definition,
         context.initialInput,
         context.manifests,
+        context.objectInfo,
         context.runResult,
         context.runProgress,
         context.selectedEdgeId,
-        context.selectedNodeId
+        context.selectedNodeId,
+        context.nodeStateMap,
+        context.isRunnable
     ]);
 }
 
@@ -71,7 +83,9 @@ export function useDagDesignerActions(): IDagDesignerActions {
             context.setSelectedEdgeId(selection.edgeId);
         },
         setConnectError: context.setConnectError,
-        onRunResult: context.onRunResult
+        onRunResult: context.onRunResult,
+        setNodeUploading: context.setNodeUploading,
+        setNodeUploadDone: context.setNodeUploadDone
     }), [
         context.addNodeFromManifest,
         context.onDefinitionChange,
@@ -80,6 +94,8 @@ export function useDagDesignerActions(): IDagDesignerActions {
         context.setSelectedEdgeId,
         context.setSelectedNodeId,
         context.updateEdge,
-        context.updateNode
+        context.updateNode,
+        context.setNodeUploading,
+        context.setNodeUploadDone
     ]);
 }

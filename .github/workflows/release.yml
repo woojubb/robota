@@ -1,9 +1,14 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.0.0)'
+        required: true
+        type: string
+
+# Manual-only release. Run from GitHub Actions UI.
 
 jobs:
   release:
@@ -12,35 +17,36 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+          ref: ${{ github.event.inputs.tag }}
+
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
           run_install: false
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
-      
+
       - name: Install dependencies
         run: pnpm install
-      
+
       - name: Type check
         run: pnpm run typecheck
-      
+
       - name: Lint
         run: pnpm run lint
-      
+
       - name: Build
         run: pnpm run build
-      
+
       - name: Test
         run: pnpm run test
-      
+
       - name: Publish to NPM
         run: pnpm -r publish --access public --no-git-checks
         env:
@@ -51,25 +57,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          ref: ${{ github.event.inputs.tag }}
+
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 8.15.4
           run_install: false
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm install
-      
+
       - name: Build docs
         run: pnpm run docs:build
-      
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:

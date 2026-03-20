@@ -1,6 +1,5 @@
+import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
-    AbstractNodeDefinition,
-    NodeIoAccessor,
     type ICostEstimate,
     type IDagError,
     type IDagNodeDefinition,
@@ -19,6 +18,14 @@ const TextTemplateConfigSchema = z.object({
         .describe('Template string. %s is replaced with input text. Use %%s for a literal %s.')
 });
 
+/**
+ * DAG node that applies a template string to input text.
+ *
+ * The configured template uses `%s` as the placeholder for the input text value.
+ * Use `%%s` to produce a literal `%s` in the output.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class TextTemplateNodeDefinition extends AbstractNodeDefinition<typeof TextTemplateConfigSchema> {
     public readonly nodeType = 'text-template';
     public readonly displayName = 'Text Template';
@@ -47,7 +54,7 @@ export class TextTemplateNodeDefinition extends AbstractNodeDefinition<typeof Te
     public override async estimateCostWithConfig(): Promise<TResult<ICostEstimate, IDagError>> {
         return {
             ok: true,
-            value: { estimatedCostUsd: 0 }
+            value: { estimatedCredits: 0 }
         };
     }
 

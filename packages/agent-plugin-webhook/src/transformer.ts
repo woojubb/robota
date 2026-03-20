@@ -1,0 +1,209 @@
+/**
+ * Webhook data transformation utilities
+ * Converts base plugin types to webhook-specific types safely
+ */
+
+import type {
+  IPluginExecutionContext,
+  IPluginExecutionResult,
+  TLoggerData,
+  TUniversalValue,
+} from '@robota-sdk/agent-core';
+import type {
+  IWebhookExecutionContext,
+  IWebhookExecutionResult,
+  IWebhookEventData,
+  IWebhookExecutionData,
+  IWebhookConversationData,
+  IWebhookToolData,
+  IWebhookErrorData,
+  IWebhookToolCallData,
+  TWebhookEventName,
+} from './types';
+
+/**
+ * Webhook data transformer utility class
+ */
+export class WebhookTransformer {
+  /**
+   * Convert IPluginExecutionContext to WebhookExecutionContext
+   */
+  static contextToWebhook(context: IPluginExecutionContext): IWebhookExecutionContext {
+    return {
+      executionId: context.executionId,
+      sessionId: context.sessionId,
+      userId: context.userId,
+    };
+  }
+
+  /**
+   * Convert IPluginExecutionResult to WebhookExecutionResult
+   */
+  static resultToWebhook(result: IPluginExecutionResult): IWebhookExecutionResult {
+    return {
+      response: result.response,
+      content: result.content,
+      duration: result.duration,
+      tokensUsed: result.tokensUsed,
+      toolsExecuted: result.toolsExecuted,
+      success: result.success,
+      usage: result.usage,
+      toolCalls: result.toolCalls,
+      error: result.error,
+    };
+  }
+
+  /**
+   * Create execution event data
+   */
+  static createExecutionData(
+    context: IWebhookExecutionContext,
+    result: IWebhookExecutionResult,
+  ): IWebhookEventData {
+    const executionData: IWebhookExecutionData = {
+      response: result.response || undefined,
+      duration: result.duration || undefined,
+      tokensUsed: result.tokensUsed || undefined,
+      toolsExecuted: result.toolsExecuted || undefined,
+      success: result.success !== undefined ? result.success : undefined,
+    };
+
+    return {
+      executionId: context.executionId,
+      sessionId: context.sessionId,
+      userId: context.userId,
+      result: executionData,
+    };
+  }
+
+  /**
+   * Create conversation event data
+   */
+  static createConversationData(
+    context: IWebhookExecutionContext,
+    result: IWebhookExecutionResult,
+  ): IWebhookEventData {
+    const toolCalls: IWebhookToolCallData[] =
+      result.toolCalls?.map((call) => ({
+        id: call.id || '',
+        name: call.name || '',
+        arguments: JSON.stringify(call.arguments || {}),
+        result: String(call.result || ''),
+      })) || [];
+
+    const conversationData: IWebhookConversationData = {
+      response: result.content || result.response || undefined,
+      tokensUsed: result.usage?.totalTokens || result.tokensUsed || undefined,
+      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+    };
+
+    return {
+      executionId: context.executionId,
+      sessionId: context.sessionId,
+      userId: context.userId,
+      conversation: conversationData,
+    };
+  }
+
+  /**
+   * Create tool execution event data
+   *
+   * REASON: Tool result structure varies by tool type and provider, needs flexible handling for webhook processing
+   * ALTERNATIVES_CONSIDERED:
+   * 1. Strict tool result interfaces (breaks tool compatibility)
+   * 2. Union types (insufficient for dynamic tool results)
+   * 3. Generic constraints (too complex for webhook processing)
+   * 4. Interface definitions (too rigid for varied tool results)
+   * 5. Type assertions (decreases type safety)
+   * TODO: Consider standardized tool result interface across tools
+   */
+  static createToolData(
+    context: IWebhookExecutionContext,
+    toolResult: TLoggerData,
+  ): IWebhookEventData {
+    // Safely extract tool data from result
+    const toolName = this.safeGetProperty(toolResult, 'toolName') || 'unknown';
+    const toolId =
+      this.safeGetProperty(toolResult, 'toolId') ||
+      this.safeGetProperty(toolResult, 'executionId') ||
+      'unknown';
+    const hasError = this.safeGetProperty(toolResult, 'error');
+    const duration = this.safeGetProperty(toolResult, 'duration');
+    const result = this.safeGetProperty(toolResult, 'result');
+
+    const toolData: IWebhookToolData = {
+      name: String(toolName),
+      id: String(toolId),
+      success: !hasError,
+      duration: typeof duration === 'number' ? duration : undefined,
+      result: hasError ? undefined : String(result || ''),
+      error: hasError
+        ? hasError instanceof Error
+          ? hasError.message
+          : String(hasError)
+        : undefined,
+    };
+
+    return {
+      executionId: context.executionId,
+      sessionId: context.sessionId,
+      userId: context.userId,
+      tool: toolData,
+    };
+  }
+
+  /**
+   * Create error event data
+   */
+  static createErrorData(context: IWebhookExecutionContext, error: Error): IWebhookEventData {
+    const errorData: IWebhookErrorData = {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      type: error instanceof Error ? error.constructor.name : 'Unknown',
+      context: context
+        ? {
+            executionId: context.executionId || '',
+            sessionId: context.sessionId || '',
+            userId: context.userId || '',
+          }
+        : undefined,
+    };
+
+    return {
+      executionId: context.executionId,
+      sessionId: context.sessionId,
+      userId: context.userId,
+      error: errorData,
+    };
+  }
+
+  /**
+   * Safely get property from object (handles index signature issues)
+   *
+   * REASON: Safe property access for webhook data transformation needs flexible input/output types
+   * ALTERNATIVES_CONSIDERED:
+   * 1. Strict object types (breaks dynamic property access)
+   * 2. Union types (insufficient for property extraction)
+   * 3. Generic constraints (too complex for simple property access)
+   * 4. Interface definitions (too rigid for dynamic objects)
+   * 5. Type assertions (decreases type safety)
+   * TODO: Consider typed property access if patterns emerge
+   */
+  private static safeGetProperty(obj: TLoggerData, key: string): TUniversalValue | Date | Error {
+    if (!obj || typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+      return undefined;
+    }
+    return obj[key];
+  }
+
+  /**
+   * Default payload transformer for webhook events
+   */
+  static defaultPayloadTransformer(
+    _event: TWebhookEventName,
+    data: IWebhookEventData,
+  ): IWebhookEventData {
+    // Simply return the data as-is for the default transformer
+    return data;
+  }
+}

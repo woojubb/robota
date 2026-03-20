@@ -2,9 +2,11 @@ import {
     AbstractNodeDefinition,
     BINARY_PORT_PRESETS,
     NodeIoAccessor,
+    createBinaryPortDefinition
+} from '@robota-sdk/dag-node';
+import {
     buildTaskExecutionError,
     buildValidationError,
-    createBinaryPortDefinition,
     type ICostEstimate,
     type IDagError,
     type IDagNodeDefinition,
@@ -21,10 +23,12 @@ export type {
     ISeedanceVideoRuntimeOptions
 } from './runtime.js';
 
+/** Options for constructing a {@link SeedanceVideoNodeDefinition}. */
 export interface ISeedanceVideoNodeDefinitionOptions extends ISeedanceVideoRuntimeOptions {}
 
 const DEFAULT_SEEDANCE_MODEL = 'seedance-1-5-pro-251215';
 const DEFAULT_BASE_COST_USD = 0.08;
+const IMAGE_INPUT_SURCHARGE_USD = 0.02;
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
 const DEFAULT_POLL_TIMEOUT_MS = 180_000;
 
@@ -35,7 +39,7 @@ const SeedanceVideoConfigSchema = z.object({
     seed: z.number().int().optional(),
     pollIntervalMs: z.number().int().positive().default(DEFAULT_POLL_INTERVAL_MS),
     pollTimeoutMs: z.number().int().positive().default(DEFAULT_POLL_TIMEOUT_MS),
-    baseCostUsd: z.number().default(DEFAULT_BASE_COST_USD)
+    baseCredits: z.number().default(DEFAULT_BASE_COST_USD)
 });
 
 class SeedanceVideoNodeTaskHandler {
@@ -51,11 +55,11 @@ class SeedanceVideoNodeTaskHandler {
         config: z.output<typeof SeedanceVideoConfigSchema>
     ): Promise<TResult<ICostEstimate, IDagError>> {
         const imagesInput = input.images;
-        const imageSurcharge = Array.isArray(imagesInput) && imagesInput.length > 0 ? 0.02 : 0;
-        const estimatedCostUsd = config.baseCostUsd + imageSurcharge;
+        const imageSurcharge = Array.isArray(imagesInput) && imagesInput.length > 0 ? IMAGE_INPUT_SURCHARGE_USD : 0;
+        const estimatedCredits = config.baseCredits + imageSurcharge;
         return {
             ok: true,
-            value: { estimatedCostUsd }
+            value: { estimatedCredits }
         };
     }
 
@@ -144,6 +148,14 @@ class SeedanceVideoNodeTaskHandler {
     }
 }
 
+/**
+ * DAG node that generates video using the Seedance (Bytedance) video generation API.
+ *
+ * Accepts a text prompt and optional reference images, then produces a video output
+ * by polling the Seedance job until completion or timeout.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class SeedanceVideoNodeDefinition extends AbstractNodeDefinition<typeof SeedanceVideoConfigSchema> {
     public readonly nodeType = 'seedance-video';
     public readonly displayName = 'Seedance Video';

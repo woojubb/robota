@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "templateId": "default",
+    "name": "Quick LLM Text Flow",
+    "description": "Use this when testing prompt-to-completion flow quickly with an explicit text output terminal node."
+  },
+  "definition": {
+    "dagId": "dag-template-default",
+    "version": 1,
+    "status": "draft",
+    "nodes": [
+      {
+        "nodeId": "input_1",
+        "nodeType": "input",
+        "position": {
+          "x": 120,
+          "y": 220
+        },
+        "dependsOn": [],
+        "config": {
+          "text": "Write a short greeting for a new user."
+        }
+      },
+      {
+        "nodeId": "llm_text_1",
+        "nodeType": "llm-text-openai",
+        "position": {
+          "x": 520,
+          "y": 220
+        },
+        "dependsOn": [
+          "input_1"
+        ],
+        "config": {
+          "provider": "openai",
+          "model": "gpt-4o-mini",
+          "temperature": 0.2
+        }
+      },
+      {
+        "nodeId": "text_output_1",
+        "nodeType": "text-output",
+        "position": {
+          "x": 920,
+          "y": 220
+        },
+        "dependsOn": [
+          "llm_text_1"
+        ],
+        "config": {}
+      }
+    ],
+    "edges": [
+      {
+        "from": "input_1",
+        "to": "llm_text_1",
+        "bindings": [
+          {
+            "outputKey": "text",
+            "inputKey": "prompt"
+          }
+        ]
+      },
+      {
+        "from": "llm_text_1",
+        "to": "text_output_1",
+        "bindings": [
+          {
+            "outputKey": "completion",
+            "inputKey": "text"
+          }
+        ]
+      }
+    ],
+    "costPolicy": {
+      "runCreditLimit": 100,
+      "costPolicyVersion": 2
+    }
+  }
+}

@@ -1,50 +1,57 @@
 # AGENTS.md — Robota Monorepo Agent Guidelines
 
-This file is the control plane for AI agents working in the Robota monorepo.
+You are a senior TypeScript engineer working in this pnpm monorepo. Your expertise covers strict type systems, dependency injection, DAG-based workflow orchestration, and multi-provider AI integration. Follow every rule in this file without exception.
 
-It defines:
+This file is the entry point for all agent guidance in the Robota monorepo.
 
-- non-negotiable rules
-- ownership boundaries
-- verification expectations
-- how skills must be used
-- how Robota is moving toward a full harness model
+## Document Discovery Policy
 
-This file is intentionally concise. It is not the place for long tutorials, repeated architecture essays, or duplicated package-specific knowledge.
+This file contains only domain-free rules and routing. It does not contain package-specific knowledge, domain logic, or implementation details.
+
+**Progressive discovery model:**
+
+1. **Start here.** Read this file for non-negotiable rules and document routing.
+2. **Follow links.** For domain details, follow the references to rules, skills, specs, or structure documents.
+3. **Dig into packages.** For package-specific contracts, read `packages/<name>/docs/SPEC.md`.
+
+**Principles:**
+
+- This file must remain domain-free. It must not reference individual package names, classes, or domain concepts.
+- Domain-specific rules belong in skills (`.agents/skills/`) or package specs (`docs/SPEC.md`).
+- Never duplicate content across levels. Each fact has exactly one owner document.
+- Intermediate index files (e.g., `.agents/rules/index.md`, `.agents/project-structure.md`) group and route to related documents.
+- When a rule is needed repeatedly, prefer a mechanical check over adding more prose.
+
+**Document tree:**
+
+```
+AGENTS.md                              ← routing + overview (this file)
+├── .agents/rules/                     ← mandatory rule details
+│   ├── index.md                       ← rule group listing
+│   ├── code-quality.md                ← type system, imports, dev patterns
+│   ├── process.md                     ← spec-first, TDD, no fallback, planning, build
+│   ├── api-boundary.md                ← API spec, runtime/orchestrator boundary
+│   ├── naming-style.md                ← language, identity, styling
+│   └── git-branch.md                  ← git ops, branch policy, worktree
+├── .agents/project-structure.md       ← package listing and dependency rules
+├── .agents/skills/*/SKILL.md          ← procedural workflows and domain rules
+├── .agents/tasks/                     ← active and completed task tracking
+├── packages/*/docs/SPEC.md            ← package-level contracts (SSOT)
+└── .design/                           ← design documents (Korean)
+```
 
 ## Project Overview
 
-Robota is a TypeScript/JavaScript monorepo for building AI agents with multi-provider support (OpenAI, Anthropic, Google AI). It uses a pnpm workspace with strict TypeScript, ESLint, and a DAG-based orchestration system.
+TypeScript/JavaScript monorepo for building AI agents with multi-provider support. Uses a pnpm workspace with strict TypeScript and ESLint.
 
 - Package manager: `pnpm` 8.15.4
 - Node.js: 22.14.0 (Volta), minimum 18.0.0
 - Module system: ES modules only (`"type": "module"`)
 - Repository: <https://github.com/woojubb/robota.git>
 
-## Harness Operating Model
+## Project Structure
 
-Robota is adopting a harness-first workflow.
-
-This means:
-
-- rules define hard constraints and ownership
-- skills define repeatable task workflows
-- owner documents define domain truth
-- scripts, lint, tests, and verification flows enforce important invariants mechanically
-- workspace scope discovery follows `pnpm-workspace.yaml`
-
-Agents must prefer:
-
-1. repository-approved commands
-2. explicit verification loops
-3. owner-defined contracts
-4. narrow, verifiable changes
-
-Agents must avoid:
-
-- inventing local conventions not owned by the repository
-- relying on memory instead of repository guidance
-- treating prose as a substitute for build, test, and verification
+See [`.agents/project-structure.md`](.agents/project-structure.md) for the full package and app listing, including dependency direction rules.
 
 ## Common Commands
 
@@ -59,306 +66,181 @@ pnpm lint
 pnpm docs:build
 ```
 
-## Project Structure
+## Harness Entrypoints
 
-```text
-packages/
-├── agents/             # Core agent functionality
-├── anthropic/          # Anthropic provider
-├── openai/             # OpenAI provider
-├── google/             # Google provider
-├── sessions/           # Session management
-├── team/               # Team collaboration
-├── workflow/           # Workflow visualization/events
-├── playground/         # Playground UI package
-├── remote/             # Remote execution package
-├── dag-core/           # DAG domain contracts and state rules (SSOT)
-├── dag-runtime/        # DAG orchestration runtime
-├── dag-worker/         # DAG worker execution layer
-├── dag-scheduler/      # DAG scheduler layer
-├── dag-projection/     # DAG projection/read-model layer
-├── dag-api/            # DAG API/composition layer
-├── dag-designer/       # DAG web designer layer
-└── dag-nodes/          # DAG node implementations
-apps/
-├── web/                # Web application
-├── docs/               # Documentation site
-└── api-server/         # API server
+```bash
+pnpm harness:scan
+pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios] [--base-ref <git-ref>]
+pnpm harness:record -- --scope <packages/foo|apps/bar> [--base-ref <git-ref>]
+pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--base-ref <git-ref>]
+pnpm harness:self-check
+pnpm harness:cleanup
+pnpm harness:bootstrap -- [--scope web|api-server] [--report-file <path>] [--dry-run]
+pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]
 ```
-
-### DAG Dependency Direction (Mandatory)
-
-- `dag-core` is the SSOT contract package for all DAG packages.
-- All other dag packages (`dag-runtime`, `dag-worker`, `dag-scheduler`, `dag-projection`, `dag-api`, `dag-designer`) depend on `dag-core`.
-- `dag-designer` must NOT import runtime, worker, or scheduler implementations directly.
 
 ## Mandatory Rules
 
-All rules below are mandatory and non-negotiable.
+All rules below are mandatory, non-negotiable, and domain-free. Each rule group has its own document with full details. See [rules index](.agents/rules/index.md).
 
-### Language Policy
-
-- Code and comments: English only.
-- Conversations with the user: Korean only.
-- Documents in `.design/`: Korean only.
-- Documents in all other folders: English only.
-- Commit messages: English only and conventional commits format.
+| Group                | Document                                                       | Key rules                                                                           |
+| -------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Code Quality         | [code-quality.md](.agents/rules/code-quality.md)               | Strict TS, no `any`, SSOT types, `interface` for shapes                             |
+| Process              | [process.md](.agents/rules/process.md)                         | Spec-first, TDD, no fallback, build verification, publish safety gate, feature docs |
+| API Boundary         | [api-boundary.md](.agents/rules/api-boundary.md)               | Runtime=ComfyUI immutable, orchestrator=Robota own                                  |
+| Naming & Style       | [naming-style.md](.agents/rules/naming-style.md)               | Language policy, agent identity, Tailwind only                                      |
+| Git & Branch         | [git-branch.md](.agents/rules/git-branch.md)                   | Branch policy, conventional commits, worktree                                       |
+| Package Dependencies | [`.agents/project-structure.md`](.agents/project-structure.md) | One-way deps, no cycles, no pass-through re-exports                                 |
 
 ### Type System (Strict)
 
-- TypeScript strict mode is immutable and must never be disabled.
-- `any` and `{}` are prohibited in production code.
-- `unknown` is allowed only at trust boundaries and `catch` boundaries, and must be narrowed before domain use.
-- `// @ts-ignore` and `// @ts-nocheck` are prohibited.
-- `I*` prefix is for interfaces only. `T*` prefix is for type aliases only.
-- Type aliases with `I*` prefix or interfaces with `T*` prefix are naming violations. Rename to match the convention.
-- In test files (`*.test.ts`, `*.spec.ts`), `any` and `unknown` may be used only for mocks or boundary fixtures.
-- Follow owner-based SSOT: every concept has exactly one owner module. Import from the owner's public surface and never re-declare owned contracts.
-- Trivial 1:1 type aliases (`type X = Y`) that add no semantic value are prohibited. Use the original type directly. Generic specializations (`type X = Map<string, Foo>`) and discriminated unions are allowed.
-
-### No Fallback Policy
-
-- Fallback logic is prohibited. There must be a single, correct, verifiable path.
-- No `try/catch` that silently switches to alternative implementations.
-- No logical OR fallbacks for core behavior (`primary() || fallback()`).
-- Terminal failure states (`failed`, `cancelled`) must remain terminal by default.
-- Retry or requeue is allowed only through an explicit policy gate, never as an implicit fallback.
-
-### Test-Driven Development
-
-- Follow Kent Beck's Red-Green-Refactor cycle when writing new code or modifying behavior.
-- RED: write a failing test first. GREEN: write minimal code to pass. REFACTOR: clean up while green.
-- Never write production code without a failing test that demands it.
-- Never refactor while tests are failing.
-- Never add behavior during refactoring — only restructure.
-- Bug fixes start with a test that reproduces the bug.
-- Prefer small, incremental steps. If a step feels too big, break it down.
-
-### Build Requirements
-
-- ANY modification to `packages/*/src/` REQUIRES immediate build of the affected scope.
-- Never skip builds after package source changes.
-- Never commit code that does not build successfully.
-- Mandatory loop: change -> build -> targeted test or smoke test -> fix -> re-verify.
-- If a change affects execution paths, scenarios, or examples, run the relevant verification flow and stop on strict-policy failures.
-
-### Import Standards
-
-- Static ES module imports at the top of files are the default.
-- NEVER use `await import()` in the middle of functions for required modules.
-- Dynamic import is allowed only for optional modules with explicit ownership and explicit error handling.
+See [code-quality.md](.agents/rules/code-quality.md).
 
 ### Development Patterns
 
-- NEVER use `console.*` directly in production code.
-- ALWAYS use dependency injection for logging and side concerns.
-- No temporary workarounds, dummy data, or type tricks to bypass builds or verification.
-- No blind type assertions (`as any`, `as unknown as T`, unchecked `as T` for external data) without proper validation.
-- Separate core behavior from side concerns.
-- Keep the canonical path concise once ownership is established.
+See [code-quality.md](.agents/rules/code-quality.md).
 
-### Agent Identity
+### Build Requirements
 
-- Prohibited: `main agent`, `sub-agent`, `parent-agent`, `child-agent`, and any hierarchy-implying naming.
-- Approved: `agent`, `agent instance`, `agent replica`, with flat identifiers such as `agent_0`, `agent_1`.
+See [process.md](.agents/rules/process.md).
 
-### Styling
+### No Fallback Policy
 
-- Tailwind CSS utility classes only.
-- No inline `style` attributes, custom CSS, or CSS-in-JS.
+See [process.md](.agents/rules/process.md).
 
-### Git Operations
+### Test-Driven Development
 
-- No `git commit` or `git push` without explicit user approval.
-- Conventional commit format: `<type>(<scope>): <message>` (max 80 chars).
-- Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`.
-
-### Branch Policy
-
-- `main` is the production branch. Direct commits and pushes to `main` are prohibited.
-- `develop` is the integration branch. All feature work branches from `develop`.
-- Feature branches must be created from `develop` and merged back into `develop`.
-- Merging `develop` into `main` requires explicit user approval and is a release-level action.
-- When merging a branch, always merge back to the branch it was forked from. Verify the fork point before proposing a merge target.
-- If the agent wants to suggest a different merge target than the fork origin, it must explicitly recommend and receive user approval before proceeding.
-- Never assume `main` as the default merge target. Always check the actual fork point.
-
-### DAG Node Implementation
-
-- Every node class must extend `AbstractNodeDefinition`.
-- Config validation goes through `configSchemaDefinition` plus base-class runtime parse.
-- Use `NodeIoAccessor` helpers for input validation. Do not manually read port payload keys for canonical validation paths.
-- Cost computation must go through `estimateCostWithConfig(...)`.
-- Validation failures use `DAG_VALIDATION_*` codes.
-- Execution failures use `DAG_TASK_EXECUTION_*` codes.
+See [process.md](.agents/rules/process.md).
 
 ### Execution Safety
 
-- No duplicate-prevention anti-patterns. Design systems that do not generate duplicates.
-- Failure layers `[EMITTER-CONTRACT]` and `[APPLY-LAYER]` both stop immediately.
-- Event names must use declarative constants with correct ownership and prefix.
-- DAG events use `run.*`, `task.*`, `worker.*`, and `scheduler.*` prefixes.
+See [process.md](.agents/rules/process.md) and the [`dag-node-standard`](.agents/skills/dag-node-standard/SKILL.md) skill.
 
 ### Execution Caching
 
-- ALWAYS check cache before LLM calls.
-- ALWAYS save successful LLM results to cache.
-- NEVER run equivalent executions repeatedly without cache utilization.
-- If cache integrity validation fails, stop execution and surface the error. Do not silently fall back to a live LLM call.
+See the [`execution-caching`](.agents/skills/execution-caching/SKILL.md) skill.
+
+### Harness Direction
+
+See [process.md](.agents/rules/process.md) and [Harness Entrypoints](#harness-entrypoints).
+
+### Harness Operating Model
+
+See [process.md](.agents/rules/process.md) and [Harness Entrypoints](#harness-entrypoints).
+
+### Git Operations
+
+See [git-branch.md](.agents/rules/git-branch.md).
+
+### Language Policy
+
+See [naming-style.md](.agents/rules/naming-style.md).
+
+### Styling
+
+See [naming-style.md](.agents/rules/naming-style.md).
+
+### Package Dependency Direction (Non-negotiable)
+
+- Bidirectional production dependencies between packages are **prohibited**. If A depends on B, B must NOT depend on A.
+- Pass-through re-exports (`export * from '@robota-sdk/other-package'`) are **prohibited**. Consumers must import from the owning package.
+- devDependencies for test fixtures do not constitute a production dependency cycle.
+- See [`.agents/project-structure.md`](.agents/project-structure.md) for the full dependency graph and per-package rules.
 
 ## Skills Reference
 
-Procedural workflows and implementation guides live under `.agents/skills/`.
+Procedural workflows and domain-specific rules live under `.agents/skills/`. Each skill owns its domain details and should be consulted when working in that domain.
 
-Harness-oriented repository skills:
-
-| Skill | Path | Purpose |
-|-------|------|---------|
-| repo-change-loop | `.agents/skills/repo-change-loop/` | Standard change -> build -> test -> verify workflow |
-| scenario-verification-harness | `.agents/skills/scenario-verification-harness/` | Scenario pre-check, record, verify, and stop conditions |
-| harness-governance | `.agents/skills/harness-governance/` | Rule/skill/owner drift checks and policy consistency |
-| type-boundary-and-ssot | `.agents/skills/type-boundary-and-ssot/` | Boundary validation, type strictness, quality gates, and SSOT ownership workflow |
-| repo-writing | `.agents/skills/repo-writing/` | Repository writing rules for docs, `.design/`, and commit messages |
-| spec-writing-standard | `.agents/skills/spec-writing-standard/` | SPEC.md required sections, quality gates, and drift detection |
-
-Domain and package skills:
-
-| Skill | Path | Purpose |
-|-------|------|---------|
-| dag-node-standard | `.agents/skills/dag-node-standard/` | Node implementation workflow and templates |
-| pnpm-monorepo-build | `.agents/skills/pnpm-monorepo-build/` | Build commands and workflow guidance |
-| architecture-patterns | `.agents/skills/architecture-patterns/` | Functional core/imperative shell, ports-and-adapters, DI patterns |
-| tdd-red-green-refactor | `.agents/skills/tdd-red-green-refactor/` | Kent Beck's TDD Red-Green-Refactor cycle |
-| vitest-testing-strategy | `.agents/skills/vitest-testing-strategy/` | Testing strategy (unit, integration, type-level) |
-| contract-testing | `.agents/skills/contract-testing/` | Consumer-driven contract testing |
-| state-machine-design | `.agents/skills/state-machine-design/` | Finite state machine design patterns |
-| ddd-tactical-patterns | `.agents/skills/ddd-tactical-patterns/` | DDD patterns (Aggregate, Value Object, Domain Event) |
-| cqrs-event-projection-basics | `.agents/skills/cqrs-event-projection-basics/` | CQRS and event projection fundamentals |
-| async-concurrency-patterns | `.agents/skills/async-concurrency-patterns/` | Concurrent async with limits and cancellation |
-| effect-style-error-modeling | `.agents/skills/effect-style-error-modeling/` | Result/Either-based error modeling |
-| execution-caching | `.agents/skills/execution-caching/` | Execution caching workflows |
-| architecture-decision-records | `.agents/skills/architecture-decision-records/` | ADR format and workflow |
-| semver-api-surface | `.agents/skills/semver-api-surface/` | Semantic versioning for monorepo |
-| plugin-development | `.agents/skills/plugin-development/` | Plugin development with validation |
-| robota-sdk-usage | `.agents/skills/robota-sdk-usage/` | SDK usage patterns and migration |
-| tailwind-truncation | `.agents/skills/tailwind-truncation/` | Tailwind truncation patterns |
-| branch-guard | `.agents/skills/branch-guard/` | Guard against committing on protected branches |
-| task-tracking | `.agents/skills/task-tracking/` | Track work with task files in .agents/tasks/ |
-| contract-audit | `.agents/skills/contract-audit/` | Package-level class contract review and SPEC.md registry |
-| package-code-review | `.agents/skills/package-code-review/` | Systematic 6-perspective code review with severity labels |
+| Skill                                                                                    | Purpose                                                    |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [`repo-change-loop`](.agents/skills/repo-change-loop/SKILL.md)                           | Change -> build -> test -> verify workflow                 |
+| [`scenario-verification-harness`](.agents/skills/scenario-verification-harness/SKILL.md) | Scenario pre-check, record, verify                         |
+| [`harness-governance`](.agents/skills/harness-governance/SKILL.md)                       | Rule/skill/owner drift checks                              |
+| [`type-boundary-and-ssot`](.agents/skills/type-boundary-and-ssot/SKILL.md)               | Boundary validation, SSOT ownership                        |
+| [`repo-writing`](.agents/skills/repo-writing/SKILL.md)                                   | Writing rules for docs, `.design/`, commits                |
+| [`spec-writing-standard`](.agents/skills/spec-writing-standard/SKILL.md)                 | SPEC.md required sections and quality gates                |
+| [`spec-first-development`](.agents/skills/spec-first-development/SKILL.md)               | Spec-first workflow for contract boundary changes          |
+| [`spec-code-conformance`](.agents/skills/spec-code-conformance/SKILL.md)                 | Spec-code conformance verification loop after spec changes |
+| [`dag-node-standard`](.agents/skills/dag-node-standard/SKILL.md)                         | Node implementation, execution safety                      |
+| [`execution-caching`](.agents/skills/execution-caching/SKILL.md)                         | Cache-first execution workflows                            |
+| [`package-code-review`](.agents/skills/package-code-review/SKILL.md)                     | 6-perspective code review with severity labels             |
+| [`branch-guard`](.agents/skills/branch-guard/SKILL.md)                                   | Branch protection, merge direction, worktree, deploy       |
+| [`task-tracking`](.agents/skills/task-tracking/SKILL.md)                                 | Task files in `.agents/tasks/`                             |
+| [`contract-audit`](.agents/skills/contract-audit/SKILL.md)                               | Class contract review and SPEC.md registry                 |
+| [`pnpm-monorepo-build`](.agents/skills/pnpm-monorepo-build/SKILL.md)                     | Build commands and workflow                                |
+| [`tdd-red-green-refactor`](.agents/skills/tdd-red-green-refactor/SKILL.md)               | TDD cycle                                                  |
+| [`vitest-testing-strategy`](.agents/skills/vitest-testing-strategy/SKILL.md)             | Testing strategy                                           |
+| [`architecture-patterns`](.agents/skills/architecture-patterns/SKILL.md)                 | DI, ports-and-adapters                                     |
+| [`contract-testing`](.agents/skills/contract-testing/SKILL.md)                           | Consumer-driven contract testing                           |
+| [`state-machine-design`](.agents/skills/state-machine-design/SKILL.md)                   | FSM design patterns                                        |
+| [`ddd-tactical-patterns`](.agents/skills/ddd-tactical-patterns/SKILL.md)                 | DDD patterns                                               |
+| [`cqrs-event-projection-basics`](.agents/skills/cqrs-event-projection-basics/SKILL.md)   | CQRS and event projection                                  |
+| [`async-concurrency-patterns`](.agents/skills/async-concurrency-patterns/SKILL.md)       | Concurrent async                                           |
+| [`effect-style-error-modeling`](.agents/skills/effect-style-error-modeling/SKILL.md)     | Result/Either error modeling                               |
+| [`architecture-decision-records`](.agents/skills/architecture-decision-records/SKILL.md) | ADR format                                                 |
+| [`semver-api-surface`](.agents/skills/semver-api-surface/SKILL.md)                       | Semantic versioning                                        |
+| [`plugin-development`](.agents/skills/plugin-development/SKILL.md)                       | Plugin development                                         |
+| [`robota-sdk-usage`](.agents/skills/robota-sdk-usage/SKILL.md)                           | SDK usage patterns                                         |
+| [`tailwind-truncation`](.agents/skills/tailwind-truncation/SKILL.md)                     | Tailwind truncation                                        |
+| [`logging-level-guide`](.agents/skills/logging-level-guide/SKILL.md)                     | Log level usage guide                                      |
+| [`api-error-standard`](.agents/skills/api-error-standard/SKILL.md)                       | RFC 7807 API error responses                               |
+| [`api-spec-management`](.agents/skills/api-spec-management/SKILL.md)                     | API specification management                               |
+| [`deploy-to-vercel`](.agents/skills/deploy-to-vercel/SKILL.md)                           | Deploy applications and websites to Vercel                 |
+| [`vercel-composition-patterns`](.agents/skills/vercel-composition-patterns/SKILL.md)     | React composition patterns and component architecture      |
+| [`vercel-react-best-practices`](.agents/skills/vercel-react-best-practices/SKILL.md)     | React and Next.js performance optimization                 |
+| [`vercel-react-native-skills`](.agents/skills/vercel-react-native-skills/SKILL.md)       | React Native and Expo best practices for mobile apps       |
+| [`web-design-guidelines`](.agents/skills/web-design-guidelines/SKILL.md)                 | UI code review for Web Interface Guidelines compliance     |
 
 ## Rules and Skills Boundary
 
-- Rules: mandatory constraints defined in the "Mandatory Rules" section above. Rules always win on conflict.
-- Skills: procedural task harnesses under `.agents/skills/`. Skills describe execution workflow, not repository law.
-- Owner documents: package docs, ADRs, contracts, and owned specs. These define domain truth and detailed contracts.
+- **Rules** (`.agents/rules/`): mandatory constraints. Rules always win on conflict.
+- **Skills** (`.agents/skills/`): procedural workflows and domain-specific rules. Skills must not redefine rules.
+- **Specs** (`packages/*/docs/SPEC.md`): package-level contracts and domain truth.
 - If skill text conflicts with a rule, the rule wins.
-
-Skills must not:
-
-- redefine repository rules
-- introduce new rule-level terminology without an owner document
-- duplicate large sections of `AGENTS.md`
-- teach examples that violate repository rules
-
-When a new invariant matters repeatedly, prefer a mechanical check over adding more prose.
 
 ## Owner Knowledge Policy
 
-Detailed domain truth should live in owner documents, package docs, ADRs, or contract definitions.
+- Each workspace package owns its specification in `docs/SPEC.md`.
+- Detailed domain truth lives in specs, ADRs, or contract definitions — not in this file.
+- The `spec-writing-standard` skill defines SPEC.md required sections and quality gates.
+- When modifying a package, check if `docs/SPEC.md` reflects the current architecture and update if needed.
 
-Each workspace package or app should own its current-state specification in `docs/SPEC.md`.
-Each workspace `docs/README.md` should expose `SPEC.md` as the canonical entrypoint for that scope.
+## Common Mistakes
 
-### Spec Quality Gate
+Mistakes observed repeatedly in this codebase. Every item below has caused a real failure.
 
-Each workspace `docs/SPEC.md` must include at minimum:
-
-- **Scope**: what the package owns.
-- **Boundaries**: what the package does not own and where those responsibilities live.
-- **Architecture Overview**: layer structure or key components.
-- **Type Ownership**: SSOT types defined by this package (table: Type | Location | Purpose).
-- **Public API Surface**: primary exported classes, functions, and types.
-- **Extension Points**: abstract classes or interfaces that consumers implement.
-- **Error Taxonomy**: package-specific error types with codes and categories.
-- **Test Strategy**: current test coverage and identified gaps.
-- **Class Contract Registry**: interface implementations, inheritance chains, and cross-package port consumers.
-
-The `spec-writing-standard` skill provides the full workflow for creating or updating SPEC.md files.
-
-### Continuous Improvement
-
-When modifying a package, agents should:
-
-- Check if `docs/SPEC.md` reflects the current architecture.
-- Identify missing test coverage for touched code paths.
-- Update type ownership documentation if new SSOT types are introduced.
-- Flag SPEC.md drift for packages where implementation diverges from spec.
-Each workspace that owns `examples/` or scenario artifacts should expose a package-level `scenario:verify` command.
-Each workspace that owns `examples/` or scenario artifacts should expose a package-level `scenario:record` command when scenario output can be refreshed.
-Each workspace that owns `examples/` or scenario artifacts should keep authoritative records under `examples/scenarios/*.record.json`.
-Scenario verification should treat those `*.record.json` artifacts as the canonical drift-detection baseline.
-Missing, invalid, duplicate, or command-mismatched scenario record artifacts are verification failures, not advisory notes.
-
-Examples:
-
-- DAG dependency contracts
-- node execution contracts
-- event naming contracts
-- scenario formats
-- cache key and invalidation contracts
-- public API surface rules
-
-`AGENTS.md` should point to these owners, not duplicate them.
-
-## Harness Direction
-
-Robota is adopting a full harness model.
-
-The target state is:
-
-- standard repository entrypoints for scan, verify, review, and cleanup
-- mechanical checks for dependency direction, boundary validation, naming, and document drift
-- verification-first change loops
-- observable execution flows for scenario, ownerPath, and strict-policy failures
-
-Until dedicated harness commands exist, agents must use the closest repository-approved build, test, lint, typecheck, and scenario verification commands available.
-
-Current harness entrypoints:
-
-- `pnpm harness:scan` (consistency + spec ownership + docs structure)
-- `pnpm harness:scan:consistency`
-- `pnpm harness:verify -- --scope <packages/foo|apps/bar> [--include-scenarios] [--base-ref <git-ref>]`
-- `pnpm harness:record -- --scope <packages/foo|apps/bar> [--base-ref <git-ref>]`
-- `pnpm harness:review -- --scope <packages/foo|apps/bar> [--report-file <path>] [--base-ref <git-ref>]`
-- `pnpm harness:self-check`
-- `pnpm harness:cleanup`
-- `pnpm harness:bootstrap -- [--scope web|api-server] [--report-file <path>] [--dry-run]`
-- `pnpm harness:run-context -- [--scope <scope>] [--report-file <path>]`
-
-When the working tree is clean, harness commands may resolve scope from `git diff <base-ref>...HEAD` instead of `git status`.
+| #   | Mistake                                                          | Correct approach                                                                |
+| --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 1   | Using `any` or `{}` in production code                           | Use `unknown` + narrowing, or define a proper interface                         |
+| 2   | Forgetting `pnpm build` before `pnpm test` in a dependency chain | Always run `pnpm build:deps` first, or use `harness:verify`                     |
+| 3   | Creating bidirectional package dependencies                      | Dependency direction is one-way; see `.agents/project-structure.md`             |
+| 4   | Pass-through re-exports (`export * from '@robota-sdk/other'`)    | Import from the owning package directly                                         |
+| 5   | Committing without running `pnpm typecheck`                      | Pre-commit hook runs lint-staged; always verify locally                         |
+| 6   | Adding a new package without `docs/SPEC.md`                      | Every workspace package requires a SPEC.md; see `spec-writing-standard` skill   |
+| 7   | Using `console.*` in production code                             | Use dependency-injected logger                                                  |
+| 8   | Modifying a spec without running the conformance loop            | Every spec change requires `spec-code-conformance` verification                 |
+| 9   | Using `try/catch` as a fallback mechanism                        | No fallback policy; terminal failures stay terminal                             |
+| 10  | Writing implementation before a failing test                     | TDD: red-green-refactor; write the test first                                   |
+| 11  | Publishing without dry-run                                       | Always run `publish --dry-run` first; see `process.md` Publish Safety Gate      |
+| 12  | Publishing packages without user approval on scope               | Confirm publish manifest with user; see `process.md` Publish Scope Approval     |
+| 13  | agent-core depending on agent-\* packages                        | agent-core MUST NOT depend on any @robota-sdk/agent-\* package                  |
+| 14  | Using `npm publish` instead of `pnpm publish`                    | pnpm resolves workspace:\* deps; npm publishes them literally, breaking install |
+| 15  | Adding a feature without updating SPEC.md/README.md              | Every new feature requires documentation updates in the same commit/PR          |
+| 16  | Hardcoding cross-cutting concerns (fs.appendFile, console.log)   | Use plugin/event architecture; see `code-quality.md` Layered Assembly           |
+| 17  | Bypassing layer boundaries (CLI using core internals directly)   | Each layer consumes only its direct dependency's public API                     |
+| 18  | Maintaining separate parallel arrays that must stay in sync      | Use a single data structure (array of objects, Map); see `code-quality.md`      |
+| 19  | Firing post-event hooks before state mutation is complete        | Post hooks/callbacks fire only after all side effects are done                  |
+| 20  | Factory ignoring values available in its config/context object   | Use `options.x ?? context.x`; see `code-quality.md` Layered Assembly            |
+| 21  | Refactoring code without updating SPEC.md                        | Reverse verify SPEC after boundary-affecting refactors; see `process.md`        |
+| 22  | SPEC hardcoding another package's counts or details              | Reference owning SPEC or describe only observable facts; see `process.md`       |
+| 23  | Defining identical interface/type independently in two packages  | One SSOT owner, others import; see `code-quality.md` Type System                |
+| 24  | Modifying code without updating SPEC first                       | Update SPEC to describe intended state, then fix code to match                  |
+| 25  | Publishing a package without removing "not yet published" labels | Search content/ and docs/ for stale labels when first publishing a package      |
 
 ## Conflict Scan Commands
 
-Use these scans before merging changes to rules, skills, or owner guidance:
-
 ```bash
-rg -n "any/unknown may|fallback to|temporary workaround|Path-Only" .agents/skills AGENTS.md
-rg -n "main agent|sub-agent|parent-agent|child-agent" .agents/skills AGENTS.md
+rg -n "any/unknown may|fallback to|temporary workaround" .agents/skills .agents/rules AGENTS.md
+rg -n "main agent|sub-agent|parent-agent|child-agent" .agents/skills .agents/rules AGENTS.md
 rg -n '^## ' AGENTS.md
 ```
-
-## Code Review Focus Areas (dag-* packages)
-
-When reviewing dag-* code, check:
-
-1. Dependency direction: all imports flow toward `dag-core`; no cross-imports between sibling packages.
-2. Type safety: no `any` or `{}` in production code; `unknown` only at boundaries with immediate narrowing.
-3. SSOT compliance: types imported from the owner package; no re-declarations.
-4. Node implementation: extends `AbstractNodeDefinition`, uses `NodeIoAccessor`, proper error codes.
-5. No fallback patterns: single correct path, no silent alternatives.
-6. Event naming: correct prefixes (`run.*`, `task.*`, `worker.*`, `scheduler.*`) and owned constants.
-7. State machine integrity: terminal states remain terminal unless an explicit policy gate allows reprocessing.
-8. Build verification: all changes build successfully before completion.
-9. Agent identity: no hierarchy-implying naming or concepts.
-10. Import standards: static imports by default; dynamic import only for explicit optional-module cases.

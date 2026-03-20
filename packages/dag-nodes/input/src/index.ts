@@ -1,6 +1,5 @@
+import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
-    AbstractNodeDefinition,
-    NodeIoAccessor,
     type ICostEstimate,
     type IDagError,
     type IDagNodeDefinition,
@@ -14,6 +13,14 @@ const InputNodeConfigSchema = z.object({
     text: z.string().default('')
 });
 
+/**
+ * DAG node that provides a static text value as output.
+ *
+ * The text is supplied through the node configuration and emitted on the `text` output port.
+ * This node has no inputs and is typically used as a pipeline entry point.
+ *
+ * @extends AbstractNodeDefinition
+ */
 export class InputNodeDefinition extends AbstractNodeDefinition<typeof InputNodeConfigSchema> {
     public readonly nodeType = 'input';
     public readonly displayName = 'Input';
@@ -31,7 +38,7 @@ export class InputNodeDefinition extends AbstractNodeDefinition<typeof InputNode
     ): Promise<TResult<ICostEstimate, IDagError>> {
         return {
             ok: true,
-            value: { estimatedCostUsd: 0 }
+            value: { estimatedCredits: 0 }
         };
     }
 

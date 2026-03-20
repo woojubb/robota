@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type { IDagDefinition } from '@robota-sdk/dag-core';
 import {
     FakeClockPort,
     InMemoryLeasePort,
     InMemoryQueuePort,
     InMemoryStoragePort,
-    MockTaskExecutorPort,
-    type IDagDefinition
-} from '@robota-sdk/dag-core';
+    MockTaskExecutorPort
+} from '@robota-sdk/dag-adapters-local';
 import { RunOrchestratorService, RunQueryService } from '@robota-sdk/dag-runtime';
 import { DlqReinjectService } from '@robota-sdk/dag-worker';
 import { createDagExecutionComposition } from '../composition/create-dag-execution-composition.js';
@@ -66,7 +66,7 @@ describe('Dag diagnostics flow E2E', () => {
         const diagnostics = new DagDiagnosticsController(
             new RunQueryService(storage),
             new RunOrchestratorService(storage, queue, clock),
-            new DlqReinjectService(storage, deadLetterQueue, queue, clock)
+            new DlqReinjectService(storage, deadLetterQueue, queue, lease, clock)
         );
 
         const started = await composition.runOrchestrator.startRun({
@@ -140,7 +140,7 @@ describe('Dag diagnostics flow E2E', () => {
         const diagnostics = new DagDiagnosticsController(
             new RunQueryService(storage),
             new RunOrchestratorService(storage, queue, clock),
-            new DlqReinjectService(storage, deadLetterQueue, queue, clock),
+            new DlqReinjectService(storage, deadLetterQueue, queue, lease, clock),
             { reinjectEnabled: true }
         );
 

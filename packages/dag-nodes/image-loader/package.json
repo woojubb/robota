@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-image-loader",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "description": "DAG image-loader node for Robota",
   "type": "module",
   "main": "dist/node/index.js",
@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@robota-sdk/dag-core": "workspace:*",
+    "@robota-sdk/dag-node": "workspace:*",
     "zod": "^3.24.4"
   },
   "devDependencies": {
@@ -50,5 +51,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "private": true
 }

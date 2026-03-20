@@ -18,12 +18,56 @@ downstream task dispatch, and DAG run finalization behavior.
 The package has three main modules:
 
 - **WorkerLoopService** (`services/worker-loop-service.ts`): The core processing loop. Each `processOnce()` call dequeues a message, acquires a lease, executes the task via `ITaskExecutorPort`, handles success/failure paths, dispatches downstream tasks, and finalizes the DAG run when all tasks are terminal.
+- **DownstreamTaskDispatcher** (`services/downstream-task-dispatcher.ts`): Resolves downstream nodes, builds input payloads from edge bindings, creates task runs, and enqueues them.
+- **DagRunFinalizer** (`services/dag-run-finalizer.ts`): Checks whether all tasks in a DAG run are terminal and determines success/failure outcome.
 - **DlqReinjectService** (`services/dlq-reinject-service.ts`): Dequeues from the dead letter queue, transitions the task to retry state, and re-enqueues to the main queue.
 - **Composition factory** (`composition/create-worker-loop-service.ts`): Wires `WorkerLoopService` from port dependencies and policy options.
 
 Supporting utility:
 
 - `replaceAttemptSegment(path, nextAttempt)` -- updates the attempt segment in an execution path array.
+
+## Behavioral Contracts
+
+### Downstream Task Dispatch Atomicity
+
+When dispatching a downstream task, the create-then-enqueue sequence must be atomic in outcome:
+
+1. Create `TaskRun` record in storage with `queued` status.
+2. Enqueue the task message to the queue.
+3. **If enqueue fails**: the `TaskRun` must be transitioned to `cancelled` status via the `CANCEL` event (`queued -> cancelled`) to prevent orphaned records. A `TaskRun` in `queued` status with no corresponding queue message is an invariant violation. Note: the `queued -> failed` transition does not exist in the state machine; `CANCEL` is the correct recovery path.
+
+**Current gap**: The implementation creates the `TaskRun` then attempts enqueue. On enqueue failure, it returns an error but does not transition the orphaned `TaskRun`. This must be corrected.
+
+### DLQ Reinject Concurrency Safety
+
+`DlqReinjectService.reinjectOnce` uses two layers of concurrency protection:
+
+1. **DLQ dequeue visibility timeout**: only one worker receives a given DLQ message at a time.
+2. **Lease acquisition**: after dequeue, the service acquires a lease on the task run (`taskRun:{taskRunId}`) before modifying state. If the lease is held by another worker, the message is nacked and the method returns `reinjected: false` without error.
+
+The lease is always released in a `finally` block after processing completes.
+
+### DAG Run Finalization Classification
+
+`DagRunFinalizer` determines the outcome of a DAG run when all tasks reach terminal states. The classification rules are:
+
+- **Terminal task states**: `success`, `failed`, `upstream_failed`, `skipped`, `cancelled`
+- **Non-terminal (pending) states**: `created`, `queued`, `running`
+- **Failure-contributing states**: `failed` only
+- **Non-failure terminal states**: `success`, `upstream_failed`, `skipped`, `cancelled`
+
+A DAG run is `success` when all tasks are terminal and **none** are in the `failed` state. `upstream_failed`, `skipped`, and `cancelled` tasks do not indicate DAG-level failure — they represent expected propagation of upstream failures, conditional skips, or user cancellation.
+
+**Current gap**: The `FAILURE_TASK_STATUSES` set includes `upstream_failed` and `cancelled`, causing DAG runs to be marked `failed` when tasks are only `upstream_failed`/`cancelled` (no actual `failed` task). Additionally, `skipped` is not in either the pending or failure set, which may cause incorrect finalization. This must be corrected.
+
+### Lease Failure Handling
+
+When `WorkerLoopService` fails to acquire a lease (another worker already holds it), this is a normal contention scenario, not an error. The method should return a non-error result indicating no work was processed (`processed: false`), allowing the message to remain in the queue for the lease holder to process.
+
+### Timeout Enforcement Scope
+
+Task timeout (`defaultTimeoutMs`) is enforced via `AbortController` signal during execution. However, if the executor does not respect the abort signal, the timeout has no effect. This is a known limitation — node implementations must cooperate with the abort signal for timeout to be effective.
 
 ## Type Ownership
 
@@ -94,7 +138,7 @@ None. Service classes are standalone (no `extends`).
 | Service Class | Injected Port (from dag-core) | Location |
 |---------------|------------------------------|----------|
 | `WorkerLoopService` | `IStoragePort`, `IQueuePort`, `ILeasePort`, `ITaskExecutorPort`, `IClockPort` | `src/services/worker-loop-service.ts` |
-| `DlqReinjectService` | `IStoragePort`, `IQueuePort` (x2), `IClockPort` | `src/services/dlq-reinject-service.ts` |
+| `DlqReinjectService` | `IStoragePort`, `IQueuePort` (x2), `ILeasePort`, `IClockPort` | `src/services/dlq-reinject-service.ts` |
 
 ### Cross-Package Port Consumers
 
@@ -102,7 +146,7 @@ None. Service classes are standalone (no `extends`).
 |--------------|---------------|----------|
 | `IStoragePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
 | `IQueuePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
-| `ILeasePort` (dag-core) | `WorkerLoopService` | `src/services/worker-loop-service.ts` |
+| `ILeasePort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
 | `ITaskExecutorPort` (dag-core) | `WorkerLoopService` | `src/services/worker-loop-service.ts` |
 | `IClockPort` (dag-core) | `WorkerLoopService`, `DlqReinjectService` | `src/services/` |
 

@@ -1,0 +1,263 @@
+{
+  "dagId": "dag-1771606348467",
+  "version": 1,
+  "status": "draft",
+  "nodes": [
+    {
+      "nodeId": "image_source_a_1",
+      "nodeType": "image-source",
+      "position": {
+        "x": 120,
+        "y": 80
+      },
+      "dependsOn": [],
+      "inputs": [],
+      "outputs": [
+        {
+          "key": "image",
+          "label": "Image",
+          "order": 0,
+          "type": "binary",
+          "required": true,
+          "binaryKind": "image",
+          "mimeTypes": [
+            "image/png"
+          ]
+        }
+      ],
+      "config": {}
+    },
+    {
+      "nodeId": "image_source_b_1",
+      "nodeType": "image-source",
+      "position": {
+        "x": 120,
+        "y": 260
+      },
+      "dependsOn": [],
+      "inputs": [],
+      "outputs": [
+        {
+          "key": "image",
+          "label": "Image",
+          "order": 0,
+          "type": "binary",
+          "required": true,
+          "binaryKind": "image",
+          "mimeTypes": [
+            "image/png"
+          ]
+        }
+      ],
+      "config": {}
+    },
+    {
+      "nodeId": "compose_prompt_1",
+      "nodeType": "input",
+      "position": {
+        "x": 120,
+        "y": 440
+      },
+      "dependsOn": [],
+      "inputs": [],
+      "outputs": [
+        {
+          "key": "text",
+          "label": "Text",
+          "order": 0,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "config": {
+        "text": "캐릭터 스타일에 맞게 이미지를 합성해서 새 캐릭터 이미지를 만들어줘."
+      }
+    },
+    {
+      "nodeId": "video_prompt_1",
+      "nodeType": "input",
+      "position": {
+        "x": 620,
+        "y": 500
+      },
+      "dependsOn": [],
+      "inputs": [],
+      "outputs": [
+        {
+          "key": "text",
+          "label": "Text",
+          "order": 0,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "config": {
+        "text": "이 캐릭터를 이용해서 5초 영상으로 만들어줘. 바람에 머리카락이 자연스럽게 흔들리고 카메라는 천천히 뒤로 이동해."
+      }
+    },
+    {
+      "nodeId": "gemini_image_compose_1",
+      "nodeType": "gemini-image-compose",
+      "position": {
+        "x": 620,
+        "y": 220
+      },
+      "dependsOn": [
+        "image_source_a_1",
+        "image_source_b_1",
+        "compose_prompt_1"
+      ],
+      "inputs": [
+        {
+          "key": "images",
+          "label": "Images",
+          "order": 0,
+          "type": "binary",
+          "required": true,
+          "isList": true,
+          "minItems": 2,
+          "binaryKind": "image",
+          "mimeTypes": [
+            "image/png",
+            "image/jpeg",
+            "image/webp"
+          ]
+        },
+        {
+          "key": "prompt",
+          "label": "Prompt",
+          "order": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        {
+          "key": "image",
+          "label": "Image",
+          "order": 0,
+          "type": "binary",
+          "required": true,
+          "binaryKind": "image",
+          "mimeTypes": [
+            "image/png",
+            "image/jpeg",
+            "image/webp"
+          ]
+        }
+      ],
+      "config": {}
+    },
+    {
+      "nodeId": "seedance_video_1",
+      "nodeType": "seedance-video",
+      "position": {
+        "x": 1080,
+        "y": 360
+      },
+      "dependsOn": [
+        "gemini_image_compose_1",
+        "video_prompt_1"
+      ],
+      "inputs": [
+        {
+          "key": "prompt",
+          "label": "Prompt",
+          "order": 0,
+          "type": "string",
+          "required": true
+        },
+        {
+          "key": "images",
+          "label": "Images",
+          "order": 1,
+          "type": "binary",
+          "required": false,
+          "isList": true,
+          "minItems": 1,
+          "binaryKind": "image",
+          "mimeTypes": [
+            "image/png",
+            "image/jpeg",
+            "image/webp"
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "key": "video",
+          "label": "Video",
+          "order": 0,
+          "type": "binary",
+          "required": true,
+          "binaryKind": "video",
+          "mimeTypes": [
+            "video/mp4"
+          ]
+        }
+      ],
+      "config": {
+        "model": "seedance-1-5-pro-251215",
+        "pollIntervalMs": 3000,
+        "pollTimeoutMs": 180000
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "image_source_a_1",
+      "to": "gemini_image_compose_1",
+      "bindings": [
+        {
+          "outputKey": "image",
+          "inputKey": "images[0]"
+        }
+      ]
+    },
+    {
+      "from": "image_source_b_1",
+      "to": "gemini_image_compose_1",
+      "bindings": [
+        {
+          "outputKey": "image",
+          "inputKey": "images[1]"
+        }
+      ]
+    },
+    {
+      "from": "compose_prompt_1",
+      "to": "gemini_image_compose_1",
+      "bindings": [
+        {
+          "outputKey": "text",
+          "inputKey": "prompt"
+        }
+      ]
+    },
+    {
+      "from": "gemini_image_compose_1",
+      "to": "seedance_video_1",
+      "bindings": [
+        {
+          "outputKey": "image",
+          "inputKey": "images[0]"
+        }
+      ]
+    },
+    {
+      "from": "video_prompt_1",
+      "to": "seedance_video_1",
+      "bindings": [
+        {
+          "outputKey": "text",
+          "inputKey": "prompt"
+        }
+      ]
+    }
+  ],
+  "costPolicy": {
+    "runCostLimitUsd": 10,
+    "costCurrency": "USD",
+    "costPolicyVersion": 1
+  }
+}

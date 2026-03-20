@@ -1,0 +1,154 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // DEVELOPMENT RULES (DO NOT USE IN PRODUCTION)
+    // ========================================
+    
+    // Allow all read/write operations (for development only)
+    // match /{document=**} {
+    //   allow read, write: if true;
+    // }
+    
+    // ========================================
+    // PRODUCTION-READY RULES
+    // ========================================
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(resource) {
+      return request.auth.uid == resource.data.uid;
+    }
+    
+    function isValidUserData() {
+      return request.resource.data.keys().hasAll(['uid', 'email', 'displayName']) &&
+             request.resource.data.uid is string &&
+             request.resource.data.email is string &&
+             request.resource.data.displayName is string;
+    }
+    
+    // ========================================
+    // USER PROFILES COLLECTION
+    // ========================================
+    match /users/{userId} {
+      // Users can only read/write their own profile
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Validate user data on writes
+      allow create, update: if isAuthenticated() && 
+                               request.auth.uid == userId && 
+                               isValidUserData();
+    }
+    
+    // ========================================
+    // USER EXTENDED COLLECTION (Credit System)
+    // ========================================
+    match /users_extended/{userId} {
+      // Users can only read their own extended data
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Only allow creation during signup (server-side should handle updates)
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == userId &&
+                       request.resource.data.uid == userId;
+      
+      // Prevent direct updates from client (use cloud functions for credit operations)
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ========================================
+    // CREDIT TRANSACTIONS COLLECTION
+    // ========================================
+    match /credit_transactions/{transactionId} {
+      // Users can only read their own transactions
+      allow read: if isAuthenticated() && 
+                     request.auth.uid == resource.data.user_uid;
+      
+      // Prevent direct writes (transactions should be handled server-side)
+      allow write: if false;
+    }
+    
+    // ========================================
+    // CONNECTION TEST COLLECTION (Development only)
+    // ========================================
+    match /connection-test/{document} {
+      // Allow all operations for testing (remove in production)
+      allow read, write: if true;
+    }
+    
+    // ========================================
+    // FUTURE COLLECTIONS (API Usage, Agents, etc.)
+    // ========================================
+    
+    // API Usage logs
+    match /api_usage/{usageId} {
+      allow read: if isAuthenticated() && 
+                     request.auth.uid == resource.data.user_uid;
+      allow write: if false; // Server-side only
+    }
+    
+    // User agents
+    match /user_agents/{agentId} {
+      allow read, write: if isAuthenticated() && 
+                            request.auth.uid == resource.data.owner_uid;
+      
+      // Validate agent data structure
+      allow create, update: if isAuthenticated() && 
+                               request.auth.uid == resource.data.owner_uid &&
+                               request.resource.data.keys().hasAll(['name', 'owner_uid']) &&
+                               request.resource.data.name is string;
+    }
+    
+    // Agent conversations
+    match /conversations/{conversationId} {
+      allow read, write: if isAuthenticated() && 
+                            request.auth.uid == resource.data.user_uid;
+    }
+    
+    // Public templates (read-only for users)
+    match /agent_templates/{templateId} {
+      allow read: if true;
+      allow write: if false; // Admin only (handle via cloud functions)
+    }
+    
+    // ========================================
+    // ADMIN COLLECTIONS (Restricted)
+    // ========================================
+    
+    // Admin settings
+    match /admin_settings/{document} {
+      allow read, write: if false; // Admin panel only via cloud functions
+    }
+    
+    // System configurations
+    match /system_config/{document} {
+      allow read, write: if false; // Server-side only
+    }
+  }
+}
+
+// ========================================
+// NOTES FOR DEPLOYMENT:
+// ========================================
+//
+// 1. For initial development testing, you can temporarily use:
+//    match /{document=**} { allow read, write: if true; }
+//
+// 2. Before going to production, ensure:
+//    - Remove the connection-test collection rules
+//    - Test all rules thoroughly
+//    - Consider implementing role-based access if needed
+//
+// 3. To deploy these rules:
+//    - Copy this file to 'firestore.rules' 
+//    - Use Firebase CLI: firebase deploy --only firestore:rules
+//
+// 4. Credit operations should be handled via Cloud Functions
+//    to ensure data integrity and prevent client-side manipulation
+// 

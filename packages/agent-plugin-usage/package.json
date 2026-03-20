@@ -1,0 +1,48 @@
+{
+  "name": "@robota-sdk/agent-plugin-usage",
+  "version": "3.0.0",
+  "description": "Usage tracking plugin for Robota SDK",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "types": "dist/node/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/node/index.d.ts",
+      "node": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      },
+      "default": {
+        "import": "./dist/node/index.js",
+        "require": "./dist/node/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --clean",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
+    "clean": "rimraf dist",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
+  },
+  "peerDependencies": {
+    "@robota-sdk/agent-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@robota-sdk/agent-core": "workspace:*",
+    "rimraf": "^5.0.5",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.1"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "private": true
+}

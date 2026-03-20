@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-worker",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "description": "Worker execution layer for Robota DAG",
   "type": "module",
   "main": "dist/node/index.js",
@@ -28,7 +28,8 @@
     "dev": "tsup src/index.ts --format esm,cjs --dts --out-dir dist/node --watch",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "keywords": [
     "robota",
@@ -47,6 +48,7 @@
     "@robota-sdk/dag-core": "workspace:*"
   },
   "devDependencies": {
+    "@robota-sdk/dag-adapters-local": "workspace:*",
     "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",
@@ -55,5 +57,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "private": true
 }
