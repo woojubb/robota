@@ -209,21 +209,22 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 
 Mistakes observed repeatedly in this codebase. Every item below has caused a real failure.
 
-| #   | Mistake                                                          | Correct approach                                                              |
-| --- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1   | Using `any` or `{}` in production code                           | Use `unknown` + narrowing, or define a proper interface                       |
-| 2   | Forgetting `pnpm build` before `pnpm test` in a dependency chain | Always run `pnpm build:deps` first, or use `harness:verify`                   |
-| 3   | Creating bidirectional package dependencies                      | Dependency direction is one-way; see `.agents/project-structure.md`           |
-| 4   | Pass-through re-exports (`export * from '@robota-sdk/other'`)    | Import from the owning package directly                                       |
-| 5   | Committing without running `pnpm typecheck`                      | Pre-commit hook runs lint-staged; always verify locally                       |
-| 6   | Adding a new package without `docs/SPEC.md`                      | Every workspace package requires a SPEC.md; see `spec-writing-standard` skill |
-| 7   | Using `console.*` in production code                             | Use dependency-injected logger                                                |
-| 8   | Modifying a spec without running the conformance loop            | Every spec change requires `spec-code-conformance` verification               |
-| 9   | Using `try/catch` as a fallback mechanism                        | No fallback policy; terminal failures stay terminal                           |
-| 10  | Writing implementation before a failing test                     | TDD: red-green-refactor; write the test first                                 |
-| 11  | Publishing without dry-run                                       | Always run `publish --dry-run` first; see `process.md` Publish Safety Gate    |
-| 12  | Publishing packages without user approval on scope               | Confirm publish manifest with user; see `process.md` Publish Scope Approval   |
-| 13  | agent-core depending on agent-\* packages                        | agent-core MUST NOT depend on any @robota-sdk/agent-\* package                |
+| #   | Mistake                                                          | Correct approach                                                                |
+| --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 1   | Using `any` or `{}` in production code                           | Use `unknown` + narrowing, or define a proper interface                         |
+| 2   | Forgetting `pnpm build` before `pnpm test` in a dependency chain | Always run `pnpm build:deps` first, or use `harness:verify`                     |
+| 3   | Creating bidirectional package dependencies                      | Dependency direction is one-way; see `.agents/project-structure.md`             |
+| 4   | Pass-through re-exports (`export * from '@robota-sdk/other'`)    | Import from the owning package directly                                         |
+| 5   | Committing without running `pnpm typecheck`                      | Pre-commit hook runs lint-staged; always verify locally                         |
+| 6   | Adding a new package without `docs/SPEC.md`                      | Every workspace package requires a SPEC.md; see `spec-writing-standard` skill   |
+| 7   | Using `console.*` in production code                             | Use dependency-injected logger                                                  |
+| 8   | Modifying a spec without running the conformance loop            | Every spec change requires `spec-code-conformance` verification                 |
+| 9   | Using `try/catch` as a fallback mechanism                        | No fallback policy; terminal failures stay terminal                             |
+| 10  | Writing implementation before a failing test                     | TDD: red-green-refactor; write the test first                                   |
+| 11  | Publishing without dry-run                                       | Always run `publish --dry-run` first; see `process.md` Publish Safety Gate      |
+| 12  | Publishing packages without user approval on scope               | Confirm publish manifest with user; see `process.md` Publish Scope Approval     |
+| 13  | agent-core depending on agent-\* packages                        | agent-core MUST NOT depend on any @robota-sdk/agent-\* package                  |
+| 14  | Using `npm publish` instead of `pnpm publish`                    | pnpm resolves workspace:\* deps; npm publishes them literally, breaking install |
 
 ## Conflict Scan Commands
 

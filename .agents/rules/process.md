@@ -114,6 +114,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - A publish without prior gate success is a process violation.
 - Publishing from a branch other than `main` or `release/*` is prohibited unless explicitly approved.
 - OTP must be requested from the user ONLY after all preparation is complete (build, test, typecheck, dry-run all passed). Do NOT ask for OTP before dry-run succeeds — OTP expires in 30 seconds.
+- MUST use `pnpm publish`, NEVER `npm publish`. pnpm resolves `workspace:*` dependencies to actual versions in the tarball. npm does not — it publishes `workspace:*` literally, breaking consumers.
 - `pnpm pre-publish:check` runs `scripts/pre-publish-docs-check.sh` which validates all publishable packages have: README.md (10+ lines), docs/SPEC.md, package.json description, license, and usage documentation. This is automatically run as part of `pnpm publish:packages`.
 
 ### Publish Scope Approval
