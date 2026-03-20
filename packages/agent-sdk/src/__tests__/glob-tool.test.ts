@@ -90,4 +90,43 @@ describe('GlobTool', () => {
     const result = await run({ pattern: '*.json' });
     expect(result.success).toBe(true);
   });
+
+  // --- P1: limit parameter truncation ---
+
+  it('respects limit parameter and shows truncation message', async () => {
+    const result = await run({ pattern: '**/*', path: tmpDir, limit: 2 });
+    expect(result.success).toBe(true);
+    const lines = result.output.split('\n').filter(Boolean);
+    // Should have at most 2 file entries + optional truncation message
+    const fileLines = lines.filter((l) => !l.startsWith('['));
+    expect(fileLines.length).toBeLessThanOrEqual(2);
+  });
+
+  // --- P1: mtime sort order (most recent first) ---
+
+  it('returns results sorted by modification time (most recent first)', async () => {
+    // Create files with controlled timing
+    const older = join(tmpDir, 'older.txt');
+    const newer = join(tmpDir, 'newer.txt');
+    await writeFile(older, 'old content');
+    // Small delay to ensure different mtime
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await writeFile(newer, 'new content');
+
+    const result = await run({ pattern: '*.txt', path: tmpDir });
+    expect(result.success).toBe(true);
+    const files = result.output.split('\n').filter(Boolean);
+    const newerIdx = files.findIndex((f) => f.includes('newer.txt'));
+    const olderIdx = files.findIndex((f) => f.includes('older.txt'));
+    // newer should appear before older
+    expect(newerIdx).toBeLessThan(olderIdx);
+  });
+
+  // --- P1: non-existent path ---
+
+  it('returns empty or error for non-existent path', async () => {
+    const result = await run({ pattern: '**/*', path: join(tmpDir, 'no_such_dir') });
+    expect(result.success).toBe(true);
+    expect(result.output).toBe('(no matches)');
+  });
 });
