@@ -88,7 +88,7 @@ All underlying agent execution errors propagate from `@robota-sdk/agent-core`.
 
 ### Interface Implementations
 
-None. This package defines no classes. All exports are tool instances (`FunctionTool`, `RelayMcpTool`) created via factory functions from `@robota-sdk/agent-core`.
+None. This package defines no classes. All exports are tool instances created via factory functions. `FunctionTool` is from `@robota-sdk/agent-tools`; `RelayMcpTool` is from `@robota-sdk/agent-tool-mcp`.
 
 ### Cross-Package Port Consumers
 
