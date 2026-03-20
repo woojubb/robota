@@ -13,7 +13,7 @@
         "lint:fix": "echo 'Skipping lint:fix for docs project'"
     },
     "dependencies": {
-        "vue": "^3.3.4"
+        "vue": "^3.5.30"
     },
     "devDependencies": {
         "@typescript-eslint/eslint-plugin": "^6.21.0",
