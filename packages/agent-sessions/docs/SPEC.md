@@ -164,6 +164,15 @@ This package does not define a custom error hierarchy. All errors are thrown as 
 
 The permission wrapper deliberately catches all errors and returns them as `IToolResult` objects to avoid corrupting the conversation history with unmatched tool_use/tool_result pairs.
 
+### Session.run() Error Recovery
+
+When `run()` encounters an error (e.g., from the execution loop or provider), the Session must:
+
+1. **Log the error** — write an `error` event to the session logger with the error details
+2. **Preserve history** — conversation history up to the point of failure remains intact
+3. **Remain usable** — the session is not corrupted; the user can continue or retry
+4. **Propagate the error** — re-throw after logging so the caller can handle it (e.g., display an error message)
+
 ## Class Contract Registry
 
 ### Interface Implementations
