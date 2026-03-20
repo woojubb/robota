@@ -26,7 +26,7 @@ async function writeFileTool(args: TWriteArgs): Promise<string> {
 
     const result: TToolResult = {
       success: true,
-      output: `Written ${content.length} bytes to ${filePath}`,
+      output: `Written ${Buffer.byteLength(content, 'utf8')} bytes to ${filePath}`,
     };
     return JSON.stringify(result);
   } catch (err) {

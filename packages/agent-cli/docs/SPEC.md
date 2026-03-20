@@ -84,6 +84,22 @@ The StatusBar shows real-time session information:
 
 When auto-compaction triggers (at ~83.5% threshold), the UI shows a system message notifying the user.
 
+## Tool Call Display
+
+After each `session.run()` completes, tool calls from the session history are extracted and displayed as a single grouped message:
+
+```
+Tool: [5 tools]
+
+  Read(/Users/jungyoun/Documents/dev/robota/.agents/tasks/apps-web-sep...)
+  Bash(ls -la .agents/tasks/)
+  Glob(**/*.md)
+```
+
+- All tool calls from a run are grouped into one `role: 'tool'` message
+- Format: `ToolName(firstArgValue)` — first argument value extracted from JSON, truncated to 80 chars
+- Displayed after the assistant response in the message list
+
 ## Slash Commands
 
 | Command                   | Description                 |
@@ -223,6 +239,7 @@ src/
 robota                              # Interactive TUI
 robota -p "prompt"                  # Print mode (one-shot)
 robota -c                           # Continue last session
+robota --reset                      # Delete user settings and exit
 robota -r <id>                      # Resume session
 robota --model <model>              # Model override
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
@@ -234,6 +251,12 @@ robota --version                    # Version
 
 - **Universal cap**: Tool output is capped at 30,000 characters. Outputs exceeding this limit are middle-truncated (first and last portions are kept, with a truncation marker in the middle).
 - **Glob entry limit**: The Glob tool defaults to a maximum of 1,000 entries per invocation to prevent oversized responses.
+
+## First-Run Setup
+
+When no settings file exists (`~/.robota/settings.json`, `.robota/settings.json`, or `.robota/settings.local.json`), the CLI prompts for an Anthropic API key and creates `~/.robota/settings.json` with a minimal config (provider name, model, API key).
+
+Use `robota --reset` to delete the user settings file and return to the first-run state.
 
 ## Session Logging
 

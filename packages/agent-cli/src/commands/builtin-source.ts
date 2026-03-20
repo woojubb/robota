@@ -30,6 +30,7 @@ function createBuiltinCommands(): ISlashCommand[] {
     { name: 'cost', description: 'Show session info', source: 'builtin' },
     { name: 'context', description: 'Context window info', source: 'builtin' },
     { name: 'permissions', description: 'Permission rules', source: 'builtin' },
+    { name: 'reset', description: 'Delete settings and exit', source: 'builtin' },
     { name: 'exit', description: 'Exit CLI', source: 'builtin' },
   ];
 }

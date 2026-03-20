@@ -236,6 +236,14 @@ export class Session {
           },
         );
       });
+    } catch (error) {
+      // Log error but preserve session state — history remains intact for retry
+      this.log('error', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack ?? '' : '',
+        historyLength: this.robota.getHistory().length,
+      });
+      throw error;
     } finally {
       this.abortController = null;
     }
