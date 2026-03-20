@@ -69,33 +69,34 @@ Safe defaults use the Null Object pattern:
 
 This package is the single source of truth (SSOT) for the following types:
 
-| Type                  | Location                         | Purpose                                                                                     |
-| --------------------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
-| `TUniversalMessage`   | `interfaces/messages.ts`         | Canonical message union (User, Assistant, System, Tool)                                     |
-| `TUniversalValue`     | `interfaces/types.ts`            | Recursive value type without `any`                                                          |
-| `TMetadata`           | `interfaces/types.ts`            | Metadata record type                                                                        |
-| `IAgentConfig`        | `interfaces/agent.ts`            | Agent configuration contract                                                                |
-| `IAIProvider`         | `interfaces/provider.ts`         | Provider integration contract                                                               |
-| `IToolSchema`         | `interfaces/provider.ts`         | Tool schema contract                                                                        |
-| `TToolParameters`     | `interfaces/types.ts`            | Tool parameter type (re-exported via `interfaces/tool.ts`)                                  |
-| `IEventService`       | `event-service/interfaces.ts`    | Event emission contract                                                                     |
-| `IOwnerPathSegment`   | `event-service/interfaces.ts`    | Execution path tracking                                                                     |
-| `RobotaError`         | `utils/errors.ts`                | Base error hierarchy                                                                        |
-| `TTextDeltaCallback`  | `interfaces/provider.ts`         | Streaming text delta callback `(delta: string) => void`                                     |
-| `TPermissionMode`     | `permissions/types.ts`           | Permission modes: plan, default, acceptEdits, bypassPermissions                             |
-| `TTrustLevel`         | `permissions/types.ts`           | Friendly trust aliases: safe, moderate, full                                                |
-| `TPermissionDecision` | `permissions/types.ts`           | Evaluation outcome: auto, approve, deny                                                     |
-| `TToolArgs`           | `permissions/permission-gate.ts` | Tool arguments record for permission matching                                               |
-| `IPermissionLists`    | `permissions/permission-gate.ts` | Allow/deny pattern lists for permission config                                              |
-| `TKnownToolName`      | `permissions/permission-mode.ts` | Known tool names in the permission system                                                   |
-| `THookEvent`          | `hooks/types.ts`                 | Hook lifecycle events: PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop |
-| `THooksConfig`        | `hooks/types.ts`                 | Complete hooks configuration: event to hook groups                                          |
-| `IHookGroup`          | `hooks/types.ts`                 | Hook group: matcher pattern + hook definitions                                              |
-| `IHookDefinition`     | `hooks/types.ts`                 | Single hook definition (type: command, command string)                                      |
-| `IHookInput`          | `hooks/types.ts`                 | Input passed to hook commands via stdin                                                     |
-| `IHookResult`         | `hooks/types.ts`                 | Hook execution result (exitCode, stdout, stderr)                                            |
-| `IContextTokenUsage`  | `context/types.ts`               | Token usage from a single API call (input, output, cache tokens)                            |
-| `IContextWindowState` | `context/types.ts`               | Context window state snapshot (maxTokens, usedTokens, percentage)                           |
+| Type                        | Location                         | Purpose                                                                                                                                                 |
+| --------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TUniversalMessage`         | `interfaces/messages.ts`         | Canonical message union (User, Assistant, System, Tool)                                                                                                 |
+| `TUniversalMessageMetadata` | `interfaces/messages.ts`         | Message metadata record. Values: `string \| number \| boolean \| Date \| string[] \| number[] \| Record<string, number>` (includes token usage objects) |
+| `TUniversalValue`           | `interfaces/types.ts`            | Recursive value type without `any`                                                                                                                      |
+| `TMetadata`                 | `interfaces/types.ts`            | Metadata record type                                                                                                                                    |
+| `IAgentConfig`              | `interfaces/agent.ts`            | Agent configuration contract                                                                                                                            |
+| `IAIProvider`               | `interfaces/provider.ts`         | Provider integration contract                                                                                                                           |
+| `IToolSchema`               | `interfaces/provider.ts`         | Tool schema contract                                                                                                                                    |
+| `TToolParameters`           | `interfaces/types.ts`            | Tool parameter type (re-exported via `interfaces/tool.ts`)                                                                                              |
+| `IEventService`             | `event-service/interfaces.ts`    | Event emission contract                                                                                                                                 |
+| `IOwnerPathSegment`         | `event-service/interfaces.ts`    | Execution path tracking                                                                                                                                 |
+| `RobotaError`               | `utils/errors.ts`                | Base error hierarchy                                                                                                                                    |
+| `TTextDeltaCallback`        | `interfaces/provider.ts`         | Streaming text delta callback `(delta: string) => void`                                                                                                 |
+| `TPermissionMode`           | `permissions/types.ts`           | Permission modes: plan, default, acceptEdits, bypassPermissions                                                                                         |
+| `TTrustLevel`               | `permissions/types.ts`           | Friendly trust aliases: safe, moderate, full                                                                                                            |
+| `TPermissionDecision`       | `permissions/types.ts`           | Evaluation outcome: auto, approve, deny                                                                                                                 |
+| `TToolArgs`                 | `permissions/permission-gate.ts` | Tool arguments record for permission matching                                                                                                           |
+| `IPermissionLists`          | `permissions/permission-gate.ts` | Allow/deny pattern lists for permission config                                                                                                          |
+| `TKnownToolName`            | `permissions/permission-mode.ts` | Known tool names in the permission system                                                                                                               |
+| `THookEvent`                | `hooks/types.ts`                 | Hook lifecycle events: PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                                             |
+| `THooksConfig`              | `hooks/types.ts`                 | Complete hooks configuration: event to hook groups                                                                                                      |
+| `IHookGroup`                | `hooks/types.ts`                 | Hook group: matcher pattern + hook definitions                                                                                                          |
+| `IHookDefinition`           | `hooks/types.ts`                 | Single hook definition (type: command, command string)                                                                                                  |
+| `IHookInput`                | `hooks/types.ts`                 | Input passed to hook commands via stdin                                                                                                                 |
+| `IHookResult`               | `hooks/types.ts`                 | Hook execution result (exitCode, stdout, stderr)                                                                                                        |
+| `IContextTokenUsage`        | `context/types.ts`               | Token usage from a single API call (input, output, cache tokens)                                                                                        |
+| `IContextWindowState`       | `context/types.ts`               | Context window state snapshot (maxTokens, usedTokens, percentage)                                                                                       |
 
 Provider packages import these types. They must not re-declare them.
 

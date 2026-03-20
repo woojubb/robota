@@ -18,7 +18,7 @@ export type TUniversalMessageRole = 'user' | 'assistant' | 'system' | 'tool';
  */
 export type TUniversalMessageMetadata = Record<
   string,
-  string | number | boolean | Date | string[] | number[]
+  string | number | boolean | Date | string[] | number[] | Record<string, number>
 >;
 
 /**
