@@ -14,10 +14,11 @@ Owns the CLI session lifecycle for the Robota SDK. This package provides the `Se
 
 ## Architecture Overview
 
-The package follows a flat two-file structure:
+The package follows a flat structure:
 
 ```
 session.ts        -- Session class: wraps Robota + permission checking + tool wiring + streaming + hooks
+session-logger.ts -- ISessionLogger interface + FileSessionLogger / SilentSessionLogger implementations
 session-store.ts  -- SessionStore: JSON file persistence for conversation sessions
 ```
 
@@ -85,18 +86,22 @@ Types consumed from other packages (not owned here):
 
 ### Key Session Methods
 
-| Method              | Signature                                  | Description                                                                  |
-| ------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
-| `run`               | `(message: string) => Promise<string>`     | Send a message; returns AI response. Persists session if store exists.       |
-| `getPermissionMode` | `() => TPermissionMode`                    | Returns the active permission mode.                                          |
-| `setPermissionMode` | `(mode: TPermissionMode) => void`          | Changes the permission mode for future tool calls.                           |
-| `getSessionId`      | `() => string`                             | Returns the stable session identifier.                                       |
-| `getMessageCount`   | `() => number`                             | Returns the number of completed `run()` calls.                               |
-| `checkPermission`   | `(toolName, toolArgs) => Promise<boolean>` | Evaluates permission and prompts if needed. Used internally.                 |
-| `clearHistory`      | `() => void`                               | Clears the underlying Robota conversation history and resets token usage.    |
-| `getHistory`        | `() => TUniversalMessage[]`                | Returns the current conversation history.                                    |
-| `getContextState`   | `() => IContextWindowState`                | Returns real-time context window usage (tokens, percentage).                 |
-| `compact`           | `(instructions?: string) => Promise<void>` | Compresses conversation via LLM summary. Fires PreCompact/PostCompact hooks. |
+| Method                     | Signature                                  | Description                                                                  |
+| -------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `run`                      | `(message: string) => Promise<string>`     | Send a message; returns AI response. Persists session if store exists.       |
+| `getPermissionMode`        | `() => TPermissionMode`                    | Returns the active permission mode.                                          |
+| `setPermissionMode`        | `(mode: TPermissionMode) => void`          | Changes the permission mode for future tool calls.                           |
+| `getSessionId`             | `() => string`                             | Returns the stable session identifier.                                       |
+| `getMessageCount`          | `() => number`                             | Returns the number of completed `run()` calls.                               |
+| `checkPermission`          | `(toolName, toolArgs) => Promise<boolean>` | Evaluates permission and prompts if needed. Used internally.                 |
+| `clearHistory`             | `() => void`                               | Clears the underlying Robota conversation history and resets token usage.    |
+| `getHistory`               | `() => TUniversalMessage[]`                | Returns the current conversation history.                                    |
+| `getContextState`          | `() => IContextWindowState`                | Returns real-time context window usage (tokens, percentage).                 |
+| `compact`                  | `(instructions?: string) => Promise<void>` | Compresses conversation via LLM summary. Fires PreCompact/PostCompact hooks. |
+| `abort`                    | `() => void`                               | Cancels the currently running `run()` call. No-op if not running.            |
+| `isRunning`                | `() => boolean`                            | Returns true if a `run()` call is in progress.                               |
+| `getSessionAllowedTools`   | `() => string[]`                           | Returns tools that were session-approved ("Allow always").                   |
+| `clearSessionAllowedTools` | `() => void`                               | Clears all session-scoped allow rules.                                       |
 
 ### Key SessionStore Methods
 

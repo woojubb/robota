@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import { Session } from '@robota-sdk/agent-sdk';
+import { Session, FileSessionLogger, projectPaths } from '@robota-sdk/agent-sdk';
 import type {
   IResolvedConfig,
   ILoadedContext,
@@ -9,7 +9,7 @@ import type {
 } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, ISpinner } from '../types.js';
-import type { IChatMessage, IPermissionRequest } from './types.js';
+import type { IChatMessage, IPermissionRequest, TPermissionResult } from './types.js';
 import { CommandRegistry } from '../commands/command-registry.js';
 import { BuiltinCommandSource } from '../commands/builtin-source.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
@@ -62,7 +62,7 @@ function useSession(props: IProps): {
     Array<{
       toolName: string;
       toolArgs: TToolArgs;
-      resolve: (allowed: boolean) => void;
+      resolve: (result: TPermissionResult) => void;
     }>
   >([]);
   const processingRef = useRef(false);
@@ -78,11 +78,11 @@ function useSession(props: IProps): {
     setPermissionRequest({
       toolName: next.toolName,
       toolArgs: next.toolArgs,
-      resolve: (allowed: boolean) => {
+      resolve: (result: TPermissionResult) => {
         permissionQueueRef.current.shift();
         processingRef.current = false;
         setPermissionRequest(null);
-        next.resolve(allowed);
+        next.resolve(result);
         // Process next in queue after a tick
         setTimeout(() => processNextPermission(), 0);
       },
@@ -91,8 +91,11 @@ function useSession(props: IProps): {
 
   const sessionRef = useRef<Session | null>(null);
   if (sessionRef.current === null) {
-    const permissionHandler = (toolName: string, toolArgs: TToolArgs): Promise<boolean> => {
-      return new Promise<boolean>((resolve) => {
+    const permissionHandler = (
+      toolName: string,
+      toolArgs: TToolArgs,
+    ): Promise<TPermissionResult> => {
+      return new Promise<TPermissionResult>((resolve) => {
         permissionQueueRef.current.push({ toolName, toolArgs, resolve });
         processNextPermission();
       });
@@ -102,10 +105,12 @@ function useSession(props: IProps): {
       setStreamingText((prev) => prev + delta);
     };
 
+    const paths = projectPaths(props.cwd ?? process.cwd());
     sessionRef.current = new Session({
       config: props.config,
       context: props.context,
       terminal: NOOP_TERMINAL,
+      sessionLogger: new FileSessionLogger(paths.logs),
       projectInfo: props.projectInfo,
       sessionStore: props.sessionStore,
       permissionMode: props.permissionMode,
@@ -202,6 +207,26 @@ async function executeSlashCommand(
         content: `Session: ${session.getSessionId()}\nMessages: ${session.getMessageCount()}`,
       });
       return true;
+    case 'permissions': {
+      const mode = session.getPermissionMode();
+      const sessionAllowed = session.getSessionAllowedTools();
+      const lines = [`Permission mode: ${mode}`];
+      if (sessionAllowed.length > 0) {
+        lines.push(`Session-approved tools: ${sessionAllowed.join(', ')}`);
+      } else {
+        lines.push('No session-approved tools.');
+      }
+      addMessage({ role: 'system', content: lines.join('\n') });
+      return true;
+    }
+    case 'context': {
+      const ctx = session.getContextState();
+      addMessage({
+        role: 'system',
+        content: `Context: ${ctx.usedTokens.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens (${Math.round(ctx.usedPercentage)}%)`,
+      });
+      return true;
+    }
     case 'exit':
       exit();
       return true;
@@ -272,8 +297,12 @@ async function runSessionPrompt(
     setContextPercentage(session.getContextState().usedPercentage);
   } catch (err) {
     clearStreamingText();
-    const errMsg = err instanceof Error ? err.message : String(err);
-    addMessage({ role: 'system', content: `Error: ${errMsg}` });
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      addMessage({ role: 'system', content: 'Cancelled.' });
+    } else {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      addMessage({ role: 'system', content: `Error: ${errMsg}` });
+    }
   } finally {
     setIsThinking(false);
   }
@@ -376,10 +405,11 @@ export default function App(props: IProps): React.ReactElement {
   );
 
   useInput(
-    (_input: string, key: { ctrl: boolean }) => {
+    (_input: string, key: { ctrl: boolean; escape: boolean }) => {
       if (key.ctrl && _input === 'c') exit();
+      if (key.escape && isThinking) session.abort();
     },
-    { isActive: !permissionRequest && !isThinking },
+    { isActive: !permissionRequest },
   );
 
   return (

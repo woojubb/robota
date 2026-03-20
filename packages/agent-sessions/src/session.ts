@@ -31,11 +31,12 @@ import {
   editTool,
   globTool,
   grepTool,
+  webFetchTool,
+  webSearchTool,
 } from '@robota-sdk/agent-tools';
-import { mkdirSync, appendFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
 import type { SessionStore, ISessionRecord } from './session-store.js';
+import type { ISessionLogger, TSessionLogData } from './session-logger.js';
+import { FileSessionLogger } from './session-logger.js';
 
 const ID_RADIX = 36;
 const ID_RANDOM_LENGTH = 9;
@@ -93,10 +94,21 @@ export interface ITerminalOutput {
 }
 
 /**
- * Custom permission handler — called when a tool needs user approval.
- * Returns true to allow, false to deny.
+ * Permission handler result:
+ * - true: allow this invocation
+ * - false: deny this invocation
+ * - 'allow-session': allow this invocation and auto-approve this tool for the rest of the session
  */
-export type TPermissionHandler = (toolName: string, toolArgs: TToolArgs) => Promise<boolean>;
+export type TPermissionResult = boolean | 'allow-session';
+
+/**
+ * Custom permission handler — called when a tool needs user approval.
+ * Returns true to allow, false to deny, or 'allow-session' to remember for the session.
+ */
+export type TPermissionHandler = (
+  toolName: string,
+  toolArgs: TToolArgs,
+) => Promise<TPermissionResult>;
 
 /**
  * Resolved CLI configuration — passed into Session.
@@ -202,10 +214,8 @@ export interface ISessionOptions {
   onCompact?: (summary: string) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
-  /** Enable conversation logging to .robota/logs/{sessionId}.jsonl */
-  enableLogging?: boolean;
-  /** Custom log directory (default: .robota/logs/) */
-  logDir?: string;
+  /** Session logger — injected for pluggable session event logging. */
+  sessionLogger?: ISessionLogger;
 }
 
 /** Names of the built-in tools */
@@ -242,10 +252,12 @@ export class Session {
   private readonly onCompactCallback?: (summary: string) => void;
   private readonly compactInstructions?: string;
   private readonly aiProvider: IAIProvider;
-  private readonly logDir?: string;
+  private readonly sessionLogger?: ISessionLogger;
   private messageCount = 0;
   private contextUsedTokens = 0;
   private contextMaxTokens = DEFAULT_CONTEXT_SIZE;
+  private abortController: AbortController | null = null;
+  private readonly sessionAllowedTools = new Set<string>();
 
   constructor(options: ISessionOptions) {
     const {
@@ -267,16 +279,7 @@ export class Session {
     this.onCompactCallback = options.onCompact;
     this.compactInstructions = options.compactInstructions;
     this.cwd = process.cwd();
-
-    // Setup conversation logging
-    if (options.enableLogging !== false) {
-      this.logDir = options.logDir ?? join(this.cwd, '.robota', 'logs');
-      try {
-        mkdirSync(this.logDir, { recursive: true });
-      } catch {
-        this.logDir = undefined;
-      }
-    }
+    this.sessionLogger = options.sessionLogger;
     this.sessionId = `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
 
     // Resolve permission mode from explicit arg or config default
@@ -371,6 +374,8 @@ export class Session {
       editTool as IToolWithEventService,
       globTool as IToolWithEventService,
       grepTool as IToolWithEventService,
+      webFetchTool as IToolWithEventService,
+      webSearchTool as IToolWithEventService,
       ...(additionalTools ?? []),
     ];
     return rawTools.map((tool) => this.wrapToolWithPermission(tool));
@@ -400,7 +405,32 @@ export class Session {
       webToolsEnabled: providerHasWebTools,
     });
 
-    const response = await this.robota.run(message);
+    this.abortController = new AbortController();
+    const { signal } = this.abortController;
+
+    let response: string;
+    try {
+      response = await new Promise<string>((resolve, reject) => {
+        if (signal.aborted) {
+          reject(new DOMException('Aborted', 'AbortError'));
+          return;
+        }
+        const onAbort = (): void => reject(new DOMException('Aborted', 'AbortError'));
+        signal.addEventListener('abort', onAbort, { once: true });
+        this.robota.run(message).then(
+          (result) => {
+            signal.removeEventListener('abort', onAbort);
+            resolve(result);
+          },
+          (err) => {
+            signal.removeEventListener('abort', onAbort);
+            reject(err);
+          },
+        );
+      });
+    } finally {
+      this.abortController = null;
+    }
     this.messageCount += 1;
 
     // Log the response and full history structure
@@ -449,21 +479,9 @@ export class Session {
     return response;
   }
 
-  /** Append a log entry to the session log file */
-  private log(event: string, data: Record<string, string | number | boolean | object>): void {
-    if (!this.logDir) return;
-    try {
-      const entry = JSON.stringify({
-        timestamp: new Date().toISOString(),
-        sessionId: this.sessionId,
-        event,
-        ...data,
-      });
-      const logFile = join(this.logDir, `${this.sessionId}.jsonl`);
-      appendFileSync(logFile, entry + '\n');
-    } catch {
-      // Logging failure should never break the session
-    }
+  /** Delegate session event to the injected logger. */
+  private log(event: string, data: TSessionLogData): void {
+    this.sessionLogger?.log(this.sessionId, event, data);
   }
 
   /** Persist the current session to the store */
@@ -648,15 +666,46 @@ export class Session {
     if (decision === 'auto') return true;
     if (decision === 'deny') return false;
 
+    // Check session-scoped allow list before prompting
+    if (this.sessionAllowedTools.has(toolName)) return true;
+
     // 'approve' — prompt the user via custom handler, injected approval fn, or deny
     if (this.permissionHandler) {
-      return this.permissionHandler(toolName, toolArgs);
+      const result = await this.permissionHandler(toolName, toolArgs);
+      if (result === 'allow-session') {
+        this.sessionAllowedTools.add(toolName);
+        return true;
+      }
+      return result;
     }
     if (this.promptForApprovalFn) {
       return this.promptForApprovalFn(this.terminal, toolName, toolArgs);
     }
     // No approval mechanism available — deny by default
     return false;
+  }
+
+  /** Get tools that have been session-approved (via "Allow always" choice). */
+  getSessionAllowedTools(): string[] {
+    return [...this.sessionAllowedTools];
+  }
+
+  /** Clear all session-scoped allow rules. */
+  clearSessionAllowedTools(): void {
+    this.sessionAllowedTools.clear();
+  }
+
+  /** Abort the currently running execution. No-op if nothing is running. */
+  abort(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
+
+  /** Whether a run() call is currently in progress. */
+  isRunning(): boolean {
+    return this.abortController !== null;
   }
 
   /** Get current context window state */

@@ -25,6 +25,7 @@ export interface IZodParseResult {
 export interface IZodSchemaDef {
   typeName?: string;
   innerType?: IZodSchema;
+  valueType?: IZodSchema;
   checks?: Array<{ kind: string; value?: TUniversalValue }>;
   shape?: () => Record<string, IZodSchema>;
   type?: IZodSchema;
