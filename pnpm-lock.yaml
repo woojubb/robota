@@ -533,6 +533,9 @@ importers:
       react:
         specifier: 19.2.4
         version: 19.2.4
+      string-width:
+        specifier: ^8.2.0
+        version: 8.2.0
     devDependencies:
       '@types/marked':
         specifier: ^6.0.0
@@ -4803,7 +4806,7 @@ packages:
     dependencies:
       string-width: 5.1.2
       string-width-cjs: /string-width@4.2.3
-      strip-ansi: 7.1.0
+      strip-ansi: 7.2.0
       strip-ansi-cjs: /strip-ansi@6.0.1
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: /wrap-ansi@7.0.0
@@ -13018,20 +13021,12 @@ packages:
       }
     engines: { node: 6.* || 8.* || >= 10.* }
 
-  /get-east-asian-width@1.3.0:
-    resolution:
-      {
-        integrity: sha512-vpeMIQKxczTD/0s2CdEWHcb0eeJe6TFjxb+J5xgX7hScxqrGuyjmv4c1D4A/gelKfyox0gJJwIHF+fLjeaM8kQ==,
-      }
-    engines: { node: '>=18' }
-
   /get-east-asian-width@1.5.0:
     resolution:
       {
         integrity: sha512-CQ+bEO+Tva/qlmw24dCejulK5pMzVnUOFOijVogd3KQs07HnRIgp8TGipvCCRT06xeYEbpbgwaCxglFyiuIcmA==,
       }
     engines: { node: '>=18' }
-    dev: false
 
   /get-func-name@2.0.2:
     resolution:
@@ -14112,7 +14107,7 @@ packages:
       }
     engines: { node: '>=18' }
     dependencies:
-      get-east-asian-width: 1.3.0
+      get-east-asian-width: 1.5.0
 
   /is-fullwidth-code-point@5.1.0:
     resolution:
@@ -15779,7 +15774,7 @@ packages:
       ansi-escapes: 7.3.0
       cli-cursor: 5.0.0
       slice-ansi: 7.1.0
-      strip-ansi: 7.1.0
+      strip-ansi: 7.2.0
       wrap-ansi: 9.0.0
     dev: true
 
@@ -19205,7 +19200,7 @@ packages:
     dependencies:
       eastasianwidth: 0.2.0
       emoji-regex: 9.2.2
-      strip-ansi: 7.1.0
+      strip-ansi: 7.2.0
     dev: true
 
   /string-width@7.2.0:
@@ -19216,8 +19211,8 @@ packages:
     engines: { node: '>=18' }
     dependencies:
       emoji-regex: 10.4.0
-      get-east-asian-width: 1.3.0
-      strip-ansi: 7.1.0
+      get-east-asian-width: 1.5.0
+      strip-ansi: 7.2.0
 
   /string-width@8.2.0:
     resolution:
@@ -19359,7 +19354,6 @@ packages:
     engines: { node: '>=12' }
     dependencies:
       ansi-regex: 6.2.2
-    dev: false
 
   /strip-bom@3.0.0:
     resolution:
@@ -21235,7 +21229,7 @@ packages:
     dependencies:
       ansi-styles: 6.2.1
       string-width: 5.1.2
-      strip-ansi: 7.1.0
+      strip-ansi: 7.2.0
     dev: true
 
   /wrap-ansi@9.0.0:
