@@ -12,7 +12,8 @@
  */
 
 import React, { useRef, useState } from 'react';
-import { Text, useInput } from 'ink';
+import { Text, useInput, useCursor } from 'ink';
+import stringWidth from 'string-width';
 import chalk from 'chalk';
 
 interface IProps {
@@ -38,6 +39,11 @@ export default function CjkTextInput({
   const valueRef = useRef(value);
   const cursorRef = useRef(value.length);
   const [, forceRender] = useState(0);
+
+  // Provide cursor position to Ink for IME candidate window placement.
+  // This prevents Terminal.app SIGSEGV when Korean IME queries attributedSubstringFromRange:
+  // without a valid cursor position, Terminal.app dereferences null → crash.
+  const { setCursorPosition } = useCursor();
 
   // Sync ref when value changes from parent (e.g., setValue(''))
   if (value !== valueRef.current) {
@@ -101,6 +107,14 @@ export default function CjkTextInput({
     },
     { isActive: focus },
   );
+
+  // Calculate display-width cursor position for IME.
+  // x offset accounts for prompt prefix ("│ > ") in InputArea — border(1) + padding(1) + "> "(2) = 4 cols.
+  if (showCursor && focus) {
+    const textBeforeCursor = [...valueRef.current].slice(0, cursorRef.current).join('');
+    const cursorX = 4 + stringWidth(textBeforeCursor);
+    setCursorPosition({ x: cursorX, y: 0 });
+  }
 
   return (
     <Text>
