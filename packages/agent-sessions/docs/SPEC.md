@@ -53,7 +53,7 @@ Types owned by this package (SSOT):
 | `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                         |
 | `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                     |
 | `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                            |
-| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, unknown>`)               |
+| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`) |
 | `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages)            |
 
 Types consumed from other packages (not owned here):
@@ -132,23 +132,25 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 ## Extension Points
 
-1. **`ISessionOptions.tools`** -- Inject any set of `IToolWithEventService[]`. The consuming layer (agent-sdk) provides the default 8 tools + agent-tool.
+1. **`ISessionOptions.terminal`** (required) -- Inject an `ITerminalOutput` implementation for permission prompts and UI output. The consuming layer provides either a real terminal (CLI print mode) or an Ink-based no-op (TUI mode).
 
-2. **`ISessionOptions.provider`** -- Inject any `IAIProvider`. The consuming layer (agent-sdk) creates the appropriate provider from config.
+2. **`ISessionOptions.tools`** -- Inject any set of `IToolWithEventService[]`. The consuming layer (agent-sdk) provides the default 8 tools + agent-tool.
 
-3. **`ISessionOptions.systemMessage`** -- Inject the pre-built system prompt string. The consuming layer (agent-sdk) builds this from AGENTS.md, CLAUDE.md, tool descriptions, and trust level.
+3. **`ISessionOptions.provider`** -- Inject any `IAIProvider`. The consuming layer (agent-sdk) creates the appropriate provider from config.
 
-4. **`ISessionOptions.permissionHandler`** -- Inject a custom permission approval callback (used by Ink-based UI to show approval prompts in React components).
+4. **`ISessionOptions.systemMessage`** -- Inject the pre-built system prompt string. The consuming layer (agent-sdk) builds this from AGENTS.md, CLAUDE.md, tool descriptions, and trust level.
 
-5. **`ISessionOptions.promptForApproval`** -- Alternative approval function that receives the terminal handle.
+5. **`ISessionOptions.permissionHandler`** -- Inject a custom permission approval callback (used by Ink-based UI to show approval prompts in React components).
 
-6. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI.
+6. **`ISessionOptions.promptForApproval`** -- Alternative approval function that receives the terminal handle.
 
-7. **`ISessionOptions.onCompact`** -- Callback invoked when compaction occurs (auto or manual), receives the generated summary string.
+7. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI.
 
-8. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from CLAUDE.md "Compact Instructions" section).
+8. **`ISessionOptions.onCompact`** -- Callback invoked when compaction occurs (auto or manual), receives the generated summary string.
 
-9. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
+9. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from CLAUDE.md "Compact Instructions" section).
+
+10. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
 
 ## Error Taxonomy
 
@@ -196,6 +198,8 @@ None. Classes are standalone.
 - **ContextWindowTracker** -- `updateFromHistory()`, `shouldAutoCompact()`, metadata vs fallback estimation are untested.
 - **CompactionOrchestrator** -- `compact()`, hook firing, prompt building are untested.
 - **SessionStore** -- Covered by `agent-sdk/src/__tests__/session-store.test.ts` (12 tests: save/load/list/delete/directory creation).
+- **FileSessionLogger** -- `log()`, file creation, JSONL formatting, error handling on read-only paths are untested.
+- **SilentSessionLogger** -- No-op behavior untested (trivial, low priority).
 - All classes should be testable with mock `IAIProvider` and mock `ITerminalOutput` injections.
 
 ## Dependencies
