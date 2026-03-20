@@ -104,4 +104,27 @@ describe('ReadTool', () => {
     // No content lines returned, just header
     expect(result.output).toContain(filePath);
   });
+
+  // --- P1: directory path returns error ---
+
+  it('returns error when path is a directory', async () => {
+    const result = await run({ filePath: tmpDir });
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('not a file');
+  });
+
+  // --- P1: offset + limit combined ---
+
+  it('respects offset and limit together', async () => {
+    const filePath = join(tmpDir, 'combo.txt');
+    const lines = Array.from({ length: 10 }, (_, i) => `line ${i + 1}`).join('\n') + '\n';
+    await writeFile(filePath, lines, 'utf8');
+
+    const result = await run({ filePath, offset: 3, limit: 2 });
+    expect(result.success).toBe(true);
+    expect(result.output).toContain('3\tline 3');
+    expect(result.output).toContain('4\tline 4');
+    expect(result.output).not.toContain('5\tline 5');
+    expect(result.output).not.toContain('2\tline 2');
+  });
 });

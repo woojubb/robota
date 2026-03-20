@@ -148,6 +148,7 @@ const HELP_TEXT = [
   '  /compact [instr]   — Compact context (optional focus instructions)',
   '  /mode [m]          — Show/change permission mode',
   '  /cost              — Show session info',
+  '  /reset             — Delete settings and exit',
   '  /exit              — Exit CLI',
 ].join('\n');
 
@@ -228,6 +229,19 @@ async function executeSlashCommand(
       });
       return true;
     }
+    case 'reset': {
+      const { existsSync: exists, unlinkSync: unlink } = await import('node:fs');
+      const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
+      const settingsPath = `${home}/.robota/settings.json`;
+      if (exists(settingsPath)) {
+        unlink(settingsPath);
+        addMessage({ role: 'system', content: `Deleted ${settingsPath}. Exiting...` });
+      } else {
+        addMessage({ role: 'system', content: 'No user settings found.' });
+      }
+      setTimeout(() => exit(), 500);
+      return true;
+    }
     case 'exit':
       exit();
       return true;
@@ -291,9 +305,37 @@ async function runSessionPrompt(
   setIsThinking(true);
   clearStreamingText();
 
+  // Record history position to extract tool calls after run
+  const historyBefore = session.getHistory().length;
+
   try {
     const response = await session.run(prompt);
     clearStreamingText();
+
+    // Extract tool calls from session history — group into one message
+    const history = session.getHistory();
+    const toolLines: string[] = [];
+    for (let i = historyBefore; i < history.length; i++) {
+      const msg = history[i] as { role: string; toolCalls?: Array<{ function: { name: string; arguments: string } }> };
+      if (msg.role === 'assistant' && msg.toolCalls) {
+        for (const tc of msg.toolCalls) {
+          let value = '';
+          try {
+            const parsed = JSON.parse(tc.function.arguments);
+            const firstVal = Object.values(parsed)[0];
+            value = typeof firstVal === 'string' ? firstVal : JSON.stringify(firstVal);
+          } catch {
+            value = tc.function.arguments;
+          }
+          const truncated = value.length > 80 ? value.slice(0, 77) + '...' : value;
+          toolLines.push(`${tc.function.name}(${truncated})`);
+        }
+      }
+    }
+    if (toolLines.length > 0) {
+      addMessage({ role: 'tool', content: toolLines.join('\n'), toolName: `${toolLines.length} tools` });
+    }
+
     addMessage({ role: 'assistant', content: response || '(empty response)' });
     setContextPercentage(session.getContextState().usedPercentage);
   } catch (err) {
