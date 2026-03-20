@@ -9,6 +9,8 @@ lang: en-US
 
 A TypeScript framework for building AI agents with multi-provider support, tool calling, and extensible plugin architecture.
 
+![Robota CLI](./images/cli-demo.png)
+
 ## Why Robota SDK?
 
 - **Type-Safe**: Strict TypeScript with zero `any` in production code
