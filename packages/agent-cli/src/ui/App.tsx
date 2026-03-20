@@ -291,9 +291,26 @@ async function runSessionPrompt(
   setIsThinking(true);
   clearStreamingText();
 
+  // Record history position to extract tool calls after run
+  const historyBefore = session.getHistory().length;
+
   try {
     const response = await session.run(prompt);
     clearStreamingText();
+
+    // Extract tool calls from session history
+    const history = session.getHistory();
+    for (let i = historyBefore; i < history.length; i++) {
+      const msg = history[i] as { role: string; toolCalls?: Array<{ function: { name: string; arguments: string } }> };
+      if (msg.role === 'assistant' && msg.toolCalls) {
+        for (const tc of msg.toolCalls) {
+          const args = tc.function.arguments;
+          const preview = args.length > 80 ? args.slice(0, 77) + '...' : args;
+          addMessage({ role: 'tool', content: `${tc.function.name}(${preview})`, toolName: tc.function.name });
+        }
+      }
+    }
+
     addMessage({ role: 'assistant', content: response || '(empty response)' });
     setContextPercentage(session.getContextState().usedPercentage);
   } catch (err) {
