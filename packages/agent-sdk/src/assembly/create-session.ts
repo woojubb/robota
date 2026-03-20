@@ -85,6 +85,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     toolDescriptions: options.toolDescriptions ?? DEFAULT_TOOL_DESCRIPTIONS,
     trustLevel: options.config.defaultTrustLevel,
     projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
+    cwd: process.cwd(),
   });
 
   // Merge default allow patterns for config folders with user-configured permissions

@@ -17,6 +17,8 @@ export interface ISystemPromptParams {
   trustLevel: TTrustLevel;
   /** Detected project metadata */
   projectInfo: IProjectInfo;
+  /** Current working directory */
+  cwd?: string;
 }
 
 const TRUST_LEVEL_DESCRIPTIONS: Record<TTrustLevel, string> = {
@@ -54,7 +56,7 @@ function buildToolsSection(descriptions: string[]): string {
  * Assemble the full system prompt string from the provided parameters.
  */
 export function buildSystemPrompt(params: ISystemPromptParams): string {
-  const { agentsMd, claudeMd, toolDescriptions, trustLevel, projectInfo } = params;
+  const { agentsMd, claudeMd, toolDescriptions, trustLevel, projectInfo, cwd } = params;
 
   const sections: string[] = [];
 
@@ -67,6 +69,11 @@ export function buildSystemPrompt(params: ISystemPromptParams): string {
       'Always be precise, follow existing code conventions, and prefer minimal changes.',
     ].join('\n'),
   );
+
+  // Working directory
+  if (cwd) {
+    sections.push(`## Working Directory\n\`${cwd}\``);
+  }
 
   // Project information
   sections.push(buildProjectSection(projectInfo));
