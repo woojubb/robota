@@ -226,6 +226,8 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 13  | agent-core depending on agent-\* packages                        | agent-core MUST NOT depend on any @robota-sdk/agent-\* package                  |
 | 14  | Using `npm publish` instead of `pnpm publish`                    | pnpm resolves workspace:\* deps; npm publishes them literally, breaking install |
 | 15  | Adding a feature without updating SPEC.md/README.md              | Every new feature requires documentation updates in the same commit/PR          |
+| 16  | Hardcoding cross-cutting concerns (fs.appendFile, console.log)   | Use plugin/event architecture; see `code-quality.md` Layered Assembly           |
+| 17  | Bypassing layer boundaries (CLI using core internals directly)   | Each layer consumes only its direct dependency's public API                     |
 
 ## Conflict Scan Commands
 

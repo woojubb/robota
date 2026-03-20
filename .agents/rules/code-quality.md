@@ -33,3 +33,28 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Never mutate function parameters directly. Clone or create new objects instead.
 - No magic numbers or strings. Use named constants with descriptive names. Exceptions: `0`, `1`, `-1` as array/math primitives.
 - Production files should not exceed 300 lines. Functions should not exceed 50 lines. Exceptions require justification in code review.
+
+### Layered Assembly Architecture
+
+The monorepo follows a strict bottom-up assembly model. Each layer builds on the layer below, never bypassing it.
+
+```
+agent-core        ← foundation: interfaces, abstractions, DI, events, plugins
+  ↑
+agent-sessions    ← session lifecycle, wraps core with permissions/hooks
+agent-tools       ← tool implementations (FunctionTool, builtins)
+agent-providers   ← AI provider implementations
+agent-plugins     ← cross-cutting concerns (logging, usage, etc.)
+  ↑
+agent-sdk         ← assembly layer: composes core + sessions + tools + providers
+  ↑
+agent-cli         ← UI layer: consumes SDK, adds terminal UI
+```
+
+**Rules:**
+
+- **No hardcoding of cross-cutting concerns.** Logging, persistence, analytics, and other side concerns MUST use the existing plugin/event architecture, not direct I/O (e.g., `fs.appendFileSync`, `console.log`). If no suitable plugin exists, create one or extend an existing one.
+- **No layer skipping.** CLI must not directly use agent-core internals that should be wired through agent-sessions or agent-sdk. Each layer consumes only its direct dependency's public API.
+- **Composition over integration.** Features should be assembled from existing building blocks (plugins, event service, tool registry) rather than baked into a single class. A 500-line Session class with hardcoded file I/O is a design smell.
+- **Interface-first extension.** When adding a capability (e.g., session logging), define the interface in agent-core, implement in a plugin or session package, and wire in agent-sdk. Never implement directly in the consuming layer.
+- **Side concerns are injectable.** Any behavior that could vary by deployment (logging destination, storage path, analytics) must be injected, not imported directly.
