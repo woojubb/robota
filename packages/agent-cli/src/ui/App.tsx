@@ -271,7 +271,7 @@ function StreamingIndicator({ text }: { text: string }): React.ReactElement {
         </Text>
         <Text> </Text>
         <Box marginLeft={2}>
-          <Text wrap="wrap">{text}</Text>
+          <Text wrap="wrap">{renderMarkdown(text)}</Text>
         </Box>
       </Box>
     );
