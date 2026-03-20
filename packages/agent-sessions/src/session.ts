@@ -246,6 +246,7 @@ export class Session {
   private messageCount = 0;
   private contextUsedTokens = 0;
   private contextMaxTokens = DEFAULT_CONTEXT_SIZE;
+  private abortController: AbortController | null = null;
 
   constructor(options: ISessionOptions) {
     const {
@@ -400,7 +401,32 @@ export class Session {
       webToolsEnabled: providerHasWebTools,
     });
 
-    const response = await this.robota.run(message);
+    this.abortController = new AbortController();
+    const { signal } = this.abortController;
+
+    let response: string;
+    try {
+      response = await new Promise<string>((resolve, reject) => {
+        if (signal.aborted) {
+          reject(new DOMException('Aborted', 'AbortError'));
+          return;
+        }
+        const onAbort = (): void => reject(new DOMException('Aborted', 'AbortError'));
+        signal.addEventListener('abort', onAbort, { once: true });
+        this.robota.run(message).then(
+          (result) => {
+            signal.removeEventListener('abort', onAbort);
+            resolve(result);
+          },
+          (err) => {
+            signal.removeEventListener('abort', onAbort);
+            reject(err);
+          },
+        );
+      });
+    } finally {
+      this.abortController = null;
+    }
     this.messageCount += 1;
 
     // Log the response and full history structure
@@ -657,6 +683,19 @@ export class Session {
     }
     // No approval mechanism available — deny by default
     return false;
+  }
+
+  /** Abort the currently running execution. No-op if nothing is running. */
+  abort(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
+
+  /** Whether a run() call is currently in progress. */
+  isRunning(): boolean {
+    return this.abortController !== null;
   }
 
   /** Get current context window state */

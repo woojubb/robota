@@ -272,8 +272,12 @@ async function runSessionPrompt(
     setContextPercentage(session.getContextState().usedPercentage);
   } catch (err) {
     clearStreamingText();
-    const errMsg = err instanceof Error ? err.message : String(err);
-    addMessage({ role: 'system', content: `Error: ${errMsg}` });
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      addMessage({ role: 'system', content: 'Cancelled.' });
+    } else {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      addMessage({ role: 'system', content: `Error: ${errMsg}` });
+    }
   } finally {
     setIsThinking(false);
   }
@@ -376,10 +380,11 @@ export default function App(props: IProps): React.ReactElement {
   );
 
   useInput(
-    (_input: string, key: { ctrl: boolean }) => {
+    (_input: string, key: { ctrl: boolean; escape: boolean }) => {
       if (key.ctrl && _input === 'c') exit();
+      if (key.escape && isThinking) session.abort();
     },
-    { isActive: !permissionRequest && !isThinking },
+    { isActive: !permissionRequest },
   );
 
   return (
