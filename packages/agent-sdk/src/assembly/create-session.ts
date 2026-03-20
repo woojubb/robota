@@ -85,14 +85,29 @@ export function createSession(options: ICreateSessionOptions): Session {
     toolDescriptions: options.toolDescriptions ?? DEFAULT_TOOL_DESCRIPTIONS,
     trustLevel: options.config.defaultTrustLevel,
     projectInfo: options.projectInfo ?? { type: 'unknown', language: 'unknown' },
+    cwd: process.cwd(),
   });
+
+  // Merge default allow patterns for config folders with user-configured permissions
+  const defaultAllow = [
+    'Read(.agents/**)',
+    'Read(.claude/**)',
+    'Read(.robota/**)',
+    'Glob(.agents/**)',
+    'Glob(.claude/**)',
+    'Glob(.robota/**)',
+  ];
+  const mergedPermissions = {
+    allow: [...defaultAllow, ...(options.config.permissions.allow ?? [])],
+    deny: options.config.permissions.deny ?? [],
+  };
 
   return new Session({
     tools,
     provider,
     systemMessage,
     terminal: options.terminal,
-    permissions: options.config.permissions,
+    permissions: mergedPermissions,
     hooks: options.config.hooks,
     permissionMode: options.permissionMode,
     defaultTrustLevel: options.config.defaultTrustLevel,

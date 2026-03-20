@@ -100,6 +100,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Modes**: `plan` (read-only), `default` (write requires approval), `acceptEdits` (write auto-approved), `bypassPermissions` (all auto-approved)
 - **Pattern syntax**: `Bash(pnpm *)`, `Read(/src/**)`, `Write(*)` etc. with glob matching
 - **Terminal prompt**: `agent-sdk/src/permissions/permission-prompt.ts` provides a terminal approval prompt injected into sessions created by `query()`. The CLI layer (`agent-cli`) has its own implementation used for both print mode and the Ink TUI.
+- **Default allow patterns**: `createSession()` automatically adds allow patterns for config folder access: `Read(.agents/**)`, `Read(.claude/**)`, `Read(.robota/**)`, `Glob(.agents/**)`, `Glob(.claude/**)`, `Glob(.robota/**)`. These are merged with user-configured permissions.
 
 ### Hooks System
 
