@@ -205,26 +205,27 @@ async function ensureConfig(cwd: string): Promise<void> {
     stdin.setRawMode(true);
     stdin.resume();
     stdin.setEncoding('utf8');
-    const onData = (ch: string): void => {
-      if (ch === '\r' || ch === '\n') {
-        stdin.removeListener('data', onData);
-        stdin.setRawMode(wasRaw ?? false);
-        stdin.pause();
-        process.stdout.write('\n');
-        resolve(input.trim());
-      } else if (ch === '\x7f' || ch === '\b') {
-        // Backspace
-        if (input.length > 0) {
-          input = input.slice(0, -1);
-          process.stdout.write('\b \b');
+    const onData = (data: string): void => {
+      for (const ch of data) {
+        if (ch === '\r' || ch === '\n') {
+          stdin.removeListener('data', onData);
+          stdin.setRawMode(wasRaw ?? false);
+          stdin.pause();
+          process.stdout.write('\n');
+          resolve(input.trim());
+          return;
+        } else if (ch === '\x7f' || ch === '\b') {
+          if (input.length > 0) {
+            input = input.slice(0, -1);
+            process.stdout.write('\b \b');
+          }
+        } else if (ch === '\x03') {
+          process.stdout.write('\n');
+          process.exit(0);
+        } else if (ch.charCodeAt(0) >= 32) {
+          input += ch;
+          process.stdout.write('*');
         }
-      } else if (ch === '\x03') {
-        // Ctrl+C
-        process.stdout.write('\n');
-        process.exit(0);
-      } else {
-        input += ch;
-        process.stdout.write('*');
       }
     };
     stdin.on('data', onData);
