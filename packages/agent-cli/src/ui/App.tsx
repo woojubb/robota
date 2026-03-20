@@ -148,6 +148,7 @@ const HELP_TEXT = [
   '  /compact [instr]   — Compact context (optional focus instructions)',
   '  /mode [m]          — Show/change permission mode',
   '  /cost              — Show session info',
+  '  /reset             — Delete settings and exit',
   '  /exit              — Exit CLI',
 ].join('\n');
 
@@ -226,6 +227,19 @@ async function executeSlashCommand(
         role: 'system',
         content: `Context: ${ctx.usedTokens.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens (${Math.round(ctx.usedPercentage)}%)`,
       });
+      return true;
+    }
+    case 'reset': {
+      const { existsSync: exists, unlinkSync: unlink } = await import('node:fs');
+      const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
+      const settingsPath = `${home}/.robota/settings.json`;
+      if (exists(settingsPath)) {
+        unlink(settingsPath);
+        addMessage({ role: 'system', content: `Deleted ${settingsPath}. Exiting...` });
+      } else {
+        addMessage({ role: 'system', content: 'No user settings found.' });
+      }
+      setTimeout(() => exit(), 500);
       return true;
     }
     case 'exit':
