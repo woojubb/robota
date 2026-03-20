@@ -234,5 +234,6 @@ export async function startCli(): Promise<void> {
     sessionStore,
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
+    version: readVersion(),
   });
 }

@@ -21,6 +21,7 @@ export interface IRenderOptions {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   cwd?: string;
+  version?: string;
 }
 
 export function renderApp(options: IRenderOptions): void {
