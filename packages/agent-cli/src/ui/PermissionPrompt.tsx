@@ -20,6 +20,14 @@ function formatArgs(args: TToolArgs): string {
 export default function PermissionPrompt({ request }: IProps): React.ReactElement {
   const [selected, setSelected] = React.useState(0);
   const resolvedRef = React.useRef(false);
+  const prevRequestRef = React.useRef(request);
+
+  // Reset state when a new permission request comes in
+  if (prevRequestRef.current !== request) {
+    prevRequestRef.current = request;
+    resolvedRef.current = false;
+    setSelected(0);
+  }
 
   const doResolve = React.useCallback(
     (allowed: boolean) => {
