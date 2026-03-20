@@ -18,7 +18,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
     "@robota-sdk/agent-playground": "workspace:^",
-    "next": "15.4.1",
+    "next": "16.2.0",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
