@@ -6,7 +6,7 @@
 
 import chalk from 'chalk';
 import type { ITerminalOutput } from '../types.js';
-import type { TToolArgs } from './permission-gate.js';
+import type { TToolArgs } from '@robota-sdk/agent-core';
 
 const PERMISSION_OPTIONS = ['Allow', 'Deny'];
 const ALLOW_INDEX = 0;

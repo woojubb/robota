@@ -9,8 +9,10 @@
 import { z } from 'zod';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IZodSchema, TToolResult } from '@robota-sdk/agent-tools';
-import { Session } from '@robota-sdk/agent-sessions';
-import type { IResolvedConfig, ILoadedContext, IProjectInfo } from '@robota-sdk/agent-sessions';
+import type { IResolvedConfig } from '../config/config-types.js';
+import type { ILoadedContext } from '../context/context-loader.js';
+import type { IProjectInfo } from '../context/project-detector.js';
+import { createSession } from '../assembly/create-session.js';
 
 /** Cast a Zod schema to the IZodSchema interface expected by createZodFunctionTool */
 function asZodSchema(schema: z.ZodType): IZodSchema {
@@ -51,20 +53,21 @@ async function runAgent(args: TAgentArgs): Promise<string> {
     return JSON.stringify(result);
   }
 
-  const subSession = new Session({
+  const noopTerminal = {
+    write: () => {},
+    writeLine: () => {},
+    writeMarkdown: () => {},
+    writeError: () => {},
+    prompt: () => Promise.resolve(''),
+    select: () => Promise.resolve(0),
+    spinner: () => ({ stop: () => {}, update: () => {} }),
+  };
+
+  const subSession = createSession({
     config: agentToolDeps.config,
     context: agentToolDeps.context,
     projectInfo: agentToolDeps.projectInfo,
-    // No terminal needed — sub-agents don't prompt for permissions
-    terminal: {
-      write: () => {},
-      writeLine: () => {},
-      writeMarkdown: () => {},
-      writeError: () => {},
-      prompt: () => Promise.resolve(''),
-      select: () => Promise.resolve(0),
-      spinner: () => ({ stop: () => {}, update: () => {} }),
-    },
+    terminal: noopTerminal,
     // Sub-agents bypass permissions — they inherit parent's trust
     permissionMode: 'bypassPermissions',
   });

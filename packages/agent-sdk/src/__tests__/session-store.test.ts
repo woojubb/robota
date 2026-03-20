@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { SessionStore } from '../session-store.js';
-import type { ISessionRecord } from '../session-store.js';
+import { SessionStore } from '@robota-sdk/agent-sessions';
+import type { ISessionRecord } from '@robota-sdk/agent-sessions';
 
 function makeRecord(overrides: Partial<ISessionRecord> = {}): ISessionRecord {
   return {
