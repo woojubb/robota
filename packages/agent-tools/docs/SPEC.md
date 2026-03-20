@@ -26,13 +26,15 @@ implementations/
 types/
   tool-result.ts        -- TToolResult: result type for CLI tool invocations
 builtins/
-  index.ts              -- Re-exports all 6 built-in CLI tools
+  index.ts              -- Re-exports all 8 built-in CLI tools
   bash-tool.ts          -- Bash: execute shell commands
   read-tool.ts          -- Read: read file contents with line numbers
   write-tool.ts         -- Write: write content to a file
   edit-tool.ts          -- Edit: replace a string in a file
   glob-tool.ts          -- Glob: find files matching a pattern (uses fast-glob)
   grep-tool.ts          -- Grep: search file contents with regex
+  web-fetch-tool.ts     -- WebFetch: fetch URL content (HTML→text conversion)
+  web-search-tool.ts    -- WebSearch: web search via Brave Search API
 ```
 
 **Design patterns used:**

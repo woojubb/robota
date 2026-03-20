@@ -83,6 +83,17 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Only start implementation when the user explicitly requests it (e.g., "이거 진행해", "할일 목록에서 X 해줘").
 - When the user asks to see the backlog ("할일 목록 보여줘"), list all recorded tasks from `.agents/tasks/`.
 
+### Feature Documentation Requirement
+
+- When a new feature is implemented (new tool, new API, new command, new capability), documentation MUST be updated in the same commit or PR.
+- Required documentation updates:
+  1. **SPEC.md** of the affected package — add or update the feature description.
+  2. **README.md** of the affected package — add usage examples if the package is published.
+  3. **Backlog/task cleanup** — move completed backlog items to `completed/`.
+  4. **Stale content** — any existing documentation that contradicts the new feature MUST be corrected.
+- A feature without documentation updates is an incomplete feature.
+- This rule is enforced by `harness:scan:specs` which checks that SPEC.md exists and is non-empty for all published packages.
+
 ### Foundation Package Dependency Rule
 
 - `agent-core` is the foundation package. It MUST NOT depend on any `@robota-sdk/agent-*` package.
