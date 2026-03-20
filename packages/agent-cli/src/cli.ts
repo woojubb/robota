@@ -197,16 +197,37 @@ async function ensureConfig(cwd: string): Promise<void> {
   process.stdout.write('  No configuration found. Let\'s set up your API key.\n');
   process.stdout.write('\n');
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
   const apiKey = await new Promise<string>((resolve) => {
-    rl.question('  Anthropic API key: ', (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
+    process.stdout.write('  Anthropic API key: ');
+    let input = '';
+    const stdin = process.stdin;
+    const wasRaw = stdin.isRaw;
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding('utf8');
+    const onData = (ch: string): void => {
+      if (ch === '\r' || ch === '\n') {
+        stdin.removeListener('data', onData);
+        stdin.setRawMode(wasRaw ?? false);
+        stdin.pause();
+        process.stdout.write('\n');
+        resolve(input.trim());
+      } else if (ch === '\x7f' || ch === '\b') {
+        // Backspace
+        if (input.length > 0) {
+          input = input.slice(0, -1);
+          process.stdout.write('\b \b');
+        }
+      } else if (ch === '\x03') {
+        // Ctrl+C
+        process.stdout.write('\n');
+        process.exit(0);
+      } else {
+        input += ch;
+        process.stdout.write('*');
+      }
+    };
+    stdin.on('data', onData);
   });
 
   if (!apiKey) {
