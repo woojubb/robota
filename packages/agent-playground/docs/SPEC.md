@@ -32,12 +32,12 @@ This package is SSOT for:
 
 ## Public API Surface
 
-| Export               | Kind            | Description                                                        |
-| -------------------- | --------------- | ------------------------------------------------------------------ |
-| `PlaygroundApp`      | React component | Full playground application shell                                  |
-| `PlaygroundDemo`     | React component | Demo-mode playground                                               |
-| `PlaygroundExecutor` | class           | Agent lifecycle and execution facade (re-exported from services)   |
-| `usePlaygroundBoot`  | hook            | Boot state management (internal — not exported from package entry) |
+| Export                  | Kind            | Description                                                      |
+| ----------------------- | --------------- | ---------------------------------------------------------------- |
+| `PlaygroundApp`         | React component | Full playground application shell                                |
+| `PlaygroundDemo`        | React component | Demo-mode playground                                             |
+| `PlaygroundExecutor`    | class           | Agent lifecycle and execution facade (re-exported from services) |
+| ~~`usePlaygroundBoot`~~ | hook (internal) | Boot state management — not exported from package entry          |
 
 Note: `usePlaygroundData`, `useRobotaExecution`, `useChatInput`, and `ToolRegistry` are used internally by the package's own components and are not exported from the public entry point (`src/index.ts → src/playground/index.ts`).
 
@@ -75,8 +75,8 @@ None. `PlaygroundStatisticsPlugin` and `PlaygroundHistoryPlugin` are standalone 
 
 | Port (Owner)                           | Consumer                    | Location                                 |
 | -------------------------------------- | --------------------------- | ---------------------------------------- |
-| `Robota` (agents)                      | `PlaygroundExecutor`        | `src/lib/playground/robota-executor.ts`  |
-| `FunctionTool` (agents)                | Tool factory functions      | `src/tools/`                             |
+| `Robota` (agent-core)                  | `PlaygroundExecutor`        | `src/lib/playground/robota-executor.ts`  |
+| `FunctionTool` (agent-tools)           | Tool factory functions      | `src/tools/`                             |
 | `RemoteExecutor` (remote)              | `PlaygroundExecutor`        | `src/lib/playground/robota-executor.ts`  |
 | `IPlaygroundWebSocketMessage` (remote) | `PlaygroundWebSocketClient` | `src/lib/playground/websocket-client.ts` |
 
