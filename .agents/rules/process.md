@@ -83,6 +83,18 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Only start implementation when the user explicitly requests it (e.g., "이거 진행해", "할일 목록에서 X 해줘").
 - When the user asks to see the backlog ("할일 목록 보여줘"), list all recorded tasks from `.agents/tasks/`.
 
+### Prior Art Research Requirement
+
+- Before implementing any new feature or capability, research whether equivalent solutions already exist in established products (e.g., Claude Code, VS Code, Cursor, Warp, etc.).
+- The research MUST be completed BEFORE writing implementation code or finalizing a spec.
+- Research deliverables:
+  1. **Identify prior art** — which products have this feature, how they implement it.
+  2. **Document findings** — save to `.agents/backlog/<item>.md` or the task file under a `## Prior Art Research` section.
+  3. **Extract spec decisions** — use research to inform parameter names, UX patterns, edge cases, and defaults.
+- If no prior art is found, document that fact explicitly ("No known prior art found").
+- A feature implementation that skips prior art research when equivalent solutions obviously exist is a process violation.
+- This applies to CLI features, SDK APIs, tool behaviors, and UX patterns — not to internal refactoring or bug fixes.
+
 ### Feature Documentation Requirement
 
 - When a new feature is implemented (new tool, new API, new command, new capability), documentation MUST be updated in the same commit or PR.

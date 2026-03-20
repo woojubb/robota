@@ -9,7 +9,7 @@ import type {
 } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, ISpinner } from '../types.js';
-import type { IChatMessage, IPermissionRequest } from './types.js';
+import type { IChatMessage, IPermissionRequest, TPermissionResult } from './types.js';
 import { CommandRegistry } from '../commands/command-registry.js';
 import { BuiltinCommandSource } from '../commands/builtin-source.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
@@ -62,7 +62,7 @@ function useSession(props: IProps): {
     Array<{
       toolName: string;
       toolArgs: TToolArgs;
-      resolve: (allowed: boolean) => void;
+      resolve: (result: TPermissionResult) => void;
     }>
   >([]);
   const processingRef = useRef(false);
@@ -78,11 +78,11 @@ function useSession(props: IProps): {
     setPermissionRequest({
       toolName: next.toolName,
       toolArgs: next.toolArgs,
-      resolve: (allowed: boolean) => {
+      resolve: (result: TPermissionResult) => {
         permissionQueueRef.current.shift();
         processingRef.current = false;
         setPermissionRequest(null);
-        next.resolve(allowed);
+        next.resolve(result);
         // Process next in queue after a tick
         setTimeout(() => processNextPermission(), 0);
       },
@@ -91,8 +91,11 @@ function useSession(props: IProps): {
 
   const sessionRef = useRef<Session | null>(null);
   if (sessionRef.current === null) {
-    const permissionHandler = (toolName: string, toolArgs: TToolArgs): Promise<boolean> => {
-      return new Promise<boolean>((resolve) => {
+    const permissionHandler = (
+      toolName: string,
+      toolArgs: TToolArgs,
+    ): Promise<TPermissionResult> => {
+      return new Promise<TPermissionResult>((resolve) => {
         permissionQueueRef.current.push({ toolName, toolArgs, resolve });
         processNextPermission();
       });

@@ -12,8 +12,13 @@ export interface IChatMessage {
   permissionResult?: 'allow' | 'deny';
 }
 
+/**
+ * Permission result: true (allow once), false (deny), or 'allow-session' (remember for session).
+ */
+export type TPermissionResult = boolean | 'allow-session';
+
 export interface IPermissionRequest {
   toolName: string;
   toolArgs: TToolArgs;
-  resolve: (allowed: boolean) => void;
+  resolve: (result: TPermissionResult) => void;
 }
