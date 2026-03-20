@@ -9,7 +9,7 @@ import { Text } from 'ink';
 
 // Subtle gray tones — minimal contrast, soft wave
 const WAVE_COLORS = ['#666666', '#888888', '#aaaaaa', '#888888'] as const;
-const INTERVAL_MS = 200;
+const INTERVAL_MS = 400;
 const CHARS_PER_GROUP = 4;
 
 interface IProps {
