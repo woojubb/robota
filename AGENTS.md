@@ -235,6 +235,7 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 22  | SPEC hardcoding another package's counts or details              | Reference owning SPEC or describe only observable facts; see `process.md`       |
 | 23  | Defining identical interface/type independently in two packages  | One SSOT owner, others import; see `code-quality.md` Type System                |
 | 24  | Modifying code without updating SPEC first                       | Update SPEC to describe intended state, then fix code to match                  |
+| 25  | Publishing a package without removing "not yet published" labels | Search content/ and docs/ for stale labels when first publishing a package      |
 
 ## Conflict Scan Commands
 
