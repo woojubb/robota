@@ -1,8 +1,9 @@
 ---
 title: SDK/CLI Spec Conformance Audit
-status: backlog
+status: in-progress
 priority: high
 created: 2026-03-20
+branch: refactor/sdk-cli-spec-conformance
 packages:
   - agent-sdk
   - agent-cli
@@ -15,41 +16,20 @@ packages:
 
 agent-cli, agent-sdk, agent-sessions are recently created and have gone through multiple refactoring rounds. Review their SPEC.md documents for internal contradictions, cross-package inconsistencies, and spec-code gaps. Improve specs first, then align code to match.
 
-## Scope
+## Progress
 
-| Package        | SPEC.md                                |
-| -------------- | -------------------------------------- |
-| agent-sessions | `packages/agent-sessions/docs/SPEC.md` |
-| agent-sdk      | `packages/agent-sdk/docs/SPEC.md`      |
-| agent-cli      | `packages/agent-cli/docs/SPEC.md`      |
+- [x] Phase 1: Spec Review — gap report produced
+- [x] Phase 2: Spec Improvement — HIGH/MEDIUM issues fixed in all 3 SPECs
+- [ ] Phase 3: Code Alignment — remaining items below
 
-## Phases
+## Remaining (LOW)
 
-### Phase 1: Spec Review
-
-- Read all 3 SPEC.md documents
-- Identify internal contradictions within each spec (e.g., exported types table vs actual exports)
-- Identify cross-package inconsistencies (e.g., agent-sdk spec claims Session owns something that agent-sessions spec says differently)
-- Check if recent refactoring (generic Session, assembly architecture, PostCompact timing fix) is reflected in specs
-- Produce a gap report
-
-### Phase 2: Spec Improvement
-
-- Fix contradictions and stale content
-- Ensure specs accurately describe the current intended architecture (not just current code)
-- Follow `spec-writing-standard` skill for required sections and quality gates
-- Each spec change goes through `spec-code-conformance` verification
-
-### Phase 3: Code Alignment
-
-- Run conformance loop: compare spec assertions against code
-- Fix code to match spec (spec is SSOT)
-- Add/update contract tests for each fix
-- Regression pass on all affected packages
-
-## Success Criteria
-
-- Zero contradictions within each SPEC.md
-- Zero cross-package inconsistencies across the 3 specs
-- All spec assertions verified against code (conformance loop passes)
-- `pnpm build && pnpm test && pnpm typecheck` green
+| #   | Package  | Issue                                                          |
+| --- | -------- | -------------------------------------------------------------- |
+| 1   | sessions | `TSessionLogData` description inaccurate in Type Ownership     |
+| 2   | sessions | `ISessionOptions.terminal` not in Extension Points             |
+| 3   | sessions | FileSessionLogger/SilentSessionLogger not listed as test gaps  |
+| 4   | sdk      | Dependency diagram missing direct edges (cli→core, sdk→core)   |
+| 5   | cli      | Dependencies table missing `ink-text-input`, `marked-terminal` |
+| 6   | cli      | Dependency diagram format inconsistent with sdk SPEC           |
+| 7   | sdk      | permission-prompt.ts ownership internal contradiction          |
