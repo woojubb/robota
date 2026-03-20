@@ -49,6 +49,6 @@ This package does not define its own error types. Errors propagate from:
 
 ## Test Strategy
 
-- **No test files found** in this package currently.
+- **1 test file exists**: `src/remote-server-routes.test.ts` (165 lines) covering route registration behavior.
 - The package has minimal logic (route wiring only), making integration testing at the `apps/agent-server` level more appropriate.
-- Recommended: smoke test verifying route registration and Swagger UI mount.
+- Recommended: additional smoke tests verifying Swagger UI mount and logger injection.

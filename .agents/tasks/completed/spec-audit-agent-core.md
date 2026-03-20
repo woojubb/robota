@@ -1,6 +1,6 @@
 ---
 title: 'Spec Audit: agent-core'
-status: backlog
+status: completed
 priority: high
 created: 2026-03-20
 packages:
