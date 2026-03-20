@@ -239,6 +239,7 @@ src/
 robota                              # Interactive TUI
 robota -p "prompt"                  # Print mode (one-shot)
 robota -c                           # Continue last session
+robota --reset                      # Delete user settings and exit
 robota -r <id>                      # Resume session
 robota --model <model>              # Model override
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
@@ -250,6 +251,12 @@ robota --version                    # Version
 
 - **Universal cap**: Tool output is capped at 30,000 characters. Outputs exceeding this limit are middle-truncated (first and last portions are kept, with a truncation marker in the middle).
 - **Glob entry limit**: The Glob tool defaults to a maximum of 1,000 entries per invocation to prevent oversized responses.
+
+## First-Run Setup
+
+When no settings file exists (`~/.robota/settings.json`, `.robota/settings.json`, or `.robota/settings.local.json`), the CLI prompts for an Anthropic API key and creates `~/.robota/settings.json` with a minimal config (provider name, model, API key).
+
+Use `robota --reset` to delete the user settings file and return to the first-run state.
 
 ## Session Logging
 
