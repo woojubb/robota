@@ -5,6 +5,9 @@ import type { TContextData, TLoggerData, TToolParameters, TUniversalValue } from
 // Re-export canonical tool parameter types from the shared "types" axis.
 export type { TToolParameters } from './types';
 
+// Re-export event service types for consumers that import from tool interface
+export type { IEventService } from './event-service';
+
 export type TToolContextExtensionValue =
   | TUniversalValue
   | Date
