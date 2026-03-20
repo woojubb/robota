@@ -336,6 +336,8 @@ export class Session {
         model: config.provider.model,
         systemMessage,
       },
+      // Also set top-level systemMessage — execution-service reads from here
+      systemMessage,
       tools,
       logging: { enabled: false },
     };
