@@ -135,6 +135,7 @@ Tool: [5 tools]
 | `/clear`                  | Clear conversation history  |
 | `/mode [mode]`            | Show/change permission mode |
 | `/model [model]`          | Select AI model (shows confirmation prompt, restarts session) |
+| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts |
 | `/compact [instructions]` | Compress context window     |
 | `/cost`                   | Show session info           |
 | `/context`                | Context window info         |
@@ -324,6 +325,7 @@ robota -c                           # Continue last session
 robota --reset                      # Delete user settings and exit
 robota -r <id>                      # Resume session
 robota --model <model>              # Model override
+robota --language <lang>            # Response language (ko, en, ja, zh)
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>              # Limit turns
 robota --version                    # Version
@@ -336,7 +338,12 @@ robota --version                    # Version
 
 ## First-Run Setup
 
-When no settings file exists (`~/.robota/settings.json`, `.robota/settings.json`, or `.robota/settings.local.json`), the CLI prompts for an Anthropic API key and creates `~/.robota/settings.json` with a minimal config (provider name, model, API key).
+When no settings file exists (`~/.robota/settings.json`, `.robota/settings.json`, or `.robota/settings.local.json`), the CLI prompts for initial setup:
+
+1. **Anthropic API key** (input masked with asterisks)
+2. **Response language** (ko/en/ja/zh, default: en)
+
+Creates `~/.robota/settings.json` with provider config and language setting. The language is injected into the system prompt as `"Always respond in {language}."` and persists across compaction.
 
 Use `robota --reset` to delete the user settings file and return to the first-run state.
 
