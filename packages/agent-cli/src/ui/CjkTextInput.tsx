@@ -16,6 +16,30 @@ import { Text, useInput } from 'ink';
 // string-width import removed — no longer needed without setCursorPosition
 import chalk from 'chalk';
 
+/**
+ * Filter non-printable characters from input. Returns empty string if
+ * input is null/undefined/empty or contains only control characters.
+ * Exported for testing.
+ */
+export function filterPrintable(input: string | null | undefined): string {
+  if (!input || input.length === 0) return '';
+  return input.replace(/[\x00-\x1f\x7f]/g, '');
+}
+
+/**
+ * Insert text into a value at the given cursor position.
+ * Returns { value, cursor } with updated state.
+ * Exported for testing.
+ */
+export function insertAtCursor(
+  value: string,
+  cursor: number,
+  input: string,
+): { value: string; cursor: number } {
+  const next = value.slice(0, cursor) + input + value.slice(cursor);
+  return { value: next, cursor: cursor + input.length };
+}
+
 interface IProps {
   value: string;
   onChange: (value: string) => void;
@@ -96,18 +120,13 @@ export default function CjkTextInput({
         }
 
         // Guard against IME sending empty or control characters
-        if (!input || input.length === 0) return;
-
-        // Filter out non-printable characters that IME may send during composition
-        const printable = input.replace(/[\x00-\x1f\x7f]/g, '');
+        const printable = filterPrintable(input);
         if (printable.length === 0) return;
 
         // Regular character input — update ref synchronously
-        const v = valueRef.current;
-        const c = cursorRef.current;
-        const next = v.slice(0, c) + printable + v.slice(c);
-        cursorRef.current = c + printable.length;
-        valueRef.current = next;
+        const result = insertAtCursor(valueRef.current, cursorRef.current, printable);
+        cursorRef.current = result.cursor;
+        valueRef.current = result.value;
         onChange(next);
       } catch {
         // Swallow IME-related errors to prevent terminal crash.
