@@ -88,6 +88,7 @@ export interface IPermissionEnforcerOptions {
     toolArgs: TToolArgs,
   ) => Promise<boolean>;
   sessionLogger?: ISessionLogger;
+  onToolExecution?: (event: { type: 'start' | 'end'; toolName: string; toolArgs?: TToolArgs; success?: boolean }) => void;
 }
 
 export class PermissionEnforcer {
@@ -99,6 +100,7 @@ export class PermissionEnforcer {
   private readonly permissionHandler?: TPermissionHandler;
   private readonly promptForApprovalFn?: IPermissionEnforcerOptions['promptForApprovalFn'];
   private readonly sessionLogger?: ISessionLogger;
+  private readonly onToolExecution?: IPermissionEnforcerOptions['onToolExecution'];
   private readonly sessionAllowedTools = new Set<string>();
 
   constructor(options: IPermissionEnforcerOptions) {
@@ -110,6 +112,7 @@ export class PermissionEnforcer {
     this.permissionHandler = options.permissionHandler;
     this.promptForApprovalFn = options.promptForApprovalFn;
     this.sessionLogger = options.sessionLogger;
+    this.onToolExecution = options.onToolExecution;
   }
 
   /** Wrap all tools with permission checking */
@@ -165,10 +168,14 @@ export class PermissionEnforcer {
           return PERMISSION_DENIED_RESULT;
         }
 
+        enforcer.onToolExecution?.({ type: 'start', toolName, toolArgs: parameters as TToolArgs });
+
         const result = await originalExecute(parameters, context as IToolExecutionContext);
 
         // Truncate oversized tool output (Claude Code uses 30K char limit)
         const truncatedResult = enforcer.truncateToolResult(result);
+
+        enforcer.onToolExecution?.({ type: 'end', toolName, toolArgs: parameters as TToolArgs, success: truncatedResult.success });
 
         const dataSize =
           typeof truncatedResult.data === 'string'

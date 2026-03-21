@@ -54,6 +54,8 @@ export interface ICreateSessionOptions {
   ) => Promise<boolean>;
   /** Additional tools to register beyond the defaults (e.g. agent-tool) */
   additionalTools?: IToolWithEventService[];
+  /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
+  onToolExecution?: (event: { type: 'start' | 'end'; toolName: string; toolArgs?: TToolArgs; success?: boolean }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
@@ -116,6 +118,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     sessionStore: options.sessionStore,
     permissionHandler: options.permissionHandler,
     onTextDelta: options.onTextDelta,
+    onToolExecution: options.onToolExecution,
     promptForApproval: options.promptForApproval,
     onCompact: options.onCompact,
     compactInstructions: options.compactInstructions ?? options.context.compactInstructions,

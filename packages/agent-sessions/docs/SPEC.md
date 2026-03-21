@@ -146,11 +146,13 @@ The session log records structured events to a JSONL file for diagnostics and re
 
 7. **`ISessionOptions.onTextDelta`** -- Streaming callback for real-time text output to the UI.
 
-8. **`ISessionOptions.onCompact`** -- Callback invoked when compaction occurs (auto or manual), receives the generated summary string.
+8. **`ISessionOptions.onToolExecution`** -- Callback for real-time tool execution events. Fires `{ type: 'start', toolName }` when a tool begins and `{ type: 'end', toolName, success }` when it completes. Wired through `PermissionEnforcer.wrapToolWithPermission()`.
 
-9. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from CLAUDE.md "Compact Instructions" section).
+9. **`ISessionOptions.onCompact`** -- Callback invoked when compaction occurs (auto or manual), receives the generated summary string.
 
-10. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
+10. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from CLAUDE.md "Compact Instructions" section).
+
+11. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
 
 ## Error Taxonomy
 
