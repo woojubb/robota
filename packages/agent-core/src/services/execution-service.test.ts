@@ -349,11 +349,12 @@ describe('ExecutionService', () => {
 
       mockProvider.chat = vi.fn().mockRejectedValue(new Error('Provider error'));
 
-      await expect(
-        executionService.execute(errorInput, errorMessages, errorConfig, {
-          conversationId: 'test-agent',
-        }),
-      ).rejects.toThrow('Provider error');
+      // Provider errors are caught gracefully — an assistant message with the error
+      // is injected instead of throwing, so the caller gets a readable error response
+      const result = await executionService.execute(errorInput, errorMessages, errorConfig, {
+        conversationId: 'test-agent',
+      });
+      expect(result.response).toContain('Provider error');
     });
 
     it('should initialize conversation history with existing messages', async () => {
