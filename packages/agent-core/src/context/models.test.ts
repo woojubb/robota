@@ -75,8 +75,13 @@ describe('formatTokenCount', () => {
     expect(formatTokenCount(100_000)).toBe('100K');
   });
 
-  it('returns raw number below 1000', () => {
-    expect(formatTokenCount(500)).toBe('500');
-    expect(formatTokenCount(0)).toBe('0');
+  it('shows <1K for values below 1000', () => {
+    expect(formatTokenCount(500)).toBe('<1K');
+    expect(formatTokenCount(1)).toBe('<1K');
+    expect(formatTokenCount(999)).toBe('<1K');
+  });
+
+  it('shows 0K for zero', () => {
+    expect(formatTokenCount(0)).toBe('0K');
   });
 });
