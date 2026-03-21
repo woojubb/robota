@@ -14,6 +14,7 @@ export interface IParsedCliArgs {
   continueMode: boolean;
   resumeId: string | undefined;
   model: string | undefined;
+  language: string | undefined;
   permissionMode: TPermissionMode | undefined;
   maxTurns: number | undefined;
   version: boolean;
@@ -50,6 +51,7 @@ export function parseCliArgs(): IParsedCliArgs {
       c: { type: 'boolean', short: 'c', default: false },
       r: { type: 'string', short: 'r' },
       model: { type: 'string' },
+      language: { type: 'string' },
       'permission-mode': { type: 'string' },
       'max-turns': { type: 'string' },
       version: { type: 'boolean', default: false },
@@ -63,6 +65,7 @@ export function parseCliArgs(): IParsedCliArgs {
     continueMode: values['c'] ?? false,
     resumeId: values['r'],
     model: values['model'],
+    language: values['language'],
     permissionMode: parsePermissionMode(values['permission-mode']),
     maxTurns: parseMaxTurns(values['max-turns']),
     version: values['version'] ?? false,

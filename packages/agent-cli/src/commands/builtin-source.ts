@@ -40,6 +40,17 @@ function createBuiltinCommands(): ISlashCommand[] {
       source: 'builtin',
       subcommands: buildModelSubcommands(),
     },
+    {
+      name: 'language',
+      description: 'Set response language',
+      source: 'builtin',
+      subcommands: [
+        { name: 'ko', description: 'Korean', source: 'builtin' },
+        { name: 'en', description: 'English', source: 'builtin' },
+        { name: 'ja', description: 'Japanese', source: 'builtin' },
+        { name: 'zh', description: 'Chinese', source: 'builtin' },
+      ],
+    },
     { name: 'compact', description: 'Compress context window', source: 'builtin' },
     { name: 'cost', description: 'Show session info', source: 'builtin' },
     { name: 'context', description: 'Context window info', source: 'builtin' },
