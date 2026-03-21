@@ -13,6 +13,8 @@ npm install -g @robota-sdk/agent-cli
 robota
 ```
 
+> **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
+
 ### SDK — Programmatic Usage
 
 ```typescript
