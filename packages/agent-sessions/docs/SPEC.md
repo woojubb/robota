@@ -106,7 +106,7 @@ Types consumed from other packages (not owned here):
 | `clearHistory`             | `() => void`                               | Clears the underlying Robota conversation history and resets token usage.    |
 | `getHistory`               | `() => TUniversalMessage[]`                | Returns the current conversation history.                                    |
 | `getContextState`          | `() => IContextWindowState`                | Returns real-time context window usage (tokens, percentage).                 |
-| `compact`                  | `(instructions?: string) => Promise<void>` | Compresses conversation via LLM summary. Clears history and injects summary as assistant message (Claude Code approach). Fires PreCompact/PostCompact hooks. |
+| `compact`                  | `(instructions?: string) => Promise<void>` | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |
 | `abort`                    | `() => void`                               | Cancels the currently running `run()` call. No-op if not running.            |
 | `isRunning`                | `() => boolean`                            | Returns true if a `run()` call is in progress.                               |
 | `getSessionAllowedTools`   | `() => string[]`                           | Returns tools that were session-approved ("Allow always").                   |
@@ -153,6 +153,30 @@ The session log records structured events to a JSONL file for diagnostics and re
 10. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from CLAUDE.md "Compact Instructions" section).
 
 11. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
+
+## Compaction Behavior
+
+### System Message Preservation
+
+When `compact()` runs, the system message (project context: cwd, AGENTS.md, CLAUDE.md, tool descriptions, etc.) is **preserved across compaction**. The flow:
+
+1. **Exclude** system messages from the summarization input — they are not summarized
+2. **Clear** conversation history
+3. **Re-inject** the original system message
+4. **Inject** the compact summary as an assistant message
+
+Post-compaction history:
+
+```
+[system]    Original system prompt (project context, rules, tool descriptions)
+[assistant] [Context Summary] Summarized conversation...
+```
+
+This ensures the AI retains project context (working directory, coding rules, available tools) after compaction. Without this, the AI loses awareness of the project environment.
+
+### Auto-Compaction
+
+Auto-compaction triggers at the **start** of `run()` (before processing the user message) when `ContextWindowTracker.shouldAutoCompact()` returns true. This prevents compaction from interfering with the current response stream.
 
 ## Error Taxonomy
 
