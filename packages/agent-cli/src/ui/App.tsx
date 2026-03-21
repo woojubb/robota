@@ -205,32 +205,35 @@ function useSlashCommands(
 
 /** Streaming text indicator shown while the agent is generating a response */
 function StreamingIndicator({ text, activeTools }: { text: string; activeTools: IToolExecutionState[] }): React.ReactElement {
-  if (activeTools.length > 0) {
-    return (
-      <Box flexDirection="column">
-        {activeTools.map((t, i) => (
-          <Text key={`${t.toolName}-${i}`} color={t.isRunning ? 'yellow' : 'green'}>
-            {'  '}{t.isRunning ? '⟳' : '✓'} {t.toolName}
-          </Text>
-        ))}
-      </Box>
-    );
+  const hasTools = activeTools.length > 0;
+  const hasText = text.length > 0;
+
+  if (!hasTools && !hasText) {
+    return <Text color="yellow">Thinking...</Text>;
   }
 
-  if (text) {
-    return (
-      <Box flexDirection="column">
-        <Text color="cyan" bold>
-          Robota:{' '}
-        </Text>
-        <Text> </Text>
-        <Box marginLeft={2}>
-          <Text wrap="wrap">{renderMarkdown(text)}</Text>
-        </Box>
-      </Box>
-    );
-  }
-  return <Text color="yellow">Thinking...</Text>;
+  return (
+    <Box flexDirection="column">
+      {hasText && (
+        <>
+          <Text color="cyan" bold>Robota:</Text>
+          <Box marginLeft={2}>
+            <Text wrap="wrap">{renderMarkdown(text)}</Text>
+          </Box>
+        </>
+      )}
+      {hasTools && (
+        <>
+          <Text color="gray" bold>Tools:</Text>
+          {activeTools.map((t, i) => (
+            <Text key={`${t.toolName}-${i}`} color={t.isRunning ? 'yellow' : 'green'}>
+              {'  '}{t.isRunning ? '⟳' : '✓'} {t.toolName}
+            </Text>
+          ))}
+        </>
+      )}
+    </Box>
+  );
 }
 
 /** Run a prompt through the session with thinking/streaming state management */
