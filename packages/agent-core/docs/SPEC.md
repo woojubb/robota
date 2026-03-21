@@ -344,35 +344,54 @@ Before each `provider.chat()` call in the execution loop, token usage is checked
 
 ### Provider Error Recovery
 
-If `provider.chat()` throws an error (e.g., API 400 for context too large), `executeRound` catches it and injects an assistant message: `"Provider error: <message>. Try /compact to reduce context size."` instead of propagating the error as an unhandled exception. This ensures the user always sees a readable error message rather than "No response received."
+If `provider.chat()` throws an error (e.g., API 400 for context too large), `executeRound` catches it and injects an assistant message with the error. This ensures the user always sees a readable error message rather than "No response received." If the entire execution pipeline throws, `ExecutionService.execute()` catches it and returns a graceful error result instead of re-throwing.
+
+### Assistant Text Stripping for Tool Rounds
+
+When the AI responds with **text + tool_use blocks**, the text content is stripped from the assistant message in conversation history. Only the tool_use blocks are preserved.
+
+**Rationale:**
+
+- The text is already displayed to the user via streaming (`onTextDelta`) — its display purpose is fulfilled
+- The text is typically intent description ("I'll check those files"), not analysis results
+- The AI can reconstruct intent from the tool_use blocks and their arguments
+- Stripping frees context budget for tool results, which carry the actual information
+- Prevents the edge case where assistant text alone fills context, leaving no room for any tool results
+
+**Rule:** `tool_use blocks present → text content set to ""`. No exceptions.
+
+**Final responses** (no tool_use blocks) preserve text as-is — this is the actual answer to the user.
 
 ### Tool Result Context Budget
 
-After each tool result is added to conversation history, the estimated token count is checked against 80% of the model's context window. If exceeded, remaining tool results are replaced with a short error message:
+After the assistant message is recorded (text stripped if tool_use present), tool results are added to history one by one. After each addition, the estimated token count (`chars/2`) is checked against 80% of the model's context window.
+
+If exceeded, remaining tool results are replaced with a short context-error message (permission-deny pattern):
 
 ```
-Error: Context window near capacity. Tool execution result skipped to prevent overflow. Use /compact to free space, then retry.
+Error: Context window near capacity. Tool execution result skipped.
 ```
 
 **Key behavior:**
 
 - Follows the permission-deny pattern — AI receives a mix of normal results and context-error results
-- The execution loop does NOT break after overflow — it continues to the next provider call so the AI can see the mixed results and respond
-- AI autonomously decides how to handle: partial answer from available results, suggest `/compact`, retry with fewer tools, etc.
-- Skipped tool results are short error messages (~100 chars), so the next provider call's context is much smaller than if all full results were included
+- The execution loop does NOT break — it continues to the next provider call so the AI can see the mixed results and respond
+- AI autonomously decides how to handle: partial answer from available results, retry with fewer tools, etc.
+- Skipped tool results are short error messages (~80 chars), so the next provider call succeeds
 
 **Example flow:**
 
 ```
-Tool 1: normal result (context at 70%)
-Tool 2: normal result (context at 82% → overflow detected)
-Tool 3: "Error: Context window near capacity..." (short error, ~100 chars)
-Tool 4: "Error: Context window near capacity..." (short error, ~100 chars)
-→ next provider call succeeds (context reduced by skipping large results)
-→ AI: "Based on Tool 1 and 2 results... Tools 3-4 were skipped due to context. Consider /compact."
+[assistant] tool_use(Read, Bash, Glob, Write)    ← text stripped, tool_use only
+[tool] Read result (normal, context at 75%)
+[tool] Bash result (normal, context at 82% → overflow detected)
+[tool] Glob: "Error: Context window near capacity. Tool execution result skipped."
+[tool] Write: "Error: Context window near capacity. Tool execution result skipped."
+→ next provider call succeeds
+→ AI responds based on Read and Bash results, notes Glob and Write were skipped
 ```
 
-**Return value:** `addToolResultsToHistory` returns `IToolResultsOutcome` with `contextOverflowed`, `addedCount`, and `skippedCount` for logging and diagnostics.
+**Return value:** `addToolResultsToHistory` returns `IToolResultsOutcome` with `contextOverflowed`, `addedCount`, and `skippedCount`.
 
 ### Streaming Round Separator
 

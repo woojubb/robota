@@ -272,7 +272,7 @@ export class ExecutionService {
       const errMsg = error instanceof Error ? error.message : String(error);
       const duration = Date.now() - startTime.getTime();
       return {
-        response: `Error: ${errMsg}. Try /compact to reduce context size, or start a new session.`,
+        response: `Error: ${errMsg}`,
         messages: [],
         tokensUsed: 0,
         toolsExecuted: [],
@@ -413,7 +413,7 @@ export class ExecutionService {
       lastAssistantMessage.content.length > 0;
     const response: string = hasValidResponse
       ? (lastAssistantMessage!.content as string)
-      : 'No response received. The context window may be full — try /compact or start a new session.';
+      : 'No response received. The context window may be full.';
     const duration = Date.now() - startTime.getTime();
     return {
       response,

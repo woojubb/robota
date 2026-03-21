@@ -253,7 +253,7 @@ export async function executeAndRecordToolCalls(
  * Add tool execution results to conversation history in call order
  */
 const CONTEXT_OVERFLOW_TOOL_SKIP_MESSAGE =
-  'Error: Context window near capacity. Tool execution result skipped to prevent overflow. Use /compact to free space, then retry.';
+  'Error: Context window near capacity. Tool execution result skipped.';
 
 /** Result of addToolResultsToHistory indicating whether context overflow occurred */
 export interface IToolResultsOutcome {
@@ -506,7 +506,7 @@ export async function executeRound(
     });
     // Inject a clear assistant message so the caller doesn't get a cryptic fallback
     conversationSession.addAssistantMessage(
-      'Context window is near capacity. Use /compact to compress the conversation, or start a new session.',
+      'Context window is near capacity. Cannot process further in this round.',
       [],
       { round: currentRound, contextOverflow: true },
     );
@@ -534,7 +534,7 @@ export async function executeRound(
     const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
     logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
     conversationSession.addAssistantMessage(
-      `Provider error: ${errMsg}. Try /compact to reduce context size.`,
+      `Provider error: ${errMsg}`,
       [],
       { round: currentRound, providerError: true },
     );
@@ -572,7 +572,11 @@ export async function executeRound(
   if (inputTokens > 0) {
     roundState.cumulativeInputTokens = inputTokens; // input_tokens already includes full context
   }
-  conversationSession.addAssistantMessage(assistantResponse.content ?? '', assistantToolCalls, {
+  // Strip text from assistant messages with tool_use blocks.
+  // Text was already streamed to the user — freeing context for tool results.
+  const hasToolCalls = assistantToolCalls.length > 0;
+  const contentForHistory = hasToolCalls ? '' : (assistantResponse.content ?? '');
+  conversationSession.addAssistantMessage(contentForHistory, assistantToolCalls, {
     round: currentRound,
     ...(inputTokens > 0 && { inputTokens }),
     ...(outputTokens > 0 && { outputTokens }),
