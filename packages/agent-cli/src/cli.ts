@@ -72,26 +72,10 @@ function readVersion(): string {
 }
 
 
-/**
- * Check if any settings file exists. If not, prompt for API key and create one.
- */
-async function ensureConfig(cwd: string): Promise<void> {
-  const userPath = getUserSettingsPath();
-  const projectPath = join(cwd, '.robota', 'settings.json');
-  const localPath = join(cwd, '.robota', 'settings.local.json');
-
-  if (hasValidSettingsFile(userPath) || hasValidSettingsFile(projectPath) || hasValidSettingsFile(localPath)) {
-    return; // Config exists
-  }
-
-  // First run — prompt for API key
-  process.stdout.write('\n');
-  process.stdout.write('  Welcome to Robota CLI!\n');
-  process.stdout.write('  No configuration found. Let\'s set up your API key.\n');
-  process.stdout.write('\n');
-
-  const apiKey = await new Promise<string>((resolve) => {
-    process.stdout.write('  Anthropic API key: ');
+/** Prompt for input in raw mode. Mask with asterisks if masked=true. */
+function promptInput(label: string, masked = false): Promise<string> {
+  return new Promise<string>((resolve) => {
+    process.stdout.write(label);
     let input = '';
     const stdin = process.stdin;
     const wasRaw = stdin.isRaw;
@@ -117,28 +101,54 @@ async function ensureConfig(cwd: string): Promise<void> {
           process.exit(0);
         } else if (ch.charCodeAt(0) >= 32) {
           input += ch;
-          process.stdout.write('*');
+          process.stdout.write(masked ? '*' : ch);
         }
       }
     };
     stdin.on('data', onData);
   });
+}
 
+/**
+ * Check if any settings file exists. If not, prompt for setup and create one.
+ */
+async function ensureConfig(cwd: string): Promise<void> {
+  const userPath = getUserSettingsPath();
+  const projectPath = join(cwd, '.robota', 'settings.json');
+  const localPath = join(cwd, '.robota', 'settings.local.json');
+
+  if (hasValidSettingsFile(userPath) || hasValidSettingsFile(projectPath) || hasValidSettingsFile(localPath)) {
+    return; // Config exists
+  }
+
+  process.stdout.write('\n');
+  process.stdout.write('  Welcome to Robota CLI!\n');
+  process.stdout.write('  No configuration found. Let\'s set up.\n');
+  process.stdout.write('\n');
+
+  // 1. API key
+  const apiKey = await promptInput('  Anthropic API key: ', true);
   if (!apiKey) {
     process.stderr.write('\n  No API key provided. Exiting.\n');
     process.exit(1);
   }
 
+  // 2. Language
+  const language = await promptInput('  Response language (ko/en/ja/zh, default: en): ');
+
   // Create ~/.robota/settings.json
   const settingsDir = dirname(userPath);
   mkdirSync(settingsDir, { recursive: true });
-  const settings = {
+  const settings: Record<string, unknown> = {
     provider: {
       name: 'anthropic',
       model: 'claude-sonnet-4-6',
       apiKey,
     },
   };
+  if (language) {
+    settings.language = language;
+  }
   writeFileSync(userPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
   process.stdout.write(`\n  Config saved to ${userPath}\n\n`);
 }
