@@ -58,6 +58,23 @@ describe('formatTokenCount', () => {
     expect(formatTokenCount(90_000)).toBe('90K');
   });
 
+  it('formats fractional millions with 1 decimal', () => {
+    expect(formatTokenCount(1_186_891)).toBe('1.2M');
+    expect(formatTokenCount(1_500_000)).toBe('1.5M');
+    expect(formatTokenCount(2_300_000)).toBe('2.3M');
+  });
+
+  it('formats fractional thousands with 1 decimal', () => {
+    expect(formatTokenCount(1_500)).toBe('1.5K');
+    expect(formatTokenCount(90_500)).toBe('90.5K');
+  });
+
+  it('drops trailing zero in decimal', () => {
+    expect(formatTokenCount(1_000_000)).toBe('1M');
+    expect(formatTokenCount(2_000_000)).toBe('2M');
+    expect(formatTokenCount(100_000)).toBe('100K');
+  });
+
   it('returns raw number below 1000', () => {
     expect(formatTokenCount(500)).toBe('500');
     expect(formatTokenCount(0)).toBe('0');

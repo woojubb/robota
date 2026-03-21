@@ -434,6 +434,12 @@ export async function executeRound(
       contextLimit,
       round: currentRound,
     });
+    // Inject a clear assistant message so the caller doesn't get a cryptic fallback
+    conversationSession.addAssistantMessage(
+      'Context window is near capacity. Use /compact to compress the conversation, or start a new session.',
+      [],
+      { round: currentRound, contextOverflow: true },
+    );
     return true; // Break the execution loop
   }
 

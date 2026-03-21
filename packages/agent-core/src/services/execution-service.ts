@@ -402,7 +402,7 @@ export class ExecutionService {
       lastAssistantMessage.content.length > 0;
     const response: string = hasValidResponse
       ? (lastAssistantMessage!.content as string)
-      : '(execution interrupted: no final assistant response — possible context overflow or max turn limit)';
+      : 'No response received. The context window may be full — try /compact or start a new session.';
     const duration = Date.now() - startTime.getTime();
     return {
       response,
