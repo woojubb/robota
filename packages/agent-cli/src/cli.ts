@@ -191,6 +191,11 @@ export async function startCli(): Promise<void> {
     config.provider.model = args.model;
   }
 
+  // Language override
+  if (args.language !== undefined) {
+    config.language = args.language;
+  }
+
   const sessionStore = new SessionStore();
 
   // Print mode: send single prompt, output response, exit

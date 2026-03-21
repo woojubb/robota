@@ -5,7 +5,7 @@
  */
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import { getUserSettingsPath, deleteSettings } from '../utils/settings-io.js';
+import { getUserSettingsPath, deleteSettings, readSettings, writeSettings } from '../utils/settings-io.js';
 import type { CommandRegistry } from './command-registry.js';
 
 /** Minimal session interface for slash command execution */
@@ -33,6 +33,8 @@ export interface ISlashResult {
   exitRequested?: boolean;
   /** If set, the caller should show a model change confirmation */
   pendingModelId?: string;
+  /** If set, the caller should show a language change confirmation */
+  pendingLanguage?: string;
 }
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
@@ -43,6 +45,7 @@ export const HELP_TEXT = [
   '  /clear             — Clear conversation',
   '  /compact [instr]   — Compact context (optional focus instructions)',
   '  /mode [m]          — Show/change permission mode',
+  '  /language [lang]   — Set response language (ko, en, ja, zh)',
   '  /cost              — Show session info',
   '  /reset             — Delete settings and exit',
   '  /exit              — Exit CLI',
@@ -135,6 +138,20 @@ export function handleContext(session: ISlashSession, addMessage: TAddMessage): 
   return { handled: true };
 }
 
+export function handleLanguage(lang: string | undefined, addMessage: TAddMessage): ISlashResult {
+  if (!lang) {
+    addMessage({ role: 'system', content: 'Usage: /language <code> (e.g., ko, en, ja, zh)' });
+    return { handled: true };
+  }
+  // Save to settings and request restart
+  const settingsPath = getUserSettingsPath();
+  const settings = readSettings(settingsPath);
+  settings.language = lang;
+  writeSettings(settingsPath, settings);
+  addMessage({ role: 'system', content: `Language set to "${lang}". Restarting...` });
+  return { handled: true, exitRequested: true };
+}
+
 export function handleReset(addMessage: TAddMessage): ISlashResult {
   const settingsPath = getUserSettingsPath();
   if (deleteSettings(settingsPath)) {
@@ -165,6 +182,8 @@ export async function executeSlashCommand(
       return handleMode(args.split(/\s+/)[0] || undefined, session, addMessage);
     case 'model':
       return handleModel(args.split(/\s+/)[0] || undefined, addMessage);
+    case 'language':
+      return handleLanguage(args.split(/\s+/)[0] || undefined, addMessage);
     case 'cost':
       return handleCost(session, addMessage);
     case 'permissions':
