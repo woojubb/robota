@@ -392,6 +392,8 @@ export {
  * @public
  */
 export type { IContextTokenUsage, IContextWindowState } from './context/index.js';
+export type { IModelDefinition } from './context/index.js';
+export { CLAUDE_MODELS, DEFAULT_CONTEXT_WINDOW, getModelContextWindow, getModelName, formatTokenCount } from './context/index.js';
 
 // ===== HOOKS MODULE =====
 /**

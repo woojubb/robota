@@ -20,7 +20,7 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 
 | Package             | Role                                                                                   | Layer        |
 | ------------------- | -------------------------------------------------------------------------------------- | ------------ |
-| **agent-core**      | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system | Foundation   |
+| **agent-core**      | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT) | Foundation   |
 | **agent-tools**     | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                | General      |
 | **agent-sessions**  | Session class with permission enforcement, context tracking, compaction                | General      |
 | **agent-providers** | AnthropicProvider, OpenAIProvider, GoogleProvider                                      | General      |

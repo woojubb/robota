@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import { formatTokenCount } from '@robota-sdk/agent-core';
 
 /** Threshold boundaries for context percentage color coding */
 const CONTEXT_YELLOW_THRESHOLD = 70;
@@ -53,8 +54,7 @@ export default function StatusBar({
         <Text dimColor>{modelName}</Text>
         {'  |  '}
         <Text color={contextColor}>
-          Context: {Math.round(contextPercentage)}% ({(contextUsedTokens / 1000).toFixed(1)}k/
-          {(contextMaxTokens / 1000).toFixed(0)}k)
+          Context: {Math.round(contextPercentage)}% ({formatTokenCount(contextUsedTokens)}/{formatTokenCount(contextMaxTokens)})
         </Text>
       </Text>
       <Text>

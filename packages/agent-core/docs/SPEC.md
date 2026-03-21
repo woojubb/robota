@@ -100,6 +100,19 @@ This package is the single source of truth (SSOT) for the following types:
 
 Provider packages import these types. They must not re-declare them.
 
+### Model Definitions (SSOT)
+
+`context/models.ts` is the single source of truth for Claude model metadata. Source: https://platform.claude.com/docs/en/about-claude/models/overview
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `IModelDefinition` | Interface | Model metadata: name, id, contextWindow, maxOutput |
+| `CLAUDE_MODELS` | Record | All known Claude models (4.5+) keyed by API ID |
+| `DEFAULT_CONTEXT_WINDOW` | Constant | 200,000 tokens fallback |
+| `getModelContextWindow(id)` | Function | Get context window size for a model ID |
+| `getModelName(id)` | Function | Get human-readable name (e.g., "Claude Sonnet 4.6") |
+| `formatTokenCount(tokens)` | Function | Format tokens as human-readable (e.g., "200K", "1M") |
+
 ## Public API Surface
 
 ### Core

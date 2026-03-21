@@ -10,6 +10,7 @@ import type { ConversationSession } from '../managers/conversation-history-manag
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { bindWithOwnerPath } from '../event-service/index';
+import { getModelContextWindow } from '../context/models';
 import { EXECUTION_EVENTS } from './execution-constants';
 import {
   type IResolvedProviderInfo,
@@ -426,14 +427,7 @@ export async function executeRound(
   const estimatedTokens = roundState.cumulativeInputTokens > 0
     ? roundState.cumulativeInputTokens
     : Math.ceil(JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN);
-  const modelContextSizes: Record<string, number> = {
-    'claude-sonnet-4-6': 200_000,
-    'claude-sonnet-4-5': 200_000,
-    'claude-opus-4-6': 1_000_000,
-    'claude-opus-4-5': 200_000,
-    'claude-haiku-4-5': 200_000,
-  };
-  const contextLimit = modelContextSizes[config.defaultModel.model] ?? 200_000;
+  const contextLimit = getModelContextWindow(config.defaultModel.model);
   if (estimatedTokens > contextLimit * CONTEXT_OVERFLOW_THRESHOLD) {
     logger.warn('[ROUND] Context overflow prevention — tokens exceed 83.5% of context window', {
       estimatedTokens,

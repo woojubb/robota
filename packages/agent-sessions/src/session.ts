@@ -86,7 +86,7 @@ export class Session {
   private readonly sessionStore?: SessionStore;
   private readonly cwd: string;
   private readonly aiProvider: IAIProvider;
-  private readonly model: string;
+  private model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly onCompactCallback?: (summary: string) => void;
   private pendingCompactSummary: string | null = null;
