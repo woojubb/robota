@@ -56,6 +56,7 @@ const NOOP_TERMINAL: ITerminalOutput = {
 /** Tool execution event for real-time UI display */
 interface IToolExecutionState {
   toolName: string;
+  firstArg: string;
   isRunning: boolean;
 }
 
@@ -119,9 +120,19 @@ function useSession(props: IProps): {
       setStreamingText((prev) => prev + delta);
     };
 
-    const onToolExecution = (event: { type: 'start' | 'end'; toolName: string }): void => {
+    const TOOL_ARG_DISPLAY_MAX = 80;
+    const TOOL_ARG_TRUNCATE_AT = 77;
+
+    const onToolExecution = (event: { type: 'start' | 'end'; toolName: string; toolArgs?: Record<string, unknown> }): void => {
       if (event.type === 'start') {
-        setActiveTools((prev) => [...prev, { toolName: event.toolName, isRunning: true }]);
+        // Extract first argument value for display (same format as post-run tool summary)
+        let firstArg = '';
+        if (event.toolArgs) {
+          const firstVal = Object.values(event.toolArgs)[0];
+          const raw = typeof firstVal === 'string' ? firstVal : JSON.stringify(firstVal ?? '');
+          firstArg = raw.length > TOOL_ARG_DISPLAY_MAX ? raw.slice(0, TOOL_ARG_TRUNCATE_AT) + '...' : raw;
+        }
+        setActiveTools((prev) => [...prev, { toolName: event.toolName, firstArg, isRunning: true }]);
       } else {
         // Mark as done but keep in list — cleared on run() completion by clearStreamingText
         setActiveTools((prev) =>
@@ -227,7 +238,7 @@ function StreamingIndicator({ text, activeTools }: { text: string; activeTools: 
           <Text color="gray" bold>Tools:</Text>
           {activeTools.map((t, i) => (
             <Text key={`${t.toolName}-${i}`} color={t.isRunning ? 'yellow' : 'green'}>
-              {'  '}{t.isRunning ? '⟳' : '✓'} {t.toolName}
+              {'  '}{t.isRunning ? '⟳' : '✓'} {t.toolName}({t.firstArg})
             </Text>
           ))}
         </>
