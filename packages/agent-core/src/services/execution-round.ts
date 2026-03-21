@@ -253,7 +253,7 @@ export async function executeAndRecordToolCalls(
  * Add tool execution results to conversation history in call order
  */
 const CONTEXT_OVERFLOW_TOOL_SKIP_MESSAGE =
-  'Error: Context window near capacity. Tool execution result skipped.';
+  'Error: Context window near capacity. Tool execution result skipped. Respond with available results and re-request skipped tools if needed.';
 
 /** Result of addToolResultsToHistory indicating whether context overflow occurred */
 export interface IToolResultsOutcome {

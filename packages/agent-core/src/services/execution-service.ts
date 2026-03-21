@@ -406,13 +406,12 @@ export class ExecutionService {
     toolsExecuted: string[],
   ): IExecutionResult {
     const finalMessages = conversationSession.getMessages();
-    const lastAssistantMessage = finalMessages.filter((msg) => msg.role === 'assistant').pop();
-    const hasValidResponse: boolean =
-      !!lastAssistantMessage &&
-      typeof lastAssistantMessage.content === 'string' &&
-      lastAssistantMessage.content.length > 0;
-    const response: string = hasValidResponse
-      ? (lastAssistantMessage!.content as string)
+    // Find last assistant message with actual content (skip stripped tool-round messages)
+    const lastAssistantMessage = finalMessages
+      .filter((msg) => msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.length > 0)
+      .pop();
+    const response: string = lastAssistantMessage
+      ? (lastAssistantMessage.content as string)
       : 'No response received. The context window may be full.';
     const duration = Date.now() - startTime.getTime();
     return {
@@ -444,7 +443,7 @@ export class ExecutionService {
           return sum;
         }, 0),
       toolsExecuted,
-      success: hasValidResponse,
+      success: !!lastAssistantMessage,
     };
   }
 
