@@ -1,13 +1,18 @@
 import React, { useState, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import type { IResolvedConfig, ILoadedContext, IProjectInfo, SessionStore } from '@robota-sdk/agent-sdk';
+import type {
+  IResolvedConfig,
+  ILoadedContext,
+  IProjectInfo,
+  SessionStore,
+} from '@robota-sdk/agent-sdk';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { getModelName } from '@robota-sdk/agent-core';
 import { getUserSettingsPath, updateModelInSettings } from '../utils/settings-io.js';
 import { useSession } from './hooks/useSession.js';
 import { useMessages } from './hooks/useMessages.js';
 import { useSlashCommands } from './hooks/useSlashCommands.js';
-import { useSubmitHandler, syncContextState } from './hooks/useSubmitHandler.js';
+import { useSubmitHandler } from './hooks/useSubmitHandler.js';
 import { useCommandRegistry } from './hooks/useCommandRegistry.js';
 import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
@@ -31,7 +36,8 @@ const EXIT_DELAY_MS = 500;
 
 export default function App(props: IProps): React.ReactElement {
   const { exit } = useApp();
-  const { session, permissionRequest, streamingText, clearStreamingText, activeTools } = useSession(props);
+  const { session, permissionRequest, streamingText, clearStreamingText, activeTools } =
+    useSession(props);
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
   const initialCtx = session.getContextState();
@@ -44,7 +50,15 @@ export default function App(props: IProps): React.ReactElement {
   const pendingModelChangeRef = useRef<string | null>(null);
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
 
-  const handleSlashCommand = useSlashCommands(session, addMessage, setMessages, exit, registry, pendingModelChangeRef, setPendingModelId);
+  const handleSlashCommand = useSlashCommands(
+    session,
+    addMessage,
+    setMessages,
+    exit,
+    registry,
+    pendingModelChangeRef,
+    setPendingModelId,
+  );
   const handleSubmit = useSubmitHandler(
     session,
     addMessage,
@@ -94,10 +108,16 @@ export default function App(props: IProps): React.ReactElement {
               try {
                 const settingsPath = getUserSettingsPath();
                 updateModelInSettings(settingsPath, pendingModelId);
-                addMessage({ role: 'system', content: `Model changed to ${getModelName(pendingModelId)}. Restarting...` });
+                addMessage({
+                  role: 'system',
+                  content: `Model changed to ${getModelName(pendingModelId)}. Restarting...`,
+                });
                 setTimeout(() => exit(), EXIT_DELAY_MS);
               } catch (err) {
-                addMessage({ role: 'system', content: `Failed: ${err instanceof Error ? err.message : String(err)}` });
+                addMessage({
+                  role: 'system',
+                  content: `Failed: ${err instanceof Error ? err.message : String(err)}`,
+                });
               }
             } else {
               addMessage({ role: 'system', content: 'Model change cancelled.' });
