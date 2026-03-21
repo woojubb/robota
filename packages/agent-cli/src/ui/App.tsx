@@ -123,6 +123,7 @@ function useSession(props: IProps): {
       if (event.type === 'start') {
         setActiveTools((prev) => [...prev, { toolName: event.toolName, isRunning: true }]);
       } else {
+        // Mark as done but keep in list — cleared on run() completion by clearStreamingText
         setActiveTools((prev) =>
           prev.map((t) =>
             t.toolName === event.toolName && t.isRunning ? { ...t, isRunning: false } : t,
@@ -204,14 +205,12 @@ function useSlashCommands(
 
 /** Streaming text indicator shown while the agent is generating a response */
 function StreamingIndicator({ text, activeTools }: { text: string; activeTools: IToolExecutionState[] }): React.ReactElement {
-  const runningTools = activeTools.filter((t) => t.isRunning);
-
-  if (runningTools.length > 0) {
+  if (activeTools.length > 0) {
     return (
       <Box flexDirection="column">
-        {runningTools.map((t, i) => (
-          <Text key={`${t.toolName}-${i}`} color="yellow">
-            {'  '}⟳ {t.toolName}...
+        {activeTools.map((t, i) => (
+          <Text key={`${t.toolName}-${i}`} color={t.isRunning ? 'yellow' : 'green'}>
+            {'  '}{t.isRunning ? '⟳' : '✓'} {t.toolName}
           </Text>
         ))}
       </Box>
