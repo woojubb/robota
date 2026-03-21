@@ -89,6 +89,7 @@ export class Session {
   private readonly model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly onCompactCallback?: (summary: string) => void;
+  private pendingCompactSummary: string | null = null;
   private readonly sessionLogger?: ISessionLogger;
   private readonly permissionEnforcer: PermissionEnforcer;
   private readonly contextTracker: ContextWindowTracker;
@@ -196,6 +197,21 @@ export class Session {
    * Send a message to the agent and return the response.
    */
   async run(message: string): Promise<string> {
+    // Auto-compact BEFORE processing the new message (not after).
+    // This prevents compaction from interfering with the current response stream.
+    this.contextTracker.updateFromHistory(this.robota.getHistory());
+    if (this.contextTracker.shouldAutoCompact()) {
+      // Temporarily disable onTextDelta to prevent summary text from streaming to UI
+      const provider = this.aiProvider as { onTextDelta?: unknown };
+      const savedDelta = provider.onTextDelta;
+      provider.onTextDelta = undefined;
+      try {
+        await this.compact();
+      } finally {
+        provider.onTextDelta = savedDelta;
+      }
+    }
+
     this.log('user', { content: message });
 
     const history = this.robota.getHistory();
@@ -283,10 +299,8 @@ export class Session {
       remainingPercentage: ctxState.remainingPercentage,
     });
 
-    // Auto-compact if threshold exceeded
-    if (this.contextTracker.shouldAutoCompact()) {
-      await this.compact();
-    }
+    // Auto-compact moved to the start of run() — compaction now happens
+    // before the next message is processed, not after the current one.
 
     if (this.sessionStore) {
       this.persistSession();
@@ -387,11 +401,11 @@ export class Session {
       instructions,
     );
 
-    // Replace history with summary message
+    // Clear history and inject summary as assistant message (Claude Code approach).
+    // Do NOT call robota.run() — it would trigger streaming mid-session.
     this.robota.clearHistory();
-    await this.robota.run(
-      `[Context Summary]\n${summary}\n\nPlease continue from where we left off.`,
-    );
+    this.robota.injectMessage('assistant', `[Context Summary]\n${summary}`);
+    this.pendingCompactSummary = null;
 
     // Reset token tracking based on the new shorter history
     this.contextTracker.updateFromHistory(this.robota.getHistory());

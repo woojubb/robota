@@ -416,13 +416,16 @@ export async function executeRound(
     },
   );
 
-  // Pre-send context check: estimate tokens and abort if near context limit.
-  // Uses chars/4 approximation. Prevents sending requests that will fail due to overflow.
+  // Pre-send context check: use API-reported token count when available,
+  // fall back to chars/3 estimation for the first round.
+  // Threshold at 83.5% matching Claude Code's approach (accurate tokens assumed).
   // NOTE: When parallel tool execution is implemented, this check must account for
   // partial results — only count completed tool results, not pending ones.
-  const CHARS_PER_TOKEN = 4;
-  const CONTEXT_OVERFLOW_THRESHOLD = 0.9;
-  const estimatedTokens = Math.ceil(JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN);
+  const CHARS_PER_TOKEN = 3;
+  const CONTEXT_OVERFLOW_THRESHOLD = 0.835;
+  const estimatedTokens = roundState.cumulativeInputTokens > 0
+    ? roundState.cumulativeInputTokens
+    : Math.ceil(JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN);
   const modelContextSizes: Record<string, number> = {
     'claude-sonnet-4-6': 200_000,
     'claude-sonnet-4-5': 200_000,
@@ -432,7 +435,7 @@ export async function executeRound(
   };
   const contextLimit = modelContextSizes[config.defaultModel.model] ?? 200_000;
   if (estimatedTokens > contextLimit * CONTEXT_OVERFLOW_THRESHOLD) {
-    logger.warn('[ROUND] Context overflow prevention — estimated tokens exceed 90% of context window', {
+    logger.warn('[ROUND] Context overflow prevention — tokens exceed 83.5% of context window', {
       estimatedTokens,
       contextLimit,
       round: currentRound,
@@ -480,6 +483,11 @@ export async function executeRound(
     typeof assistantResponse.metadata?.['outputTokens'] === 'number'
       ? assistantResponse.metadata['outputTokens']
       : 0;
+
+  // Accumulate authoritative token count from API response
+  if (inputTokens > 0) {
+    roundState.cumulativeInputTokens = inputTokens; // input_tokens already includes full context
+  }
   conversationSession.addAssistantMessage(assistantResponse.content ?? '', assistantToolCalls, {
     round: currentRound,
     ...(inputTokens > 0 && { inputTokens }),

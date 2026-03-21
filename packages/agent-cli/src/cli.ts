@@ -30,7 +30,7 @@ import {
 } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode } from '@robota-sdk/agent-sdk';
 import type { ITerminalOutput, ISpinner } from './types.js';
-import { promptForApproval } from './permissions/permission-prompt.js';
+import { promptForApproval } from '@robota-sdk/agent-sdk';
 import { renderApp } from './ui/render.js';
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];

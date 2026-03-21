@@ -122,3 +122,6 @@ scripts/audit/output/
 
 # Harness session log (auto-generated per session)
 .agents/evals/harness-log/sessions.jsonl
+
+# Auto-generated API reference from docs:build (typedoc output)
+content/api-reference/

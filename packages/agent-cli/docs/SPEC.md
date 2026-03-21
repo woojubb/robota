@@ -164,6 +164,7 @@ interface ISlashCommand {
   name: string;
   description: string;
   source: string;
+  skillContent?: string; // Full SKILL.md content (skill commands only)
   subcommands?: ISlashCommand[];
   execute?: (args: string) => void | Promise<void>;
 }
@@ -184,6 +185,10 @@ Skills are discovered at session start from two directories (scanned in order, d
 2. `~/.claude/skills/*/SKILL.md` -- user-level skills (Claude Code compatible)
 
 Each `SKILL.md` may contain YAML frontmatter with `name` and `description` fields. If no frontmatter is found, the directory name is used as the command name.
+
+### Skill Execution
+
+When a skill slash command is selected, the full SKILL.md content is injected into the session prompt wrapped in `<skill>` tags. The model receives both the skill instructions and any user-provided arguments.
 
 ## Type Ownership
 
@@ -216,8 +221,7 @@ src/
 │   ├── builtin-source.ts            ← BuiltinCommandSource (9 commands + subcommands)
 │   ├── skill-source.ts              ← SkillCommandSource (discovers from .agents/skills/)
 │   └── command-registry.ts          ← CommandRegistry (aggregates multiple sources)
-├── permissions/
-│   └── permission-prompt.ts         ← Terminal Allow/Deny prompt
+├── permissions/                      ← (empty — prompt imported from @robota-sdk/agent-sdk)
 └── ui/
     ├── App.tsx                      ← Main layout, Session creation, state management
     ├── render.tsx                   ← Ink render() invocation
@@ -264,7 +268,9 @@ Session logging is enabled by default. Log files are written to `.robota/logs/{s
 
 ## Known Limitations
 
-- **Korean IME (Input Method Editor)**: Ink's raw mode does not fully support Korean IME composition. This is a known upstream limitation shared with Claude Code (see Claude Code issue #3045). A custom `CjkTextInput` component (replacing `ink-text-input`) mitigates the most common issues using refs-based state management, but edge cases remain on Terminal.app.
+- **Korean IME (Input Method Editor)**: Ink's raw mode does not fully support Korean IME composition. This is a known upstream limitation shared with Claude Code (see Claude Code issue #3045). A custom `CjkTextInput` component (replacing `ink-text-input`) mitigates the most common issues using refs-based state management.
+- **Terminal.app crash prevention**: `CjkTextInput` does NOT call Ink's `setCursorPosition()`. Passing `y: 0` moved the real terminal cursor to the top of the ink output, causing Terminal.app's Korean IME to call `attributedSubstringFromRange:` at an invalid position → SIGSEGV in Terminal.app itself (not our process). Without `setCursorPosition`, the IME candidate window appears at bottom-left (same as Claude Code, issue #19207) but Terminal.app does not crash. A correct y-coordinate requires the total rendered height, which Ink does not expose to components.
+- **CjkTextInput error handling**: `useInput` callback is wrapped in try-catch to swallow IME-related errors. Non-printable characters from IME composition are filtered out.
 
 ## Dependencies
 

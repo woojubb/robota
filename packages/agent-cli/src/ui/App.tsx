@@ -358,9 +358,13 @@ function buildSkillPrompt(input: string, registry: CommandRegistry): string | nu
   const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
   if (!skillCmd) return null;
   const args = parts.slice(1).join(' ').trim();
-  return args
-    ? `Use the "${cmd}" skill: ${args}`
-    : `Use the "${cmd}" skill: ${skillCmd.description}`;
+  const userInstruction = args || skillCmd.description;
+
+  // Inject SKILL.md content if available
+  if (skillCmd.skillContent) {
+    return `<skill name="${cmd}">\n${skillCmd.skillContent}\n</skill>\n\nExecute the "${cmd}" skill: ${userInstruction}`;
+  }
+  return `Use the "${cmd}" skill: ${userInstruction}`;
 }
 
 /** Hook: build the handleSubmit callback for user input */
