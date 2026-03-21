@@ -127,7 +127,7 @@ export default function CjkTextInput({
         const result = insertAtCursor(valueRef.current, cursorRef.current, printable);
         cursorRef.current = result.cursor;
         valueRef.current = result.value;
-        onChange(next);
+        onChange(result.value);
       } catch {
         // Swallow IME-related errors to prevent terminal crash.
         // Korean IME in raw mode can produce unexpected byte sequences.
