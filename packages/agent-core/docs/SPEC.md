@@ -344,13 +344,31 @@ Before each `provider.chat()` call in the execution loop, token usage is checked
 
 ### Tool Result Context Budget
 
-After each tool result is added to conversation history, the estimated token count is checked against 80% of the model's context window. If exceeded, remaining tool results are replaced with an error message:
+After each tool result is added to conversation history, the estimated token count is checked against 80% of the model's context window. If exceeded, remaining tool results are replaced with a short error message:
 
 ```
 Error: Context window near capacity. Tool execution result skipped to prevent overflow. Use /compact to free space, then retry.
 ```
 
-This follows the same pattern as permission deny — the AI receives the error and can respond by requesting `/compact` or adjusting its approach. Tools that already executed still have their results recorded; only subsequent tool results in the same batch are skipped.
+**Key behavior:**
+
+- Follows the permission-deny pattern — AI receives a mix of normal results and context-error results
+- The execution loop does NOT break after overflow — it continues to the next provider call so the AI can see the mixed results and respond
+- AI autonomously decides how to handle: partial answer from available results, suggest `/compact`, retry with fewer tools, etc.
+- Skipped tool results are short error messages (~100 chars), so the next provider call's context is much smaller than if all full results were included
+
+**Example flow:**
+
+```
+Tool 1: normal result (context at 70%)
+Tool 2: normal result (context at 82% → overflow detected)
+Tool 3: "Error: Context window near capacity..." (short error, ~100 chars)
+Tool 4: "Error: Context window near capacity..." (short error, ~100 chars)
+→ next provider call succeeds (context reduced by skipping large results)
+→ AI: "Based on Tool 1 and 2 results... Tools 3-4 were skipped due to context. Consider /compact."
+```
+
+**Return value:** `addToolResultsToHistory` returns `IToolResultsOutcome` with `contextOverflowed`, `addedCount`, and `skippedCount` for logging and diagnostics.
 
 ### Streaming Round Separator
 
