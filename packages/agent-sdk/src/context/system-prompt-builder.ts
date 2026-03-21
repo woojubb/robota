@@ -19,6 +19,8 @@ export interface ISystemPromptParams {
   projectInfo: IProjectInfo;
   /** Current working directory */
   cwd?: string;
+  /** Response language code (e.g., "ko", "en"). If set, AI must respond in this language. */
+  language?: string;
 }
 
 const TRUST_LEVEL_DESCRIPTIONS: Record<TTrustLevel, string> = {
@@ -56,19 +58,21 @@ function buildToolsSection(descriptions: string[]): string {
  * Assemble the full system prompt string from the provided parameters.
  */
 export function buildSystemPrompt(params: ISystemPromptParams): string {
-  const { agentsMd, claudeMd, toolDescriptions, trustLevel, projectInfo, cwd } = params;
+  const { agentsMd, claudeMd, toolDescriptions, trustLevel, projectInfo, cwd, language } = params;
 
   const sections: string[] = [];
 
   // Base role
-  sections.push(
-    [
-      '## Role',
-      'You are an AI coding assistant with access to tools that let you read and modify code.',
-      'You help developers understand, write, and improve their codebase.',
-      'Always be precise, follow existing code conventions, and prefer minimal changes.',
-    ].join('\n'),
-  );
+  const roleLines = [
+    '## Role',
+    'You are an AI coding assistant with access to tools that let you read and modify code.',
+    'You help developers understand, write, and improve their codebase.',
+    'Always be precise, follow existing code conventions, and prefer minimal changes.',
+  ];
+  if (language) {
+    roleLines.push(`Always respond in ${language}. Use ${language} for all explanations and communications.`);
+  }
+  sections.push(roleLines.join('\n'));
 
   // Working directory
   if (cwd) {
