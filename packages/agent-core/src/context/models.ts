@@ -81,15 +81,15 @@ export function getModelName(modelId: string): string {
   return CLAUDE_MODELS[modelId]?.name ?? modelId;
 }
 
-/** Format token count as human-readable (e.g., 200K, 1M, 1.2M) */
+/** Format token count as human-readable (e.g., 200K, 1M, 1.2M). Minimum unit is K. */
 export function formatTokenCount(tokens: number): string {
   if (tokens >= 1_000_000) {
     const m = tokens / 1_000_000;
     return Number.isInteger(m) ? `${m}M` : `${parseFloat(m.toFixed(1))}M`;
   }
-  if (tokens >= 1_000) {
-    const k = tokens / 1_000;
-    return Number.isInteger(k) ? `${k}K` : `${parseFloat(k.toFixed(1))}K`;
-  }
-  return String(tokens);
+  // Minimum unit is K — values below 1000 show as "<1K" or "0K"
+  if (tokens <= 0) return '0K';
+  if (tokens < 1_000) return '<1K';
+  const k = tokens / 1_000;
+  return Number.isInteger(k) ? `${k}K` : `${parseFloat(k.toFixed(1))}K`;
 }

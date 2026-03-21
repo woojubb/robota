@@ -210,6 +210,14 @@ function useSlashCommands(
 }
 
 
+type TContextStateSetter = React.Dispatch<React.SetStateAction<{ percentage: number; usedTokens: number; maxTokens: number }>>;
+
+/** Snapshot context state from session into React state */
+function syncContextState(session: Session, setter: TContextStateSetter): void {
+  const ctx = session.getContextState();
+  setter({ percentage: ctx.usedPercentage, usedTokens: ctx.usedTokens, maxTokens: ctx.maxTokens });
+}
+
 /** Run a prompt through the session with thinking/streaming state management */
 async function runSessionPrompt(
   prompt: string,
@@ -217,7 +225,7 @@ async function runSessionPrompt(
   addMessage: TAddMessage,
   clearStreamingText: () => void,
   setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
-  setContextPercentage: React.Dispatch<React.SetStateAction<number>>,
+  setContextState: TContextStateSetter,
 ): Promise<void> {
   setIsThinking(true);
   clearStreamingText();
@@ -240,7 +248,7 @@ async function runSessionPrompt(
     }
 
     addMessage({ role: 'assistant', content: response || '(empty response)' });
-    setContextPercentage(session.getContextState().usedPercentage);
+    syncContextState(session, setContextState);
   } catch (err) {
     clearStreamingText();
     if (err instanceof DOMException && err.name === 'AbortError') {
@@ -277,7 +285,7 @@ function useSubmitHandler(
   handleSlashCommand: (input: string) => Promise<boolean>,
   clearStreamingText: () => void,
   setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
-  setContextPercentage: React.Dispatch<React.SetStateAction<number>>,
+  setContextState: TContextStateSetter,
   registry: CommandRegistry,
 ): (input: string) => Promise<void> {
   return useCallback(
@@ -285,7 +293,7 @@ function useSubmitHandler(
       if (input.startsWith('/')) {
         const handled = await handleSlashCommand(input);
         if (handled) {
-          setContextPercentage(session.getContextState().usedPercentage);
+          syncContextState(session, setContextState);
           return;
         }
         // Skill command — send as session prompt
@@ -297,7 +305,7 @@ function useSubmitHandler(
           addMessage,
           clearStreamingText,
           setIsThinking,
-          setContextPercentage,
+          setContextState,
         );
       }
 
@@ -308,7 +316,7 @@ function useSubmitHandler(
         addMessage,
         clearStreamingText,
         setIsThinking,
-        setContextPercentage,
+        setContextState,
       );
     },
     [
@@ -317,7 +325,7 @@ function useSubmitHandler(
       handleSlashCommand,
       clearStreamingText,
       setIsThinking,
-      setContextPercentage,
+      setContextState,
       registry,
     ],
   );
@@ -340,7 +348,7 @@ export default function App(props: IProps): React.ReactElement {
   const { session, permissionRequest, streamingText, clearStreamingText, activeTools } = useSession(props);
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
-  const [contextPercentage, setContextPercentage] = useState(0);
+  const [contextState, setContextState] = useState({ percentage: 0, usedTokens: 0, maxTokens: 0 });
   const registry = useCommandRegistry(props.cwd ?? process.cwd());
   const pendingModelChangeRef = useRef<string | null>(null);
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
@@ -352,7 +360,7 @@ export default function App(props: IProps): React.ReactElement {
     handleSlashCommand,
     clearStreamingText,
     setIsThinking,
-    setContextPercentage,
+    setContextState,
     registry,
   );
 
@@ -412,9 +420,9 @@ export default function App(props: IProps): React.ReactElement {
         sessionId={session.getSessionId()}
         messageCount={messages.length}
         isThinking={isThinking}
-        contextPercentage={contextPercentage}
-        contextUsedTokens={session.getContextState().usedTokens}
-        contextMaxTokens={session.getContextState().maxTokens}
+        contextPercentage={contextState.percentage}
+        contextUsedTokens={contextState.usedTokens}
+        contextMaxTokens={contextState.maxTokens}
       />
       <InputArea
         onSubmit={handleSubmit}
