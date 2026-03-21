@@ -595,21 +595,14 @@ export async function executeRound(
     config,
   );
 
-  // If tool results overflowed context, break the loop.
-  // The tool results (normal + "context overflow" errors) are already in history.
-  // AI will see them on the NEXT session.run() after the user compacts.
   if (toolOutcome.contextOverflowed) {
-    logger.warn('[ROUND] Breaking execution loop — tool results caused context overflow', {
+    logger.warn('[ROUND] Tool results partially skipped due to context overflow — continuing to let AI respond', {
       added: toolOutcome.addedCount,
       skipped: toolOutcome.skippedCount,
       round: currentRound,
     });
-    conversationSession.addAssistantMessage(
-      `${toolOutcome.addedCount} tool results recorded, ${toolOutcome.skippedCount} skipped due to context limit. Use /compact to free space, then retry.`,
-      [],
-      { round: currentRound, contextOverflow: true },
-    );
-    return true;
+    // Don't break — let the AI see the mixed results (normal + context error)
+    // and decide how to respond (partial answer, request /compact, retry, etc.)
   }
 
   logger.debug(
