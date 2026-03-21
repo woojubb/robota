@@ -162,7 +162,7 @@ export async function executeAndRecordToolCalls(
   roundState: IExecutionRoundState,
   deps: IRoundDependencies,
   config?: IAgentConfig,
-): Promise<void> {
+): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
 
   logger.debug('Tool calls detected, executing tools', {
@@ -224,7 +224,7 @@ export async function executeAndRecordToolCalls(
   const contextLimit = getModelContextWindow(
     config?.defaultModel?.model ?? '',
   );
-  addToolResultsToHistory(
+  const toolResultsOutcome = addToolResultsToHistory(
     assistantToolCalls,
     toolSummary,
     conversationSession,
@@ -245,6 +245,8 @@ export async function executeAndRecordToolCalls(
   );
 
   eventEmitter.clearToolEventServices();
+
+  return toolResultsOutcome;
 }
 
 /**
@@ -252,6 +254,16 @@ export async function executeAndRecordToolCalls(
  */
 const CONTEXT_OVERFLOW_TOOL_SKIP_MESSAGE =
   'Error: Context window near capacity. Tool execution result skipped to prevent overflow. Use /compact to free space, then retry.';
+
+/** Result of addToolResultsToHistory indicating whether context overflow occurred */
+export interface IToolResultsOutcome {
+  /** Whether any tool results were skipped due to context overflow */
+  contextOverflowed: boolean;
+  /** Number of tool results that were added normally */
+  addedCount: number;
+  /** Number of tool results that were skipped */
+  skippedCount: number;
+}
 
 export function addToolResultsToHistory(
   assistantToolCalls: IToolCall[],
@@ -269,10 +281,12 @@ export function addToolResultsToHistory(
   currentRound: number,
   logger: ILogger,
   contextBudget?: { contextLimit: number; cumulativeInputTokens: number },
-): void {
+): IToolResultsOutcome {
   const CHARS_PER_TOKEN = 3;
   const TOOL_RESULT_OVERFLOW_THRESHOLD = 0.80;
   let contextOverflowed = false;
+  let addedCount = 0;
+  let skippedCount = 0;
 
   for (const toolCall of assistantToolCalls) {
     if (!toolCall.id) {
@@ -296,6 +310,7 @@ export function addToolResultsToHistory(
         toolCallName,
         { round: currentRound, success: false, error: 'context_overflow', toolName: toolCallName },
       );
+      skippedCount++;
       continue;
     }
 
@@ -368,12 +383,16 @@ export function addToolResultsToHistory(
       }
     }
 
+    addedCount++;
+
     logger.debug('Tool result added to history', {
       toolCallId: toolCall.id,
       newHistoryLength: conversationSession.getMessages().length,
       round: currentRound,
     });
   }
+
+  return { contextOverflowed, addedCount, skippedCount };
 }
 
 /**
@@ -563,7 +582,7 @@ export async function executeRound(
     return true;
   }
 
-  await executeAndRecordToolCalls(
+  const toolOutcome = await executeAndRecordToolCalls(
     assistantToolCalls,
     conversationSession,
     conversationId,
@@ -575,6 +594,23 @@ export async function executeRound(
     deps,
     config,
   );
+
+  // If tool results overflowed context, break the loop.
+  // The tool results (normal + "context overflow" errors) are already in history.
+  // AI will see them on the NEXT session.run() after the user compacts.
+  if (toolOutcome.contextOverflowed) {
+    logger.warn('[ROUND] Breaking execution loop — tool results caused context overflow', {
+      added: toolOutcome.addedCount,
+      skipped: toolOutcome.skippedCount,
+      round: currentRound,
+    });
+    conversationSession.addAssistantMessage(
+      `${toolOutcome.addedCount} tool results recorded, ${toolOutcome.skippedCount} skipped due to context limit. Use /compact to free space, then retry.`,
+      [],
+      { round: currentRound, contextOverflow: true },
+    );
+    return true;
+  }
 
   logger.debug(
     `Round ${currentRound} completed - continuing to next round for agent ${fullContext.conversationId}`,
