@@ -51,6 +51,7 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Never write production code without a failing test that demands it.
 - Never refactor while tests are failing.
 - Bug fixes start with a test that reproduces the bug.
+- **Pre-refactor rule**: Before modularizing or restructuring existing code, write characterization tests that capture current behavior. Commit tests before any extraction. See `pre-refactor-test-harness` skill.
 
 ### Planning Requirements
 
