@@ -383,4 +383,51 @@ describe('Robota Core', () => {
       expect(r1.getStats().conversationId).not.toBe(r2.getStats().conversationId);
     });
   });
+
+  // ----------------------------------------------------------------
+  // injectMessage
+  // ----------------------------------------------------------------
+  describe('injectMessage', () => {
+    it('should inject assistant message into history without running', () => {
+      const robota = new Robota(createConfig());
+      robota.injectMessage('assistant', 'injected summary');
+
+      const history = robota.getHistory();
+      expect(history.length).toBe(1);
+      expect(history[0].role).toBe('assistant');
+      expect(history[0].content).toBe('injected summary');
+    });
+
+    it('should inject system message into history', () => {
+      const robota = new Robota(createConfig());
+      robota.injectMessage('system', 'system context');
+
+      const history = robota.getHistory();
+      expect(history.length).toBe(1);
+      expect(history[0].role).toBe('system');
+    });
+
+    it('should inject user message into history', () => {
+      const robota = new Robota(createConfig());
+      robota.injectMessage('user', 'user question');
+
+      const history = robota.getHistory();
+      expect(history.length).toBe(1);
+      expect(history[0].role).toBe('user');
+    });
+
+    it('injected message is visible to subsequent run()', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+      robota.injectMessage('assistant', '[Context Summary] previous conversation');
+      await robota.run('continue');
+
+      // Provider should receive the injected message + user message
+      const lastCall = provider.chatCalls[provider.chatCalls.length - 1];
+      const messages = lastCall?.messages ?? [];
+      expect(messages.some((m) => m.content === '[Context Summary] previous conversation')).toBe(true);
+      expect(messages.some((m) => m.content === 'continue')).toBe(true);
+    });
+  });
 });
