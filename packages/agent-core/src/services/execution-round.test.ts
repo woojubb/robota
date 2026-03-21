@@ -403,5 +403,142 @@ describe('execution-round helpers', () => {
         toolName: 'Bash',
       }));
     });
+
+    it('returns outcome with contextOverflowed=false when no overflow', () => {
+      const toolCalls = [
+        { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
+      ];
+      const toolSummary = {
+        results: [{ executionId: 'tc-1', toolName: 'Read', success: true, result: 'ok' }],
+        errors: [],
+      };
+      const session = { getMessages: () => [], addToolMessageWithId: vi.fn() };
+
+      const outcome = addToolResultsToHistory(toolCalls, toolSummary, session as any, 1, logger);
+      expect(outcome.contextOverflowed).toBe(false);
+      expect(outcome.addedCount).toBe(1);
+      expect(outcome.skippedCount).toBe(0);
+    });
+
+    it('returns outcome with contextOverflowed=true and correct counts', () => {
+      const toolCalls = [
+        { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
+        { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
+        { id: 'tc-3', type: 'function' as const, function: { name: 'Glob', arguments: '{}' } },
+        { id: 'tc-4', type: 'function' as const, function: { name: 'Write', arguments: '{}' } },
+      ];
+      const largeContent = 'x'.repeat(3000);
+      const toolSummary = {
+        results: [
+          { executionId: 'tc-1', toolName: 'Read', success: true, result: largeContent },
+          { executionId: 'tc-2', toolName: 'Bash', success: true, result: 'small' },
+          { executionId: 'tc-3', toolName: 'Glob', success: true, result: 'small' },
+          { executionId: 'tc-4', toolName: 'Write', success: true, result: 'small' },
+        ],
+        errors: [],
+      };
+
+      const messages: Array<{ role: string; content: string }> = [];
+      const session = {
+        getMessages: () => messages,
+        addToolMessageWithId: vi.fn((content: string) => {
+          messages.push({ role: 'tool', content });
+        }),
+      };
+
+      const outcome = addToolResultsToHistory(
+        toolCalls, toolSummary, session as any, 1, logger,
+        { contextLimit: 1000, cumulativeInputTokens: 0 },
+      );
+
+      expect(outcome.contextOverflowed).toBe(true);
+      expect(outcome.addedCount).toBe(1);
+      expect(outcome.skippedCount).toBe(3);
+      expect(outcome.addedCount + outcome.skippedCount).toBe(toolCalls.length);
+    });
+
+    it('produces mixed results — normal results followed by context errors', () => {
+      const toolCalls = [
+        { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
+        { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
+        { id: 'tc-3', type: 'function' as const, function: { name: 'Glob', arguments: '{}' } },
+      ];
+      const largeContent = 'x'.repeat(3000);
+      const toolSummary = {
+        results: [
+          { executionId: 'tc-1', toolName: 'Read', success: true, result: largeContent },
+          { executionId: 'tc-2', toolName: 'Bash', success: true, result: 'bash output' },
+          { executionId: 'tc-3', toolName: 'Glob', success: true, result: 'glob result' },
+        ],
+        errors: [],
+      };
+
+      const messages: Array<{ role: string; content: string }> = [];
+      const session = {
+        getMessages: () => messages,
+        addToolMessageWithId: vi.fn((content: string) => {
+          messages.push({ role: 'tool', content });
+        }),
+      };
+
+      addToolResultsToHistory(
+        toolCalls, toolSummary, session as any, 1, logger,
+        { contextLimit: 1000, cumulativeInputTokens: 0 },
+      );
+
+      // All 3 tool results are in history (normal + error messages)
+      expect(session.addToolMessageWithId).toHaveBeenCalledTimes(3);
+
+      // tc-1: normal large result
+      expect(session.addToolMessageWithId.mock.calls[0][0]).toBe(largeContent);
+
+      // tc-2, tc-3: short context overflow error (much smaller than original results)
+      const errorMsg2 = session.addToolMessageWithId.mock.calls[1][0] as string;
+      const errorMsg3 = session.addToolMessageWithId.mock.calls[2][0] as string;
+      expect(errorMsg2).toContain('Context window near capacity');
+      expect(errorMsg3).toContain('Context window near capacity');
+
+      // Error messages are short — AI can receive them without overflow
+      expect(errorMsg2.length).toBeLessThan(200);
+      expect(errorMsg3.length).toBeLessThan(200);
+    });
+
+    it('execution loop continues after overflow — AI sees mixed results', () => {
+      // This test verifies the design intent: the execution loop does NOT break
+      // when tool results overflow. Instead, AI receives normal + error results
+      // and decides how to respond.
+      const toolCalls = [
+        { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
+        { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
+      ];
+      const toolSummary = {
+        results: [
+          { executionId: 'tc-1', toolName: 'Read', success: true, result: 'x'.repeat(3000) },
+          { executionId: 'tc-2', toolName: 'Bash', success: true, result: 'output' },
+        ],
+        errors: [],
+      };
+
+      const messages: Array<{ role: string; content: string }> = [];
+      const session = {
+        getMessages: () => messages,
+        addToolMessageWithId: vi.fn((content: string) => {
+          messages.push({ role: 'tool', content });
+        }),
+      };
+
+      const outcome = addToolResultsToHistory(
+        toolCalls, toolSummary, session as any, 1, logger,
+        { contextLimit: 1000, cumulativeInputTokens: 0 },
+      );
+
+      // Overflow detected but all tool_result messages are in history
+      expect(outcome.contextOverflowed).toBe(true);
+      expect(messages).toHaveLength(2);
+
+      // The caller (executeRound) should NOT break the loop —
+      // it logs the overflow and continues to the next provider call
+      // so the AI can see and respond to the mixed results
+    });
   });
 });
