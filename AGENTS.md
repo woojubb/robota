@@ -169,6 +169,7 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 | [`contract-audit`](.agents/skills/contract-audit/SKILL.md)                               | Class contract review and SPEC.md registry                 |
 | [`pnpm-monorepo-build`](.agents/skills/pnpm-monorepo-build/SKILL.md)                     | Build commands and workflow                                |
 | [`tdd-red-green-refactor`](.agents/skills/tdd-red-green-refactor/SKILL.md)               | TDD cycle                                                  |
+| [`pre-refactor-test-harness`](.agents/skills/pre-refactor-test-harness/SKILL.md)         | Analyze → test → extract → verify before modularization    |
 | [`vitest-testing-strategy`](.agents/skills/vitest-testing-strategy/SKILL.md)             | Testing strategy                                           |
 | [`architecture-patterns`](.agents/skills/architecture-patterns/SKILL.md)                 | DI, ports-and-adapters                                     |
 | [`contract-testing`](.agents/skills/contract-testing/SKILL.md)                           | Consumer-driven contract testing                           |
@@ -236,6 +237,7 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 23  | Defining identical interface/type independently in two packages  | One SSOT owner, others import; see `code-quality.md` Type System                |
 | 24  | Modifying code without updating SPEC first                       | Update SPEC to describe intended state, then fix code to match                  |
 | 25  | Publishing a package without removing "not yet published" labels | Search content/ and docs/ for stale labels when first publishing a package      |
+| 26  | Refactoring/modularizing code without test coverage first        | Write characterization tests before extraction; see `pre-refactor-test-harness` |
 
 ## Conflict Scan Commands
 
