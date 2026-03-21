@@ -241,5 +241,167 @@ describe('execution-round helpers', () => {
         addToolResultsToHistory(toolCalls, { results: [], errors: [] }, session as any, 1, logger),
       ).toThrow('No execution result found for tool call ID: tc-1');
     });
+
+    it('works normally without contextBudget (backward compatible)', () => {
+      const toolCalls = [
+        { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
+        { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
+      ];
+      const toolSummary = {
+        results: [
+          { executionId: 'tc-1', toolName: 'Read', success: true, result: 'file content' },
+          { executionId: 'tc-2', toolName: 'Bash', success: true, result: 'output' },
+        ],
+        errors: [],
+      };
+      const session = { getMessages: () => [], addToolMessageWithId: vi.fn() };
+
+      addToolResultsToHistory(toolCalls, toolSummary, session as any, 1, logger);
+      expect(session.addToolMessageWithId).toHaveBeenCalledTimes(2);
+    });
+
+    it('skips remaining tool results when context budget is exceeded', () => {
+      // Simulate: contextLimit = 1000 tokens, threshold 80% = 800 tokens
+      // First tool result pushes history beyond 800 tokens
+      const toolCalls = [
+        { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
+        { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
+        { id: 'tc-3', type: 'function' as const, function: { name: 'Glob', arguments: '{}' } },
+      ];
+      const largeContent = 'x'.repeat(3000); // ~1000 tokens at chars/3
+      const toolSummary = {
+        results: [
+          { executionId: 'tc-1', toolName: 'Read', success: true, result: largeContent },
+          { executionId: 'tc-2', toolName: 'Bash', success: true, result: 'small' },
+          { executionId: 'tc-3', toolName: 'Glob', success: true, result: 'small' },
+        ],
+        errors: [],
+      };
+
+      // After tc-1 is added, getMessages returns the large content
+      const messages: Array<{ role: string; content: string }> = [];
+      const session = {
+        getMessages: () => messages,
+        addToolMessageWithId: vi.fn((content: string) => {
+          messages.push({ role: 'tool', content });
+        }),
+      };
+
+      const contextBudget = { contextLimit: 1000, cumulativeInputTokens: 0 };
+
+      addToolResultsToHistory(toolCalls, toolSummary, session as any, 1, logger, contextBudget);
+
+      // tc-1 added normally (triggers overflow detection)
+      // tc-2 and tc-3 should be skipped with overflow message
+      expect(session.addToolMessageWithId).toHaveBeenCalledTimes(3);
+
+      // First call: normal content
+      expect(session.addToolMessageWithId.mock.calls[0][0]).toBe(largeContent);
+
+      // Second and third calls: overflow skip message
+      expect(session.addToolMessageWithId.mock.calls[1][0]).toContain('Context window near capacity');
+      expect(session.addToolMessageWithId.mock.calls[2][0]).toContain('Context window near capacity');
+    });
+
+    it('does not skip when context budget has enough room', () => {
+      const toolCalls = [
+        { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
+        { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
+      ];
+      const toolSummary = {
+        results: [
+          { executionId: 'tc-1', toolName: 'Read', success: true, result: 'small' },
+          { executionId: 'tc-2', toolName: 'Bash', success: true, result: 'small' },
+        ],
+        errors: [],
+      };
+
+      const messages: Array<{ role: string; content: string }> = [];
+      const session = {
+        getMessages: () => messages,
+        addToolMessageWithId: vi.fn((content: string) => {
+          messages.push({ role: 'tool', content });
+        }),
+      };
+
+      // Large context limit — plenty of room
+      const contextBudget = { contextLimit: 1_000_000, cumulativeInputTokens: 0 };
+
+      addToolResultsToHistory(toolCalls, toolSummary, session as any, 1, logger, contextBudget);
+
+      // Both added normally
+      expect(session.addToolMessageWithId).toHaveBeenCalledTimes(2);
+      expect(session.addToolMessageWithId.mock.calls[0][0]).toBe('small');
+      expect(session.addToolMessageWithId.mock.calls[1][0]).toBe('small');
+    });
+
+    it('uses cumulativeInputTokens when higher than chars estimate', () => {
+      const toolCalls = [
+        { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
+        { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
+      ];
+      const toolSummary = {
+        results: [
+          { executionId: 'tc-1', toolName: 'Read', success: true, result: 'tiny' },
+          { executionId: 'tc-2', toolName: 'Bash', success: true, result: 'tiny' },
+        ],
+        errors: [],
+      };
+
+      const messages: Array<{ role: string; content: string }> = [];
+      const session = {
+        getMessages: () => messages,
+        addToolMessageWithId: vi.fn((content: string) => {
+          messages.push({ role: 'tool', content });
+        }),
+      };
+
+      // Small history chars, but API reports high token count already
+      // contextLimit=1000, cumulativeInputTokens=900 → 900 > 1000*0.8=800 → overflow
+      const contextBudget = { contextLimit: 1000, cumulativeInputTokens: 900 };
+
+      addToolResultsToHistory(toolCalls, toolSummary, session as any, 1, logger, contextBudget);
+
+      // tc-1 added normally, then overflow triggers → tc-2 skipped
+      expect(session.addToolMessageWithId).toHaveBeenCalledTimes(2);
+      expect(session.addToolMessageWithId.mock.calls[0][0]).toBe('tiny');
+      expect(session.addToolMessageWithId.mock.calls[1][0]).toContain('Context window near capacity');
+    });
+
+    it('skipped tool results have context_overflow error metadata', () => {
+      const toolCalls = [
+        { id: 'tc-1', type: 'function' as const, function: { name: 'Read', arguments: '{}' } },
+        { id: 'tc-2', type: 'function' as const, function: { name: 'Bash', arguments: '{}' } },
+      ];
+      const largeContent = 'x'.repeat(3000);
+      const toolSummary = {
+        results: [
+          { executionId: 'tc-1', toolName: 'Read', success: true, result: largeContent },
+          { executionId: 'tc-2', toolName: 'Bash', success: true, result: 'small' },
+        ],
+        errors: [],
+      };
+
+      const messages: Array<{ role: string; content: string }> = [];
+      const session = {
+        getMessages: () => messages,
+        addToolMessageWithId: vi.fn((content: string) => {
+          messages.push({ role: 'tool', content });
+        }),
+      };
+
+      addToolResultsToHistory(
+        toolCalls, toolSummary, session as any, 1, logger,
+        { contextLimit: 1000, cumulativeInputTokens: 0 },
+      );
+
+      // Second call (skipped) should have context_overflow metadata
+      const skippedCall = session.addToolMessageWithId.mock.calls[1];
+      expect(skippedCall[3]).toEqual(expect.objectContaining({
+        success: false,
+        error: 'context_overflow',
+        toolName: 'Bash',
+      }));
+    });
   });
 });
