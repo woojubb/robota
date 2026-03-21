@@ -348,7 +348,12 @@ export default function App(props: IProps): React.ReactElement {
   const { session, permissionRequest, streamingText, clearStreamingText, activeTools } = useSession(props);
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
-  const [contextState, setContextState] = useState({ percentage: 0, usedTokens: 0, maxTokens: 0 });
+  const initialCtx = session.getContextState();
+  const [contextState, setContextState] = useState({
+    percentage: initialCtx.usedPercentage,
+    usedTokens: initialCtx.usedTokens,
+    maxTokens: initialCtx.maxTokens,
+  });
   const registry = useCommandRegistry(props.cwd ?? process.cwd());
   const pendingModelChangeRef = useRef<string | null>(null);
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
