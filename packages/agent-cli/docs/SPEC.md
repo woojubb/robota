@@ -268,7 +268,7 @@ Session logging is enabled by default. Log files are written to `.robota/logs/{s
 
 ## Known Limitations
 
-- **Terminal.app crash with Korean IME (unresolvable)**: macOS Terminal.app crashes (SIGSEGV) when Korean/CJK IME is active in Ink raw mode. The crash occurs in Terminal.app's native code (`attributedSubstringFromRange:` → `_platform_memmove` with null pointer) — Terminal.app queries the PTY for attributed text, but raw mode provides no NSTextStorage backing. This is a Terminal.app bug that **cannot be fixed from the CLI process**. **Use [iTerm2](https://iterm2.com/) instead.** Same issue affects Claude Code (issues #22732, #3045).
+- **Korean IME on macOS Terminal.app**: Ink's renderer shifts the input area during IME composition, causing Terminal.app to crash (SIGSEGV). Fixed by adding a permanent blank line below the input area, which stabilizes the cursor position during IME composition. **Use [iTerm2](https://iterm2.com/) for the best experience.**
 - **CjkTextInput**: Custom text input component with try-catch error handling, non-printable character filtering, and `setCursorPosition` removed to minimize IME interaction surface.
 
 ## Dependencies
