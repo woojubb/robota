@@ -340,7 +340,11 @@ When the execution loop ends without a final assistant text message (e.g., due t
 
 ### Pre-Send Context Check
 
-Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit. The estimate uses `Math.max(cumulativeInputTokens, chars/3)` — the higher of the API-reported token count and the character-based estimate — because tool results added after the last provider call are not reflected in `cumulativeInputTokens`. If usage exceeds 83.5% of the context window (matching Claude Code's threshold), the execution loop stops early with a clear assistant message prompting the user to `/compact`.
+Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit. The estimate uses `Math.max(cumulativeInputTokens, chars/2)` — the higher of the API-reported token count and the character-based estimate. `chars/2` (not `chars/3`) is used because Korean text, JSON, and code content have a higher char-to-token ratio. If usage exceeds 83.5% of the context window, the execution loop stops early with a clear assistant message prompting the user to `/compact`.
+
+### Provider Error Recovery
+
+If `provider.chat()` throws an error (e.g., API 400 for context too large), `executeRound` catches it and injects an assistant message: `"Provider error: <message>. Try /compact to reduce context size."` instead of propagating the error as an unhandled exception. This ensures the user always sees a readable error message rather than "No response received."
 
 ### Tool Result Context Budget
 
