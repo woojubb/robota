@@ -12,9 +12,33 @@
  */
 
 import React, { useRef, useState } from 'react';
-import { Text, useInput, useCursor } from 'ink';
-import stringWidth from 'string-width';
+import { Text, useInput } from 'ink';
+// string-width import removed — no longer needed without setCursorPosition
 import chalk from 'chalk';
+
+/**
+ * Filter non-printable characters from input. Returns empty string if
+ * input is null/undefined/empty or contains only control characters.
+ * Exported for testing.
+ */
+export function filterPrintable(input: string | null | undefined): string {
+  if (!input || input.length === 0) return '';
+  return input.replace(/[\x00-\x1f\x7f]/g, '');
+}
+
+/**
+ * Insert text into a value at the given cursor position.
+ * Returns { value, cursor } with updated state.
+ * Exported for testing.
+ */
+export function insertAtCursor(
+  value: string,
+  cursor: number,
+  input: string,
+): { value: string; cursor: number } {
+  const next = value.slice(0, cursor) + input + value.slice(cursor);
+  return { value: next, cursor: cursor + input.length };
+}
 
 interface IProps {
   value: string;
@@ -40,10 +64,7 @@ export default function CjkTextInput({
   const cursorRef = useRef(value.length);
   const [, forceRender] = useState(0);
 
-  // Provide cursor position to Ink for IME candidate window placement.
-  // This prevents Terminal.app SIGSEGV when Korean IME queries attributedSubstringFromRange:
-  // without a valid cursor position, Terminal.app dereferences null → crash.
-  const { setCursorPosition } = useCursor();
+  // useCursor removed — see comment below about Terminal.app SIGSEGV
 
   // Sync ref when value changes from parent (e.g., setValue(''))
   if (value !== valueRef.current) {
@@ -55,66 +76,74 @@ export default function CjkTextInput({
 
   useInput(
     (input, key) => {
-      if (
-        key.upArrow ||
-        key.downArrow ||
-        (key.ctrl && input === 'c') ||
-        key.tab ||
-        (key.shift && key.tab)
-      ) {
-        return;
-      }
-
-      if (key.return) {
-        onSubmit?.(valueRef.current);
-        return;
-      }
-
-      if (key.leftArrow) {
-        if (cursorRef.current > 0) {
-          cursorRef.current -= 1;
-          forceRender((n) => n + 1);
+      try {
+        if (
+          key.upArrow ||
+          key.downArrow ||
+          (key.ctrl && input === 'c') ||
+          key.tab ||
+          (key.shift && key.tab)
+        ) {
+          return;
         }
-        return;
-      }
 
-      if (key.rightArrow) {
-        if (cursorRef.current < valueRef.current.length) {
-          cursorRef.current += 1;
-          forceRender((n) => n + 1);
+        if (key.return) {
+          onSubmit?.(valueRef.current);
+          return;
         }
-        return;
-      }
 
-      if (key.backspace || key.delete) {
-        if (cursorRef.current > 0) {
-          const v = valueRef.current;
-          const next = v.slice(0, cursorRef.current - 1) + v.slice(cursorRef.current);
-          cursorRef.current -= 1;
-          valueRef.current = next;
-          onChange(next);
+        if (key.leftArrow) {
+          if (cursorRef.current > 0) {
+            cursorRef.current -= 1;
+            forceRender((n) => n + 1);
+          }
+          return;
         }
-        return;
-      }
 
-      // Regular character input — update ref synchronously
-      const v = valueRef.current;
-      const c = cursorRef.current;
-      const next = v.slice(0, c) + input + v.slice(c);
-      cursorRef.current = c + input.length;
-      valueRef.current = next;
-      onChange(next);
+        if (key.rightArrow) {
+          if (cursorRef.current < valueRef.current.length) {
+            cursorRef.current += 1;
+            forceRender((n) => n + 1);
+          }
+          return;
+        }
+
+        if (key.backspace || key.delete) {
+          if (cursorRef.current > 0) {
+            const v = valueRef.current;
+            const next = v.slice(0, cursorRef.current - 1) + v.slice(cursorRef.current);
+            cursorRef.current -= 1;
+            valueRef.current = next;
+            onChange(next);
+          }
+          return;
+        }
+
+        // Guard against IME sending empty or control characters
+        const printable = filterPrintable(input);
+        if (printable.length === 0) return;
+
+        // Regular character input — update ref synchronously
+        const result = insertAtCursor(valueRef.current, cursorRef.current, printable);
+        cursorRef.current = result.cursor;
+        valueRef.current = result.value;
+        onChange(result.value);
+      } catch {
+        // Swallow IME-related errors to prevent terminal crash.
+        // Korean IME in raw mode can produce unexpected byte sequences.
+      }
     },
     { isActive: focus },
   );
 
-  // Calculate display-width cursor position for IME.
-  // x offset accounts for prompt prefix ("│ > ") in InputArea — border(1) + padding(1) + "> "(2) = 4 cols.
-  if (showCursor && focus) {
-    const textBeforeCursor = [...valueRef.current].slice(0, cursorRef.current).join('');
-    const cursorX = 4 + stringWidth(textBeforeCursor);
-    setCursorPosition({ x: cursorX, y: 0 });
-  }
+  // Do NOT call setCursorPosition() — passing y:0 moves the real terminal cursor
+  // to the top of the entire ink output (logo area), which causes Terminal.app to
+  // SIGSEGV when Korean IME queries attributedSubstringFromRange: at that position.
+  // Without setCursorPosition, the IME candidate window appears at bottom-left
+  // (same behavior as Claude Code, issue #19207), but Terminal.app does not crash.
+  //
+  // A correct fix would require knowing the total rendered height to pass the right
+  // y coordinate, which ink does not expose to components.
 
   return (
     <Text>

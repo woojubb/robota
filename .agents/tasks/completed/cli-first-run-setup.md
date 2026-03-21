@@ -1,6 +1,6 @@
 ---
 title: CLI first-run setup — prompt for API key and create config
-status: in-progress
+status: completed
 priority: high
 created: 2026-03-21
 packages:

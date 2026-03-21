@@ -1,6 +1,6 @@
 ---
 title: Docs version migration (2.0.0 backup + 3.0.0 refresh)
-status: backlog
+status: completed
 priority: high
 created: 2026-03-20
 ---

@@ -327,7 +327,7 @@ When the execution loop ends without a final assistant text message (e.g., due t
 
 ### Pre-Send Context Check
 
-Before each `provider.chat()` call in the execution loop, the estimated token count of the conversation messages must be checked against the model's context window limit. If the estimated usage exceeds 90% of the context window, the execution loop must stop early rather than sending a request that will fail due to context overflow. The estimated token count uses `JSON.stringify(messages).length / 4` as a character-based approximation.
+Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit. When API response metadata (`usage.input_tokens`) is available from prior rounds, the authoritative token count is used. For the first round (no metadata yet), `JSON.stringify(messages).length / 3` is used as a conservative fallback. If usage exceeds 83.5% of the context window (matching Claude Code's threshold), the execution loop stops early. The `IExecutionRoundState.cumulativeInputTokens` field tracks the authoritative count across rounds.
 
 ### Streaming Round Separator
 

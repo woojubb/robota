@@ -179,6 +179,7 @@ export class ExecutionService {
         currentRound: 0,
         runningAssistantCount: 0,
         lastTrackedAssistantMessage: undefined,
+        cumulativeInputTokens: 0,
       };
 
       const initialMessages = conversationSession.getMessages();

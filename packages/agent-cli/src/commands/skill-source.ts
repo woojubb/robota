@@ -52,6 +52,7 @@ function scanSkillsDir(skillsDir: string): ISlashCommand[] {
       name: frontmatter?.name ?? entry.name,
       description: frontmatter?.description ?? `Skill: ${entry.name}`,
       source: 'skill',
+      skillContent: content,
     });
   }
 
