@@ -336,11 +336,21 @@ When the execution loop ends without a final assistant text message (e.g., due t
 
 1. **Not throw** — return a partial result with an error indicator instead
 2. **Preserve conversation history** — all messages up to the point of failure remain in the session
-3. **Return a descriptive response** — e.g., `"(execution interrupted: <reason>)"` so the caller can display it
+3. **Return a descriptive response** — e.g., `"No response received. The context window may be full — try /compact or start a new session."` so the caller can display it
 
 ### Pre-Send Context Check
 
-Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit. When API response metadata (`usage.input_tokens`) is available from prior rounds, the authoritative token count is used. For the first round (no metadata yet), `JSON.stringify(messages).length / 3` is used as a conservative fallback. If usage exceeds 83.5% of the context window (matching Claude Code's threshold), the execution loop stops early. The `IExecutionRoundState.cumulativeInputTokens` field tracks the authoritative count across rounds.
+Before each `provider.chat()` call in the execution loop, token usage is checked against the model's context window limit. The estimate uses `Math.max(cumulativeInputTokens, chars/3)` — the higher of the API-reported token count and the character-based estimate — because tool results added after the last provider call are not reflected in `cumulativeInputTokens`. If usage exceeds 83.5% of the context window (matching Claude Code's threshold), the execution loop stops early with a clear assistant message prompting the user to `/compact`.
+
+### Tool Result Context Budget
+
+After each tool result is added to conversation history, the estimated token count is checked against 80% of the model's context window. If exceeded, remaining tool results are replaced with an error message:
+
+```
+Error: Context window near capacity. Tool execution result skipped to prevent overflow. Use /compact to free space, then retry.
+```
+
+This follows the same pattern as permission deny — the AI receives the error and can respond by requesting `/compact` or adjusting its approach. Tools that already executed still have their results recorded; only subsequent tool results in the same batch are skipped.
 
 ### Streaming Round Separator
 
