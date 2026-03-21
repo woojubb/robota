@@ -495,6 +495,11 @@ export default function App(props: IProps): React.ReactElement {
         isDisabled={isThinking || !!permissionRequest}
         registry={registry}
       />
+      {/* Permanent blank line below input — required for Korean IME stability.
+          Without this, Ink's renderer causes the input area to shift up/down
+          during IME composition, which triggers Terminal.app SIGSEGV when the
+          IME queries attributedSubstringFromRange: at an unstable cursor position. */}
+      <Text> </Text>
     </Box>
   );
 }
