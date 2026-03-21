@@ -118,6 +118,7 @@ function mergeSettings(layers: TSettings[]): TSettings {
 function toResolvedConfig(merged: TSettings): IResolvedConfig {
   return {
     defaultTrustLevel: merged.defaultTrustLevel ?? DEFAULTS.defaultTrustLevel,
+    language: merged.language,
     provider: {
       name: merged.provider?.name ?? DEFAULTS.provider.name,
       model: merged.provider?.model ?? DEFAULTS.provider.model,

@@ -40,6 +40,8 @@ const HooksSchema = z
 export const SettingsSchema = z.object({
   /** Trust level used when no --permission-mode flag is given */
   defaultTrustLevel: z.enum(['safe', 'moderate', 'full']).optional(),
+  /** Response language (e.g., "ko", "en", "ja"). Injected into system prompt. */
+  language: z.string().optional(),
   provider: ProviderSchema.optional(),
   permissions: PermissionsSchema.optional(),
   env: EnvSchema,
@@ -55,6 +57,8 @@ export type TPermissionsSettings = z.infer<typeof PermissionsSchema>;
  */
 export interface IResolvedConfig {
   defaultTrustLevel: 'safe' | 'moderate' | 'full';
+  /** Response language code (e.g., "ko", "en"). Undefined = no language constraint. */
+  language?: string;
   provider: {
     name: string;
     model: string;
