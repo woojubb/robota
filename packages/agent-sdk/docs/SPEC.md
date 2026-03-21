@@ -140,6 +140,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sdk/context/`
 - **Rationale**: AGENTS.md/CLAUDE.md walk-up discovery is for local development environments only
 - **Implementation**: Directory traversal from cwd to root, project type/language detection, system prompt assembly
+- **Response Language**: `IResolvedConfig.language` (from settings.json `language` field) is injected into the system prompt via `buildSystemPrompt()`. Persists across compaction because system message is preserved.
 - **Compact Instructions**: Extracts "Compact Instructions" section from CLAUDE.md and passes to Session for compaction
 - **Skill Discovery Paths**: Skills are discovered from `.agents/skills/*/SKILL.md` (project) and `~/.claude/skills/*/SKILL.md` (user). Used by agent-cli's `SkillCommandSource` for slash command autocomplete
 
