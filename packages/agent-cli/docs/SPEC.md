@@ -47,15 +47,15 @@ The StatusBar shows real-time session information:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ Mode: default  |  Model: claude-sonnet-4-6  |  Context: 45%  |  msgs: 12 │
+│ Mode: default  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12 │
 └──────────────────────────────────────────────────────────┘
 ```
 
 | Field    | Source                                     | Description                            |
 | -------- | ------------------------------------------ | -------------------------------------- |
 | Mode     | `session.getPermissionMode()`              | Current permission mode                |
-| Model    | `config.provider.model`                    | Active AI model name                   |
-| Context  | `session.getContextState().usedPercentage` | Context window usage with color coding |
+| Model    | `getModelName(config.provider.model)`      | Human-readable model name (e.g., "Claude Sonnet 4.6") |
+| Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M") |
 | msgs     | message count                              | Number of messages in conversation     |
 | Thinking | isThinking state                           | Shown during `session.run()` execution |
 
@@ -107,7 +107,7 @@ Tool: [5 tools]
 | `/help`                   | Show available commands     |
 | `/clear`                  | Clear conversation history  |
 | `/mode [mode]`            | Show/change permission mode |
-| `/model [model]`          | Select AI model             |
+| `/model [model]`          | Select AI model (shows confirmation prompt, restarts session) |
 | `/compact [instructions]` | Compress context window     |
 | `/cost`                   | Show session info           |
 | `/context`                | Context window info         |
@@ -143,6 +143,42 @@ Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu when s
 **Visual Grouping:**
 
 Commands are grouped by source with separators: built-in commands appear first, followed by discovered skill commands.
+
+### `/model` — Model Change Flow
+
+The `/model` command lists available models as subcommands with the format `Claude Opus 4.6 (1M)`. Model definitions come from the `CLAUDE_MODELS` registry in `@robota-sdk/agent-core`.
+
+**Subcommand display:**
+
+```
+> /model
++-------------------------------------+
+|   Claude Opus 4.6 (1M)             |
+|   Claude Sonnet 4.6 (1M)           |
+|   Claude Haiku 4.5 (200K)          |
++-------------------------------------+
+```
+
+**Model change flow:**
+
+1. User selects a model from the subcommand list
+2. A `ConfirmPrompt` appears: "Change model to Claude Opus 4.6? The CLI will restart."
+3. If confirmed (Yes / `y`): settings are written to `~/.robota/settings.json` and the CLI exits (user restarts manually)
+4. If cancelled (No / `n`): returns to normal input
+
+### ConfirmPrompt Component
+
+A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). Used by `/model` change and available for other yes/no confirmations.
+
+**Props:**
+
+| Prop      | Type                     | Default          | Description                  |
+| --------- | ------------------------ | ---------------- | ---------------------------- |
+| `message` | `string`                 | —                | Message above the options    |
+| `options` | `string[]`               | `['Yes', 'No']`  | Options to select from       |
+| `onSelect`| `(index: number) => void`| —                | Callback with selected index |
+
+**Interaction:** Arrow keys to navigate, Enter to confirm. For 2-option prompts, `y` selects the first option, `n` selects the second.
 
 ## Command Registry Architecture
 
@@ -231,6 +267,7 @@ src/
     ├── PermissionPrompt.tsx         ← Allow/Deny arrow-key selection (useInput)
     ├── SlashAutocomplete.tsx        ← Command autocomplete popup (scroll, highlight)
     ├── CjkTextInput.tsx             ← Custom text input with Korean IME support
+    ├── ConfirmPrompt.tsx            ← Reusable arrow-key confirmation prompt
     ├── WaveText.tsx                 ← Wave color animation for waiting indicator
     ├── render-markdown.ts           ← Markdown rendering for terminal output
     ├── InkTerminal.ts               ← No-op ITerminalOutput

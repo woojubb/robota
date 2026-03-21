@@ -1,4 +1,22 @@
+import { CLAUDE_MODELS, formatTokenCount } from '@robota-sdk/agent-core';
 import type { ICommandSource, ISlashCommand } from './types.js';
+
+/** Build model subcommands dynamically from CLAUDE_MODELS */
+function buildModelSubcommands(): ISlashCommand[] {
+  const seen = new Set<string>();
+  const commands: ISlashCommand[] = [];
+  for (const model of Object.values(CLAUDE_MODELS)) {
+    // Skip date-suffixed duplicates (e.g., claude-haiku-4-5-20251001)
+    if (seen.has(model.name)) continue;
+    seen.add(model.name);
+    commands.push({
+      name: model.id,
+      description: `${model.name} (${formatTokenCount(model.contextWindow).toUpperCase()})`,
+      source: 'builtin',
+    });
+  }
+  return commands;
+}
 
 /** Built-in commands for the CLI. Execute callbacks are wired externally (App.tsx). */
 function createBuiltinCommands(): ISlashCommand[] {
@@ -20,11 +38,7 @@ function createBuiltinCommands(): ISlashCommand[] {
       name: 'model',
       description: 'Select AI model',
       source: 'builtin',
-      subcommands: [
-        { name: 'claude-opus-4-6', description: 'Opus 4.6 (highest quality)', source: 'builtin' },
-        { name: 'claude-sonnet-4-6', description: 'Sonnet 4.6 (balanced)', source: 'builtin' },
-        { name: 'claude-haiku-4-5', description: 'Haiku 4.5 (fastest)', source: 'builtin' },
-      ],
+      subcommands: buildModelSubcommands(),
     },
     { name: 'compact', description: 'Compress context window', source: 'builtin' },
     { name: 'cost', description: 'Show session info', source: 'builtin' },

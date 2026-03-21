@@ -19,6 +19,7 @@ robota -r <session-id>              # Resume specific session
 robota --model claude-opus-4-6      # Model override
 robota --permission-mode plan       # Permission mode override
 robota --max-turns 10               # Limit agentic turns
+robota --reset                      # Delete user settings and exit
 robota --version                    # Show version
 ```
 
@@ -49,6 +50,12 @@ Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Enter to sel
 | `/exit`                   | Exit CLI                       |
 
 `/mode` and `/model` show nested submenus for selection.
+
+### Model Change (`/model`)
+
+Select a model from the submenu (e.g., `Claude Opus 4.6 (1M)`). A confirmation prompt appears warning that the CLI will restart. If confirmed, the new model is saved to `~/.robota/settings.json` and the CLI exits.
+
+Model definitions come from the `CLAUDE_MODELS` registry in `@robota-sdk/agent-core`, which is the single source of truth for model IDs, names, and context window sizes.
 
 ### Skill Commands
 
@@ -84,6 +91,10 @@ Auto-compaction triggers at ~83.5% of the model's context window. Use `/compact`
 ## Session Logging
 
 Events are logged to `.robota/logs/{sessionId}.jsonl` in JSONL format. Events include `session_init`, `pre_run`, `assistant`, `server_tool`, and `context`.
+
+## First-Run Setup
+
+When no settings file exists, the CLI prompts for an Anthropic API key (input is masked with asterisks) and creates `~/.robota/settings.json` with a minimal config. Use `robota --reset` to delete the settings file and return to the first-run state.
 
 ## Configuration
 

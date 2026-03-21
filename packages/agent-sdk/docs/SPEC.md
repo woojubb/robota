@@ -149,7 +149,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Usage state**: `session.getContextState()` returns `IContextWindowState` (usedTokens, maxTokens, usedPercentage)
 - **Auto-compaction**: Triggers at ~83.5% of model context window (configurable per model)
 - **Manual compaction**: `session.compact(instructions?)` generates LLM summary, replaces history
-- **Model sizes**: Lookup table per model (200k for Sonnet/Haiku, 1M for Opus)
+- **Model sizes**: Lookup table per model (200K for Sonnet/Haiku, 1M for Opus)
 - **Compact Instructions**: Extracted from CLAUDE.md "Compact Instructions" section, passed to summary prompt
 - **Hooks**: PreCompact/PostCompact events in agent-core, fired before/after compaction
 - **Callbacks**: `onCompact` in query() options for notification when compaction occurs

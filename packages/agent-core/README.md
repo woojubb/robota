@@ -39,6 +39,7 @@ console.log(response);
 - **Plugin system**: `AbstractPlugin` base class with lifecycle hooks (beforeRun, afterRun, onError, etc.)
 - **Event services**: Unified event emission with owner path tracking
 - **Error hierarchy**: Typed errors extending `RobotaError` (ProviderError, RateLimitError, etc.)
+- **Model definitions**: Central `CLAUDE_MODELS` registry with context windows, output limits, and human-readable names
 - **Type safety**: Strict TypeScript, zero `any` in production code
 
 ## Robota API
@@ -92,6 +93,7 @@ agent-cli         ← Terminal UI
 | **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `TPermissionMode`, `TToolArgs`                                   |
 | **Hooks**       | `runHooks`, `THookEvent` (PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop)                        |
 | **Events**      | `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, `EventEmitterPlugin`                          |
+| **Models**      | `CLAUDE_MODELS`, `getModelContextWindow()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`                 |
 | **Types**       | `TUniversalMessage`, `IAgentConfig`, `IAIProvider`, `IToolSchema`, `IContextWindowState`                               |
 | **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                    |
 

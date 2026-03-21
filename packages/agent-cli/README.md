@@ -75,8 +75,13 @@ robota -r <session-id>              # Resume session by ID
 robota --model <model>              # Model override (e.g., claude-sonnet-4-6)
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>              # Limit agentic turns per interaction
+robota --reset                      # Delete user settings and exit
 robota --version                    # Show version
 ```
+
+## First-Run Setup
+
+When no settings file exists, the CLI prompts for an Anthropic API key (input masked with asterisks) and creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state.
 
 ## Built-in Tools
 
@@ -177,9 +182,11 @@ Configure in `.robota/settings.json` or `.robota/settings.local.json`:
 | `/help`        | Show help                       |
 | `/clear`       | Clear conversation history      |
 | `/mode [mode]` | Show or change permission mode  |
-| `/resume`      | List and resume a saved session |
-| `/cost`        | Show token usage                |
-| `/model`       | Show current model              |
+| `/model [model]`| Select AI model (confirmation + restart) |
+| `/compact [instructions]` | Compress context window  |
+| `/cost`        | Show session info               |
+| `/context`     | Context window details          |
+| `/permissions` | Show permission rules           |
 | `/exit`        | Exit CLI                        |
 
 ## Configuration

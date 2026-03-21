@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
+import { existsSync, unlinkSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { createSession, FileSessionLogger, projectPaths } from '@robota-sdk/agent-sdk';
 import type { Session } from '@robota-sdk/agent-sdk';
 import type {
@@ -9,6 +11,7 @@ import type {
   SessionStore,
 } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
+import { getModelName } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, ISpinner } from '../types.js';
 import type { IChatMessage, IPermissionRequest, TPermissionResult } from './types.js';
 import { CommandRegistry } from '../commands/command-registry.js';
@@ -17,6 +20,7 @@ import { SkillCommandSource } from '../commands/skill-source.js';
 import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
 import InputArea from './InputArea.js';
+import ConfirmPrompt from './ConfirmPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import { renderMarkdown } from './render-markdown.js';
 
@@ -179,6 +183,8 @@ async function executeSlashCommand(
   setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
   exit: () => void,
   registry: CommandRegistry,
+  pendingModelChangeRef: React.MutableRefObject<string | null>,
+  setPendingModelId: React.Dispatch<React.SetStateAction<string | null>>,
 ): Promise<boolean> {
   switch (cmd) {
     case 'help':
@@ -203,6 +209,16 @@ async function executeSlashCommand(
     }
     case 'mode':
       return handleModeCommand(parts[1], session, addMessage);
+    case 'model': {
+      const modelId = parts[1];
+      if (!modelId) {
+        addMessage({ role: 'system', content: 'Select a model from the /model submenu.' });
+        return true;
+      }
+      pendingModelChangeRef.current = modelId;
+      setPendingModelId(modelId);
+      return true;
+    }
     case 'cost':
       addMessage({
         role: 'system',
@@ -230,11 +246,10 @@ async function executeSlashCommand(
       return true;
     }
     case 'reset': {
-      const { existsSync: exists, unlinkSync: unlink } = await import('node:fs');
       const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
       const settingsPath = `${home}/.robota/settings.json`;
-      if (exists(settingsPath)) {
-        unlink(settingsPath);
+      if (existsSync(settingsPath)) {
+        unlinkSync(settingsPath);
         addMessage({ role: 'system', content: `Deleted ${settingsPath}. Exiting...` });
       } else {
         addMessage({ role: 'system', content: 'No user settings found.' });
@@ -264,14 +279,16 @@ function useSlashCommands(
   setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
   exit: () => void,
   registry: CommandRegistry,
+  pendingModelChangeRef: React.MutableRefObject<string | null>,
+  setPendingModelId: React.Dispatch<React.SetStateAction<string | null>>,
 ): (input: string) => Promise<boolean> {
   return useCallback(
     async (input: string): Promise<boolean> => {
       const parts = input.slice(1).split(/\s+/);
       const cmd = parts[0]?.toLowerCase() ?? '';
-      return executeSlashCommand(cmd, parts, session, addMessage, setMessages, exit, registry);
+      return executeSlashCommand(cmd, parts, session, addMessage, setMessages, exit, registry, pendingModelChangeRef, setPendingModelId);
     },
-    [session, addMessage, setMessages, exit, registry],
+    [session, addMessage, setMessages, exit, registry, pendingModelChangeRef, setPendingModelId],
   );
 }
 
@@ -439,8 +456,10 @@ export default function App(props: IProps): React.ReactElement {
   const [isThinking, setIsThinking] = useState(false);
   const [contextPercentage, setContextPercentage] = useState(0);
   const registry = useCommandRegistry(props.cwd ?? process.cwd());
+  const pendingModelChangeRef = useRef<string | null>(null);
+  const [pendingModelId, setPendingModelId] = useState<string | null>(null);
 
-  const handleSlashCommand = useSlashCommands(session, addMessage, setMessages, exit, registry);
+  const handleSlashCommand = useSlashCommands(session, addMessage, setMessages, exit, registry, pendingModelChangeRef, setPendingModelId);
   const handleSubmit = useSubmitHandler(
     session,
     addMessage,
@@ -480,9 +499,39 @@ export default function App(props: IProps): React.ReactElement {
         )}
       </Box>
       {permissionRequest && <PermissionPrompt request={permissionRequest} />}
+      {pendingModelId && (
+        <ConfirmPrompt
+          message={`Change model to ${getModelName(pendingModelId)}? This will restart the session.`}
+          onSelect={(index) => {
+            setPendingModelId(null);
+            pendingModelChangeRef.current = null;
+            if (index === 0) {
+              try {
+                const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
+                const settingsPath = join(home, '.robota', 'settings.json');
+                let settings: Record<string, unknown> = {};
+                if (existsSync(settingsPath)) {
+                  settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as Record<string, unknown>;
+                }
+                const provider = (settings.provider ?? {}) as Record<string, unknown>;
+                provider.model = pendingModelId;
+                settings.provider = provider;
+                mkdirSync(join(home, '.robota'), { recursive: true });
+                writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+                addMessage({ role: 'system', content: `Model changed to ${getModelName(pendingModelId)}. Restarting...` });
+                setTimeout(() => exit(), 500);
+              } catch (err) {
+                addMessage({ role: 'system', content: `Failed: ${err instanceof Error ? err.message : String(err)}` });
+              }
+            } else {
+              addMessage({ role: 'system', content: 'Model change cancelled.' });
+            }
+          }}
+        />
+      )}
       <StatusBar
         permissionMode={session.getPermissionMode()}
-        modelName={props.config.provider.model}
+        modelName={getModelName(props.config.provider.model)}
         sessionId={session.getSessionId()}
         messageCount={messages.length}
         isThinking={isThinking}
