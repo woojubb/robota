@@ -32,6 +32,21 @@ import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
 import { PrintTerminal } from './print-terminal.js';
 import { renderApp } from './ui/render.js';
 
+/** Check if a settings file exists and contains valid JSON with provider info. */
+function hasValidSettingsFile(filePath: string): boolean {
+  if (!existsSync(filePath)) return false;
+  try {
+    const raw = readFileSync(filePath, 'utf8').trim();
+    if (raw.length === 0) return false;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    // Must have provider.apiKey to be considered valid
+    const provider = parsed.provider as Record<string, unknown> | undefined;
+    return !!provider?.apiKey;
+  } catch {
+    return false; // Corrupt JSON
+  }
+}
+
 /** Read version from package.json at runtime. */
 function readVersion(): string {
   try {
@@ -65,7 +80,7 @@ async function ensureConfig(cwd: string): Promise<void> {
   const projectPath = join(cwd, '.robota', 'settings.json');
   const localPath = join(cwd, '.robota', 'settings.local.json');
 
-  if (existsSync(userPath) || existsSync(projectPath) || existsSync(localPath)) {
+  if (hasValidSettingsFile(userPath) || hasValidSettingsFile(projectPath) || hasValidSettingsFile(localPath)) {
     return; // Config exists
   }
 

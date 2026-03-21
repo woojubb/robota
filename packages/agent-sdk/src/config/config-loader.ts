@@ -41,8 +41,17 @@ function readJsonFile(filePath: string): unknown {
   if (!existsSync(filePath)) {
     return undefined;
   }
-  const raw = readFileSync(filePath, 'utf-8');
-  return JSON.parse(raw) as unknown;
+  const raw = readFileSync(filePath, 'utf-8').trim();
+  if (raw.length === 0) {
+    // Empty file — likely from a crash during write. Treat as missing.
+    return undefined;
+  }
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    // Corrupt JSON — likely from a crash during write. Treat as missing.
+    return undefined;
+  }
 }
 
 /**
