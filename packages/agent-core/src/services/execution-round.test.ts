@@ -36,6 +36,7 @@ describe('execution-round helpers', () => {
         runningAssistantCount: 0,
         toolsExecuted: [],
         lastTrackedAssistantMessage: undefined,
+        cumulativeInputTokens: 0,
       });
       expect(result.thinkingNodeId).toBe('thinking_conv-1_round1');
       expect(result.previousThinkingNodeId).toBeUndefined();
@@ -46,6 +47,7 @@ describe('execution-round helpers', () => {
         currentRound: 2,
         runningAssistantCount: 1,
         toolsExecuted: ['search'],
+        cumulativeInputTokens: 0,
         lastTrackedAssistantMessage: {
           role: 'assistant',
           content: '',
@@ -299,8 +301,12 @@ describe('execution-round helpers', () => {
       expect(session.addToolMessageWithId.mock.calls[0][0]).toBe(largeContent);
 
       // Second and third calls: overflow skip message
-      expect(session.addToolMessageWithId.mock.calls[1][0]).toContain('Context window near capacity');
-      expect(session.addToolMessageWithId.mock.calls[2][0]).toContain('Context window near capacity');
+      expect(session.addToolMessageWithId.mock.calls[1][0]).toContain(
+        'Context window near capacity',
+      );
+      expect(session.addToolMessageWithId.mock.calls[2][0]).toContain(
+        'Context window near capacity',
+      );
     });
 
     it('does not skip when context budget has enough room', () => {
@@ -365,7 +371,9 @@ describe('execution-round helpers', () => {
       // tc-1 added normally, then overflow triggers → tc-2 skipped
       expect(session.addToolMessageWithId).toHaveBeenCalledTimes(2);
       expect(session.addToolMessageWithId.mock.calls[0][0]).toBe('tiny');
-      expect(session.addToolMessageWithId.mock.calls[1][0]).toContain('Context window near capacity');
+      expect(session.addToolMessageWithId.mock.calls[1][0]).toContain(
+        'Context window near capacity',
+      );
     });
 
     it('skipped tool results have context_overflow error metadata', () => {
@@ -385,23 +393,27 @@ describe('execution-round helpers', () => {
       const messages: Array<{ role: string; content: string }> = [];
       const session = {
         getMessages: () => messages,
-        addToolMessageWithId: vi.fn((content: string) => {
-          messages.push({ role: 'tool', content });
-        }),
+        addToolMessageWithId: vi.fn(
+          (content: string, _id: string, _name: string, _metadata?: Record<string, unknown>) => {
+            messages.push({ role: 'tool', content });
+          },
+        ),
       };
 
-      addToolResultsToHistory(
-        toolCalls, toolSummary, session as any, 1, logger,
-        { contextLimit: 1000, cumulativeInputTokens: 0 },
-      );
+      addToolResultsToHistory(toolCalls, toolSummary, session as any, 1, logger, {
+        contextLimit: 1000,
+        cumulativeInputTokens: 0,
+      });
 
       // Second call (skipped) should have context_overflow metadata
       const skippedCall = session.addToolMessageWithId.mock.calls[1];
-      expect(skippedCall[3]).toEqual(expect.objectContaining({
-        success: false,
-        error: 'context_overflow',
-        toolName: 'Bash',
-      }));
+      expect(skippedCall[3]).toEqual(
+        expect.objectContaining({
+          success: false,
+          error: 'context_overflow',
+          toolName: 'Bash',
+        }),
+      );
     });
 
     it('returns outcome with contextOverflowed=false when no overflow', () => {
@@ -446,10 +458,10 @@ describe('execution-round helpers', () => {
         }),
       };
 
-      const outcome = addToolResultsToHistory(
-        toolCalls, toolSummary, session as any, 1, logger,
-        { contextLimit: 1000, cumulativeInputTokens: 0 },
-      );
+      const outcome = addToolResultsToHistory(toolCalls, toolSummary, session as any, 1, logger, {
+        contextLimit: 1000,
+        cumulativeInputTokens: 0,
+      });
 
       expect(outcome.contextOverflowed).toBe(true);
       expect(outcome.addedCount).toBe(1);
@@ -481,10 +493,10 @@ describe('execution-round helpers', () => {
         }),
       };
 
-      addToolResultsToHistory(
-        toolCalls, toolSummary, session as any, 1, logger,
-        { contextLimit: 1000, cumulativeInputTokens: 0 },
-      );
+      addToolResultsToHistory(toolCalls, toolSummary, session as any, 1, logger, {
+        contextLimit: 1000,
+        cumulativeInputTokens: 0,
+      });
 
       // All 3 tool results are in history (normal + error messages)
       expect(session.addToolMessageWithId).toHaveBeenCalledTimes(3);
@@ -527,10 +539,10 @@ describe('execution-round helpers', () => {
         }),
       };
 
-      const outcome = addToolResultsToHistory(
-        toolCalls, toolSummary, session as any, 1, logger,
-        { contextLimit: 1000, cumulativeInputTokens: 0 },
-      );
+      const outcome = addToolResultsToHistory(toolCalls, toolSummary, session as any, 1, logger, {
+        contextLimit: 1000,
+        cumulativeInputTokens: 0,
+      });
 
       // Overflow detected but all tool_result messages are in history
       expect(outcome.contextOverflowed).toBe(true);

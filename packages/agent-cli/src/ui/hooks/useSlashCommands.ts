@@ -2,19 +2,18 @@
  * Hook: handle slash commands via the extracted slash-executor module.
  */
 
-import { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import type { Session } from '@robota-sdk/agent-sdk';
 import type { IChatMessage } from '../types.js';
 import type { CommandRegistry } from '../../commands/command-registry.js';
 import { executeSlashCommand as execSlash } from '../../commands/slash-executor.js';
-
-type TAddMessage = (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
+import type { TAddMessage } from '../../commands/slash-executor.js';
 
 const EXIT_DELAY_MS = 500;
 
 export function useSlashCommands(
   session: Session,
-  addMessage: TAddMessage,
+  addMessage: (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void,
   setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
   exit: () => void,
   registry: CommandRegistry,
@@ -27,7 +26,14 @@ export function useSlashCommands(
       const cmd = parts[0]?.toLowerCase() ?? '';
       const args = parts.slice(1).join(' ');
       const clearMessages = () => setMessages([]);
-      const result = await execSlash(cmd, args, session, addMessage, clearMessages, registry);
+      const result = await execSlash(
+        cmd,
+        args,
+        session,
+        addMessage as TAddMessage,
+        clearMessages,
+        registry,
+      );
       if (result.pendingModelId) {
         pendingModelChangeRef.current = result.pendingModelId;
         setPendingModelId(result.pendingModelId);
