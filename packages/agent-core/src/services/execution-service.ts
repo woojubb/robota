@@ -268,7 +268,18 @@ export class ExecutionService {
       return result;
     } catch (error) {
       await this.handleExecutionError(error, fullContext, startTime, conversationId, executionId);
-      throw error;
+      // Return a graceful result instead of throwing — prevents "No response received"
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const duration = Date.now() - startTime.getTime();
+      return {
+        response: `Error: ${errMsg}. Try /compact to reduce context size, or start a new session.`,
+        messages: [],
+        tokensUsed: 0,
+        toolsExecuted: [],
+        duration,
+        executionId,
+        success: false,
+      };
     } finally {
       this.eventEmitter.resetOwnerPathBases();
     }
