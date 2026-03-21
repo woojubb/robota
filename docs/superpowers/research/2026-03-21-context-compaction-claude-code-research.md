@@ -98,8 +98,14 @@ context_management: {
 - 개선: assistant 메시지로 주입하여 히스토리 교체 (Claude Code 방식)
 - Robota에 `addAssistantMessage()` 메서드 필요
 
-### Phase 4: Server-side Compaction API 활용 (선택)
+### Phase 4: Server-side Compaction API 활용 (보류)
 
 - `compact-2026-01-12` beta header 사용
 - `context_management.edits` 파라미터로 서버에 위임
-- 클라이언트 compaction 로직 제거 가능
+- **주의: 클라이언트 히스토리와 불일치 문제**
+  - 서버가 압축한 히스토리와 Session이 가진 히스토리가 달라짐
+  - ContextWindowTracker, SessionStore가 서버 상태를 모름
+  - 도구 호출 기록 등이 서버에 의해 드롭될 수 있음
+  - 적용하려면 히스토리 관리를 서버에 완전 위임하는 아키텍처 전환 필요
+- 공식 문서: https://platform.claude.com/docs/en/build-with-claude/compaction
+- 지원 모델: claude-opus-4-6, claude-sonnet-4-6 (beta)

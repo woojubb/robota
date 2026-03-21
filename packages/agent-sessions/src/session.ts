@@ -197,14 +197,22 @@ export class Session {
    * Send a message to the agent and return the response.
    */
   async run(message: string): Promise<string> {
-    // Prepend compaction summary to the user message if pending
-    let effectiveMessage = message;
-    if (this.pendingCompactSummary) {
-      effectiveMessage = `[Context Summary from previous conversation]\n${this.pendingCompactSummary}\n\n---\n\n${message}`;
-      this.pendingCompactSummary = null;
+    // Auto-compact BEFORE processing the new message (not after).
+    // This prevents compaction from interfering with the current response stream.
+    this.contextTracker.updateFromHistory(this.robota.getHistory());
+    if (this.contextTracker.shouldAutoCompact()) {
+      // Temporarily disable onTextDelta to prevent summary text from streaming to UI
+      const provider = this.aiProvider as { onTextDelta?: unknown };
+      const savedDelta = provider.onTextDelta;
+      provider.onTextDelta = undefined;
+      try {
+        await this.compact();
+      } finally {
+        provider.onTextDelta = savedDelta;
+      }
     }
 
-    this.log('user', { content: effectiveMessage });
+    this.log('user', { content: message });
 
     const history = this.robota.getHistory();
     const historyJson = JSON.stringify(history);
@@ -233,7 +241,7 @@ export class Session {
         }
         const onAbort = (): void => reject(new DOMException('Aborted', 'AbortError'));
         signal.addEventListener('abort', onAbort, { once: true });
-        this.robota.run(effectiveMessage).then(
+        this.robota.run(message).then(
           (result) => {
             signal.removeEventListener('abort', onAbort);
             resolve(result);
@@ -291,10 +299,8 @@ export class Session {
       remainingPercentage: ctxState.remainingPercentage,
     });
 
-    // Auto-compact if threshold exceeded
-    if (this.contextTracker.shouldAutoCompact()) {
-      await this.compact();
-    }
+    // Auto-compact moved to the start of run() — compaction now happens
+    // before the next message is processed, not after the current one.
 
     if (this.sessionStore) {
       this.persistSession();
@@ -395,14 +401,14 @@ export class Session {
       instructions,
     );
 
-    // Clear history and store summary for next run() call.
-    // Do NOT call robota.run() here — it would trigger a new execution round
-    // with streaming, causing mid-conversation interference and language switching.
+    // Clear history and inject summary as assistant message (Claude Code approach).
+    // Do NOT call robota.run() — it would trigger streaming mid-session.
     this.robota.clearHistory();
-    this.pendingCompactSummary = summary;
+    this.robota.injectMessage('assistant', `[Context Summary]\n${summary}`);
+    this.pendingCompactSummary = null;
 
-    // Reset token tracking
-    this.contextTracker.reset();
+    // Reset token tracking based on the new shorter history
+    this.contextTracker.updateFromHistory(this.robota.getHistory());
 
     // Fire PostCompact hook after history replacement is complete
     const postHookInput: IHookInput = {
