@@ -12,8 +12,8 @@
  */
 
 import React, { useRef, useState } from 'react';
-import { Text, useInput, useCursor } from 'ink';
-import stringWidth from 'string-width';
+import { Text, useInput } from 'ink';
+// string-width import removed — no longer needed without setCursorPosition
 import chalk from 'chalk';
 
 interface IProps {
@@ -40,10 +40,7 @@ export default function CjkTextInput({
   const cursorRef = useRef(value.length);
   const [, forceRender] = useState(0);
 
-  // Provide cursor position to Ink for IME candidate window placement.
-  // This prevents Terminal.app SIGSEGV when Korean IME queries attributedSubstringFromRange:
-  // without a valid cursor position, Terminal.app dereferences null → crash.
-  const { setCursorPosition } = useCursor();
+  // useCursor removed — see comment below about Terminal.app SIGSEGV
 
   // Sync ref when value changes from parent (e.g., setValue(''))
   if (value !== valueRef.current) {
@@ -120,18 +117,14 @@ export default function CjkTextInput({
     { isActive: focus },
   );
 
-  // Calculate display-width cursor position for IME.
-  // x offset accounts for prompt prefix ("│ > ") in InputArea — border(1) + padding(1) + "> "(2) = 4 cols.
-  if (showCursor && focus) {
-    try {
-      const textBeforeCursor = [...valueRef.current].slice(0, cursorRef.current).join('');
-      const cursorX = 4 + stringWidth(textBeforeCursor);
-      setCursorPosition({ x: cursorX, y: 0 });
-    } catch {
-      // Fallback: position at end of visible text if string-width fails on IME bytes
-      setCursorPosition({ x: 4, y: 0 });
-    }
-  }
+  // Do NOT call setCursorPosition() — passing y:0 moves the real terminal cursor
+  // to the top of the entire ink output (logo area), which causes Terminal.app to
+  // SIGSEGV when Korean IME queries attributedSubstringFromRange: at that position.
+  // Without setCursorPosition, the IME candidate window appears at bottom-left
+  // (same behavior as Claude Code, issue #19207), but Terminal.app does not crash.
+  //
+  // A correct fix would require knowing the total rendered height to pass the right
+  // y coordinate, which ink does not expose to components.
 
   return (
     <Text>
