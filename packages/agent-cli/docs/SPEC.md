@@ -249,14 +249,20 @@ When a skill slash command is selected, the full SKILL.md content is injected in
 ```
 src/
 ├── bin.ts                           ← Binary entry point
-├── cli.ts                           ← CLI argument parsing, Ink render invocation
+├── cli.ts                           ← Config loading, Ink render invocation
+├── print-terminal.ts                ← ITerminalOutput for print mode (-p)
 ├── types.ts                         ← ITerminalOutput, ISpinner
 ├── index.ts                         ← Re-exports
 ├── commands/
 │   ├── types.ts                     ← ISlashCommand, ICommandSource interfaces
 │   ├── builtin-source.ts            ← BuiltinCommandSource (9 commands + subcommands)
 │   ├── skill-source.ts              ← SkillCommandSource (discovers from .agents/skills/)
-│   └── command-registry.ts          ← CommandRegistry (aggregates multiple sources)
+│   ├── command-registry.ts          ← CommandRegistry (aggregates multiple sources)
+│   └── slash-executor.ts            ← Slash command handlers (pure functions, no React)
+├── utils/
+│   ├── cli-args.ts                  ← CLI argument parsing and validation
+│   ├── settings-io.ts               ← Settings file read/write/update/delete
+│   └── tool-call-extractor.ts       ← Tool call display extraction from history
 ├── permissions/                      ← (empty — prompt imported from @robota-sdk/agent-sdk)
 └── ui/
     ├── App.tsx                      ← Main layout, Session creation, state management

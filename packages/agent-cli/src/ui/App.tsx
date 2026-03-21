@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import { existsSync, unlinkSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { getUserSettingsPath, updateModelInSettings } from '../utils/settings-io.js';
+import { executeSlashCommand as execSlash } from '../commands/slash-executor.js';
 import { createSession, FileSessionLogger, projectPaths } from '@robota-sdk/agent-sdk';
 import type { Session } from '@robota-sdk/agent-sdk';
 import type {
@@ -23,6 +23,7 @@ import InputArea from './InputArea.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import { renderMarkdown } from './render-markdown.js';
+import { extractToolCalls } from '../utils/tool-call-extractor.js';
 
 interface IProps {
   config: IResolvedConfig;
@@ -145,134 +146,9 @@ function useMessages(): {
 
 type TAddMessage = (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
 
-const HELP_TEXT = [
-  'Available commands:',
-  '  /help              — Show this help',
-  '  /clear             — Clear conversation',
-  '  /compact [instr]   — Compact context (optional focus instructions)',
-  '  /mode [m]          — Show/change permission mode',
-  '  /cost              — Show session info',
-  '  /reset             — Delete settings and exit',
-  '  /exit              — Exit CLI',
-].join('\n');
+const EXIT_DELAY_MS = 500;
 
-/** Handle the /mode slash command. */
-function handleModeCommand(
-  arg: string | undefined,
-  session: Session,
-  addMessage: TAddMessage,
-): boolean {
-  const validModes: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
-  if (!arg) {
-    addMessage({ role: 'system', content: `Current mode: ${session.getPermissionMode()}` });
-  } else if (validModes.includes(arg as TPermissionMode)) {
-    session.setPermissionMode(arg as TPermissionMode);
-    addMessage({ role: 'system', content: `Permission mode set to: ${arg}` });
-  } else {
-    addMessage({ role: 'system', content: `Invalid mode. Valid: ${validModes.join(' | ')}` });
-  }
-  return true;
-}
-
-/** Execute a parsed slash command. Returns true if handled. */
-async function executeSlashCommand(
-  cmd: string,
-  parts: string[],
-  session: Session,
-  addMessage: TAddMessage,
-  setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
-  exit: () => void,
-  registry: CommandRegistry,
-  pendingModelChangeRef: React.MutableRefObject<string | null>,
-  setPendingModelId: React.Dispatch<React.SetStateAction<string | null>>,
-): Promise<boolean> {
-  switch (cmd) {
-    case 'help':
-      addMessage({ role: 'system', content: HELP_TEXT });
-      return true;
-    case 'clear':
-      setMessages([]);
-      session.clearHistory();
-      addMessage({ role: 'system', content: 'Conversation cleared.' });
-      return true;
-    case 'compact': {
-      const instructions = parts.slice(1).join(' ').trim() || undefined;
-      const before = session.getContextState().usedPercentage;
-      addMessage({ role: 'system', content: 'Compacting context...' });
-      await session.compact(instructions);
-      const after = session.getContextState().usedPercentage;
-      addMessage({
-        role: 'system',
-        content: `Context compacted: ${Math.round(before)}% -> ${Math.round(after)}%`,
-      });
-      return true;
-    }
-    case 'mode':
-      return handleModeCommand(parts[1], session, addMessage);
-    case 'model': {
-      const modelId = parts[1];
-      if (!modelId) {
-        addMessage({ role: 'system', content: 'Select a model from the /model submenu.' });
-        return true;
-      }
-      pendingModelChangeRef.current = modelId;
-      setPendingModelId(modelId);
-      return true;
-    }
-    case 'cost':
-      addMessage({
-        role: 'system',
-        content: `Session: ${session.getSessionId()}\nMessages: ${session.getMessageCount()}`,
-      });
-      return true;
-    case 'permissions': {
-      const mode = session.getPermissionMode();
-      const sessionAllowed = session.getSessionAllowedTools();
-      const lines = [`Permission mode: ${mode}`];
-      if (sessionAllowed.length > 0) {
-        lines.push(`Session-approved tools: ${sessionAllowed.join(', ')}`);
-      } else {
-        lines.push('No session-approved tools.');
-      }
-      addMessage({ role: 'system', content: lines.join('\n') });
-      return true;
-    }
-    case 'context': {
-      const ctx = session.getContextState();
-      addMessage({
-        role: 'system',
-        content: `Context: ${ctx.usedTokens.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens (${Math.round(ctx.usedPercentage)}%)`,
-      });
-      return true;
-    }
-    case 'reset': {
-      const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
-      const settingsPath = `${home}/.robota/settings.json`;
-      if (existsSync(settingsPath)) {
-        unlinkSync(settingsPath);
-        addMessage({ role: 'system', content: `Deleted ${settingsPath}. Exiting...` });
-      } else {
-        addMessage({ role: 'system', content: 'No user settings found.' });
-      }
-      setTimeout(() => exit(), 500);
-      return true;
-    }
-    case 'exit':
-      exit();
-      return true;
-    default: {
-      const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
-      if (skillCmd) {
-        addMessage({ role: 'system', content: `Invoking skill: ${cmd}` });
-        return false; // Signal caller to run as session prompt
-      }
-      addMessage({ role: 'system', content: `Unknown command "/${cmd}". Type /help for help.` });
-      return true;
-    }
-  }
-}
-
-/** Hook: handle slash commands. Returns an async handler function. */
+/** Hook: handle slash commands via the extracted slash-executor module. */
 function useSlashCommands(
   session: Session,
   addMessage: TAddMessage,
@@ -286,7 +162,17 @@ function useSlashCommands(
     async (input: string): Promise<boolean> => {
       const parts = input.slice(1).split(/\s+/);
       const cmd = parts[0]?.toLowerCase() ?? '';
-      return executeSlashCommand(cmd, parts, session, addMessage, setMessages, exit, registry, pendingModelChangeRef, setPendingModelId);
+      const args = parts.slice(1).join(' ');
+      const clearMessages = () => setMessages([]);
+      const result = await execSlash(cmd, args, session, addMessage, clearMessages, registry);
+      if (result.pendingModelId) {
+        pendingModelChangeRef.current = result.pendingModelId;
+        setPendingModelId(result.pendingModelId);
+      }
+      if (result.exitRequested) {
+        setTimeout(() => exit(), EXIT_DELAY_MS);
+      }
+      return result.handled;
     },
     [session, addMessage, setMessages, exit, registry, pendingModelChangeRef, setPendingModelId],
   );
@@ -331,24 +217,10 @@ async function runSessionPrompt(
 
     // Extract tool calls from session history — group into one message
     const history = session.getHistory();
-    const toolLines: string[] = [];
-    for (let i = historyBefore; i < history.length; i++) {
-      const msg = history[i] as { role: string; toolCalls?: Array<{ function: { name: string; arguments: string } }> };
-      if (msg.role === 'assistant' && msg.toolCalls) {
-        for (const tc of msg.toolCalls) {
-          let value = '';
-          try {
-            const parsed = JSON.parse(tc.function.arguments);
-            const firstVal = Object.values(parsed)[0];
-            value = typeof firstVal === 'string' ? firstVal : JSON.stringify(firstVal);
-          } catch {
-            value = tc.function.arguments;
-          }
-          const truncated = value.length > 80 ? value.slice(0, 77) + '...' : value;
-          toolLines.push(`${tc.function.name}(${truncated})`);
-        }
-      }
-    }
+    const toolLines = extractToolCalls(
+      history as Array<{ role: string; toolCalls?: Array<{ function: { name: string; arguments: string } }> }>,
+      historyBefore,
+    );
     if (toolLines.length > 0) {
       addMessage({ role: 'tool', content: toolLines.join('\n'), toolName: `${toolLines.length} tools` });
     }
@@ -507,17 +379,8 @@ export default function App(props: IProps): React.ReactElement {
             pendingModelChangeRef.current = null;
             if (index === 0) {
               try {
-                const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
-                const settingsPath = join(home, '.robota', 'settings.json');
-                let settings: Record<string, unknown> = {};
-                if (existsSync(settingsPath)) {
-                  settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as Record<string, unknown>;
-                }
-                const provider = (settings.provider ?? {}) as Record<string, unknown>;
-                provider.model = pendingModelId;
-                settings.provider = provider;
-                mkdirSync(join(home, '.robota'), { recursive: true });
-                writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+                const settingsPath = getUserSettingsPath();
+                updateModelInSettings(settingsPath, pendingModelId);
                 addMessage({ role: 'system', content: `Model changed to ${getModelName(pendingModelId)}. Restarting...` });
                 setTimeout(() => exit(), 500);
               } catch (err) {

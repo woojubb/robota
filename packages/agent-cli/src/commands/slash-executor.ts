@@ -1,0 +1,188 @@
+/**
+ * Slash command execution logic.
+ * Pure functions that handle each slash command independently.
+ * No React/Ink dependencies — operates through callback interfaces.
+ */
+
+import type { TPermissionMode } from '@robota-sdk/agent-core';
+import { getUserSettingsPath, deleteSettings } from '../utils/settings-io.js';
+import type { CommandRegistry } from './command-registry.js';
+
+/** Minimal session interface for slash command execution */
+export interface ISlashSession {
+  getPermissionMode(): TPermissionMode;
+  setPermissionMode(mode: TPermissionMode): void;
+  getSessionId(): string;
+  getMessageCount(): number;
+  getSessionAllowedTools(): string[];
+  getContextState(): { usedTokens: number; maxTokens: number; usedPercentage: number };
+  clearHistory(): void;
+  compact(instructions?: string): Promise<void>;
+}
+
+/** Callback for adding a message to the UI */
+export type TAddMessage = (msg: { role: string; content: string }) => void;
+
+/** Callback for clearing all messages */
+export type TClearMessages = () => void;
+
+/** Result of a slash command execution */
+export interface ISlashResult {
+  handled: boolean;
+  /** If set, the caller should schedule an exit after a delay */
+  exitRequested?: boolean;
+  /** If set, the caller should show a model change confirmation */
+  pendingModelId?: string;
+}
+
+const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
+
+export const HELP_TEXT = [
+  'Available commands:',
+  '  /help              — Show this help',
+  '  /clear             — Clear conversation',
+  '  /compact [instr]   — Compact context (optional focus instructions)',
+  '  /mode [m]          — Show/change permission mode',
+  '  /cost              — Show session info',
+  '  /reset             — Delete settings and exit',
+  '  /exit              — Exit CLI',
+].join('\n');
+
+export function handleHelp(addMessage: TAddMessage): ISlashResult {
+  addMessage({ role: 'system', content: HELP_TEXT });
+  return { handled: true };
+}
+
+export function handleClear(
+  addMessage: TAddMessage,
+  clearMessages: TClearMessages,
+  session: ISlashSession,
+): ISlashResult {
+  clearMessages();
+  session.clearHistory();
+  addMessage({ role: 'system', content: 'Conversation cleared.' });
+  return { handled: true };
+}
+
+export async function handleCompact(
+  args: string,
+  session: ISlashSession,
+  addMessage: TAddMessage,
+): Promise<ISlashResult> {
+  const instructions = args.trim() || undefined;
+  const before = session.getContextState().usedPercentage;
+  addMessage({ role: 'system', content: 'Compacting context...' });
+  await session.compact(instructions);
+  const after = session.getContextState().usedPercentage;
+  addMessage({
+    role: 'system',
+    content: `Context compacted: ${Math.round(before)}% -> ${Math.round(after)}%`,
+  });
+  return { handled: true };
+}
+
+export function handleMode(
+  arg: string | undefined,
+  session: ISlashSession,
+  addMessage: TAddMessage,
+): ISlashResult {
+  if (!arg) {
+    addMessage({ role: 'system', content: `Current mode: ${session.getPermissionMode()}` });
+  } else if (VALID_MODES.includes(arg as TPermissionMode)) {
+    session.setPermissionMode(arg as TPermissionMode);
+    addMessage({ role: 'system', content: `Permission mode set to: ${arg}` });
+  } else {
+    addMessage({ role: 'system', content: `Invalid mode. Valid: ${VALID_MODES.join(' | ')}` });
+  }
+  return { handled: true };
+}
+
+export function handleModel(modelId: string | undefined, addMessage: TAddMessage): ISlashResult {
+  if (!modelId) {
+    addMessage({ role: 'system', content: 'Select a model from the /model submenu.' });
+    return { handled: true };
+  }
+  return { handled: true, pendingModelId: modelId };
+}
+
+export function handleCost(session: ISlashSession, addMessage: TAddMessage): ISlashResult {
+  addMessage({
+    role: 'system',
+    content: `Session: ${session.getSessionId()}\nMessages: ${session.getMessageCount()}`,
+  });
+  return { handled: true };
+}
+
+export function handlePermissions(session: ISlashSession, addMessage: TAddMessage): ISlashResult {
+  const mode = session.getPermissionMode();
+  const sessionAllowed = session.getSessionAllowedTools();
+  const lines = [`Permission mode: ${mode}`];
+  if (sessionAllowed.length > 0) {
+    lines.push(`Session-approved tools: ${sessionAllowed.join(', ')}`);
+  } else {
+    lines.push('No session-approved tools.');
+  }
+  addMessage({ role: 'system', content: lines.join('\n') });
+  return { handled: true };
+}
+
+export function handleContext(session: ISlashSession, addMessage: TAddMessage): ISlashResult {
+  const ctx = session.getContextState();
+  addMessage({
+    role: 'system',
+    content: `Context: ${ctx.usedTokens.toLocaleString()} / ${ctx.maxTokens.toLocaleString()} tokens (${Math.round(ctx.usedPercentage)}%)`,
+  });
+  return { handled: true };
+}
+
+export function handleReset(addMessage: TAddMessage): ISlashResult {
+  const settingsPath = getUserSettingsPath();
+  if (deleteSettings(settingsPath)) {
+    addMessage({ role: 'system', content: `Deleted ${settingsPath}. Exiting...` });
+  } else {
+    addMessage({ role: 'system', content: 'No user settings found.' });
+  }
+  return { handled: true, exitRequested: true };
+}
+
+/** Execute a parsed slash command. Returns result indicating what happened. */
+export async function executeSlashCommand(
+  cmd: string,
+  args: string,
+  session: ISlashSession,
+  addMessage: TAddMessage,
+  clearMessages: TClearMessages,
+  registry: CommandRegistry,
+): Promise<ISlashResult> {
+  switch (cmd) {
+    case 'help':
+      return handleHelp(addMessage);
+    case 'clear':
+      return handleClear(addMessage, clearMessages, session);
+    case 'compact':
+      return handleCompact(args, session, addMessage);
+    case 'mode':
+      return handleMode(args.split(/\s+/)[0] || undefined, session, addMessage);
+    case 'model':
+      return handleModel(args.split(/\s+/)[0] || undefined, addMessage);
+    case 'cost':
+      return handleCost(session, addMessage);
+    case 'permissions':
+      return handlePermissions(session, addMessage);
+    case 'context':
+      return handleContext(session, addMessage);
+    case 'reset':
+      return handleReset(addMessage);
+    case 'exit':
+      return { handled: true, exitRequested: true };
+    default: {
+      const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
+      if (skillCmd) {
+        addMessage({ role: 'system', content: `Invoking skill: ${cmd}` });
+        return { handled: false }; // Signal caller to run as session prompt
+      }
+      addMessage({ role: 'system', content: `Unknown command "/${cmd}". Type /help for help.` });
+      return { handled: true };
+    }
+  }
+}

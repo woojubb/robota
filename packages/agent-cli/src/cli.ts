@@ -14,11 +14,9 @@
  *   robota --version               Print package version and exit
  */
 
-import { parseArgs } from 'node:util';
-import { readFileSync, existsSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as readline from 'node:readline';
 import {
   loadConfig,
   loadContext,
@@ -28,12 +26,11 @@ import {
   FileSessionLogger,
   projectPaths,
 } from '@robota-sdk/agent-sdk';
-import type { TPermissionMode } from '@robota-sdk/agent-sdk';
-import type { ITerminalOutput, ISpinner } from './types.js';
 import { promptForApproval } from '@robota-sdk/agent-sdk';
+import { parseCliArgs } from './utils/cli-args.js';
+import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
+import { PrintTerminal } from './print-terminal.js';
 import { renderApp } from './ui/render.js';
-
-const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
 
 /** Read version from package.json at runtime. */
 function readVersion(): string {
@@ -59,125 +56,6 @@ function readVersion(): string {
   }
 }
 
-/** Validate and return a TPermissionMode from a raw CLI string, or exit on error. */
-function parsePermissionMode(raw: string | undefined): TPermissionMode | undefined {
-  if (raw === undefined) return undefined;
-  if (!VALID_MODES.includes(raw as TPermissionMode)) {
-    process.stderr.write(`Invalid --permission-mode "${raw}". Valid: ${VALID_MODES.join(' | ')}\n`);
-    process.exit(1);
-  }
-  return raw as TPermissionMode;
-}
-
-/** Validate and return a positive integer from a raw CLI string, or exit on error. */
-function parseMaxTurns(raw: string | undefined): number | undefined {
-  if (raw === undefined) return undefined;
-  const n = parseInt(raw, 10);
-  if (isNaN(n) || n <= 0) {
-    process.stderr.write(`Invalid --max-turns "${raw}". Must be a positive integer.\n`);
-    process.exit(1);
-  }
-  return n;
-}
-
-/** Parse and validate CLI arguments */
-function parseCliArgs(): {
-  positional: string[];
-  printMode: boolean;
-  continueMode: boolean;
-  resumeId: string | undefined;
-  model: string | undefined;
-  permissionMode: TPermissionMode | undefined;
-  maxTurns: number | undefined;
-  version: boolean;
-  reset: boolean;
-} {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      p: { type: 'boolean', short: 'p', default: false },
-      c: { type: 'boolean', short: 'c', default: false },
-      r: { type: 'string', short: 'r' },
-      model: { type: 'string' },
-      'permission-mode': { type: 'string' },
-      'max-turns': { type: 'string' },
-      version: { type: 'boolean', default: false },
-      reset: { type: 'boolean', default: false },
-    },
-  });
-
-  return {
-    positional: positionals,
-    printMode: values['p'] ?? false,
-    continueMode: values['c'] ?? false,
-    resumeId: values['r'],
-    model: values['model'],
-    permissionMode: parsePermissionMode(values['permission-mode']),
-    maxTurns: parseMaxTurns(values['max-turns']),
-    version: values['version'] ?? false,
-    reset: values['reset'] ?? false,
-  };
-}
-
-/**
- * Minimal ITerminalOutput for print mode (-p).
- *
- * Writes to stdout/stderr directly. The readline-based prompt and select are
- * only invoked if the agent triggers a permission-gated tool, which is rare in
- * one-shot print mode but must still work correctly.
- */
-class PrintTerminal implements ITerminalOutput {
-  write(text: string): void {
-    process.stdout.write(text);
-  }
-  writeLine(text: string): void {
-    process.stdout.write(text + '\n');
-  }
-  writeMarkdown(md: string): void {
-    // Print mode outputs plain text — no markdown rendering needed
-    process.stdout.write(md);
-  }
-  writeError(text: string): void {
-    process.stderr.write(text + '\n');
-  }
-  prompt(question: string): Promise<string> {
-    return new Promise<string>((resolve) => {
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        terminal: false,
-        historySize: 0,
-      });
-      rl.question(question, (answer) => {
-        rl.close();
-        resolve(answer);
-      });
-    });
-  }
-  async select(options: string[], initialIndex = 0): Promise<number> {
-    for (let i = 0; i < options.length; i++) {
-      const marker = i === initialIndex ? '>' : ' ';
-      process.stdout.write(`  ${marker} ${i + 1}) ${options[i]}\n`);
-    }
-    const answer = await this.prompt(
-      `  Choose [1-${options.length}] (default: ${options[initialIndex]}): `,
-    );
-    const trimmed = answer.trim().toLowerCase();
-    if (trimmed === '') return initialIndex;
-    const num = parseInt(trimmed, 10);
-    if (!isNaN(num) && num >= 1 && num <= options.length) return num - 1;
-    return initialIndex;
-  }
-  spinner(_message: string): ISpinner {
-    return { stop(): void {}, update(): void {} };
-  }
-}
-
-/** Get the user-global settings file path */
-function getUserSettingsPath(): string {
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
-  return join(home, '.robota', 'settings.json');
-}
 
 /**
  * Check if any settings file exists. If not, prompt for API key and create one.
@@ -255,8 +133,7 @@ async function ensureConfig(cwd: string): Promise<void> {
  */
 function resetConfig(): void {
   const userPath = getUserSettingsPath();
-  if (existsSync(userPath)) {
-    unlinkSync(userPath);
+  if (deleteSettings(userPath)) {
     process.stdout.write(`Deleted ${userPath}\n`);
   } else {
     process.stdout.write('No user settings found.\n');
