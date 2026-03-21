@@ -68,6 +68,8 @@ export interface IExecutionRoundState {
   currentRound: number;
   runningAssistantCount: number;
   lastTrackedAssistantMessage: IAssistantMessage | undefined;
+  /** Cumulative input tokens from API responses (authoritative, not estimated) */
+  cumulativeInputTokens: number;
 }
 
 /**

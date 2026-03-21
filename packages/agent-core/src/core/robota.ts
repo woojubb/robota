@@ -244,6 +244,18 @@ export class Robota
     this.conversationHistory.getConversationSession(this.conversationId).clear();
   }
 
+  /** Inject a message into conversation history without triggering execution. */
+  injectMessage(role: 'user' | 'assistant' | 'system', content: string): void {
+    const session = this.conversationHistory.getConversationSession(this.conversationId);
+    if (role === 'assistant') {
+      session.addAssistantMessage(content, []);
+    } else if (role === 'system') {
+      session.addSystemMessage(content);
+    } else {
+      session.addUserMessage(content);
+    }
+  }
+
   // --- Config / Model / Tools (delegated) ---
 
   async updateTools(next: Array<IToolWithEventService>): Promise<{ version: number }> {
