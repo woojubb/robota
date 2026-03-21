@@ -282,7 +282,8 @@ export function addToolResultsToHistory(
   logger: ILogger,
   contextBudget?: { contextLimit: number; cumulativeInputTokens: number },
 ): IToolResultsOutcome {
-  const CHARS_PER_TOKEN = 3;
+  // chars/2 — conservative estimate, especially for Korean/JSON/code content
+  const CHARS_PER_TOKEN = 2;
   const TOOL_RESULT_OVERFLOW_THRESHOLD = 0.80;
   let contextOverflowed = false;
   let addedCount = 0;
@@ -487,7 +488,9 @@ export async function executeRound(
   // because cumulativeInputTokens from the previous round doesn't account for
   // tool results added after the last provider call.
   // Threshold at 83.5% matching Claude Code's approach.
-  const CHARS_PER_TOKEN = 3;
+  // chars/2 is more conservative than chars/3 — better for Korean, JSON, code content
+  // where the actual char/token ratio is often higher than 3
+  const CHARS_PER_TOKEN = 2;
   const CONTEXT_OVERFLOW_THRESHOLD = 0.835;
   const historyCharsEstimate = Math.ceil(
     JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN,
@@ -517,12 +520,26 @@ export async function executeRound(
     if (cb) cb('\n\n');
   }
 
-  const response = await callProviderWithCache(
-    conversationMessages,
-    config,
-    resolved,
-    cacheService,
-  );
+  let response: TUniversalMessage;
+  try {
+    response = await callProviderWithCache(
+      conversationMessages,
+      config,
+      resolved,
+      cacheService,
+    );
+  } catch (providerError) {
+    // Provider rejected the request (e.g., context too large for API).
+    // Inject a clear assistant message instead of propagating the error.
+    const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
+    logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
+    conversationSession.addAssistantMessage(
+      `Provider error: ${errMsg}. Try /compact to reduce context size.`,
+      [],
+      { round: currentRound, providerError: true },
+    );
+    return true;
+  }
 
   const { assistantResponse, assistantToolCalls } = validateAndExtractResponse(
     response,
