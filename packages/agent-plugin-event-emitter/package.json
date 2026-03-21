@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-plugin-event-emitter",
-  "version": "3.0.0",
+  "version": "3.0.0-beta.16",
   "description": "Event emitter plugin for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
