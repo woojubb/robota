@@ -88,6 +88,7 @@ export class Session {
   private readonly sessionStore?: SessionStore;
   private readonly cwd: string;
   private readonly aiProvider: IAIProvider;
+  private readonly systemMessage: string;
   private model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly onCompactCallback?: (summary: string) => void;
@@ -104,6 +105,7 @@ export class Session {
 
     this.terminal = terminal;
     this.sessionStore = sessionStore;
+    this.systemMessage = systemMessage;
     this.cwd = process.cwd();
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
@@ -398,15 +400,19 @@ export class Session {
 
     const trigger: 'auto' | 'manual' = instructions !== undefined ? 'manual' : 'auto';
 
+    // Exclude system messages from compaction — they are preserved and re-injected after
+    const nonSystemHistory = history.filter((msg) => msg.role !== 'system');
     const summary = await this.compactionOrchestrator.compact(
       this.aiProvider,
-      history,
+      nonSystemHistory,
       instructions,
     );
 
-    // Clear history and inject summary as assistant message (Claude Code approach).
-    // Do NOT call robota.run() — it would trigger streaming mid-session.
+    // Clear history, re-inject system message, then inject summary.
+    // System message must persist across compactions — it contains project context
+    // (cwd, AGENTS.md, CLAUDE.md) that the AI needs for every response.
     this.robota.clearHistory();
+    this.robota.injectMessage('system', this.systemMessage);
     this.robota.injectMessage('assistant', `[Context Summary]\n${summary}`);
     this.pendingCompactSummary = null;
 
