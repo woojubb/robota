@@ -86,6 +86,19 @@ When auto-compaction triggers (at ~83.5% threshold), the UI shows a system messa
 
 ## Tool Call Display
 
+### Real-Time Tool Execution
+
+During `session.run()`, tool execution is displayed in real-time via the `onToolExecution` callback:
+
+```
+  ⟳ Bash...
+  ⟳ Read...
+```
+
+The callback fires `start` when a tool begins and `end` when it completes. The UI shows running tools with a spinner indicator, replacing the "Thinking..." message.
+
+### Post-Run Tool Summary
+
 After each `session.run()` completes, tool calls from the session history are extracted and displayed as a single grouped message:
 
 ```

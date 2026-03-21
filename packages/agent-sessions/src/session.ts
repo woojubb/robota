@@ -62,6 +62,8 @@ export interface ISessionOptions {
     toolName: string,
     toolArgs: TToolArgs,
   ) => Promise<boolean>;
+  /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
+  onToolExecution?: (event: { type: 'start' | 'end'; toolName: string; toolArgs?: TToolArgs; success?: boolean }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
@@ -140,6 +142,7 @@ export class Session {
       permissionHandler,
       promptForApprovalFn: options.promptForApproval,
       sessionLogger: options.sessionLogger,
+      onToolExecution: options.onToolExecution,
     });
 
     this.contextTracker = new ContextWindowTracker(this.model, options.contextMaxTokens);

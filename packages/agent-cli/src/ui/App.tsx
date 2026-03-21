@@ -53,15 +53,23 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
 };
 
+/** Tool execution event for real-time UI display */
+interface IToolExecutionState {
+  toolName: string;
+  isRunning: boolean;
+}
+
 /** Hook: create a Session instance once and provide a stable permission handler + streaming. */
 function useSession(props: IProps): {
   session: Session;
   permissionRequest: IPermissionRequest | null;
   streamingText: string;
   clearStreamingText: () => void;
+  activeTools: IToolExecutionState[];
 } {
   const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
   const [streamingText, setStreamingText] = useState('');
+  const [activeTools, setActiveTools] = useState<IToolExecutionState[]>([]);
 
   // Permission queue — handles concurrent tool permission requests sequentially
   const permissionQueueRef = useRef<
@@ -111,6 +119,18 @@ function useSession(props: IProps): {
       setStreamingText((prev) => prev + delta);
     };
 
+    const onToolExecution = (event: { type: 'start' | 'end'; toolName: string }): void => {
+      if (event.type === 'start') {
+        setActiveTools((prev) => [...prev, { toolName: event.toolName, isRunning: true }]);
+      } else {
+        setActiveTools((prev) =>
+          prev.map((t) =>
+            t.toolName === event.toolName && t.isRunning ? { ...t, isRunning: false } : t,
+          ),
+        );
+      }
+    };
+
     const paths = projectPaths(props.cwd ?? process.cwd());
     sessionRef.current = createSession({
       config: props.config,
@@ -123,12 +143,16 @@ function useSession(props: IProps): {
       maxTurns: props.maxTurns,
       permissionHandler,
       onTextDelta,
+      onToolExecution,
     });
   }
 
-  const clearStreamingText = useCallback(() => setStreamingText(''), []);
+  const clearStreamingText = useCallback(() => {
+    setStreamingText('');
+    setActiveTools([]);
+  }, []);
 
-  return { session: sessionRef.current, permissionRequest, streamingText, clearStreamingText };
+  return { session: sessionRef.current, permissionRequest, streamingText, clearStreamingText, activeTools };
 }
 
 /** Hook: manage chat messages list. */
@@ -179,7 +203,21 @@ function useSlashCommands(
 }
 
 /** Streaming text indicator shown while the agent is generating a response */
-function StreamingIndicator({ text }: { text: string }): React.ReactElement {
+function StreamingIndicator({ text, activeTools }: { text: string; activeTools: IToolExecutionState[] }): React.ReactElement {
+  const runningTools = activeTools.filter((t) => t.isRunning);
+
+  if (runningTools.length > 0) {
+    return (
+      <Box flexDirection="column">
+        {runningTools.map((t, i) => (
+          <Text key={`${t.toolName}-${i}`} color="yellow">
+            {'  '}⟳ {t.toolName}...
+          </Text>
+        ))}
+      </Box>
+    );
+  }
+
   if (text) {
     return (
       <Box flexDirection="column">
@@ -323,7 +361,7 @@ function useCommandRegistry(cwd: string): CommandRegistry {
 
 export default function App(props: IProps): React.ReactElement {
   const { exit } = useApp();
-  const { session, permissionRequest, streamingText, clearStreamingText } = useSession(props);
+  const { session, permissionRequest, streamingText, clearStreamingText, activeTools } = useSession(props);
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
   const [contextPercentage, setContextPercentage] = useState(0);
@@ -366,7 +404,7 @@ export default function App(props: IProps): React.ReactElement {
         <MessageList messages={messages} />
         {isThinking && (
           <Box flexDirection="column" marginBottom={1}>
-            <StreamingIndicator text={streamingText} />
+            <StreamingIndicator text={streamingText} activeTools={activeTools} />
           </Box>
         )}
       </Box>
