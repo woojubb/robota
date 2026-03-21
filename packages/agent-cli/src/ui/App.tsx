@@ -226,22 +226,24 @@ function StreamingIndicator({ text, activeTools }: { text: string; activeTools: 
   return (
     <Box flexDirection="column">
       {hasText && (
-        <>
+        <Box flexDirection="column" marginBottom={1}>
           <Text color="cyan" bold>Robota:</Text>
+          <Text> </Text>
           <Box marginLeft={2}>
             <Text wrap="wrap">{renderMarkdown(text)}</Text>
           </Box>
-        </>
+        </Box>
       )}
       {hasTools && (
-        <>
+        <Box flexDirection="column" marginBottom={1}>
           <Text color="gray" bold>Tools:</Text>
+          <Text> </Text>
           {activeTools.map((t, i) => (
             <Text key={`${t.toolName}-${i}`} color={t.isRunning ? 'yellow' : 'green'}>
               {'  '}{t.isRunning ? '⟳' : '✓'} {t.toolName}({t.firstArg})
             </Text>
           ))}
-        </>
+        </Box>
       )}
     </Box>
   );
