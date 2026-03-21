@@ -289,10 +289,17 @@ src/
 ├── utils/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
+│   ├── skill-prompt.ts              ← Skill prompt builder (pure function)
 │   └── tool-call-extractor.ts       ← Tool call display extraction from history
 ├── permissions/                      ← (empty — prompt imported from @robota-sdk/agent-sdk)
 └── ui/
-    ├── App.tsx                      ← Main layout, Session creation, state management
+    ├── App.tsx                      ← Main layout (thin JSX shell, ~130 lines)
+    ├── hooks/
+    │   ├── useSession.ts            ← Session creation, permission queue, streaming, tool events
+    │   ├── useMessages.ts           ← Chat message list state management
+    │   ├── useSlashCommands.ts      ← Slash command dispatch via slash-executor
+    │   ├── useSubmitHandler.ts      ← Input submission, session.run(), tool call extraction
+    │   └── useCommandRegistry.ts    ← CommandRegistry initialization
     ├── render.tsx                   ← Ink render() invocation
     ├── MessageList.tsx              ← Conversation message list (Robota: label)
     ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection

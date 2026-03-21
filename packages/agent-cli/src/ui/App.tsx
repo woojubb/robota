@@ -1,28 +1,20 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import { getUserSettingsPath, updateModelInSettings } from '../utils/settings-io.js';
-import { executeSlashCommand as execSlash } from '../commands/slash-executor.js';
-import { createSession, FileSessionLogger, projectPaths } from '@robota-sdk/agent-sdk';
-import type { Session } from '@robota-sdk/agent-sdk';
-import type {
-  IResolvedConfig,
-  ILoadedContext,
-  IProjectInfo,
-  SessionStore,
-} from '@robota-sdk/agent-sdk';
-import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
+import type { IResolvedConfig, ILoadedContext, IProjectInfo, SessionStore } from '@robota-sdk/agent-sdk';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { getModelName } from '@robota-sdk/agent-core';
-import type { ITerminalOutput, ISpinner } from '../types.js';
-import type { IChatMessage, IPermissionRequest, TPermissionResult } from './types.js';
-import { CommandRegistry } from '../commands/command-registry.js';
-import { BuiltinCommandSource } from '../commands/builtin-source.js';
-import { SkillCommandSource } from '../commands/skill-source.js';
+import { getUserSettingsPath, updateModelInSettings } from '../utils/settings-io.js';
+import { useSession } from './hooks/useSession.js';
+import { useMessages } from './hooks/useMessages.js';
+import { useSlashCommands } from './hooks/useSlashCommands.js';
+import { useSubmitHandler, syncContextState } from './hooks/useSubmitHandler.js';
+import { useCommandRegistry } from './hooks/useCommandRegistry.js';
 import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
 import InputArea from './InputArea.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
-import { extractToolCalls } from '../utils/tool-call-extractor.js';
+import StreamingIndicator from './StreamingIndicator.js';
 
 interface IProps {
   config: IResolvedConfig;
@@ -35,313 +27,7 @@ interface IProps {
   version?: string;
 }
 
-let msgIdCounter = 0;
-function nextId(): string {
-  msgIdCounter += 1;
-  return `msg_${msgIdCounter}`;
-}
-
-/** No-op ITerminalOutput for Ink mode (permissions handled via permissionHandler) */
-const NOOP_TERMINAL: ITerminalOutput = {
-  write: () => {},
-  writeLine: () => {},
-  writeMarkdown: () => {},
-  writeError: () => {},
-  prompt: () => Promise.resolve(''),
-  select: () => Promise.resolve(0),
-  spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
-};
-
-import StreamingIndicator from './StreamingIndicator.js';
-import type { IToolExecutionState } from './StreamingIndicator.js';
-
-/** Hook: create a Session instance once and provide a stable permission handler + streaming. */
-function useSession(props: IProps): {
-  session: Session;
-  permissionRequest: IPermissionRequest | null;
-  streamingText: string;
-  clearStreamingText: () => void;
-  activeTools: IToolExecutionState[];
-} {
-  const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
-  const [streamingText, setStreamingText] = useState('');
-  const [activeTools, setActiveTools] = useState<IToolExecutionState[]>([]);
-
-  // Permission queue — handles concurrent tool permission requests sequentially
-  const permissionQueueRef = useRef<
-    Array<{
-      toolName: string;
-      toolArgs: TToolArgs;
-      resolve: (result: TPermissionResult) => void;
-    }>
-  >([]);
-  const processingRef = useRef(false);
-
-  const processNextPermission = useCallback(() => {
-    if (processingRef.current) return;
-    const next = permissionQueueRef.current[0];
-    if (!next) {
-      setPermissionRequest(null);
-      return;
-    }
-    processingRef.current = true;
-    setPermissionRequest({
-      toolName: next.toolName,
-      toolArgs: next.toolArgs,
-      resolve: (result: TPermissionResult) => {
-        permissionQueueRef.current.shift();
-        processingRef.current = false;
-        setPermissionRequest(null);
-        next.resolve(result);
-        // Process next in queue after a tick
-        setTimeout(() => processNextPermission(), 0);
-      },
-    });
-  }, []);
-
-  const sessionRef = useRef<Session | null>(null);
-  if (sessionRef.current === null) {
-    const permissionHandler = (
-      toolName: string,
-      toolArgs: TToolArgs,
-    ): Promise<TPermissionResult> => {
-      return new Promise<TPermissionResult>((resolve) => {
-        permissionQueueRef.current.push({ toolName, toolArgs, resolve });
-        processNextPermission();
-      });
-    };
-
-    const onTextDelta = (delta: string): void => {
-      setStreamingText((prev) => prev + delta);
-    };
-
-    const TOOL_ARG_DISPLAY_MAX = 80;
-    const TOOL_ARG_TRUNCATE_AT = 77;
-
-    const onToolExecution = (event: { type: 'start' | 'end'; toolName: string; toolArgs?: Record<string, unknown> }): void => {
-      if (event.type === 'start') {
-        // Extract first argument value for display (same format as post-run tool summary)
-        let firstArg = '';
-        if (event.toolArgs) {
-          const firstVal = Object.values(event.toolArgs)[0];
-          const raw = typeof firstVal === 'string' ? firstVal : JSON.stringify(firstVal ?? '');
-          firstArg = raw.length > TOOL_ARG_DISPLAY_MAX ? raw.slice(0, TOOL_ARG_TRUNCATE_AT) + '...' : raw;
-        }
-        setActiveTools((prev) => [...prev, { toolName: event.toolName, firstArg, isRunning: true }]);
-      } else {
-        // Mark as done but keep in list — cleared on run() completion by clearStreamingText
-        setActiveTools((prev) =>
-          prev.map((t) =>
-            t.toolName === event.toolName && t.isRunning ? { ...t, isRunning: false } : t,
-          ),
-        );
-      }
-    };
-
-    const paths = projectPaths(props.cwd ?? process.cwd());
-    sessionRef.current = createSession({
-      config: props.config,
-      context: props.context,
-      terminal: NOOP_TERMINAL,
-      sessionLogger: new FileSessionLogger(paths.logs),
-      projectInfo: props.projectInfo,
-      sessionStore: props.sessionStore,
-      permissionMode: props.permissionMode,
-      maxTurns: props.maxTurns,
-      permissionHandler,
-      onTextDelta,
-      onToolExecution,
-    });
-  }
-
-  const clearStreamingText = useCallback(() => {
-    setStreamingText('');
-    setActiveTools([]);
-  }, []);
-
-  return { session: sessionRef.current, permissionRequest, streamingText, clearStreamingText, activeTools };
-}
-
-/** Hook: manage chat messages list. */
-function useMessages(): {
-  messages: IChatMessage[];
-  setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>;
-  addMessage: (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
-} {
-  const [messages, setMessages] = useState<IChatMessage[]>([]);
-  const addMessage = useCallback((msg: Omit<IChatMessage, 'id' | 'timestamp'>) => {
-    setMessages((prev) => [...prev, { ...msg, id: nextId(), timestamp: new Date() }]);
-  }, []);
-  return { messages, setMessages, addMessage };
-}
-
-type TAddMessage = (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
-
 const EXIT_DELAY_MS = 500;
-
-/** Hook: handle slash commands via the extracted slash-executor module. */
-function useSlashCommands(
-  session: Session,
-  addMessage: TAddMessage,
-  setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
-  exit: () => void,
-  registry: CommandRegistry,
-  pendingModelChangeRef: React.MutableRefObject<string | null>,
-  setPendingModelId: React.Dispatch<React.SetStateAction<string | null>>,
-): (input: string) => Promise<boolean> {
-  return useCallback(
-    async (input: string): Promise<boolean> => {
-      const parts = input.slice(1).split(/\s+/);
-      const cmd = parts[0]?.toLowerCase() ?? '';
-      const args = parts.slice(1).join(' ');
-      const clearMessages = () => setMessages([]);
-      const result = await execSlash(cmd, args, session, addMessage, clearMessages, registry);
-      if (result.pendingModelId) {
-        pendingModelChangeRef.current = result.pendingModelId;
-        setPendingModelId(result.pendingModelId);
-      }
-      if (result.exitRequested) {
-        setTimeout(() => exit(), EXIT_DELAY_MS);
-      }
-      return result.handled;
-    },
-    [session, addMessage, setMessages, exit, registry, pendingModelChangeRef, setPendingModelId],
-  );
-}
-
-
-type TContextStateSetter = React.Dispatch<React.SetStateAction<{ percentage: number; usedTokens: number; maxTokens: number }>>;
-
-/** Snapshot context state from session into React state */
-function syncContextState(session: Session, setter: TContextStateSetter): void {
-  const ctx = session.getContextState();
-  setter({ percentage: ctx.usedPercentage, usedTokens: ctx.usedTokens, maxTokens: ctx.maxTokens });
-}
-
-/** Run a prompt through the session with thinking/streaming state management */
-async function runSessionPrompt(
-  prompt: string,
-  session: Session,
-  addMessage: TAddMessage,
-  clearStreamingText: () => void,
-  setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
-  setContextState: TContextStateSetter,
-): Promise<void> {
-  setIsThinking(true);
-  clearStreamingText();
-
-  // Record history position to extract tool calls after run
-  const historyBefore = session.getHistory().length;
-
-  try {
-    const response = await session.run(prompt);
-    clearStreamingText();
-
-    // Extract tool calls from session history — group into one message
-    const history = session.getHistory();
-    const toolLines = extractToolCalls(
-      history as Array<{ role: string; toolCalls?: Array<{ function: { name: string; arguments: string } }> }>,
-      historyBefore,
-    );
-    if (toolLines.length > 0) {
-      addMessage({ role: 'tool', content: toolLines.join('\n'), toolName: `${toolLines.length} tools` });
-    }
-
-    addMessage({ role: 'assistant', content: response || '(empty response)' });
-    syncContextState(session, setContextState);
-  } catch (err) {
-    clearStreamingText();
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      addMessage({ role: 'system', content: 'Cancelled.' });
-    } else {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      addMessage({ role: 'system', content: `Error: ${errMsg}` });
-    }
-  } finally {
-    setIsThinking(false);
-  }
-}
-
-/** Build a skill prompt from a slash command input and registry */
-function buildSkillPrompt(input: string, registry: CommandRegistry): string | null {
-  const parts = input.slice(1).split(/\s+/);
-  const cmd = parts[0]?.toLowerCase() ?? '';
-  const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
-  if (!skillCmd) return null;
-  const args = parts.slice(1).join(' ').trim();
-  const userInstruction = args || skillCmd.description;
-
-  // Inject SKILL.md content if available
-  if (skillCmd.skillContent) {
-    return `<skill name="${cmd}">\n${skillCmd.skillContent}\n</skill>\n\nExecute the "${cmd}" skill: ${userInstruction}`;
-  }
-  return `Use the "${cmd}" skill: ${userInstruction}`;
-}
-
-/** Hook: build the handleSubmit callback for user input */
-function useSubmitHandler(
-  session: Session,
-  addMessage: TAddMessage,
-  handleSlashCommand: (input: string) => Promise<boolean>,
-  clearStreamingText: () => void,
-  setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
-  setContextState: TContextStateSetter,
-  registry: CommandRegistry,
-): (input: string) => Promise<void> {
-  return useCallback(
-    async (input: string) => {
-      if (input.startsWith('/')) {
-        const handled = await handleSlashCommand(input);
-        if (handled) {
-          syncContextState(session, setContextState);
-          return;
-        }
-        // Skill command — send as session prompt
-        const prompt = buildSkillPrompt(input, registry);
-        if (!prompt) return;
-        return runSessionPrompt(
-          prompt,
-          session,
-          addMessage,
-          clearStreamingText,
-          setIsThinking,
-          setContextState,
-        );
-      }
-
-      addMessage({ role: 'user', content: input });
-      return runSessionPrompt(
-        input,
-        session,
-        addMessage,
-        clearStreamingText,
-        setIsThinking,
-        setContextState,
-      );
-    },
-    [
-      session,
-      addMessage,
-      handleSlashCommand,
-      clearStreamingText,
-      setIsThinking,
-      setContextState,
-      registry,
-    ],
-  );
-}
-
-/** Hook: create a CommandRegistry once with builtin and skill commands */
-function useCommandRegistry(cwd: string): CommandRegistry {
-  const registryRef = useRef<CommandRegistry | null>(null);
-  if (registryRef.current === null) {
-    const registry = new CommandRegistry();
-    registry.addSource(new BuiltinCommandSource());
-    registry.addSource(new SkillCommandSource(cwd));
-    registryRef.current = registry;
-  }
-  return registryRef.current;
-}
 
 export default function App(props: IProps): React.ReactElement {
   const { exit } = useApp();
@@ -409,7 +95,7 @@ export default function App(props: IProps): React.ReactElement {
                 const settingsPath = getUserSettingsPath();
                 updateModelInSettings(settingsPath, pendingModelId);
                 addMessage({ role: 'system', content: `Model changed to ${getModelName(pendingModelId)}. Restarting...` });
-                setTimeout(() => exit(), 500);
+                setTimeout(() => exit(), EXIT_DELAY_MS);
               } catch (err) {
                 addMessage({ role: 'system', content: `Failed: ${err instanceof Error ? err.message : String(err)}` });
               }
@@ -434,10 +120,7 @@ export default function App(props: IProps): React.ReactElement {
         isDisabled={isThinking || !!permissionRequest}
         registry={registry}
       />
-      {/* Permanent blank line below input — required for Korean IME stability.
-          Without this, Ink's renderer causes the input area to shift up/down
-          during IME composition, which triggers Terminal.app SIGSEGV when the
-          IME queries attributedSubstringFromRange: at an unstable cursor position. */}
+      {/* Permanent blank line below input — required for Korean IME stability. */}
       <Text> </Text>
     </Box>
   );
