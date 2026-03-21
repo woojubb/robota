@@ -102,5 +102,5 @@ See [Using the SDK — Configuration](./sdk.md#configuration) for the full confi
 
 ## Known Limitations
 
-- **Korean IME**: Ink's raw mode does not fully support Korean IME composition. A custom `CjkTextInput` component mitigates common issues, but edge cases remain on Terminal.app.
+- **Korean IME + macOS Terminal.app crash**: Korean/CJK IME input may crash macOS Terminal.app due to an Ink raw mode + Terminal.app IME interaction bug. **Use [iTerm2](https://iterm2.com/) instead.** This is a known industry-wide issue shared with Claude Code (issues #22732, #3045). A custom `CjkTextInput` component mitigates common issues but cannot prevent the Terminal.app crash.
 - **Abort propagation**: `session.abort()` rejects the run promise but does not cancel the underlying provider API call.
