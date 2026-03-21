@@ -22,7 +22,6 @@ import StatusBar from './StatusBar.js';
 import InputArea from './InputArea.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
-import { renderMarkdown } from './render-markdown.js';
 import { extractToolCalls } from '../utils/tool-call-extractor.js';
 
 interface IProps {
@@ -53,12 +52,8 @@ const NOOP_TERMINAL: ITerminalOutput = {
   spinner: (): ISpinner => ({ stop: () => {}, update: () => {} }),
 };
 
-/** Tool execution event for real-time UI display */
-interface IToolExecutionState {
-  toolName: string;
-  firstArg: string;
-  isRunning: boolean;
-}
+import StreamingIndicator from './StreamingIndicator.js';
+import type { IToolExecutionState } from './StreamingIndicator.js';
 
 /** Hook: create a Session instance once and provide a stable permission handler + streaming. */
 function useSession(props: IProps): {
@@ -214,40 +209,6 @@ function useSlashCommands(
   );
 }
 
-/** Streaming text indicator shown while the agent is generating a response */
-function StreamingIndicator({ text, activeTools }: { text: string; activeTools: IToolExecutionState[] }): React.ReactElement {
-  const hasTools = activeTools.length > 0;
-  const hasText = text.length > 0;
-
-  if (!hasTools && !hasText) {
-    return <Text color="yellow">Thinking...</Text>;
-  }
-
-  return (
-    <Box flexDirection="column">
-      {hasTools && (
-        <Box flexDirection="column" marginBottom={1}>
-          <Text color="gray" bold>Tools:</Text>
-          <Text> </Text>
-          {activeTools.map((t, i) => (
-            <Text key={`${t.toolName}-${i}`} color={t.isRunning ? 'yellow' : 'green'}>
-              {'  '}{t.isRunning ? '⟳' : '✓'} {t.toolName}({t.firstArg})
-            </Text>
-          ))}
-        </Box>
-      )}
-      {hasText && (
-        <Box flexDirection="column" marginBottom={1}>
-          <Text color="cyan" bold>Robota:</Text>
-          <Text> </Text>
-          <Box marginLeft={2}>
-            <Text wrap="wrap">{renderMarkdown(text)}</Text>
-          </Box>
-        </Box>
-      )}
-    </Box>
-  );
-}
 
 /** Run a prompt through the session with thinking/streaming state management */
 async function runSessionPrompt(
