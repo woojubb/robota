@@ -417,16 +417,17 @@ export async function executeRound(
     },
   );
 
-  // Pre-send context check: use API-reported token count when available,
-  // fall back to chars/3 estimation for the first round.
-  // Threshold at 83.5% matching Claude Code's approach (accurate tokens assumed).
-  // NOTE: When parallel tool execution is implemented, this check must account for
-  // partial results — only count completed tool results, not pending ones.
+  // Pre-send context check: always estimate from current history size (chars/3)
+  // because cumulativeInputTokens from the previous round doesn't account for
+  // tool results added after the last provider call.
+  // Threshold at 83.5% matching Claude Code's approach.
   const CHARS_PER_TOKEN = 3;
   const CONTEXT_OVERFLOW_THRESHOLD = 0.835;
-  const estimatedTokens = roundState.cumulativeInputTokens > 0
-    ? roundState.cumulativeInputTokens
-    : Math.ceil(JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN);
+  const historyCharsEstimate = Math.ceil(
+    JSON.stringify(conversationMessages).length / CHARS_PER_TOKEN,
+  );
+  // Use the higher of API-reported tokens and chars estimate to be conservative
+  const estimatedTokens = Math.max(roundState.cumulativeInputTokens, historyCharsEstimate);
   const contextLimit = getModelContextWindow(config.defaultModel.model);
   if (estimatedTokens > contextLimit * CONTEXT_OVERFLOW_THRESHOLD) {
     logger.warn('[ROUND] Context overflow prevention — tokens exceed 83.5% of context window', {
