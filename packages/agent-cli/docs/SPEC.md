@@ -268,7 +268,9 @@ Session logging is enabled by default. Log files are written to `.robota/logs/{s
 
 ## Known Limitations
 
-- **Korean IME (Input Method Editor)**: Ink's raw mode does not fully support Korean IME composition. This is a known upstream limitation shared with Claude Code (see Claude Code issue #3045). A custom `CjkTextInput` component (replacing `ink-text-input`) mitigates the most common issues using refs-based state management, but edge cases remain on Terminal.app.
+- **Korean IME (Input Method Editor)**: Ink's raw mode does not fully support Korean IME composition. This is a known upstream limitation shared with Claude Code (see Claude Code issue #3045). A custom `CjkTextInput` component (replacing `ink-text-input`) mitigates the most common issues using refs-based state management.
+- **Terminal.app crash prevention**: `CjkTextInput` does NOT call Ink's `setCursorPosition()`. Passing `y: 0` moved the real terminal cursor to the top of the ink output, causing Terminal.app's Korean IME to call `attributedSubstringFromRange:` at an invalid position → SIGSEGV in Terminal.app itself (not our process). Without `setCursorPosition`, the IME candidate window appears at bottom-left (same as Claude Code, issue #19207) but Terminal.app does not crash. A correct y-coordinate requires the total rendered height, which Ink does not expose to components.
+- **CjkTextInput error handling**: `useInput` callback is wrapped in try-catch to swallow IME-related errors. Non-printable characters from IME composition are filtered out.
 
 ## Dependencies
 
