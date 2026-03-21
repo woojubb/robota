@@ -86,16 +86,30 @@ When auto-compaction triggers (at ~83.5% threshold), the UI shows a system messa
 
 ## Tool Call Display
 
-### Real-Time Tool Execution
+### Real-Time Tool Execution (Streaming)
 
-During `session.run()`, tool execution is displayed in real-time via the `onToolExecution` callback:
+During `session.run()`, tool execution is displayed in real-time via the `onToolExecution` callback. The streaming display shows **Tools: first, then Robota:** in execution order:
 
 ```
-  ⟳ Bash...
-  ⟳ Read...
+Tools:
+
+  ✓ Read(/src/index.ts)
+  ✓ Bash(ls -la)
+  ⟳ Glob(**/*.md)
+
+Robota:
+
+  Checking the file structure now...
 ```
 
-The callback fires `start` when a tool begins and `end` when it completes. The UI shows running tools with a spinner indicator, replacing the "Thinking..." message.
+**Behavior:**
+
+- `onToolExecution` fires `start` when a tool begins and `end` when it completes
+- Running tools show `⟳` (yellow), completed tools show `✓` (green)
+- Format: `ToolName(firstArgValue)` — first argument truncated to 80 chars, matching post-run summary style
+- Completed tools remain visible until `session.run()` finishes (not removed on `end`)
+- `Tools:` and `Robota:` sections each have a blank line below the label and between sections
+- When no tools and no streaming text, displays "Thinking..."
 
 ### Post-Run Tool Summary
 
@@ -284,6 +298,7 @@ src/
     ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection
     ├── StatusBar.tsx                ← Mode, model, context %, message count, Thinking
     ├── PermissionPrompt.tsx         ← Allow/Deny arrow-key selection (useInput)
+    ├── StreamingIndicator.tsx       ← Real-time Tools:/Robota: display during run()
     ├── SlashAutocomplete.tsx        ← Command autocomplete popup (scroll, highlight)
     ├── CjkTextInput.tsx             ← Custom text input with Korean IME support
     ├── ConfirmPrompt.tsx            ← Reusable arrow-key confirmation prompt
