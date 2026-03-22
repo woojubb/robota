@@ -378,11 +378,11 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 
 ### Execution Loop Error Handling
 
-When the execution loop ends without a final assistant text message (e.g., due to context overflow mid-loop or max turn limit during tool execution), `ExecutionService.buildFinalResult()` must:
+When the execution loop ends without a final assistant text message (e.g., due to max round limit or context overflow during tool execution):
 
-1. **Not throw** — return a partial result with an error indicator instead
-2. **Preserve conversation history** — all messages up to the point of failure remain in the session
-3. **Return a descriptive response** — e.g., `"No response received. The context window may be full — try /compact or start a new session."` so the caller can display it
+1. **Force a final provider call** — call `provider.chat()` one more time with all tools still available and the full conversation history (including all tool results collected so far). The AI will see the accumulated results and generate a final response.
+2. **Preserve conversation history** — all messages up to the point remain in the session.
+3. **If the forced call also fails** — return a descriptive response: `"Maximum rounds reached. Partial results available in conversation history."` without throwing.
 
 ### Pre-Send Context Check
 
