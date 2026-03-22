@@ -191,6 +191,24 @@ export class Session {
     };
 
     this.robota = new Robota(agentConfig);
+
+    // Fire SessionStart hook (fire and forget — session creation is not blocked by hooks)
+    this.fireSessionStartHook();
+  }
+
+  /** Fire SessionStart hook asynchronously (non-blocking). */
+  private fireSessionStartHook(): void {
+    const hookInput: IHookInput = {
+      session_id: this.sessionId,
+      cwd: this.cwd,
+      hook_event_name: 'SessionStart',
+    };
+    runHooks(
+      this.hooks as THooksConfig | undefined,
+      'SessionStart',
+      hookInput,
+      this.hookTypeExecutors,
+    ).catch(() => {});
   }
 
   /** Configure provider-specific features (streaming, web tools, server tool logging) */
@@ -235,6 +253,19 @@ export class Session {
     }
 
     this.log('user', { content: message });
+
+    // Fire UserPromptSubmit hook before AI processes input
+    await runHooks(
+      this.hooks as THooksConfig | undefined,
+      'UserPromptSubmit',
+      {
+        session_id: this.sessionId,
+        cwd: this.cwd,
+        hook_event_name: 'UserPromptSubmit',
+        user_message: message,
+      },
+      this.hookTypeExecutors,
+    );
 
     const history = this.robota.getHistory();
     const historyJson = JSON.stringify(history);
@@ -320,6 +351,19 @@ export class Session {
       usedPercentage: ctxState.usedPercentage,
       remainingPercentage: ctxState.remainingPercentage,
     });
+
+    // Fire Stop hook after AI response is complete (informational, fire and forget)
+    runHooks(
+      this.hooks as THooksConfig | undefined,
+      'Stop',
+      {
+        session_id: this.sessionId,
+        cwd: this.cwd,
+        hook_event_name: 'Stop',
+        response: response.substring(0, 500),
+      },
+      this.hookTypeExecutors,
+    ).catch(() => {});
 
     // Auto-compact moved to the start of run() — compaction now happens
     // before the next message is processed, not after the current one.
