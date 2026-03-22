@@ -18,7 +18,7 @@ import type { IPermissionRequest, TPermissionResult } from '../types.js';
 import type { IToolExecutionState } from '../StreamingIndicator.js';
 
 const TOOL_ARG_DISPLAY_MAX = 80;
-const TOOL_ARG_TRUNCATE_AT = 77;
+const TAIL_KEEP = 20;
 
 /** No-op ITerminalOutput for Ink mode (permissions handled via permissionHandler) */
 const NOOP_TERMINAL: ITerminalOutput = {
@@ -99,15 +99,25 @@ export function useSession(props: ISessionProps): {
       setStreamingText((prev) => prev + delta);
     };
 
-    const onToolExecution = (event: { type: 'start' | 'end'; toolName: string; toolArgs?: Record<string, unknown> }): void => {
+    const onToolExecution = (event: {
+      type: 'start' | 'end';
+      toolName: string;
+      toolArgs?: Record<string, unknown>;
+    }): void => {
       if (event.type === 'start') {
         let firstArg = '';
         if (event.toolArgs) {
           const firstVal = Object.values(event.toolArgs)[0];
           const raw = typeof firstVal === 'string' ? firstVal : JSON.stringify(firstVal ?? '');
-          firstArg = raw.length > TOOL_ARG_DISPLAY_MAX ? raw.slice(0, TOOL_ARG_TRUNCATE_AT) + '...' : raw;
+          firstArg =
+            raw.length > TOOL_ARG_DISPLAY_MAX
+              ? raw.slice(0, TOOL_ARG_DISPLAY_MAX - TAIL_KEEP - 3) + '...' + raw.slice(-TAIL_KEEP)
+              : raw;
         }
-        setActiveTools((prev) => [...prev, { toolName: event.toolName, firstArg, isRunning: true }]);
+        setActiveTools((prev) => [
+          ...prev,
+          { toolName: event.toolName, firstArg, isRunning: true },
+        ]);
       } else {
         setActiveTools((prev) =>
           prev.map((t) =>
@@ -138,5 +148,11 @@ export function useSession(props: ISessionProps): {
     setActiveTools([]);
   }, []);
 
-  return { session: sessionRef.current, permissionRequest, streamingText, clearStreamingText, activeTools };
+  return {
+    session: sessionRef.current,
+    permissionRequest,
+    streamingText,
+    clearStreamingText,
+    activeTools,
+  };
 }

@@ -4,7 +4,7 @@
  */
 
 const TOOL_ARG_MAX_LENGTH = 80;
-const TOOL_ARG_TRUNCATE_LENGTH = 77;
+const TAIL_KEEP = 20;
 
 interface IHistoryMessage {
   role: string;
@@ -17,10 +17,7 @@ interface IHistoryMessage {
  * Extract tool call display lines from history messages.
  * Format: `ToolName(firstArgValue)` — first argument value truncated to 80 chars.
  */
-export function extractToolCalls(
-  history: IHistoryMessage[],
-  startIndex: number,
-): string[] {
+export function extractToolCalls(history: IHistoryMessage[], startIndex: number): string[] {
   const lines: string[] = [];
   for (let i = startIndex; i < history.length; i++) {
     const msg = history[i];
@@ -29,7 +26,7 @@ export function extractToolCalls(
         const value = parseFirstArgValue(tc.function.arguments);
         const truncated =
           value.length > TOOL_ARG_MAX_LENGTH
-            ? value.slice(0, TOOL_ARG_TRUNCATE_LENGTH) + '...'
+            ? value.slice(0, TOOL_ARG_MAX_LENGTH - TAIL_KEEP - 3) + '...' + value.slice(-TAIL_KEEP)
             : value;
         lines.push(`${tc.function.name}(${truncated})`);
       }
