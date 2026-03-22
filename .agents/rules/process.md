@@ -14,6 +14,18 @@ Parent: [AGENTS.md](../../AGENTS.md) | Index: [rules/index.md](index.md)
 - Implementation code that does not conform to its governing spec is a bug.
 - See [`spec-first-development`](../skills/spec-first-development/SKILL.md) skill for the procedural workflow.
 
+### Feature Gap / Behavior Change Process
+
+When a feature gap, missing behavior, or spec-vs-implementation mismatch is discovered during development:
+
+1. **Stop coding.** Do not implement a fix or new behavior before the spec is updated.
+2. **Ask the user:** "This requires a spec change. Should I add it to the backlog, or proceed now?"
+3. **If proceeding:** Update the spec document first to describe the intended final state.
+4. **Then implement** the code to match the updated spec.
+5. **Verify conformance** between updated spec and implementation.
+
+Skipping step 1–3 (coding before spec) is a process violation. This applies even to "obvious" fixes — if the fix changes observable behavior, the spec must reflect it first.
+
 ### Spec-Code Conformance Verification
 
 - Any SPEC.md or contract document change MUST be followed by a conformance verification loop before the change is considered complete.
