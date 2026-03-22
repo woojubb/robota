@@ -68,6 +68,9 @@ export async function runHooks(
   for (const group of groups) {
     if (!matchesGroup(group, input.tool_name)) continue;
 
+    // Merge group-level env vars into hook input
+    const groupInput = group.env ? { ...input, env: { ...input.env, ...group.env } } : input;
+
     for (const hook of group.hooks) {
       const executor = executorMap.get(hook.type);
       if (!executor) {
@@ -75,7 +78,7 @@ export async function runHooks(
         continue;
       }
 
-      const result = await executor.execute(hook, input);
+      const result = await executor.execute(hook, groupInput);
 
       // Exit code 2 = block/deny
       if (result.exitCode === 2) {

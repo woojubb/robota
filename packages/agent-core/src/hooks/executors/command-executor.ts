@@ -33,7 +33,7 @@ export class CommandExecutor implements IHookTypeExecutor {
 
       const child = spawn('sh', ['-c', definition.command], {
         cwd: input.cwd,
-        env: { ...process.env },
+        env: { ...process.env, ...input.env },
       });
 
       child.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));

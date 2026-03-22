@@ -202,6 +202,10 @@ export class Session {
       session_id: this.sessionId,
       cwd: this.cwd,
       hook_event_name: 'SessionStart',
+      env: {
+        CLAUDE_PROJECT_DIR: this.cwd,
+        CLAUDE_SESSION_ID: this.sessionId,
+      },
     };
     runHooks(
       this.hooks as THooksConfig | undefined,
@@ -263,6 +267,10 @@ export class Session {
         cwd: this.cwd,
         hook_event_name: 'UserPromptSubmit',
         user_message: message,
+        env: {
+          CLAUDE_PROJECT_DIR: this.cwd,
+          CLAUDE_SESSION_ID: this.sessionId,
+        },
       },
       this.hookTypeExecutors,
     );
@@ -361,6 +369,10 @@ export class Session {
         cwd: this.cwd,
         hook_event_name: 'Stop',
         response: response.substring(0, 500),
+        env: {
+          CLAUDE_PROJECT_DIR: this.cwd,
+          CLAUDE_SESSION_ID: this.sessionId,
+        },
       },
       this.hookTypeExecutors,
     ).catch(() => {});
