@@ -23,6 +23,7 @@ export interface IMarketplacePluginEntry {
 
 /** Manifest format returned by a marketplace source. */
 export interface IMarketplaceManifest {
+  name?: string;
   version: string;
   plugins: Array<{
     name: string;
@@ -77,6 +78,28 @@ export class MarketplaceClient {
     }
     this.sources.set(name, source);
     this.settingsStore?.setMarketplaceSource(name, source);
+  }
+
+  /**
+   * Add a marketplace source by fetching its manifest first.
+   * Uses the `name` field from the manifest as the registration name.
+   * Falls back to the provided fallbackName if manifest has no name.
+   * Returns the registered name.
+   */
+  async addSourceFromManifest(source: IMarketplaceSource, fallbackName: string): Promise<string> {
+    const url = this.resolveManifestUrl(source);
+    const fetchImpl = this.fetchFn ?? globalThis.fetch;
+    const response = await fetchImpl(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch manifest: ${response.status} ${response.statusText}`);
+    }
+
+    const manifest = (await response.json()) as IMarketplaceManifest;
+    const name = manifest.name ?? fallbackName;
+
+    this.addSource(name, source);
+    return name;
   }
 
   /** Remove a named marketplace source. Persists via settings store. */

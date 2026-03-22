@@ -49,7 +49,7 @@ export interface IPluginCallbacks {
   uninstall: (pluginId: string) => Promise<void>;
   enable: (pluginId: string) => Promise<void>;
   disable: (pluginId: string) => Promise<void>;
-  marketplaceAdd: (source: string) => Promise<void>;
+  marketplaceAdd: (source: string) => Promise<string>;
   marketplaceList: () => Promise<Array<{ name: string; type: string }>>;
   reloadPlugins: () => Promise<void>;
 }
@@ -246,8 +246,11 @@ export async function handlePluginCommand(
         const mpArgs = mpParts.slice(1).join(' ').trim();
 
         if (mpSubcommand === 'add' && mpArgs) {
-          await callbacks.marketplaceAdd(mpArgs);
-          addMessage({ role: 'system', content: `Added marketplace source: ${mpArgs}` });
+          const registeredName = await callbacks.marketplaceAdd(mpArgs);
+          addMessage({
+            role: 'system',
+            content: `Added marketplace: "${registeredName}" (from ${mpArgs})\nInstall plugins with: /plugin install <name>@${registeredName}`,
+          });
           return { handled: true };
         } else if (mpSubcommand === 'list') {
           const sources = await callbacks.marketplaceList();
