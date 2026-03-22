@@ -14,6 +14,7 @@ import {
 } from '../slash-executor.js';
 import type { ISlashSession } from '../slash-executor.js';
 import { CommandRegistry } from '../command-registry.js';
+import { BuiltinCommandSource } from '../builtin-source.js';
 import type { ICommandSource } from '../types.js';
 
 function createMockSession(overrides?: Partial<ISlashSession>): ISlashSession {
@@ -30,7 +31,10 @@ function createMockSession(overrides?: Partial<ISlashSession>): ISlashSession {
   };
 }
 
-function createMockAddMessage(): { addMessage: (msg: { role: string; content: string }) => void; messages: Array<{ role: string; content: string }> } {
+function createMockAddMessage(): {
+  addMessage: (msg: { role: string; content: string }) => void;
+  messages: Array<{ role: string; content: string }>;
+} {
   const messages: Array<{ role: string; content: string }> = [];
   return {
     addMessage: (msg) => messages.push(msg),
@@ -170,21 +174,35 @@ describe('handleCompact', () => {
   });
 });
 
-describe('executeSlashCommand', () => {
-  function emptyRegistry(): CommandRegistry {
-    return new CommandRegistry();
-  }
+function emptyRegistry(): CommandRegistry {
+  return new CommandRegistry();
+}
 
+describe('executeSlashCommand', () => {
   it('dispatches /help', async () => {
     const { addMessage, messages } = createMockAddMessage();
-    const result = await executeSlashCommand('help', '', createMockSession(), addMessage, vi.fn(), emptyRegistry());
+    const result = await executeSlashCommand(
+      'help',
+      '',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      emptyRegistry(),
+    );
     expect(result.handled).toBe(true);
     expect(messages[0].content).toContain('Available commands');
   });
 
   it('dispatches /exit with exitRequested', async () => {
     const { addMessage } = createMockAddMessage();
-    const result = await executeSlashCommand('exit', '', createMockSession(), addMessage, vi.fn(), emptyRegistry());
+    const result = await executeSlashCommand(
+      'exit',
+      '',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      emptyRegistry(),
+    );
     expect(result.exitRequested).toBe(true);
   });
 
@@ -196,13 +214,96 @@ describe('executeSlashCommand', () => {
       getCommands: () => [{ name: 'deploy', description: 'Deploy', source: 'skill' }],
     };
     registry.addSource(source);
-    const result = await executeSlashCommand('deploy', '', createMockSession(), addMessage, vi.fn(), registry);
+    const result = await executeSlashCommand(
+      'deploy',
+      '',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      registry,
+    );
     expect(result.handled).toBe(false);
   });
 
   it('shows error for unknown command', async () => {
     const { addMessage, messages } = createMockAddMessage();
-    await executeSlashCommand('foobar', '', createMockSession(), addMessage, vi.fn(), emptyRegistry());
+    await executeSlashCommand(
+      'foobar',
+      '',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      emptyRegistry(),
+    );
     expect(messages[0].content).toContain('Unknown command');
+  });
+});
+
+/**
+ * REGRESSION GUARD: Every builtin command registered in BuiltinCommandSource
+ * must have a corresponding route in executeSlashCommand.
+ * If this test fails, a new command was added to builtin-source.ts but
+ * not wired into the switch statement in slash-executor.ts.
+ */
+describe('Command routing completeness', () => {
+  const builtinSource = new BuiltinCommandSource();
+  const allBuiltinCommands = builtinSource.getCommands();
+
+  // Commands that executeSlashCommand should NOT show "Unknown command" for
+  const topLevelNames = allBuiltinCommands.map((c) => c.name);
+
+  // Mock plugin callbacks for commands that need them
+  const mockPluginCallbacks = {
+    listInstalled: vi.fn().mockResolvedValue([]),
+    install: vi.fn(),
+    uninstall: vi.fn(),
+    enable: vi.fn(),
+    disable: vi.fn(),
+    marketplaceAdd: vi.fn(),
+    marketplaceList: vi.fn().mockResolvedValue([]),
+    reloadPlugins: vi.fn(),
+  };
+
+  it.each(topLevelNames)('should route /%s without "Unknown command"', async (cmdName) => {
+    const { addMessage, messages } = createMockAddMessage();
+    await executeSlashCommand(
+      cmdName,
+      '',
+      createMockSession(),
+      addMessage,
+      vi.fn(),
+      emptyRegistry(),
+      mockPluginCallbacks,
+    );
+    const lastMessage = messages[messages.length - 1]?.content ?? '';
+    expect(lastMessage).not.toContain('Unknown command');
+  });
+
+  it('should have a route for every builtin command (completeness check)', () => {
+    // This is the authoritative list of routed commands in executeSlashCommand.
+    // Update this list when adding new commands.
+    const routedCommands = [
+      'help',
+      'clear',
+      'compact',
+      'mode',
+      'model',
+      'language',
+      'cost',
+      'permissions',
+      'context',
+      'reset',
+      'exit',
+      'plugin',
+      'reload-plugins',
+    ];
+
+    for (const cmd of topLevelNames) {
+      expect(
+        routedCommands,
+        `Builtin command "${cmd}" is registered but not in routedCommands list. ` +
+          `Add it to executeSlashCommand switch AND update this test.`,
+      ).toContain(cmd);
+    }
   });
 });
