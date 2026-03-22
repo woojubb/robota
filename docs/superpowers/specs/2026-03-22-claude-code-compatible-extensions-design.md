@@ -46,6 +46,9 @@ Current Robota parses only `name` and `description`. Upgrade the parser to suppo
 - `$N` — shorthand for `$ARGUMENTS[N]`
 - `${CLAUDE_SESSION_ID}` — current session ID
 - `${CLAUDE_SKILL_DIR}` — directory containing SKILL.md
+- `${CLAUDE_PLUGIN_PATH}` — plugin installation directory (plugin skills/commands only)
+- `${CLAUDE_PLUGIN_ROOT}` — alias for `${CLAUDE_PLUGIN_PATH}`
+- `${CLAUDE_PLUGIN_DATA}` — persistent data directory for the plugin
 - `` !`command` `` — shell command output (preprocessed before sending to AI)
 
 ### Execution Features
