@@ -1,5 +1,6 @@
 // Hooks module
 export { runHooks } from './hook-runner.js';
+export { CommandExecutor, HttpExecutor } from './executors/index.js';
 export type {
   THookEvent,
   THooksConfig,
