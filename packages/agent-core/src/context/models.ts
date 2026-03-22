@@ -76,6 +76,13 @@ export function getModelContextWindow(modelId: string): number {
   return CLAUDE_MODELS[modelId]?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
 }
 
+export const DEFAULT_MAX_OUTPUT = 16_384;
+
+/** Get max output tokens for a model ID. Falls back to DEFAULT_MAX_OUTPUT. */
+export function getModelMaxOutput(modelId: string): number {
+  return CLAUDE_MODELS[modelId]?.maxOutput ?? DEFAULT_MAX_OUTPUT;
+}
+
 /** Get human-readable model name for a model ID. Falls back to the ID itself. */
 export function getModelName(modelId: string): string {
   return CLAUDE_MODELS[modelId]?.name ?? modelId;

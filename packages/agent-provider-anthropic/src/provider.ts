@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { IAnthropicProviderOptions } from './types';
-import { AbstractAIProvider } from '@robota-sdk/agent-core';
+import { AbstractAIProvider, getModelMaxOutput } from '@robota-sdk/agent-core';
 import type {
   TUniversalMessage,
   IChatOptions,
@@ -9,8 +9,6 @@ import type {
   IAssistantMessage,
   IToolMessage,
 } from '@robota-sdk/agent-core';
-
-const DEFAULT_MAX_TOKENS = 4096;
 
 /**
  * Anthropic provider implementation for Robota
@@ -121,7 +119,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     const baseParams: Anthropic.MessageCreateParamsNonStreaming = {
       model: options.model as string,
       messages: anthropicMessages,
-      max_tokens: options?.maxTokens || DEFAULT_MAX_TOKENS,
+      max_tokens: options?.maxTokens || getModelMaxOutput(options.model as string),
       ...(systemPrompt && { system: systemPrompt }),
       ...(options?.temperature !== undefined && { temperature: options.temperature }),
       ...(allTools.length > 0 && { tools: allTools }),
@@ -301,7 +299,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     const requestParams: Anthropic.MessageCreateParamsStreaming = {
       model: options.model as string,
       messages: anthropicMessages,
-      max_tokens: options?.maxTokens || DEFAULT_MAX_TOKENS,
+      max_tokens: options?.maxTokens || getModelMaxOutput(options.model as string),
       stream: true,
     };
 

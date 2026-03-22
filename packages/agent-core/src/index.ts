@@ -396,7 +396,9 @@ export type { IModelDefinition } from './context/index.js';
 export {
   CLAUDE_MODELS,
   DEFAULT_CONTEXT_WINDOW,
+  DEFAULT_MAX_OUTPUT,
   getModelContextWindow,
+  getModelMaxOutput,
   getModelName,
   formatTokenCount,
 } from './context/index.js';
