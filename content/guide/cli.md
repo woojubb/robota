@@ -48,8 +48,34 @@ Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Enter to sel
 | `/context`                | Context window details         |
 | `/permissions`            | Show permission rules          |
 | `/exit`                   | Exit CLI                       |
+| `/plugin`                 | Plugin management              |
+| `/reload-plugins`         | Reload all plugins             |
 
 `/mode` and `/model` show nested submenus for selection.
+
+### Plugin Management
+
+Plugins extend the CLI with additional skills, hooks, and tools. They are stored in `~/.robota/plugins/`.
+
+**Marketplace commands:**
+
+```bash
+/plugin marketplace add <source>       # Add marketplace (shallow clones repo)
+/plugin marketplace remove <name>      # Remove marketplace
+/plugin marketplace list               # List registered marketplaces
+/plugin marketplace update             # Update all marketplaces
+```
+
+**Plugin commands:**
+
+```bash
+/plugin install <name>@<marketplace>   # Install plugin from marketplace
+/plugin uninstall <name>               # Uninstall plugin
+/plugin enable <name>                  # Enable installed plugin
+/plugin disable <name>                 # Disable installed plugin
+```
+
+Use `/reload-plugins` to reload all plugins without restarting the CLI.
 
 ### Model Change (`/model`)
 
@@ -59,7 +85,17 @@ Model definitions come from the `CLAUDE_MODELS` registry in `@robota-sdk/agent-c
 
 ### Skill Commands
 
-Skills discovered from `.agents/skills/*/SKILL.md` (project) and `~/.claude/skills/*/SKILL.md` (user) appear as additional slash commands below the built-in commands.
+Skills are discovered from multiple paths in priority order:
+
+1. `.claude/skills/` (project)
+2. `.claude/commands/` (project, legacy)
+3. `~/.robota/skills/` (user)
+4. `.agents/skills/` (project)
+
+Skills appear as additional slash commands below the built-in commands.
+
+Plugin skills appear with a hint showing their source: `/audit (rulebased-harness) Run audit checks`
+Plugin commands use colon format: `/rulebased-harness:audit`
 
 ## Permission Modes
 
@@ -88,6 +124,19 @@ Auto-compaction triggers at ~83.5% of the model's context window. Use `/compact`
 /compact focus on the API design decisions
 ```
 
+## Tool Display
+
+Tool invocations in the TUI use a unified display format with status indicators:
+
+| Status  | Symbol | Color                        | Meaning            |
+| ------- | ------ | ---------------------------- | ------------------ |
+| Running | ⟳      | Yellow                       | Tool is executing  |
+| Success | ✓      | Green                        | Completed normally |
+| Error   | ✗      | Red + strikethrough          | Execution failed   |
+| Denied  | ⊘      | YellowBright + strikethrough | Permission denied  |
+
+Long tool arguments are middle-truncated, keeping the last 30 characters visible for context.
+
 ## Session Logging
 
 Events are logged to `.robota/logs/{sessionId}.jsonl` in JSONL format. Events include `session_init`, `pre_run`, `assistant`, `server_tool`, and `context`.
@@ -98,11 +147,15 @@ When no settings file exists, the CLI prompts for an Anthropic API key (input is
 
 ## Configuration
 
-The CLI uses the same 3-layer configuration as the SDK:
+The CLI uses a layered configuration system (highest priority last):
 
 1. `~/.robota/settings.json` (user global)
 2. `.robota/settings.json` (project)
 3. `.robota/settings.local.json` (local override, gitignored)
+4. `.claude/settings.json` (project, Claude Code compatible)
+5. `.claude/settings.local.json` (local override, gitignored, Claude Code compatible)
+
+The `.claude/` paths provide compatibility with Claude Code configuration conventions and take higher priority than `.robota/` paths.
 
 See [Using the SDK — Configuration](./sdk.md#configuration) for the full config format.
 
