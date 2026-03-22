@@ -94,6 +94,7 @@ export interface IPermissionEnforcerOptions {
     toolName: string;
     toolArgs?: TToolArgs;
     success?: boolean;
+    denied?: boolean;
   }) => void;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];
@@ -175,6 +176,13 @@ export class PermissionEnforcer {
         const allowed = await enforcer.checkPermission(toolName, parameters as TToolArgs);
         if (!allowed) {
           enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
+          enforcer.onToolExecution?.({
+            type: 'end',
+            toolName,
+            toolArgs: parameters as TToolArgs,
+            success: false,
+            denied: true,
+          });
           return PERMISSION_DENIED_RESULT;
         }
 

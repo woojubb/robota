@@ -11,6 +11,19 @@ export interface IToolExecutionState {
   toolName: string;
   firstArg: string;
   isRunning: boolean;
+  /** 'success' | 'error' | 'denied' — set after tool completes */
+  result?: 'success' | 'error' | 'denied';
+}
+
+function getToolStyle(t: IToolExecutionState): {
+  color: string;
+  icon: string;
+  strikethrough: boolean;
+} {
+  if (t.isRunning) return { color: 'yellow', icon: '⟳', strikethrough: false };
+  if (t.result === 'error') return { color: 'red', icon: '✗', strikethrough: true };
+  if (t.result === 'denied') return { color: 'gray', icon: '⊘', strikethrough: true };
+  return { color: 'green', icon: '✓', strikethrough: false };
 }
 
 interface IProps {
@@ -30,18 +43,26 @@ export default function StreamingIndicator({ text, activeTools }: IProps): React
     <Box flexDirection="column">
       {hasTools && (
         <Box flexDirection="column" marginBottom={1}>
-          <Text color="gray" bold>Tools:</Text>
+          <Text color="gray" bold>
+            Tools:
+          </Text>
           <Text> </Text>
-          {activeTools.map((t, i) => (
-            <Text key={`${t.toolName}-${i}`} color={t.isRunning ? 'yellow' : 'green'}>
-              {'  '}{t.isRunning ? '⟳' : '✓'} {t.toolName}({t.firstArg})
-            </Text>
-          ))}
+          {activeTools.map((t, i) => {
+            const { color, icon, strikethrough } = getToolStyle(t);
+            return (
+              <Text key={`${t.toolName}-${i}`} color={color} strikethrough={strikethrough}>
+                {'  '}
+                {icon} {t.toolName}({t.firstArg})
+              </Text>
+            );
+          })}
         </Box>
       )}
       {hasText && (
         <Box flexDirection="column" marginBottom={1}>
-          <Text color="cyan" bold>Robota:</Text>
+          <Text color="cyan" bold>
+            Robota:
+          </Text>
           <Text> </Text>
           <Box marginLeft={2}>
             <Text wrap="wrap">{renderMarkdown(text)}</Text>

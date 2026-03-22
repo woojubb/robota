@@ -103,6 +103,8 @@ export function useSession(props: ISessionProps): {
       type: 'start' | 'end';
       toolName: string;
       toolArgs?: Record<string, unknown>;
+      success?: boolean;
+      denied?: boolean;
     }): void => {
       if (event.type === 'start') {
         let firstArg = '';
@@ -119,9 +121,12 @@ export function useSession(props: ISessionProps): {
           { toolName: event.toolName, firstArg, isRunning: true },
         ]);
       } else {
+        const result = event.denied ? 'denied' : event.success === false ? 'error' : 'success';
         setActiveTools((prev) =>
           prev.map((t) =>
-            t.toolName === event.toolName && t.isRunning ? { ...t, isRunning: false } : t,
+            t.toolName === event.toolName && t.isRunning
+              ? { ...t, isRunning: false, result: result as 'success' | 'error' | 'denied' }
+              : t,
           ),
         );
       }

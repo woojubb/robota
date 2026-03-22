@@ -29,14 +29,43 @@ function RoleLabel({ role }: { role: IChatMessage['role'] }): React.ReactElement
       );
     case 'tool':
       return (
-        <Text color="magenta" bold>
+        <Text color="gray" bold>
           Tool:{' '}
         </Text>
       );
   }
 }
 
+function ToolMessage({ message }: { message: IChatMessage }): React.ReactElement {
+  const lines = message.content.split('\n').filter((l) => l.trim());
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <Text color="gray" bold>
+          Tool:{' '}
+        </Text>
+        {message.toolName && (
+          <Text color="gray" dimColor>
+            [{message.toolName}]
+          </Text>
+        )}
+      </Box>
+      <Text> </Text>
+      {lines.map((line, i) => (
+        <Text key={i} color="green">
+          {'  '}
+          {'✓'} {line}
+        </Text>
+      ))}
+    </Box>
+  );
+}
+
 function MessageItem({ message }: { message: IChatMessage }): React.ReactElement {
+  if (message.role === 'tool') {
+    return <ToolMessage message={message} />;
+  }
+
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
