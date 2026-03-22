@@ -72,6 +72,10 @@ export interface IHookInput {
   trigger?: 'auto' | 'manual';
   /** Compaction summary text (PostCompact only) */
   compact_summary?: string;
+  /** User message text (UserPromptSubmit only) */
+  user_message?: string;
+  /** Assistant response text (Stop only) */
+  response?: string;
 }
 
 /** Hook execution result */
