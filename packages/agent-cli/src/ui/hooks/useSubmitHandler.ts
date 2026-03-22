@@ -30,6 +30,7 @@ async function runSessionPrompt(
   clearStreamingText: () => void,
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
+  rawInput?: string,
 ): Promise<void> {
   setIsThinking(true);
   clearStreamingText();
@@ -37,7 +38,7 @@ async function runSessionPrompt(
   const historyBefore = session.getHistory().length;
 
   try {
-    const response = await session.run(prompt);
+    const response = await session.run(prompt, rawInput);
     clearStreamingText();
 
     const history = session.getHistory();
@@ -97,6 +98,7 @@ export function useSubmitHandler(
           clearStreamingText,
           setIsThinking,
           setContextState,
+          input,
         );
       }
 
