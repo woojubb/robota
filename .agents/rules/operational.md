@@ -42,3 +42,10 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
   4. **Stale content** — any existing documentation that contradicts the new feature MUST be corrected.
 - A feature without documentation updates is an incomplete feature.
 - This rule is enforced by `harness:scan:specs` which checks that SPEC.md exists and is non-empty for all published packages.
+
+### Document Size Rule
+
+- Rule files (`.agents/rules/*.md`) and routing documents (`.agents/project-structure.md`, etc.) MUST stay under 80 lines.
+- When a file exceeds 80 lines, split it into focused sub-files and convert the original into a routing file that links to them.
+- Skills (`.agents/skills/*/SKILL.md`) are exempt — they are procedural workflows that agents consume in one pass.
+- Each sub-file must have a `Parent:` link back to the routing file.
