@@ -17,6 +17,17 @@ import { CommandRegistry } from '../command-registry.js';
 import { BuiltinCommandSource } from '../builtin-source.js';
 import type { ICommandSource } from '../types.js';
 
+// Prevent tests from modifying real ~/.robota/settings.json
+vi.mock('../../utils/settings-io.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/settings-io.js')>();
+  return {
+    ...actual,
+    deleteSettings: vi.fn().mockReturnValue(false),
+    writeSettings: vi.fn(),
+    readSettings: vi.fn().mockReturnValue({}),
+  };
+});
+
 function createMockSession(overrides?: Partial<ISlashSession>): ISlashSession {
   return {
     getPermissionMode: () => 'default',
