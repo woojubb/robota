@@ -28,6 +28,8 @@ export interface ISlashCommand {
   context?: string;
   /** Agent identity to use when executing this skill */
   agent?: string;
+  /** Plugin installation directory (plugin skills/commands only) */
+  pluginDir?: string;
 }
 
 /** A source that provides slash commands */
