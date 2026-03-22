@@ -356,6 +356,90 @@ Just content, no frontmatter.
     expect(plugins[0].manifest.name).toBe('good-plugin');
   });
 
+  it('should load MCP config from .mcp.json at plugin root (primary location)', async () => {
+    const manifest: IBundlePluginManifest = {
+      name: 'mcp-primary-plugin',
+      version: '1.0.0',
+      description: 'Plugin with .mcp.json at root',
+      features: { mcp: true },
+    };
+    const pluginDir = createPluginInCache(
+      pluginsDir,
+      'market',
+      'mcp-primary-plugin',
+      '1.0.0',
+      manifest,
+    );
+
+    // Write .mcp.json at plugin root (primary location)
+    writeJson(join(pluginDir, '.mcp.json'), {
+      mcpServers: { 'my-server': { command: 'node', args: ['server.js'] } },
+    });
+
+    const loader = new BundlePluginLoader(pluginsDir);
+    const plugins = await loader.loadAll();
+
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].mcpConfig).toEqual({
+      mcpServers: { 'my-server': { command: 'node', args: ['server.js'] } },
+    });
+  });
+
+  it('should fall back to .claude-plugin/mcp.json when .mcp.json is absent', async () => {
+    const manifest: IBundlePluginManifest = {
+      name: 'mcp-fallback-plugin',
+      version: '1.0.0',
+      description: 'Plugin with legacy mcp.json location',
+      features: { mcp: true },
+    };
+    const pluginDir = createPluginInCache(
+      pluginsDir,
+      'market',
+      'mcp-fallback-plugin',
+      '1.0.0',
+      manifest,
+    );
+
+    // Write mcp.json at legacy location (.claude-plugin/mcp.json)
+    writeJson(join(pluginDir, '.claude-plugin', 'mcp.json'), {
+      mcpServers: { 'legacy-server': { command: 'python', args: ['serve.py'] } },
+    });
+
+    const loader = new BundlePluginLoader(pluginsDir);
+    const plugins = await loader.loadAll();
+
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].mcpConfig).toEqual({
+      mcpServers: { 'legacy-server': { command: 'python', args: ['serve.py'] } },
+    });
+  });
+
+  it('should prefer .mcp.json over .claude-plugin/mcp.json when both exist', async () => {
+    const manifest: IBundlePluginManifest = {
+      name: 'mcp-both-plugin',
+      version: '1.0.0',
+      description: 'Plugin with both MCP config locations',
+      features: { mcp: true },
+    };
+    const pluginDir = createPluginInCache(
+      pluginsDir,
+      'market',
+      'mcp-both-plugin',
+      '1.0.0',
+      manifest,
+    );
+
+    // Write both locations
+    writeJson(join(pluginDir, '.mcp.json'), { primary: true });
+    writeJson(join(pluginDir, '.claude-plugin', 'mcp.json'), { primary: false });
+
+    const loader = new BundlePluginLoader(pluginsDir);
+    const plugins = await loader.loadAll();
+
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].mcpConfig).toEqual({ primary: true });
+  });
+
   it('should also disable by plain name key in enabledPlugins', async () => {
     createPluginInCache(pluginsDir, 'market', 'name-disabled', '1.0.0', {
       name: 'name-disabled',

@@ -158,7 +158,52 @@ describe('MarketplaceClient', () => {
       } as IMarketplaceSource;
 
       expect(() => client.addMarketplace(source)).toThrow(
-        'URL source type does not support git cloning',
+        'URL marketplace source is not yet supported',
+      );
+    });
+
+    it('should copy a local directory instead of git clone', () => {
+      const localDir = join(pluginsDir, '_local_source');
+      setupDir(join(localDir, '.claude-plugin'));
+      writeJson(join(localDir, '.claude-plugin', 'marketplace.json'), {
+        name: 'local-mp',
+        version: '1.0',
+        plugins: [],
+      });
+
+      const source: IMarketplaceSource = { type: 'local', path: localDir };
+      const name = client.addMarketplace(source);
+
+      expect(name).toBe('local-mp');
+      // exec should NOT have been called (no git clone)
+      expect(mockExec).not.toHaveBeenCalled();
+
+      // Should be registered
+      const registryPath = join(pluginsDir, 'known_marketplaces.json');
+      const registry = JSON.parse(readFileSync(registryPath, 'utf-8')) as Record<string, unknown>;
+      expect(registry['local-mp']).toBeDefined();
+
+      // Directory should exist at final location
+      const finalDir = join(pluginsDir, 'marketplaces', 'local-mp');
+      expect(existsSync(finalDir)).toBe(true);
+    });
+
+    it('should throw when local source path does not exist', () => {
+      const source: IMarketplaceSource = { type: 'local', path: '/nonexistent/path' };
+
+      expect(() => client.addMarketplace(source)).toThrow(
+        'Local marketplace path does not exist: /nonexistent/path',
+      );
+    });
+
+    it('should throw when local directory has no marketplace.json', () => {
+      const localDir = join(pluginsDir, '_local_no_manifest');
+      setupDir(localDir);
+
+      const source: IMarketplaceSource = { type: 'local', path: localDir };
+
+      expect(() => client.addMarketplace(source)).toThrow(
+        'Local directory does not contain .claude-plugin/marketplace.json',
       );
     });
   });
@@ -189,6 +234,61 @@ describe('MarketplaceClient', () => {
       expect(() => client.removeMarketplace('nonexistent')).toThrow(
         'Marketplace "nonexistent" not found',
       );
+    });
+
+    it('should uninstall plugins belonging to that marketplace', () => {
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'uninstall-mp');
+      setupDir(marketplaceDir);
+
+      // Create installed_plugins.json with plugins from this marketplace and another
+      const pluginCacheDir = join(pluginsDir, 'cache', 'uninstall-mp', 'plugin-a', '1.0.0');
+      setupDir(pluginCacheDir);
+      writeJson(join(pluginsDir, 'installed_plugins.json'), {
+        'plugin-a': {
+          marketplace: 'uninstall-mp',
+          installPath: pluginCacheDir,
+        },
+        'plugin-b': {
+          marketplace: 'other-mp',
+          installPath: '/some/other/path',
+        },
+      });
+
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'uninstall-mp': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: marketplaceDir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      client.removeMarketplace('uninstall-mp');
+
+      // Plugin cache dir should be deleted
+      expect(existsSync(pluginCacheDir)).toBe(false);
+
+      // installed_plugins.json should only contain plugin-b
+      const installed = JSON.parse(
+        readFileSync(join(pluginsDir, 'installed_plugins.json'), 'utf-8'),
+      ) as Record<string, unknown>;
+      expect(installed['plugin-a']).toBeUndefined();
+      expect(installed['plugin-b']).toBeDefined();
+    });
+
+    it('should handle removal when installed_plugins.json does not exist', () => {
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'no-installed-mp');
+      setupDir(marketplaceDir);
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'no-installed-mp': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: marketplaceDir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      // Should not throw even though installed_plugins.json does not exist
+      expect(() => client.removeMarketplace('no-installed-mp')).not.toThrow();
+      expect(existsSync(marketplaceDir)).toBe(false);
     });
   });
 
@@ -233,6 +333,81 @@ describe('MarketplaceClient', () => {
 
       expect(() => client.updateMarketplace('missing-dir')).toThrow(
         'Marketplace directory for "missing-dir" does not exist',
+      );
+    });
+
+    it('should re-copy local source directory instead of git pull', () => {
+      const localSourceDir = join(pluginsDir, '_local_update_source');
+      setupDir(localSourceDir);
+      writeJson(join(localSourceDir, 'data.json'), { updated: true });
+
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'local-update-mp');
+      setupDir(marketplaceDir);
+      writeJson(join(marketplaceDir, 'data.json'), { updated: false });
+
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'local-update-mp': {
+          source: { type: 'local', path: localSourceDir },
+          installLocation: marketplaceDir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      client.updateMarketplace('local-update-mp');
+
+      // exec should NOT have been called (no git pull)
+      expect(mockExec).not.toHaveBeenCalled();
+
+      // Directory should exist with updated content
+      expect(existsSync(marketplaceDir)).toBe(true);
+      const data = JSON.parse(readFileSync(join(marketplaceDir, 'data.json'), 'utf-8')) as Record<
+        string,
+        unknown
+      >;
+      expect(data.updated).toBe(true);
+
+      // Timestamp should be updated in registry
+      const registry = JSON.parse(
+        readFileSync(join(pluginsDir, 'known_marketplaces.json'), 'utf-8'),
+      ) as Record<string, { lastUpdated: string }>;
+      expect(registry['local-update-mp'].lastUpdated).not.toBe('2026-01-01T00:00:00.000Z');
+    });
+
+    it('should throw when local source path does not exist during update', () => {
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'local-missing-mp');
+      setupDir(marketplaceDir);
+
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'local-missing-mp': {
+          source: { type: 'local', path: '/nonexistent/local/path' },
+          installLocation: marketplaceDir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      expect(() => client.updateMarketplace('local-missing-mp')).toThrow(
+        'Local marketplace path does not exist: /nonexistent/local/path',
+      );
+    });
+
+    it('should throw when git pull fails', () => {
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'pull-fail-mp');
+      setupDir(marketplaceDir);
+
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'pull-fail-mp': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: marketplaceDir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      mockExec.mockImplementation(() => {
+        throw new Error('network error');
+      });
+
+      expect(() => client.updateMarketplace('pull-fail-mp')).toThrow(
+        'Failed to update marketplace "pull-fail-mp": network error',
       );
     });
   });
