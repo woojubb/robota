@@ -64,6 +64,22 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
           return marketplace.addSourceFromManifest({ type: 'url', url: source }, source);
         }
       },
+      marketplaceRemove: async (name: string) => {
+        // Uninstall all plugins from this marketplace first
+        const plugins = await loader.loadAll();
+        for (const p of plugins) {
+          // Plugin dirs are named pluginName@marketplace
+          if (p.pluginDir.includes(`@${name}`)) {
+            await installer.uninstall(`${p.manifest.name}@${name}`);
+          }
+        }
+        marketplace.removeSource(name);
+      },
+      marketplaceUpdate: async (name: string) => {
+        // Re-fetch manifest — sources are already persisted, just refresh
+        await marketplace.fetchManifest(name);
+        // TODO: update installed plugins to latest versions (git pull)
+      },
       marketplaceList: async () => {
         return marketplace.listSources().map((s) => ({
           name: s.name,
