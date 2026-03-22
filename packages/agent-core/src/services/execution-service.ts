@@ -215,8 +215,41 @@ export class ExecutionService {
         if (shouldBreak) break;
       }
 
-      if (roundState.currentRound >= maxRounds) {
-        this.logger.warn('Maximum execution rounds reached', { maxRounds, conversationId });
+      // If loop ended without a final text response (e.g., maxRounds reached while
+      // AI was still issuing tool calls), make one more provider call so the AI
+      // can generate a summary from the results collected so far.
+      const allMsgs = conversationSession.getMessages();
+      const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : undefined;
+      const hasTextResponse =
+        lastMsg?.role === 'assistant' &&
+        typeof lastMsg.content === 'string' &&
+        lastMsg.content.length > 0 &&
+        (!('toolCalls' in lastMsg) || (lastMsg.toolCalls as unknown[]).length === 0);
+
+      if (!hasTextResponse) {
+        this.logger.warn('No final text response — forcing additional provider call', {
+          maxRounds,
+          currentRound: roundState.currentRound,
+          conversationId,
+        });
+        try {
+          roundState.currentRound++;
+          await executeRound(
+            roundState,
+            roundState.currentRound + 1, // allow this one extra round
+            conversationSession,
+            conversationId,
+            executionId,
+            fullContext,
+            config,
+            resolved,
+            roundDeps,
+          );
+        } catch (forceErr) {
+          this.logger.warn('Forced final round failed', {
+            error: forceErr instanceof Error ? forceErr.message : String(forceErr),
+          });
+        }
       }
 
       const result = this.buildFinalResult(
@@ -408,7 +441,10 @@ export class ExecutionService {
     const finalMessages = conversationSession.getMessages();
     // Find last assistant message with actual content (skip stripped tool-round messages)
     const lastAssistantMessage = finalMessages
-      .filter((msg) => msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.length > 0)
+      .filter(
+        (msg) =>
+          msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.length > 0,
+      )
       .pop();
     const response: string = lastAssistantMessage
       ? (lastAssistantMessage.content as string)
