@@ -24,7 +24,7 @@ export class PluginCommandSource implements ICommandSource {
         const baseName = skill.name.includes('@') ? skill.name.split('@')[0] : skill.name;
         commands.push({
           name: baseName,
-          description: `${skill.description} (${plugin.manifest.name})`,
+          description: `(${plugin.manifest.name}) ${skill.description}`,
           source: 'plugin',
           skillContent: skill.skillContent,
           pluginDir: plugin.pluginDir,

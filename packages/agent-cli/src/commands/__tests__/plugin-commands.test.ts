@@ -259,11 +259,11 @@ describe('PluginCommandSource', () => {
 
     expect(commands).toHaveLength(2);
     expect(commands[0]!.name).toBe('deploy');
-    expect(commands[0]!.description).toBe('Deploy app (my-plugin)');
+    expect(commands[0]!.description).toBe('(my-plugin) Deploy app');
     expect(commands[0]!.source).toBe('plugin');
     expect(commands[0]!.skillContent).toBe('# Deploy');
     expect(commands[1]!.name).toBe('test');
-    expect(commands[1]!.description).toBe('Run tests (my-plugin)');
+    expect(commands[1]!.description).toBe('(my-plugin) Run tests');
   });
 
   it('should strip @plugin suffix from legacy skill names', () => {
@@ -311,10 +311,10 @@ describe('PluginCommandSource', () => {
 
     expect(commands).toHaveLength(3);
     expect(commands[0]!.name).toBe('skill-1');
-    expect(commands[0]!.description).toBe('Skill 1 (plugin-a)');
+    expect(commands[0]!.description).toBe('(plugin-a) Skill 1');
     expect(commands[1]!.name).toBe('plugin-a:cmd-1');
     expect(commands[2]!.name).toBe('skill-2');
-    expect(commands[2]!.description).toBe('Skill 2 (plugin-b)');
+    expect(commands[2]!.description).toBe('(plugin-b) Skill 2');
   });
 
   it('should return empty array when no plugins', () => {

@@ -231,7 +231,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
 
     expect(commands).toHaveLength(2);
     expect(commands[0]!.name).toBe('refactor');
-    expect(commands[0]!.description).toBe('Refactor code (code-tools)');
+    expect(commands[0]!.description).toBe('(code-tools) Refactor code');
     expect(commands[0]!.source).toBe('plugin');
     expect(commands[0]!.skillContent).toBe('# Refactor steps');
     expect(commands[1]!.name).toBe('optimize');
@@ -302,6 +302,6 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
 
     expect(prompt).toContain('## Skills');
     expect(prompt).toContain('summarize');
-    expect(prompt).toContain('Summarize text (ai-tools)');
+    expect(prompt).toContain('(ai-tools) Summarize text');
   });
 });
