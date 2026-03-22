@@ -1,19 +1,14 @@
 /**
  * MarketplaceClient — manages marketplace sources and fetches plugin manifests.
  *
- * Sources are persisted to a settings file (e.g., ~/.robota/settings.json)
- * under the `extraKnownMarketplaces` key.
+ * Sources are persisted via PluginSettingsStore.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { PluginSettingsStore } from './plugin-settings-store.js';
+import type { IMarketplaceSource } from './plugin-settings-store.js';
 
-/** Source type for a marketplace registry. */
-export type IMarketplaceSource =
-  | { type: 'github'; repo: string; ref?: string }
-  | { type: 'git'; url: string; ref?: string }
-  | { type: 'local'; path: string }
-  | { type: 'url'; url: string };
+// Re-export so consumers don't need to import from plugin-settings-store
+export type { IMarketplaceSource };
 
 /** A single plugin entry in a marketplace manifest. */
 export interface IMarketplacePluginEntry {
@@ -40,28 +35,23 @@ export interface IMarketplaceManifest {
 
 /** Options for constructing a MarketplaceClient. */
 export interface IMarketplaceClientOptions {
-  /** Path to settings file for persisting marketplace sources. */
-  settingsPath?: string;
+  /** Shared settings store for persistence. */
+  settingsStore?: PluginSettingsStore;
   /** Custom fetch implementation for testing. */
   fetch?: (
     url: string,
   ) => Promise<{ ok: boolean; status?: number; statusText?: string; json: () => Promise<unknown> }>;
 }
 
-/** Serialized marketplace source entry in settings. */
-interface IPersistedSource {
-  source: IMarketplaceSource;
-}
-
 /** Manages marketplace sources and fetches plugin manifests. */
 export class MarketplaceClient {
   private readonly sources: Map<string, IMarketplaceSource> = new Map();
   private readonly fetchFn: IMarketplaceClientOptions['fetch'];
-  private readonly settingsPath?: string;
+  private readonly settingsStore?: PluginSettingsStore;
 
   constructor(options?: IMarketplaceClientOptions) {
     this.fetchFn = options?.fetch;
-    this.settingsPath = options?.settingsPath;
+    this.settingsStore = options?.settingsStore;
 
     // Register built-in default marketplace
     this.sources.set('claude-plugins-official', {
@@ -69,26 +59,33 @@ export class MarketplaceClient {
       repo: 'anthropics/claude-code',
     });
 
-    // Load persisted sources from settings
-    this.loadPersistedSources();
+    // Load persisted sources from settings store
+    if (this.settingsStore) {
+      const persisted = this.settingsStore.getMarketplaceSources();
+      for (const [name, entry] of Object.entries(persisted)) {
+        if (entry?.source && !this.sources.has(name)) {
+          this.sources.set(name, entry.source);
+        }
+      }
+    }
   }
 
-  /** Add a named marketplace source. Persists to settings file. */
+  /** Add a named marketplace source. Persists via settings store. */
   addSource(name: string, source: IMarketplaceSource): void {
     if (this.sources.has(name)) {
       throw new Error(`Marketplace source "${name}" already exists`);
     }
     this.sources.set(name, source);
-    this.persistSources();
+    this.settingsStore?.setMarketplaceSource(name, source);
   }
 
-  /** Remove a named marketplace source. Persists to settings file. */
+  /** Remove a named marketplace source. Persists via settings store. */
   removeSource(name: string): void {
     if (!this.sources.has(name)) {
       throw new Error(`Marketplace source "${name}" not found`);
     }
     this.sources.delete(name);
-    this.persistSources();
+    this.settingsStore?.removeMarketplaceSource(name);
   }
 
   /** List all registered marketplace sources. */
@@ -126,7 +123,6 @@ export class MarketplaceClient {
     const sources = this.listSources();
 
     for (const { name, source } of sources) {
-      // Only github and url types support direct fetching
       if (source.type !== 'github' && source.type !== 'url') {
         continue;
       }
@@ -140,58 +136,11 @@ export class MarketplaceClient {
           });
         }
       } catch {
-        // Skip failed sources — continue with remaining
+        // Skip failed sources
       }
     }
 
     return results;
-  }
-
-  /** Load marketplace sources from settings file. */
-  private loadPersistedSources(): void {
-    if (!this.settingsPath) return;
-
-    try {
-      const raw = readFileSync(this.settingsPath, 'utf-8');
-      const settings = JSON.parse(raw) as Record<string, unknown>;
-      const extra = settings.extraKnownMarketplaces as Record<string, IPersistedSource> | undefined;
-      if (!extra || typeof extra !== 'object') return;
-
-      for (const [name, entry] of Object.entries(extra)) {
-        if (entry?.source && !this.sources.has(name)) {
-          this.sources.set(name, entry.source);
-        }
-      }
-    } catch {
-      // File doesn't exist or invalid — start fresh
-    }
-  }
-
-  /** Persist user-added marketplace sources to settings file. */
-  private persistSources(): void {
-    if (!this.settingsPath) return;
-
-    // Read existing settings
-    let settings: Record<string, unknown> = {};
-    try {
-      const raw = readFileSync(this.settingsPath, 'utf-8');
-      settings = JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      // File doesn't exist — will create
-    }
-
-    // Build extraKnownMarketplaces (exclude built-in default)
-    const extra: Record<string, IPersistedSource> = {};
-    for (const [name, source] of this.sources) {
-      if (name === 'claude-plugins-official') continue;
-      extra[name] = { source };
-    }
-
-    settings.extraKnownMarketplaces = extra;
-
-    // Write back
-    mkdirSync(dirname(this.settingsPath), { recursive: true });
-    writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
   }
 
   /** Resolve a marketplace source to a manifest URL. */

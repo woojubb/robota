@@ -1,11 +1,13 @@
 /**
  * Hook: create IPluginCallbacks wired to real SDK instances.
+ * All plugin components share a single PluginSettingsStore.
  */
 
 import { useMemo } from 'react';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
+  PluginSettingsStore,
   BundlePluginLoader,
   BundlePluginInstaller,
   MarketplaceClient,
@@ -16,11 +18,13 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
   return useMemo(() => {
     const home = homedir();
     const pluginsDir = join(home, '.robota', 'plugins');
-    const settingsPath = join(cwd, '.claude', 'settings.json');
     const userSettingsPath = join(home, '.robota', 'settings.json');
 
-    const marketplace = new MarketplaceClient({ settingsPath: userSettingsPath });
-    const installer = new BundlePluginInstaller({ pluginsDir, settingsPath: userSettingsPath });
+    // Single shared settings store — prevents concurrent write conflicts
+    const settingsStore = new PluginSettingsStore(userSettingsPath);
+
+    const marketplace = new MarketplaceClient({ settingsStore });
+    const installer = new BundlePluginInstaller({ pluginsDir, settingsStore });
     const loader = new BundlePluginLoader(pluginsDir);
 
     return {
@@ -54,7 +58,6 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
         await installer.disable(pluginId);
       },
       marketplaceAdd: async (source: string) => {
-        // Parse source: could be "owner/repo" (GitHub) or a URL
         if (source.includes('/') && !source.includes(':')) {
           marketplace.addSource(source, { type: 'github', repo: source });
         } else {

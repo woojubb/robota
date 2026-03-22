@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { BundlePluginInstaller } from '../bundle-plugin-installer.js';
 import type { IPluginSource } from '../bundle-plugin-installer.js';
+import { PluginSettingsStore } from '../plugin-settings-store.js';
 
 const TMP_BASE = join(tmpdir(), 'robota-installer-test-' + process.pid);
 
@@ -31,7 +32,7 @@ describe('BundlePluginInstaller', () => {
 
     installer = new BundlePluginInstaller({
       pluginsDir,
-      settingsPath,
+      settingsStore: new PluginSettingsStore(settingsPath),
       exec: mockExec,
     });
   });
