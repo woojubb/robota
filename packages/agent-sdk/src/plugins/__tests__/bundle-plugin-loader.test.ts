@@ -19,16 +19,22 @@ function writeFile(path: string, content: string): void {
   writeFileSync(path, content, 'utf-8');
 }
 
-function createPluginStructure(
+/**
+ * Create a plugin structure in the cache directory.
+ * Path: `<pluginsDir>/cache/<marketplace>/<pluginName>/<version>/`
+ */
+function createPluginInCache(
   pluginsDir: string,
+  marketplace: string,
   pluginName: string,
+  version: string,
   manifest: IBundlePluginManifest,
   options?: {
     skills?: Array<{ name: string; content: string }>;
     hooks?: Record<string, unknown>;
   },
 ): string {
-  const pluginDir = join(pluginsDir, pluginName);
+  const pluginDir = join(pluginsDir, 'cache', marketplace, pluginName, version);
   const metaDir = join(pluginDir, '.claude-plugin');
   setupDir(metaDir);
   writeJson(join(metaDir, 'plugin.json'), manifest);
@@ -64,14 +70,14 @@ describe('BundlePluginLoader', () => {
     }
   });
 
-  it('should discover plugins in the plugins directory', async () => {
+  it('should discover plugins in the cache directory', async () => {
     const manifest: IBundlePluginManifest = {
       name: 'test-plugin',
       version: '1.0.0',
       description: 'A test plugin',
       features: { skills: true },
     };
-    createPluginStructure(pluginsDir, 'test-plugin', manifest);
+    createPluginInCache(pluginsDir, 'test-market', 'test-plugin', '1.0.0', manifest);
 
     const loader = new BundlePluginLoader(pluginsDir);
     const plugins = await loader.loadAll();
@@ -79,7 +85,30 @@ describe('BundlePluginLoader', () => {
     expect(plugins).toHaveLength(1);
     expect(plugins[0].manifest.name).toBe('test-plugin');
     expect(plugins[0].manifest.version).toBe('1.0.0');
-    expect(plugins[0].pluginDir).toBe(join(pluginsDir, 'test-plugin'));
+  });
+
+  it('should load the latest version directory for a plugin', async () => {
+    const manifestV1: IBundlePluginManifest = {
+      name: 'ver-plugin',
+      version: '1.0.0',
+      description: 'Version 1',
+      features: {},
+    };
+    const manifestV2: IBundlePluginManifest = {
+      name: 'ver-plugin',
+      version: '2.0.0',
+      description: 'Version 2',
+      features: {},
+    };
+    createPluginInCache(pluginsDir, 'market', 'ver-plugin', '1.0.0', manifestV1);
+    createPluginInCache(pluginsDir, 'market', 'ver-plugin', '2.0.0', manifestV2);
+
+    const loader = new BundlePluginLoader(pluginsDir);
+    const plugins = await loader.loadAll();
+
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].manifest.version).toBe('2.0.0');
+    expect(plugins[0].manifest.description).toBe('Version 2');
   });
 
   it('should load skills from plugin skills/ directory with namespacing', async () => {
@@ -98,7 +127,7 @@ tags: [greeting, hello]
 
 Say hello to the user.
 `;
-    createPluginStructure(pluginsDir, 'my-plugin', manifest, {
+    createPluginInCache(pluginsDir, 'market', 'my-plugin', '1.0.0', manifest, {
       skills: [{ name: 'greet', content: skillContent }],
     });
 
@@ -126,7 +155,7 @@ tags: [alpha, beta]
 
 Content here.
 `;
-    createPluginStructure(pluginsDir, 'tagged-plugin', manifest, {
+    createPluginInCache(pluginsDir, 'market', 'tagged-plugin', '1.0.0', manifest, {
       skills: [{ name: 'tagged-skill', content: skillContent }],
     });
 
@@ -146,7 +175,7 @@ Content here.
     const hooks = {
       PreToolUse: [{ type: 'command', command: 'echo pre-hook' }],
     };
-    createPluginStructure(pluginsDir, 'hook-plugin', manifest, { hooks });
+    createPluginInCache(pluginsDir, 'market', 'hook-plugin', '1.0.0', manifest, { hooks });
 
     const loader = new BundlePluginLoader(pluginsDir);
     const plugins = await loader.loadAll();
@@ -155,17 +184,17 @@ Content here.
     expect(plugins[0].hooks).toEqual(hooks);
   });
 
-  it('should skip disabled plugins', async () => {
+  it('should skip disabled plugins using pluginName@marketplace key', async () => {
     const manifest: IBundlePluginManifest = {
       name: 'disabled-plugin',
       version: '1.0.0',
       description: 'A disabled plugin',
       features: { skills: true },
     };
-    createPluginStructure(pluginsDir, 'disabled-plugin', manifest);
+    createPluginInCache(pluginsDir, 'market', 'disabled-plugin', '1.0.0', manifest);
 
     const enabledPlugins: TEnabledPlugins = {
-      'disabled-plugin@marketplace': false,
+      'disabled-plugin@market': false,
     };
 
     const loader = new BundlePluginLoader(pluginsDir, enabledPlugins);
@@ -181,10 +210,10 @@ Content here.
       description: 'An enabled plugin',
       features: {},
     };
-    createPluginStructure(pluginsDir, 'enabled-plugin', manifest);
+    createPluginInCache(pluginsDir, 'market', 'enabled-plugin', '1.0.0', manifest);
 
     const enabledPlugins: TEnabledPlugins = {
-      'enabled-plugin@marketplace': true,
+      'enabled-plugin@market': true,
     };
 
     const loader = new BundlePluginLoader(pluginsDir, enabledPlugins);
@@ -201,10 +230,10 @@ Content here.
       description: 'Not in the enabled list',
       features: {},
     };
-    createPluginStructure(pluginsDir, 'unlisted-plugin', manifest);
+    createPluginInCache(pluginsDir, 'market', 'unlisted-plugin', '1.0.0', manifest);
 
     const enabledPlugins: TEnabledPlugins = {
-      'other-plugin@marketplace': false,
+      'other-plugin@market': false,
     };
 
     const loader = new BundlePluginLoader(pluginsDir, enabledPlugins);
@@ -220,8 +249,7 @@ Content here.
       description: 'Minimal plugin with no skills or hooks',
       features: {},
     };
-    // Create only the manifest, no skills/ or hooks/
-    createPluginStructure(pluginsDir, 'minimal-plugin', manifest);
+    createPluginInCache(pluginsDir, 'market', 'minimal-plugin', '0.1.0', manifest);
 
     const loader = new BundlePluginLoader(pluginsDir);
     const plugins = await loader.loadAll();
@@ -233,9 +261,13 @@ Content here.
     expect(plugins[0].mcpConfig).toBeUndefined();
   });
 
-  it('should discover multiple plugins', async () => {
-    for (const name of ['plugin-a', 'plugin-b', 'plugin-c']) {
-      createPluginStructure(pluginsDir, name, {
+  it('should discover plugins across multiple marketplaces', async () => {
+    for (const [mp, name] of [
+      ['mp-a', 'plugin-a'],
+      ['mp-b', 'plugin-b'],
+      ['mp-a', 'plugin-c'],
+    ] as const) {
+      createPluginInCache(pluginsDir, mp, name, '1.0.0', {
         name,
         version: '1.0.0',
         description: `Plugin ${name}`,
@@ -253,15 +285,17 @@ Content here.
 
   it('should skip directories without .claude-plugin/plugin.json', async () => {
     // Valid plugin
-    createPluginStructure(pluginsDir, 'valid-plugin', {
+    createPluginInCache(pluginsDir, 'market', 'valid-plugin', '1.0.0', {
       name: 'valid-plugin',
       version: '1.0.0',
       description: 'Valid',
       features: {},
     });
+
     // Invalid directory (no .claude-plugin)
-    setupDir(join(pluginsDir, 'not-a-plugin'));
-    writeFile(join(pluginsDir, 'not-a-plugin', 'README.md'), '# Not a plugin');
+    const badDir = join(pluginsDir, 'cache', 'market', 'not-a-plugin', '1.0.0');
+    setupDir(badDir);
+    writeFile(join(badDir, 'README.md'), '# Not a plugin');
 
     const loader = new BundlePluginLoader(pluginsDir);
     const plugins = await loader.loadAll();
@@ -270,7 +304,7 @@ Content here.
     expect(plugins[0].manifest.name).toBe('valid-plugin');
   });
 
-  it('should return empty array when plugins directory does not exist', async () => {
+  it('should return empty array when cache directory does not exist', async () => {
     const loader = new BundlePluginLoader(join(pluginsDir, 'nonexistent'));
     const plugins = await loader.loadAll();
 
@@ -288,7 +322,7 @@ Content here.
 
 Just content, no frontmatter.
 `;
-    createPluginStructure(pluginsDir, 'no-fm-plugin', manifest, {
+    createPluginInCache(pluginsDir, 'market', 'no-fm-plugin', '1.0.0', manifest, {
       skills: [{ name: 'simple', content: skillContent }],
     });
 
@@ -303,7 +337,7 @@ Just content, no frontmatter.
 
   it('should skip plugins with invalid plugin.json', async () => {
     // Valid plugin
-    createPluginStructure(pluginsDir, 'good-plugin', {
+    createPluginInCache(pluginsDir, 'market', 'good-plugin', '1.0.0', {
       name: 'good-plugin',
       version: '1.0.0',
       description: 'Good',
@@ -311,7 +345,7 @@ Just content, no frontmatter.
     });
 
     // Plugin with invalid JSON
-    const badDir = join(pluginsDir, 'bad-plugin', '.claude-plugin');
+    const badDir = join(pluginsDir, 'cache', 'market', 'bad-plugin', '1.0.0', '.claude-plugin');
     setupDir(badDir);
     writeFile(join(badDir, 'plugin.json'), '{ invalid json }');
 
@@ -320,5 +354,23 @@ Just content, no frontmatter.
 
     expect(plugins).toHaveLength(1);
     expect(plugins[0].manifest.name).toBe('good-plugin');
+  });
+
+  it('should also disable by plain name key in enabledPlugins', async () => {
+    createPluginInCache(pluginsDir, 'market', 'name-disabled', '1.0.0', {
+      name: 'name-disabled',
+      version: '1.0.0',
+      description: 'Disabled by name',
+      features: {},
+    });
+
+    const enabledPlugins: TEnabledPlugins = {
+      'name-disabled': false,
+    };
+
+    const loader = new BundlePluginLoader(pluginsDir, enabledPlugins);
+    const plugins = await loader.loadAll();
+
+    expect(plugins).toHaveLength(0);
   });
 });

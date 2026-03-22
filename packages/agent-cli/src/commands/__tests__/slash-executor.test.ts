@@ -271,6 +271,8 @@ describe('Command routing completeness', () => {
     enable: vi.fn(),
     disable: vi.fn(),
     marketplaceAdd: vi.fn(),
+    marketplaceRemove: vi.fn(),
+    marketplaceUpdate: vi.fn(),
     marketplaceList: vi.fn().mockResolvedValue([]),
     reloadPlugins: vi.fn(),
   };

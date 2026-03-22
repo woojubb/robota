@@ -23,6 +23,8 @@ function createMockPluginCallbacks(overrides?: Partial<IPluginCallbacks>): IPlug
     enable: vi.fn().mockResolvedValue(undefined),
     disable: vi.fn().mockResolvedValue(undefined),
     marketplaceAdd: vi.fn().mockResolvedValue(undefined),
+    marketplaceRemove: vi.fn().mockResolvedValue(undefined),
+    marketplaceUpdate: vi.fn().mockResolvedValue(undefined),
     marketplaceList: vi.fn().mockResolvedValue([]),
     reloadPlugins: vi.fn().mockResolvedValue(undefined),
     ...overrides,

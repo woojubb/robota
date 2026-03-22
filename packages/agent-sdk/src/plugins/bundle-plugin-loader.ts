@@ -1,8 +1,11 @@
 /**
  * BundlePluginLoader — discovers and loads directory-based bundle plugins.
  *
- * Scans a plugins directory for subdirectories containing `.claude-plugin/plugin.json`,
+ * Scans the cache directory (`<pluginsDir>/cache/<marketplace>/<plugin>/<version>/`)
+ * for subdirectories containing `.claude-plugin/plugin.json`,
  * reads manifests, loads skills (with frontmatter parsing), hooks, and agent definitions.
+ *
+ * For each plugin, the latest version directory (lexicographically last) is loaded.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -93,7 +96,24 @@ function validateManifest(data: unknown): IBundlePluginManifest | null {
   };
 }
 
-/** Loader for directory-based bundle plugins. */
+/**
+ * Get sorted subdirectories from a directory.
+ * Returns directory names sorted lexicographically.
+ */
+function getSortedSubdirs(dirPath: string): string[] {
+  if (!existsSync(dirPath)) return [];
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    return entries
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/** Loader for directory-based bundle plugins from the cache directory. */
 export class BundlePluginLoader {
   private readonly pluginsDir: string;
   private readonly enabledPlugins: TEnabledPlugins;
@@ -113,29 +133,49 @@ export class BundlePluginLoader {
     return this.discoverAndLoad();
   }
 
+  /**
+   * Discover and load plugins from the cache directory.
+   *
+   * Directory structure: `<pluginsDir>/cache/<marketplace>/<plugin>/<version>/`
+   * For each marketplace/plugin pair, the latest version (lexicographically last) is loaded.
+   */
   private discoverAndLoad(): ILoadedBundlePlugin[] {
-    if (!existsSync(this.pluginsDir)) {
+    const cacheDir = join(this.pluginsDir, 'cache');
+    if (!existsSync(cacheDir)) {
       return [];
     }
 
-    const entries = readdirSync(this.pluginsDir, { withFileTypes: true });
     const results: ILoadedBundlePlugin[] = [];
 
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
+    // Iterate marketplaces
+    const marketplaces = getSortedSubdirs(cacheDir);
+    for (const marketplace of marketplaces) {
+      const marketplaceDir = join(cacheDir, marketplace);
+      const plugins = getSortedSubdirs(marketplaceDir);
 
-      const pluginDir = join(this.pluginsDir, entry.name);
-      const manifestPath = join(pluginDir, '.claude-plugin', 'plugin.json');
+      for (const pluginName of plugins) {
+        const pluginDir = join(marketplaceDir, pluginName);
+        const versions = getSortedSubdirs(pluginDir);
 
-      if (!existsSync(manifestPath)) continue;
+        if (versions.length === 0) continue;
 
-      const manifest = this.readManifest(manifestPath);
-      if (!manifest) continue;
+        // Use the latest version (lexicographically last)
+        const latestVersion = versions[versions.length - 1];
+        const versionDir = join(pluginDir, latestVersion);
 
-      if (this.isDisabled(manifest.name)) continue;
+        const manifestPath = join(versionDir, '.claude-plugin', 'plugin.json');
+        if (!existsSync(manifestPath)) continue;
 
-      const loaded = this.loadPlugin(pluginDir, manifest);
-      results.push(loaded);
+        const manifest = this.readManifest(manifestPath);
+        if (!manifest) continue;
+
+        // Check enabled/disabled state using pluginName@marketplace key
+        const pluginId = `${manifest.name}@${marketplace}`;
+        if (this.isDisabled(pluginId, manifest.name)) continue;
+
+        const loaded = this.loadPlugin(versionDir, manifest);
+        results.push(loaded);
+      }
     }
 
     return results;
@@ -157,11 +197,9 @@ export class BundlePluginLoader {
    * Checks both `name@marketplace` and `name` keys.
    * Plugins not listed in enabledPlugins are enabled by default.
    */
-  private isDisabled(pluginName: string): boolean {
-    const marketplaceKey = `${pluginName}@marketplace`;
-
-    if (marketplaceKey in this.enabledPlugins) {
-      return this.enabledPlugins[marketplaceKey] === false;
+  private isDisabled(pluginId: string, pluginName: string): boolean {
+    if (pluginId in this.enabledPlugins) {
+      return this.enabledPlugins[pluginId] === false;
     }
     if (pluginName in this.enabledPlugins) {
       return this.enabledPlugins[pluginName] === false;

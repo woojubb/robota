@@ -23,8 +23,12 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
     // Single shared settings store — prevents concurrent write conflicts
     const settingsStore = new PluginSettingsStore(userSettingsPath);
 
-    const marketplace = new MarketplaceClient({ settingsStore });
-    const installer = new BundlePluginInstaller({ pluginsDir, settingsStore });
+    const marketplace = new MarketplaceClient({ pluginsDir });
+    const installer = new BundlePluginInstaller({
+      pluginsDir,
+      settingsStore,
+      marketplaceClient: marketplace,
+    });
     const loader = new BundlePluginLoader(pluginsDir);
 
     return {
@@ -41,12 +45,7 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
         if (!name || !marketplaceName) {
           throw new Error('Plugin ID must be in format: name@marketplace');
         }
-        const manifest = await marketplace.fetchManifest(marketplaceName);
-        const entry = manifest.plugins.find((p) => p.name === name);
-        if (!entry) {
-          throw new Error(`Plugin "${name}" not found in marketplace "${marketplaceName}"`);
-        }
-        await installer.install(name, marketplaceName, entry.source);
+        await installer.install(name, marketplaceName);
       },
       uninstall: async (pluginId: string) => {
         await installer.uninstall(pluginId);
@@ -59,31 +58,28 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
       },
       marketplaceAdd: async (source: string) => {
         if (source.includes('/') && !source.includes(':')) {
-          return marketplace.addSourceFromManifest({ type: 'github', repo: source }, source);
+          // owner/repo format -> GitHub source
+          return marketplace.addMarketplace({ type: 'github', repo: source });
         } else {
-          return marketplace.addSourceFromManifest({ type: 'url', url: source }, source);
+          // git URL
+          return marketplace.addMarketplace({ type: 'git', url: source });
         }
       },
       marketplaceRemove: async (name: string) => {
         // Uninstall all plugins from this marketplace first
-        const plugins = await loader.loadAll();
-        for (const p of plugins) {
-          // Plugin dirs are named pluginName@marketplace
-          if (p.pluginDir.includes(`@${name}`)) {
-            await installer.uninstall(`${p.manifest.name}@${name}`);
-          }
+        const installedFromMarketplace = installer.getPluginsByMarketplace(name);
+        for (const record of installedFromMarketplace) {
+          await installer.uninstall(`${record.pluginName}@${record.marketplace}`);
         }
-        marketplace.removeSource(name);
+        marketplace.removeMarketplace(name);
       },
       marketplaceUpdate: async (name: string) => {
-        // Re-fetch manifest — sources are already persisted, just refresh
-        await marketplace.fetchManifest(name);
-        // TODO: update installed plugins to latest versions (git pull)
+        marketplace.updateMarketplace(name);
       },
       marketplaceList: async () => {
-        return marketplace.listSources().map((s) => ({
-          name: s.name,
-          type: s.source.type,
+        return marketplace.listMarketplaces().map((m) => ({
+          name: m.name,
+          type: m.source.type,
         }));
       },
       reloadPlugins: async () => {

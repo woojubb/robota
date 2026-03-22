@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { BundlePluginInstaller } from '../bundle-plugin-installer.js';
-import type { IPluginSource } from '../bundle-plugin-installer.js';
+import { MarketplaceClient } from '../marketplace-client.js';
 import { PluginSettingsStore } from '../plugin-settings-store.js';
 
 const TMP_BASE = join(tmpdir(), 'robota-installer-test-' + process.pid);
@@ -20,7 +20,9 @@ describe('BundlePluginInstaller', () => {
   let pluginsDir: string;
   let settingsPath: string;
   let installer: BundlePluginInstaller;
-  let mockExec: ReturnType<typeof vi.fn>;
+  let marketplaceClient: MarketplaceClient;
+  type ExecFn = (command: string, options: { timeout: number; stdio?: string }) => string | Buffer;
+  let mockExec: Mock;
 
   beforeEach(() => {
     const runDir = join(TMP_BASE, 'run-' + Math.random().toString(36).slice(2));
@@ -28,12 +30,15 @@ describe('BundlePluginInstaller', () => {
     settingsPath = join(runDir, 'settings.json');
     setupDir(pluginsDir);
 
-    mockExec = vi.fn();
+    mockExec = vi.fn().mockReturnValue('');
+
+    marketplaceClient = new MarketplaceClient({ pluginsDir, exec: mockExec as ExecFn });
 
     installer = new BundlePluginInstaller({
       pluginsDir,
       settingsStore: new PluginSettingsStore(settingsPath),
-      exec: mockExec,
+      marketplaceClient,
+      exec: mockExec as ExecFn,
     });
   });
 
@@ -43,109 +48,247 @@ describe('BundlePluginInstaller', () => {
     }
   });
 
+  /**
+   * Set up a registered marketplace with a manifest and plugin entry.
+   * Returns the marketplace directory path.
+   */
+  function setupMarketplace(
+    name: string,
+    plugins: Array<{
+      name: string;
+      title: string;
+      description: string;
+      source: string | { type: 'github'; repo: string };
+      tags: string[];
+      version?: string;
+    }>,
+  ): string {
+    const marketplaceDir = join(pluginsDir, 'marketplaces', name);
+    setupDir(join(marketplaceDir, '.claude-plugin'));
+    writeJson(join(marketplaceDir, '.claude-plugin', 'marketplace.json'), {
+      name,
+      version: '1.0',
+      plugins,
+    });
+    writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+      [name]: {
+        source: { type: 'github', repo: `owner/${name}` },
+        installLocation: marketplaceDir,
+        lastUpdated: '2026-01-01T00:00:00.000Z',
+      },
+    });
+    return marketplaceDir;
+  }
+
   describe('install', () => {
-    it('should clone plugin from github source', async () => {
-      const source: IPluginSource = { type: 'github', repo: 'user/my-plugin', ref: 'v1.0' };
+    it('should install a plugin from a relative path source', async () => {
+      const marketplaceDir = setupMarketplace('test-market', [
+        {
+          name: 'my-plugin',
+          title: 'My Plugin',
+          description: 'Test plugin',
+          source: './packages/my-plugin',
+          tags: ['test'],
+          version: '1.0.0',
+        },
+      ]);
 
-      await installer.install('my-plugin', 'custom-market', source);
-
-      expect(mockExec).toHaveBeenCalledWith(
-        expect.stringContaining('git clone'),
-        expect.objectContaining({ timeout: expect.any(Number) }),
-      );
-      const call = mockExec.mock.calls[0][0] as string;
-      expect(call).toContain('https://github.com/user/my-plugin.git');
-      expect(call).toContain('--branch v1.0');
-      expect(call).toContain(join(pluginsDir, 'my-plugin@custom-market'));
-    });
-
-    it('should clone plugin from git source', async () => {
-      const source: IPluginSource = { type: 'git', url: 'https://example.com/repo.git' };
-
-      await installer.install('repo-plugin', 'market', source);
-
-      expect(mockExec).toHaveBeenCalledWith(
-        expect.stringContaining('git clone'),
-        expect.objectContaining({ timeout: expect.any(Number) }),
-      );
-      const call = mockExec.mock.calls[0][0] as string;
-      expect(call).toContain('https://example.com/repo.git');
-      expect(call).toContain(join(pluginsDir, 'repo-plugin@market'));
-    });
-
-    it('should use default ref when not specified for github source', async () => {
-      const source: IPluginSource = { type: 'github', repo: 'org/plugin' };
-
-      await installer.install('plugin', 'mp', source);
-
-      const call = mockExec.mock.calls[0][0] as string;
-      expect(call).not.toContain('--branch');
-    });
-
-    it('should copy plugin from local source', async () => {
-      // Create a local plugin directory
-      const localDir = join(TMP_BASE, 'local-plugin');
-      setupDir(join(localDir, '.claude-plugin'));
-      writeJson(join(localDir, '.claude-plugin', 'plugin.json'), {
-        name: 'local-plugin',
+      // Create the plugin source directory in the marketplace clone
+      const pluginSourceDir = join(marketplaceDir, 'packages', 'my-plugin', '.claude-plugin');
+      setupDir(pluginSourceDir);
+      writeJson(join(pluginSourceDir, 'plugin.json'), {
+        name: 'my-plugin',
         version: '1.0.0',
-        description: 'A local plugin',
+        description: 'Test plugin',
         features: {},
       });
 
-      const source: IPluginSource = { type: 'local', path: localDir };
+      await installer.install('my-plugin', 'test-market');
 
-      await installer.install('local-plugin', 'local-market', source);
-
-      const targetDir = join(pluginsDir, 'local-plugin@local-market');
+      // Should be installed in cache/<marketplace>/<plugin>/<version>/
+      const targetDir = join(pluginsDir, 'cache', 'test-market', 'my-plugin', '1.0.0');
       expect(existsSync(targetDir)).toBe(true);
       expect(existsSync(join(targetDir, '.claude-plugin', 'plugin.json'))).toBe(true);
+
+      // Should be recorded in installed_plugins.json
+      const registryPath = join(pluginsDir, 'installed_plugins.json');
+      expect(existsSync(registryPath)).toBe(true);
+      const registry = JSON.parse(readFileSync(registryPath, 'utf-8')) as Record<string, unknown>;
+      expect(registry['my-plugin@test-market']).toBeDefined();
     });
 
-    it('should throw when local source path does not exist', async () => {
-      const source: IPluginSource = { type: 'local', path: '/nonexistent/path' };
+    it('should install a plugin from a GitHub source', async () => {
+      setupMarketplace('gh-market', [
+        {
+          name: 'gh-plugin',
+          title: 'GH Plugin',
+          description: 'From GitHub',
+          source: { type: 'github', repo: 'user/gh-plugin' },
+          tags: [],
+          version: '2.0.0',
+        },
+      ]);
 
-      await expect(installer.install('bad', 'mp', source)).rejects.toThrow(
-        'Local plugin source path does not exist: /nonexistent/path',
+      // Mock exec for git clone
+      mockExec.mockImplementation((cmd: string) => {
+        if (cmd.includes('git clone') && cmd.includes('user/gh-plugin')) {
+          // The installer removes the pre-created dir and clones
+          const parts = cmd.split(' ');
+          const targetDir = parts[parts.length - 1];
+          setupDir(targetDir);
+        }
+        return '';
+      });
+
+      await installer.install('gh-plugin', 'gh-market');
+
+      expect(mockExec).toHaveBeenCalledWith(
+        expect.stringContaining('git clone --depth 1'),
+        expect.objectContaining({ timeout: expect.any(Number) }),
+      );
+      const cloneCmd = mockExec.mock.calls.find((c: string[]) =>
+        (c[0] as string).includes('git clone'),
+      );
+      expect(cloneCmd).toBeDefined();
+      expect(cloneCmd![0]).toContain('https://github.com/user/gh-plugin.git');
+    });
+
+    it('should use git SHA as version when no explicit version', async () => {
+      setupMarketplace('sha-market', [
+        {
+          name: 'no-ver-plugin',
+          title: 'No Version',
+          description: 'No explicit version',
+          source: './packages/no-ver-plugin',
+          tags: [],
+        },
+      ]);
+
+      // Create the plugin source directory
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'sha-market');
+      setupDir(join(marketplaceDir, 'packages', 'no-ver-plugin'));
+
+      // Mock git rev-parse to return a SHA
+      mockExec.mockImplementation((cmd: string) => {
+        if (cmd.includes('rev-parse HEAD')) {
+          return 'abcdef123456789012345678901234567890\n';
+        }
+        return '';
+      });
+
+      await installer.install('no-ver-plugin', 'sha-market');
+
+      // Should use first 12 chars of SHA
+      const targetDir = join(pluginsDir, 'cache', 'sha-market', 'no-ver-plugin', 'abcdef123456');
+      expect(existsSync(targetDir)).toBe(true);
+    });
+
+    it('should throw when plugin not found in marketplace', async () => {
+      setupMarketplace('empty-market', []);
+
+      await expect(installer.install('nonexistent', 'empty-market')).rejects.toThrow(
+        'Plugin "nonexistent" not found in marketplace "empty-market"',
+      );
+    });
+
+    it('should throw when plugin already installed at same version', async () => {
+      setupMarketplace('dup-market', [
+        {
+          name: 'dup-plugin',
+          title: 'Dup',
+          description: 'Duplicate test',
+          source: './packages/dup-plugin',
+          tags: [],
+          version: '1.0.0',
+        },
+      ]);
+
+      // Create existing install
+      const existingDir = join(pluginsDir, 'cache', 'dup-market', 'dup-plugin', '1.0.0');
+      setupDir(existingDir);
+
+      await expect(installer.install('dup-plugin', 'dup-market')).rejects.toThrow(
+        'already installed',
+      );
+    });
+
+    it('should throw when relative source path does not exist in marketplace', async () => {
+      setupMarketplace('missing-src', [
+        {
+          name: 'bad-path-plugin',
+          title: 'Bad Path',
+          description: 'Source path missing',
+          source: './packages/nonexistent',
+          tags: [],
+          version: '1.0.0',
+        },
+      ]);
+
+      await expect(installer.install('bad-path-plugin', 'missing-src')).rejects.toThrow(
+        'Plugin source path',
       );
     });
 
     it('should throw when git clone fails', async () => {
-      mockExec.mockImplementation(() => {
-        throw new Error('git clone failed');
+      setupMarketplace('fail-market', [
+        {
+          name: 'fail-plugin',
+          title: 'Fail',
+          description: 'Clone fails',
+          source: { type: 'github', repo: 'bad/repo' },
+          tags: [],
+          version: '1.0.0',
+        },
+      ]);
+
+      mockExec.mockImplementation((cmd: string) => {
+        if (cmd.includes('git clone')) {
+          throw new Error('git clone failed');
+        }
+        return '';
       });
 
-      const source: IPluginSource = { type: 'github', repo: 'bad/repo' };
-
-      await expect(installer.install('bad-plugin', 'mp', source)).rejects.toThrow(
-        'Failed to clone plugin "bad-plugin": git clone failed',
+      await expect(installer.install('fail-plugin', 'fail-market')).rejects.toThrow(
+        'Failed to clone plugin "fail-plugin"',
       );
     });
   });
 
   describe('uninstall', () => {
-    it('should remove plugin directory', async () => {
-      const pluginDir = join(pluginsDir, 'my-plugin@market');
-      setupDir(join(pluginDir, '.claude-plugin'));
-      writeJson(join(pluginDir, '.claude-plugin', 'plugin.json'), {
-        name: 'my-plugin',
-        version: '1.0.0',
-        description: 'To uninstall',
-        features: {},
+    it('should remove plugin from cache and registry', async () => {
+      const installPath = join(pluginsDir, 'cache', 'market', 'test-plugin', '1.0.0');
+      setupDir(installPath);
+      writeJson(join(pluginsDir, 'installed_plugins.json'), {
+        'test-plugin@market': {
+          pluginName: 'test-plugin',
+          marketplace: 'market',
+          version: '1.0.0',
+          installPath,
+          installedAt: '2026-01-01T00:00:00.000Z',
+        },
       });
 
-      expect(existsSync(pluginDir)).toBe(true);
+      await installer.uninstall('test-plugin@market');
 
-      await installer.uninstall('my-plugin@market');
-
-      expect(existsSync(pluginDir)).toBe(false);
+      expect(existsSync(installPath)).toBe(false);
+      const registry = JSON.parse(
+        readFileSync(join(pluginsDir, 'installed_plugins.json'), 'utf-8'),
+      ) as Record<string, unknown>;
+      expect(registry['test-plugin@market']).toBeUndefined();
     });
 
     it('should also remove settings entry on uninstall', async () => {
-      const pluginDir = join(pluginsDir, 'rm-plugin@market');
-      setupDir(pluginDir);
-
-      // Create settings with the plugin
+      const installPath = join(pluginsDir, 'cache', 'market', 'rm-plugin', '1.0.0');
+      setupDir(installPath);
+      writeJson(join(pluginsDir, 'installed_plugins.json'), {
+        'rm-plugin@market': {
+          pluginName: 'rm-plugin',
+          marketplace: 'market',
+          version: '1.0.0',
+          installPath,
+          installedAt: '2026-01-01T00:00:00.000Z',
+        },
+      });
       writeJson(settingsPath, {
         enabledPlugins: { 'rm-plugin@market': true },
       });
@@ -157,7 +300,7 @@ describe('BundlePluginInstaller', () => {
       expect(enabledPlugins['rm-plugin@market']).toBeUndefined();
     });
 
-    it('should throw when plugin directory does not exist', async () => {
+    it('should throw when plugin is not installed', async () => {
       await expect(installer.uninstall('nonexistent@market')).rejects.toThrow(
         'Plugin "nonexistent@market" is not installed',
       );
@@ -193,20 +336,43 @@ describe('BundlePluginInstaller', () => {
       const enabledPlugins = settings.enabledPlugins as Record<string, boolean>;
       expect(enabledPlugins['new-plugin@mp']).toBe(true);
     });
+  });
 
-    it('should preserve existing settings when updating', async () => {
-      writeJson(settingsPath, {
-        enabledPlugins: { 'existing@mp': true },
-        otherSetting: 'value',
+  describe('getPluginsByMarketplace', () => {
+    it('should return plugins from a specific marketplace', () => {
+      writeJson(join(pluginsDir, 'installed_plugins.json'), {
+        'a@mp1': {
+          pluginName: 'a',
+          marketplace: 'mp1',
+          version: '1.0.0',
+          installPath: '/path/a',
+          installedAt: '2026-01-01T00:00:00.000Z',
+        },
+        'b@mp2': {
+          pluginName: 'b',
+          marketplace: 'mp2',
+          version: '1.0.0',
+          installPath: '/path/b',
+          installedAt: '2026-01-01T00:00:00.000Z',
+        },
+        'c@mp1': {
+          pluginName: 'c',
+          marketplace: 'mp1',
+          version: '1.0.0',
+          installPath: '/path/c',
+          installedAt: '2026-01-01T00:00:00.000Z',
+        },
       });
 
-      await installer.disable('another@mp');
+      const mp1Plugins = installer.getPluginsByMarketplace('mp1');
+      expect(mp1Plugins).toHaveLength(2);
+      expect(mp1Plugins.map((p) => p.pluginName)).toContain('a');
+      expect(mp1Plugins.map((p) => p.pluginName)).toContain('c');
+    });
 
-      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8')) as Record<string, unknown>;
-      expect(settings.otherSetting).toBe('value');
-      const enabledPlugins = settings.enabledPlugins as Record<string, boolean>;
-      expect(enabledPlugins['existing@mp']).toBe(true);
-      expect(enabledPlugins['another@mp']).toBe(false);
+    it('should return empty array when no plugins from marketplace', () => {
+      const plugins = installer.getPluginsByMarketplace('nonexistent');
+      expect(plugins).toEqual([]);
     });
   });
 });

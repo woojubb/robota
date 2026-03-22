@@ -14,13 +14,19 @@ export type {
 
 // BundlePlugin installer — install, uninstall, enable, disable plugins
 export { BundlePluginInstaller } from './bundle-plugin-installer.js';
-export type { IPluginSource, IBundlePluginInstallerOptions } from './bundle-plugin-installer.js';
+export type {
+  IBundlePluginInstallerOptions,
+  IInstalledPluginRecord,
+  IInstalledPluginsRegistry,
+} from './bundle-plugin-installer.js';
 
-// Marketplace client — discover plugins from marketplace sources
+// Marketplace client — discover plugins from marketplace registries
 export { MarketplaceClient } from './marketplace-client.js';
 export type {
   IMarketplaceSource,
   IMarketplaceManifest,
   IMarketplacePluginEntry,
   IMarketplaceClientOptions,
+  IKnownMarketplaceEntry,
+  IKnownMarketplacesRegistry,
 } from './marketplace-client.js';

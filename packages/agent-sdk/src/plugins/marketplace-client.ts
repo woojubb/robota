@@ -1,184 +1,324 @@
 /**
- * MarketplaceClient — manages marketplace sources and fetches plugin manifests.
+ * MarketplaceClient — manages marketplace registries via shallow git clones.
  *
- * Sources are persisted via PluginSettingsStore.
+ * Marketplaces are git repositories containing `.claude-plugin/marketplace.json`.
+ * They are cloned to `~/.robota/plugins/marketplaces/<name>/` and tracked
+ * in `known_marketplaces.json`.
  */
 
-import { PluginSettingsStore } from './plugin-settings-store.js';
-import type { IMarketplaceSource } from './plugin-settings-store.js';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 
-// Re-export so consumers don't need to import from plugin-settings-store
-export type { IMarketplaceSource };
+/** Source specification for a marketplace. */
+export type IMarketplaceSource =
+  | { type: 'github'; repo: string; ref?: string }
+  | { type: 'git'; url: string; ref?: string }
+  | { type: 'url'; url: string };
 
 /** A single plugin entry in a marketplace manifest. */
 export interface IMarketplacePluginEntry {
   name: string;
   title: string;
   description: string;
-  source: IMarketplaceSource;
+  source: string | { type: 'github'; repo: string } | { type: 'url'; url: string };
   tags: string[];
-  /** The marketplace source this entry came from. */
-  marketplace: string;
 }
 
-/** Manifest format returned by a marketplace source. */
+/** Manifest format read from `.claude-plugin/marketplace.json`. */
 export interface IMarketplaceManifest {
-  name?: string;
+  name: string;
   version: string;
-  plugins: Array<{
-    name: string;
-    title: string;
-    description: string;
-    source: IMarketplaceSource;
-    tags: string[];
-  }>;
+  plugins: IMarketplacePluginEntry[];
 }
+
+/** Entry in known_marketplaces.json. */
+export interface IKnownMarketplaceEntry {
+  source: IMarketplaceSource;
+  installLocation: string;
+  lastUpdated: string;
+}
+
+/** Shape of known_marketplaces.json. */
+export type IKnownMarketplacesRegistry = Record<string, IKnownMarketplaceEntry>;
+
+/** Exec function type for running shell commands. */
+type ExecFn = (command: string, options: { timeout: number; stdio?: string }) => string | Buffer;
 
 /** Options for constructing a MarketplaceClient. */
 export interface IMarketplaceClientOptions {
-  /** Shared settings store for persistence. */
-  settingsStore?: PluginSettingsStore;
-  /** Custom fetch implementation for testing. */
-  fetch?: (
-    url: string,
-  ) => Promise<{ ok: boolean; status?: number; statusText?: string; json: () => Promise<unknown> }>;
+  /** Base plugins directory (e.g., `~/.robota/plugins`). */
+  pluginsDir: string;
+  /** Custom exec function for testing (replaces child_process.execSync). */
+  exec?: ExecFn;
 }
 
-/** Manages marketplace sources and fetches plugin manifests. */
+/** Default git operation timeout in milliseconds (60 seconds). */
+const GIT_TIMEOUT_MS = 60_000;
+
+/** Manages marketplace registries via shallow git clones. */
 export class MarketplaceClient {
-  private readonly sources: Map<string, IMarketplaceSource> = new Map();
-  private readonly fetchFn: IMarketplaceClientOptions['fetch'];
-  private readonly settingsStore?: PluginSettingsStore;
+  private readonly pluginsDir: string;
+  private readonly exec: ExecFn;
+  private readonly marketplacesDir: string;
+  private readonly registryPath: string;
 
-  constructor(options?: IMarketplaceClientOptions) {
-    this.fetchFn = options?.fetch;
-    this.settingsStore = options?.settingsStore;
-
-    // Register built-in default marketplace
-    this.sources.set('claude-plugins-official', {
-      type: 'github',
-      repo: 'anthropics/claude-code',
-    });
-
-    // Load persisted sources from settings store
-    if (this.settingsStore) {
-      const persisted = this.settingsStore.getMarketplaceSources();
-      for (const [name, entry] of Object.entries(persisted)) {
-        if (entry?.source && !this.sources.has(name)) {
-          this.sources.set(name, entry.source);
-        }
-      }
-    }
-  }
-
-  /** Add a named marketplace source. Persists via settings store. */
-  addSource(name: string, source: IMarketplaceSource): void {
-    if (this.sources.has(name)) {
-      throw new Error(`Marketplace source "${name}" already exists`);
-    }
-    this.sources.set(name, source);
-    this.settingsStore?.setMarketplaceSource(name, source);
+  constructor(options: IMarketplaceClientOptions) {
+    this.pluginsDir = options.pluginsDir;
+    this.exec = options.exec ?? this.defaultExec;
+    this.marketplacesDir = join(this.pluginsDir, 'marketplaces');
+    this.registryPath = join(this.pluginsDir, 'known_marketplaces.json');
   }
 
   /**
-   * Add a marketplace source by fetching its manifest first.
-   * Uses the `name` field from the manifest as the registration name.
-   * Falls back to the provided fallbackName if manifest has no name.
-   * Returns the registered name.
+   * Add a marketplace by cloning its repository.
+   *
+   * 1. Parse source: `owner/repo` string becomes a GitHub source.
+   * 2. Shallow git clone (`--depth 1`) to `marketplaces/<name>/`.
+   * 3. Read `.claude-plugin/marketplace.json` for the `name` field.
+   * 4. Register in `known_marketplaces.json`.
+   *
+   * Returns the registered marketplace name from the manifest.
    */
-  async addSourceFromManifest(source: IMarketplaceSource, fallbackName: string): Promise<string> {
-    const url = this.resolveManifestUrl(source);
-    const fetchImpl = this.fetchFn ?? globalThis.fetch;
-    const response = await fetchImpl(url);
+  addMarketplace(source: IMarketplaceSource): string {
+    const cloneUrl = this.resolveCloneUrl(source);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch manifest: ${response.status} ${response.statusText}`);
+    // Clone to a temp name first, then read the manifest to get the real name
+    const tempName = 'temp-' + Date.now().toString(36);
+    const tempDir = join(this.marketplacesDir, tempName);
+
+    mkdirSync(this.marketplacesDir, { recursive: true });
+
+    const command = `git clone --depth 1 ${cloneUrl} ${tempDir}`;
+    try {
+      this.exec(command, { timeout: GIT_TIMEOUT_MS, stdio: 'pipe' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to clone marketplace: ${message}`);
     }
 
-    const manifest = (await response.json()) as IMarketplaceManifest;
-    const name = manifest.name ?? fallbackName;
+    // Read the manifest to get the marketplace name
+    const manifestPath = join(tempDir, '.claude-plugin', 'marketplace.json');
+    if (!existsSync(manifestPath)) {
+      rmSync(tempDir, { recursive: true, force: true });
+      throw new Error('Cloned repository does not contain .claude-plugin/marketplace.json');
+    }
 
-    this.addSource(name, source);
+    const manifest = this.readManifestFromPath(manifestPath);
+    const name = manifest.name;
+
+    if (!name) {
+      rmSync(tempDir, { recursive: true, force: true });
+      throw new Error('Marketplace manifest does not contain a "name" field');
+    }
+
+    // Check for duplicates
+    const registry = this.readRegistry();
+    if (registry[name]) {
+      rmSync(tempDir, { recursive: true, force: true });
+      throw new Error(`Marketplace "${name}" already exists`);
+    }
+
+    // Rename temp to final location
+    const finalDir = join(this.marketplacesDir, name);
+    renameSync(tempDir, finalDir);
+
+    // Register in known_marketplaces.json
+    registry[name] = {
+      source,
+      installLocation: finalDir,
+      lastUpdated: new Date().toISOString(),
+    };
+    this.writeRegistry(registry);
+
     return name;
   }
 
-  /** Remove a named marketplace source. Persists via settings store. */
-  removeSource(name: string): void {
-    if (!this.sources.has(name)) {
-      throw new Error(`Marketplace source "${name}" not found`);
+  /**
+   * Remove a marketplace.
+   * Deletes the clone directory and removes from the registry.
+   * Does NOT uninstall plugins — caller is responsible for that.
+   */
+  removeMarketplace(name: string): void {
+    const registry = this.readRegistry();
+    const entry = registry[name];
+    if (!entry) {
+      throw new Error(`Marketplace "${name}" not found`);
     }
-    this.sources.delete(name);
-    this.settingsStore?.removeMarketplaceSource(name);
+
+    // Remove the clone directory
+    if (existsSync(entry.installLocation)) {
+      rmSync(entry.installLocation, { recursive: true, force: true });
+    }
+
+    // Remove from registry
+    delete registry[name];
+    this.writeRegistry(registry);
   }
 
-  /** List all registered marketplace sources. */
-  listSources(): Array<{ name: string; source: IMarketplaceSource }> {
-    const result: Array<{ name: string; source: IMarketplaceSource }> = [];
-    for (const [name, source] of this.sources) {
-      result.push({ name, source });
+  /**
+   * Update a marketplace by running git pull on its clone.
+   */
+  updateMarketplace(name: string): void {
+    const registry = this.readRegistry();
+    const entry = registry[name];
+    if (!entry) {
+      throw new Error(`Marketplace "${name}" not found`);
     }
-    return result;
+
+    if (!existsSync(entry.installLocation)) {
+      throw new Error(`Marketplace directory for "${name}" does not exist`);
+    }
+
+    const command = `git -C ${entry.installLocation} pull`;
+    try {
+      this.exec(command, { timeout: GIT_TIMEOUT_MS, stdio: 'pipe' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to update marketplace "${name}": ${message}`);
+    }
+
+    // Update timestamp
+    entry.lastUpdated = new Date().toISOString();
+    this.writeRegistry(registry);
   }
 
-  /** Fetch a manifest from a named marketplace source. */
-  async fetchManifest(sourceName: string): Promise<IMarketplaceManifest> {
-    const source = this.sources.get(sourceName);
-    if (!source) {
-      throw new Error(`Marketplace source "${sourceName}" not found`);
+  /** List all registered marketplaces. */
+  listMarketplaces(): Array<{ name: string; source: IMarketplaceSource; lastUpdated: string }> {
+    const registry = this.readRegistry();
+    return Object.entries(registry).map(([name, entry]) => ({
+      name,
+      source: entry.source,
+      lastUpdated: entry.lastUpdated,
+    }));
+  }
+
+  /**
+   * Read the marketplace manifest from a registered marketplace's clone.
+   */
+  fetchManifest(marketplaceName: string): IMarketplaceManifest {
+    const registry = this.readRegistry();
+    const entry = registry[marketplaceName];
+    if (!entry) {
+      throw new Error(`Marketplace "${marketplaceName}" not found`);
     }
 
-    const url = this.resolveManifestUrl(source);
-    const fetchImpl = this.fetchFn ?? globalThis.fetch;
-    const response = await fetchImpl(url);
-
-    if (!response.ok) {
+    const manifestPath = join(entry.installLocation, '.claude-plugin', 'marketplace.json');
+    if (!existsSync(manifestPath)) {
       throw new Error(
-        `Failed to fetch manifest from "${sourceName}": ${response.status} ${response.statusText}`,
+        `Marketplace "${marketplaceName}" does not contain .claude-plugin/marketplace.json`,
       );
     }
 
-    return (await response.json()) as IMarketplaceManifest;
+    return this.readManifestFromPath(manifestPath);
   }
 
-  /** List all available plugins across all sources. Skips failed sources. */
-  async listAvailablePlugins(): Promise<IMarketplacePluginEntry[]> {
-    const results: IMarketplacePluginEntry[] = [];
-    const sources = this.listSources();
+  /** Get the clone directory path for a registered marketplace. */
+  getMarketplaceDir(name: string): string {
+    const registry = this.readRegistry();
+    const entry = registry[name];
+    if (!entry) {
+      throw new Error(`Marketplace "${name}" not found`);
+    }
+    return entry.installLocation;
+  }
 
-    for (const { name, source } of sources) {
-      if (source.type !== 'github' && source.type !== 'url') {
-        continue;
-      }
+  /**
+   * Get the current git SHA (first 12 chars) for a marketplace clone.
+   * Used as a version identifier when plugins lack explicit versions.
+   */
+  getMarketplaceSha(name: string): string {
+    const dir = this.getMarketplaceDir(name);
+    try {
+      const result = this.exec(`git -C ${dir} rev-parse HEAD`, {
+        timeout: GIT_TIMEOUT_MS,
+        stdio: 'pipe',
+      });
+      return result.toString().trim().slice(0, 12);
+    } catch {
+      return 'unknown';
+    }
+  }
 
+  /** List all available plugins across all marketplaces. */
+  listAvailablePlugins(): Array<IMarketplacePluginEntry & { marketplace: string }> {
+    const results: Array<IMarketplacePluginEntry & { marketplace: string }> = [];
+    const marketplaces = this.listMarketplaces();
+
+    for (const { name } of marketplaces) {
       try {
-        const manifest = await this.fetchManifest(name);
+        const manifest = this.fetchManifest(name);
         for (const plugin of manifest.plugins) {
-          results.push({
-            ...plugin,
-            marketplace: name,
-          });
+          results.push({ ...plugin, marketplace: name });
         }
       } catch {
-        // Skip failed sources
+        // Skip failed marketplaces
       }
     }
 
     return results;
   }
 
-  /** Resolve a marketplace source to a manifest URL. */
-  private resolveManifestUrl(source: IMarketplaceSource): string {
+  // --- Private helpers ---
+
+  /** Resolve a marketplace source to a git clone URL. */
+  private resolveCloneUrl(source: IMarketplaceSource): string {
     switch (source.type) {
-      case 'github': {
-        const ref = source.ref ?? 'main';
-        return `https://raw.githubusercontent.com/${source.repo}/${ref}/.claude-plugin/marketplace.json`;
-      }
-      case 'url':
-        return source.url;
+      case 'github':
+        return `https://github.com/${source.repo}.git`;
       case 'git':
-        throw new Error('Source type "git" does not support direct manifest fetching');
-      case 'local':
-        throw new Error('Source type "local" does not support direct manifest fetching');
+        return source.url;
+      case 'url':
+        throw new Error('URL source type does not support git cloning');
     }
+  }
+
+  /** Read and parse a marketplace.json from a file path. */
+  private readManifestFromPath(path: string): IMarketplaceManifest {
+    const raw = readFileSync(path, 'utf-8');
+    const data: unknown = JSON.parse(raw);
+
+    if (typeof data !== 'object' || data === null) {
+      throw new Error('Invalid marketplace manifest: not an object');
+    }
+
+    const obj = data as Record<string, unknown>;
+    if (typeof obj.name !== 'string') {
+      throw new Error('Invalid marketplace manifest: missing "name" field');
+    }
+
+    return data as IMarketplaceManifest;
+  }
+
+  /** Read the known_marketplaces.json registry. */
+  private readRegistry(): IKnownMarketplacesRegistry {
+    if (!existsSync(this.registryPath)) {
+      return {};
+    }
+    try {
+      const raw = readFileSync(this.registryPath, 'utf-8');
+      const data: unknown = JSON.parse(raw);
+      if (typeof data === 'object' && data !== null) {
+        return data as IKnownMarketplacesRegistry;
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }
+
+  /** Write the known_marketplaces.json registry. */
+  private writeRegistry(registry: IKnownMarketplacesRegistry): void {
+    const dir = dirname(this.registryPath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    writeFileSync(this.registryPath, JSON.stringify(registry, null, 2), 'utf-8');
+  }
+
+  /** Default exec implementation using child_process. */
+  private defaultExec(command: string, options: { timeout: number }): string | Buffer {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { execSync } = require('node:child_process') as typeof import('node:child_process');
+    return execSync(command, { timeout: options.timeout, stdio: 'pipe' });
   }
 }
