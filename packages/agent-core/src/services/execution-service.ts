@@ -236,7 +236,7 @@ export class ExecutionService {
           // Inject instruction to summarize, then call provider directly
           const syntheticMsg =
             'You have reached the maximum number of tool rounds. Based on all the information and tool results you have gathered so far, provide your final response now. Do not request additional tools.';
-          conversationSession.addUserMessage(syntheticMsg);
+          conversationSession.addSystemMessage(syntheticMsg);
           const summaryMessages = conversationSession.getMessages();
           const systemMsg = config.systemMessage ?? '';
 
@@ -268,7 +268,7 @@ export class ExecutionService {
           // Remove synthetic message from history to avoid polluting conversation
           const currentMessages = conversationSession.getMessages();
           const syntheticIndex = currentMessages.findIndex(
-            (m) => m.role === 'user' && m.content === syntheticMsg,
+            (m) => m.role === 'system' && m.content === syntheticMsg,
           );
           if (syntheticIndex !== -1) {
             const cleaned = currentMessages.filter(

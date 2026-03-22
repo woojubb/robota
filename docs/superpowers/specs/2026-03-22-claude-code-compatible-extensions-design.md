@@ -179,13 +179,22 @@ For `UserPromptSubmit`, the `prompt` field contains the **raw user input** (e.g.
 
 When a user invokes a plugin skill/command:
 
-1. `session.run(processedSkillContent, rawInput)` is called
-2. `UserPromptSubmit` hook fires with `prompt: rawInput` in stdin JSON
-3. Hook scripts can match the raw command and produce stdout (e.g., plugin paths)
-4. Hook stdout is prepended as `<system-reminder>` to the processed message
-5. AI receives: `<system-reminder>{hook stdout}</system-reminder>\n{skill content}`
+1. **Name resolution**: If the user types `/audit` (skill short name), `CommandRegistry.resolveQualifiedName()` maps it to the full qualified name `/rulebased-harness:audit` (command form). This is needed because hook scripts pattern-match on the qualified name.
+2. `session.run(processedSkillContent, qualifiedRawInput)` is called
+3. `UserPromptSubmit` hook fires with `prompt: qualifiedRawInput` in stdin JSON
+4. Hook scripts can match the qualified command and produce stdout (e.g., plugin paths)
+5. Hook stdout is prepended as `<system-reminder>` to the processed message
+6. AI receives: `<system-reminder>{hook stdout}</system-reminder>\n{skill content}`
 
-This is the mechanism by which plugin hooks provide dynamic context (e.g., `CLAUDE_PLUGIN_PATH`) to the AI without forced variable substitution.
+### Skill Name Resolution
+
+`CommandRegistry` provides `resolveQualifiedName(shortName)` to map skill short names to their plugin-qualified command names:
+
+- Input: `audit` → Output: `rulebased-harness:audit` (if a command `rulebased-harness:audit` exists)
+- Input: `rulebased-harness:audit` → Output: `rulebased-harness:audit` (already qualified)
+- Input: `unknown` → Output: `null` (no match)
+
+If multiple plugins have commands ending with the same short name, the resolution is ambiguous and returns `null`. The caller falls back to the original input.
 
 ### Plugin Environment Variables
 
