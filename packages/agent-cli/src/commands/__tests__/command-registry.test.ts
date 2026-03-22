@@ -14,9 +14,7 @@ describe('CommandRegistry', () => {
 
   it('aggregates commands from multiple sources', () => {
     const registry = new CommandRegistry();
-    registry.addSource(
-      createMockSource('a', [{ name: 'help', description: 'Help', source: 'a' }]),
-    );
+    registry.addSource(createMockSource('a', [{ name: 'help', description: 'Help', source: 'a' }]));
     registry.addSource(
       createMockSource('b', [{ name: 'deploy', description: 'Deploy', source: 'b' }]),
     );
@@ -41,9 +39,7 @@ describe('CommandRegistry', () => {
   it('filter is case-insensitive', () => {
     const registry = new CommandRegistry();
     registry.addSource(
-      createMockSource('test', [
-        { name: 'Help', description: 'Help', source: 'test' },
-      ]),
+      createMockSource('test', [{ name: 'Help', description: 'Help', source: 'test' }]),
     );
     expect(registry.getCommands('help')).toHaveLength(1);
     expect(registry.getCommands('HELP')).toHaveLength(1);
@@ -73,9 +69,7 @@ describe('CommandRegistry', () => {
     it('returns empty array for command without subcommands', () => {
       const registry = new CommandRegistry();
       registry.addSource(
-        createMockSource('test', [
-          { name: 'help', description: 'Help', source: 'test' },
-        ]),
+        createMockSource('test', [{ name: 'help', description: 'Help', source: 'test' }]),
       );
       expect(registry.getSubcommands('help')).toEqual([]);
     });
@@ -93,14 +87,70 @@ describe('CommandRegistry', () => {
             name: 'Mode',
             description: 'Mode',
             source: 'test',
-            subcommands: [
-              { name: 'plan', description: 'Plan', source: 'test' },
-            ],
+            subcommands: [{ name: 'plan', description: 'Plan', source: 'test' }],
           },
         ]),
       );
       expect(registry.getSubcommands('mode')).toHaveLength(1);
       expect(registry.getSubcommands('MODE')).toHaveLength(1);
+    });
+  });
+
+  describe('resolveQualifiedName', () => {
+    it('resolves short name to qualified plugin command', () => {
+      const registry = new CommandRegistry();
+      registry.addSource(
+        createMockSource('plugins', [
+          { name: 'rulebased-harness:audit', description: 'Audit', source: 'plugin' },
+        ]),
+      );
+      expect(registry.resolveQualifiedName('audit')).toBe('rulebased-harness:audit');
+    });
+
+    it('returns null for non-plugin commands', () => {
+      const registry = new CommandRegistry();
+      registry.addSource(
+        createMockSource('builtins', [{ name: 'help', description: 'Help', source: 'builtin' }]),
+      );
+      expect(registry.resolveQualifiedName('help')).toBeNull();
+    });
+
+    it('returns null for ambiguous matches', () => {
+      const registry = new CommandRegistry();
+      registry.addSource(
+        createMockSource('plugins', [
+          { name: 'plugin-a:audit', description: 'Audit A', source: 'plugin' },
+          { name: 'plugin-b:audit', description: 'Audit B', source: 'plugin' },
+        ]),
+      );
+      expect(registry.resolveQualifiedName('audit')).toBeNull();
+    });
+
+    it('returns null for no matches', () => {
+      const registry = new CommandRegistry();
+      expect(registry.resolveQualifiedName('nonexistent')).toBeNull();
+    });
+
+    it('does not match partial names', () => {
+      const registry = new CommandRegistry();
+      registry.addSource(
+        createMockSource('plugins', [
+          { name: 'plugin:reaudit', description: 'Reaudit', source: 'plugin' },
+        ]),
+      );
+      // ':audit' suffix does not match ':reaudit'
+      expect(registry.resolveQualifiedName('audit')).toBeNull();
+    });
+
+    it('does not resolve already qualified names containing colon', () => {
+      const registry = new CommandRegistry();
+      registry.addSource(
+        createMockSource('plugins', [
+          { name: 'plugin:audit', description: 'Audit', source: 'plugin' },
+        ]),
+      );
+      // 'plugin:audit' contains ':', endsWith(':plugin:audit') won't match
+      expect(registry.resolveQualifiedName('plugin:audit')).toBeNull();
     });
   });
 });
