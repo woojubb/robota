@@ -19,7 +19,7 @@ export class PluginCommandSource implements ICommandSource {
     for (const plugin of this.plugins) {
       for (const skill of plugin.skills) {
         commands.push({
-          name: `${skill.name}@${plugin.manifest.name}`,
+          name: skill.name,
           description: skill.description,
           source: 'plugin',
           skillContent: skill.skillContent,

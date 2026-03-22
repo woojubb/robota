@@ -213,8 +213,16 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
 
   it('should expose loaded plugin skills as slash commands', () => {
     const plugin = createMockPlugin('code-tools', [
-      { name: 'refactor', description: 'Refactor code', skillContent: '# Refactor steps' },
-      { name: 'optimize', description: 'Optimize perf', skillContent: '# Optimize steps' },
+      {
+        name: 'refactor@code-tools',
+        description: 'Refactor code',
+        skillContent: '# Refactor steps',
+      },
+      {
+        name: 'optimize@code-tools',
+        description: 'Optimize perf',
+        skillContent: '# Optimize steps',
+      },
     ]);
 
     const source = new PluginCommandSource([plugin]);
@@ -240,7 +248,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
 
     // Create a plugin
     const plugin = createMockPlugin('ext-plugin', [
-      { name: 'ext-skill', description: 'External skill', skillContent: '# External' },
+      { name: 'ext-skill@ext-plugin', description: 'External skill', skillContent: '# External' },
     ]);
 
     const registry = new CommandRegistry();
@@ -269,7 +277,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
 
   it('should make plugin skills available for system prompt injection', () => {
     const plugin = createMockPlugin('ai-tools', [
-      { name: 'summarize', description: 'Summarize text', skillContent: '# Summarize' },
+      { name: 'summarize@ai-tools', description: 'Summarize text', skillContent: '# Summarize' },
     ]);
 
     const source = new PluginCommandSource([plugin]);
