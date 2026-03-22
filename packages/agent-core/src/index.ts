@@ -393,7 +393,13 @@ export {
  */
 export type { IContextTokenUsage, IContextWindowState } from './context/index.js';
 export type { IModelDefinition } from './context/index.js';
-export { CLAUDE_MODELS, DEFAULT_CONTEXT_WINDOW, getModelContextWindow, getModelName, formatTokenCount } from './context/index.js';
+export {
+  CLAUDE_MODELS,
+  DEFAULT_CONTEXT_WINDOW,
+  getModelContextWindow,
+  getModelName,
+  formatTokenCount,
+} from './context/index.js';
 
 // ===== HOOKS MODULE =====
 /**
@@ -405,8 +411,13 @@ export type {
   THookEvent,
   THooksConfig,
   IHookGroup,
+  ICommandHookDefinition,
+  IHttpHookDefinition,
+  IPromptHookDefinition,
+  IAgentHookDefinition,
   IHookDefinition,
   IHookInput,
   IHookResult,
+  IHookTypeExecutor,
 } from './hooks/index.js';
 export { runHooks } from './hooks/index.js';
