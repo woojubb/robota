@@ -85,7 +85,7 @@ export interface IHookResult {
 /** Strategy interface for hook type executors */
 export interface IHookTypeExecutor {
   /** The hook type this executor handles */
-  type: string;
+  type: IHookDefinition['type'];
   /** Execute a hook definition with the given input */
   execute(definition: IHookDefinition, input: IHookInput): Promise<IHookResult>;
 }
