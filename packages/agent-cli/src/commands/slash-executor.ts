@@ -294,6 +294,7 @@ export async function executeSlashCommand(
   addMessage: TAddMessage,
   clearMessages: TClearMessages,
   registry: CommandRegistry,
+  pluginCallbacks?: IPluginCallbacks,
 ): Promise<ISlashResult> {
   switch (cmd) {
     case 'help':
@@ -318,6 +319,18 @@ export async function executeSlashCommand(
       return handleReset(addMessage);
     case 'exit':
       return { handled: true, exitRequested: true };
+    case 'plugin':
+      if (pluginCallbacks) {
+        return handlePluginCommand(args, addMessage, pluginCallbacks);
+      }
+      addMessage({ role: 'system', content: 'Plugin management is not available.' });
+      return { handled: true };
+    case 'reload-plugins':
+      if (pluginCallbacks) {
+        return handleReloadPlugins(addMessage, pluginCallbacks);
+      }
+      addMessage({ role: 'system', content: 'Plugin management is not available.' });
+      return { handled: true };
     default: {
       const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
       if (skillCmd) {

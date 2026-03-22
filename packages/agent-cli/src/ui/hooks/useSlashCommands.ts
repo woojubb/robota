@@ -7,7 +7,7 @@ import type { Session } from '@robota-sdk/agent-sdk';
 import type { IChatMessage } from '../types.js';
 import type { CommandRegistry } from '../../commands/command-registry.js';
 import { executeSlashCommand as execSlash } from '../../commands/slash-executor.js';
-import type { TAddMessage } from '../../commands/slash-executor.js';
+import type { TAddMessage, IPluginCallbacks } from '../../commands/slash-executor.js';
 
 const EXIT_DELAY_MS = 500;
 
@@ -19,6 +19,7 @@ export function useSlashCommands(
   registry: CommandRegistry,
   pendingModelChangeRef: React.MutableRefObject<string | null>,
   setPendingModelId: React.Dispatch<React.SetStateAction<string | null>>,
+  pluginCallbacks?: IPluginCallbacks,
 ): (input: string) => Promise<boolean> {
   return useCallback(
     async (input: string): Promise<boolean> => {
@@ -33,6 +34,7 @@ export function useSlashCommands(
         addMessage as TAddMessage,
         clearMessages,
         registry,
+        pluginCallbacks,
       );
       if (result.pendingModelId) {
         pendingModelChangeRef.current = result.pendingModelId;
@@ -43,6 +45,15 @@ export function useSlashCommands(
       }
       return result.handled;
     },
-    [session, addMessage, setMessages, exit, registry, pendingModelChangeRef, setPendingModelId],
+    [
+      session,
+      addMessage,
+      setMessages,
+      exit,
+      registry,
+      pendingModelChangeRef,
+      setPendingModelId,
+      pluginCallbacks,
+    ],
   );
 }
