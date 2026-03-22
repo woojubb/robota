@@ -14,6 +14,7 @@ import { useMessages } from './hooks/useMessages.js';
 import { useSlashCommands } from './hooks/useSlashCommands.js';
 import { useSubmitHandler } from './hooks/useSubmitHandler.js';
 import { useCommandRegistry } from './hooks/useCommandRegistry.js';
+import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
 import InputArea from './InputArea.js';
@@ -50,6 +51,7 @@ export default function App(props: IProps): React.ReactElement {
   const pendingModelChangeRef = useRef<string | null>(null);
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
 
+  const pluginCallbacks = usePluginCallbacks(props.cwd ?? process.cwd());
   const handleSlashCommand = useSlashCommands(
     session,
     addMessage,
@@ -58,6 +60,7 @@ export default function App(props: IProps): React.ReactElement {
     registry,
     pendingModelChangeRef,
     setPendingModelId,
+    pluginCallbacks,
   );
   const handleSubmit = useSubmitHandler(
     session,
