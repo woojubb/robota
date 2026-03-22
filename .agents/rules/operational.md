@@ -43,6 +43,31 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - A feature without documentation updates is an incomplete feature.
 - This rule is enforced by `harness:scan:specs` which checks that SPEC.md exists and is non-empty for all published packages.
 
+### Task/Backlog ID Convention
+
+All task and backlog files use an uppercase prefix ID in both the filename and the `title` frontmatter.
+
+**Format:** `{DOMAIN}-{TYPE}-{NUMBER}`
+
+| Domain  | Scope                       |
+| ------- | --------------------------- |
+| `CLI`   | agent-cli                   |
+| `SDK`   | agent-sdk                   |
+| `CORE`  | agent-core                  |
+| `PLUG`  | Plugin system               |
+| `DAG`   | DAG related                 |
+| `ORCH`  | Orchestration               |
+| `INFRA` | Infrastructure / deployment |
+
+| Type | Meaning                 |
+| ---- | ----------------------- |
+| `BL` | Backlog                 |
+| `TK` | Task (in-progress work) |
+
+**Examples:** `CLI-BL-001`, `SDK-TK-002`, `PLUG-BL-003`
+
+**File naming:** `.agents/tasks/CLI-BL-001-file-attachment.md`
+
 ### Document Size Rule
 
 - Rule files (`.agents/rules/*.md`) and routing documents (`.agents/project-structure.md`, etc.) MUST stay under 80 lines.
