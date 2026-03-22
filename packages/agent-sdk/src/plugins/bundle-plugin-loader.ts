@@ -103,8 +103,17 @@ export class BundlePluginLoader {
     this.enabledPlugins = enabledPlugins ?? {};
   }
 
-  /** Load all discovered and enabled bundle plugins. */
+  /** Load all discovered and enabled bundle plugins (sync). */
+  loadPluginsSync(): ILoadedBundlePlugin[] {
+    return this.discoverAndLoad();
+  }
+
+  /** Load all discovered and enabled bundle plugins (async wrapper). */
   async loadAll(): Promise<ILoadedBundlePlugin[]> {
+    return this.discoverAndLoad();
+  }
+
+  private discoverAndLoad(): ILoadedBundlePlugin[] {
     if (!existsSync(this.pluginsDir)) {
       return [];
     }
