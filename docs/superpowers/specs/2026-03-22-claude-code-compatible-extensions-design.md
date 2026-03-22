@@ -173,9 +173,19 @@ Timeout values are in **seconds** (Claude Code convention). Default: 10s for `co
 }
 ```
 
-For `UserPromptSubmit`, the `prompt` field contains the user's message text. This matches Claude Code's hook input format where scripts read `"prompt"` to determine what the user typed.
+For `UserPromptSubmit`, the `prompt` field contains the **raw user input** (e.g., `/rulebased-harness:audit`), not the processed skill content. This matches Claude Code's hook input format where scripts read `"prompt"` to determine what the user typed. The raw input is passed separately from the processed message via `session.run(processedMessage, rawInput)`.
 
-```
+### Hook + Skill Interaction
+
+When a user invokes a plugin skill/command:
+
+1. `session.run(processedSkillContent, rawInput)` is called
+2. `UserPromptSubmit` hook fires with `prompt: rawInput` in stdin JSON
+3. Hook scripts can match the raw command and produce stdout (e.g., plugin paths)
+4. Hook stdout is prepended as `<system-reminder>` to the processed message
+5. AI receives: `<system-reminder>{hook stdout}</system-reminder>\n{skill content}`
+
+This is the mechanism by which plugin hooks provide dynamic context (e.g., `CLAUDE_PLUGIN_PATH`) to the AI without forced variable substitution.
 
 ### Plugin Environment Variables
 
@@ -263,7 +273,7 @@ The two stores serve different purposes: `PluginSettingsStore` is the user-facin
 /plugin disable <name>@<marketplace>
 /reload-plugins
 
-````
+```
 
 ### Plugin Load Behavior
 
@@ -318,7 +328,7 @@ Dependency direction: `cli → sdk → core`
     }
   }
 }
-````
+```
 
 ### Management Commands
 
