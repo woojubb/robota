@@ -353,7 +353,7 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
     expect(plugins[0]!.skills).toHaveLength(1);
 
     const skill = plugins[0]!.skills[0]!;
-    expect(skill.name).toBe('deploy@my-plugin');
+    expect(skill.name).toBe('deploy');
     expect(skill.description).toBe('Deploy application to production');
 
     // Now pass to buildSystemPrompt
@@ -372,7 +372,7 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
     const prompt = buildSystemPrompt(params);
 
     expect(prompt).toContain('## Skills');
-    expect(prompt).toContain('deploy@my-plugin');
+    expect(prompt).toContain('deploy');
     expect(prompt).toContain('Deploy application to production');
   });
 
@@ -436,9 +436,9 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
       skills: allSkills,
     });
 
-    expect(prompt).toContain('lint@plugin-a');
+    expect(prompt).toContain('lint');
     expect(prompt).toContain('Lint code');
-    expect(prompt).toContain('format@plugin-b');
+    expect(prompt).toContain('format');
     expect(prompt).toContain('Format code');
   });
 });

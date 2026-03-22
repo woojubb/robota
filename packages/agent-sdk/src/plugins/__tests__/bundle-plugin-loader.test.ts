@@ -31,6 +31,7 @@ function createPluginInCache(
   manifest: IBundlePluginManifest,
   options?: {
     skills?: Array<{ name: string; content: string }>;
+    commands?: Array<{ name: string; content: string }>;
     hooks?: Record<string, unknown>;
   },
 ): string {
@@ -44,6 +45,14 @@ function createPluginInCache(
       const skillDir = join(pluginDir, 'skills', skill.name);
       setupDir(skillDir);
       writeFile(join(skillDir, 'SKILL.md'), skill.content);
+    }
+  }
+
+  if (options?.commands) {
+    const commandsDir = join(pluginDir, 'commands');
+    setupDir(commandsDir);
+    for (const cmd of options.commands) {
+      writeFile(join(commandsDir, cmd.name), cmd.content);
     }
   }
 
@@ -136,7 +145,7 @@ Say hello to the user.
 
     expect(plugins).toHaveLength(1);
     expect(plugins[0].skills).toHaveLength(1);
-    expect(plugins[0].skills[0].name).toBe('greet@my-plugin');
+    expect(plugins[0].skills[0].name).toBe('greet');
     expect(plugins[0].skills[0].description).toBe('A greeting skill');
     expect(plugins[0].skills[0].skillContent).toContain('# Greeting Skill');
   });
@@ -256,6 +265,7 @@ Content here.
 
     expect(plugins).toHaveLength(1);
     expect(plugins[0].skills).toEqual([]);
+    expect(plugins[0].commands).toEqual([]);
     expect(plugins[0].hooks).toEqual({});
     expect(plugins[0].agents).toEqual([]);
     expect(plugins[0].mcpConfig).toBeUndefined();
@@ -330,7 +340,7 @@ Just content, no frontmatter.
     const plugins = await loader.loadAll();
 
     expect(plugins[0].skills).toHaveLength(1);
-    expect(plugins[0].skills[0].name).toBe('simple@no-fm-plugin');
+    expect(plugins[0].skills[0].name).toBe('simple');
     expect(plugins[0].skills[0].description).toBe('');
     expect(plugins[0].skills[0].skillContent).toContain('# Simple Skill');
   });
@@ -456,5 +466,111 @@ Just content, no frontmatter.
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(0);
+  });
+
+  it('should load commands from plugin commands/ directory with plugin:name format', async () => {
+    const manifest: IBundlePluginManifest = {
+      name: 'cmd-plugin',
+      version: '1.0.0',
+      description: 'Plugin with commands',
+      features: { commands: true },
+    };
+    const initCmd = `---
+name: init
+description: Initialize harness
+---
+
+# Init Command
+
+Initialize the harness.
+`;
+    const auditCmd = `---
+name: audit
+description: Run audit
+---
+
+# Audit Command
+
+Run the audit.
+`;
+    createPluginInCache(pluginsDir, 'market', 'cmd-plugin', '1.0.0', manifest, {
+      commands: [
+        { name: 'init.md', content: initCmd },
+        { name: 'audit.md', content: auditCmd },
+      ],
+    });
+
+    const loader = new BundlePluginLoader(pluginsDir);
+    const plugins = await loader.loadAll();
+
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].commands).toHaveLength(2);
+
+    const names = plugins[0].commands.map((c) => c.name).sort();
+    expect(names).toEqual(['cmd-plugin:audit', 'cmd-plugin:init']);
+
+    const initCommand = plugins[0].commands.find((c) => c.name === 'cmd-plugin:init');
+    expect(initCommand?.description).toBe('Initialize harness');
+    expect(initCommand?.skillContent).toContain('# Init Command');
+  });
+
+  it('should use filename as command name when frontmatter name is missing', async () => {
+    const manifest: IBundlePluginManifest = {
+      name: 'no-name-plugin',
+      version: '1.0.0',
+      description: 'Plugin with nameless command',
+      features: { commands: true },
+    };
+    const cmdContent = `---
+description: A command without a name field
+---
+
+Content here.
+`;
+    createPluginInCache(pluginsDir, 'market', 'no-name-plugin', '1.0.0', manifest, {
+      commands: [{ name: 'my-cmd.md', content: cmdContent }],
+    });
+
+    const loader = new BundlePluginLoader(pluginsDir);
+    const plugins = await loader.loadAll();
+
+    expect(plugins[0].commands).toHaveLength(1);
+    expect(plugins[0].commands[0].name).toBe('no-name-plugin:my-cmd');
+  });
+
+  it('should ignore non-.md files and subdirectories in commands/', async () => {
+    const manifest: IBundlePluginManifest = {
+      name: 'filter-plugin',
+      version: '1.0.0',
+      description: 'Plugin to test filtering',
+      features: { commands: true },
+    };
+    const cmdContent = `---
+name: valid
+description: Valid command
+---
+
+Content.
+`;
+    const pluginDir = createPluginInCache(
+      pluginsDir,
+      'market',
+      'filter-plugin',
+      '1.0.0',
+      manifest,
+      {
+        commands: [{ name: 'valid.md', content: cmdContent }],
+      },
+    );
+
+    // Add non-.md file and subdirectory
+    writeFile(join(pluginDir, 'commands', 'notes.txt'), 'not a command');
+    setupDir(join(pluginDir, 'commands', 'subdir'));
+
+    const loader = new BundlePluginLoader(pluginsDir);
+    const plugins = await loader.loadAll();
+
+    expect(plugins[0].commands).toHaveLength(1);
+    expect(plugins[0].commands[0].name).toBe('filter-plugin:valid');
   });
 });

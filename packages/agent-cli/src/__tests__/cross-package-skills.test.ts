@@ -205,21 +205,22 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
         features: { skills: true },
       },
       skills,
+      commands: [],
       hooks: {},
       agents: [],
       pluginDir: `/plugins/${name}`,
     };
   }
 
-  it('should expose loaded plugin skills as slash commands', () => {
+  it('should expose loaded plugin skills as slash commands with base name and hint', () => {
     const plugin = createMockPlugin('code-tools', [
       {
-        name: 'refactor@code-tools',
+        name: 'refactor',
         description: 'Refactor code',
         skillContent: '# Refactor steps',
       },
       {
-        name: 'optimize@code-tools',
+        name: 'optimize',
         description: 'Optimize perf',
         skillContent: '# Optimize steps',
       },
@@ -229,10 +230,11 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
     const commands = source.getCommands();
 
     expect(commands).toHaveLength(2);
-    expect(commands[0]!.name).toBe('refactor@code-tools');
+    expect(commands[0]!.name).toBe('refactor');
+    expect(commands[0]!.description).toBe('Refactor code (code-tools)');
     expect(commands[0]!.source).toBe('plugin');
     expect(commands[0]!.skillContent).toBe('# Refactor steps');
-    expect(commands[1]!.name).toBe('optimize@code-tools');
+    expect(commands[1]!.name).toBe('optimize');
   });
 
   it('should aggregate builtin + skill + plugin sources in CommandRegistry', () => {
@@ -248,7 +250,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
 
     // Create a plugin
     const plugin = createMockPlugin('ext-plugin', [
-      { name: 'ext-skill@ext-plugin', description: 'External skill', skillContent: '# External' },
+      { name: 'ext-skill', description: 'External skill', skillContent: '# External' },
     ]);
 
     const registry = new CommandRegistry();
@@ -267,7 +269,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
     // Verify specific commands exist
     const names = allCommands.map((c) => c.name);
     expect(names).toContain('local-skill');
-    expect(names).toContain('ext-skill@ext-plugin');
+    expect(names).toContain('ext-skill');
 
     // Registry filter should work across sources
     const filtered = registry.getCommands('local');
@@ -277,7 +279,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
 
   it('should make plugin skills available for system prompt injection', () => {
     const plugin = createMockPlugin('ai-tools', [
-      { name: 'summarize@ai-tools', description: 'Summarize text', skillContent: '# Summarize' },
+      { name: 'summarize', description: 'Summarize text', skillContent: '# Summarize' },
     ]);
 
     const source = new PluginCommandSource([plugin]);
@@ -299,7 +301,7 @@ describe('Cross-package: BundlePlugin -> CLI commands', () => {
     });
 
     expect(prompt).toContain('## Skills');
-    expect(prompt).toContain('summarize@ai-tools');
-    expect(prompt).toContain('Summarize text');
+    expect(prompt).toContain('summarize');
+    expect(prompt).toContain('Summarize text (ai-tools)');
   });
 });

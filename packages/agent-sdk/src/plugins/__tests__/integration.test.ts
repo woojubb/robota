@@ -136,7 +136,7 @@ Perform thorough code reviews.
 
     // Skills
     expect(plugin.skills).toHaveLength(1);
-    expect(plugin.skills[0].name).toBe('code-review@full-plugin');
+    expect(plugin.skills[0].name).toBe('code-review');
     expect(plugin.skills[0].description).toBe('Code review skill');
     expect(plugin.skills[0].skillContent).toContain('# Code Review');
 
@@ -188,11 +188,11 @@ Content for skill-two.
     expect(plugins[0].skills).toHaveLength(2);
 
     const skillNames = plugins[0].skills.map((s) => s.name).sort();
-    expect(skillNames).toEqual(['skill-one@ns-plugin', 'skill-two@ns-plugin']);
+    expect(skillNames).toEqual(['skill-one', 'skill-two']);
 
     // Verify each skill has the name@plugin format
     for (const skill of plugins[0].skills) {
-      expect(skill.name).toMatch(/^.+@ns-plugin$/);
+      expect(skill.name).toMatch(/^skill-(one|two)$/);
     }
   });
 
@@ -235,7 +235,7 @@ Content.
     // Both have a skill named 'analyze' but namespaced differently
     const allSkills = plugins.flatMap((p) => p.skills);
     const skillNames = allSkills.map((s) => s.name).sort();
-    expect(skillNames).toEqual(['analyze@plugin-alpha', 'analyze@plugin-beta']);
+    expect(skillNames).toEqual(['analyze', 'analyze']);
   });
 
   it('should selectively disable plugins while loading others', async () => {
