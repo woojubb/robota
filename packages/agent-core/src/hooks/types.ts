@@ -76,6 +76,8 @@ export interface IHookInput {
   compact_summary?: string;
   /** User message text (UserPromptSubmit only) */
   user_message?: string;
+  /** User prompt text — Claude Code compatible alias for user_message (UserPromptSubmit only) */
+  prompt?: string;
   /** Assistant response text (Stop only) */
   response?: string;
   /** Additional environment variables to pass to hook child processes */

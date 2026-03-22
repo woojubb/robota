@@ -276,6 +276,7 @@ export class Session {
         cwd: this.cwd,
         hook_event_name: 'UserPromptSubmit',
         user_message: message,
+        prompt: message,
         env: {
           CLAUDE_PROJECT_DIR: this.cwd,
           CLAUDE_SESSION_ID: this.sessionId,

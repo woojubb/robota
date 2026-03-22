@@ -168,8 +168,13 @@ Timeout values are in **seconds** (Claude Code convention). Default: 10s for `co
   "cwd": "/current/working/directory",
   "hook_event_name": "EventName",
   "tool_name": "ToolName",
-  "tool_input": {}
+  "tool_input": {},
+  "prompt": "user message text (UserPromptSubmit only, Claude Code compat)"
 }
+```
+
+For `UserPromptSubmit`, the `prompt` field contains the user's message text. This matches Claude Code's hook input format where scripts read `"prompt"` to determine what the user typed.
+
 ```
 
 ### Plugin Environment Variables
@@ -214,16 +219,18 @@ These are set as environment variables on the child process when executing hook 
 ### Directory Structure (Claude Code Standard)
 
 ```
+
 plugin-name/
 ├── .claude-plugin/
-│   └── plugin.json          # Metadata, feature declarations
-├── commands/                # Legacy slash commands (.md)
-├── skills/                  # Skill definitions (SKILL.md)
-├── agents/                  # Custom agent definitions
+│ └── plugin.json # Metadata, feature declarations
+├── commands/ # Legacy slash commands (.md)
+├── skills/ # Skill definitions (SKILL.md)
+├── agents/ # Custom agent definitions
 ├── hooks/
-│   └── hooks.json           # Plugin-specific hooks
-├── .mcp.json                # MCP server configuration
+│ └── hooks.json # Plugin-specific hooks
+├── .mcp.json # MCP server configuration
 └── README.md
+
 ```
 
 ### Installation Scopes
@@ -249,12 +256,14 @@ The two stores serve different purposes: `PluginSettingsStore` is the user-facin
 ### Plugin Management Commands
 
 ```
+
 /plugin install <name>@<marketplace>
 /plugin uninstall <name>@<marketplace>
 /plugin enable <name>@<marketplace>
 /plugin disable <name>@<marketplace>
 /reload-plugins
-```
+
+````
 
 ### Plugin Load Behavior
 
@@ -309,7 +318,7 @@ Dependency direction: `cli → sdk → core`
     }
   }
 }
-```
+````
 
 ### Management Commands
 
