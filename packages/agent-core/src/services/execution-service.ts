@@ -227,26 +227,28 @@ export class ExecutionService {
         (!('toolCalls' in lastMsg) || (lastMsg.toolCalls as unknown[]).length === 0);
 
       if (!hasTextResponse) {
-        this.logger.warn('No final text response — forcing additional provider call', {
+        this.logger.warn('No final text response — forcing summary call', {
           maxRounds,
           currentRound: roundState.currentRound,
           conversationId,
         });
         try {
-          roundState.currentRound++;
-          await executeRound(
-            roundState,
-            roundState.currentRound + 1, // allow this one extra round
-            conversationSession,
-            conversationId,
-            executionId,
-            fullContext,
-            config,
-            resolved,
-            roundDeps,
+          // Inject instruction to summarize, then call provider directly
+          conversationSession.addUserMessage(
+            'You have reached the maximum number of tool rounds. Based on all the information and tool results you have gathered so far, provide your final response now. Do not request additional tools.',
           );
+          const messages = conversationSession.getMessages();
+          const systemMsg = config.systemMessage ?? '';
+          const forceResponse = await resolved.provider.chat(messages, {
+            model: resolved.aiProviderInfo.model,
+          });
+          const responseText =
+            typeof forceResponse.content === 'string' ? forceResponse.content : '';
+          if (responseText) {
+            conversationSession.addAssistantMessage(responseText, [], forceResponse.metadata);
+          }
         } catch (forceErr) {
-          this.logger.warn('Forced final round failed', {
+          this.logger.warn('Forced summary call failed', {
             error: forceErr instanceof Error ? forceErr.message : String(forceErr),
           });
         }
