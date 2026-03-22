@@ -4,7 +4,7 @@
  */
 
 const TOOL_ARG_MAX_LENGTH = 80;
-const TAIL_KEEP = 20;
+const TAIL_KEEP = 30;
 
 interface IHistoryMessage {
   role: string;
