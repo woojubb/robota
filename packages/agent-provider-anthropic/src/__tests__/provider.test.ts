@@ -60,6 +60,69 @@ function makeToolUseResponse(
   } as unknown as Anthropic.Message;
 }
 
+/**
+ * Convert a makeTextResponse/makeToolUseResponse result into an async iterable
+ * of streaming events, matching the shape that chatWithStreaming expects.
+ */
+function makeStreamEvents(response: Anthropic.Message): AsyncIterable<Record<string, unknown>> {
+  const events: Array<Record<string, unknown>> = [
+    {
+      type: 'message_start',
+      message: {
+        usage: { input_tokens: response.usage.input_tokens, output_tokens: 0 },
+        model: response.model,
+      },
+    },
+  ];
+
+  let blockIndex = 0;
+  for (const block of response.content) {
+    if (block.type === 'text') {
+      events.push({
+        type: 'content_block_start',
+        index: blockIndex,
+        content_block: { type: 'text' },
+      });
+      events.push({
+        type: 'content_block_delta',
+        index: blockIndex,
+        delta: { type: 'text_delta', text: (block as Anthropic.TextBlock).text },
+      });
+      events.push({ type: 'content_block_stop', index: blockIndex });
+      blockIndex++;
+    } else if (block.type === 'tool_use') {
+      const toolBlock = block as unknown as { id: string; name: string; input: unknown };
+      events.push({
+        type: 'content_block_start',
+        index: blockIndex,
+        content_block: { type: 'tool_use', id: toolBlock.id, name: toolBlock.name, input: {} },
+      });
+      events.push({
+        type: 'content_block_delta',
+        index: blockIndex,
+        delta: { type: 'input_json_delta', partial_json: JSON.stringify(toolBlock.input) },
+      });
+      events.push({ type: 'content_block_stop', index: blockIndex });
+      blockIndex++;
+    }
+  }
+
+  events.push({
+    type: 'message_delta',
+    delta: { stop_reason: response.stop_reason },
+    usage: { output_tokens: response.usage.output_tokens },
+  });
+  events.push({ type: 'message_stop' });
+
+  return {
+    async *[Symbol.asyncIterator]() {
+      for (const event of events) {
+        yield event;
+      }
+    },
+  };
+}
+
 describe('AnthropicProvider', () => {
   let mockClient: { messages: { create: ReturnType<typeof vi.fn> } };
 
@@ -214,7 +277,7 @@ describe('AnthropicProvider', () => {
 
     it('should send correct request params and return text response', async () => {
       const apiResponse = makeTextResponse('Hello there!');
-      mockClient.messages.create.mockResolvedValue(apiResponse);
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
 
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Hi', timestamp: new Date() },
@@ -238,7 +301,7 @@ describe('AnthropicProvider', () => {
     });
 
     it('should use model maxOutput when maxTokens is not specified', async () => {
-      mockClient.messages.create.mockResolvedValue(makeTextResponse('ok'));
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
 
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Hi', timestamp: new Date() },
@@ -252,7 +315,7 @@ describe('AnthropicProvider', () => {
     });
 
     it('should use DEFAULT_MAX_OUTPUT for unknown models', async () => {
-      mockClient.messages.create.mockResolvedValue(makeTextResponse('ok'));
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
 
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Hi', timestamp: new Date() },
@@ -266,7 +329,7 @@ describe('AnthropicProvider', () => {
     });
 
     it('should include temperature when specified', async () => {
-      mockClient.messages.create.mockResolvedValue(makeTextResponse('ok'));
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
 
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Hi', timestamp: new Date() },
@@ -279,7 +342,7 @@ describe('AnthropicProvider', () => {
     });
 
     it('should include tools in Anthropic format when specified', async () => {
-      mockClient.messages.create.mockResolvedValue(makeTextResponse('ok'));
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
 
       const tools: IToolSchema[] = [
         {
@@ -305,7 +368,7 @@ describe('AnthropicProvider', () => {
 
     it('should handle tool_use response', async () => {
       const apiResponse = makeToolUseResponse('call_1', 'get_weather', { city: 'Seoul' });
-      mockClient.messages.create.mockResolvedValue(apiResponse);
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
 
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Weather in Seoul', timestamp: new Date() },
@@ -326,7 +389,8 @@ describe('AnthropicProvider', () => {
       });
     });
 
-    it('should throw when response has no content', async () => {
+    it('should return empty content when streaming response has no content blocks', async () => {
+      // With always-streaming, empty content just returns empty string (no throw)
       const emptyResponse = {
         id: 'msg_test',
         type: 'message',
@@ -337,17 +401,18 @@ describe('AnthropicProvider', () => {
         stop_sequence: null,
         usage: { input_tokens: 0, output_tokens: 0 },
       } as unknown as Anthropic.Message;
-      mockClient.messages.create.mockResolvedValue(emptyResponse);
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(emptyResponse));
 
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Hi', timestamp: new Date() },
       ];
-      await expect(provider.chat(messages, { model: 'claude-3-opus-20240229' })).rejects.toThrow(
-        'No content in Anthropic response',
-      );
+      const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
+      expect(result.role).toBe('assistant');
+      expect(result.content).toBe('');
     });
 
     it('should skip unsupported content types and return empty content', async () => {
+      // With streaming, unsupported block types are simply ignored
       const weirdResponse = {
         id: 'msg_test',
         type: 'message',
@@ -358,7 +423,7 @@ describe('AnthropicProvider', () => {
         stop_sequence: null,
         usage: { input_tokens: 0, output_tokens: 0 },
       } as unknown as Anthropic.Message;
-      mockClient.messages.create.mockResolvedValue(weirdResponse);
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(weirdResponse));
 
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Hi', timestamp: new Date() },
@@ -370,7 +435,7 @@ describe('AnthropicProvider', () => {
 
     it('should include stopReason in metadata when stop_reason is present', async () => {
       const response = makeTextResponse('done');
-      mockClient.messages.create.mockResolvedValue(response);
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(response));
 
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Hi', timestamp: new Date() },
@@ -382,7 +447,7 @@ describe('AnthropicProvider', () => {
     it('should omit stopReason from metadata when stop_reason is null', async () => {
       const response = makeTextResponse('done');
       (response as unknown as Record<string, unknown>).stop_reason = null;
-      mockClient.messages.create.mockResolvedValue(response);
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(response));
 
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Hi', timestamp: new Date() },
@@ -401,7 +466,7 @@ describe('AnthropicProvider', () => {
       provider = new AnthropicProvider({
         client: mockClient as unknown as Anthropic,
       });
-      mockClient.messages.create.mockResolvedValue(makeTextResponse('ok'));
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
     });
 
     it('should convert user messages', async () => {
