@@ -1,10 +1,13 @@
 /**
  * Config loader — discovers, merges, and validates settings files.
  *
- * Precedence (highest → lowest):
- *   .robota/settings.local.json  (project-local overrides, git-ignored)
- *   .robota/settings.json        (project-level)
- *   ~/.robota/settings.json      (user-level)
+ * Precedence (lowest → highest):
+ *   1. ~/.robota/settings.json       (legacy user)
+ *   2. .robota/settings.json         (legacy project)
+ *   3. .robota/settings.local.json   (legacy project-local)
+ *   4. ~/.claude/settings.json       (user)
+ *   5. .claude/settings.json         (project)
+ *   6. .claude/settings.local.json   (project-local, highest priority)
  */
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -108,6 +111,11 @@ function mergeSettings(layers: TSettings[]): TSettings {
         ...(merged.env ?? {}),
         ...(layer.env ?? {}),
       },
+      enabledPlugins:
+        merged.enabledPlugins !== undefined || layer.enabledPlugins !== undefined
+          ? { ...(merged.enabledPlugins ?? {}), ...(layer.enabledPlugins ?? {}) }
+          : undefined,
+      extraKnownMarketplaces: layer.extraKnownMarketplaces ?? merged.extraKnownMarketplaces,
     };
   }, {});
 }
@@ -130,32 +138,46 @@ function toResolvedConfig(merged: TSettings): IResolvedConfig {
     },
     env: merged.env ?? DEFAULTS.env,
     hooks: merged.hooks ?? undefined,
+    enabledPlugins: merged.enabledPlugins ?? undefined,
+    extraKnownMarketplaces: merged.extraKnownMarketplaces ?? undefined,
   };
+}
+
+/**
+ * Build the ordered list of settings file paths (lowest → highest priority).
+ */
+function getSettingsPaths(cwd: string): string[] {
+  const home = getHomeDir();
+  return [
+    join(home, '.robota', 'settings.json'), // 1. legacy user
+    join(cwd, '.robota', 'settings.json'), // 2. legacy project
+    join(cwd, '.robota', 'settings.local.json'), // 3. legacy project-local
+    join(home, '.claude', 'settings.json'), // 4. user
+    join(cwd, '.claude', 'settings.json'), // 5. project
+    join(cwd, '.claude', 'settings.local.json'), // 6. project-local (highest)
+  ];
 }
 
 /**
  * Load and merge all settings files, validate with Zod, return resolved config.
  *
- * @param cwd - The working directory (project root) to search for .robota/
+ * @param cwd - The working directory (project root) to search for settings
  */
 export async function loadConfig(cwd: string): Promise<IResolvedConfig> {
-  const userSettingsPath = join(getHomeDir(), '.robota', 'settings.json');
-  const projectSettingsPath = join(cwd, '.robota', 'settings.json');
-  const localSettingsPath = join(cwd, '.robota', 'settings.local.json');
+  const allPaths = getSettingsPaths(cwd);
 
-  const rawLayers: unknown[] = [
-    readJsonFile(userSettingsPath),
-    readJsonFile(projectSettingsPath),
-    readJsonFile(localSettingsPath),
-  ].filter((v): v is unknown => v !== undefined);
+  const rawEntries: Array<{ raw: unknown; path: string }> = [];
+  for (const filePath of allPaths) {
+    const raw = readJsonFile(filePath);
+    if (raw !== undefined) {
+      rawEntries.push({ raw, path: filePath });
+    }
+  }
 
-  const parsedLayers: TSettings[] = rawLayers.map((raw, index) => {
+  const parsedLayers: TSettings[] = rawEntries.map(({ raw, path }) => {
     const result = SettingsSchema.safeParse(raw);
     if (!result.success) {
-      const paths = [userSettingsPath, projectSettingsPath, localSettingsPath].filter(
-        (_, i) => rawLayers[i] !== undefined,
-      );
-      throw new Error(`Invalid settings in ${paths[index] ?? 'unknown'}: ${result.error.message}`);
+      throw new Error(`Invalid settings in ${path}: ${result.error.message}`);
     }
     return resolveEnvRefs(result.data);
   });

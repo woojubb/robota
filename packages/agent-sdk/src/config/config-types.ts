@@ -2,6 +2,7 @@
  * Zod schemas and TypeScript types for Robota CLI settings
  */
 import { z } from 'zod';
+import type { THooksConfig } from '@robota-sdk/agent-core';
 
 const ProviderSchema = z.object({
   name: z.string().optional(),
@@ -18,24 +19,68 @@ const PermissionsSchema = z.object({
 
 const EnvSchema = z.record(z.string()).optional();
 
-const HookDefinitionSchema = z.object({
+/** Command hook definition */
+const CommandHookDefinitionSchema = z.object({
   type: z.literal('command'),
   command: z.string(),
+  timeout: z.number().optional(),
 });
+
+/** HTTP hook definition */
+const HttpHookDefinitionSchema = z.object({
+  type: z.literal('http'),
+  url: z.string(),
+  headers: z.record(z.string()).optional(),
+  timeout: z.number().optional(),
+});
+
+/** Prompt hook definition */
+const PromptHookDefinitionSchema = z.object({
+  type: z.literal('prompt'),
+  prompt: z.string(),
+  model: z.string().optional(),
+});
+
+/** Agent hook definition */
+const AgentHookDefinitionSchema = z.object({
+  type: z.literal('agent'),
+  agent: z.string(),
+  maxTurns: z.number().optional(),
+  timeout: z.number().optional(),
+});
+
+/** Discriminated union of all hook definition types */
+const HookDefinitionSchema = z.discriminatedUnion('type', [
+  CommandHookDefinitionSchema,
+  HttpHookDefinitionSchema,
+  PromptHookDefinitionSchema,
+  AgentHookDefinitionSchema,
+]);
 
 const HookGroupSchema = z.object({
   matcher: z.string(),
   hooks: z.array(HookDefinitionSchema),
 });
 
+/** All Phase 1 hook events */
 const HooksSchema = z
   .object({
     PreToolUse: z.array(HookGroupSchema).optional(),
     PostToolUse: z.array(HookGroupSchema).optional(),
     SessionStart: z.array(HookGroupSchema).optional(),
     Stop: z.array(HookGroupSchema).optional(),
+    PreCompact: z.array(HookGroupSchema).optional(),
+    PostCompact: z.array(HookGroupSchema).optional(),
+    UserPromptSubmit: z.array(HookGroupSchema).optional(),
+    Notification: z.array(HookGroupSchema).optional(),
   })
   .optional();
+
+/** Plugin enablement map: plugin name -> enabled flag */
+const EnabledPluginsSchema = z.record(z.boolean()).optional();
+
+/** Extra marketplace URLs for plugin discovery */
+const ExtraKnownMarketplacesSchema = z.array(z.string()).optional();
 
 export const SettingsSchema = z.object({
   /** Trust level used when no --permission-mode flag is given */
@@ -46,6 +91,10 @@ export const SettingsSchema = z.object({
   permissions: PermissionsSchema.optional(),
   env: EnvSchema,
   hooks: HooksSchema,
+  /** Plugin enablement map: plugin name -> enabled/disabled */
+  enabledPlugins: EnabledPluginsSchema,
+  /** Extra marketplace URLs for BundlePlugin discovery */
+  extraKnownMarketplaces: ExtraKnownMarketplacesSchema,
 });
 
 export type TSettings = z.infer<typeof SettingsSchema>;
@@ -69,5 +118,9 @@ export interface IResolvedConfig {
     deny: string[];
   };
   env: Record<string, string>;
-  hooks?: z.infer<typeof HooksSchema>;
+  hooks?: THooksConfig;
+  /** Plugin enablement map: plugin name -> enabled/disabled */
+  enabledPlugins?: Record<string, boolean>;
+  /** Extra marketplace URLs for BundlePlugin discovery */
+  extraKnownMarketplaces?: string[];
 }
