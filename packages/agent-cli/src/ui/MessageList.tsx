@@ -29,7 +29,7 @@ function RoleLabel({ role }: { role: IChatMessage['role'] }): React.ReactElement
       );
     case 'tool':
       return (
-        <Text color="gray" bold>
+        <Text color="white" bold>
           Tool:{' '}
         </Text>
       );
@@ -41,11 +41,11 @@ function ToolMessage({ message }: { message: IChatMessage }): React.ReactElement
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color="gray" bold>
+        <Text color="white" bold>
           Tool:{' '}
         </Text>
         {message.toolName && (
-          <Text color="gray" dimColor>
+          <Text color="white" dimColor>
             [{message.toolName}]
           </Text>
         )}

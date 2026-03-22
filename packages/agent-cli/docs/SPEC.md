@@ -422,6 +422,40 @@ Use `robota --reset` to delete the user settings file and return to the first-ru
 
 Session logging is enabled by default. Log files are written to `.robota/logs/{sessionId}.jsonl` in JSONL format, capturing structured events (pre_run, assistant, server_tool, etc.) for diagnostics and replay.
 
+## Tool Execution Display
+
+Tool execution uses a unified visual style across real-time streaming and post-execution summary.
+
+### Icons and Colors
+
+| State   | Icon | Color        | Strikethrough | When                        |
+| ------- | ---- | ------------ | ------------- | --------------------------- |
+| Running | ⟳    | yellow       | no            | Tool is executing           |
+| Success | ✓    | green        | no            | Tool completed successfully |
+| Error   | ✗    | red          | yes           | Tool execution failed       |
+| Denied  | ⊘    | yellowBright | yes           | Permission denied           |
+
+### Labels
+
+- `Tools:` / `Tool:` headers use **white bold** (visible on dark terminals).
+- Tool count badge: `[N tools]` in white dim.
+
+### Argument Truncation
+
+Long tool arguments are truncated with **middle ellipsis**, keeping the last 30 characters visible:
+
+- Before: `Read(/Users/jungyoun/Documents/dev/robota/packages/agent-sdk/src/plugins/ver...)`
+- After: `Read(/Users/jungyoun/Documents/dev/...sdk/src/plugins/very-long/file.ts)`
+
+This ensures file names and important suffixes remain visible.
+
+### Plugin Skill Display
+
+Plugin skills show the plugin hint before the description:
+
+- Format: `/skill-name (plugin-name) description`
+- Example: `/audit (rulebased-harness) Audits your project's harness setup`
+
 ## Known Limitations
 
 - **Korean IME on macOS Terminal.app**: Ink's renderer shifts the input area during IME composition, causing Terminal.app to crash (SIGSEGV). Fixed by adding a permanent blank line below the input area, which stabilizes the cursor position during IME composition. **Use [iTerm2](https://iterm2.com/) for the best experience.**

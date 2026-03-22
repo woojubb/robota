@@ -18,7 +18,7 @@ import type { IPermissionRequest, TPermissionResult } from '../types.js';
 import type { IToolExecutionState } from '../StreamingIndicator.js';
 
 const TOOL_ARG_DISPLAY_MAX = 80;
-const TAIL_KEEP = 20;
+const TAIL_KEEP = 30;
 
 /** No-op ITerminalOutput for Ink mode (permissions handled via permissionHandler) */
 const NOOP_TERMINAL: ITerminalOutput = {
