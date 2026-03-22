@@ -380,8 +380,8 @@ All errors extend `RobotaError` with `code`, `category`, and `recoverable` prope
 
 When the execution loop ends without a final assistant text message (e.g., due to max round limit or context overflow during tool execution):
 
-1. **Force a final summary call** — inject a synthetic system-level message instructing the AI to summarize results, then call `provider.chat()` WITHOUT tools (preventing further tool calls). The system message from config must be included. Use streaming (onTextDelta) if available.
-2. **Preserve conversation history** — all messages up to the point remain in the session. The synthetic message should be stripped or marked so it doesn't pollute future turns.
+1. **Force a final summary call** — inject a synthetic user message requesting the AI to respond with what it has so far, noting what remains incomplete and that the user can follow up. Call `provider.chat()` WITHOUT tools (preventing further tool calls). The system message from config must be included. Use streaming (onTextDelta) if available.
+2. **Preserve conversation history** — strip the synthetic user message from history after the provider call completes so it doesn't pollute future turns.
 3. **Fallback on empty response** — if the forced call produces no text, return: `"Maximum rounds reached. Partial results available in conversation history."`.
 4. **If the forced call throws** — catch the error and return the fallback message without re-throwing.
 
