@@ -2,11 +2,12 @@
  * BundlePluginInstaller — installs, uninstalls, enables, and disables bundle plugins.
  *
  * Handles cloning from git/github, copying from local directories,
- * and managing plugin state in settings.json.
+ * and managing plugin state via PluginSettingsStore.
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import type { PluginSettingsStore } from './plugin-settings-store.js';
 
 /** Source specification for installing a plugin. */
 export type IPluginSource =
@@ -22,8 +23,8 @@ type ExecFn = (command: string, options: { timeout: number }) => void;
 export interface IBundlePluginInstallerOptions {
   /** Directory where plugins are installed (e.g., ~/.robota/plugins). */
   pluginsDir: string;
-  /** Path to the settings.json file. */
-  settingsPath: string;
+  /** Shared settings store for persistence. */
+  settingsStore: PluginSettingsStore;
   /** Custom exec function for testing (replaces child_process.execSync). */
   exec?: ExecFn;
 }
@@ -34,12 +35,12 @@ const GIT_CLONE_TIMEOUT_MS = 60_000;
 /** Installs, uninstalls, enables, and disables bundle plugins. */
 export class BundlePluginInstaller {
   private readonly pluginsDir: string;
-  private readonly settingsPath: string;
+  private readonly settingsStore: PluginSettingsStore;
   private readonly exec: ExecFn;
 
   constructor(options: IBundlePluginInstallerOptions) {
     this.pluginsDir = options.pluginsDir;
-    this.settingsPath = options.settingsPath;
+    this.settingsStore = options.settingsStore;
     this.exec = options.exec ?? this.defaultExec;
   }
 
@@ -79,17 +80,17 @@ export class BundlePluginInstaller {
     }
 
     rmSync(pluginDir, { recursive: true, force: true });
-    this.removeSettingsEntry(pluginId);
+    this.settingsStore.removePluginEntry(pluginId);
   }
 
   /** Enable a plugin by setting its enabledPlugins entry to true. */
   async enable(pluginId: string): Promise<void> {
-    this.updatePluginState(pluginId, true);
+    this.settingsStore.setPluginEnabled(pluginId, true);
   }
 
   /** Disable a plugin by setting its enabledPlugins entry to false. */
   async disable(pluginId: string): Promise<void> {
-    this.updatePluginState(pluginId, false);
+    this.settingsStore.setPluginEnabled(pluginId, false);
   }
 
   /** Clone a git repository to the target directory. */
@@ -120,60 +121,8 @@ export class BundlePluginInstaller {
     cpSync(sourcePath, targetDir, { recursive: true });
   }
 
-  /** Read the current settings from disk. Creates empty settings if file is missing. */
-  private readSettings(): Record<string, unknown> {
-    if (!existsSync(this.settingsPath)) {
-      return {};
-    }
-
-    try {
-      const raw = readFileSync(this.settingsPath, 'utf-8');
-      const data: unknown = JSON.parse(raw);
-      if (typeof data === 'object' && data !== null) {
-        return data as Record<string, unknown>;
-      }
-      return {};
-    } catch {
-      return {};
-    }
-  }
-
-  /** Write settings back to disk. */
-  private writeSettings(settings: Record<string, unknown>): void {
-    const dir = dirname(this.settingsPath);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-    writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
-  }
-
-  /** Update a plugin's enabled/disabled state in settings. */
-  private updatePluginState(pluginId: string, enabled: boolean): void {
-    const settings = this.readSettings();
-    const enabledPlugins =
-      typeof settings.enabledPlugins === 'object' && settings.enabledPlugins !== null
-        ? (settings.enabledPlugins as Record<string, boolean>)
-        : {};
-
-    enabledPlugins[pluginId] = enabled;
-    settings.enabledPlugins = enabledPlugins;
-    this.writeSettings(settings);
-  }
-
-  /** Remove a plugin entry from settings. */
-  private removeSettingsEntry(pluginId: string): void {
-    const settings = this.readSettings();
-    if (typeof settings.enabledPlugins === 'object' && settings.enabledPlugins !== null) {
-      const enabledPlugins = settings.enabledPlugins as Record<string, boolean>;
-      delete enabledPlugins[pluginId];
-      settings.enabledPlugins = enabledPlugins;
-      this.writeSettings(settings);
-    }
-  }
-
   /** Default exec implementation using child_process. */
   private defaultExec(command: string, options: { timeout: number }): void {
-    // Dynamic import to avoid bundling issues — this is only used as a fallback
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { execSync } = require('node:child_process') as typeof import('node:child_process');
     execSync(command, { timeout: options.timeout, stdio: 'pipe' });
