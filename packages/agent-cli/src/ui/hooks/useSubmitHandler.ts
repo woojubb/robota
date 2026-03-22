@@ -95,22 +95,10 @@ export function useSubmitHandler(
         // For plugin skills, resolve the full qualified name for hook matching
         // e.g., /audit → /rulebased-harness:audit
         const cmdName = input.slice(1).split(/\s+/)[0]?.toLowerCase() ?? '';
-        const matchedCmd = registry
-          .getCommands()
-          .find((c) => c.name === cmdName && c.source === 'plugin');
-        let hookInput = input;
-        if (matchedCmd && !input.includes(':')) {
-          // Find the corresponding command name (plugin:name format)
-          const pluginCommands = registry
-            .getCommands()
-            .filter(
-              (c) =>
-                c.source === 'plugin' && c.name.includes(':') && c.name.endsWith(`:${cmdName}`),
-            );
-          if (pluginCommands.length > 0) {
-            hookInput = `/${pluginCommands[0].name}${input.slice(1 + cmdName.length)}`;
-          }
-        }
+        const qualifiedName = registry.resolveQualifiedName(cmdName);
+        const hookInput = qualifiedName
+          ? `/${qualifiedName}${input.slice(1 + cmdName.length)}`
+          : input;
 
         return runSessionPrompt(
           prompt,

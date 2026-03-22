@@ -19,6 +19,17 @@ export class CommandRegistry {
     return all.filter((cmd) => cmd.name.toLowerCase().startsWith(lower));
   }
 
+  /** Resolve a short name to its fully qualified plugin:name form */
+  resolveQualifiedName(shortName: string): string | null {
+    // Find plugin commands ending with `:shortName`
+    const matches = this.getCommands().filter(
+      (c) => c.source === 'plugin' && c.name.includes(':') && c.name.endsWith(`:${shortName}`),
+    );
+    // Ambiguous (multiple matches) or no match → return null
+    if (matches.length !== 1) return null;
+    return matches[0].name;
+  }
+
   /** Get subcommands for a specific command */
   getSubcommands(commandName: string): ISlashCommand[] {
     const lower = commandName.toLowerCase();
