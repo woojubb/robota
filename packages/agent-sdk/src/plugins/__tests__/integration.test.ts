@@ -19,9 +19,15 @@ function writeFile(path: string, content: string): void {
   writeFileSync(path, content, 'utf-8');
 }
 
-function createPluginStructure(
+/**
+ * Create a plugin structure in the cache directory.
+ * Path: `<pluginsDir>/cache/<marketplace>/<pluginName>/<version>/`
+ */
+function createPluginInCache(
   pluginsDir: string,
+  marketplace: string,
   pluginName: string,
+  version: string,
   manifest: IBundlePluginManifest,
   options?: {
     skills?: Array<{ name: string; content: string }>;
@@ -30,7 +36,7 @@ function createPluginStructure(
     mcpConfig?: Record<string, unknown>;
   },
 ): string {
-  const pluginDir = join(pluginsDir, pluginName);
+  const pluginDir = join(pluginsDir, 'cache', marketplace, pluginName, version);
   const metaDir = join(pluginDir, '.claude-plugin');
   setupDir(metaDir);
   writeJson(join(metaDir, 'plugin.json'), manifest);
@@ -78,7 +84,7 @@ describe('BundlePlugin flow integration', () => {
     }
   });
 
-  it('should discover and load a complete plugin', async () => {
+  it('should discover and load a complete plugin from cache', async () => {
     const manifest: IBundlePluginManifest = {
       name: 'full-plugin',
       version: '2.0.0',
@@ -109,7 +115,7 @@ Perform thorough code reviews.
       server: { command: 'node', args: ['server.js'] },
     };
 
-    createPluginStructure(pluginsDir, 'full-plugin', manifest, {
+    createPluginInCache(pluginsDir, 'official', 'full-plugin', '2.0.0', manifest, {
       skills: [{ name: 'code-review', content: skillContent }],
       hooks,
       agents: ['reviewer', 'assistant'],
@@ -168,7 +174,7 @@ description: Second skill
 Content for skill-two.
 `;
 
-    createPluginStructure(pluginsDir, 'ns-plugin', manifest, {
+    createPluginInCache(pluginsDir, 'market', 'ns-plugin', '1.0.0', manifest, {
       skills: [
         { name: 'skill-one', content: skill1 },
         { name: 'skill-two', content: skill2 },
@@ -190,7 +196,7 @@ Content for skill-two.
     }
   });
 
-  it('should load multiple plugins with isolated skills', async () => {
+  it('should load plugins from multiple marketplaces with isolated skills', async () => {
     const pluginA: IBundlePluginManifest = {
       name: 'plugin-alpha',
       version: '1.0.0',
@@ -212,11 +218,11 @@ description: Shared skill name
 Content.
 `;
 
-    createPluginStructure(pluginsDir, 'plugin-alpha', pluginA, {
+    createPluginInCache(pluginsDir, 'mp-alpha', 'plugin-alpha', '1.0.0', pluginA, {
       skills: [{ name: 'analyze', content: skillContent }],
     });
 
-    createPluginStructure(pluginsDir, 'plugin-beta', pluginB, {
+    createPluginInCache(pluginsDir, 'mp-beta', 'plugin-beta', '1.0.0', pluginB, {
       skills: [{ name: 'analyze', content: skillContent }],
       hooks: { PostToolUse: [{ matcher: '', hooks: [] }] },
     });
@@ -234,7 +240,7 @@ Content.
 
   it('should selectively disable plugins while loading others', async () => {
     for (const name of ['keep-a', 'skip-b', 'keep-c']) {
-      createPluginStructure(pluginsDir, name, {
+      createPluginInCache(pluginsDir, 'market', name, '1.0.0', {
         name,
         version: '1.0.0',
         description: `Plugin ${name}`,
@@ -243,7 +249,7 @@ Content.
     }
 
     const loader = new BundlePluginLoader(pluginsDir, {
-      'skip-b': false,
+      'skip-b@market': false,
     });
     const plugins = await loader.loadAll();
 
@@ -264,7 +270,7 @@ Content.
       PreToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'echo check' }] }],
     };
 
-    createPluginStructure(pluginsDir, 'hooks-only', manifest, { hooks });
+    createPluginInCache(pluginsDir, 'market', 'hooks-only', '1.0.0', manifest, { hooks });
 
     const loader = new BundlePluginLoader(pluginsDir);
     const plugins = await loader.loadAll();
@@ -272,5 +278,27 @@ Content.
     expect(plugins).toHaveLength(1);
     expect(plugins[0].skills).toEqual([]);
     expect(plugins[0].hooks).toEqual(hooks);
+  });
+
+  it('should load latest version when multiple versions exist', async () => {
+    createPluginInCache(pluginsDir, 'market', 'multi-ver', '1.0.0', {
+      name: 'multi-ver',
+      version: '1.0.0',
+      description: 'Old version',
+      features: {},
+    });
+    createPluginInCache(pluginsDir, 'market', 'multi-ver', '2.0.0', {
+      name: 'multi-ver',
+      version: '2.0.0',
+      description: 'New version',
+      features: {},
+    });
+
+    const loader = new BundlePluginLoader(pluginsDir);
+    const plugins = await loader.loadAll();
+
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].manifest.version).toBe('2.0.0');
+    expect(plugins[0].manifest.description).toBe('New version');
   });
 });

@@ -352,9 +352,9 @@ describe('E2E: Plugin install and discover', () => {
       ].join('\n'),
     );
 
-    // 2. Simulate local install (cpSync, same as BundlePluginInstaller.installFromLocal)
+    // 2. Simulate install to cache/<marketplace>/<plugin>/<version>/
     const pluginsDir = join(tempDir, 'installed-plugins');
-    const targetDir = join(pluginsDir, 'code-helper@local');
+    const targetDir = join(pluginsDir, 'cache', 'local', 'code-helper', '1.0.0');
     mkdirSync(targetDir, { recursive: true });
     cpSync(sourcePluginDir, targetDir, { recursive: true });
 
@@ -385,9 +385,9 @@ describe('E2E: Plugin install and discover', () => {
   it('should disable a plugin and verify its skills disappear', async () => {
     const tempDir = createTempDir('plugin-disable-');
 
-    // 1. Create a plugin directly in the plugins directory
+    // 1. Create a plugin in the cache directory structure
     const pluginsDir = join(tempDir, 'plugins');
-    const pluginDir = join(pluginsDir, 'temp-plugin');
+    const pluginDir = join(pluginsDir, 'cache', 'market', 'temp-plugin', '1.0.0');
     createFile(
       join(pluginDir, '.claude-plugin', 'plugin.json'),
       JSON.stringify({
@@ -412,9 +412,9 @@ describe('E2E: Plugin install and discover', () => {
     const enabledSource = new PluginCommandSource(enabledPlugins);
     expect(enabledSource.getCommands()).toHaveLength(1);
 
-    // 3. Disable the plugin by passing enabledPlugins config
+    // 3. Disable the plugin by passing enabledPlugins config (using pluginName@marketplace key)
     const disabledLoader = new BundlePluginLoader(pluginsDir, {
-      'temp-plugin': false,
+      'temp-plugin@market': false,
     });
 
     // 4. Reload plugins
@@ -557,9 +557,9 @@ describe('E2E: CommandRegistry aggregation', () => {
       '# FS Skill',
     );
 
-    // Create a plugin with a skill
+    // Create a plugin with a skill (in cache directory structure)
     const pluginsDir = join(projectDir, '.plugins');
-    const pluginDir = join(pluginsDir, 'my-plugin');
+    const pluginDir = join(pluginsDir, 'cache', 'market', 'my-plugin', '1.0.0');
     createFile(
       join(pluginDir, '.claude-plugin', 'plugin.json'),
       JSON.stringify({

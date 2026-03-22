@@ -71,13 +71,19 @@ export { PluginSettingsStore } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
 export { BundlePluginLoader } from './plugins/index.js';
 export { BundlePluginInstaller } from './plugins/index.js';
-export type { IPluginSource, IBundlePluginInstallerOptions } from './plugins/index.js';
+export type {
+  IBundlePluginInstallerOptions,
+  IInstalledPluginRecord,
+  IInstalledPluginsRegistry,
+} from './plugins/index.js';
 export { MarketplaceClient } from './plugins/index.js';
 export type {
   IMarketplaceSource,
   IMarketplaceManifest,
   IMarketplacePluginEntry,
   IMarketplaceClientOptions,
+  IKnownMarketplaceEntry,
+  IKnownMarketplacesRegistry,
 } from './plugins/index.js';
 export type {
   IBundlePluginManifest,

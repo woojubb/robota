@@ -318,7 +318,7 @@ describe('Cross-package: config -> hook runner', () => {
 describe('Cross-package: BundlePlugin -> system prompt', () => {
   it('should load plugin skills and inject into system prompt', async () => {
     const tempDir = createTempDir();
-    const pluginDir = join(tempDir, 'my-plugin');
+    const pluginDir = join(tempDir, 'cache', 'market', 'my-plugin', '1.0.0');
     const metaDir = join(pluginDir, '.claude-plugin');
     const skillDir = join(pluginDir, 'skills', 'deploy');
 
@@ -379,8 +379,8 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
   it('should load multiple plugin skills from different plugins', async () => {
     const tempDir = createTempDir();
 
-    // Plugin A
-    const pluginA = join(tempDir, 'plugin-a');
+    // Plugin A (in cache/<marketplace>/<plugin>/<version>/)
+    const pluginA = join(tempDir, 'cache', 'market-a', 'plugin-a', '1.0.0');
     mkdirSync(join(pluginA, '.claude-plugin'), { recursive: true });
     mkdirSync(join(pluginA, 'skills', 'lint'), { recursive: true });
 
@@ -399,7 +399,7 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
     );
 
     // Plugin B
-    const pluginB = join(tempDir, 'plugin-b');
+    const pluginB = join(tempDir, 'cache', 'market-b', 'plugin-b', '2.0.0');
     mkdirSync(join(pluginB, '.claude-plugin'), { recursive: true });
     mkdirSync(join(pluginB, 'skills', 'format'), { recursive: true });
 

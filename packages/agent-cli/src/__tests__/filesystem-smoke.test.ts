@@ -488,7 +488,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
 
   it('should load a real plugin directory structure', async () => {
     const pluginsDir = join(tempDir, 'plugins');
-    const pluginDir = join(pluginsDir, 'test-plugin');
+    const pluginDir = join(pluginsDir, 'cache', 'market', 'test-plugin', '1.0.0');
 
     // Create plugin manifest
     const manifest = {
@@ -544,7 +544,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
 
   it('should expose plugin skills through PluginCommandSource', async () => {
     const pluginsDir = join(tempDir, 'plugins');
-    const pluginDir = join(pluginsDir, 'code-tools');
+    const pluginDir = join(pluginsDir, 'cache', 'market', 'code-tools', '2.0.0');
 
     createFile(
       join(pluginDir, '.claude-plugin', 'plugin.json'),
@@ -587,7 +587,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
 
     // Valid plugin
     createFile(
-      join(pluginsDir, 'valid', '.claude-plugin', 'plugin.json'),
+      join(pluginsDir, 'cache', 'market', 'valid', '1.0.0', '.claude-plugin', 'plugin.json'),
       JSON.stringify({
         name: 'valid',
         version: '1.0.0',
@@ -598,12 +598,12 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
 
     // Invalid plugin (missing required fields)
     createFile(
-      join(pluginsDir, 'invalid', '.claude-plugin', 'plugin.json'),
+      join(pluginsDir, 'cache', 'market', 'invalid', '1.0.0', '.claude-plugin', 'plugin.json'),
       JSON.stringify({ name: 'invalid' }),
     );
 
     // Directory without manifest
-    mkdirSync(join(pluginsDir, 'no-manifest'), { recursive: true });
+    mkdirSync(join(pluginsDir, 'cache', 'market', 'no-manifest', '1.0.0'), { recursive: true });
 
     const loader = new BundlePluginLoader(pluginsDir);
     const plugins = await loader.loadAll();
@@ -618,7 +618,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
     // Create two plugins
     for (const name of ['enabled-plugin', 'disabled-plugin']) {
       createFile(
-        join(pluginsDir, name, '.claude-plugin', 'plugin.json'),
+        join(pluginsDir, 'cache', 'market', name, '1.0.0', '.claude-plugin', 'plugin.json'),
         JSON.stringify({
           name,
           version: '1.0.0',
@@ -629,7 +629,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
     }
 
     const loader = new BundlePluginLoader(pluginsDir, {
-      'disabled-plugin': false,
+      'disabled-plugin@market': false,
     });
     const plugins = await loader.loadAll();
 
@@ -639,7 +639,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
 
   it('should load MCP config from plugin when present', async () => {
     const pluginsDir = join(tempDir, 'plugins');
-    const pluginDir = join(pluginsDir, 'mcp-plugin');
+    const pluginDir = join(pluginsDir, 'cache', 'market', 'mcp-plugin', '1.0.0');
 
     createFile(
       join(pluginDir, '.claude-plugin', 'plugin.json'),

@@ -1,267 +1,450 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
+import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { MarketplaceClient } from '../marketplace-client.js';
-import type { IMarketplaceSource, IMarketplaceManifest } from '../marketplace-client.js';
+import type { IMarketplaceSource } from '../marketplace-client.js';
+
+const TMP_BASE = join(tmpdir(), 'robota-marketplace-test-' + process.pid);
+
+function setupDir(path: string): void {
+  mkdirSync(path, { recursive: true });
+}
+
+function writeJson(path: string, data: unknown): void {
+  writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
+}
 
 describe('MarketplaceClient', () => {
+  let pluginsDir: string;
   let client: MarketplaceClient;
+  let mockExec: Mock;
 
   beforeEach(() => {
-    client = new MarketplaceClient();
-  });
+    const runDir = join(TMP_BASE, 'run-' + Math.random().toString(36).slice(2));
+    pluginsDir = join(runDir, 'plugins');
+    setupDir(pluginsDir);
 
-  describe('default sources', () => {
-    it('should have claude-plugins-official as default source', () => {
-      const sources = client.listSources();
-      expect(sources).toContainEqual(expect.objectContaining({ name: 'claude-plugins-official' }));
-    });
-
-    it('should configure claude-plugins-official as a github source', () => {
-      const sources = client.listSources();
-      const official = sources.find((s) => s.name === 'claude-plugins-official');
-      expect(official).toBeDefined();
-      expect(official!.source.type).toBe('github');
-      if (official!.source.type === 'github') {
-        expect(official!.source.repo).toBe('anthropics/claude-code');
-      }
+    mockExec = vi.fn().mockReturnValue('');
+    client = new MarketplaceClient({
+      pluginsDir,
+      exec: mockExec as (cmd: string, opts: { timeout: number; stdio?: string }) => string | Buffer,
     });
   });
 
-  describe('source management', () => {
-    it('should add a new source', () => {
-      const source: IMarketplaceSource = { type: 'github', repo: 'user/plugins' };
-      client.addSource('custom', source);
-      const sources = client.listSources();
-      expect(sources).toContainEqual({ name: 'custom', source });
+  afterEach(() => {
+    if (existsSync(TMP_BASE)) {
+      rmSync(TMP_BASE, { recursive: true, force: true });
+    }
+  });
+
+  describe('addMarketplace', () => {
+    it('should clone a GitHub repo and register the marketplace', () => {
+      const source: IMarketplaceSource = { type: 'github', repo: 'owner/marketplace-repo' };
+
+      // Mock exec to simulate git clone by creating the directory with a manifest
+      mockExec.mockImplementation((cmd: string) => {
+        if (cmd.includes('git clone')) {
+          // Extract target directory from clone command
+          const parts = cmd.split(' ');
+          const targetDir = parts[parts.length - 1];
+          setupDir(join(targetDir, '.claude-plugin'));
+          writeJson(join(targetDir, '.claude-plugin', 'marketplace.json'), {
+            name: 'test-marketplace',
+            version: '1.0',
+            plugins: [],
+          });
+        }
+        return '';
+      });
+
+      const name = client.addMarketplace(source);
+
+      expect(name).toBe('test-marketplace');
+      expect(mockExec).toHaveBeenCalledWith(
+        expect.stringContaining('git clone --depth 1'),
+        expect.objectContaining({ timeout: expect.any(Number) }),
+      );
+      const cloneCmd = mockExec.mock.calls[0][0] as string;
+      expect(cloneCmd).toContain('https://github.com/owner/marketplace-repo.git');
+
+      // Should be registered in known_marketplaces.json
+      const registryPath = join(pluginsDir, 'known_marketplaces.json');
+      expect(existsSync(registryPath)).toBe(true);
+      const registry = JSON.parse(readFileSync(registryPath, 'utf-8')) as Record<string, unknown>;
+      expect(registry['test-marketplace']).toBeDefined();
     });
 
-    it('should remove an existing source', () => {
-      const source: IMarketplaceSource = { type: 'local', path: '/tmp/plugins' };
-      client.addSource('temp', source);
-      client.removeSource('temp');
-      const sources = client.listSources();
-      expect(sources.find((s) => s.name === 'temp')).toBeUndefined();
+    it('should clone a git URL source', () => {
+      const source: IMarketplaceSource = { type: 'git', url: 'https://example.com/repo.git' };
+
+      mockExec.mockImplementation((cmd: string) => {
+        if (cmd.includes('git clone')) {
+          const parts = cmd.split(' ');
+          const targetDir = parts[parts.length - 1];
+          setupDir(join(targetDir, '.claude-plugin'));
+          writeJson(join(targetDir, '.claude-plugin', 'marketplace.json'), {
+            name: 'git-marketplace',
+            version: '1.0',
+            plugins: [],
+          });
+        }
+        return '';
+      });
+
+      const name = client.addMarketplace(source);
+
+      expect(name).toBe('git-marketplace');
+      const cloneCmd = mockExec.mock.calls[0][0] as string;
+      expect(cloneCmd).toContain('https://example.com/repo.git');
     });
 
-    it('should throw when removing a non-existent source', () => {
-      expect(() => client.removeSource('nonexistent')).toThrow(
-        'Marketplace source "nonexistent" not found',
+    it('should throw when clone fails', () => {
+      const source: IMarketplaceSource = { type: 'github', repo: 'bad/repo' };
+
+      mockExec.mockImplementation(() => {
+        throw new Error('git clone failed');
+      });
+
+      expect(() => client.addMarketplace(source)).toThrow('Failed to clone marketplace');
+    });
+
+    it('should throw when cloned repo has no marketplace.json', () => {
+      const source: IMarketplaceSource = { type: 'github', repo: 'owner/repo' };
+
+      mockExec.mockImplementation((cmd: string) => {
+        if (cmd.includes('git clone')) {
+          const parts = cmd.split(' ');
+          const targetDir = parts[parts.length - 1];
+          // Create dir but no manifest
+          setupDir(targetDir);
+        }
+        return '';
+      });
+
+      expect(() => client.addMarketplace(source)).toThrow(
+        'does not contain .claude-plugin/marketplace.json',
       );
     });
 
-    it('should throw when adding a duplicate source name', () => {
-      const source: IMarketplaceSource = { type: 'local', path: '/tmp' };
-      client.addSource('dup', source);
-      expect(() => client.addSource('dup', source)).toThrow(
-        'Marketplace source "dup" already exists',
+    it('should throw when marketplace name already exists', () => {
+      const source: IMarketplaceSource = { type: 'github', repo: 'owner/repo' };
+
+      mockExec.mockImplementation((cmd: string) => {
+        if (cmd.includes('git clone')) {
+          const parts = cmd.split(' ');
+          const targetDir = parts[parts.length - 1];
+          setupDir(join(targetDir, '.claude-plugin'));
+          writeJson(join(targetDir, '.claude-plugin', 'marketplace.json'), {
+            name: 'dup-market',
+            version: '1.0',
+            plugins: [],
+          });
+        }
+        return '';
+      });
+
+      client.addMarketplace(source);
+
+      expect(() => client.addMarketplace(source)).toThrow(
+        'Marketplace "dup-market" already exists',
       );
     });
 
-    it('should support multiple marketplace sources', () => {
-      client.addSource('source-a', { type: 'local', path: '/a' });
-      client.addSource('source-b', { type: 'url', url: 'https://example.com/manifest.json' });
-      const sources = client.listSources();
-      // Default + 2 added
-      expect(sources.length).toBeGreaterThanOrEqual(3);
+    it('should throw for url source type', () => {
+      const source = {
+        type: 'url',
+        url: 'https://example.com/manifest.json',
+      } as IMarketplaceSource;
+
+      expect(() => client.addMarketplace(source)).toThrow(
+        'URL source type does not support git cloning',
+      );
+    });
+  });
+
+  describe('removeMarketplace', () => {
+    it('should remove marketplace clone and registry entry', () => {
+      // Set up a registered marketplace
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'test-mp');
+      setupDir(marketplaceDir);
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'test-mp': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: marketplaceDir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      client.removeMarketplace('test-mp');
+
+      expect(existsSync(marketplaceDir)).toBe(false);
+      const registry = JSON.parse(
+        readFileSync(join(pluginsDir, 'known_marketplaces.json'), 'utf-8'),
+      ) as Record<string, unknown>;
+      expect(registry['test-mp']).toBeUndefined();
+    });
+
+    it('should throw when marketplace not found', () => {
+      expect(() => client.removeMarketplace('nonexistent')).toThrow(
+        'Marketplace "nonexistent" not found',
+      );
+    });
+  });
+
+  describe('updateMarketplace', () => {
+    it('should run git pull on the marketplace clone', () => {
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'update-mp');
+      setupDir(marketplaceDir);
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'update-mp': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: marketplaceDir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      mockExec.mockReturnValue('');
+
+      client.updateMarketplace('update-mp');
+
+      expect(mockExec).toHaveBeenCalledWith(
+        expect.stringContaining('git -C'),
+        expect.objectContaining({ timeout: expect.any(Number) }),
+      );
+      const pullCmd = mockExec.mock.calls[0][0] as string;
+      expect(pullCmd).toContain('pull');
+    });
+
+    it('should throw when marketplace not found', () => {
+      expect(() => client.updateMarketplace('nonexistent')).toThrow(
+        'Marketplace "nonexistent" not found',
+      );
+    });
+
+    it('should throw when marketplace directory does not exist', () => {
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'missing-dir': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: join(pluginsDir, 'marketplaces', 'missing-dir'),
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      expect(() => client.updateMarketplace('missing-dir')).toThrow(
+        'Marketplace directory for "missing-dir" does not exist',
+      );
+    });
+  });
+
+  describe('listMarketplaces', () => {
+    it('should return empty list when no marketplaces registered', () => {
+      const list = client.listMarketplaces();
+      expect(list).toEqual([]);
+    });
+
+    it('should list all registered marketplaces', () => {
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'mp-a': {
+          source: { type: 'github', repo: 'a/a' },
+          installLocation: '/path/a',
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+        'mp-b': {
+          source: { type: 'git', url: 'https://example.com/b.git' },
+          installLocation: '/path/b',
+          lastUpdated: '2026-01-02T00:00:00.000Z',
+        },
+      });
+
+      const list = client.listMarketplaces();
+      expect(list).toHaveLength(2);
+      expect(list.map((m) => m.name)).toContain('mp-a');
+      expect(list.map((m) => m.name)).toContain('mp-b');
     });
   });
 
   describe('fetchManifest', () => {
-    it('should throw when fetching from a non-existent source', async () => {
-      await expect(client.fetchManifest('nonexistent')).rejects.toThrow(
-        'Marketplace source "nonexistent" not found',
-      );
-    });
-
-    it('should fetch manifest from a URL source', async () => {
-      const manifest: IMarketplaceManifest = {
+    it('should read manifest from cloned directory', () => {
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'fetch-mp');
+      setupDir(join(marketplaceDir, '.claude-plugin'));
+      writeJson(join(marketplaceDir, '.claude-plugin', 'marketplace.json'), {
+        name: 'fetch-mp',
         version: '1.0',
         plugins: [
           {
             name: 'test-plugin',
             title: 'Test Plugin',
             description: 'A test plugin',
-            source: { type: 'git', url: 'https://github.com/user/plugin.git' },
+            source: './packages/test-plugin',
             tags: ['test'],
           },
         ],
-      };
-
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(manifest),
+      });
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'fetch-mp': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: marketplaceDir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
       });
 
-      const clientWithFetch = new MarketplaceClient({ fetch: mockFetch });
-      clientWithFetch.addSource('test-url', {
-        type: 'url',
-        url: 'https://example.com/marketplace.json',
-      });
+      const manifest = client.fetchManifest('fetch-mp');
 
-      const result = await clientWithFetch.fetchManifest('test-url');
-      expect(result).toEqual(manifest);
-      expect(mockFetch).toHaveBeenCalledWith('https://example.com/marketplace.json');
+      expect(manifest.name).toBe('fetch-mp');
+      expect(manifest.plugins).toHaveLength(1);
+      expect(manifest.plugins[0].name).toBe('test-plugin');
     });
 
-    it('should fetch manifest from a GitHub source', async () => {
-      const manifest: IMarketplaceManifest = {
-        version: '1.0',
-        plugins: [
-          {
-            name: 'gh-plugin',
-            title: 'GH Plugin',
-            description: 'From GitHub',
-            source: { type: 'github', repo: 'user/plugin' },
-            tags: [],
-          },
-        ],
-      };
-
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(manifest),
-      });
-
-      const clientWithFetch = new MarketplaceClient({ fetch: mockFetch });
-      // Use the default claude-plugins-official or add a custom github source
-      clientWithFetch.addSource('my-gh', { type: 'github', repo: 'user/plugins', ref: 'v2' });
-
-      const result = await clientWithFetch.fetchManifest('my-gh');
-      expect(result).toEqual(manifest);
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://raw.githubusercontent.com/user/plugins/v2/.claude-plugin/marketplace.json',
+    it('should throw when marketplace not found', () => {
+      expect(() => client.fetchManifest('nonexistent')).toThrow(
+        'Marketplace "nonexistent" not found',
       );
     });
 
-    it('should use "main" as default ref for GitHub sources', async () => {
-      const manifest: IMarketplaceManifest = { version: '1.0', plugins: [] };
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(manifest),
+    it('should throw when manifest file missing from clone', () => {
+      const marketplaceDir = join(pluginsDir, 'marketplaces', 'no-manifest');
+      setupDir(marketplaceDir);
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'no-manifest': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: marketplaceDir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
       });
 
-      const clientWithFetch = new MarketplaceClient({ fetch: mockFetch });
-      clientWithFetch.addSource('no-ref', { type: 'github', repo: 'org/repo' });
-
-      await clientWithFetch.fetchManifest('no-ref');
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://raw.githubusercontent.com/org/repo/main/.claude-plugin/marketplace.json',
+      expect(() => client.fetchManifest('no-manifest')).toThrow(
+        'does not contain .claude-plugin/marketplace.json',
       );
     });
+  });
 
-    it('should throw when fetch response is not ok', async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
+  describe('getMarketplaceDir', () => {
+    it('should return the install location', () => {
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'dir-mp': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: '/some/path/dir-mp',
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
       });
 
-      const clientWithFetch = new MarketplaceClient({ fetch: mockFetch });
-      clientWithFetch.addSource('bad', { type: 'url', url: 'https://example.com/bad.json' });
+      expect(client.getMarketplaceDir('dir-mp')).toBe('/some/path/dir-mp');
+    });
 
-      await expect(clientWithFetch.fetchManifest('bad')).rejects.toThrow(
-        'Failed to fetch manifest from "bad": 404 Not Found',
+    it('should throw when marketplace not found', () => {
+      expect(() => client.getMarketplaceDir('nonexistent')).toThrow(
+        'Marketplace "nonexistent" not found',
       );
+    });
+  });
+
+  describe('getMarketplaceSha', () => {
+    it('should return first 12 chars of git SHA', () => {
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'sha-mp': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: '/some/path',
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      mockExec.mockReturnValue('abcdef123456789012\n');
+
+      const sha = client.getMarketplaceSha('sha-mp');
+      expect(sha).toBe('abcdef123456');
+    });
+
+    it('should return "unknown" when git command fails', () => {
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        'fail-sha': {
+          source: { type: 'github', repo: 'owner/repo' },
+          installLocation: '/some/path',
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      mockExec.mockImplementation(() => {
+        throw new Error('not a git repo');
+      });
+
+      const sha = client.getMarketplaceSha('fail-sha');
+      expect(sha).toBe('unknown');
     });
   });
 
   describe('listAvailablePlugins', () => {
-    it('should list available plugins from all sources', async () => {
-      const manifest1: IMarketplaceManifest = {
-        version: '1.0',
-        plugins: [
-          {
-            name: 'plugin-a',
-            title: 'Plugin A',
-            description: 'Desc A',
-            source: { type: 'github', repo: 'a/a' },
-            tags: ['a'],
-          },
-        ],
-      };
-      const manifest2: IMarketplaceManifest = {
-        version: '1.0',
-        plugins: [
-          {
-            name: 'plugin-b',
-            title: 'Plugin B',
-            description: 'Desc B',
-            source: { type: 'github', repo: 'b/b' },
-            tags: ['b'],
-          },
-        ],
-      };
+    it('should list plugins from all marketplaces', () => {
+      // Set up two marketplaces with manifests
+      const mp1Dir = join(pluginsDir, 'marketplaces', 'mp1');
+      const mp2Dir = join(pluginsDir, 'marketplaces', 'mp2');
+      setupDir(join(mp1Dir, '.claude-plugin'));
+      setupDir(join(mp2Dir, '.claude-plugin'));
 
-      let callCount = 0;
-      const mockFetch = vi.fn().mockImplementation(() => {
-        callCount++;
-        const manifest = callCount === 1 ? manifest1 : manifest2;
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(manifest) });
+      writeJson(join(mp1Dir, '.claude-plugin', 'marketplace.json'), {
+        name: 'mp1',
+        version: '1.0',
+        plugins: [
+          { name: 'plugin-a', title: 'A', description: 'desc-a', source: './a', tags: ['a'] },
+        ],
+      });
+      writeJson(join(mp2Dir, '.claude-plugin', 'marketplace.json'), {
+        name: 'mp2',
+        version: '1.0',
+        plugins: [
+          { name: 'plugin-b', title: 'B', description: 'desc-b', source: './b', tags: ['b'] },
+        ],
+      });
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        mp1: {
+          source: { type: 'github', repo: 'a/a' },
+          installLocation: mp1Dir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+        mp2: {
+          source: { type: 'github', repo: 'b/b' },
+          installLocation: mp2Dir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
       });
 
-      const clientWithFetch = new MarketplaceClient({ fetch: mockFetch });
-      // Remove default source to control test
-      clientWithFetch.removeSource('claude-plugins-official');
-      clientWithFetch.addSource('src1', { type: 'url', url: 'https://a.com/m.json' });
-      clientWithFetch.addSource('src2', { type: 'url', url: 'https://b.com/m.json' });
-
-      const plugins = await clientWithFetch.listAvailablePlugins();
+      const plugins = client.listAvailablePlugins();
       expect(plugins).toHaveLength(2);
-      expect(plugins.map((p) => p.name)).toContain('plugin-a');
-      expect(plugins.map((p) => p.name)).toContain('plugin-b');
-      // Should include marketplace source name
-      expect(plugins[0].marketplace).toBe('src1');
-      expect(plugins[1].marketplace).toBe('src2');
+      expect(plugins[0].name).toBe('plugin-a');
+      expect(plugins[0].marketplace).toBe('mp1');
+      expect(plugins[1].name).toBe('plugin-b');
+      expect(plugins[1].marketplace).toBe('mp2');
     });
 
-    it('should continue listing even if one source fails', async () => {
-      let callCount = 0;
-      const mockFetch = vi.fn().mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve({ ok: false, status: 500, statusText: 'Server Error' });
-        }
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              version: '1.0',
-              plugins: [
-                {
-                  name: 'survivor',
-                  title: 'Survivor',
-                  description: 'Still here',
-                  source: { type: 'github', repo: 'x/x' },
-                  tags: [],
-                },
-              ],
-            }),
-        });
+    it('should skip failed marketplaces', () => {
+      // One marketplace with valid manifest, one without
+      const mp1Dir = join(pluginsDir, 'marketplaces', 'valid');
+      setupDir(join(mp1Dir, '.claude-plugin'));
+      writeJson(join(mp1Dir, '.claude-plugin', 'marketplace.json'), {
+        name: 'valid',
+        version: '1.0',
+        plugins: [{ name: 'survivor', title: 'S', description: 'desc', source: './s', tags: [] }],
       });
 
-      const clientWithFetch = new MarketplaceClient({ fetch: mockFetch });
-      clientWithFetch.removeSource('claude-plugins-official');
-      clientWithFetch.addSource('failing', { type: 'url', url: 'https://fail.com/m.json' });
-      clientWithFetch.addSource('working', { type: 'url', url: 'https://work.com/m.json' });
+      const mp2Dir = join(pluginsDir, 'marketplaces', 'broken');
+      setupDir(mp2Dir); // No manifest file
 
-      const plugins = await clientWithFetch.listAvailablePlugins();
+      writeJson(join(pluginsDir, 'known_marketplaces.json'), {
+        valid: {
+          source: { type: 'github', repo: 'a/a' },
+          installLocation: mp1Dir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+        broken: {
+          source: { type: 'github', repo: 'b/b' },
+          installLocation: mp2Dir,
+          lastUpdated: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      const plugins = client.listAvailablePlugins();
       expect(plugins).toHaveLength(1);
       expect(plugins[0].name).toBe('survivor');
-    });
-  });
-
-  describe('unsupported source types for fetchManifest', () => {
-    it('should throw for git source type (not directly fetchable)', async () => {
-      client.addSource('git-src', { type: 'git', url: 'https://example.com/repo.git' });
-      await expect(client.fetchManifest('git-src')).rejects.toThrow(
-        'Source type "git" does not support direct manifest fetching',
-      );
-    });
-
-    it('should throw for local source type (not directly fetchable)', async () => {
-      client.addSource('local-src', { type: 'local', path: '/tmp/plugins' });
-      await expect(client.fetchManifest('local-src')).rejects.toThrow(
-        'Source type "local" does not support direct manifest fetching',
-      );
     });
   });
 });

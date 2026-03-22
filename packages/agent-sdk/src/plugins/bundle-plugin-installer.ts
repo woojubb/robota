@@ -1,30 +1,38 @@
 /**
  * BundlePluginInstaller — installs, uninstalls, enables, and disables bundle plugins.
  *
- * Handles cloning from git/github, copying from local directories,
- * and managing plugin state via PluginSettingsStore.
+ * Resolves plugin sources from marketplace manifests, copies/clones to the
+ * cache directory, and tracks installations in `installed_plugins.json`.
  */
 
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import type { PluginSettingsStore } from './plugin-settings-store.js';
+import type { MarketplaceClient, IMarketplacePluginEntry } from './marketplace-client.js';
 
-/** Source specification for installing a plugin. */
-export type IPluginSource =
-  | { type: 'github'; repo: string; ref?: string }
-  | { type: 'git'; url: string; ref?: string }
-  | { type: 'local'; path: string }
-  | { type: 'url'; url: string };
+/** Record of an installed plugin in installed_plugins.json. */
+export interface IInstalledPluginRecord {
+  pluginName: string;
+  marketplace: string;
+  version: string;
+  installPath: string;
+  installedAt: string;
+}
+
+/** Shape of installed_plugins.json. */
+export type IInstalledPluginsRegistry = Record<string, IInstalledPluginRecord>;
 
 /** Exec function type for running shell commands. */
-type ExecFn = (command: string, options: { timeout: number }) => void;
+type ExecFn = (command: string, options: { timeout: number; stdio?: string }) => string | Buffer;
 
 /** Options for constructing a BundlePluginInstaller. */
 export interface IBundlePluginInstallerOptions {
-  /** Directory where plugins are installed (e.g., ~/.robota/plugins). */
+  /** Base plugins directory (e.g., `~/.robota/plugins`). */
   pluginsDir: string;
-  /** Shared settings store for persistence. */
+  /** Shared settings store for enable/disable persistence. */
   settingsStore: PluginSettingsStore;
+  /** MarketplaceClient for reading marketplace manifests. */
+  marketplaceClient: MarketplaceClient;
   /** Custom exec function for testing (replaces child_process.execSync). */
   exec?: ExecFn;
 }
@@ -35,51 +43,87 @@ const GIT_CLONE_TIMEOUT_MS = 60_000;
 /** Installs, uninstalls, enables, and disables bundle plugins. */
 export class BundlePluginInstaller {
   private readonly pluginsDir: string;
+  private readonly cacheDir: string;
+  private readonly registryPath: string;
   private readonly settingsStore: PluginSettingsStore;
+  private readonly marketplaceClient: MarketplaceClient;
   private readonly exec: ExecFn;
 
   constructor(options: IBundlePluginInstallerOptions) {
     this.pluginsDir = options.pluginsDir;
+    this.cacheDir = join(this.pluginsDir, 'cache');
+    this.registryPath = join(this.pluginsDir, 'installed_plugins.json');
     this.settingsStore = options.settingsStore;
+    this.marketplaceClient = options.marketplaceClient;
     this.exec = options.exec ?? this.defaultExec;
   }
 
   /**
-   * Install a plugin from a source into the plugins directory.
-   * Target directory: `<pluginsDir>/<pluginName>@<marketplace>/`
+   * Install a plugin from a marketplace.
+   *
+   * 1. Read marketplace manifest to find the plugin entry.
+   * 2. Resolve source (relative path, github, or url).
+   * 3. Copy/clone to `cache/<marketplace>/<plugin>/<version>/`.
+   * 4. Record in `installed_plugins.json`.
    */
-  async install(pluginName: string, marketplace: string, source: IPluginSource): Promise<void> {
-    const targetDir = join(this.pluginsDir, `${pluginName}@${marketplace}`);
-
-    switch (source.type) {
-      case 'github':
-        this.installFromGit(
-          `https://github.com/${source.repo}.git`,
-          source.ref,
-          targetDir,
-          pluginName,
-        );
-        break;
-      case 'git':
-        this.installFromGit(source.url, source.ref, targetDir, pluginName);
-        break;
-      case 'local':
-        this.installFromLocal(source.path, targetDir);
-        break;
-      case 'url':
-        throw new Error('URL source installation is not yet supported');
+  async install(pluginName: string, marketplaceName: string): Promise<void> {
+    // Read marketplace manifest
+    const manifest = this.marketplaceClient.fetchManifest(marketplaceName);
+    const entry = manifest.plugins.find((p) => p.name === pluginName);
+    if (!entry) {
+      throw new Error(`Plugin "${pluginName}" not found in marketplace "${marketplaceName}"`);
     }
+
+    // Determine version
+    const version = this.resolveVersion(entry, marketplaceName);
+
+    // Target directory: cache/<marketplace>/<plugin>/<version>/
+    const targetDir = join(this.cacheDir, marketplaceName, pluginName, version);
+
+    if (existsSync(targetDir)) {
+      throw new Error(
+        `Plugin "${pluginName}" version "${version}" is already installed from "${marketplaceName}"`,
+      );
+    }
+
+    // Resolve and install from source
+    this.resolveAndInstall(entry.source, marketplaceName, pluginName, targetDir);
+
+    // Record in installed_plugins.json
+    const pluginId = `${pluginName}@${marketplaceName}`;
+    const registry = this.readRegistry();
+    registry[pluginId] = {
+      pluginName,
+      marketplace: marketplaceName,
+      version,
+      installPath: targetDir,
+      installedAt: new Date().toISOString(),
+    };
+    this.writeRegistry(registry);
   }
 
-  /** Uninstall a plugin by removing its directory and settings entry. */
+  /**
+   * Uninstall a plugin.
+   * Removes from cache and from installed_plugins.json.
+   */
   async uninstall(pluginId: string): Promise<void> {
-    const pluginDir = join(this.pluginsDir, pluginId);
+    const registry = this.readRegistry();
+    const record = registry[pluginId];
 
-    if (!existsSync(pluginDir)) {
+    if (!record) {
       throw new Error(`Plugin "${pluginId}" is not installed`);
     }
 
-    rmSync(pluginDir, { recursive: true, force: true });
+    // Remove the installed directory
+    if (existsSync(record.installPath)) {
+      rmSync(record.installPath, { recursive: true, force: true });
+    }
+
+    // Remove from registry
+    delete registry[pluginId];
+    this.writeRegistry(registry);
+
+    // Remove from enabled plugins settings
     this.settingsStore.removePluginEntry(pluginId);
   }
 
@@ -93,38 +137,107 @@ export class BundlePluginInstaller {
     this.settingsStore.setPluginEnabled(pluginId, false);
   }
 
-  /** Clone a git repository to the target directory. */
-  private installFromGit(
-    repoUrl: string,
-    ref: string | undefined,
-    targetDir: string,
-    pluginName: string,
-  ): void {
-    const branchArg = ref ? ` --branch ${ref}` : '';
-    const command = `git clone --depth 1${branchArg} ${repoUrl} ${targetDir}`;
+  /** Get all installed plugins. */
+  getInstalledPlugins(): IInstalledPluginsRegistry {
+    return this.readRegistry();
+  }
 
+  /** Get plugins installed from a specific marketplace. */
+  getPluginsByMarketplace(marketplaceName: string): IInstalledPluginRecord[] {
+    const registry = this.readRegistry();
+    return Object.values(registry).filter((r) => r.marketplace === marketplaceName);
+  }
+
+  // --- Private helpers ---
+
+  /** Resolve the version for a plugin entry. */
+  private resolveVersion(entry: IMarketplacePluginEntry, marketplaceName: string): string {
+    // If the entry has an explicit version field (the manifest may include it),
+    // use it. Otherwise use git SHA.
+    const entryWithVersion = entry as unknown as Record<string, unknown>;
+    if (typeof entryWithVersion.version === 'string' && entryWithVersion.version) {
+      return entryWithVersion.version as string;
+    }
+    return this.marketplaceClient.getMarketplaceSha(marketplaceName);
+  }
+
+  /** Resolve the source and install the plugin. */
+  private resolveAndInstall(
+    source: IMarketplacePluginEntry['source'],
+    marketplaceName: string,
+    pluginName: string,
+    targetDir: string,
+  ): void {
+    mkdirSync(targetDir, { recursive: true });
+
+    if (typeof source === 'string') {
+      // Relative path — copy from the marketplace clone
+      const marketplaceDir = this.marketplaceClient.getMarketplaceDir(marketplaceName);
+      const sourcePath = join(marketplaceDir, source);
+
+      if (!existsSync(sourcePath)) {
+        rmSync(targetDir, { recursive: true, force: true });
+        throw new Error(
+          `Plugin source path "${source}" not found in marketplace "${marketplaceName}"`,
+        );
+      }
+
+      cpSync(sourcePath, targetDir, { recursive: true });
+    } else if (source.type === 'github') {
+      // Clone from GitHub
+      const repoUrl = `https://github.com/${source.repo}.git`;
+      this.cloneToDir(repoUrl, targetDir, pluginName);
+    } else if (source.type === 'url') {
+      // URL source — not yet supported
+      rmSync(targetDir, { recursive: true, force: true });
+      throw new Error('URL source installation is not yet supported');
+    }
+  }
+
+  /** Clone a git repository to the target directory. */
+  private cloneToDir(repoUrl: string, targetDir: string, pluginName: string): void {
+    // Remove the directory first since mkdirSync already created it
+    rmSync(targetDir, { recursive: true, force: true });
+
+    const command = `git clone --depth 1 ${repoUrl} ${targetDir}`;
     try {
-      this.exec(command, { timeout: GIT_CLONE_TIMEOUT_MS });
+      this.exec(command, { timeout: GIT_CLONE_TIMEOUT_MS, stdio: 'pipe' });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to clone plugin "${pluginName}": ${message}`);
     }
   }
 
-  /** Copy a local directory to the target directory. */
-  private installFromLocal(sourcePath: string, targetDir: string): void {
-    if (!existsSync(sourcePath)) {
-      throw new Error(`Local plugin source path does not exist: ${sourcePath}`);
+  /** Read the installed_plugins.json registry. */
+  private readRegistry(): IInstalledPluginsRegistry {
+    if (!existsSync(this.registryPath)) {
+      return {};
     }
+    try {
+      const raw = readFileSync(this.registryPath, 'utf-8');
+      const data: unknown = JSON.parse(raw);
+      if (typeof data === 'object' && data !== null) {
+        return data as IInstalledPluginsRegistry;
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }
 
-    mkdirSync(targetDir, { recursive: true });
-    cpSync(sourcePath, targetDir, { recursive: true });
+  /** Write the installed_plugins.json registry. */
+  private writeRegistry(registry: IInstalledPluginsRegistry): void {
+    const dir = dirname(this.registryPath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    writeFileSync(this.registryPath, JSON.stringify(registry, null, 2), 'utf-8');
   }
 
   /** Default exec implementation using child_process. */
-  private defaultExec(command: string, options: { timeout: number }): void {
+  private defaultExec(command: string, options: { timeout: number }): string | Buffer {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { execSync } = require('node:child_process') as typeof import('node:child_process');
-    execSync(command, { timeout: options.timeout, stdio: 'pipe' });
+    return execSync(command, { timeout: options.timeout, stdio: 'pipe' });
   }
 }
