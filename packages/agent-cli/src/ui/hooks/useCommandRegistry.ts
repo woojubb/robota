@@ -95,16 +95,12 @@ export function useCommandRegistry(cwd: string): ICommandRegistryResult {
     const loader = new BundlePluginLoader(pluginsDir);
     try {
       const plugins = loader.loadPluginsSync();
-      process.stderr.write(`[DEBUG] Loaded ${plugins.length} plugins from ${pluginsDir}\n`);
       if (plugins.length > 0) {
         registry.addSource(new PluginCommandSource(plugins));
         pluginHooks = mergePluginHooks(plugins);
-        process.stderr.write(
-          `[DEBUG] pluginHooks events: ${JSON.stringify(Object.keys(pluginHooks))}\n`,
-        );
       }
-    } catch (err) {
-      process.stderr.write(`[DEBUG] Plugin load error: ${err}\n`);
+    } catch {
+      // No plugins dir or load failed — continue without plugins
     }
 
     resultRef.current = { registry, pluginHooks };
