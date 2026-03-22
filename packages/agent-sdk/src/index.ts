@@ -66,6 +66,16 @@ export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './ho
 // Standard paths
 export { projectPaths, userPaths } from './paths.js';
 
+// BundlePlugin system
+export { BundlePluginLoader } from './plugins/index.js';
+export type {
+  IBundlePluginManifest,
+  IBundlePluginFeatures,
+  IBundleSkill,
+  ILoadedBundlePlugin,
+  TEnabledPlugins,
+} from './plugins/index.js';
+
 // Tools — agent-tool (SDK-specific, not a re-export)
 export { agentTool, setAgentToolDeps } from './tools/agent-tool.js';
 
