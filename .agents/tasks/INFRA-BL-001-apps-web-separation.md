@@ -8,6 +8,7 @@ priority: medium
 ## 문제
 
 현재 `apps/web`이 하나에 모든 것을 담고 있어서 목적이 불명확.
+
 - `/dag-designer` — DAG 디자이너
 - `/playground` — AI Agent 플레이그라운드
 - `/dag-designer/cost-management` — 비용 관리
