@@ -35,10 +35,47 @@ interface IProps {
 
 const EXIT_DELAY_MS = 500;
 
+/** Merge plugin hooks into config hooks (plugin hooks have lowest priority). */
+function mergeHooksIntoConfig(
+  configHooks: Record<string, unknown[]> | undefined,
+  pluginHooks: Record<string, unknown[]>,
+): Record<string, unknown[]> | undefined {
+  const pluginKeys = Object.keys(pluginHooks);
+  if (pluginKeys.length === 0) return configHooks;
+
+  const merged: Record<string, unknown[]> = {};
+  // Plugin hooks first (lower priority)
+  for (const [event, groups] of Object.entries(pluginHooks)) {
+    merged[event] = [...groups];
+  }
+  // Config hooks override/append (higher priority)
+  if (configHooks) {
+    for (const [event, groups] of Object.entries(configHooks)) {
+      if (!Array.isArray(groups)) continue;
+      if (!merged[event]) merged[event] = [];
+      merged[event].push(...groups);
+    }
+  }
+  return merged;
+}
+
 export default function App(props: IProps): React.ReactElement {
   const { exit } = useApp();
-  const { session, permissionRequest, streamingText, clearStreamingText, activeTools } =
-    useSession(props);
+  // Load plugins first — hooks must be available before session creation
+  const { registry, pluginHooks } = useCommandRegistry(props.cwd ?? process.cwd());
+
+  // Merge plugin hooks into config before session creation
+  const configWithPluginHooks = {
+    ...props.config,
+    hooks: mergeHooksIntoConfig(
+      props.config.hooks as Record<string, unknown[]> | undefined,
+      pluginHooks as Record<string, unknown[]>,
+    ),
+  };
+
+  const { session, permissionRequest, streamingText, clearStreamingText, activeTools } = useSession(
+    { ...props, config: configWithPluginHooks },
+  );
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
   const initialCtx = session.getContextState();
@@ -47,7 +84,6 @@ export default function App(props: IProps): React.ReactElement {
     usedTokens: initialCtx.usedTokens,
     maxTokens: initialCtx.maxTokens,
   });
-  const registry = useCommandRegistry(props.cwd ?? process.cwd());
   const pendingModelChangeRef = useRef<string | null>(null);
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
 
