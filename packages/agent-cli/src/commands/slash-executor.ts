@@ -5,7 +5,12 @@
  */
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import { getUserSettingsPath, deleteSettings, readSettings, writeSettings } from '../utils/settings-io.js';
+import {
+  getUserSettingsPath,
+  deleteSettings,
+  readSettings,
+  writeSettings,
+} from '../utils/settings-io.js';
 import type { CommandRegistry } from './command-registry.js';
 
 /** Minimal session interface for slash command execution */
@@ -35,6 +40,18 @@ export interface ISlashResult {
   pendingModelId?: string;
   /** If set, the caller should show a language change confirmation */
   pendingLanguage?: string;
+}
+
+/** Callback-based interface for plugin operations. Keeps CLI decoupled from SDK implementation. */
+export interface IPluginCallbacks {
+  listInstalled: () => Promise<Array<{ name: string; description: string; enabled: boolean }>>;
+  install: (pluginId: string) => Promise<void>;
+  uninstall: (pluginId: string) => Promise<void>;
+  enable: (pluginId: string) => Promise<void>;
+  disable: (pluginId: string) => Promise<void>;
+  marketplaceAdd: (source: string) => Promise<void>;
+  marketplaceList: () => Promise<Array<{ name: string; type: string }>>;
+  reloadPlugins: () => Promise<void>;
 }
 
 const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
@@ -160,6 +177,113 @@ export function handleReset(addMessage: TAddMessage): ISlashResult {
     addMessage({ role: 'system', content: 'No user settings found.' });
   }
   return { handled: true, exitRequested: true };
+}
+
+export async function handlePluginCommand(
+  args: string,
+  addMessage: TAddMessage,
+  callbacks: IPluginCallbacks,
+): Promise<ISlashResult> {
+  const parts = args.trim().split(/\s+/);
+  const subcommand = parts[0] ?? '';
+  const subArgs = parts.slice(1).join(' ').trim();
+
+  try {
+    switch (subcommand) {
+      case '':
+      case undefined: {
+        // List installed plugins
+        const plugins = await callbacks.listInstalled();
+        if (plugins.length === 0) {
+          addMessage({ role: 'system', content: 'No plugins installed.' });
+        } else {
+          const lines = plugins.map(
+            (p) => `  ${p.name} — ${p.description} [${p.enabled ? 'enabled' : 'disabled'}]`,
+          );
+          addMessage({ role: 'system', content: `Installed plugins:\n${lines.join('\n')}` });
+        }
+        return { handled: true };
+      }
+      case 'install': {
+        if (!subArgs) {
+          addMessage({ role: 'system', content: 'Usage: /plugin install <name>@<marketplace>' });
+          return { handled: true };
+        }
+        await callbacks.install(subArgs);
+        addMessage({ role: 'system', content: `Installed plugin: ${subArgs}` });
+        return { handled: true };
+      }
+      case 'uninstall': {
+        if (!subArgs) {
+          addMessage({ role: 'system', content: 'Usage: /plugin uninstall <name>@<marketplace>' });
+          return { handled: true };
+        }
+        await callbacks.uninstall(subArgs);
+        addMessage({ role: 'system', content: `Uninstalled plugin: ${subArgs}` });
+        return { handled: true };
+      }
+      case 'enable': {
+        if (!subArgs) {
+          addMessage({ role: 'system', content: 'Usage: /plugin enable <name>@<marketplace>' });
+          return { handled: true };
+        }
+        await callbacks.enable(subArgs);
+        addMessage({ role: 'system', content: `Enabled plugin: ${subArgs}` });
+        return { handled: true };
+      }
+      case 'disable': {
+        if (!subArgs) {
+          addMessage({ role: 'system', content: 'Usage: /plugin disable <name>@<marketplace>' });
+          return { handled: true };
+        }
+        await callbacks.disable(subArgs);
+        addMessage({ role: 'system', content: `Disabled plugin: ${subArgs}` });
+        return { handled: true };
+      }
+      case 'marketplace': {
+        const mpParts = subArgs.split(/\s+/);
+        const mpSubcommand = mpParts[0] ?? '';
+        const mpArgs = mpParts.slice(1).join(' ').trim();
+
+        if (mpSubcommand === 'add' && mpArgs) {
+          await callbacks.marketplaceAdd(mpArgs);
+          addMessage({ role: 'system', content: `Added marketplace source: ${mpArgs}` });
+          return { handled: true };
+        } else if (mpSubcommand === 'list') {
+          const sources = await callbacks.marketplaceList();
+          if (sources.length === 0) {
+            addMessage({ role: 'system', content: 'No marketplace sources configured.' });
+          } else {
+            const lines = sources.map((s) => `  ${s.name} (${s.type})`);
+            addMessage({ role: 'system', content: `Marketplace sources:\n${lines.join('\n')}` });
+          }
+          return { handled: true };
+        } else {
+          addMessage({
+            role: 'system',
+            content: 'Usage: /plugin marketplace add <source> | /plugin marketplace list',
+          });
+          return { handled: true };
+        }
+      }
+      default:
+        addMessage({ role: 'system', content: `Unknown plugin subcommand: ${subcommand}` });
+        return { handled: true };
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    addMessage({ role: 'system', content: `Plugin error: ${message}` });
+    return { handled: true };
+  }
+}
+
+export async function handleReloadPlugins(
+  addMessage: TAddMessage,
+  callbacks: IPluginCallbacks,
+): Promise<ISlashResult> {
+  await callbacks.reloadPlugins();
+  addMessage({ role: 'system', content: 'Plugins reload complete.' });
+  return { handled: true };
 }
 
 /** Execute a parsed slash command. Returns result indicating what happened. */
