@@ -27,7 +27,6 @@ export class PluginCommandSource implements ICommandSource {
           description: `${skill.description} (${plugin.manifest.name})`,
           source: 'plugin',
           skillContent: skill.skillContent,
-          pluginDir: plugin.pluginDir,
         });
       }
 
@@ -38,7 +37,6 @@ export class PluginCommandSource implements ICommandSource {
           description: cmd.description,
           source: 'plugin',
           skillContent: cmd.skillContent,
-          pluginDir: plugin.pluginDir,
         });
       }
     }

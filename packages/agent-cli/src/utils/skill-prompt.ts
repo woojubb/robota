@@ -4,7 +4,6 @@
  */
 
 import { execSync } from 'node:child_process';
-import { join, dirname } from 'node:path';
 import type { CommandRegistry } from '../commands/command-registry.js';
 
 /** Context variables available during skill prompt processing */
@@ -13,10 +12,6 @@ export interface SkillPromptContext {
   sessionId?: string;
   /** Directory containing SKILL.md — substituted for ${CLAUDE_SKILL_DIR} */
   skillDir?: string;
-  /** Plugin installation directory — substituted for ${CLAUDE_PLUGIN_PATH} and ${CLAUDE_PLUGIN_ROOT} */
-  pluginPath?: string;
-  /** Plugin persistent data directory — substituted for ${CLAUDE_PLUGIN_DATA} */
-  pluginData?: string;
 }
 
 /**
@@ -56,17 +51,6 @@ export function substituteVariables(
 
   // Replace ${CLAUDE_SKILL_DIR}
   result = result.replace(/\$\{CLAUDE_SKILL_DIR}/g, context?.skillDir ?? '');
-
-  // Replace ${CLAUDE_PLUGIN_PATH} and ${CLAUDE_PLUGIN_ROOT} (aliases)
-  const pluginPath = context?.pluginPath ?? '';
-  result = result.replace(/\$\{CLAUDE_PLUGIN_PATH}/g, pluginPath);
-  result = result.replace(/\$\{CLAUDE_PLUGIN_ROOT}/g, pluginPath);
-  // Also handle $CLAUDE_PLUGIN_PATH without braces
-  result = result.replace(/\$CLAUDE_PLUGIN_PATH(?!\w)/g, pluginPath);
-  result = result.replace(/\$CLAUDE_PLUGIN_ROOT(?!\w)/g, pluginPath);
-
-  // Replace ${CLAUDE_PLUGIN_DATA}
-  result = result.replace(/\$\{CLAUDE_PLUGIN_DATA}/g, context?.pluginData ?? '');
 
   return result;
 }
@@ -130,20 +114,9 @@ export async function buildSkillPrompt(
 
   // Inject SKILL.md content if available
   if (skillCmd.skillContent) {
-    // Build context with plugin path if available
-    const enrichedContext: SkillPromptContext = { ...context };
-    if (skillCmd.pluginDir) {
-      enrichedContext.pluginPath = skillCmd.pluginDir;
-      enrichedContext.pluginData = join(
-        dirname(dirname(skillCmd.pluginDir)),
-        'data',
-        skillCmd.name,
-      );
-    }
-
     // Preprocess shell commands first, then substitute variables
     let processed = await preprocessShellCommands(skillCmd.skillContent);
-    processed = substituteVariables(processed, args, enrichedContext);
+    processed = substituteVariables(processed, args, context);
     return `<skill name="${cmd}">\n${processed}\n</skill>\n\nExecute the "${cmd}" skill: ${userInstruction}`;
   }
   return `Use the "${cmd}" skill: ${userInstruction}`;
