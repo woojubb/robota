@@ -1,6 +1,6 @@
 ---
 title: Context overflow when executing plugin skills with many file reads
-status: backlog
+status: completed
 priority: high
 created: 2026-03-23
 packages:
