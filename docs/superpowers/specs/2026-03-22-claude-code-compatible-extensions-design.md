@@ -296,7 +296,7 @@ Dependency direction: `cli → sdk → core`
 
 ### Default Marketplace
 
-Register Claude Code's `claude-plugins-official` as the default marketplace, enabling direct installation and usage of Claude Code ecosystem plugins.
+No default marketplace is pre-registered. Users add marketplaces explicitly via `/plugin marketplace add <source>`.
 
 ### Marketplace and Plugin Installation Flow
 
@@ -409,7 +409,7 @@ Plugin entry fields:
 | **Skills**      | `.claude/skills/` → `.claude/commands/` → `~/.robota/skills/` → `.agents/skills/` → plugin `skills/`                                                                                  |
 | **Hooks**       | `.claude/settings.local.json` → `.claude/settings.json` → `.robota/settings.local.json` → `.robota/settings.json` → `~/.robota/settings.json` (plugin `hooks.json` merged separately) |
 | **Plugins**     | `~/.robota/plugins/` + `enabledPlugins` in settings                                                                                                                                   |
-| **Marketplace** | `claude-plugins-official` (default) + `extraKnownMarketplaces` in settings                                                                                                            |
+| **Marketplace** | No default. User-added via `extraKnownMarketplaces` in settings                                                                                                                       |
 
 ## Remaining Claude Code Events (Deferred)
 
