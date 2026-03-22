@@ -32,9 +32,10 @@ model: claude-sonnet-4-20250514
 effort: high
 context: fork
 agent: Explore
-hooks: { ... }
 ---
 ```
+
+Note: The `hooks` frontmatter field (YAML object) is not supported in the simple parser. Plugin hooks are configured via `hooks/hooks.json` instead.
 
 Current Robota parses only `name` and `description`. Upgrade the parser to support the full Claude Code frontmatter schema.
 
@@ -62,11 +63,13 @@ Note: The `runInFork` callback must be wired by the application layer. Without i
 
 ### Invocation Methods
 
-| Method                | Description                                  | Control Field                             |
-| --------------------- | -------------------------------------------- | ----------------------------------------- |
-| **User direct**       | `/skill-name` slash command                  | Default behavior                          |
-| **Model auto-invoke** | AI reads `description` and decides to invoke | `disable-model-invocation: true` to block |
-| **Model-only**        | Hidden from `/` menu, only AI can invoke     | `user-invocable: false`                   |
+| Method                | Description                                          | Control Field                             |
+| --------------------- | ---------------------------------------------------- | ----------------------------------------- |
+| **User direct**       | `/skill-name` slash command                          | Default behavior                          |
+| **Model auto-invoke** | AI suggests `/skill-name` in response, user executes | `disable-model-invocation: true` to block |
+| **Model-only**        | Hidden from `/` menu, only AI can invoke             | `user-invocable: false`                   |
+
+Note: Model auto-invoke works by injecting skill descriptions into the system prompt. The AI can suggest `/skill-name` in its response text, which the user can then execute. True programmatic invoke via tool registration (as in Claude Code's Skill tool) is deferred.
 
 ### System Prompt Injection
 
@@ -113,16 +116,16 @@ Plugin `hooks/hooks.json` is loaded separately by `BundlePluginLoader` and merge
 
 Phase 1 (existing runner + high-usage additions):
 
-| Event              | Status                      | Notes                          |
-| ------------------ | --------------------------- | ------------------------------ |
-| `SessionStart`     | Runner implemented, unwired | Wire to session initialization |
-| `UserPromptSubmit` | **New**                     | Before AI processes user input |
-| `PreToolUse`       | Runner implemented, unwired | Exit code 2 = block tool call  |
-| `PostToolUse`      | Runner implemented, unwired |                                |
-| `Stop`             | Runner implemented, unwired | AI response complete           |
-| `Notification`     | **New**                     | On notification events         |
-| `PreCompact`       | Runner implemented, unwired |                                |
-| `PostCompact`      | Runner implemented, unwired |                                |
+| Event              | Status                      | Notes                                                              |
+| ------------------ | --------------------------- | ------------------------------------------------------------------ |
+| `SessionStart`     | Runner implemented, unwired | Wire to session initialization                                     |
+| `UserPromptSubmit` | **New**                     | Before AI processes user input                                     |
+| `PreToolUse`       | Runner implemented, unwired | Exit code 2 = block tool call                                      |
+| `PostToolUse`      | Runner implemented, unwired |                                                                    |
+| `Stop`             | Runner implemented, unwired | AI response complete                                               |
+| `Notification`     | Defined, not yet wired      | On notification events (deferred until notification system exists) |
+| `PreCompact`       | Runner implemented, unwired |                                                                    |
+| `PostCompact`      | Runner implemented, unwired |                                                                    |
 
 Remaining Claude Code events (13 more) can be added incrementally.
 
@@ -213,12 +216,13 @@ Note: `~/.claude/` is never used by Robota. All user-level storage uses `~/.robo
 
 ### Plugin Settings Persistence
 
-All plugin-related settings are persisted to `~/.robota/settings.json` via a shared `PluginSettingsStore`. This store is the single point of read/write for:
+Plugin-related data is split across two persistence mechanisms:
 
-- `enabledPlugins` — which plugins are enabled/disabled
-- `extraKnownMarketplaces` — user-added marketplace sources
+1. **`PluginSettingsStore`** (`~/.robota/settings.json`): manages `enabledPlugins` (which plugins are enabled/disabled) and `extraKnownMarketplaces` (user-added marketplace sources for settings sync). `BundlePluginInstaller` uses this store for enable/disable state.
 
-`MarketplaceClient` and `BundlePluginInstaller` both receive the same `PluginSettingsStore` instance via DI, preventing concurrent write conflicts.
+2. **`MarketplaceClient`** (`~/.robota/plugins/known_marketplaces.json`): manages the marketplace registry independently, tracking clone locations and update timestamps. This file is the operational registry for marketplace CRUD operations.
+
+The two stores serve different purposes: `PluginSettingsStore` is the user-facing settings layer (synced across settings files), while `MarketplaceClient` manages the operational state of marketplace clones.
 
 ### Plugin Management Commands
 
@@ -234,10 +238,20 @@ All plugin-related settings are persisted to `~/.robota/settings.json` via a sha
 
 When a plugin is loaded, its contents are merged into the respective systems:
 
-1. `skills/` → skill discovery list (namespaced as `skill-name@plugin-name`)
-2. `hooks/hooks.json` → hook configuration merge
-3. `.mcp.json` → MCP server connections
-4. `agents/` → registered as available agent types
+1. `skills/` → Each subdirectory containing `SKILL.md` is loaded as a skill. Displayed as `/skill-name` with a `(plugin-name)` hint in the menu.
+2. `commands/` → Each `.md` file is loaded as a command. Displayed as `/plugin-name:command-name` in the menu (Claude Code convention).
+3. `hooks/hooks.json` → hook configuration merge
+4. `.mcp.json` → MCP server connections
+5. `agents/` → registered as available agent types
+
+### Plugin Slash Command Display Format
+
+| Type    | Directory                | Display in `/` menu   | Example                     |
+| ------- | ------------------------ | --------------------- | --------------------------- |
+| Skill   | `skills/<name>/SKILL.md` | `/name (plugin-name)` | `/init (rulebased-harness)` |
+| Command | `commands/<name>.md`     | `/plugin-name:name`   | `/rulebased-harness:init`   |
+
+Skills and commands from plugins are distinguished by their display format. Skills use parenthetical plugin hints; commands use the `plugin:command` colon convention (matching Claude Code's behavior).
 
 ### Package Responsibilities
 
@@ -253,12 +267,12 @@ Dependency direction: `cli → sdk → core`
 
 ### Source Types
 
-| Type       | Example                                  |
-| ---------- | ---------------------------------------- |
-| GitHub     | `anthropics/claude-code` (owner/repo)    |
-| Git URL    | `https://gitlab.com/company/plugins.git` |
-| Local path | `./my-marketplace`                       |
-| Remote URL | `https://example.com/marketplace.json`   |
+| Type       | Example                                  | Status      |
+| ---------- | ---------------------------------------- | ----------- |
+| GitHub     | `anthropics/claude-code` (owner/repo)    | Implemented |
+| Git URL    | `https://gitlab.com/company/plugins.git` | Implemented |
+| Local path | `./my-marketplace`                       | Implemented |
+| Remote URL | `https://example.com/marketplace.json`   | Phase 2     |
 
 ### Configuration
 
@@ -340,11 +354,11 @@ No default marketplace is pre-registered. Users add marketplaces explicitly via 
 
 #### Plugin Source Types in Manifest
 
-| Source format                               | Meaning                               | Install behavior            |
-| ------------------------------------------- | ------------------------------------- | --------------------------- |
-| `"./packages/foo"`                          | Relative path inside marketplace repo | Copy from marketplace clone |
-| `{ "type": "github", "repo": "user/repo" }` | Separate GitHub repo                  | Clone independently         |
-| `{ "type": "url", "url": "https://..." }`   | Remote URL                            | Fetch and extract           |
+| Source format                               | Meaning                               | Install behavior            | Status      |
+| ------------------------------------------- | ------------------------------------- | --------------------------- | ----------- |
+| `"./packages/foo"`                          | Relative path inside marketplace repo | Copy from marketplace clone | Implemented |
+| `{ "type": "github", "repo": "user/repo" }` | Separate GitHub repo                  | Clone independently         | Implemented |
+| `{ "type": "url", "url": "https://..." }`   | Remote URL                            | Fetch and extract           | Phase 2     |
 
 ### Marketplace Manifest Format
 
