@@ -50,6 +50,8 @@ export interface IPluginCallbacks {
   enable: (pluginId: string) => Promise<void>;
   disable: (pluginId: string) => Promise<void>;
   marketplaceAdd: (source: string) => Promise<string>;
+  marketplaceRemove: (name: string) => Promise<void>;
+  marketplaceUpdate: (name: string) => Promise<void>;
   marketplaceList: () => Promise<Array<{ name: string; type: string }>>;
   reloadPlugins: () => Promise<void>;
 }
@@ -252,6 +254,20 @@ export async function handlePluginCommand(
             content: `Added marketplace: "${registeredName}" (from ${mpArgs})\nInstall plugins with: /plugin install <name>@${registeredName}`,
           });
           return { handled: true };
+        } else if (mpSubcommand === 'remove' && mpArgs) {
+          await callbacks.marketplaceRemove(mpArgs);
+          addMessage({
+            role: 'system',
+            content: `Removed marketplace "${mpArgs}" and uninstalled its plugins.`,
+          });
+          return { handled: true };
+        } else if (mpSubcommand === 'update' && mpArgs) {
+          await callbacks.marketplaceUpdate(mpArgs);
+          addMessage({
+            role: 'system',
+            content: `Updated marketplace "${mpArgs}".`,
+          });
+          return { handled: true };
         } else if (mpSubcommand === 'list') {
           const sources = await callbacks.marketplaceList();
           if (sources.length === 0) {
@@ -264,7 +280,8 @@ export async function handlePluginCommand(
         } else {
           addMessage({
             role: 'system',
-            content: 'Usage: /plugin marketplace add <source> | /plugin marketplace list',
+            content:
+              'Usage: /plugin marketplace add <source> | remove <name> | update <name> | list',
           });
           return { handled: true };
         }

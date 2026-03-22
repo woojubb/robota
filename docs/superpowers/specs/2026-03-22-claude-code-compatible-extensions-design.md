@@ -269,10 +269,20 @@ Dependency direction: `cli → sdk → core`
 
 ```
 /plugin marketplace add <source>
+/plugin marketplace remove <name>
 /plugin marketplace list
 /plugin marketplace update <name>
 /plugin install <name>@<marketplace>
 ```
+
+### Marketplace Subcommand Behavior
+
+| Subcommand      | Behavior                                                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `add <source>`  | Fetch manifest from source, register under manifest's `name` field. No plugins installed — only makes them browsable. |
+| `remove <name>` | Remove the marketplace AND uninstall all plugins installed from it.                                                   |
+| `list`          | List all registered marketplaces with source type.                                                                    |
+| `update <name>` | Re-fetch manifest catalog and update installed plugins to latest versions.                                            |
 
 ### Default Marketplace
 
