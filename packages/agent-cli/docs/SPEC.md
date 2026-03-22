@@ -51,13 +51,13 @@ The StatusBar shows real-time session information:
 └──────────────────────────────────────────────────────────┘
 ```
 
-| Field    | Source                                     | Description                            |
-| -------- | ------------------------------------------ | -------------------------------------- |
-| Mode     | `session.getPermissionMode()`              | Current permission mode                |
+| Field    | Source                                     | Description                                           |
+| -------- | ------------------------------------------ | ----------------------------------------------------- |
+| Mode     | `session.getPermissionMode()`              | Current permission mode                               |
 | Model    | `getModelName(config.provider.model)`      | Human-readable model name (e.g., "Claude Sonnet 4.6") |
-| Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M") |
-| msgs     | message count                              | Number of messages in conversation     |
-| Thinking | isThinking state                           | Shown during `session.run()` execution |
+| Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M")    |
+| msgs     | message count                              | Number of messages in conversation                    |
+| Thinking | isThinking state                           | Shown during `session.run()` execution                |
 
 ### Context Color Coding
 
@@ -129,18 +129,19 @@ Tool: [5 tools]
 
 ## Slash Commands
 
-| Command                   | Description                 |
-| ------------------------- | --------------------------- |
-| `/help`                   | Show available commands     |
-| `/clear`                  | Clear conversation history  |
-| `/mode [mode]`            | Show/change permission mode |
+| Command                   | Description                                                   |
+| ------------------------- | ------------------------------------------------------------- |
+| `/help`                   | Show available commands                                       |
+| `/clear`                  | Clear conversation history                                    |
+| `/mode [mode]`            | Show/change permission mode                                   |
 | `/model [model]`          | Select AI model (shows confirmation prompt, restarts session) |
-| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts |
-| `/compact [instructions]` | Compress context window     |
-| `/cost`                   | Show session info           |
-| `/context`                | Context window info         |
-| `/permissions`            | Permission rules            |
-| `/exit`                   | Exit CLI                    |
+| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts    |
+| `/compact [instructions]` | Compress context window                                       |
+| `/cost`                   | Show session info                                             |
+| `/context`                | Context window info                                           |
+| `/permissions`            | Permission rules                                              |
+| `/plugin [subcommand]`    | Plugin management                                             |
+| `/exit`                   | Exit CLI                                                      |
 
 ### Slash Command Autocomplete
 
@@ -200,13 +201,28 @@ A reusable confirmation prompt with arrow-key selection (`ConfirmPrompt.tsx`). U
 
 **Props:**
 
-| Prop      | Type                     | Default          | Description                  |
-| --------- | ------------------------ | ---------------- | ---------------------------- |
-| `message` | `string`                 | —                | Message above the options    |
-| `options` | `string[]`               | `['Yes', 'No']`  | Options to select from       |
-| `onSelect`| `(index: number) => void`| —                | Callback with selected index |
+| Prop       | Type                      | Default         | Description                  |
+| ---------- | ------------------------- | --------------- | ---------------------------- |
+| `message`  | `string`                  | —               | Message above the options    |
+| `options`  | `string[]`                | `['Yes', 'No']` | Options to select from       |
+| `onSelect` | `(index: number) => void` | —               | Callback with selected index |
 
 **Interaction:** Arrow keys to navigate, Enter to confirm. For 2-option prompts, `y` selects the first option, `n` selects the second.
+
+### `/plugin` — Plugin Management
+
+The `/plugin` command manages bundle plugins. Subcommands:
+
+| Subcommand                 | Description                                      |
+| -------------------------- | ------------------------------------------------ |
+| `/plugin install <name>`   | Install a plugin from marketplace or local path  |
+| `/plugin uninstall <name>` | Remove an installed plugin                       |
+| `/plugin enable <name>`    | Enable a disabled plugin                         |
+| `/plugin disable <name>`   | Disable a plugin without uninstalling            |
+| `/plugin list`             | List installed plugins with status               |
+| `/plugin marketplace`      | Browse available plugins from configured sources |
+
+Installed plugins contribute skills via `PluginCommandSource`, which discovers skills from each plugin's bundle manifest and makes them available as slash commands alongside project and user skills.
 
 ## Command Registry Architecture
 
@@ -236,23 +252,76 @@ interface ISlashCommand {
 
 ### Command Sources
 
-| Source   | Class                  | Description                                             |
-| -------- | ---------------------- | ------------------------------------------------------- |
-| Built-in | `BuiltinCommandSource` | 9 hardcoded commands with subcommands for /mode, /model |
-| Skills   | `SkillCommandSource`   | Discovered from .agents/skills/ and ~/.claude/skills/   |
+| Source   | Class                  | Description                                          |
+| -------- | ---------------------- | ---------------------------------------------------- |
+| Built-in | `BuiltinCommandSource` | Built-in commands with subcommands for /mode, /model |
+| Skills   | `SkillCommandSource`   | Discovered from 4 scan paths (see Skill Discovery)   |
+| Plugins  | `PluginCommandSource`  | Skills provided by installed bundle plugins          |
 
-### Skill Discovery
+### Skill Discovery (Multi-Path)
 
-Skills are discovered at session start from two directories (scanned in order, deduplicated):
+Skills are discovered at session start from four directories, scanned in priority order (highest first, deduplicated by name):
 
-1. `.agents/skills/*/SKILL.md` -- project-level skills (primary)
-2. `~/.claude/skills/*/SKILL.md` -- user-level skills (Claude Code compatible)
+| Priority | Path                            | Scope                                |
+| -------- | ------------------------------- | ------------------------------------ |
+| 1        | `.agents/skills/*/SKILL.md`     | Project (Robota native)              |
+| 2        | `.claude/commands/*/SKILL.md`   | Project (Claude Code compatible)     |
+| 3        | `~/.agents/skills/*/SKILL.md`   | User global (Robota native)          |
+| 4        | `~/.claude/commands/*/SKILL.md` | User global (Claude Code compatible) |
 
-Each `SKILL.md` may contain YAML frontmatter with `name` and `description` fields. If no frontmatter is found, the directory name is used as the command name.
+### Skill Frontmatter Schema
+
+Each `SKILL.md` may contain YAML frontmatter with the following fields:
+
+| Field           | Type       | Required | Description                                            |
+| --------------- | ---------- | -------- | ------------------------------------------------------ |
+| `name`          | `string`   | No       | Display name (default: directory name)                 |
+| `description`   | `string`   | No       | Short description for autocomplete                     |
+| `allowed-tools` | `string[]` | No       | Tools the skill is allowed to use                      |
+| `context`       | `string`   | No       | Execution context: `fork`, `agent`                     |
+| `model`         | `string`   | No       | Override model for this skill                          |
+| `max-turns`     | `number`   | No       | Maximum conversation turns                             |
+| `invocation`    | `string`   | No       | Invocation method: `user`, `auto-invoke`, `model-only` |
+
+If no frontmatter is found, the directory name is used as the command name.
+
+### Variable Substitution
+
+Skill content supports variable substitution before injection:
+
+| Variable               | Description                               |
+| ---------------------- | ----------------------------------------- |
+| `$ARGUMENTS`           | User-provided arguments after the command |
+| `${CLAUDE_SESSION_ID}` | Current session identifier                |
+| `${CLAUDE_MODEL}`      | Current model identifier                  |
+| `${PROJECT_DIR}`       | Project root directory path               |
+| `${USER_HOME}`         | User home directory path                  |
+
+Variables are substituted at invocation time, not at discovery time.
+
+### Shell Command Preprocessing
+
+Skill content supports inline shell command execution using the `` !`command` `` syntax. The shell command is executed and its stdout replaces the markup in the skill content before injection. This enables dynamic content like file listings or environment values.
+
+### Skill Execution Features
+
+| Feature          | Value          | Description                                                   |
+| ---------------- | -------------- | ------------------------------------------------------------- |
+| `context: fork`  | Fork context   | Skill runs in a forked session, preserving the parent context |
+| `context: agent` | Agent context  | Skill runs as a sub-agent with its own isolated session       |
+| `allowed-tools`  | Tool whitelist | Restricts which tools the skill can use during execution      |
+
+### Skill Invocation Methods
+
+| Method        | Trigger                 | Description                                            |
+| ------------- | ----------------------- | ------------------------------------------------------ |
+| `user`        | User types `/skillname` | Default — user explicitly invokes via slash command    |
+| `auto-invoke` | Model decides           | Model can invoke the skill automatically when relevant |
+| `model-only`  | Model-initiated only    | Not shown in user autocomplete, model-only access      |
 
 ### Skill Execution
 
-When a skill slash command is selected, the full SKILL.md content is injected into the session prompt wrapped in `<skill>` tags. The model receives both the skill instructions and any user-provided arguments.
+When a skill slash command is selected, the full SKILL.md content (after variable substitution and shell preprocessing) is injected into the session prompt wrapped in `<skill>` tags. The model receives both the skill instructions and any user-provided arguments.
 
 ## Type Ownership
 
@@ -264,6 +333,7 @@ When a skill slash command is selected, the full SKILL.md content is injected in
 | IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                                  |
 | ISlashCommand      | `src/commands/types.ts` | Slash command entry definition                                 |
 | ICommandSource     | `src/commands/types.ts` | Interface for command providers                                |
+| ISkillFrontmatter  | `src/commands/types.ts` | Parsed YAML frontmatter from SKILL.md files                    |
 
 ## Public API Surface
 
@@ -284,7 +354,8 @@ src/
 ├── commands/
 │   ├── types.ts                     ← ISlashCommand, ICommandSource interfaces
 │   ├── builtin-source.ts            ← BuiltinCommandSource (9 commands + subcommands)
-│   ├── skill-source.ts              ← SkillCommandSource (discovers from .agents/skills/)
+│   ├── skill-source.ts              ← SkillCommandSource (discovers from 4 scan paths)
+│   ├── plugin-source.ts             ← PluginCommandSource (skills from installed plugins)
 │   ├── command-registry.ts          ← CommandRegistry (aggregates multiple sources)
 │   └── slash-executor.ts            ← Slash command handlers (pure functions, no React)
 ├── utils/

@@ -36,8 +36,10 @@ Robota (Facade)
   │     ├── permission-mode.ts      — MODE_POLICY matrix, UNKNOWN_TOOL_FALLBACK
   │     └── types.ts                — TPermissionMode, TTrustLevel, TPermissionDecision
   ├── Hook Layer
-  │     ├── hook-runner.ts          — runHooks(): shell command hook execution engine
-  │     └── types.ts                — THookEvent, THooksConfig, IHookInput, IHookResult
+  │     ├── hook-runner.ts          — runHooks(): pluggable hook execution engine (strategy pattern)
+  │     ├── command-executor.ts     — CommandExecutor: shell command hook execution
+  │     ├── http-executor.ts        — HttpExecutor: HTTP request hook execution
+  │     └── types.ts                — THookEvent (8 events), IHookDefinition (discriminated union), IHookTypeExecutor
   └── Plugin Layer (1 built-in + 8 external @robota-sdk/agent-plugin-* packages)
         ├── EventEmitterPlugin           (built-in — event coordination)
         └── External plugins (per @robota-sdk/agent-plugin-*):
@@ -89,10 +91,11 @@ This package is the single source of truth (SSOT) for the following types:
 | `TToolArgs`                 | `permissions/permission-gate.ts` | Tool arguments record for permission matching                                                                                                           |
 | `IPermissionLists`          | `permissions/permission-gate.ts` | Allow/deny pattern lists for permission config                                                                                                          |
 | `TKnownToolName`            | `permissions/permission-mode.ts` | Known tool names in the permission system                                                                                                               |
-| `THookEvent`                | `hooks/types.ts`                 | Hook lifecycle events: PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                                             |
+| `THookEvent`                | `hooks/types.ts`                 | Hook lifecycle events (8 events): PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop, UserPromptSubmit, Notification                  |
 | `THooksConfig`              | `hooks/types.ts`                 | Complete hooks configuration: event to hook groups                                                                                                      |
 | `IHookGroup`                | `hooks/types.ts`                 | Hook group: matcher pattern + hook definitions                                                                                                          |
-| `IHookDefinition`           | `hooks/types.ts`                 | Single hook definition (type: command, command string)                                                                                                  |
+| `IHookDefinition`           | `hooks/types.ts`                 | Discriminated union hook definition (type: command, http, prompt, agent)                                                                                |
+| `IHookTypeExecutor`         | `hooks/types.ts`                 | Strategy interface for hook type execution                                                                                                              |
 | `IHookInput`                | `hooks/types.ts`                 | Input passed to hook commands via stdin                                                                                                                 |
 | `IHookResult`               | `hooks/types.ts`                 | Hook execution result (exitCode, stdout, stderr)                                                                                                        |
 | `IContextTokenUsage`        | `context/types.ts`               | Token usage from a single API call (input, output, cache tokens)                                                                                        |
@@ -104,14 +107,14 @@ Provider packages import these types. They must not re-declare them.
 
 `context/models.ts` is the single source of truth for Claude model metadata. Source: https://platform.claude.com/docs/en/about-claude/models/overview
 
-| Export | Kind | Description |
-|--------|------|-------------|
-| `IModelDefinition` | Interface | Model metadata: name, id, contextWindow, maxOutput |
-| `CLAUDE_MODELS` | Record | All known Claude models (4.5+) keyed by API ID |
-| `DEFAULT_CONTEXT_WINDOW` | Constant | 200,000 tokens fallback |
-| `getModelContextWindow(id)` | Function | Get context window size for a model ID |
-| `getModelName(id)` | Function | Get human-readable name (e.g., "Claude Sonnet 4.6") |
-| `formatTokenCount(tokens)` | Function | Format tokens as human-readable (e.g., "200K", "1M") |
+| Export                      | Kind      | Description                                          |
+| --------------------------- | --------- | ---------------------------------------------------- |
+| `IModelDefinition`          | Interface | Model metadata: name, id, contextWindow, maxOutput   |
+| `CLAUDE_MODELS`             | Record    | All known Claude models (4.5+) keyed by API ID       |
+| `DEFAULT_CONTEXT_WINDOW`    | Constant  | 200,000 tokens fallback                              |
+| `getModelContextWindow(id)` | Function  | Get context window size for a model ID               |
+| `getModelName(id)`          | Function  | Get human-readable name (e.g., "Claude Sonnet 4.6")  |
+| `formatTokenCount(tokens)`  | Function  | Format tokens as human-readable (e.g., "200K", "1M") |
 
 ## Public API Surface
 
@@ -148,15 +151,18 @@ NOTE: `ToolRegistry`, `FunctionTool`, `createFunctionTool`, `createZodFunctionTo
 
 ### Hooks
 
-| Export            | Kind     | Description                                                                                  |
-| ----------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `runHooks`        | function | Execute shell command hooks for lifecycle events                                             |
-| `THookEvent`      | type     | `'PreToolUse' \| 'PostToolUse' \| 'SessionStart' \| 'Stop' \| 'PreCompact' \| 'PostCompact'` |
-| `THooksConfig`    | type     | Event to hook group array mapping                                                            |
-| `IHookGroup`      | type     | Matcher pattern + hook definitions                                                           |
-| `IHookDefinition` | type     | Single hook definition (command type)                                                        |
-| `IHookInput`      | type     | JSON input passed to hooks via stdin                                                         |
-| `IHookResult`     | type     | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                     |
+| Export              | Kind      | Description                                                                                                    |
+| ------------------- | --------- | -------------------------------------------------------------------------------------------------------------- |
+| `runHooks`          | function  | Execute hooks for lifecycle events using pluggable type executors                                              |
+| `THookEvent`        | type      | 8 events: PreToolUse, PostToolUse, SessionStart, Stop, PreCompact, PostCompact, UserPromptSubmit, Notification |
+| `THooksConfig`      | type      | Event to hook group array mapping                                                                              |
+| `IHookGroup`        | type      | Matcher pattern + hook definitions                                                                             |
+| `IHookDefinition`   | type      | Discriminated union: command, http, prompt, agent hook types                                                   |
+| `IHookTypeExecutor` | interface | Strategy interface for executing a specific hook type                                                          |
+| `CommandExecutor`   | class     | Built-in executor for `command` type hooks (shell execution)                                                   |
+| `HttpExecutor`      | class     | Built-in executor for `http` type hooks (HTTP request)                                                         |
+| `IHookInput`        | type      | JSON input passed to hooks via stdin                                                                           |
+| `IHookResult`       | type      | Hook result: exitCode (0=allow, 2=block), stdout, stderr                                                       |
 
 ### Streaming
 
@@ -274,18 +280,58 @@ Patterns follow the format `ToolName(argGlob)`:
 
 ## Hook System
 
-The hook module (`src/hooks/`) provides a shell command-based lifecycle hook mechanism. Hooks receive JSON input on stdin and communicate results via exit codes.
+The hook module (`src/hooks/`) provides a pluggable lifecycle hook mechanism. Hooks support multiple execution types (command, http, prompt, agent) via the strategy pattern. Command hooks receive JSON input on stdin and communicate results via exit codes.
 
 ### Hook Events
 
-| Event          | Timing                    | Purpose                                          |
-| -------------- | ------------------------- | ------------------------------------------------ |
-| `PreToolUse`   | Before tool execution     | Validation, blocking, transformation             |
-| `PostToolUse`  | After tool execution      | Logging, auditing, notification                  |
-| `SessionStart` | Session initialization    | Setup, environment checks                        |
-| `Stop`         | Session termination       | Cleanup, reporting                               |
-| `PreCompact`   | Before context compaction | Validation, logging (trigger: auto/manual)       |
-| `PostCompact`  | After context compaction  | Logging, notification (includes compact_summary) |
+| Event              | Timing                    | Purpose                                          |
+| ------------------ | ------------------------- | ------------------------------------------------ |
+| `PreToolUse`       | Before tool execution     | Validation, blocking, transformation             |
+| `PostToolUse`      | After tool execution      | Logging, auditing, notification                  |
+| `SessionStart`     | Session initialization    | Setup, environment checks                        |
+| `Stop`             | Session termination       | Cleanup, reporting                               |
+| `PreCompact`       | Before context compaction | Validation, logging (trigger: auto/manual)       |
+| `PostCompact`      | After context compaction  | Logging, notification (includes compact_summary) |
+| `UserPromptSubmit` | After user submits prompt | Pre-processing, validation, prompt rewriting     |
+| `Notification`     | On notable events         | External notification (Slack, email, etc.)       |
+
+### Hook Definition Types (Discriminated Union)
+
+`IHookDefinition` is a discriminated union on the `type` field:
+
+| Type      | Fields                               | Description                                      |
+| --------- | ------------------------------------ | ------------------------------------------------ |
+| `command` | `command: string`                    | Shell command execution (stdin JSON, exit codes) |
+| `http`    | `url: string`, `method?`, `headers?` | HTTP request to an external endpoint             |
+| `prompt`  | `prompt: string`                     | LLM prompt injection into session context        |
+| `agent`   | `agent: string`, `config?`           | Delegate to a sub-agent for processing           |
+
+### Hook Type Executors (Strategy Pattern)
+
+`IHookTypeExecutor` defines the strategy interface for executing a specific hook type:
+
+```typescript
+interface IHookTypeExecutor {
+  readonly type: string;
+  execute(hook: IHookDefinition, input: IHookInput): Promise<IHookResult>;
+}
+```
+
+`runHooks` accepts an optional `executors` map to register additional hook type executors beyond the built-in ones. This enables higher-level packages to add `prompt` and `agent` executors without modifying agent-core.
+
+**Built-in executors (agent-core):**
+
+| Executor          | Hook Type | Behavior                                                     |
+| ----------------- | --------- | ------------------------------------------------------------ |
+| `CommandExecutor` | `command` | Spawns shell process, passes JSON via stdin, reads exit code |
+| `HttpExecutor`    | `http`    | Sends HTTP request, maps response status to exit code        |
+
+**Extended executors (agent-sdk):**
+
+| Executor         | Hook Type | Behavior                                                |
+| ---------------- | --------- | ------------------------------------------------------- |
+| `PromptExecutor` | `prompt`  | Injects prompt text into session context                |
+| `AgentExecutor`  | `agent`   | Delegates to a sub-agent session for complex processing |
 
 ### Exit Code Protocol
 
@@ -297,7 +343,7 @@ The hook module (`src/hooks/`) provides a shell command-based lifecycle hook mec
 
 ### Hook Configuration
 
-Hooks are configured as a `THooksConfig` object mapping events to arrays of `IHookGroup` entries. Each group has a `matcher` regex pattern (empty = match all) and an array of `IHookDefinition` commands. Hooks have a 10-second timeout.
+Hooks are configured as a `THooksConfig` object mapping events to arrays of `IHookGroup` entries. Each group has a `matcher` regex pattern (empty = match all) and an array of `IHookDefinition` entries. Hooks have a 10-second timeout.
 
 ## Extension Points
 

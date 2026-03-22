@@ -240,6 +240,79 @@ Each module's placement is determined by "Is this used only in the SDK, or is it
 - **agent-core**: Added `permissions/` and `hooks/` directories
 - **agent-provider-anthropic**: Multi-block content handling (text + tool_use), streaming `chatWithStreaming`, `onTextDelta` support
 
+## Hook Type Executors (SDK-Specific)
+
+agent-sdk provides two additional `IHookTypeExecutor` implementations that extend the hook system beyond agent-core's built-in `command` and `http` executors:
+
+| Executor         | Hook Type | Description                                                                                     |
+| ---------------- | --------- | ----------------------------------------------------------------------------------------------- |
+| `PromptExecutor` | `prompt`  | Injects the hook's prompt text into the session context as a system-level instruction           |
+| `AgentExecutor`  | `agent`   | Creates a sub-agent session (via `createSession`) to process the hook input and return a result |
+
+These executors are registered with `runHooks` via the `executors` map during session creation in `createSession()`.
+
+## Settings Configuration (`.claude/settings.json`)
+
+Settings are loaded from `.claude/settings.json` with a 6-layer precedence model (highest priority first):
+
+| Layer | Path                              | Scope                                |
+| ----- | --------------------------------- | ------------------------------------ |
+| 1     | CLI flags / environment variables | Invocation                           |
+| 2     | `.robota/settings.local.json`     | Project (local)                      |
+| 3     | `.robota/settings.json`           | Project                              |
+| 4     | `.claude/settings.json`           | Project (Claude Code compatible)     |
+| 5     | `~/.robota/settings.json`         | User global                          |
+| 6     | `~/.claude/settings.json`         | User global (Claude Code compatible) |
+
+The `.claude/settings.json` layers (4 and 6) provide Claude Code compatibility — settings written by Claude Code are automatically picked up by Robota. Higher layers override lower layers via deep merge. `$ENV:VAR` substitution is applied after merge.
+
+## Bundle Plugin System
+
+Bundle plugins package reusable extensions (tools, hooks, permissions, system prompt additions) into installable units.
+
+### Types
+
+| Type              | Description                                                     |
+| ----------------- | --------------------------------------------------------------- |
+| `IBundleManifest` | Plugin metadata: name, version, description, author, keywords   |
+| `IBundlePlugin`   | Full bundle: manifest + tools, hooks, permissions, systemPrompt |
+
+### Loader
+
+`BundleLoader` loads a bundle plugin from a directory path. It reads the manifest, resolves tool/hook definitions, and validates the bundle structure.
+
+### Installer
+
+`BundleInstaller` manages plugin installation and uninstallation:
+
+- Installs bundles to `~/.robota/plugins/` (user) or `.robota/plugins/` (project)
+- Tracks installed plugins in a registry file
+- Handles enable/disable state per plugin
+
+## Marketplace Client
+
+`MarketplaceClient` provides plugin discovery and installation from remote sources.
+
+- **Source management**: Add, remove, and list marketplace sources
+- **Default marketplace**: Built-in default source URL for the Robota plugin marketplace
+- **Search**: Query available plugins by name, keyword, or category
+- **Install**: Download and install plugins via `BundleInstaller`
+
+## System Prompt Skill Injection
+
+Skills discovered from `.agents/skills/` directories are injected into the system prompt during `buildSystemPrompt()`. Each skill's content is included as a reference the model can consult when relevant tasks are requested.
+
+## Hook Wiring into Session Lifecycle
+
+During `createSession()`, hooks from the merged settings configuration are wired into the session lifecycle:
+
+1. Hook configuration is extracted from the resolved config
+2. SDK-specific executors (`PromptExecutor`, `AgentExecutor`) are registered alongside core executors
+3. `SessionStart` hooks fire during session initialization
+4. `PreToolUse`/`PostToolUse` hooks are invoked by `PermissionEnforcer` around tool execution
+5. `UserPromptSubmit` hooks fire before each user message is processed
+6. `Stop` hooks fire on session termination
+
 ## Unconnected Packages (Future Integration Targets)
 
 | Package                                    | Current State | Integration Direction                                    |
