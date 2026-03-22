@@ -53,6 +53,13 @@ Current Robota parses only `name` and `description`. Upgrade the parser to suppo
 - `allowed-tools` — permission control for the skill execution
 - `agent: Explore|Plan|general-purpose` — subagent type selection
 
+Execution is implemented via a callback interface (`ISkillExecutionCallbacks`) in agent-cli. The `executeSkill` function checks frontmatter fields and delegates:
+
+- **Non-fork skills** (default): skill content is returned as a prompt string for injection into the current session.
+- **Fork skills** (`context: fork`): skill content, `agent` type, and `allowedTools` are passed to a `runInFork` callback. The actual subagent infrastructure is provided by the caller.
+
+Note: The `runInFork` callback must be wired by the application layer. Without it, fork skills fall back to inject mode.
+
 ### Invocation Methods
 
 | Method                | Description                                  | Control Field                             |
@@ -77,12 +84,15 @@ The following skills are available:
 
 ## 2. Hook
 
-### Configuration Sources (Priority Order)
+### Configuration Sources (Priority Order, highest first)
 
-1. `.claude/settings.local.json` (project, gitignored)
+1. `.claude/settings.local.json` (project, gitignored) — highest
 2. `.claude/settings.json` (project)
-3. `~/.robota/settings.json` (user)
-4. Installed plugin `hooks/hooks.json`
+3. `.robota/settings.local.json` (project, gitignored)
+4. `.robota/settings.json` (project)
+5. `~/.robota/settings.json` (user) — lowest
+
+Plugin `hooks/hooks.json` is loaded separately by `BundlePluginLoader` and merged at the SDK level, not via the config-loader.
 
 ### Configuration Format (Claude Code Standard)
 
@@ -349,13 +359,21 @@ Register Claude Code's `claude-plugins-official` as the default marketplace, ena
       "description": "What this plugin does",
       "source": "./packages/plugin-id",
       "version": "1.0.0",
-      "category": "development"
+      "category": "development",
+      "tags": ["optional", "tags"]
     }
   ]
 }
 ```
 
-Note: `source` can be a relative path string (most common) or an object with `type`/`repo`/`url` fields.
+Plugin entry fields:
+
+- `name` (required): Plugin identifier
+- `description` (required): What this plugin does
+- `source` (required): Relative path string (e.g., `"./packages/foo"`) or source object (`{ "type": "github", "repo": "..." }`)
+- `version` (optional): Semver string. If absent, 12-char git SHA is used as version key
+- `category` (optional): Plugin category (e.g., "development", "productivity")
+- `tags` (optional): Additional tags for search/filtering
 
 ## Architecture Summary
 
@@ -386,12 +404,12 @@ Note: `source` can be a relative path string (most common) or an object with `ty
 
 ## Scan Path Summary
 
-| System          | Paths (priority order)                                                                                    |
-| --------------- | --------------------------------------------------------------------------------------------------------- |
-| **Skills**      | `.claude/skills/` → `.claude/commands/` → `~/.robota/skills/` → `.agents/skills/` → plugin `skills/`      |
-| **Hooks**       | `.claude/settings.local.json` → `.claude/settings.json` → `~/.robota/settings.json` → plugin `hooks.json` |
-| **Plugins**     | `~/.robota/plugins/` + `enabledPlugins` in settings                                                       |
-| **Marketplace** | `claude-plugins-official` (default) + `extraKnownMarketplaces` in settings                                |
+| System          | Paths (priority order)                                                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Skills**      | `.claude/skills/` → `.claude/commands/` → `~/.robota/skills/` → `.agents/skills/` → plugin `skills/`                                                                                  |
+| **Hooks**       | `.claude/settings.local.json` → `.claude/settings.json` → `.robota/settings.local.json` → `.robota/settings.json` → `~/.robota/settings.json` (plugin `hooks.json` merged separately) |
+| **Plugins**     | `~/.robota/plugins/` + `enabledPlugins` in settings                                                                                                                                   |
+| **Marketplace** | `claude-plugins-official` (default) + `extraKnownMarketplaces` in settings                                                                                                            |
 
 ## Remaining Claude Code Events (Deferred)
 
