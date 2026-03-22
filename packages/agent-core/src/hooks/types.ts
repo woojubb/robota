@@ -9,14 +9,46 @@ export type THookEvent =
   | 'SessionStart'
   | 'Stop'
   | 'PreCompact'
-  | 'PostCompact';
+  | 'PostCompact'
+  | 'UserPromptSubmit'
+  | 'Notification';
 
-/** A single hook definition */
-export interface IHookDefinition {
-  /** Shell command to execute */
+/** Command hook — executes a shell command */
+export interface ICommandHookDefinition {
   type: 'command';
   command: string;
+  timeout?: number;
 }
+
+/** HTTP hook — sends an HTTP request */
+export interface IHttpHookDefinition {
+  type: 'http';
+  url: string;
+  headers?: Record<string, string>;
+  timeout?: number;
+}
+
+/** Prompt hook — evaluates a prompt via an AI model */
+export interface IPromptHookDefinition {
+  type: 'prompt';
+  prompt: string;
+  model?: string;
+}
+
+/** Agent hook — delegates to a sub-agent */
+export interface IAgentHookDefinition {
+  type: 'agent';
+  agent: string;
+  maxTurns?: number;
+  timeout?: number;
+}
+
+/** Discriminated union of all hook definition types */
+export type IHookDefinition =
+  | ICommandHookDefinition
+  | IHttpHookDefinition
+  | IPromptHookDefinition
+  | IAgentHookDefinition;
 
 /** A hook group — matcher + array of hook definitions */
 export interface IHookGroup {
@@ -48,4 +80,12 @@ export interface IHookResult {
   exitCode: number;
   stdout: string;
   stderr: string;
+}
+
+/** Strategy interface for hook type executors */
+export interface IHookTypeExecutor {
+  /** The hook type this executor handles */
+  type: string;
+  /** Execute a hook definition with the given input */
+  execute(definition: IHookDefinition, input: IHookInput): Promise<IHookResult>;
 }
