@@ -5,7 +5,7 @@
 
 import { useRef } from 'react';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import type { ILoadedBundlePlugin, THooksConfig } from '@robota-sdk/agent-sdk';
 import { BundlePluginLoader } from '@robota-sdk/agent-sdk';
 import { CommandRegistry } from '../../commands/command-registry.js';
@@ -18,6 +18,16 @@ export interface ICommandRegistryResult {
   pluginHooks: THooksConfig;
 }
 
+/** Build plugin env vars for a plugin. */
+function buildPluginEnv(plugin: ILoadedBundlePlugin): Record<string, string> {
+  const dataDir = join(dirname(dirname(plugin.pluginDir)), 'data', plugin.manifest.name);
+  return {
+    CLAUDE_PLUGIN_ROOT: plugin.pluginDir,
+    CLAUDE_PLUGIN_PATH: plugin.pluginDir,
+    CLAUDE_PLUGIN_DATA: dataDir,
+  };
+}
+
 /** Merge plugin hooks into a single THooksConfig. */
 function mergePluginHooks(plugins: ILoadedBundlePlugin[]): THooksConfig {
   const merged: Record<string, unknown[]> = {};
@@ -25,14 +35,23 @@ function mergePluginHooks(plugins: ILoadedBundlePlugin[]): THooksConfig {
     const hooksObj = plugin.hooks as Record<string, unknown> | undefined;
     if (!hooksObj) continue;
 
+    const pluginEnv = buildPluginEnv(plugin);
+
     // hooks.json has { hooks: { EventName: [...] } } structure
     const innerHooks = (hooksObj.hooks ?? hooksObj) as Record<string, unknown[]>;
     for (const [event, groups] of Object.entries(innerHooks)) {
       if (!Array.isArray(groups)) continue;
       if (!merged[event]) merged[event] = [];
 
-      // Resolve ${CLAUDE_PLUGIN_ROOT} in hook commands
-      const resolved = groups.map((group) => resolvePluginRoot(group, plugin.pluginDir));
+      // Resolve ${CLAUDE_PLUGIN_ROOT} in hook commands and attach env vars
+      const resolved = groups.map((group) => {
+        const resolved = resolvePluginRoot(group, plugin.pluginDir);
+        // Attach plugin env vars to each group
+        if (typeof resolved === 'object' && resolved !== null) {
+          (resolved as Record<string, unknown>).env = pluginEnv;
+        }
+        return resolved;
+      });
       merged[event].push(...resolved);
     }
   }
@@ -76,12 +95,16 @@ export function useCommandRegistry(cwd: string): ICommandRegistryResult {
     const loader = new BundlePluginLoader(pluginsDir);
     try {
       const plugins = loader.loadPluginsSync();
+      process.stderr.write(`[DEBUG] Loaded ${plugins.length} plugins from ${pluginsDir}\n`);
       if (plugins.length > 0) {
         registry.addSource(new PluginCommandSource(plugins));
         pluginHooks = mergePluginHooks(plugins);
+        process.stderr.write(
+          `[DEBUG] pluginHooks events: ${JSON.stringify(Object.keys(pluginHooks))}\n`,
+        );
       }
-    } catch {
-      // No plugins dir or load failed — continue without plugins
+    } catch (err) {
+      process.stderr.write(`[DEBUG] Plugin load error: ${err}\n`);
     }
 
     resultRef.current = { registry, pluginHooks };

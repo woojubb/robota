@@ -164,6 +164,20 @@ Timeout values are in **seconds** (Claude Code convention). Default: 10s for `co
 }
 ```
 
+### Plugin Environment Variables
+
+Hook scripts and plugin processes receive these environment variables:
+
+| Variable             | Description                                                                        | Provided by                              |
+| -------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------- |
+| `CLAUDE_PLUGIN_ROOT` | Absolute path to the plugin's installation directory                               | Set per-plugin when running plugin hooks |
+| `CLAUDE_PLUGIN_DATA` | Persistent data directory for plugin state (`~/.robota/plugins/data/<plugin-id>/`) | Set per-plugin, created on first use     |
+| `CLAUDE_PROJECT_DIR` | Absolute path to the project root directory                                        | Set globally for all hooks               |
+| `CLAUDE_SESSION_ID`  | Current session ID                                                                 | Set globally for all hooks               |
+| `CLAUDE_PLUGIN_PATH` | Same as `CLAUDE_PLUGIN_ROOT` (alias for compatibility)                             | Set per-plugin                           |
+
+These are set as environment variables on the child process when executing hook commands. `${CLAUDE_PLUGIN_ROOT}` is also substituted inline in hook command strings before execution.
+
 ### Hook Event Type Ownership
 
 `THookEvent` in agent-core is the SSOT for all event names. New events (`UserPromptSubmit`, `Notification`) are added to `THookEvent`. Wiring happens at whatever layer the event originates — agent-sdk passes hook config to agent-core's runner via DI at construction time.

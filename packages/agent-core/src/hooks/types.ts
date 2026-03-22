@@ -11,7 +11,7 @@ export type THookEvent =
   | 'PreCompact'
   | 'PostCompact'
   | 'UserPromptSubmit'
-  | 'Notification';
+  | 'Notification'; // TODO: Notification event is defined but not yet wired — no firing point exists until a notification system is implemented
 
 /** Command hook — executes a shell command */
 export interface ICommandHookDefinition {
@@ -55,6 +55,8 @@ export interface IHookGroup {
   /** Regex pattern to match tool name (empty string = match all) */
   matcher: string;
   hooks: IHookDefinition[];
+  /** Environment variables injected into hook child processes for this group */
+  env?: Record<string, string>;
 }
 
 /** Complete hooks configuration: event → array of hook groups */
@@ -76,6 +78,8 @@ export interface IHookInput {
   user_message?: string;
   /** Assistant response text (Stop only) */
   response?: string;
+  /** Additional environment variables to pass to hook child processes */
+  env?: Record<string, string>;
 }
 
 /** Hook execution result */
