@@ -235,7 +235,7 @@ export class ExecutionService {
         try {
           // Inject instruction to summarize, then call provider directly
           const syntheticMsg =
-            'You have reached the maximum number of tool rounds. Based on all the information and tool results you have gathered so far, provide your final response now. Do not request additional tools.';
+            'Tool round limit reached. Provide your response based on the information gathered so far. If results are incomplete, let the user know what was covered and what remains — the user can request additional analysis in a follow-up message.';
           conversationSession.addSystemMessage(syntheticMsg);
           const summaryMessages = conversationSession.getMessages();
           const systemMsg = config.systemMessage ?? '';
