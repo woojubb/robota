@@ -48,22 +48,32 @@ function matchesGroup(group: IHookGroup, toolName: string | undefined): boolean 
  * @param input - Hook input data passed to executors
  * @param executors - Optional array of hook type executors (defaults to command + http)
  */
+/** Result of running hooks for an event. */
+export interface IRunHooksResult {
+  blocked: boolean;
+  reason?: string;
+  /** Collected stdout from all successful hooks (exit code 0). */
+  stdout: string;
+}
+
 export async function runHooks(
   config: THooksConfig | undefined,
   event: THookEvent,
   input: IHookInput,
   executors?: IHookTypeExecutor[],
-): Promise<{ blocked: boolean; reason?: string }> {
-  if (!config) return { blocked: false };
+): Promise<IRunHooksResult> {
+  if (!config) return { blocked: false, stdout: '' };
 
   const groups = config[event];
-  if (!groups || groups.length === 0) return { blocked: false };
+  if (!groups || groups.length === 0) return { blocked: false, stdout: '' };
 
   const resolvedExecutors = executors ?? createDefaultExecutors();
   const executorMap = new Map<string, IHookTypeExecutor>();
   for (const executor of resolvedExecutors) {
     executorMap.set(executor.type, executor);
   }
+
+  const stdoutParts: string[] = [];
 
   for (const group of groups) {
     if (!matchesGroup(group, input.tool_name)) continue;
@@ -80,12 +90,21 @@ export async function runHooks(
 
       const result = await executor.execute(hook, groupInput);
 
+      // Collect stdout from successful hooks
+      if (result.exitCode === 0 && result.stdout.trim()) {
+        stdoutParts.push(result.stdout.trim());
+      }
+
       // Exit code 2 = block/deny
       if (result.exitCode === 2) {
-        return { blocked: true, reason: result.stderr || 'Blocked by hook' };
+        return {
+          blocked: true,
+          reason: result.stderr || 'Blocked by hook',
+          stdout: stdoutParts.join('\n'),
+        };
       }
     }
   }
 
-  return { blocked: false };
+  return { blocked: false, stdout: stdoutParts.join('\n') };
 }
