@@ -5,6 +5,7 @@
  * cache directory, and tracks installations in `installed_plugins.json`.
  */
 
+import { execSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import type { PluginSettingsStore } from './plugin-settings-store.js';
@@ -236,8 +237,6 @@ export class BundlePluginInstaller {
 
   /** Default exec implementation using child_process. */
   private defaultExec(command: string, options: { timeout: number }): string | Buffer {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { execSync } = require('node:child_process') as typeof import('node:child_process');
     return execSync(command, { timeout: options.timeout, stdio: 'pipe' });
   }
 }

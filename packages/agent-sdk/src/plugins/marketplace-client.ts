@@ -6,13 +6,23 @@
  * in `known_marketplaces.json`.
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, dirname } from 'node:path';
 
 /** Source specification for a marketplace. */
 export type IMarketplaceSource =
   | { type: 'github'; repo: string; ref?: string }
   | { type: 'git'; url: string; ref?: string }
+  | { type: 'local'; path: string }
   | { type: 'url'; url: string };
 
 /** A single plugin entry in a marketplace manifest. */
@@ -80,27 +90,38 @@ export class MarketplaceClient {
    * Returns the registered marketplace name from the manifest.
    */
   addMarketplace(source: IMarketplaceSource): string {
-    const cloneUrl = this.resolveCloneUrl(source);
-
     // Clone to a temp name first, then read the manifest to get the real name
     const tempName = 'temp-' + Date.now().toString(36);
     const tempDir = join(this.marketplacesDir, tempName);
 
     mkdirSync(this.marketplacesDir, { recursive: true });
 
-    const command = `git clone --depth 1 ${cloneUrl} ${tempDir}`;
-    try {
-      this.exec(command, { timeout: GIT_TIMEOUT_MS, stdio: 'pipe' });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to clone marketplace: ${message}`);
+    if (source.type === 'local') {
+      // Local source: copy directory instead of git clone
+      if (!existsSync(source.path)) {
+        throw new Error(`Local marketplace path does not exist: ${source.path}`);
+      }
+      cpSync(source.path, tempDir, { recursive: true });
+    } else {
+      const cloneUrl = this.resolveCloneUrl(source);
+      const command = `git clone --depth 1 ${cloneUrl} ${tempDir}`;
+      try {
+        this.exec(command, { timeout: GIT_TIMEOUT_MS, stdio: 'pipe' });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to clone marketplace: ${message}`);
+      }
     }
 
     // Read the manifest to get the marketplace name
     const manifestPath = join(tempDir, '.claude-plugin', 'marketplace.json');
     if (!existsSync(manifestPath)) {
       rmSync(tempDir, { recursive: true, force: true });
-      throw new Error('Cloned repository does not contain .claude-plugin/marketplace.json');
+      throw new Error(
+        source.type === 'local'
+          ? 'Local directory does not contain .claude-plugin/marketplace.json'
+          : 'Cloned repository does not contain .claude-plugin/marketplace.json',
+      );
     }
 
     const manifest = this.readManifestFromPath(manifestPath);
@@ -135,8 +156,8 @@ export class MarketplaceClient {
 
   /**
    * Remove a marketplace.
-   * Deletes the clone directory and removes from the registry.
-   * Does NOT uninstall plugins — caller is responsible for that.
+   * Uninstalls all plugins from that marketplace, then deletes the clone directory
+   * and removes from the registry.
    */
   removeMarketplace(name: string): void {
     const registry = this.readRegistry();
@@ -144,6 +165,9 @@ export class MarketplaceClient {
     if (!entry) {
       throw new Error(`Marketplace "${name}" not found`);
     }
+
+    // Uninstall all plugins from this marketplace by reading installed_plugins.json
+    this.removeInstalledPluginsForMarketplace(name);
 
     // Remove the clone directory
     if (existsSync(entry.installLocation)) {
@@ -157,6 +181,11 @@ export class MarketplaceClient {
 
   /**
    * Update a marketplace by running git pull on its clone.
+   * The manifest is re-read from disk on demand (via fetchManifest), so the
+   * updated manifest is automatically available after pull.
+   *
+   * TODO: After pull, detect version changes in installed plugins and offer
+   * to update them (re-install at new version).
    */
   updateMarketplace(name: string): void {
     const registry = this.readRegistry();
@@ -169,12 +198,22 @@ export class MarketplaceClient {
       throw new Error(`Marketplace directory for "${name}" does not exist`);
     }
 
-    const command = `git -C ${entry.installLocation} pull`;
-    try {
-      this.exec(command, { timeout: GIT_TIMEOUT_MS, stdio: 'pipe' });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to update marketplace "${name}": ${message}`);
+    if (entry.source.type === 'local') {
+      // For local sources, re-copy the directory
+      const localSource = entry.source as { type: 'local'; path: string };
+      if (!existsSync(localSource.path)) {
+        throw new Error(`Local marketplace path does not exist: ${localSource.path}`);
+      }
+      rmSync(entry.installLocation, { recursive: true, force: true });
+      cpSync(localSource.path, entry.installLocation, { recursive: true });
+    } else {
+      const command = `git -C ${entry.installLocation} pull`;
+      try {
+        this.exec(command, { timeout: GIT_TIMEOUT_MS, stdio: 'pipe' });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to update marketplace "${name}": ${message}`);
+      }
     }
 
     // Update timestamp
@@ -267,8 +306,50 @@ export class MarketplaceClient {
         return `https://github.com/${source.repo}.git`;
       case 'git':
         return source.url;
+      case 'local':
+        throw new Error('Local source type does not use git cloning');
       case 'url':
-        throw new Error('URL source type does not support git cloning');
+        throw new Error('URL marketplace source is not yet supported');
+    }
+  }
+
+  /**
+   * Remove all installed plugins that belong to a given marketplace.
+   * Reads installed_plugins.json, deletes cache directories for matching plugins,
+   * and updates the registry.
+   */
+  private removeInstalledPluginsForMarketplace(marketplaceName: string): void {
+    const installedPath = join(this.pluginsDir, 'installed_plugins.json');
+    if (!existsSync(installedPath)) return;
+
+    let registry: Record<string, { marketplace?: string; installPath?: string }>;
+    try {
+      const raw = readFileSync(installedPath, 'utf-8');
+      const data: unknown = JSON.parse(raw);
+      if (typeof data !== 'object' || data === null) return;
+      registry = data as Record<string, { marketplace?: string; installPath?: string }>;
+    } catch {
+      return;
+    }
+
+    let changed = false;
+    for (const [pluginId, record] of Object.entries(registry)) {
+      if (record.marketplace === marketplaceName) {
+        // Remove the cache directory for this plugin
+        if (record.installPath && existsSync(record.installPath)) {
+          rmSync(record.installPath, { recursive: true, force: true });
+        }
+        delete registry[pluginId];
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      const dir = dirname(installedPath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      writeFileSync(installedPath, JSON.stringify(registry, null, 2), 'utf-8');
     }
   }
 
@@ -317,8 +398,6 @@ export class MarketplaceClient {
 
   /** Default exec implementation using child_process. */
   private defaultExec(command: string, options: { timeout: number }): string | Buffer {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { execSync } = require('node:child_process') as typeof import('node:child_process');
     return execSync(command, { timeout: options.timeout, stdio: 'pipe' });
   }
 }
