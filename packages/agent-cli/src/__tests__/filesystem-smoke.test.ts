@@ -577,8 +577,8 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
 
     expect(commands).toHaveLength(2);
     const names = commands.map((c) => c.name).sort();
-    // BundlePluginLoader namespaces as entry@pluginName, then PluginCommandSource adds @manifest.name
-    expect(names).toEqual(['format@code-tools@code-tools', 'lint@code-tools@code-tools']);
+    // BundlePluginLoader namespaces as entry@pluginName, PluginCommandSource passes through
+    expect(names).toEqual(['format@code-tools', 'lint@code-tools']);
     expect(commands.every((c) => c.source === 'plugin')).toBe(true);
   });
 

@@ -246,8 +246,8 @@ describe('PluginCommandSource', () => {
 
   it('should expose plugin skills as namespaced commands', () => {
     const plugin = createMockPlugin('my-plugin', [
-      { name: 'deploy', description: 'Deploy app', skillContent: '# Deploy' },
-      { name: 'test', description: 'Run tests', skillContent: '# Test' },
+      { name: 'deploy@my-plugin', description: 'Deploy app', skillContent: '# Deploy' },
+      { name: 'test@my-plugin', description: 'Run tests', skillContent: '# Test' },
     ]);
 
     const source = new PluginCommandSource([plugin]);
@@ -263,10 +263,10 @@ describe('PluginCommandSource', () => {
 
   it('should handle multiple plugins', () => {
     const plugin1 = createMockPlugin('plugin-a', [
-      { name: 'skill-1', description: 'Skill 1', skillContent: '# S1' },
+      { name: 'skill-1@plugin-a', description: 'Skill 1', skillContent: '# S1' },
     ]);
     const plugin2 = createMockPlugin('plugin-b', [
-      { name: 'skill-2', description: 'Skill 2', skillContent: '# S2' },
+      { name: 'skill-2@plugin-b', description: 'Skill 2', skillContent: '# S2' },
     ]);
 
     const source = new PluginCommandSource([plugin1, plugin2]);
