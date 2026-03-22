@@ -79,8 +79,17 @@ const HooksSchema = z
 /** Plugin enablement map: plugin name -> enabled flag */
 const EnabledPluginsSchema = z.record(z.boolean()).optional();
 
-/** Extra marketplace URLs for plugin discovery */
-const ExtraKnownMarketplacesSchema = z.array(z.string()).optional();
+/** Extra marketplace sources: name -> { source: IMarketplaceSource } */
+const MarketplaceSourceSchema = z.object({
+  source: z.object({
+    type: z.enum(['github', 'git', 'local', 'url']),
+    repo: z.string().optional(),
+    url: z.string().optional(),
+    path: z.string().optional(),
+    ref: z.string().optional(),
+  }),
+});
+const ExtraKnownMarketplacesSchema = z.record(MarketplaceSourceSchema).optional();
 
 export const SettingsSchema = z.object({
   /** Trust level used when no --permission-mode flag is given */
@@ -121,6 +130,9 @@ export interface IResolvedConfig {
   hooks?: THooksConfig;
   /** Plugin enablement map: plugin name -> enabled/disabled */
   enabledPlugins?: Record<string, boolean>;
-  /** Extra marketplace URLs for BundlePlugin discovery */
-  extraKnownMarketplaces?: string[];
+  /** Extra marketplace sources: name -> { source } */
+  extraKnownMarketplaces?: Record<
+    string,
+    { source: { type: string; repo?: string; url?: string; path?: string; ref?: string } }
+  >;
 }
