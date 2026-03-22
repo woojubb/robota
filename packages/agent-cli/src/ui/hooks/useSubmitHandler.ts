@@ -3,6 +3,7 @@
  * Handles slash commands, skill commands, and regular prompts.
  */
 
+import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import type { Session } from '@robota-sdk/agent-sdk';
 import type { IChatMessage } from '../types.js';
@@ -11,7 +12,9 @@ import { extractToolCalls } from '../../utils/tool-call-extractor.js';
 import { buildSkillPrompt } from '../../utils/skill-prompt.js';
 
 type TAddMessage = (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
-type TContextStateSetter = React.Dispatch<React.SetStateAction<{ percentage: number; usedTokens: number; maxTokens: number }>>;
+type TContextStateSetter = Dispatch<
+  SetStateAction<{ percentage: number; usedTokens: number; maxTokens: number }>
+>;
 
 /** Snapshot context state from session into React state */
 export function syncContextState(session: Session, setter: TContextStateSetter): void {
@@ -25,7 +28,7 @@ async function runSessionPrompt(
   session: Session,
   addMessage: TAddMessage,
   clearStreamingText: () => void,
-  setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
+  setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
 ): Promise<void> {
   setIsThinking(true);
@@ -39,11 +42,18 @@ async function runSessionPrompt(
 
     const history = session.getHistory();
     const toolLines = extractToolCalls(
-      history as Array<{ role: string; toolCalls?: Array<{ function: { name: string; arguments: string } }> }>,
+      history as Array<{
+        role: string;
+        toolCalls?: Array<{ function: { name: string; arguments: string } }>;
+      }>,
       historyBefore,
     );
     if (toolLines.length > 0) {
-      addMessage({ role: 'tool', content: toolLines.join('\n'), toolName: `${toolLines.length} tools` });
+      addMessage({
+        role: 'tool',
+        content: toolLines.join('\n'),
+        toolName: `${toolLines.length} tools`,
+      });
     }
 
     addMessage({ role: 'assistant', content: response || '(empty response)' });
@@ -66,7 +76,7 @@ export function useSubmitHandler(
   addMessage: TAddMessage,
   handleSlashCommand: (input: string) => Promise<boolean>,
   clearStreamingText: () => void,
-  setIsThinking: React.Dispatch<React.SetStateAction<boolean>>,
+  setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   registry: CommandRegistry,
 ): (input: string) => Promise<void> {
@@ -78,14 +88,36 @@ export function useSubmitHandler(
           syncContextState(session, setContextState);
           return;
         }
-        const prompt = buildSkillPrompt(input, registry);
+        const prompt = await buildSkillPrompt(input, registry);
         if (!prompt) return;
-        return runSessionPrompt(prompt, session, addMessage, clearStreamingText, setIsThinking, setContextState);
+        return runSessionPrompt(
+          prompt,
+          session,
+          addMessage,
+          clearStreamingText,
+          setIsThinking,
+          setContextState,
+        );
       }
 
       addMessage({ role: 'user', content: input });
-      return runSessionPrompt(input, session, addMessage, clearStreamingText, setIsThinking, setContextState);
+      return runSessionPrompt(
+        input,
+        session,
+        addMessage,
+        clearStreamingText,
+        setIsThinking,
+        setContextState,
+      );
     },
-    [session, addMessage, handleSlashCommand, clearStreamingText, setIsThinking, setContextState, registry],
+    [
+      session,
+      addMessage,
+      handleSlashCommand,
+      clearStreamingText,
+      setIsThinking,
+      setContextState,
+      registry,
+    ],
   );
 }
