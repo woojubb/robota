@@ -10,7 +10,13 @@
 
 import { Robota, runHooks } from '@robota-sdk/agent-core';
 import type { IAgentConfig, IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
-import type { TPermissionMode, TToolArgs, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
+import type {
+  TPermissionMode,
+  TToolArgs,
+  THooksConfig,
+  IHookInput,
+  IHookTypeExecutor,
+} from '@robota-sdk/agent-core';
 import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 import type { SessionStore, ISessionRecord } from './session-store.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
@@ -63,7 +69,12 @@ export interface ISessionOptions {
     toolArgs: TToolArgs,
   ) => Promise<boolean>;
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
-  onToolExecution?: (event: { type: 'start' | 'end'; toolName: string; toolArgs?: TToolArgs; success?: boolean }) => void;
+  onToolExecution?: (event: {
+    type: 'start' | 'end';
+    toolName: string;
+    toolArgs?: TToolArgs;
+    success?: boolean;
+  }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
@@ -72,6 +83,8 @@ export interface ISessionOptions {
   contextMaxTokens?: number;
   /** Session logger — injected for pluggable session event logging. */
   sessionLogger?: ISessionLogger;
+  /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
+  hookTypeExecutors?: IHookTypeExecutor[];
 }
 
 /**
@@ -91,6 +104,7 @@ export class Session {
   private readonly systemMessage: string;
   private model: string;
   private readonly hooks?: Record<string, unknown>;
+  private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onCompactCallback?: (summary: string) => void;
   private pendingCompactSummary: string | null = null;
   private readonly sessionLogger?: ISessionLogger;
@@ -109,6 +123,7 @@ export class Session {
     this.cwd = process.cwd();
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
+    this.hookTypeExecutors = options.hookTypeExecutors;
     this.onCompactCallback = options.onCompact;
     this.model = options.model ?? 'claude-sonnet-4-5';
     this.sessionId = `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
@@ -145,6 +160,7 @@ export class Session {
       promptForApprovalFn: options.promptForApproval,
       sessionLogger: options.sessionLogger,
       onToolExecution: options.onToolExecution,
+      hookTypeExecutors: options.hookTypeExecutors,
     });
 
     this.contextTracker = new ContextWindowTracker(this.model, options.contextMaxTokens);
@@ -155,6 +171,7 @@ export class Session {
       model: this.model,
       hooks: options.hooks,
       compactInstructions: options.compactInstructions,
+      hookTypeExecutors: options.hookTypeExecutors,
     });
 
     // Wrap tools with permission enforcement
@@ -261,7 +278,7 @@ export class Session {
       // Log error but preserve session state — history remains intact for retry
       this.log('error', {
         message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack ?? '' : '',
+        stack: error instanceof Error ? (error.stack ?? '') : '',
         historyLength: this.robota.getHistory().length,
       });
       throw error;
@@ -427,7 +444,12 @@ export class Session {
       trigger,
       compact_summary: summary,
     };
-    runHooks(this.hooks as THooksConfig | undefined, 'PostCompact', postHookInput).catch(() => {});
+    runHooks(
+      this.hooks as THooksConfig | undefined,
+      'PostCompact',
+      postHookInput,
+      this.hookTypeExecutors,
+    ).catch(() => {});
 
     // Notify via callback after compaction is fully complete
     if (this.onCompactCallback) {

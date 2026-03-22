@@ -11,6 +11,7 @@ import type {
   TUniversalMessage,
   THooksConfig,
   IHookInput,
+  IHookTypeExecutor,
 } from '@robota-sdk/agent-core';
 
 export interface ICompactionOptions {
@@ -19,6 +20,8 @@ export interface ICompactionOptions {
   model: string;
   hooks?: Record<string, unknown>;
   compactInstructions?: string;
+  /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
+  hookTypeExecutors?: IHookTypeExecutor[];
 }
 
 export class CompactionOrchestrator {
@@ -27,6 +30,7 @@ export class CompactionOrchestrator {
   private readonly model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly compactInstructions?: string;
+  private readonly hookTypeExecutors?: IHookTypeExecutor[];
 
   constructor(options: ICompactionOptions) {
     this.sessionId = options.sessionId;
@@ -34,6 +38,7 @@ export class CompactionOrchestrator {
     this.model = options.model;
     this.hooks = options.hooks;
     this.compactInstructions = options.compactInstructions;
+    this.hookTypeExecutors = options.hookTypeExecutors;
   }
 
   /**
@@ -59,7 +64,12 @@ export class CompactionOrchestrator {
       hook_event_name: 'PreCompact',
       trigger,
     };
-    await runHooks(this.hooks as THooksConfig | undefined, 'PreCompact', preHookInput);
+    await runHooks(
+      this.hooks as THooksConfig | undefined,
+      'PreCompact',
+      preHookInput,
+      this.hookTypeExecutors,
+    );
 
     // Build compaction prompt
     const compactPrompt = this.buildCompactionPrompt(history, instructions);
