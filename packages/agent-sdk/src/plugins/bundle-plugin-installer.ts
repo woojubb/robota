@@ -20,7 +20,7 @@ type ExecFn = (command: string, options: { timeout: number }) => void;
 
 /** Options for constructing a BundlePluginInstaller. */
 export interface IBundlePluginInstallerOptions {
-  /** Directory where plugins are installed (e.g., ~/.claude/plugins). */
+  /** Directory where plugins are installed (e.g., ~/.robota/plugins). */
   pluginsDir: string;
   /** Path to the settings.json file. */
   settingsPath: string;

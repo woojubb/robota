@@ -195,9 +195,9 @@ describe('Filesystem smoke: skill discovery', () => {
       'utf-8',
     );
 
-    // ~/.claude/skills (user home)
+    // ~/.robota/skills (user home)
     createSkillDir(
-      join(homeDir, '.claude', 'skills'),
+      join(homeDir, '.robota', 'skills'),
       'gamma',
       '---\nname: gamma\ndescription: Third\n---\n',
     );

@@ -141,7 +141,7 @@ export class SkillCommandSource implements ICommandSource {
     const sources: ISlashCommand[][] = [
       scanSkillsDir(join(this.cwd, '.claude', 'skills')), // 1. project .claude/skills
       scanCommandsDir(join(this.cwd, '.claude', 'commands')), // 2. project .claude/commands (legacy)
-      scanSkillsDir(join(this.home, '.claude', 'skills')), // 3. user ~/.claude/skills
+      scanSkillsDir(join(this.home, '.robota', 'skills')), // 3. user ~/.robota/skills
       scanSkillsDir(join(this.cwd, '.agents', 'skills')), // 4. project .agents/skills
     ];
 

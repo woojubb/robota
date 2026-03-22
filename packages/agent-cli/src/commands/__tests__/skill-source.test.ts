@@ -51,8 +51,8 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: beta\ndescription: from claude commands\n---\n',
     );
 
-    // ~/.claude/skills (priority 3)
-    const userSkills = join(homeDir, '.claude', 'skills');
+    // ~/.robota/skills (priority 3)
+    const userSkills = join(homeDir, '.robota', 'skills');
     mkdirSync(userSkills, { recursive: true });
     createSkillDir(userSkills, 'gamma', '---\nname: gamma\ndescription: from user skills\n---\n');
 
