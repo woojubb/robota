@@ -352,9 +352,11 @@ export async function executeSlashCommand(
       addMessage({ role: 'system', content: 'Plugin management is not available.' });
       return { handled: true };
     default: {
-      const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
-      if (skillCmd) {
-        addMessage({ role: 'system', content: `Invoking skill: ${cmd}` });
+      const dynamicCmd = registry
+        .getCommands()
+        .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
+      if (dynamicCmd) {
+        addMessage({ role: 'system', content: `Invoking ${dynamicCmd.source}: ${cmd}` });
         return { handled: false }; // Signal caller to run as session prompt
       }
       addMessage({ role: 'system', content: `Unknown command "/${cmd}". Type /help for help.` });
