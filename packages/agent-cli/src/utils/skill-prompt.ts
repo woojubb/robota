@@ -105,7 +105,9 @@ export async function buildSkillPrompt(
 ): Promise<string | null> {
   const parts = input.slice(1).split(/\s+/);
   const cmd = parts[0]?.toLowerCase() ?? '';
-  const skillCmd = registry.getCommands().find((c) => c.name === cmd && c.source === 'skill');
+  const skillCmd = registry
+    .getCommands()
+    .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
   if (!skillCmd) return null;
   const args = parts.slice(1).join(' ').trim();
   const userInstruction = args || skillCmd.description;
