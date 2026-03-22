@@ -277,37 +277,85 @@ Dependency direction: `cli → sdk → core`
 
 ### Marketplace Subcommand Behavior
 
-| Subcommand      | Behavior                                                                                                              |
-| --------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `add <source>`  | Fetch manifest from source, register under manifest's `name` field. No plugins installed — only makes them browsable. |
-| `remove <name>` | Remove the marketplace AND uninstall all plugins installed from it.                                                   |
-| `list`          | List all registered marketplaces with source type.                                                                    |
-| `update <name>` | Re-fetch manifest catalog and update installed plugins to latest versions.                                            |
+| Subcommand      | Behavior                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `add <source>`  | Shallow-clone the marketplace repo, read manifest `name` field, register under that name. No plugins installed yet. |
+| `remove <name>` | Remove the marketplace clone AND uninstall all plugins installed from it.                                           |
+| `list`          | List all registered marketplaces with source type.                                                                  |
+| `update <name>` | Git pull the marketplace clone, re-read manifest, update installed plugins to latest versions.                      |
 
 ### Default Marketplace
 
 Register Claude Code's `claude-plugins-official` as the default marketplace, enabling direct installation and usage of Claude Code ecosystem plugins.
 
+### Marketplace and Plugin Installation Flow
+
+#### Directory Layout
+
+```
+~/.robota/plugins/
+├── marketplaces/
+│   └── <marketplace-name>/          # Shallow git clone of marketplace repo
+│       ├── .claude-plugin/
+│       │   └── marketplace.json     # Plugin catalog
+│       └── packages/               # Plugin subdirectories (relative paths)
+├── cache/
+│   └── <marketplace-name>/
+│       └── <plugin-name>/
+│           └── <version>/           # Extracted plugin (skills, hooks, etc.)
+├── installed_plugins.json           # Tracks installed plugins
+└── known_marketplaces.json          # Registry of added marketplaces
+```
+
+#### `marketplace add` Flow
+
+1. Parse source: `owner/repo` → GitHub, URL → direct
+2. Shallow git clone (`--depth 1`) to `~/.robota/plugins/marketplaces/<name>/`
+3. Read `.claude-plugin/marketplace.json` for the `name` field
+4. Register in `known_marketplaces.json` with source, installLocation, timestamp
+
+#### `plugin install` Flow
+
+1. Parse `<plugin-name>@<marketplace-name>`
+2. Look up marketplace in `known_marketplaces.json`
+3. Git pull the marketplace clone (update to latest)
+4. Read `marketplace.json`, find plugin entry by name
+5. Resolve source — three types:
+   - `"./relative/path"` (string): plugin lives inside the marketplace repo. Copy from marketplace clone.
+   - `{ "type": "github", "repo": "..." }`: separate git repo. Clone independently.
+   - `{ "type": "url", "url": "..." }`: fetch from URL.
+6. Determine version: explicit `version` field from manifest, or 12-char git commit SHA as fallback
+7. Copy plugin to `~/.robota/plugins/cache/<marketplace>/<plugin>/<version>/`
+8. Record in `installed_plugins.json`
+
+#### Plugin Source Types in Manifest
+
+| Source format                               | Meaning                               | Install behavior            |
+| ------------------------------------------- | ------------------------------------- | --------------------------- |
+| `"./packages/foo"`                          | Relative path inside marketplace repo | Copy from marketplace clone |
+| `{ "type": "github", "repo": "user/repo" }` | Separate GitHub repo                  | Clone independently         |
+| `{ "type": "url", "url": "https://..." }`   | Remote URL                            | Fetch and extract           |
+
 ### Marketplace Manifest Format
 
 ```json
 {
-  "version": "1.0",
+  "name": "marketplace-id",
+  "version": "1.4.9",
+  "description": "Description of this marketplace",
   "plugins": [
     {
       "name": "plugin-id",
-      "title": "Plugin Display Name",
       "description": "What this plugin does",
-      "source": {
-        "type": "git",
-        "repo": "user/plugin",
-        "ref": "main"
-      },
-      "tags": ["category"]
+      "source": "./packages/plugin-id",
+      "version": "1.0.0",
+      "category": "development"
     }
   ]
 }
 ```
+
+Note: `source` can be a relative path string (most common) or an object with `type`/`repo`/`url` fields.
 
 ## Architecture Summary
 
