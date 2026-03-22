@@ -32,18 +32,21 @@ import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
 import { PrintTerminal } from './print-terminal.js';
 import { renderApp } from './ui/render.js';
 
-/** Check if a settings file exists and contains valid JSON with provider info. */
-function hasValidSettingsFile(filePath: string): boolean {
-  if (!existsSync(filePath)) return false;
+/** Result of checking a settings file. */
+type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
+
+/** Check a settings file's state. */
+function checkSettingsFile(filePath: string): TSettingsCheck {
+  if (!existsSync(filePath)) return 'missing';
   try {
     const raw = readFileSync(filePath, 'utf8').trim();
-    if (raw.length === 0) return false;
+    if (raw.length === 0) return 'incomplete';
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    // Must have provider.apiKey to be considered valid
     const provider = parsed.provider as Record<string, unknown> | undefined;
-    return !!provider?.apiKey;
+    if (!provider?.apiKey) return 'incomplete';
+    return 'valid';
   } catch {
-    return false; // Corrupt JSON
+    return 'corrupt';
   }
 }
 
@@ -70,7 +73,6 @@ function readVersion(): string {
     return '0.0.0';
   }
 }
-
 
 /** Prompt for input in raw mode. Mask with asterisks if masked=true. */
 function promptInput(label: string, masked = false): Promise<string> {
@@ -117,13 +119,38 @@ async function ensureConfig(cwd: string): Promise<void> {
   const projectPath = join(cwd, '.robota', 'settings.json');
   const localPath = join(cwd, '.robota', 'settings.local.json');
 
-  if (hasValidSettingsFile(userPath) || hasValidSettingsFile(projectPath) || hasValidSettingsFile(localPath)) {
-    return; // Config exists
+  const paths = [userPath, projectPath, localPath];
+  const checks = paths.map((p) => ({ path: p, status: checkSettingsFile(p) }));
+
+  // If any file is valid, proceed normally
+  if (checks.some((c) => c.status === 'valid')) {
+    return;
   }
 
+  // Report corrupt or incomplete files before prompting for setup
+  const corrupt = checks.filter((c) => c.status === 'corrupt');
+  const incomplete = checks.filter((c) => c.status === 'incomplete');
+
   process.stdout.write('\n');
-  process.stdout.write('  Welcome to Robota CLI!\n');
-  process.stdout.write('  No configuration found. Let\'s set up.\n');
+  if (corrupt.length > 0) {
+    for (const c of corrupt) {
+      process.stderr.write(`  ERROR: Settings file is corrupt (invalid JSON): ${c.path}\n`);
+    }
+    process.stdout.write('\n');
+  }
+  if (incomplete.length > 0) {
+    for (const c of incomplete) {
+      process.stderr.write(`  WARNING: Settings file is missing provider.apiKey: ${c.path}\n`);
+    }
+    process.stdout.write('\n');
+  }
+
+  if (corrupt.length === 0 && incomplete.length === 0) {
+    process.stdout.write('  Welcome to Robota CLI!\n');
+    process.stdout.write("  No configuration found. Let's set up.\n");
+  } else {
+    process.stdout.write('  Reconfiguring...\n');
+  }
   process.stdout.write('\n');
 
   // 1. API key
