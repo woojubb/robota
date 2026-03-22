@@ -213,6 +213,7 @@ export class BundlePluginLoader {
     return {
       manifest,
       skills: this.loadSkills(pluginDir, manifest.name),
+      commands: this.loadCommands(pluginDir, manifest.name),
       hooks: this.loadHooks(pluginDir),
       mcpConfig: this.loadMcpConfig(pluginDir),
       agents: this.loadAgents(pluginDir),
@@ -240,7 +241,7 @@ export class BundlePluginLoader {
       const description = typeof metadata.description === 'string' ? metadata.description : '';
 
       const skill: IBundleSkill = {
-        name: `${entry.name}@${pluginName}`,
+        name: entry.name,
         description,
         skillContent: content,
         ...metadata,
@@ -250,6 +251,35 @@ export class BundlePluginLoader {
     }
 
     return skills;
+  }
+
+  /** Load commands from the plugin's commands/ directory (flat .md files). */
+  private loadCommands(pluginDir: string, pluginName: string): IBundleSkill[] {
+    const commandsDir = join(pluginDir, 'commands');
+    if (!existsSync(commandsDir)) return [];
+
+    const entries = readdirSync(commandsDir, { withFileTypes: true });
+    const commands: IBundleSkill[] = [];
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+
+      const raw = readFileSync(join(commandsDir, entry.name), 'utf-8');
+      const { metadata, content } = parseSkillFrontmatter(raw);
+
+      const name =
+        typeof metadata.name === 'string' ? metadata.name : entry.name.replace(/\.md$/, '');
+      const description = typeof metadata.description === 'string' ? metadata.description : '';
+
+      commands.push({
+        ...metadata,
+        name: `${pluginName}:${name}`,
+        description,
+        skillContent: content,
+      });
+    }
+
+    return commands;
   }
 
   /** Load hooks from hooks/hooks.json if present. */
@@ -269,9 +299,13 @@ export class BundlePluginLoader {
     }
   }
 
-  /** Load MCP server configuration if present. */
+  /** Load MCP server configuration if present. Checks `.mcp.json` at plugin root first. */
   private loadMcpConfig(pluginDir: string): unknown | undefined {
-    const mcpPath = join(pluginDir, '.claude-plugin', 'mcp.json');
+    // Primary location: .mcp.json at plugin root (Claude Code standard)
+    const primaryPath = join(pluginDir, '.mcp.json');
+    // Fallback: .claude-plugin/mcp.json (legacy location)
+    const fallbackPath = join(pluginDir, '.claude-plugin', 'mcp.json');
+    const mcpPath = existsSync(primaryPath) ? primaryPath : fallbackPath;
     if (!existsSync(mcpPath)) return undefined;
 
     try {

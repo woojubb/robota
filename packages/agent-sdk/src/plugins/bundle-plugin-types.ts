@@ -34,6 +34,7 @@ export interface IBundleSkill {
 export interface ILoadedBundlePlugin {
   manifest: IBundlePluginManifest;
   skills: IBundleSkill[];
+  commands: IBundleSkill[];
   hooks: Record<string, unknown>;
   mcpConfig?: unknown;
   agents: string[];

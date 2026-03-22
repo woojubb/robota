@@ -369,7 +369,7 @@ describe('E2E: Plugin install and discover', () => {
     expect(plugin.skills).toHaveLength(2);
 
     const skillNames = plugin.skills.map((s) => s.name).sort();
-    expect(skillNames).toEqual(['explain@code-helper', 'review@code-helper']);
+    expect(skillNames).toEqual(['explain', 'review']);
 
     // 5. Use PluginCommandSource to expose as commands
     const source = new PluginCommandSource(plugins);
@@ -379,7 +379,7 @@ describe('E2E: Plugin install and discover', () => {
     expect(commands).toHaveLength(2);
     expect(commands.every((c) => c.source === 'plugin')).toBe(true);
     const cmdNames = commands.map((c) => c.name).sort();
-    expect(cmdNames).toEqual(['explain@code-helper', 'review@code-helper']);
+    expect(cmdNames).toEqual(['explain', 'review']);
   });
 
   it('should disable a plugin and verify its skills disappear', async () => {
@@ -407,7 +407,7 @@ describe('E2E: Plugin install and discover', () => {
     const enabledPlugins = await enabledLoader.loadAll();
     expect(enabledPlugins).toHaveLength(1);
     expect(enabledPlugins[0]!.skills).toHaveLength(1);
-    expect(enabledPlugins[0]!.skills[0]!.name).toBe('hello@temp-plugin');
+    expect(enabledPlugins[0]!.skills[0]!.name).toBe('hello');
 
     const enabledSource = new PluginCommandSource(enabledPlugins);
     expect(enabledSource.getCommands()).toHaveLength(1);
@@ -596,7 +596,7 @@ describe('E2E: CommandRegistry aggregation', () => {
     // Verify specific commands
     const names = allCommands.map((c) => c.name);
     expect(names).toContain('fs-skill');
-    expect(names).toContain('plugin-skill@my-plugin');
+    expect(names).toContain('plugin-skill');
 
     // Build system prompt from the combined result
     const modelSkills = allCommands
@@ -617,6 +617,6 @@ describe('E2E: CommandRegistry aggregation', () => {
     });
 
     expect(prompt).toContain('fs-skill');
-    expect(prompt).toContain('plugin-skill@my-plugin');
+    expect(prompt).toContain('plugin-skill');
   });
 });

@@ -533,7 +533,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
 
     // Skills discovered with namespace
     expect(loaded.skills).toHaveLength(1);
-    expect(loaded.skills[0]!.name).toBe('greet@test-plugin');
+    expect(loaded.skills[0]!.name).toBe('greet');
     expect(loaded.skills[0]!.description).toBe('Greet the user warmly');
     expect(loaded.skills[0]!.skillContent).toContain('# Greet Skill');
 
@@ -577,8 +577,8 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
 
     expect(commands).toHaveLength(2);
     const names = commands.map((c) => c.name).sort();
-    // BundlePluginLoader namespaces as entry@pluginName, PluginCommandSource passes through
-    expect(names).toEqual(['format@code-tools', 'lint@code-tools']);
+    // PluginCommandSource strips @plugin suffix and uses base name
+    expect(names).toEqual(['format', 'lint']);
     expect(commands.every((c) => c.source === 'plugin')).toBe(true);
   });
 
