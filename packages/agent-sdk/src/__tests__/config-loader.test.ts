@@ -221,9 +221,13 @@ describe('loadConfig', () => {
 
   it('loads extraKnownMarketplaces from settings', async () => {
     writeJson(join(claudeProjectDir, 'settings.json'), {
-      extraKnownMarketplaces: ['https://marketplace.example.com'],
+      extraKnownMarketplaces: {
+        'my-market': { source: { type: 'github', repo: 'org/plugins' } },
+      },
     });
     const config = await loadConfig(cwd);
-    expect(config.extraKnownMarketplaces).toEqual(['https://marketplace.example.com']);
+    expect(config.extraKnownMarketplaces).toEqual({
+      'my-market': { source: { type: 'github', repo: 'org/plugins' } },
+    });
   });
 });
