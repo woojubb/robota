@@ -8,6 +8,7 @@ priority: high
 ## 문제
 
 노드를 새로 추가할 때 `createNodeFromObjectInfo()`가 input/output port 정의를 DAG JSON에 복사함. 이러면:
+
 - DAG JSON에 runtime 노드 정의가 중복 저장
 - runtime의 노드 정의와 DAG JSON의 port 정의가 불일치할 수 있음
 - input/output은 runtime이 SSOT — 오케스트레이션에서 재정의 불가
