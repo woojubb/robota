@@ -4,6 +4,8 @@
  */
 
 import { execSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { CommandRegistry } from '../commands/command-registry.js';
 
 /** Context variables available during skill prompt processing */
@@ -112,12 +114,91 @@ export async function buildSkillPrompt(
   const args = parts.slice(1).join(' ').trim();
   const userInstruction = args || skillCmd.description;
 
+  // Run plugin hooks and capture stdout if this is a plugin skill/command
+  let hookStdout = '';
+  if (skillCmd.pluginDir) {
+    hookStdout = runPluginHooks(skillCmd.pluginDir, input);
+  }
+
   // Inject SKILL.md content if available
   if (skillCmd.skillContent) {
     // Preprocess shell commands first, then substitute variables
     let processed = await preprocessShellCommands(skillCmd.skillContent);
     processed = substituteVariables(processed, args, context);
-    return `<skill name="${cmd}">\n${processed}\n</skill>\n\nExecute the "${cmd}" skill: ${userInstruction}`;
+
+    const parts: string[] = [];
+    if (hookStdout) {
+      parts.push(`<system-reminder>\n${hookStdout}\n</system-reminder>`);
+    }
+    parts.push(`<skill name="${cmd}">\n${processed}\n</skill>`);
+    parts.push(`\nExecute the "${cmd}" skill: ${userInstruction}`);
+    return parts.join('\n');
   }
   return `Use the "${cmd}" skill: ${userInstruction}`;
+}
+
+/**
+ * Run a plugin's hooks and return collected stdout.
+ * Reads hooks/hooks.json from the plugin directory and executes
+ * all command hooks, passing the raw input as stdin JSON.
+ */
+function runPluginHooks(pluginDir: string, rawInput: string): string {
+  const hooksPath = join(pluginDir, 'hooks', 'hooks.json');
+  if (!existsSync(hooksPath)) return '';
+
+  let hooksConfig: Record<string, unknown>;
+  try {
+    hooksConfig = JSON.parse(readFileSync(hooksPath, 'utf-8')) as Record<string, unknown>;
+  } catch {
+    return '';
+  }
+
+  const hooks = (hooksConfig.hooks ?? hooksConfig) as Record<string, unknown[]>;
+  const stdoutParts: string[] = [];
+  const stdinJson = JSON.stringify({
+    session_id: '',
+    cwd: process.cwd(),
+    hook_event_name: 'UserPromptSubmit',
+    prompt: rawInput,
+  });
+
+  // Execute all hook groups across all events
+  for (const groups of Object.values(hooks)) {
+    if (!Array.isArray(groups)) continue;
+    for (const group of groups) {
+      const g = group as Record<string, unknown>;
+      const hookDefs = g.hooks as Array<Record<string, unknown>> | undefined;
+      if (!Array.isArray(hookDefs)) continue;
+
+      for (const hook of hookDefs) {
+        if (hook.type !== 'command' || typeof hook.command !== 'string') continue;
+
+        // Resolve ${CLAUDE_PLUGIN_ROOT} in command
+        const command = hook.command.replace(/\$\{CLAUDE_PLUGIN_ROOT}/g, pluginDir);
+
+        try {
+          const result = execSync(command, {
+            input: stdinJson,
+            timeout: 10000,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: process.cwd(),
+            env: {
+              ...process.env,
+              CLAUDE_PLUGIN_ROOT: pluginDir,
+              CLAUDE_PLUGIN_PATH: pluginDir,
+              CLAUDE_PROJECT_DIR: process.cwd(),
+            },
+          });
+          if (result.trim()) {
+            stdoutParts.push(result.trim());
+          }
+        } catch {
+          // Hook failed — skip
+        }
+      }
+    }
+  }
+
+  return stdoutParts.join('\n');
 }

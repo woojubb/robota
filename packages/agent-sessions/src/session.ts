@@ -248,8 +248,10 @@ export class Session {
 
   /**
    * Send a message to the agent and return the response.
+   * @param message - The processed message to send to the AI
+   * @param rawInput - Optional raw user input (used for hook prompt field)
    */
-  async run(message: string): Promise<string> {
+  async run(message: string, rawInput?: string): Promise<string> {
     // Auto-compact BEFORE processing the new message (not after).
     // This prevents compaction from interfering with the current response stream.
     this.contextTracker.updateFromHistory(this.robota.getHistory());
@@ -275,8 +277,8 @@ export class Session {
         session_id: this.sessionId,
         cwd: this.cwd,
         hook_event_name: 'UserPromptSubmit',
-        user_message: message,
-        prompt: message,
+        user_message: rawInput ?? message,
+        prompt: rawInput ?? message,
         env: {
           CLAUDE_PROJECT_DIR: this.cwd,
           CLAUDE_SESSION_ID: this.sessionId,
