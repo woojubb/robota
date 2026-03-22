@@ -2,12 +2,11 @@
  * Config loader — discovers, merges, and validates settings files.
  *
  * Precedence (lowest → highest):
- *   1. ~/.robota/settings.json       (legacy user)
- *   2. .robota/settings.json         (legacy project)
- *   3. .robota/settings.local.json   (legacy project-local)
- *   4. ~/.claude/settings.json       (user)
- *   5. .claude/settings.json         (project)
- *   6. .claude/settings.local.json   (project-local, highest priority)
+ *   1. ~/.robota/settings.json       (user)
+ *   2. .robota/settings.json         (project)
+ *   3. .robota/settings.local.json   (project-local)
+ *   4. .claude/settings.json         (project, Claude Code compat)
+ *   5. .claude/settings.local.json   (project-local, highest priority)
  */
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -149,12 +148,11 @@ function toResolvedConfig(merged: TSettings): IResolvedConfig {
 function getSettingsPaths(cwd: string): string[] {
   const home = getHomeDir();
   return [
-    join(home, '.robota', 'settings.json'), // 1. legacy user
-    join(cwd, '.robota', 'settings.json'), // 2. legacy project
-    join(cwd, '.robota', 'settings.local.json'), // 3. legacy project-local
-    join(home, '.claude', 'settings.json'), // 4. user
-    join(cwd, '.claude', 'settings.json'), // 5. project
-    join(cwd, '.claude', 'settings.local.json'), // 6. project-local (highest)
+    join(home, '.robota', 'settings.json'), // 1. user (lowest)
+    join(cwd, '.robota', 'settings.json'), // 2. project
+    join(cwd, '.robota', 'settings.local.json'), // 3. project-local
+    join(cwd, '.claude', 'settings.json'), // 4. project, Claude Code compat
+    join(cwd, '.claude', 'settings.local.json'), // 5. project-local (highest)
   ];
 }
 

@@ -19,7 +19,6 @@ describe('loadConfig', () => {
   let projectDir: string;
   let userDir: string;
   let claudeProjectDir: string;
-  let claudeUserDir: string;
   const originalHome = process.env.HOME;
 
   beforeEach(() => {
@@ -28,12 +27,10 @@ describe('loadConfig', () => {
     claudeProjectDir = join(cwd, '.claude');
     const homeBase = join(TMP_BASE, 'home-' + Math.random().toString(36).slice(2));
     userDir = join(homeBase, '.robota');
-    claudeUserDir = join(homeBase, '.claude');
     setupDir(cwd);
     setupDir(projectDir);
     setupDir(userDir);
     setupDir(claudeProjectDir);
-    setupDir(claudeUserDir);
     process.env.HOME = homeBase;
   });
 
@@ -134,14 +131,6 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('full');
   });
 
-  it('loads settings from ~/.claude/settings.json', async () => {
-    writeJson(join(claudeUserDir, 'settings.json'), {
-      defaultTrustLevel: 'full',
-    });
-    const config = await loadConfig(cwd);
-    expect(config.defaultTrustLevel).toBe('full');
-  });
-
   it('.claude/settings.local.json has highest priority', async () => {
     writeJson(join(claudeProjectDir, 'settings.json'), {
       defaultTrustLevel: 'safe',
@@ -168,11 +157,10 @@ describe('loadConfig', () => {
     expect(config.provider.model).toBe('legacy-model');
   });
 
-  it('full 6-layer precedence: .claude/settings.local.json wins over all', async () => {
+  it('full 5-layer precedence: .claude/settings.local.json wins over all', async () => {
     writeJson(join(userDir, 'settings.json'), { defaultTrustLevel: 'safe' });
     writeJson(join(projectDir, 'settings.json'), { defaultTrustLevel: 'safe' });
     writeJson(join(projectDir, 'settings.local.json'), { defaultTrustLevel: 'safe' });
-    writeJson(join(claudeUserDir, 'settings.json'), { defaultTrustLevel: 'safe' });
     writeJson(join(claudeProjectDir, 'settings.json'), { defaultTrustLevel: 'safe' });
     writeJson(join(claudeProjectDir, 'settings.local.json'), { defaultTrustLevel: 'full' });
     const config = await loadConfig(cwd);
