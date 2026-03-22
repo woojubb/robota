@@ -59,9 +59,9 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
       },
       marketplaceAdd: async (source: string) => {
         if (source.includes('/') && !source.includes(':')) {
-          marketplace.addSource(source, { type: 'github', repo: source });
+          return marketplace.addSourceFromManifest({ type: 'github', repo: source }, source);
         } else {
-          marketplace.addSource(source, { type: 'url', url: source });
+          return marketplace.addSourceFromManifest({ type: 'url', url: source }, source);
         }
       },
       marketplaceList: async () => {
