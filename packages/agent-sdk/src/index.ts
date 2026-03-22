@@ -58,6 +58,11 @@ export { promptForApproval } from './permissions/permission-prompt.js';
 export { runHooks } from '@robota-sdk/agent-core';
 export type { THookEvent, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
 
+// Hook executors (SDK-level — prompt, agent)
+export { PromptExecutor, AgentExecutor } from './hooks/index.js';
+export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from './hooks/index.js';
+export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './hooks/index.js';
+
 // Standard paths
 export { projectPaths, userPaths } from './paths.js';
 

@@ -7,8 +7,12 @@
  * expects as pre-constructed dependencies.
  */
 
-import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
+import { PromptExecutor } from '../hooks/prompt-executor.js';
+import { AgentExecutor } from '../hooks/agent-executor.js';
+import type { TProviderFactory } from '../hooks/prompt-executor.js';
+import type { TSessionFactory } from '../hooks/agent-executor.js';
 import { Session } from '@robota-sdk/agent-sessions';
 import type {
   ITerminalOutput,
@@ -55,7 +59,12 @@ export interface ICreateSessionOptions {
   /** Additional tools to register beyond the defaults (e.g. agent-tool) */
   additionalTools?: IToolWithEventService[];
   /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
-  onToolExecution?: (event: { type: 'start' | 'end'; toolName: string; toolArgs?: TToolArgs; success?: boolean }) => void;
+  onToolExecution?: (event: {
+    type: 'start' | 'end';
+    toolName: string;
+    toolArgs?: TToolArgs;
+    success?: boolean;
+  }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
@@ -66,6 +75,12 @@ export interface ICreateSessionOptions {
   toolDescriptions?: string[];
   /** Session logger — injected for pluggable session event logging. */
   sessionLogger?: ISessionLogger;
+  /** Provider factory for prompt hook executors (DI). */
+  providerFactory?: TProviderFactory;
+  /** Session factory for agent hook executors (DI). */
+  sessionFactory?: TSessionFactory;
+  /** Additional hook type executors beyond the defaults (prompt, agent). */
+  additionalHookExecutors?: IHookTypeExecutor[];
 }
 
 /**
@@ -105,6 +120,28 @@ export function createSession(options: ICreateSessionOptions): Session {
     deny: options.config.permissions.deny ?? [],
   };
 
+  // Build hook type executors: start with SDK-level executors (prompt, agent) if factories provided,
+  // then append any additional user-provided executors.
+  const hookTypeExecutors: IHookTypeExecutor[] = [];
+  if (options.providerFactory) {
+    hookTypeExecutors.push(
+      new PromptExecutor({
+        providerFactory: options.providerFactory,
+        defaultModel: options.config.provider.model,
+      }),
+    );
+  }
+  if (options.sessionFactory) {
+    hookTypeExecutors.push(
+      new AgentExecutor({
+        sessionFactory: options.sessionFactory,
+      }),
+    );
+  }
+  if (options.additionalHookExecutors) {
+    hookTypeExecutors.push(...options.additionalHookExecutors);
+  }
+
   return new Session({
     tools,
     provider,
@@ -124,5 +161,6 @@ export function createSession(options: ICreateSessionOptions): Session {
     onCompact: options.onCompact,
     compactInstructions: options.compactInstructions ?? options.context.compactInstructions,
     sessionLogger: options.sessionLogger,
+    hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
   });
 }
