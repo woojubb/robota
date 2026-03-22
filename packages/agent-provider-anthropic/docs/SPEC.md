@@ -33,6 +33,14 @@ The package follows a provider-adapter pattern:
 
 Dependency direction: `@robota-sdk/agent-provider-anthropic` depends on `@robota-sdk/agent-core` (peer dependency) and `@anthropic-ai/sdk` (direct dependency). No other workspace packages are imported.
 
+## Streaming Policy
+
+The provider MUST always use the streaming API (`messages.stream` / SSE) for all provider calls, regardless of whether an `onTextDelta` callback is provided. When no callback is provided, streaming results are assembled silently without calling any delta callback.
+
+**Reason:** Anthropic SDK enforces a 10-minute timeout on non-streaming requests. Agentic workflows with tool loops can exceed this limit. Streaming connections have no such timeout.
+
+**Implementation:** The non-streaming code path (`client.messages.create` without streaming) is removed. All calls go through `chatWithStreaming`, passing a no-op callback when `onTextDelta` is not available.
+
 ## Output Token Limits
 
 The provider uses `max_tokens` from `IChatOptions.maxTokens` if provided. When not specified, the provider MUST use the model's `maxOutput` from `CLAUDE_MODELS` (via `getModelMaxOutput`) as the default. A low hardcoded default (e.g., 4096) is insufficient for agentic workflows where tool loops and long responses are common.

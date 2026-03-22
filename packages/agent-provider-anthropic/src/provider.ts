@@ -125,15 +125,10 @@ export class AnthropicProvider extends AbstractAIProvider {
       ...(allTools.length > 0 && { tools: allTools }),
     };
 
-    // When onTextDelta callback is available (from options or instance property),
-    // use streaming internally but still return the complete assembled message.
-    const textDeltaCb = options?.onTextDelta ?? this.onTextDelta;
-    if (textDeltaCb) {
-      return this.chatWithStreaming(baseParams, textDeltaCb);
-    }
-
-    const response = await this.client.messages.create(baseParams);
-    return this.convertFromAnthropicResponse(response);
+    // Always use streaming to avoid Anthropic SDK's 10-minute non-streaming timeout.
+    // When no onTextDelta callback is available, use a no-op to silently assemble the response.
+    const textDeltaCb = options?.onTextDelta ?? this.onTextDelta ?? (() => {});
+    return this.chatWithStreaming(baseParams, textDeltaCb);
   }
 
   /**

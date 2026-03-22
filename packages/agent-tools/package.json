@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-tools",
-  "version": "3.0.0-beta.26",
+  "version": "3.0.0-beta.27",
   "description": "Tool registry and implementations for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
