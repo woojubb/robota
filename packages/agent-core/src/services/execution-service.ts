@@ -234,18 +234,60 @@ export class ExecutionService {
         });
         try {
           // Inject instruction to summarize, then call provider directly
-          conversationSession.addUserMessage(
-            'You have reached the maximum number of tool rounds. Based on all the information and tool results you have gathered so far, provide your final response now. Do not request additional tools.',
-          );
-          const messages = conversationSession.getMessages();
+          const syntheticMsg =
+            'You have reached the maximum number of tool rounds. Based on all the information and tool results you have gathered so far, provide your final response now. Do not request additional tools.';
+          conversationSession.addUserMessage(syntheticMsg);
+          const summaryMessages = conversationSession.getMessages();
           const systemMsg = config.systemMessage ?? '';
-          const forceResponse = await resolved.provider.chat(messages, {
+
+          // Ensure system message is included in the messages sent to the provider
+          const hasSystemMsg = summaryMessages.some(
+            (m) => m.role === 'system' && m.content === systemMsg,
+          );
+          const messagesForProvider =
+            systemMsg && !hasSystemMsg
+              ? [
+                  { role: 'system' as const, content: systemMsg, timestamp: new Date() },
+                  ...summaryMessages,
+                ]
+              : summaryMessages;
+
+          // Use streaming if onTextDelta is available on the provider
+          const chatOptions: { model: string; onTextDelta?: (delta: string) => void } = {
             model: resolved.aiProviderInfo.model,
-          });
+          };
+          if (
+            'onTextDelta' in resolved.provider &&
+            typeof resolved.provider.onTextDelta === 'function'
+          ) {
+            chatOptions.onTextDelta = resolved.provider.onTextDelta as (delta: string) => void;
+          }
+
+          const forceResponse = await resolved.provider.chat(messagesForProvider, chatOptions);
+
+          // Remove synthetic message from history to avoid polluting conversation
+          const currentMessages = conversationSession.getMessages();
+          const syntheticIndex = currentMessages.findIndex(
+            (m) => m.role === 'user' && m.content === syntheticMsg,
+          );
+          if (syntheticIndex !== -1) {
+            const cleaned = currentMessages.filter(
+              (m) => !(m.role === 'user' && m.content === syntheticMsg),
+            );
+            conversationSession.clear();
+            for (const m of cleaned) {
+              conversationSession.addMessage(m);
+            }
+          }
+
           const responseText =
             typeof forceResponse.content === 'string' ? forceResponse.content : '';
           if (responseText) {
             conversationSession.addAssistantMessage(responseText, [], forceResponse.metadata);
+          } else {
+            conversationSession.addAssistantMessage(
+              'Maximum rounds reached. Partial results available in conversation history.',
+            );
           }
         } catch (forceErr) {
           this.logger.warn('Forced summary call failed', {
