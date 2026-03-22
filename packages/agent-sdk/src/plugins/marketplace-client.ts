@@ -1,9 +1,12 @@
 /**
  * MarketplaceClient — manages marketplace sources and fetches plugin manifests.
  *
- * Provides discovery of available plugins from multiple marketplace sources
- * including GitHub repositories, URLs, local directories, and git repos.
+ * Sources are persisted to a settings file (e.g., ~/.robota/settings.json)
+ * under the `extraKnownMarketplaces` key.
  */
+
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 /** Source type for a marketplace registry. */
 export type IMarketplaceSource =
@@ -37,41 +40,55 @@ export interface IMarketplaceManifest {
 
 /** Options for constructing a MarketplaceClient. */
 export interface IMarketplaceClientOptions {
+  /** Path to settings file for persisting marketplace sources. */
+  settingsPath?: string;
   /** Custom fetch implementation for testing. */
   fetch?: (
     url: string,
   ) => Promise<{ ok: boolean; status?: number; statusText?: string; json: () => Promise<unknown> }>;
 }
 
+/** Serialized marketplace source entry in settings. */
+interface IPersistedSource {
+  source: IMarketplaceSource;
+}
+
 /** Manages marketplace sources and fetches plugin manifests. */
 export class MarketplaceClient {
   private readonly sources: Map<string, IMarketplaceSource> = new Map();
   private readonly fetchFn: IMarketplaceClientOptions['fetch'];
+  private readonly settingsPath?: string;
 
   constructor(options?: IMarketplaceClientOptions) {
     this.fetchFn = options?.fetch;
+    this.settingsPath = options?.settingsPath;
 
     // Register built-in default marketplace
     this.sources.set('claude-plugins-official', {
       type: 'github',
       repo: 'anthropics/claude-code',
     });
+
+    // Load persisted sources from settings
+    this.loadPersistedSources();
   }
 
-  /** Add a named marketplace source. Throws if name already exists. */
+  /** Add a named marketplace source. Persists to settings file. */
   addSource(name: string, source: IMarketplaceSource): void {
     if (this.sources.has(name)) {
       throw new Error(`Marketplace source "${name}" already exists`);
     }
     this.sources.set(name, source);
+    this.persistSources();
   }
 
-  /** Remove a named marketplace source. Throws if not found. */
+  /** Remove a named marketplace source. Persists to settings file. */
   removeSource(name: string): void {
     if (!this.sources.has(name)) {
       throw new Error(`Marketplace source "${name}" not found`);
     }
     this.sources.delete(name);
+    this.persistSources();
   }
 
   /** List all registered marketplace sources. */
@@ -128,6 +145,53 @@ export class MarketplaceClient {
     }
 
     return results;
+  }
+
+  /** Load marketplace sources from settings file. */
+  private loadPersistedSources(): void {
+    if (!this.settingsPath) return;
+
+    try {
+      const raw = readFileSync(this.settingsPath, 'utf-8');
+      const settings = JSON.parse(raw) as Record<string, unknown>;
+      const extra = settings.extraKnownMarketplaces as Record<string, IPersistedSource> | undefined;
+      if (!extra || typeof extra !== 'object') return;
+
+      for (const [name, entry] of Object.entries(extra)) {
+        if (entry?.source && !this.sources.has(name)) {
+          this.sources.set(name, entry.source);
+        }
+      }
+    } catch {
+      // File doesn't exist or invalid — start fresh
+    }
+  }
+
+  /** Persist user-added marketplace sources to settings file. */
+  private persistSources(): void {
+    if (!this.settingsPath) return;
+
+    // Read existing settings
+    let settings: Record<string, unknown> = {};
+    try {
+      const raw = readFileSync(this.settingsPath, 'utf-8');
+      settings = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      // File doesn't exist — will create
+    }
+
+    // Build extraKnownMarketplaces (exclude built-in default)
+    const extra: Record<string, IPersistedSource> = {};
+    for (const [name, source] of this.sources) {
+      if (name === 'claude-plugins-official') continue;
+      extra[name] = { source };
+    }
+
+    settings.extraKnownMarketplaces = extra;
+
+    // Write back
+    mkdirSync(dirname(this.settingsPath), { recursive: true });
+    writeFileSync(this.settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
   }
 
   /** Resolve a marketplace source to a manifest URL. */

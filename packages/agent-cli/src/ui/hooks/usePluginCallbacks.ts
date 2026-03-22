@@ -19,7 +19,7 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
     const settingsPath = join(cwd, '.claude', 'settings.json');
     const userSettingsPath = join(home, '.robota', 'settings.json');
 
-    const marketplace = new MarketplaceClient();
+    const marketplace = new MarketplaceClient({ settingsPath: userSettingsPath });
     const installer = new BundlePluginInstaller({ pluginsDir, settingsPath: userSettingsPath });
     const loader = new BundlePluginLoader(pluginsDir);
 
