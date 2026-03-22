@@ -33,6 +33,10 @@ The package follows a provider-adapter pattern:
 
 Dependency direction: `@robota-sdk/agent-provider-anthropic` depends on `@robota-sdk/agent-core` (peer dependency) and `@anthropic-ai/sdk` (direct dependency). No other workspace packages are imported.
 
+## Output Token Limits
+
+The provider uses `max_tokens` from `IChatOptions.maxTokens` if provided. When not specified, the provider MUST use the model's `maxOutput` from `CLAUDE_MODELS` (via `getModelMaxOutput`) as the default. A low hardcoded default (e.g., 4096) is insufficient for agentic workflows where tool loops and long responses are common.
+
 ## Type Ownership
 
 | Type                            | Owner                                  | Location                         |

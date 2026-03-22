@@ -237,16 +237,31 @@ describe('AnthropicProvider', () => {
       expect(result.metadata?.outputTokens).toBe(20);
     });
 
-    it('should use DEFAULT_MAX_TOKENS when maxTokens is not specified', async () => {
+    it('should use model maxOutput when maxTokens is not specified', async () => {
       mockClient.messages.create.mockResolvedValue(makeTextResponse('ok'));
 
       const messages: TUniversalMessage[] = [
         { role: 'user', content: 'Hi', timestamp: new Date() },
       ];
-      await provider.chat(messages, { model: 'claude-3-opus-20240229' });
+      // claude-sonnet-4-6 has maxOutput: 64000 in CLAUDE_MODELS
+      await provider.chat(messages, { model: 'claude-sonnet-4-6' });
 
       expect(mockClient.messages.create).toHaveBeenCalledWith(
-        expect.objectContaining({ max_tokens: 4096 }),
+        expect.objectContaining({ max_tokens: 64000 }),
+      );
+    });
+
+    it('should use DEFAULT_MAX_OUTPUT for unknown models', async () => {
+      mockClient.messages.create.mockResolvedValue(makeTextResponse('ok'));
+
+      const messages: TUniversalMessage[] = [
+        { role: 'user', content: 'Hi', timestamp: new Date() },
+      ];
+      await provider.chat(messages, { model: 'unknown-model' });
+
+      // DEFAULT_MAX_OUTPUT = 16384
+      expect(mockClient.messages.create).toHaveBeenCalledWith(
+        expect.objectContaining({ max_tokens: 16384 }),
       );
     });
 
