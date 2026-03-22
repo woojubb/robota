@@ -14,7 +14,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Session } from '../session.js';
 
 // Track calls to mock Robota
-let mockHistory: Array<{ role: string; content: string | null; metadata?: Record<string, unknown> }> = [];
+let mockHistory: Array<{
+  role: string;
+  content: string | null;
+  metadata?: Record<string, unknown>;
+}> = [];
 let mockInjectCalls: Array<{ role: string; content: string }> = [];
 let mockRunCalls: string[] = [];
 let mockClearCount = 0;
@@ -44,7 +48,7 @@ vi.mock('@robota-sdk/agent-core', async () => {
         mockHistory.push({ role, content });
       }),
     })),
-    runHooks: vi.fn().mockResolvedValue(undefined),
+    runHooks: vi.fn().mockResolvedValue({ blocked: false, stdout: '' }),
   };
 });
 

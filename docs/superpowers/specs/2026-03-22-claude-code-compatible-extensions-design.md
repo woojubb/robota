@@ -129,6 +129,14 @@ Phase 1 (existing runner + high-usage additions):
 
 Remaining Claude Code events (13 more) can be added incrementally.
 
+### Hook Stdout Injection
+
+For `SessionStart` and `UserPromptSubmit` hooks, the stdout output from successfully executed hooks (exit code 0) is collected and injected into the AI's context as a `<system-reminder>` message. This allows hooks to provide dynamic information to the AI (e.g., plugin paths, environment state, task lists).
+
+- `runHooks` returns collected stdout along with the blocked/reason result.
+- The session injects non-empty stdout as a system-level context addition before the AI processes input.
+- Other hook events (`PreToolUse`, `PostToolUse`, `Stop`, etc.) do NOT inject stdout.
+
 ### Hook Types (All Four)
 
 | Type      | Impl. Layer | Description                                                                                    |

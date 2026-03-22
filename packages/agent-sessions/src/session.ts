@@ -196,7 +196,10 @@ export class Session {
     this.fireSessionStartHook();
   }
 
-  /** Fire SessionStart hook asynchronously (non-blocking). */
+  /** Stdout collected from SessionStart hooks, injected on first run(). */
+  private sessionStartStdout = '';
+
+  /** Fire SessionStart hook asynchronously. Stores stdout for first run(). */
   private fireSessionStartHook(): void {
     const hookInput: IHookInput = {
       session_id: this.sessionId,
@@ -212,7 +215,13 @@ export class Session {
       'SessionStart',
       hookInput,
       this.hookTypeExecutors,
-    ).catch(() => {});
+    )
+      .then((result) => {
+        if (result.stdout) {
+          this.sessionStartStdout = result.stdout;
+        }
+      })
+      .catch(() => {});
   }
 
   /** Configure provider-specific features (streaming, web tools, server tool logging) */
@@ -259,7 +268,7 @@ export class Session {
     this.log('user', { content: message });
 
     // Fire UserPromptSubmit hook before AI processes input
-    await runHooks(
+    const hookResult = await runHooks(
       this.hooks as THooksConfig | undefined,
       'UserPromptSubmit',
       {
@@ -274,6 +283,14 @@ export class Session {
       },
       this.hookTypeExecutors,
     );
+
+    // Inject hook stdout into user message (e.g., plugin path info)
+    const hookStdout = [this.sessionStartStdout, hookResult.stdout].filter(Boolean).join('\n');
+    const enrichedMessage = hookStdout
+      ? `<system-reminder>\n${hookStdout}\n</system-reminder>\n${message}`
+      : message;
+    // Clear sessionStart stdout after first injection
+    this.sessionStartStdout = '';
 
     const history = this.robota.getHistory();
     const historyJson = JSON.stringify(history);
@@ -302,7 +319,7 @@ export class Session {
         }
         const onAbort = (): void => reject(new DOMException('Aborted', 'AbortError'));
         signal.addEventListener('abort', onAbort, { once: true });
-        this.robota.run(message).then(
+        this.robota.run(enrichedMessage).then(
           (result) => {
             signal.removeEventListener('abort', onAbort);
             resolve(result);
