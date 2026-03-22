@@ -12,9 +12,9 @@ Implement four Claude Code-compatible extension systems in Robota CLI so that Cl
 
 1. `.claude/skills/` (project)
 2. `.claude/commands/` (project, legacy)
-3. `~/.claude/skills/` (user)
+3. `~/.robota/skills/` (user)
 4. `.agents/skills/` (project)
-5. `~/.claude/plugins/*/skills/` (installed plugins, namespaced)
+5. `~/.robota/plugins/*/skills/` (installed plugins, namespaced)
 
 When duplicate `name` is found, higher-priority source wins. Extends the existing `SkillCommandSource` in agent-cli.
 
@@ -81,7 +81,7 @@ The following skills are available:
 
 1. `.claude/settings.local.json` (project, gitignored)
 2. `.claude/settings.json` (project)
-3. `~/.claude/settings.json` (user)
+3. `~/.robota/settings.json` (user)
 4. Installed plugin `hooks/hooks.json`
 
 ### Configuration Format (Claude Code Standard)
@@ -330,9 +330,9 @@ Register Claude Code's `claude-plugins-official` as the default marketplace, ena
 
 | System          | Paths (priority order)                                                                                    |
 | --------------- | --------------------------------------------------------------------------------------------------------- |
-| **Skills**      | `.claude/skills/` → `.claude/commands/` → `~/.claude/skills/` → `.agents/skills/` → plugin `skills/`      |
-| **Hooks**       | `.claude/settings.local.json` → `.claude/settings.json` → `~/.claude/settings.json` → plugin `hooks.json` |
-| **Plugins**     | `~/.claude/plugins/` + `enabledPlugins` in settings                                                       |
+| **Skills**      | `.claude/skills/` → `.claude/commands/` → `~/.robota/skills/` → `.agents/skills/` → plugin `skills/`      |
+| **Hooks**       | `.claude/settings.local.json` → `.claude/settings.json` → `~/.robota/settings.json` → plugin `hooks.json` |
+| **Plugins**     | `~/.robota/plugins/` + `enabledPlugins` in settings                                                       |
 | **Marketplace** | `claude-plugins-official` (default) + `extraKnownMarketplaces` in settings                                |
 
 ## Remaining Claude Code Events (Deferred)
