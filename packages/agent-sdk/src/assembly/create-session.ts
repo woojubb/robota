@@ -27,7 +27,7 @@ import { buildSystemPrompt } from '../context/system-prompt-builder.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
 import { createProvider } from './create-provider.js';
-import { agentTool, setAgentToolDeps } from '../tools/agent-tool.js';
+import { createAgentTool, storeAgentToolDeps } from '../tools/agent-tool.js';
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
@@ -96,9 +96,9 @@ export function createSession(options: ICreateSessionOptions): Session {
   const defaultTools = createDefaultTools();
   const tools = [...defaultTools, ...(options.additionalTools ?? [])];
 
-  // Wire agent tool — inject deps so it can spawn sub-agents, then add to tool list.
+  // Wire agent tool — create a fresh instance with deps captured in closure.
   // Must happen after default tools are assembled so sub-agents inherit the full set.
-  setAgentToolDeps({
+  const agentToolDeps = {
     config: options.config,
     context: options.context,
     tools,
@@ -106,8 +106,8 @@ export function createSession(options: ICreateSessionOptions): Session {
     permissionHandler: options.permissionHandler,
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,
-  });
-  tools.push(agentTool);
+  };
+  tools.push(createAgentTool(agentToolDeps));
 
   const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
   const systemMessage = buildPrompt({
@@ -156,7 +156,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     hookTypeExecutors.push(...options.additionalHookExecutors);
   }
 
-  return new Session({
+  const session = new Session({
     tools,
     provider,
     systemMessage,
@@ -177,4 +177,10 @@ export function createSession(options: ICreateSessionOptions): Session {
     sessionLogger: options.sessionLogger,
     hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
   });
+
+  // Store deps keyed by session so consumers (e.g. fork runner) can retrieve
+  // per-session deps without relying on global mutable state.
+  storeAgentToolDeps(session, agentToolDeps);
+
+  return session;
 }

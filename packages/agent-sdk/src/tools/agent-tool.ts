@@ -4,11 +4,15 @@
  * Uses `createSubagentSession` to assemble a child Session with filtered tools,
  * model resolution, and framework system prompt. The sub-agent shares the same
  * config and context but has its own conversation history.
+ *
+ * Each call to `createAgentTool(deps)` returns a fresh tool instance with deps
+ * captured in closure, eliminating module-level mutable state and enabling
+ * multiple concurrent sessions without race conditions.
  */
 
 import { z } from 'zod';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import type { IZodSchema, TToolResult } from '@robota-sdk/agent-tools';
+import type { IZodSchema } from '@robota-sdk/agent-tools';
 import type { IToolWithEventService, TToolArgs } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, TPermissionHandler } from '@robota-sdk/agent-sessions';
 import type { IResolvedConfig } from '../config/config-types.js';
@@ -33,7 +37,7 @@ const AgentSchema = z.object({
 
 type TAgentArgs = z.infer<typeof AgentSchema>;
 
-/** Dependencies injected at registration time */
+/** Dependencies injected at creation time via createAgentTool factory */
 export interface IAgentToolDeps {
   config: IResolvedConfig;
   context: ILoadedContext;
@@ -51,16 +55,23 @@ export interface IAgentToolDeps {
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
 }
 
-let agentToolDeps: IAgentToolDeps | undefined;
+/**
+ * Per-session deps store — maps an opaque key (typically a Session instance) to
+ * the IAgentToolDeps used when creating that session's agent tool.
+ *
+ * This replaces the former module-level singleton, enabling concurrent sessions
+ * without overwriting each other's deps.
+ */
+const sessionDepsStore = new WeakMap<object, IAgentToolDeps>();
 
-/** Set dependencies for the agent tool. Must be called before tool is used. */
-export function setAgentToolDeps(deps: IAgentToolDeps): void {
-  agentToolDeps = deps;
+/** Store agent tool deps keyed by a session (or any object). */
+export function storeAgentToolDeps(key: object, deps: IAgentToolDeps): void {
+  sessionDepsStore.set(key, deps);
 }
 
-/** Get the current agent tool dependencies. Returns undefined if not yet initialized. */
-export function getAgentToolDeps(): IAgentToolDeps | undefined {
-  return agentToolDeps;
+/** Retrieve agent tool deps for a given session key. */
+export function retrieveAgentToolDeps(key: object): IAgentToolDeps | undefined {
+  return sessionDepsStore.get(key);
 }
 
 /**
@@ -82,68 +93,68 @@ function generateAgentId(): string {
   return `agent_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function runAgent(args: TAgentArgs): Promise<string> {
-  if (!agentToolDeps) {
-    const result: TToolResult = {
-      success: false,
-      output: '',
-      error: 'Agent tool not initialized — missing dependencies',
-    };
-    return JSON.stringify(result);
+/**
+ * Create an agent tool instance with deps captured in closure.
+ *
+ * Each session gets its own tool instance — no shared mutable state.
+ */
+export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZodFunctionTool> {
+  async function runAgent(args: TAgentArgs): Promise<string> {
+    const agentType = args.subagent_type ?? 'general-purpose';
+
+    // Resolve agent definition
+    const agentDef = resolveAgentDefinition(agentType, deps.customAgentRegistry);
+    if (!agentDef) {
+      return JSON.stringify({
+        success: false,
+        output: '',
+        error: `Unknown agent type: ${agentType}`,
+      });
+    }
+
+    // Override model if specified in tool args
+    const effectiveDef: IAgentDefinition = args.model
+      ? { ...agentDef, model: args.model }
+      : agentDef;
+
+    // Create subagent session
+    const session = createSubagentSession({
+      agentDefinition: effectiveDef,
+      parentConfig: deps.config,
+      parentContext: deps.context,
+      parentTools: deps.tools,
+      terminal: deps.terminal,
+      permissionHandler: deps.permissionHandler,
+      onTextDelta: deps.onTextDelta,
+      onToolExecution: deps.onToolExecution,
+    });
+
+    const agentId = generateAgentId();
+
+    try {
+      const response = await session.run(args.prompt);
+      return JSON.stringify({
+        success: true,
+        output: response,
+        agentId,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return JSON.stringify({
+        success: false,
+        output: '',
+        error: `Sub-agent error: ${message}`,
+        agentId,
+      });
+    }
   }
 
-  const agentType = args.subagent_type ?? 'general-purpose';
-
-  // Resolve agent definition
-  const agentDef = resolveAgentDefinition(agentType, agentToolDeps.customAgentRegistry);
-  if (!agentDef) {
-    return JSON.stringify({
-      success: false,
-      output: '',
-      error: `Unknown agent type: ${agentType}`,
-    });
-  }
-
-  // Override model if specified in tool args
-  const effectiveDef: IAgentDefinition = args.model ? { ...agentDef, model: args.model } : agentDef;
-
-  // Create subagent session
-  const session = createSubagentSession({
-    agentDefinition: effectiveDef,
-    parentConfig: agentToolDeps.config,
-    parentContext: agentToolDeps.context,
-    parentTools: agentToolDeps.tools,
-    terminal: agentToolDeps.terminal,
-    permissionHandler: agentToolDeps.permissionHandler,
-    onTextDelta: agentToolDeps.onTextDelta,
-    onToolExecution: agentToolDeps.onToolExecution,
-  });
-
-  const agentId = generateAgentId();
-
-  try {
-    const response = await session.run(args.prompt);
-    return JSON.stringify({
-      success: true,
-      output: response,
-      agentId,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return JSON.stringify({
-      success: false,
-      output: '',
-      error: `Sub-agent error: ${message}`,
-      agentId,
-    });
-  }
+  return createZodFunctionTool(
+    'Agent',
+    'Launch a subagent to handle a task in an isolated context. The subagent gets its own context window and returns a result when done. The result returned by the agent is not visible to the user. To show the user the result, you should send a text message back to the user with a concise summary of the result.',
+    asZodSchema(AgentSchema),
+    async (params) => {
+      return runAgent(params as TAgentArgs);
+    },
+  );
 }
-
-export const agentTool = createZodFunctionTool(
-  'Agent',
-  'Launch a subagent to handle a task in an isolated context. The subagent gets its own context window and returns a result when done. The result returned by the agent is not visible to the user. To show the user the result, you should send a text message back to the user with a concise summary of the result.',
-  asZodSchema(AgentSchema),
-  async (params) => {
-    return runAgent(params as TAgentArgs);
-  },
-);

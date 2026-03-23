@@ -489,7 +489,7 @@ When a permission prompt is shown for an Edit tool, the diff should be displayed
 
 ### Agent Tool Registration
 
-The `Agent` tool is registered alongside the standard tools during session creation in `useSession`. Dependencies (`IAgentToolDeps`) are set via `setAgentToolDeps()` with the parent session's config, context, tools, terminal, and callbacks.
+The `Agent` tool is registered alongside the standard tools during session creation via `createAgentTool(deps)`. Each session gets its own tool instance with dependencies captured in closure, eliminating shared mutable state. Per-session deps are also stored via `storeAgentToolDeps(session, deps)` for retrieval by the fork runner.
 
 ### context:fork Wiring
 

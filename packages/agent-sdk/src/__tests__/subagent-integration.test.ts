@@ -48,7 +48,7 @@ vi.mock('../assembly/create-provider.js', () => ({
 }));
 
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
-import { setAgentToolDeps, getAgentToolDeps } from '../tools/agent-tool.js';
+import { storeAgentToolDeps, retrieveAgentToolDeps } from '../tools/agent-tool.js';
 import { createSubagentLogger, resolveSubagentLogDir } from '../assembly/subagent-logger.js';
 
 function makeTool(name: string): IToolWithEventService {
@@ -108,14 +108,16 @@ describe('Subagent integration', () => {
     const context = makeParentContext();
     const terminal = makeTerminal();
 
-    setAgentToolDeps({
+    const depsKey = {}; // opaque key for this test
+    const agentToolDeps = {
       config,
       context,
       tools,
       terminal,
-    });
+    };
+    storeAgentToolDeps(depsKey, agentToolDeps);
 
-    const deps = getAgentToolDeps();
+    const deps = retrieveAgentToolDeps(depsKey);
     expect(deps).toBeDefined();
 
     // Resolve the Explore agent definition
