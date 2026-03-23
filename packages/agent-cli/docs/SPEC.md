@@ -503,7 +503,7 @@ Skills with `context: fork` in their frontmatter are executed via `createSubagen
 
 ### Agent Definition Loading
 
-Agent definitions are loaded via `AgentDefinitionLoader` from `@robota-sdk/agent-sdk`. The loader scans `.claude/agents/` (project) and `~/.robota/agents/` (user) directories for custom agent `.md` files. Plugin-provided agent definitions can be registered via the `customAgentRegistry` callback in `IAgentToolDeps`.
+Agent definitions are loaded via `AgentDefinitionLoader` from `@robota-sdk/agent-sdk`. The loader scans `.robota/agents/` (project, primary), `.claude/agents/` (project, Claude Code compatible), and `~/.robota/agents/` (user) directories for custom agent `.md` files. Plugin-provided agent definitions can be registered via the `customAgentRegistry` callback in `IAgentToolDeps`.
 
 ## Memory Management
 

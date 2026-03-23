@@ -65,15 +65,15 @@ console.log(session.getMessageCount()); // 2
 
 ## Configuration
 
-Config is loaded from 5 layers (later overrides earlier):
+Config is loaded from 5 layers. `.robota/` is the primary configuration convention; `.claude/` paths are supported as a Claude Code compatibility layer. Later layers override earlier ones:
 
 1. **User global**: `~/.robota/settings.json` (lowest priority)
-2. **Project**: `.robota/settings.json`
+2. **Project (primary)**: `.robota/settings.json`
 3. **Project local**: `.robota/settings.local.json` (gitignored)
-4. **Project (Claude Code compat)**: `.claude/settings.json`
-5. **Project local (Claude Code compat)**: `.claude/settings.local.json` (gitignored, highest priority)
+4. **Project (Claude Code compatible)**: `.claude/settings.json`
+5. **Project local (Claude Code compatible)**: `.claude/settings.local.json` (gitignored, highest priority)
 
-The `.claude/` paths provide compatibility with Claude Code configuration conventions.
+The `.claude/` paths take higher runtime priority so that Claude Code settings override `.robota/` defaults.
 
 ```json
 {
@@ -176,7 +176,7 @@ Agent definitions describe reusable agent configurations. Built-in types:
 | `explore`       | haiku   | read-only | Lightweight codebase exploration         |
 | `plan`          | inherit | read-only | Multi-step planning with read-only tools |
 
-Custom agent definitions can be placed in `.claude/agents/` and are loaded by `AgentDefinitionLoader`. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the `IAgentDefinition` interface.
+Custom agent definitions can be placed in `.robota/agents/` (primary) or `.claude/agents/` (Claude Code compatible) and are loaded by `AgentDefinitionLoader`. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the `IAgentDefinition` interface.
 
 ### Agent Definition Schema
 
