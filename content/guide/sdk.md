@@ -65,11 +65,15 @@ console.log(session.getMessageCount()); // 2
 
 ## Configuration
 
-Config is loaded from 3 layers (later overrides earlier):
+Config is loaded from 5 layers (later overrides earlier):
 
-1. **User global**: `~/.robota/settings.json`
+1. **User global**: `~/.robota/settings.json` (lowest priority)
 2. **Project**: `.robota/settings.json`
-3. **Local override**: `.robota/settings.local.json` (gitignored)
+3. **Project local**: `.robota/settings.local.json` (gitignored)
+4. **Project (Claude Code compat)**: `.claude/settings.json`
+5. **Project local (Claude Code compat)**: `.claude/settings.local.json` (gitignored, highest priority)
+
+The `.claude/` paths provide compatibility with Claude Code configuration conventions.
 
 ```json
 {
@@ -154,21 +158,57 @@ const subSession = createSubagentSession({
 const result = await subSession.run();
 ```
 
+### Tool Filtering
+
+Subagent tool access is resolved in order: denylist (`disallowedTools`) is applied first, then allowlist (`tools`) filters to permitted tools only. The `Agent` tool is always removed from subagent sessions to prevent recursive spawning.
+
+### Model Shortcuts
+
+Agent definitions accept model shortcuts that resolve to full model IDs: `sonnet` -> `claude-sonnet-4-6`, `haiku` -> `claude-haiku-4-5`, `opus` -> `claude-opus-4-6`.
+
 ### Agent Definitions
 
 Agent definitions describe reusable agent configurations. Built-in types:
 
-| Type      | Purpose                                     |
-| --------- | ------------------------------------------- |
-| `explore` | Read-only codebase exploration              |
-| `plan`    | Multi-step planning with read-only tools    |
-| (custom)  | General-purpose agent with full tool access |
+| Type            | Model   | Tools     | Description                              |
+| --------------- | ------- | --------- | ---------------------------------------- |
+| General-purpose | inherit | all tools | Full tool access, inherits parent model  |
+| `explore`       | haiku   | read-only | Lightweight codebase exploration         |
+| `plan`          | inherit | read-only | Multi-step planning with read-only tools |
 
 Custom agent definitions can be placed in `.claude/agents/` and are loaded by `AgentDefinitionLoader`. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the `IAgentDefinition` interface.
+
+### Agent Definition Schema
+
+| Field             | Type     | Description                                   |
+| ----------------- | -------- | --------------------------------------------- |
+| `name`            | string   | Agent identifier                              |
+| `description`     | string   | What the agent does                           |
+| `systemPrompt`    | string   | Agent's system prompt (markdown body)         |
+| `model`           | string   | Model override (sonnet/haiku/opus or full ID) |
+| `maxTurns`        | number   | Max agentic turns                             |
+| `tools`           | string[] | Tool allowlist                                |
+| `disallowedTools` | string[] | Tool denylist                                 |
+
+### Framework Suffixes
+
+The SDK appends a framework suffix to the subagent's system prompt to shape its output format. Subagents receive a suffix requesting a concise report of findings. Fork workers receive a structured suffix with a 500-word limit.
+
+### Subagent Transcript
+
+Subagent execution is logged to `{logsDir}/{parentSessionId}/subagents/{agentId}.jsonl` for debugging and audit purposes.
 
 ## Always-Streaming Policy
 
 The Anthropic provider always uses the streaming API internally, even when no `onTextDelta` callback is provided. This avoids the 10-minute HTTP timeout that can occur with long-running tool loops on non-streaming requests. The final response text is assembled from the stream. See [agent-provider-anthropic SPEC.md](../../packages/agent-provider-anthropic/docs/SPEC.md) for details.
+
+## Output Token Limits
+
+The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_tokens` value per model rather than hardcoding a fixed limit. Current defaults: Sonnet 4.6 supports 64K output tokens, Opus 4.6 supports 128K output tokens. See [agent-provider-anthropic SPEC.md](../../packages/agent-provider-anthropic/docs/SPEC.md) for details.
+
+## Marketplace Client
+
+`MarketplaceClient` manages plugin marketplace registries via git clones stored in `~/.robota/marketplaces/`. It supports GitHub repositories, arbitrary git URLs, and local filesystem paths as marketplace sources. The CLI exposes this through `/plugin marketplace add/remove/list/update` commands. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the full API.
 
 ## Assembly vs Direct Usage
 
