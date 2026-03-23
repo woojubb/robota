@@ -3,6 +3,9 @@
  * Pure function — no side effects, no framework dependencies.
  */
 
+import { extractEditDiff } from './edit-diff.js';
+import type { IDiffLine } from './edit-diff.js';
+
 const TOOL_ARG_MAX_LENGTH = 80;
 const TAIL_KEEP = 30;
 
@@ -13,12 +16,30 @@ interface IHistoryMessage {
   }>;
 }
 
+/** A tool call summary with optional diff for Edit tools */
+export interface IToolCallSummary {
+  line: string;
+  diffLines?: IDiffLine[];
+  diffFile?: string;
+}
+
 /**
  * Extract tool call display lines from history messages.
  * Format: `ToolName(firstArgValue)` — first argument value truncated to 80 chars.
+ * Edit tools include diff information.
  */
 export function extractToolCalls(history: IHistoryMessage[], startIndex: number): string[] {
-  const lines: string[] = [];
+  return extractToolCallsWithDiff(history, startIndex).map((s) => s.line);
+}
+
+/**
+ * Extract tool call summaries with diff info from history messages.
+ */
+export function extractToolCallsWithDiff(
+  history: IHistoryMessage[],
+  startIndex: number,
+): IToolCallSummary[] {
+  const summaries: IToolCallSummary[] = [];
   for (let i = startIndex; i < history.length; i++) {
     const msg = history[i];
     if (msg.role === 'assistant' && msg.toolCalls) {
@@ -28,11 +49,30 @@ export function extractToolCalls(history: IHistoryMessage[], startIndex: number)
           value.length > TOOL_ARG_MAX_LENGTH
             ? value.slice(0, TOOL_ARG_MAX_LENGTH - TAIL_KEEP - 3) + '...' + value.slice(-TAIL_KEEP)
             : value;
-        lines.push(`${tc.function.name}(${truncated})`);
+
+        const summary: IToolCallSummary = {
+          line: `${tc.function.name}(${truncated})`,
+        };
+
+        // Extract diff for Edit tool
+        if (tc.function.name === 'Edit') {
+          try {
+            const args = JSON.parse(tc.function.arguments) as Record<string, unknown>;
+            const diff = extractEditDiff('Edit', args);
+            if (diff) {
+              summary.diffLines = diff.lines;
+              summary.diffFile = diff.file;
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+
+        summaries.push(summary);
       }
     }
   }
-  return lines;
+  return summaries;
 }
 
 /** Parse the first argument value from a JSON arguments string. */
