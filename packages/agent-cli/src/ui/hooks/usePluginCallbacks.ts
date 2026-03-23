@@ -34,18 +34,44 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
     return {
       listInstalled: async () => {
         const plugins = await loader.loadAll();
+        const settings = settingsStore.read();
         return plugins.map((p) => ({
           name: p.manifest.name,
           description: p.manifest.description,
-          enabled: true,
+          enabled: settings.enabledPlugins[p.manifest.name] !== false,
         }));
       },
-      install: async (pluginId: string) => {
+      listAvailablePlugins: async (marketplaceName: string) => {
+        let manifest;
+        try {
+          manifest = marketplace.fetchManifest(marketplaceName);
+        } catch {
+          return [];
+        }
+        const installed = installer.getInstalledPlugins();
+        const installedNames = new Set(Object.values(installed).map((r) => r.pluginName));
+        return manifest.plugins.map((p) => ({
+          name: p.name,
+          description: p.description,
+          installed: installedNames.has(p.name),
+        }));
+      },
+      install: async (pluginId: string, scope?: 'user' | 'project') => {
         const [name, marketplaceName] = pluginId.split('@');
         if (!name || !marketplaceName) {
           throw new Error('Plugin ID must be in format: name@marketplace');
         }
-        await installer.install(name, marketplaceName);
+        if (scope === 'project') {
+          const projectPluginsDir = join(cwd, '.robota', 'plugins');
+          const projectInstaller = new BundlePluginInstaller({
+            pluginsDir: projectPluginsDir,
+            settingsStore,
+            marketplaceClient: marketplace,
+          });
+          await projectInstaller.install(name, marketplaceName);
+        } else {
+          await installer.install(name, marketplaceName);
+        }
       },
       uninstall: async (pluginId: string) => {
         await installer.uninstall(pluginId);

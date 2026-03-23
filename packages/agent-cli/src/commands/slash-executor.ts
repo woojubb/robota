@@ -40,12 +40,21 @@ export interface ISlashResult {
   pendingModelId?: string;
   /** If set, the caller should show a language change confirmation */
   pendingLanguage?: string;
+  /** If set, the caller should open the plugin management TUI */
+  triggerPluginTUI?: boolean;
 }
 
 /** Callback-based interface for plugin operations. Keeps CLI decoupled from SDK implementation. */
 export interface IPluginCallbacks {
   listInstalled: () => Promise<Array<{ name: string; description: string; enabled: boolean }>>;
-  install: (pluginId: string) => Promise<void>;
+  listAvailablePlugins: (marketplace: string) => Promise<
+    Array<{
+      name: string;
+      description: string;
+      installed: boolean;
+    }>
+  >;
+  install: (pluginId: string, scope?: 'user' | 'project') => Promise<void>;
   uninstall: (pluginId: string) => Promise<void>;
   enable: (pluginId: string) => Promise<void>;
   disable: (pluginId: string) => Promise<void>;
@@ -194,17 +203,7 @@ export async function handlePluginCommand(
     switch (subcommand) {
       case '':
       case undefined: {
-        // List installed plugins
-        const plugins = await callbacks.listInstalled();
-        if (plugins.length === 0) {
-          addMessage({ role: 'system', content: 'No plugins installed.' });
-        } else {
-          const lines = plugins.map(
-            (p) => `  ${p.name} — ${p.description} [${p.enabled ? 'enabled' : 'disabled'}]`,
-          );
-          addMessage({ role: 'system', content: `Installed plugins:\n${lines.join('\n')}` });
-        }
-        return { handled: true };
+        return { handled: true, triggerPluginTUI: true };
       }
       case 'install': {
         if (!subArgs) {
