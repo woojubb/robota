@@ -34,11 +34,11 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
     return {
       listInstalled: async () => {
         const plugins = await loader.loadAll();
-        const settings = settingsStore.read();
+        const enabledMap = settingsStore.getEnabledPlugins();
         return plugins.map((p) => ({
           name: p.manifest.name,
           description: p.manifest.description,
-          enabled: settings.enabledPlugins[p.manifest.name] !== false,
+          enabled: enabledMap[p.manifest.name] !== false,
         }));
       },
       listAvailablePlugins: async (marketplaceName: string) => {
