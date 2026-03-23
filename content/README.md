@@ -11,14 +11,15 @@ A TypeScript framework for building AI agents with multi-provider support, tool 
 
 ![Robota CLI](./images/cli-demo.png)
 
-## Why Robota SDK?
+## Overview
 
-- **Type-Safe**: Strict TypeScript with zero `any` in production code
-- **Multi-Provider**: Anthropic Claude, OpenAI, Google — same API, seamless switching
-- **Tool Calling**: Zod-based schema validation for type-safe function calls
-- **Plugin System**: Extensible lifecycle hooks for logging, analytics, error handling
-- **Streaming**: Real-time text delta streaming from all providers
-- **CLI Ready**: Built-in coding assistant CLI with permission system and context management
+Robota SDK ships three layers you can use independently or together:
+
+- **CLI** (`agent-cli`) — A ready-to-use AI coding assistant in your terminal. Install and run immediately, no code required.
+- **Assembly Layer** (`agent-sdk`) — A programmable interface for embedding the same assistant capabilities into your own scripts, tools, or workflows.
+- **Agent Library** (`agent-core`, `agent-tools`, `agent-sessions`, and providers) — Low-level building blocks for constructing any AI agent system from scratch.
+
+The CLI is built on top of the Assembly Layer. The Assembly Layer is assembled from the Agent Library. You can enter at any layer.
 
 ## Quick Start
 
@@ -48,7 +49,7 @@ console.log(response);
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import { FunctionTool, createZodFunctionTool } from '@robota-sdk/agent-tools';
+import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
 const calculatorTool = createZodFunctionTool({
@@ -57,15 +58,16 @@ const calculatorTool = createZodFunctionTool({
   schema: z.object({
     expression: z.string().describe('Math expression to evaluate'),
   }),
-  handler: async ({ expression }) => ({
-    data: String(eval(expression)),
-  }),
+  handler: async ({ expression }) => {
+    // WARNING: eval() is used here for brevity only. Do not use in production.
+    return { data: String(eval(expression)) }; // eslint-disable-line no-eval
+  },
 });
 
 const agent = new Robota({
   name: 'ToolAgent',
   aiProviders: [provider],
-  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' }, // see CLAUDE_MODELS for available model IDs
   tools: [calculatorTool],
 });
 
@@ -89,18 +91,27 @@ robota                              # Interactive TUI
 robota -p "Explain this project"    # Print mode
 ```
 
+## Why Robota SDK?
+
+- **Type-Safe**: Strict TypeScript with zero `any` in production code
+- **Multi-Provider**: Anthropic Claude, OpenAI, Google — same API, seamless switching
+- **Tool Calling**: Zod-based schema validation for type-safe function calls
+- **Plugin System**: Extensible lifecycle hooks for logging, analytics, error handling
+- **Streaming**: Real-time text delta streaming from all providers
+- **CLI Ready**: Built-in coding assistant CLI with permission system and context management
+
 ## Architecture
 
 ```
-agent-cli         ← Interactive terminal AI coding assistant
+agent-cli              ← Interactive terminal AI coding assistant
   ↓
-agent-sdk         ← Assembly layer: config, context, session factory, query()
+agent-sdk              ← Assembly layer: config, context, session factory, query()
   ↓
-agent-sessions    ← Session lifecycle: permissions, hooks, compaction
-agent-tools       ← Tool infrastructure + 8 built-in tools
-agent-providers   ← AI provider implementations
-  ↓
-agent-core        ← Foundation: Robota engine, abstractions, plugins
+agent-sessions         ← Session lifecycle: permissions, hooks, compaction
+agent-tools            ← Tool infrastructure + 8 built-in tools
+agent-provider-*       ← AI provider implementations (anthropic, openai, google)
+  ↓ (all three depend on)
+agent-core             ← Foundation: Robota engine, abstractions, plugins
 ```
 
 ## Packages
