@@ -18,6 +18,7 @@ function createMockAddMessage(): {
 function createMockPluginCallbacks(overrides?: Partial<IPluginCallbacks>): IPluginCallbacks {
   return {
     listInstalled: vi.fn().mockResolvedValue([]),
+    listAvailablePlugins: vi.fn().mockResolvedValue([]),
     install: vi.fn().mockResolvedValue(undefined),
     uninstall: vi.fn().mockResolvedValue(undefined),
     enable: vi.fn().mockResolvedValue(undefined),
@@ -32,33 +33,23 @@ function createMockPluginCallbacks(overrides?: Partial<IPluginCallbacks>): IPlug
 }
 
 describe('handlePluginCommand', () => {
-  it('should list installed plugins when no subcommand', async () => {
-    const { addMessage, messages } = createMockAddMessage();
-    const callbacks = createMockPluginCallbacks({
-      listInstalled: vi.fn().mockResolvedValue([
-        { name: 'test-plugin', description: 'A test plugin', enabled: true },
-        { name: 'other-plugin', description: 'Another plugin', enabled: false },
-      ]),
-    });
-
-    const result = await handlePluginCommand('', addMessage, callbacks);
-
-    expect(result.handled).toBe(true);
-    expect(callbacks.listInstalled).toHaveBeenCalled();
-    expect(messages[0]!.content).toContain('test-plugin');
-    expect(messages[0]!.content).toContain('other-plugin');
-    expect(messages[0]!.content).toContain('enabled');
-    expect(messages[0]!.content).toContain('disabled');
+  it('/plugin with no args returns triggerPluginTUI: true', async () => {
+    const result = await handlePluginCommand(
+      '',
+      createMockAddMessage().addMessage,
+      createMockPluginCallbacks(),
+    );
+    expect(result.triggerPluginTUI).toBe(true);
   });
 
-  it('should show empty message when no plugins installed', async () => {
-    const { addMessage, messages } = createMockAddMessage();
+  it('should return handled: true when no subcommand', async () => {
+    const { addMessage } = createMockAddMessage();
     const callbacks = createMockPluginCallbacks();
 
     const result = await handlePluginCommand('', addMessage, callbacks);
 
     expect(result.handled).toBe(true);
-    expect(messages[0]!.content).toContain('No plugins installed');
+    expect(result.triggerPluginTUI).toBe(true);
   });
 
   it('should handle install command', async () => {
