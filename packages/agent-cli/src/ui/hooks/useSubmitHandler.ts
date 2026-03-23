@@ -8,7 +8,7 @@ import { useCallback } from 'react';
 import type { Session } from '@robota-sdk/agent-sdk';
 import type { IChatMessage } from '../types.js';
 import type { CommandRegistry } from '../../commands/command-registry.js';
-import { extractToolCalls } from '../../utils/tool-call-extractor.js';
+import { extractToolCallsWithDiff } from '../../utils/tool-call-extractor.js';
 import { buildSkillPrompt } from '../../utils/skill-prompt.js';
 
 type TAddMessage = (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
@@ -42,18 +42,18 @@ async function runSessionPrompt(
     clearStreamingText();
 
     const history = session.getHistory();
-    const toolLines = extractToolCalls(
+    const toolSummaries = extractToolCallsWithDiff(
       history as Array<{
         role: string;
         toolCalls?: Array<{ function: { name: string; arguments: string } }>;
       }>,
       historyBefore,
     );
-    if (toolLines.length > 0) {
+    if (toolSummaries.length > 0) {
       addMessage({
         role: 'tool',
-        content: toolLines.join('\n'),
-        toolName: `${toolLines.length} tools`,
+        content: JSON.stringify(toolSummaries),
+        toolName: `${toolSummaries.length} tools`,
       });
     }
 

@@ -6,6 +6,13 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { renderMarkdown } from './render-markdown.js';
+import DiffBlock from './DiffBlock.js';
+
+/** A single diff line with type indicator */
+export interface IDiffLine {
+  type: 'add' | 'remove';
+  text: string;
+}
 
 export interface IToolExecutionState {
   toolName: string;
@@ -13,6 +20,12 @@ export interface IToolExecutionState {
   isRunning: boolean;
   /** 'success' | 'error' | 'denied' — set after tool completes */
   result?: 'success' | 'error' | 'denied';
+  /** Diff lines for Edit tool — shown after completion */
+  diffLines?: IDiffLine[];
+  /** File path for Edit tool diff header */
+  diffFile?: string;
+  /** Internal: tool arguments stored temporarily for diff extraction */
+  _toolArgs?: Record<string, unknown>;
 }
 
 function getToolStyle(t: IToolExecutionState): {
@@ -50,10 +63,15 @@ export default function StreamingIndicator({ text, activeTools }: IProps): React
           {activeTools.map((t, i) => {
             const { color, icon, strikethrough } = getToolStyle(t);
             return (
-              <Text key={`${t.toolName}-${i}`} color={color} strikethrough={strikethrough}>
-                {'  '}
-                {icon} {t.toolName}({t.firstArg})
-              </Text>
+              <Box key={`${t.toolName}-${i}`} flexDirection="column">
+                <Text color={color} strikethrough={strikethrough}>
+                  {'  '}
+                  {icon} {t.toolName}({t.firstArg})
+                </Text>
+                {t.diffLines && t.diffLines.length > 0 && (
+                  <DiffBlock file={t.diffFile} lines={t.diffLines} />
+                )}
+              </Box>
             );
           })}
         </Box>

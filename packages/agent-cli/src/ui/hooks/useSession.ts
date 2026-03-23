@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { createSession, FileSessionLogger, projectPaths } from '@robota-sdk/agent-sdk';
+import { extractEditDiff } from '../../utils/edit-diff.js';
 import type { Session } from '@robota-sdk/agent-sdk';
 import type {
   IResolvedConfig,
@@ -120,16 +121,33 @@ export function useSession(props: ISessionProps): {
         }
         setActiveTools((prev) => [
           ...prev,
-          { toolName: event.toolName, firstArg, isRunning: true },
+          { toolName: event.toolName, firstArg, isRunning: true, _toolArgs: event.toolArgs },
         ]);
       } else {
         const toolResult = event.denied ? 'denied' : event.success === false ? 'error' : 'success';
         setActiveTools((prev) => {
-          const updated = prev.map((t) =>
-            t.toolName === event.toolName && t.isRunning
-              ? { ...t, isRunning: false, result: toolResult as 'success' | 'error' | 'denied' }
-              : t,
-          );
+          const updated = prev.map((t) => {
+            if (!(t.toolName === event.toolName && t.isRunning)) return t;
+
+            // Extract diff for Edit tool
+            const editDiff = extractEditDiff(
+              event.toolName,
+              (t as Record<string, unknown>)._toolArgs as Record<string, unknown>,
+            );
+
+            const finished: typeof t = {
+              ...t,
+              isRunning: false,
+              result: toolResult as 'success' | 'error' | 'denied',
+            };
+            if (editDiff) {
+              finished.diffLines = editDiff.lines;
+              finished.diffFile = editDiff.file;
+            }
+            // Clear toolArgs ref to free memory
+            delete (finished as Record<string, unknown>)._toolArgs;
+            return finished;
+          });
           // Trim old completed tools to prevent unbounded growth
           const completed = updated.filter((t) => !t.isRunning);
           if (completed.length > MAX_COMPLETED_TOOLS) {

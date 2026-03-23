@@ -2,6 +2,8 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import type { IChatMessage } from './types.js';
 import { renderMarkdown } from './render-markdown.js';
+import type { IToolCallSummary } from '../utils/tool-call-extractor.js';
+import DiffBlock from './DiffBlock.js';
 
 interface IProps {
   messages: IChatMessage[];
@@ -37,6 +39,47 @@ function RoleLabel({ role }: { role: IChatMessage['role'] }): React.ReactElement
 }
 
 function ToolMessage({ message }: { message: IChatMessage }): React.ReactElement {
+  // Try to parse structured tool summaries (with diff info)
+  let summaries: IToolCallSummary[] | null = null;
+  try {
+    const parsed = JSON.parse(message.content) as unknown;
+    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0].line === 'string') {
+      summaries = parsed as IToolCallSummary[];
+    }
+  } catch {
+    // Not JSON — fall back to plain text lines
+  }
+
+  if (summaries) {
+    return (
+      <Box flexDirection="column" marginBottom={1}>
+        <Box>
+          <Text color="white" bold>
+            Tool:{' '}
+          </Text>
+          {message.toolName && (
+            <Text color="white" dimColor>
+              [{message.toolName}]
+            </Text>
+          )}
+        </Box>
+        <Text> </Text>
+        {summaries.map((s, i) => (
+          <Box key={i} flexDirection="column">
+            <Text color="green">
+              {'  '}
+              {'✓'} {s.line}
+            </Text>
+            {s.diffLines && s.diffLines.length > 0 && (
+              <DiffBlock file={s.diffFile} lines={s.diffLines} />
+            )}
+          </Box>
+        ))}
+      </Box>
+    );
+  }
+
+  // Fallback: plain text lines
   const lines = message.content.split('\n').filter((l) => l.trim());
   return (
     <Box flexDirection="column" marginBottom={1}>
