@@ -23,7 +23,6 @@ type TScreenId =
 interface IMenuContext {
   marketplace?: string;
   pluginId?: string;
-  isEnabled?: boolean;
 }
 
 interface IMenuState {
@@ -153,7 +152,7 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
           const pluginItems: IMenuSelectItem[] = plugins.map((p) => ({
             label: p.name,
             value: p.name,
-            hint: p.enabled ? 'enabled' : 'disabled',
+            hint: p.description,
           }));
           setItems(pluginItems);
           setLoading(false);
@@ -231,19 +230,8 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
         const fullId = `${value}@${marketplace}`;
         const item = items.find((i) => i.value === value);
         if (item?.hint === 'installed') {
-          // Already installed → check enabled state, then show manage actions
-          callbacks
-            .listInstalled()
-            .then((installed) => {
-              const match = installed.find((p) => p.name === fullId);
-              push({
-                screen: 'installed-action',
-                context: { pluginId: fullId, isEnabled: match?.enabled ?? true },
-              });
-            })
-            .catch(() => {
-              push({ screen: 'installed-action', context: { pluginId: fullId, isEnabled: true } });
-            });
+          // Already installed → show uninstall action
+          push({ screen: 'installed-action', context: { pluginId: fullId } });
         } else {
           push({ screen: 'marketplace-install-scope', context: { marketplace, pluginId: fullId } });
         }
@@ -267,29 +255,32 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
       }
 
       if (screen === 'installed-list') {
-        // Find isEnabled from items hint
-        const item = items.find((i) => i.value === value);
-        const isEnabled = item?.hint === 'enabled';
-        push({ screen: 'installed-action', context: { pluginId: value, isEnabled } });
+        setConfirm({
+          message: `Uninstall plugin "${value}"?`,
+          onConfirm: () => {
+            setConfirm(undefined);
+            callbacks
+              .uninstall(value)
+              .then(() => {
+                notify(`Uninstalled plugin "${value}".`);
+                // Re-fetch installed list
+                setItems([]);
+                setStack((prev) => [...prev]);
+              })
+              .catch((err: unknown) => {
+                const msg = err instanceof Error ? err.message : String(err);
+                notify(`Error uninstalling plugin: ${msg}`);
+              });
+          },
+          onCancel: () => setConfirm(undefined),
+        });
         return;
       }
 
       if (screen === 'installed-action') {
+        // Uninstall only (enable/disable deferred)
         const pluginId = current.context?.pluginId ?? '';
-        const isEnabled = current.context?.isEnabled ?? false;
-
-        if (value === 'toggle') {
-          const action = isEnabled ? callbacks.disable : callbacks.enable;
-          action(pluginId)
-            .then(() => {
-              notify(`${isEnabled ? 'Disabled' : 'Enabled'} plugin "${pluginId}".`);
-              pop();
-            })
-            .catch((err: unknown) => {
-              const msg = err instanceof Error ? err.message : String(err);
-              notify(`Error toggling plugin: ${msg}`);
-            });
-        } else if (value === 'uninstall') {
+        if (value === 'uninstall') {
           setConfirm({
             message: `Uninstall plugin "${pluginId}"?`,
             onConfirm: () => {
@@ -298,7 +289,7 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
                 .uninstall(pluginId)
                 .then(() => {
                   notify(`Uninstalled plugin "${pluginId}".`);
-                  popN(2); // back to installed-list
+                  popN(2);
                 })
                 .catch((err: unknown) => {
                   const msg = err instanceof Error ? err.message : String(err);
@@ -398,15 +389,11 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
 
   if (screen === 'installed-action') {
     const pluginId = current.context?.pluginId ?? '';
-    const isEnabled = current.context?.isEnabled ?? false;
     return (
       <MenuSelect
         key={stack.length}
         title={`Plugin: ${pluginId}`}
-        items={[
-          { label: isEnabled ? 'Disable' : 'Enable', value: 'toggle' },
-          { label: 'Uninstall', value: 'uninstall' },
-        ]}
+        items={[{ label: 'Uninstall', value: 'uninstall' }]}
         onSelect={handleSelect}
         onBack={pop}
       />
