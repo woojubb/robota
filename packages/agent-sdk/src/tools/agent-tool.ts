@@ -13,7 +13,8 @@
 import { z } from 'zod';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IZodSchema } from '@robota-sdk/agent-tools';
-import type { IToolWithEventService, TToolArgs } from '@robota-sdk/agent-core';
+import type { IToolWithEventService, IHookTypeExecutor, TToolArgs } from '@robota-sdk/agent-core';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, TPermissionHandler } from '@robota-sdk/agent-sessions';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
@@ -43,7 +44,13 @@ export interface IAgentToolDeps {
   context: ILoadedContext;
   tools: IToolWithEventService[];
   terminal: ITerminalOutput;
+  /** Permission mode from parent session (bypassPermissions, acceptEdits, etc.). */
+  permissionMode?: TPermissionMode;
   permissionHandler?: TPermissionHandler;
+  /** Plugin hooks configuration from parent session. */
+  hooks?: Record<string, unknown>;
+  /** Hook type executors from parent session (prompt, agent, etc.). */
+  hookTypeExecutors?: IHookTypeExecutor[];
   onTextDelta?: (delta: string) => void;
   onToolExecution?: (event: {
     type: 'start' | 'end';
@@ -124,7 +131,10 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
       parentContext: deps.context,
       parentTools: deps.tools,
       terminal: deps.terminal,
+      permissionMode: deps.permissionMode,
       permissionHandler: deps.permissionHandler,
+      hooks: deps.hooks,
+      hookTypeExecutors: deps.hookTypeExecutors,
       onTextDelta: deps.onTextDelta,
       onToolExecution: deps.onToolExecution,
     });
