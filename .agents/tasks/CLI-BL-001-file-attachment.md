@@ -1,6 +1,6 @@
 ---
 title: CLI 파일 첨부 기능
-status: backlog
+status: cancelled
 priority: medium
 created: 2026-03-23
 packages:
