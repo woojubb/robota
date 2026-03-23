@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Text } from 'ink';
 import MenuSelect from './MenuSelect.js';
 import TextPrompt from './TextPrompt.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
@@ -410,19 +409,6 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
 
   const displayItems = staticItemsMap[screen] ?? items;
   const title = titleMap[screen] ?? 'Plugin Management';
-
-  if (loading) {
-    return (
-      <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
-        <Text color="yellow" bold>
-          {title}
-        </Text>
-        <Box marginTop={1}>
-          <Text dimColor>Loading...</Text>
-        </Box>
-      </Box>
-    );
-  }
 
   return (
     <MenuSelect
