@@ -19,6 +19,8 @@ import type { IToolExecutionState } from '../StreamingIndicator.js';
 
 const TOOL_ARG_DISPLAY_MAX = 80;
 const TAIL_KEEP = 30;
+/** Max completed tools to keep in the activeTools array during a single response */
+const MAX_COMPLETED_TOOLS = 50;
 
 /** No-op ITerminalOutput for Ink mode (permissions handled via permissionHandler) */
 const NOOP_TERMINAL: ITerminalOutput = {
@@ -121,14 +123,28 @@ export function useSession(props: ISessionProps): {
           { toolName: event.toolName, firstArg, isRunning: true },
         ]);
       } else {
-        const result = event.denied ? 'denied' : event.success === false ? 'error' : 'success';
-        setActiveTools((prev) =>
-          prev.map((t) =>
+        const toolResult = event.denied ? 'denied' : event.success === false ? 'error' : 'success';
+        setActiveTools((prev) => {
+          const updated = prev.map((t) =>
             t.toolName === event.toolName && t.isRunning
-              ? { ...t, isRunning: false, result: result as 'success' | 'error' | 'denied' }
+              ? { ...t, isRunning: false, result: toolResult as 'success' | 'error' | 'denied' }
               : t,
-          ),
-        );
+          );
+          // Trim old completed tools to prevent unbounded growth
+          const completed = updated.filter((t) => !t.isRunning);
+          if (completed.length > MAX_COMPLETED_TOOLS) {
+            const excess = completed.length - MAX_COMPLETED_TOOLS;
+            let removed = 0;
+            return updated.filter((t) => {
+              if (!t.isRunning && removed < excess) {
+                removed++;
+                return false;
+              }
+              return true;
+            });
+          }
+          return updated;
+        });
       }
     };
 

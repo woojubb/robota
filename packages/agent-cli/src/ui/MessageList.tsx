@@ -61,7 +61,11 @@ function ToolMessage({ message }: { message: IChatMessage }): React.ReactElement
   );
 }
 
-function MessageItem({ message }: { message: IChatMessage }): React.ReactElement {
+const MessageItem = React.memo(function MessageItem({
+  message,
+}: {
+  message: IChatMessage;
+}): React.ReactElement {
   if (message.role === 'tool') {
     return <ToolMessage message={message} />;
   }
@@ -84,7 +88,7 @@ function MessageItem({ message }: { message: IChatMessage }): React.ReactElement
       </Box>
     </Box>
   );
-}
+});
 
 export default function MessageList({ messages }: IProps): React.ReactElement {
   return (
