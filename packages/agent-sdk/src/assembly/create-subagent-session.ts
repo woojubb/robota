@@ -7,8 +7,8 @@
  * Session suitable for subagent use.
  */
 
-import type { IToolWithEventService } from '@robota-sdk/agent-core';
-import type { TToolArgs } from '@robota-sdk/agent-core';
+import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-sessions';
 import type { ITerminalOutput, TPermissionHandler } from '@robota-sdk/agent-sessions';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
@@ -38,8 +38,14 @@ export interface ISubagentOptions {
   terminal: ITerminalOutput;
   /** Whether this is a fork worker (uses fork suffix instead of standard). */
   isForkWorker?: boolean;
+  /** Permission mode from parent (bypassPermissions, acceptEdits, etc.). */
+  permissionMode?: TPermissionMode;
   /** Permission handler from parent. */
   permissionHandler?: TPermissionHandler;
+  /** Plugin hooks configuration from parent session. */
+  hooks?: Record<string, unknown>;
+  /** Hook type executors from parent session (prompt, agent, etc.). */
+  hookTypeExecutors?: IHookTypeExecutor[];
   /** Streaming callback. */
   onTextDelta?: (delta: string) => void;
   /** Tool execution callback. */
@@ -127,8 +133,11 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     model,
     maxTurns: agentDefinition.maxTurns,
     permissions: parentConfig.permissions,
+    permissionMode: options.permissionMode,
     defaultTrustLevel: parentConfig.defaultTrustLevel,
     permissionHandler: options.permissionHandler,
+    hooks: options.hooks,
+    hookTypeExecutors: options.hookTypeExecutors,
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,
   });

@@ -28,6 +28,7 @@ import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
 import { createProvider } from './create-provider.js';
 import { createAgentTool, storeAgentToolDeps } from '../tools/agent-tool.js';
+import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
@@ -98,14 +99,41 @@ export function createSession(options: ICreateSessionOptions): Session {
 
   // Wire agent tool — create a fresh instance with deps captured in closure.
   // Must happen after default tools are assembled so sub-agents inherit the full set.
+  const agentLoader = new AgentDefinitionLoader(process.cwd());
+
+  // Build hook type executors early so they can be forwarded to subagents.
+  const hookTypeExecutors: IHookTypeExecutor[] = [];
+  if (options.providerFactory) {
+    hookTypeExecutors.push(
+      new PromptExecutor({
+        providerFactory: options.providerFactory,
+        defaultModel: options.config.provider.model,
+      }),
+    );
+  }
+  if (options.sessionFactory) {
+    hookTypeExecutors.push(
+      new AgentExecutor({
+        sessionFactory: options.sessionFactory,
+      }),
+    );
+  }
+  if (options.additionalHookExecutors) {
+    hookTypeExecutors.push(...options.additionalHookExecutors);
+  }
+
   const agentToolDeps = {
     config: options.config,
     context: options.context,
     tools,
     terminal: options.terminal,
+    permissionMode: options.permissionMode,
     permissionHandler: options.permissionHandler,
+    hooks: options.config.hooks as Record<string, unknown> | undefined,
+    hookTypeExecutors: hookTypeExecutors.length > 0 ? hookTypeExecutors : undefined,
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,
+    customAgentRegistry: (name: string) => agentLoader.getAgent(name),
   };
   tools.push(createAgentTool(agentToolDeps));
 
@@ -133,28 +161,6 @@ export function createSession(options: ICreateSessionOptions): Session {
     allow: [...defaultAllow, ...(options.config.permissions.allow ?? [])],
     deny: options.config.permissions.deny ?? [],
   };
-
-  // Build hook type executors: start with SDK-level executors (prompt, agent) if factories provided,
-  // then append any additional user-provided executors.
-  const hookTypeExecutors: IHookTypeExecutor[] = [];
-  if (options.providerFactory) {
-    hookTypeExecutors.push(
-      new PromptExecutor({
-        providerFactory: options.providerFactory,
-        defaultModel: options.config.provider.model,
-      }),
-    );
-  }
-  if (options.sessionFactory) {
-    hookTypeExecutors.push(
-      new AgentExecutor({
-        sessionFactory: options.sessionFactory,
-      }),
-    );
-  }
-  if (options.additionalHookExecutors) {
-    hookTypeExecutors.push(...options.additionalHookExecutors);
-  }
 
   const session = new Session({
     tools,
