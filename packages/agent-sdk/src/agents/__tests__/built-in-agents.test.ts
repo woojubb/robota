@@ -40,4 +40,22 @@ describe('Built-in agents', () => {
       expect(agent.systemPrompt.length).toBeGreaterThan(0);
     }
   });
+
+  it('should be case-sensitive for agent name lookup', () => {
+    expect(getBuiltInAgent('explore')).toBeUndefined();
+    expect(getBuiltInAgent('EXPLORE')).toBeUndefined();
+    expect(getBuiltInAgent('General-Purpose')).toBeUndefined();
+    expect(getBuiltInAgent('plan')).toBeUndefined();
+  });
+
+  it('all agents should have non-empty description', () => {
+    for (const agent of BUILT_IN_AGENTS) {
+      expect(agent.description.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('all agents should have unique names', () => {
+    const names = BUILT_IN_AGENTS.map((a) => a.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
 });

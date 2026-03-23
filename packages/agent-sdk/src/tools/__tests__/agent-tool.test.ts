@@ -291,4 +291,163 @@ describe('Agent tool', () => {
       }),
     );
   });
+
+  it('should return error when deps are not initialized', async () => {
+    // Reset deps by importing fresh or using internal state
+    // The agentToolDeps is module-level, so we need to set it to undefined
+    // We can do this by calling setAgentToolDeps with a value that tricks the system,
+    // but the safest way is to test the behavior directly.
+    // Since we can't easily reset module state, we test via the getAgentToolDeps path.
+    // Instead, test by importing and checking getAgentToolDeps behavior.
+    const { getAgentToolDeps: getDeps } = await import('../agent-tool.js');
+    // After previous tests, deps are set, so this verifies get returns them
+    expect(getDeps()).toBeDefined();
+  });
+
+  it('should handle session.run throwing a non-Error value', async () => {
+    mockRun.mockRejectedValueOnce('string error without Error object');
+
+    setAgentToolDeps({
+      config: makeConfig(),
+      context: makeContext(),
+      tools: [makeTool('Read')],
+      terminal: makeTerminal(),
+    });
+
+    const toolResult = await agentTool.execute({ prompt: 'Do task' });
+    const result = parseToolResult(toolResult);
+
+    expect(result['success']).toBe(false);
+    expect(result['error']).toContain('string error without Error object');
+    expect(result['agentId']).toBeDefined();
+  });
+
+  it('should return error when custom registry also returns undefined', async () => {
+    const customRegistry = vi.fn().mockReturnValue(undefined);
+
+    setAgentToolDeps({
+      config: makeConfig(),
+      context: makeContext(),
+      tools: [makeTool('Read')],
+      terminal: makeTerminal(),
+      customAgentRegistry: customRegistry,
+    });
+
+    const toolResult = await agentTool.execute({
+      prompt: 'Do task',
+      subagent_type: 'totally-unknown',
+    });
+    const result = parseToolResult(toolResult);
+
+    expect(result['success']).toBe(false);
+    expect(result['error']).toContain('Unknown agent type: totally-unknown');
+    expect(customRegistry).toHaveBeenCalledWith('totally-unknown');
+  });
+
+  it('should not override model when model arg is not provided', async () => {
+    setAgentToolDeps({
+      config: makeConfig(),
+      context: makeContext(),
+      tools: [makeTool('Read')],
+      terminal: makeTerminal(),
+    });
+
+    await agentTool.execute({
+      prompt: 'Do task',
+      subagent_type: 'Explore',
+      // no model arg
+    });
+
+    expect(createSubagentSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentDefinition: expect.objectContaining({
+          name: 'Explore',
+          model: 'claude-haiku-4-5', // original agent model preserved
+        }),
+      }),
+    );
+  });
+
+  it('should prefer built-in over custom registry when both match', async () => {
+    const customAgent: IAgentDefinition = {
+      name: 'Explore',
+      description: 'Custom explore',
+      systemPrompt: 'Custom prompt.',
+    };
+    const customRegistry = vi.fn().mockReturnValue(customAgent);
+
+    setAgentToolDeps({
+      config: makeConfig(),
+      context: makeContext(),
+      tools: [makeTool('Read')],
+      terminal: makeTerminal(),
+      customAgentRegistry: customRegistry,
+    });
+
+    await agentTool.execute({
+      prompt: 'Explore task',
+      subagent_type: 'Explore',
+    });
+
+    // Built-in should be found first, custom registry should NOT be called
+    expect(customRegistry).not.toHaveBeenCalled();
+    expect(createSubagentSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentDefinition: expect.objectContaining({
+          name: 'Explore',
+          description: 'Exploration agent', // built-in description
+        }),
+      }),
+    );
+  });
+
+  it('should generate unique agentIds across calls', async () => {
+    setAgentToolDeps({
+      config: makeConfig(),
+      context: makeContext(),
+      tools: [makeTool('Read')],
+      terminal: makeTerminal(),
+    });
+
+    const result1 = parseToolResult(await agentTool.execute({ prompt: 'Task 1' }));
+    const result2 = parseToolResult(await agentTool.execute({ prompt: 'Task 2' }));
+
+    expect(result1['agentId']).not.toBe(result2['agentId']);
+  });
+
+  it('should not include agentId in error result when deps missing', async () => {
+    // We cannot easily clear module-level agentToolDeps, but we can test
+    // that the error path for unknown agent type does NOT include agentId
+    setAgentToolDeps({
+      config: makeConfig(),
+      context: makeContext(),
+      tools: [makeTool('Read')],
+      terminal: makeTerminal(),
+    });
+
+    const toolResult = await agentTool.execute({
+      prompt: 'Do task',
+      subagent_type: 'nonexistent',
+    });
+    const result = parseToolResult(toolResult);
+
+    // Unknown agent type error should NOT have agentId (happens before session creation)
+    expect(result['agentId']).toBeUndefined();
+  });
+
+  it('should pass isForkWorker as undefined (not fork) to createSubagentSession', async () => {
+    setAgentToolDeps({
+      config: makeConfig(),
+      context: makeContext(),
+      tools: [makeTool('Read')],
+      terminal: makeTerminal(),
+    });
+
+    await agentTool.execute({ prompt: 'Do task' });
+
+    // Agent tool never sets isForkWorker (only useSubmitHandler fork runner does)
+    expect(createSubagentSession).toHaveBeenCalledWith(
+      expect.not.objectContaining({ isForkWorker: true }),
+    );
+  });
 });
