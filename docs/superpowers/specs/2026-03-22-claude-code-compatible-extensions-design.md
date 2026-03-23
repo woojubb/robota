@@ -394,21 +394,35 @@ No default marketplace is pre-registered. Users add marketplaces explicitly via 
 2. Look up marketplace in `known_marketplaces.json`
 3. Git pull the marketplace clone (update to latest)
 4. Read `marketplace.json`, find plugin entry by name
-5. Resolve source — three types:
+5. Resolve source — normalize the source object first, then install:
    - `"./relative/path"` (string): plugin lives inside the marketplace repo. Copy from marketplace clone.
-   - `{ "type": "github", "repo": "..." }`: separate git repo. Clone independently.
-   - `{ "type": "url", "url": "..." }`: fetch from URL.
+   - Git URL (`.git` suffix): clone independently via `git clone --depth 1`.
+   - Non-git URL: not supported (error).
 6. Determine version: explicit `version` field from manifest, or 12-char git commit SHA as fallback
 7. Copy plugin to `~/.robota/plugins/cache/<marketplace>/<plugin>/<version>/`
 8. Record in `installed_plugins.json`
+9. If install fails or produces an empty directory, clean up the target dir.
+
+#### Plugin Source Normalization
+
+Claude Code marketplace manifests use two different source key conventions. The installer MUST handle both:
+
+| Manifest format                                | Normalized form                          | Example            |
+| ---------------------------------------------- | ---------------------------------------- | ------------------ |
+| `{ "type": "github", "repo": "user/repo" }`    | `{ type: "github", repo: "user/repo" }`  | Our format         |
+| `{ "source": "url", "url": "https://...git" }` | `{ type: "url", url: "https://...git" }` | Claude Code format |
+| `{ "source": "github", "repo": "user/repo" }`  | `{ type: "github", repo: "user/repo" }`  | Claude Code format |
+
+Normalization rule: if the object has `source` key but no `type` key, use `source` value as `type`.
 
 #### Plugin Source Types in Manifest
 
-| Source format                               | Meaning                               | Install behavior            | Status      |
-| ------------------------------------------- | ------------------------------------- | --------------------------- | ----------- |
-| `"./packages/foo"`                          | Relative path inside marketplace repo | Copy from marketplace clone | Implemented |
-| `{ "type": "github", "repo": "user/repo" }` | Separate GitHub repo                  | Clone independently         | Implemented |
-| `{ "type": "url", "url": "https://..." }`   | Remote URL                            | Fetch and extract           | Phase 2     |
+| Source format                                   | Install behavior                                    | Status       |
+| ----------------------------------------------- | --------------------------------------------------- | ------------ |
+| `"./packages/foo"` (string)                     | Copy from marketplace clone                         | Implemented  |
+| `{ type: "github", repo: "user/repo" }`         | `git clone --depth 1 https://github.com/{repo}.git` | Implemented  |
+| `{ type: "url", url: "https://...git" }`        | `git clone --depth 1 {url}` (if ends with `.git`)   | To implement |
+| `{ type: "url", url: "https://..." }` (non-git) | Not supported                                       | Error        |
 
 ### Marketplace Manifest Format
 
