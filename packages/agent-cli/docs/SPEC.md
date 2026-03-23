@@ -456,6 +456,35 @@ Plugin skills show the plugin hint before the description:
 - Format: `/skill-name (plugin-name) description`
 - Example: `/audit (rulebased-harness) Audits your project's harness setup`
 
+### Edit Diff Display
+
+When the Edit tool completes successfully, a compact diff is shown below the tool line. This gives the user immediate visibility into what changed without inspecting the file.
+
+**Source:** `old_string` and `new_string` from the Edit tool arguments.
+
+**Display format:**
+
+```
+  ✓ Edit(src/provider.ts)
+    │ src/provider.ts
+    │ - const DEFAULT_MAX_TOKENS = 4096;
+    │ + const maxTokens = getModelMaxOutput(modelId);
+```
+
+**Rules:**
+
+- Show the file path as a header line.
+- Removed lines in **red** with `-` prefix.
+- Added lines in **green** with `+` prefix.
+- **Max display lines: 10.** If the diff exceeds 10 lines, show the first 8 lines + `... and N more lines`.
+- Only display one contiguous changed region (the `old_string` → `new_string` replacement). No context lines from the surrounding file.
+- If `old_string` and `new_string` are identical (no-op edit), show nothing.
+- Diff is shown in both the real-time streaming indicator (after tool completes) and the post-execution summary.
+
+**Permission prompt integration (future):**
+
+When a permission prompt is shown for an Edit tool, the diff should be displayed alongside the Allow/Deny prompt so the user can see what will change before approving.
+
 ## Memory Management
 
 ### Message Windowing
