@@ -67,9 +67,10 @@ function buildInjectPrompt(
 /**
  * Execute a skill command.
  *
- * When `context: 'fork'` and a `runInFork` callback is provided,
- * the skill runs in an isolated subagent session. Otherwise, the skill
- * content is returned as a prompt for injection into the current session.
+ * When `context: 'fork'`, the skill runs in an isolated subagent session
+ * via the `runInFork` callback. Throws if `runInFork` is not available.
+ * For non-fork skills, the content is returned as a prompt for injection
+ * into the current session.
  */
 export async function executeSkill(
   skill: ISlashCommand,
@@ -78,7 +79,11 @@ export async function executeSkill(
   context?: SkillPromptContext,
 ): Promise<ISkillExecutionResult> {
   // Fork execution: isolated subagent session
-  if (skill.context === 'fork' && callbacks.runInFork) {
+  if (skill.context === 'fork') {
+    if (!callbacks.runInFork) {
+      throw new Error('Fork execution is not available. Agent tool deps may not be initialized.');
+    }
+
     const content = buildProcessedContent(skill, args, context);
     const prompt = content ?? `Use the "${skill.name}" skill: ${args || skill.description}`;
 

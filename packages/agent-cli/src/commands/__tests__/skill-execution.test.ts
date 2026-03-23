@@ -94,14 +94,13 @@ describe('Skill execution features', () => {
       expect(result.prompt).toBeDefined();
     });
 
-    it('should fall back to inject when context: fork but no runInFork callback', async () => {
+    it('should throw error when context: fork but no runInFork callback', async () => {
       const callbacks: ISkillExecutionCallbacks = {};
       const skill = makeSkill({ context: 'fork' });
 
-      const result = await executeSkill(skill, 'args', callbacks);
-
-      expect(result.mode).toBe('inject');
-      expect(result.prompt).toContain('Do the thing with args');
+      await expect(executeSkill(skill, 'args', callbacks)).rejects.toThrow(
+        'Fork execution is not available. Agent tool deps may not be initialized.',
+      );
     });
 
     it('should handle skill without skillContent', async () => {
@@ -238,7 +237,7 @@ describe('Skill execution features', () => {
       expect(capturedOptions?.agent).toBeUndefined();
     });
 
-    it('should fall back to inject mode when no subagent deps and no runInFork', async () => {
+    it('should throw error when no subagent deps and no runInFork', async () => {
       // No runInFork callback provided — simulates missing agent tool deps
       const callbacks: ISkillExecutionCallbacks = {};
       const skill = makeSkill({
@@ -247,11 +246,9 @@ describe('Skill execution features', () => {
         skillContent: 'Search for patterns in $ARGUMENTS',
       });
 
-      const result = await executeSkill(skill, 'tests', callbacks);
-
-      expect(result.mode).toBe('inject');
-      expect(result.prompt).toContain('Search for patterns in tests');
-      expect(result.result).toBeUndefined();
+      await expect(executeSkill(skill, 'tests', callbacks)).rejects.toThrow(
+        'Fork execution is not available. Agent tool deps may not be initialized.',
+      );
     });
 
     it('should pass allowedTools to fork runner for tool filtering', async () => {

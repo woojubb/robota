@@ -513,7 +513,7 @@ describe('E2E: Skill invocation', () => {
     expect(capturedOptions.allowedTools).toEqual(['Read', 'Grep']);
   });
 
-  it('should fall back to inject mode when fork callback is not provided', async () => {
+  it('should throw error when fork callback is not provided', async () => {
     const projectDir = createTempDir('fork-fallback-');
 
     // Create a fork skill but don't provide runInFork callback
@@ -532,12 +532,10 @@ describe('E2E: Skill invocation', () => {
     const skill = source.getCommands().find((c) => c.name === 'fork-skill');
     expect(skill).toBeDefined();
 
-    // No runInFork callback provided — should fall back to inject
-    const result = await executeSkill(skill!, 'test-arg', {});
-
-    expect(result.mode).toBe('inject');
-    expect(result.prompt).toBeDefined();
-    expect(result.prompt).toContain('fork-skill');
+    // No runInFork callback provided — should throw instead of silent fallback
+    await expect(executeSkill(skill!, 'test-arg', {})).rejects.toThrow(
+      'Fork execution is not available. Agent tool deps may not be initialized.',
+    );
   });
 });
 
