@@ -92,7 +92,8 @@ function createForkRunner():
 
   return async (content: string, options: IForkExecutionOptions): Promise<string> => {
     const agentType = options.agent ?? 'general-purpose';
-    const agentDef = getBuiltInAgent(agentType);
+    // Resolve agent: check built-in first, then custom registry (same pattern as agent-tool.ts)
+    const agentDef = getBuiltInAgent(agentType) ?? deps.customAgentRegistry?.(agentType);
     if (!agentDef) {
       throw new Error(`Unknown agent type for fork execution: ${agentType}`);
     }
