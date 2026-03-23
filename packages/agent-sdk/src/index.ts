@@ -105,7 +105,7 @@ export type { IAgentDefinition } from './agents/index.js';
 export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
 
 // Tools — agent-tool (SDK-specific, not a re-export)
-export { agentTool, setAgentToolDeps } from './tools/agent-tool.js';
+export { agentTool, setAgentToolDeps, getAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 
 // Individual tools (re-exported from agent-tools for backward compatibility)

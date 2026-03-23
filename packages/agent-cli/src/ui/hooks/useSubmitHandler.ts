@@ -1,15 +1,21 @@
 /**
  * Hook: build the handleSubmit callback for user input.
  * Handles slash commands, skill commands, and regular prompts.
+ *
+ * For skills with `context: 'fork'`, creates an isolated subagent session
+ * via `createSubagentSession` instead of injecting content into the current session.
  */
 
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import type { Session } from '@robota-sdk/agent-sdk';
+import { createSubagentSession, getBuiltInAgent, getAgentToolDeps } from '@robota-sdk/agent-sdk';
 import type { IChatMessage } from '../types.js';
 import type { CommandRegistry } from '../../commands/command-registry.js';
 import { extractToolCallsWithDiff } from '../../utils/tool-call-extractor.js';
 import { buildSkillPrompt } from '../../utils/skill-prompt.js';
+import { executeSkill } from '../../commands/skill-executor.js';
+import type { IForkExecutionOptions } from '../../commands/skill-executor.js';
 
 type TAddMessage = (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
 type TContextStateSetter = Dispatch<
@@ -72,6 +78,63 @@ async function runSessionPrompt(
   }
 }
 
+/**
+ * Create a runInFork callback that spawns an isolated subagent session.
+ *
+ * Uses the agent tool deps (config, context, tools) that were wired during
+ * session creation. Returns the subagent's response text.
+ */
+function createForkRunner():
+  | ((content: string, options: IForkExecutionOptions) => Promise<string>)
+  | undefined {
+  const deps = getAgentToolDeps();
+  if (!deps) return undefined;
+
+  return async (content: string, options: IForkExecutionOptions): Promise<string> => {
+    const agentType = options.agent ?? 'general-purpose';
+    const agentDef = getBuiltInAgent(agentType);
+    if (!agentDef) {
+      throw new Error(`Unknown agent type for fork execution: ${agentType}`);
+    }
+
+    // Apply tool filtering from skill's allowedTools
+    const effectiveDef = options.allowedTools
+      ? { ...agentDef, tools: options.allowedTools }
+      : agentDef;
+
+    const subSession = createSubagentSession({
+      agentDefinition: effectiveDef,
+      parentConfig: deps.config,
+      parentContext: deps.context,
+      parentTools: deps.tools,
+      terminal: deps.terminal,
+      isForkWorker: true,
+      permissionHandler: deps.permissionHandler,
+      onTextDelta: deps.onTextDelta,
+      onToolExecution: deps.onToolExecution,
+    });
+
+    return await subSession.run(content);
+  };
+}
+
+/**
+ * Find a skill command from the registry by parsing slash command input.
+ * Returns the skill command and extracted args, or null if not a skill.
+ */
+function findSkillCommand(
+  input: string,
+  registry: CommandRegistry,
+): { skill: ReturnType<CommandRegistry['getCommands']>[number]; args: string } | null {
+  const parts = input.slice(1).split(/\s+/);
+  const cmd = parts[0]?.toLowerCase() ?? '';
+  const skillCmd = registry
+    .getCommands()
+    .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
+  if (!skillCmd) return null;
+  return { skill: skillCmd, args: parts.slice(1).join(' ').trim() };
+}
+
 export function useSubmitHandler(
   session: Session,
   addMessage: TAddMessage,
@@ -89,6 +152,49 @@ export function useSubmitHandler(
           syncContextState(session, setContextState);
           return;
         }
+
+        // Find skill command from registry
+        const found = findSkillCommand(input, registry);
+        if (!found) return;
+
+        const { skill, args } = found;
+
+        // For fork skills, try subagent execution via executeSkill
+        if (skill.context === 'fork') {
+          const runInFork = createForkRunner();
+          const result = await executeSkill(skill, args, { runInFork });
+
+          if (result.mode === 'fork') {
+            // Fork completed — show the subagent's response
+            addMessage({ role: 'assistant', content: result.result ?? '(empty response)' });
+            syncContextState(session, setContextState);
+            return;
+          }
+
+          // Fell through to inject mode (no deps available)
+          // Continue below to handle as inject
+          if (result.prompt) {
+            const cmdName = input.slice(1).split(/\s+/)[0]?.toLowerCase() ?? '';
+            const qualifiedName = registry.resolveQualifiedName(cmdName);
+            const hookInput = qualifiedName
+              ? `/${qualifiedName}${input.slice(1 + cmdName.length)}`
+              : input;
+
+            return runSessionPrompt(
+              result.prompt,
+              session,
+              addMessage,
+              clearStreamingText,
+              setIsThinking,
+              setContextState,
+              hookInput,
+            );
+          }
+          return;
+        }
+
+        // Non-fork skills: use buildSkillPrompt for inject mode
+        // (preserves shell command preprocessing)
         const prompt = await buildSkillPrompt(input, registry);
         if (!prompt) return;
 
