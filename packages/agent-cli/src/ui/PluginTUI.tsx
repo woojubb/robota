@@ -228,10 +228,25 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
 
       if (screen === 'marketplace-browse') {
         const marketplace = current.context?.marketplace ?? '';
-        push({
-          screen: 'marketplace-install-scope',
-          context: { marketplace, pluginId: `${value}@${marketplace}` },
-        });
+        const fullId = `${value}@${marketplace}`;
+        const item = items.find((i) => i.value === value);
+        if (item?.hint === 'installed') {
+          // Already installed → check enabled state, then show manage actions
+          callbacks
+            .listInstalled()
+            .then((installed) => {
+              const match = installed.find((p) => p.name === fullId);
+              push({
+                screen: 'installed-action',
+                context: { pluginId: fullId, isEnabled: match?.enabled ?? true },
+              });
+            })
+            .catch(() => {
+              push({ screen: 'installed-action', context: { pluginId: fullId, isEnabled: true } });
+            });
+        } else {
+          push({ screen: 'marketplace-install-scope', context: { marketplace, pluginId: fullId } });
+        }
         return;
       }
 
