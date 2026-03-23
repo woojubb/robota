@@ -456,6 +456,26 @@ Plugin skills show the plugin hint before the description:
 - Format: `/skill-name (plugin-name) description`
 - Example: `/audit (rulebased-harness) Audits your project's harness setup`
 
+## Memory Management
+
+### Alternate Screen Buffer
+
+The CLI uses the terminal's alternate screen buffer (`\x1b[?1049h`) to prevent Terminal.app scrollback buffer corruption during long sessions. On exit, the last rendered frame is captured and reprinted to the normal buffer so the user sees the final TUI state.
+
+Implementation: `stdout.write` is intercepted to capture the last substantial frame (>50 chars, filtering out Ink clear sequences). On exit, alternate screen is left and the captured frame is printed.
+
+### Message Windowing
+
+React state keeps only the most recent 100 messages (`MAX_RENDERED_MESSAGES`). Older messages are dropped from the render tree to prevent unbounded memory growth. Full conversation history is preserved in the session store on disk.
+
+### Tool State Cleanup
+
+Completed tool execution states are trimmed to the most recent 50 entries (`MAX_COMPLETED_TOOLS`). Running tools are always kept. This prevents `activeTools` array from growing unbounded during tool-heavy responses.
+
+### React.memo
+
+`MessageItem` component uses `React.memo` to skip re-renders when message props are unchanged, reducing CPU and indirect memory pressure from Ink's full-tree reconciliation.
+
 ## Known Limitations
 
 - **Korean IME on macOS Terminal.app**: Ink's renderer shifts the input area during IME composition, causing Terminal.app to crash (SIGSEGV). Fixed by adding a permanent blank line below the input area, which stabilizes the cursor position during IME composition. **Use [iTerm2](https://iterm2.com/) for the best experience.**

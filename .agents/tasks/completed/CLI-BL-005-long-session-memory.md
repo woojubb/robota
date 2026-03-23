@@ -1,6 +1,6 @@
 ---
 title: CLI-BL-005 장시간 세션 메모리 최적화
-status: backlog
+status: completed
 priority: medium
 created: 2026-03-23
 packages:
