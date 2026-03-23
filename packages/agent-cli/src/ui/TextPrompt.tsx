@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Box, Text, useInput, useStdout } from 'ink';
+import { Box, Text, useInput } from 'ink';
 
 interface IProps {
   title: string;
@@ -20,8 +20,6 @@ export default function TextPrompt({
   const [error, setError] = useState<string | undefined>();
   const resolvedRef = useRef(false);
   const valueRef = useRef('');
-  const { write } = useStdout();
-
   const handleSubmit = useCallback(() => {
     if (resolvedRef.current) return;
     const trimmed = valueRef.current.trim();
@@ -29,16 +27,13 @@ export default function TextPrompt({
     if (validate) {
       const err = validate(trimmed);
       if (err) {
-        // Write synchronously so tests see the error in lastFrame() immediately.
-        // React state update below will render it properly on the next commit.
-        write(err);
         setError(err);
         return;
       }
     }
     resolvedRef.current = true;
     onSubmit(trimmed);
-  }, [validate, onSubmit, write]);
+  }, [validate, onSubmit]);
 
   useInput((input, key) => {
     if (resolvedRef.current) return;
