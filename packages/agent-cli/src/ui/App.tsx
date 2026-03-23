@@ -9,6 +9,7 @@ import type {
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { getModelName } from '@robota-sdk/agent-core';
 import { getUserSettingsPath, updateModelInSettings } from '../utils/settings-io.js';
+import type { IChatMessage } from './types.js';
 import { useSession } from './hooks/useSession.js';
 import { useMessages } from './hooks/useMessages.js';
 import { useSlashCommands } from './hooks/useSlashCommands.js';
@@ -21,6 +22,7 @@ import InputArea from './InputArea.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import StreamingIndicator from './StreamingIndicator.js';
+import PluginTUI from './PluginTUI.js';
 
 interface IProps {
   config: IResolvedConfig;
@@ -86,6 +88,7 @@ export default function App(props: IProps): React.ReactElement {
   });
   const pendingModelChangeRef = useRef<string | null>(null);
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
+  const [showPluginTUI, setShowPluginTUI] = useState(false);
 
   const pluginCallbacks = usePluginCallbacks(props.cwd ?? process.cwd());
   const handleSlashCommand = useSlashCommands(
@@ -97,6 +100,7 @@ export default function App(props: IProps): React.ReactElement {
     pendingModelChangeRef,
     setPendingModelId,
     pluginCallbacks,
+    setShowPluginTUI,
   );
   const handleSubmit = useSubmitHandler(
     session,
@@ -113,7 +117,7 @@ export default function App(props: IProps): React.ReactElement {
       if (key.ctrl && _input === 'c') exit();
       if (key.escape && isThinking) session.abort();
     },
-    { isActive: !permissionRequest },
+    { isActive: !permissionRequest && !showPluginTUI },
   );
 
   return (
@@ -164,6 +168,13 @@ export default function App(props: IProps): React.ReactElement {
           }}
         />
       )}
+      {showPluginTUI && (
+        <PluginTUI
+          callbacks={pluginCallbacks}
+          onClose={() => setShowPluginTUI(false)}
+          addMessage={(msg) => addMessage(msg as Omit<IChatMessage, 'id' | 'timestamp'>)}
+        />
+      )}
       <StatusBar
         permissionMode={session.getPermissionMode()}
         modelName={getModelName(props.config.provider.model)}
@@ -176,7 +187,7 @@ export default function App(props: IProps): React.ReactElement {
       />
       <InputArea
         onSubmit={handleSubmit}
-        isDisabled={isThinking || !!permissionRequest}
+        isDisabled={isThinking || !!permissionRequest || showPluginTUI}
         registry={registry}
       />
       {/* Permanent blank line below input — required for Korean IME stability. */}

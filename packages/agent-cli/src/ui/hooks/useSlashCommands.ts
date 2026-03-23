@@ -20,6 +20,7 @@ export function useSlashCommands(
   pendingModelChangeRef: React.MutableRefObject<string | null>,
   setPendingModelId: React.Dispatch<React.SetStateAction<string | null>>,
   pluginCallbacks?: IPluginCallbacks,
+  setShowPluginTUI?: React.Dispatch<React.SetStateAction<boolean>>,
 ): (input: string) => Promise<boolean> {
   return useCallback(
     async (input: string): Promise<boolean> => {
@@ -40,6 +41,9 @@ export function useSlashCommands(
         pendingModelChangeRef.current = result.pendingModelId;
         setPendingModelId(result.pendingModelId);
       }
+      if (result.triggerPluginTUI) {
+        setShowPluginTUI?.(true);
+      }
       if (result.exitRequested) {
         setTimeout(() => exit(), EXIT_DELAY_MS);
       }
@@ -54,6 +58,7 @@ export function useSlashCommands(
       pendingModelChangeRef,
       setPendingModelId,
       pluginCallbacks,
+      setShowPluginTUI,
     ],
   );
 }
