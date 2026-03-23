@@ -162,36 +162,67 @@ export class BundlePluginInstaller {
     return this.marketplaceClient.getMarketplaceSha(marketplaceName);
   }
 
+  /**
+   * Normalize source object — Claude Code manifests use `source` key instead of `type`.
+   * e.g., { source: "url", url: "..." } → { type: "url", url: "..." }
+   */
+  private normalizeSource(
+    source: IMarketplacePluginEntry['source'],
+  ): IMarketplacePluginEntry['source'] {
+    if (typeof source === 'string') return source;
+    const obj = source as Record<string, unknown>;
+    if (!obj.type && typeof obj.source === 'string') {
+      return { ...obj, type: obj.source } as IMarketplacePluginEntry['source'];
+    }
+    return source;
+  }
+
   /** Resolve the source and install the plugin. */
   private resolveAndInstall(
-    source: IMarketplacePluginEntry['source'],
+    rawSource: IMarketplacePluginEntry['source'],
     marketplaceName: string,
     pluginName: string,
     targetDir: string,
   ): void {
     mkdirSync(targetDir, { recursive: true });
 
-    if (typeof source === 'string') {
-      // Relative path — copy from the marketplace clone
-      const marketplaceDir = this.marketplaceClient.getMarketplaceDir(marketplaceName);
-      const sourcePath = join(marketplaceDir, source);
+    const source = this.normalizeSource(rawSource);
 
-      if (!existsSync(sourcePath)) {
-        rmSync(targetDir, { recursive: true, force: true });
-        throw new Error(
-          `Plugin source path "${source}" not found in marketplace "${marketplaceName}"`,
-        );
+    try {
+      if (typeof source === 'string') {
+        // Relative path — copy from the marketplace clone
+        const marketplaceDir = this.marketplaceClient.getMarketplaceDir(marketplaceName);
+        const sourcePath = join(marketplaceDir, source);
+
+        if (!existsSync(sourcePath)) {
+          throw new Error(
+            `Plugin source path "${source}" not found in marketplace "${marketplaceName}"`,
+          );
+        }
+
+        cpSync(sourcePath, targetDir, { recursive: true });
+      } else if (source.type === 'github') {
+        // Clone from GitHub
+        const repoUrl = `https://github.com/${source.repo}.git`;
+        this.cloneToDir(repoUrl, targetDir, pluginName);
+      } else if (
+        source.type === 'url' &&
+        typeof source.url === 'string' &&
+        source.url.endsWith('.git')
+      ) {
+        // Git URL — clone directly
+        this.cloneToDir(source.url, targetDir, pluginName);
+      } else if (source.type === 'url') {
+        throw new Error(`URL source "${source.url}" is not a git repository (must end with .git)`);
+      } else {
+        throw new Error(`Unknown source type: ${JSON.stringify(source)}`);
       }
-
-      cpSync(sourcePath, targetDir, { recursive: true });
-    } else if (source.type === 'github') {
-      // Clone from GitHub
-      const repoUrl = `https://github.com/${source.repo}.git`;
-      this.cloneToDir(repoUrl, targetDir, pluginName);
-    } else if (source.type === 'url') {
-      // URL source — not yet supported
-      rmSync(targetDir, { recursive: true, force: true });
-      throw new Error('URL source installation is not yet supported');
+    } catch (err) {
+      // Clean up empty target directory on failure
+      if (existsSync(targetDir)) {
+        rmSync(targetDir, { recursive: true, force: true });
+      }
+      throw err;
     }
   }
 
