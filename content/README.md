@@ -1,7 +1,7 @@
 ---
 layout: home
 title: Robota SDK
-description: A TypeScript framework for building AI agents with multi-provider support
+description: A TypeScript SDK for building AI agents with multi-provider support
 lang: en-US
 ---
 

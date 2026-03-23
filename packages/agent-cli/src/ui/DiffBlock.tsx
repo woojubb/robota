@@ -1,17 +1,18 @@
 /**
- * DiffBlock — renders a compact diff with file header, line numbers, colored +/- lines.
+ * DiffBlock — renders a compact diff with file header, line numbers, context, colored lines.
  * Shared by StreamingIndicator (real-time) and MessageList (post-execution).
  *
- * Remove lines: red background + white text
- * Add lines: green background + white text
+ * Context lines: dim white (no background)
+ * Remove lines (-): red background + white text
+ * Add lines (+): green background + white text
  */
 
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { IDiffLine } from '../utils/edit-diff.js';
 
-const MAX_DIFF_LINES = 10;
-const TRUNCATED_SHOW = 8;
+const MAX_DIFF_LINES = 12;
+const TRUNCATED_SHOW = 10;
 
 interface IProps {
   file?: string;
@@ -36,20 +37,25 @@ export default function DiffBlock({ file, lines }: IProps): React.ReactElement {
       )}
       {visible.map((line, i) => {
         const lineNum = String(line.lineNumber).padStart(numWidth, ' ');
+
+        if (line.type === 'context') {
+          return (
+            <Text key={i} color="white" dimColor>
+              │ {lineNum} {line.text}
+            </Text>
+          );
+        }
+
         const prefix = line.type === 'remove' ? '-' : '+';
         const bgColor = line.type === 'remove' ? 'red' : 'green';
 
         return (
           <Text key={i}>
             <Text color="white" dimColor>
-              │{' '}
-            </Text>
-            <Text color="white" dimColor>
-              {lineNum}{' '}
+              │ {lineNum}{' '}
             </Text>
             <Text color="white" backgroundColor={bgColor}>
-              {' '}
-              {prefix} {line.text}{' '}
+              {prefix} {line.text}
             </Text>
           </Text>
         );
