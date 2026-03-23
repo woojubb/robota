@@ -96,8 +96,10 @@ export default function CjkTextInput({
         }
 
         // Detect multiline paste: input with length > 1 containing newlines
-        if (input.length > 1 && input.includes('\n') && onPaste) {
-          onPaste(input);
+        // In raw mode, terminals send \r instead of \n for line breaks
+        if (input.length > 1 && (input.includes('\n') || input.includes('\r')) && onPaste) {
+          // Normalize \r\n and \r to \n before passing to paste handler
+          onPaste(input.replace(/\r\n?/g, '\n'));
           return;
         }
 
