@@ -13,6 +13,12 @@ export {
   DEFAULT_TOOL_DESCRIPTIONS,
 } from './assembly/index.js';
 export type { ICreateSessionOptions } from './assembly/index.js';
+export {
+  getSubagentSuffix,
+  getForkWorkerSuffix,
+  assembleSubagentPrompt,
+} from './assembly/index.js';
+export type { ISubagentPromptOptions } from './assembly/index.js';
 
 // Session (re-exported from agent-sessions — generic, requires tools/provider/systemMessage)
 export { Session } from '@robota-sdk/agent-sessions';
