@@ -86,12 +86,12 @@ Model definitions come from the `CLAUDE_MODELS` registry in `@robota-sdk/agent-c
 
 ### Skill Commands
 
-Skills are discovered from multiple paths in priority order:
+Skills are discovered from multiple paths. `.agents/` is the primary Robota convention; `.claude/` paths provide Claude Code compatibility. At runtime, higher-priority paths override lower ones:
 
-1. `.claude/skills/` (project)
-2. `.claude/commands/` (project, legacy)
-3. `~/.robota/skills/` (user)
-4. `.agents/skills/` (project)
+1. `.agents/skills/` (project, Robota primary)
+2. `.claude/skills/` (project, Claude Code compatible)
+3. `.claude/commands/` (project, Claude Code legacy)
+4. `~/.robota/skills/` (user)
 
 Skills appear as additional slash commands below the built-in commands.
 
@@ -204,15 +204,15 @@ When no settings file exists, the CLI prompts for an Anthropic API key (input is
 
 ## Configuration
 
-The CLI uses a layered configuration system (highest priority last):
+The CLI uses a layered configuration system. `.robota/` is the primary configuration convention; `.claude/` paths are supported as a Claude Code compatibility layer. Later layers override earlier ones:
 
 1. `~/.robota/settings.json` (user global)
-2. `.robota/settings.json` (project)
+2. `.robota/settings.json` (project, primary)
 3. `.robota/settings.local.json` (local override, gitignored)
 4. `.claude/settings.json` (project, Claude Code compatible)
 5. `.claude/settings.local.json` (local override, gitignored, Claude Code compatible)
 
-The `.claude/` paths provide compatibility with Claude Code configuration conventions and take higher priority than `.robota/` paths.
+The `.claude/` paths take higher runtime priority so that Claude Code settings override `.robota/` defaults.
 
 See [Using the SDK — Configuration](./sdk.md#configuration) for the full config format.
 

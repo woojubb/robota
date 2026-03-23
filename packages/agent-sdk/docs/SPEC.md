@@ -251,9 +251,9 @@ agent-sdk provides two additional `IHookTypeExecutor` implementations that exten
 
 These executors are registered with `runHooks` via the `executors` map during session creation in `createSession()`.
 
-## Settings Configuration (`.claude/settings.json`)
+## Settings Configuration
 
-Settings are loaded from `.claude/settings.json` with a 6-layer precedence model (highest priority first):
+Settings are loaded with a 6-layer precedence model (highest priority first). `.robota/` is the primary configuration convention; `.claude/` paths are supported for Claude Code compatibility.
 
 | Layer | Path                              | Scope                                |
 | ----- | --------------------------------- | ------------------------------------ |
@@ -355,8 +355,9 @@ Scans directories for custom `.md` agent definitions with YAML frontmatter, merg
 
 **Scan directories (highest priority first):**
 
-1. `<cwd>/.claude/agents/` — project-level
-2. `<home>/.robota/agents/` — user-level
+1. `<cwd>/.robota/agents/` — project-level (primary)
+2. `<cwd>/.claude/agents/` — project-level (Claude Code compatible)
+3. `<home>/.robota/agents/` — user-level
 
 ### Framework System Prompt Suffixes
 
