@@ -27,6 +27,7 @@ import { buildSystemPrompt } from '../context/system-prompt-builder.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
 import { createProvider } from './create-provider.js';
+import { agentTool, setAgentToolDeps } from '../tools/agent-tool.js';
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
@@ -94,6 +95,19 @@ export function createSession(options: ICreateSessionOptions): Session {
 
   const defaultTools = createDefaultTools();
   const tools = [...defaultTools, ...(options.additionalTools ?? [])];
+
+  // Wire agent tool — inject deps so it can spawn sub-agents, then add to tool list.
+  // Must happen after default tools are assembled so sub-agents inherit the full set.
+  setAgentToolDeps({
+    config: options.config,
+    context: options.context,
+    tools,
+    terminal: options.terminal,
+    permissionHandler: options.permissionHandler,
+    onTextDelta: options.onTextDelta,
+    onToolExecution: options.onToolExecution,
+  });
+  tools.push(agentTool);
 
   const buildPrompt = options.systemPromptBuilder ?? buildSystemPrompt;
   const systemMessage = buildPrompt({
