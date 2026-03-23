@@ -313,6 +313,71 @@ During `createSession()`, hooks from the merged settings configuration are wired
 5. `UserPromptSubmit` hooks fire before each user message is processed
 6. `Stop` hooks fire on session termination
 
+## Subagent Execution
+
+### createSubagentSession(options)
+
+Assembles an isolated child Session for subagent execution. Unlike `createSession`, this factory does not load config files or context from disk — it receives pre-resolved config and context from the parent session.
+
+**Tool filtering order:**
+
+1. Remove disallowed tools (denylist from agent definition)
+2. Keep only allowed tools (allowlist from agent definition, if specified)
+3. Always remove the `Agent` tool (subagents cannot spawn subagents)
+
+**Model resolution:** Agent definition model override (with shortcut expansion: `sonnet`, `haiku`, `opus`) takes priority; falls back to parent config model.
+
+### Agent Definitions
+
+`IAgentDefinition` interface defines the shape for both built-in and custom agents:
+
+| Field             | Type       | Required | Description                                     |
+| ----------------- | ---------- | -------- | ----------------------------------------------- |
+| `name`            | `string`   | Yes      | Unique agent identifier                         |
+| `description`     | `string`   | Yes      | Human-readable purpose description              |
+| `systemPrompt`    | `string`   | Yes      | Markdown body used as the agent's system prompt |
+| `model`           | `string`   | No       | Model override (inherits parent when omitted)   |
+| `maxTurns`        | `number`   | No       | Maximum agentic turns                           |
+| `tools`           | `string[]` | No       | Allowlist of tool names                         |
+| `disallowedTools` | `string[]` | No       | Denylist of tool names                          |
+
+**Built-in agents:**
+
+| Name              | Model Override     | Tool Restrictions   | Purpose                     |
+| ----------------- | ------------------ | ------------------- | --------------------------- |
+| `general-purpose` | (parent)           | None (inherits all) | Full-capability task agent  |
+| `Explore`         | `claude-haiku-4-5` | Denies Write, Edit  | Read-only code exploration  |
+| `Plan`            | (parent)           | Denies Write, Edit  | Read-only planning/research |
+
+### AgentDefinitionLoader
+
+Scans directories for custom `.md` agent definitions with YAML frontmatter, merged with built-in agents. Custom agents override built-in agents on name collision.
+
+**Scan directories (highest priority first):**
+
+1. `<cwd>/.claude/agents/` — project-level
+2. `<home>/.robota/agents/` — user-level
+
+### Framework System Prompt Suffixes
+
+Two suffix modes appended to subagent system prompts:
+
+- **Subagent suffix** (default): Instructs the agent to report concisely to the caller
+- **Fork worker suffix** (`isForkWorker: true`): Instructs the agent to respond within 500 words, suitable for skill fork execution
+
+### assembleSubagentPrompt(options)
+
+Assembles the full system prompt for a subagent session:
+
+1. Agent body (from agent definition `systemPrompt`)
+2. CLAUDE.md content (from parent context)
+3. AGENTS.md content (from parent context)
+4. Framework suffix (subagent or fork worker)
+
+### Subagent Transcript Logger
+
+`createSubagentLogger(parentSessionId, agentId, baseLogsDir)` creates a `FileSessionLogger` that writes subagent session logs to `{baseLogsDir}/{parentSessionId}/subagents/{agentId}.jsonl`.
+
 ## Unconnected Packages (Future Integration Targets)
 
 | Package                                    | Current State | Integration Direction                                    |

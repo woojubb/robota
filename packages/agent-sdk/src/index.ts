@@ -18,6 +18,8 @@ export {
   getForkWorkerSuffix,
   assembleSubagentPrompt,
   createSubagentSession,
+  createSubagentLogger,
+  resolveSubagentLogDir,
 } from './assembly/index.js';
 export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
 
