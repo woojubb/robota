@@ -228,7 +228,10 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
 
       if (screen === 'marketplace-browse') {
         const marketplace = current.context?.marketplace ?? '';
-        push({ screen: 'marketplace-install-scope', context: { marketplace, pluginId: value } });
+        push({
+          screen: 'marketplace-install-scope',
+          context: { marketplace, pluginId: `${value}@${marketplace}` },
+        });
         return;
       }
 
