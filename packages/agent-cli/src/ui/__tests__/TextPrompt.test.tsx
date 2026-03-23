@@ -50,7 +50,7 @@ describe('TextPrompt', () => {
     expect(submitted).toBe('hello');
   });
 
-  it('shows validation error and blocks submit', () => {
+  it('shows validation error and blocks submit', async () => {
     let submitted = false;
     const validate = (v: string) => (v.length < 3 ? 'Too short' : undefined);
     const { stdin, lastFrame } = render(
@@ -66,6 +66,7 @@ describe('TextPrompt', () => {
     stdin.write('ab');
     stdin.write('\r');
     expect(submitted).toBe(false);
+    await new Promise((r) => setTimeout(r, 50));
     expect(lastFrame()!).toContain('Too short');
   });
 });
