@@ -50,6 +50,7 @@ Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Enter to sel
 | `/exit`                   | Exit CLI                       |
 | `/plugin`                 | Plugin management              |
 | `/reload-plugins`         | Reload all plugins             |
+| `/language [lang]`        | Show or change UI language     |
 
 `/mode` and `/model` show nested submenus for selection.
 
@@ -96,6 +97,44 @@ Skills appear as additional slash commands below the built-in commands.
 
 Plugin skills appear with a hint showing their source: `/audit (rulebased-harness) Run audit checks`
 Plugin commands use colon format: `/rulebased-harness:audit`
+
+### Skill Frontmatter
+
+Each skill is a markdown file with YAML frontmatter controlling its behavior:
+
+| Field                      | Type    | Description                                            |
+| -------------------------- | ------- | ------------------------------------------------------ |
+| `name`                     | string  | Display name for the slash command                     |
+| `description`              | string  | One-line description shown in autocomplete             |
+| `argument-hint`            | string  | Placeholder text for the argument (e.g., `<file>`)     |
+| `disable-model-invocation` | boolean | If true, model cannot auto-invoke this skill           |
+| `user-invocable`           | boolean | If false, only the model can invoke (not via `/` menu) |
+| `allowed-tools`            | array   | Tool allowlist for the skill's execution context       |
+| `model`                    | string  | Model override for skill execution                     |
+| `effort`                   | string  | Reasoning effort level                                 |
+| `context`                  | string  | Execution context; `fork` spawns a subagent            |
+| `agent`                    | string  | Agent definition name for subagent execution           |
+
+### Variable Substitution
+
+Skill markdown bodies support variable substitution before execution:
+
+- `$ARGUMENTS` / `$ARGUMENTS[N]` — Full argument string or Nth argument
+- `$N` — Shorthand for Nth positional argument
+- `${CLAUDE_SESSION_ID}` — Current session ID
+- `${CLAUDE_SKILL_DIR}` — Directory containing the skill file
+
+### Shell Preprocessing
+
+Use the `` !`command` `` syntax to embed shell command output into the skill body at invocation time. The command runs in the project working directory.
+
+### Invocation Methods
+
+- **User direct**: Type `/skill-name` in the input area
+- **Model auto-invoke**: The model calls the Skill tool during a conversation (unless `disable-model-invocation: true`)
+- **Model-only**: Skills with `user-invocable: false` are invisible in the `/` menu but available to the model
+
+When `context: fork` is set, the skill runs in a spawned subagent session rather than the main conversation. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for details.
 
 ## Permission Modes
 
@@ -149,7 +188,7 @@ Long tool arguments are middle-truncated, keeping the last 30 characters visible
 
 ### Edit Diff Display
 
-When the Edit tool completes, the CLI renders a `DiffBlock` showing the change with `+`/`-` line markers (green for additions, red for removals). This provides immediate visual feedback on file modifications without needing to open the file separately.
+When the Edit tool completes, the CLI renders a `DiffBlock` showing the change. The display format consists of a file path header followed by red (`-`) lines for removals and greenBright (`+`) lines for additions. A maximum of 10 lines are displayed; larger diffs are truncated with an `... and N more lines` indicator. No-op edits (where old and new strings are identical) are suppressed entirely.
 
 ### Subagent Execution
 
@@ -181,6 +220,16 @@ See [Using the SDK — Configuration](./sdk.md#configuration) for the full confi
 
 - Tool output is capped at 30,000 characters (middle-truncated)
 - Glob tool defaults to a maximum of 1,000 entries per invocation
+
+## Memory Management
+
+The TUI applies several optimizations to keep memory usage bounded during long sessions:
+
+- **Message windowing**: Only the most recent `MAX_RENDERED_MESSAGES` (100) messages are rendered in the React tree. Older messages are removed from the DOM but retained in session state.
+- **Tool state cleanup**: Completed tool results beyond `MAX_COMPLETED_TOOLS` (50) have their detailed state cleared to reduce memory pressure.
+- **React.memo**: `MessageItem` components are wrapped with `React.memo` to prevent unnecessary re-renders when new messages arrive.
+
+See [agent-cli SPEC.md](../../packages/agent-cli/docs/SPEC.md) for implementation details.
 
 ## Known Limitations
 

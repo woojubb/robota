@@ -134,6 +134,16 @@ Plugin hooks receive additional environment variables:
 
 These environment variables use the `CLAUDE_` prefix for compatibility with Claude Code plugin conventions.
 
+## Execution Loop Context Management
+
+The session execution loop includes context budget checks to prevent exceeding the model's context window:
+
+- **Pre-send check**: Before each provider call, context usage is checked against 83.5% of the context window. If exceeded, auto-compaction is triggered.
+- **Tool result budget**: Individual tool results are checked against an 80% context budget. Results exceeding this limit are replaced with an error message indicating the output was too large.
+- **Forced summary on turn exhaustion**: When `maxRounds` is exhausted, the session injects a synthetic user message and makes a final provider call without tools to produce a summary response.
+
+See [agent-sessions SPEC.md](../../packages/agent-sessions/docs/SPEC.md) for implementation details.
+
 ## Subagent Hook Forwarding
 
 When a subagent session is created (via `createSubagentSession`), it inherits the parent session's hooks configuration. All hook events (`PreToolUse`, `PostToolUse`, etc.) fire in the subagent context with the same handlers as the parent. This ensures consistent policy enforcement across the parent and all spawned subagents.
