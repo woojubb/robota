@@ -7,6 +7,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import MenuSelect from './MenuSelect.js';
 import TextPrompt from './TextPrompt.js';
 import ConfirmPrompt from './ConfirmPrompt.js';
+import {
+  handleMainSelect,
+  handleMarketplaceListSelect,
+  handleMarketplaceActionSelect,
+  handleMarketplaceBrowseSelect,
+  handleInstallScopeSelect,
+  handleInstalledListSelect,
+  handleInstalledActionSelect,
+} from './plugin-tui-handlers.js';
 import type { IMenuSelectItem } from './MenuSelect.js';
 import type { IPluginCallbacks } from '../commands/slash-executor.js';
 
@@ -48,6 +57,7 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [confirm, setConfirm] = useState<IConfirmState | undefined>();
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   const current = stack[stack.length - 1] ?? { screen: 'main' };
 
@@ -92,7 +102,14 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
     [addMessage],
   );
 
-  // Fetch data when screen changes
+  const refresh = useCallback(() => {
+    setItems([]);
+    setRefreshCounter((c) => c + 1);
+  }, []);
+
+  const nav = { push, pop, popN, notify, setConfirm, refresh };
+
+  // Fetch data when screen or refreshCounter changes
   useEffect(() => {
     const screen = current.screen;
 
@@ -111,8 +128,7 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
           setLoading(false);
         })
         .catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : String(err);
-          setError(msg);
+          setError(err instanceof Error ? err.message : String(err));
           setLoading(false);
         });
     } else if (screen === 'marketplace-browse') {
@@ -121,22 +137,17 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
       callbacks
         .listAvailablePlugins(marketplace)
         .then((plugins) => {
-          if (plugins.length === 0) {
-            setItems([]);
-            setLoading(false);
-            return;
-          }
-          const pluginItems: IMenuSelectItem[] = plugins.map((p) => ({
-            label: p.name,
-            value: p.name,
-            hint: p.installed ? 'installed' : p.description,
-          }));
-          setItems(pluginItems);
+          setItems(
+            plugins.map((p) => ({
+              label: p.name,
+              value: p.name,
+              hint: p.installed ? 'installed' : p.description,
+            })),
+          );
           setLoading(false);
         })
         .catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : String(err);
-          setError(msg);
+          setError(err instanceof Error ? err.message : String(err));
           setLoading(false);
         });
     } else if (screen === 'installed-list') {
@@ -144,165 +155,40 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
       callbacks
         .listInstalled()
         .then((plugins) => {
-          if (plugins.length === 0) {
-            setItems([]);
-            setLoading(false);
-            return;
-          }
-          const pluginItems: IMenuSelectItem[] = plugins.map((p) => ({
-            label: p.name,
-            value: p.name,
-            hint: p.description,
-          }));
-          setItems(pluginItems);
+          setItems(
+            plugins.map((p) => ({
+              label: p.name,
+              value: p.name,
+              hint: p.description,
+            })),
+          );
           setLoading(false);
         })
         .catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : String(err);
-          setError(msg);
+          setError(err instanceof Error ? err.message : String(err));
           setLoading(false);
         });
     }
-  }, [stack.length, current.screen, current.context?.marketplace, callbacks]);
+  }, [stack.length, current.screen, current.context?.marketplace, callbacks, refreshCounter]);
 
   const handleSelect = useCallback(
     (value: string) => {
       const screen = current.screen;
+      const ctx = current.context;
 
-      if (screen === 'main') {
-        if (value === 'marketplace') {
-          push({ screen: 'marketplace-list' });
-        } else if (value === 'installed') {
-          push({ screen: 'installed-list' });
-        }
-        return;
-      }
-
-      if (screen === 'marketplace-list') {
-        if (value === '__add__') {
-          push({ screen: 'marketplace-add' });
-        } else {
-          // Navigate to marketplace action with this marketplace
-          push({ screen: 'marketplace-action', context: { marketplace: value } });
-        }
-        return;
-      }
-
-      if (screen === 'marketplace-action') {
-        const marketplace = current.context?.marketplace ?? '';
-        if (value === 'browse') {
-          push({ screen: 'marketplace-browse', context: { marketplace } });
-        } else if (value === 'update') {
-          callbacks
-            .marketplaceUpdate(marketplace)
-            .then(() => {
-              notify(`Updated marketplace "${marketplace}".`);
-              pop();
-            })
-            .catch((err: unknown) => {
-              const msg = err instanceof Error ? err.message : String(err);
-              notify(`Error updating marketplace: ${msg}`);
-            });
-        } else if (value === 'remove') {
-          setConfirm({
-            message: `Remove marketplace "${marketplace}" and all its plugins?`,
-            onConfirm: () => {
-              setConfirm(undefined);
-              callbacks
-                .marketplaceRemove(marketplace)
-                .then(() => {
-                  notify(`Removed marketplace "${marketplace}".`);
-                  popN(2); // back to marketplace-list
-                })
-                .catch((err: unknown) => {
-                  const msg = err instanceof Error ? err.message : String(err);
-                  notify(`Error removing marketplace: ${msg}`);
-                });
-            },
-            onCancel: () => setConfirm(undefined),
-          });
-        }
-        return;
-      }
-
-      if (screen === 'marketplace-browse') {
-        const marketplace = current.context?.marketplace ?? '';
-        const fullId = `${value}@${marketplace}`;
-        const item = items.find((i) => i.value === value);
-        if (item?.hint === 'installed') {
-          // Already installed → show uninstall action
-          push({ screen: 'installed-action', context: { pluginId: fullId } });
-        } else {
-          push({ screen: 'marketplace-install-scope', context: { marketplace, pluginId: fullId } });
-        }
-        return;
-      }
-
-      if (screen === 'marketplace-install-scope') {
-        const pluginId = current.context?.pluginId ?? '';
-        const scope = value as 'user' | 'project';
-        callbacks
-          .install(pluginId, scope)
-          .then(() => {
-            notify(`Installed plugin "${pluginId}" (${scope} scope).`);
-            popN(2); // skip browse, return to marketplace-action
-          })
-          .catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            notify(`Error installing plugin: ${msg}`);
-          });
-        return;
-      }
-
-      if (screen === 'installed-list') {
-        setConfirm({
-          message: `Uninstall plugin "${value}"?`,
-          onConfirm: () => {
-            setConfirm(undefined);
-            callbacks
-              .uninstall(value)
-              .then(() => {
-                notify(`Uninstalled plugin "${value}".`);
-                // Re-fetch installed list
-                setItems([]);
-                setStack((prev) => [...prev]);
-              })
-              .catch((err: unknown) => {
-                const msg = err instanceof Error ? err.message : String(err);
-                notify(`Error uninstalling plugin: ${msg}`);
-              });
-          },
-          onCancel: () => setConfirm(undefined),
-        });
-        return;
-      }
-
-      if (screen === 'installed-action') {
-        // Uninstall only (enable/disable deferred)
-        const pluginId = current.context?.pluginId ?? '';
-        if (value === 'uninstall') {
-          setConfirm({
-            message: `Uninstall plugin "${pluginId}"?`,
-            onConfirm: () => {
-              setConfirm(undefined);
-              callbacks
-                .uninstall(pluginId)
-                .then(() => {
-                  notify(`Uninstalled plugin "${pluginId}".`);
-                  popN(2);
-                })
-                .catch((err: unknown) => {
-                  const msg = err instanceof Error ? err.message : String(err);
-                  notify(`Error uninstalling plugin: ${msg}`);
-                });
-            },
-            onCancel: () => setConfirm(undefined),
-          });
-        }
-        return;
-      }
+      if (screen === 'main') handleMainSelect(value, nav);
+      else if (screen === 'marketplace-list') handleMarketplaceListSelect(value, nav);
+      else if (screen === 'marketplace-action')
+        handleMarketplaceActionSelect(value, ctx?.marketplace ?? '', callbacks, nav);
+      else if (screen === 'marketplace-browse')
+        handleMarketplaceBrowseSelect(value, ctx?.marketplace ?? '', items, nav);
+      else if (screen === 'marketplace-install-scope')
+        handleInstallScopeSelect(value, ctx?.pluginId ?? '', callbacks, nav);
+      else if (screen === 'installed-list') handleInstalledListSelect(value, callbacks, nav);
+      else if (screen === 'installed-action')
+        handleInstalledActionSelect(value, ctx?.pluginId ?? '', callbacks, nav);
     },
-    [current, items, callbacks, push, pop, popN, notify],
+    [current, items, callbacks, push, pop, popN, notify, setConfirm, refresh],
   );
 
   const handleTextSubmit = useCallback(
@@ -315,8 +201,7 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
             pop();
           })
           .catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            notify(`Error adding marketplace: ${msg}`);
+            notify(`Error: ${err instanceof Error ? err.message : String(err)}`);
             pop();
           });
       }
@@ -330,11 +215,8 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
       <ConfirmPrompt
         message={confirm.message}
         onSelect={(index) => {
-          if (index === 0) {
-            confirm.onConfirm();
-          } else {
-            confirm.onCancel();
-          }
+          if (index === 0) confirm.onConfirm();
+          else confirm.onCancel();
         }}
       />
     );
@@ -355,11 +237,10 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
   }
 
   if (screen === 'marketplace-action') {
-    const marketplace = current.context?.marketplace ?? '';
     return (
       <MenuSelect
         key={stack.length}
-        title={`Marketplace: ${marketplace}`}
+        title={`Marketplace: ${current.context?.marketplace ?? ''}`}
         items={[
           { label: 'Browse plugins', value: 'browse' },
           { label: 'Update', value: 'update' },
@@ -372,11 +253,10 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
   }
 
   if (screen === 'marketplace-install-scope') {
-    const pluginId = current.context?.pluginId ?? '';
     return (
       <MenuSelect
         key={stack.length}
-        title={`Install scope for "${pluginId}"`}
+        title={`Install scope for "${current.context?.pluginId ?? ''}"`}
         items={[
           { label: 'User scope', value: 'user' },
           { label: 'Project scope', value: 'project' },
@@ -388,11 +268,10 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
   }
 
   if (screen === 'installed-action') {
-    const pluginId = current.context?.pluginId ?? '';
     return (
       <MenuSelect
         key={stack.length}
-        title={`Plugin: ${pluginId}`}
+        title={`Plugin: ${current.context?.pluginId ?? ''}`}
         items={[{ label: 'Uninstall', value: 'uninstall' }]}
         onSelect={handleSelect}
         onBack={pop}
@@ -415,14 +294,11 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
     ],
   };
 
-  const displayItems = staticItemsMap[screen] ?? items;
-  const title = titleMap[screen] ?? 'Plugin Management';
-
   return (
     <MenuSelect
-      key={`${screen}-${stack.length}`}
-      title={title}
-      items={displayItems}
+      key={`${screen}-${stack.length}-${refreshCounter}`}
+      title={titleMap[screen] ?? 'Plugin Management'}
+      items={staticItemsMap[screen] ?? items}
       onSelect={handleSelect}
       onBack={pop}
       loading={loading}
