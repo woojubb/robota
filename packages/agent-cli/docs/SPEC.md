@@ -458,12 +458,6 @@ Plugin skills show the plugin hint before the description:
 
 ## Memory Management
 
-### Alternate Screen Buffer
-
-The CLI uses the terminal's alternate screen buffer (`\x1b[?1049h`) to prevent Terminal.app scrollback buffer corruption during long sessions. On exit, the last rendered frame is captured and reprinted to the normal buffer so the user sees the final TUI state.
-
-Implementation: `stdout.write` is intercepted to capture the last substantial frame (>50 chars, filtering out Ink clear sequences). On exit, alternate screen is left and the captured frame is printed.
-
 ### Message Windowing
 
 React state keeps only the most recent 100 messages (`MAX_RENDERED_MESSAGES`). Older messages are dropped from the render tree to prevent unbounded memory growth. Full conversation history is preserved in the session store on disk.
