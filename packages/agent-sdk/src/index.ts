@@ -93,6 +93,10 @@ export type {
   TEnabledPlugins,
 } from './plugins/index.js';
 
+// Agent definitions — built-in agent types and registry
+export type { IAgentDefinition } from './agents/index.js';
+export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
+
 // Tools — agent-tool (SDK-specific, not a re-export)
 export { agentTool, setAgentToolDeps } from './tools/agent-tool.js';
 
