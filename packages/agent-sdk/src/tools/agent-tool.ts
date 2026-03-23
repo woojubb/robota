@@ -58,6 +58,11 @@ export function setAgentToolDeps(deps: IAgentToolDeps): void {
   agentToolDeps = deps;
 }
 
+/** Get the current agent tool dependencies. Returns undefined if not yet initialized. */
+export function getAgentToolDeps(): IAgentToolDeps | undefined {
+  return agentToolDeps;
+}
+
 /**
  * Resolve an agent type name to an IAgentDefinition.
  * Checks built-in agents first, then falls back to custom registry.
