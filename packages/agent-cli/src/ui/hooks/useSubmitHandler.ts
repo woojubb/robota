@@ -9,7 +9,11 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import type { Session } from '@robota-sdk/agent-sdk';
-import { createSubagentSession, getBuiltInAgent, getAgentToolDeps } from '@robota-sdk/agent-sdk';
+import {
+  createSubagentSession,
+  getBuiltInAgent,
+  retrieveAgentToolDeps,
+} from '@robota-sdk/agent-sdk';
 import type { IChatMessage } from '../types.js';
 import type { CommandRegistry } from '../../commands/command-registry.js';
 import { extractToolCallsWithDiff } from '../../utils/tool-call-extractor.js';
@@ -81,13 +85,13 @@ async function runSessionPrompt(
 /**
  * Create a runInFork callback that spawns an isolated subagent session.
  *
- * Uses the agent tool deps (config, context, tools) that were wired during
- * session creation. Returns the subagent's response text.
+ * Retrieves per-session agent tool deps that were stored during session
+ * creation (keyed by the Session instance). Returns the subagent's response text.
  */
-function createForkRunner():
-  | ((content: string, options: IForkExecutionOptions) => Promise<string>)
-  | undefined {
-  const deps = getAgentToolDeps();
+function createForkRunner(
+  sessionKey: Session,
+): ((content: string, options: IForkExecutionOptions) => Promise<string>) | undefined {
+  const deps = retrieveAgentToolDeps(sessionKey);
   if (!deps) return undefined;
 
   return async (content: string, options: IForkExecutionOptions): Promise<string> => {
@@ -162,7 +166,7 @@ export function useSubmitHandler(
 
         // For fork skills, try subagent execution via executeSkill
         if (skill.context === 'fork') {
-          const runInFork = createForkRunner();
+          const runInFork = createForkRunner(session);
           const result = await executeSkill(skill, args, { runInFork });
 
           if (result.mode === 'fork') {
