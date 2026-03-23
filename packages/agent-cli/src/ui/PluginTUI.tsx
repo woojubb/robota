@@ -338,9 +338,10 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
     return (
       <TextPrompt
         title="Add Marketplace Source"
-        placeholder="https://github.com/org/repo"
+        placeholder="owner/repo or git URL"
         onSubmit={handleTextSubmit}
         onCancel={pop}
+        validate={(v) => (!v.includes('/') ? 'Must be owner/repo or a git URL' : undefined)}
       />
     );
   }
