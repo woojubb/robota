@@ -34,18 +34,53 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
     return {
       listInstalled: async () => {
         const plugins = await loader.loadAll();
-        return plugins.map((p) => ({
-          name: p.manifest.name,
-          description: p.manifest.description,
-          enabled: true,
+        const enabledMap = settingsStore.getEnabledPlugins();
+        return plugins.map((p) => {
+          // Extract marketplace from pluginDir: .../cache/<marketplace>/<plugin>/<version>/
+          const parts = p.pluginDir.split('/');
+          const cacheIdx = parts.indexOf('cache');
+          const marketplaceName = cacheIdx >= 0 ? parts[cacheIdx + 1] : '';
+          const fullId = marketplaceName
+            ? `${p.manifest.name}@${marketplaceName}`
+            : p.manifest.name;
+          return {
+            name: fullId,
+            description: p.manifest.description,
+            enabled: enabledMap[fullId] !== false && enabledMap[p.manifest.name] !== false,
+          };
+        });
+      },
+      listAvailablePlugins: async (marketplaceName: string) => {
+        let manifest;
+        try {
+          manifest = marketplace.fetchManifest(marketplaceName);
+        } catch {
+          return [];
+        }
+        const installed = installer.getInstalledPlugins();
+        const installedNames = new Set(Object.values(installed).map((r) => r.pluginName));
+        return manifest.plugins.map((p) => ({
+          name: p.name,
+          description: p.description,
+          installed: installedNames.has(p.name),
         }));
       },
-      install: async (pluginId: string) => {
+      install: async (pluginId: string, scope?: 'user' | 'project') => {
         const [name, marketplaceName] = pluginId.split('@');
         if (!name || !marketplaceName) {
           throw new Error('Plugin ID must be in format: name@marketplace');
         }
-        await installer.install(name, marketplaceName);
+        if (scope === 'project') {
+          const projectPluginsDir = join(cwd, '.robota', 'plugins');
+          const projectInstaller = new BundlePluginInstaller({
+            pluginsDir: projectPluginsDir,
+            settingsStore,
+            marketplaceClient: marketplace,
+          });
+          await projectInstaller.install(name, marketplaceName);
+        } else {
+          await installer.install(name, marketplaceName);
+        }
       },
       uninstall: async (pluginId: string) => {
         await installer.uninstall(pluginId);
