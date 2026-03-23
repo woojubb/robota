@@ -485,6 +485,26 @@ When the Edit tool completes successfully, a compact diff is shown below the too
 
 When a permission prompt is shown for an Edit tool, the diff should be displayed alongside the Allow/Deny prompt so the user can see what will change before approving.
 
+## Subagent Execution
+
+### Agent Tool Registration
+
+The `Agent` tool is registered alongside the standard tools during session creation in `useSession`. Dependencies (`IAgentToolDeps`) are set via `setAgentToolDeps()` with the parent session's config, context, tools, terminal, and callbacks.
+
+### context:fork Wiring
+
+Skills with `context: fork` in their frontmatter are executed via `createSubagentSession` from `@robota-sdk/agent-sdk`. The fork worker session:
+
+- Receives the skill's SKILL.md content as the system prompt
+- Inherits the parent session's config, context, and tools
+- Uses the fork worker suffix (concise 500-word response)
+- Respects `allowed-tools` from the skill frontmatter as a tool allowlist
+- Respects `model` from the skill frontmatter as a model override
+
+### Agent Definition Loading
+
+Agent definitions are loaded via `AgentDefinitionLoader` from `@robota-sdk/agent-sdk`. The loader scans `.claude/agents/` (project) and `~/.robota/agents/` (user) directories for custom agent `.md` files. Plugin-provided agent definitions can be registered via the `customAgentRegistry` callback in `IAgentToolDeps`.
+
 ## Memory Management
 
 ### Message Windowing
