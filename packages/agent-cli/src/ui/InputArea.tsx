@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 import CjkTextInput from './CjkTextInput.js';
 import WaveText from './WaveText.js';
 import type { CommandRegistry } from '../commands/command-registry.js';
 import type { ISlashCommand } from '../commands/types.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
+import { expandPasteLabels } from '../utils/paste-labels.js';
 
 interface IProps {
   onSubmit: (value: string) => void;
@@ -98,6 +99,8 @@ function useAutocomplete(
  */
 export default function InputArea({ onSubmit, isDisabled, registry }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
+  const pasteStore = useRef<Map<number, string>>(new Map());
+  const pasteIdRef = useRef(0);
 
   const {
     showPopup,
@@ -107,6 +110,15 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
     isSubcommandMode,
     setShowPopup,
   } = useAutocomplete(value, registry);
+
+  const handlePaste = useCallback((text: string) => {
+    pasteIdRef.current += 1;
+    const id = pasteIdRef.current;
+    pasteStore.current.set(id, text);
+    const lineCount = text.split('\n').length;
+    const label = `[Pasted text #${id} +${lineCount} lines]`;
+    setValue((prev) => (prev ? `${prev} ${label}` : label));
+  }, []);
 
   const handleSubmit = useCallback(
     (text: string): void => {
@@ -118,8 +130,15 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
         return;
       }
 
+      // Expand paste labels before submitting
+      const expanded = expandPasteLabels(trimmed, pasteStore.current);
+
       setValue('');
-      onSubmit(trimmed);
+      // Reset paste state
+      pasteStore.current.clear();
+      pasteIdRef.current = 0;
+
+      onSubmit(expanded);
     },
     [showPopup, filteredCommands, selectedIndex, onSubmit],
   );
@@ -193,6 +212,7 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
               value={value}
               onChange={setValue}
               onSubmit={handleSubmit}
+              onPaste={handlePaste}
               placeholder="Type a message or /help"
             />
           </Box>

@@ -23,6 +23,7 @@ import chalk from 'chalk';
  */
 export function filterPrintable(input: string | null | undefined): string {
   if (!input || input.length === 0) return '';
+  // eslint-disable-next-line no-control-regex
   return input.replace(/[\x00-\x1f\x7f]/g, '');
 }
 
@@ -44,6 +45,7 @@ interface IProps {
   value: string;
   onChange: (value: string) => void;
   onSubmit?: (value: string) => void;
+  onPaste?: (text: string) => void;
   placeholder?: string;
   focus?: boolean;
   showCursor?: boolean;
@@ -53,6 +55,7 @@ export default function CjkTextInput({
   value,
   onChange,
   onSubmit,
+  onPaste,
   placeholder = '',
   focus = true,
   showCursor = true,
@@ -89,6 +92,12 @@ export default function CjkTextInput({
 
         if (key.return) {
           onSubmit?.(valueRef.current);
+          return;
+        }
+
+        // Detect multiline paste: input with length > 1 containing newlines
+        if (input.length > 1 && input.includes('\n') && onPaste) {
+          onPaste(input);
           return;
         }
 
