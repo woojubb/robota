@@ -1,28 +1,38 @@
 /**
  * Generate diff lines from Edit tool's old_string and new_string.
- * Simple line-based diff — removed lines in red, added lines in green.
+ * Includes absolute line numbers from the source file.
  */
 
 export interface IDiffLine {
   type: 'add' | 'remove';
   text: string;
+  /** Absolute line number in the file */
+  lineNumber: number;
 }
 
 /**
- * Generate diff lines from old and new strings.
- * Returns removed lines (from old) and added lines (from new).
- * If old and new are identical, returns empty array.
+ * Generate diff lines from old and new strings with absolute line numbers.
+ * @param oldStr - The text being replaced
+ * @param newStr - The replacement text
+ * @param startLine - The 1-based line number where oldStr starts in the file
  */
-export function generateDiffLines(oldStr: string, newStr: string): IDiffLine[] {
+export function generateDiffLines(
+  oldStr: string,
+  newStr: string,
+  startLine: number = 1,
+): IDiffLine[] {
   if (oldStr === newStr) return [];
 
   const lines: IDiffLine[] = [];
 
-  for (const line of oldStr.split('\n')) {
-    lines.push({ type: 'remove', text: line });
+  const oldLines = oldStr.split('\n');
+  const newLines = newStr.split('\n');
+
+  for (let i = 0; i < oldLines.length; i++) {
+    lines.push({ type: 'remove', text: oldLines[i], lineNumber: startLine + i });
   }
-  for (const line of newStr.split('\n')) {
-    lines.push({ type: 'add', text: line });
+  for (let i = 0; i < newLines.length; i++) {
+    lines.push({ type: 'add', text: newLines[i], lineNumber: startLine + i });
   }
 
   return lines;
@@ -30,11 +40,14 @@ export function generateDiffLines(oldStr: string, newStr: string): IDiffLine[] {
 
 /**
  * Extract Edit tool diff info from tool arguments.
- * Returns null if not an Edit tool or missing required fields.
+ * @param toolName - Tool name (must be 'Edit')
+ * @param toolArgs - Tool arguments (filePath, oldString, newString)
+ * @param startLine - Start line number from Edit tool result (optional)
  */
 export function extractEditDiff(
   toolName: string,
   toolArgs?: Record<string, unknown>,
+  startLine?: number,
 ): { file: string; lines: IDiffLine[] } | null {
   if (toolName !== 'Edit' || !toolArgs) return null;
 
@@ -45,7 +58,7 @@ export function extractEditDiff(
   if (typeof filePath !== 'string') return null;
   if (typeof oldStr !== 'string' || typeof newStr !== 'string') return null;
 
-  const lines = generateDiffLines(oldStr, newStr);
+  const lines = generateDiffLines(oldStr, newStr, startLine ?? 1);
   if (lines.length === 0) return null;
 
   return { file: filePath, lines };
