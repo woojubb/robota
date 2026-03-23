@@ -108,6 +108,7 @@ export function useSession(props: ISessionProps): {
       toolArgs?: Record<string, unknown>;
       success?: boolean;
       denied?: boolean;
+      toolResultData?: string;
     }): void => {
       if (event.type === 'start') {
         let firstArg = '';
@@ -129,10 +130,22 @@ export function useSession(props: ISessionProps): {
           const updated = prev.map((t) => {
             if (!(t.toolName === event.toolName && t.isRunning)) return t;
 
-            // Extract diff for Edit tool
+            // Extract diff for Edit tool — parse startLine from tool result
+            let startLine: number | undefined;
+            if (event.toolResultData && event.toolName === 'Edit') {
+              try {
+                const parsed = JSON.parse(event.toolResultData) as Record<string, unknown>;
+                if (typeof parsed.startLine === 'number') {
+                  startLine = parsed.startLine;
+                }
+              } catch {
+                /* ignore parse errors */
+              }
+            }
             const editDiff = extractEditDiff(
               event.toolName,
               (t as Record<string, unknown>)._toolArgs as Record<string, unknown>,
+              startLine,
             );
 
             const finished: typeof t = {

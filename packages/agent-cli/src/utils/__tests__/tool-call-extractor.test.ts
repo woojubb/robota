@@ -147,8 +147,8 @@ describe('extractToolCallsWithDiff', () => {
     expect(summaries).toHaveLength(1);
     expect(summaries[0].diffFile).toBe('/src/index.ts');
     expect(summaries[0].diffLines).toEqual([
-      { type: 'remove', text: 'const a = 1;' },
-      { type: 'add', text: 'const a = 2;' },
+      { type: 'remove', text: 'const a = 1;', lineNumber: 1 },
+      { type: 'add', text: 'const a = 2;', lineNumber: 1 },
     ]);
   });
 

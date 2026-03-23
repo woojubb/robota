@@ -2,18 +2,20 @@
 
 ## Overview
 
-Implement four Claude Code-compatible extension systems in Robota CLI so that Claude Code ecosystem resources (skills, plugins, hooks, commands) work natively. The `.claude/` directory format takes priority; `.agents/` directory is also supported for forward compatibility. (Note: `.agents/` is the current Robota convention. A future `.agent/` singular standard may be adopted separately.)
+Implement four Claude Code-compatible extension systems in Robota CLI so that Claude Code ecosystem resources (skills, plugins, hooks, commands) work natively. `.agents/` is Robota's primary convention; `.claude/` paths are supported as a compatibility layer for Claude Code. At runtime, `.claude/` takes higher precedence (so Claude Code settings override Robota defaults), but `.agents/` / `.robota/` remain the canonical paths for Robota projects. (Note: A future `.agent/` singular standard may be adopted separately.)
 
 **Implementation order**: Skill/Command → Hook → BundlePlugin → Marketplace
 
 ## 1. Skill/Command
 
-### Scan Paths (Priority Order)
+### Scan Paths (Runtime Priority Order)
 
-1. `.claude/skills/` (project)
-2. `.claude/commands/` (project, legacy)
-3. `~/.robota/skills/` (user)
-4. `.agents/skills/` (project)
+`.agents/` is Robota's primary convention; `.claude/` paths are the Claude Code compatibility layer. At runtime, higher-priority sources win on name collision:
+
+1. `.agents/skills/` (project, Robota primary)
+2. `.claude/skills/` (project, Claude Code compatible)
+3. `.claude/commands/` (project, Claude Code legacy)
+4. `~/.robota/skills/` (user)
 5. `~/.robota/plugins/*/skills/` (installed plugins, namespaced)
 
 When duplicate `name` is found, higher-priority source wins. Extends the existing `SkillCommandSource` in agent-cli.
@@ -87,12 +89,14 @@ The following skills are available:
 
 ## 2. Hook
 
-### Configuration Sources (Priority Order, highest first)
+### Configuration Sources (Runtime Priority Order, highest first)
 
-1. `.claude/settings.local.json` (project, gitignored) — highest
-2. `.claude/settings.json` (project)
+`.robota/` is the primary convention; `.claude/` paths are the Claude Code compatibility layer. At runtime, `.claude/` takes higher precedence so Claude Code settings win on conflict:
+
+1. `.claude/settings.local.json` (project, gitignored, Claude Code compatible) — highest
+2. `.claude/settings.json` (project, Claude Code compatible)
 3. `.robota/settings.local.json` (project, gitignored)
-4. `.robota/settings.json` (project)
+4. `.robota/settings.json` (project, primary)
 5. `~/.robota/settings.json` (user) — lowest
 
 Plugin `hooks/hooks.json` is loaded separately by `BundlePluginLoader` and merged at the SDK level, not via the config-loader.
@@ -254,11 +258,11 @@ plugin-name/
 
 ### Installation Scopes
 
-| Scope   | Path                                           | Applies To        |
-| ------- | ---------------------------------------------- | ----------------- |
-| User    | `~/.robota/plugins/`                           | All projects      |
-| Project | `.claude/settings.json` `enabledPlugins`       | All collaborators |
-| Local   | `.claude/settings.local.json` `enabledPlugins` | Local only        |
+| Scope   | Path                                                                                                 | Applies To        |
+| ------- | ---------------------------------------------------------------------------------------------------- | ----------------- |
+| User    | `~/.robota/plugins/`                                                                                 | All projects      |
+| Project | `.robota/settings.json` (primary) or `.claude/settings.json` (compat) — `enabledPlugins`             | All collaborators |
+| Local   | `.robota/settings.local.json` (primary) or `.claude/settings.local.json` (compat) — `enabledPlugins` | Local only        |
 
 Note: `~/.claude/` is never used by Robota. All user-level storage uses `~/.robota/`.
 
@@ -482,12 +486,12 @@ Plugin entry fields:
 
 ## Scan Path Summary
 
-| System          | Paths (priority order)                                                                                                                                                                |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Skills**      | `.claude/skills/` → `.claude/commands/` → `~/.robota/skills/` → `.agents/skills/` → plugin `skills/`                                                                                  |
-| **Hooks**       | `.claude/settings.local.json` → `.claude/settings.json` → `.robota/settings.local.json` → `.robota/settings.json` → `~/.robota/settings.json` (plugin `hooks.json` merged separately) |
-| **Plugins**     | `~/.robota/plugins/` + `enabledPlugins` in settings                                                                                                                                   |
-| **Marketplace** | No default. User-added via `extraKnownMarketplaces` in settings                                                                                                                       |
+| System          | Paths (runtime priority order, highest first)                                                                                                                                                                     |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Skills**      | `.agents/skills/` (primary) → `.claude/skills/` (compat) → `.claude/commands/` (legacy) → `~/.robota/skills/` → plugin `skills/`                                                                                  |
+| **Hooks**       | `.claude/settings.local.json` (compat) → `.claude/settings.json` (compat) → `.robota/settings.local.json` → `.robota/settings.json` (primary) → `~/.robota/settings.json` (plugin `hooks.json` merged separately) |
+| **Plugins**     | `~/.robota/plugins/` + `enabledPlugins` in settings                                                                                                                                                               |
+| **Marketplace** | No default. User-added via `extraKnownMarketplaces` in settings                                                                                                                                                   |
 
 ## Remaining Claude Code Events (Deferred)
 
@@ -497,4 +501,4 @@ The following 13 events are not in Phase 1 but can be added incrementally:
 
 ## Future Direction
 
-The `.claude/` format takes priority now, but the `.agents/` standard is also supported. A future `.agent/` singular standard may be adopted. The discovery layer supports multiple paths, so transitioning priority requires only path ordering changes.
+`.agents/` / `.robota/` is the primary Robota convention, with `.claude/` supported as a compatibility layer. At runtime, `.claude/` paths take higher precedence so that Claude Code settings override Robota defaults. A future `.agent/` singular standard may be adopted. The discovery layer supports multiple paths, so transitioning priority requires only path ordering changes.

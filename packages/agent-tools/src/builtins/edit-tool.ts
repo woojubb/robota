@@ -86,9 +86,13 @@ async function editFileTool(args: TEditArgs): Promise<string> {
   }
 
   const count = replaceAll ? content.split(oldString).length - 1 : 1;
+  // Calculate start line number from the original content
+  const matchIdx = content.indexOf(oldString);
+  const startLine = matchIdx >= 0 ? content.substring(0, matchIdx).split('\n').length : 1;
   const result: TToolResult = {
     success: true,
     output: `Replaced ${count} occurrence(s) in ${filePath}`,
+    startLine,
   };
   return JSON.stringify(result);
 }

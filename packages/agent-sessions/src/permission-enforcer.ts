@@ -95,6 +95,7 @@ export interface IPermissionEnforcerOptions {
     toolArgs?: TToolArgs;
     success?: boolean;
     denied?: boolean;
+    toolResultData?: string;
   }) => void;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];
@@ -198,6 +199,10 @@ export class PermissionEnforcer {
           toolName,
           toolArgs: parameters as TToolArgs,
           success: truncatedResult.success,
+          toolResultData:
+            typeof truncatedResult.data === 'string'
+              ? truncatedResult.data
+              : JSON.stringify(truncatedResult.data),
         });
 
         const dataSize =
