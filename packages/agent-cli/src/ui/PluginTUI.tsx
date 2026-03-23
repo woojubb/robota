@@ -352,6 +352,7 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
     const marketplace = current.context?.marketplace ?? '';
     return (
       <MenuSelect
+        key={stack.length}
         title={`Marketplace: ${marketplace}`}
         items={[
           { label: 'Browse plugins', value: 'browse' },
@@ -368,6 +369,7 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
     const pluginId = current.context?.pluginId ?? '';
     return (
       <MenuSelect
+        key={stack.length}
         title={`Install scope for "${pluginId}"`}
         items={[
           { label: 'User scope', value: 'user' },
@@ -384,6 +386,7 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
     const isEnabled = current.context?.isEnabled ?? false;
     return (
       <MenuSelect
+        key={stack.length}
         title={`Plugin: ${pluginId}`}
         items={[
           { label: isEnabled ? 'Disable' : 'Enable', value: 'toggle' },
@@ -415,7 +418,7 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
 
   return (
     <MenuSelect
-      key={screen}
+      key={`${screen}-${stack.length}`}
       title={title}
       items={displayItems}
       onSelect={handleSelect}
