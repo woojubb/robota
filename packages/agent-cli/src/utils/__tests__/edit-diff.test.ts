@@ -5,8 +5,8 @@ describe('generateDiffLines', () => {
   it('single line change: 1 remove + 1 add', () => {
     const lines = generateDiffLines('hello', 'world');
     expect(lines).toEqual([
-      { type: 'remove', text: 'hello' },
-      { type: 'add', text: 'world' },
+      { type: 'remove', text: 'hello', lineNumber: 1 },
+      { type: 'add', text: 'world', lineNumber: 1 },
     ]);
   });
 
@@ -14,11 +14,11 @@ describe('generateDiffLines', () => {
     const lines = generateDiffLines('line1\nline2\nline3', 'lineA\nlineB');
     expect(lines.filter((l) => l.type === 'remove')).toHaveLength(3);
     expect(lines.filter((l) => l.type === 'add')).toHaveLength(2);
-    expect(lines[0]).toEqual({ type: 'remove', text: 'line1' });
-    expect(lines[1]).toEqual({ type: 'remove', text: 'line2' });
-    expect(lines[2]).toEqual({ type: 'remove', text: 'line3' });
-    expect(lines[3]).toEqual({ type: 'add', text: 'lineA' });
-    expect(lines[4]).toEqual({ type: 'add', text: 'lineB' });
+    expect(lines[0]).toEqual({ type: 'remove', text: 'line1', lineNumber: 1 });
+    expect(lines[1]).toEqual({ type: 'remove', text: 'line2', lineNumber: 2 });
+    expect(lines[2]).toEqual({ type: 'remove', text: 'line3', lineNumber: 3 });
+    expect(lines[3]).toEqual({ type: 'add', text: 'lineA', lineNumber: 1 });
+    expect(lines[4]).toEqual({ type: 'add', text: 'lineB', lineNumber: 2 });
   });
 
   it('identical strings return empty array', () => {
@@ -41,11 +41,32 @@ describe('generateDiffLines', () => {
     // Even when some lines are the same, the function does not detect unchanged lines
     const lines = generateDiffLines('shared\nold', 'shared\nnew');
     expect(lines).toEqual([
-      { type: 'remove', text: 'shared' },
-      { type: 'remove', text: 'old' },
-      { type: 'add', text: 'shared' },
-      { type: 'add', text: 'new' },
+      { type: 'remove', text: 'shared', lineNumber: 1 },
+      { type: 'remove', text: 'old', lineNumber: 2 },
+      { type: 'add', text: 'shared', lineNumber: 1 },
+      { type: 'add', text: 'new', lineNumber: 2 },
     ]);
+  });
+
+  it('default startLine is 1', () => {
+    const lines = generateDiffLines('a', 'b');
+    expect(lines[0]).toEqual({ type: 'remove', text: 'a', lineNumber: 1 });
+    expect(lines[1]).toEqual({ type: 'add', text: 'b', lineNumber: 1 });
+  });
+
+  it('custom startLine produces correct line numbers', () => {
+    const lines = generateDiffLines('a', 'b', 42);
+    expect(lines[0]).toEqual({ type: 'remove', text: 'a', lineNumber: 42 });
+    expect(lines[1]).toEqual({ type: 'add', text: 'b', lineNumber: 42 });
+  });
+
+  it('multi-line with startLine: remove lines get startLine, startLine+1, etc.', () => {
+    const lines = generateDiffLines('line1\nline2\nline3', 'lineA\nlineB', 10);
+    expect(lines[0]).toEqual({ type: 'remove', text: 'line1', lineNumber: 10 });
+    expect(lines[1]).toEqual({ type: 'remove', text: 'line2', lineNumber: 11 });
+    expect(lines[2]).toEqual({ type: 'remove', text: 'line3', lineNumber: 12 });
+    expect(lines[3]).toEqual({ type: 'add', text: 'lineA', lineNumber: 10 });
+    expect(lines[4]).toEqual({ type: 'add', text: 'lineB', lineNumber: 11 });
   });
 });
 
@@ -53,8 +74,8 @@ describe('diff line correctness', () => {
   it('single line replacement produces exactly 1 remove + 1 add', () => {
     const lines = generateDiffLines('const a = 1;', 'const a = 2;');
     expect(lines).toEqual([
-      { type: 'remove', text: 'const a = 1;' },
-      { type: 'add', text: 'const a = 2;' },
+      { type: 'remove', text: 'const a = 1;', lineNumber: 1 },
+      { type: 'add', text: 'const a = 2;', lineNumber: 1 },
     ]);
   });
 
@@ -64,8 +85,8 @@ describe('diff line correctness', () => {
     const lines = generateDiffLines(old, newStr);
     expect(lines.filter((l) => l.type === 'remove')).toHaveLength(3);
     expect(lines.filter((l) => l.type === 'add')).toHaveLength(2);
-    expect(lines[0]).toEqual({ type: 'remove', text: 'line1' });
-    expect(lines[3]).toEqual({ type: 'add', text: 'lineA' });
+    expect(lines[0]).toEqual({ type: 'remove', text: 'line1', lineNumber: 1 });
+    expect(lines[3]).toEqual({ type: 'add', text: 'lineA', lineNumber: 1 });
   });
 
   it('remove lines come before add lines', () => {
@@ -84,8 +105,8 @@ describe('diff line correctness', () => {
   it('handles empty lines within content', () => {
     const lines = generateDiffLines('a\n\nb', 'x\n\ny');
     expect(lines).toHaveLength(6); // 3 remove + 3 add
-    expect(lines[1]).toEqual({ type: 'remove', text: '' });
-    expect(lines[4]).toEqual({ type: 'add', text: '' });
+    expect(lines[1]).toEqual({ type: 'remove', text: '', lineNumber: 2 });
+    expect(lines[4]).toEqual({ type: 'add', text: '', lineNumber: 2 });
   });
 });
 
@@ -99,8 +120,8 @@ describe('extractEditDiff', () => {
     expect(result).not.toBeNull();
     expect(result!.file).toBe('/src/index.ts');
     expect(result!.lines).toEqual([
-      { type: 'remove', text: 'hello' },
-      { type: 'add', text: 'world' },
+      { type: 'remove', text: 'hello', lineNumber: 1 },
+      { type: 'add', text: 'world', lineNumber: 1 },
     ]);
   });
 
@@ -188,5 +209,33 @@ describe('extractEditDiff', () => {
     });
     expect(result).not.toBeNull();
     expect(result!.file).toBe('/snake.ts');
+  });
+
+  it('accepts optional startLine parameter', () => {
+    const result = extractEditDiff(
+      'Edit',
+      {
+        file_path: '/src/index.ts',
+        old_string: 'hello',
+        new_string: 'world',
+      },
+      5,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.lines).toEqual([
+      { type: 'remove', text: 'hello', lineNumber: 5 },
+      { type: 'add', text: 'world', lineNumber: 5 },
+    ]);
+  });
+
+  it('defaults startLine to 1 when not provided', () => {
+    const result = extractEditDiff('Edit', {
+      file_path: '/src/index.ts',
+      old_string: 'a',
+      new_string: 'b',
+    });
+    expect(result).not.toBeNull();
+    expect(result!.lines[0].lineNumber).toBe(1);
+    expect(result!.lines[1].lineNumber).toBe(1);
   });
 });
