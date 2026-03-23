@@ -37,43 +37,54 @@ The TUI (built with React + Ink) provides:
 
 Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Enter to select.
 
-| Command                   | Description                    |
-| ------------------------- | ------------------------------ |
-| `/help`                   | Show available commands        |
-| `/clear`                  | Clear conversation history     |
-| `/mode [mode]`            | Show or change permission mode |
-| `/model [model]`          | Show or change AI model        |
-| `/compact [instructions]` | Compress context window        |
-| `/cost`                   | Show session info              |
-| `/context`                | Context window details         |
-| `/permissions`            | Show permission rules          |
-| `/exit`                   | Exit CLI                       |
-| `/plugin`                 | Plugin management              |
-| `/reload-plugins`         | Reload all plugins             |
-| `/language [lang]`        | Show or change UI language     |
+| Command                   | Description                      |
+| ------------------------- | -------------------------------- |
+| `/help`                   | Show available commands          |
+| `/clear`                  | Clear conversation history       |
+| `/mode [mode]`            | Show or change permission mode   |
+| `/model [model]`          | Show or change AI model          |
+| `/compact [instructions]` | Compress context window          |
+| `/cost`                   | Show session info                |
+| `/context`                | Context window details           |
+| `/permissions`            | Show permission rules            |
+| `/exit`                   | Exit CLI                         |
+| `/plugin`                 | Plugin manager (interactive TUI) |
+| `/reload-plugins`         | Reload all plugins               |
+| `/language [lang]`        | Show or change UI language       |
 
 `/mode` and `/model` show nested submenus for selection.
 
 ### Plugin Management
 
-Plugins extend the CLI with additional skills, hooks, and tools. They are stored in `~/.robota/plugins/`.
+Plugins extend the CLI with additional skills, hooks, and tools. They are stored in `~/.robota/plugins/` (user scope) or `.robota/plugins/` (project scope).
 
-**Marketplace commands:**
+**Interactive TUI (`/plugin`):**
 
-```bash
-/plugin marketplace add <source>       # Add marketplace (shallow clones repo)
-/plugin marketplace remove <name>      # Remove marketplace
-/plugin marketplace list               # List registered marketplaces
-/plugin marketplace update             # Update all marketplaces
+Typing `/plugin` opens an interactive menu with arrow-key navigation:
+
+```
+Plugin Management
+│
+├─ Marketplace
+│    ├─ Add Marketplace      → enter source (owner/repo or git URL)
+│    └─ <marketplace-name>   → Browse plugins / Update / Remove
+│         └─ Browse          → plugin list → Install (scope) or Uninstall
+│
+└─ Installed Plugins
+     └─ <plugin-name>       → Uninstall (with confirmation)
 ```
 
-**Plugin commands:**
+Navigate with arrow keys, Enter to select, Esc to go back.
+
+**Text subcommands** (also available when typed directly):
 
 ```bash
-/plugin install <name>@<marketplace>   # Install plugin from marketplace
-/plugin uninstall <name>               # Uninstall plugin
-/plugin enable <name>                  # Enable installed plugin
-/plugin disable <name>                 # Disable installed plugin
+/plugin install <name>@<marketplace>   # Install plugin
+/plugin uninstall <name>@<marketplace> # Uninstall plugin
+/plugin marketplace add <source>       # Add marketplace source
+/plugin marketplace remove <name>      # Remove marketplace
+/plugin marketplace update <name>      # Update marketplace
+/plugin marketplace list               # List registered marketplaces
 ```
 
 Use `/reload-plugins` to reload all plugins without restarting the CLI.
