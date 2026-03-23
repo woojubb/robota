@@ -202,7 +202,8 @@ export async function handlePluginCommand(
   try {
     switch (subcommand) {
       case '':
-      case undefined: {
+      case undefined:
+      case 'manage': {
         return { handled: true, triggerPluginTUI: true };
       }
       case 'install': {

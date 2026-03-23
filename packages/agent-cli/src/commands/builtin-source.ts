@@ -55,22 +55,7 @@ function createBuiltinCommands(): ISlashCommand[] {
     { name: 'cost', description: 'Show session info', source: 'builtin' },
     { name: 'context', description: 'Context window info', source: 'builtin' },
     { name: 'permissions', description: 'Permission rules', source: 'builtin' },
-    {
-      name: 'plugin',
-      description: 'Manage plugins',
-      source: 'builtin',
-      subcommands: [
-        { name: 'install', description: 'Install a plugin (name@marketplace)', source: 'builtin' },
-        {
-          name: 'uninstall',
-          description: 'Uninstall a plugin (name@marketplace)',
-          source: 'builtin',
-        },
-        { name: 'enable', description: 'Enable a plugin (name@marketplace)', source: 'builtin' },
-        { name: 'disable', description: 'Disable a plugin (name@marketplace)', source: 'builtin' },
-        { name: 'marketplace', description: 'Manage marketplace sources', source: 'builtin' },
-      ],
-    },
+    { name: 'plugin', description: 'Open Plugin Manager', source: 'builtin' },
     { name: 'reload-plugins', description: 'Reload all plugin resources', source: 'builtin' },
     { name: 'reset', description: 'Delete settings and exit', source: 'builtin' },
     { name: 'exit', description: 'Exit CLI', source: 'builtin' },
