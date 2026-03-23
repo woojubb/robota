@@ -177,17 +177,17 @@ Configure in `.robota/settings.json` or `.robota/settings.local.json`:
 
 ## Slash Commands
 
-| Command        | Description                     |
-| -------------- | ------------------------------- |
-| `/help`        | Show help                       |
-| `/clear`       | Clear conversation history      |
-| `/mode [mode]` | Show or change permission mode  |
-| `/model [model]`| Select AI model (confirmation + restart) |
-| `/compact [instructions]` | Compress context window  |
-| `/cost`        | Show session info               |
-| `/context`     | Context window details          |
-| `/permissions` | Show permission rules           |
-| `/exit`        | Exit CLI                        |
+| Command                   | Description                              |
+| ------------------------- | ---------------------------------------- |
+| `/help`                   | Show help                                |
+| `/clear`                  | Clear conversation history               |
+| `/mode [mode]`            | Show or change permission mode           |
+| `/model [model]`          | Select AI model (confirmation + restart) |
+| `/compact [instructions]` | Compress context window                  |
+| `/cost`                   | Show session info                        |
+| `/context`                | Context window details                   |
+| `/permissions`            | Show permission rules                    |
+| `/exit`                   | Exit CLI                                 |
 
 ## Configuration
 
@@ -219,6 +219,31 @@ Settings are loaded from (highest priority first):
 | `ANTHROPIC_API_KEY` | Anthropic API key | Yes      |
 
 Copy `.env.example` to `.env` and set your key. The CLI reads `.env` automatically in dev mode.
+
+## Paste Template
+
+When pasting multiline text, the input area collapses it into a label: `[Pasted text #1 +42 lines]`. Multiple pastes are numbered sequentially. The full content is expanded on submit, keeping the input area compact while preserving the complete text for the AI.
+
+## Edit Diff Display
+
+After the Edit tool runs, a `DiffBlock` component renders the change with colored `+`/`-` line markers (green = added, red = removed), giving immediate visual feedback on file modifications.
+
+## Plugin Commands Display
+
+Plugin-provided commands appear in the slash command autocomplete with their source plugin name as a hint. Commands are also accessible via colon format: `/plugin-name:command`.
+
+## Memory Management
+
+The CLI applies two strategies to keep memory usage bounded during long sessions:
+
+- **Message windowing** — Conversation history is capped at 100 messages. Older messages are pruned from the window.
+- **Tool state cleanup** — Completed tool results older than 50 entries are cleaned up to reduce retained state.
+
+React components use `React.memo` to avoid unnecessary re-renders.
+
+### Forced Summary on maxRounds
+
+When the tool execution loop exhausts its maximum rounds, the CLI injects a synthetic user message requesting a summary. This ensures the user always receives a meaningful response even if the agent could not complete all planned tool calls.
 
 ## Context Discovery
 

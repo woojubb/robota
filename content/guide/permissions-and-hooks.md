@@ -133,3 +133,7 @@ Plugin hooks receive additional environment variables:
 | `CLAUDE_SESSION_ID`  | Active session identifier         |
 
 These environment variables use the `CLAUDE_` prefix for compatibility with Claude Code plugin conventions.
+
+## Subagent Hook Forwarding
+
+When a subagent session is created (via `createSubagentSession`), it inherits the parent session's hooks configuration. All hook events (`PreToolUse`, `PostToolUse`, etc.) fire in the subagent context with the same handlers as the parent. This ensures consistent policy enforcement across the parent and all spawned subagents.
