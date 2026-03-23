@@ -17,8 +17,9 @@ export {
   getSubagentSuffix,
   getForkWorkerSuffix,
   assembleSubagentPrompt,
+  createSubagentSession,
 } from './assembly/index.js';
-export type { ISubagentPromptOptions } from './assembly/index.js';
+export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
 
 // Session (re-exported from agent-sessions — generic, requires tools/provider/systemMessage)
 export { Session } from '@robota-sdk/agent-sessions';
