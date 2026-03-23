@@ -412,6 +412,7 @@ export default function PluginTUI({ callbacks, onClose, addMessage }: IProps): R
 
   return (
     <MenuSelect
+      key={screen}
       title={title}
       items={displayItems}
       onSelect={handleSelect}
