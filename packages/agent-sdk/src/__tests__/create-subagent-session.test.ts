@@ -370,4 +370,137 @@ describe('createSubagentSession', () => {
     expect(permissions.allow).toContain('Read(**)');
     expect(permissions.deny).toContain('Write(/etc/**)');
   });
+
+  it('should result in empty tools when allowlist contains no matching tools', () => {
+    const tools = [makeTool('Read'), makeTool('Write'), makeTool('Grep')];
+    const agent = makeAgentDef({ tools: ['NonExistent', 'AlsoMissing'] });
+
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: tools,
+      terminal: makeTerminal(),
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    const passedTools = passedOptions['tools'] as IToolWithEventService[];
+    expect(passedTools).toHaveLength(0);
+  });
+
+  it('should pass through unknown model strings as-is (no shortcut match)', () => {
+    const agent = makeAgentDef({ model: 'gpt-4o-mini' });
+
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read')],
+      terminal: makeTerminal(),
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    expect(passedOptions['model']).toBe('gpt-4o-mini');
+  });
+
+  it('should remove Agent tool even when it is in the allowlist', () => {
+    const tools = [makeTool('Read'), makeTool('Agent'), makeTool('Grep')];
+    const agent = makeAgentDef({ tools: ['Read', 'Agent', 'Grep'] });
+
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: tools,
+      terminal: makeTerminal(),
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    const passedTools = passedOptions['tools'] as IToolWithEventService[];
+    const toolNames = passedTools.map((t) => t.getName());
+    expect(toolNames).toEqual(['Read', 'Grep']);
+    expect(toolNames).not.toContain('Agent');
+  });
+
+  it('should handle empty parent tools', () => {
+    const agent = makeAgentDef();
+
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [],
+      terminal: makeTerminal(),
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    const passedTools = passedOptions['tools'] as IToolWithEventService[];
+    expect(passedTools).toHaveLength(0);
+  });
+
+  it('should default isForkWorker to false (standard suffix)', () => {
+    const agent = makeAgentDef({ systemPrompt: 'Test prompt.' });
+
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read')],
+      terminal: makeTerminal(),
+      // isForkWorker not specified
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    const systemMessage = passedOptions['systemMessage'] as string;
+    expect(systemMessage).toContain('concise report');
+    expect(systemMessage).not.toContain('500 words');
+  });
+
+  it('should pass defaultTrustLevel from parent config', () => {
+    const config = makeParentConfig({ defaultTrustLevel: 'trusted' });
+    const agent = makeAgentDef();
+
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: config,
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read')],
+      terminal: makeTerminal(),
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    expect(passedOptions['defaultTrustLevel']).toBe('trusted');
+  });
+
+  it('should handle no context (empty claudeMd and agentsMd)', () => {
+    const agent = makeAgentDef({ systemPrompt: 'Agent prompt.' });
+
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext({ claudeMd: undefined, agentsMd: undefined }),
+      parentTools: [makeTool('Read')],
+      terminal: makeTerminal(),
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    const systemMessage = passedOptions['systemMessage'] as string;
+    expect(systemMessage).toContain('Agent prompt.');
+    expect(systemMessage).toContain('concise report');
+  });
+
+  it('should pass undefined maxTurns when agent definition has none', () => {
+    const agent = makeAgentDef(); // no maxTurns
+
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read')],
+      terminal: makeTerminal(),
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    expect(passedOptions['maxTurns']).toBeUndefined();
+  });
 });

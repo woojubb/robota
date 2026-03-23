@@ -278,4 +278,197 @@ Prompt.`,
     expect(agent!.description).toBe('');
     expect(agent!.systemPrompt).toBe('Just a plain system prompt with no frontmatter.');
   });
+
+  it('should handle unclosed frontmatter (missing closing ---)', () => {
+    const cwd = makeTempDir();
+    writeAgentFile(
+      join(cwd, '.claude', 'agents'),
+      'broken.md',
+      `---
+name: broken-agent
+description: This frontmatter is never closed
+
+Some body content here.`,
+    );
+
+    const loader = new AgentDefinitionLoader(cwd);
+    const agent = loader.getAgent('broken');
+
+    // Unclosed frontmatter = no frontmatter parsed, entire content is body
+    expect(agent).toBeDefined();
+    expect(agent!.name).toBe('broken'); // fallback to filename
+    expect(agent!.description).toBe('');
+    expect(agent!.systemPrompt).toContain('name: broken-agent');
+  });
+
+  it('should handle frontmatter with no valid key-value pairs', () => {
+    const cwd = makeTempDir();
+    writeAgentFile(
+      join(cwd, '.claude', 'agents'),
+      'empty-fm.md',
+      `---
+just some random text
+not key-value pairs at all
+---
+
+Actual body here.`,
+    );
+
+    const loader = new AgentDefinitionLoader(cwd);
+    const agent = loader.getAgent('empty-fm');
+
+    expect(agent).toBeDefined();
+    expect(agent!.name).toBe('empty-fm'); // fallback to filename
+    expect(agent!.description).toBe('');
+    expect(agent!.systemPrompt).toBe('Actual body here.');
+  });
+
+  it('should handle NaN maxTurns gracefully', () => {
+    const cwd = makeTempDir();
+    writeAgentFile(
+      join(cwd, '.claude', 'agents'),
+      'nan-turns.md',
+      `---
+name: nan-turns
+description: Agent with non-numeric maxTurns
+maxTurns: not-a-number
+---
+
+Prompt.`,
+    );
+
+    const loader = new AgentDefinitionLoader(cwd);
+    const agent = loader.getAgent('nan-turns');
+
+    expect(agent).toBeDefined();
+    // parseInt('not-a-number') returns NaN
+    expect(agent!.maxTurns).toBeNaN();
+  });
+
+  it('should handle empty tools list', () => {
+    const cwd = makeTempDir();
+    writeAgentFile(
+      join(cwd, '.claude', 'agents'),
+      'empty-tools.md',
+      `---
+name: empty-tools
+description: Agent with single-item tools
+tools: Read
+---
+
+Prompt.`,
+    );
+
+    const loader = new AgentDefinitionLoader(cwd);
+    const agent = loader.getAgent('empty-tools');
+
+    expect(agent).toBeDefined();
+    expect(agent!.tools).toEqual(['Read']);
+  });
+
+  it('should ignore subdirectories in agents directory', () => {
+    const cwd = makeTempDir();
+    const agentsDir = join(cwd, '.claude', 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    // Create a subdirectory (should be ignored)
+    mkdirSync(join(agentsDir, 'subdir'), { recursive: true });
+    writeFileSync(
+      join(agentsDir, 'subdir', 'nested.md'),
+      `---
+name: nested
+description: Nested agent
+---
+
+Nested prompt.`,
+      'utf-8',
+    );
+
+    writeAgentFile(
+      agentsDir,
+      'top-level.md',
+      `---
+name: top-level
+description: Top-level agent
+---
+
+Top prompt.`,
+    );
+
+    const loader = new AgentDefinitionLoader(cwd);
+    const all = loader.loadAll();
+    const customNames = all.filter((a) => !BUILT_IN_AGENTS.some((b) => b.name === a.name));
+    expect(customNames).toHaveLength(1);
+    expect(customNames[0]!.name).toBe('top-level');
+  });
+
+  it('getAgent should return undefined for nonexistent name', () => {
+    const cwd = makeTempDir();
+    const loader = new AgentDefinitionLoader(cwd);
+    expect(loader.getAgent('does-not-exist')).toBeUndefined();
+  });
+
+  it('should handle duplicate names across project and user dirs (project wins)', () => {
+    const cwd = makeTempDir();
+    const home = makeTempDir();
+
+    writeAgentFile(
+      join(cwd, '.claude', 'agents'),
+      'dup.md',
+      `---
+name: duplicated
+description: Project version
+---
+
+Project prompt.`,
+    );
+
+    writeAgentFile(
+      join(home, '.robota', 'agents'),
+      'dup.md',
+      `---
+name: duplicated
+description: User version
+---
+
+User prompt.`,
+    );
+
+    const loader = new AgentDefinitionLoader(cwd, home);
+    const all = loader.loadAll();
+    const dupAgents = all.filter((a) => a.name === 'duplicated');
+    expect(dupAgents).toHaveLength(1);
+    expect(dupAgents[0]!.description).toBe('Project version');
+  });
+
+  it('should handle empty .md file', () => {
+    const cwd = makeTempDir();
+    writeAgentFile(join(cwd, '.claude', 'agents'), 'empty.md', '');
+
+    const loader = new AgentDefinitionLoader(cwd);
+    const agent = loader.getAgent('empty');
+
+    expect(agent).toBeDefined();
+    expect(agent!.name).toBe('empty');
+    expect(agent!.systemPrompt).toBe('');
+  });
+
+  it('should handle frontmatter-only file (no body after ---)', () => {
+    const cwd = makeTempDir();
+    writeAgentFile(
+      join(cwd, '.claude', 'agents'),
+      'fm-only.md',
+      `---
+name: fm-only
+description: Frontmatter only agent
+---`,
+    );
+
+    const loader = new AgentDefinitionLoader(cwd);
+    const agent = loader.getAgent('fm-only');
+
+    expect(agent).toBeDefined();
+    expect(agent!.name).toBe('fm-only');
+    expect(agent!.description).toBe('Frontmatter only agent');
+    expect(agent!.systemPrompt).toBe('');
+  });
 });

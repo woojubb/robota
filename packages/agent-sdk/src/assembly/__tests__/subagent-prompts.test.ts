@@ -66,4 +66,66 @@ describe('Subagent prompts', () => {
     // Should NOT have empty sections
     expect(prompt).not.toContain('\n\n\n\n');
   });
+
+  it('should include claudeMd only when agentsMd is undefined', () => {
+    const prompt = assembleSubagentPrompt({
+      agentBody: 'Body.',
+      claudeMd: '# CLAUDE rules',
+      isForkWorker: false,
+    });
+    expect(prompt).toContain('Body.');
+    expect(prompt).toContain('# CLAUDE rules');
+    expect(prompt).toContain('concise report');
+  });
+
+  it('should include agentsMd only when claudeMd is undefined', () => {
+    const prompt = assembleSubagentPrompt({
+      agentBody: 'Body.',
+      agentsMd: '# AGENTS rules',
+      isForkWorker: false,
+    });
+    expect(prompt).toContain('Body.');
+    expect(prompt).toContain('# AGENTS rules');
+    expect(prompt).toContain('concise report');
+  });
+
+  it('should maintain correct assembly order: body, claudeMd, agentsMd, suffix', () => {
+    const prompt = assembleSubagentPrompt({
+      agentBody: 'BODY_MARKER',
+      claudeMd: 'CLAUDE_MARKER',
+      agentsMd: 'AGENTS_MARKER',
+      isForkWorker: false,
+    });
+
+    const bodyIdx = prompt.indexOf('BODY_MARKER');
+    const claudeIdx = prompt.indexOf('CLAUDE_MARKER');
+    const agentsIdx = prompt.indexOf('AGENTS_MARKER');
+    const suffixIdx = prompt.indexOf('concise report');
+
+    expect(bodyIdx).toBeLessThan(claudeIdx);
+    expect(claudeIdx).toBeLessThan(agentsIdx);
+    expect(agentsIdx).toBeLessThan(suffixIdx);
+  });
+
+  it('should separate parts with double newline', () => {
+    const prompt = assembleSubagentPrompt({
+      agentBody: 'Body.',
+      claudeMd: 'Claude.',
+      agentsMd: 'Agents.',
+      isForkWorker: false,
+    });
+    // Each part separated by \n\n
+    expect(prompt).toContain('Body.\n\nClaude.\n\nAgents.\n\n');
+  });
+
+  it('should handle undefined claudeMd and agentsMd (no extra spacing)', () => {
+    const prompt = assembleSubagentPrompt({
+      agentBody: 'Body.',
+      isForkWorker: false,
+    });
+    // Should start with Body.\n\n<suffix> — no claudeMd/agentsMd sections injected
+    expect(prompt).toMatch(/^Body\.\n\n/);
+    // Should NOT contain three consecutive newlines (would indicate empty section)
+    expect(prompt).not.toContain('\n\n\n');
+  });
 });
