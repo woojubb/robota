@@ -47,16 +47,13 @@ export default function DiffBlock({ file, lines }: IProps): React.ReactElement {
         }
 
         const prefix = line.type === 'remove' ? '-' : '+';
-        const bgColor = line.type === 'remove' ? 'red' : 'green';
+        // Dark backgrounds with light text for good contrast
+        const bgColor = line.type === 'remove' ? '#5c1a1a' : '#1a3d1a';
+        const fgColor = line.type === 'remove' ? '#ff9999' : '#99ff99';
 
         return (
-          <Text key={i}>
-            <Text color="white" dimColor>
-              │ {lineNum}{' '}
-            </Text>
-            <Text color="white" backgroundColor={bgColor}>
-              {prefix} {line.text}
-            </Text>
+          <Text key={i} color={fgColor} backgroundColor={bgColor}>
+            │ {lineNum} {prefix} {line.text}
           </Text>
         );
       })}

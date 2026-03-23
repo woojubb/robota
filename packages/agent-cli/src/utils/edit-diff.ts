@@ -110,12 +110,24 @@ export function extractEditDiff(
   if (typeof filePath !== 'string') return null;
   if (typeof oldStr !== 'string' || typeof newStr !== 'string') return null;
 
-  const sl = startLine ?? 1;
+  // Resolve start line: from tool result, or by finding newString in the modified file
+  let sl = startLine ?? 0;
+  if (!sl) {
+    try {
+      const fileContent = readFileSync(filePath, 'utf-8');
+      const idx = fileContent.indexOf(newStr);
+      if (idx >= 0) {
+        sl = fileContent.substring(0, idx).split('\n').length;
+      } else {
+        sl = 1;
+      }
+    } catch {
+      sl = 1;
+    }
+  }
 
-  // Use context version when we have a valid file path and start line
-  const lines = startLine
-    ? generateDiffLinesWithContext(oldStr, newStr, sl, filePath)
-    : generateDiffLines(oldStr, newStr, sl);
+  // Always try to include context from the file
+  const lines = generateDiffLinesWithContext(oldStr, newStr, sl, filePath);
 
   if (lines.length === 0) return null;
 
