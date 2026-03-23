@@ -21,16 +21,18 @@ Stack-based menu component (`PluginTUI`) manages screen navigation. Each screen 
 /plugin (no args)
 │
 ├─ Marketplace
-│    ├─ Add Marketplace          → TextPrompt (source input)
+│    ├─ Add Marketplace          → TextPrompt (source input, validates '/')
 │    ├─ marketplace-A            → [Browse plugins / Update / Remove]
 │    └─ marketplace-B            → [Browse plugins / Update / Remove]
-│         ├─ Browse plugins      → plugin list → [Install] → scope select
+│         ├─ Browse plugins      → plugin list
+│         │    ├─ (not installed) → scope select [User / Project] → install
+│         │    └─ (installed)    → [Uninstall] → ConfirmPrompt
 │         ├─ Update              → execute + feedback
 │         └─ Remove              → ConfirmPrompt → execute + feedback
 │
 └─ Installed Plugins
-     ├─ plugin-x (enabled)       → [Disable / Uninstall]
-     └─ plugin-y (disabled)      → [Enable / Uninstall]
+     ├─ plugin-x@marketplace-A   → ConfirmPrompt → uninstall
+     └─ plugin-y@marketplace-B   → ConfirmPrompt → uninstall
 ```
 
 ## Screens
@@ -43,8 +45,8 @@ Stack-based menu component (`PluginTUI`) manages screen navigation. Each screen 
 | `marketplace-browse`        | Plugin list from marketplace manifest          | MenuSelect | `listAvailablePlugins(marketplace)` |
 | `marketplace-install-scope` | [User scope / Project scope]                   | MenuSelect | None (static)                       |
 | `marketplace-add`           | Source URL input                               | TextPrompt | None                                |
-| `installed-list`            | Installed plugins with enabled/disabled status | MenuSelect | `listInstalled()` on each render    |
-| `installed-action`          | [Enable or Disable / Uninstall]                | MenuSelect | None (static options)               |
+| `installed-list`            | Installed plugins (name@marketplace format)    | MenuSelect | `listInstalled()` on each render    |
+| `installed-action`          | [Uninstall]                                    | MenuSelect | None (static options)               |
 
 All list screens re-fetch data on each render (not cached in stack state) so that changes (add/remove/install) are immediately reflected when returning via ESC.
 
@@ -73,6 +75,7 @@ Main orchestrator. Manages menu stack, renders current screen, handles callbacks
 interface IPluginTUIProps {
   callbacks: IPluginCallbacks;
   onClose: () => void;
+  addMessage?: (msg: { role: string; content: string }) => void;
 }
 ```
 
@@ -95,9 +98,11 @@ Visual:
 
 - Border: round, yellow (matches PermissionPrompt)
 - Selected: cyan + bold + `>` prefix
-- Footer: `Up/Down Navigate  Enter Select  Esc Back`
-- Loading: spinner with "Loading..." text
+- Footer: `↑↓ Navigate  Enter Select  Esc Back`
+- Loading: "Loading..." text (rendered inside MenuSelect, not separate Box)
 - Error: red text with error message + "Press Esc to go back"
+
+**Key prop requirement:** When multiple screens share a single MenuSelect render position, each must have a unique `key` (e.g., `key={screen}` or `key={stack.length}`) to force React remount. Without this, `resolvedRef` from the previous screen's selection persists and blocks all input.
 
 ### TextPrompt
 
@@ -113,7 +118,7 @@ interface ITextPromptProps {
 }
 ```
 
-Inline validation: when `validate` returns a string, show it in red below the input and block submission.
+Inline validation: when `validate` returns a string, show it in red below the input and block submission. marketplace-add uses `validate` to require `/` in source string.
 
 ### ConfirmPrompt
 
@@ -125,9 +130,9 @@ Existing component, reused for destructive actions (remove marketplace, uninstal
 
 ```typescript
 // New method: fetch plugins from a specific marketplace
-// Implementation: calls MarketplaceClient.fetchManifest(marketplace) to get
-// marketplace plugin entries, then cross-references BundlePluginInstaller.getInstalledPlugins()
-// to derive the `installed` boolean for each plugin.
+// Implementation: calls MarketplaceClient.fetchManifest(marketplace) wrapped in
+// try/catch (returns [] on failure), then cross-references
+// Object.values(installer.getInstalledPlugins()) to derive `installed` boolean.
 listAvailablePlugins(marketplace: string): Promise<Array<{
   name: string;
   description: string;
@@ -137,14 +142,26 @@ listAvailablePlugins(marketplace: string): Promise<Array<{
 // Modified: add scope parameter
 // Implementation: 'user' scope uses ~/.robota/plugins/ installer,
 // 'project' scope uses .robota/plugins/ installer.
-// usePluginCallbacks creates two BundlePluginInstaller instances (one per scope)
-// and dispatches based on the scope argument. Default: 'user'.
+// usePluginCallbacks creates a project-scoped BundlePluginInstaller on demand.
 install(pluginId: string, scope?: 'user' | 'project'): Promise<void>;
 ```
 
-### Bug fixes
+### Bug fixes applied
 
-- `listInstalled()`: Return actual enabled state from `PluginSettingsStore` instead of hardcoded `true`.
+- `listInstalled()`: Uses `settingsStore.getEnabledPlugins()` (not the non-existent `settingsStore.read()`).
+- `listInstalled()`: Returns `name@marketplace` format by extracting marketplace from `pluginDir` path (`cache/<marketplace>/<plugin>/<version>/`).
+- `getInstalledPlugins()` returns `Record`, not array — use `Object.values()` before `.map()`.
+
+## Plugin State Model (Current)
+
+Enable/disable is **deferred** — not yet reliable. Current model:
+
+| State         | Actions available            |
+| ------------- | ---------------------------- |
+| Not installed | Install (user/project scope) |
+| Installed     | Uninstall                    |
+
+Enable/disable will be added when `PluginSettingsStore` enabled state tracking is stable.
 
 ## Install Scope
 
@@ -153,55 +170,47 @@ install(pluginId: string, scope?: 'user' | 'project'): Promise<void>;
 | User (global) | `~/.robota/plugins/<name>/` | No          |
 | Project       | `.robota/plugins/<name>/`   | Yes         |
 
-`usePluginCallbacks` creates two `BundlePluginInstaller` instances — one for each scope directory. The `install(id, scope)` callback dispatches to the appropriate installer based on the `scope` argument.
-
 ## Integration
 
-### Slash Command Return Type
+### Slash Command
 
-Add `triggerPluginTUI?: boolean` to `ISlashResult`:
+`/plugin` has no subcommands in autocomplete — selecting it directly submits the command. Text subcommands (`/plugin install name@mp`, `/plugin marketplace add`, etc.) still work when typed manually.
 
-```typescript
-interface ISlashResult {
-  handled: boolean;
-  exitRequested?: boolean;
-  pendingModelId?: string;
-  pendingLanguage?: string;
-  triggerPluginTUI?: boolean; // NEW: trigger interactive TUI
-}
-```
-
-When `/plugin` is called with no arguments, `executeSlashCommand` returns `{ handled: true, triggerPluginTUI: true }`.
+Add `triggerPluginTUI?: boolean` to `ISlashResult`. When `/plugin` is called with no arguments (or with `manage`), returns `{ handled: true, triggerPluginTUI: true }`.
 
 ### App.tsx Integration
 
 ```typescript
 const [showPluginTUI, setShowPluginTUI] = useState(false);
 
-// In slash command handler:
+// In useSlashCommands (added as last parameter):
 if (result.triggerPluginTUI) {
   setShowPluginTUI(true);
 }
 
-// Render:
-{showPluginTUI
-  ? <PluginTUI callbacks={pluginCallbacks} onClose={() => setShowPluginTUI(false)} />
-  : <InputArea ... />}
+// Render: PluginTUI before StatusBar, InputArea disabled when TUI active
+{showPluginTUI && (
+  <PluginTUI
+    callbacks={pluginCallbacks}
+    onClose={() => setShowPluginTUI(false)}
+    addMessage={addMessage}
+  />
+)}
 ```
 
 ### useInput Conflict Resolution
 
 When `showPluginTUI` is true:
 
-- App-level `useInput` is disabled via `{ isActive: !showPluginTUI }`
-- `InputArea` is unmounted (conditional render above)
+- App-level `useInput` is disabled via `{ isActive: !permissionRequest && !showPluginTUI }`
+- `InputArea` is disabled (`isDisabled` includes `showPluginTUI`)
 - Only `PluginTUI`'s `useInput` handlers are active
 
 ### Feedback
 
 After operations (install, uninstall, update, remove):
 
-1. Display result as system message in the chat
+1. Display result as system message in the chat via `addMessage` prop
 2. Pop stack back to the parent list screen
 3. Parent list screen re-fetches data to reflect changes
 
@@ -215,11 +224,12 @@ packages/agent-cli/src/ui/
 └─ ConfirmPrompt.tsx   ← Existing (reuse)
 
 packages/agent-cli/src/commands/
-├─ slash-executor.ts   ← Modified: /plugin no-args → triggerPluginTUI
-└─ types.ts            ← Modified: ISlashResult + triggerPluginTUI
+├─ builtin-source.ts   ← Modified: /plugin without subcommands
+└─ slash-executor.ts   ← Modified: ISlashResult + triggerPluginTUI, IPluginCallbacks extended
 
 packages/agent-cli/src/ui/hooks/
-└─ usePluginCallbacks.ts ← Modified: add listAvailablePlugins, dual installer, fix listInstalled
+├─ usePluginCallbacks.ts ← Modified: listAvailablePlugins, scoped install, listInstalled fix
+└─ useSlashCommands.ts   ← Modified: setShowPluginTUI parameter
 
 packages/agent-cli/src/ui/
 └─ App.tsx             ← Modified: showPluginTUI state, useInput isActive guard
@@ -227,6 +237,7 @@ packages/agent-cli/src/ui/
 
 ## Out of Scope
 
+- Enable/disable plugin toggle (deferred until state tracking is reliable)
 - Tab-based top-level navigation (future enhancement)
 - Local scope (user+repo-specific, gitignored)
 - Plugin version management
