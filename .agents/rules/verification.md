@@ -8,6 +8,8 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - ANY modification to `packages/*/src/` REQUIRES immediate build of the affected scope.
 - Never commit code that does not build successfully.
 - Mandatory loop: change -> build -> test -> fix -> re-verify.
+- **After every commit that modifies `packages/*/src/`**, run `pnpm build` for the affected packages so the user can immediately test locally. Do NOT skip this step — the user always tests locally after changes.
+- Subagents and executing-plans must also follow this rule: build after commit, not just before.
 
 ### Browser Verification Requirement
 
