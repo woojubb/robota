@@ -87,15 +87,15 @@ agent-cli         ← Terminal UI
 
 ## What This Package Provides
 
-| Category        | Exports                                                                                                                |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Core**        | `Robota`, `AbstractAgent`, `AbstractAIProvider`, `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor` |
-| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `TPermissionMode`, `TToolArgs`                                   |
-| **Hooks**       | `runHooks`, `THookEvent` (PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop)                        |
-| **Events**      | `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, `EventEmitterPlugin`                          |
-| **Models**      | `CLAUDE_MODELS`, `getModelContextWindow()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`                 |
-| **Types**       | `TUniversalMessage`, `IAgentConfig`, `IAIProvider`, `IToolSchema`, `IContextWindowState`                               |
-| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                    |
+| Category        | Exports                                                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Core**        | `Robota`, `AbstractAgent`, `AbstractAIProvider`, `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor`        |
+| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `TPermissionMode`, `TToolArgs`                                          |
+| **Hooks**       | `runHooks`, `IRunHooksResult`, `THookEvent` (PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop)            |
+| **Events**      | `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, `EventEmitterPlugin`                                 |
+| **Models**      | `CLAUDE_MODELS`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition` |
+| **Types**       | `TUniversalMessage`, `IAgentConfig`, `IAIProvider`, `IToolSchema`, `IContextWindowState`                                      |
+| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                           |
 
 ## What Moved Out in v3
 

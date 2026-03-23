@@ -84,6 +84,14 @@ const provider = new AnthropicProvider({
 | `onTextDelta`     | `TTextDeltaCallback?` | —       | Streaming text callback        |
 | `onServerToolUse` | `function?`           | —       | Server tool execution callback |
 
+## Always-Streaming Policy
+
+The provider always uses the streaming API (`messages.stream`) internally, even when no `onTextDelta` callback is set. This prevents the 10-minute HTTP timeout that can occur during long-running tool loops with non-streaming requests. The complete response text is assembled from the streamed chunks.
+
+## getModelMaxOutput
+
+`getModelMaxOutput(modelId)` returns the default `max_tokens` value for a given Claude model from the `CLAUDE_MODELS` registry in `agent-core`. The provider uses this to set appropriate output limits without requiring manual configuration.
+
 ## Known Limitations
 
 - `chatStream()` does not apply `enableWebTools`, system message extraction, or `onServerToolUse` (use `chat()` for full feature support)

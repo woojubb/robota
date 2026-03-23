@@ -53,6 +53,31 @@ agent-sdk (assembly layer)
 
 `agent-sdk` assembles existing packages -- it does not re-implement functionality that belongs in lower layers.
 
+## Subagent Sessions
+
+`createSubagentSession()` creates a child session for delegating subtasks. The subagent forks the parent's context, inherits hooks and permissions, and runs with its own conversation history.
+
+```typescript
+import { createSubagentSession } from '@robota-sdk/agent-sdk';
+
+const subSession = createSubagentSession({
+  parentSession: session,
+  agentDefinition: 'explore',
+  prompt: 'Analyze the test coverage gaps',
+});
+const result = await subSession.run();
+```
+
+### Agent Definitions
+
+`IAgentDefinition` describes a reusable agent configuration (system prompt, allowed tools, permission mode). `AgentDefinitionLoader` discovers definitions from `.claude/agents/` and built-in defaults.
+
+Built-in agents: `explore` (read-only), `plan` (read-only planning), and a general-purpose agent with full tool access.
+
+### createAgentTool
+
+`createAgentTool()` wraps subagent creation into a tool that the AI can invoke directly. The parent session's hooks, permissions, and context are forwarded to the child. The tool assembles the subagent prompt from the agent definition and the caller's instructions.
+
 ## Session Usage
 
 ```typescript

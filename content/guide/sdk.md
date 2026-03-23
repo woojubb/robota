@@ -138,6 +138,38 @@ Sessions created by `createSession()` include:
 | **Session persistence**    | Conversations can be saved/loaded via `SessionStore`                   |
 | **Abort**                  | Cancel a running `run()` call with `session.abort()`                   |
 
+## Subagent Sessions
+
+`createSubagentSession()` spawns a child session for delegating subtasks to a subagent. The child session forks the parent's context (`context:fork`), inherits hooks and permissions, and runs independently.
+
+```typescript
+import { createSubagentSession } from '@robota-sdk/agent-sdk';
+
+const subSession = createSubagentSession({
+  parentSession: session,
+  agentDefinition: 'explore', // built-in agent type
+  prompt: 'Find all usages of the deprecated API',
+});
+
+const result = await subSession.run();
+```
+
+### Agent Definitions
+
+Agent definitions describe reusable agent configurations. Built-in types:
+
+| Type      | Purpose                                     |
+| --------- | ------------------------------------------- |
+| `explore` | Read-only codebase exploration              |
+| `plan`    | Multi-step planning with read-only tools    |
+| (custom)  | General-purpose agent with full tool access |
+
+Custom agent definitions can be placed in `.claude/agents/` and are loaded by `AgentDefinitionLoader`. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the `IAgentDefinition` interface.
+
+## Always-Streaming Policy
+
+The Anthropic provider always uses the streaming API internally, even when no `onTextDelta` callback is provided. This avoids the 10-minute HTTP timeout that can occur with long-running tool loops on non-streaming requests. The final response text is assembled from the stream. See [agent-provider-anthropic SPEC.md](../../packages/agent-provider-anthropic/docs/SPEC.md) for details.
+
 ## Assembly vs Direct Usage
 
 | Use case                | Approach                                                           |

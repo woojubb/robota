@@ -124,6 +124,16 @@ Auto-compaction triggers at ~83.5% of the model's context window. Use `/compact`
 /compact focus on the API design decisions
 ```
 
+## Paste Handling
+
+When pasting multiline text into the input area, the CLI collapses the content into a compact label:
+
+```
+[Pasted text #1 +42 lines]
+```
+
+Multiple pastes are numbered sequentially (`#1`, `#2`, etc.). The full pasted content is expanded when the prompt is submitted, so the AI receives the complete text. This keeps the input area readable while supporting large code blocks and log excerpts.
+
 ## Tool Display
 
 Tool invocations in the TUI use a unified display format with status indicators:
@@ -136,6 +146,14 @@ Tool invocations in the TUI use a unified display format with status indicators:
 | Denied  | ⊘      | YellowBright + strikethrough | Permission denied  |
 
 Long tool arguments are middle-truncated, keeping the last 30 characters visible for context.
+
+### Edit Diff Display
+
+When the Edit tool completes, the CLI renders a `DiffBlock` showing the change with `+`/`-` line markers (green for additions, red for removals). This provides immediate visual feedback on file modifications without needing to open the file separately.
+
+### Subagent Execution
+
+The AI can spawn subagents via the **Agent** tool to handle complex subtasks (e.g., exploring the codebase, planning multi-step changes). Subagents run in isolated sessions with their own tool access and inherit the parent session's hooks and permissions. Built-in agent types include `Explore`, `Plan`, and a general-purpose agent.
 
 ## Session Logging
 
