@@ -35,11 +35,20 @@ export function usePluginCallbacks(cwd: string): IPluginCallbacks {
       listInstalled: async () => {
         const plugins = await loader.loadAll();
         const enabledMap = settingsStore.getEnabledPlugins();
-        return plugins.map((p) => ({
-          name: p.manifest.name,
-          description: p.manifest.description,
-          enabled: enabledMap[p.manifest.name] !== false,
-        }));
+        return plugins.map((p) => {
+          // Extract marketplace from pluginDir: .../cache/<marketplace>/<plugin>/<version>/
+          const parts = p.pluginDir.split('/');
+          const cacheIdx = parts.indexOf('cache');
+          const marketplaceName = cacheIdx >= 0 ? parts[cacheIdx + 1] : '';
+          const fullId = marketplaceName
+            ? `${p.manifest.name}@${marketplaceName}`
+            : p.manifest.name;
+          return {
+            name: fullId,
+            description: p.manifest.description,
+            enabled: enabledMap[fullId] !== false && enabledMap[p.manifest.name] !== false,
+          };
+        });
       },
       listAvailablePlugins: async (marketplaceName: string) => {
         let manifest;
