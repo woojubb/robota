@@ -75,9 +75,14 @@ export default function App(props: IProps): React.ReactElement {
     ),
   };
 
-  const { session, permissionRequest, streamingText, clearStreamingText, activeTools } = useSession(
-    { ...props, config: configWithPluginHooks },
-  );
+  const {
+    session,
+    permissionRequest,
+    streamingText,
+    clearStreamingText,
+    getStreamingText,
+    activeTools,
+  } = useSession({ ...props, config: configWithPluginHooks });
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
   const initialCtx = session.getContextState();
@@ -110,6 +115,7 @@ export default function App(props: IProps): React.ReactElement {
     setIsThinking,
     setContextState,
     registry,
+    getStreamingText,
   );
 
   useInput(

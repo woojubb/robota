@@ -48,6 +48,7 @@ export async function runSessionPrompt(
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   rawInput?: string,
+  getStreamingText?: () => string,
 ): Promise<void> {
   setIsThinking(true);
   clearStreamingText();
@@ -78,6 +79,8 @@ export async function runSessionPrompt(
     addMessage(createAssistantMessage(response || '(empty response)'));
     syncContextState(session, setContextState);
   } catch (err) {
+    // Capture streaming text BEFORE clearing
+    const partialText = getStreamingText?.() ?? '';
     clearStreamingText();
     if (err instanceof DOMException && err.name === 'AbortError') {
       // Extract tool summaries from history even on abort
@@ -97,10 +100,18 @@ export async function runSessionPrompt(
           }),
         );
       }
-      // Get the interrupted assistant message from history (saved by commitAssistant)
+      // Try history first (commitAssistant saves interrupted message)
       const lastMsg = history[history.length - 1];
-      if (lastMsg && lastMsg.role === 'assistant' && lastMsg.state === 'interrupted') {
+      if (
+        lastMsg &&
+        lastMsg.role === 'assistant' &&
+        lastMsg.state === 'interrupted' &&
+        lastMsg.content
+      ) {
         addMessage(lastMsg);
+      } else if (partialText) {
+        // Fallback: use captured streaming text
+        addMessage(createAssistantMessage(partialText, { state: 'interrupted' }));
       }
       addMessage(createSystemMessage('Cancelled.'));
     } else {
@@ -178,6 +189,7 @@ export function useSubmitHandler(
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   registry: CommandRegistry,
+  getStreamingText?: () => string,
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
@@ -223,6 +235,7 @@ export function useSubmitHandler(
               setIsThinking,
               setContextState,
               hookInput,
+              getStreamingText,
             );
           }
           return;
@@ -249,6 +262,7 @@ export function useSubmitHandler(
           setIsThinking,
           setContextState,
           hookInput,
+          getStreamingText,
         );
       }
 
@@ -260,6 +274,8 @@ export function useSubmitHandler(
         clearStreamingText,
         setIsThinking,
         setContextState,
+        undefined,
+        getStreamingText,
       );
     },
     [
@@ -270,6 +286,7 @@ export function useSubmitHandler(
       setIsThinking,
       setContextState,
       registry,
+      getStreamingText,
     ],
   );
 }
