@@ -161,6 +161,19 @@ export {
 } from './interfaces/messages';
 
 /**
+ * Message factory functions for creating typed conversation messages.
+ * Inline re-export avoids rollup-plugin-dts conflicts from duplicate symbol names.
+ *
+ * @public
+ */
+export {
+  createUserMessage,
+  createAssistantMessage,
+  createSystemMessage,
+  createToolMessage,
+} from './managers/conversation-history-manager';
+
+/**
  * Provider request/response types (raw provider boundary).
  *
  * @public

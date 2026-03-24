@@ -1,7 +1,9 @@
 /**
- * Type guard functions and message factory functions for conversation messages.
+ * Message factory functions for conversation messages.
  *
  * Extracted from conversation-history-manager.ts.
+ *
+ * Note: Type guards live in interfaces/messages.ts (SSOT) and are NOT duplicated here.
  */
 import { randomUUID } from 'node:crypto';
 
@@ -11,33 +13,12 @@ import type {
   ISystemMessage,
   IToolCall,
   IToolMessage,
-  TUniversalMessage,
   IUserMessage,
   TUniversalMessagePart,
   TMessageState,
 } from '../interfaces/messages';
 
-/** Check if a message is a user message */
-export function isUserMessage(message: TUniversalMessage): message is IUserMessage {
-  return message.role === 'user';
-}
-
-/** Check if a message is an assistant message */
-export function isAssistantMessage(message: TUniversalMessage): message is IAssistantMessage {
-  return message.role === 'assistant';
-}
-
-/** Check if a message is a system message */
-export function isSystemMessage(message: TUniversalMessage): message is ISystemMessage {
-  return message.role === 'system';
-}
-
-/** Check if a message is a tool message */
-export function isToolMessage(message: TUniversalMessage): message is IToolMessage {
-  return message.role === 'tool';
-}
-
-/** Create a user message. @internal */
+/** Create a user message. */
 export function createUserMessage(
   content: string,
   options?: {
@@ -59,7 +40,7 @@ export function createUserMessage(
   return message;
 }
 
-/** Create an assistant message. @internal */
+/** Create an assistant message. */
 export function createAssistantMessage(
   content: string | null,
   options?: {
@@ -82,7 +63,7 @@ export function createAssistantMessage(
   return message;
 }
 
-/** Create a system message. @internal */
+/** Create a system message. */
 export function createSystemMessage(
   content: string,
   options?: {
@@ -104,7 +85,7 @@ export function createSystemMessage(
   return message;
 }
 
-/** Create a tool message. @internal */
+/** Create a tool message. */
 export function createToolMessage(
   content: string,
   options: {

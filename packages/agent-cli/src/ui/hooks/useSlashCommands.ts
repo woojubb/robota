@@ -4,17 +4,18 @@
 
 import React, { useCallback } from 'react';
 import type { Session } from '@robota-sdk/agent-sdk';
-import type { IChatMessage } from '../types.js';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import { createSystemMessage } from '@robota-sdk/agent-core';
 import type { CommandRegistry } from '../../commands/command-registry.js';
 import { executeSlashCommand as execSlash } from '../../commands/slash-executor.js';
-import type { TAddMessage, IPluginCallbacks } from '../../commands/slash-executor.js';
+import type { IPluginCallbacks } from '../../commands/slash-executor.js';
 
 const EXIT_DELAY_MS = 500;
 
 export function useSlashCommands(
   session: Session,
-  addMessage: (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void,
-  setMessages: React.Dispatch<React.SetStateAction<IChatMessage[]>>,
+  addMessage: (msg: TUniversalMessage) => void,
+  setMessages: React.Dispatch<React.SetStateAction<TUniversalMessage[]>>,
   exit: () => void,
   registry: CommandRegistry,
   pendingModelChangeRef: React.MutableRefObject<string | null>,
@@ -28,11 +29,18 @@ export function useSlashCommands(
       const cmd = parts[0]?.toLowerCase() ?? '';
       const args = parts.slice(1).join(' ');
       const clearMessages = () => setMessages([]);
+
+      // Adapt TUniversalMessage-based addMessage to slash-executor's plain-object interface.
+      // Slash-executor always produces role:'system' messages; map accordingly.
+      const slashAddMessage = (msg: { role: string; content: string }): void => {
+        addMessage(createSystemMessage(msg.content));
+      };
+
       const result = await execSlash(
         cmd,
         args,
         session,
-        addMessage as TAddMessage,
+        slashAddMessage,
         clearMessages,
         registry,
         pluginCallbacks,

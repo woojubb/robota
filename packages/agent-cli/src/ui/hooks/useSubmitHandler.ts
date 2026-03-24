@@ -8,20 +8,27 @@
 
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
+import { randomUUID } from 'node:crypto';
 import type { Session } from '@robota-sdk/agent-sdk';
 import {
   createSubagentSession,
   getBuiltInAgent,
   retrieveAgentToolDeps,
 } from '@robota-sdk/agent-sdk';
-import type { IChatMessage } from '../types.js';
+import {
+  createUserMessage,
+  createAssistantMessage,
+  createSystemMessage,
+  createToolMessage,
+} from '@robota-sdk/agent-core';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import type { CommandRegistry } from '../../commands/command-registry.js';
 import { extractToolCallsWithDiff } from '../../utils/tool-call-extractor.js';
 import { buildSkillPrompt } from '../../utils/skill-prompt.js';
 import { executeSkill } from '../../commands/skill-executor.js';
 import type { IForkExecutionOptions } from '../../commands/skill-executor.js';
 
-type TAddMessage = (msg: Omit<IChatMessage, 'id' | 'timestamp'>) => void;
+type TAddMessage = (msg: TUniversalMessage) => void;
 type TContextStateSetter = Dispatch<
   SetStateAction<{ percentage: number; usedTokens: number; maxTokens: number }>
 >;
@@ -41,7 +48,6 @@ export async function runSessionPrompt(
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   rawInput?: string,
-  getStreamingText?: () => string,
 ): Promise<void> {
   setIsThinking(true);
   clearStreamingText();
@@ -61,18 +67,17 @@ export async function runSessionPrompt(
       historyBefore,
     );
     if (toolSummaries.length > 0) {
-      addMessage({
-        role: 'tool',
-        content: JSON.stringify(toolSummaries),
-        toolName: `${toolSummaries.length} tools`,
-      });
+      addMessage(
+        createToolMessage(JSON.stringify(toolSummaries), {
+          toolCallId: randomUUID(),
+          name: `${toolSummaries.length} tools`,
+        }),
+      );
     }
 
-    addMessage({ role: 'assistant', content: response || '(empty response)' });
+    addMessage(createAssistantMessage(response || '(empty response)'));
     syncContextState(session, setContextState);
   } catch (err) {
-    // Capture partial streaming text before clearing
-    const partialText = getStreamingText?.() ?? '';
     clearStreamingText();
     if (err instanceof DOMException && err.name === 'AbortError') {
       // Extract tool summaries from history even on abort
@@ -85,19 +90,18 @@ export async function runSessionPrompt(
         historyBefore,
       );
       if (toolSummaries.length > 0) {
-        addMessage({
-          role: 'tool',
-          content: JSON.stringify(toolSummaries),
-          toolName: `${toolSummaries.length} tools`,
-        });
+        addMessage(
+          createToolMessage(JSON.stringify(toolSummaries), {
+            toolCallId: randomUUID(),
+            name: `${toolSummaries.length} tools`,
+          }),
+        );
       }
-      if (partialText) {
-        addMessage({ role: 'assistant', content: partialText + '\n\n_(interrupted)_' });
-      }
-      addMessage({ role: 'system', content: 'Cancelled.' });
+      addMessage(createAssistantMessage(null, { state: 'interrupted' }));
+      addMessage(createSystemMessage('Cancelled.'));
     } else {
       const errMsg = err instanceof Error ? err.message : String(err);
-      addMessage({ role: 'system', content: `Error: ${errMsg}` });
+      addMessage(createSystemMessage(`Error: ${errMsg}`));
     }
   } finally {
     setIsThinking(false);
@@ -170,7 +174,6 @@ export function useSubmitHandler(
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   registry: CommandRegistry,
-  getStreamingText?: () => string,
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
@@ -194,7 +197,7 @@ export function useSubmitHandler(
 
           if (result.mode === 'fork') {
             // Fork completed — show the subagent's response
-            addMessage({ role: 'assistant', content: result.result ?? '(empty response)' });
+            addMessage(createAssistantMessage(result.result ?? '(empty response)'));
             syncContextState(session, setContextState);
             return;
           }
@@ -216,7 +219,6 @@ export function useSubmitHandler(
               setIsThinking,
               setContextState,
               hookInput,
-              getStreamingText,
             );
           }
           return;
@@ -243,11 +245,10 @@ export function useSubmitHandler(
           setIsThinking,
           setContextState,
           hookInput,
-          getStreamingText,
         );
       }
 
-      addMessage({ role: 'user', content: input });
+      addMessage(createUserMessage(input));
       return runSessionPrompt(
         input,
         session,
@@ -255,8 +256,6 @@ export function useSubmitHandler(
         clearStreamingText,
         setIsThinking,
         setContextState,
-        undefined,
-        getStreamingText,
       );
     },
     [
@@ -267,7 +266,6 @@ export function useSubmitHandler(
       setIsThinking,
       setContextState,
       registry,
-      getStreamingText,
     ],
   );
 }

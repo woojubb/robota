@@ -9,7 +9,7 @@ import type {
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { getModelName } from '@robota-sdk/agent-core';
 import { getUserSettingsPath, updateModelInSettings } from '../utils/settings-io.js';
-import type { IChatMessage } from './types.js';
+import { createSystemMessage } from '@robota-sdk/agent-core';
 import { useSession } from './hooks/useSession.js';
 import { useMessages } from './hooks/useMessages.js';
 import { useSlashCommands } from './hooks/useSlashCommands.js';
@@ -75,14 +75,9 @@ export default function App(props: IProps): React.ReactElement {
     ),
   };
 
-  const {
-    session,
-    permissionRequest,
-    streamingText,
-    clearStreamingText,
-    getStreamingText,
-    activeTools,
-  } = useSession({ ...props, config: configWithPluginHooks });
+  const { session, permissionRequest, streamingText, clearStreamingText, activeTools } = useSession(
+    { ...props, config: configWithPluginHooks },
+  );
   const { messages, setMessages, addMessage } = useMessages();
   const [isThinking, setIsThinking] = useState(false);
   const initialCtx = session.getContextState();
@@ -115,7 +110,6 @@ export default function App(props: IProps): React.ReactElement {
     setIsThinking,
     setContextState,
     registry,
-    getStreamingText,
   );
 
   useInput(
@@ -157,19 +151,21 @@ export default function App(props: IProps): React.ReactElement {
               try {
                 const settingsPath = getUserSettingsPath();
                 updateModelInSettings(settingsPath, pendingModelId);
-                addMessage({
-                  role: 'system',
-                  content: `Model changed to ${getModelName(pendingModelId)}. Restarting...`,
-                });
+                addMessage(
+                  createSystemMessage(
+                    `Model changed to ${getModelName(pendingModelId)}. Restarting...`,
+                  ),
+                );
                 setTimeout(() => exit(), EXIT_DELAY_MS);
               } catch (err) {
-                addMessage({
-                  role: 'system',
-                  content: `Failed: ${err instanceof Error ? err.message : String(err)}`,
-                });
+                addMessage(
+                  createSystemMessage(
+                    `Failed: ${err instanceof Error ? err.message : String(err)}`,
+                  ),
+                );
               }
             } else {
-              addMessage({ role: 'system', content: 'Model change cancelled.' });
+              addMessage(createSystemMessage('Model change cancelled.'));
             }
           }}
         />
@@ -178,7 +174,7 @@ export default function App(props: IProps): React.ReactElement {
         <PluginTUI
           callbacks={pluginCallbacks}
           onClose={() => setShowPluginTUI(false)}
-          addMessage={(msg) => addMessage(msg as Omit<IChatMessage, 'id' | 'timestamp'>)}
+          addMessage={(msg) => addMessage(createSystemMessage(msg.content))}
         />
       )}
       <StatusBar

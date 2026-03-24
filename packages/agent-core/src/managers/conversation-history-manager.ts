@@ -13,12 +13,16 @@ import type {
   TUniversalMessagePart,
 } from '../interfaces/messages';
 
-// Re-export everything that was originally exported from this file
+// Re-export type guards from interfaces (SSOT)
 export {
   isUserMessage,
   isAssistantMessage,
   isSystemMessage,
   isToolMessage,
+} from '../interfaces/messages';
+
+// Re-export factory functions from conversation-message-factory
+export {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
