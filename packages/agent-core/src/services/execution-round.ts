@@ -6,7 +6,7 @@ import type { ToolExecutionService } from './tool-execution-service';
 import type { ILogger } from '../utils/logger';
 import type { ExecutionEventEmitter } from './execution-event-emitter';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
-import type { ConversationSession } from '../managers/conversation-history-manager';
+import type { ConversationStore } from '../managers/conversation-history-manager';
 import type { TPluginWithHooks } from './plugin-hook-dispatcher';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { bindWithOwnerPath } from '../event-service/index';
@@ -155,7 +155,7 @@ export function validateAndExtractResponse(
  */
 export async function executeAndRecordToolCalls(
   assistantToolCalls: IToolCall[],
-  conversationSession: ConversationSession,
+  conversationStore: ConversationStore,
   conversationId: string,
   executionId: string,
   currentRound: number,
@@ -229,7 +229,7 @@ export async function executeAndRecordToolCalls(
   const toolResultsOutcome = addToolResultsToHistory(
     assistantToolCalls,
     toolSummary,
-    conversationSession,
+    conversationStore,
     currentRound,
     logger,
     { contextLimit, cumulativeInputTokens: roundState.cumulativeInputTokens },
@@ -279,7 +279,7 @@ export function addToolResultsToHistory(
     }>;
     errors: Error[];
   },
-  conversationSession: ConversationSession,
+  conversationStore: ConversationStore,
   currentRound: number,
   logger: ILogger,
   contextBudget?: { contextLimit: number; cumulativeInputTokens: number },
@@ -307,7 +307,7 @@ export function addToolResultsToHistory(
         toolName: toolCallName,
         round: currentRound,
       });
-      conversationSession.addToolMessageWithId(
+      conversationStore.addToolMessageWithId(
         CONTEXT_OVERFLOW_TOOL_SKIP_MESSAGE,
         toolCall.id,
         toolCallName,
@@ -363,14 +363,14 @@ export function addToolResultsToHistory(
       toolName: toolCallName,
       content: content.substring(0, PREVIEW_LENGTH),
       round: currentRound,
-      currentHistoryLength: conversationSession.getMessages().length,
+      currentHistoryLength: conversationStore.getMessages().length,
     });
 
-    conversationSession.addToolMessageWithId(content, toolCall.id, toolCallName, metadata);
+    conversationStore.addToolMessageWithId(content, toolCall.id, toolCallName, metadata);
 
     // Check context budget after adding each tool result
     if (contextBudget) {
-      const historyChars = JSON.stringify(conversationSession.getMessages()).length;
+      const historyChars = JSON.stringify(conversationStore.getMessages()).length;
       const estimatedTokens = Math.max(
         contextBudget.cumulativeInputTokens,
         Math.ceil(historyChars / CHARS_PER_TOKEN),
@@ -393,7 +393,7 @@ export function addToolResultsToHistory(
 
     logger.debug('Tool result added to history', {
       toolCallId: toolCall.id,
-      newHistoryLength: conversationSession.getMessages().length,
+      newHistoryLength: conversationStore.getMessages().length,
       round: currentRound,
     });
   }
@@ -408,7 +408,7 @@ export function addToolResultsToHistory(
 export async function executeRound(
   roundState: IExecutionRoundState,
   maxRounds: number,
-  conversationSession: ConversationSession,
+  conversationStore: ConversationStore,
   conversationId: string,
   executionId: string,
   fullContext: IExecutionContext,
@@ -426,7 +426,7 @@ export async function executeRound(
     maxRounds,
   });
 
-  const historyMessages = conversationSession.getMessages();
+  const historyMessages = conversationStore.getMessages();
   if (!Array.isArray(historyMessages)) {
     throw new Error('[EXECUTION] Conversation messages must be an array');
   }
@@ -510,7 +510,7 @@ export async function executeRound(
       round: currentRound,
     });
     // Inject a clear assistant message so the caller doesn't get a cryptic fallback
-    conversationSession.addAssistantMessage(
+    conversationStore.addAssistantMessage(
       'Context window is near capacity. Cannot process further in this round.',
       [],
       { round: currentRound, contextOverflow: true },
@@ -526,13 +526,13 @@ export async function executeRound(
   }
 
   // Begin assistant response tracking — ensures commitAssistant always has data
-  conversationSession.beginAssistant();
+  conversationStore.beginAssistant();
 
-  // Intercept onTextDelta on the provider to accumulate streaming text in ConversationSession
+  // Intercept onTextDelta on the provider to accumulate streaming text in ConversationStore
   const providerObj = resolved.provider as { onTextDelta?: (delta: string) => void };
   const originalOnTextDelta = providerObj.onTextDelta;
   providerObj.onTextDelta = (delta: string) => {
-    conversationSession.appendStreaming(delta);
+    conversationStore.appendStreaming(delta);
     originalOnTextDelta?.call(resolved.provider, delta);
   };
 
@@ -556,7 +556,7 @@ export async function executeRound(
     // Inject a clear assistant message instead of propagating the error.
     const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
     logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
-    conversationSession.addAssistantMessage(`Provider error: ${errMsg}`, [], {
+    conversationStore.addAssistantMessage(`Provider error: ${errMsg}`, [], {
       round: currentRound,
       providerError: true,
     });
@@ -598,18 +598,18 @@ export async function executeRound(
   // If provider did not stream (no onTextDelta calls), seed pending state with full response content.
   // This handles non-streaming providers and test mocks that return content directly.
   // beginAssistant() already created the pending state, so check if content was actually streamed.
-  if (assistantResponse.content && !conversationSession.getPendingContent()) {
-    conversationSession.appendStreaming(assistantResponse.content);
+  if (assistantResponse.content && !conversationStore.getPendingContent()) {
+    conversationStore.appendStreaming(assistantResponse.content);
   }
 
   // Extract tool calls from provider response and add to pending state
   for (const tc of assistantToolCalls) {
-    conversationSession.appendToolCall(tc);
+    conversationStore.appendToolCall(tc);
   }
 
   // Single commit path — state determined by signal
   const messageState: TMessageState = fullContext.signal?.aborted ? 'interrupted' : 'complete';
-  conversationSession.commitAssistant(messageState, {
+  conversationStore.commitAssistant(messageState, {
     round: currentRound,
     ...(inputTokens > 0 && { inputTokens }),
     ...(outputTokens > 0 && { outputTokens }),
@@ -638,7 +638,7 @@ export async function executeRound(
 
   const toolOutcome = await executeAndRecordToolCalls(
     assistantToolCalls,
-    conversationSession,
+    conversationStore,
     conversationId,
     executionId,
     currentRound,

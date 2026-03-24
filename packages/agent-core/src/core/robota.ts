@@ -229,7 +229,7 @@ export class Robota
   // --- History ---
 
   override getHistory(): TUniversalMessage[] {
-    const session = this.conversationHistory.getConversationSession(this.conversationId);
+    const session = this.conversationHistory.getConversationStore(this.conversationId);
     return session.getMessages().map((msg) => ({
       id: msg.id,
       role: msg.role,
@@ -246,12 +246,12 @@ export class Robota
   }
 
   override clearHistory(): void {
-    this.conversationHistory.getConversationSession(this.conversationId).clear();
+    this.conversationHistory.getConversationStore(this.conversationId).clear();
   }
 
   /** Inject a message into conversation history without triggering execution. */
   injectMessage(role: 'user' | 'assistant' | 'system', content: string): void {
-    const session = this.conversationHistory.getConversationSession(this.conversationId);
+    const session = this.conversationHistory.getConversationStore(this.conversationId);
     if (role === 'assistant') {
       session.addAssistantMessage(content, []);
     } else if (role === 'system') {

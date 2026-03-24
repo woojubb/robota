@@ -5,7 +5,7 @@ export { AIProviders } from './ai-provider-manager';
 export { AgentTemplates, type ITemplateApplicationResult } from './agent-templates';
 export {
   ConversationHistory,
-  ConversationSession,
+  ConversationStore,
   type IProviderApiMessage,
   type IConversationHistoryOptions,
   createUserMessage,

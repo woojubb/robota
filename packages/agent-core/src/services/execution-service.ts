@@ -14,7 +14,7 @@ import type { TUniversalMessage } from '../interfaces/messages';
 import type { IEventService } from '../interfaces/event-service';
 import { randomUUID } from 'node:crypto';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
-import type { ConversationSession } from '../managers/conversation-history-manager';
+import type { ConversationStore } from '../managers/conversation-history-manager';
 
 // Re-export constants for public API compatibility
 export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './execution-constants';
@@ -153,7 +153,7 @@ export class ExecutionService {
       executionId,
     );
 
-    const conversationSession = this.initializeConversationSession(
+    const conversationStore = this.initializeConversationStore(
       conversationId,
       messages,
       config,
@@ -161,7 +161,7 @@ export class ExecutionService {
     );
 
     try {
-      conversationSession.addUserMessage(input, { executionId });
+      conversationStore.addUserMessage(input, { executionId });
       this.eventEmitter.emitUserMessageEvent(input, conversationId, executionId);
 
       await callPluginHook(
@@ -184,7 +184,7 @@ export class ExecutionService {
         cumulativeInputTokens: 0,
       };
 
-      const initialMessages = conversationSession.getMessages();
+      const initialMessages = conversationStore.getMessages();
       for (const msg of initialMessages) {
         if (msg.role === 'assistant') {
           roundState.runningAssistantCount++;
@@ -207,7 +207,7 @@ export class ExecutionService {
         const shouldBreak = await executeRound(
           roundState,
           maxRounds,
-          conversationSession,
+          conversationStore,
           conversationId,
           executionId,
           fullContext,
@@ -222,7 +222,7 @@ export class ExecutionService {
       // If loop ended without a final text response (e.g., maxRounds reached while
       // AI was still issuing tool calls), make one more provider call so the AI
       // can generate a summary from the results collected so far.
-      const allMsgs = conversationSession.getMessages();
+      const allMsgs = conversationStore.getMessages();
       const lastMsg = allMsgs.length > 0 ? allMsgs[allMsgs.length - 1] : undefined;
       const hasTextResponse =
         lastMsg?.role === 'assistant' &&
@@ -240,8 +240,8 @@ export class ExecutionService {
           // Inject instruction to summarize, then call provider directly
           const syntheticMsg =
             'Tool round limit reached. Provide your response based on the information gathered so far. If results are incomplete, let the user know what was covered and what remains — the user can request additional analysis in a follow-up message.';
-          conversationSession.addUserMessage(syntheticMsg);
-          const summaryMessages = conversationSession.getMessages();
+          conversationStore.addUserMessage(syntheticMsg);
+          const summaryMessages = conversationStore.getMessages();
           const systemMsg = config.systemMessage ?? '';
 
           // Ensure system message is included in the messages sent to the provider
@@ -276,7 +276,7 @@ export class ExecutionService {
           const forceResponse = await resolved.provider.chat(messagesForProvider, chatOptions);
 
           // Remove synthetic message from history to avoid polluting conversation
-          const currentMessages = conversationSession.getMessages();
+          const currentMessages = conversationStore.getMessages();
           const syntheticIndex = currentMessages.findIndex(
             (m) => m.role === 'user' && m.content === syntheticMsg,
           );
@@ -284,18 +284,18 @@ export class ExecutionService {
             const cleaned = currentMessages.filter(
               (m) => !(m.role === 'user' && m.content === syntheticMsg),
             );
-            conversationSession.clear();
+            conversationStore.clear();
             for (const m of cleaned) {
-              conversationSession.addMessage(m);
+              conversationStore.addMessage(m);
             }
           }
 
           const responseText =
             typeof forceResponse.content === 'string' ? forceResponse.content : '';
           if (responseText) {
-            conversationSession.addAssistantMessage(responseText, [], forceResponse.metadata);
+            conversationStore.addAssistantMessage(responseText, [], forceResponse.metadata);
           } else {
-            conversationSession.addAssistantMessage(
+            conversationStore.addAssistantMessage(
               'Maximum rounds reached. Partial results available in conversation history.',
             );
           }
@@ -308,7 +308,7 @@ export class ExecutionService {
 
       const result = {
         ...this.buildFinalResult(
-          conversationSession,
+          conversationStore,
           executionId,
           startTime,
           roundState.toolsExecuted,
@@ -358,7 +358,7 @@ export class ExecutionService {
       return result;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        const abortMessages = conversationSession.getMessages();
+        const abortMessages = conversationStore.getMessages();
         return {
           response: '',
           messages: abortMessages,
@@ -460,13 +460,13 @@ export class ExecutionService {
     }
   }
 
-  private initializeConversationSession(
+  private initializeConversationStore(
     conversationId: string,
     messages: TUniversalMessage[],
     config: IAgentConfig,
     executionId: string,
-  ): ConversationSession {
-    const session = this.conversationHistory.getConversationSession(conversationId);
+  ): ConversationStore {
+    const session = this.conversationHistory.getConversationStore(conversationId);
     if (session.getMessageCount() === 0 && messages.length > 0) {
       for (const msg of messages) {
         if (msg.role === 'user') {
@@ -502,12 +502,12 @@ export class ExecutionService {
   }
 
   private buildFinalResult(
-    conversationSession: ConversationSession,
+    conversationStore: ConversationStore,
     executionId: string,
     startTime: Date,
     toolsExecuted: string[],
   ): IExecutionResult {
-    const finalMessages = conversationSession.getMessages();
+    const finalMessages = conversationStore.getMessages();
     // Find last assistant message with actual content (skip stripped tool-round messages)
     const lastAssistantMessage = finalMessages
       .filter(
