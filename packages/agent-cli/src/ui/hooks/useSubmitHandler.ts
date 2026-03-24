@@ -97,13 +97,11 @@ export async function runSessionPrompt(
           }),
         );
       }
-      // Find the last assistant message from this execution (search backward).
-      // May be 'interrupted' (abort during streaming) or 'complete' (abort during tool execution).
-      for (let i = history.length - 1; i >= historyBefore; i--) {
+      // Add ALL assistant messages from this execution (multi-round may have several)
+      for (let i = historyBefore; i < history.length; i++) {
         const msg = history[i];
         if (msg && msg.role === 'assistant') {
           addMessage(msg);
-          break;
         }
       }
       addMessage(createSystemMessage('Cancelled.'));
