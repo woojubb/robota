@@ -78,12 +78,11 @@ describe('BaseAIProvider.streamWithAbort', () => {
 
   it('yields to macrotask queue periodically (allows abort between events)', async () => {
     const controller = new AbortController();
-    // Use enough items that setImmediate yields give abort a chance
     const items = Array.from({ length: 100 }, (_, i) => `item${i}`);
     const result: string[] = [];
 
-    // Abort after 1ms — setImmediate fires every 3 events
-    setTimeout(() => controller.abort(), 1);
+    // Abort after 10ms — setTimeout(0) per event ~1ms, so ~10 events before abort
+    setTimeout(() => controller.abort(), 10);
 
     for await (const item of provider.testStreamWithAbort(fromArray(items), controller.signal)) {
       result.push(item);
