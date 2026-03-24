@@ -56,6 +56,7 @@ export async function callProviderWithCache(
   config: IAgentConfig,
   resolved: IResolvedProviderInfo,
   cacheService?: ExecutionCacheService,
+  signal?: AbortSignal,
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -73,6 +74,7 @@ export async function callProviderWithCache(
       temperature: config.defaultModel.temperature,
     }),
     ...(resolved.availableTools.length > 0 && { tools: resolved.availableTools }),
+    signal,
   };
 
   if (cacheService) {
@@ -162,6 +164,7 @@ export async function executeAndRecordToolCalls(
   roundState: IExecutionRoundState,
   deps: IRoundDependencies,
   config?: IAgentConfig,
+  signal?: AbortSignal,
 ): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
 
@@ -208,6 +211,7 @@ export async function executeAndRecordToolCalls(
     mode: 'parallel',
     maxConcurrency: 5,
     continueOnError: true,
+    signal,
   };
 
   const toolSummary = await toolExecutionService.executeTools(toolContext);
@@ -221,9 +225,7 @@ export async function executeAndRecordToolCalls(
     }),
   );
 
-  const contextLimit = getModelContextWindow(
-    config?.defaultModel?.model ?? '',
-  );
+  const contextLimit = getModelContextWindow(config?.defaultModel?.model ?? '');
   const toolResultsOutcome = addToolResultsToHistory(
     assistantToolCalls,
     toolSummary,
@@ -284,7 +286,7 @@ export function addToolResultsToHistory(
 ): IToolResultsOutcome {
   // chars/2 — conservative estimate, especially for Korean/JSON/code content
   const CHARS_PER_TOKEN = 2;
-  const TOOL_RESULT_OVERFLOW_THRESHOLD = 0.80;
+  const TOOL_RESULT_OVERFLOW_THRESHOLD = 0.8;
   let contextOverflowed = false;
   let addedCount = 0;
   let skippedCount = 0;
@@ -374,12 +376,15 @@ export function addToolResultsToHistory(
         Math.ceil(historyChars / CHARS_PER_TOKEN),
       );
       if (estimatedTokens > contextBudget.contextLimit * TOOL_RESULT_OVERFLOW_THRESHOLD) {
-        logger.warn('[ROUND] Context budget exceeded after tool result — skipping remaining tools', {
-          estimatedTokens,
-          contextLimit: contextBudget.contextLimit,
-          toolCallId: toolCall.id,
-          round: currentRound,
-        });
+        logger.warn(
+          '[ROUND] Context budget exceeded after tool result — skipping remaining tools',
+          {
+            estimatedTokens,
+            contextLimit: contextBudget.contextLimit,
+            toolCallId: toolCall.id,
+            round: currentRound,
+          },
+        );
         contextOverflowed = true;
       }
     }
@@ -527,17 +532,21 @@ export async function executeRound(
       config,
       resolved,
       cacheService,
+      fullContext.signal,
     );
   } catch (providerError) {
+    // Re-throw AbortErrors so the execution service can handle them cleanly.
+    if (providerError instanceof Error && providerError.name === 'AbortError') {
+      throw providerError;
+    }
     // Provider rejected the request (e.g., context too large for API).
     // Inject a clear assistant message instead of propagating the error.
     const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
     logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
-    conversationSession.addAssistantMessage(
-      `Provider error: ${errMsg}`,
-      [],
-      { round: currentRound, providerError: true },
-    );
+    conversationSession.addAssistantMessage(`Provider error: ${errMsg}`, [], {
+      round: currentRound,
+      providerError: true,
+    });
     return true;
   }
 
@@ -584,6 +593,7 @@ export async function executeRound(
     ...((inputTokens > 0 || outputTokens > 0) && {
       usage: { totalTokens: inputTokens + outputTokens, inputTokens, outputTokens },
     }),
+    ...(fullContext.signal?.aborted && { interrupted: true }),
   });
   roundState.runningAssistantCount++;
   roundState.lastTrackedAssistantMessage = assistantResponse;
@@ -614,14 +624,18 @@ export async function executeRound(
     roundState,
     deps,
     config,
+    fullContext.signal,
   );
 
   if (toolOutcome.contextOverflowed) {
-    logger.warn('[ROUND] Tool results partially skipped due to context overflow — continuing to let AI respond', {
-      added: toolOutcome.addedCount,
-      skipped: toolOutcome.skippedCount,
-      round: currentRound,
-    });
+    logger.warn(
+      '[ROUND] Tool results partially skipped due to context overflow — continuing to let AI respond',
+      {
+        added: toolOutcome.addedCount,
+        skipped: toolOutcome.skippedCount,
+        round: currentRound,
+      },
+    );
     // Don't break — let the AI see the mixed results (normal + context error)
     // and decide how to respond (partial answer, request /compact, retry, etc.)
   }

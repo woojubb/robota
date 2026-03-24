@@ -32,8 +32,8 @@ export function syncContextState(session: Session, setter: TContextStateSetter):
   setter({ percentage: ctx.usedPercentage, usedTokens: ctx.usedTokens, maxTokens: ctx.maxTokens });
 }
 
-/** Run a prompt through the session with thinking/streaming state management */
-async function runSessionPrompt(
+/** Run a prompt through the session with thinking/streaming state management. Exported for testing. */
+export async function runSessionPrompt(
   prompt: string,
   session: Session,
   addMessage: TAddMessage,
@@ -41,6 +41,7 @@ async function runSessionPrompt(
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   rawInput?: string,
+  getStreamingText?: () => string,
 ): Promise<void> {
   setIsThinking(true);
   clearStreamingText();
@@ -70,8 +71,29 @@ async function runSessionPrompt(
     addMessage({ role: 'assistant', content: response || '(empty response)' });
     syncContextState(session, setContextState);
   } catch (err) {
+    // Capture partial streaming text before clearing
+    const partialText = getStreamingText?.() ?? '';
     clearStreamingText();
     if (err instanceof DOMException && err.name === 'AbortError') {
+      // Extract tool summaries from history even on abort
+      const history = session.getHistory();
+      const toolSummaries = extractToolCallsWithDiff(
+        history as Array<{
+          role: string;
+          toolCalls?: Array<{ function: { name: string; arguments: string } }>;
+        }>,
+        historyBefore,
+      );
+      if (toolSummaries.length > 0) {
+        addMessage({
+          role: 'tool',
+          content: JSON.stringify(toolSummaries),
+          toolName: `${toolSummaries.length} tools`,
+        });
+      }
+      if (partialText) {
+        addMessage({ role: 'assistant', content: partialText + '\n\n_(interrupted)_' });
+      }
       addMessage({ role: 'system', content: 'Cancelled.' });
     } else {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -148,6 +170,7 @@ export function useSubmitHandler(
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   registry: CommandRegistry,
+  getStreamingText?: () => string,
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
@@ -193,6 +216,7 @@ export function useSubmitHandler(
               setIsThinking,
               setContextState,
               hookInput,
+              getStreamingText,
             );
           }
           return;
@@ -219,6 +243,7 @@ export function useSubmitHandler(
           setIsThinking,
           setContextState,
           hookInput,
+          getStreamingText,
         );
       }
 
@@ -230,6 +255,8 @@ export function useSubmitHandler(
         clearStreamingText,
         setIsThinking,
         setContextState,
+        undefined,
+        getStreamingText,
       );
     },
     [
@@ -240,6 +267,7 @@ export function useSubmitHandler(
       setIsThinking,
       setContextState,
       registry,
+      getStreamingText,
     ],
   );
 }

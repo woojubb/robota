@@ -26,6 +26,8 @@ export interface IToolExecutionBatchContext {
   continueOnError?: boolean;
   maxConcurrency?: number;
   parentContext?: IToolExecutionContext;
+  /** AbortSignal — queued tools are skipped when aborted */
+  signal?: AbortSignal;
 }
 
 interface IRequiredToolExecutionRequestFields {
@@ -216,6 +218,16 @@ export class ToolExecutionService {
     if (batchContext.mode === 'parallel') {
       const promises = batchContext.requests.map((request) =>
         (() => {
+          // Skip if abort signal fired
+          if (batchContext.signal?.aborted) {
+            return Promise.resolve({
+              toolName: request.toolName,
+              executionId: request.executionId ?? '',
+              success: false,
+              error: 'Execution interrupted by user',
+              result: null,
+            } as IToolExecutionResult);
+          }
           const required = this.requireExecutionRequestFields(request);
           return this.executeTool(request.toolName, request.parameters, {
             toolName: request.toolName,
