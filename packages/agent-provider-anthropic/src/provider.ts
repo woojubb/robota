@@ -170,8 +170,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     const serverToolResults: Array<{ type: string; title?: string; url?: string }> = [];
 
     try {
-      for await (const event of stream) {
-        if (signal?.aborted) break;
+      for await (const event of this.streamWithAbort(stream, signal)) {
         switch (event.type) {
           case 'message_start':
             usage = event.message.usage;
@@ -242,12 +241,6 @@ export class AnthropicProvider extends AbstractAIProvider {
             stopReason = event.delta.stop_reason;
             break;
         }
-      }
-      // Yield after streaming completes so ESC can fire before response processing
-      if (signal) {
-        await new Promise<void>((resolve) => {
-          setImmediate(resolve);
-        });
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
