@@ -380,6 +380,13 @@ If the partial response includes tool_use blocks (abort during tool call streami
 
 The `executeRound` catch block for AbortError (re-throw path) is a fallback for providers that throw AbortError instead of returning partial content. The Anthropic provider always returns normally on abort.
 
+## Conversation History Principles
+
+- **Append-only**: Messages are only added, never edited or deleted.
+- **Read-only**: Consumers read history but do not mutate existing messages.
+- **Always committed**: `beginAssistant()` + `commitAssistant()` guarantees an assistant message is always appended, even on abort with empty content.
+- **No fallback**: If a message should be in history, it IS in history. No fallback to alternative data sources.
+
 ## Message Model
 
 `IBaseMessage` is the foundation for all message types in the conversation history.
@@ -410,13 +417,14 @@ All message factory functions auto-generate `id` via `randomUUID()` and set `sta
 
 `ConversationSession` manages pending assistant state during streaming:
 
-| Method                              | Description                                                                                        |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `appendStreaming(delta)`            | Accumulates streaming text, creates pending state with UUID                                        |
-| `appendToolCall(toolCall)`          | Adds tool call to pending state (deduplicates by id)                                               |
-| `commitAssistant(state, metadata?)` | Commits pending to history. Strips text when tool calls present. Single path for normal and abort. |
-| `discardPending()`                  | Clears pending without saving                                                                      |
-| `hasPendingAssistant()`             | Checks if streaming is in progress                                                                 |
+| Method                              | Description                                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `beginAssistant()`                  | Initializes pending state before provider call. Guarantees commitAssistant always has data.              |
+| `appendStreaming(delta)`            | Accumulates streaming text into pending state                                                            |
+| `appendToolCall(toolCall)`          | Adds tool call to pending state (deduplicates by id)                                                     |
+| `commitAssistant(state, metadata?)` | Commits pending to history. Always appends (append-only guarantee). Strips text when tool calls present. |
+| `discardPending()`                  | Clears pending without saving                                                                            |
+| `hasPendingAssistant()`             | Checks if streaming is in progress                                                                       |
 
 **`commitAssistant` behavior:**
 

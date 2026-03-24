@@ -525,6 +525,9 @@ export async function executeRound(
     if (cb) cb('\n\n');
   }
 
+  // Begin assistant response tracking — ensures commitAssistant always has data
+  conversationSession.beginAssistant();
+
   // Intercept onTextDelta on the provider to accumulate streaming text in ConversationSession
   const providerObj = resolved.provider as { onTextDelta?: (delta: string) => void };
   const originalOnTextDelta = providerObj.onTextDelta;
@@ -594,7 +597,8 @@ export async function executeRound(
 
   // If provider did not stream (no onTextDelta calls), seed pending state with full response content.
   // This handles non-streaming providers and test mocks that return content directly.
-  if (assistantResponse.content && !conversationSession.hasPendingAssistant()) {
+  // beginAssistant() already created the pending state, so check if content was actually streamed.
+  if (assistantResponse.content && !conversationSession.getPendingContent()) {
     conversationSession.appendStreaming(assistantResponse.content);
   }
 
