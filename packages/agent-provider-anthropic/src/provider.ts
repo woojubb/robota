@@ -277,6 +277,26 @@ export class AnthropicProvider extends AbstractAIProvider {
       throw err;
     }
 
+    // If aborted via break (not via catch), return partial response
+    if (signal?.aborted) {
+      const partialText = textParts.join('') || '';
+      const partialResult: TUniversalMessage = {
+        id: randomUUID(),
+        role: 'assistant',
+        content: partialText,
+        state: 'complete' as const,
+        timestamp: new Date(),
+        ...(toolCalls.length > 0 && { toolCalls }),
+      };
+      partialResult.metadata = {
+        inputTokens: usage.input_tokens,
+        outputTokens: usage.output_tokens,
+        model,
+        stopReason: 'aborted',
+      };
+      return partialResult;
+    }
+
     const textContent = textParts.join('') || '';
 
     const result: TUniversalMessage = {
