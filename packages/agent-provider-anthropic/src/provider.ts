@@ -169,10 +169,19 @@ export class AnthropicProvider extends AbstractAIProvider {
     // Accumulate server tool result content (web search results)
     const serverToolResults: Array<{ type: string; title?: string; url?: string }> = [];
 
+    let eventCount = 0;
     try {
       for await (const event of stream) {
-        // Check abort on every event — buffered events won't wait for network
+        // Check abort on every event
         if (signal?.aborted) break;
+        // Yield to macrotask queue every 5 events so ESC stdin handler can fire
+        eventCount++;
+        if (signal && eventCount % 5 === 0) {
+          await new Promise<void>((resolve) => {
+            setImmediate(resolve);
+          });
+          if (signal.aborted) break;
+        }
         switch (event.type) {
           case 'message_start':
             usage = event.message.usage;
