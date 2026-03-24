@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ConversationSession } from '../conversation-session.js';
+import { ConversationStore } from '../conversation-store.js';
 import { isAssistantMessage } from '../../interfaces/messages.js';
 import {
   createUserMessage,
@@ -9,9 +9,9 @@ import {
 } from '../conversation-message-factory.js';
 import type { IAssistantMessage } from '../../interfaces/messages.js';
 
-describe('ConversationSession streaming state', () => {
+describe('ConversationStore streaming state', () => {
   it('appendStreaming accumulates text', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.appendStreaming('Hello');
     session.appendStreaming(' world');
     session.commitAssistant('complete');
@@ -24,7 +24,7 @@ describe('ConversationSession streaming state', () => {
   });
 
   it('commitAssistant with interrupted state', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.appendStreaming('Partial');
     session.commitAssistant('interrupted');
     const msgs = session.getMessages();
@@ -34,7 +34,7 @@ describe('ConversationSession streaming state', () => {
   });
 
   it('commitAssistant strips text when tool calls present', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.appendStreaming('Some text');
     session.appendToolCall({
       id: 'tc1',
@@ -49,7 +49,7 @@ describe('ConversationSession streaming state', () => {
   });
 
   it('appendToolCall deduplicates by id', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     const tc = {
       id: 'tc1',
       type: 'function' as const,
@@ -64,7 +64,7 @@ describe('ConversationSession streaming state', () => {
   });
 
   it('commitAssistant is no-op when no pending state', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.addUserMessage('test');
     const before = session.getMessageCount();
     session.commitAssistant('complete');
@@ -72,7 +72,7 @@ describe('ConversationSession streaming state', () => {
   });
 
   it('discardPending clears without saving', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.appendStreaming('discard this');
     session.discardPending();
     session.commitAssistant('complete');
@@ -80,7 +80,7 @@ describe('ConversationSession streaming state', () => {
   });
 
   it('commitAssistant passes metadata', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.appendStreaming('text');
     session.commitAssistant('complete', { round: 1, inputTokens: 100 });
     const msgs = session.getMessages();
@@ -89,7 +89,7 @@ describe('ConversationSession streaming state', () => {
   });
 
   it('committed message has unique id', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.appendStreaming('first');
     session.commitAssistant('complete');
     session.appendStreaming('second');
@@ -100,7 +100,7 @@ describe('ConversationSession streaming state', () => {
   });
 
   it('hasPendingAssistant returns correct state', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     expect(session.hasPendingAssistant()).toBe(false);
     session.appendStreaming('text');
     expect(session.hasPendingAssistant()).toBe(true);
@@ -109,9 +109,9 @@ describe('ConversationSession streaming state', () => {
   });
 });
 
-describe('ConversationSession getMessagesForAPI', () => {
+describe('ConversationStore getMessagesForAPI', () => {
   it('annotates interrupted assistant messages with suffix', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.appendStreaming('Partial response here');
     session.commitAssistant('interrupted');
     const api = session.getMessagesForAPI();
@@ -121,7 +121,7 @@ describe('ConversationSession getMessagesForAPI', () => {
   });
 
   it('does not annotate complete assistant messages', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.appendStreaming('Full response');
     session.commitAssistant('complete');
     const api = session.getMessagesForAPI();
@@ -130,7 +130,7 @@ describe('ConversationSession getMessagesForAPI', () => {
   });
 
   it('does not annotate non-assistant messages even if interrupted', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.addUserMessage('hello');
     const api = session.getMessagesForAPI();
     expect(api[0].content).toBe('hello');
@@ -138,7 +138,7 @@ describe('ConversationSession getMessagesForAPI', () => {
   });
 
   it('preserves tool_calls in API format', () => {
-    const session = new ConversationSession();
+    const session = new ConversationStore();
     session.appendToolCall({
       id: 'tc1',
       type: 'function',

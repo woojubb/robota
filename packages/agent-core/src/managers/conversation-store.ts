@@ -1,5 +1,5 @@
 /**
- * Conversation session implementations.
+ * Conversation store implementations.
  *
  * Extracted from conversation-history-manager.ts.
  */
@@ -219,10 +219,10 @@ interface IStreamingState {
 }
 
 /**
- * Conversation session with duplicate prevention and API format conversion.
+ * Conversation store with duplicate prevention and API format conversion.
  * @public
  */
-export class ConversationSession implements IConversationHistory {
+export class ConversationStore implements IConversationHistory {
   private history: SimpleConversationHistory;
   private toolCallIds: Set<string> = new Set<string>();
   private pendingAssistant: IStreamingState | null = null;
