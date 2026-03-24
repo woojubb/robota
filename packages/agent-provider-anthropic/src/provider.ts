@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import type { IAnthropicProviderOptions } from './types';
 import { AbstractAIProvider, getModelMaxOutput } from '@robota-sdk/agent-core';
@@ -246,8 +247,10 @@ export class AnthropicProvider extends AbstractAIProvider {
         // Return partial response from content accumulated so far
         const partialText = textParts.join('') || '';
         const partialResult: TUniversalMessage = {
+          id: randomUUID(),
           role: 'assistant',
           content: partialText,
+          state: 'complete' as const,
           timestamp: new Date(),
           ...(toolCalls.length > 0 && { toolCalls }),
         };
@@ -265,8 +268,10 @@ export class AnthropicProvider extends AbstractAIProvider {
     const textContent = textParts.join('') || '';
 
     const result: TUniversalMessage = {
+      id: randomUUID(),
       role: 'assistant',
       content: textContent,
+      state: 'complete' as const,
       timestamp: new Date(),
       ...(toolCalls.length > 0 && { toolCalls }),
     };
@@ -337,8 +342,10 @@ export class AnthropicProvider extends AbstractAIProvider {
     for await (const chunk of stream) {
       if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
         yield {
+          id: randomUUID(),
           role: 'assistant',
           content: chunk.delta.text,
+          state: 'complete' as const,
           timestamp: new Date(),
         };
       }
@@ -479,8 +486,10 @@ export class AnthropicProvider extends AbstractAIProvider {
     const textContent = textParts.join('\n') || '';
 
     const result: TUniversalMessage = {
+      id: randomUUID(),
       role: 'assistant',
       content: textContent,
+      state: 'complete' as const,
       timestamp: new Date(),
       ...(toolCalls.length > 0 && { toolCalls }),
     };

@@ -361,9 +361,16 @@ export class ConversationSession implements IConversationHistory {
   getMessagesForAPI(): IProviderApiMessage[] {
     return this.history.getMessages().map((msg) => {
       const apiMsg: IProviderApiMessage = { role: msg.role, content: msg.content };
-      if (msg.role === 'assistant' && isAssistantMessage(msg) && msg.toolCalls)
+      // Annotate interrupted assistant messages for model awareness
+      if (isAssistantMessage(msg) && msg.state === 'interrupted') {
+        apiMsg.content = (apiMsg.content || '') + '\n\n[This response was interrupted by the user]';
+      }
+      if (isAssistantMessage(msg) && msg.toolCalls) {
         apiMsg.tool_calls = msg.toolCalls;
-      if (msg.role === 'tool' && isToolMessage(msg)) apiMsg.tool_call_id = msg.toolCallId;
+      }
+      if (isToolMessage(msg)) {
+        apiMsg.tool_call_id = msg.toolCallId;
+      }
       return apiMsg;
     });
   }

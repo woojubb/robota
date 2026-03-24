@@ -4,6 +4,7 @@
  * Facade pattern using pure functions and atomic types
  */
 
+import { randomUUID } from 'node:crypto';
 import type { IBasicMessage } from '../types/message-types';
 import type {
   TUniversalMessage,
@@ -120,8 +121,10 @@ export class SimpleRemoteExecutor implements IExecutor {
 
     // Convert IResponseMessage to IAssistantMessage (IExecutor requirement)
     const assistantMessage: IAssistantMessage = {
+      id: randomUUID(),
       role: 'assistant',
       content: response.content || '',
+      state: 'complete' as const,
       timestamp: new Date(),
     };
 
@@ -161,8 +164,10 @@ export class SimpleRemoteExecutor implements IExecutor {
       for await (const responseMessage of stream) {
         // Convert IResponseMessage to TUniversalMessage (LocalExecutor-compatible shape)
         const universalMessage: TUniversalMessage = {
+          id: randomUUID(),
           role: responseMessage.role as 'assistant',
           content: responseMessage.content,
+          state: 'complete' as const,
           timestamp: responseMessage.timestamp,
           ...(responseMessage.toolCalls && { toolCalls: responseMessage.toolCalls }),
         };
