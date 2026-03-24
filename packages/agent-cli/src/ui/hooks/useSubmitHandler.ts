@@ -41,6 +41,7 @@ export async function runSessionPrompt(
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   rawInput?: string,
+  getStreamingText?: () => string,
 ): Promise<void> {
   setIsThinking(true);
   clearStreamingText();
@@ -70,6 +71,8 @@ export async function runSessionPrompt(
     addMessage({ role: 'assistant', content: response || '(empty response)' });
     syncContextState(session, setContextState);
   } catch (err) {
+    // Capture partial streaming text before clearing
+    const partialText = getStreamingText?.() ?? '';
     clearStreamingText();
     if (err instanceof DOMException && err.name === 'AbortError') {
       // Extract tool summaries from history even on abort
@@ -87,6 +90,9 @@ export async function runSessionPrompt(
           content: JSON.stringify(toolSummaries),
           toolName: `${toolSummaries.length} tools`,
         });
+      }
+      if (partialText) {
+        addMessage({ role: 'assistant', content: partialText + '\n\n_(interrupted)_' });
       }
       addMessage({ role: 'system', content: 'Cancelled.' });
     } else {
@@ -164,6 +170,7 @@ export function useSubmitHandler(
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   registry: CommandRegistry,
+  getStreamingText?: () => string,
 ): (input: string) => Promise<void> {
   return useCallback(
     async (input: string) => {
@@ -209,6 +216,7 @@ export function useSubmitHandler(
               setIsThinking,
               setContextState,
               hookInput,
+              getStreamingText,
             );
           }
           return;
@@ -235,6 +243,7 @@ export function useSubmitHandler(
           setIsThinking,
           setContextState,
           hookInput,
+          getStreamingText,
         );
       }
 
@@ -246,6 +255,8 @@ export function useSubmitHandler(
         clearStreamingText,
         setIsThinking,
         setContextState,
+        undefined,
+        getStreamingText,
       );
     },
     [
@@ -256,6 +267,7 @@ export function useSubmitHandler(
       setIsThinking,
       setContextState,
       registry,
+      getStreamingText,
     ],
   );
 }

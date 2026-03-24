@@ -366,6 +366,14 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 - **executeAndRecordToolCalls**: Passes `signal` to the tool batch context so queued tools are skipped once abort is triggered.
 - **AbortError handling**: `AbortError` exceptions thrown by the provider or fetch layer are caught by the execution loop and treated as a clean interruption (not an error).
 
+### Partial Content Preservation on Abort
+
+When abort occurs during provider streaming, the provider returns partial content collected before the abort. `executeRound` saves this partial assistant message to conversation history with `metadata.interrupted = true` before re-throwing the AbortError. This ensures:
+
+- The partial response is visible in conversation history for the next turn
+- The model can see what it started saying before interruption
+- Tool results from completed tools in earlier rounds are also preserved
+
 ## Extension Points
 
 | Extension   | Base Class            | Contract                                         |
