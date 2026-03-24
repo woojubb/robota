@@ -546,6 +546,12 @@ export async function executeRound(
       fullContext.signal,
     );
     providerObj.onTextDelta = originalOnTextDelta;
+    // Yield to macrotask queue so ESC handler can fire between provider return and processing
+    if (fullContext.signal) {
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+    }
   } catch (providerError) {
     providerObj.onTextDelta = originalOnTextDelta;
     // Re-throw AbortErrors so the execution service can handle them cleanly.
@@ -634,6 +640,14 @@ export async function executeRound(
       previousThinkingNodeId,
     );
     return true;
+  }
+
+  // Yield before tool execution so ESC can fire
+  if (fullContext.signal) {
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    if (fullContext.signal.aborted) return true;
   }
 
   const toolOutcome = await executeAndRecordToolCalls(
