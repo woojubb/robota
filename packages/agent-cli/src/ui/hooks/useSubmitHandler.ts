@@ -97,10 +97,13 @@ export async function runSessionPrompt(
           }),
         );
       }
-      // Interrupted assistant message is always in history (append-only guarantee)
-      const lastMsg = history[history.length - 1];
-      if (lastMsg && lastMsg.role === 'assistant' && lastMsg.state === 'interrupted') {
-        addMessage(lastMsg);
+      // Find the interrupted assistant message in history (search backward, may not be last)
+      for (let i = history.length - 1; i >= historyBefore; i--) {
+        const msg = history[i];
+        if (msg && msg.role === 'assistant' && msg.state === 'interrupted') {
+          addMessage(msg);
+          break;
+        }
       }
       addMessage(createSystemMessage('Cancelled.'));
     } else {
