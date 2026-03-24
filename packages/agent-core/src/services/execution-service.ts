@@ -12,6 +12,7 @@ import { ConversationHistory } from '../managers/conversation-history-manager';
 import { createLogger, type ILogger } from '../utils/logger';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IEventService } from '../interfaces/event-service';
+import { randomUUID } from 'node:crypto';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
 import type { ConversationSession } from '../managers/conversation-history-manager';
 
@@ -250,7 +251,13 @@ export class ExecutionService {
           const messagesForProvider =
             systemMsg && !hasSystemMsg
               ? [
-                  { role: 'system' as const, content: systemMsg, timestamp: new Date() },
+                  {
+                    id: randomUUID(),
+                    role: 'system' as const,
+                    content: systemMsg,
+                    state: 'complete' as const,
+                    timestamp: new Date(),
+                  },
                   ...summaryMessages,
                 ]
               : summaryMessages;
