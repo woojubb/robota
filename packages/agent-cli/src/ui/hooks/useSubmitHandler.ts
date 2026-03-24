@@ -37,7 +37,7 @@ async function runSessionPrompt(
   prompt: string,
   session: Session,
   addMessage: TAddMessage,
-  clearStreamingText: () => void,
+  clearStreamingText: (keepTools?: boolean) => void,
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   rawInput?: string,
@@ -70,7 +70,7 @@ async function runSessionPrompt(
     addMessage({ role: 'assistant', content: response || '(empty response)' });
     syncContextState(session, setContextState);
   } catch (err) {
-    clearStreamingText();
+    clearStreamingText(err instanceof DOMException && err.name === 'AbortError');
     if (err instanceof DOMException && err.name === 'AbortError') {
       addMessage({ role: 'system', content: 'Cancelled.' });
     } else {
@@ -144,7 +144,7 @@ export function useSubmitHandler(
   session: Session,
   addMessage: TAddMessage,
   handleSlashCommand: (input: string) => Promise<boolean>,
-  clearStreamingText: () => void,
+  clearStreamingText: (keepTools?: boolean) => void,
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   registry: CommandRegistry,
