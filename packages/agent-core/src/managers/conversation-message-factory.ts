@@ -3,6 +3,8 @@
  *
  * Extracted from conversation-history-manager.ts.
  */
+import { randomUUID } from 'node:crypto';
+
 import type {
   IAssistantMessage,
   TUniversalMessageMetadata,
@@ -12,6 +14,7 @@ import type {
   TUniversalMessage,
   IUserMessage,
   TUniversalMessagePart,
+  TMessageState,
 } from '../interfaces/messages';
 
 /** Check if a message is a user message */
@@ -43,7 +46,13 @@ export function createUserMessage(
     parts?: TUniversalMessagePart[];
   },
 ): IUserMessage {
-  const message: IUserMessage = { role: 'user', content, timestamp: new Date() };
+  const message: IUserMessage = {
+    id: randomUUID(),
+    role: 'user',
+    content,
+    state: 'complete',
+    timestamp: new Date(),
+  };
   if (options?.name) message.name = options.name;
   if (options?.metadata) message.metadata = options.metadata;
   if (options?.parts) message.parts = options.parts;
@@ -57,9 +66,16 @@ export function createAssistantMessage(
     toolCalls?: IToolCall[];
     metadata?: TUniversalMessageMetadata;
     parts?: TUniversalMessagePart[];
+    state?: TMessageState;
   },
 ): IAssistantMessage {
-  const message: IAssistantMessage = { role: 'assistant', content, timestamp: new Date() };
+  const message: IAssistantMessage = {
+    id: randomUUID(),
+    role: 'assistant',
+    content,
+    state: options?.state ?? 'complete',
+    timestamp: new Date(),
+  };
   if (options?.toolCalls) message.toolCalls = options.toolCalls;
   if (options?.metadata) message.metadata = options.metadata;
   if (options?.parts) message.parts = options.parts;
@@ -75,7 +91,13 @@ export function createSystemMessage(
     parts?: TUniversalMessagePart[];
   },
 ): ISystemMessage {
-  const message: ISystemMessage = { role: 'system', content, timestamp: new Date() };
+  const message: ISystemMessage = {
+    id: randomUUID(),
+    role: 'system',
+    content,
+    state: 'complete',
+    timestamp: new Date(),
+  };
   if (options?.name) message.name = options.name;
   if (options?.metadata) message.metadata = options.metadata;
   if (options?.parts) message.parts = options.parts;
@@ -93,9 +115,11 @@ export function createToolMessage(
   },
 ): IToolMessage {
   const message: IToolMessage = {
+    id: randomUUID(),
     role: 'tool',
     content,
     toolCallId: options.toolCallId,
+    state: 'complete',
     timestamp: new Date(),
   };
   if (options.name) message.name = options.name;
