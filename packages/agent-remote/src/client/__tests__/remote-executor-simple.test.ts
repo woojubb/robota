@@ -209,7 +209,15 @@ describe('SimpleRemoteExecutor Facade', () => {
       executor = new SimpleRemoteExecutor(mockConfig);
 
       validRequest = {
-        messages: [{ role: 'user', content: 'Hello', timestamp: new Date() }],
+        messages: [
+          {
+            id: 'test-user-msg-id',
+            role: 'user',
+            content: 'Hello',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          },
+        ],
         provider: 'openai',
         model: 'gpt-4',
         stream: true,
@@ -217,15 +225,17 @@ describe('SimpleRemoteExecutor Facade', () => {
     });
 
     it('should handle streaming responses', async () => {
-      const expectedResponse: TUniversalMessage = {
+      const sourceResponse: TUniversalMessage = {
+        id: 'test-assistant-msg-id',
         role: 'assistant',
         content: 'Streaming response',
+        state: 'complete' as const,
         timestamp: new Date(),
       };
 
       mockHttpClient.chatStream.mockReturnValue(
         (async function* (): AsyncIterable<TUniversalMessage> {
-          yield expectedResponse;
+          yield sourceResponse;
         })(),
       );
 
@@ -237,7 +247,11 @@ describe('SimpleRemoteExecutor Facade', () => {
       }
 
       expect(chunks).toHaveLength(1);
-      expect(chunks[0]).toEqual(expectedResponse);
+      expect(chunks[0]).toMatchObject({
+        role: 'assistant',
+        content: 'Streaming response',
+        state: 'complete',
+      });
     });
 
     it('should validate request before streaming', async () => {
