@@ -143,10 +143,24 @@ describe('runSessionPrompt', () => {
     expect(addMessage).toHaveBeenCalledWith(expect.objectContaining({ content: 'Cancelled.' }));
   });
 
-  it('emits an interrupted assistant message on abort', async () => {
+  it('displays interrupted assistant message from history on abort', async () => {
+    const interruptedHistory = [
+      { role: 'user', content: 'test', id: '1', state: 'complete', timestamp: new Date() },
+      {
+        role: 'assistant',
+        content: 'Partial text before abort',
+        id: '2',
+        state: 'interrupted',
+        timestamp: new Date(),
+      },
+    ];
     const session = createMockSession({
       runError: new DOMException('Aborted', 'AbortError'),
+      history: interruptedHistory,
     });
+    (session.getHistory as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce([])
+      .mockReturnValue(interruptedHistory);
 
     await runSessionPrompt(
       'test prompt',
@@ -157,14 +171,14 @@ describe('runSessionPrompt', () => {
       setContextState,
     );
 
-    // Should emit an interrupted assistant message (content:null, state:'interrupted')
     const assistantMsg = addMessage.mock.calls.find(
       (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
     );
     expect(assistantMsg).toBeDefined();
+    expect((assistantMsg![0] as { content: string }).content).toBe('Partial text before abort');
     expect((assistantMsg![0] as { state: string }).state).toBe('interrupted');
 
-    // Interrupted assistant message should come before "Cancelled."
+    // Interrupted message comes before "Cancelled."
     const assistantIdx = addMessage.mock.calls.findIndex(
       (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
     );
@@ -174,9 +188,12 @@ describe('runSessionPrompt', () => {
     expect(assistantIdx).toBeLessThan(cancelledIdx);
   });
 
-  it('always emits an interrupted assistant message on abort regardless of streaming text', async () => {
+  it('does not add assistant message on abort when history has no interrupted message', async () => {
     const session = createMockSession({
       runError: new DOMException('Aborted', 'AbortError'),
+      history: [
+        { role: 'user', content: 'test', id: '1', state: 'complete', timestamp: new Date() },
+      ],
     });
 
     await runSessionPrompt(
@@ -191,9 +208,7 @@ describe('runSessionPrompt', () => {
     const assistantMsg = addMessage.mock.calls.find(
       (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
     );
-    // Now always emits an interrupted assistant message (state:'interrupted')
-    expect(assistantMsg).toBeDefined();
-    expect((assistantMsg![0] as { state: string }).state).toBe('interrupted');
+    expect(assistantMsg).toBeUndefined();
     expect(addMessage).toHaveBeenCalledWith(expect.objectContaining({ content: 'Cancelled.' }));
   });
 

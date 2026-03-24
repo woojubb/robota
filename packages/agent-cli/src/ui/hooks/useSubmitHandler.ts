@@ -97,7 +97,11 @@ export async function runSessionPrompt(
           }),
         );
       }
-      addMessage(createAssistantMessage(null, { state: 'interrupted' }));
+      // Get the interrupted assistant message from history (saved by commitAssistant)
+      const lastMsg = history[history.length - 1];
+      if (lastMsg && lastMsg.role === 'assistant' && lastMsg.state === 'interrupted') {
+        addMessage(lastMsg);
+      }
       addMessage(createSystemMessage('Cancelled.'));
     } else {
       const errMsg = err instanceof Error ? err.message : String(err);
