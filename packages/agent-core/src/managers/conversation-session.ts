@@ -296,6 +296,18 @@ export class ConversationSession implements IConversationHistory {
     return this.history.getMessageCount();
   }
 
+  /** Begin a new assistant response. Must be called before provider call.
+   *  Ensures pendingAssistant exists so commitAssistant always has data to save. */
+  beginAssistant(): void {
+    if (!this.pendingAssistant) {
+      this.pendingAssistant = {
+        id: randomUUID(),
+        content: '',
+        toolCalls: [],
+      };
+    }
+  }
+
   /** Append streaming text delta to pending assistant response */
   appendStreaming(delta: string): void {
     if (!this.pendingAssistant) {
@@ -324,11 +336,11 @@ export class ConversationSession implements IConversationHistory {
 
   /**
    * Commit pending assistant response to history.
-   * Precondition: appendStreaming() or appendToolCall() must have been called.
-   * No-op if pendingAssistant is null (error paths use addAssistantMessage directly).
+   * Precondition: beginAssistant() must have been called before the provider call.
+   * History is append-only — this always adds a message.
    */
   commitAssistant(state: TMessageState, metadata?: TUniversalMessageMetadata): void {
-    if (!this.pendingAssistant) return;
+    if (!this.pendingAssistant) return; // No pending state — error paths use addAssistantMessage directly
     const pending = this.pendingAssistant;
     const hasToolCalls = pending.toolCalls.length > 0;
     // Strip text when tool calls present (text already streamed to user)
@@ -354,6 +366,11 @@ export class ConversationSession implements IConversationHistory {
   /** Returns true if there is accumulated pending assistant state (streaming or tool calls) */
   hasPendingAssistant(): boolean {
     return this.pendingAssistant !== null;
+  }
+
+  /** Get pending assistant content (empty string if no content streamed yet) */
+  getPendingContent(): string {
+    return this.pendingAssistant?.content ?? '';
   }
 
   getMessagesForAPI(): IProviderApiMessage[] {
