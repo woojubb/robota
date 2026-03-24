@@ -32,6 +32,8 @@ The TUI (built with React + Ink) provides:
 - **Status bar** — Permission mode, model, context usage %, message count
 - **Permission prompts** — Arrow-key Allow/Deny selection for tool calls
 - **Streaming** — Real-time text output as the model responds
+- **ESC abort** — Press ESC during streaming to cancel. Partial response is saved with interrupted state
+- **Message type SSOT** — Uses `TUniversalMessage` from agent-core directly. Each message has `id` and `state`
 
 ## Slash Commands
 
