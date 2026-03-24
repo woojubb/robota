@@ -32,12 +32,12 @@ export function syncContextState(session: Session, setter: TContextStateSetter):
   setter({ percentage: ctx.usedPercentage, usedTokens: ctx.usedTokens, maxTokens: ctx.maxTokens });
 }
 
-/** Run a prompt through the session with thinking/streaming state management */
-async function runSessionPrompt(
+/** Run a prompt through the session with thinking/streaming state management. Exported for testing. */
+export async function runSessionPrompt(
   prompt: string,
   session: Session,
   addMessage: TAddMessage,
-  clearStreamingText: (keepTools?: boolean) => void,
+  clearStreamingText: () => void,
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   rawInput?: string,
@@ -70,8 +70,24 @@ async function runSessionPrompt(
     addMessage({ role: 'assistant', content: response || '(empty response)' });
     syncContextState(session, setContextState);
   } catch (err) {
-    clearStreamingText(err instanceof DOMException && err.name === 'AbortError');
+    clearStreamingText();
     if (err instanceof DOMException && err.name === 'AbortError') {
+      // Extract tool summaries from history even on abort
+      const history = session.getHistory();
+      const toolSummaries = extractToolCallsWithDiff(
+        history as Array<{
+          role: string;
+          toolCalls?: Array<{ function: { name: string; arguments: string } }>;
+        }>,
+        historyBefore,
+      );
+      if (toolSummaries.length > 0) {
+        addMessage({
+          role: 'tool',
+          content: JSON.stringify(toolSummaries),
+          toolName: `${toolSummaries.length} tools`,
+        });
+      }
       addMessage({ role: 'system', content: 'Cancelled.' });
     } else {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -144,7 +160,7 @@ export function useSubmitHandler(
   session: Session,
   addMessage: TAddMessage,
   handleSlashCommand: (input: string) => Promise<boolean>,
-  clearStreamingText: (keepTools?: boolean) => void,
+  clearStreamingText: () => void,
   setIsThinking: Dispatch<SetStateAction<boolean>>,
   setContextState: TContextStateSetter,
   registry: CommandRegistry,

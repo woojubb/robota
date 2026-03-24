@@ -195,11 +195,9 @@ export function useSession(props: ISessionProps): {
     });
   }
 
-  const clearStreamingText = useCallback((keepTools?: boolean) => {
+  const clearStreamingText = useCallback(() => {
     setStreamingText('');
-    if (!keepTools) {
-      setActiveTools([]);
-    }
+    setActiveTools([]);
   }, []);
 
   return {
