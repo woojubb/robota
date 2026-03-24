@@ -188,7 +188,64 @@ describe('runSessionPrompt', () => {
     expect(assistantIdx).toBeLessThan(cancelledIdx);
   });
 
-  it('does not add assistant message on abort when history has no interrupted message', async () => {
+  it('displays assistant message on abort during tool execution (state: complete)', async () => {
+    // Scenario: provider returned normally (not aborted), tools started executing,
+    // user pressed ESC during tool execution. The assistant message has state: 'complete'
+    // because signal wasn't aborted when commitAssistant was called.
+    const historyWithCompleteAssistant = [
+      { role: 'user', content: 'run audit', id: '1', state: 'complete', timestamp: new Date() },
+      {
+        role: 'assistant',
+        content: 'I will read these files to audit:',
+        id: '2',
+        state: 'complete', // NOT interrupted — abort happened during tool execution
+        timestamp: new Date(),
+        toolCalls: [
+          {
+            id: 'tc1',
+            type: 'function',
+            function: { name: 'Read', arguments: '{"file_path":"/tmp/test.ts"}' },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: 'file content',
+        id: '3',
+        state: 'complete',
+        timestamp: new Date(),
+        toolCallId: 'tc1',
+        name: 'Read',
+      },
+    ];
+    const session = createMockSession({
+      runError: new DOMException('Aborted', 'AbortError'),
+      history: historyWithCompleteAssistant,
+    });
+    (session.getHistory as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce([]) // historyBefore = 0
+      .mockReturnValue(historyWithCompleteAssistant);
+
+    await runSessionPrompt(
+      'run audit',
+      session,
+      addMessage,
+      clearStreamingText,
+      setIsThinking,
+      setContextState,
+    );
+
+    // Should find and display the assistant message even though state is 'complete'
+    const assistantMsg = addMessage.mock.calls.find(
+      (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
+    );
+    expect(assistantMsg).toBeDefined();
+    expect((assistantMsg![0] as { content: string }).content).toBe(
+      'I will read these files to audit:',
+    );
+  });
+
+  it('does not add assistant message on abort when history has no assistant message', async () => {
     const session = createMockSession({
       runError: new DOMException('Aborted', 'AbortError'),
       history: [
