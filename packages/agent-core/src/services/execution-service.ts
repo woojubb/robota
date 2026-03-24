@@ -130,6 +130,7 @@ export class ExecutionService {
       ...(context?.sessionId && { sessionId: context.sessionId }),
       ...(context?.userId && { userId: context.userId }),
       ...(context?.metadata && { metadata: context.metadata }),
+      ...(context?.signal && { signal: context.signal }),
     };
 
     this.eventEmitter.prepareOwnerPathBases(conversationId);
@@ -200,6 +201,7 @@ export class ExecutionService {
       };
 
       while (roundState.currentRound < maxRounds) {
+        if (context?.signal?.aborted) break;
         roundState.currentRound++;
         const shouldBreak = await executeRound(
           roundState,
@@ -213,6 +215,7 @@ export class ExecutionService {
           roundDeps,
         );
         if (shouldBreak) break;
+        if (context?.signal?.aborted) break;
       }
 
       // If loop ended without a final text response (e.g., maxRounds reached while
@@ -296,12 +299,15 @@ export class ExecutionService {
         }
       }
 
-      const result = this.buildFinalResult(
-        conversationSession,
-        executionId,
-        startTime,
-        roundState.toolsExecuted,
-      );
+      const result = {
+        ...this.buildFinalResult(
+          conversationSession,
+          executionId,
+          startTime,
+          roundState.toolsExecuted,
+        ),
+        interrupted: context?.signal?.aborted ?? false,
+      };
 
       await callPluginHook(
         this.plugins,
@@ -344,6 +350,17 @@ export class ExecutionService {
 
       return result;
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return {
+          response: '',
+          messages: [],
+          executionId,
+          duration: Date.now() - startTime.getTime(),
+          toolsExecuted: [],
+          success: true,
+          interrupted: true,
+        };
+      }
       await this.handleExecutionError(error, fullContext, startTime, conversationId, executionId);
       // Return a graceful result instead of throwing — prevents "No response received"
       const errMsg = error instanceof Error ? error.message : String(error);
