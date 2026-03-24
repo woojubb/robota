@@ -169,19 +169,9 @@ export class AnthropicProvider extends AbstractAIProvider {
     // Accumulate server tool result content (web search results)
     const serverToolResults: Array<{ type: string; title?: string; url?: string }> = [];
 
-    let eventCount = 0;
     try {
       for await (const event of stream) {
-        // Check abort on every event
         if (signal?.aborted) break;
-        // Yield to macrotask queue every 5 events so ESC stdin handler can fire
-        eventCount++;
-        if (signal && eventCount % 5 === 0) {
-          await new Promise<void>((resolve) => {
-            setImmediate(resolve);
-          });
-          if (signal.aborted) break;
-        }
         switch (event.type) {
           case 'message_start':
             usage = event.message.usage;
@@ -223,6 +213,11 @@ export class AnthropicProvider extends AbstractAIProvider {
             if (event.delta.type === 'text_delta') {
               textParts.push(event.delta.text);
               onTextDelta(event.delta.text);
+              // Yield on every text delta so ESC stdin handler can fire
+              if (signal) {
+                await new Promise<void>((r) => setTimeout(r, 0));
+                if (signal.aborted) break;
+              }
             } else if (event.delta.type === 'input_json_delta') {
               currentToolJson += event.delta.partial_json;
             }
