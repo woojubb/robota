@@ -164,6 +164,8 @@ export interface IChatOptions extends IProviderSpecificOptions {
    *  should use streaming internally and call this for each text chunk,
    *  while still returning the complete assembled message. */
   onTextDelta?: TTextDeltaCallback;
+  /** AbortSignal for cancelling the provider call */
+  signal?: AbortSignal;
 }
 
 /**
