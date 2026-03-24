@@ -485,6 +485,36 @@ When the Edit tool completes successfully, a compact diff is shown below the too
 
 When a permission prompt is shown for an Edit tool, the diff should be displayed alongside the Allow/Deny prompt so the user can see what will change before approving.
 
+## ESC Abort Behavior
+
+Pressing ESC during an active `session.run()` triggers abort:
+
+1. ESC key handler calls `session.abort()`
+2. `session.run()` throws `AbortError` (see agent-sessions abort behavior)
+3. `useSubmitHandler` catches the `AbortError` and displays "Cancelled." in the message list
+4. `clearStreamingText(keepTools?: boolean)` is called with `keepTools: true` to preserve the tool execution list while clearing streaming text. This ensures the user can still see which tools ran before the abort.
+
+## Plugin Management TUI
+
+The `/plugin` command opens an interactive TUI for managing bundle plugins, built with `MenuSelect`, `TextPrompt`, and `ConfirmPrompt` components.
+
+### Screen Stack Navigation
+
+The TUI uses a screen stack pattern with 8 screens:
+
+| Screen                      | Description                                                       |
+| --------------------------- | ----------------------------------------------------------------- |
+| `main`                      | Top-level menu (Marketplace / Installed / Exit)                   |
+| `marketplace-list`          | List of configured marketplace sources                            |
+| `marketplace-action`        | Actions for a selected source (Browse / Add / Back)               |
+| `marketplace-browse`        | Browse plugins from a selected source                             |
+| `marketplace-install-scope` | Choose install scope (project / user)                             |
+| `marketplace-add`           | Add a new marketplace source URL                                  |
+| `installed-list`            | List of installed plugins with enable/disable state               |
+| `installed-action`          | Actions for a selected plugin (Enable/Disable / Uninstall / Back) |
+
+ESC navigates back in the stack. When the stack is empty, the TUI closes and returns to the normal input area.
+
 ## Subagent Execution
 
 ### Agent Tool Registration
