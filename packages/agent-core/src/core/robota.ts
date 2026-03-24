@@ -230,14 +230,7 @@ export class Robota
 
   override getHistory(): TUniversalMessage[] {
     const session = this.conversationHistory.getConversationSession(this.conversationId);
-    return session.getMessages().map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-      timestamp: msg.timestamp,
-      metadata: msg.metadata,
-      ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
-      ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {}),
-    })) as TUniversalMessage[];
+    return session.getMessages();
   }
 
   override clearHistory(): void {
