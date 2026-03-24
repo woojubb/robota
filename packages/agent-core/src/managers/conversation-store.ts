@@ -343,9 +343,9 @@ export class ConversationStore implements IConversationHistory {
     if (!this.pendingAssistant) return; // No pending state — error paths use addAssistantMessage directly
     const pending = this.pendingAssistant;
     const hasToolCalls = pending.toolCalls.length > 0;
-    // Strip text when tool calls present AND complete (text already streamed).
-    // Interrupted messages preserve text — it's the only record of what was shown.
-    const content = hasToolCalls && state === 'complete' ? '' : pending.content;
+    // History records everything — text is always preserved.
+    // Context savings is compaction's responsibility, not history's.
+    const content = pending.content;
     const message: IAssistantMessage = {
       id: pending.id,
       role: 'assistant',
