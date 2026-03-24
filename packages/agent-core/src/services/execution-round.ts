@@ -164,6 +164,7 @@ export async function executeAndRecordToolCalls(
   roundState: IExecutionRoundState,
   deps: IRoundDependencies,
   config?: IAgentConfig,
+  signal?: AbortSignal,
 ): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
 
@@ -210,6 +211,7 @@ export async function executeAndRecordToolCalls(
     mode: 'parallel',
     maxConcurrency: 5,
     continueOnError: true,
+    signal,
   };
 
   const toolSummary = await toolExecutionService.executeTools(toolContext);
@@ -621,6 +623,7 @@ export async function executeRound(
     roundState,
     deps,
     config,
+    fullContext.signal,
   );
 
   if (toolOutcome.contextOverflowed) {
