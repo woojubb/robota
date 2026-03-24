@@ -593,6 +593,7 @@ export async function executeRound(
     ...((inputTokens > 0 || outputTokens > 0) && {
       usage: { totalTokens: inputTokens + outputTokens, inputTokens, outputTokens },
     }),
+    ...(fullContext.signal?.aborted && { interrupted: true }),
   });
   roundState.runningAssistantCount++;
   roundState.lastTrackedAssistantMessage = assistantResponse;
