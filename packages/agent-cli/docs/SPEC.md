@@ -329,7 +329,7 @@ When a skill slash command is selected, the full SKILL.md content (after variabl
 | ------------------ | ----------------------- | -------------------------------------------------------------- |
 | ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface (duplicate — SSOT is agent-sessions) |
 | ISpinner           | `src/types.ts`          | Spinner handle (duplicate — SSOT is agent-sessions)            |
-| IChatMessage       | `src/ui/types.ts`       | UI message model                                               |
+| ~~IChatMessage~~   | deleted                 | Removed — CLI uses `TUniversalMessage` from agent-core (SSOT)  |
 | IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                                  |
 | ISlashCommand      | `src/commands/types.ts` | Slash command entry definition                                 |
 | ICommandSource     | `src/commands/types.ts` | Interface for command providers                                |
@@ -384,7 +384,7 @@ src/
     ├── WaveText.tsx                 ← Wave color animation for waiting indicator
     ├── render-markdown.ts           ← Markdown rendering for terminal output
     ├── InkTerminal.ts               ← No-op ITerminalOutput
-    └── types.ts                     ← IChatMessage, IPermissionRequest
+    └── types.ts                     ← IPermissionRequest
 ```
 
 ## CLI Usage
@@ -491,12 +491,14 @@ Pressing ESC during an active `session.run()` triggers abort:
 
 1. ESC key handler calls `session.abort()`
 2. AbortSignal propagates through the entire stack (ExecutionService → Provider → streaming)
-3. `session.run()` throws `AbortError` (see agent-sessions abort behavior)
-4. `useSubmitHandler` catches the `AbortError` and:
-   - Extracts tool summaries from session history (tools executed before abort) → displays as tool messages
-   - Captures partial streaming text → displays as assistant message with `_(interrupted)_` suffix
+3. `executeRound` calls `commitAssistant('interrupted')` — the partial response is saved to conversation history with `state: 'interrupted'`
+4. `session.run()` throws `AbortError` (see agent-sessions abort behavior)
+5. `useSubmitHandler` catches the `AbortError` and:
+   - Refreshes messages from session history — interrupted assistant messages are already committed
+   - Messages with `msg.state === 'interrupted'` show an interrupted indicator in the UI
    - Displays "Cancelled." system message
-5. After abort, conversation continues normally — history includes partial response and tool results
+6. After abort, conversation continues normally — history includes the interrupted assistant message and any tool results
+7. `getStreamingText` is no longer needed — interrupted messages exist in history via `commitAssistant`
 
 ## Plugin Management TUI
 
@@ -552,6 +554,21 @@ Completed tool execution states are trimmed to the most recent 50 entries (`MAX_
 ### React.memo
 
 `MessageItem` component uses `React.memo` to skip re-renders when message props are unchanged, reducing CPU and indirect memory pressure from Ink's full-tree reconciliation.
+
+## Message Architecture
+
+The CLI uses `TUniversalMessage` from `@robota-sdk/agent-core` as its message type (SSOT). The previous `IChatMessage` local type has been removed.
+
+### useMessages Hook
+
+- Manages `TUniversalMessage[]` state
+- Uses message factory functions (`createUserMessage`, `createAssistantMessage`, etc.) from agent-core
+- `msg.id` (UUID) is used as the React key for message list rendering
+- `msg.state === 'interrupted'` displays an interrupted indicator in the UI
+
+### Tool Message Type Guards
+
+Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.name`. This replaces the previous pattern of casting or using local type definitions.
 
 ## Known Limitations
 

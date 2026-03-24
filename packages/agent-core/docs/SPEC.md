@@ -380,6 +380,63 @@ If the partial response includes tool_use blocks (abort during tool call streami
 
 The `executeRound` catch block for AbortError (re-throw path) is a fallback for providers that throw AbortError instead of returning partial content. The Anthropic provider always returns normally on abort.
 
+## Message Model
+
+`IBaseMessage` is the foundation for all message types in the conversation history.
+
+| Field   | Type            | Required | Description                                        |
+| ------- | --------------- | -------- | -------------------------------------------------- |
+| `id`    | `string`        | Yes      | UUID identifier, auto-generated via `randomUUID()` |
+| `state` | `TMessageState` | Yes      | `'complete' \| 'interrupted'`                      |
+| `role`  | `string`        | Yes      | Message role (user, assistant, system, tool)       |
+
+**State rules:**
+
+- Non-assistant messages (user, system, tool) always have `state: 'complete'`.
+- Only assistant messages may have `state: 'interrupted'`, indicating the response was aborted by the user before natural completion.
+
+## Message Factories
+
+All message factory functions auto-generate `id` via `randomUUID()` and set `state: 'complete'` by default.
+
+| Factory                  | Role      | Notes                                                    |
+| ------------------------ | --------- | -------------------------------------------------------- |
+| `createUserMessage`      | user      | Always `state: 'complete'`                               |
+| `createAssistantMessage` | assistant | Accepts optional `state` parameter (default: `complete`) |
+| `createSystemMessage`    | system    | Always `state: 'complete'`                               |
+| `createToolMessage`      | tool      | Always `state: 'complete'`                               |
+
+## ConversationSession Streaming State
+
+`ConversationSession` manages pending assistant state during streaming:
+
+| Method                              | Description                                                                                        |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `appendStreaming(delta)`            | Accumulates streaming text, creates pending state with UUID                                        |
+| `appendToolCall(toolCall)`          | Adds tool call to pending state (deduplicates by id)                                               |
+| `commitAssistant(state, metadata?)` | Commits pending to history. Strips text when tool calls present. Single path for normal and abort. |
+| `discardPending()`                  | Clears pending without saving                                                                      |
+| `hasPendingAssistant()`             | Checks if streaming is in progress                                                                 |
+
+**`commitAssistant` behavior:**
+
+- When tool calls are present, text content is stripped (set to `""`) — consistent with the assistant text stripping rule.
+- The `state` parameter determines whether the committed message has `state: 'complete'` or `state: 'interrupted'`.
+- Single commit path — no branching between normal completion and abort.
+
+## getMessagesForAPI
+
+`getMessagesForAPI()` prepares the conversation history for provider API calls. For interrupted assistant messages (`state: 'interrupted'`), the text is annotated with `[This response was interrupted by the user]` suffix. This allows the model to understand that its previous response was cut short.
+
+## executeRound Streaming Flow
+
+The `executeRound` function manages streaming through `ConversationSession`:
+
+1. Provider's `onTextDelta` callback is wrapped to call `appendStreaming(delta)` on each delta.
+2. After the provider returns: tool calls are extracted via `appendToolCall(toolCall)`.
+3. `commitAssistant(state, metadata?)` is called with state determined by `signal.aborted` — `'interrupted'` if aborted, `'complete'` otherwise.
+4. Single commit path — no branching between normal and abort flows.
+
 ## Extension Points
 
 | Extension   | Base Class            | Contract                                         |
