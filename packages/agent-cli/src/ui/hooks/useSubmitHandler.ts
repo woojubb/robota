@@ -97,10 +97,11 @@ export async function runSessionPrompt(
           }),
         );
       }
-      // Find the interrupted assistant message in history (search backward, may not be last)
+      // Find the last assistant message from this execution (search backward).
+      // May be 'interrupted' (abort during streaming) or 'complete' (abort during tool execution).
       for (let i = history.length - 1; i >= historyBefore; i--) {
         const msg = history[i];
-        if (msg && msg.role === 'assistant' && msg.state === 'interrupted') {
+        if (msg && msg.role === 'assistant') {
           addMessage(msg);
           break;
         }
