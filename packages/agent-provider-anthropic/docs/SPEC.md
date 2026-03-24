@@ -109,6 +109,16 @@ The provider supports Anthropic's server-side web search tool:
 - **Local API types**: `IAnthropicStreamChunk` and other types in `api-types.ts` were written before migration to the native Anthropic SDK. The provider's streaming code now uses native SDK event types directly; local API types are partially unused but retained for backward compatibility.
 - **`validateConfig()` edge case**: Returns `false` for executor-based providers (no client/apiKey) even though the provider is functional. This is a known gap.
 
+## Abort Signal Support
+
+The provider accepts an `AbortSignal` via `IChatOptions.signal` for cooperative cancellation of in-flight API requests.
+
+### Behavior
+
+- **`chat()` / `chatWithStreaming()`**: The `signal` from `IChatOptions` is passed to the Anthropic SDK via `messages.create(params, { signal })`. This enables the underlying HTTP request to be cancelled when the signal is aborted.
+- **Streaming abort**: When an `AbortError` occurs during streaming, the provider catches the error and returns partial content collected so far (text accumulated before the abort). This ensures the caller receives whatever was streamed up to the cancellation point.
+- **Backward compatible**: When no `signal` is provided, existing behavior is unchanged — no cancellation support is wired.
+
 ## Extension Points
 
 - **Executor injection**: The provider accepts an `IExecutor` via `IAnthropicProviderOptions.executor`, enabling delegation of chat operations to local or remote executors without modifying the provider.

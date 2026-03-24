@@ -43,18 +43,18 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 
 Types owned by this package (SSOT):
 
-| Type                         | Kind      | File                         | Description                                                         |
-| ---------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------- |
-| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage)    |
-| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>` |
-| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                        |
-| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)           |
-| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`              |
-| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                         |
-| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                     |
-| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                            |
+| Type                         | Kind      | File                         | Description                                                                         |
+| ---------------------------- | --------- | ---------------------------- | ----------------------------------------------------------------------------------- |
+| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage)                    |
+| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                 |
+| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                        |
+| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                           |
+| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                              |
+| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                         |
+| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                     |
+| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                            |
 | `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`) |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages)            |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages)                            |
 
 Types consumed from other packages (not owned here):
 
@@ -96,21 +96,21 @@ Types consumed from other packages (not owned here):
 
 ### Key Session Methods
 
-| Method                     | Signature                                  | Description                                                                  |
-| -------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
-| `run`                      | `(message: string) => Promise<string>`     | Send a message; returns AI response. Persists session if store exists.       |
-| `getPermissionMode`        | `() => TPermissionMode`                    | Returns the active permission mode.                                          |
-| `setPermissionMode`        | `(mode: TPermissionMode) => void`          | Changes the permission mode for future tool calls.                           |
-| `getSessionId`             | `() => string`                             | Returns the stable session identifier.                                       |
-| `getMessageCount`          | `() => number`                             | Returns the number of completed `run()` calls.                               |
-| `clearHistory`             | `() => void`                               | Clears the underlying Robota conversation history and resets token usage.    |
-| `getHistory`               | `() => TUniversalMessage[]`                | Returns the current conversation history.                                    |
-| `getContextState`          | `() => IContextWindowState`                | Returns real-time context window usage (tokens, percentage).                 |
+| Method                     | Signature                                  | Description                                                                                                                             |
+| -------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `run`                      | `(message: string) => Promise<string>`     | Send a message; returns AI response. Persists session if store exists.                                                                  |
+| `getPermissionMode`        | `() => TPermissionMode`                    | Returns the active permission mode.                                                                                                     |
+| `setPermissionMode`        | `(mode: TPermissionMode) => void`          | Changes the permission mode for future tool calls.                                                                                      |
+| `getSessionId`             | `() => string`                             | Returns the stable session identifier.                                                                                                  |
+| `getMessageCount`          | `() => number`                             | Returns the number of completed `run()` calls.                                                                                          |
+| `clearHistory`             | `() => void`                               | Clears the underlying Robota conversation history and resets token usage.                                                               |
+| `getHistory`               | `() => TUniversalMessage[]`                | Returns the current conversation history.                                                                                               |
+| `getContextState`          | `() => IContextWindowState`                | Returns real-time context window usage (tokens, percentage).                                                                            |
 | `compact`                  | `(instructions?: string) => Promise<void>` | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |
-| `abort`                    | `() => void`                               | Cancels the currently running `run()` call. No-op if not running.            |
-| `isRunning`                | `() => boolean`                            | Returns true if a `run()` call is in progress.                               |
-| `getSessionAllowedTools`   | `() => string[]`                           | Returns tools that were session-approved ("Allow always").                   |
-| `clearSessionAllowedTools` | `() => void`                               | Clears all session-scoped allow rules.                                       |
+| `abort`                    | `() => void`                               | Cancels the currently running `run()` call. No-op if not running.                                                                       |
+| `isRunning`                | `() => boolean`                            | Returns true if a `run()` call is in progress.                                                                                          |
+| `getSessionAllowedTools`   | `() => string[]`                           | Returns tools that were session-approved ("Allow always").                                                                              |
+| `clearSessionAllowedTools` | `() => void`                               | Clears all session-scoped allow rules.                                                                                                  |
 
 ### Key SessionStore Methods
 
@@ -153,6 +153,25 @@ The session log records structured events to a JSONL file for diagnostics and re
 10. **`ISessionOptions.compactInstructions`** -- Custom instructions for the compaction summary prompt (e.g., extracted from CLAUDE.md "Compact Instructions" section).
 
 11. **`SessionStore` constructor** -- Accept a custom `baseDir` to redirect storage location (useful in tests).
+
+## Abort Behavior
+
+The `Session` class supports aborting an in-progress `run()` call via `AbortController`.
+
+### Mechanism
+
+- `session.abort()` calls `AbortController.abort()` on the controller created for the current `run()` call. Unchanged from previous implementation.
+- `session.isRunning()` returns `true` while a `run()` call is in progress. Unchanged.
+
+### Session.run() Abort Flow
+
+1. `Session.run()` creates an `AbortController` and passes `{ signal }` to `robota.run()`.
+2. `robota.run()` threads the signal through `ExecutionService`, provider calls, and tool batch execution (see agent-core abort support).
+3. `robota.run()` always returns normally on abort — it does not throw. The result includes `interrupted: true`.
+4. After `robota.run()` returns, `Session.run()` checks `signal.aborted`. If true, it throws `DOMException('Aborted', 'AbortError')`.
+5. The post-run check in `Session.run()` is the **sole source** of `AbortError` — `robota.run()` itself never throws on abort.
+
+This replaced the previous race-based `Promise` wrapper approach with a cleaner signal-passing design.
 
 ## Compaction Behavior
 
