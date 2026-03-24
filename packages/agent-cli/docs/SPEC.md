@@ -490,9 +490,13 @@ When a permission prompt is shown for an Edit tool, the diff should be displayed
 Pressing ESC during an active `session.run()` triggers abort:
 
 1. ESC key handler calls `session.abort()`
-2. `session.run()` throws `AbortError` (see agent-sessions abort behavior)
-3. `useSubmitHandler` catches the `AbortError` and displays "Cancelled." in the message list
-4. `clearStreamingText(keepTools?: boolean)` is called with `keepTools: true` to preserve the tool execution list while clearing streaming text. This ensures the user can still see which tools ran before the abort.
+2. AbortSignal propagates through the entire stack (ExecutionService → Provider → streaming)
+3. `session.run()` throws `AbortError` (see agent-sessions abort behavior)
+4. `useSubmitHandler` catches the `AbortError` and:
+   - Extracts tool summaries from session history (tools executed before abort) → displays as tool messages
+   - Captures partial streaming text → displays as assistant message with `_(interrupted)_` suffix
+   - Displays "Cancelled." system message
+5. After abort, conversation continues normally — history includes partial response and tool results
 
 ## Plugin Management TUI
 

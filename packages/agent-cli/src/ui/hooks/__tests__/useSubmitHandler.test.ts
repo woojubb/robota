@@ -1,5 +1,5 @@
 /**
- * Tests for runSessionPrompt — abort behavior and tool summary extraction.
+ * Tests for runSessionPrompt — abort behavior, tool summary extraction, partial text.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -10,7 +10,7 @@ import type { Session } from '@robota-sdk/agent-sdk';
 function createMockSession(options?: {
   runResult?: string;
   runError?: Error;
-  history?: Array<{ role: string; content?: string; toolCalls?: unknown[] }>;
+  history?: Array<{ role: string; content?: string | null; toolCalls?: unknown[] }>;
 }): Session {
   const history = options?.history ?? [];
   return {
@@ -73,23 +73,18 @@ describe('runSessionPrompt', () => {
       setContextState,
     );
 
-    // First call: setIsThinking(true), last call: setIsThinking(false)
     expect(setIsThinking).toHaveBeenCalledWith(true);
     expect(setIsThinking).toHaveBeenLastCalledWith(false);
   });
 
   it('extracts tool summaries from history on abort', async () => {
-    // History with tool calls that happened before abort
     const history = [
       { role: 'user', content: 'test prompt' },
       {
         role: 'assistant',
         content: null,
         toolCalls: [
-          {
-            id: 'tc1',
-            function: { name: 'Read', arguments: '{"file_path":"/tmp/test.ts"}' },
-          },
+          { id: 'tc1', function: { name: 'Read', arguments: '{"file_path":"/tmp/test.ts"}' } },
         ],
       },
       { role: 'tool', content: 'file content', toolCallId: 'tc1', name: 'Read' },
@@ -99,10 +94,9 @@ describe('runSessionPrompt', () => {
       runError: new DOMException('Aborted', 'AbortError'),
       history,
     });
-    // getHistory returns empty before run (historyBefore=0), then full history after
     (session.getHistory as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce([]) // first call at line 48 (historyBefore)
-      .mockReturnValue(history); // second call in catch block
+      .mockReturnValueOnce([])
+      .mockReturnValue(history);
 
     await runSessionPrompt(
       'test prompt',
@@ -113,13 +107,11 @@ describe('runSessionPrompt', () => {
       setContextState,
     );
 
-    // Should have added a tool message before "Cancelled."
     const toolMessage = addMessage.mock.calls.find(
       (call: unknown[]) => (call[0] as { role: string }).role === 'tool',
     );
     expect(toolMessage).toBeDefined();
 
-    // "Cancelled." should come after tool message
     const cancelledIdx = addMessage.mock.calls.findIndex(
       (call: unknown[]) => (call[0] as { role: string; content: string }).content === 'Cancelled.',
     );
@@ -151,6 +143,65 @@ describe('runSessionPrompt', () => {
     expect(addMessage).toHaveBeenCalledWith(expect.objectContaining({ content: 'Cancelled.' }));
   });
 
+  it('displays partial streaming text as interrupted assistant message on abort', async () => {
+    const session = createMockSession({
+      runError: new DOMException('Aborted', 'AbortError'),
+    });
+    const getStreamingText = vi.fn().mockReturnValue('Here is the partial res');
+
+    await runSessionPrompt(
+      'test prompt',
+      session,
+      addMessage,
+      clearStreamingText,
+      setIsThinking,
+      setContextState,
+      undefined,
+      getStreamingText,
+    );
+
+    // Should display partial text as assistant message with interrupted suffix
+    const assistantMsg = addMessage.mock.calls.find(
+      (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
+    );
+    expect(assistantMsg).toBeDefined();
+    expect((assistantMsg![0] as { content: string }).content).toContain('Here is the partial res');
+    expect((assistantMsg![0] as { content: string }).content).toContain('_(interrupted)_');
+
+    // Partial text should come before "Cancelled."
+    const assistantIdx = addMessage.mock.calls.findIndex(
+      (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
+    );
+    const cancelledIdx = addMessage.mock.calls.findIndex(
+      (call: unknown[]) => (call[0] as { role: string; content: string }).content === 'Cancelled.',
+    );
+    expect(assistantIdx).toBeLessThan(cancelledIdx);
+  });
+
+  it('does not display partial text when streaming text is empty on abort', async () => {
+    const session = createMockSession({
+      runError: new DOMException('Aborted', 'AbortError'),
+    });
+    const getStreamingText = vi.fn().mockReturnValue('');
+
+    await runSessionPrompt(
+      'test prompt',
+      session,
+      addMessage,
+      clearStreamingText,
+      setIsThinking,
+      setContextState,
+      undefined,
+      getStreamingText,
+    );
+
+    const assistantMsg = addMessage.mock.calls.find(
+      (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
+    );
+    expect(assistantMsg).toBeUndefined();
+    expect(addMessage).toHaveBeenCalledWith(expect.objectContaining({ content: 'Cancelled.' }));
+  });
+
   it('on normal completion, adds tool summary and assistant message', async () => {
     const history = [
       { role: 'user', content: 'test' },
@@ -163,13 +214,10 @@ describe('runSessionPrompt', () => {
       { role: 'assistant', content: 'Done.' },
     ];
 
-    const session = createMockSession({
-      runResult: 'Done.',
-      history,
-    });
+    const session = createMockSession({ runResult: 'Done.', history });
     (session.getHistory as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce([]) // historyBefore
-      .mockReturnValue(history); // after run
+      .mockReturnValueOnce([])
+      .mockReturnValue(history);
 
     await runSessionPrompt(
       'test',
@@ -180,13 +228,10 @@ describe('runSessionPrompt', () => {
       setContextState,
     );
 
-    // Tool message should be added
     const toolMessage = addMessage.mock.calls.find(
       (call: unknown[]) => (call[0] as { role: string }).role === 'tool',
     );
     expect(toolMessage).toBeDefined();
-
-    // Assistant message should be added
     expect(addMessage).toHaveBeenCalledWith(
       expect.objectContaining({ role: 'assistant', content: 'Done.' }),
     );
