@@ -368,11 +368,17 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 
 ### Partial Content Preservation on Abort
 
-When abort occurs during provider streaming, the provider returns partial content collected before the abort. `executeRound` saves this partial assistant message to conversation history with `metadata.interrupted = true` before re-throwing the AbortError. This ensures:
+When abort occurs during provider streaming, the provider catches AbortError internally and returns partial content collected so far as a normal response. `executeRound` processes this partial response through the standard path (`addAssistantMessage`) with `metadata.interrupted = true`. The execution loop then exits via the `signal.aborted` check in ExecutionService. `robota.run()` always returns normally on abort — it does not throw.
 
-- The partial response is visible in conversation history for the next turn
+This ensures:
+
+- The partial response is saved in conversation history for the next turn
 - The model can see what it started saying before interruption
-- Tool results from completed tools in earlier rounds are also preserved
+- Tool results from completed tools in earlier rounds are preserved
+
+If the partial response includes tool_use blocks (abort during tool call streaming), the tool execution step runs but skips queued tools via `signal.aborted` check in `IToolExecutionBatchContext`. Completed tools have normal results; skipped tools have `"Execution interrupted by user"` error results. Both are recorded in history.
+
+The `executeRound` catch block for AbortError (re-throw path) is a fallback for providers that throw AbortError instead of returning partial content. The Anthropic provider always returns normally on abort.
 
 ## Extension Points
 

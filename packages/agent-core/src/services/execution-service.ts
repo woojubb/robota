@@ -152,14 +152,14 @@ export class ExecutionService {
       executionId,
     );
 
-    try {
-      const conversationSession = this.initializeConversationSession(
-        conversationId,
-        messages,
-        config,
-        executionId,
-      );
+    const conversationSession = this.initializeConversationSession(
+      conversationId,
+      messages,
+      config,
+      executionId,
+    );
 
+    try {
       conversationSession.addUserMessage(input, { executionId });
       this.eventEmitter.emitUserMessageEvent(input, conversationId, executionId);
 
@@ -351,9 +351,10 @@ export class ExecutionService {
       return result;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
+        const abortMessages = conversationSession.getMessages();
         return {
           response: '',
-          messages: [],
+          messages: abortMessages,
           executionId,
           duration: Date.now() - startTime.getTime(),
           toolsExecuted: [],
