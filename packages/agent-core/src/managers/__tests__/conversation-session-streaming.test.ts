@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { ConversationSession } from '../conversation-session.js';
+import { isAssistantMessage } from '../../interfaces/messages.js';
+import {
+  createUserMessage,
+  createAssistantMessage,
+  createSystemMessage,
+  createToolMessage,
+} from '../conversation-message-factory.js';
 import type { IAssistantMessage } from '../../interfaces/messages.js';
 
 describe('ConversationSession streaming state', () => {
@@ -79,5 +86,105 @@ describe('ConversationSession streaming state', () => {
     const msgs = session.getMessages();
     const last = msgs[msgs.length - 1];
     expect(last.metadata).toEqual({ round: 1, inputTokens: 100 });
+  });
+
+  it('committed message has unique id', () => {
+    const session = new ConversationSession();
+    session.appendStreaming('first');
+    session.commitAssistant('complete');
+    session.appendStreaming('second');
+    session.commitAssistant('complete');
+    const msgs = session.getMessages();
+    expect(msgs[0].id).not.toBe(msgs[1].id);
+    expect(msgs[0].id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('hasPendingAssistant returns correct state', () => {
+    const session = new ConversationSession();
+    expect(session.hasPendingAssistant()).toBe(false);
+    session.appendStreaming('text');
+    expect(session.hasPendingAssistant()).toBe(true);
+    session.commitAssistant('complete');
+    expect(session.hasPendingAssistant()).toBe(false);
+  });
+});
+
+describe('ConversationSession getMessagesForAPI', () => {
+  it('annotates interrupted assistant messages with suffix', () => {
+    const session = new ConversationSession();
+    session.appendStreaming('Partial response here');
+    session.commitAssistant('interrupted');
+    const api = session.getMessagesForAPI();
+    expect(api).toHaveLength(1);
+    expect(api[0].content).toContain('Partial response here');
+    expect(api[0].content).toContain('[This response was interrupted by the user]');
+  });
+
+  it('does not annotate complete assistant messages', () => {
+    const session = new ConversationSession();
+    session.appendStreaming('Full response');
+    session.commitAssistant('complete');
+    const api = session.getMessagesForAPI();
+    expect(api[0].content).toBe('Full response');
+    expect(api[0].content).not.toContain('[This response was interrupted');
+  });
+
+  it('does not annotate non-assistant messages even if interrupted', () => {
+    const session = new ConversationSession();
+    session.addUserMessage('hello');
+    const api = session.getMessagesForAPI();
+    expect(api[0].content).toBe('hello');
+    expect(api[0].content).not.toContain('[This response was interrupted');
+  });
+
+  it('preserves tool_calls in API format', () => {
+    const session = new ConversationSession();
+    session.appendToolCall({
+      id: 'tc1',
+      type: 'function',
+      function: { name: 'Read', arguments: '{"path":"/tmp"}' },
+    });
+    session.commitAssistant('complete');
+    const api = session.getMessagesForAPI();
+    expect(api[0].tool_calls).toHaveLength(1);
+    expect(api[0].tool_calls![0].function.name).toBe('Read');
+  });
+});
+
+describe('Message factories generate id and state', () => {
+  it('createUserMessage has id and state', () => {
+    const msg = createUserMessage('hello');
+    expect(msg.id).toBeDefined();
+    expect(msg.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(msg.state).toBe('complete');
+  });
+
+  it('createAssistantMessage defaults to complete', () => {
+    const msg = createAssistantMessage('response');
+    expect(msg.state).toBe('complete');
+    expect(msg.id).toBeDefined();
+  });
+
+  it('createAssistantMessage accepts interrupted state', () => {
+    const msg = createAssistantMessage('partial', { state: 'interrupted' });
+    expect(msg.state).toBe('interrupted');
+  });
+
+  it('createSystemMessage has id and state', () => {
+    const msg = createSystemMessage('system');
+    expect(msg.id).toBeDefined();
+    expect(msg.state).toBe('complete');
+  });
+
+  it('createToolMessage has id and state', () => {
+    const msg = createToolMessage('result', { toolCallId: 'tc1' });
+    expect(msg.id).toBeDefined();
+    expect(msg.state).toBe('complete');
+  });
+
+  it('each factory call generates unique id', () => {
+    const a = createUserMessage('a');
+    const b = createUserMessage('b');
+    expect(a.id).not.toBe(b.id);
   });
 });
