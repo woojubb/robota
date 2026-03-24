@@ -292,6 +292,7 @@ describe('AnthropicProvider', () => {
           max_tokens: 1024,
           messages: [{ role: 'user', content: 'Hi' }],
         }),
+        undefined,
       );
       expect(result.role).toBe('assistant');
       expect(result.content).toBe('Hello there!');
@@ -311,6 +312,7 @@ describe('AnthropicProvider', () => {
 
       expect(mockClient.messages.create).toHaveBeenCalledWith(
         expect.objectContaining({ max_tokens: 64000 }),
+        undefined,
       );
     });
 
@@ -325,6 +327,7 @@ describe('AnthropicProvider', () => {
       // DEFAULT_MAX_OUTPUT = 16384
       expect(mockClient.messages.create).toHaveBeenCalledWith(
         expect.objectContaining({ max_tokens: 16384 }),
+        undefined,
       );
     });
 
@@ -338,6 +341,7 @@ describe('AnthropicProvider', () => {
 
       expect(mockClient.messages.create).toHaveBeenCalledWith(
         expect.objectContaining({ temperature: 0.5 }),
+        undefined,
       );
     });
 
