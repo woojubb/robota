@@ -245,6 +245,71 @@ describe('runSessionPrompt', () => {
     );
   });
 
+  it('displays ALL assistant messages from multi-round execution on abort', async () => {
+    // Multi-round: round 1 assistant + tools, round 2 assistant (interrupted)
+    const multiRoundHistory = [
+      { role: 'user', content: 'run audit', id: '1', state: 'complete', timestamp: new Date() },
+      {
+        role: 'assistant',
+        content: 'I will read the reference files first.',
+        id: '2',
+        state: 'complete',
+        timestamp: new Date(),
+        toolCalls: [
+          {
+            id: 'tc1',
+            type: 'function',
+            function: { name: 'Read', arguments: '{"file_path":"/tmp/a"}' },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: 'file a content',
+        id: '3',
+        state: 'complete',
+        timestamp: new Date(),
+        toolCallId: 'tc1',
+        name: 'Read',
+      },
+      {
+        role: 'assistant',
+        content: 'Now checking project files...',
+        id: '4',
+        state: 'interrupted',
+        timestamp: new Date(),
+      },
+    ];
+    const session = createMockSession({
+      runError: new DOMException('Aborted', 'AbortError'),
+      history: multiRoundHistory,
+    });
+    (session.getHistory as ReturnType<typeof vi.fn>)
+      .mockReturnValueOnce([])
+      .mockReturnValue(multiRoundHistory);
+
+    await runSessionPrompt(
+      'run audit',
+      session,
+      addMessage,
+      clearStreamingText,
+      setIsThinking,
+      setContextState,
+    );
+
+    // Should display BOTH assistant messages, not just the last one
+    const assistantMsgs = addMessage.mock.calls.filter(
+      (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
+    );
+    expect(assistantMsgs).toHaveLength(2);
+    expect((assistantMsgs[0][0] as { content: string }).content).toBe(
+      'I will read the reference files first.',
+    );
+    expect((assistantMsgs[1][0] as { content: string }).content).toBe(
+      'Now checking project files...',
+    );
+  });
+
   it('does not add assistant message on abort when history has no assistant message', async () => {
     const session = createMockSession({
       runError: new DOMException('Aborted', 'AbortError'),
