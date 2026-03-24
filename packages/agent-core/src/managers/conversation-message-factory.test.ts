@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import {
-  isUserMessage,
-  isAssistantMessage,
-  isSystemMessage,
-  isToolMessage,
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
   createToolMessage,
 } from './conversation-message-factory';
+import {
+  isUserMessage,
+  isAssistantMessage,
+  isSystemMessage,
+  isToolMessage,
+} from '../interfaces/messages';
 import type { TUniversalMessage } from '../interfaces/messages';
 
 describe('conversation-message-factory', () => {
