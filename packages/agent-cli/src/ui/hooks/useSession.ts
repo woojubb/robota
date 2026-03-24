@@ -53,6 +53,7 @@ export function useSession(props: ISessionProps): {
 } {
   const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
   const [streamingText, setStreamingText] = useState('');
+  const streamingTextRef = useRef('');
   const [activeTools, setActiveTools] = useState<IToolExecutionState[]>([]);
 
   // Permission queue — handles concurrent tool permission requests sequentially
@@ -99,7 +100,11 @@ export function useSession(props: ISessionProps): {
     };
 
     const onTextDelta = (delta: string): void => {
-      setStreamingText((prev) => prev + delta);
+      setStreamingText((prev) => {
+        const next = prev + delta;
+        streamingTextRef.current = next;
+        return next;
+      });
     };
 
     const onToolExecution = (event: {
@@ -197,14 +202,18 @@ export function useSession(props: ISessionProps): {
 
   const clearStreamingText = useCallback(() => {
     setStreamingText('');
+    streamingTextRef.current = '';
     setActiveTools([]);
   }, []);
+
+  const getStreamingText = useCallback(() => streamingTextRef.current, []);
 
   return {
     session: sessionRef.current,
     permissionRequest,
     streamingText,
     clearStreamingText,
+    getStreamingText,
     activeTools,
   };
 }

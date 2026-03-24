@@ -128,7 +128,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     // Always use streaming to avoid Anthropic SDK's 10-minute non-streaming timeout.
     // When no onTextDelta callback is available, use a no-op to silently assemble the response.
     const textDeltaCb = options?.onTextDelta ?? this.onTextDelta ?? (() => {});
-    return this.chatWithStreaming(baseParams, textDeltaCb);
+    return this.chatWithStreaming(baseParams, textDeltaCb, options?.signal);
   }
 
   /**
@@ -139,13 +139,17 @@ export class AnthropicProvider extends AbstractAIProvider {
   private async chatWithStreaming(
     params: Anthropic.MessageCreateParamsNonStreaming,
     onTextDelta: TTextDeltaCallback,
+    signal?: AbortSignal,
   ): Promise<TUniversalMessage> {
     const streamParams: Anthropic.MessageCreateParamsStreaming = {
       ...params,
       stream: true,
     };
 
-    const stream = await this.client!.messages.create(streamParams);
+    const stream = await this.client!.messages.create(
+      streamParams,
+      signal ? { signal } : undefined,
+    );
 
     // Accumulate the full response from stream events
     const textParts: string[] = [];
@@ -164,76 +168,98 @@ export class AnthropicProvider extends AbstractAIProvider {
     // Accumulate server tool result content (web search results)
     const serverToolResults: Array<{ type: string; title?: string; url?: string }> = [];
 
-    for await (const event of stream) {
-      switch (event.type) {
-        case 'message_start':
-          usage = event.message.usage;
-          model = event.message.model;
-          break;
+    try {
+      for await (const event of stream) {
+        switch (event.type) {
+          case 'message_start':
+            usage = event.message.usage;
+            model = event.message.model;
+            break;
 
-        case 'content_block_start':
-          currentBlockType = event.content_block.type;
-          if (event.content_block.type === 'tool_use') {
-            currentToolId = event.content_block.id;
-            currentToolName = event.content_block.name;
-            currentToolJson = '';
-          } else if (event.content_block.type === 'server_tool_use') {
-            const serverBlock = event.content_block as {
-              name?: string;
-              input?: { query?: string };
-            };
-            const query = serverBlock.input?.query ?? '';
-            const toolLabel = query
-              ? `\n🔍 Searching: "${query}"\n`
-              : `\n🔍 [${serverBlock.name ?? 'server_tool'}]\n`;
-            textParts.push(toolLabel);
-            onTextDelta(toolLabel);
-            if (this.onServerToolUse) {
-              this.onServerToolUse(serverBlock.name ?? 'server_tool', { query });
+          case 'content_block_start':
+            currentBlockType = event.content_block.type;
+            if (event.content_block.type === 'tool_use') {
+              currentToolId = event.content_block.id;
+              currentToolName = event.content_block.name;
+              currentToolJson = '';
+            } else if (event.content_block.type === 'server_tool_use') {
+              const serverBlock = event.content_block as {
+                name?: string;
+                input?: { query?: string };
+              };
+              const query = serverBlock.input?.query ?? '';
+              const toolLabel = query
+                ? `\n🔍 Searching: "${query}"\n`
+                : `\n🔍 [${serverBlock.name ?? 'server_tool'}]\n`;
+              textParts.push(toolLabel);
+              onTextDelta(toolLabel);
+              if (this.onServerToolUse) {
+                this.onServerToolUse(serverBlock.name ?? 'server_tool', { query });
+              }
+            } else if (event.content_block.type === 'web_search_tool_result') {
+              const resultBlock =
+                event.content_block as Anthropic.Messages.WebSearchToolResultBlock;
+              const formatted = this.formatWebSearchResults(resultBlock);
+              if (formatted) {
+                textParts.push(`\n${formatted}\n\n`);
+                onTextDelta(`\n${formatted}\n\n`);
+              }
             }
-          } else if (event.content_block.type === 'web_search_tool_result') {
-            const resultBlock = event.content_block as Anthropic.Messages.WebSearchToolResultBlock;
-            const formatted = this.formatWebSearchResults(resultBlock);
-            if (formatted) {
-              textParts.push(`\n${formatted}\n\n`);
-              onTextDelta(`\n${formatted}\n\n`);
+            break;
+
+          case 'content_block_delta':
+            if (event.delta.type === 'text_delta') {
+              textParts.push(event.delta.text);
+              onTextDelta(event.delta.text);
+            } else if (event.delta.type === 'input_json_delta') {
+              currentToolJson += event.delta.partial_json;
             }
-          }
-          break;
+            break;
 
-        case 'content_block_delta':
-          if (event.delta.type === 'text_delta') {
-            textParts.push(event.delta.text);
-            onTextDelta(event.delta.text);
-          } else if (event.delta.type === 'input_json_delta') {
-            currentToolJson += event.delta.partial_json;
-          }
-          break;
+          case 'content_block_stop':
+            if (currentToolId) {
+              toolCalls.push({
+                id: currentToolId,
+                type: 'function' as const,
+                function: {
+                  name: currentToolName,
+                  arguments: currentToolJson || '{}',
+                },
+              });
+              currentToolId = '';
+              currentToolName = '';
+              currentToolJson = '';
+            }
+            currentBlockType = '';
+            break;
 
-        case 'content_block_stop':
-          if (currentToolId) {
-            toolCalls.push({
-              id: currentToolId,
-              type: 'function' as const,
-              function: {
-                name: currentToolName,
-                arguments: currentToolJson || '{}',
-              },
-            });
-            currentToolId = '';
-            currentToolName = '';
-            currentToolJson = '';
-          }
-          currentBlockType = '';
-          break;
-
-        case 'message_delta':
-          if (event.usage) {
-            usage.output_tokens = event.usage.output_tokens;
-          }
-          stopReason = event.delta.stop_reason;
-          break;
+          case 'message_delta':
+            if (event.usage) {
+              usage.output_tokens = event.usage.output_tokens;
+            }
+            stopReason = event.delta.stop_reason;
+            break;
+        }
       }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        // Return partial response from content accumulated so far
+        const partialText = textParts.join('') || '';
+        const partialResult: TUniversalMessage = {
+          role: 'assistant',
+          content: partialText,
+          timestamp: new Date(),
+          ...(toolCalls.length > 0 && { toolCalls }),
+        };
+        partialResult.metadata = {
+          inputTokens: usage.input_tokens,
+          outputTokens: usage.output_tokens,
+          model,
+          stopReason: 'aborted',
+        };
+        return partialResult;
+      }
+      throw err;
     }
 
     const textContent = textParts.join('') || '';

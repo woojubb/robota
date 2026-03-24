@@ -345,6 +345,41 @@ interface IHookTypeExecutor {
 
 Hooks are configured as a `THooksConfig` object mapping events to arrays of `IHookGroup` entries. Each group has a `matcher` regex pattern (empty = match all) and an array of `IHookDefinition` entries. Hooks have a 10-second timeout.
 
+## Abort Execution Support
+
+The execution loop supports cooperative cancellation via the standard `AbortSignal` API. An `AbortSignal` can be threaded through the entire execution pipeline to allow callers to cancel in-progress runs.
+
+### Interface Changes
+
+| Interface                    | Field                   | Description                                                       |
+| ---------------------------- | ----------------------- | ----------------------------------------------------------------- |
+| `IRunOptions`                | `signal?: AbortSignal`  | Allows callers to cancel execution of `Robota.run()`              |
+| `IChatOptions`               | `signal?: AbortSignal`  | Passed to provider `chat()` / `chatStream()` for cancelling calls |
+| `IExecutionContext`          | `signal?: AbortSignal`  | Threaded through the execution context for round-level checks     |
+| `IExecutionResult`           | `interrupted?: boolean` | Indicates the execution was aborted before natural completion     |
+| `IToolExecutionBatchContext` | `signal?: AbortSignal`  | Allows skipping queued tool executions when abort is signalled    |
+
+### Execution Flow
+
+- **ExecutionService**: Checks `signal.aborted` at round loop boundaries. If aborted, the loop exits early and the result includes `interrupted: true`.
+- **callProviderWithCache**: Accepts `signal` and passes it to the provider's `chat()` call, enabling mid-request cancellation.
+- **executeAndRecordToolCalls**: Passes `signal` to the tool batch context so queued tools are skipped once abort is triggered.
+- **AbortError handling**: `AbortError` exceptions thrown by the provider or fetch layer are caught by the execution loop and treated as a clean interruption (not an error).
+
+### Partial Content Preservation on Abort
+
+When abort occurs during provider streaming, the provider catches AbortError internally and returns partial content collected so far as a normal response. `executeRound` processes this partial response through the standard path (`addAssistantMessage`) with `metadata.interrupted = true`. The execution loop then exits via the `signal.aborted` check in ExecutionService. `robota.run()` always returns normally on abort — it does not throw.
+
+This ensures:
+
+- The partial response is saved in conversation history for the next turn
+- The model can see what it started saying before interruption
+- Tool results from completed tools in earlier rounds are preserved
+
+If the partial response includes tool_use blocks (abort during tool call streaming), the tool execution step runs but skips queued tools via `signal.aborted` check in `IToolExecutionBatchContext`. Completed tools have normal results; skipped tools have `"Execution interrupted by user"` error results. Both are recorded in history.
+
+The `executeRound` catch block for AbortError (re-throw path) is a fallback for providers that throw AbortError instead of returning partial content. The Anthropic provider always returns normally on abort.
+
 ## Extension Points
 
 | Extension   | Base Class            | Contract                                         |

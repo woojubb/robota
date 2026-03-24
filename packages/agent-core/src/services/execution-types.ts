@@ -101,6 +101,8 @@ export interface IExecutionContext {
   metadata?: TMetadata;
   startTime: Date;
   executionId: string;
+  /** AbortSignal for cancelling execution */
+  signal?: AbortSignal;
 }
 
 /**
@@ -115,6 +117,8 @@ export interface IExecutionResult {
   toolsExecuted: string[];
   success: boolean;
   error?: Error;
+  /** Whether execution was interrupted by abort */
+  interrupted?: boolean;
 }
 
 /**

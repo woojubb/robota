@@ -315,26 +315,14 @@ export class Session {
 
     let response: string;
     try {
-      response = await new Promise<string>((resolve, reject) => {
-        if (signal.aborted) {
-          reject(new DOMException('Aborted', 'AbortError'));
-          return;
-        }
-        const onAbort = (): void => reject(new DOMException('Aborted', 'AbortError'));
-        signal.addEventListener('abort', onAbort, { once: true });
-        this.robota.run(enrichedMessage).then(
-          (result) => {
-            signal.removeEventListener('abort', onAbort);
-            resolve(result);
-          },
-          (err) => {
-            signal.removeEventListener('abort', onAbort);
-            reject(err);
-          },
-        );
-      });
+      response = await this.robota.run(enrichedMessage, { signal });
+
+      // If execution was interrupted (abort fired during execution),
+      // throw AbortError so the caller (useSubmitHandler) shows "Cancelled."
+      if (signal.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+      }
     } catch (error) {
-      // Log error but preserve session state — history remains intact for retry
       this.log('error', {
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? (error.stack ?? '') : '',
