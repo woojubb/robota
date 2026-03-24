@@ -211,11 +211,6 @@ export class AnthropicProvider extends AbstractAIProvider {
 
           case 'content_block_delta':
             if (event.delta.type === 'text_delta') {
-              // Yield BEFORE processing so ESC handler can fire before Ink render blocks
-              if (signal) {
-                await new Promise<void>((r) => setTimeout(r, 0));
-                if (signal.aborted) break;
-              }
               textParts.push(event.delta.text);
               onTextDelta(event.delta.text);
             } else if (event.delta.type === 'input_json_delta') {

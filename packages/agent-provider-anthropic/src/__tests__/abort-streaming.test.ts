@@ -166,15 +166,14 @@ describe('AnthropicProvider abort streaming', () => {
 
   it('abort during long streaming stops before all events processed', async () => {
     const controller = new AbortController();
-    // 50 chunks — enough to observe partial processing
-    const chunks = Array.from({ length: 50 }, (_, i) => `chunk${i} `);
+    const chunks = Array.from({ length: 20 }, (_, i) => `chunk${i} `);
     const receivedDeltas: string[] = [];
 
-    const stream = makeDeltaStream(chunks);
+    // Abort after 5th text_delta (idx 6 = msg_start + block_start + 5 deltas)
+    const stream = makeDeltaStream(chunks, (idx) => {
+      if (idx === 6) controller.abort();
+    });
     mockClient.messages.create.mockResolvedValue(stream);
-
-    // Schedule abort after 5ms — should fire during setTimeout(0) yields
-    const abortTimer = setTimeout(() => controller.abort(), 5);
 
     const result = await provider.chat(userMsg, {
       signal: controller.signal,
@@ -182,13 +181,11 @@ describe('AnthropicProvider abort streaming', () => {
       onTextDelta: (d: string) => receivedDeltas.push(d),
     });
 
-    clearTimeout(abortTimer);
-
-    // Should have been aborted before processing all 50 chunks
-    expect(receivedDeltas.length).toBeLessThan(50);
+    // Should have processed fewer than all 20 chunks
+    expect(receivedDeltas.length).toBeLessThan(20);
     expect(result.metadata?.stopReason).toBe('aborted');
     const content = result.content as string;
-    expect(content).not.toContain('chunk49');
+    expect(content).not.toContain('chunk19');
   });
 
   it('processes all events when no abort signal', async () => {

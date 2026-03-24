@@ -99,12 +99,18 @@ export function useSession(props: ISessionProps): {
       });
     };
 
+    // Debounce streaming text updates to prevent Ink's synchronous rendering
+    // from blocking the event loop (which prevents ESC abort from firing).
+    // Deltas accumulate in the ref; state flushes every 16ms (~60fps).
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
     const onTextDelta = (delta: string): void => {
-      setStreamingText((prev) => {
-        const next = prev + delta;
-        streamingTextRef.current = next;
-        return next;
-      });
+      streamingTextRef.current += delta;
+      if (!flushTimer) {
+        flushTimer = setTimeout(() => {
+          setStreamingText(streamingTextRef.current);
+          flushTimer = null;
+        }, 16);
+      }
     };
 
     const onToolExecution = (event: {
