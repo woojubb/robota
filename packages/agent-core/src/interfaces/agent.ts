@@ -162,6 +162,8 @@ export interface IRunOptions {
   sessionId?: string;
   userId?: string;
   metadata?: TMetadata;
+  /** AbortSignal for cancelling execution */
+  signal?: AbortSignal;
 }
 
 /**
