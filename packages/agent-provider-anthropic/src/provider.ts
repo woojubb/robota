@@ -171,6 +171,8 @@ export class AnthropicProvider extends AbstractAIProvider {
 
     try {
       for await (const event of stream) {
+        // Check abort on every event — buffered events won't wait for network
+        if (signal?.aborted) break;
         switch (event.type) {
           case 'message_start':
             usage = event.message.usage;
