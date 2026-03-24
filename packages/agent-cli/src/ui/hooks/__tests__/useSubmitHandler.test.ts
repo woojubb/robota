@@ -143,11 +143,10 @@ describe('runSessionPrompt', () => {
     expect(addMessage).toHaveBeenCalledWith(expect.objectContaining({ content: 'Cancelled.' }));
   });
 
-  it('displays partial streaming text as interrupted assistant message on abort', async () => {
+  it('emits an interrupted assistant message on abort', async () => {
     const session = createMockSession({
       runError: new DOMException('Aborted', 'AbortError'),
     });
-    const getStreamingText = vi.fn().mockReturnValue('Here is the partial res');
 
     await runSessionPrompt(
       'test prompt',
@@ -156,19 +155,16 @@ describe('runSessionPrompt', () => {
       clearStreamingText,
       setIsThinking,
       setContextState,
-      undefined,
-      getStreamingText,
     );
 
-    // Should display partial text as assistant message with interrupted suffix
+    // Should emit an interrupted assistant message (content:null, state:'interrupted')
     const assistantMsg = addMessage.mock.calls.find(
       (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
     );
     expect(assistantMsg).toBeDefined();
-    expect((assistantMsg![0] as { content: string }).content).toContain('Here is the partial res');
-    expect((assistantMsg![0] as { content: string }).content).toContain('_(interrupted)_');
+    expect((assistantMsg![0] as { state: string }).state).toBe('interrupted');
 
-    // Partial text should come before "Cancelled."
+    // Interrupted assistant message should come before "Cancelled."
     const assistantIdx = addMessage.mock.calls.findIndex(
       (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
     );
@@ -178,11 +174,10 @@ describe('runSessionPrompt', () => {
     expect(assistantIdx).toBeLessThan(cancelledIdx);
   });
 
-  it('does not display partial text when streaming text is empty on abort', async () => {
+  it('always emits an interrupted assistant message on abort regardless of streaming text', async () => {
     const session = createMockSession({
       runError: new DOMException('Aborted', 'AbortError'),
     });
-    const getStreamingText = vi.fn().mockReturnValue('');
 
     await runSessionPrompt(
       'test prompt',
@@ -191,14 +186,14 @@ describe('runSessionPrompt', () => {
       clearStreamingText,
       setIsThinking,
       setContextState,
-      undefined,
-      getStreamingText,
     );
 
     const assistantMsg = addMessage.mock.calls.find(
       (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
     );
-    expect(assistantMsg).toBeUndefined();
+    // Now always emits an interrupted assistant message (state:'interrupted')
+    expect(assistantMsg).toBeDefined();
+    expect((assistantMsg![0] as { state: string }).state).toBe('interrupted');
     expect(addMessage).toHaveBeenCalledWith(expect.objectContaining({ content: 'Cancelled.' }));
   });
 

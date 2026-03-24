@@ -13,10 +13,8 @@ import type {
   TMessageState,
   IAssistantMessage,
 } from '../interfaces/messages';
+import { isSystemMessage, isAssistantMessage, isToolMessage } from '../interfaces/messages';
 import {
-  isSystemMessage,
-  isAssistantMessage,
-  isToolMessage,
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
