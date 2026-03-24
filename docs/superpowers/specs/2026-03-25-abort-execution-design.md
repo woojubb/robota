@@ -12,7 +12,7 @@ AbortSignal is threaded through the entire execution chain. The Session creates 
 
 - AbortController / AbortSignal (Web API, available in Node 18+)
 - Anthropic SDK `RequestOptions.signal` for streaming abort
-- Existing Session.abort() and AbortController (partially implemented)
+- Session.abort() triggers the AbortController
 
 ---
 
@@ -29,38 +29,31 @@ User presses ESC
        ↓
   → ExecutionService.execute(..., { signal })  // IExecutionContext.signal
        ↓
-  ├─ callProviderWithCache(..., { signal })    // passes to IChatOptions.signal
+  ├─ callProviderWithCache(..., signal)        // passes to IChatOptions.signal
   │   └─ Provider.chat(messages, { signal })
   │       └─ Anthropic: messages.create(params, { signal })
   │           └─ streaming for-await breaks on abort
-  └─ ToolExecutionService.executeTools(..., { signal })
-      └─ signal passed to parallel tool runner
+  └─ executeAndRecordToolCalls(..., signal)
+      └─ ToolExecutionService.executeTools({ signal })
+          └─ queued tools skipped on abort
 ```
 
-## Interfaces Requiring `signal` Addition
+## Interfaces Modified
 
-Three interfaces need `signal?: AbortSignal`:
+Four interfaces with `signal` or `interrupted`:
 
-```typescript
-// 1. agent-core: IRunOptions (Robota.run() options)
-interface IRunOptions {
-  signal?: AbortSignal;
-  // ...existing fields
-}
+| Interface           | Package                                  | Field added             |
+| ------------------- | ---------------------------------------- | ----------------------- |
+| `IRunOptions`       | agent-core (interfaces/agent.ts)         | `signal?: AbortSignal`  |
+| `IChatOptions`      | agent-core (interfaces/provider.ts)      | `signal?: AbortSignal`  |
+| `IExecutionContext` | agent-core (services/execution-types.ts) | `signal?: AbortSignal`  |
+| `IExecutionResult`  | agent-core (services/execution-types.ts) | `interrupted?: boolean` |
 
-// 2. agent-core: IExecutionContext (ExecutionService context)
-interface IExecutionContext {
-  signal?: AbortSignal;
-  // ...existing fields
-}
+Additional interface:
 
-// 3. agent-core: IChatOptions (Provider.chat() options)
-interface IChatOptions {
-  signal?: AbortSignal;
-  onTextDelta?: TTextDeltaCallback;
-  // ...existing fields
-}
-```
+| Interface                    | Package                                         | Field added            |
+| ---------------------------- | ----------------------------------------------- | ---------------------- |
+| `IToolExecutionBatchContext` | agent-core (services/tool-execution-service.ts) | `signal?: AbortSignal` |
 
 All additions are optional — backward compatible.
 
@@ -70,15 +63,41 @@ AbortSignal support is defined abstractly in agent-core's `IChatOptions`. Each p
 
 Provider behavior when `signal` is provided:
 
-- If signal aborts during streaming: stop receiving, return partial content collected so far
+- If signal aborts during streaming: catch AbortError from SDK, return partial content collected so far
 - If signal is not provided: existing behavior unchanged (backward compatible)
-- Provider does NOT throw AbortError — it returns partial content. The caller (ExecutionService) decides how to handle it.
 
-| Provider        | Internal mechanism                                           |
-| --------------- | ------------------------------------------------------------ |
-| Anthropic       | `messages.create(params, { signal })` via SDK RequestOptions |
-| Google          | `generateContent({ signal })` or manual stream abort         |
-| OpenAI (future) | `chat.completions.create({ signal })`                        |
+| Provider  | Internal mechanism                                           |
+| --------- | ------------------------------------------------------------ |
+| Anthropic | `messages.create(params, { signal })` via SDK RequestOptions |
+| Google    | future — same pattern                                        |
+| OpenAI    | future — same pattern                                        |
+
+### Anthropic Provider Implementation
+
+```typescript
+private async chatWithStreaming(
+  params, onTextDelta, signal?: AbortSignal,
+): Promise<TUniversalMessage> {
+  const stream = await this.client.messages.create(
+    streamParams,
+    signal ? { signal } : undefined,
+  );
+
+  try {
+    for await (const event of stream) { /* collect content */ }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return buildPartialMessage(collectedContent);
+    }
+    throw err;
+  }
+}
+
+// chat() passes signal to chatWithStreaming()
+override async chat(messages, options?: IChatOptions) {
+  return this.chatWithStreaming(baseParams, textDeltaCb, options?.signal);
+}
+```
 
 ## Abort Handling by Case
 
@@ -88,8 +107,6 @@ Signal aborts while provider is streaming text.
 
 - Provider catches AbortError from SDK, returns partial text collected so far (may be empty string)
 - ExecutionService detects `signal.aborted` after provider returns
-- If partial content is non-empty: saves as assistant message with `metadata.interrupted = true`
-- If partial content is empty: no assistant message saved
 - No further rounds executed
 - ExecutionService returns `IExecutionResult` with `interrupted: true`
 
@@ -97,9 +114,9 @@ Signal aborts while provider is streaming text.
 
 Signal aborts while tools are executing. Tools run in parallel (`mode: 'parallel'`, `maxConcurrency: 5`).
 
-- `ToolExecutionService.executeTools()` receives signal
+- `ToolExecutionService.executeTools()` receives signal via `IToolExecutionBatchContext.signal`
 - Tools already running: complete naturally (can't safely interrupt mid-execution)
-- Tools not yet started (queued in concurrency pool): skipped, recorded as `"Execution interrupted by user"`
+- Tools not yet started (queued): check `signal.aborted` before starting, return interrupted result
 - After all running tools complete, no further rounds executed
 - ExecutionService returns with `interrupted: true`
 
@@ -108,212 +125,109 @@ Signal aborts while tools are executing. Tools run in parallel (`mode: 'parallel
 Signal aborts between execution rounds.
 
 - Previous round's results are fully recorded
-- Signal checked at top of loop — next round does not start
+- Signal checked at top of round loop — next round does not start
+- Also checked after each round completes
 - ExecutionService returns with `interrupted: true`
 
-## Session Changes
+## Session Implementation
 
-**Replace the race-based abort wrapper with direct signal pass-through.**
+**Replaced** the race-based abort wrapper with direct signal pass-through.
 
-Current implementation (lines 313-335): Creates AbortController, wraps `robota.run()` in a Promise that races against the abort signal. This is the source of the "abort only at Session level" problem.
-
-New implementation: Remove the Promise wrapper race. Pass signal directly to `robota.run()`. The abort will propagate through the entire stack and `robota.run()` will return naturally (with partial results) when aborted.
+Old: Promise wrapper that raced `robota.run()` against abort event listener.
+New: Pass `{ signal }` directly to `robota.run()`. After run returns, check `signal.aborted` and throw AbortError if interrupted.
 
 ```typescript
-// session.ts run() method — REPLACE the Promise wrapper
 this.abortController = new AbortController();
 const { signal } = this.abortController;
 
 try {
   response = await this.robota.run(enrichedMessage, { signal });
+  if (signal.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+} catch (error) {
+  // log and rethrow
 } finally {
   this.abortController = null;
 }
 ```
 
-Session.abort() and isRunning() remain unchanged.
+`session.abort()` and `session.isRunning()` remain unchanged.
 
-## ExecutionService Changes
+Note: `robota.run()` always returns normally on abort (does not throw AbortError). The `signal.aborted` check after run is the sole source of the thrown AbortError that `useSubmitHandler` catches.
 
-### IExecutionResult — add `interrupted` field
+## ExecutionService Implementation
 
-```typescript
-interface IExecutionResult {
-  interrupted?: boolean;
-  // ...existing fields
-}
-```
-
-### execute() round loop
+### Round loop
 
 ```typescript
 while (currentRound < maxRounds) {
-  if (context?.signal?.aborted) break; // Case 3
+  if (context?.signal?.aborted) break;  // Case 3
 
-  const providerResult = await callProviderWithCache(
-    conversationMessages,
-    config,
-    resolved,
-    cacheService,
-    context?.signal,
-  );
+  const providerResult = await callProviderWithCache(..., context?.signal);
 
-  if (context?.signal?.aborted) {
-    // Case 1: save partial response if content exists
-    if (providerResult.content) {
-      saveMessage({ ...providerResult, metadata: { interrupted: true } });
-    }
-    break;
-  }
+  if (context?.signal?.aborted) break;  // Case 1
 
-  // ... existing tool call handling
+  // Tool execution (if provider returned tool_use)
   if (hasPendingToolCalls) {
-    await executeAndRecordToolCalls(toolCalls, context?.signal);
-    if (context?.signal?.aborted) break;
+    await executeAndRecordToolCalls(..., context?.signal);
+    if (context?.signal?.aborted) break;  // Case 2
   }
 }
 
-// Return result with interrupted flag
 return { ...result, interrupted: context?.signal?.aborted ?? false };
 ```
 
-### callProviderWithCache() — add signal parameter
+### callProviderWithCache
 
-Pass `signal` through to `IChatOptions`:
+Added `signal?: AbortSignal` as last parameter. Passes signal to `IChatOptions` in the `provider.chat()` call.
 
-```typescript
-function callProviderWithCache(
-  messages,
-  config,
-  resolved,
-  cacheService,
-  signal?: AbortSignal, // NEW
-) {
-  const chatOptions: IChatOptions = {
-    ...existingOptions,
-    signal,
-  };
-  return resolved.provider.chat(messages, chatOptions);
-}
-```
+### executeAndRecordToolCalls
 
-### Forced summary call — also passes signal
+Added `signal?: AbortSignal` as last parameter. Passes signal to `IToolExecutionBatchContext`.
 
-The forced summary provider call (when maxRounds exhausted without text) must also receive signal via `callProviderWithCache()`.
+### Error handling
 
-### ExecutionService.execute() error handling
+Outer catch block in `execute()` distinguishes AbortError (returns `interrupted: true`) from other errors.
 
-The outer catch block must distinguish AbortError from other errors:
+### Forced summary call
 
-```typescript
-try {
-  // ... round loop
-} catch (err) {
-  if (err instanceof Error && err.name === 'AbortError') {
-    // Abort propagated as exception — return interrupted result
-    return { ...partialResult, interrupted: true };
-  }
-  // ... existing error handling
-}
-```
+The forced summary provider call (when maxRounds exhausted) also receives signal.
 
-## ToolExecutionService Changes
+## robotaRun Implementation
 
-### executeTools() — accept signal
+Passes `options.signal` from `IRunOptions` to `ExecutionService.execute()` via `IExecutionContext`. On `result.interrupted`, emits `EXECUTION_COMPLETE` event and returns early.
 
-```typescript
-async executeTools(
-  toolCalls: IToolCall[],
-  tools: IToolWithEventService[],
-  options?: { signal?: AbortSignal; mode?: string; maxConcurrency?: number },
-): Promise<IToolResult[]> {
-  // Before starting each tool in the concurrency pool:
-  // if signal.aborted, return interrupted result instead of executing
-}
-```
-
-For tools already running in parallel: they complete naturally. For tools queued but not yet started: skip with `"Execution interrupted by user"`.
-
-## Anthropic Provider Changes
-
-Pass signal to Anthropic SDK's `messages.create()` and catch AbortError:
-
-```typescript
-private async chatWithStreaming(
-  params: Anthropic.MessageCreateParamsStreaming,
-  onTextDelta: TTextDeltaCallback,
-  signal?: AbortSignal,  // NEW
-): Promise<TUniversalMessage> {
-  const stream = await this.client.messages.create(
-    params,
-    signal ? { signal } : undefined,  // RequestOptions
-  );
-
-  try {
-    for await (const event of stream) {
-      // ... collect text, tool_use blocks (existing logic)
-    }
-  } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      // Return partial content collected so far
-      return buildMessageFromCollected(collectedContent, collectedToolCalls);
-    }
-    throw err;
-  }
-
-  return buildMessage(fullContent, toolCalls);
-}
-
-// chat() passes signal to chatWithStreaming()
-override async chat(messages, options?: IChatOptions): Promise<TUniversalMessage> {
-  return this.chatWithStreaming(baseParams, textDeltaCb, options?.signal);
-}
-```
-
-## UI Changes
+## UI Behavior
 
 ### useSubmitHandler
 
-On abort, Session.run() now returns normally (with partial/empty response) instead of throwing AbortError. The `interrupted` flag in the result indicates abort.
-
-However, Session.run() currently returns a string (response text), not an IExecutionResult. Two options:
-
-**Option A (minimal)**: Session.run() still throws AbortError on abort. The catch block in useSubmitHandler handles it. The partial streaming text is captured from the React state.
+Session.run() throws AbortError on abort. useSubmitHandler catches it:
 
 ```typescript
 catch (err) {
-  clearStreamingText();
+  clearStreamingText(keepTools);  // keepTools=true on abort
   if (err instanceof DOMException && err.name === 'AbortError') {
-    // streamingText from useSession contains partial text
-    // Session already saved partial content to history internally
     addMessage({ role: 'system', content: 'Cancelled.' });
   }
 }
 ```
 
-**Option A is chosen** — it requires the least changes to useSubmitHandler and Session's return type.
+### clearStreamingText — keepTools parameter
 
-Session.run() behavior on abort:
-
-1. Signal propagates through stack
-2. ExecutionService returns with `interrupted: true` and partial history saved
-3. Session.run() sees `interrupted` result → throws AbortError
-4. useSubmitHandler catches AbortError → shows "Cancelled."
+`clearStreamingText(keepTools?: boolean)` added. On abort, called with `keepTools=true` to preserve the tool execution list in the UI so the user can see what was executed before cancellation. On normal completion, called without argument (clears both text and tools).
 
 ### App.tsx
 
-No changes needed — ESC → session.abort() already works.
+No changes — ESC → `session.abort()` already works. `useInput` disabled during permission prompts and plugin TUI.
 
 ## History Integrity
 
 After abort, conversation history contains:
 
 1. All completed messages from previous rounds
-2. Partial assistant message with `metadata.interrupted = true` (if text was streamed, content non-empty)
-3. Completed tool results (if any tools finished before abort)
-4. Interrupted tool results with `"Execution interrupted by user"` (for queued/skipped tools)
-
-If abort fires before any streaming text arrives: no partial assistant message is saved. History ends at the user message.
+2. Completed tool results (if any tools finished before abort)
+3. Interrupted tool results with `"Execution interrupted by user"` (for queued/skipped tools)
 
 ## File Structure
 
@@ -321,29 +235,27 @@ If abort fires before any streaming text arrives: no partial assistant message i
 packages/agent-core/
 ├─ src/interfaces/
 │  ├─ agent.ts              [MODIFY] IRunOptions + signal
-│  ├─ chat-options.ts       [MODIFY] IChatOptions + signal
-│  └─ execution-types.ts    [MODIFY] IExecutionContext + signal, IExecutionResult + interrupted
+│  └─ provider.ts           [MODIFY] IChatOptions + signal
 ├─ src/services/
-│  ├─ execution-service.ts  [MODIFY] Signal checks in round loop, error handling
+│  ├─ execution-types.ts    [MODIFY] IExecutionContext + signal, IExecutionResult + interrupted
+├─ src/services/
+│  ├─ execution-service.ts  [MODIFY] Signal checks in round loop, AbortError handling
 │  ├─ execution-round.ts    [MODIFY] callProviderWithCache + signal, executeAndRecordToolCalls + signal
-│  └─ tool-execution-service.ts [MODIFY] executeTools + signal for parallel abort
+│  └─ tool-execution-service.ts [MODIFY] IToolExecutionBatchContext + signal, skip queued on abort
+├─ src/core/
+│  └─ robota-execution.ts   [MODIFY] Pass signal from IRunOptions to ExecutionService
 
 packages/agent-sessions/
-└─ src/session.ts           [MODIFY] Remove race wrapper, pass signal to robota.run(), throw AbortError on interrupted
+└─ src/session.ts           [MODIFY] Replace race wrapper, pass signal, throw AbortError on interrupted
 
 packages/agent-provider-anthropic/
-└─ src/provider.ts          [MODIFY] chatWithStreaming + signal, pass to messages.create()
+└─ src/provider.ts          [MODIFY] chatWithStreaming + signal, pass to messages.create(), catch AbortError
 
 packages/agent-cli/
 └─ src/ui/hooks/
-   └─ useSubmitHandler.ts   [MODIFY] AbortError catch shows "Cancelled." (minimal change)
+   ├─ useSubmitHandler.ts   [MODIFY] clearStreamingText(keepTools) on abort
+   └─ useSession.ts         [MODIFY] clearStreamingText accepts keepTools? parameter
 ```
-
-### SPEC.md Updates Required
-
-- `packages/agent-core/docs/SPEC.md` — IRunOptions, IChatOptions, IExecutionContext, IExecutionResult changes
-- `packages/agent-sessions/docs/SPEC.md` — Session.run() abort behavior
-- `packages/agent-provider-anthropic/docs/SPEC.md` — signal support in chat()
 
 ## Out of Scope
 
@@ -351,4 +263,3 @@ packages/agent-cli/
 - Bash tool process kill on abort (complex, separate backlog)
 - Abort during permission prompt (already blocked by useInput isActive guard)
 - Custom abort key (ESC is sufficient)
-- Exposing interrupted flag in CLI UI beyond "Cancelled." message
