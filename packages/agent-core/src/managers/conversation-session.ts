@@ -353,6 +353,11 @@ export class ConversationSession implements IConversationHistory {
     this.pendingAssistant = null;
   }
 
+  /** Returns true if there is accumulated pending assistant state (streaming or tool calls) */
+  hasPendingAssistant(): boolean {
+    return this.pendingAssistant !== null;
+  }
+
   getMessagesForAPI(): IProviderApiMessage[] {
     return this.history.getMessages().map((msg) => {
       const apiMsg: IProviderApiMessage = { role: msg.role, content: msg.content };

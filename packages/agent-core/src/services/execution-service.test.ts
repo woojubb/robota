@@ -257,7 +257,7 @@ describe('ExecutionService', () => {
 
       const session = conversationHistory.getConversationSession('test-agent');
       const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
-      const addAssistantMessageSpy = vi.spyOn(session, 'addAssistantMessage');
+      const commitAssistantSpy = vi.spyOn(session, 'commitAssistant');
       const addToolMessageWithIdSpy = vi.spyOn(session, 'addToolMessageWithId');
       const getMessagesSpy = vi.spyOn(session, 'getMessages');
 
@@ -329,7 +329,7 @@ describe('ExecutionService', () => {
 
       // Verify conversation history updates
       expect(addUserMessageSpy).toHaveBeenCalledWith(testInput, expect.any(Object));
-      expect(addAssistantMessageSpy).toHaveBeenCalledTimes(2);
+      expect(commitAssistantSpy).toHaveBeenCalledTimes(2);
       expect(addToolMessageWithIdSpy).toHaveBeenCalledTimes(1);
     });
 

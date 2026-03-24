@@ -1,6 +1,6 @@
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
-import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
+import type { IToolCall, TUniversalMessage, TMessageState } from '../interfaces/messages';
 import type { IToolExecutionBatchContext } from './tool-execution-service';
 import type { ToolExecutionService } from './tool-execution-service';
 import type { ILogger } from '../utils/logger';
@@ -525,6 +525,14 @@ export async function executeRound(
     if (cb) cb('\n\n');
   }
 
+  // Intercept onTextDelta on the provider to accumulate streaming text in ConversationSession
+  const providerObj = resolved.provider as { onTextDelta?: (delta: string) => void };
+  const originalOnTextDelta = providerObj.onTextDelta;
+  providerObj.onTextDelta = (delta: string) => {
+    conversationSession.appendStreaming(delta);
+    originalOnTextDelta?.call(resolved.provider, delta);
+  };
+
   let response: TUniversalMessage;
   try {
     response = await callProviderWithCache(
@@ -534,7 +542,9 @@ export async function executeRound(
       cacheService,
       fullContext.signal,
     );
+    providerObj.onTextDelta = originalOnTextDelta;
   } catch (providerError) {
+    providerObj.onTextDelta = originalOnTextDelta;
     // Re-throw AbortErrors so the execution service can handle them cleanly.
     if (providerError instanceof Error && providerError.name === 'AbortError') {
       throw providerError;
@@ -581,11 +591,21 @@ export async function executeRound(
   if (inputTokens > 0) {
     roundState.cumulativeInputTokens = inputTokens; // input_tokens already includes full context
   }
-  // Strip text from assistant messages with tool_use blocks.
-  // Text was already streamed to the user — freeing context for tool results.
-  const hasToolCalls = assistantToolCalls.length > 0;
-  const contentForHistory = hasToolCalls ? '' : (assistantResponse.content ?? '');
-  conversationSession.addAssistantMessage(contentForHistory, assistantToolCalls, {
+
+  // If provider did not stream (no onTextDelta calls), seed pending state with full response content.
+  // This handles non-streaming providers and test mocks that return content directly.
+  if (assistantResponse.content && !conversationSession.hasPendingAssistant()) {
+    conversationSession.appendStreaming(assistantResponse.content);
+  }
+
+  // Extract tool calls from provider response and add to pending state
+  for (const tc of assistantToolCalls) {
+    conversationSession.appendToolCall(tc);
+  }
+
+  // Single commit path — state determined by signal
+  const messageState: TMessageState = fullContext.signal?.aborted ? 'interrupted' : 'complete';
+  conversationSession.commitAssistant(messageState, {
     round: currentRound,
     ...(inputTokens > 0 && { inputTokens }),
     ...(outputTokens > 0 && { outputTokens }),
@@ -593,7 +613,6 @@ export async function executeRound(
     ...((inputTokens > 0 || outputTokens > 0) && {
       usage: { totalTokens: inputTokens + outputTokens, inputTokens, outputTokens },
     }),
-    ...(fullContext.signal?.aborted && { interrupted: true }),
   });
   roundState.runningAssistantCount++;
   roundState.lastTrackedAssistantMessage = assistantResponse;
