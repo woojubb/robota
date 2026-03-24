@@ -428,7 +428,7 @@ All message factory functions auto-generate `id` via `randomUUID()` and set `sta
 
 **`commitAssistant` behavior:**
 
-- When tool calls are present, text content is stripped (set to `""`) — consistent with the assistant text stripping rule.
+- Text content is always preserved — history records everything. Context savings is compaction's job.
 - The `state` parameter determines whether the committed message has `state: 'complete'` or `state: 'interrupted'`.
 - Single commit path — no branching between normal completion and abort.
 

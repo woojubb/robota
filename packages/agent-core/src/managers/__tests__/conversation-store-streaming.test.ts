@@ -33,7 +33,7 @@ describe('ConversationStore streaming state', () => {
     expect(last.content).toBe('Partial');
   });
 
-  it('commitAssistant strips text when tool calls present', () => {
+  it('commitAssistant preserves text even when tool calls present', () => {
     const session = new ConversationStore();
     session.appendStreaming('Some text');
     session.appendToolCall({
@@ -44,7 +44,7 @@ describe('ConversationStore streaming state', () => {
     session.commitAssistant('complete');
     const msgs = session.getMessages();
     const last = msgs[msgs.length - 1] as IAssistantMessage;
-    expect(last.content).toBe('');
+    expect(last.content).toBe('Some text');
     expect(last.toolCalls).toHaveLength(1);
   });
 
@@ -148,6 +148,98 @@ describe('ConversationStore getMessagesForAPI', () => {
     const api = session.getMessagesForAPI();
     expect(api[0].tool_calls).toHaveLength(1);
     expect(api[0].tool_calls![0].function.name).toBe('Read');
+  });
+});
+
+describe('Abort scenarios — streaming text preservation', () => {
+  it('abort during streaming (no tool calls): text is preserved as interrupted', () => {
+    const store = new ConversationStore();
+    store.beginAssistant();
+    store.appendStreaming('Here is my analysis of');
+    store.appendStreaming(' the situation...');
+    store.commitAssistant('interrupted');
+    const msgs = store.getMessages();
+    const last = msgs[msgs.length - 1] as IAssistantMessage;
+    expect(last.state).toBe('interrupted');
+    expect(last.content).toBe('Here is my analysis of the situation...');
+  });
+
+  it('complete with tool calls: text is ALWAYS preserved (history records everything)', () => {
+    const store = new ConversationStore();
+    store.beginAssistant();
+    store.appendStreaming('I will read these files:');
+    store.appendToolCall({
+      id: 'tc1',
+      type: 'function',
+      function: { name: 'Read', arguments: '{"path":"/tmp/a.ts"}' },
+    });
+    store.appendToolCall({
+      id: 'tc2',
+      type: 'function',
+      function: { name: 'Read', arguments: '{"path":"/tmp/b.ts"}' },
+    });
+    store.commitAssistant('complete');
+    const msgs = store.getMessages();
+    const last = msgs[msgs.length - 1] as IAssistantMessage;
+    // History is append-only: text is ALWAYS preserved. Stripping is compaction's job.
+    expect(last.content).toBe('I will read these files:');
+    expect(last.toolCalls).toHaveLength(2);
+  });
+
+  it('abort during streaming with tool calls: interrupted preserves BOTH text and tool calls', () => {
+    const store = new ConversationStore();
+    store.beginAssistant();
+    store.appendStreaming('Let me check those files');
+    store.appendToolCall({
+      id: 'tc1',
+      type: 'function',
+      function: { name: 'Read', arguments: '{"path":"/tmp/a.ts"}' },
+    });
+    // Abort during streaming — provider caught AbortError, returned partial
+    store.commitAssistant('interrupted');
+    const msgs = store.getMessages();
+    const last = msgs[msgs.length - 1] as IAssistantMessage;
+    // INTERRUPTED: text is NOT stripped even with tool calls
+    expect(last.content).toBe('Let me check those files');
+    expect(last.toolCalls).toHaveLength(1);
+    expect(last.state).toBe('interrupted');
+  });
+
+  it('beginAssistant + immediate abort (no streaming): empty content committed', () => {
+    const store = new ConversationStore();
+    store.beginAssistant();
+    // Abort before any streaming happened
+    store.commitAssistant('interrupted');
+    const msgs = store.getMessages();
+    const last = msgs[msgs.length - 1] as IAssistantMessage;
+    expect(last.state).toBe('interrupted');
+    expect(last.content).toBe('');
+  });
+
+  it('interrupted message is findable after tool results are added', () => {
+    const store = new ConversationStore();
+    // Simulate: assistant streams + returns tool calls → commit
+    store.beginAssistant();
+    store.appendStreaming('Reading files now...');
+    store.appendToolCall({
+      id: 'tc1',
+      type: 'function',
+      function: { name: 'Read', arguments: '{}' },
+    });
+    store.commitAssistant('interrupted');
+    // Tool results added AFTER assistant message
+    store.addToolMessageWithId('file contents here', 'tc1', 'Read');
+    // Search backward for interrupted assistant
+    const msgs = store.getMessages();
+    let found = false;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'assistant' && msgs[i].state === 'interrupted') {
+        expect(msgs[i].content).toBe('Reading files now...');
+        found = true;
+        break;
+      }
+    }
+    expect(found).toBe(true);
   });
 });
 
