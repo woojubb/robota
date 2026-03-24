@@ -168,13 +168,26 @@ export abstract class AbstractAIProvider<TConfig = IProviderConfig> implements I
     source: AsyncIterable<T>,
     signal?: AbortSignal,
   ): AsyncGenerator<T> {
+    let eventCount = 0;
+    // DEBUG: remove after confirming abort works
+    const debugLog = (msg: string): void => {
+      process.stderr.write(`[streamWithAbort] ${msg}\n`);
+    };
+    debugLog(`start, signal=${signal ? 'present' : 'none'}, aborted=${signal?.aborted}`);
     for await (const item of source) {
-      if (signal?.aborted) break;
-      // Yield to macrotask queue on EVERY event so stdin (ESC) can fire
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      if (signal?.aborted) break;
+      eventCount++;
+      if (signal?.aborted) {
+        debugLog(`BREAK before yield #${eventCount}`);
+        break;
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      if (signal?.aborted) {
+        debugLog(`BREAK after setTimeout #${eventCount}`);
+        break;
+      }
       yield item;
     }
+    debugLog(`end, processed=${eventCount}, aborted=${signal?.aborted}`);
   }
 
   /**
