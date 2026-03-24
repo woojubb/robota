@@ -253,6 +253,12 @@ export class AnthropicProvider extends AbstractAIProvider {
             break;
         }
       }
+      // Yield after streaming completes so ESC can fire before response processing
+      if (signal) {
+        await new Promise<void>((resolve) => {
+          setImmediate(resolve);
+        });
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         // Return partial response from content accumulated so far
