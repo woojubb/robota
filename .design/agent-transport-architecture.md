@@ -1,5 +1,7 @@
 # 에이전트 외부 통신 표준화 아키텍처
 
+> **상태**: 설계 확정 (2026-03-25)
+
 ## 문제
 
 에이전트를 외부에 노출하는 표준 계약이 없다. CLI는 터미널, Playground는 WebSocket, Remote는 Express — 각각 독자 구현이고 새 프로토콜(MCP, CF Worker RPC) 추가 시 처음부터 구현해야 한다.
@@ -156,38 +158,52 @@ stdin → parse → gateway.stream(req) → render to stdout
 Ctrl+C/ESC → gateway.abort(id)
 ```
 
+## 확정된 결정 사항
+
+| 결정                     | 선택                                                 | 이유                                              |
+| ------------------------ | ---------------------------------------------------- | ------------------------------------------------- |
+| IAgentGateway 소유       | 인터페이스 → agent-core, 구현 → agent-gateway (신규) | 기존 IExecutor 패턴과 동일                        |
+| transport 패키지 구조    | 프로토콜별 분리 (http, mcp, ws)                      | 필요한 것만 설치 가능                             |
+| agent-remote             | 클라이언트(RemoteExecutor) 전용으로 유지             | SDK와 역할 다름: SDK=로컬 조립, remote=원격 호출  |
+| agent-remote-server-core | transport 패키지로 대체 후 폐기                      | Express 결합 제거                                 |
+| 슬래시 명령어 시스템     | SDK로 이동                                           | HTTP/MCP 클라이언트에서도 명령어 실행 가능해야 함 |
+
 ## 패키지 구조
 
 ```
 packages/
   agent-core/           ← IAgentGateway 인터페이스 소유 (계약)
-  agent-gateway/        ← 새 패키지: DefaultAgentGateway 구현 (Robota → IAgentGateway 변환)
-  agent-transport-http/ ← 새 패키지: HTTP 어댑터 (Hono 기반, CF Workers / Lambda 호환)
-  agent-transport-mcp/  ← 새 패키지: MCP 어댑터
-  agent-transport-ws/   ← 새 패키지: WebSocket 어댑터
-  agent-remote/         ← 리팩토링: 클라이언트만 남기고 서버 코드는 transport-http로 이동
-  agent-cli/            ← 기존: stdin/stdout 어댑터 역할 (IAgentGateway 소비)
+  agent-gateway/        ← 신규: DefaultAgentGateway 구현 (InteractiveSession → IAgentGateway)
+  agent-transport-http/ ← 신규: HTTP 어댑터 (Hono 기반, CF Workers / Lambda 호환)
+  agent-transport-mcp/  ← 신규: MCP 어댑터
+  agent-transport-ws/   ← 신규: WebSocket 어댑터
+  agent-remote/         ← 리팩토링: 클라이언트(RemoteExecutor)만 유지, 서버 코드 제거
+  agent-remote-server-core/ ← 폐기 예정: transport 패키지로 대체
+  agent-cli/            ← 순수 TUI: InteractiveSession 이벤트 → 터미널 렌더링
 ```
 
 ### 의존성 방향
 
 ```
-agent-transport-http  → agent-gateway → agent-core
-agent-transport-mcp   → agent-gateway → agent-core
-agent-transport-ws    → agent-gateway → agent-core
-agent-cli             → agent-sdk     → agent-core
-agent-remote (client) → agent-core (IExecutor, 기존 유지)
+agent-transport-http  → agent-gateway → agent-sdk → agent-core
+agent-transport-mcp   → agent-gateway → agent-sdk → agent-core
+agent-transport-ws    → agent-gateway → agent-sdk → agent-core
+agent-cli             → agent-sdk (InteractiveSession) → agent-core
+agent-remote (client) → agent-core (IExecutor)
 ```
 
 ## 기존 코드와의 관계
 
-| 기존                                     | 이후                                  |
-| ---------------------------------------- | ------------------------------------- |
-| agent-remote 서버 코드 (Express routes)  | → agent-transport-http (Hono)         |
-| agent-remote 클라이언트 (RemoteExecutor) | → agent-remote (유지, IExecutor 방향) |
-| agent-remote transport-interface.ts      | → agent-core IAgentGateway로 승격     |
-| agent-server (app) WebSocket             | → agent-transport-ws                  |
-| agent-cli App.tsx session.run()          | → IAgentGateway.stream() 소비         |
+| 기존                                     | 이후                                           |
+| ---------------------------------------- | ---------------------------------------------- |
+| agent-remote 서버 코드 (Express routes)  | → agent-transport-http (Hono)                  |
+| agent-remote 클라이언트 (RemoteExecutor) | → agent-remote (유지, 클라이언트 전용)         |
+| agent-remote-server-core (Express)       | → 폐기, transport 패키지로 대체                |
+| agent-remote transport-interface.ts      | → agent-core IAgentGateway로 승격              |
+| agent-server (app) WebSocket             | → agent-transport-ws                           |
+| agent-cli useSession/useSubmitHandler    | → agent-sdk InteractiveSession                 |
+| agent-cli 슬래시 명령어 시스템           | → agent-sdk CommandRegistry                    |
+| agent-cli App.tsx                        | → 순수 TUI: InteractiveSession 이벤트 → 렌더링 |
 
 ## IExecutor vs IAgentGateway
 
@@ -203,10 +219,15 @@ agent-remote (client) → agent-core (IExecutor, 기존 유지)
 
 ## 구현 순서
 
-1. `IAgentGateway` 인터페이스를 agent-core에 추가
-2. `agent-gateway` 패키지: Robota/Session → IAgentGateway 브릿지
-3. `agent-transport-http`: Hono 기반 HTTP 어댑터 (CF Workers + Lambda 호환)
-4. agent-cli를 IAgentGateway 소비로 전환
-5. `agent-transport-mcp`: MCP 어댑터
-6. `agent-transport-ws`: WebSocket 어댑터
-7. agent-remote 리팩토링 (서버 코드 제거, 클라이언트만)
+선행: SDK/CLI 책임 분리 (.design/sdk-cli-responsibility-separation.md)
+
+1. InteractiveSession을 agent-sdk에 구현 (CLI hooks 로직 추출)
+2. 슬래시 명령어 시스템을 agent-sdk로 이동
+3. CLI를 InteractiveSession 이벤트 구독 방식으로 리팩토링
+4. `IAgentGateway` 인터페이스를 agent-core에 추가
+5. `agent-gateway` 패키지: InteractiveSession → IAgentGateway 브릿지
+6. `agent-transport-http`: Hono 기반 HTTP 어댑터 (CF Workers + Lambda 호환)
+7. `agent-transport-mcp`: MCP 어댑터
+8. `agent-transport-ws`: WebSocket 어댑터
+9. agent-remote 리팩토링 (서버 코드 제거, 클라이언트만)
+10. agent-remote-server-core 폐기
