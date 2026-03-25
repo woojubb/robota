@@ -7,17 +7,21 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import {
   InteractiveSession,
   CommandRegistry,
   BuiltinCommandSource,
   SkillCommandSource,
+  PluginCommandSource,
+  BundlePluginLoader,
+  buildSkillPrompt,
 } from '@robota-sdk/agent-sdk';
 import type { IAIProvider, IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode, TUniversalMessage, TToolArgs } from '@robota-sdk/agent-core';
 import { createSystemMessage } from '@robota-sdk/agent-core';
 import type { TPermissionResult } from '@robota-sdk/agent-sessions';
-import { buildSkillPrompt } from '@robota-sdk/agent-sdk';
 import type { IPermissionRequest } from '../types.js';
 
 /** Max messages kept in React state for rendering */
@@ -74,10 +78,22 @@ function initializeSession(
     permissionHandler,
   });
 
-  // Registry for autocomplete UI — populated with builtin commands for slash popup
+  // Registry for autocomplete UI + skill/plugin command lookup
   const registry = new CommandRegistry();
   registry.addSource(new BuiltinCommandSource());
   registry.addSource(new SkillCommandSource(props.cwd));
+
+  // Load plugins
+  const pluginsDir = join(homedir(), '.robota', 'plugins');
+  const loader = new BundlePluginLoader(pluginsDir);
+  try {
+    const plugins = loader.loadPluginsSync();
+    if (plugins.length > 0) {
+      registry.addSource(new PluginCommandSource(plugins));
+    }
+  } catch {
+    // No plugins dir or load failed
+  }
 
   return { interactiveSession, registry };
 }

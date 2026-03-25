@@ -23,6 +23,7 @@ export {
   CommandRegistry,
   BuiltinCommandSource,
   SkillCommandSource,
+  PluginCommandSource,
   parseFrontmatter,
 } from './commands/index.js';
 export type { ICommand, ICommandSource, ISystemCommand, ICommandResult } from './commands/index.js';

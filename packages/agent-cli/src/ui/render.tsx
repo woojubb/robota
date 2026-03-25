@@ -11,6 +11,7 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 export interface IRenderOptions {
   cwd: string;
   provider: IAIProvider;
+  modelId?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   version?: string;
