@@ -55,7 +55,7 @@
     "@robota-sdk/agent-provider-anthropic": "workspace:^",
     "@robota-sdk/agent-event-service": "workspace:^",
     "@robota-sdk/agent-provider-openai": "workspace:^",
-    "@robota-sdk/agent-remote": "workspace:*",
+    "@robota-sdk/agent-remote-client": "workspace:*",
     "@robota-sdk/agent-team": "workspace:^",
     "@robota-sdk/agent-tools": "workspace:^",
     "@xyflow/react": "^12.8.2",

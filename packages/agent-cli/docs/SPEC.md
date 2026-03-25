@@ -300,14 +300,14 @@ interface ISlashCommand {
 
 ### Skill Discovery (Multi-Path)
 
-Skills are discovered at session start from four directories, scanned in priority order (highest first, deduplicated by name):
+Skills are discovered at session start from directories scanned by `SkillCommandSource` (agent-sdk), in priority order (highest first, deduplicated by name). Paths are defined in agent-sdk's SPEC.md; the CLI uses them as-is:
 
-| Priority | Path                            | Scope                                |
-| -------- | ------------------------------- | ------------------------------------ |
-| 1        | `.agents/skills/*/SKILL.md`     | Project (Robota native)              |
-| 2        | `.claude/commands/*/SKILL.md`   | Project (Claude Code compatible)     |
-| 3        | `~/.agents/skills/*/SKILL.md`   | User global (Robota native)          |
-| 4        | `~/.claude/commands/*/SKILL.md` | User global (Claude Code compatible) |
+| Priority | Path                          | Scope                            |
+| -------- | ----------------------------- | -------------------------------- |
+| 1        | `.claude/skills/*/SKILL.md`   | Project (Claude Code native)     |
+| 2        | `.claude/commands/*.md`       | Project (Claude Code compatible) |
+| 3        | `~/.robota/skills/*/SKILL.md` | User global (Robota native)      |
+| 4        | `.agents/skills/*/SKILL.md`   | Project (Robota native)          |
 
 ### Skill Frontmatter Schema
 
@@ -363,11 +363,11 @@ Skill content supports inline shell command execution using the `` !`command` ``
 
 When a skill slash command is selected, the full SKILL.md content (after variable substitution and shell preprocessing) is injected into the session prompt wrapped in `<skill>` tags. The model receives both the skill instructions and any user-provided arguments.
 
-`interactiveSession.submit(prompt, rawInput, hookInput)` is called with three arguments:
+`interactiveSession.submit(input, displayInput, rawInput)` is called with three arguments:
 
-- `prompt` — the expanded skill content for the model
-- `rawInput` — the original slash command as typed by the user (e.g., `/audit`)
-- `hookInput` — the qualified name form used for hook matching (e.g., `/rulebased-harness:audit some-args`); if no qualified name is found, falls back to `rawInput`
+- `input` — the expanded skill content for the model
+- `displayInput` — the display form shown to the user (e.g., `/audit`)
+- `rawInput` — the qualified name form used for hook matching (e.g., `/rulebased-harness:audit some-args`); if no qualified name is found, falls back to `displayInput`
 
 The qualified name is resolved via `registry.resolveQualifiedName(cmd)` so that hook matchers can identify which plugin's skill was invoked.
 

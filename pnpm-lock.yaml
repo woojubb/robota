@@ -677,9 +677,9 @@ importers:
       '@robota-sdk/agent-provider-openai':
         specifier: workspace:^
         version: link:../agent-provider-openai
-      '@robota-sdk/agent-remote':
+      '@robota-sdk/agent-remote-client':
         specifier: workspace:*
-        version: link:../agent-remote
+        version: link:../agent-remote-client
       '@robota-sdk/agent-team':
         specifier: workspace:^
         version: link:../agent-team
@@ -1046,7 +1046,7 @@ importers:
         specifier: ^1.1.0
         version: 1.6.1(@types/node@20.19.9)
 
-  packages/agent-remote:
+  packages/agent-remote-client:
     dependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*

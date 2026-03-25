@@ -1,5 +1,5 @@
 {
-  "name": "@robota-sdk/agent-remote",
+  "name": "@robota-sdk/agent-remote-client",
   "version": "3.0.0",
   "description": "Remote client for calling a Robota agent over HTTP",
   "type": "module",

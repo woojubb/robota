@@ -33,7 +33,7 @@ import type {
 } from '../../types/playground-statistics';
 import { SilentLogger, type ILogger } from '@robota-sdk/agent-core';
 import { PlaygroundWebSocketClient } from './websocket-client';
-import { RemoteExecutor } from '@robota-sdk/agent-remote';
+import { RemoteExecutor } from '@robota-sdk/agent-remote-client';
 import { ToolRegistry } from '../../tools/catalog';
 
 export type {
