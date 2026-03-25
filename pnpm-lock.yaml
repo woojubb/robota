@@ -1272,6 +1272,28 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.9)
 
+  packages/agent-transport-http:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+      hono:
+        specifier: ^4.7.0
+        version: 4.12.9
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
   packages/dag-adapters-local:
     dependencies:
       '@robota-sdk/dag-core':
@@ -13488,6 +13510,14 @@ packages:
       {
         integrity: sha512-tzcUFauisWKNHaRkN4Wjl/ZA07gENAjFl3J/c480dprkGTg5EQstgaNFqBfUqCq54kZRIEcreTsAgF/m2quD7A==,
       }
+    dev: false
+
+  /hono@4.12.9:
+    resolution:
+      {
+        integrity: sha512-wy3T8Zm2bsEvxKZM5w21VdHDDcwVS1yUFFY6i8UobSsKfFceT7TOwhbhfKsDyx7tYQlmRM5FLpIuYvNFyjctiA==,
+      }
+    engines: { node: '>=16.9.0' }
     dev: false
 
   /hookable@5.5.3:
