@@ -160,7 +160,7 @@ describe('Skill execution features', () => {
   describe('context:fork with subagent execution', () => {
     /**
      * These tests verify the runInFork callback contract that the
-     * useSubmitHandler wiring provides via createSubagentSession.
+     * InteractiveSession wiring provides via createSubagentSession.
      */
 
     it('should create subagent session for fork skills', async () => {

@@ -110,6 +110,35 @@ export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 
+// Command system — slash commands, skill discovery, registry
+export {
+  CommandRegistry,
+  BuiltinCommandSource,
+  SkillCommandSource,
+  parseFrontmatter,
+  SystemCommandExecutor,
+  createSystemCommands,
+} from './commands/index.js';
+export type {
+  ISlashCommand,
+  ICommandSource,
+  ISystemCommand,
+  ICommandResult,
+} from './commands/index.js';
+
+// InteractiveSession — event-driven session wrapper for any client
+export { InteractiveSession } from './interactive/index.js';
+export type {
+  IInteractiveSessionOptions,
+  IToolState,
+  IDiffLine,
+  IExecutionResult,
+  IToolSummary,
+  TInteractivePermissionHandler,
+  TInteractiveEventName,
+  IInteractiveSessionEvents,
+} from './interactive/index.js';
+
 // Individual tools (re-exported from agent-tools for backward compatibility)
 export { bashTool } from '@robota-sdk/agent-tools';
 export { readTool } from '@robota-sdk/agent-tools';
