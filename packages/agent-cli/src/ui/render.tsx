@@ -12,6 +12,7 @@ export interface IRenderOptions {
   cwd: string;
   provider: IAIProvider;
   modelId?: string;
+  language?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   version?: string;

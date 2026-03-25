@@ -3,7 +3,10 @@
  */
 
 import type { TUniversalMessage, IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
-import type { TPermissionResult } from '@robota-sdk/agent-sessions';
+
+/** Permission handler result — SDK-owned type (mirrors agent-sessions TPermissionResult).
+ *  true = allow, false = deny, 'allow-session' = allow and remember for this session. */
+export type TPermissionResultValue = boolean | 'allow-session';
 
 /** Tool execution state visible to clients. */
 export interface IToolState {
@@ -40,7 +43,7 @@ export interface IToolSummary {
 export type TInteractivePermissionHandler = (
   toolName: string,
   toolArgs: TToolArgs,
-) => Promise<TPermissionResult>;
+) => Promise<TPermissionResultValue>;
 
 /** Events emitted by InteractiveSession. */
 export interface IInteractiveSessionEvents {

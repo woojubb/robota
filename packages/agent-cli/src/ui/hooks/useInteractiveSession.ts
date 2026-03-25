@@ -18,10 +18,14 @@ import {
   BundlePluginLoader,
   buildSkillPrompt,
 } from '@robota-sdk/agent-sdk';
-import type { IAIProvider, IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
+import type {
+  IAIProvider,
+  IToolState,
+  IExecutionResult,
+  TPermissionResultValue,
+} from '@robota-sdk/agent-sdk';
 import type { TPermissionMode, TUniversalMessage, TToolArgs } from '@robota-sdk/agent-core';
 import { createSystemMessage } from '@robota-sdk/agent-core';
-import type { TPermissionResult } from '@robota-sdk/agent-sessions';
 import type { IPermissionRequest } from '../types.js';
 
 /** Max messages kept in React state for rendering */
@@ -68,7 +72,7 @@ interface IInitState {
 
 function initializeSession(
   props: IInteractiveSessionProps,
-  permissionHandler: (toolName: string, toolArgs: TToolArgs) => Promise<TPermissionResult>,
+  permissionHandler: (toolName: string, toolArgs: TToolArgs) => Promise<TPermissionResultValue>,
 ): IInitState {
   const interactiveSession = new InteractiveSession({
     cwd: props.cwd,
@@ -118,7 +122,11 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
 
   const permissionQueueRef = useRef<
-    Array<{ toolName: string; toolArgs: TToolArgs; resolve: (result: TPermissionResult) => void }>
+    Array<{
+      toolName: string;
+      toolArgs: TToolArgs;
+      resolve: (result: TPermissionResultValue) => void;
+    }>
   >([]);
   const processingRef = useRef(false);
 
@@ -133,7 +141,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     setPermissionRequest({
       toolName: next.toolName,
       toolArgs: next.toolArgs,
-      resolve: (result: TPermissionResult) => {
+      resolve: (result: TPermissionResultValue) => {
         permissionQueueRef.current.shift();
         processingRef.current = false;
         setPermissionRequest(null);
@@ -144,8 +152,8 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   }, []);
 
   const permissionHandler = useCallback(
-    (toolName: string, toolArgs: TToolArgs): Promise<TPermissionResult> =>
-      new Promise<TPermissionResult>((resolve) => {
+    (toolName: string, toolArgs: TToolArgs): Promise<TPermissionResultValue> =>
+      new Promise<TPermissionResultValue>((resolve) => {
         permissionQueueRef.current.push({ toolName, toolArgs, resolve });
         processNextPermission();
       }),
