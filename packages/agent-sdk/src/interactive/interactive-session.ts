@@ -24,6 +24,10 @@ import {
   createSystemMessage,
 } from '@robota-sdk/agent-core';
 import { SystemCommandExecutor, createSystemCommands } from '../commands/system-command.js';
+import { BundlePluginLoader } from '../plugins/index.js';
+import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type {
   IToolState,
   IExecutionResult,
@@ -107,10 +111,30 @@ export class InteractiveSession {
       detectProject(cwd),
     ]);
 
+    // Load plugin hooks and merge into config
+    const pluginsDir = join(homedir(), '.robota', 'plugins');
+    const pluginLoader = new BundlePluginLoader(pluginsDir);
+    let mergedConfig = config;
+    try {
+      const plugins = pluginLoader.loadPluginsSync();
+      if (plugins.length > 0) {
+        const pluginHooks = mergePluginHooks(plugins);
+        mergedConfig = {
+          ...config,
+          hooks: mergeHooksIntoConfig(
+            config.hooks as Record<string, Array<Record<string, unknown>>> | undefined,
+            pluginHooks as Record<string, Array<Record<string, unknown>>>,
+          ),
+        };
+      }
+    } catch {
+      // No plugins dir or load failed
+    }
+
     const paths = projectPaths(cwd);
 
     this.session = createSession({
-      config,
+      config: mergedConfig,
       context,
       projectInfo,
       permissionMode: options.permissionMode,
