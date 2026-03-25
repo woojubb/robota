@@ -1,10 +1,21 @@
 # SDK ↔ CLI 책임 분리 설계
 
+> **상태**: 설계 확정 (2026-03-25)
+
 ## 문제
 
 CLI에 구현한 핵심 기능들이 SDK 레벨에서 지원되어야 하는 기능임. CLI는 TUI 렌더링만 담당해야 하는데, 현재 세션 관리/스트리밍/큐잉 로직이 React hooks 안에 섞여있음.
 
 이 분리가 선행되어야 transport 레이어(HTTP, MCP, WS 등)를 붙일 수 있음. 다른 클라이언트(웹 UI, API 서버, Dynamic Worker)도 동일한 SDK 기능을 사용해야 하기 때문.
+
+## 확정된 결정 사항
+
+| 결정                    | 선택                                                       |
+| ----------------------- | ---------------------------------------------------------- |
+| InteractiveSession 위치 | agent-sdk (신규 클래스)                                    |
+| Session과의 관계        | Composition (래핑), 상속 아님                              |
+| 슬래시 명령어 시스템    | SDK로 이동 (HTTP/MCP에서도 실행 가능)                      |
+| CLI 역할                | 순수 TUI: InteractiveSession 이벤트 → React state → 렌더링 |
 
 ## 현재: CLI에 있는 것 분류
 
