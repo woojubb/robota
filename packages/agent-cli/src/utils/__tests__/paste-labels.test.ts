@@ -37,4 +37,10 @@ describe('expandPasteLabels', () => {
     expect(expandPasteLabels('[Pasted text #1 +2 lines]', store)).toBe('a\nb');
     expect(expandPasteLabels('[Pasted text #1 +99 lines]', store)).toBe('a\nb');
   });
+
+  it('should expand label without line count (debounce pending)', () => {
+    const store = new Map([[1, 'partial paste']]);
+    const result = expandPasteLabels('[Pasted text #1]', store);
+    expect(result).toBe('partial paste');
+  });
 });

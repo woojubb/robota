@@ -1,6 +1,6 @@
 ---
 title: CLI 붙여넣기 시 텍스트가 분할되는 버그
-status: backlog
+status: completed
 priority: high
 created: 2026-03-24
 packages:

@@ -16,6 +16,12 @@ import { Text, useInput } from 'ink';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 
+/** Bracketed paste mode markers as delivered by Ink's input parser.
+ *  Ink's CSI parser consumes the ESC (\x1b) prefix, so useInput
+ *  receives only the remainder: "[200~" and "[201~". */
+const PASTE_START = '[200~';
+const PASTE_END = '[201~';
+
 /**
  * Filter non-printable characters from input. Returns empty string if
  * input is null/undefined/empty or contains only control characters.
@@ -95,6 +101,11 @@ export default function CjkTextInput({
   const cursorRef = useRef(value.length);
   const [, forceRender] = useState(0);
 
+  // Bracketed paste mode: terminal sends \x1b[200~ before paste and
+  // \x1b[201~ after. We buffer all input between these markers.
+  const isPastingRef = useRef(false);
+  const pasteBufferRef = useRef('');
+
   // useCursor removed — see comment below about Terminal.app SIGSEGV
 
   // Sync ref when value changes from parent (e.g., setValue(''))
@@ -108,6 +119,44 @@ export default function CjkTextInput({
   useInput(
     (input, key) => {
       try {
+        // Bracketed paste mode: detect start/end markers
+        if (input === PASTE_START || input.startsWith(PASTE_START)) {
+          isPastingRef.current = true;
+          const afterMarker = input.slice(PASTE_START.length);
+          if (afterMarker.length > 0) {
+            pasteBufferRef.current += afterMarker;
+          }
+          return;
+        }
+
+        if (isPastingRef.current) {
+          if (input === PASTE_END || input.includes(PASTE_END)) {
+            const beforeMarker = input.split(PASTE_END)[0] ?? '';
+            pasteBufferRef.current += beforeMarker;
+            const text = pasteBufferRef.current.replace(/\r\n?/g, '\n');
+            pasteBufferRef.current = '';
+            isPastingRef.current = false;
+            if (text.length > 0) {
+              // Multiline paste → label replacement via onPaste
+              // Single-line paste → insert directly as typed text
+              if (text.includes('\n') && onPaste) {
+                onPaste(text);
+              } else {
+                const printable = filterPrintable(text);
+                if (printable.length > 0) {
+                  const result = insertAtCursor(valueRef.current, cursorRef.current, printable);
+                  cursorRef.current = result.cursor;
+                  valueRef.current = result.value;
+                  onChange(result.value);
+                }
+              }
+            }
+          } else {
+            pasteBufferRef.current += input;
+          }
+          return;
+        }
+
         if ((key.ctrl && input === 'c') || key.tab || (key.shift && key.tab)) {
           return;
         }
@@ -133,10 +182,9 @@ export default function CjkTextInput({
           return;
         }
 
-        // Detect multiline paste: input with length > 1 containing newlines
-        // In raw mode, terminals send \r instead of \n for line breaks
+        // Fallback for terminals without bracketed paste mode:
+        // multi-char input with newlines is likely a paste
         if (input.length > 1 && (input.includes('\n') || input.includes('\r')) && onPaste) {
-          // Normalize \r\n and \r to \n before passing to paste handler
           onPaste(input.replace(/\r\n?/g, '\n'));
           return;
         }
