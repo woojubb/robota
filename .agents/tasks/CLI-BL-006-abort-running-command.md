@@ -1,6 +1,6 @@
 ---
 title: CLI 실행 중 ESC로 명령 중지 기능
-status: backlog
+status: completed
 priority: high
 created: 2026-03-24
 packages:

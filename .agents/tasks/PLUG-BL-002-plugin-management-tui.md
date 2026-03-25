@@ -1,6 +1,6 @@
 ---
 title: PLUG-BL-002 Plugin/Marketplace management TUI
-status: backlog
+status: completed
 priority: medium
 created: 2026-03-23
 packages:
