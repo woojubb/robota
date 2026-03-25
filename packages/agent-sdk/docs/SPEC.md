@@ -217,6 +217,96 @@ import { webFetchTool, webSearchTool } from '@robota-sdk/agent-tools';
 import { evaluatePermission } from '@robota-sdk/agent-core';
 ```
 
+### InteractiveSession — Client-Facing Session Wrapper
+
+Wraps `Session` (composition) to provide event-driven interaction for any client (CLI, web, API server, Dynamic Worker). Manages streaming text accumulation, tool execution state tracking, prompt queuing, abort orchestration, and message history — logic previously embedded in CLI React hooks.
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSessionOptions } from '@robota-sdk/agent-sdk';
+
+const session = new InteractiveSession({
+  config,
+  context,
+  projectInfo,
+  sessionStore,
+  permissionMode: 'byTool',
+  maxTurns: 10,
+  cwd: process.cwd(),
+  permissionHandler: async (toolName, toolArgs) => ({ allowed: true }),
+});
+
+// Event-driven — subscribe to state changes
+session.on('text_delta', (delta: string) => {
+  /* streaming text chunk */
+});
+session.on('tool_start', (state: IToolState) => {
+  /* tool execution began */
+});
+session.on('tool_end', (state: IToolState) => {
+  /* tool execution finished */
+});
+session.on('thinking', (isThinking: boolean) => {
+  /* execution state changed */
+});
+session.on('complete', (response: IExecutionResult) => {
+  /* prompt completed */
+});
+session.on('error', (error: Error) => {
+  /* execution error */
+});
+session.on('context_update', (state: IContextWindowState) => {
+  /* token usage updated */
+});
+session.on('interrupted', (result: IExecutionResult) => {
+  /* abort completed */
+});
+
+// Submit prompt (queues if already executing)
+await session.submit('Explain this code');
+
+// Abort current execution
+session.abort();
+
+// Cancel queued prompt without aborting current execution
+session.cancelQueue();
+
+// State queries
+session.isExecuting(); // boolean
+session.getPendingPrompt(); // string | null
+session.getMessages(); // TUniversalMessage[]
+session.getContextState(); // IContextWindowState
+session.getStreamingText(); // string (accumulated so far)
+session.getActiveTools(); // IToolState[]
+
+// Access underlying Session for advanced use
+session.getSession(); // Session
+```
+
+**IToolState:**
+
+```typescript
+interface IToolState {
+  toolName: string;
+  firstArg: string;
+  isRunning: boolean;
+  result?: 'success' | 'error' | 'denied';
+  diffLines?: IDiffLine[];
+  diffFile?: string;
+}
+```
+
+**IExecutionResult:**
+
+```typescript
+interface IExecutionResult {
+  response: string;
+  messages: TUniversalMessage[];
+  toolSummaries: IToolSummary[];
+  contextState: IContextWindowState;
+}
+```
+
 ## Design Decision Records
 
 ### Claude Code vs Claude Agent SDK Relationship (Research)
