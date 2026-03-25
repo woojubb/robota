@@ -127,7 +127,16 @@ export default function App(props: IProps): React.ReactElement {
     { isActive: !permissionRequest && !showPluginTUI },
   );
 
-  const session = interactiveSession.getSession();
+  // Session may not be initialized yet (async config/context loading)
+  let permissionMode: TPermissionMode = props.permissionMode ?? 'default';
+  let sessionId = '';
+  try {
+    const session = interactiveSession.getSession();
+    permissionMode = session.getPermissionMode();
+    sessionId = session.getSessionId();
+  } catch {
+    // Not yet initialized — use defaults
+  }
 
   return (
     <Box flexDirection="column">
@@ -187,9 +196,9 @@ export default function App(props: IProps): React.ReactElement {
         />
       )}
       <StatusBar
-        permissionMode={session.getPermissionMode()}
-        modelName={getModelName(props.config.provider.model)}
-        sessionId={session.getSessionId()}
+        permissionMode={permissionMode}
+        modelName=""
+        sessionId={sessionId}
         messageCount={messages.length}
         isThinking={isThinking}
         contextPercentage={contextState.percentage}
