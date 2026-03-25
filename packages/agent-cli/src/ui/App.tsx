@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import type {
   IResolvedConfig,
@@ -90,6 +90,8 @@ export default function App(props: IProps): React.ReactElement {
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
   const [showPluginTUI, setShowPluginTUI] = useState(false);
   const [isAborting, setIsAborting] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const pendingPromptRef = useRef<string | null>(null);
 
   const pluginCallbacks = usePluginCallbacks(props.cwd ?? process.cwd());
   const handleSlashCommand = useSlashCommands(
@@ -103,7 +105,7 @@ export default function App(props: IProps): React.ReactElement {
     pluginCallbacks,
     setShowPluginTUI,
   );
-  const handleSubmit = useSubmitHandler(
+  const executePrompt = useSubmitHandler(
     session,
     addMessage,
     handleSlashCommand,
@@ -113,21 +115,45 @@ export default function App(props: IProps): React.ReactElement {
     registry,
   );
 
+  // Wrap submit: if thinking, queue the prompt (max 1) instead of executing
+  const handleSubmit = useCallback(
+    async (input: string) => {
+      if (isThinking) {
+        setPendingPrompt(input);
+        pendingPromptRef.current = input;
+        return;
+      }
+      await executePrompt(input);
+    },
+    [isThinking, executePrompt],
+  );
+
   useInput(
     (_input: string, key: { escape: boolean }) => {
       // Ctrl+C is handled by Ink's exitOnCtrlC:true (always exits, bypasses useInput)
       if (key.escape && isThinking) {
         setIsAborting(true);
+        setPendingPrompt(null);
+        pendingPromptRef.current = null;
         session.abort();
       }
     },
     { isActive: !permissionRequest && !showPluginTUI },
   );
 
-  // Reset aborting state when execution ends
+  // When execution ends: reset aborting, auto-execute queued prompt
   useEffect(() => {
-    if (!isThinking) setIsAborting(false);
-  }, [isThinking]);
+    if (!isThinking) {
+      setIsAborting(false);
+      if (pendingPromptRef.current) {
+        const prompt = pendingPromptRef.current;
+        setPendingPrompt(null);
+        pendingPromptRef.current = null;
+        // Execute on next tick to avoid state update during render
+        setTimeout(() => executePrompt(prompt), 0);
+      }
+    }
+  }, [isThinking, pendingPrompt, executePrompt]);
 
   return (
     <Box flexDirection="column">
@@ -198,8 +224,13 @@ export default function App(props: IProps): React.ReactElement {
       />
       <InputArea
         onSubmit={handleSubmit}
-        isDisabled={isThinking || !!permissionRequest || showPluginTUI}
+        onCancelQueue={() => {
+          setPendingPrompt(null);
+          pendingPromptRef.current = null;
+        }}
+        isDisabled={!!permissionRequest || showPluginTUI || (isThinking && !!pendingPrompt)}
         isAborting={isAborting}
+        pendingPrompt={pendingPrompt}
         registry={registry}
       />
       {/* Permanent blank line below input — required for Korean IME stability. */}
