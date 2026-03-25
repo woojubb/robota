@@ -46,16 +46,16 @@ const agent = new Robota({
 
 ## Built-in Tools (8)
 
-| Export          | Tool Name | Description                          |
-| --------------- | --------- | ------------------------------------ |
-| `bashTool`      | Bash      | Execute shell commands               |
-| `readTool`      | Read      | Read file contents with line numbers |
-| `writeTool`     | Write     | Write content to a file              |
-| `editTool`      | Edit      | Replace a specific string in a file  |
-| `globTool`      | Glob      | Find files matching a glob pattern   |
-| `grepTool`      | Grep      | Search file contents with regex      |
-| `webFetchTool`  | WebFetch  | Fetch URL content (HTML-to-text)     |
-| `webSearchTool` | WebSearch | Web search via Brave Search API      |
+| Export          | Tool Name | Description                                      |
+| --------------- | --------- | ------------------------------------------------ |
+| `bashTool`      | Bash      | Execute shell commands via `child_process.spawn` |
+| `readTool`      | Read      | Read file contents with line numbers (cat -n)    |
+| `writeTool`     | Write     | Write content to a file (creates parent dirs)    |
+| `editTool`      | Edit      | Replace a specific string in a file              |
+| `globTool`      | Glob      | Find files matching a glob pattern (fast-glob)   |
+| `grepTool`      | Grep      | Search file contents with regex patterns         |
+| `webFetchTool`  | WebFetch  | Fetch URL content (HTML-to-text conversion)      |
+| `webSearchTool` | WebSearch | Web search via Brave Search API                  |
 
 ## Tool Infrastructure
 
@@ -66,7 +66,31 @@ const agent = new Robota({
 | `createFunctionTool`    | Factory for creating function tools                    |
 | `createZodFunctionTool` | Factory with Zod validation and JSON Schema conversion |
 | `OpenAPITool`           | Tool generated from OpenAPI specification              |
+| `createOpenAPITool`     | Factory for creating OpenAPI tools                     |
 | `zodToJsonSchema`       | Converts Zod schemas to JSON Schema format             |
+| `TToolResult`           | Result type for built-in CLI tool invocations          |
+
+## TToolResult Shape
+
+```typescript
+interface TToolResult {
+  success: boolean;
+  output: string;
+  error?: string;
+  exitCode?: number;
+  startLine?: number; // Start line number of the edit in the original file (Edit tool only)
+}
+```
+
+`TToolResult` is the inner result type used by built-in tools. It is serialized to JSON and placed inside the `IToolResult.data` field before being returned to the Robota execution loop.
+
+## Dependencies
+
+| Dependency               | Kind | Purpose                                                |
+| ------------------------ | ---- | ------------------------------------------------------ |
+| `@robota-sdk/agent-core` | Peer | Abstract tool base class, tool interfaces, event types |
+| `fast-glob`              | Prod | High-performance glob matching for the Glob tool       |
+| `zod`                    | Prod | Schema validation for function tool parameters         |
 
 ## License
 

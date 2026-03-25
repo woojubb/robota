@@ -100,43 +100,48 @@ Tools let agents call functions during a conversation. The agent decides when to
 
 ### Creating Tools with Zod
 
+`createZodFunctionTool` takes positional arguments: name, description, Zod schema, and handler function. The handler receives validated parameters and returns a value (string or JSON-serializable).
+
 ```typescript
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
-const searchTool = createZodFunctionTool({
-  name: 'search_files',
-  description: 'Search for files by name pattern',
-  schema: z.object({
+const searchTool = createZodFunctionTool(
+  'search_files',
+  'Search for files by name pattern',
+  z.object({
     pattern: z.string().describe('Glob pattern to match'),
     directory: z.string().optional().describe('Directory to search in'),
   }),
-  handler: async ({ pattern, directory }) => {
+  async ({ pattern, directory }) => {
     const files = await glob(pattern, { cwd: directory ?? '.' });
-    return { data: JSON.stringify(files) };
+    return JSON.stringify(files);
   },
-});
+);
 ```
 
 ### Creating Tools with FunctionTool
 
+`FunctionTool` takes a schema object and a handler function as separate arguments.
+
 ```typescript
 import { FunctionTool } from '@robota-sdk/agent-tools';
 
-const timeTool = new FunctionTool({
-  name: 'current_time',
-  description: 'Get the current date and time',
-  parameters: {
-    type: 'object',
-    properties: {
-      timezone: { type: 'string', description: 'IANA timezone' },
+const timeTool = new FunctionTool(
+  {
+    name: 'current_time',
+    description: 'Get the current date and time',
+    parameters: {
+      type: 'object',
+      properties: {
+        timezone: { type: 'string', description: 'IANA timezone' },
+      },
     },
   },
-  handler: async (params) => {
-    const now = new Date().toLocaleString('en-US', { timeZone: params.timezone ?? 'UTC' });
-    return { data: now };
+  async (params) => {
+    return new Date().toLocaleString('en-US', { timeZone: (params.timezone as string) ?? 'UTC' });
   },
-});
+);
 ```
 
 ### Registering Tools with an Agent
@@ -202,10 +207,11 @@ const agent = new Robota({
 
 ### Available Plugins
 
-`EventEmitterPlugin` is built into `agent-core`. 8 additional plugins are available as separate packages (not yet published — available in the monorepo only):
+`EventEmitterPlugin` is built into `agent-core`. 9 plugins are also available as separate `@robota-sdk/agent-plugin-*` packages (not yet published — available in the monorepo only):
 
 | Plugin Package                                  | Purpose                       |
 | ----------------------------------------------- | ----------------------------- |
+| `@robota-sdk/agent-plugin-event-emitter`        | Event emission (standalone)   |
 | `@robota-sdk/agent-plugin-logging`              | Multi-backend logging         |
 | `@robota-sdk/agent-plugin-usage`                | Token usage and cost tracking |
 | `@robota-sdk/agent-plugin-performance`          | Metrics collection            |
@@ -312,7 +318,7 @@ try {
 
 | v2.0.0                                     | v3.0.0                                                    |
 | ------------------------------------------ | --------------------------------------------------------- |
-| Plugins built into `agent-core`            | 8 plugins extracted to `agent-plugin-*` packages          |
+| Plugins built into `agent-core`            | 9 plugins extracted to `agent-plugin-*` packages          |
 | `FunctionTool` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                        |
 | `ToolRegistry` in `agent-core`             | Moved to `@robota-sdk/agent-tools`                        |
 | `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-tool-mcp`                     |

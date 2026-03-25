@@ -1,4 +1,4 @@
-# @robota-sdk/agent-core
+# Agent Core
 
 The foundation layer of the Robota SDK. Provides the `Robota` agent class, abstract base classes for providers/tools/plugins, the permission system, hook system, event services, and error hierarchy.
 
@@ -90,17 +90,18 @@ agent-sdk         ← Assembly layer
 agent-cli         ← Terminal UI
 ```
 
-## What This Package Provides
+## Public API Surface
 
-| Category        | Exports                                                                                                                                                           |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core**        | `Robota`, `ConversationStore`, `AbstractAgent`, `AbstractAIProvider` (+ `streamWithAbort`), `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor` |
-| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `TPermissionMode`, `TToolArgs`                                                                              |
-| **Hooks**       | `runHooks`, `IRunHooksResult`, `THookEvent` (PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop)                                                |
-| **Events**      | `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, `EventEmitterPlugin`                                                                     |
-| **Models**      | `CLAUDE_MODELS`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`                                     |
-| **Types**       | `TUniversalMessage`, `IBaseMessage` (`id`, `state`), `TMessageState`, `IAgentConfig`, `IAIProvider`, `IToolSchema`, `IContextWindowState`                         |
-| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                                                               |
+| Category        | Exports                                                                                                                                                                                   |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Core**        | `Robota`, `ConversationStore`, `AbstractAgent`, `AbstractAIProvider` (+ `streamWithAbort`), `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor`                         |
+| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `UNKNOWN_TOOL_FALLBACK`, `TPermissionMode`, `TTrustLevel`, `TPermissionDecision`, `TToolArgs`, `IPermissionLists`, `TKnownToolName` |
+| **Hooks**       | `runHooks`, `CommandExecutor`, `HttpExecutor`, `IHookTypeExecutor`, `THookEvent`, `THooksConfig`, `IHookGroup`, `IHookDefinition`, `IHookInput`, `IHookResult`                            |
+| **Events**      | `EventEmitterPlugin`, `IEventService`, `IOwnerPathSegment`                                                                                                                                |
+| **Models**      | `CLAUDE_MODELS`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`             |
+| **Types**       | `TUniversalMessage`, `IBaseMessage` (`id`, `state`), `TMessageState`, `IAgentConfig`, `IAIProvider`, `IToolSchema`, `IContextWindowState`, `IContextTokenUsage`, `TTextDeltaCallback`     |
+| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                                                                                       |
+| **Managers**    | `AgentFactory`, `AgentTemplates`, `ConversationHistory`, `EventHistoryModule`                                                                                                             |
 
 ## What Moved Out in v3
 
