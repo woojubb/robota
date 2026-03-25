@@ -56,7 +56,7 @@ export async function callProviderWithCache(
   config: IAgentConfig,
   resolved: IResolvedProviderInfo,
   cacheService?: ExecutionCacheService,
-  signal?: AbortSignal,
+  overrides?: Partial<IChatOptions>,
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -74,7 +74,7 @@ export async function callProviderWithCache(
       temperature: config.defaultModel.temperature,
     }),
     ...(resolved.availableTools.length > 0 && { tools: resolved.availableTools }),
-    signal,
+    ...overrides,
   };
 
   if (cacheService) {
@@ -528,26 +528,22 @@ export async function executeRound(
   // Begin assistant response tracking — ensures commitAssistant always has data
   conversationStore.beginAssistant();
 
-  // Intercept onTextDelta on the provider to accumulate streaming text in ConversationStore
-  const providerObj = resolved.provider as { onTextDelta?: (delta: string) => void };
-  const originalOnTextDelta = providerObj.onTextDelta;
-  providerObj.onTextDelta = (delta: string) => {
+  // Wrap onTextDelta to accumulate streaming text in ConversationStore.
+  // Passed via chatOptions (not monkey-patching) to avoid mutating shared provider instance.
+  const originalOnTextDelta = (resolved.provider as { onTextDelta?: (delta: string) => void })
+    .onTextDelta;
+  const wrappedOnTextDelta = (delta: string): void => {
     conversationStore.appendStreaming(delta);
     originalOnTextDelta?.call(resolved.provider, delta);
   };
 
   let response: TUniversalMessage;
   try {
-    response = await callProviderWithCache(
-      conversationMessages,
-      config,
-      resolved,
-      cacheService,
-      fullContext.signal,
-    );
-    providerObj.onTextDelta = originalOnTextDelta;
+    response = await callProviderWithCache(conversationMessages, config, resolved, cacheService, {
+      signal: fullContext.signal,
+      onTextDelta: wrappedOnTextDelta,
+    });
   } catch (providerError) {
-    providerObj.onTextDelta = originalOnTextDelta;
     // Re-throw AbortErrors so the execution service can handle them cleanly.
     // Check both error name AND message pattern — some SDKs throw non-standard abort errors.
     const isAbortError =
