@@ -549,7 +549,13 @@ export async function executeRound(
   } catch (providerError) {
     providerObj.onTextDelta = originalOnTextDelta;
     // Re-throw AbortErrors so the execution service can handle them cleanly.
-    if (providerError instanceof Error && providerError.name === 'AbortError') {
+    // Check both error name AND message pattern — some SDKs throw non-standard abort errors.
+    const isAbortError =
+      providerError instanceof Error &&
+      (providerError.name === 'AbortError' ||
+        providerError.message.includes('aborted') ||
+        providerError.message.includes('abort'));
+    if (isAbortError) {
       throw providerError;
     }
     // Provider rejected the request (e.g., context too large for API).
