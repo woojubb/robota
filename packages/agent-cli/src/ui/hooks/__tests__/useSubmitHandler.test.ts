@@ -245,8 +245,7 @@ describe('runSessionPrompt', () => {
     );
   });
 
-  it('displays ALL assistant messages from multi-round execution on abort', async () => {
-    // Multi-round: round 1 assistant + tools, round 2 assistant (interrupted)
+  it('merges consecutive assistant messages from multi-round execution on abort', async () => {
     const multiRoundHistory = [
       { role: 'user', content: 'run audit', id: '1', state: 'complete', timestamp: new Date() },
       {
@@ -297,17 +296,16 @@ describe('runSessionPrompt', () => {
       setContextState,
     );
 
-    // Should display BOTH assistant messages, not just the last one
+    // Should merge into ONE assistant message with combined content
     const assistantMsgs = addMessage.mock.calls.filter(
       (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
     );
-    expect(assistantMsgs).toHaveLength(2);
-    expect((assistantMsgs[0][0] as { content: string }).content).toBe(
-      'I will read the reference files first.',
-    );
-    expect((assistantMsgs[1][0] as { content: string }).content).toBe(
-      'Now checking project files...',
-    );
+    expect(assistantMsgs).toHaveLength(1);
+    const merged = assistantMsgs[0][0] as { content: string; state: string };
+    expect(merged.content).toContain('I will read the reference files first.');
+    expect(merged.content).toContain('Now checking project files...');
+    // Last assistant was interrupted → merged message should be interrupted
+    expect(merged.state).toBe('interrupted');
   });
 
   it('does not add assistant message on abort when history has no assistant message', async () => {

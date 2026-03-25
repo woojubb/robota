@@ -97,12 +97,20 @@ export async function runSessionPrompt(
           }),
         );
       }
-      // Add ALL assistant messages from this execution (multi-round may have several)
+      // Merge consecutive assistant messages from this execution into one display message
+      const assistantParts: string[] = [];
+      let lastAssistantState: 'complete' | 'interrupted' = 'complete';
       for (let i = historyBefore; i < history.length; i++) {
         const msg = history[i];
-        if (msg && msg.role === 'assistant') {
-          addMessage(msg);
+        if (msg && msg.role === 'assistant' && msg.content) {
+          assistantParts.push(msg.content);
+          if (msg.state === 'interrupted') lastAssistantState = 'interrupted';
         }
+      }
+      if (assistantParts.length > 0) {
+        addMessage(
+          createAssistantMessage(assistantParts.join('\n\n'), { state: lastAssistantState }),
+        );
       }
       addMessage(createSystemMessage('Cancelled.'));
     } else {

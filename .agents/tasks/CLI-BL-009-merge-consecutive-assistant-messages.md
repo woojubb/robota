@@ -1,6 +1,6 @@
 ---
 title: 연속된 assistant 메시지를 하나로 합쳐서 표시
-status: backlog
+status: completed
 priority: medium
 created: 2026-03-25
 packages:
