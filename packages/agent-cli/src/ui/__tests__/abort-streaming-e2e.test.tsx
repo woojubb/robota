@@ -63,7 +63,7 @@ function StreamingTestApp({
   return (
     <Box flexDirection="column">
       <Text>{text}</Text>
-      {aborted && <Text color="yellow">Cancelled.</Text>}
+      {aborted && <Text color="yellow">Interrupted by user.</Text>}
       <Text dimColor>renders: {renderCountRef.current}</Text>
     </Box>
   );
@@ -140,7 +140,7 @@ describe('Streaming abort E2E', () => {
     expect(frame).toContain('line0');
     expect(frame).toContain('line4');
     // Cancelled indicator
-    expect(frame).toContain('Cancelled.');
+    expect(frame).toContain('Interrupted by user.');
   });
 
   it('ESC during ongoing streaming stops further rendering', async () => {
@@ -178,6 +178,6 @@ describe('Streaming abort E2E', () => {
 
     const frame = lastFrame()!;
     expect(frame).toContain('before_abort');
-    expect(frame).toContain('Cancelled.');
+    expect(frame).toContain('Interrupted by user.');
   });
 });
