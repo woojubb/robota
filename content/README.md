@@ -104,8 +104,11 @@ robota -p "Explain this project"    # Print mode
 
 ```
 agent-cli              ← Interactive terminal AI coding assistant
-  ↓
-agent-sdk              ← Assembly layer: config, context, session factory, query()
+agent-transport-http   ← HTTP transport (Hono; Cloudflare Workers / Node.js / Lambda)
+agent-transport-mcp    ← MCP transport (Model Context Protocol server)
+agent-transport-ws     ← WebSocket transport (framework-agnostic)
+  ↓ (all four consume)
+agent-sdk              ← Assembly layer: InteractiveSession, config, context, query()
   ↓
 agent-sessions         ← Session lifecycle: permissions, hooks, compaction
 agent-tools            ← Tool infrastructure + 8 built-in tools
@@ -116,14 +119,18 @@ agent-core             ← Foundation: Robota engine, abstractions, plugins
 
 ## Packages
 
-| Package                                                                        | Description                                            |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------ |
-| [`@robota-sdk/agent-core`](./packages/agent-core/)                             | Core agent runtime, abstractions, and plugin system    |
-| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                           | Tool registry, FunctionTool, and 8 built-in tools      |
-| [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)                     | Session with permissions, hooks, and compaction        |
-| [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                               | Assembly layer with config/context loading and query() |
-| [`@robota-sdk/agent-provider-anthropic`](./packages/agent-provider-anthropic/) | Anthropic Claude provider                              |
-| [`@robota-sdk/agent-cli`](./packages/agent-cli/)                               | Interactive terminal AI coding assistant               |
+| Package                                                                        | Description                                                            |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [`@robota-sdk/agent-core`](./packages/agent-core/)                             | Core agent runtime, abstractions, and plugin system                    |
+| [`@robota-sdk/agent-tools`](./packages/agent-tools/)                           | Tool registry, FunctionTool, and 8 built-in tools                      |
+| [`@robota-sdk/agent-sessions`](./packages/agent-sessions/)                     | Session with permissions, hooks, and compaction                        |
+| [`@robota-sdk/agent-sdk`](./packages/agent-sdk/)                               | Assembly layer with config/context loading and query()                 |
+| [`@robota-sdk/agent-provider-anthropic`](./packages/agent-provider-anthropic/) | Anthropic Claude provider                                              |
+| [`@robota-sdk/agent-cli`](./packages/agent-cli/)                               | Interactive terminal AI coding assistant                               |
+| [`@robota-sdk/agent-transport-http`](./packages/agent-transport-http/)         | HTTP/REST transport adapter (Hono; Cloudflare Workers / Node / Lambda) |
+| [`@robota-sdk/agent-transport-mcp`](./packages/agent-transport-mcp/)           | MCP transport adapter (Model Context Protocol server)                  |
+| [`@robota-sdk/agent-transport-ws`](./packages/agent-transport-ws/)             | WebSocket transport adapter (framework-agnostic)                       |
+| [`@robota-sdk/agent-remote-client`](./packages/agent-remote-client/)           | HTTP client for calling a remote agent over HTTP                       |
 
 ## Documentation
 
