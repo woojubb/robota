@@ -33,6 +33,12 @@ export function renderApp(options: IRenderOptions): void {
     }
   });
 
+  // Enable bracketed paste mode: terminal wraps pastes with
+  // \x1b[200~ (start) and \x1b[201~ (end) so we can detect boundaries.
+  if (process.stdin.isTTY && process.stdout.isTTY) {
+    process.stdout.write('\x1b[?2004h');
+  }
+
   const instance = render(<App {...options} />, {
     exitOnCtrlC: true,
   });
@@ -40,6 +46,10 @@ export function renderApp(options: IRenderOptions): void {
   instance
     .waitUntilExit()
     .then(() => {
+      // Disable bracketed paste mode before exit
+      if (process.stdout.isTTY) {
+        process.stdout.write('\x1b[?2004l');
+      }
       // Ink exited (Ctrl+C or explicit exit()) — force process termination.
       // Without this, pending async operations (session.run, streaming) keep
       // the event loop alive, requiring a second Ctrl+C.
