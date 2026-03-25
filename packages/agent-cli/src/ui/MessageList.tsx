@@ -1,15 +1,16 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { IChatMessage } from './types.js';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import { isToolMessage, isAssistantMessage } from '@robota-sdk/agent-core';
 import { renderMarkdown } from './render-markdown.js';
 import type { IToolCallSummary } from '../utils/tool-call-extractor.js';
 import DiffBlock from './DiffBlock.js';
 
 interface IProps {
-  messages: IChatMessage[];
+  messages: TUniversalMessage[];
 }
 
-function RoleLabel({ role }: { role: IChatMessage['role'] }): React.ReactElement {
+function RoleLabel({ role }: { role: TUniversalMessage['role'] }): React.ReactElement {
   switch (role) {
     case 'user':
       return (
@@ -38,11 +39,17 @@ function RoleLabel({ role }: { role: IChatMessage['role'] }): React.ReactElement
   }
 }
 
-function ToolMessage({ message }: { message: IChatMessage }): React.ReactElement {
+function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactElement {
+  if (!isToolMessage(message)) {
+    return <></>;
+  }
+  const toolName = message.name;
+  const content = message.content;
+
   // Try to parse structured tool summaries (with diff info)
   let summaries: IToolCallSummary[] | null = null;
   try {
-    const parsed = JSON.parse(message.content) as unknown;
+    const parsed = JSON.parse(content) as unknown;
     if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0].line === 'string') {
       summaries = parsed as IToolCallSummary[];
     }
@@ -57,9 +64,9 @@ function ToolMessage({ message }: { message: IChatMessage }): React.ReactElement
           <Text color="white" bold>
             Tool:{' '}
           </Text>
-          {message.toolName && (
+          {toolName && (
             <Text color="white" dimColor>
-              [{message.toolName}]
+              [{toolName}]
             </Text>
           )}
         </Box>
@@ -80,16 +87,16 @@ function ToolMessage({ message }: { message: IChatMessage }): React.ReactElement
   }
 
   // Fallback: plain text lines
-  const lines = message.content.split('\n').filter((l) => l.trim());
+  const lines = content.split('\n').filter((l) => l.trim());
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
         <Text color="white" bold>
           Tool:{' '}
         </Text>
-        {message.toolName && (
+        {toolName && (
           <Text color="white" dimColor>
-            [{message.toolName}]
+            [{toolName}]
           </Text>
         )}
       </Box>
@@ -107,26 +114,26 @@ function ToolMessage({ message }: { message: IChatMessage }): React.ReactElement
 const MessageItem = React.memo(function MessageItem({
   message,
 }: {
-  message: IChatMessage;
+  message: TUniversalMessage;
 }): React.ReactElement {
-  if (message.role === 'tool') {
+  if (isToolMessage(message)) {
     return <ToolMessage message={message} />;
   }
+
+  const content = message.content ?? '';
+  const isInterrupted = message.state === 'interrupted';
 
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
         <RoleLabel role={message.role} />
-        {message.toolName && (
-          <Text color="magenta" dimColor>
-            [{message.toolName}]{' '}
-          </Text>
-        )}
       </Box>
       <Text> </Text>
       <Box marginLeft={2}>
         <Text wrap="wrap">
-          {message.role === 'assistant' ? renderMarkdown(message.content) : message.content}
+          {isAssistantMessage(message)
+            ? renderMarkdown(content + (isInterrupted ? '\n\n_(interrupted)_' : ''))
+            : content}
         </Text>
       </Box>
     </Box>

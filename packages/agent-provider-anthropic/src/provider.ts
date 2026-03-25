@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import type { IAnthropicProviderOptions } from './types';
 import { AbstractAIProvider, getModelMaxOutput } from '@robota-sdk/agent-core';
@@ -169,7 +170,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     const serverToolResults: Array<{ type: string; title?: string; url?: string }> = [];
 
     try {
-      for await (const event of stream) {
+      for await (const event of this.streamWithAbort(stream, signal)) {
         switch (event.type) {
           case 'message_start':
             usage = event.message.usage;
@@ -246,8 +247,10 @@ export class AnthropicProvider extends AbstractAIProvider {
         // Return partial response from content accumulated so far
         const partialText = textParts.join('') || '';
         const partialResult: TUniversalMessage = {
+          id: randomUUID(),
           role: 'assistant',
           content: partialText,
+          state: 'complete' as const,
           timestamp: new Date(),
           ...(toolCalls.length > 0 && { toolCalls }),
         };
@@ -262,11 +265,33 @@ export class AnthropicProvider extends AbstractAIProvider {
       throw err;
     }
 
+    // If aborted via break (not via catch), return partial response
+    if (signal?.aborted) {
+      const partialText = textParts.join('') || '';
+      const partialResult: TUniversalMessage = {
+        id: randomUUID(),
+        role: 'assistant',
+        content: partialText,
+        state: 'complete' as const,
+        timestamp: new Date(),
+        ...(toolCalls.length > 0 && { toolCalls }),
+      };
+      partialResult.metadata = {
+        inputTokens: usage.input_tokens,
+        outputTokens: usage.output_tokens,
+        model,
+        stopReason: 'aborted',
+      };
+      return partialResult;
+    }
+
     const textContent = textParts.join('') || '';
 
     const result: TUniversalMessage = {
+      id: randomUUID(),
       role: 'assistant',
       content: textContent,
+      state: 'complete' as const,
       timestamp: new Date(),
       ...(toolCalls.length > 0 && { toolCalls }),
     };
@@ -337,8 +362,10 @@ export class AnthropicProvider extends AbstractAIProvider {
     for await (const chunk of stream) {
       if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
         yield {
+          id: randomUUID(),
           role: 'assistant',
           content: chunk.delta.text,
+          state: 'complete' as const,
           timestamp: new Date(),
         };
       }
@@ -479,8 +506,10 @@ export class AnthropicProvider extends AbstractAIProvider {
     const textContent = textParts.join('\n') || '';
 
     const result: TUniversalMessage = {
+      id: randomUUID(),
       role: 'assistant',
       content: textContent,
+      state: 'complete' as const,
       timestamp: new Date(),
       ...(toolCalls.length > 0 && { toolCalls }),
     };

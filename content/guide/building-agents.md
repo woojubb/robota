@@ -250,7 +250,7 @@ const response = await agent.run('Write a poem about coding');
 
 ## Conversation History
 
-Robota maintains conversation history across `run()` calls:
+Robota maintains conversation history across `run()` calls. Every message has a unique `id` and a `state` (`'complete'` or `'interrupted'`).
 
 ```typescript
 const agent = new Robota({
@@ -263,10 +263,32 @@ const response = await agent.run('What is my name?');
 
 // Access the full history
 const history = agent.getHistory(); // TUniversalMessage[]
+// Each message has: id, timestamp, state, role, content, metadata
 
 // Clear and start fresh
 agent.clearHistory();
 ```
+
+### Message State
+
+Messages have a `state` field that tracks completion:
+
+| State           | Meaning                                             |
+| --------------- | --------------------------------------------------- |
+| `'complete'`    | Normal response — fully received                    |
+| `'interrupted'` | User pressed ESC during streaming — partial content |
+
+When the model receives history for the next turn, interrupted messages are annotated with `[This response was interrupted by the user]` so the model is aware of the interruption.
+
+### Streaming Buffer
+
+During streaming, `ConversationSession` manages a streaming buffer internally:
+
+1. `appendStreaming(delta)` — accumulates text from `onTextDelta` callbacks
+2. `appendToolCall(toolCall)` — accumulates tool calls from provider response
+3. `commitAssistant(state, metadata)` — commits the buffer to history as a confirmed message
+
+This is a single path — both normal completion (`'complete'`) and abort (`'interrupted'`) use the same `commitAssistant` call with different state values. The CLI's `onTextDelta` callback is preserved as a passthrough for real-time display.
 
 ## Error Handling
 

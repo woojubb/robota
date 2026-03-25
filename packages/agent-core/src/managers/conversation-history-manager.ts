@@ -2,7 +2,7 @@
  * Multi-session conversation history manager.
  *
  * Message factories live in ./conversation-message-factory.ts.
- * Session implementations live in ./conversation-session.ts.
+ * Store implementations live in ./conversation-store.ts.
  */
 import { createLogger, type ILogger } from '../utils/logger';
 import type {
@@ -13,12 +13,16 @@ import type {
   TUniversalMessagePart,
 } from '../interfaces/messages';
 
-// Re-export everything that was originally exported from this file
+// Re-export type guards from interfaces (SSOT)
 export {
   isUserMessage,
   isAssistantMessage,
   isSystemMessage,
   isToolMessage,
+} from '../interfaces/messages';
+
+// Re-export factory functions from conversation-message-factory
+export {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
@@ -28,12 +32,12 @@ export {
 export {
   SimpleConversationHistory,
   PersistentSystemConversationHistory,
-  ConversationSession,
-} from './conversation-session';
+  ConversationStore,
+} from './conversation-store';
 
-export type { IProviderApiMessage } from './conversation-session';
+export type { IProviderApiMessage } from './conversation-store';
 
-import { ConversationSession } from './conversation-session';
+import { ConversationStore } from './conversation-store';
 
 const DEFAULT_MAX_MESSAGES_PER_CONVERSATION = 100;
 const DEFAULT_MAX_CONVERSATIONS = 50;
@@ -79,7 +83,7 @@ export interface IConversationHistoryOptions {
 
 /** Multi-session conversation history manager. @public */
 export class ConversationHistory {
-  private conversations = new Map<string, ConversationSession>();
+  private conversations = new Map<string, ConversationStore>();
   private logger: ILogger;
   private readonly maxMessagesPerConversation: number;
   private readonly maxConversations: number;
@@ -91,12 +95,12 @@ export class ConversationHistory {
     this.logger = createLogger('ConversationHistory');
   }
 
-  getConversationSession(conversationId: string): ConversationSession {
+  getConversationStore(conversationId: string): ConversationStore {
     if (!this.conversations.has(conversationId)) {
       if (this.conversations.size >= this.maxConversations) this.cleanupOldConversations();
       this.conversations.set(
         conversationId,
-        new ConversationSession(this.maxMessagesPerConversation),
+        new ConversationStore(this.maxMessagesPerConversation),
       );
     }
     return this.conversations.get(conversationId)!;

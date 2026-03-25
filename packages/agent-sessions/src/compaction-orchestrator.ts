@@ -5,6 +5,7 @@
  * Extracted from Session to separate compaction logic from conversation management.
  */
 
+import { randomUUID } from 'node:crypto';
 import { runHooks } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
@@ -76,7 +77,15 @@ export class CompactionOrchestrator {
 
     // Call provider to generate summary
     const summaryMessage = await provider.chat(
-      [{ role: 'user', content: compactPrompt, timestamp: new Date() }],
+      [
+        {
+          id: randomUUID(),
+          role: 'user',
+          content: compactPrompt,
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
+      ],
       { model: this.model },
     );
     const summary =
