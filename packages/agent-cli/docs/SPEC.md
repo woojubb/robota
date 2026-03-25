@@ -382,6 +382,7 @@ src/
     ├── ConfirmPrompt.tsx            ← Reusable arrow-key confirmation prompt
     ├── WaveText.tsx                 ← Wave color animation for waiting indicator
     ├── render-markdown.ts           ← Markdown rendering for terminal output
+    ├── visual-line.ts               ← Visual line position utilities for wrapped text navigation
     ├── InkTerminal.ts               ← No-op ITerminalOutput
     └── types.ts                     ← IPermissionRequest
 ```
@@ -505,6 +506,35 @@ ESC aborts the current execution gracefully (unlike Ctrl+C which kills the proce
 6. After abort, conversation continues normally — history includes the interrupted assistant message and any tool results
 7. History is the SSOT for all message content — no separate streaming text ref is needed
 
+### Up/Down Arrows — Visual Line Navigation
+
+When input text wraps across multiple visual lines (exceeds terminal width), up/down arrows move the cursor between visual lines using display offset arithmetic.
+
+**Architecture:**
+
+- Cursor-only manipulation — text is never modified, only `cursorRef` position changes
+- Two private helpers in `CjkTextInput.tsx` (no separate module):
+  - `displayOffset(chars, charIndex, width)` → cumulative display column offset, accounting for CJK line-end gaps
+  - `charIndexAtDisplayOffset(chars, targetOffset, width)` → char index closest to target offset
+- Up arrow: `cursorRef = charIndexAtDisplayOffset(chars, offset - availableWidth, width)`
+- Down arrow: `cursorRef = charIndexAtDisplayOffset(chars, offset + availableWidth, width)`
+- Uses `string-width` for CJK character support (2 columns per CJK character)
+
+**Available width calculation:**
+
+- `InputArea` computes `availableWidth` from `useStdout().columns` minus layout constants
+- `availableWidth = terminalColumns - BORDER_HORIZONTAL - PADDING_LEFT - PROMPT_WIDTH`
+- Named constants (no magic numbers): `BORDER_HORIZONTAL = 2`, `PADDING_LEFT = 1`, `PROMPT_WIDTH = 2` ("> ")
+- Layout constants are co-located with InputArea (the component that owns the layout)
+- `availableWidth` is passed to `CjkTextInput` as a prop
+
+**Behavior:**
+
+- Up arrow when already on first visual line: no-op (target offset < 0)
+- Down arrow when already on last visual line: no-op (target offset exceeds text)
+- Column position is preserved across line moves via offset arithmetic
+- Terminal resize recalculates available width via `useStdout()`
+
 ## Plugin Management TUI
 
 The `/plugin` command opens an interactive TUI for managing bundle plugins, built with `MenuSelect`, `TextPrompt`, and `ConfirmPrompt` components.
@@ -588,7 +618,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 ## Known Limitations
 
 - **Korean IME on macOS Terminal.app**: Ink's renderer shifts the input area during IME composition, causing Terminal.app to crash (SIGSEGV). Fixed by adding a permanent blank line below the input area, which stabilizes the cursor position during IME composition. **Use [iTerm2](https://iterm2.com/) for the best experience.**
-- **CjkTextInput**: Custom text input component with try-catch error handling, non-printable character filtering, and `setCursorPosition` removed to minimize IME interaction surface.
+- **CjkTextInput**: Custom text input component with try-catch error handling, non-printable character filtering, `setCursorPosition` removed to minimize IME interaction surface, and visual-line-aware up/down arrow navigation for wrapped text.
 
 ## Dependencies
 

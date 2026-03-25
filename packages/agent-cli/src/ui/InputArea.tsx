@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdout } from 'ink';
 import CjkTextInput from './CjkTextInput.js';
 import WaveText from './WaveText.js';
 import type { CommandRegistry } from '../commands/command-registry.js';
@@ -100,6 +100,19 @@ function useAutocomplete(
  * events are available in terminal raw mode.
  * Reference: https://github.com/anthropics/claude-code/issues/3045
  */
+/**
+ * Layout constants for InputArea border box (columns).
+ * Used to compute available text width from terminal columns.
+ *
+ * Box borderStyle="single" adds 1 column per side (left + right).
+ * paddingLeft={1} adds 1 column inside the box.
+ * Prompt "> " takes 2 columns.
+ */
+const BORDER_HORIZONTAL = 2;
+const PADDING_LEFT = 1;
+const PROMPT_WIDTH = 2;
+const INPUT_AREA_OVERHEAD = BORDER_HORIZONTAL + PADDING_LEFT + PROMPT_WIDTH;
+
 export default function InputArea({
   onSubmit,
   onCancelQueue,
@@ -110,6 +123,9 @@ export default function InputArea({
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const pasteStore = useRef<Map<number, string>>(new Map());
+  const { stdout } = useStdout();
+  const terminalColumns = stdout?.columns ?? 80;
+  const availableWidth = Math.max(1, terminalColumns - INPUT_AREA_OVERHEAD);
   const pasteIdRef = useRef(0);
 
   const {
@@ -248,6 +264,7 @@ export default function InputArea({
               onSubmit={handleSubmit}
               onPaste={handlePaste}
               placeholder="Type a message or /help"
+              availableWidth={availableWidth}
             />
           </Box>
         )}
