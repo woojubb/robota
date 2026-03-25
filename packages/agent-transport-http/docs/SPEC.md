@@ -58,15 +58,16 @@ The `sessionFactory` callback receives the HTTP request context and returns an I
 
 ## Endpoints
 
-| Method | Path          | Request Body                     | Response                      | Description                  |
-| ------ | ------------- | -------------------------------- | ----------------------------- | ---------------------------- |
-| POST   | /submit       | `{ prompt: string }`             | SSE stream                    | Submit prompt, stream events |
-| POST   | /command      | `{ name: string, args: string }` | `ICommandResult` JSON         | Execute system command       |
-| POST   | /abort        | —                                | `{ ok: true }`                | Abort current execution      |
-| POST   | /cancel-queue | —                                | `{ ok: true }`                | Cancel queued prompt         |
-| GET    | /messages     | —                                | `TUniversalMessage[]` JSON    | Get message history          |
-| GET    | /context      | —                                | `IContextWindowState` JSON    | Get context window state     |
-| GET    | /status       | —                                | `{ executing, pending }` JSON | Get execution status         |
+| Method | Path          | Request Body                     | Response                         | Description                  |
+| ------ | ------------- | -------------------------------- | -------------------------------- | ---------------------------- |
+| POST   | /submit       | `{ prompt: string }`             | SSE stream                       | Submit prompt, stream events |
+| POST   | /command      | `{ name: string, args: string }` | `ICommandResult` JSON            | Execute system command       |
+| POST   | /abort        | —                                | `{ ok: true }`                   | Abort current execution      |
+| POST   | /cancel-queue | —                                | `{ ok: true }`                   | Cancel queued prompt         |
+| GET    | /messages     | —                                | `TUniversalMessage[]` JSON       | Get message history          |
+| GET    | /context      | —                                | `IContextWindowState` JSON       | Get context window state     |
+| GET    | /executing    | —                                | `{ executing: boolean }` JSON    | Check if executing           |
+| GET    | /pending      | —                                | `{ pending: string\|null }` JSON | Get pending queued prompt    |
 
 ### SSE Event Types (POST /submit)
 
