@@ -1,66 +1,83 @@
 /**
- * query() — single entry point for running an AI agent conversation.
- * Automatically loads config, context, and project info.
+ * createQuery() — factory that returns a prompt-only convenience function.
+ *
+ * Usage:
+ *   const query = createQuery({ provider });
+ *   const answer = await query('What files are here?');
  */
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
-import { loadConfig } from './config/config-loader.js';
-import { loadContext } from './context/context-loader.js';
-import { detectProject } from './context/project-detector.js';
-import { createSession } from './assembly/create-session.js';
-import { promptForApproval } from './permissions/permission-prompt.js';
+import type { TPermissionMode } from '@robota-sdk/agent-core';
+import { InteractiveSession } from './interactive/interactive-session.js';
+import type { IExecutionResult, TInteractivePermissionHandler } from './interactive/types.js';
 
-export interface IQueryOptions {
+export interface ICreateQueryOptions {
+  /** AI provider instance (required). */
+  provider: IAIProvider;
+  /** Working directory. Defaults to process.cwd(). */
   cwd?: string;
+  /** Permission mode. Defaults to 'bypassPermissions' for programmatic use. */
   permissionMode?: TPermissionMode;
+  /** Maximum agentic turns per query. */
   maxTurns?: number;
-  provider?: IAIProvider;
-  permissionHandler?: (toolName: string, toolArgs: TToolArgs) => Promise<boolean>;
+  /** Permission handler callback. */
+  permissionHandler?: TInteractivePermissionHandler;
+  /** Streaming text callback. */
   onTextDelta?: (delta: string) => void;
-  /** Callback when context is compacted */
-  onCompact?: (summary: string) => void;
 }
 
 /**
- * query() — single entry point for running an AI agent conversation.
- * Equivalent to Claude Agent SDK's query() function.
- * Automatically loads config, context, and project info.
+ * Create a prompt-only query function bound to a provider.
+ *
+ * ```typescript
+ * import { createQuery } from '@robota-sdk/agent-sdk';
+ * import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+ *
+ * const query = createQuery({ provider: new AnthropicProvider({ apiKey: '...' }) });
+ * const answer = await query('List all TypeScript files');
+ * ```
  */
-export async function query(prompt: string, options?: IQueryOptions): Promise<string> {
-  const cwd = options?.cwd ?? process.cwd();
-
-  const [config, context, projectInfo] = await Promise.all([
-    loadConfig(cwd),
-    loadContext(cwd),
-    detectProject(cwd),
-  ]);
-
-  // No-op terminal for programmatic use
-  const noopTerminal = {
-    write: () => {},
-    writeLine: () => {},
-    writeMarkdown: () => {},
-    writeError: () => {},
-    prompt: () => Promise.resolve(''),
-    select: () => Promise.resolve(0),
-    spinner: () => ({ stop: () => {}, update: () => {} }),
-  };
-
-  const session = createSession({
-    config,
-    context,
-    terminal: noopTerminal,
-    projectInfo,
-    permissionMode: options?.permissionMode ?? 'bypassPermissions',
-    maxTurns: options?.maxTurns,
-    provider: options?.provider,
-    permissionHandler: options?.permissionHandler,
-    onTextDelta: options?.onTextDelta,
-    onCompact: options?.onCompact,
-    compactInstructions: context.compactInstructions,
-    promptForApproval: promptForApproval,
+export function createQuery(options: ICreateQueryOptions): (prompt: string) => Promise<string> {
+  const session = new InteractiveSession({
+    cwd: options.cwd ?? process.cwd(),
+    provider: options.provider,
+    permissionMode: options.permissionMode ?? 'bypassPermissions',
+    maxTurns: options.maxTurns,
+    permissionHandler: options.permissionHandler,
   });
 
-  return session.run(prompt);
+  if (options.onTextDelta) {
+    session.on('text_delta', options.onTextDelta);
+  }
+
+  return async (prompt: string): Promise<string> => {
+    return new Promise<string>((resolve, reject) => {
+      const onComplete = (result: IExecutionResult): void => {
+        cleanup();
+        resolve(result.response);
+      };
+      const onInterrupted = (result: IExecutionResult): void => {
+        cleanup();
+        resolve(result.response);
+      };
+      const onError = (error: Error): void => {
+        cleanup();
+        reject(error);
+      };
+      const cleanup = (): void => {
+        session.off('complete', onComplete);
+        session.off('interrupted', onInterrupted);
+        session.off('error', onError);
+      };
+
+      session.on('complete', onComplete);
+      session.on('interrupted', onInterrupted);
+      session.on('error', onError);
+
+      session.submit(prompt).catch((err) => {
+        cleanup();
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
+    });
+  };
 }

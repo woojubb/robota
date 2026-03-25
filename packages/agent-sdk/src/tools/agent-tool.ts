@@ -13,7 +13,12 @@
 import { z } from 'zod';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IZodSchema } from '@robota-sdk/agent-tools';
-import type { IToolWithEventService, IHookTypeExecutor, TToolArgs } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IToolWithEventService,
+  IHookTypeExecutor,
+  TToolArgs,
+} from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { ITerminalOutput, TPermissionHandler } from '@robota-sdk/agent-sessions';
 import type { IResolvedConfig } from '../config/config-types.js';
@@ -44,6 +49,8 @@ export interface IAgentToolDeps {
   context: ILoadedContext;
   tools: IToolWithEventService[];
   terminal: ITerminalOutput;
+  /** AI provider instance (passed from consumer). */
+  provider: IAIProvider;
   /** Permission mode from parent session (bypassPermissions, acceptEdits, etc.). */
   permissionMode?: TPermissionMode;
   permissionHandler?: TPermissionHandler;
@@ -130,6 +137,7 @@ export function createAgentTool(deps: IAgentToolDeps): ReturnType<typeof createZ
       parentConfig: deps.config,
       parentContext: deps.context,
       parentTools: deps.tools,
+      provider: deps.provider,
       terminal: deps.terminal,
       permissionMode: deps.permissionMode,
       permissionHandler: deps.permissionHandler,

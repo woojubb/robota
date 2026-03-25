@@ -31,7 +31,6 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-provider-anthropic": "workspace:*",
     "@robota-sdk/agent-sessions": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",
     "chalk": "^5.3.0",

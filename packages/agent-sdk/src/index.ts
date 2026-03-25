@@ -1,81 +1,42 @@
-// @robota-sdk/agent-sdk — Programmatic SDK for building AI agents
+// @robota-sdk/agent-sdk — Universal AI agent SDK
+// Provider-neutral. InteractiveSession is the single entry point.
 
-// Types (re-exported from owning packages)
+// ── InteractiveSession (primary API) ────────────────────────
+export { InteractiveSession } from './interactive/index.js';
+export type {
+  IInteractiveSessionOptions,
+  IToolState,
+  IDiffLine,
+  IExecutionResult,
+  IToolSummary,
+  TInteractivePermissionHandler,
+  TInteractiveEventName,
+  IInteractiveSessionEvents,
+} from './interactive/index.js';
+
+// ── createQuery() factory (convenience API) ─────────────────
+export { createQuery } from './query.js';
+export type { ICreateQueryOptions } from './query.js';
+
+// ── Command system (managed by InteractiveSession) ──────────
+export {
+  CommandRegistry,
+  BuiltinCommandSource,
+  SkillCommandSource,
+  parseFrontmatter,
+} from './commands/index.js';
+export type { ICommand, ICommandSource, ISystemCommand, ICommandResult } from './commands/index.js';
+
+// ── Types (re-exported from owning packages) ────────────────
 export type { TToolResult, TTrustLevel, TPermissionDecision, TPermissionMode } from './types.js';
 export { TRUST_TO_MODE } from './types.js';
 export type { ITerminalOutput, ISpinner } from './types.js';
-
-// Assembly — session factory and component creation
-export {
-  createSession,
-  createDefaultTools,
-  createProvider,
-  DEFAULT_TOOL_DESCRIPTIONS,
-} from './assembly/index.js';
-export type { ICreateSessionOptions } from './assembly/index.js';
-export {
-  getSubagentSuffix,
-  getForkWorkerSuffix,
-  assembleSubagentPrompt,
-  createSubagentSession,
-  createSubagentLogger,
-  resolveSubagentLogDir,
-} from './assembly/index.js';
-export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
-
-// Session (re-exported from agent-sessions — generic, requires tools/provider/systemMessage)
-export { Session } from '@robota-sdk/agent-sessions';
-export type {
-  ISessionOptions,
-  TPermissionHandler,
-  TPermissionResult,
-} from '@robota-sdk/agent-sessions';
-
-// Session logging (from agent-sessions)
-export { FileSessionLogger, SilentSessionLogger } from '@robota-sdk/agent-sessions';
-export type { ISessionLogger, TSessionLogData } from '@robota-sdk/agent-sessions';
-
-// Session persistence (from agent-sessions)
-export { SessionStore } from '@robota-sdk/agent-sessions';
-export type { ISessionRecord } from '@robota-sdk/agent-sessions';
-
-// Query API
-export { query } from './query.js';
-export type { IQueryOptions } from './query.js';
-
-// Config
-export type { IResolvedConfig } from './config/config-types.js';
-export { loadConfig } from './config/config-loader.js';
-
-// Context
-export type { ILoadedContext } from './context/context-loader.js';
-export { loadContext } from './context/context-loader.js';
-
-// Context window state (re-exported from agent-core)
 export type { IContextWindowState, IContextTokenUsage } from '@robota-sdk/agent-core';
-export type { IProjectInfo } from './context/project-detector.js';
-export { detectProject } from './context/project-detector.js';
-export type { ISystemPromptParams } from './context/system-prompt-builder.js';
-export { buildSystemPrompt } from './context/system-prompt-builder.js';
-
-// Permissions (from agent-core — direct re-export, no intermediate file)
-export { evaluatePermission } from '@robota-sdk/agent-core';
 export type { TToolArgs, IPermissionLists } from '@robota-sdk/agent-core';
-export { promptForApproval } from './permissions/permission-prompt.js';
-
-// Hooks (from agent-core — direct re-export, no intermediate file)
-export { runHooks } from '@robota-sdk/agent-core';
 export type { THookEvent, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
+export type { IAIProvider } from '@robota-sdk/agent-core';
 
-// Hook executors (SDK-level — prompt, agent)
-export { PromptExecutor, AgentExecutor } from './hooks/index.js';
-export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from './hooks/index.js';
-export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './hooks/index.js';
-
-// Standard paths
-export { projectPaths, userPaths } from './paths.js';
-
-// BundlePlugin system
+// ── Plugin management ───────────────────────────────────────
 export { PluginSettingsStore } from './plugins/index.js';
 export type { IPluginSettings } from './plugins/index.js';
 export { BundlePluginLoader } from './plugins/index.js';
@@ -102,42 +63,43 @@ export type {
   TEnabledPlugins,
 } from './plugins/index.js';
 
-// Agent definitions — built-in agent types and registry
+// ── Agent definitions ───────────────────────────────────────
 export type { IAgentDefinition } from './agents/index.js';
 export { BUILT_IN_AGENTS, getBuiltInAgent } from './agents/index.js';
 
-// Tools — agent-tool factory (SDK-specific, not a re-export)
+// ── Subagent (SDK-internal, exported for CLI fork execution) ─
+export {
+  getSubagentSuffix,
+  getForkWorkerSuffix,
+  assembleSubagentPrompt,
+  createSubagentSession,
+  createSubagentLogger,
+  resolveSubagentLogDir,
+} from './assembly/index.js';
+export type { ISubagentPromptOptions, ISubagentOptions } from './assembly/index.js';
 export { createAgentTool, storeAgentToolDeps, retrieveAgentToolDeps } from './tools/agent-tool.js';
 export type { IAgentToolDeps } from './tools/agent-tool.js';
 
-// Command system — commands, skill discovery, registry
-export {
-  CommandRegistry,
-  BuiltinCommandSource,
-  SkillCommandSource,
-  parseFrontmatter,
-  SystemCommandExecutor,
-  createSystemCommands,
-} from './commands/index.js';
-export type { ICommand, ICommandSource, ISystemCommand, ICommandResult } from './commands/index.js';
+// ── Hook executors ──────────────────────────────────────────
+export { PromptExecutor, AgentExecutor } from './hooks/index.js';
+export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from './hooks/index.js';
+export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './hooks/index.js';
 
-// InteractiveSession — event-driven session wrapper for any client
-export { InteractiveSession } from './interactive/index.js';
-export type {
-  IInteractiveSessionOptions,
-  IToolState,
-  IDiffLine,
-  IExecutionResult,
-  IToolSummary,
-  TInteractivePermissionHandler,
-  TInteractiveEventName,
-  IInteractiveSessionEvents,
-} from './interactive/index.js';
+// ── Paths ───────────────────────────────────────────────────
+export { projectPaths, userPaths } from './paths.js';
 
-// Individual tools (re-exported from agent-tools for backward compatibility)
-export { bashTool } from '@robota-sdk/agent-tools';
-export { readTool } from '@robota-sdk/agent-tools';
-export { writeTool } from '@robota-sdk/agent-tools';
-export { editTool } from '@robota-sdk/agent-tools';
-export { globTool } from '@robota-sdk/agent-tools';
-export { grepTool } from '@robota-sdk/agent-tools';
+// ── Permissions (from agent-core) ───────────────────────────
+export { evaluatePermission } from '@robota-sdk/agent-core';
+export { promptForApproval } from './permissions/permission-prompt.js';
+export { runHooks } from '@robota-sdk/agent-core';
+
+// ──────────────────────────────────────────────────────────────
+// INTERNAL (not exported):
+//   createSession()        — assembly factory
+//   createDefaultTools()   — tool assembly
+//   createProvider()       — REMOVED (provider comes from consumer)
+//   loadConfig()           — config loading (used by InteractiveSession internally)
+//   loadContext()          — context loading (used by InteractiveSession internally)
+//   SystemCommandExecutor  — embedded in InteractiveSession
+//   createSystemCommands() — embedded in InteractiveSession
+// ──────────────────────────────────────────────────────────────

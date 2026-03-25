@@ -26,7 +26,7 @@ import type { IProjectInfo } from '../context/project-detector.js';
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import { createDefaultTools, DEFAULT_TOOL_DESCRIPTIONS } from './create-tools.js';
-import { createProvider } from './create-provider.js';
+
 import { createAgentTool, storeAgentToolDeps } from '../tools/agent-tool.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 
@@ -92,7 +92,12 @@ export interface ICreateSessionOptions {
  * to Session as pre-constructed dependencies.
  */
 export function createSession(options: ICreateSessionOptions): Session {
-  const provider = options.provider ?? createProvider(options.config);
+  if (!options.provider) {
+    throw new Error(
+      'provider is required. SDK is provider-neutral — consumer must create and pass a provider instance.',
+    );
+  }
+  const provider = options.provider;
 
   const defaultTools = createDefaultTools();
   const tools = [...defaultTools, ...(options.additionalTools ?? [])];
@@ -127,6 +132,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     context: options.context,
     tools,
     terminal: options.terminal,
+    provider,
     permissionMode: options.permissionMode,
     permissionHandler: options.permissionHandler,
     hooks: options.config.hooks as Record<string, unknown> | undefined,
