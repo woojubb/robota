@@ -33,13 +33,18 @@ console.log(response);
 ## Key Features
 
 - **Robota class**: AI agent with conversation history, tool execution, and plugin support
+- **ConversationStore**: Append-only conversation history with streaming buffer (`beginAssistant`/`appendStreaming`/`commitAssistant`)
+- **IBaseMessage**: Every message has a unique `id` (UUID) and `state` (`'complete'` | `'interrupted'`)
 - **Multi-provider**: Register multiple providers, switch dynamically with `setModel()`
+- **AbstractAIProvider.streamWithAbort()**: Standard streaming wrapper for all providers — handles AbortSignal, returns partial content on abort
 - **Permission system**: Deterministic 3-step policy evaluation (`evaluatePermission`)
 - **Hook system**: Shell command-based lifecycle hooks (`runHooks`)
 - **Plugin system**: `AbstractPlugin` base class with lifecycle hooks (beforeRun, afterRun, onError, etc.)
 - **Event services**: Unified event emission with owner path tracking
 - **Error hierarchy**: Typed errors extending `RobotaError` (ProviderError, RateLimitError, etc.)
 - **Model definitions**: Central `CLAUDE_MODELS` registry with context windows, output limits, and human-readable names
+- **callProviderWithCache**: Accepts `Partial<IChatOptions>` overrides for per-call configuration
+- **AbortSignal propagation**: Signal flows through the entire execution chain (Session -> Robota -> Provider)
 - **Type safety**: Strict TypeScript, zero `any` in production code
 
 ## Robota API
@@ -87,15 +92,15 @@ agent-cli         ← Terminal UI
 
 ## What This Package Provides
 
-| Category        | Exports                                                                                                                       |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Core**        | `Robota`, `AbstractAgent`, `AbstractAIProvider`, `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor`        |
-| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `TPermissionMode`, `TToolArgs`                                          |
-| **Hooks**       | `runHooks`, `IRunHooksResult`, `THookEvent` (PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop)            |
-| **Events**      | `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, `EventEmitterPlugin`                                 |
-| **Models**      | `CLAUDE_MODELS`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition` |
-| **Types**       | `TUniversalMessage`, `IAgentConfig`, `IAIProvider`, `IToolSchema`, `IContextWindowState`                                      |
-| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                           |
+| Category        | Exports                                                                                                                                                           |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Core**        | `Robota`, `ConversationStore`, `AbstractAgent`, `AbstractAIProvider` (+ `streamWithAbort`), `AbstractPlugin`, `AbstractTool`, `AbstractExecutor`, `LocalExecutor` |
+| **Permissions** | `evaluatePermission`, `MODE_POLICY`, `TRUST_TO_MODE`, `TPermissionMode`, `TToolArgs`                                                                              |
+| **Hooks**       | `runHooks`, `IRunHooksResult`, `THookEvent` (PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop)                                                |
+| **Events**      | `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, `EventEmitterPlugin`                                                                     |
+| **Models**      | `CLAUDE_MODELS`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`                                     |
+| **Types**       | `TUniversalMessage`, `IBaseMessage` (`id`, `state`), `TMessageState`, `IAgentConfig`, `IAIProvider`, `IToolSchema`, `IContextWindowState`                         |
+| **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                                                               |
 
 ## What Moved Out in v3
 

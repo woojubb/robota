@@ -282,13 +282,13 @@ When the model receives history for the next turn, interrupted messages are anno
 
 ### Streaming Buffer
 
-During streaming, `ConversationSession` manages a streaming buffer internally:
+During streaming, `ConversationStore` manages a streaming buffer internally:
 
-1. `appendStreaming(delta)` — accumulates text from `onTextDelta` callbacks
-2. `appendToolCall(toolCall)` — accumulates tool calls from provider response
+1. `beginAssistant()` — opens a new streaming buffer for the assistant turn
+2. `appendStreaming(delta)` — accumulates text from `onTextDelta` callbacks
 3. `commitAssistant(state, metadata)` — commits the buffer to history as a confirmed message
 
-This is a single path — both normal completion (`'complete'`) and abort (`'interrupted'`) use the same `commitAssistant` call with different state values. The CLI's `onTextDelta` callback is preserved as a passthrough for real-time display.
+This is a single path — both normal completion (`'complete'`) and abort (`'interrupted'`) use the same `commitAssistant` call with different state values. History is append-only and read-only; text content is always preserved. The CLI's `onTextDelta` callback is preserved as a passthrough for real-time display.
 
 ## Error Handling
 

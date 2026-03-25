@@ -64,10 +64,10 @@ The Anthropic provider supports server-side web search (`web_search_20250305`). 
 
 ## Abort
 
-Cancel a running `session.run()`:
+Cancel a running `session.run()` via AbortSignal:
 
 ```typescript
-session.abort(); // Rejects run() with AbortError
+session.abort(); // Triggers AbortSignal, cancels streaming
 ```
 
-Note: The underlying provider API call is not cancelled — the abort only rejects the Session-level promise.
+The AbortSignal flows through the entire execution chain: `Session.run()` passes the signal to `Robota.run()`, which passes it to the provider. `AbstractAIProvider.streamWithAbort()` provides a standard streaming wrapper that all providers use to handle abort — when the signal fires, the provider returns partial content with `stopReason: 'aborted'`. The partial response is committed to history with `state: 'interrupted'`.
