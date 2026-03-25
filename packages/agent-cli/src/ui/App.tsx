@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import type {
   IResolvedConfig,
@@ -6,15 +6,18 @@ import type {
   IProjectInfo,
   SessionStore,
 } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import { getModelName } from '@robota-sdk/agent-core';
-import { getUserSettingsPath, updateModelInSettings } from '../utils/settings-io.js';
-import { createSystemMessage } from '@robota-sdk/agent-core';
-import { useSession } from './hooks/useSession.js';
-import { useMessages } from './hooks/useMessages.js';
-import { useSlashCommands } from './hooks/useSlashCommands.js';
-import { useSubmitHandler } from './hooks/useSubmitHandler.js';
-import { useCommandRegistry } from './hooks/useCommandRegistry.js';
+import { getModelName, createSystemMessage } from '@robota-sdk/agent-core';
+import {
+  getUserSettingsPath,
+  updateModelInSettings,
+  deleteSettings,
+  readSettings,
+  writeSettings,
+} from '../utils/settings-io.js';
+import { useInteractiveSession } from './hooks/useInteractiveSession.js';
+import type { ISideEffects } from './hooks/useInteractiveSession.js';
 import { usePluginCallbacks } from './hooks/usePluginCallbacks.js';
 import MessageList from './MessageList.js';
 import StatusBar from './StatusBar.js';
@@ -37,123 +40,105 @@ interface IProps {
 
 const EXIT_DELAY_MS = 500;
 
-/** Merge plugin hooks into config hooks (plugin hooks have lowest priority). */
-function mergeHooksIntoConfig(
-  configHooks: Record<string, unknown[]> | undefined,
-  pluginHooks: Record<string, unknown[]>,
-): Record<string, unknown[]> | undefined {
-  const pluginKeys = Object.keys(pluginHooks);
-  if (pluginKeys.length === 0) return configHooks;
-
-  const merged: Record<string, unknown[]> = {};
-  // Plugin hooks first (lower priority)
-  for (const [event, groups] of Object.entries(pluginHooks)) {
-    merged[event] = [...groups];
-  }
-  // Config hooks override/append (higher priority)
-  if (configHooks) {
-    for (const [event, groups] of Object.entries(configHooks)) {
-      if (!Array.isArray(groups)) continue;
-      if (!merged[event]) merged[event] = [];
-      merged[event].push(...groups);
-    }
-  }
-  return merged;
-}
-
 export default function App(props: IProps): React.ReactElement {
   const { exit } = useApp();
-  // Load plugins first — hooks must be available before session creation
-  const { registry, pluginHooks } = useCommandRegistry(props.cwd ?? process.cwd());
+  const cwd = props.cwd ?? process.cwd();
 
-  // Merge plugin hooks into config before session creation
-  const configWithPluginHooks = {
-    ...props.config,
-    hooks: mergeHooksIntoConfig(
-      props.config.hooks as Record<string, unknown[]> | undefined,
-      pluginHooks as Record<string, unknown[]>,
-    ),
+  const {
+    interactiveSession,
+    registry,
+    messages,
+    addMessage,
+    streamingText,
+    activeTools,
+    isThinking,
+    isAborting,
+    pendingPrompt,
+    permissionRequest,
+    contextState,
+    handleSubmit: baseHandleSubmit,
+    handleAbort,
+    handleCancelQueue,
+  } = useInteractiveSession({
+    config: props.config,
+    context: props.context,
+    projectInfo: props.projectInfo,
+    sessionStore: props.sessionStore,
+    permissionMode: props.permissionMode,
+    maxTurns: props.maxTurns,
+    cwd,
+  });
+
+  const pluginCallbacks = usePluginCallbacks(cwd);
+
+  // TUI-specific state
+  const [pendingModelId, setPendingModelId] = useState<string | null>(null);
+  const pendingModelChangeRef = useRef<string | null>(null);
+  const [showPluginTUI, setShowPluginTUI] = useState(false);
+
+  // Wrap submit to handle TUI-specific side effects from system commands
+  const handleSubmit = async (input: string): Promise<void> => {
+    await baseHandleSubmit(input);
+
+    // Check for TUI-specific side effects set by useInteractiveSession
+    const sideEffects = interactiveSession as InteractiveSession & ISideEffects;
+
+    if (sideEffects._pendingModelId) {
+      const modelId = sideEffects._pendingModelId as string;
+      delete sideEffects._pendingModelId;
+      pendingModelChangeRef.current = modelId;
+      setPendingModelId(modelId);
+      return;
+    }
+
+    if (sideEffects._pendingLanguage) {
+      const lang = sideEffects._pendingLanguage as string;
+      delete sideEffects._pendingLanguage;
+      const settingsPath = getUserSettingsPath();
+      const settings = readSettings(settingsPath);
+      settings.language = lang;
+      writeSettings(settingsPath, settings);
+      addMessage(createSystemMessage(`Language set to "${lang}". Restarting...`));
+      setTimeout(() => exit(), EXIT_DELAY_MS);
+      return;
+    }
+
+    if (sideEffects._resetRequested) {
+      delete sideEffects._resetRequested;
+      const settingsPath = getUserSettingsPath();
+      if (deleteSettings(settingsPath)) {
+        addMessage(createSystemMessage(`Deleted ${settingsPath}. Exiting...`));
+      } else {
+        addMessage(createSystemMessage('No user settings found.'));
+      }
+      setTimeout(() => exit(), EXIT_DELAY_MS);
+      return;
+    }
+
+    if (sideEffects._exitRequested) {
+      delete sideEffects._exitRequested;
+      setTimeout(() => exit(), EXIT_DELAY_MS);
+      return;
+    }
+
+    if (sideEffects._triggerPluginTUI) {
+      delete sideEffects._triggerPluginTUI;
+      setShowPluginTUI(true);
+      return;
+    }
   };
 
-  const { session, permissionRequest, streamingText, clearStreamingText, activeTools } = useSession(
-    { ...props, config: configWithPluginHooks },
-  );
-  const { messages, setMessages, addMessage } = useMessages();
-  const [isThinking, setIsThinking] = useState(false);
-  const initialCtx = session.getContextState();
-  const [contextState, setContextState] = useState({
-    percentage: initialCtx.usedPercentage,
-    usedTokens: initialCtx.usedTokens,
-    maxTokens: initialCtx.maxTokens,
-  });
-  const pendingModelChangeRef = useRef<string | null>(null);
-  const [pendingModelId, setPendingModelId] = useState<string | null>(null);
-  const [showPluginTUI, setShowPluginTUI] = useState(false);
-  const [isAborting, setIsAborting] = useState(false);
-  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
-  const pendingPromptRef = useRef<string | null>(null);
-
-  const pluginCallbacks = usePluginCallbacks(props.cwd ?? process.cwd());
-  const handleSlashCommand = useSlashCommands(
-    session,
-    addMessage,
-    setMessages,
-    exit,
-    registry,
-    pendingModelChangeRef,
-    setPendingModelId,
-    pluginCallbacks,
-    setShowPluginTUI,
-  );
-  const executePrompt = useSubmitHandler(
-    session,
-    addMessage,
-    handleSlashCommand,
-    clearStreamingText,
-    setIsThinking,
-    setContextState,
-    registry,
-  );
-
-  // Wrap submit: if thinking, queue the prompt (max 1) instead of executing
-  const handleSubmit = useCallback(
-    async (input: string) => {
-      if (isThinking) {
-        setPendingPrompt(input);
-        pendingPromptRef.current = input;
-        return;
-      }
-      await executePrompt(input);
-    },
-    [isThinking, executePrompt],
-  );
-
+  // ESC abort
   useInput(
     (_input: string, key: { escape: boolean }) => {
-      // Ctrl+C is handled by Ink's exitOnCtrlC:true (always exits, bypasses useInput)
       if (key.escape && isThinking) {
-        setIsAborting(true);
-        setPendingPrompt(null);
-        pendingPromptRef.current = null;
-        session.abort();
+        handleAbort();
       }
     },
     { isActive: !permissionRequest && !showPluginTUI },
   );
 
-  // When execution ends: reset aborting, auto-execute queued prompt
-  useEffect(() => {
-    if (!isThinking) {
-      setIsAborting(false);
-      if (pendingPromptRef.current) {
-        const prompt = pendingPromptRef.current;
-        setPendingPrompt(null);
-        pendingPromptRef.current = null;
-        // Execute on next tick to avoid state update during render
-        setTimeout(() => executePrompt(prompt), 0);
-      }
-    }
-  }, [isThinking, pendingPrompt, executePrompt]);
+  const session = interactiveSession.getSession();
 
   return (
     <Box flexDirection="column">
@@ -224,10 +209,7 @@ export default function App(props: IProps): React.ReactElement {
       />
       <InputArea
         onSubmit={handleSubmit}
-        onCancelQueue={() => {
-          setPendingPrompt(null);
-          pendingPromptRef.current = null;
-        }}
+        onCancelQueue={handleCancelQueue}
         isDisabled={!!permissionRequest || showPluginTUI || (isThinking && !!pendingPrompt)}
         isAborting={isAborting}
         pendingPrompt={pendingPrompt}
