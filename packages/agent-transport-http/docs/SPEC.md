@@ -23,7 +23,8 @@ Hono Router (agent-transport-http)
   ├── POST /cancel-queue → session.cancelQueue() → JSON
   ├── GET  /messages     → session.getMessages() → JSON
   ├── GET  /context      → session.getContextState() → JSON
-  └── GET  /status       → isExecuting + pendingPrompt → JSON
+  ├── GET  /executing    → isExecuting → JSON
+  └── GET  /pending      → pendingPrompt → JSON
   ↓
 InteractiveSession (agent-sdk)
   ↓

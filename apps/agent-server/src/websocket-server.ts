@@ -5,7 +5,7 @@ import { Server } from 'http';
 import type {
   IPlaygroundWebSocketMessage,
   TPlaygroundWebSocketMessageKind,
-} from '@robota-sdk/agent-remote';
+} from '@robota-sdk/agent-remote-client';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 
 function isUniversalObjectValue(value: TUniversalValue): value is Record<string, TUniversalValue> {
