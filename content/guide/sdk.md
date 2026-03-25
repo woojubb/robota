@@ -258,12 +258,28 @@ Calling `session.getCommands()` returns the merged list for autocomplete.
 
 Before each submitted prompt, `SystemCommandExecutor` checks whether the input matches a built-in system command. If it does, the command is executed directly (e.g., clearing history, switching model, running compaction) and no LLM call is made. Unrecognized inputs are forwarded to the session's `run()`.
 
+## Transport Adapters
+
+`InteractiveSession` is the single entry point for all interactive use cases. Transport adapters in the `agent-transport-*` packages consume it to expose the session over different protocols:
+
+| Package                | Protocol    | Description                                                      |
+| ---------------------- | ----------- | ---------------------------------------------------------------- |
+| `agent-transport-http` | HTTP / REST | Hono-based adapter; runs on Cloudflare Workers, Node.js, Lambda  |
+| `agent-transport-mcp`  | MCP         | Exposes the session as an MCP server for Claude and other agents |
+| `agent-transport-ws`   | WebSocket   | Framework-agnostic real-time adapter (any WS library)            |
+
+Each transport wraps an `InteractiveSession` instance and translates protocol messages into `submit()` / `abort()` calls, then forwards emitted events back to the client. No separate gateway interface exists — `InteractiveSession` is the gateway.
+
+`agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport-http`. It has no dependency on `agent-sdk`.
+
 ## Assembly vs Direct Usage
 
 | Use case                       | Approach                                                           |
 | ------------------------------ | ------------------------------------------------------------------ |
 | Quick one-shot                 | `query()` — handles everything                                     |
 | Interactive CLI / web / server | `InteractiveSession` — event-driven, queuing, command handling     |
+| Expose over HTTP / MCP / WS    | `agent-transport-{http,mcp,ws}` wrapping `InteractiveSession`      |
+| Call a remote agent over HTTP  | `agent-remote-client` — standalone HTTP client                     |
 | Low-level multi-turn           | `createSession()` — direct session lifecycle                       |
 | Custom agent (no SDK)          | `new Robota()` from `agent-core` directly                          |
 | Custom session (no SDK)        | `new Session()` from `agent-sessions` with your own tools/provider |
