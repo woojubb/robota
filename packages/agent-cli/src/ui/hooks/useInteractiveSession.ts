@@ -302,7 +302,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
           addMessage(createSystemMessage(`Invoking ${skillCmd.source}: ${cmd}`));
           const prompt = await buildSkillPrompt(input, registry);
           if (prompt) {
-            await interactiveSession.submit(prompt);
+            await interactiveSession.submit(prompt, input);
             setPendingPrompt(interactiveSession.getPendingPrompt());
             return;
           }

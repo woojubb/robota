@@ -19,9 +19,7 @@ import {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
-  createToolMessage,
 } from '@robota-sdk/agent-core';
-import { randomUUID } from 'node:crypto';
 import type {
   IToolState,
   IDiffLine,
@@ -67,6 +65,7 @@ export class InteractiveSession {
   // Execution state
   private executing = false;
   private pendingPrompt: string | null = null;
+  private pendingDisplayInput: string | undefined;
 
   // Display messages (what clients render — not the raw session history)
   private messages: TUniversalMessage[] = [];
@@ -121,13 +120,15 @@ export class InteractiveSession {
 
   // ── Public API ────────────────────────────────────────────────
 
-  /** Submit a prompt. Queues if already executing (max 1 queued). */
-  async submit(input: string): Promise<void> {
+  /** Submit a prompt. Queues if already executing (max 1 queued).
+   *  displayInput overrides what appears as the user message (e.g., "/audit" instead of full skill prompt). */
+  async submit(input: string, displayInput?: string): Promise<void> {
     if (this.executing) {
       this.pendingPrompt = input;
+      this.pendingDisplayInput = displayInput;
       return;
     }
-    await this.executePrompt(input);
+    await this.executePrompt(input, displayInput);
   }
 
   /** Abort current execution and clear queue. */
@@ -171,11 +172,12 @@ export class InteractiveSession {
 
   // ── Execution ─────────────────────────────────────────────────
 
-  private async executePrompt(input: string): Promise<void> {
+  private async executePrompt(input: string, displayInput?: string): Promise<void> {
     this.executing = true;
     this.clearStreaming();
     this.emit('thinking', true);
-    this.messages.push(createUserMessage(input));
+    // displayInput: show user-facing text (e.g., "/audit") instead of full built prompt
+    this.messages.push(createUserMessage(displayInput ?? input));
 
     const historyBefore = this.session.getHistory().length;
 
@@ -211,9 +213,11 @@ export class InteractiveSession {
       // Auto-execute queued prompt
       if (this.pendingPrompt) {
         const queued = this.pendingPrompt;
+        const queuedDisplay = this.pendingDisplayInput;
         this.pendingPrompt = null;
+        this.pendingDisplayInput = undefined;
         // Next tick to avoid re-entrancy
-        setTimeout(() => this.executePrompt(queued), 0);
+        setTimeout(() => this.executePrompt(queued, queuedDisplay), 0);
       }
     }
   }
@@ -290,14 +294,8 @@ export class InteractiveSession {
 
   private buildResult(response: string, historyBefore: number): IExecutionResult {
     const toolSummaries = this.extractToolSummaries(historyBefore);
-    if (toolSummaries.length > 0) {
-      this.messages.push(
-        createToolMessage(JSON.stringify(toolSummaries), {
-          toolCallId: randomUUID(),
-          name: `${toolSummaries.length} tools`,
-        }),
-      );
-    }
+    // Tool summaries are in IExecutionResult.toolSummaries — clients render them as they wish.
+    // Do NOT push raw JSON into messages.
     return {
       response,
       messages: this.messages,
@@ -309,14 +307,6 @@ export class InteractiveSession {
   private buildInterruptedResult(historyBefore: number): IExecutionResult {
     const history = this.session.getHistory();
     const toolSummaries = this.extractToolSummaries(historyBefore);
-    if (toolSummaries.length > 0) {
-      this.messages.push(
-        createToolMessage(JSON.stringify(toolSummaries), {
-          toolCallId: randomUUID(),
-          name: `${toolSummaries.length} tools`,
-        }),
-      );
-    }
 
     // Merge consecutive assistant messages from this execution
     const parts: string[] = [];
