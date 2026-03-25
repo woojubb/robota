@@ -1,4 +1,4 @@
-const PASTE_LABEL_RE = /\[Pasted text #(\d+) \+\d+ lines\]/g;
+const PASTE_LABEL_RE = /\[Pasted text #(\d+)(?: \+\d+ lines)?\]/g;
 
 /**
  * Replace paste label placeholders with their original content from the store.
