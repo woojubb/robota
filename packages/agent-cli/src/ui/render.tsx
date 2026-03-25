@@ -37,9 +37,18 @@ export function renderApp(options: IRenderOptions): void {
     exitOnCtrlC: true,
   });
 
-  instance.waitUntilExit().catch((err) => {
-    if (err) {
-      process.stderr.write(`\n[EXIT ERROR] ${err}\n`);
-    }
-  });
+  instance
+    .waitUntilExit()
+    .then(() => {
+      // Ink exited (Ctrl+C or explicit exit()) — force process termination.
+      // Without this, pending async operations (session.run, streaming) keep
+      // the event loop alive, requiring a second Ctrl+C.
+      process.exit(0);
+    })
+    .catch((err) => {
+      if (err) {
+        process.stderr.write(`\n[EXIT ERROR] ${err}\n`);
+      }
+      process.exit(1);
+    });
 }

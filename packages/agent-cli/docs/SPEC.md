@@ -484,9 +484,15 @@ When the Edit tool completes successfully, a compact diff is shown below the too
 
 When a permission prompt is shown for an Edit tool, the diff should be displayed alongside the Allow/Deny prompt so the user can see what will change before approving.
 
-## ESC Abort Behavior
+## Keyboard Controls
 
-Pressing ESC during an active `session.run()` triggers abort:
+### Ctrl+C — Process Exit
+
+Ctrl+C always exits the process immediately. This is handled by Ink's `exitOnCtrlC: true` option at the render level, bypassing all `useInput` handlers. It works regardless of which UI overlay is active (PluginTUI, permission prompt, etc.).
+
+### ESC — Abort Execution
+
+ESC aborts the current execution gracefully (unlike Ctrl+C which kills the process):
 
 1. ESC key handler calls `session.abort()`
 2. AbortSignal propagates through the entire stack (ExecutionService -> Provider -> `streamWithAbort`)
