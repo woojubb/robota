@@ -7,32 +7,13 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import {
-  InteractiveSession,
-  CommandRegistry,
-  BuiltinCommandSource,
-  SkillCommandSource,
-  SystemCommandExecutor,
-  BundlePluginLoader,
-} from '@robota-sdk/agent-sdk';
-import type {
-  IResolvedConfig,
-  ILoadedContext,
-  IProjectInfo,
-  SessionStore,
-  IToolState,
-  IExecutionResult,
-  THooksConfig,
-} from '@robota-sdk/agent-sdk';
+import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
+import type { IAIProvider, IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode, TUniversalMessage, TToolArgs } from '@robota-sdk/agent-core';
 import { createSystemMessage } from '@robota-sdk/agent-core';
 import type { TPermissionResult } from '@robota-sdk/agent-sessions';
-import { PluginCommandSource } from '../../commands/plugin-source.js';
 import { buildSkillPrompt } from '../../utils/skill-prompt.js';
 import type { IPermissionRequest } from '../types.js';
-import { mergePluginHooks, mergeHooksIntoConfig } from './plugin-hooks-merger.js';
 
 /** Max messages kept in React state for rendering */
 const MAX_RENDERED_MESSAGES = 100;
@@ -47,20 +28,15 @@ export interface ISideEffects {
 }
 
 export interface IInteractiveSessionProps {
-  config: IResolvedConfig;
-  context: ILoadedContext;
-  projectInfo?: IProjectInfo;
-  sessionStore?: SessionStore;
+  cwd: string;
+  provider: IAIProvider;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
-  cwd?: string;
 }
 
 export interface IInteractiveSessionState {
   interactiveSession: InteractiveSession;
   registry: CommandRegistry;
-  commandExecutor: SystemCommandExecutor;
-  pluginHooks: THooksConfig;
   messages: TUniversalMessage[];
   addMessage: (msg: TUniversalMessage) => void;
   setMessages: React.Dispatch<React.SetStateAction<TUniversalMessage[]>>;
@@ -79,59 +55,24 @@ export interface IInteractiveSessionState {
 interface IInitState {
   interactiveSession: InteractiveSession;
   registry: CommandRegistry;
-  commandExecutor: SystemCommandExecutor;
-  pluginHooks: THooksConfig;
 }
 
 function initializeSession(
   props: IInteractiveSessionProps,
   permissionHandler: (toolName: string, toolArgs: TToolArgs) => Promise<TPermissionResult>,
 ): IInitState {
-  const cwd = props.cwd ?? process.cwd();
-  const registry = new CommandRegistry();
-  registry.addSource(new BuiltinCommandSource());
-  registry.addSource(new SkillCommandSource(cwd));
-
-  let pluginHooks: THooksConfig = {};
-  const pluginsDir = join(homedir(), '.robota', 'plugins');
-  const loader = new BundlePluginLoader(pluginsDir);
-  try {
-    const plugins = loader.loadPluginsSync();
-    if (plugins.length > 0) {
-      registry.addSource(new PluginCommandSource(plugins));
-      pluginHooks = mergePluginHooks(plugins);
-    }
-  } catch {
-    // No plugins dir or load failed
-  }
-
-  const mergedConfig = {
-    ...props.config,
-    hooks: mergeHooksIntoConfig(
-      props.config.hooks as
-        | Record<string, Array<{ [key: string]: string | undefined }>>
-        | undefined,
-      pluginHooks as Record<string, Array<{ [key: string]: string | undefined }>>,
-    ),
-  };
-
   const interactiveSession = new InteractiveSession({
-    config: mergedConfig,
-    context: props.context,
-    projectInfo: props.projectInfo,
-    sessionStore: props.sessionStore,
+    cwd: props.cwd,
+    provider: props.provider,
     permissionMode: props.permissionMode,
     maxTurns: props.maxTurns,
-    cwd,
     permissionHandler,
   });
 
-  return {
-    interactiveSession,
-    registry,
-    commandExecutor: new SystemCommandExecutor(),
-    pluginHooks,
-  };
+  // Registry for autocomplete UI — InteractiveSession manages commands internally
+  const registry = new CommandRegistry();
+
+  return { interactiveSession, registry };
 }
 
 export function useInteractiveSession(props: IInteractiveSessionProps): IInteractiveSessionState {
@@ -192,7 +133,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   if (stateRef.current === null) {
     stateRef.current = initializeSession(props, permissionHandler);
   }
-  const { interactiveSession, registry, commandExecutor } = stateRef.current;
+  const { interactiveSession, registry } = stateRef.current;
 
   useEffect(() => {
     let streamBuf = '';
@@ -273,7 +214,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
         const cmd = parts[0]?.toLowerCase() ?? '';
         const args = parts.slice(1).join(' ');
 
-        const result = await commandExecutor.execute(cmd, interactiveSession, args);
+        const result = await interactiveSession.executeCommand(cmd, args);
         if (result) {
           addMessage(createSystemMessage(result.message));
           const effects = interactiveSession as InteractiveSession & ISideEffects;
@@ -332,7 +273,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       // Sync queue state immediately so UI shows "Queued:" indicator
       setPendingPrompt(interactiveSession.getPendingPrompt());
     },
-    [interactiveSession, commandExecutor, registry, addMessage],
+    [interactiveSession, registry, addMessage],
   );
 
   const handleAbort = useCallback(() => {
@@ -356,8 +297,6 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   return {
     interactiveSession,
     registry,
-    commandExecutor,
-    pluginHooks: stateRef.current.pluginHooks,
     messages,
     addMessage,
     setMessages,
