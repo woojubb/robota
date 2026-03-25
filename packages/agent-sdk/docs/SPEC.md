@@ -199,8 +199,16 @@ const response = await session.run('Hello');
 
 ### Built-in Tools — Direct Usage
 
+`@robota-sdk/agent-sdk` re-exports 6 of the 8 built-in tools from `@robota-sdk/agent-tools`:
+
 ```typescript
-import { bashTool, readTool, writeTool } from '@robota-sdk/agent-tools';
+import { bashTool, readTool, writeTool, editTool, globTool, grepTool } from '@robota-sdk/agent-sdk';
+```
+
+`webFetchTool` and `webSearchTool` are NOT re-exported from `@robota-sdk/agent-sdk`. They must be imported directly from `@robota-sdk/agent-tools`:
+
+```typescript
+import { webFetchTool, webSearchTool } from '@robota-sdk/agent-tools';
 ```
 
 ### Permissions — Direct Usage
@@ -272,18 +280,18 @@ Bundle plugins package reusable extensions (tools, hooks, permissions, system pr
 
 ### Types
 
-| Type              | Description                                                     |
-| ----------------- | --------------------------------------------------------------- |
-| `IBundleManifest` | Plugin metadata: name, version, description, author, keywords   |
-| `IBundlePlugin`   | Full bundle: manifest + tools, hooks, permissions, systemPrompt |
+| Type                    | Description                                                     |
+| ----------------------- | --------------------------------------------------------------- |
+| `IBundlePluginManifest` | Plugin metadata: name, version, description, author, keywords   |
+| `ILoadedBundlePlugin`   | Full bundle: manifest + tools, hooks, permissions, systemPrompt |
 
 ### Loader
 
-`BundleLoader` loads a bundle plugin from a directory path. It reads the manifest, resolves tool/hook definitions, and validates the bundle structure.
+`BundlePluginLoader` loads a bundle plugin from a directory path. It reads the manifest, resolves tool/hook definitions, and validates the bundle structure.
 
 ### Installer
 
-`BundleInstaller` manages plugin installation and uninstallation:
+`BundlePluginInstaller` manages plugin installation and uninstallation:
 
 - Installs bundles to `~/.robota/plugins/` (user) or `.robota/plugins/` (project)
 - Tracks installed plugins in a registry file
@@ -296,7 +304,7 @@ Bundle plugins package reusable extensions (tools, hooks, permissions, system pr
 - **Source management**: Add, remove, and list marketplace sources
 - **Default marketplace**: Built-in default source URL for the Robota plugin marketplace
 - **Search**: Query available plugins by name, keyword, or category
-- **Install**: Download and install plugins via `BundleInstaller`
+- **Install**: Download and install plugins via `BundlePluginInstaller`
 
 ## System Prompt Skill Injection
 
@@ -349,9 +357,9 @@ Assembles an isolated child Session for subagent execution. Unlike `createSessio
 | `Explore`         | `claude-haiku-4-5` | Denies Write, Edit  | Read-only code exploration  |
 | `Plan`            | (parent)           | Denies Write, Edit  | Read-only planning/research |
 
-### AgentDefinitionLoader
+### AgentDefinitionLoader (Internal)
 
-Scans directories for custom `.md` agent definitions with YAML frontmatter, merged with built-in agents. Custom agents override built-in agents on name collision.
+`AgentDefinitionLoader` is an internal class — it is not exported from `src/index.ts`. It scans directories for custom `.md` agent definitions with YAML frontmatter, merged with built-in agents. Custom agents override built-in agents on name collision.
 
 **Scan directories (highest priority first):**
 

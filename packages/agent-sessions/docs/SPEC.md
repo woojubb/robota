@@ -75,24 +75,25 @@ Types consumed from other packages (not owned here):
 
 ## Public API Surface
 
-| Export                   | Kind      | Description                                                            |
-| ------------------------ | --------- | ---------------------------------------------------------------------- |
-| `Session`                | Class     | Wraps Robota agent with permissions, hooks, streaming, and persistence |
-| `PermissionEnforcer`     | Class     | Tool permission checking, hook execution, output truncation            |
-| `ContextWindowTracker`   | Class     | Token usage tracking and auto-compact threshold                        |
-| `CompactionOrchestrator` | Class     | Conversation compaction via LLM summary                                |
-| `SessionStore`           | Class     | JSON file persistence for session records (`~/.robota/sessions/`)      |
-| `FileSessionLogger`      | Class     | JSONL file-based session event logger                                  |
-| `SilentSessionLogger`    | Class     | No-op session logger                                                   |
-| `ISessionOptions`        | Interface | Constructor options for Session                                        |
-| `TPermissionHandler`     | Type      | Custom permission approval callback                                    |
-| `TPermissionResult`      | Type      | Permission decision result                                             |
-| `ITerminalOutput`        | Interface | Terminal I/O abstraction                                               |
-| `ISpinner`               | Interface | Spinner handle                                                         |
-| `ISessionLogger`         | Interface | Pluggable session event logger interface                               |
-| `TSessionLogData`        | Type      | Structured log event data                                              |
-| `ISessionRecord`         | Interface | Persisted session record shape                                         |
-| `IContextWindowState`    | Type      | Context window usage state (re-exported from agent-core)               |
+| Export                           | Kind                 | Description                                                                                                    |
+| -------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `Session`                        | Class                | Wraps Robota agent with permissions, hooks, streaming, and persistence                                         |
+| `PermissionEnforcer`             | Class                | Tool permission checking, hook execution, output truncation                                                    |
+| `ContextWindowTracker`           | Class                | Token usage tracking and auto-compact threshold                                                                |
+| `CompactionOrchestrator`         | Class                | Conversation compaction via LLM summary                                                                        |
+| `SessionStore`                   | Class                | JSON file persistence for session records (`~/.robota/sessions/`)                                              |
+| `FileSessionLogger`              | Class                | JSONL file-based session event logger                                                                          |
+| `SilentSessionLogger`            | Class                | No-op session logger                                                                                           |
+| `ISessionOptions`                | Interface            | Constructor options for Session                                                                                |
+| `TPermissionHandler`             | Type                 | Custom permission approval callback                                                                            |
+| `TPermissionResult`              | Type                 | Permission decision result                                                                                     |
+| `ITerminalOutput`                | Interface            | Terminal I/O abstraction                                                                                       |
+| `ISpinner`                       | Interface            | Spinner handle                                                                                                 |
+| ~~`IPermissionEnforcerOptions`~~ | Interface (internal) | Options for constructing `PermissionEnforcer` — **not exported** from `src/index.ts`. Internal to the package. |
+| `ISessionLogger`                 | Interface            | Pluggable session event logger interface                                                                       |
+| `TSessionLogData`                | Type                 | Structured log event data                                                                                      |
+| `ISessionRecord`                 | Interface            | Persisted session record shape                                                                                 |
+| `IContextWindowState`            | Type                 | Context window usage state (re-exported from agent-core)                                                       |
 
 ### Key Session Methods
 

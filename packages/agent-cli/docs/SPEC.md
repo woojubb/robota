@@ -356,12 +356,15 @@ src/
 │   ├── skill-source.ts              ← SkillCommandSource (discovers from 4 scan paths)
 │   ├── plugin-source.ts             ← PluginCommandSource (skills from installed plugins)
 │   ├── command-registry.ts          ← CommandRegistry (aggregates multiple sources)
-│   └── slash-executor.ts            ← Slash command handlers (pure functions, no React)
+│   ├── slash-executor.ts            ← Slash command handlers (pure functions, no React)
+│   └── skill-executor.ts            ← Skill execution runner (fork/agent context dispatch)
 ├── utils/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
 │   ├── skill-prompt.ts              ← Skill prompt builder (pure function)
-│   └── tool-call-extractor.ts       ← Tool call display extraction from history
+│   ├── tool-call-extractor.ts       ← Tool call display extraction from history
+│   ├── paste-labels.ts              ← Paste label insertion and expansion for multiline paste
+│   └── edit-diff.ts                 ← Edit diff computation and formatting for display
 ├── permissions/                      ← (empty — prompt imported from @robota-sdk/agent-sdk)
 └── ui/
     ├── App.tsx                      ← Main layout (thin JSX shell, ~130 lines)
@@ -381,8 +384,12 @@ src/
     ├── CjkTextInput.tsx             ← Custom text input with Korean IME support
     ├── ConfirmPrompt.tsx            ← Reusable arrow-key confirmation prompt
     ├── WaveText.tsx                 ← Wave color animation for waiting indicator
+    ├── DiffBlock.tsx                ← Diff block rendering for Edit tool output display
+    ├── MenuSelect.tsx               ← Arrow-key menu selection component (Plugin TUI)
+    ├── PluginTUI.tsx                ← Plugin management TUI (screen stack navigation)
+    ├── TextPrompt.tsx               ← Text input prompt component (Plugin TUI)
+    ├── plugin-tui-handlers.ts       ← Plugin TUI action handlers (install, uninstall, etc.)
     ├── render-markdown.ts           ← Markdown rendering for terminal output
-    ├── visual-line.ts               ← Visual line position utilities for wrapped text navigation
     ├── InkTerminal.ts               ← No-op ITerminalOutput
     └── types.ts                     ← IPermissionRequest
 ```

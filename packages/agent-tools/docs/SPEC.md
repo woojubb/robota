@@ -100,6 +100,7 @@ interface TToolResult {
   output: string;
   error?: string;
   exitCode?: number;
+  startLine?: number; // Start line number of the edit in the original file (Edit tool only)
 }
 ```
 

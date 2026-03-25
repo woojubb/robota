@@ -328,6 +328,32 @@ export type {
   IEventEmitterMetricsSnapshot,
 } from './plugins/event-emitter/metrics';
 
+// ===== EVENT SERVICE IMPLEMENTATION EXPORTS (PUBLIC) =====
+// NOTE: agent-core is the SSOT for all event types and implementations.
+// agent-event-service re-exports from here; do not define duplicates there.
+export type {
+  TEventExtensionValue,
+  TEventUniversalValue,
+  TEventLoggerData,
+  IEventObjectValue,
+} from './event-service/interfaces';
+
+export {
+  AbstractEventService,
+  DEFAULT_ABSTRACT_EVENT_SERVICE,
+  isDefaultEventService,
+  bindEventServiceOwner,
+  bindWithOwnerPath,
+  DefaultEventService,
+  StructuredEventService,
+  ObservableEventService,
+  composeEventName,
+} from './event-service/event-service';
+
+export { TASK_EVENTS, TASK_EVENT_PREFIX } from './event-service/task-events';
+export { USER_EVENTS, USER_EVENT_PREFIX } from './event-service/user-events';
+export type { TUserEvent } from './event-service/user-events';
+
 // ===== EVENT CONSTANT EXPORTS (PUBLIC) =====
 // NOTE: These are the single source of truth for event names. Do not hardcode strings.
 export { EXECUTION_EVENTS, EXECUTION_EVENT_PREFIX } from './services/execution-service';

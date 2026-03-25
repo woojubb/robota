@@ -1,5 +1,7 @@
 // @robota-sdk/agent-event-service
-// Owns and exports event service interfaces and implementations
+// Re-exports all event service types and implementations from @robota-sdk/agent-core.
+// agent-core is the SSOT for all event types. This package is a thin re-export layer
+// maintained for consumers that depend on @robota-sdk/agent-event-service directly.
 export type {
   IAgentEventData,
   IBaseEventData,
@@ -14,7 +16,7 @@ export type {
   TEventUniversalValue,
   TEventLoggerData,
   IEventObjectValue,
-} from './interfaces';
+} from '@robota-sdk/agent-core';
 
 export {
   AbstractEventService,
@@ -26,8 +28,8 @@ export {
   StructuredEventService,
   ObservableEventService,
   composeEventName,
-} from './event-service';
+} from '@robota-sdk/agent-core';
 
-export { TASK_EVENTS, TASK_EVENT_PREFIX } from './task-events';
-export { USER_EVENTS, USER_EVENT_PREFIX } from './user-events';
-export type { TUserEvent } from './user-events';
+export { TASK_EVENTS, TASK_EVENT_PREFIX } from '@robota-sdk/agent-core';
+export { USER_EVENTS, USER_EVENT_PREFIX } from '@robota-sdk/agent-core';
+export type { TUserEvent } from '@robota-sdk/agent-core';

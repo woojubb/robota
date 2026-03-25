@@ -4,7 +4,6 @@
   "description": "Complete AI agent implementation with unified core and tools functionality - conversation management, plugin system, and advanced agent features",
   "type": "module",
   "main": "dist/node/index.js",
-  "module": "dist/node/index.mjs",
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
