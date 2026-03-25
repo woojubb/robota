@@ -1,6 +1,6 @@
 # CLI Reference
 
-`@robota-sdk/agent-cli` is an interactive terminal AI coding assistant built on Robota SDK. It loads project context (AGENTS.md, CLAUDE.md) and provides a full TUI with tool execution, permission prompts, and context management.
+`@robota-sdk/agent-cli` is a purely TUI layer built on `InteractiveSession` from `@robota-sdk/agent-sdk`. The CLI has no session logic of its own: the `useInteractiveSession` React hook subscribes to `InteractiveSession` events and translates them into React state. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the SDK layer.
 
 ## Installation
 
@@ -35,9 +35,21 @@ The TUI (built with React + Ink) provides:
 - **ESC abort** — Press ESC during streaming to cancel. Partial response is saved with interrupted state
 - **Message type SSOT** — Uses `TUniversalMessage` from agent-core directly. Each message has `id` and `state`
 
+### useInteractiveSession Hook
+
+The `useInteractiveSession` hook is the sole bridge between `InteractiveSession` (SDK) and the React component tree. It:
+
+1. Receives an `InteractiveSession` instance as its argument.
+2. Subscribes to all SDK events (`textDelta`, `message`, `statusChange`, `contextUpdate`, `error`).
+3. Exposes derived React state (messages, status, context info) and actions (`submit`, `abort`, `cancelQueue`).
+
+The CLI contains no session management logic beyond this hook. The old `useSession`, `useSubmitHandler`, `useSlashCommands`, `useCommandRegistry`, and `useMessages` hooks have been removed and their responsibilities moved to `InteractiveSession` in the SDK.
+
 ## Slash Commands
 
 Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Enter to select.
+
+The available command list is provided by `InteractiveSession.getCommands()`, which aggregates `BuiltinCommandSource` and `SkillCommandSource`. The CLI renders this list but does not own it.
 
 | Command                   | Description                      |
 | ------------------------- | -------------------------------- |
@@ -99,7 +111,7 @@ Model definitions come from the `CLAUDE_MODELS` registry in `@robota-sdk/agent-c
 
 ### Skill Commands
 
-Skills are discovered from multiple paths. `.agents/` is the primary Robota convention; `.claude/` paths provide Claude Code compatibility. At runtime, higher-priority paths override lower ones:
+Skills are discovered by `SkillCommandSource` in `agent-sdk`. `.agents/` is the primary Robota convention; `.claude/` paths provide Claude Code compatibility. At runtime, higher-priority paths override lower ones:
 
 1. `.agents/skills/` (project, Robota primary)
 2. `.claude/skills/` (project, Claude Code compatible)
@@ -178,7 +190,7 @@ Auto-compaction triggers at ~83.5% of the model's context window. Use `/compact`
 
 ## Prompt Queue
 
-If you submit a prompt while the model is still executing (thinking), the new prompt is queued. The input area border turns cyan to indicate a prompt is waiting. As soon as the current execution completes, the queued prompt is submitted automatically. Press Backspace while a prompt is queued to cancel it.
+If you submit a prompt while the model is still executing (thinking), `InteractiveSession` queues the new prompt automatically. The input area border turns cyan to indicate a prompt is waiting. As soon as the current execution completes, the queued prompt is submitted automatically. Press Backspace while a prompt is queued to cancel it (calls `cancelQueue()` on the session).
 
 ## Input Navigation
 

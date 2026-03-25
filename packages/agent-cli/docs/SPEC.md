@@ -12,23 +12,31 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 - Does NOT own permissions/hooks — imported from `@robota-sdk/agent-core`
 - Does NOT own config/context loading — imported from `@robota-sdk/agent-sdk`
 - Does NOT own AI provider — imported from `@robota-sdk/agent-provider-anthropic`
+- Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
+- Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `SystemCommandExecutor` — all imported from `@robota-sdk/agent-sdk`; CLI re-exports them from `src/index.ts`
 - Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-sessions` (permission-enforcer.ts). agent-cli has a local duplicate in `src/types.ts` that should eventually import from agent-sessions.
-- OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, slash command registry
+- OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `PluginCommandSource`, `useInteractiveSession` hook, `plugin-hooks-merger`
 
 ## Architecture
+
+The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. The CLI only converts SDK events into React state and renders them.
 
 ```
 bin.ts → cli.ts (arg parsing)
               └── ui/render.tsx → App.tsx (Ink TUI)
+                    ├── useInteractiveSession (ONLY React↔SDK bridge)
+                    │   ├── InteractiveSession (from @robota-sdk/agent-sdk)
+                    │   ├── CommandRegistry    (from @robota-sdk/agent-sdk, re-exported)
+                    │   │   ├── BuiltinCommandSource  (from @robota-sdk/agent-sdk)
+                    │   │   ├── SkillCommandSource    (from @robota-sdk/agent-sdk)
+                    │   │   └── PluginCommandSource   (CLI-local, wraps installed plugins)
+                    │   └── SystemCommandExecutor (from @robota-sdk/agent-sdk)
+                    ├── plugin-hooks-merger.ts (merges plugin hooks into SDK config)
                     ├── MessageList.tsx        (conversation list)
                     ├── InputArea.tsx          (bottom input area, slash detection)
                     ├── StatusBar.tsx          (status bar)
                     ├── PermissionPrompt.tsx   (arrow-key selection)
-                    ├── SlashAutocomplete.tsx  (command popup with scroll)
-                    ├── CommandRegistry        (aggregates command sources)
-                    │   ├── BuiltinCommandSource  (9 built-in commands)
-                    │   └── SkillCommandSource    (discovered from .agents/skills/)
-                    └── Session (from @robota-sdk/agent-sessions)
+                    └── SlashAutocomplete.tsx  (command popup with scroll)
 ```
 
 Dependency chain:
@@ -224,9 +232,41 @@ The `/plugin` command manages bundle plugins. Subcommands:
 
 Installed plugins contribute skills via `PluginCommandSource`, which discovers skills from each plugin's bundle manifest and makes them available as slash commands alongside project and user skills.
 
+## React↔SDK Bridge
+
+`useInteractiveSession` is the single boundary between React and the SDK. It:
+
+1. Creates `InteractiveSession`, `CommandRegistry`, and `SystemCommandExecutor` once (via `useRef` — never recreated on re-render).
+2. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`) and converts them to React state.
+3. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue` as stable callbacks to the TUI.
+4. Merges plugin hooks into the SDK config before constructing `InteractiveSession`.
+5. Manages the permission queue (serialises concurrent permission requests).
+
+No other hook or component interacts with `InteractiveSession` directly.
+
+### plugin-hooks-merger.ts
+
+A pure module (no React) that:
+
+- Extracts and resolves `${CLAUDE_PLUGIN_ROOT}` in hook command strings per plugin.
+- Merges all plugin hook groups into a single `THooksConfig`.
+- Merges plugin hooks with config hooks (config hooks take higher priority).
+
+### App.tsx
+
+`App.tsx` is a thin JSX shell (~220 lines). It:
+
+- Calls `useInteractiveSession` and `usePluginCallbacks`.
+- Wraps `handleSubmit` only to process TUI-specific side effects (`_pendingModelId`, `_pendingLanguage`, `_resetRequested`, `_exitRequested`, `_triggerPluginTUI`) that require Ink APIs (`useApp().exit`).
+- Contains no queue logic, no abort logic, no session business logic.
+
+### Tool List Visibility
+
+The `StreamingIndicator` (showing active tools) is rendered when `isThinking || activeTools.length > 0`. Streaming state (`streamBuf`, `activeTools`) is cleared at the **start** of a new execution (when `thinking: true`), not at the end. This means the tool list stays visible after execution completes or is aborted, until the next execution begins.
+
 ## Command Registry Architecture
 
-The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them.
+The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, and `SystemCommandExecutor` are all owned by `@robota-sdk/agent-sdk`; the CLI re-exports them and adds only `PluginCommandSource`.
 
 ### ICommandSource Interface
 
@@ -252,11 +292,11 @@ interface ISlashCommand {
 
 ### Command Sources
 
-| Source   | Class                  | Description                                          |
-| -------- | ---------------------- | ---------------------------------------------------- |
-| Built-in | `BuiltinCommandSource` | Built-in commands with subcommands for /mode, /model |
-| Skills   | `SkillCommandSource`   | Discovered from 4 scan paths (see Skill Discovery)   |
-| Plugins  | `PluginCommandSource`  | Skills provided by installed bundle plugins          |
+| Source   | Class                  | Owner                   | Description                                          |
+| -------- | ---------------------- | ----------------------- | ---------------------------------------------------- |
+| Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | Built-in commands with subcommands for /mode, /model |
+| Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)   |
+| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-cli` | Skills provided by installed bundle plugins          |
 
 ### Skill Discovery (Multi-Path)
 
@@ -323,6 +363,14 @@ Skill content supports inline shell command execution using the `` !`command` ``
 
 When a skill slash command is selected, the full SKILL.md content (after variable substitution and shell preprocessing) is injected into the session prompt wrapped in `<skill>` tags. The model receives both the skill instructions and any user-provided arguments.
 
+`interactiveSession.submit(prompt, rawInput, hookInput)` is called with three arguments:
+
+- `prompt` — the expanded skill content for the model
+- `rawInput` — the original slash command as typed by the user (e.g., `/audit`)
+- `hookInput` — the qualified name form used for hook matching (e.g., `/rulebased-harness:audit some-args`); if no qualified name is found, falls back to `rawInput`
+
+The qualified name is resolved via `registry.resolveQualifiedName(cmd)` so that hook matchers can identify which plugin's skill was invoked.
+
 ## Type Ownership
 
 | Type               | Location                | Purpose                                                        |
@@ -349,15 +397,16 @@ src/
 ├── cli.ts                           ← Config loading, Ink render invocation
 ├── print-terminal.ts                ← ITerminalOutput for print mode (-p)
 ├── types.ts                         ← ITerminalOutput, ISpinner
-├── index.ts                         ← Re-exports
+├── index.ts                         ← Re-exports (CommandRegistry, BuiltinCommandSource, etc.)
 ├── commands/
 │   ├── types.ts                     ← ISlashCommand, ICommandSource interfaces
-│   ├── builtin-source.ts            ← BuiltinCommandSource (9 commands + subcommands)
-│   ├── skill-source.ts              ← SkillCommandSource (discovers from 4 scan paths)
-│   ├── plugin-source.ts             ← PluginCommandSource (skills from installed plugins)
-│   ├── command-registry.ts          ← CommandRegistry (aggregates multiple sources)
-│   ├── slash-executor.ts            ← Slash command handlers (pure functions, no React)
-│   └── skill-executor.ts            ← Skill execution runner (fork/agent context dispatch)
+│   ├── builtin-source.ts            ← Re-export shim: `export { BuiltinCommandSource } from '@robota-sdk/agent-sdk'`
+│   ├── command-registry.ts          ← Re-export shim: `export { CommandRegistry } from '@robota-sdk/agent-sdk'`
+│   ├── skill-source.ts              ← Re-export shim: `export { SkillCommandSource } from '@robota-sdk/agent-sdk'`
+│   ├── plugin-source.ts             ← PluginCommandSource (CLI-local; wraps installed bundle plugins)
+│   ├── skill-executor.ts            ← Skill execution helpers (fork/variable-substitution, no React)
+│   └── slash-executor.ts            ← Slash command handlers (pure functions, no React)
+│                                      (system command execution is in SDK's SystemCommandExecutor)
 ├── utils/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
@@ -367,13 +416,12 @@ src/
 │   └── edit-diff.ts                 ← Edit diff computation and formatting for display
 ├── permissions/                      ← (empty — prompt imported from @robota-sdk/agent-sdk)
 └── ui/
-    ├── App.tsx                      ← Main layout (thin JSX shell, ~130 lines)
+    ├── App.tsx                      ← Thin JSX shell (~220 lines); no queue/abort/session logic
     ├── hooks/
-    │   ├── useSession.ts            ← Session creation, permission queue, streaming, tool events
-    │   ├── useMessages.ts           ← Chat message list state management
-    │   ├── useSlashCommands.ts      ← Slash command dispatch via slash-executor
-    │   ├── useSubmitHandler.ts      ← Input submission, session.run(), tool call extraction
-    │   └── useCommandRegistry.ts    ← CommandRegistry initialization
+    │   ├── useInteractiveSession.ts ← ONLY React↔SDK bridge; converts InteractiveSession events
+    │   │                              to React state (messages, streamingText, activeTools, etc.)
+    │   ├── plugin-hooks-merger.ts   ← Pure module: merges plugin hooks into SDK THooksConfig
+    │   └── usePluginCallbacks.ts    ← Plugin TUI callback wiring
     ├── render.tsx                   ← Ink render() invocation
     ├── MessageList.tsx              ← Conversation message list (Robota: label)
     ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection
@@ -393,6 +441,8 @@ src/
     ├── InkTerminal.ts               ← No-op ITerminalOutput
     └── types.ts                     ← IPermissionRequest
 ```
+
+**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, and `SystemCommandExecutor` are owned by `@robota-sdk/agent-sdk`. The CLI's `src/commands/` directory holds re-export shims for backward compatibility, plus `PluginCommandSource` (CLI-local) and `slash-executor.ts`/`skill-executor.ts` (pure helpers). The CLI re-exports the SDK types from `src/index.ts` for consumer convenience.
 
 ## CLI Usage
 
@@ -502,16 +552,17 @@ Ctrl+C always exits the process immediately. This is handled by Ink's `exitOnCtr
 
 ESC aborts the current execution gracefully (unlike Ctrl+C which kills the process):
 
-1. ESC key handler calls `session.abort()`
-2. AbortSignal propagates through the entire stack (ExecutionService -> Provider -> `streamWithAbort`)
-3. `executeRound` calls `commitAssistant('interrupted')` — the partial response is saved to conversation history with `state: 'interrupted'`. Text is ALWAYS preserved (no stripping).
-4. `session.run()` throws `AbortError` (see agent-sessions abort behavior)
-5. `useSubmitHandler` catches the `AbortError` and:
-   - Extracts ALL assistant messages from session history for display — interrupted messages are already committed
+1. ESC key handler in `App.tsx` calls `handleAbort()` (from `useInteractiveSession`)
+2. `handleAbort` sets `isAborting: true` and calls `interactiveSession.abort()`
+3. AbortSignal propagates through the entire stack (ExecutionService -> Provider -> `streamWithAbort`)
+4. `executeRound` calls `commitAssistant('interrupted')` — the partial response is saved to conversation history with `state: 'interrupted'`. Text is ALWAYS preserved (no stripping).
+5. `InteractiveSession` emits the `interrupted` event; the `thinking` event fires with `false`
+6. `useInteractiveSession`'s `onThinking(false)` handler:
+   - Sets `isAborting: false`
+   - Re-syncs `messages` from `interactiveSession.getMessages()` — interrupted messages are already committed
    - Messages with `msg.state === 'interrupted'` show an interrupted indicator in the UI
-   - Displays "Cancelled." system message
-6. After abort, conversation continues normally — history includes the interrupted assistant message and any tool results
-7. History is the SSOT for all message content — no separate streaming text ref is needed
+7. After abort, conversation continues normally — history includes the interrupted assistant message and any tool results
+8. History is the SSOT for all message content — no separate streaming text ref is needed
 
 ### Up/Down Arrows — Visual Line Navigation
 
@@ -630,16 +681,12 @@ The CLI uses `TUniversalMessage` from `@robota-sdk/agent-core` as its sole messa
 - `msg.id` (UUID, auto-generated by message factories) is used as the React key for message list rendering
 - `msg.state === 'interrupted'` shows an interrupted indicator in the UI
 
-### useMessages Hook
+### Message State in useInteractiveSession
 
-- Manages `TUniversalMessage[]` state
-- Uses message factory functions (`createUserMessage`, `createAssistantMessage`, etc.) from agent-core
-- After abort: extracts ALL assistant messages from session history for display
-
-### useSession Hook
-
-- Debounces `setStreamingText` (16ms) to prevent Ink render blocking during fast streaming
-- On abort: conversation history is the SSOT — no separate streaming text ref is needed
+- `messages: TUniversalMessage[]` React state is derived from `interactiveSession.getMessages()`.
+- After each execution (when `thinking` transitions to `false`), the hook syncs `messages` from `interactiveSession.getMessages()` — the session is the SSOT for all message content.
+- `addMessage` appends a local system message directly to React state (used for command output and error notices that are not part of the AI conversation).
+- After abort: interrupted messages are already committed to session history by `InteractiveSession`; the hook re-syncs from history — no separate streaming text ref is needed.
 
 ### Tool Message Type Guards
 
