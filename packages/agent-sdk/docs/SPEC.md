@@ -93,10 +93,10 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   └── types.ts                ← IToolState, IExecutionResult, IInteractiveSessionEvents
 ├── src/commands/
 │   ├── command-registry.ts     ← CommandRegistry: aggregates ICommandSource instances
-│   ├── builtin-source.ts       ← BuiltinCommandSource: built-in slash commands
+│   ├── builtin-source.ts       ← BuiltinCommandSource: built-in commands
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
 │   ├── system-command.ts       ← SystemCommandExecutor + ISystemCommand + createSystemCommands()
-│   └── types.ts                ← ISlashCommand, ICommandSource
+│   └── types.ts                ← ICommand, ICommandSource
 ├── src/assembly/               ← Session factory: createSession, createDefaultTools, createProvider
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md walk-up discovery, project detection, system prompt
@@ -384,10 +384,10 @@ const registry = new CommandRegistry();
 registry.addSource(new BuiltinCommandSource());
 registry.addSource(new SkillCommandSource(process.cwd()));
 
-registry.getCommands(); // ISlashCommand[] — all commands
+registry.getCommands(); // ICommand[] — all commands
 registry.getCommands('mod'); // filtered by prefix (for autocomplete)
 registry.resolveQualifiedName('audit'); // "my-plugin:audit" or null
-registry.getSubcommands('mode'); // ISlashCommand[] — subcommands
+registry.getSubcommands('mode'); // ICommand[] — subcommands
 ```
 
 `SkillCommandSource` scans (highest priority first):

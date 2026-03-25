@@ -1,4 +1,4 @@
-import type { ICommandSource, ISlashCommand } from './types.js';
+import type { ICommandSource, ICommand } from './types.js';
 
 /** Aggregates commands from multiple sources */
 export class CommandRegistry {
@@ -9,8 +9,8 @@ export class CommandRegistry {
   }
 
   /** Get all commands, optionally filtered by prefix */
-  getCommands(filter?: string): ISlashCommand[] {
-    const all: ISlashCommand[] = [];
+  getCommands(filter?: string): ICommand[] {
+    const all: ICommand[] = [];
     for (const source of this.sources) {
       all.push(...source.getCommands());
     }
@@ -29,7 +29,7 @@ export class CommandRegistry {
   }
 
   /** Get subcommands for a specific command */
-  getSubcommands(commandName: string): ISlashCommand[] {
+  getSubcommands(commandName: string): ICommand[] {
     const lower = commandName.toLowerCase();
     for (const source of this.sources) {
       for (const cmd of source.getCommands()) {

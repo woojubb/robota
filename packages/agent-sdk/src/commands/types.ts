@@ -1,5 +1,5 @@
-/** A slash command entry */
-export interface ISlashCommand {
+/** A command entry */
+export interface ICommand {
   /** Command name without slash (e.g., "mode") */
   name: string;
   /** Short description shown in autocomplete */
@@ -7,7 +7,7 @@ export interface ISlashCommand {
   /** Source identifier (e.g., "builtin", "skill") */
   source: string;
   /** Subcommands for hierarchical menus */
-  subcommands?: ISlashCommand[];
+  subcommands?: ICommand[];
   /** Execute the command. Args is everything after the command name. */
   execute?: (args: string) => void | Promise<void>;
   /** Full SKILL.md content (only for skill commands) */
@@ -32,8 +32,8 @@ export interface ISlashCommand {
   pluginDir?: string;
 }
 
-/** A source that provides slash commands */
+/** A source that provides commands */
 export interface ICommandSource {
   name: string;
-  getCommands(): ISlashCommand[];
+  getCommands(): ICommand[];
 }
