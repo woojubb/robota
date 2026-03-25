@@ -154,7 +154,7 @@ export default function App(props: IProps): React.ReactElement {
       </Box>
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
         <MessageList messages={messages} />
-        {isThinking && (
+        {(isThinking || activeTools.length > 0) && (
           <Box flexDirection="column" marginBottom={1}>
             <StreamingIndicator text={streamingText} activeTools={activeTools} />
           </Box>
