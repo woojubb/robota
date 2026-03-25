@@ -1,6 +1,6 @@
 ---
 title: Conversation History 아키텍처 재설계 — 기록과 사용의 분리
-status: backlog
+status: completed
 priority: high
 created: 2026-03-25
 packages:
