@@ -114,8 +114,8 @@ export default function App(props: IProps): React.ReactElement {
   );
 
   useInput(
-    (_input: string, key: { ctrl: boolean; escape: boolean }) => {
-      if (key.ctrl && _input === 'c') exit();
+    (_input: string, key: { escape: boolean }) => {
+      // Ctrl+C is handled by Ink's exitOnCtrlC:true (always exits, bypasses useInput)
       if (key.escape && isThinking) {
         setIsAborting(true);
         session.abort();
