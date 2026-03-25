@@ -1,6 +1,6 @@
 ---
 title: CLI 실행 중 추가 프롬프트 입력 및 큐잉
-status: backlog
+status: completed
 priority: high
 created: 2026-03-24
 packages:
