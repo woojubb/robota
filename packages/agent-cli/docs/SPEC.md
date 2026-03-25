@@ -7,30 +7,48 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 
 ## Boundaries
 
-- Does NOT own Session/SessionStore — imported from `@robota-sdk/agent-sessions`
-- Does NOT own tools — imported from `@robota-sdk/agent-tools`
-- Does NOT own permissions/hooks — imported from `@robota-sdk/agent-core`
-- Does NOT own config/context loading — imported from `@robota-sdk/agent-sdk`
-- Does NOT own AI provider — imported from `@robota-sdk/agent-provider-anthropic`
+- Does NOT own Session/SessionStore — handled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-sessions`
+- Does NOT own tools — assembled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-tools`
+- Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-sdk`
+- Does NOT own config/context loading — loaded internally by `InteractiveSession` constructor
+- OWNS: AI provider creation (reads config, selects provider package, creates instance, passes to `InteractiveSession`)
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
-- Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `SystemCommandExecutor` — all imported from `@robota-sdk/agent-sdk`; CLI re-exports them from `src/index.ts`
-- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-sessions` (permission-enforcer.ts). agent-cli has a local duplicate in `src/types.ts` that should eventually import from agent-sessions.
+- Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource` — all imported from `@robota-sdk/agent-sdk`
+- Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
+- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
 - OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `PluginCommandSource`, `useInteractiveSession` hook, `plugin-hooks-merger`
+
+## Import Rules
+
+| Source             | Allowed                       | Examples                                                                      |
+| ------------------ | ----------------------------- | ----------------------------------------------------------------------------- |
+| `agent-sdk`        | SDK-owned APIs                | `InteractiveSession`, `TInteractivePermissionHandler`                         |
+| `agent-core`       | Public types + utilities only | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName` |
+| `agent-core`       | ❌ Internal engine            | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                 |
+| `agent-sessions`   | ❌ Forbidden                  | SDK provides its own session and permission types                             |
+| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                                |
+| `agent-provider-*` | ✅ Provider creation only     | `AnthropicProvider`, `GoogleProvider` (CLI picks which to use)                |
 
 ## Architecture
 
-The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. The CLI only converts SDK events into React state and renders them.
+The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. The CLI:
+
+1. Reads config to determine which provider to use.
+2. Creates the provider instance (e.g., `new AnthropicProvider(options)`).
+3. Creates `InteractiveSession({ cwd, provider })` — config and context loading happen internally inside the SDK.
+4. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
 ```
-bin.ts → cli.ts (arg parsing)
+bin.ts → cli.ts (arg parsing + provider creation)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
-                    │   ├── InteractiveSession (from @robota-sdk/agent-sdk)
-                    │   ├── CommandRegistry    (from @robota-sdk/agent-sdk, re-exported)
+                    │   ├── InteractiveSession({ cwd, provider })
+                    │   │   (from @robota-sdk/agent-sdk; config/context loaded internally)
+                    │   ├── CommandRegistry    (from @robota-sdk/agent-sdk)
                     │   │   ├── BuiltinCommandSource  (from @robota-sdk/agent-sdk)
                     │   │   ├── SkillCommandSource    (from @robota-sdk/agent-sdk)
                     │   │   └── PluginCommandSource   (CLI-local, wraps installed plugins)
-                    │   └── SystemCommandExecutor (from @robota-sdk/agent-sdk)
+                    │   └── session.executeCommand()  (slash commands routed via SDK)
                     ├── plugin-hooks-merger.ts (merges plugin hooks into SDK config)
                     ├── MessageList.tsx        (conversation list)
                     ├── InputArea.tsx          (bottom input area, slash detection)
@@ -44,9 +62,9 @@ Dependency chain:
 ```
 agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
   │            ├─→ agent-tools ────────────→ agent-core
-  │            ├─→ agent-provider-anthropic → agent-core
-  │            └─────────────────────────→ agent-core  (direct: types, permissions, hooks)
-  └──────────────────────────────────────→ agent-core  (direct: types only)
+  │            └─────────────────────────→ agent-core  (direct: types, utilities)
+  ├──────────────────────────────────────→ agent-core  (direct: public types only)
+  └──────────────────────────────────────→ agent-provider-* (provider creation)
 ```
 
 ## StatusBar Display
@@ -236,11 +254,12 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 
 `useInteractiveSession` is the single boundary between React and the SDK. It:
 
-1. Creates `InteractiveSession`, `CommandRegistry`, and `SystemCommandExecutor` once (via `useRef` — never recreated on re-render).
+1. Creates `InteractiveSession({ cwd, provider })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally.
 2. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`) and converts them to React state.
 3. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue` as stable callbacks to the TUI.
-4. Merges plugin hooks into the SDK config before constructing `InteractiveSession`.
-5. Manages the permission queue (serialises concurrent permission requests).
+4. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI.
+5. Merges plugin hooks into the SDK config before constructing `InteractiveSession`.
+6. Manages the permission queue (serialises concurrent permission requests).
 
 No other hook or component interacts with `InteractiveSession` directly.
 
@@ -266,7 +285,7 @@ The `StreamingIndicator` (showing active tools) is rendered when `isThinking || 
 
 ## Command Registry Architecture
 
-The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, and `SystemCommandExecutor` are all owned by `@robota-sdk/agent-sdk`; the CLI re-exports them and adds only `PluginCommandSource`.
+The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry`, `BuiltinCommandSource`, and `SkillCommandSource` are all owned by `@robota-sdk/agent-sdk`. Slash command execution is routed through `session.executeCommand(name, args)` — the CLI does not instantiate `SystemCommandExecutor` directly. The CLI adds only `PluginCommandSource`.
 
 ### ICommandSource Interface
 
@@ -373,21 +392,23 @@ The qualified name is resolved via `registry.resolveQualifiedName(cmd)` so that 
 
 ## Type Ownership
 
-| Type               | Location                | Purpose                                                        |
-| ------------------ | ----------------------- | -------------------------------------------------------------- |
-| ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface (duplicate — SSOT is agent-sessions) |
-| ISpinner           | `src/types.ts`          | Spinner handle (duplicate — SSOT is agent-sessions)            |
-| IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                                  |
-| ISlashCommand      | `src/commands/types.ts` | Slash command entry definition                                 |
-| ICommandSource     | `src/commands/types.ts` | Interface for command providers                                |
-| ISkillFrontmatter  | `src/commands/types.ts` | Parsed YAML frontmatter from SKILL.md files                    |
+| Type               | Location                | Purpose                                                    |
+| ------------------ | ----------------------- | ---------------------------------------------------------- |
+| ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface (duplicate — SSOT is agent-core) |
+| ISpinner           | `src/types.ts`          | Spinner handle (duplicate — SSOT is agent-core)            |
+| IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                              |
+| ISlashCommand      | `src/commands/types.ts` | Slash command entry definition                             |
+| ICommandSource     | `src/commands/types.ts` | Interface for command providers                            |
+| ISkillFrontmatter  | `src/commands/types.ts` | Parsed YAML frontmatter from SKILL.md files                |
 
 ## Public API Surface
 
-| Export       | Kind     | Description                                                                 |
-| ------------ | -------- | --------------------------------------------------------------------------- |
-| startCli     | function | CLI entry point                                                             |
-| (re-exports) | various  | Backward-compatible re-exports of Session, query, types etc. from agent-sdk |
+| Export       | Kind     | Description                                                                                |
+| ------------ | -------- | ------------------------------------------------------------------------------------------ |
+| startCli     | function | CLI entry point                                                                            |
+| (re-exports) | various  | Backward-compatible re-exports of `CommandRegistry`, command sources, types from agent-sdk |
+
+Note: `createSession()` is internal to `agent-sdk` and is NOT re-exported. The CLI uses `InteractiveSession` directly.
 
 ## File Structure
 
@@ -406,7 +427,7 @@ src/
 │   ├── plugin-source.ts             ← PluginCommandSource (CLI-local; wraps installed bundle plugins)
 │   ├── skill-executor.ts            ← Skill execution helpers (fork/variable-substitution, no React)
 │   └── slash-executor.ts            ← Slash command handlers (pure functions, no React)
-│                                      (system command execution is in SDK's SystemCommandExecutor)
+│                                      (system command execution routed via session.executeCommand())
 ├── utils/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
@@ -442,7 +463,7 @@ src/
     └── types.ts                     ← IPermissionRequest
 ```
 
-**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, and `SystemCommandExecutor` are owned by `@robota-sdk/agent-sdk`. The CLI's `src/commands/` directory holds re-export shims for backward compatibility, plus `PluginCommandSource` (CLI-local) and `slash-executor.ts`/`skill-executor.ts` (pure helpers). The CLI re-exports the SDK types from `src/index.ts` for consumer convenience.
+**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, and `SystemCommandExecutor` are owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI's `src/commands/` directory holds re-export shims for backward compatibility, plus `PluginCommandSource` (CLI-local) and `slash-executor.ts`/`skill-executor.ts` (pure helpers). The CLI re-exports the SDK types from `src/index.ts` for consumer convenience.
 
 ## CLI Usage
 
@@ -699,15 +720,16 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 ## Dependencies
 
-| Package                     | Purpose                                    |
-| --------------------------- | ------------------------------------------ |
-| `@robota-sdk/agent-sdk`     | Session factory, query, config, context    |
-| `@robota-sdk/agent-core`    | Types (TPermissionMode, TToolArgs)         |
-| `ink`, `react`              | TUI rendering                              |
-| `ink-select-input`          | Arrow-key selection (permission prompt)    |
-| `ink-spinner`               | Loading spinner                            |
-| `chalk`                     | Terminal colors                            |
-| `ink-text-input`            | Base text input (extended by CjkTextInput) |
-| `marked`, `marked-terminal` | Markdown parsing and terminal rendering    |
-| `cli-highlight`             | Syntax highlighting for code blocks        |
-| `string-width`              | Unicode-aware string width calculation     |
+| Package                                | Purpose                                                                     |
+| -------------------------------------- | --------------------------------------------------------------------------- |
+| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management |
+| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)    |
+| `@robota-sdk/agent-provider-anthropic` | Anthropic provider creation (CLI picks provider based on config)            |
+| `ink`, `react`                         | TUI rendering                                                               |
+| `ink-select-input`                     | Arrow-key selection (permission prompt)                                     |
+| `ink-spinner`                          | Loading spinner                                                             |
+| `chalk`                                | Terminal colors                                                             |
+| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                  |
+| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                     |
+| `cli-highlight`                        | Syntax highlighting for code blocks                                         |
+| `string-width`                         | Unicode-aware string width calculation                                      |
