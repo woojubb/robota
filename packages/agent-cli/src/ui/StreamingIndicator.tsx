@@ -49,7 +49,7 @@ export default function StreamingIndicator({ text, activeTools }: IProps): React
   const hasText = text.length > 0;
 
   if (!hasTools && !hasText) {
-    return <Text color="yellow">Thinking...</Text>;
+    return <></>;
   }
 
   return (

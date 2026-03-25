@@ -4,11 +4,9 @@ import { render } from 'ink-testing-library';
 import StreamingIndicator from '../StreamingIndicator.js';
 
 describe('StreamingIndicator', () => {
-  it('shows "Thinking..." when no tools and no text', () => {
-    const { lastFrame } = render(
-      <StreamingIndicator text="" activeTools={[]} />,
-    );
-    expect(lastFrame()).toContain('Thinking...');
+  it('renders empty when no tools and no text', () => {
+    const { lastFrame } = render(<StreamingIndicator text="" activeTools={[]} />);
+    expect(lastFrame()).not.toContain('Thinking');
   });
 
   it('shows Tools: section with running tool', () => {
@@ -39,9 +37,7 @@ describe('StreamingIndicator', () => {
   });
 
   it('shows Robota: section with streaming text', () => {
-    const { lastFrame } = render(
-      <StreamingIndicator text="Hello world" activeTools={[]} />,
-    );
+    const { lastFrame } = render(<StreamingIndicator text="Hello world" activeTools={[]} />);
     const frame = lastFrame()!;
     expect(frame).toContain('Robota:');
     expect(frame).toContain('Hello world');
@@ -74,9 +70,7 @@ describe('StreamingIndicator', () => {
   });
 
   it('does not show Thinking... when text is present', () => {
-    const { lastFrame } = render(
-      <StreamingIndicator text="Some response" activeTools={[]} />,
-    );
+    const { lastFrame } = render(<StreamingIndicator text="Some response" activeTools={[]} />);
     expect(lastFrame()).not.toContain('Thinking...');
   });
 

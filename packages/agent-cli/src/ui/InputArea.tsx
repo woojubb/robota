@@ -202,7 +202,7 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
       )}
       <Box borderStyle="single" borderColor={isDisabled ? 'gray' : 'green'} paddingLeft={1}>
         {isDisabled ? (
-          <WaveText text="  Waiting for response..." />
+          <WaveText text="  Waiting for response... (ESC to interrupt)" />
         ) : (
           <Box>
             <Text color="green" bold>
