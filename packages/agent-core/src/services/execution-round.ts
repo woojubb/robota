@@ -556,10 +556,13 @@ export async function executeRound(
         providerError.message.includes('aborted') ||
         providerError.message.includes('abort'));
     if (isAbortError) {
+      // Commit pending streaming state before re-throwing (append-only guarantee)
+      conversationStore.commitAssistant('interrupted', { round: currentRound });
       throw providerError;
     }
     // Provider rejected the request (e.g., context too large for API).
-    // Inject a clear assistant message instead of propagating the error.
+    // Discard pending streaming state, inject error message instead.
+    conversationStore.discardPending();
     const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
     logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
     conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], {

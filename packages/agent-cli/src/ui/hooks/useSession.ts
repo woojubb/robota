@@ -212,14 +212,11 @@ export function useSession(props: ISessionProps): {
     setActiveTools([]);
   }, []);
 
-  const getStreamingText = useCallback(() => streamingTextRef.current, []);
-
   return {
     session: sessionRef.current,
     permissionRequest,
     streamingText,
     clearStreamingText,
-    getStreamingText,
     activeTools,
   };
 }

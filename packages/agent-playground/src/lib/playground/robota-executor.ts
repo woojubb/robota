@@ -5,7 +5,7 @@ const RANDOM_ID_LENGTH = 9;
  * PlaygroundExecutor - Manages Robota Agent execution in the browser
  */
 
-import { randomUUID } from 'node:crypto';
+const randomUUID = (): string => crypto.randomUUID();
 import { Robota } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
