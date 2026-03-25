@@ -1,4 +1,4 @@
-# Agents Specification
+# Agent Core Specification
 
 ## Scope
 
@@ -112,7 +112,9 @@ Provider packages import these types. They must not re-declare them.
 | `IModelDefinition`          | Interface | Model metadata: name, id, contextWindow, maxOutput   |
 | `CLAUDE_MODELS`             | Record    | All known Claude models (4.5+) keyed by API ID       |
 | `DEFAULT_CONTEXT_WINDOW`    | Constant  | 200,000 tokens fallback                              |
+| `DEFAULT_MAX_OUTPUT`        | Constant  | 16,384 tokens fallback for max output                |
 | `getModelContextWindow(id)` | Function  | Get context window size for a model ID               |
+| `getModelMaxOutput(id)`     | Function  | Get max output tokens for a model ID                 |
 | `getModelName(id)`          | Function  | Get human-readable name (e.g., "Claude Sonnet 4.6")  |
 | `formatTokenCount(tokens)`  | Function  | Format tokens as human-readable (e.g., "200K", "1M") |
 
@@ -192,13 +194,11 @@ These types are consumed by `@robota-sdk/agent-sessions` to track cumulative tok
 
 ### Services
 
-| Export                   | Kind           | Description         |
-| ------------------------ | -------------- | ------------------- |
-| `AbstractEventService`   | abstract class | Event system base   |
-| `DefaultEventService`    | class          | No-op event service |
-| `StructuredEventService` | class          | Owner-bound events  |
-| `ObservableEventService` | class          | RxJS integration    |
-| `EventHistoryModule`     | class          | Event recording     |
+| Export               | Kind  | Description     |
+| -------------------- | ----- | --------------- |
+| `EventHistoryModule` | class | Event recording |
+
+Note: `AbstractEventService`, `DefaultEventService`, `StructuredEventService`, and `ObservableEventService` are internal implementation details and are not exported from `src/index.ts`.
 
 ### Plugins (1 built-in)
 

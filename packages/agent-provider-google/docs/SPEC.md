@@ -81,12 +81,12 @@ Imported from `@robota-sdk/agent-core` (not owned): `AbstractAIProvider`, `TUniv
 
 ## Public API Surface
 
-| Export                                  | Kind             | Source                   | Description                                                                                                                                                                                                                         |
-| --------------------------------------- | ---------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GoogleProvider`                        | class            | `src/provider.ts`        | Google Gemini provider implementing `AbstractAIProvider` and `IImageGenerationProvider`. Methods: `chat()`, `chatStream()`, `generateImage()`, `editImage()`, `composeImage()`, `supportsTools()`, `validateConfig()`, `dispose()`. |
-| `IGoogleProviderOptions`                | interface        | `src/types.ts`           | Configuration options for constructing `GoogleProvider`. Fields: `apiKey` (required), `responseMimeType`, `responseSchema`, `defaultResponseModalities`, `imageCapableModels`, `executor`, plus index signature.                    |
-| `TGoogleProviderOptionValue`            | type alias       | `src/types.ts`           | Union type for valid provider option values.                                                                                                                                                                                        |
-| All types from `src/types/api-types.ts` | interfaces/types | `src/types/api-types.ts` | Google AI API type definitions (content, requests, responses, tools, safety, streaming, errors). Exported transitively via `src/types.ts` re-export pattern.                                                                        |
+| Export                                      | Kind                        | Source                   | Description                                                                                                                                                                                                                                     |
+| ------------------------------------------- | --------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GoogleProvider`                            | class                       | `src/provider.ts`        | Google Gemini provider implementing `AbstractAIProvider` and `IImageGenerationProvider`. Methods: `chat()`, `chatStream()`, `generateImage()`, `editImage()`, `composeImage()`, `supportsTools()`, `validateConfig()`, `dispose()`.             |
+| `IGoogleProviderOptions`                    | interface                   | `src/types.ts`           | Configuration options for constructing `GoogleProvider`. Fields: `apiKey` (required), `responseMimeType`, `responseSchema`, `defaultResponseModalities`, `imageCapableModels`, `executor`, plus index signature.                                |
+| `TGoogleProviderOptionValue`                | type alias                  | `src/types.ts`           | Union type for valid provider option values.                                                                                                                                                                                                    |
+| ~~All types from `src/types/api-types.ts`~~ | interfaces/types (internal) | `src/types/api-types.ts` | Google AI API type definitions (content, requests, responses, tools, safety, streaming, errors). **Not exported** — these types are internal-only and are not part of the public API surface. `src/types.ts` does not re-export `api-types.ts`. |
 
 ## Extension Points
 
@@ -147,7 +147,11 @@ Google API errors are defined in `IGoogleError` with numeric `code`, string `sta
 
 ## Test Strategy
 
-- **Current state**: One test file exists at `src/provider.spec.ts` covering image-related functionality.
+- **Current state**: Four test files exist covering image operations, message conversion, and extended provider behavior.
+  - `src/provider.spec.ts` — image-related functionality
+  - `src/image-operations.test.ts` — image generation, edit, and compose operations
+  - `src/message-converter.test.ts` — message format conversion utilities
+  - `src/provider-extended.test.ts` — extended provider behavior and edge cases
 - **Existing test coverage**:
   - Inline image output mapping from Gemini response to assistant `parts`.
   - Inline image input parts mapped correctly into Gemini `inlineData` request parts.

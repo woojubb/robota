@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+const randomUUID = (): string => crypto.randomUUID();
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { IGoogleProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
