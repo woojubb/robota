@@ -3,7 +3,8 @@
  * Handles both fork-based (subagent) and inject-based (user message) execution.
  */
 
-import { substituteVariables, type SkillPromptContext } from '../utils/skill-prompt.js';
+import { substituteVariables } from '@robota-sdk/agent-sdk';
+import type { SkillPromptContext } from '@robota-sdk/agent-sdk';
 import type { ISlashCommand } from './types.js';
 
 /** Options passed to the fork execution callback */

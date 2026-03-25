@@ -17,7 +17,7 @@ import type { IAIProvider, IToolState, IExecutionResult } from '@robota-sdk/agen
 import type { TPermissionMode, TUniversalMessage, TToolArgs } from '@robota-sdk/agent-core';
 import { createSystemMessage } from '@robota-sdk/agent-core';
 import type { TPermissionResult } from '@robota-sdk/agent-sessions';
-import { buildSkillPrompt } from '../../utils/skill-prompt.js';
+import { buildSkillPrompt } from '@robota-sdk/agent-sdk';
 import type { IPermissionRequest } from '../types.js';
 
 /** Max messages kept in React state for rendering */

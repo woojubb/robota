@@ -27,6 +27,14 @@ export {
 } from './commands/index.js';
 export type { ICommand, ICommandSource, ISystemCommand, ICommandResult } from './commands/index.js';
 
+// ── Skill prompt utilities ───────────────────────────────────
+export {
+  buildSkillPrompt,
+  substituteVariables,
+  preprocessShellCommands,
+} from './utils/skill-prompt.js';
+export type { SkillPromptContext } from './utils/skill-prompt.js';
+
 // ── Types (re-exported from owning packages) ────────────────
 export type { TToolResult, TTrustLevel, TPermissionDecision, TPermissionMode } from './types.js';
 export { TRUST_TO_MODE } from './types.js';
