@@ -357,7 +357,12 @@ export class ExecutionService {
 
       return result;
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
+      const isAbortError =
+        error instanceof Error &&
+        (error.name === 'AbortError' ||
+          error.message.includes('aborted') ||
+          error.message.includes('abort'));
+      if (isAbortError) {
         const abortMessages = conversationStore.getMessages();
         return {
           response: '',

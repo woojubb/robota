@@ -79,7 +79,10 @@ export async function runSessionPrompt(
     syncContextState(session, setContextState);
   } catch (err) {
     clearStreamingText();
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    const isAbortError =
+      (err instanceof DOMException && err.name === 'AbortError') ||
+      (err instanceof Error && (err.message.includes('aborted') || err.message.includes('abort')));
+    if (isAbortError) {
       // Extract tool summaries from history even on abort
       const history = session.getHistory();
       const toolSummaries = extractToolCallsWithDiff(
