@@ -40,7 +40,7 @@ describe('runSessionPrompt', () => {
     setContextState = vi.fn();
   });
 
-  it('shows "Cancelled." on AbortError', async () => {
+  it('shows "Interrupted by user." on AbortError', async () => {
     const session = createMockSession({
       runError: new DOMException('Aborted', 'AbortError'),
     });
@@ -55,7 +55,7 @@ describe('runSessionPrompt', () => {
     );
 
     expect(addMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ role: 'system', content: 'Cancelled.' }),
+      expect.objectContaining({ role: 'system', content: 'Interrupted by user.' }),
     );
   });
 
@@ -113,7 +113,8 @@ describe('runSessionPrompt', () => {
     expect(toolMessage).toBeDefined();
 
     const cancelledIdx = addMessage.mock.calls.findIndex(
-      (call: unknown[]) => (call[0] as { role: string; content: string }).content === 'Cancelled.',
+      (call: unknown[]) =>
+        (call[0] as { role: string; content: string }).content === 'Interrupted by user.',
     );
     const toolIdx = addMessage.mock.calls.findIndex(
       (call: unknown[]) => (call[0] as { role: string }).role === 'tool',
@@ -140,7 +141,9 @@ describe('runSessionPrompt', () => {
       (call: unknown[]) => (call[0] as { role: string }).role === 'tool',
     );
     expect(toolMessage).toBeUndefined();
-    expect(addMessage).toHaveBeenCalledWith(expect.objectContaining({ content: 'Cancelled.' }));
+    expect(addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'Interrupted by user.' }),
+    );
   });
 
   it('displays interrupted assistant message from history on abort', async () => {
@@ -178,12 +181,13 @@ describe('runSessionPrompt', () => {
     expect((assistantMsg![0] as { content: string }).content).toBe('Partial text before abort');
     expect((assistantMsg![0] as { state: string }).state).toBe('interrupted');
 
-    // Interrupted message comes before "Cancelled."
+    // Interrupted message comes before "Interrupted by user."
     const assistantIdx = addMessage.mock.calls.findIndex(
       (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
     );
     const cancelledIdx = addMessage.mock.calls.findIndex(
-      (call: unknown[]) => (call[0] as { role: string; content: string }).content === 'Cancelled.',
+      (call: unknown[]) =>
+        (call[0] as { role: string; content: string }).content === 'Interrupted by user.',
     );
     expect(assistantIdx).toBeLessThan(cancelledIdx);
   });
@@ -329,7 +333,9 @@ describe('runSessionPrompt', () => {
       (call: unknown[]) => (call[0] as { role: string }).role === 'assistant',
     );
     expect(assistantMsg).toBeUndefined();
-    expect(addMessage).toHaveBeenCalledWith(expect.objectContaining({ content: 'Cancelled.' }));
+    expect(addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'Interrupted by user.' }),
+    );
   });
 
   it('on normal completion, adds tool summary and assistant message', async () => {

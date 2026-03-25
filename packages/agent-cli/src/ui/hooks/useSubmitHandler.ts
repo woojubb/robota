@@ -112,7 +112,7 @@ export async function runSessionPrompt(
           createAssistantMessage(assistantParts.join('\n\n'), { state: lastAssistantState }),
         );
       }
-      addMessage(createSystemMessage('Cancelled.'));
+      addMessage(createSystemMessage('Interrupted by user.'));
     } else {
       const errMsg = err instanceof Error ? err.message : String(err);
       addMessage(createSystemMessage(`Error: ${errMsg}`));

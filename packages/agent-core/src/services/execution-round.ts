@@ -556,7 +556,7 @@ export async function executeRound(
     // Inject a clear assistant message instead of propagating the error.
     const errMsg = providerError instanceof Error ? providerError.message : String(providerError);
     logger.error('[ROUND] Provider call failed', { error: errMsg, round: currentRound });
-    conversationStore.addAssistantMessage(`Provider error: ${errMsg}`, [], {
+    conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], {
       round: currentRound,
       providerError: true,
     });
