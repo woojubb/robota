@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
-import { createProviderFromSettings } from './utils/provider-factory.js';
+import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
 import { renderApp } from './ui/render.js';
 
 /** Result of checking a settings file. */
@@ -189,13 +189,15 @@ export async function startCli(): Promise<void> {
   await ensureConfig(cwd);
 
   // CLI owns provider creation
+  const providerSettings = readProviderSettings(cwd);
+  const modelId = args.model ?? providerSettings.model;
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model);
 
   // Interactive TUI mode (Ink)
-  // InteractiveSession handles config, context, tools, session internally
   renderApp({
     cwd,
     provider,
+    modelId,
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
     version: readVersion(),

@@ -25,6 +25,7 @@ import PluginTUI from './PluginTUI.js';
 interface IProps {
   cwd: string;
   provider: IAIProvider;
+  modelId?: string;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   version?: string;
@@ -197,7 +198,7 @@ export default function App(props: IProps): React.ReactElement {
       )}
       <StatusBar
         permissionMode={permissionMode}
-        modelName=""
+        modelName={props.modelId ? getModelName(props.modelId) : ''}
         sessionId={sessionId}
         messageCount={messages.length}
         isThinking={isThinking}
