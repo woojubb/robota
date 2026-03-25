@@ -1,17 +1,8 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
-    "composite": true,
-    "declaration": true,
-    "declarationMap": true
+    "rootDir": "src"
   },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"],
-  "references": [
-    {
-      "path": "../agent-core"
-    }
-  ]
+  "include": ["src"]
 }

@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-remote-server-core",
   "version": "3.0.0",
-  "description": "Reusable Remote API server routes for Robota",
+  "description": "[DEPRECATED] Use @robota-sdk/agent-transport-http instead. Will be removed after agent-server migration.",
   "type": "module",
   "main": "dist/node/index.js",
   "module": "dist/node/index.mjs",

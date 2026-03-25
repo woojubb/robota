@@ -1,25 +1,26 @@
 /**
- * Remote System - Clean Atomic Architecture
+ * Remote Client — calls a remote Robota agent over HTTP.
  *
- * Exports using atomic components and pure functions
+ * Server-side code has been moved to agent-transport-http.
+ * This package is client-only: RemoteExecutor + HttpClient.
  */
 
-// Main RemoteExecutor - Simple & Type Safe
-export { SimpleRemoteExecutor as RemoteExecutor } from './client/remote-executor-simple';
+// Main RemoteExecutor
+export { SimpleRemoteExecutor as RemoteExecutor } from './client/remote-executor-simple.js';
 
 // HTTP Client for advanced users
-export { HttpClient } from './client/http-client';
+export { HttpClient } from './client/http-client.js';
 
-// Atomic Types
+// Types
 export type {
   IBasicMessage,
   IResponseMessage,
   IRequestMessage,
   ITokenUsage,
-} from './types/message-types';
-export type { IHttpRequest, IHttpResponse, IHttpError, THttpMethod } from './types/http-types';
+} from './types/message-types.js';
+export type { IHttpRequest, IHttpResponse, IHttpError, THttpMethod } from './types/http-types.js';
 
-// Pure Utility Functions
+// Utility functions
 export {
   toRequestMessage,
   toResponseMessage,
@@ -29,14 +30,9 @@ export {
   generateId,
   normalizeHeaders,
   safeJsonParse,
-} from './utils/transformers';
+} from './utils/transformers.js';
 
-// Type guards removed - use proper TypeScript types instead
-
-// WebSocket Transport for real-time features
-export { SimpleWebSocketTransport as WebSocketTransport } from './transport/websocket-transport-simple';
-
-// Re-exports (shared contracts)
+// Re-exports (shared contracts from agent-core)
 export type {
   IExecutor,
   IChatExecutionRequest,
@@ -44,4 +40,4 @@ export type {
   TUniversalMessage,
   IAssistantMessage,
   IRemoteExecutorConfig,
-} from './shared/types';
+} from './shared/types.js';
