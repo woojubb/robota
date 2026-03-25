@@ -9,6 +9,7 @@ export type {
   IDiffLine,
   IExecutionResult,
   IToolSummary,
+  TPermissionResultValue,
   TInteractivePermissionHandler,
   TInteractiveEventName,
   IInteractiveSessionEvents,

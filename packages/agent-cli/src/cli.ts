@@ -9,6 +9,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
 import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
@@ -193,11 +194,42 @@ export async function startCli(): Promise<void> {
   const modelId = args.model ?? providerSettings.model;
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model);
 
+  // Print mode (-p): one-shot prompt, output response, exit
+  if (args.printMode) {
+    const prompt = args.positional.join(' ').trim();
+    if (prompt.length === 0) {
+      process.stderr.write('Print mode (-p) requires a prompt argument.\n');
+      process.exit(1);
+    }
+
+    const session = new InteractiveSession({
+      cwd,
+      provider,
+      permissionMode: args.permissionMode ?? 'bypassPermissions',
+      maxTurns: args.maxTurns,
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      session.on('complete', (result) => {
+        process.stdout.write(result.response + '\n');
+        resolve();
+      });
+      session.on('interrupted', (result) => {
+        if (result.response) process.stdout.write(result.response + '\n');
+        resolve();
+      });
+      session.on('error', (err) => reject(err));
+      session.submit(prompt).catch(reject);
+    });
+    return;
+  }
+
   // Interactive TUI mode (Ink)
   renderApp({
     cwd,
     provider,
     modelId,
+    language: args.language,
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
     version: readVersion(),
