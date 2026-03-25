@@ -1,6 +1,6 @@
 ---
 title: Ctrl+C 동작 명확화
-status: backlog
+status: completed
 priority: medium
 created: 2026-03-25
 packages:
