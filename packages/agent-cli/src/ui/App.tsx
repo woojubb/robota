@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import type {
   IResolvedConfig,
@@ -89,6 +89,7 @@ export default function App(props: IProps): React.ReactElement {
   const pendingModelChangeRef = useRef<string | null>(null);
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
   const [showPluginTUI, setShowPluginTUI] = useState(false);
+  const [isAborting, setIsAborting] = useState(false);
 
   const pluginCallbacks = usePluginCallbacks(props.cwd ?? process.cwd());
   const handleSlashCommand = useSlashCommands(
@@ -115,10 +116,18 @@ export default function App(props: IProps): React.ReactElement {
   useInput(
     (_input: string, key: { ctrl: boolean; escape: boolean }) => {
       if (key.ctrl && _input === 'c') exit();
-      if (key.escape && isThinking) session.abort();
+      if (key.escape && isThinking) {
+        setIsAborting(true);
+        session.abort();
+      }
     },
     { isActive: !permissionRequest && !showPluginTUI },
   );
+
+  // Reset aborting state when execution ends
+  useEffect(() => {
+    if (!isThinking) setIsAborting(false);
+  }, [isThinking]);
 
   return (
     <Box flexDirection="column">
@@ -190,6 +199,7 @@ export default function App(props: IProps): React.ReactElement {
       <InputArea
         onSubmit={handleSubmit}
         isDisabled={isThinking || !!permissionRequest || showPluginTUI}
+        isAborting={isAborting}
         registry={registry}
       />
       {/* Permanent blank line below input — required for Korean IME stability. */}
