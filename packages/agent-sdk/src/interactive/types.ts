@@ -21,8 +21,8 @@ export interface IToolState {
 /** A single diff line for Edit tool display. */
 export interface IDiffLine {
   type: 'add' | 'remove' | 'context';
-  content: string;
-  lineNumber?: number;
+  text: string;
+  lineNumber: number;
 }
 
 /** Result of a completed prompt execution. */
