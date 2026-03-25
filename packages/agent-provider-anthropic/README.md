@@ -76,7 +76,20 @@ const provider = new AnthropicProvider({
 });
 ```
 
-## Public Instance Fields
+## Public API
+
+### Exports
+
+| Export                          | Kind      | Description                                                               |
+| ------------------------------- | --------- | ------------------------------------------------------------------------- |
+| `AnthropicProvider`             | class     | Anthropic provider implementing `AbstractAIProvider`                      |
+| `IAnthropicProviderOptions`     | interface | Constructor options: `apiKey`, `timeout`, `baseURL`, `client`, `executor` |
+| `TAnthropicProviderOptionValue` | type      | Union type for valid provider option values                               |
+| `createAnthropicProvider`       | function  | Stub — placeholder for future factory pattern (currently returns void)    |
+
+`api-types.ts` is an internal module and is not part of the public API.
+
+### AnthropicProvider Instance Fields
 
 | Field             | Type                  | Default | Description                    |
 | ----------------- | --------------------- | ------- | ------------------------------ |
@@ -88,13 +101,13 @@ const provider = new AnthropicProvider({
 
 The provider always uses the streaming API (`messages.stream`) internally, even when no `onTextDelta` callback is set. This prevents the 10-minute HTTP timeout that can occur during long-running tool loops with non-streaming requests. The complete response text is assembled from the streamed chunks.
 
-## streamWithAbort
+## Abort Signal Support
 
-The provider uses `this.streamWithAbort(stream, signal)` (inherited from `AbstractAIProvider`) as the standard streaming wrapper. When the AbortSignal fires during streaming, the provider returns partial content accumulated so far with `stopReason: 'aborted'`. This enables graceful abort handling — partial responses are preserved in conversation history with `state: 'interrupted'`.
+Pass an `AbortSignal` via `IChatOptions.signal`. When aborted during streaming, the provider returns partial content accumulated so far with `stopReason: 'aborted'`.
 
-## getModelMaxOutput
+## Output Token Limits
 
-`getModelMaxOutput(modelId)` returns the default `max_tokens` value for a given Claude model from the `CLAUDE_MODELS` registry in `agent-core`. The provider uses this to set appropriate output limits without requiring manual configuration.
+When `IChatOptions.maxTokens` is not specified, the provider uses the model's `maxOutput` from the `CLAUDE_MODELS` registry in `agent-core` as the default.
 
 ## Known Limitations
 

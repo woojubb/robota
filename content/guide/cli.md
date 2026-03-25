@@ -176,6 +176,14 @@ Auto-compaction triggers at ~83.5% of the model's context window. Use `/compact`
 /compact focus on the API design decisions
 ```
 
+## Prompt Queue
+
+If you submit a prompt while the model is still executing (thinking), the new prompt is queued. The input area border turns cyan to indicate a prompt is waiting. As soon as the current execution completes, the queued prompt is submitted automatically. Press Backspace while a prompt is queued to cancel it.
+
+## Input Navigation
+
+The input area supports multi-line cursor movement. When input spans multiple rows, press Up/Down arrows to move the cursor to the previous or next display row within the input. This lets you navigate and edit long prompts without the cursor jumping out of the input box.
+
 ## Paste Handling
 
 When pasting multiline text into the input area, the CLI collapses the content into a compact label:

@@ -18,14 +18,14 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 
 ## Package Roles
 
-| Package             | Role                                                                                   | Layer        |
-| ------------------- | -------------------------------------------------------------------------------------- | ------------ |
+| Package             | Role                                                                                                             | Layer        |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------ |
 | **agent-core**      | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT) | Foundation   |
-| **agent-tools**     | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                | General      |
-| **agent-sessions**  | Session class with permission enforcement, context tracking, compaction                | General      |
-| **agent-providers** | AnthropicProvider, OpenAIProvider, GoogleProvider                                      | General      |
-| **agent-sdk**       | Assembly: config loading, context discovery, system prompt, createSession, query()     | SDK-specific |
-| **agent-cli**       | Ink TUI: conversation UI, slash commands, permission prompts                           | CLI-specific |
+| **agent-tools**     | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                          | General      |
+| **agent-sessions**  | Session class with permission enforcement, context tracking, compaction                                          | General      |
+| **agent-providers** | AnthropicProvider, OpenAIProvider, GoogleProvider                                                                | General      |
+| **agent-sdk**       | Assembly: config loading, context discovery, system prompt, createSession, query()                               | SDK-specific |
+| **agent-cli**       | Ink TUI: conversation UI, slash commands, permission prompts                                                     | CLI-specific |
 
 ## Dependency Flow
 
@@ -68,7 +68,7 @@ Rules:
 
 ## Plugin Architecture
 
-`agent-core` defines the `AbstractPlugin` base class. 8 plugin implementations have been extracted to separate `@robota-sdk/agent-plugin-*` packages to keep `agent-core` dependency-free. Only `EventEmitterPlugin` remains built-in.
+`agent-core` defines the `AbstractPlugin` base class. 9 plugin implementations are available as separate `@robota-sdk/agent-plugin-*` packages. `EventEmitterPlugin` is also built directly into `agent-core` so that consumers do not need an additional dependency for basic event emission.
 
 Plugins integrate with the agent lifecycle via hooks: `beforeRun`, `afterRun`, `onError`, `onStreamChunk`, `beforeToolExecution`, `afterToolExecution`.
 
