@@ -182,7 +182,23 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     interactiveSession.on('complete', onComplete);
     interactiveSession.on('interrupted', onInterrupted);
     interactiveSession.on('error', onError);
+
+    // Sync context state after async initialization completes
+    const initCheck = setInterval(() => {
+      try {
+        const ctx = interactiveSession.getContextState();
+        setContextState({
+          percentage: ctx.usedPercentage,
+          usedTokens: ctx.usedTokens,
+          maxTokens: ctx.maxTokens,
+        });
+        clearInterval(initCheck);
+      } catch {
+        // Not yet initialized — retry
+      }
+    }, 200);
     return () => {
+      clearInterval(initCheck);
       interactiveSession.off('text_delta', onTextDelta);
       interactiveSession.off('tool_start', onToolStart);
       interactiveSession.off('tool_end', onToolEnd);
@@ -285,14 +301,8 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     setPendingPrompt(null);
   }, [interactiveSession]);
 
-  if (contextState.maxTokens === 0) {
-    const ctx = interactiveSession.getContextState();
-    setContextState({
-      percentage: ctx.usedPercentage,
-      usedTokens: ctx.usedTokens,
-      maxTokens: ctx.maxTokens,
-    });
-  }
+  // Context state is initialized after async session setup.
+  // Don't call getContextState() synchronously — it may throw before init.
 
   return {
     interactiveSession,
