@@ -3,7 +3,8 @@
 ## Overview
 
 Robota SDK is a programming SDK built by **assembling** existing Robota packages.
-It provides a single entry point corresponding to Claude Agent SDK's `query()`.
+It is provider-neutral: the consumer (CLI, server, worker, etc.) creates the provider and passes it to the SDK.
+The primary entry point is `InteractiveSession({ cwd, provider })`. A `createQuery({ provider })` factory is also provided for single-shot prompt use.
 
 ## Core Principles
 
@@ -17,53 +18,65 @@ It provides a single entry point corresponding to Claude Agent SDK's `query()`.
 ### Package Dependency Chain
 
 ```
-Before (v3.0.0-beta.3):
-agent-cli → agent-sdk → agent-sessions → agent-tools → agent-core
-                                        → agent-provider-anthropic → agent-core
+agent-core           ← types, abstractions, utilities (unchanged)
+agent-sessions       ← Session, permissions, compaction (unchanged)
+agent-tools          ← tool infrastructure + 8 built-in tools (unchanged)
+agent-provider-*     ← provider implementations (unchanged)
 
-After (assembly refactoring):
-agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
-  │            ├─→ agent-tools ────────────→ agent-core
-  │            ├─→ agent-provider-anthropic → agent-core
-  │            └─────────────────────────→ agent-core  (direct: types, permissions, hooks)
-  └──────────────────────────────────────→ agent-core  (direct: types only)
+agent-sdk            ← InteractiveSession (single entry point)
+  ├── embedded: SystemCommandExecutor (session.executeCommand())
+  ├── embedded: CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
+  ├── internal: createSession(), createDefaultTools(), loadConfig(), loadContext()
+  ├── exposed: createQuery({ provider }) → (prompt) => result
+  └── NO provider dependency (provider-neutral)
+
+agent-cli            ← minimal TUI
+  ├── creates provider (reads config, picks provider package)
+  ├── creates InteractiveSession({ cwd, provider })
+  ├── subscribes to events → renders to terminal
+  └── owns: slash prefix parsing, Ink components, paste handling, CJK input
 ```
 
-Session is now generic (depends only on agent-core). Assembly (wiring tools, provider, system prompt) happens in agent-sdk.
+SDK is provider-neutral. The consumer (CLI, server, etc.) creates the provider and passes it to the SDK. Assembly (wiring tools, provider, system prompt) happens inside the SDK, but the provider itself comes from the consumer.
 
 ### Client–SDK–Session Relationship
 
 ```
 Any client (CLI, web, API server, worker)
     │
-    │  events: text_delta, tool_start, tool_end, thinking,
-    │          complete, error, context_update, interrupted
+    │  1. creates provider:  new AnthropicProvider({ apiKey })
+    │  2. creates session:   new InteractiveSession({ cwd, provider })
+    │  3. subscribes:        session.on('text_delta', ...)
     ↓
 InteractiveSession  (agent-sdk — pure TypeScript, no React)
     │  submit(input, displayInput?, rawInput?)
+    │  executeCommand(name, args)
     │  abort() / cancelQueue()
     │  getMessages() / getContextState() / getActiveTools()
+    │  (config/context loaded internally from cwd)
     ↓
 Session  (agent-sessions — generic run loop)
     ↓
 Robota engine + Provider  (agent-core / agent-provider-*)
 
 agent-cli (Ink TUI — thin bridge layer)
+    creates provider → passes to InteractiveSession({ cwd, provider })
     subscribes to InteractiveSession events → maps to React/Ink state
-    wraps SystemCommandExecutor results as slash commands with UI chrome
+    routes /commands → session.executeCommand()
 ```
 
-The SDK layer has **no React dependency**. The CLI is a TUI-only layer that bridges InteractiveSession events to React state.
+The SDK layer has **no React dependency** and **no provider dependency**. The CLI is a TUI-only layer that creates the provider and bridges InteractiveSession events to React state.
 
 ### Package Roles
 
-| Package            | Role                                                                                                 | General/Specialized |
-| ------------------ | ---------------------------------------------------------------------------------------------------- | ------------------- |
-| **agent-core**     | Robota engine, execution loop, provider abstraction, permissions, hooks                              | General             |
-| **agent-tools**    | Tool creation infrastructure + 8 built-in tools                                                      | General             |
-| **agent-sessions** | Generic Session class, SessionStore (persistence)                                                    | General             |
-| **agent-sdk**      | Assembly layer: InteractiveSession, SystemCommandExecutor, CommandRegistry, query(), config, context | SDK-specific        |
-| **agent-cli**      | Ink TUI (terminal UI, permission-prompt). Re-exports CommandRegistry from agent-sdk                  | CLI-specific        |
+| Package               | Role                                                                                                       | General/Specialized |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------- |
+| **agent-core**        | Robota engine, execution loop, provider abstraction, permissions, hooks                                    | General             |
+| **agent-tools**       | Tool creation infrastructure + 8 built-in tools                                                            | General             |
+| **agent-sessions**    | Generic Session class, SessionStore (persistence)                                                          | General             |
+| **agent-sdk**         | Assembly layer: InteractiveSession (single entry point), embedded commands, createQuery(), config, context | SDK-specific        |
+| **agent-cli**         | Ink TUI (terminal UI). Creates provider, passes to InteractiveSession. No agent-sessions import.           | CLI-specific        |
+| **agent-provider-\*** | AI provider implementations. CLI depends on these directly; SDK does not.                                  | Provider-specific   |
 
 ### Feature Layout (Current Implementation State)
 
@@ -95,20 +108,21 @@ agent-sdk (assembly layer — SDK-specific features only)
 │   ├── command-registry.ts     ← CommandRegistry: aggregates ICommandSource instances
 │   ├── builtin-source.ts       ← BuiltinCommandSource: built-in commands
 │   ├── skill-source.ts         ← SkillCommandSource: discovers SKILL.md files
-│   ├── system-command.ts       ← SystemCommandExecutor + ISystemCommand + createSystemCommands()
+│   ├── plugin-source.ts        ← PluginCommandSource: discovers plugin commands (moved from agent-cli)
+│   ├── system-command.ts       ← SystemCommandExecutor + ISystemCommand + createSystemCommands() (internal)
 │   └── types.ts                ← ICommand, ICommandSource
-├── src/assembly/               ← Session factory: createSession, createDefaultTools, createProvider
+├── src/assembly/               ← Session factory: createSession (internal), createDefaultTools (internal)
 ├── src/config/                 ← settings.json loading (6-layer merge, $ENV substitution)
 ├── src/context/                ← AGENTS.md/CLAUDE.md walk-up discovery, project detection, system prompt
 ├── src/tools/agent-tool.ts     ← Agent sub-session tool (SDK-specific: uses createSession)
 ├── src/permissions/            ← permission-prompt.ts (terminal approval prompt)
 ├── src/paths.ts                ← projectPaths / userPaths helpers
 ├── src/types.ts                ← re-exports shared types from agent-sessions
-├── src/query.ts                ← query() SDK entry point (uses createSession)
+├── src/query.ts                ← createQuery() factory (provider-neutral; provider injected by consumer)
 └── src/index.ts                ← assembly exports + re-exports from agent-sessions/tools/core
 
 agent-cli (Ink TUI — CLI-specific)
-├── src/commands/               ← Re-exports CommandRegistry from agent-sdk; adds plugin-source,
+├── src/commands/               ← Re-exports CommandRegistry from agent-sdk;
 │                                  skill-executor, slash-executor (CLI-specific execution wrappers)
 ├── src/ui/                     ← App, MessageList, InputArea, StatusBar, PermissionPrompt,
 │                                  SlashAutocomplete, CjkTextInput, WaveText, InkTerminal, render
@@ -124,7 +138,7 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Package**: `agent-sessions` (generic, depends only on agent-core)
 - **Implementation**: Session accepts pre-constructed tools, provider, and system message. Internal concerns are delegated to PermissionEnforcer, ContextWindowTracker, and CompactionOrchestrator.
-- **Assembly**: `agent-sdk/assembly/` provides `createSession()` which wires tools, provider, and system prompt from config/context.
+- **Assembly**: `agent-sdk/assembly/` provides `createSession()` (internal — not exported) which wires tools, provider, and system prompt from config/context. Consumers use `InteractiveSession({ cwd, provider })` instead.
 - **Persistence**: SessionStore saves/loads/lists/deletes JSON at `~/.robota/sessions/{id}.json`
 
 ### Permission System
@@ -133,7 +147,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Implementation**: 3-step evaluation — deny list → allow list → mode policy
 - **Modes**: `plan` (read-only), `default` (write requires approval), `acceptEdits` (write auto-approved), `bypassPermissions` (all auto-approved)
 - **Pattern syntax**: `Bash(pnpm *)`, `Read(/src/**)`, `Write(*)` etc. with glob matching
-- **Terminal prompt**: `agent-sdk/src/permissions/permission-prompt.ts` is the SSOT implementation of the terminal approval prompt. Used by both `query()` and `agent-cli` (which imports from `@robota-sdk/agent-sdk`).
+- **Terminal prompt**: `agent-sdk/src/permissions/permission-prompt.ts` is the SSOT implementation of the terminal approval prompt. Used by both `InteractiveSession`/`createQuery()` and `agent-cli` (which imports from `@robota-sdk/agent-sdk`).
 - **Default allow patterns**: `createSession()` automatically adds allow patterns for config folder access: `Read(.agents/**)`, `Read(.claude/**)`, `Read(.robota/**)`, `Glob(.agents/**)`, `Glob(.claude/**)`, `Glob(.robota/**)`. These are merged with user-configured permissions.
 
 ### Hooks System
@@ -167,9 +181,11 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Package**: `agent-sdk/interactive/`
 - **Pattern**: Composition over Session (holds a `Session` instance, does not extend it)
-- **Responsibility**: Streaming accumulation, tool state tracking, prompt queue (max 1), abort orchestration, display message history
+- **Constructor**: Accepts `{ cwd, provider }` only. Config and context are loaded internally from `cwd`.
+- **Responsibility**: Streaming accumulation, tool state tracking, prompt queue (max 1), abort orchestration, display message history, embedded command execution
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
+- **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Replaces direct `SystemCommandExecutor` usage by consumers.
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
@@ -179,9 +195,10 @@ agent-cli (Ink TUI — CLI-specific)
 
 - **Package**: `agent-sdk/commands/`
 - **Purpose**: SDK-level command execution logic — pure TypeScript, no React, no TUI dependency
+- **Embedding**: `SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers call `session.executeCommand(name, args)` directly. `SystemCommandExecutor` is not independently exported.
 - **Classes**:
-  - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances
-  - `createSystemCommands()` — factory for all built-in commands
+  - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
+  - `createSystemCommands()` — factory for all built-in commands (internal)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional `data`. Side effects that require caller context (file I/O for `reset`, model switching for `model`) are signaled via `data` — the caller applies them.
 - **Built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `reset`
 
@@ -192,7 +209,8 @@ agent-cli (Ink TUI — CLI-specific)
   - `CommandRegistry` — aggregates multiple `ICommandSource` instances; filters by prefix; resolves plugin-qualified names
   - `BuiltinCommandSource` — provides built-in slash commands with subcommand trees (mode, model, language)
   - `SkillCommandSource` — discovers SKILL.md files from project and user directories; parses YAML frontmatter; lazy-caches results
-- **Migration note**: These classes were previously in `agent-cli/src/commands/`. They were moved to `agent-sdk` so any client can use slash command discovery without a TUI dependency. The CLI re-exports `CommandRegistry` from `@robota-sdk/agent-sdk`.
+  - `PluginCommandSource` — discovers commands exposed by installed bundle plugins (moved from agent-cli to agent-sdk)
+- **Migration note**: These classes were previously in `agent-cli/src/commands/`. They were moved to `agent-sdk` so any client can use slash command discovery without a TUI dependency. `PluginCommandSource` was also moved from `agent-cli` to `agent-sdk` as part of the scope redesign.
 
 ### Config Loading (SDK-Specific)
 
@@ -218,7 +236,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Model sizes**: Lookup table per model (200K for Sonnet/Haiku, 1M for Opus)
 - **Compact Instructions**: Extracted from CLAUDE.md "Compact Instructions" section, passed to summary prompt
 - **Hooks**: PreCompact/PostCompact events in agent-core, fired before/after compaction
-- **Callbacks**: `onCompact` in query() options for notification when compaction occurs
+- **Callbacks**: `onCompact` in `createQuery()` options for notification when compaction occurs
 
 ## Public API
 
@@ -230,18 +248,12 @@ The SDK is pure TypeScript with no React dependency. The CLI is a thin TUI-only 
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
-import type { IInteractiveSessionOptions } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const session = new InteractiveSession({
-  config,
-  context,
-  projectInfo,
-  sessionStore,
-  permissionMode: 'default',
-  maxTurns: 10,
-  cwd: process.cwd(),
-  permissionHandler: async (toolName, toolArgs) => ({ allowed: true }),
-});
+// Consumer creates provider and passes it to InteractiveSession.
+// Config and context are loaded internally from cwd.
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+const session = new InteractiveSession({ cwd: process.cwd(), provider });
 
 // Event-driven — subscribe to state changes
 session.on('text_delta', (delta: string) => { /* streaming text chunk */ });
@@ -258,6 +270,12 @@ session.on('interrupted', (result: IExecutionResult) => { /* abort completed */ 
 // rawInput: passed to Session.run() for hook matching
 await session.submit(input, displayInput?, rawInput?);
 
+// Execute a named system command (embedded SystemCommandExecutor)
+const result = await session.executeCommand('context', '');
+// result.message — human-readable string
+// result.success — boolean
+// result.data   — command-specific structured data
+
 // Abort current execution and clear queue
 session.abort();
 
@@ -271,9 +289,6 @@ session.getMessages();       // TUniversalMessage[]
 session.getContextState();   // IContextWindowState
 session.getStreamingText();  // string (accumulated so far)
 session.getActiveTools();    // IToolState[]
-
-// Access underlying Session for advanced use
-session.getSession();        // Session
 ```
 
 **IToolState:**
@@ -315,27 +330,20 @@ interface IInteractiveSessionEvents {
 }
 ```
 
-### SystemCommandExecutor — SDK-Level Commands
+### System Commands — Embedded in InteractiveSession
 
-Executes named system commands against an `InteractiveSession`. Commands are pure TypeScript — no React, no TUI dependency. The CLI wraps these as slash commands with UI chrome.
+`SystemCommandExecutor` is embedded inside `InteractiveSession` and is **not independently exported**. Consumers access system commands via `session.executeCommand(name, args)`.
+
+The command types and result interface are exported for consumers that need to inspect results:
 
 ```typescript
-import { SystemCommandExecutor, createSystemCommands } from '@robota-sdk/agent-sdk';
 import type { ICommandResult, ISystemCommand } from '@robota-sdk/agent-sdk';
 
-const executor = new SystemCommandExecutor(); // loads built-in commands
-
-// Execute a command by name (returns null if not found)
-const result: ICommandResult | null = await executor.execute('context', session, '');
+// Execute a named command on the session (returns null if command not found)
+const result: ICommandResult | null = await session.executeCommand('context', '');
 // result.message — human-readable string
 // result.success — boolean
 // result.data   — command-specific structured data
-
-// Register a custom command
-executor.register({ name: 'status', description: '...', execute: (s, args) => ({ ... }) });
-
-executor.listCommands();      // ISystemCommand[]
-executor.hasCommand('mode');  // boolean
 ```
 
 **Built-in commands:**
@@ -373,12 +381,17 @@ interface ICommandResult {
 }
 ```
 
-### CommandRegistry, BuiltinCommandSource, SkillCommandSource
+### CommandRegistry, BuiltinCommandSource, SkillCommandSource, PluginCommandSource
 
-Command discovery and aggregation for clients that expose a slash command palette or autocomplete UI. Owned by `agent-sdk`; agent-cli re-exports `CommandRegistry` from here.
+Command discovery and aggregation for clients that expose a slash command palette or autocomplete UI. Owned by `agent-sdk`; agent-cli re-exports `CommandRegistry` from here. `PluginCommandSource` was moved from `agent-cli` to `agent-sdk` so all clients benefit from plugin command discovery.
 
 ```typescript
-import { CommandRegistry, BuiltinCommandSource, SkillCommandSource } from '@robota-sdk/agent-sdk';
+import {
+  CommandRegistry,
+  BuiltinCommandSource,
+  SkillCommandSource,
+  PluginCommandSource,
+} from '@robota-sdk/agent-sdk';
 
 const registry = new CommandRegistry();
 registry.addSource(new BuiltinCommandSource());
@@ -397,10 +410,16 @@ registry.getSubcommands('mode'); // ICommand[] — subcommands
 3. `~/.robota/skills/*/SKILL.md`
 4. `<cwd>/.agents/skills/*/SKILL.md`
 
-### query() — SDK Entry Point
+### createQuery() — Convenience Factory
+
+`createQuery({ provider })` is a factory that returns a prompt-only function. The caller creates the provider; the factory captures it and returns a simple async function that accepts a prompt string.
 
 ```typescript
-import { query } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+const query = createQuery({ provider });
 
 const response = await query('Show me the file list');
 
@@ -412,20 +431,7 @@ const response = await query('Analyze the code', {
 });
 ```
 
-### createSession() — Assembly Factory
-
-```typescript
-import { createSession, loadConfig, loadContext, detectProject } from '@robota-sdk/agent-sdk';
-
-const [config, context, projectInfo] = await Promise.all([
-  loadConfig(cwd),
-  loadContext(cwd),
-  detectProject(cwd),
-]);
-
-const session = createSession({ config, context, terminal, projectInfo, permissionMode });
-const response = await session.run('Hello');
-```
+`createSession()` is an **internal** assembly factory — it is not exported from `@robota-sdk/agent-sdk`. Config and context loading, tool assembly, and provider wiring happen inside `InteractiveSession` and `createQuery()`.
 
 ### Session — Direct Usage (Generic)
 
@@ -457,6 +463,37 @@ import { webFetchTool, webSearchTool } from '@robota-sdk/agent-tools';
 import { evaluatePermission } from '@robota-sdk/agent-core';
 ```
 
+## Import Rules
+
+These rules define which packages each layer is allowed to import from. Violations break the layered architecture.
+
+### CLI (`agent-cli`)
+
+| Source             | Allowed                       | Notes                                                                     |
+| ------------------ | ----------------------------- | ------------------------------------------------------------------------- |
+| `agent-sdk`        | All SDK-owned public APIs     | InteractiveSession, createQuery, TInteractivePermissionHandler, etc.      |
+| `agent-core`       | Public types + utilities only | TUniversalMessage, TPermissionMode, createSystemMessage, getModelName     |
+| `agent-core`       | ❌ Internal engine classes    | Robota, ExecutionService, ConversationStore are forbidden                 |
+| `agent-sessions`   | ❌ Forbidden                  | SDK provides its own session types; CLI must not import sessions directly |
+| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                            |
+| `agent-provider-*` | Provider creation only        | AnthropicProvider, GoogleProvider (CLI picks which to use)                |
+
+### SDK (`agent-sdk`)
+
+| Source             | Allowed      | Notes                                                 |
+| ------------------ | ------------ | ----------------------------------------------------- |
+| `agent-core`       | Full access  |                                                       |
+| `agent-sessions`   | Full access  |                                                       |
+| `agent-tools`      | Full access  |                                                       |
+| `agent-provider-*` | ❌ Forbidden | SDK is provider-neutral; provider comes from consumer |
+
+### Transport packages (`agent-transport-*`)
+
+| Source       | Allowed                                    | Notes |
+| ------------ | ------------------------------------------ | ----- |
+| `agent-sdk`  | InteractiveSession and related types       |       |
+| `agent-core` | Public types only (TUniversalMessage etc.) |       |
+
 ## Design Decision Records
 
 ### Claude Code vs Claude Agent SDK Relationship (Research)
@@ -480,7 +517,7 @@ Each module's placement is determined by "Is this used only in the SDK, or is it
 | Context loading        | **SDK-specific** → agent-sdk | AGENTS.md walk-up is for local environments only                                     |
 | Agent tool             | **SDK-specific** → agent-sdk | Sub-session creation is an SDK assembly concern                                      |
 | InteractiveSession     | **SDK-specific** → agent-sdk | Client-facing event wrapper; no CLI/React dependency; reusable by all clients        |
-| SystemCommandExecutor  | **SDK-specific** → agent-sdk | Pure TS command execution; CLI wraps with UI chrome but does not own the logic       |
+| SystemCommandExecutor  | **SDK-specific** → agent-sdk | Embedded in InteractiveSession; accessed via session.executeCommand(); not exported  |
 | CommandRegistry et al. | **SDK-specific** → agent-sdk | Slash command discovery is useful for any client; moved from CLI to SDK              |
 | ITerminalOutput        | **General** → agent-sessions | Terminal I/O abstraction (SSOT in permission-enforcer.ts; agent-cli has a duplicate) |
 
@@ -632,10 +669,10 @@ Assembles the full system prompt for a subagent session:
 
 ## Unconnected Packages (Future Integration Targets)
 
-| Package                                    | Current State | Integration Direction                                    |
-| ------------------------------------------ | ------------- | -------------------------------------------------------- |
-| **agent-tool-mcp**                         | Unconnected   | Connect when MCP server is configured in query() options |
-| **agent-team**                             | Unconnected   | Replace agent-tool.ts with agent-team delegation pattern |
-| **agent-event-service**                    | Unconnected   | Publish Session lifecycle events                         |
-| **agent-plugin-\***                        | Unconnected   | Inject plugins during Session/Robota creation            |
-| **agent-provider-openai/google/bytedance** | Unconnected   | Select provider in query() options                       |
+| Package                                    | Current State | Integration Direction                                               |
+| ------------------------------------------ | ------------- | ------------------------------------------------------------------- |
+| **agent-tool-mcp**                         | Unconnected   | Connect when MCP server is configured in InteractiveSession options |
+| **agent-team**                             | Unconnected   | Replace agent-tool.ts with agent-team delegation pattern            |
+| **agent-event-service**                    | Unconnected   | Publish Session lifecycle events                                    |
+| **agent-plugin-\***                        | Unconnected   | Inject plugins during Session/Robota creation                       |
+| **agent-provider-openai/google/bytedance** | Unconnected   | Consumer passes provider to InteractiveSession({ cwd, provider })   |
