@@ -116,8 +116,15 @@ export {
   BuiltinCommandSource,
   SkillCommandSource,
   parseFrontmatter,
+  SystemCommandExecutor,
+  createSystemCommands,
 } from './commands/index.js';
-export type { ISlashCommand, ICommandSource } from './commands/index.js';
+export type {
+  ISlashCommand,
+  ICommandSource,
+  ISystemCommand,
+  ICommandResult,
+} from './commands/index.js';
 
 // InteractiveSession — event-driven session wrapper for any client
 export { InteractiveSession } from './interactive/index.js';
