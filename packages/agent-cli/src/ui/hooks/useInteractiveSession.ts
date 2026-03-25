@@ -200,7 +200,10 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       });
     };
     const onInterrupted = (): void => {
-      /* messages managed by InteractiveSession */
+      // Clear streaming state on abort — prevent stale text from showing
+      streamBuf = '';
+      setStreamingText('');
+      setActiveTools([]);
     };
     const onError = (): void => {
       /* error messages managed by InteractiveSession */
