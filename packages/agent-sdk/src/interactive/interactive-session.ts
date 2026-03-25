@@ -1,28 +1,31 @@
 /**
- * InteractiveSession — event-driven session wrapper for any client.
+ * InteractiveSession — the single entry point for all SDK consumers.
  *
- * Wraps Session (composition) to provide streaming text accumulation,
+ * Wraps Session (composition). Manages streaming text accumulation,
  * tool execution state tracking, prompt queuing, abort orchestration,
- * and message history management. Previously embedded in CLI React hooks.
+ * message history, and system command execution.
  *
- * Clients (CLI, web, API server, Dynamic Worker) subscribe to events
- * and call submit/abort/cancelQueue.
+ * Config/context loading is internal. Consumer provides cwd + provider.
  */
 
 import { createSession } from '../assembly/index.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import { projectPaths } from '../paths.js';
+import { loadConfig } from '../config/config-loader.js';
+import { loadContext } from '../context/context-loader.js';
+import { detectProject } from '../context/project-detector.js';
 import type { TUniversalMessage, IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
 import {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
 } from '@robota-sdk/agent-core';
+import { SystemCommandExecutor, createSystemCommands } from '../commands/system-command.js';
 import type {
   IToolState,
-  IDiffLine,
   IExecutionResult,
   IToolSummary,
   TInteractivePermissionHandler,
@@ -38,22 +41,35 @@ const MAX_COMPLETED_TOOLS = 50;
 /** Streaming text flush interval (ms) — ~60fps. */
 const STREAMING_FLUSH_INTERVAL_MS = 16;
 
-export interface IInteractiveSessionOptions {
-  config: ICreateSessionOptions['config'];
-  context: ICreateSessionOptions['context'];
-  projectInfo?: ICreateSessionOptions['projectInfo'];
-  sessionStore?: ICreateSessionOptions['sessionStore'];
+/** Standard construction: cwd + provider. Config/context loaded internally. */
+interface IInteractiveSessionStandardOptions {
+  cwd: string;
+  provider: IAIProvider;
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
-  cwd?: string;
   permissionHandler?: TInteractivePermissionHandler;
-  /** Optional: inject pre-built session (for testing). */
-  session?: Session;
 }
 
+/** Test/advanced construction: inject pre-built session directly. */
+interface IInteractiveSessionInjectedOptions {
+  session: Session;
+  cwd?: string;
+  provider?: IAIProvider;
+  permissionMode?: ICreateSessionOptions['permissionMode'];
+  maxTurns?: number;
+  permissionHandler?: TInteractivePermissionHandler;
+}
+
+export type IInteractiveSessionOptions =
+  | IInteractiveSessionStandardOptions
+  | IInteractiveSessionInjectedOptions;
+
 export class InteractiveSession {
-  private readonly session: Session;
+  private session: Session | null = null;
+  private readonly commandExecutor: SystemCommandExecutor;
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+  private initialized = false;
+  private initPromise: Promise<void> | null = null;
 
   // Streaming state
   private streamingText = '';
@@ -72,26 +88,53 @@ export class InteractiveSession {
   private messages: TUniversalMessage[] = [];
 
   constructor(options: IInteractiveSessionOptions) {
-    if (options.session) {
-      this.session = options.session;
-    } else {
-      const cwd = options.cwd ?? process.cwd();
-      const paths = projectPaths(cwd);
+    this.commandExecutor = new SystemCommandExecutor(createSystemCommands());
 
-      this.session = createSession({
-        config: options.config,
-        context: options.context,
-        projectInfo: options.projectInfo,
-        sessionStore: options.sessionStore,
-        permissionMode: options.permissionMode,
-        maxTurns: options.maxTurns,
-        terminal: NOOP_TERMINAL,
-        sessionLogger: new FileSessionLogger(paths.logs),
-        permissionHandler: options.permissionHandler,
-        onTextDelta: (delta: string) => this.handleTextDelta(delta),
-        onToolExecution: (event) => this.handleToolExecution(event),
-      });
+    if ('session' in options && options.session) {
+      this.session = options.session;
+      this.initialized = true;
+    } else {
+      const stdOpts = options as IInteractiveSessionStandardOptions;
+      this.initPromise = this.initializeAsync(stdOpts);
     }
+  }
+
+  private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
+    const cwd = options.cwd;
+    const [config, context, projectInfo] = await Promise.all([
+      loadConfig(cwd),
+      loadContext(cwd),
+      detectProject(cwd),
+    ]);
+
+    const paths = projectPaths(cwd);
+
+    this.session = createSession({
+      config,
+      context,
+      projectInfo,
+      permissionMode: options.permissionMode,
+      maxTurns: options.maxTurns,
+      terminal: NOOP_TERMINAL,
+      sessionLogger: new FileSessionLogger(paths.logs),
+      permissionHandler: options.permissionHandler,
+      provider: options.provider,
+      onTextDelta: (delta: string) => this.handleTextDelta(delta),
+      onToolExecution: (event) => this.handleToolExecution(event),
+    });
+
+    this.initialized = true;
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) return;
+    if (this.initPromise) await this.initPromise;
+  }
+
+  private getSessionOrThrow(): Session {
+    if (!this.session)
+      throw new Error('InteractiveSession not initialized. Call submit() or await initialization.');
+    return this.session;
   }
 
   // ── Event system ──────────────────────────────────────────────
@@ -121,10 +164,9 @@ export class InteractiveSession {
 
   // ── Public API ────────────────────────────────────────────────
 
-  /** Submit a prompt. Queues if already executing (max 1 queued).
-   *  displayInput overrides what appears as the user message (e.g., "/audit" instead of full skill prompt).
-   *  rawInput is passed to Session.run() for hook matching (e.g., "/rulebased-harness:audit"). */
+  /** Submit a prompt. Queues if already executing (max 1 queued). */
   async submit(input: string, displayInput?: string, rawInput?: string): Promise<void> {
+    await this.ensureInitialized();
     if (this.executing) {
       this.pendingPrompt = input;
       this.pendingDisplayInput = displayInput;
@@ -134,15 +176,28 @@ export class InteractiveSession {
     await this.executePrompt(input, displayInput, rawInput);
   }
 
+  /** Execute a system command by name. Returns null if not found. */
+  async executeCommand(
+    name: string,
+    args: string,
+  ): Promise<{ message: string; success: boolean; data?: Record<string, unknown> } | null> {
+    await this.ensureInitialized();
+    return this.commandExecutor.execute(name, this, args);
+  }
+
   /** Abort current execution and clear queue. */
   abort(): void {
     this.pendingPrompt = null;
-    this.session.abort();
+    this.pendingDisplayInput = undefined;
+    this.pendingRawInput = undefined;
+    this.session?.abort();
   }
 
   /** Cancel queued prompt without aborting current execution. */
   cancelQueue(): void {
     this.pendingPrompt = null;
+    this.pendingDisplayInput = undefined;
+    this.pendingRawInput = undefined;
   }
 
   isExecuting(): boolean {
@@ -166,11 +221,12 @@ export class InteractiveSession {
   }
 
   getContextState(): IContextWindowState {
-    return this.session.getContextState();
+    return this.getSessionOrThrow().getContextState();
   }
 
+  /** Access underlying Session. For advanced use / testing only. */
   getSession(): Session {
-    return this.session;
+    return this.getSessionOrThrow();
   }
 
   // ── Execution ─────────────────────────────────────────────────
@@ -183,14 +239,12 @@ export class InteractiveSession {
     this.executing = true;
     this.clearStreaming();
     this.emit('thinking', true);
-    // displayInput: show user-facing text (e.g., "/audit") instead of full built prompt
     this.messages.push(createUserMessage(displayInput ?? input));
 
-    const historyBefore = this.session.getHistory().length;
+    const historyBefore = this.getSessionOrThrow().getHistory().length;
 
     try {
-      // rawInput is passed to Session.run() for hook matching (UserPromptSubmit etc.)
-      const response = await this.session.run(input, rawInput);
+      const response = await this.getSessionOrThrow().run(input, rawInput);
       this.flushStreaming();
       this.clearStreaming();
 
@@ -218,7 +272,6 @@ export class InteractiveSession {
       this.executing = false;
       this.emit('thinking', false);
 
-      // Auto-execute queued prompt
       if (this.pendingPrompt) {
         const queued = this.pendingPrompt;
         const queuedDisplay = this.pendingDisplayInput;
@@ -226,7 +279,6 @@ export class InteractiveSession {
         this.pendingPrompt = null;
         this.pendingDisplayInput = undefined;
         this.pendingRawInput = undefined;
-        // Next tick to avoid re-entrancy
         setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
       }
     }
@@ -237,8 +289,6 @@ export class InteractiveSession {
   private handleTextDelta(delta: string): void {
     this.streamingText += delta;
     this.emit('text_delta', delta);
-
-    // Debounced flush for clients that poll getStreamingText()
     if (!this.flushTimer) {
       this.flushTimer = setTimeout(() => {
         this.flushTimer = null;
@@ -256,11 +306,7 @@ export class InteractiveSession {
   }): void {
     if (event.type === 'start') {
       const firstArg = extractFirstArg(event.toolArgs);
-      const state: IToolState = {
-        toolName: event.toolName,
-        firstArg,
-        isRunning: true,
-      };
+      const state: IToolState = { toolName: event.toolName, firstArg, isRunning: true };
       this.activeTools.push(state);
       this.emit('tool_start', state);
     } else {
@@ -269,14 +315,9 @@ export class InteractiveSession {
         : event.success === false
           ? 'error'
           : 'success';
-
       const idx = this.activeTools.findIndex((t) => t.toolName === event.toolName && t.isRunning);
       if (idx !== -1) {
-        const finished: IToolState = {
-          ...this.activeTools[idx]!,
-          isRunning: false,
-          result,
-        };
+        const finished: IToolState = { ...this.activeTools[idx]!, isRunning: false, result };
         this.activeTools[idx] = finished;
         this.trimCompletedTools();
         this.emit('tool_end', finished);
@@ -304,8 +345,6 @@ export class InteractiveSession {
 
   private buildResult(response: string, historyBefore: number): IExecutionResult {
     const toolSummaries = this.extractToolSummaries(historyBefore);
-    // Tool summaries are in IExecutionResult.toolSummaries — clients render them as they wish.
-    // Do NOT push raw JSON into messages.
     return {
       response,
       messages: this.messages,
@@ -315,18 +354,13 @@ export class InteractiveSession {
   }
 
   private buildInterruptedResult(historyBefore: number): IExecutionResult {
-    const history = this.session.getHistory();
+    const history = this.getSessionOrThrow().getHistory();
     const toolSummaries = this.extractToolSummaries(historyBefore);
-
-    // Merge consecutive assistant messages from this execution
     const parts: string[] = [];
     for (let i = historyBefore; i < history.length; i++) {
       const msg = history[i];
-      if (msg?.role === 'assistant' && msg.content) {
-        parts.push(msg.content);
-      }
+      if (msg?.role === 'assistant' && msg.content) parts.push(msg.content);
     }
-
     return {
       response: parts.join('\n\n'),
       messages: this.messages,
@@ -336,7 +370,7 @@ export class InteractiveSession {
   }
 
   private extractToolSummaries(historyBefore: number): IToolSummary[] {
-    const history = this.session.getHistory();
+    const history = this.getSessionOrThrow().getHistory();
     const summaries: IToolSummary[] = [];
     for (let i = historyBefore; i < history.length; i++) {
       const msg = history[i];
@@ -385,7 +419,6 @@ function extractFirstArg(toolArgs?: Record<string, unknown>): string {
     : raw;
 }
 
-/** No-op terminal for non-CLI clients. */
 const NOOP_TERMINAL = {
   write: (): void => {},
   writeLine: (): void => {},
