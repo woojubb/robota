@@ -9,8 +9,10 @@ import { expandPasteLabels } from '../utils/paste-labels.js';
 
 interface IProps {
   onSubmit: (value: string) => void;
+  onCancelQueue?: () => void;
   isDisabled: boolean;
   isAborting?: boolean;
+  pendingPrompt?: string | null;
   registry?: CommandRegistry;
 }
 
@@ -100,8 +102,10 @@ function useAutocomplete(
  */
 export default function InputArea({
   onSubmit,
+  onCancelQueue,
   isDisabled,
   isAborting,
+  pendingPrompt,
   registry,
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
@@ -196,6 +200,16 @@ export default function InputArea({
     { isActive: showPopup && !isDisabled },
   );
 
+  // Backspace cancels queued prompt
+  useInput(
+    (_input, key) => {
+      if ((key.backspace || key.delete) && pendingPrompt) {
+        onCancelQueue?.();
+      }
+    },
+    { isActive: !!pendingPrompt },
+  );
+
   return (
     <Box flexDirection="column">
       {showPopup && (
@@ -208,15 +222,21 @@ export default function InputArea({
       )}
       <Box
         borderStyle="single"
-        borderColor={isAborting ? 'yellow' : isDisabled ? 'gray' : 'green'}
+        borderColor={isAborting ? 'yellow' : pendingPrompt ? 'cyan' : isDisabled ? 'gray' : 'green'}
         paddingLeft={1}
       >
-        {isDisabled ? (
-          isAborting ? (
-            <Text color="yellow"> Interrupting...</Text>
-          ) : (
-            <WaveText text="  Waiting for response... (ESC to interrupt)" />
-          )
+        {isAborting ? (
+          <Text color="yellow"> Interrupting...</Text>
+        ) : pendingPrompt ? (
+          <Text color="cyan">
+            {' '}
+            Queued: {pendingPrompt.length > 50
+              ? pendingPrompt.slice(0, 47) + '...'
+              : pendingPrompt}{' '}
+            <Text dimColor>(Backspace to cancel)</Text>
+          </Text>
+        ) : isDisabled ? (
+          <WaveText text="  Waiting for response... (ESC to interrupt)" />
         ) : (
           <Box>
             <Text color="green" bold>
