@@ -188,7 +188,7 @@ These types are consumed by `@robota-sdk/agent-sessions` to track cumulative tok
 | `AgentFactory`        | class | Agent creation and lifecycle  |
 | `AgentTemplates`      | class | Template-based agent creation |
 | `ConversationHistory` | class | History management            |
-| `ConversationSession` | class | Session management            |
+| `ConversationStore`   | class | Session management            |
 
 ### Services
 
@@ -359,16 +359,19 @@ The execution loop supports cooperative cancellation via the standard `AbortSign
 | `IExecutionResult`           | `interrupted?: boolean` | Indicates the execution was aborted before natural completion     |
 | `IToolExecutionBatchContext` | `signal?: AbortSignal`  | Allows skipping queued tool executions when abort is signalled    |
 
-### Execution Flow
+### Signal Propagation
+
+AbortSignal flows through: Session -> `robota.run()` -> ExecutionService -> `callProviderWithCache` -> `provider.chat()` -> `streamWithAbort`.
 
 - **ExecutionService**: Checks `signal.aborted` at round loop boundaries. If aborted, the loop exits early and the result includes `interrupted: true`.
 - **callProviderWithCache**: Accepts `signal` and passes it to the provider's `chat()` call, enabling mid-request cancellation.
 - **executeAndRecordToolCalls**: Passes `signal` to the tool batch context so queued tools are skipped once abort is triggered.
-- **AbortError handling**: `AbortError` exceptions thrown by the provider or fetch layer are caught by the execution loop and treated as a clean interruption (not an error).
+- **streamWithAbort**: Checks `signal.aborted` after each yielded event, breaking out of the stream iteration loop.
+- **AbortError handling**: `AbortError` exceptions thrown by the fetch layer are caught by the execution loop and treated as a clean interruption (not an error).
 
 ### Partial Content Preservation on Abort
 
-When abort occurs during provider streaming, the provider catches AbortError internally and returns partial content collected so far as a normal response. `executeRound` processes this partial response through the standard path (`addAssistantMessage`) with `metadata.interrupted = true`. The execution loop then exits via the `signal.aborted` check in ExecutionService. `robota.run()` always returns normally on abort — it does not throw.
+When abort occurs during provider streaming, the provider uses `streamWithAbort` which breaks out of the iteration loop on `signal.aborted`. The provider then returns partial content collected so far with `stopReason: 'aborted'`. `executeRound` commits this partial response via `commitAssistant('interrupted')` through the standard single commit path. The execution loop then exits via the `signal.aborted` check in ExecutionService. `robota.run()` always returns normally on abort — it does not throw.
 
 This ensures:
 
@@ -377,8 +380,6 @@ This ensures:
 - Tool results from completed tools in earlier rounds are preserved
 
 If the partial response includes tool_use blocks (abort during tool call streaming), the tool execution step runs but skips queued tools via `signal.aborted` check in `IToolExecutionBatchContext`. Completed tools have normal results; skipped tools have `"Execution interrupted by user"` error results. Both are recorded in history.
-
-The `executeRound` catch block for AbortError (re-throw path) is a fallback for providers that throw AbortError instead of returning partial content. The Anthropic provider always returns normally on abort.
 
 ## Conversation History Principles
 
@@ -413,22 +414,23 @@ All message factory functions auto-generate `id` via `randomUUID()` and set `sta
 | `createSystemMessage`    | system    | Always `state: 'complete'`                               |
 | `createToolMessage`      | tool      | Always `state: 'complete'`                               |
 
-## ConversationSession Streaming State
+## ConversationStore Streaming State
 
-`ConversationSession` manages pending assistant state during streaming:
+`ConversationStore` (renamed from `ConversationSession`) manages pending assistant state during streaming:
 
-| Method                              | Description                                                                                              |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `beginAssistant()`                  | Initializes pending state before provider call. Guarantees commitAssistant always has data.              |
-| `appendStreaming(delta)`            | Accumulates streaming text into pending state                                                            |
-| `appendToolCall(toolCall)`          | Adds tool call to pending state (deduplicates by id)                                                     |
-| `commitAssistant(state, metadata?)` | Commits pending to history. Always appends (append-only guarantee). Strips text when tool calls present. |
-| `discardPending()`                  | Clears pending without saving                                                                            |
-| `hasPendingAssistant()`             | Checks if streaming is in progress                                                                       |
+| Method                              | Description                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------ |
+| `beginAssistant()`                  | Initializes pending state before provider call. Guarantees commitAssistant has data. |
+| `appendStreaming(delta)`            | Accumulates streaming text into pending state                                        |
+| `appendToolCall(toolCall)`          | Adds tool call to pending state (deduplicates by id)                                 |
+| `commitAssistant(state, metadata?)` | Commits pending to history. Text is ALWAYS preserved. History is append-only.        |
+| `discardPending()`                  | Clears pending without saving                                                        |
+| `hasPendingAssistant()`             | Checks if streaming is in progress                                                   |
+| `getPendingContent()`               | Returns the accumulated pending text content                                         |
 
 **`commitAssistant` behavior:**
 
-- Text content is always preserved — history records everything. Context savings is compaction's job.
+- Text content is ALWAYS preserved — no stripping, even when tool calls are present. Context savings is compaction's job.
 - The `state` parameter determines whether the committed message has `state: 'complete'` or `state: 'interrupted'`.
 - Single commit path — no branching between normal completion and abort.
 
@@ -438,12 +440,13 @@ All message factory functions auto-generate `id` via `randomUUID()` and set `sta
 
 ## executeRound Streaming Flow
 
-The `executeRound` function manages streaming through `ConversationSession`:
+The `executeRound` function manages streaming through `ConversationStore`:
 
-1. Provider's `onTextDelta` callback is wrapped to call `appendStreaming(delta)` on each delta.
-2. After the provider returns: tool calls are extracted via `appendToolCall(toolCall)`.
-3. `commitAssistant(state, metadata?)` is called with state determined by `signal.aborted` — `'interrupted'` if aborted, `'complete'` otherwise.
-4. Single commit path — no branching between normal and abort flows.
+1. `beginAssistant()` initializes pending state before the provider call.
+2. Provider's `onTextDelta` callback is wrapped to call `appendStreaming(delta)` on each delta.
+3. After the provider returns: tool calls are added via `appendToolCall(toolCall)`.
+4. `commitAssistant(state, metadata?)` is called with state determined by `signal.aborted` — `'interrupted'` if aborted, `'complete'` otherwise.
+5. Single commit path — no branching between normal and abort flows.
 
 ## Extension Points
 
@@ -493,25 +496,30 @@ Before each `provider.chat()` call in the execution loop, token usage is checked
 
 If `provider.chat()` throws an error (e.g., API 400 for context too large), `executeRound` catches it and injects an assistant message with the error. This ensures the user always sees a readable error message rather than "No response received." If the entire execution pipeline throws, `ExecutionService.execute()` catches it and returns a graceful error result instead of re-throwing.
 
-### Assistant Text Stripping for Tool Rounds
+### AbstractAIProvider.streamWithAbort
 
-When the AI responds with **text + tool_use blocks**, the text content is stripped from the assistant message in conversation history. Only the tool_use blocks are preserved.
+`streamWithAbort()` is a protected async generator on `AbstractAIProvider` that wraps any async iterable with cooperative abort checking. All provider implementations MUST use this method for streaming iteration.
 
-**Rationale:**
+**Mechanism:**
 
-- The text is already displayed to the user via streaming (`onTextDelta`) — its display purpose is fulfilled
-- The text is typically intent description ("I'll check those files"), not analysis results
-- The AI can reconstruct intent from the tool_use blocks and their arguments
-- Stripping frees context budget for tool results, which carry the actual information
-- Prevents the edge case where assistant text alone fills context, leaving no room for any tool results
+1. For each event from the source iterable, yields with a `setTimeout(0)` interleave to allow the event loop to process abort signals.
+2. Checks `signal.aborted` after each yield — breaks out of the loop if aborted.
+3. Providers wrap their SDK stream with `this.streamWithAbort(stream, signal)` in their `chatWithStreaming` implementation.
 
-**Rule:** `tool_use blocks present → text content set to ""`. No exceptions.
+**Usage pattern (in provider):**
 
-**Final responses** (no tool_use blocks) preserve text as-is — this is the actual answer to the user.
+```typescript
+for await (const event of this.streamWithAbort(stream, signal)) {
+  // process event
+}
+// After loop: check signal.aborted to determine stopReason
+```
+
+This ensures all providers have consistent, low-latency abort responsiveness without duplicating the abort-checking logic.
 
 ### Tool Result Context Budget
 
-After the assistant message is recorded (text stripped if tool_use present), tool results are added to history one by one. After each addition, the estimated token count (`chars/2`) is checked against 80% of the model's context window.
+After the assistant message is committed to history, tool results are added to history one by one. After each addition, the estimated token count (`chars/2`) is checked against 80% of the model's context window.
 
 If exceeded, remaining tool results are replaced with a short context-error message (permission-deny pattern):
 
@@ -529,7 +537,7 @@ Error: Context window near capacity. Tool execution result skipped.
 **Example flow:**
 
 ```
-[assistant] tool_use(Read, Bash, Glob, Write)    ← text stripped, tool_use only
+[assistant] text + tool_use(Read, Bash, Glob, Write)
 [tool] Read result (normal, context at 75%)
 [tool] Bash result (normal, context at 82% → overflow detected)
 [tool] Glob: "Error: Context window near capacity. Tool execution result skipped."
@@ -564,7 +572,7 @@ When the execution loop starts round 2+ (after tool execution), `execution-round
 | `IEventService`                   | `StructuredEventService`      | production               | `src/event-service/event-service.ts`           |
 | `IEventService`                   | `ObservableEventService`      | production               | `src/event-service/event-service.ts`           |
 | `IConversationHistory`            | `ConversationHistory`         | production               | `src/managers/conversation-history-manager.ts` |
-| `IConversationHistory`            | `ConversationSession`         | production               | `src/managers/conversation-session.ts`         |
+| `IConversationHistory`            | `ConversationStore`           | production               | `src/managers/conversation-store.ts`           |
 | `IConversationService`            | `ConversationService`         | production               | `src/services/conversation-service/index.ts`   |
 | `IToolManager`                    | `Tools`                       | production               | `src/managers/tool-manager.ts`                 |
 | `IAIProviderManager`              | `AIProviders`                 | production               | `src/managers/ai-provider-manager.ts`          |
