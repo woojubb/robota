@@ -17,7 +17,8 @@ import { tmpdir } from 'node:os';
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { PluginCommandSource } from '../commands/plugin-source.js';
 import { substituteVariables, preprocessShellCommands } from '../utils/skill-prompt.js';
-import { loadConfig, BundlePluginLoader } from '@robota-sdk/agent-sdk';
+import { loadConfig } from '../config/config-loader.js';
+import { BundlePluginLoader } from '../plugins/index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
