@@ -6,7 +6,6 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { GoogleProvider } from '@robota-sdk/agent-provider-google';
-import { registerRemoteServerRoutes } from '@robota-sdk/agent-remote-server-core';
 import { PlaygroundWebSocketServer } from './websocket-server';
 import { resolveApiDocsEnabled } from './utils/env-flags.js';
 
@@ -86,30 +85,25 @@ export function createApp(): express.Application {
     });
   }
 
-  const remoteRuntime = registerRemoteServerRoutes({
-    app,
-    providers,
-    apiDocsEnabled: resolveApiDocsEnabled(process.env.API_DOCS_ENABLED),
-    logger: {
-      debug: (message: string, ...data: unknown[]) => console.log(`[DEBUG] ${message}`, ...data),
-      info: (message: string, ...data: unknown[]) => console.log(`[INFO] ${message}`, ...data),
-      warn: (message: string, ...data: unknown[]) => console.log(`[WARN] ${message}`, ...data),
-      error: (message: string, ...data: unknown[]) => console.log(`[ERROR] ${message}`, ...data),
-      log: (message: string, ...data: unknown[]) => console.log(`[LOG] ${message}`, ...data),
-    },
+  // Provider chat/stream routes — inline (formerly in agent-remote-server-core)
+  const providerNames = Object.keys(providers);
+  app.get('/api/v1/remote/health', (_req, res) => {
+    res.json({ status: 'ok', providers: providerNames, timestamp: new Date().toISOString() });
   });
-
-  if (resolveApiDocsEnabled(process.env.API_DOCS_ENABLED)) {
-    app.get('/docs', (_req, res) => {
-      res.status(200).json({
-        title: 'Robota API Docs',
-        documents: {
-          remoteOpenApi: '/docs/remote.json',
-          remoteSwaggerUi: '/docs/remote',
-        },
-      });
-    });
-  }
+  app.post('/api/v1/remote/chat', async (req, res) => {
+    try {
+      const { provider: providerName, messages, model } = req.body;
+      const provider = providers[providerName];
+      if (!provider) {
+        res.status(400).json({ error: `Unknown provider: ${providerName}` });
+        return;
+      }
+      const response = await provider.chat(messages, { model });
+      res.json(response);
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
 
   // Root endpoint
   app.get('/', (_req, res) => {
@@ -125,7 +119,7 @@ export function createApp(): express.Application {
         stream: '/api/v1/remote/stream',
         capabilities: '/api/v1/remote/providers/:provider/capabilities',
       },
-      status: remoteRuntime.getStatus(),
+      providers: providerNames,
     });
   });
 
