@@ -10,6 +10,7 @@ import { expandPasteLabels } from '../utils/paste-labels.js';
 interface IProps {
   onSubmit: (value: string) => void;
   isDisabled: boolean;
+  isAborting?: boolean;
   registry?: CommandRegistry;
 }
 
@@ -97,7 +98,12 @@ function useAutocomplete(
  * events are available in terminal raw mode.
  * Reference: https://github.com/anthropics/claude-code/issues/3045
  */
-export default function InputArea({ onSubmit, isDisabled, registry }: IProps): React.ReactElement {
+export default function InputArea({
+  onSubmit,
+  isDisabled,
+  isAborting,
+  registry,
+}: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const pasteStore = useRef<Map<number, string>>(new Map());
   const pasteIdRef = useRef(0);
@@ -200,9 +206,17 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
           isSubcommandMode={isSubcommandMode}
         />
       )}
-      <Box borderStyle="single" borderColor={isDisabled ? 'gray' : 'green'} paddingLeft={1}>
+      <Box
+        borderStyle="single"
+        borderColor={isAborting ? 'yellow' : isDisabled ? 'gray' : 'green'}
+        paddingLeft={1}
+      >
         {isDisabled ? (
-          <WaveText text="  Waiting for response... (ESC to interrupt)" />
+          isAborting ? (
+            <Text color="yellow"> Interrupting...</Text>
+          ) : (
+            <WaveText text="  Waiting for response... (ESC to interrupt)" />
+          )
         ) : (
           <Box>
             <Text color="green" bold>
