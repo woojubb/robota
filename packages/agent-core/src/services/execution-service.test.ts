@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ExecutionService } from './execution-service';
-import { ConversationHistory, ConversationSession } from '../managers/conversation-history-manager';
+import { ConversationHistory, ConversationStore } from '../managers/conversation-history-manager';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
@@ -53,17 +53,17 @@ class MockAIProvider extends AbstractAIProvider {
 
 // Create a mock class that extends ConversationHistory
 class MockConversationHistory extends ConversationHistory {
-  private sessions = new Map<string, ConversationSession>();
+  private sessions = new Map<string, ConversationStore>();
 
   constructor() {
     super({ maxMessagesPerConversation: 100, maxConversations: 10 });
   }
 
-  override getConversationSession(conversationId: string): ConversationSession {
+  override getConversationStore(conversationId: string): ConversationStore {
     const existing = this.sessions.get(conversationId);
     if (existing) return existing;
 
-    const session = super.getConversationSession(conversationId);
+    const session = super.getConversationStore(conversationId);
     this.sessions.set(conversationId, session);
     return session;
   }
@@ -158,7 +158,7 @@ describe('ExecutionService', () => {
         },
       };
 
-      const session = conversationHistory.getConversationSession('test-agent');
+      const session = conversationHistory.getConversationStore('test-agent');
       const getMessagesSpy = vi.spyOn(session, 'getMessages');
       getMessagesSpy
         .mockReturnValueOnce([]) // first call (empty)
@@ -255,9 +255,9 @@ describe('ExecutionService', () => {
       // Replace the tool execution service in the execution service
       (executionService as any).toolExecutionService = mockToolExecutionService;
 
-      const session = conversationHistory.getConversationSession('test-agent');
+      const session = conversationHistory.getConversationStore('test-agent');
       const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
-      const addAssistantMessageSpy = vi.spyOn(session, 'addAssistantMessage');
+      const commitAssistantSpy = vi.spyOn(session, 'commitAssistant');
       const addToolMessageWithIdSpy = vi.spyOn(session, 'addToolMessageWithId');
       const getMessagesSpy = vi.spyOn(session, 'getMessages');
 
@@ -329,7 +329,7 @@ describe('ExecutionService', () => {
 
       // Verify conversation history updates
       expect(addUserMessageSpy).toHaveBeenCalledWith(testInput, expect.any(Object));
-      expect(addAssistantMessageSpy).toHaveBeenCalledTimes(2);
+      expect(commitAssistantSpy).toHaveBeenCalledTimes(2);
       expect(addToolMessageWithIdSpy).toHaveBeenCalledTimes(1);
     });
 
@@ -345,7 +345,7 @@ describe('ExecutionService', () => {
         },
       };
 
-      conversationHistory.getConversationSession('test-agent');
+      conversationHistory.getConversationStore('test-agent');
 
       mockProvider.chat = vi.fn().mockRejectedValue(new Error('Provider error'));
 
@@ -372,7 +372,7 @@ describe('ExecutionService', () => {
         },
       };
 
-      const session = conversationHistory.getConversationSession('test-agent');
+      const session = conversationHistory.getConversationStore('test-agent');
       const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
       const addAssistantMessageSpy = vi.spyOn(session, 'addAssistantMessage');
 
@@ -406,7 +406,7 @@ describe('ExecutionService', () => {
         },
       };
 
-      const session = conversationHistory.getConversationSession('test-agent');
+      const session = conversationHistory.getConversationStore('test-agent');
       const addSystemMessageSpy = vi.spyOn(session, 'addSystemMessage');
       const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
 
@@ -436,7 +436,7 @@ describe('ExecutionService', () => {
         },
       };
 
-      conversationHistory.getConversationSession('test-agent');
+      conversationHistory.getConversationStore('test-agent');
 
       // Mock no provider available
       vi.spyOn(aiProviders, 'getCurrentProvider').mockReturnValue(null as any);

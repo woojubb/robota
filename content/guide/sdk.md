@@ -133,14 +133,14 @@ const systemMessage = buildSystemPrompt({
 
 Sessions created by `createSession()` include:
 
-| Feature                    | Description                                                            |
-| -------------------------- | ---------------------------------------------------------------------- |
-| **Permission enforcement** | Tool calls are gated by the permission system                          |
-| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically |
-| **Context tracking**       | Token usage is tracked and available via `getContextState()`           |
-| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                        |
-| **Session persistence**    | Conversations can be saved/loaded via `SessionStore`                   |
-| **Abort**                  | Cancel a running `run()` call with `session.abort()`                   |
+| Feature                    | Description                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls are gated by the permission system                                            |
+| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                   |
+| **Context tracking**       | Token usage is tracked and available via `getContextState()`                             |
+| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                          |
+| **Session persistence**    | Conversations can be saved/loaded via `SessionStore`                                     |
+| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'` |
 
 ## Subagent Sessions
 

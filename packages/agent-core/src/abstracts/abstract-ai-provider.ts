@@ -157,6 +157,26 @@ export abstract class AbstractAIProvider<TConfig = IProviderConfig> implements I
   abstract chat(messages: TUniversalMessage[], options?: IChatOptions): Promise<TUniversalMessage>;
 
   /**
+   * Wrap an async iterable to yield to the macrotask queue periodically.
+   * Providers MUST use this when iterating over streaming events to ensure
+   * the main thread event loop stays responsive (ESC abort, Ctrl+C, etc.).
+   *
+   * Usage in provider:
+   *   for await (const event of this.streamWithAbort(stream, signal)) { ... }
+   */
+  protected async *streamWithAbort<T>(
+    source: AsyncIterable<T>,
+    signal?: AbortSignal,
+  ): AsyncGenerator<T> {
+    for await (const item of source) {
+      if (signal?.aborted) break;
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      if (signal?.aborted) break;
+      yield item;
+    }
+  }
+
+  /**
    * Each provider must implement streaming chat using their own native SDK types internally
    * @param messages - Array of messages from conversation history
    * @param options - Chat options including tools, model settings, etc.

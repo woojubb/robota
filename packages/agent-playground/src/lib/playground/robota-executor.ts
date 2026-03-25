@@ -5,6 +5,7 @@ const RANDOM_ID_LENGTH = 9;
  * PlaygroundExecutor - Manages Robota Agent execution in the browser
  */
 
+const randomUUID = (): string => crypto.randomUUID();
 import { Robota } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
@@ -157,7 +158,15 @@ export class PlaygroundExecutor {
 
   async run(prompt: string): Promise<IPlaygroundExecutorResult> {
     const startTime = Date.now();
-    const request: TUniversalMessage[] = [{ role: 'user', content: prompt, timestamp: new Date() }];
+    const request: TUniversalMessage[] = [
+      {
+        id: randomUUID(),
+        role: 'user',
+        content: prompt,
+        state: 'complete' as const,
+        timestamp: new Date(),
+      },
+    ];
     try {
       const result = await this.executeChat(request);
       const duration = Date.now() - startTime;
@@ -225,7 +234,15 @@ export class PlaygroundExecutor {
 
   async *runStream(prompt: string): AsyncGenerator<string, IPlaygroundExecutorResult> {
     const startTime = Date.now();
-    const request: TUniversalMessage[] = [{ role: 'user', content: prompt, timestamp: new Date() }];
+    const request: TUniversalMessage[] = [
+      {
+        id: randomUUID(),
+        role: 'user',
+        content: prompt,
+        state: 'complete' as const,
+        timestamp: new Date(),
+      },
+    ];
     try {
       let fullResponse = '';
       for await (const chunk of this.executeChatStream(request)) {
@@ -330,7 +347,13 @@ export class PlaygroundExecutor {
     if (this.mode === 'agent' && this.currentAgent) {
       const prompt = messages[0].content || '';
       const result = await this.currentAgent.run(prompt);
-      return { role: 'assistant' as const, content: result, timestamp: new Date() };
+      return {
+        id: randomUUID(),
+        role: 'assistant' as const,
+        content: result,
+        state: 'complete' as const,
+        timestamp: new Date(),
+      };
     }
     throw new Error('No agent configured for execution');
   }
@@ -342,7 +365,13 @@ export class PlaygroundExecutor {
       const prompt = messages[0].content || '';
       let fullResponse = '';
       for await (const chunk of this.currentAgent.runStream(prompt)) fullResponse += chunk;
-      yield { role: 'assistant' as const, content: fullResponse, timestamp: new Date() };
+      yield {
+        id: randomUUID(),
+        role: 'assistant' as const,
+        content: fullResponse,
+        state: 'complete' as const,
+        timestamp: new Date(),
+      };
     } else {
       throw new Error('No agent configured for streaming execution');
     }

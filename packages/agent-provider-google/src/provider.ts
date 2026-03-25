@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { IGoogleProviderOptions } from './types';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
@@ -136,8 +137,10 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
     }
 
     const message: TUniversalMessage = {
+      id: randomUUID(),
       role: 'user',
       content: request.prompt,
+      state: 'complete' as const,
       parts: [{ type: 'text', text: request.prompt }],
       timestamp: new Date(),
     };
@@ -173,8 +176,10 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
     }
 
     const message: TUniversalMessage = {
+      id: randomUUID(),
       role: 'user',
       content: request.prompt,
+      state: 'complete' as const,
       parts: [inputPartResult.value, { type: 'text', text: request.prompt }],
       timestamp: new Date(),
     };
@@ -224,8 +229,10 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
     messageParts.push({ type: 'text', text: request.prompt });
 
     const message: TUniversalMessage = {
+      id: randomUUID(),
       role: 'user',
       content: request.prompt,
+      state: 'complete' as const,
       parts: messageParts,
       timestamp: new Date(),
     };
@@ -329,7 +336,13 @@ export class GoogleProvider extends AbstractAIProvider implements IImageGenerati
     for await (const chunk of result.stream) {
       const text = chunk.text();
       if (text) {
-        yield { role: 'assistant', content: text, timestamp: new Date() };
+        yield {
+          id: randomUUID(),
+          role: 'assistant',
+          content: text,
+          state: 'complete' as const,
+          timestamp: new Date(),
+        };
       }
     }
   }

@@ -161,6 +161,19 @@ export {
 } from './interfaces/messages';
 
 /**
+ * Message factory functions for creating typed conversation messages.
+ * Inline re-export avoids rollup-plugin-dts conflicts from duplicate symbol names.
+ *
+ * @public
+ */
+export {
+  createUserMessage,
+  createAssistantMessage,
+  createSystemMessage,
+  createToolMessage,
+} from './managers/conversation-history-manager';
+
+/**
  * Provider request/response types (raw provider boundary).
  *
  * @public
@@ -276,7 +289,7 @@ export {
   type IAgentLifecycleEvents,
 } from './managers/agent-factory';
 export { AgentTemplates, type ITemplateApplicationResult } from './managers/agent-templates';
-export { ConversationHistory, ConversationSession } from './managers/conversation-history-manager';
+export { ConversationHistory, ConversationStore } from './managers/conversation-history-manager';
 
 // ===== TOOL SYSTEM EXPORTS =====
 // NOTE: ToolRegistry, FunctionTool, createFunctionTool, createZodFunctionTool, OpenAPITool

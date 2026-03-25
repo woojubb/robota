@@ -58,12 +58,19 @@ export interface IToolCall {
   };
 }
 
+/** State of a message in conversation history */
+export type TMessageState = 'complete' | 'interrupted';
+
 /**
  * Base message contract shared by all message variants.
  */
 export interface IBaseMessage {
+  /** Unique message identifier */
+  id: string;
   /** Message creation timestamp */
   timestamp: Date;
+  /** Whether this message is complete or was interrupted */
+  state: TMessageState;
   /** Additional metadata */
   metadata?: TUniversalMessageMetadata;
 }

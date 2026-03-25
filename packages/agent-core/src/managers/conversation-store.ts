@@ -1,19 +1,20 @@
 /**
- * Conversation session implementations.
+ * Conversation store implementations.
  *
  * Extracted from conversation-history-manager.ts.
  */
+import { randomUUID } from 'node:crypto';
 import type {
   TUniversalMessageMetadata,
   TUniversalMessageRole,
   IToolCall,
   TUniversalMessage,
   TUniversalMessagePart,
+  TMessageState,
+  IAssistantMessage,
 } from '../interfaces/messages';
+import { isSystemMessage, isAssistantMessage, isToolMessage } from '../interfaces/messages';
 import {
-  isSystemMessage,
-  isAssistantMessage,
-  isToolMessage,
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
@@ -210,13 +211,21 @@ export interface IProviderApiMessage {
   tool_call_id?: string;
 }
 
+/** State of an in-progress assistant response being streamed */
+interface IStreamingState {
+  id: string;
+  content: string;
+  toolCalls: IToolCall[];
+}
+
 /**
- * Conversation session with duplicate prevention and API format conversion.
+ * Conversation store with duplicate prevention and API format conversion.
  * @public
  */
-export class ConversationSession implements IConversationHistory {
+export class ConversationStore implements IConversationHistory {
   private history: SimpleConversationHistory;
   private toolCallIds: Set<string> = new Set<string>();
+  private pendingAssistant: IStreamingState | null = null;
 
   constructor(maxMessages: number = 100) {
     this.history = new SimpleConversationHistory({ maxMessages });
@@ -287,12 +296,97 @@ export class ConversationSession implements IConversationHistory {
     return this.history.getMessageCount();
   }
 
+  /** Begin a new assistant response. Must be called before provider call.
+   *  Ensures pendingAssistant exists so commitAssistant always has data to save. */
+  beginAssistant(): void {
+    if (!this.pendingAssistant) {
+      this.pendingAssistant = {
+        id: randomUUID(),
+        content: '',
+        toolCalls: [],
+      };
+    }
+  }
+
+  /** Append streaming text delta to pending assistant response */
+  appendStreaming(delta: string): void {
+    if (!this.pendingAssistant) {
+      this.pendingAssistant = {
+        id: randomUUID(),
+        content: '',
+        toolCalls: [],
+      };
+    }
+    this.pendingAssistant.content += delta;
+  }
+
+  /** Append a tool call to pending assistant response (deduplicates by id) */
+  appendToolCall(toolCall: IToolCall): void {
+    if (!this.pendingAssistant) {
+      this.pendingAssistant = {
+        id: randomUUID(),
+        content: '',
+        toolCalls: [],
+      };
+    }
+    if (!this.pendingAssistant.toolCalls.some((tc) => tc.id === toolCall.id)) {
+      this.pendingAssistant.toolCalls.push(toolCall);
+    }
+  }
+
+  /**
+   * Commit pending assistant response to history.
+   * Precondition: beginAssistant() must have been called before the provider call.
+   * History is append-only — this always adds a message.
+   */
+  commitAssistant(state: TMessageState, metadata?: TUniversalMessageMetadata): void {
+    if (!this.pendingAssistant) return; // No pending state — error paths use addAssistantMessage directly
+    const pending = this.pendingAssistant;
+    const hasToolCalls = pending.toolCalls.length > 0;
+    // History records everything — text is always preserved.
+    // Context savings is compaction's responsibility, not history's.
+    const content = pending.content;
+    const message: IAssistantMessage = {
+      id: pending.id,
+      role: 'assistant',
+      content,
+      state,
+      timestamp: new Date(),
+      ...(hasToolCalls && { toolCalls: pending.toolCalls }),
+      ...(metadata && { metadata }),
+    };
+    this.history.addMessage(message);
+    this.pendingAssistant = null;
+  }
+
+  /** Discard pending assistant response without saving */
+  discardPending(): void {
+    this.pendingAssistant = null;
+  }
+
+  /** Returns true if there is accumulated pending assistant state (streaming or tool calls) */
+  hasPendingAssistant(): boolean {
+    return this.pendingAssistant !== null;
+  }
+
+  /** Get pending assistant content (empty string if no content streamed yet) */
+  getPendingContent(): string {
+    return this.pendingAssistant?.content ?? '';
+  }
+
   getMessagesForAPI(): IProviderApiMessage[] {
     return this.history.getMessages().map((msg) => {
       const apiMsg: IProviderApiMessage = { role: msg.role, content: msg.content };
-      if (msg.role === 'assistant' && isAssistantMessage(msg) && msg.toolCalls)
+      // Annotate interrupted assistant messages for model awareness
+      if (isAssistantMessage(msg) && msg.state === 'interrupted') {
+        apiMsg.content = (apiMsg.content || '') + '\n\n[This response was interrupted by the user]';
+      }
+      if (isAssistantMessage(msg) && msg.toolCalls) {
         apiMsg.tool_calls = msg.toolCalls;
-      if (msg.role === 'tool' && isToolMessage(msg)) apiMsg.tool_call_id = msg.toolCallId;
+      }
+      if (isToolMessage(msg)) {
+        apiMsg.tool_call_id = msg.toolCallId;
+      }
       return apiMsg;
     });
   }
