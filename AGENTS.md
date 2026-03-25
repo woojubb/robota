@@ -187,6 +187,7 @@ Procedural workflows and domain-specific rules live under `.agents/skills/`. Eac
 | [`api-error-standard`](.agents/skills/api-error-standard/SKILL.md)                       | RFC 7807 API error responses                                                   |
 | [`api-spec-management`](.agents/skills/api-spec-management/SKILL.md)                     | API specification management                                                   |
 | [`post-implementation-checklist`](.agents/skills/post-implementation-checklist/SKILL.md) | Mandatory post-implementation: SPEC → README → publish → content → docs deploy |
+| [`version-management`](.agents/skills/version-management/SKILL.md)                       | Changesets, fixed versioning, all packages same version                        |
 | [`deploy-to-vercel`](.agents/skills/deploy-to-vercel/SKILL.md)                           | Deploy applications and websites to Vercel                                     |
 | [`vercel-composition-patterns`](.agents/skills/vercel-composition-patterns/SKILL.md)     | React composition patterns and component architecture                          |
 | [`vercel-react-best-practices`](.agents/skills/vercel-react-best-practices/SKILL.md)     | React and Next.js performance optimization                                     |

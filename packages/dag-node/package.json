@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node",
-  "version": "3.0.0",
+  "version": "3.0.0-beta.43",
   "description": "Node authoring infrastructure for Robota DAG system",
   "type": "module",
   "main": "dist/node/index.js",
