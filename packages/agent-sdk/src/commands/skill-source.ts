@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { homedir } from 'node:os';
-import type { ICommandSource, ISlashCommand } from './types.js';
+import type { ICommandSource, ICommand } from './types.js';
 
 interface IFrontmatter {
   name?: string;
@@ -57,13 +57,13 @@ export function parseFrontmatter(content: string): IFrontmatter | null {
   return Object.keys(result).length > 0 ? (result as IFrontmatter) : null;
 }
 
-/** Build a slash command from frontmatter, content, and a fallback name */
+/** Build a command from frontmatter, content, and a fallback name */
 function buildCommand(
   frontmatter: IFrontmatter | null,
   content: string,
   fallbackName: string,
-): ISlashCommand {
-  const cmd: ISlashCommand = {
+): ICommand {
+  const cmd: ICommand = {
     name: frontmatter?.name ?? fallbackName,
     description: frontmatter?.description ?? `Skill: ${fallbackName}`,
     source: 'skill',
@@ -84,10 +84,10 @@ function buildCommand(
 }
 
 /** Scan a skills directory for subdirectories containing SKILL.md */
-function scanSkillsDir(skillsDir: string): ISlashCommand[] {
+function scanSkillsDir(skillsDir: string): ICommand[] {
   if (!existsSync(skillsDir)) return [];
 
-  const commands: ISlashCommand[] = [];
+  const commands: ICommand[] = [];
   const entries = readdirSync(skillsDir, { withFileTypes: true });
 
   for (const entry of entries) {
@@ -104,10 +104,10 @@ function scanSkillsDir(skillsDir: string): ISlashCommand[] {
 }
 
 /** Scan a commands directory for .md files (Claude Code legacy format) */
-function scanCommandsDir(commandsDir: string): ISlashCommand[] {
+function scanCommandsDir(commandsDir: string): ICommand[] {
   if (!existsSync(commandsDir)) return [];
 
-  const commands: ISlashCommand[] = [];
+  const commands: ICommand[] = [];
   const entries = readdirSync(commandsDir, { withFileTypes: true });
 
   for (const entry of entries) {
@@ -127,17 +127,17 @@ export class SkillCommandSource implements ICommandSource {
   readonly name = 'skill';
   private readonly cwd: string;
   private readonly home: string;
-  private cachedCommands: ISlashCommand[] | null = null;
+  private cachedCommands: ICommand[] | null = null;
 
   constructor(cwd: string, home?: string) {
     this.cwd = cwd;
     this.home = home ?? homedir();
   }
 
-  getCommands(): ISlashCommand[] {
+  getCommands(): ICommand[] {
     if (this.cachedCommands) return this.cachedCommands;
 
-    const sources: ISlashCommand[][] = [
+    const sources: ICommand[][] = [
       scanSkillsDir(join(this.cwd, '.claude', 'skills')),
       scanCommandsDir(join(this.cwd, '.claude', 'commands')),
       scanSkillsDir(join(this.home, '.robota', 'skills')),
@@ -145,7 +145,7 @@ export class SkillCommandSource implements ICommandSource {
     ];
 
     const seen = new Set<string>();
-    const merged: ISlashCommand[] = [];
+    const merged: ICommand[] = [];
 
     for (const commands of sources) {
       for (const cmd of commands) {
@@ -160,11 +160,11 @@ export class SkillCommandSource implements ICommandSource {
     return this.cachedCommands;
   }
 
-  getModelInvocableSkills(): ISlashCommand[] {
+  getModelInvocableSkills(): ICommand[] {
     return this.getCommands().filter((cmd) => cmd.disableModelInvocation !== true);
   }
 
-  getUserInvocableSkills(): ISlashCommand[] {
+  getUserInvocableSkills(): ICommand[] {
     return this.getCommands().filter((cmd) => cmd.userInvocable !== false);
   }
 }

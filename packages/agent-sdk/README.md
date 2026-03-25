@@ -196,7 +196,7 @@ const registry = new CommandRegistry();
 registry.addSource(new BuiltinCommandSource());
 registry.addSource(new SkillCommandSource(process.cwd()));
 
-// Get all commands (returns ISlashCommand[])
+// Get all commands (returns ICommand[])
 const commands = registry.getCommands();
 
 // Filter by prefix (for autocomplete)

@@ -1,10 +1,10 @@
 import { CLAUDE_MODELS, formatTokenCount } from '@robota-sdk/agent-core';
-import type { ICommandSource, ISlashCommand } from './types.js';
+import type { ICommandSource, ICommand } from './types.js';
 
 /** Build model subcommands dynamically from CLAUDE_MODELS */
-function buildModelSubcommands(): ISlashCommand[] {
+function buildModelSubcommands(): ICommand[] {
   const seen = new Set<string>();
-  const commands: ISlashCommand[] = [];
+  const commands: ICommand[] = [];
   for (const model of Object.values(CLAUDE_MODELS)) {
     if (seen.has(model.name)) continue;
     seen.add(model.name);
@@ -18,7 +18,7 @@ function buildModelSubcommands(): ISlashCommand[] {
 }
 
 /** Built-in commands. Execute callbacks are wired externally by clients. */
-function createBuiltinCommands(): ISlashCommand[] {
+function createBuiltinCommands(): ICommand[] {
   return [
     { name: 'help', description: 'Show available commands', source: 'builtin' },
     { name: 'clear', description: 'Clear conversation history', source: 'builtin' },
@@ -64,13 +64,13 @@ function createBuiltinCommands(): ISlashCommand[] {
 /** Command source for built-in commands */
 export class BuiltinCommandSource implements ICommandSource {
   readonly name = 'builtin';
-  private readonly commands: ISlashCommand[];
+  private readonly commands: ICommand[];
 
   constructor() {
     this.commands = createBuiltinCommands();
   }
 
-  getCommands(): ISlashCommand[] {
+  getCommands(): ICommand[] {
     return this.commands;
   }
 }
