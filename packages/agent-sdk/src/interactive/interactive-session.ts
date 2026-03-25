@@ -66,6 +66,7 @@ export class InteractiveSession {
   private executing = false;
   private pendingPrompt: string | null = null;
   private pendingDisplayInput: string | undefined;
+  private pendingRawInput: string | undefined;
 
   // Display messages (what clients render — not the raw session history)
   private messages: TUniversalMessage[] = [];
@@ -121,14 +122,16 @@ export class InteractiveSession {
   // ── Public API ────────────────────────────────────────────────
 
   /** Submit a prompt. Queues if already executing (max 1 queued).
-   *  displayInput overrides what appears as the user message (e.g., "/audit" instead of full skill prompt). */
-  async submit(input: string, displayInput?: string): Promise<void> {
+   *  displayInput overrides what appears as the user message (e.g., "/audit" instead of full skill prompt).
+   *  rawInput is passed to Session.run() for hook matching (e.g., "/rulebased-harness:audit"). */
+  async submit(input: string, displayInput?: string, rawInput?: string): Promise<void> {
     if (this.executing) {
       this.pendingPrompt = input;
       this.pendingDisplayInput = displayInput;
+      this.pendingRawInput = rawInput;
       return;
     }
-    await this.executePrompt(input, displayInput);
+    await this.executePrompt(input, displayInput, rawInput);
   }
 
   /** Abort current execution and clear queue. */
@@ -172,7 +175,11 @@ export class InteractiveSession {
 
   // ── Execution ─────────────────────────────────────────────────
 
-  private async executePrompt(input: string, displayInput?: string): Promise<void> {
+  private async executePrompt(
+    input: string,
+    displayInput?: string,
+    rawInput?: string,
+  ): Promise<void> {
     this.executing = true;
     this.clearStreaming();
     this.emit('thinking', true);
@@ -182,7 +189,8 @@ export class InteractiveSession {
     const historyBefore = this.session.getHistory().length;
 
     try {
-      const response = await this.session.run(input);
+      // rawInput is passed to Session.run() for hook matching (UserPromptSubmit etc.)
+      const response = await this.session.run(input, rawInput);
       this.flushStreaming();
       this.clearStreaming();
 
@@ -214,10 +222,12 @@ export class InteractiveSession {
       if (this.pendingPrompt) {
         const queued = this.pendingPrompt;
         const queuedDisplay = this.pendingDisplayInput;
+        const queuedRaw = this.pendingRawInput;
         this.pendingPrompt = null;
         this.pendingDisplayInput = undefined;
+        this.pendingRawInput = undefined;
         // Next tick to avoid re-entrancy
-        setTimeout(() => this.executePrompt(queued, queuedDisplay), 0);
+        setTimeout(() => this.executePrompt(queued, queuedDisplay, queuedRaw), 0);
       }
     }
   }

@@ -124,7 +124,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     await new Promise((r) => setTimeout(r, 50));
 
     // Third should have been auto-executed
-    expect(mockSession.run).toHaveBeenCalledWith('first');
+    expect(mockSession.run).toHaveBeenCalledWith('first', undefined);
     // 'third' was queued (replaced 'second'), will execute after first completes
   });
 
@@ -160,7 +160,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     // 'queued' should NOT have been executed
     expect(mockSession.run).toHaveBeenCalledTimes(1);
-    expect(mockSession.run).toHaveBeenCalledWith('first');
+    expect(mockSession.run).toHaveBeenCalledWith('first', undefined);
   });
 
   // ── Scenario: Abort ───────────────────────────────────────────

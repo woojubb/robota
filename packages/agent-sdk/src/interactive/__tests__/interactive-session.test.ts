@@ -50,7 +50,7 @@ describe('InteractiveSession', () => {
     expect(thinkingStates).toEqual([true, false]);
     expect(completedResult).not.toBeNull();
     expect(completedResult!.response).toBe('hello world');
-    expect(mockSession.run).toHaveBeenCalledWith('hello');
+    expect(mockSession.run).toHaveBeenCalledWith('hello', undefined);
   });
 
   it('adds user message to messages on submit', async () => {
@@ -103,7 +103,7 @@ describe('InteractiveSession', () => {
     // Wait for queued prompt to auto-execute
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(mockSession.run).toHaveBeenCalledWith('first');
+    expect(mockSession.run).toHaveBeenCalledWith('first', undefined);
     // second may or may not have executed depending on timing
   });
 
