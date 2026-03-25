@@ -210,11 +210,14 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     };
     const onThinking = (thinking: boolean): void => {
       setIsThinking(thinking);
-      if (!thinking) {
-        setIsAborting(false);
+      if (thinking) {
+        // Clear streaming state at the START of new execution, not at the end.
+        // This preserves tool list for display after execution completes.
         streamBuf = '';
         setStreamingText('');
         setActiveTools([]);
+      } else {
+        setIsAborting(false);
       }
     };
     const onComplete = (result: IExecutionResult): void => {
@@ -302,7 +305,12 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
           addMessage(createSystemMessage(`Invoking ${skillCmd.source}: ${cmd}`));
           const prompt = await buildSkillPrompt(input, registry);
           if (prompt) {
-            await interactiveSession.submit(prompt, input);
+            // Resolve qualified name for hook matching (e.g., /audit → /rulebased-harness:audit)
+            const qualifiedName = registry.resolveQualifiedName(cmd);
+            const hookInput = qualifiedName
+              ? `/${qualifiedName}${input.slice(1 + cmd.length)}`
+              : input;
+            await interactiveSession.submit(prompt, input, hookInput);
             setPendingPrompt(interactiveSession.getPendingPrompt());
             return;
           }
