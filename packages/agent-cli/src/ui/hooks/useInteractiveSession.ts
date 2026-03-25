@@ -299,9 +299,11 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
           .getCommands()
           .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
         if (skillCmd) {
+          addMessage(createSystemMessage(`Invoking ${skillCmd.source}: ${cmd}`));
           const prompt = await buildSkillPrompt(input, registry);
           if (prompt) {
             await interactiveSession.submit(prompt);
+            setPendingPrompt(interactiveSession.getPendingPrompt());
             return;
           }
         }
@@ -319,6 +321,8 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
         return;
       }
       await interactiveSession.submit(input);
+      // Sync queue state immediately so UI shows "Queued:" indicator
+      setPendingPrompt(interactiveSession.getPendingPrompt());
     },
     [interactiveSession, commandExecutor, registry, addMessage],
   );
