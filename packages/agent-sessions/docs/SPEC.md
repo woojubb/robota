@@ -160,19 +160,17 @@ The `Session` class supports aborting an in-progress `run()` call via `AbortCont
 
 ### Mechanism
 
-- `session.abort()` calls `AbortController.abort()` on the controller created for the current `run()` call. Unchanged from previous implementation.
-- `session.isRunning()` returns `true` while a `run()` call is in progress. Unchanged.
+- `session.abort()` calls `AbortController.abort()` on the controller created for the current `run()` call.
+- `session.isRunning()` returns `true` while a `run()` call is in progress.
 
 ### Session.run() Abort Flow
 
 1. `Session.run()` creates an `AbortController` and passes `{ signal }` to `robota.run()`.
-2. Signal propagates through `ExecutionService` → `executeRound` → provider calls and tool batch execution.
-3. When abort is signalled, `executeRound` calls `commitAssistant('interrupted')` on `ConversationSession` before returning. This saves the partial response (with `state: 'interrupted'`) to conversation history.
+2. Signal propagates through `ExecutionService` -> `executeRound` -> `callProviderWithCache` -> `provider.chat()` -> `streamWithAbort`.
+3. When abort is signalled, `executeRound` calls `commitAssistant('interrupted')` on `ConversationStore` before returning. This saves the partial response (with `state: 'interrupted'`) to conversation history. Text is ALWAYS preserved (no stripping).
 4. `robota.run()` always returns normally on abort — it does not throw. The result includes `interrupted: true`.
 5. After `robota.run()` returns, `Session.run()` checks `signal.aborted`. If true, it throws `DOMException('Aborted', 'AbortError')`.
 6. The post-run check in `Session.run()` is the **sole source** of `AbortError` — `robota.run()` itself never throws on abort.
-
-This replaced the previous race-based `Promise` wrapper approach with a cleaner signal-passing design.
 
 ## Compaction Behavior
 
