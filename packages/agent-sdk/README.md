@@ -1,6 +1,6 @@
 # @robota-sdk/agent-sdk
 
-Programmatic SDK for building AI agents with Robota. Provides a single `query()` entry point along with session management, built-in tools, permissions, hooks, streaming, and context loading.
+Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `query()` for one-shot use, session management, built-in tools, permissions, hooks, streaming, and context loading.
 
 This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-sessions`, `agent-provider-anthropic`) into a cohesive SDK.
 
@@ -33,7 +33,10 @@ const response = await query('Analyze the code', {
 
 ## Features
 
-- **query()** — Single entry point for AI agent interactions with streaming support
+- **InteractiveSession** — Event-driven session wrapper (composition over Session). Central client-facing API for CLI, web, API server, or any other client
+- **SystemCommandExecutor + ISystemCommand** — SDK-level command execution. Built-in commands: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `reset`
+- **CommandRegistry, BuiltinCommandSource, SkillCommandSource** — Slash command registry and discovery (owned by SDK; agent-cli re-exports `CommandRegistry` from here)
+- **query()** — Single entry point for one-shot AI agent interactions with streaming support
 - **createSession()** — Assembly factory: wires tools, provider, config, and context into a Session
 - **Built-in Tools** — Bash, Read, Write, Edit, Glob, Grep (re-exported from `@robota-sdk/agent-tools`)
 - **Agent Tool** — Sub-agent session creation for multi-agent workflows
@@ -49,15 +52,166 @@ const response = await query('Analyze the code', {
 
 ```
 agent-sdk (assembly layer)
-  -> agent-sessions  (Session, SessionStore)
-  -> agent-tools     (tool infrastructure + 8 built-in tools)
-  -> agent-provider-anthropic (Anthropic LLM provider)
-  -> agent-core      (Robota engine, providers, permissions, hooks)
+  ├── InteractiveSession  ← central client-facing API (event-driven)
+  │     └── Session       ← generic session (agent-sessions)
+  ├── SystemCommandExecutor ← SDK-level command execution
+  ├── CommandRegistry / BuiltinCommandSource / SkillCommandSource
+  ├── query()             ← one-shot entry point
+  ├── createSession()     ← assembly factory
+  └── deps:
+        agent-sessions  (Session, SessionStore)
+        agent-tools     (tool infrastructure + 8 built-in tools)
+        agent-provider-anthropic (Anthropic LLM provider)
+        agent-core      (Robota engine, providers, permissions, hooks)
+
+agent-cli (TUI layer — bridges InteractiveSession events to React/Ink state)
+  → agent-sdk
 ```
 
-`agent-sdk` assembles existing packages — it does not re-implement functionality that belongs in lower layers.
+The SDK is **pure TypeScript with no React dependency**. The CLI is a thin TUI-only layer that consumes `InteractiveSession` events and maps them to React state. Any other client (web app, API server, worker) can do the same.
 
 ## API
+
+### InteractiveSession — Central Client-Facing API
+
+`InteractiveSession` wraps `Session` (composition over inheritance) to provide event-driven interaction for any client. It manages streaming text accumulation, tool execution state tracking, prompt queuing, abort orchestration, and message history. Logic that was previously embedded in CLI React hooks now lives here.
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IInteractiveSessionOptions } from '@robota-sdk/agent-sdk';
+
+const session = new InteractiveSession({
+  config,
+  context,
+  projectInfo,
+  sessionStore,
+  permissionMode: 'default',
+  maxTurns: 10,
+  cwd: process.cwd(),
+  permissionHandler: async (toolName, toolArgs) => ({ allowed: true }),
+});
+
+// Subscribe to events
+session.on('text_delta', (delta: string) => {
+  process.stdout.write(delta); // streaming text chunk
+});
+session.on('tool_start', (state) => {
+  console.log(`Running: ${state.toolName}`);
+});
+session.on('tool_end', (state) => {
+  console.log(`Done: ${state.toolName} — ${state.result}`);
+});
+session.on('thinking', (isThinking: boolean) => {
+  // show/hide spinner
+});
+session.on('complete', (result) => {
+  console.log(result.response);
+});
+session.on('error', (error: Error) => {
+  console.error(error);
+});
+session.on('context_update', (state) => {
+  // token usage updated
+});
+session.on('interrupted', (result) => {
+  // abort completed
+});
+
+// Submit a prompt (queues if already executing, max 1 queued)
+await session.submit('Explain this code');
+
+// Submit with display override (shown in UI) and raw input (for hook matching)
+await session.submit(fullPrompt, '/audit', '/rulebased-harness:audit');
+
+// Abort current execution and clear queue
+session.abort();
+
+// Cancel queued prompt without aborting current execution
+session.cancelQueue();
+
+// State queries
+session.isExecuting(); // boolean
+session.getPendingPrompt(); // string | null
+session.getMessages(); // TUniversalMessage[]
+session.getContextState(); // IContextWindowState
+session.getStreamingText(); // string (accumulated so far)
+session.getActiveTools(); // IToolState[]
+
+// Access underlying Session for advanced use
+session.getSession(); // Session
+```
+
+### SystemCommandExecutor — SDK-Level Commands
+
+`SystemCommandExecutor` executes named system commands against an `InteractiveSession`. Commands are pure TypeScript — no React, no TUI dependency. The CLI wraps them as slash commands with UI chrome.
+
+```typescript
+import { SystemCommandExecutor, createSystemCommands } from '@robota-sdk/agent-sdk';
+import type { ICommandResult } from '@robota-sdk/agent-sdk';
+
+const executor = new SystemCommandExecutor(); // loads built-in commands by default
+
+// Execute a command
+const result: ICommandResult | null = await executor.execute('context', session, '');
+if (result) {
+  console.log(result.message); // "Context: 12,345 / 200,000 tokens (6%)"
+  console.log(result.data); // { usedTokens, maxTokens, percentage }
+}
+
+// Register a custom command
+executor.register({
+  name: 'status',
+  description: 'Show agent status',
+  execute: (session, args) => ({ message: 'OK', success: true }),
+});
+
+// List all commands
+executor.listCommands(); // ISystemCommand[]
+executor.hasCommand('mode'); // boolean
+```
+
+Built-in commands:
+
+| Command       | Description                                             |
+| ------------- | ------------------------------------------------------- |
+| `help`        | Show available commands                                 |
+| `clear`       | Clear conversation history                              |
+| `compact`     | Compress context window (optional focus instructions)   |
+| `mode [m]`    | Show or change permission mode                          |
+| `model <id>`  | Change AI model                                         |
+| `language`    | Set response language (ko, en, ja, zh)                  |
+| `cost`        | Show session info (session ID, message count)           |
+| `context`     | Context window token usage                              |
+| `permissions` | Show current permission mode and session-approved tools |
+| `reset`       | Delete settings (caller handles file I/O and exit)      |
+
+### CommandRegistry, BuiltinCommandSource, SkillCommandSource
+
+These classes provide slash command discovery and aggregation for clients that expose a command palette or autocomplete UI.
+
+```typescript
+import { CommandRegistry, BuiltinCommandSource, SkillCommandSource } from '@robota-sdk/agent-sdk';
+
+const registry = new CommandRegistry();
+registry.addSource(new BuiltinCommandSource());
+registry.addSource(new SkillCommandSource(process.cwd()));
+
+// Get all commands (returns ISlashCommand[])
+const commands = registry.getCommands();
+
+// Filter by prefix (for autocomplete)
+const filtered = registry.getCommands('mod'); // matches "mode", "model"
+
+// Resolve short plugin name to fully qualified form
+registry.resolveQualifiedName('audit'); // "my-plugin:audit"
+```
+
+`SkillCommandSource` discovers skills from (highest priority first):
+
+- `<cwd>/.claude/skills/*/SKILL.md`
+- `<cwd>/.claude/commands/*.md` (Claude Code compatible)
+- `~/.robota/skills/*/SKILL.md`
+- `<cwd>/.agents/skills/*/SKILL.md`
 
 ### query()
 

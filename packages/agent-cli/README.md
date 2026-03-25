@@ -260,9 +260,19 @@ Session logs are written to `.robota/logs/{sessionId}.jsonl` in JSONL format by 
 
 ## Architecture
 
+The CLI is a pure TUI layer. All business logic lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. `useInteractiveSession` is the sole React↔SDK bridge, converting SDK events to React state.
+
 ```
 bin.ts → cli.ts (arg parsing)
-              └── ui/render.tsx → App.tsx (Ink TUI)
+              └── ui/render.tsx → App.tsx (thin JSX shell)
+                    ├── useInteractiveSession  (ONLY React↔SDK bridge)
+                    │   ├── InteractiveSession (SDK)
+                    │   ├── CommandRegistry    (SDK, re-exported by CLI)
+                    │   │   ├── BuiltinCommandSource  (SDK)
+                    │   │   ├── SkillCommandSource    (SDK, discovers from 4 paths)
+                    │   │   └── PluginCommandSource   (CLI-local)
+                    │   └── SystemCommandExecutor (SDK)
+                    ├── plugin-hooks-merger.ts (merges plugin hooks into SDK config)
                     ├── MessageList.tsx
                     ├── InputArea.tsx          (CjkTextInput, bracketed paste, slash detection)
                     ├── StatusBar.tsx          (mode, model, context %, message count)
@@ -272,12 +282,7 @@ bin.ts → cli.ts (arg parsing)
                     ├── MenuSelect.tsx         (arrow-key menu, Plugin TUI)
                     ├── PluginTUI.tsx          (plugin management screen stack)
                     ├── TextPrompt.tsx         (text input for Plugin TUI)
-                    ├── ConfirmPrompt.tsx      (reusable yes/no prompt)
-                    ├── CommandRegistry
-                    │   ├── BuiltinCommandSource
-                    │   ├── SkillCommandSource  (discovers from 4 paths)
-                    │   └── PluginCommandSource (from installed plugins)
-                    └── Session (from @robota-sdk/agent-sessions)
+                    └── ConfirmPrompt.tsx      (reusable yes/no prompt)
 ```
 
 ## Dependencies

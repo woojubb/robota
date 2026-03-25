@@ -210,11 +210,60 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 `MarketplaceClient` manages plugin marketplace registries via git clones stored in `~/.robota/marketplaces/`. It supports GitHub repositories, arbitrary git URLs, and local filesystem paths as marketplace sources. The CLI exposes this through `/plugin marketplace add/remove/list/update` commands. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the full API.
 
+## InteractiveSession
+
+`InteractiveSession` wraps `Session` via composition to provide an event-driven API for any interactive client — CLI, web front-end, API server, or dynamic worker. It is the primary entry point for interactive use rather than `createSession()` directly.
+
+### submit / abort / cancelQueue
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+
+const session = new InteractiveSession({
+  /* same options as createSession */
+});
+
+// Submit a prompt (queued automatically if a run is in progress)
+session.submit('Refactor the auth module');
+
+// Abort the in-flight run (partial response saved as 'interrupted')
+session.abort();
+
+// Cancel the queued prompt without touching the in-flight run
+session.cancelQueue();
+```
+
+### Events
+
+`InteractiveSession` emits typed events. Clients subscribe and translate them into framework-specific state:
+
+| Event           | Payload             | When                                       |
+| --------------- | ------------------- | ------------------------------------------ |
+| `textDelta`     | `string`            | Streaming text chunk from the model        |
+| `message`       | `TUniversalMessage` | New message committed to history           |
+| `statusChange`  | `SessionStatus`     | Run started, completed, aborted, or queued |
+| `contextUpdate` | `ContextState`      | Token usage updated                        |
+| `error`         | `Error`             | Run failed                                 |
+
+### Command Discovery
+
+`InteractiveSession` integrates a `CommandRegistry` that aggregates two sources:
+
+- **`BuiltinCommandSource`** — built-in slash commands: `/help`, `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/exit`, `/plugin`, `/reload-plugins`, `/language`
+- **`SkillCommandSource`** — project and user skills discovered from `.agents/skills/`, `.claude/skills/`, `.claude/commands/`, and `~/.robota/skills/`
+
+Calling `session.getCommands()` returns the merged list for autocomplete.
+
+### SystemCommandExecutor
+
+Before each submitted prompt, `SystemCommandExecutor` checks whether the input matches a built-in system command. If it does, the command is executed directly (e.g., clearing history, switching model, running compaction) and no LLM call is made. Unrecognized inputs are forwarded to the session's `run()`.
+
 ## Assembly vs Direct Usage
 
-| Use case                | Approach                                                           |
-| ----------------------- | ------------------------------------------------------------------ |
-| Quick one-shot          | `query()` — handles everything                                     |
-| Interactive multi-turn  | `createSession()` — full session lifecycle                         |
-| Custom agent (no SDK)   | `new Robota()` from `agent-core` directly                          |
-| Custom session (no SDK) | `new Session()` from `agent-sessions` with your own tools/provider |
+| Use case                       | Approach                                                           |
+| ------------------------------ | ------------------------------------------------------------------ |
+| Quick one-shot                 | `query()` — handles everything                                     |
+| Interactive CLI / web / server | `InteractiveSession` — event-driven, queuing, command handling     |
+| Low-level multi-turn           | `createSession()` — direct session lifecycle                       |
+| Custom agent (no SDK)          | `new Robota()` from `agent-core` directly                          |
+| Custom session (no SDK)        | `new Session()` from `agent-sessions` with your own tools/provider |
