@@ -28,7 +28,7 @@ function StreamingTestApp({
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const renderCountRef = useRef(0);
 
-  // Debounced delta handler (same pattern as useSession)
+  // Debounced delta handler (same pattern as InteractiveSession)
   const appendDelta = useCallback((delta: string) => {
     textRef.current += delta;
     if (!flushTimerRef.current) {
