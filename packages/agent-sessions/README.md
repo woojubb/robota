@@ -36,15 +36,15 @@ await session.compact('Focus on the API changes');
 
 ## Features
 
-| Feature                    | Description                                                            |
-| -------------------------- | ---------------------------------------------------------------------- |
-| **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy) |
-| **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop   |
-| **Context tracking**       | Token usage from provider metadata, auto-compact at ~83.5%             |
-| **Compaction**             | LLM-generated conversation summary to free context space               |
-| **Persistence**            | `SessionStore` for JSON file-based session save/load                   |
-| **Abort**                  | Cancel running `run()` calls with `session.abort()`                    |
-| **Session logging**        | `FileSessionLogger` writes JSONL event logs                            |
+| Feature                    | Description                                                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls gated by 3-step policy (deny list, allow list, mode policy)                                           |
+| **Hook execution**         | PreToolUse, PostToolUse, PreCompact, PostCompact, SessionStart, Stop                                             |
+| **Context tracking**       | Token usage from provider metadata, auto-compact at ~83.5%                                                       |
+| **Compaction**             | LLM-generated conversation summary to free context space                                                         |
+| **Persistence**            | `SessionStore` for JSON file-based session save/load                                                             |
+| **Abort**                  | Cancel via AbortSignal — `session.abort()` propagates signal to `robota.run()` and checks `signal.aborted` after |
+| **Session logging**        | `FileSessionLogger` writes JSONL event logs                                                                      |
 
 ## Key Methods
 

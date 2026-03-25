@@ -247,4 +247,4 @@ See [agent-cli SPEC.md](../../packages/agent-cli/docs/SPEC.md) for implementatio
 ## Known Limitations
 
 - **Korean IME + macOS Terminal.app crash**: Korean/CJK IME input may crash macOS Terminal.app due to an Ink raw mode + Terminal.app IME interaction bug. **Use [iTerm2](https://iterm2.com/) instead.** This is a known industry-wide issue shared with Claude Code (issues #22732, #3045). A custom `CjkTextInput` component mitigates common issues but cannot prevent the Terminal.app crash.
-- **Abort propagation**: `session.abort()` rejects the run promise but does not cancel the underlying provider API call.
+- **Abort propagation**: `session.abort()` triggers an AbortSignal that flows through the entire chain (Session -> Robota -> Provider). The provider returns partial content with `state: 'interrupted'`. Streaming renders are debounced at 16ms. Interrupted responses display "Interrupted by user." and failed requests display "Request failed:" messages. The "Thinking..." indicator has been removed; a "Waiting for response... (ESC to interrupt)" message is shown instead.
