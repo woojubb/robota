@@ -1,12 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import type {
-  IResolvedConfig,
-  ILoadedContext,
-  IProjectInfo,
-  SessionStore,
-} from '@robota-sdk/agent-sdk';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import { getModelName, createSystemMessage } from '@robota-sdk/agent-core';
 import {
@@ -28,13 +23,10 @@ import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
 
 interface IProps {
-  config: IResolvedConfig;
-  context: ILoadedContext;
-  projectInfo?: IProjectInfo;
-  sessionStore?: SessionStore;
+  cwd: string;
+  provider: IAIProvider;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
-  cwd?: string;
   version?: string;
 }
 
@@ -42,7 +34,7 @@ const EXIT_DELAY_MS = 500;
 
 export default function App(props: IProps): React.ReactElement {
   const { exit } = useApp();
-  const cwd = props.cwd ?? process.cwd();
+  const cwd = props.cwd;
 
   const {
     interactiveSession,
@@ -60,13 +52,10 @@ export default function App(props: IProps): React.ReactElement {
     handleAbort,
     handleCancelQueue,
   } = useInteractiveSession({
-    config: props.config,
-    context: props.context,
-    projectInfo: props.projectInfo,
-    sessionStore: props.sessionStore,
+    cwd,
+    provider: props.provider,
     permissionMode: props.permissionMode,
     maxTurns: props.maxTurns,
-    cwd,
   });
 
   const pluginCallbacks = usePluginCallbacks(cwd);

@@ -30,7 +30,7 @@ pnpm build
 pnpm test
 
 # 4. Publish
-pnpm changeset publish --tag beta
+pnpm changeset publish
 ```
 
 ### Adding a new package:
