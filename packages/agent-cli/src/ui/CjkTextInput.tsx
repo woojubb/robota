@@ -13,8 +13,8 @@
 
 import React, { useRef, useState } from 'react';
 import { Text, useInput } from 'ink';
-// string-width import removed — no longer needed without setCursorPosition
 import chalk from 'chalk';
+import stringWidth from 'string-width';
 
 /**
  * Filter non-printable characters from input. Returns empty string if
@@ -41,6 +41,31 @@ export function insertAtCursor(
   return { value: next, cursor: cursor + input.length };
 }
 
+/** Cumulative display offset of cursor, accounting for CJK line-end gaps. Exported for testing. */
+export function displayOffset(chars: string[], charIndex: number, width: number): number {
+  let offset = 0;
+  for (let i = 0; i < charIndex && i < chars.length; i++) {
+    const w = stringWidth(chars[i]!);
+    const col = offset % width;
+    if (col + w > width) offset += width - col;
+    offset += w;
+  }
+  return offset;
+}
+
+/** Find char index closest to a target display offset. Exported for testing. */
+export function charIndexAtDisplayOffset(chars: string[], target: number, width: number): number {
+  let offset = 0;
+  for (let i = 0; i < chars.length; i++) {
+    if (offset >= target) return i;
+    const w = stringWidth(chars[i]!);
+    const col = offset % width;
+    if (col + w > width) offset += width - col;
+    offset += w;
+  }
+  return chars.length;
+}
+
 interface IProps {
   value: string;
   onChange: (value: string) => void;
@@ -49,6 +74,8 @@ interface IProps {
   placeholder?: string;
   focus?: boolean;
   showCursor?: boolean;
+  /** Available width in columns for visual line wrapping navigation */
+  availableWidth?: number;
 }
 
 export default function CjkTextInput({
@@ -59,6 +86,7 @@ export default function CjkTextInput({
   placeholder = '',
   focus = true,
   showCursor = true,
+  availableWidth,
 }: IProps): React.ReactElement {
   // Use refs for value and cursor to avoid React batching issues.
   // When IME sends "다" + "." in rapid succession, setState is async
@@ -80,13 +108,23 @@ export default function CjkTextInput({
   useInput(
     (input, key) => {
       try {
-        if (
-          key.upArrow ||
-          key.downArrow ||
-          (key.ctrl && input === 'c') ||
-          key.tab ||
-          (key.shift && key.tab)
-        ) {
+        if ((key.ctrl && input === 'c') || key.tab || (key.shift && key.tab)) {
+          return;
+        }
+
+        if (key.upArrow || key.downArrow) {
+          if (availableWidth && availableWidth > 0) {
+            const chars = [...valueRef.current];
+            const offset = displayOffset(chars, cursorRef.current, availableWidth);
+            const target = key.upArrow ? offset - availableWidth : offset + availableWidth;
+            if (target >= 0) {
+              const newCursor = charIndexAtDisplayOffset(chars, target, availableWidth);
+              if (newCursor !== cursorRef.current) {
+                cursorRef.current = newCursor;
+                forceRender((n) => n + 1);
+              }
+            }
+          }
           return;
         }
 

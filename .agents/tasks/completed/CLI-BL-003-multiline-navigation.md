@@ -1,6 +1,6 @@
 ---
 title: CLI 멀티라인 입력 상하 화살표 내비게이션
-status: backlog
+status: completed
 priority: medium
 created: 2026-03-23
 packages:
