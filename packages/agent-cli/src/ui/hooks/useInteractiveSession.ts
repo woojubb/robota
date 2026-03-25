@@ -7,7 +7,12 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { InteractiveSession, CommandRegistry } from '@robota-sdk/agent-sdk';
+import {
+  InteractiveSession,
+  CommandRegistry,
+  BuiltinCommandSource,
+  SkillCommandSource,
+} from '@robota-sdk/agent-sdk';
 import type { IAIProvider, IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode, TUniversalMessage, TToolArgs } from '@robota-sdk/agent-core';
 import { createSystemMessage } from '@robota-sdk/agent-core';
@@ -69,8 +74,10 @@ function initializeSession(
     permissionHandler,
   });
 
-  // Registry for autocomplete UI — InteractiveSession manages commands internally
+  // Registry for autocomplete UI — populated with builtin commands for slash popup
   const registry = new CommandRegistry();
+  registry.addSource(new BuiltinCommandSource());
+  registry.addSource(new SkillCommandSource(props.cwd));
 
   return { interactiveSession, registry };
 }
