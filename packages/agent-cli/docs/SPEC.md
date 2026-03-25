@@ -535,6 +535,29 @@ When input text wraps across multiple visual lines (exceeds terminal width), up/
 - Column position is preserved across line moves via offset arithmetic
 - Terminal resize recalculates available width via `useStdout()`
 
+### Paste Handling
+
+**Bracketed paste mode (DECSET 2004):**
+
+- `render.tsx` enables on startup (`\x1b[?2004h`), disables on exit (`\x1b[?2004l`)
+- Only enabled when `process.stdin.isTTY && process.stdout.isTTY`
+- Terminal wraps pasted content with `\x1b[200~` (start) and `\x1b[201~` (end) markers
+- Ink's CSI parser strips the ESC prefix, so `useInput` receives `[200~` and `[201~`
+- `CjkTextInput` detects these markers and buffers all input between them
+- On paste-end marker, the complete buffer is flushed with `\r\n`/`\r` normalized to `\n`
+- Deterministic boundary detection — no debounce or timing heuristics
+
+**Single-line vs multiline paste:**
+
+- Single-line paste (no `\n`): inserted directly into the input as typed text
+- Multiline paste (contains `\n`): routed to `onPaste` → `InputArea.handlePaste` creates a `[Pasted text #N +M lines]` label in the input field, stores content in `pasteStore`
+- On submit, `expandPasteLabels()` replaces labels with actual content from `pasteStore`
+- Paste store is cleared after each submit
+
+**Fallback for terminals without bracketed paste:**
+
+- Multi-char input containing `\n` or `\r` is treated as a single paste (original heuristic)
+
 ## Plugin Management TUI
 
 The `/plugin` command opens an interactive TUI for managing bundle plugins, built with `MenuSelect`, `TextPrompt`, and `ConfirmPrompt` components.
