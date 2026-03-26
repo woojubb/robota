@@ -199,4 +199,107 @@ describe('TuiStateManager', () => {
     expect(mgr.streamingText).toBe('');
     expect(mgr.activeTools).toEqual([]);
   });
+
+  // ── Full lifecycle: streaming → completion message order ──────
+
+  it('during streaming: tools and text visible in StreamingIndicator state', () => {
+    const mgr = new TuiStateManager();
+
+    // Execution starts
+    mgr.onThinking(true);
+
+    // Tools arrive
+    mgr.onToolStart({ toolName: 'Read', firstArg: 'file.ts', isRunning: true });
+    mgr.onToolEnd({ toolName: 'Read', firstArg: 'file.ts', isRunning: false, result: 'success' });
+    mgr.onToolStart({ toolName: 'Edit', firstArg: 'file.ts', isRunning: true });
+
+    // Streaming text arrives
+    mgr.onTextDelta('Here is the ');
+    mgr.onTextDelta('result');
+
+    // During streaming: both active
+    expect(mgr.activeTools).toHaveLength(2);
+    expect(mgr.streamingText).toBe('Here is the result');
+    expect(mgr.isThinking).toBe(true);
+  });
+
+  it('after completion: streaming cleared, messages synced from session', () => {
+    const mgr = new TuiStateManager();
+
+    mgr.onThinking(true);
+    mgr.onToolStart({ toolName: 'Read', firstArg: 'f.ts', isRunning: true });
+    mgr.onToolEnd({ toolName: 'Read', firstArg: 'f.ts', isRunning: false, result: 'success' });
+    mgr.onTextDelta('response text');
+
+    // Complete event fires, then thinking ends
+    mgr.onComplete(makeResult());
+    mgr.onThinking(false);
+
+    // StreamingIndicator state: cleared
+    expect(mgr.streamingText).toBe('');
+    expect(mgr.activeTools).toEqual([]);
+    expect(mgr.isThinking).toBe(false);
+
+    // Simulate InteractiveSession messages being synced
+    // (InteractiveSession already pushed: user → tool-summary → assistant)
+    mgr.syncMessages([
+      { role: 'user', content: 'fix the bug' } as never,
+      { role: 'tool', content: '✓ Read(f.ts)' } as never,
+      { role: 'assistant', content: 'response text' } as never,
+    ]);
+
+    // MessageList now has correct order: user → tool → assistant
+    expect(mgr.messages).toHaveLength(3);
+    expect(mgr.messages[0]!.role).toBe('user');
+    expect(mgr.messages[1]!.role).toBe('tool');
+    expect(mgr.messages[2]!.role).toBe('assistant');
+  });
+
+  it('after abort: streaming cleared, messages synced with tool → robota → system', () => {
+    const mgr = new TuiStateManager();
+
+    mgr.onThinking(true);
+    mgr.onToolStart({ toolName: 'Bash', firstArg: 'ls', isRunning: true });
+    mgr.onTextDelta('partial answer');
+
+    mgr.onInterrupted();
+
+    expect(mgr.streamingText).toBe('');
+    expect(mgr.activeTools).toEqual([]);
+
+    // Simulate InteractiveSession messages synced after abort
+    mgr.syncMessages([
+      { role: 'user', content: 'test' } as never,
+      { role: 'tool', content: '⟳ Bash(ls)' } as never,
+      { role: 'assistant', content: 'partial answer' } as never,
+      { role: 'system', content: 'Interrupted by user.' } as never,
+    ]);
+
+    // Order: user → tool → assistant → system
+    expect(mgr.messages).toHaveLength(4);
+    expect(mgr.messages[0]!.role).toBe('user');
+    expect(mgr.messages[1]!.role).toBe('tool');
+    expect(mgr.messages[2]!.role).toBe('assistant');
+    expect(mgr.messages[3]!.role).toBe('system');
+  });
+
+  it('next execution clears previous tools from StreamingIndicator', () => {
+    const mgr = new TuiStateManager();
+
+    // First execution
+    mgr.onThinking(true);
+    mgr.onToolStart({ toolName: 'Read', firstArg: '', isRunning: true });
+    mgr.onComplete(makeResult());
+    expect(mgr.activeTools).toEqual([]);
+
+    // Second execution starts
+    mgr.onThinking(true);
+    // Previous tools should not reappear
+    expect(mgr.activeTools).toEqual([]);
+
+    // New tools for second execution
+    mgr.onToolStart({ toolName: 'Write', firstArg: 'new.ts', isRunning: true });
+    expect(mgr.activeTools).toHaveLength(1);
+    expect(mgr.activeTools[0]!.toolName).toBe('Write');
+  });
 });
