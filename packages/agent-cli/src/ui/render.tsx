@@ -7,6 +7,7 @@ import { render } from 'ink';
 import App from './App.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { SessionStore } from '@robota-sdk/agent-sessions';
 
 export interface IRenderOptions {
   cwd: string;
@@ -16,6 +17,10 @@ export interface IRenderOptions {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   version?: string;
+  sessionStore?: SessionStore;
+  resumeSessionId?: string;
+  forkSession?: boolean;
+  sessionName?: string;
 }
 
 export function renderApp(options: IRenderOptions): void {
