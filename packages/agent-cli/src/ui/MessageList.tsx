@@ -140,13 +140,39 @@ const MessageItem = React.memo(function MessageItem({
   );
 });
 
-function EntryItem({ entry }: { entry: IHistoryEntry }): React.ReactElement {
-  if (entry.category === 'chat') {
-    const message = entry.data as TUniversalMessage;
-    return <MessageItem message={message} />;
-  }
+function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
+  const data = entry.data as
+    | {
+        summary?: string;
+        tools?: Array<{
+          toolName: string;
+          firstArg?: string;
+          isRunning?: boolean;
+          result?: string;
+        }>;
+      }
+    | undefined;
+  const lines = data?.summary?.split('\n') ?? [];
 
-  // event entries — render with a System label and the event message
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <Text color="white" bold>
+          Tool:{' '}
+        </Text>
+      </Box>
+      <Text> </Text>
+      {lines.map((line, i) => (
+        <Text key={i} color="green">
+          {'  '}
+          {line}
+        </Text>
+      ))}
+    </Box>
+  );
+}
+
+function EventEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
   const eventData = entry.data as Record<string, unknown> | undefined;
   const eventMessage =
     typeof eventData?.message === 'string'
@@ -168,6 +194,19 @@ function EntryItem({ entry }: { entry: IHistoryEntry }): React.ReactElement {
       </Box>
     </Box>
   );
+}
+
+function EntryItem({ entry }: { entry: IHistoryEntry }): React.ReactElement {
+  if (entry.category === 'chat') {
+    const message = entry.data as TUniversalMessage;
+    return <MessageItem message={message} />;
+  }
+
+  if (entry.type === 'tool-summary') {
+    return <ToolSummaryEntry entry={entry} />;
+  }
+
+  return <EventEntry entry={entry} />;
 }
 
 export default function MessageList({ history }: IProps): React.ReactElement {
