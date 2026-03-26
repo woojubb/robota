@@ -77,9 +77,12 @@ const response = await agent.run('What is 42 * 17?');
 ### Use the SDK (agent-sdk)
 
 ```typescript
-import { query } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-// One-shot query with automatic config/context loading
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
+const query = createQuery({ provider });
+
 const response = await query('List all TypeScript files in src/');
 ```
 
