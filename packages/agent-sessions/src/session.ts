@@ -527,8 +527,30 @@ export class Session {
     this.contextTracker.reset();
   }
 
-  /** Get conversation history */
+  /** Get conversation history (chat messages only, backward compatible) */
   getHistory() {
     return this.robota.getHistory();
+  }
+
+  /** Get full history timeline including events */
+  getFullHistory(): Array<{
+    id: string;
+    timestamp: Date;
+    category: string;
+    type: string;
+    data?: unknown;
+  }> {
+    return this.robota.getFullHistory();
+  }
+
+  /** Add an event entry to history (not a chat message) */
+  addHistoryEntry(entry: {
+    id: string;
+    timestamp: Date;
+    category: string;
+    type: string;
+    data?: unknown;
+  }): void {
+    this.robota.addHistoryEntry(entry);
   }
 }
