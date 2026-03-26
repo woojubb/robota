@@ -17,8 +17,14 @@ fs.ensureDirSync(tempDir);
 console.log('Copying main docs directory...');
 fs.copySync(docsPath, tempDir, {
   filter: (src) => {
-    // Exclude unnecessary files like .git
-    return !src.includes('node_modules') && !path.basename(src).startsWith('.');
+    // Exclude unnecessary files
+    if (src.includes('node_modules')) return false;
+    if (path.basename(src).startsWith('.')) return false;
+    // Exclude directories that bloat the build (source preserved, excluded from VitePress)
+    const relPath = path.relative(docsPath, src);
+    if (relPath.startsWith('v2.0.0')) return false;
+    if (relPath.startsWith('api-reference')) return false;
+    return true;
   },
 });
 
@@ -31,7 +37,7 @@ packagesDir.forEach((packageName) => {
   const packageDocsPath = path.join(packagePath, 'docs');
 
   if (fs.existsSync(packageDocsPath) && fs.statSync(packageDocsPath).isDirectory()) {
-    const targetPackageDocsPath = path.join(tempDir, 'packages', packageName, 'docs');
+    const targetPackageDocsPath = path.join(tempDir, 'packages', packageName);
     console.log(`  Copying ${packageName} docs...`);
 
     fs.ensureDirSync(targetPackageDocsPath);
