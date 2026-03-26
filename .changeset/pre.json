@@ -59,6 +59,7 @@
   },
   "changesets": [
     "session-continue-resume",
+    "tool-execution-history-fix",
     "transport-command-consolidation",
     "transport-unified-interface",
     "universal-history-beta44"

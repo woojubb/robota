@@ -1,5 +1,11 @@
 # @robota-sdk/agent-sessions
 
+## 3.0.0-beta.48
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.48
+
 ## 3.0.0-beta.47
 
 ### Patch Changes
