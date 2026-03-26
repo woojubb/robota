@@ -217,6 +217,14 @@ export class InteractiveSession {
     return this.commandExecutor.execute(name, this, args);
   }
 
+  /** List all registered system commands. */
+  listCommands(): Array<{ name: string; description: string }> {
+    return this.commandExecutor.listCommands().map((cmd) => ({
+      name: cmd.name,
+      description: cmd.description,
+    }));
+  }
+
   /** Abort current execution and clear queue. */
   abort(): void {
     this.pendingPrompt = null;
