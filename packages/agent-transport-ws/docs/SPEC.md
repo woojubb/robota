@@ -7,7 +7,7 @@ WebSocket transport adapter for exposing InteractiveSession over real-time bidir
 ## Boundaries
 
 - Does NOT own InteractiveSession — imported from `@robota-sdk/agent-sdk`
-- Does NOT own SystemCommandExecutor — imported from `@robota-sdk/agent-sdk`
+- Does NOT own system commands — uses `session.executeCommand()` from InteractiveSession
 - Does NOT depend on any WebSocket library (ws, uWebSockets, etc.)
 - OWNS: Message protocol definition, event subscription/forwarding, message routing
 
@@ -34,7 +34,6 @@ import { createWsHandler } from '@robota-sdk/agent-transport-ws';
 
 const { onMessage, cleanup } = createWsHandler({
   session: interactiveSession,
-  commandExecutor,
   send: (msg) => ws.send(JSON.stringify(msg)),
 });
 
@@ -49,7 +48,7 @@ ws.on('close', cleanup);
 | type            | payload                           | maps to                      |
 | --------------- | --------------------------------- | ---------------------------- |
 | `submit`        | `{ prompt: string }`              | `session.submit(prompt)`     |
-| `command`       | `{ name: string, args?: string }` | `commandExecutor.execute()`  |
+| `command`       | `{ name: string, args?: string }` | `session.executeCommand()`   |
 | `abort`         | —                                 | `session.abort()`            |
 | `cancel-queue`  | —                                 | `session.cancelQueue()`      |
 | `get-messages`  | —                                 | `session.getMessages()`      |
@@ -77,5 +76,5 @@ ws.on('close', cleanup);
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` (InteractiveSession, SystemCommandExecutor)
+- `@robota-sdk/agent-sdk` (InteractiveSession)
 - No WebSocket library dependency (framework-agnostic)

@@ -12,14 +12,13 @@ pnpm add @robota-sdk/agent-transport-http
 
 ```typescript
 import { createAgentRoutes } from '@robota-sdk/agent-transport-http';
-import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { Hono } from 'hono';
 
 const app = new Hono();
 
 const routes = createAgentRoutes({
   sessionFactory: (_req) => interactiveSession, // resolve per-request
-  commandExecutor,
 });
 
 // Mount under a prefix
@@ -58,5 +57,5 @@ The `sessionFactory` callback receives the Hono request context and returns an `
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` — `InteractiveSession`, `SystemCommandExecutor`
+- `@robota-sdk/agent-sdk` — `InteractiveSession`
 - `hono` — HTTP framework

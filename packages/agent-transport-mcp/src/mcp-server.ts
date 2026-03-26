@@ -8,11 +8,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import type {
-  InteractiveSession,
-  SystemCommandExecutor,
-  IExecutionResult,
-} from '@robota-sdk/agent-sdk';
+import type { InteractiveSession, IExecutionResult } from '@robota-sdk/agent-sdk';
 
 export interface IAgentMcpOptions {
   /** Name for the MCP server. */
@@ -21,8 +17,6 @@ export interface IAgentMcpOptions {
   version: string;
   /** InteractiveSession to expose. */
   session: InteractiveSession;
-  /** System command executor. */
-  commandExecutor: SystemCommandExecutor;
   /** If true, register each system command as a separate MCP tool. Default: true. */
   exposeCommands?: boolean;
 }
@@ -36,7 +30,6 @@ export interface IAgentMcpOptions {
  *   name: 'robota-agent',
  *   version: '1.0.0',
  *   session: interactiveSession,
- *   commandExecutor,
  * });
  *
  * import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -44,7 +37,7 @@ export interface IAgentMcpOptions {
  * ```
  */
 export function createAgentMcpServer(options: IAgentMcpOptions): Server {
-  const { name, version, session, commandExecutor, exposeCommands = true } = options;
+  const { name, version, session, exposeCommands = true } = options;
 
   const server = new Server({ name, version }, { capabilities: { tools: {} } });
 
@@ -68,7 +61,7 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
   ];
 
   if (exposeCommands) {
-    for (const cmd of commandExecutor.listCommands()) {
+    for (const cmd of session.listCommands()) {
       tools.push({
         name: `command_${cmd.name}`,
         description: cmd.description,
@@ -109,7 +102,7 @@ export function createAgentMcpServer(options: IAgentMcpOptions): Server {
     if (toolName.startsWith('command_')) {
       const cmdName = toolName.slice('command_'.length);
       const args = (toolArgs as Record<string, string>)?.args ?? '';
-      const result = await commandExecutor.execute(cmdName, session, args);
+      const result = await session.executeCommand(cmdName, args);
       return {
         content: [
           {

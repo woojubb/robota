@@ -8,12 +8,7 @@
  * Server pushes InteractiveSession events to client in real-time.
  */
 
-import type {
-  InteractiveSession,
-  SystemCommandExecutor,
-  IToolState,
-  IExecutionResult,
-} from '@robota-sdk/agent-sdk';
+import type { InteractiveSession, IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
 
 /** Inbound message from client → server. */
 export type TClientMessage =
@@ -51,8 +46,6 @@ export type TServerMessage =
 export interface IWsHandlerOptions {
   /** InteractiveSession to expose. */
   session: InteractiveSession;
-  /** System command executor. */
-  commandExecutor: SystemCommandExecutor;
   /** Send a JSON message to the client. */
   send: (message: TServerMessage) => void;
 }
@@ -68,7 +61,6 @@ export interface IWsHandlerOptions {
  * ```typescript
  * const { onMessage, cleanup } = createWsHandler({
  *   session: interactiveSession,
- *   commandExecutor,
  *   send: (msg) => ws.send(JSON.stringify(msg)),
  * });
  *
@@ -80,7 +72,7 @@ export function createWsHandler(options: IWsHandlerOptions): {
   onMessage: (data: string) => void;
   cleanup: () => void;
 } {
-  const { session, commandExecutor, send } = options;
+  const { session, send } = options;
 
   // Subscribe to InteractiveSession events and push to client
   const onTextDelta = (delta: string): void => send({ type: 'text_delta', delta });
@@ -122,7 +114,7 @@ export function createWsHandler(options: IWsHandlerOptions): {
           send({ type: 'protocol_error', message: 'name is required' });
           return;
         }
-        commandExecutor.execute(msg.name, session, msg.args ?? '').then((result) => {
+        session.executeCommand(msg.name, msg.args ?? '').then((result) => {
           send({
             type: 'command_result',
             name: msg.name,
