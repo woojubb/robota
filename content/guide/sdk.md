@@ -55,7 +55,7 @@ const history: IHistoryEntry[] = session.getFullHistory();
 
 `InteractiveSession` integrates a `CommandRegistry` that aggregates two sources:
 
-- **`BuiltinCommandSource`** — built-in slash commands: `/help`, `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/exit`, `/plugin`, `/reload-plugins`, `/language`
+- **`BuiltinCommandSource`** — built-in slash commands: `/help`, `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/exit`, `/plugin`, `/reload-plugins`, `/language`, `/resume`, `/rename`
 - **`SkillCommandSource`** — project and user skills discovered from `.agents/skills/`, `.claude/skills/`, `.claude/commands/`, and `~/.robota/skills/`
 
 Calling `session.getCommands()` returns the merged list for autocomplete.
@@ -177,17 +177,17 @@ const systemMessage = buildSystemPrompt({
 
 `InteractiveSession` provides these capabilities:
 
-| Feature                    | Description                                                                              |
-| -------------------------- | ---------------------------------------------------------------------------------------- |
-| **Permission enforcement** | Tool calls are gated by the permission system                                            |
-| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                   |
-| **Context tracking**       | Token usage is tracked and available via `getContextState()`                             |
-| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                          |
-| **Session persistence**    | Conversations can be saved/loaded via `SessionStore`                                     |
-| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`             |
-| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                      |
-| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'` |
-| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline         |
+| Feature                    | Description                                                                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Permission enforcement** | Tool calls are gated by the permission system                                                                                                                 |
+| **Hook execution**         | PreToolUse/PostToolUse/PreCompact/PostCompact hooks fire automatically                                                                                        |
+| **Context tracking**       | Token usage is tracked and available via `getContextState()`                                                                                                  |
+| **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                                                                                               |
+| **Session persistence**    | Conversations can be saved/loaded via `SessionStore`. `ISessionRecord` includes `history` (`IHistoryEntry[]`) for full UI restoration                         |
+| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`. On resume, `session.injectMessage()` restores AI context from persisted history |
+| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                                                                                           |
+| **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'`                                                                      |
+| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline                                                                              |
 
 ## Subagent Sessions
 
@@ -261,15 +261,16 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 `InteractiveSession` is the single entry point for all interactive use cases. Transport adapters in the `agent-transport-*` packages consume it to expose the session over different protocols:
 
-| Package                | Protocol    | Description                                                      |
-| ---------------------- | ----------- | ---------------------------------------------------------------- |
-| `agent-transport-http` | HTTP / REST | Hono-based adapter; runs on Cloudflare Workers, Node.js, Lambda  |
-| `agent-transport-mcp`  | MCP         | Exposes the session as an MCP server for Claude and other agents |
-| `agent-transport-ws`   | WebSocket   | Framework-agnostic real-time adapter (any WS library)            |
+| Package                    | Protocol                       | Description                                                      |
+| -------------------------- | ------------------------------ | ---------------------------------------------------------------- |
+| `agent-transport-http`     | HTTP / REST                    | Hono-based adapter; runs on Cloudflare Workers, Node.js, Lambda  |
+| `agent-transport-mcp`      | MCP                            | Exposes the session as an MCP server for Claude and other agents |
+| `agent-transport-ws`       | WebSocket                      | Framework-agnostic real-time adapter (any WS library)            |
+| `agent-transport-headless` | stdin/stdout (non-interactive) | Non-interactive execution with text/json/stream-json output      |
 
 Each transport wraps an `InteractiveSession` instance and translates protocol messages into `submit()` / `abort()` calls, then forwards emitted events back to the client. No separate gateway interface exists — `InteractiveSession` is the gateway.
 
-All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-sdk`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each package provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`) that returns an `ITransportAdapter`.
+All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-sdk`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each package provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`, `createHeadlessTransport()`) that returns an `ITransportAdapter`. `createHeadlessTransport()` also accepts a `createHeadlessRunner()` helper for pre-configured non-interactive execution.
 
 `agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport-http`. It has no dependency on `agent-sdk`.
 
@@ -280,6 +281,7 @@ All transport adapters implement the `ITransportAdapter` interface (exported fro
 | Quick one-shot                 | `query()` / `createQuery({ provider })` — handles everything       |
 | Interactive CLI / web / server | `InteractiveSession` — event-driven, queuing, command handling     |
 | Expose over HTTP / MCP / WS    | `agent-transport-{http,mcp,ws}` wrapping `InteractiveSession`      |
+| Non-interactive / headless     | `agent-transport-headless` — text, JSON, or stream-JSON output     |
 | Call a remote agent over HTTP  | `agent-remote-client` — standalone HTTP client                     |
 | Custom agent (no SDK)          | `new Robota()` from `agent-core` directly                          |
 | Custom session (no SDK)        | `new Session()` from `agent-sessions` with your own tools/provider |
