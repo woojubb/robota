@@ -123,6 +123,42 @@ describe('SessionStore', () => {
     });
   });
 
+  describe('history field', () => {
+    it('saves and loads a record with history field', () => {
+      const record = makeRecord({
+        id: 'history-session',
+        history: [
+          { category: 'chat', role: 'user', content: 'hello' },
+          { category: 'event', type: 'tool-call', name: 'read' },
+          { category: 'chat', role: 'assistant', content: 'world' },
+        ],
+      });
+      store.save(record);
+      const loaded = store.load(record.id);
+      expect(loaded?.history).toHaveLength(3);
+      expect(loaded?.history).toEqual(record.history);
+    });
+
+    it('round-trips history entries with different categories', () => {
+      const historyEntries = [
+        { category: 'chat', role: 'user', content: 'What is 2+2?' },
+        { category: 'event', type: 'thinking', text: 'calculating...' },
+        { category: 'chat', role: 'assistant', content: '4' },
+      ];
+      const record = makeRecord({ id: 'roundtrip', history: historyEntries });
+      store.save(record);
+      const loaded = store.load(record.id);
+      expect(loaded?.history).toEqual(historyEntries);
+    });
+
+    it('defaults history to undefined when not provided', () => {
+      const record = makeRecord({ id: 'no-history' });
+      store.save(record);
+      const loaded = store.load(record.id);
+      expect(loaded?.history).toBeUndefined();
+    });
+  });
+
   describe('directory creation', () => {
     it('creates the base directory on first save', () => {
       const nestedDir = join(tmpDir, 'nested', 'sessions');

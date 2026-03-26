@@ -411,6 +411,7 @@ export class Session {
 
     const record: ISessionRecord = {
       id: this.sessionId,
+      name: existing?.name,
       cwd: this.cwd,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
