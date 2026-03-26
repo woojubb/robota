@@ -14,7 +14,7 @@ import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
 import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
-import { createHeadlessRunner } from '@robota-sdk/agent-transport-headless';
+import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
 
 /** Result of checking a settings file. */
@@ -248,13 +248,13 @@ export async function startCli(): Promise<void> {
       sessionName: args.sessionName,
     });
 
-    const runner = createHeadlessRunner({
-      session,
+    const transport = createHeadlessTransport({
       outputFormat: (args.outputFormat as 'text' | 'json' | 'stream-json') ?? 'text',
+      prompt,
     });
-
-    const exitCode = await runner.run(prompt);
-    process.exit(exitCode);
+    session.attachTransport(transport);
+    await transport.start();
+    process.exit(transport.getExitCode());
   }
 
   // Interactive TUI mode (Ink)
