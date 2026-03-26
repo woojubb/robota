@@ -697,6 +697,7 @@ When input text wraps across multiple visual lines (exceeds terminal width), up/
 **Architecture:**
 
 - Cursor-only manipulation — text is never modified, only `cursorRef` position changes
+- External value sync — when parent sets value (e.g., tab completion, clear), cursor moves to end of new value automatically
 - Two private helpers in `CjkTextInput.tsx` (no separate module):
   - `displayOffset(chars, charIndex, width)` → cumulative display column offset, accounting for CJK line-end gaps
   - `charIndexAtDisplayOffset(chars, targetOffset, width)` → char index closest to target offset
