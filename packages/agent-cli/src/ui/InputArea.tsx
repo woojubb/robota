@@ -261,7 +261,7 @@ export default function InputArea({
       <Text color={borderColor}>
         {topBorder.left}
         {topBorder.label ? (
-          <Text backgroundColor={borderColor} color="white" bold>
+          <Text backgroundColor={borderColor} color="black" bold>
             {topBorder.label}
           </Text>
         ) : null}
