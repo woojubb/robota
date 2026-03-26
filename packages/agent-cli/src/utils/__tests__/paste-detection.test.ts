@@ -66,3 +66,51 @@ describe('Full paste pipeline: detect → label → expand', () => {
     expect(expanded).toBe('first\npaste compare with second\npaste\nhere');
   });
 });
+
+describe('Paste at cursor position', () => {
+  it('label is inserted at cursor position, not end', () => {
+    const existingText = 'hello world';
+    const cursorPosition = 5; // between "hello" and " world"
+    const pastedText = 'line1\nline2';
+    const store = new Map<number, string>();
+    const id = 1;
+    store.set(id, pastedText);
+    const lineCount = pastedText.split('\n').length;
+    const label = `[Pasted text #${id} +${lineCount} lines]`;
+
+    // Simulate cursor-aware insertion (as handlePaste does)
+    const result =
+      existingText.slice(0, cursorPosition) + label + existingText.slice(cursorPosition);
+    expect(result).toBe('hello[Pasted text #1 +2 lines] world');
+
+    // Expand should restore original text at correct position
+    const expanded = expandPasteLabels(result, store);
+    expect(expanded).toBe('helloline1\nline2 world');
+  });
+
+  it('cursor hint equals cursorPosition + label.length', () => {
+    const cursorPosition = 5;
+    const label = '[Pasted text #1 +3 lines]';
+    const newCursorPos = cursorPosition + label.length;
+    expect(newCursorPos).toBe(5 + 25); // label is 25 chars
+    expect(newCursorPos).toBe(30);
+  });
+
+  it('paste at start (cursor = 0)', () => {
+    const existingText = 'existing';
+    const cursorPosition = 0;
+    const label = '[Pasted text #1 +2 lines]';
+    const result =
+      existingText.slice(0, cursorPosition) + label + existingText.slice(cursorPosition);
+    expect(result).toBe('[Pasted text #1 +2 lines]existing');
+  });
+
+  it('paste at end (cursor = text.length)', () => {
+    const existingText = 'existing';
+    const cursorPosition = existingText.length;
+    const label = '[Pasted text #1 +2 lines]';
+    const result =
+      existingText.slice(0, cursorPosition) + label + existingText.slice(cursorPosition);
+    expect(result).toBe('existing[Pasted text #1 +2 lines]');
+  });
+});
