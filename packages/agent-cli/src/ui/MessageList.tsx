@@ -1,13 +1,13 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
 import { isToolMessage, isAssistantMessage } from '@robota-sdk/agent-core';
 import { renderMarkdown } from './render-markdown.js';
 import type { IToolCallSummary } from '../utils/tool-call-extractor.js';
 import DiffBlock from './DiffBlock.js';
 
 interface IProps {
-  messages: TUniversalMessage[];
+  history: IHistoryEntry[];
 }
 
 function RoleLabel({ role }: { role: TUniversalMessage['role'] }): React.ReactElement {
@@ -140,11 +140,41 @@ const MessageItem = React.memo(function MessageItem({
   );
 });
 
-export default function MessageList({ messages }: IProps): React.ReactElement {
+function EntryItem({ entry }: { entry: IHistoryEntry }): React.ReactElement {
+  if (entry.category === 'chat') {
+    const message = entry.data as TUniversalMessage;
+    return <MessageItem message={message} />;
+  }
+
+  // event entries — render with a System label and the event message
+  const eventData = entry.data as Record<string, unknown> | undefined;
+  const eventMessage =
+    typeof eventData?.message === 'string'
+      ? eventData.message
+      : typeof eventData?.content === 'string'
+        ? eventData.content
+        : entry.type;
+
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <Text color="yellow" bold>
+          System:{' '}
+        </Text>
+      </Box>
+      <Text> </Text>
+      <Box marginLeft={2}>
+        <Text wrap="wrap">{eventMessage}</Text>
+      </Box>
+    </Box>
+  );
+}
+
+export default function MessageList({ history }: IProps): React.ReactElement {
   return (
     <Box flexDirection="column">
-      {messages.map((msg) => (
-        <MessageItem key={msg.id} message={msg} />
+      {history.map((entry) => (
+        <EntryItem key={entry.id} entry={entry} />
       ))}
     </Box>
   );

@@ -3,7 +3,7 @@ import { Box, Text, useApp, useInput } from 'ink';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
-import { getModelName, createSystemMessage } from '@robota-sdk/agent-core';
+import { getModelName, createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import {
   getUserSettingsPath,
   updateModelInSettings,
@@ -40,8 +40,8 @@ export default function App(props: IProps): React.ReactElement {
   const {
     interactiveSession,
     registry,
-    messages,
-    addMessage,
+    history,
+    addEntry,
     streamingText,
     activeTools,
     isThinking,
@@ -88,7 +88,9 @@ export default function App(props: IProps): React.ReactElement {
       const settings = readSettings(settingsPath);
       settings.language = lang;
       writeSettings(settingsPath, settings);
-      addMessage(createSystemMessage(`Language set to "${lang}". Restarting...`));
+      addEntry(
+        messageToHistoryEntry(createSystemMessage(`Language set to "${lang}". Restarting...`)),
+      );
       setTimeout(() => exit(), EXIT_DELAY_MS);
       return;
     }
@@ -97,9 +99,9 @@ export default function App(props: IProps): React.ReactElement {
       delete sideEffects._resetRequested;
       const settingsPath = getUserSettingsPath();
       if (deleteSettings(settingsPath)) {
-        addMessage(createSystemMessage(`Deleted ${settingsPath}. Exiting...`));
+        addEntry(messageToHistoryEntry(createSystemMessage(`Deleted ${settingsPath}. Exiting...`)));
       } else {
-        addMessage(createSystemMessage('No user settings found.'));
+        addEntry(messageToHistoryEntry(createSystemMessage('No user settings found.')));
       }
       setTimeout(() => exit(), EXIT_DELAY_MS);
       return;
@@ -152,7 +154,7 @@ export default function App(props: IProps): React.ReactElement {
         <Text dimColor> v{props.version ?? '0.0.0'}</Text>
       </Box>
       <Box flexDirection="column" paddingX={1} flexGrow={1}>
-        <MessageList messages={messages} />
+        <MessageList history={history} />
         {(isThinking || activeTools.length > 0) && (
           <Box flexDirection="column" marginBottom={1}>
             <StreamingIndicator text={streamingText} activeTools={activeTools} />
@@ -170,21 +172,25 @@ export default function App(props: IProps): React.ReactElement {
               try {
                 const settingsPath = getUserSettingsPath();
                 updateModelInSettings(settingsPath, pendingModelId);
-                addMessage(
-                  createSystemMessage(
-                    `Model changed to ${getModelName(pendingModelId)}. Restarting...`,
+                addEntry(
+                  messageToHistoryEntry(
+                    createSystemMessage(
+                      `Model changed to ${getModelName(pendingModelId)}. Restarting...`,
+                    ),
                   ),
                 );
                 setTimeout(() => exit(), EXIT_DELAY_MS);
               } catch (err) {
-                addMessage(
-                  createSystemMessage(
-                    `Failed: ${err instanceof Error ? err.message : String(err)}`,
+                addEntry(
+                  messageToHistoryEntry(
+                    createSystemMessage(
+                      `Failed: ${err instanceof Error ? err.message : String(err)}`,
+                    ),
                   ),
                 );
               }
             } else {
-              addMessage(createSystemMessage('Model change cancelled.'));
+              addEntry(messageToHistoryEntry(createSystemMessage('Model change cancelled.')));
             }
           }}
         />
@@ -193,14 +199,14 @@ export default function App(props: IProps): React.ReactElement {
         <PluginTUI
           callbacks={pluginCallbacks}
           onClose={() => setShowPluginTUI(false)}
-          addMessage={(msg) => addMessage(createSystemMessage(msg.content))}
+          addMessage={(msg) => addEntry(messageToHistoryEntry(createSystemMessage(msg.content)))}
         />
       )}
       <StatusBar
         permissionMode={permissionMode}
         modelName={props.modelId ? getModelName(props.modelId) : ''}
         sessionId={sessionId}
-        messageCount={messages.length}
+        messageCount={history.length}
         isThinking={isThinking}
         contextPercentage={contextState.percentage}
         contextUsedTokens={contextState.usedTokens}
