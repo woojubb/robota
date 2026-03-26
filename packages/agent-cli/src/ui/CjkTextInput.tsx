@@ -82,6 +82,8 @@ interface IProps {
   showCursor?: boolean;
   /** Available width in columns for visual line wrapping navigation */
   availableWidth?: number;
+  /** Cursor position hint for external value changes. null = end (default). */
+  cursorHint?: number | null;
 }
 
 export default function CjkTextInput({
@@ -93,6 +95,7 @@ export default function CjkTextInput({
   focus = true,
   showCursor = true,
   availableWidth,
+  cursorHint = null,
 }: IProps): React.ReactElement {
   // Use refs for value and cursor to avoid React batching issues.
   // When IME sends "다" + "." in rapid succession, setState is async
@@ -108,11 +111,11 @@ export default function CjkTextInput({
 
   // useCursor removed — see comment below about Terminal.app SIGSEGV
 
-  // Sync ref when value changes from parent (e.g., setValue(''), tab completion)
+  // Sync ref when value changes from parent (e.g., setValue(''), tab completion, paste)
   if (value !== valueRef.current) {
     valueRef.current = value;
-    // Move cursor to end when value is set externally
-    cursorRef.current = value.length;
+    // cursorHint: number = move to that position, null = move to end
+    cursorRef.current = cursorHint != null ? Math.min(cursorHint, value.length) : value.length;
   }
 
   useInput(
