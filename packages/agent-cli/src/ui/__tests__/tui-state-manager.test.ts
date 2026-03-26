@@ -152,20 +152,36 @@ describe('TuiStateManager', () => {
 
   // ── onChange notification ──────────────────────────────────────
 
-  it('calls onChange on every state change', () => {
+  it('calls onChange on every non-debounced state change', () => {
     const mgr = new TuiStateManager();
     const onChange = vi.fn();
     mgr.onChange = onChange;
 
-    mgr.onTextDelta('hi');
+    mgr.onTextDelta('hi'); // debounced — does NOT call onChange immediately
     mgr.onToolStart({ toolName: 'Read', firstArg: '', isRunning: true });
-    mgr.onThinking(true);
+    mgr.onThinking(true); // flushes debounce timer
     mgr.addEntry({ role: 'user', content: 'test' } as never);
     mgr.setAborting(true);
     mgr.setPendingPrompt('queued');
     mgr.setContextState({ percentage: 50, usedTokens: 5000, maxTokens: 10000 });
 
-    expect(onChange).toHaveBeenCalledTimes(7);
+    expect(onChange).toHaveBeenCalledTimes(6);
+  });
+
+  it('onTextDelta debounces notify calls', async () => {
+    const mgr = new TuiStateManager();
+    const onChange = vi.fn();
+    mgr.onChange = onChange;
+
+    mgr.onTextDelta('a');
+    mgr.onTextDelta('b');
+    mgr.onTextDelta('c');
+
+    expect(onChange).toHaveBeenCalledTimes(0);
+    expect(mgr.streamingText).toBe('abc');
+
+    await new Promise((r) => setTimeout(r, 400));
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it('does not crash when onChange is null', () => {
