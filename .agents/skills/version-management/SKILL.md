@@ -42,12 +42,12 @@ pnpm publish:beta
 Runs `scripts/publish/publish-packages.sh`:
 
 1. Reads version from `agent-core/package.json`
-2. Detects prerelease tag (beta/alpha/rc) from version string
-3. Builds all packages (`pnpm build`)
-4. Runs all tests (`pnpm test`)
-5. Dry-run publish for review
-6. Publishes each non-private `@robota-sdk/*` package with `--tag <prerelease-tag>`
-7. Sets `latest` dist-tag to the same version (so `npm install` gets current build)
+2. Runs `pnpm publish -r --dry-run` (all packages at once, ~4 seconds)
+3. Prompts for OTP (after dry-run so it doesn't expire)
+4. Runs `pnpm publish -r --otp <otp>` (all packages at once, ~4 seconds)
+
+Key: uses `pnpm publish -r` (single command) not `--filter` per package (sequential, minutes).
+No `--tag` flag: npm automatically sets `latest` to the new version. No dist-tag sync needed.
 
 ### Adding a new package:
 
