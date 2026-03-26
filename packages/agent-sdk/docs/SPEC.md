@@ -182,7 +182,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Package**: `agent-sdk/interactive/`
 - **Pattern**: Composition over Session (holds a `Session` instance, does not extend it)
 - **Constructor**: Accepts `{ cwd, provider }` only. Config and context are loaded internally from `cwd`.
-- **Responsibility**: Streaming accumulation, tool state tracking, prompt queue (max 1), abort orchestration, display message history, embedded command execution
+- **Responsibility**: Streaming accumulation, tool state tracking, prompt queue (max 1), abort orchestration, full history management (`IHistoryEntry[]`), embedded command execution
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
 - **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Replaces direct `SystemCommandExecutor` usage by consumers.
@@ -285,7 +285,8 @@ session.cancelQueue();
 // State queries
 session.isExecuting();       // boolean
 session.getPendingPrompt();  // string | null
-session.getMessages();       // TUniversalMessage[]
+session.getMessages();       // TUniversalMessage[] — backward-compatible; returns chat entries only
+session.getFullHistory();    // IHistoryEntry[] — full history including event entries (tool summaries, skill invocations)
 session.getContextState();   // IContextWindowState
 session.getStreamingText();  // string (accumulated so far)
 session.getActiveTools();    // IToolState[]
@@ -309,7 +310,7 @@ interface IToolState {
 ```typescript
 interface IExecutionResult {
   response: string;
-  messages: TUniversalMessage[];
+  history: IHistoryEntry[]; // Full history including chat + event entries
   toolSummaries: IToolSummary[];
   contextState: IContextWindowState;
 }
@@ -329,6 +330,46 @@ interface IInteractiveSessionEvents {
   interrupted: (result: IExecutionResult) => void;
 }
 ```
+
+### History Entry Types
+
+`InteractiveSession` manages history as `IHistoryEntry[]`. Each entry has a `category` field:
+
+| Category  | Description                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------- |
+| `'chat'`  | A standard conversation message (`TUniversalMessage`). Returned by `getMessages()` as-is.   |
+| `'event'` | A structured non-message event (tool summary, skill invocation, system notification, etc.). |
+
+**Tool summary entry** (appended by `InteractiveSession` after each execution round):
+
+```typescript
+// category: 'event', type: 'tool-summary'
+{
+  id: string;
+  timestamp: Date;
+  category: 'event';
+  type: 'tool-summary';
+  data: { toolSummaries: IToolSummary[] };
+}
+```
+
+**Skill invocation entry** (appended by `InteractiveSession` when a skill slash command is executed):
+
+```typescript
+// category: 'event', type: 'skill-invocation'
+{
+  id: string;
+  timestamp: Date;
+  category: 'event';
+  type: 'skill-invocation';
+  data: {
+    skillName: string;
+    displayInput: string;
+  }
+}
+```
+
+Consumers that need only AI messages call `getMessages()` (returns `TUniversalMessage[]` — backward-compatible). Consumers that need the full picture (e.g., rendering a rich message list) call `getFullHistory()` (returns `IHistoryEntry[]`).
 
 ### System Commands — Embedded in InteractiveSession
 
@@ -442,6 +483,28 @@ import { Session } from '@robota-sdk/agent-sessions';
 const session = new Session({ tools, provider, systemMessage, terminal });
 const response = await session.run('Hello');
 ```
+
+### History Types — Re-exported from agent-core
+
+`@robota-sdk/agent-sdk` re-exports the following history types and helpers from `@robota-sdk/agent-core`:
+
+```typescript
+import {
+  IHistoryEntry,
+  isChatEntry,
+  chatEntryToMessage,
+  messageToHistoryEntry,
+  getMessagesForAPI,
+} from '@robota-sdk/agent-sdk';
+```
+
+| Export                  | Kind      | Description                                                                           |
+| ----------------------- | --------- | ------------------------------------------------------------------------------------- |
+| `IHistoryEntry`         | interface | Rich history entry: `id`, `timestamp`, `category` ('chat' \| 'event'), `type`, `data` |
+| `isChatEntry`           | function  | Type guard that narrows `IHistoryEntry` to chat entries                               |
+| `chatEntryToMessage`    | function  | Converts a chat `IHistoryEntry` to `TUniversalMessage`                                |
+| `messageToHistoryEntry` | function  | Converts a `TUniversalMessage` to a chat `IHistoryEntry`                              |
+| `getMessagesForAPI`     | function  | Extracts `TUniversalMessage[]` from `IHistoryEntry[]` (filters to chat entries only)  |
 
 ### Built-in Tools — Direct Usage
 

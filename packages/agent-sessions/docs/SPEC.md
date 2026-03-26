@@ -72,6 +72,7 @@ Types consumed from other packages (not owned here):
 | `runHooks`              | `@robota-sdk/agent-core` |
 | `TRUST_TO_MODE`         | `@robota-sdk/agent-core` |
 | `TUniversalMessage`     | `@robota-sdk/agent-core` |
+| `IHistoryEntry`         | `@robota-sdk/agent-core` |
 
 ## Public API Surface
 
@@ -105,7 +106,9 @@ Types consumed from other packages (not owned here):
 | `getSessionId`             | `() => string`                             | Returns the stable session identifier.                                                                                                  |
 | `getMessageCount`          | `() => number`                             | Returns the number of completed `run()` calls.                                                                                          |
 | `clearHistory`             | `() => void`                               | Clears the underlying Robota conversation history and resets token usage.                                                               |
-| `getHistory`               | `() => TUniversalMessage[]`                | Returns the current conversation history.                                                                                               |
+| `getHistory`               | `() => TUniversalMessage[]`                | Returns the current conversation history as `TUniversalMessage[]` (chat entries only). Unchanged.                                       |
+| `getFullHistory`           | `() => IHistoryEntry[]`                    | Returns the full history as `IHistoryEntry[]`, including both chat messages and event entries (e.g., tool summaries).                   |
+| `addHistoryEntry`          | `(entry: IHistoryEntry) => void`           | Appends a pre-built `IHistoryEntry` (e.g., a tool-summary event entry) to the session history via `ConversationStore.addEntry()`.       |
 | `getContextState`          | `() => IContextWindowState`                | Returns real-time context window usage (tokens, percentage).                                                                            |
 | `compact`                  | `(instructions?: string) => Promise<void>` | Compresses conversation via LLM summary. System message is preserved across compaction (see below). Fires PreCompact/PostCompact hooks. |
 | `abort`                    | `() => void`                               | Cancels the currently running `run()` call. No-op if not running.                                                                       |

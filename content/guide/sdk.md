@@ -1,6 +1,79 @@
 # Using the SDK
 
-`@robota-sdk/agent-sdk` is the assembly layer that composes `agent-core`, `agent-tools`, `agent-sessions`, and `agent-provider-anthropic` into a cohesive experience. It provides configuration loading, project context discovery, and the `query()` / `createSession()` entry points.
+`@robota-sdk/agent-sdk` is the assembly layer that composes `agent-core`, `agent-tools`, `agent-sessions`, and `agent-provider-anthropic` into a cohesive experience. It provides configuration loading, project context discovery, and the `InteractiveSession` primary entry point along with the `query()` convenience API.
+
+## InteractiveSession — Primary Entry Point
+
+`InteractiveSession` is the primary entry point for any interactive use case — CLI, web front-end, API server, or dynamic worker. It wraps `Session` via composition and provides an event-driven, queue-aware API.
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  permissionMode: 'default',
+  onTextDelta: (delta) => process.stdout.write(delta),
+});
+
+// Submit a prompt (queued automatically if a run is in progress)
+session.submit('Refactor the auth module');
+
+// Abort the in-flight run (partial response saved as 'interrupted')
+session.abort();
+
+// Cancel the queued prompt without touching the in-flight run
+session.cancelQueue();
+```
+
+### Events
+
+`InteractiveSession` emits typed events. Clients subscribe and translate them into framework-specific state:
+
+| Event            | Payload            | When                                       |
+| ---------------- | ------------------ | ------------------------------------------ |
+| `text_delta`     | `string`           | Streaming text chunk from the model        |
+| `tool_start`     | `ToolStartPayload` | Tool invocation started                    |
+| `tool_end`       | `ToolEndPayload`   | Tool invocation completed                  |
+| `thinking`       | `SessionStatus`    | Run started, completed, aborted, or queued |
+| `context_update` | `ContextState`     | Token usage updated                        |
+| `error`          | `Error`            | Run failed                                 |
+
+### History: IHistoryEntry[]
+
+`InteractiveSession` maintains a universal history as `IHistoryEntry[]`. Each entry represents either a chat message (user or assistant turn) or a session event (tool call, system event, etc.). This unified timeline is the source of truth for display and persistence.
+
+```typescript
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
+
+// Retrieve the full history
+const history: IHistoryEntry[] = session.getFullHistory();
+```
+
+`IHistoryEntry` has a `kind` discriminant: `'chat'` entries carry role/content for the AI provider; event entries carry typed metadata for display. When forwarding conversation context to an AI provider, the session filters to chat-only entries automatically — the provider never sees event entries.
+
+### Command Discovery
+
+`InteractiveSession` integrates a `CommandRegistry` that aggregates two sources:
+
+- **`BuiltinCommandSource`** — built-in slash commands: `/help`, `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/exit`, `/plugin`, `/reload-plugins`, `/language`
+- **`SkillCommandSource`** — project and user skills discovered from `.agents/skills/`, `.claude/skills/`, `.claude/commands/`, and `~/.robota/skills/`
+
+Calling `session.getCommands()` returns the merged list for autocomplete.
+
+### SystemCommandExecutor
+
+`SystemCommandExecutor` is embedded inside `InteractiveSession`. Before each submitted prompt, it checks whether the input matches a built-in system command. If it does, the command is executed directly (e.g., clearing history, switching model, running compaction) and no LLM call is made. Unrecognized inputs are forwarded to the session's `run()`.
+
+## createQuery() — Convenience API
+
+`createQuery({ provider })` is a lightweight factory that builds a one-shot query function pre-configured for a specific provider. Use it when you want `query()`-style simplicity but need to reuse a configured instance across multiple calls.
+
+```typescript
+import { createQuery } from '@robota-sdk/agent-sdk';
+
+const ask = createQuery({ provider: 'anthropic' });
+const response = await ask('List all TypeScript files in this project');
+```
 
 ## query() — One-Shot API
 
@@ -28,39 +101,6 @@ const response = await query('Refactor this function', {
     console.log('Context compacted');
   },
 });
-```
-
-## createSession() — Full Control
-
-For interactive use cases where you need multiple turns with the same session.
-
-```typescript
-import { createSession, loadConfig, loadContext, detectProject } from '@robota-sdk/agent-sdk';
-
-const cwd = process.cwd();
-const [config, context, projectInfo] = await Promise.all([
-  loadConfig(cwd),
-  loadContext(cwd),
-  detectProject(cwd),
-]);
-
-const session = createSession({
-  config,
-  context,
-  terminal,
-  projectInfo,
-  permissionMode: 'default',
-  onTextDelta: (delta) => process.stdout.write(delta),
-});
-
-// Multi-turn conversation
-const r1 = await session.run('What files are in src/?');
-const r2 = await session.run('Show me the largest one.');
-
-// Session state
-console.log(session.getContextState()); // { usedTokens, maxTokens, usedPercentage }
-console.log(session.getPermissionMode()); // 'default'
-console.log(session.getMessageCount()); // 2
 ```
 
 ## Configuration
@@ -131,7 +171,7 @@ const systemMessage = buildSystemPrompt({
 
 ## Session Features
 
-Sessions created by `createSession()` include:
+`InteractiveSession` provides these capabilities:
 
 | Feature                    | Description                                                                              |
 | -------------------------- | ---------------------------------------------------------------------------------------- |
@@ -141,6 +181,7 @@ Sessions created by `createSession()` include:
 | **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                          |
 | **Session persistence**    | Conversations can be saved/loaded via `SessionStore`                                     |
 | **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'` |
+| **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline         |
 
 ## Subagent Sessions
 
@@ -210,54 +251,6 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 `MarketplaceClient` manages plugin marketplace registries via git clones stored in `~/.robota/marketplaces/`. It supports GitHub repositories, arbitrary git URLs, and local filesystem paths as marketplace sources. The CLI exposes this through `/plugin marketplace add/remove/list/update` commands. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for the full API.
 
-## InteractiveSession
-
-`InteractiveSession` wraps `Session` via composition to provide an event-driven API for any interactive client — CLI, web front-end, API server, or dynamic worker. It is the primary entry point for interactive use rather than `createSession()` directly.
-
-### submit / abort / cancelQueue
-
-```typescript
-import { InteractiveSession } from '@robota-sdk/agent-sdk';
-
-const session = new InteractiveSession({
-  /* same options as createSession */
-});
-
-// Submit a prompt (queued automatically if a run is in progress)
-session.submit('Refactor the auth module');
-
-// Abort the in-flight run (partial response saved as 'interrupted')
-session.abort();
-
-// Cancel the queued prompt without touching the in-flight run
-session.cancelQueue();
-```
-
-### Events
-
-`InteractiveSession` emits typed events. Clients subscribe and translate them into framework-specific state:
-
-| Event           | Payload             | When                                       |
-| --------------- | ------------------- | ------------------------------------------ |
-| `textDelta`     | `string`            | Streaming text chunk from the model        |
-| `message`       | `TUniversalMessage` | New message committed to history           |
-| `statusChange`  | `SessionStatus`     | Run started, completed, aborted, or queued |
-| `contextUpdate` | `ContextState`      | Token usage updated                        |
-| `error`         | `Error`             | Run failed                                 |
-
-### Command Discovery
-
-`InteractiveSession` integrates a `CommandRegistry` that aggregates two sources:
-
-- **`BuiltinCommandSource`** — built-in slash commands: `/help`, `/clear`, `/compact`, `/mode`, `/model`, `/cost`, `/context`, `/permissions`, `/exit`, `/plugin`, `/reload-plugins`, `/language`
-- **`SkillCommandSource`** — project and user skills discovered from `.agents/skills/`, `.claude/skills/`, `.claude/commands/`, and `~/.robota/skills/`
-
-Calling `session.getCommands()` returns the merged list for autocomplete.
-
-### SystemCommandExecutor
-
-Before each submitted prompt, `SystemCommandExecutor` checks whether the input matches a built-in system command. If it does, the command is executed directly (e.g., clearing history, switching model, running compaction) and no LLM call is made. Unrecognized inputs are forwarded to the session's `run()`.
-
 ## Transport Adapters
 
 `InteractiveSession` is the single entry point for all interactive use cases. Transport adapters in the `agent-transport-*` packages consume it to expose the session over different protocols:
@@ -276,10 +269,9 @@ Each transport wraps an `InteractiveSession` instance and translates protocol me
 
 | Use case                       | Approach                                                           |
 | ------------------------------ | ------------------------------------------------------------------ |
-| Quick one-shot                 | `query()` — handles everything                                     |
+| Quick one-shot                 | `query()` / `createQuery({ provider })` — handles everything       |
 | Interactive CLI / web / server | `InteractiveSession` — event-driven, queuing, command handling     |
 | Expose over HTTP / MCP / WS    | `agent-transport-{http,mcp,ws}` wrapping `InteractiveSession`      |
 | Call a remote agent over HTTP  | `agent-remote-client` — standalone HTTP client                     |
-| Low-level multi-turn           | `createSession()` — direct session lifecycle                       |
 | Custom agent (no SDK)          | `new Robota()` from `agent-core` directly                          |
 | Custom session (no SDK)        | `new Session()` from `agent-sessions` with your own tools/provider |

@@ -23,18 +23,18 @@ agent-core        ← Foundation: Robota engine, abstractions, DI, events, plugi
 
 ## Package Roles
 
-| Package                  | Role                                                                                                                                                                      | Layer        |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **agent-core**           | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                                          | Foundation   |
-| **agent-tools**          | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                                   | General      |
-| **agent-sessions**       | Session class with permission enforcement, context tracking, compaction                                                                                                   | General      |
-| **agent-providers**      | AnthropicProvider, OpenAIProvider, GoogleProvider                                                                                                                         | General      |
-| **agent-sdk**            | Assembly: InteractiveSession, SystemCommandExecutor, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, createSession, query() | SDK-specific |
-| **agent-cli**            | Ink TUI: useInteractiveSession hook bridges SDK events → React state, permission prompts                                                                                  | Transport    |
-| **agent-transport-http** | Hono-based HTTP/REST adapter — exposes InteractiveSession over HTTP (Cloudflare Workers, Node.js, AWS Lambda)                                                             | Transport    |
-| **agent-transport-mcp**  | Model Context Protocol adapter — exposes InteractiveSession as an MCP server for Claude and other MCP clients                                                             | Transport    |
-| **agent-transport-ws**   | Framework-agnostic WebSocket adapter — exposes InteractiveSession over real-time connections (works with any WS library)                                                  | Transport    |
-| **agent-remote-client**  | HTTP client for calling a remote Robota agent exposed via agent-transport-http                                                                                            | Client       |
+| Package                  | Role                                                                                                                                                       | Layer        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **agent-core**           | Robota engine, execution loop, provider abstraction, permissions, hooks, plugin system, model definitions (SSOT)                                           | Foundation   |
+| **agent-tools**          | ToolRegistry, FunctionTool, createZodFunctionTool, 8 built-in CLI tools                                                                                    | General      |
+| **agent-sessions**       | Session class with permission enforcement, context tracking, compaction                                                                                    | General      |
+| **agent-providers**      | AnthropicProvider, OpenAIProvider, GoogleProvider                                                                                                          | General      |
+| **agent-sdk**            | Assembly: InteractiveSession, SystemCommandExecutor, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, query() | SDK-specific |
+| **agent-cli**            | Ink TUI: useInteractiveSession hook bridges SDK events → React state, permission prompts                                                                   | Transport    |
+| **agent-transport-http** | Hono-based HTTP/REST adapter — exposes InteractiveSession over HTTP (Cloudflare Workers, Node.js, AWS Lambda)                                              | Transport    |
+| **agent-transport-mcp**  | Model Context Protocol adapter — exposes InteractiveSession as an MCP server for Claude and other MCP clients                                              | Transport    |
+| **agent-transport-ws**   | Framework-agnostic WebSocket adapter — exposes InteractiveSession over real-time connections (works with any WS library)                                   | Transport    |
+| **agent-remote-client**  | HTTP client for calling a remote Robota agent exposed via agent-transport-http                                                                             | Client       |
 
 ## Dependency Flow
 
@@ -45,6 +45,25 @@ agent-transport-mcp    ─→ agent-sdk    ├─→ agent-provider-anthropic �
 agent-transport-ws     ─→ agent-sdk    └─────────────────────────→ agent-core
 agent-remote-client                    (HTTP client, no agent-sdk dependency)
 ```
+
+## Data Flow: IHistoryEntry[]
+
+`InteractiveSession` maintains history as `IHistoryEntry[]` — a universal timeline that includes both chat messages (user/assistant turns) and session events (tool calls, system events, status changes). This is the single source of truth for display and persistence.
+
+```
+User input
+  → InteractiveSession.submit()
+  → history appended: IHistoryEntry (kind: 'chat', role: 'user')
+  → Session.run()
+  → AI provider receives filtered view (chat-only IHistoryEntry[])
+  → streaming response → text_delta / tool_start / tool_end events
+  → history appended: IHistoryEntry (kind: 'chat', role: 'assistant')
+  → event entries appended: IHistoryEntry (kind: 'event', ...)
+  → thinking / context_update events emitted
+  → clients (CLI, HTTP, MCP, WS) update their state from events
+```
+
+Key invariant: AI providers never receive event-kind entries. The session layer filters to chat-only entries before forwarding context to the provider. This keeps the provider interface clean while the full `IHistoryEntry[]` timeline remains available for UI rendering.
 
 Rules:
 
@@ -63,7 +82,7 @@ Rules:
 | **Facade**      | `Robota`, `Session`, `InteractiveSession`                    | Single entry point hiding internal complexity |
 | **Decorator**   | `PermissionEnforcer.wrapTools()`                             | Wraps tools with permission checks            |
 | **Strategy**    | `IAIProvider`, `ISessionLogger`                              | Swappable implementations                     |
-| **Factory**     | `createSession()`, `createZodFunctionTool()`                 | Object creation                               |
+| **Factory**     | `InteractiveSession`, `createZodFunctionTool()`              | Object creation                               |
 | **Null Object** | `SilentLogger`, `DefaultEventService`                        | Safe no-op defaults                           |
 | **Registry**    | `ToolRegistry`, `CommandRegistry`                            | Central management of tools and commands      |
 | **Composition** | `InteractiveSession` → `Session`; `Session` → sub-components | Delegation over inheritance                   |
@@ -84,16 +103,17 @@ Rules:
 
 Key responsibilities:
 
-| Concern                   | Detail                                                                                                  |
-| ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| **submit / abort**        | `submit(input)` starts a run; `abort()` cancels the current run                                         |
-| **cancelQueue**           | Cancels the pending queued prompt without aborting the in-flight run                                    |
-| **Prompt queue**          | Queues a new prompt submitted while a run is in progress                                                |
-| **Event emission**        | Emits typed events (`textDelta`, `message`, `statusChange`, etc.) consumed by clients                   |
-| **SystemCommandExecutor** | Handles built-in system commands (help, clear, compact, mode, model, etc.) before forwarding to the LLM |
-| **CommandRegistry**       | Aggregates `BuiltinCommandSource` and `SkillCommandSource` for slash-command discovery                  |
+| Concern                   | Detail                                                                                                                                  |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **submit / abort**        | `submit(input)` starts a run; `abort()` cancels the current run                                                                         |
+| **cancelQueue**           | Cancels the pending queued prompt without aborting the in-flight run                                                                    |
+| **Prompt queue**          | Queues a new prompt submitted while a run is in progress                                                                                |
+| **Event emission**        | Emits typed events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `context_update`, `error`) consumed by clients                  |
+| **Universal history**     | Maintains `IHistoryEntry[]` — unified timeline of chat messages and session events; `getFullHistory()` returns the complete list        |
+| **SystemCommandExecutor** | Embedded inside `InteractiveSession`. Intercepts built-in system commands (help, clear, compact, mode, model, etc.) before any LLM call |
+| **CommandRegistry**       | Aggregates `BuiltinCommandSource` and `SkillCommandSource` for slash-command discovery                                                  |
 
-The CLI's `useInteractiveSession` hook subscribes to these events and translates them into React state. `InteractiveSession` itself has no React dependency.
+The CLI's `useInteractiveSession` hook subscribes to these events and translates them into React state via `TuiStateManager`. `InteractiveSession` itself has no React dependency.
 
 ## Transport Layer
 
