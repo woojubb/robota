@@ -15,18 +15,34 @@ Every implementation task that modifies package code MUST complete this checklis
 
 ## Checklist (execute in order)
 
-### 1. SPEC Verification
+### 1. Bidirectional SPEC-Code Verification Loop
 
-For each modified package:
+This is a **repeating cycle** that runs until zero issues are found.
 
-- [ ] Read `docs/SPEC.md`
-- [ ] Verify SPEC matches actual `src/index.ts` exports
-- [ ] Verify SPEC matches actual `package.json` exports/dependencies
+**Direction 1 — Is the SPEC correct?**
+
+- [ ] Read each modified package's `docs/SPEC.md`
+- [ ] Check for internal contradictions or inconsistencies
+- [ ] Verify type signatures are exact (not looser/tighter than code)
+- [ ] Verify descriptions match actual behavior (not aspirational)
+- [ ] Verify terminology is consistent across all SPECs
+- [ ] Fix any SPEC inaccuracies
+
+**Direction 2 — Does code match the SPEC?**
+
+- [ ] Verify every SPEC claim has matching code (file:line)
+- [ ] Verify `src/index.ts` exports match SPEC's Public API Surface
+- [ ] Verify `package.json` dependencies match SPEC's Dependencies
 - [ ] Verify architecture diagrams are current
-- [ ] Verify type names, function signatures, and descriptions match code
-- [ ] Fix any mismatches — SPEC is SSOT, update SPEC first if behavior changed intentionally
+- [ ] Fix any code that doesn't match SPEC
 
-### 2. Code-SPEC Conformance
+**Cross-SPEC consistency:**
+
+- [ ] Verify related claims across packages are aligned (e.g., SDK SPEC ↔ Sessions SPEC)
+
+**Cycle rule:** After fixing issues, re-run the full check. Repeat until a clean cycle with zero issues.
+
+### 2. Build and Test
 
 - [ ] Run `pnpm build` for modified packages — must succeed
 - [ ] Run `pnpm test` for modified packages — must pass
@@ -47,11 +63,12 @@ For each modified package:
 
 ### 5. npm Publish (if public packages changed)
 
-- [ ] Version bump for changed packages
-- [ ] `pnpm build` for packages to publish
-- [ ] `pnpm publish --dry-run` — verify contents
-- [ ] `pnpm publish --tag beta` with OTP
-- [ ] Commit version bump, push
+- [ ] Create changeset (`pnpm changeset`)
+- [ ] Enter prerelease mode if needed (`pnpm changeset pre enter beta`)
+- [ ] Apply version bump (`pnpm changeset version`)
+- [ ] Commit version bump
+- [ ] Run `pnpm publish:beta` (single command — dry-run → OTP → publish all → dist-tag sync)
+- [ ] NEVER use `pnpm publish --filter`, `npm publish`, or `pnpm changeset publish`
 
 ### 6. content/ Documentation Update
 
