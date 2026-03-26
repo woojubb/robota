@@ -567,11 +567,14 @@ The display order is **Tool → Robota**, fixed and identical for streaming, nor
 **During streaming (real-time):**
 
 ```
-You: [user prompt]             ← MessageList
+You: [user prompt]             ← MessageList (visible immediately on submit)
+System: Invoking skill: audit  ← MessageList (visible immediately, skills only)
 Tool: ⟳ Read(file.ts)         ← StreamingIndicator (real-time, below MessageList)
       ⟳ Edit(file.ts)
 Robota: [streaming text...]    ← StreamingIndicator (real-time)
 ```
+
+`You:` and `System:` messages are visible from the start of streaming — not delayed until completion. Messages are synced from InteractiveSession on both `thinking=true` (execution start) and `thinking=false` (execution end). Only `Tool:` and `Robota:` are handled by StreamingIndicator during streaming.
 
 **After completion or abort (final state):**
 

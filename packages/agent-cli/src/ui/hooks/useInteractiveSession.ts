@@ -187,10 +187,12 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     };
   }, [interactiveSession, manager]);
 
-  // Sync messages when execution ends
+  // Sync messages on every thinking state change:
+  // - thinking=true: "You:" and "System: Invoking..." are already in messages
+  // - thinking=false: complete/interrupted messages are in messages
   useEffect(() => {
+    manager.syncMessages(interactiveSession.getMessages());
     if (!manager.isThinking) {
-      manager.syncMessages(interactiveSession.getMessages());
       manager.setPendingPrompt(interactiveSession.getPendingPrompt());
     }
   }, [manager.isThinking, interactiveSession, manager]);
