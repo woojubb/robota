@@ -146,17 +146,15 @@ export function isChatEntry(entry: IHistoryEntry): boolean {
  * Only call on entries where isChatEntry() returns true.
  */
 export function chatEntryToMessage(entry: IHistoryEntry): TUniversalMessage {
+  // data contains the full original message — just restore id/timestamp from entry
   const data = entry.data as Record<string, unknown>;
+  if (!data) {
+    throw new Error(`Chat entry ${entry.id} has no data`);
+  }
   return {
+    ...data,
     id: entry.id,
     timestamp: entry.timestamp,
-    state: (data?.state as TMessageState) ?? 'complete',
-    role: data?.role as TUniversalMessageRole,
-    content: (data?.content as string) ?? '',
-    ...(data?.parts ? { parts: data.parts as TUniversalMessagePart[] } : {}),
-    ...(data?.toolCalls ? { toolCalls: data.toolCalls as IToolCall[] } : {}),
-    ...(data?.toolCallId ? { toolCallId: data.toolCallId as string } : {}),
-    ...(data?.name ? { name: data.name as string } : {}),
   } as TUniversalMessage;
 }
 

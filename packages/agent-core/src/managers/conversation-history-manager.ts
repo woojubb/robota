@@ -11,6 +11,7 @@ import type {
   IToolCall,
   TUniversalMessage,
   TUniversalMessagePart,
+  IHistoryEntry,
 } from '../interfaces/messages';
 
 // Re-export type guards from interfaces (SSOT)
@@ -68,6 +69,8 @@ export interface IConversationHistory {
     metadata?: TUniversalMessageMetadata,
     parts?: TUniversalMessagePart[],
   ): void;
+  addEntry(entry: IHistoryEntry): void;
+  getHistory(): IHistoryEntry[];
   getMessages(): TUniversalMessage[];
   getMessagesByRole(role: TUniversalMessageRole): TUniversalMessage[];
   getRecentMessages(count: number): TUniversalMessage[];
