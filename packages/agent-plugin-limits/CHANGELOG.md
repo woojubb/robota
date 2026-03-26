@@ -1,5 +1,11 @@
 # @robota-sdk/agent-plugin-limits
 
+## 3.0.0-beta.51
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.51
+
 ## 3.0.0-beta.50
 
 ### Patch Changes

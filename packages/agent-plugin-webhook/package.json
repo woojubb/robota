@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-plugin-webhook",
-  "version": "3.0.0-beta.50",
+  "version": "3.0.0-beta.51",
   "description": "Webhook notification plugin for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

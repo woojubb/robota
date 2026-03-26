@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-headless",
-  "version": "3.0.0-beta.50",
+  "version": "3.0.0-beta.51",
   "description": "Headless transport adapter for non-interactive InteractiveSession execution",
   "type": "module",
   "main": "dist/node/index.js",

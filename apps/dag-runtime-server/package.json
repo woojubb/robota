@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-runtime-server",
-  "version": "3.0.1-beta.6",
+  "version": "3.0.1-beta.7",
   "description": "DAG Runtime Server - ComfyUI-compatible Prompt API execution server",
   "private": true,
   "type": "module",

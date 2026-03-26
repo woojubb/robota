@@ -1,5 +1,16 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.51
+
+### Patch Changes
+
+- feat: debounce streaming text rendering (300ms) to reduce CPU load
+  - @robota-sdk/agent-core@3.0.0-beta.51
+  - @robota-sdk/agent-sessions@3.0.0-beta.51
+  - @robota-sdk/agent-sdk@3.0.0-beta.51
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.51
+  - @robota-sdk/agent-transport-headless@3.0.0-beta.51
+
 ## 3.0.0-beta.50
 
 ### Patch Changes
