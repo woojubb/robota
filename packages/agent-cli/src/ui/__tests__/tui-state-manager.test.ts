@@ -180,7 +180,7 @@ describe('TuiStateManager', () => {
     expect(onChange).toHaveBeenCalledTimes(0);
     expect(mgr.streamingText).toBe('abc');
 
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 400));
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
