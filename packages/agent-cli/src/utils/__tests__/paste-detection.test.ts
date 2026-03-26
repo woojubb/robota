@@ -6,68 +6,6 @@ import { describe, it, expect } from 'vitest';
 import { filterPrintable } from '../../ui/CjkTextInput.js';
 import { expandPasteLabels } from '../paste-labels.js';
 
-describe('Paste detection: multiline detection condition', () => {
-  /**
-   * The condition for multiline paste detection is:
-   *   input.length > 1 && input.includes('\n')
-   *
-   * This tests whether various input strings would trigger paste detection.
-   */
-  function isMultilinePaste(input: string): boolean {
-    return input.length > 1 && (input.includes('\n') || input.includes('\r'));
-  }
-
-  it('should detect multiline text with newlines', () => {
-    expect(isMultilinePaste('line1\nline2')).toBe(true);
-    expect(isMultilinePaste('a\nb\nc')).toBe(true);
-  });
-
-  it('should NOT detect single character', () => {
-    expect(isMultilinePaste('a')).toBe(false);
-  });
-
-  it('should NOT detect empty string', () => {
-    expect(isMultilinePaste('')).toBe(false);
-  });
-
-  it('should NOT detect single newline only', () => {
-    // '\n' has length 1, so length > 1 is false
-    expect(isMultilinePaste('\n')).toBe(false);
-  });
-
-  it('should NOT detect long single-line text (no newline)', () => {
-    expect(isMultilinePaste('this is a long single line paste')).toBe(false);
-  });
-
-  it('should detect even two-char input with newline', () => {
-    expect(isMultilinePaste('a\n')).toBe(true);
-    expect(isMultilinePaste('\na')).toBe(true);
-  });
-
-  it('should detect carriage return (raw mode sends \\r instead of \\n)', () => {
-    expect(isMultilinePaste('line1\rline2')).toBe(true);
-    expect(isMultilinePaste('a\r\nb')).toBe(true);
-  });
-});
-
-describe('Raw mode newline normalization', () => {
-  function normalizeNewlines(input: string): string {
-    return input.replace(/\r\n?/g, '\n');
-  }
-
-  it('should normalize \\r to \\n', () => {
-    expect(normalizeNewlines('a\rb\rc')).toBe('a\nb\nc');
-  });
-
-  it('should normalize \\r\\n to \\n', () => {
-    expect(normalizeNewlines('a\r\nb\r\nc')).toBe('a\nb\nc');
-  });
-
-  it('should preserve existing \\n', () => {
-    expect(normalizeNewlines('a\nb\nc')).toBe('a\nb\nc');
-  });
-});
-
 describe('filterPrintable and newlines', () => {
   it('should strip newlines from input (they are control chars)', () => {
     expect(filterPrintable('line1\nline2')).toBe('line1line2');
