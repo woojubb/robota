@@ -39,6 +39,7 @@ function createMockSession(options?: {
     getMessageCount: vi.fn().mockReturnValue(0),
     getSessionAllowedTools: vi.fn().mockReturnValue([]),
     compact: vi.fn(),
+    injectMessage: vi.fn(),
   };
 }
 
@@ -651,6 +652,11 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     // SessionStore.load should have been called with the resume ID
     expect(mockSessionStore.load).toHaveBeenCalledWith('prev-session');
+
+    // Messages should have been injected into Session's Robota for AI context
+    expect(mockSession.injectMessage).toHaveBeenCalledTimes(2);
+    expect(mockSession.injectMessage).toHaveBeenCalledWith('user', 'previous');
+    expect(mockSession.injectMessage).toHaveBeenCalledWith('assistant', 'answer');
   });
 
   // ── Scenario: getName / setName ────────────────────────────────
