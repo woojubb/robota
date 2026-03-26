@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-api",
-  "version": "3.0.0-beta.49",
+  "version": "3.0.0-beta.50",
   "description": "API and composition entry layer for Robota DAG",
   "type": "module",
   "main": "dist/node/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-orchestrator-server",
-  "version": "3.0.1-beta.5",
+  "version": "3.0.1-beta.6",
   "description": "DAG Orchestrator Server - Robota API gateway with orchestration over DAG runtime",
   "private": true,
   "type": "module",

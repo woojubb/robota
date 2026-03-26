@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-sdk",
-  "version": "3.0.0-beta.49",
+  "version": "3.0.0-beta.50",
   "description": "Programmatic SDK for building AI agents with Robota — provides Session, query(), built-in tools, permissions, hooks, and context loading",
   "type": "module",
   "main": "dist/node/index.js",
@@ -17,6 +17,14 @@
         "require": "./dist/node/index.cjs"
       }
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git"
+  },
+  "homepage": "https://robota.io/",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
   },
   "files": [
     "dist"
@@ -45,13 +53,5 @@
   "license": "MIT",
   "publishConfig": {
     "access": "public"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
-  },
-  "homepage": "https://robota.io/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
   }
 }

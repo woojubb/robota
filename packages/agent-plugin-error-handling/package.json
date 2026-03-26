@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-plugin-error-handling",
-  "version": "3.0.0-beta.49",
+  "version": "3.0.0-beta.50",
   "description": "Error handling plugin for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

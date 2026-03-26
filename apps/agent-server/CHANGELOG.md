@@ -1,5 +1,15 @@
 # @robota-sdk/agent-server
 
+## 3.0.1-beta.6
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.50
+- @robota-sdk/agent-provider-anthropic@3.0.0-beta.50
+- @robota-sdk/agent-provider-openai@3.0.0-beta.50
+- @robota-sdk/agent-provider-google@3.0.0-beta.50
+- @robota-sdk/agent-provider-bytedance@3.0.0-beta.50
+
 ## 3.0.1-beta.5
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-plugin-performance",
-  "version": "3.0.0-beta.49",
+  "version": "3.0.0-beta.50",
   "description": "Performance monitoring plugin for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

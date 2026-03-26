@@ -1,5 +1,13 @@
 # @robota-sdk/agent-transport-ws
 
+## 3.0.0-beta.50
+
+### Patch Changes
+
+- fix: reinsert repository/homepage/bugs in correct field order
+- Updated dependencies
+  - @robota-sdk/agent-sdk@3.0.0-beta.50
+
 ## 3.0.0-beta.49
 
 ### Patch Changes
