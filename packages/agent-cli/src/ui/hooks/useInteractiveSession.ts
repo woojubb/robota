@@ -1,9 +1,9 @@
 /**
- * Hook: bridge InteractiveSession (SDK, pure TypeScript) events
- * to React state for TUI rendering.
+ * Hook: thin React bridge over TuiStateManager + InteractiveSession.
  *
- * This is the ONLY place where SDK's InteractiveSession meets React.
- * All business logic lives in SDK; this hook only converts events → state.
+ * TuiStateManager owns all rendering state and event→state logic (testable).
+ * This hook only connects TuiStateManager to React re-renders and handles
+ * slash command routing (TUI-specific input processing).
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -18,18 +18,11 @@ import {
   BundlePluginLoader,
   buildSkillPrompt,
 } from '@robota-sdk/agent-sdk';
-import type {
-  IAIProvider,
-  IToolState,
-  IExecutionResult,
-  TPermissionResultValue,
-} from '@robota-sdk/agent-sdk';
+import type { IAIProvider, TPermissionResultValue } from '@robota-sdk/agent-sdk';
 import type { TPermissionMode, TUniversalMessage, TToolArgs } from '@robota-sdk/agent-core';
 import { createSystemMessage } from '@robota-sdk/agent-core';
 import type { IPermissionRequest } from '../types.js';
-
-/** Max messages kept in React state for rendering */
-const MAX_RENDERED_MESSAGES = 100;
+import { TuiStateManager } from '../tui-state-manager.js';
 
 /** Side-effect flags for TUI-specific actions */
 export interface ISideEffects {
@@ -54,7 +47,7 @@ export interface IInteractiveSessionState {
   addMessage: (msg: TUniversalMessage) => void;
   setMessages: React.Dispatch<React.SetStateAction<TUniversalMessage[]>>;
   streamingText: string;
-  activeTools: IToolState[];
+  activeTools: import('@robota-sdk/agent-sdk').IToolState[];
   isThinking: boolean;
   isAborting: boolean;
   pendingPrompt: string | null;
@@ -68,6 +61,7 @@ export interface IInteractiveSessionState {
 interface IInitState {
   interactiveSession: InteractiveSession;
   registry: CommandRegistry;
+  manager: TuiStateManager;
 }
 
 function initializeSession(
@@ -82,12 +76,10 @@ function initializeSession(
     permissionHandler,
   });
 
-  // Registry for autocomplete UI + skill/plugin command lookup
   const registry = new CommandRegistry();
   registry.addSource(new BuiltinCommandSource());
   registry.addSource(new SkillCommandSource(props.cwd));
 
-  // Load plugins
   const pluginsDir = join(homedir(), '.robota', 'plugins');
   const loader = new BundlePluginLoader(pluginsDir);
   try {
@@ -99,28 +91,16 @@ function initializeSession(
     // No plugins dir or load failed
   }
 
-  return { interactiveSession, registry };
+  const manager = new TuiStateManager();
+
+  return { interactiveSession, registry, manager };
 }
 
 export function useInteractiveSession(props: IInteractiveSessionProps): IInteractiveSessionState {
-  const [messages, setMessages] = useState<TUniversalMessage[]>([]);
-  const addMessage = useCallback((msg: TUniversalMessage) => {
-    setMessages((prev) => {
-      const updated = [...prev, msg];
-      return updated.length > MAX_RENDERED_MESSAGES
-        ? updated.slice(-MAX_RENDERED_MESSAGES)
-        : updated;
-    });
-  }, []);
-
-  const [streamingText, setStreamingText] = useState('');
-  const [activeTools, setActiveTools] = useState<IToolState[]>([]);
-  const [isThinking, setIsThinking] = useState(false);
-  const [isAborting, setIsAborting] = useState(false);
-  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
-  const [contextState, setContextState] = useState({ percentage: 0, usedTokens: 0, maxTokens: 0 });
+  const [, forceRender] = useState(0);
   const [permissionRequest, setPermissionRequest] = useState<IPermissionRequest | null>(null);
 
+  // Permission queue (TUI-specific — needs React state for UI)
   const permissionQueueRef = useRef<
     Array<{
       toolName: string;
@@ -160,110 +140,62 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
     [processNextPermission],
   );
 
+  // Initialize once
   const stateRef = useRef<IInitState | null>(null);
   if (stateRef.current === null) {
     stateRef.current = initializeSession(props, permissionHandler);
   }
-  const { interactiveSession, registry } = stateRef.current;
+  const { interactiveSession, registry, manager } = stateRef.current;
 
+  // Connect TuiStateManager to React re-renders
+  manager.onChange = () => forceRender((n) => n + 1);
+
+  // Connect InteractiveSession events to TuiStateManager
   useEffect(() => {
-    let streamBuf = '';
-    const onTextDelta = (delta: string): void => {
-      streamBuf += delta;
-      setStreamingText(streamBuf);
-    };
-    const onToolStart = (state: IToolState): void => {
-      setActiveTools((prev) => [...prev, state]);
-    };
-    const onToolEnd = (state: IToolState): void => {
-      setActiveTools((prev) =>
-        prev.map((t) => (t.toolName === state.toolName && t.isRunning ? state : t)),
-      );
-    };
-    const onThinking = (thinking: boolean): void => {
-      setIsThinking(thinking);
-      if (thinking) {
-        // Clear streaming state at the START of new execution, not at the end.
-        // This preserves tool list for display after execution completes.
-        streamBuf = '';
-        setStreamingText('');
-        setActiveTools([]);
-      } else {
-        setIsAborting(false);
-      }
-    };
-    const onComplete = (result: IExecutionResult): void => {
-      // Clear streaming display — tool summary is now in messages
-      streamBuf = '';
-      setStreamingText('');
-      setActiveTools([]);
-      setContextState({
-        percentage: result.contextState.usedPercentage,
-        usedTokens: result.contextState.usedTokens,
-        maxTokens: result.contextState.maxTokens,
-      });
-    };
-    const onInterrupted = (): void => {
-      // Clear streaming display — tool summary is now in messages
-      streamBuf = '';
-      setStreamingText('');
-      setActiveTools([]);
-    };
-    const onError = (): void => {
-      // Clear streaming display — tool summary is now in messages
-      streamBuf = '';
-      setStreamingText('');
-      setActiveTools([]);
-    };
+    interactiveSession.on('text_delta', manager.onTextDelta);
+    interactiveSession.on('tool_start', manager.onToolStart);
+    interactiveSession.on('tool_end', manager.onToolEnd);
+    interactiveSession.on('thinking', manager.onThinking);
+    interactiveSession.on('complete', manager.onComplete);
+    interactiveSession.on('interrupted', manager.onInterrupted);
+    interactiveSession.on('error', manager.onError);
 
-    interactiveSession.on('text_delta', onTextDelta);
-    interactiveSession.on('tool_start', onToolStart);
-    interactiveSession.on('tool_end', onToolEnd);
-    interactiveSession.on('thinking', onThinking);
-    interactiveSession.on('complete', onComplete);
-    interactiveSession.on('interrupted', onInterrupted);
-    interactiveSession.on('error', onError);
-
-    // Sync context state after async initialization completes
+    // Sync context state after async initialization
     const initCheck = setInterval(() => {
       try {
         const ctx = interactiveSession.getContextState();
-        setContextState({
+        manager.setContextState({
           percentage: ctx.usedPercentage,
           usedTokens: ctx.usedTokens,
           maxTokens: ctx.maxTokens,
         });
         clearInterval(initCheck);
       } catch {
-        // Not yet initialized — retry
+        /* Not yet initialized */
       }
     }, 200);
+
     return () => {
       clearInterval(initCheck);
-      interactiveSession.off('text_delta', onTextDelta);
-      interactiveSession.off('tool_start', onToolStart);
-      interactiveSession.off('tool_end', onToolEnd);
-      interactiveSession.off('thinking', onThinking);
-      interactiveSession.off('complete', onComplete);
-      interactiveSession.off('interrupted', onInterrupted);
-      interactiveSession.off('error', onError);
+      interactiveSession.off('text_delta', manager.onTextDelta);
+      interactiveSession.off('tool_start', manager.onToolStart);
+      interactiveSession.off('tool_end', manager.onToolEnd);
+      interactiveSession.off('thinking', manager.onThinking);
+      interactiveSession.off('complete', manager.onComplete);
+      interactiveSession.off('interrupted', manager.onInterrupted);
+      interactiveSession.off('error', manager.onError);
     };
-  }, [interactiveSession]);
+  }, [interactiveSession, manager]);
 
+  // Sync messages when execution ends
   useEffect(() => {
-    if (!isThinking) {
-      const sessionMessages = interactiveSession.getMessages();
-      if (sessionMessages.length > 0) {
-        setMessages(
-          sessionMessages.length > MAX_RENDERED_MESSAGES
-            ? sessionMessages.slice(-MAX_RENDERED_MESSAGES)
-            : [...sessionMessages],
-        );
-      }
-      setPendingPrompt(interactiveSession.getPendingPrompt());
+    if (!manager.isThinking) {
+      manager.syncMessages(interactiveSession.getMessages());
+      manager.setPendingPrompt(interactiveSession.getPendingPrompt());
     }
-  }, [isThinking, interactiveSession]);
+  }, [manager.isThinking, interactiveSession, manager]);
 
+  // Slash command routing (TUI-specific input processing)
   const handleSubmit = useCallback(
     async (input: string) => {
       if (input.startsWith('/')) {
@@ -273,7 +205,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
 
         const result = await interactiveSession.executeCommand(cmd, args);
         if (result) {
-          addMessage(createSystemMessage(result.message));
+          manager.addMessage(createSystemMessage(result.message));
           const effects = interactiveSession as InteractiveSession & ISideEffects;
           if (result.data?.modelId) {
             effects._pendingModelId = result.data.modelId as string;
@@ -288,7 +220,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
             return;
           }
           const ctx = interactiveSession.getContextState();
-          setContextState({
+          manager.setContextState({
             percentage: ctx.usedPercentage,
             usedTokens: ctx.usedTokens,
             maxTokens: ctx.maxTokens,
@@ -300,16 +232,15 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
           .getCommands()
           .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
         if (skillCmd) {
-          addMessage(createSystemMessage(`Invoking ${skillCmd.source}: ${cmd}`));
+          manager.addMessage(createSystemMessage(`Invoking ${skillCmd.source}: ${cmd}`));
           const prompt = await buildSkillPrompt(input, registry);
           if (prompt) {
-            // Resolve qualified name for hook matching (e.g., /audit → /rulebased-harness:audit)
             const qualifiedName = registry.resolveQualifiedName(cmd);
             const hookInput = qualifiedName
               ? `/${qualifiedName}${input.slice(1 + cmd.length)}`
               : input;
             await interactiveSession.submit(prompt, input, hookInput);
-            setPendingPrompt(interactiveSession.getPendingPrompt());
+            manager.setPendingPrompt(interactiveSession.getPendingPrompt());
             return;
           }
         }
@@ -323,41 +254,40 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
           return;
         }
 
-        addMessage(createSystemMessage(`Unknown command "/${cmd}". Type /help for help.`));
+        manager.addMessage(createSystemMessage(`Unknown command "/${cmd}". Type /help for help.`));
         return;
       }
       await interactiveSession.submit(input);
-      // Sync queue state immediately so UI shows "Queued:" indicator
-      setPendingPrompt(interactiveSession.getPendingPrompt());
+      manager.setPendingPrompt(interactiveSession.getPendingPrompt());
     },
-    [interactiveSession, registry, addMessage],
+    [interactiveSession, registry, manager],
   );
 
   const handleAbort = useCallback(() => {
-    setIsAborting(true);
+    manager.setAborting(true);
     interactiveSession.abort();
-  }, [interactiveSession]);
+  }, [interactiveSession, manager]);
+
   const handleCancelQueue = useCallback(() => {
     interactiveSession.cancelQueue();
-    setPendingPrompt(null);
-  }, [interactiveSession]);
-
-  // Context state is initialized after async session setup.
-  // Don't call getContextState() synchronously — it may throw before init.
+    manager.setPendingPrompt(null);
+  }, [interactiveSession, manager]);
 
   return {
     interactiveSession,
     registry,
-    messages,
-    addMessage,
-    setMessages,
-    streamingText,
-    activeTools,
-    isThinking,
-    isAborting,
-    pendingPrompt,
+    messages: manager.messages,
+    addMessage: (msg) => manager.addMessage(msg),
+    setMessages: () => {
+      /* managed by TuiStateManager */
+    },
+    streamingText: manager.streamingText,
+    activeTools: manager.activeTools,
+    isThinking: manager.isThinking,
+    isAborting: manager.isAborting,
+    pendingPrompt: manager.pendingPrompt,
     permissionRequest,
-    contextState,
+    contextState: manager.contextState,
     handleSubmit,
     handleAbort,
     handleCancelQueue,
