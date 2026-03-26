@@ -108,6 +108,12 @@ function AppInner(
     if (name && !sessionName) setSessionName(name);
   }, [interactiveSession, sessionName]);
 
+  // Update terminal title when session name changes
+  useEffect(() => {
+    const title = sessionName ? `Robota — ${sessionName}` : 'Robota';
+    process.stdout.write(`\x1b]0;${title}\x07`);
+  }, [sessionName]);
+
   // Wrap submit to handle TUI-specific side effects from system commands
   const handleSubmit = async (input: string): Promise<void> => {
     await baseHandleSubmit(input);
