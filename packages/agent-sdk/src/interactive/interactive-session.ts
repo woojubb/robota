@@ -143,14 +143,13 @@ export class InteractiveSession {
         this.history = (record.history ?? []) as IHistoryEntry[];
         this.sessionName = record.name;
 
-        if (record.messages) {
+        // Fork: new session ID, UI history preserved, but AI context starts fresh
+        // Resume: reuse session ID, inject messages to restore AI context
+        if (!this.forkSession && record.messages) {
           if (this.session) {
             // Injected-session path: session is already available
             for (const msg of record.messages) {
-              const m = msg as { role?: string; content?: string };
-              if (m.role && m.content) {
-                this.session.injectMessage(m.role as 'user' | 'assistant' | 'system', m.content);
-              }
+              this.injectSavedMessage(this.session, msg);
             }
           } else {
             // Standard path: session not yet created, defer injection
@@ -212,12 +211,7 @@ export class InteractiveSession {
     // Inject deferred restore messages now that session is created
     if (this.pendingRestoreMessages) {
       for (const msg of this.pendingRestoreMessages) {
-        if (msg && typeof msg === 'object' && 'role' in msg && 'content' in msg) {
-          this.session.injectMessage(
-            (msg as { role: string }).role as 'user' | 'assistant' | 'system',
-            (msg as { content: string }).content,
-          );
-        }
+        this.injectSavedMessage(this.session, msg);
       }
       this.pendingRestoreMessages = null;
     }
@@ -228,6 +222,21 @@ export class InteractiveSession {
   private async ensureInitialized(): Promise<void> {
     if (this.initialized) return;
     if (this.initPromise) await this.initPromise;
+  }
+
+  /** Inject a saved message into a session, supporting all roles including 'tool'. */
+  private injectSavedMessage(session: Session, msg: unknown): void {
+    if (!msg || typeof msg !== 'object') return;
+    const m = msg as Record<string, unknown>;
+    if (!m.role || !m.content) return;
+    const role = m.role as string;
+    if (role === 'tool') {
+      const toolCallId = (m.toolCallId as string) ?? '';
+      const name = (m.name as string) ?? undefined;
+      session.injectMessage('tool', m.content as string, { toolCallId, name });
+    } else if (role === 'user' || role === 'assistant' || role === 'system') {
+      session.injectMessage(role, m.content as string);
+    }
   }
 
   private getSessionOrThrow(): Session {

@@ -532,8 +532,12 @@ export class Session {
    * without triggering execution. Used for session restore (replaying
    * prior messages so the AI provider has full context).
    */
-  injectMessage(role: 'user' | 'assistant' | 'system', content: string): void {
-    this.robota.injectMessage(role, content);
+  injectMessage(
+    role: 'user' | 'assistant' | 'system' | 'tool',
+    content: string,
+    options?: { toolCallId?: string; name?: string },
+  ): void {
+    this.robota.injectMessage(role, content, options);
   }
 
   /** Clear conversation history */

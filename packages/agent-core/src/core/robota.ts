@@ -47,6 +47,7 @@ import {
 import type { AbstractTool, IToolWithEventService } from '../abstracts/abstract-tool';
 import { createLogger, setGlobalLogLevel, type ILogger } from '../utils/logger';
 import type { IModuleResultData } from '../abstracts/abstract-module';
+import type { IHistoryEntry } from '../interfaces/messages';
 import { RobotaModuleManager } from './robota-module-manager';
 import { RobotaPluginManager } from './robota-plugin-manager';
 import { RobotaConfigManager, validateAgentConfig } from './robota-config-manager';
@@ -246,45 +247,15 @@ export class Robota
   }
 
   /** Get full history timeline (IHistoryEntry[]) including events */
-  getFullHistory(): Array<{
-    id: string;
-    timestamp: Date;
-    category: string;
-    type: string;
-    data?: unknown;
-  }> {
+  getFullHistory(): IHistoryEntry[] {
     const store = this.conversationHistory.getConversationStore(this.conversationId);
-    if ('getHistory' in store && typeof store.getHistory === 'function') {
-      return store.getHistory() as Array<{
-        id: string;
-        timestamp: Date;
-        category: string;
-        type: string;
-        data?: unknown;
-      }>;
-    }
-    // Fallback for stores that don't support getHistory yet
-    return store.getMessages().map((msg) => ({
-      id: msg.id,
-      timestamp: msg.timestamp,
-      category: 'chat' as const,
-      type: msg.role,
-      data: msg,
-    }));
+    return store.getHistory();
   }
 
   /** Add an event entry to history */
-  addHistoryEntry(entry: {
-    id: string;
-    timestamp: Date;
-    category: string;
-    type: string;
-    data?: unknown;
-  }): void {
+  addHistoryEntry(entry: IHistoryEntry): void {
     const store = this.conversationHistory.getConversationStore(this.conversationId);
-    if ('addEntry' in store && typeof store.addEntry === 'function') {
-      (store as { addEntry: (e: unknown) => void }).addEntry(entry);
-    }
+    store.addEntry(entry);
   }
 
   override clearHistory(): void {
@@ -292,9 +263,15 @@ export class Robota
   }
 
   /** Inject a message into conversation history without triggering execution. */
-  injectMessage(role: 'user' | 'assistant' | 'system', content: string): void {
+  injectMessage(
+    role: 'user' | 'assistant' | 'system' | 'tool',
+    content: string,
+    options?: { toolCallId?: string; name?: string },
+  ): void {
     const session = this.conversationHistory.getConversationStore(this.conversationId);
-    if (role === 'assistant') {
+    if (role === 'tool' && options?.toolCallId) {
+      session.addToolMessageWithId(content, options.toolCallId, options.name ?? 'unknown');
+    } else if (role === 'assistant') {
       session.addAssistantMessage(content, []);
     } else if (role === 'system') {
       session.addSystemMessage(content);
