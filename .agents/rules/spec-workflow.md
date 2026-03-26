@@ -36,6 +36,18 @@ Skipping step 1–3 (coding before spec) is a process violation. This applies ev
 - **Any code change MUST be preceded by a spec update.** Update the SPEC first to describe the intended state, then modify code to conform. Never modify code without updating or verifying the governing spec.
 - See [`spec-code-conformance`](../skills/spec-code-conformance/SKILL.md) skill for the full procedure.
 
+### ABSOLUTE RULE: Verification does not modify SPEC to match code
+
+- During SPEC-Code verification, if a mismatch is found, **ALWAYS fix the code to match the SPEC**. NEVER modify the SPEC to match the code as a verification fix.
+- The SPEC is the source of truth during verification. Modifying the SPEC to match code during verification **invalidates the entire verification process**.
+- If the code was intentionally changed and the SPEC is now outdated, this is a **process violation** — the SPEC should have been updated BEFORE or TOGETHER WITH the code change, not during the verification step.
+- **Exception: SPEC itself is wrong.** If the SPEC contains errors, contradictions, or inaccuracies, it is valid to correct the SPEC — but this must be done as a **separate deliberate action** before code verification:
+  1. Stop code verification
+  2. Validate and correct the SPEC (separate step, clearly intentional)
+  3. Confirm the SPEC is accurate
+  4. Restart code verification from scratch against the corrected SPEC
+- The key distinction: fixing a genuinely wrong SPEC is acceptable. Changing a correct SPEC to avoid fixing code is not.
+
 ### Reverse Spec Verification (Code → Spec)
 
 - Any refactoring that affects package boundaries (dependency changes, export additions/removals, class splits/moves) MUST be followed by a reverse verification of the affected package's SPEC.md.
