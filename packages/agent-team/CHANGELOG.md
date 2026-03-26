@@ -1,5 +1,14 @@
 # @robota-sdk/agent-team (assignTask MCP tool collection; team creation removed)
 
+## 3.0.0-beta.45
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.45
+- @robota-sdk/agent-tools@3.0.0-beta.45
+- @robota-sdk/agent-event-service@3.0.0-beta.45
+- @robota-sdk/agent-tool-mcp@3.0.0-beta.45
+
 ## 3.0.0-beta.44
 
 ### Patch Changes

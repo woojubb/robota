@@ -7,7 +7,7 @@ HTTP transport adapter for exposing InteractiveSession over REST API. Built on H
 ## Boundaries
 
 - Does NOT own InteractiveSession — imported from `@robota-sdk/agent-sdk`
-- Does NOT own SystemCommandExecutor — imported from `@robota-sdk/agent-sdk`
+- Does NOT own system commands (via session.executeCommand) — imported from `@robota-sdk/agent-sdk`
 - Does NOT own Session, tools, providers — those are SDK internals
 - OWNS: HTTP route definitions, SSE streaming, request/response serialization
 
@@ -18,7 +18,7 @@ Client (browser, curl, etc.)
   ↓ HTTP
 Hono Router (agent-transport-http)
   ├── POST /submit       → session.submit(prompt) → SSE stream
-  ├── POST /command      → commandExecutor.execute() → JSON
+  ├── POST /command      → session.executeCommand() → JSON
   ├── POST /abort        → session.abort() → JSON
   ├── POST /cancel-queue → session.cancelQueue() → JSON
   ├── GET  /messages     → session.getMessages() → JSON
@@ -39,11 +39,10 @@ Factory function that returns a Hono app with all routes configured.
 
 ```typescript
 import { createAgentRoutes } from '@robota-sdk/agent-transport-http';
-import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 
 const routes = createAgentRoutes({
   sessionFactory: (req) => interactiveSession,
-  commandExecutor,
 });
 
 // Mount on existing Hono app
@@ -84,5 +83,5 @@ The `sessionFactory` callback receives the HTTP request context and returns an I
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` (InteractiveSession, SystemCommandExecutor)
+- `@robota-sdk/agent-sdk` (InteractiveSession)
 - `hono` (HTTP framework)

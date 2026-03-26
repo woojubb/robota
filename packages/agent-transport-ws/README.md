@@ -12,7 +12,7 @@ pnpm add @robota-sdk/agent-transport-ws
 
 ```typescript
 import { createWsHandler } from '@robota-sdk/agent-transport-ws';
-import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { WebSocketServer } from 'ws';
 
 const wss = new WebSocketServer({ port: 8080 });
@@ -20,7 +20,6 @@ const wss = new WebSocketServer({ port: 8080 });
 wss.on('connection', (ws) => {
   const { onMessage, cleanup } = createWsHandler({
     session: interactiveSession,
-    commandExecutor,
     send: (msg) => ws.send(JSON.stringify(msg)),
   });
 
@@ -38,7 +37,7 @@ All messages are JSON-encoded objects with a `type` field.
 | type            | payload                           | maps to                      |
 | --------------- | --------------------------------- | ---------------------------- |
 | `submit`        | `{ prompt: string }`              | `session.submit(prompt)`     |
-| `command`       | `{ name: string, args?: string }` | `commandExecutor.execute()`  |
+| `command`       | `{ name: string, args?: string }` | `session.executeCommand()`   |
 | `abort`         | —                                 | `session.abort()`            |
 | `cancel-queue`  | —                                 | `session.cancelQueue()`      |
 | `get-messages`  | —                                 | `session.getMessages()`      |
@@ -66,5 +65,5 @@ All messages are JSON-encoded objects with a `type` field.
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` — `InteractiveSession`, `SystemCommandExecutor`
+- `@robota-sdk/agent-sdk` — `InteractiveSession`
 - No WebSocket library dependency (framework-agnostic)

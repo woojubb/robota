@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-image-source",
-  "version": "3.0.0-beta.44",
+  "version": "3.0.0-beta.45",
   "description": "DAG image-source node for Robota",
   "type": "module",
   "main": "dist/node/index.js",

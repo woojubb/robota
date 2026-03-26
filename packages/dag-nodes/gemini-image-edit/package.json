@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-gemini-image-edit",
-  "version": "3.0.0-beta.44",
+  "version": "3.0.0-beta.45",
   "description": "DAG gemini-image-edit node for Robota",
   "type": "module",
   "main": "dist/node/index.js",
