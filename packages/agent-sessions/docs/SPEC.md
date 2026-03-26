@@ -123,15 +123,15 @@ Types consumed from other packages (not owned here):
 
 ### ISessionRecord Fields
 
-| Field       | Type        | Required | Description                                                                                                                                           |
-| ----------- | ----------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`        | `string`    | Yes      | Unique session identifier                                                                                                                             |
-| `cwd`       | `string`    | Yes      | Working directory where the session was created                                                                                                       |
-| `name`      | `string`    | No       | User-assigned session name for easy identification                                                                                                    |
-| `createdAt` | `string`    | Yes      | ISO timestamp of session creation                                                                                                                     |
-| `updatedAt` | `string`    | Yes      | ISO timestamp of last update                                                                                                                          |
-| `messages`  | `unknown[]` | Yes      | Conversation messages for display                                                                                                                     |
-| `history`   | `unknown[]` | No       | Full conversation history for AI context restoration. Saved from `session.getHistory()` on persist, replayed via `session.injectMessage()` on resume. |
+| Field       | Type        | Required | Description                                                                                                                                              |
+| ----------- | ----------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`        | `string`    | Yes      | Unique session identifier                                                                                                                                |
+| `cwd`       | `string`    | Yes      | Working directory where the session was created                                                                                                          |
+| `name`      | `string`    | No       | User-assigned session name for easy identification                                                                                                       |
+| `createdAt` | `string`    | Yes      | ISO timestamp of session creation                                                                                                                        |
+| `updatedAt` | `string`    | Yes      | ISO timestamp of last update                                                                                                                             |
+| `messages`  | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume. |
+| `history`   | `unknown[]` | No       | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                       |
 
 ### Key SessionStore Methods
 
