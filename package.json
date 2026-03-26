@@ -24,7 +24,6 @@
     "clean": "pnpm run -r clean",
     "clean:js": "find ./src -type f \\( -name \"*.js\" -o -name \"*.js.map\" -o -name \"*.d.ts\" -o -name \"*.d.ts.map\" \\) -not -path \"*/node_modules/*\" -delete",
     "prepare": "husky install",
-    "typedoc:convert": "node scripts/docs/docs-generator.js",
     "docs:dev": "pnpm --filter robota-docs run dev",
     "docs:build": "node scripts/docs/prepare-docs.js",
     "docs:preview": "pnpm --filter robota-docs run preview",
