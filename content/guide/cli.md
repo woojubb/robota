@@ -167,6 +167,25 @@ Use the `` !`command` `` syntax to embed shell command output into the skill bod
 
 When `context: fork` is set, the skill runs in a spawned subagent session rather than the main conversation. See [agent-sdk SPEC.md](../../packages/agent-sdk/docs/SPEC.md) for details.
 
+## Session Management
+
+The CLI supports continuing, resuming, forking, and naming sessions for workflow continuity across invocations.
+
+### Continue and Resume
+
+```bash
+robota -c                    # Continue the most recent session
+robota -r <session-id>       # Resume a specific session by ID
+robota --fork-session <id>   # Fork a session (new session with copied history)
+robota --name "my-task"      # Assign a name to the session at startup
+```
+
+Within the TUI, use `/resume` to list recent sessions and select one to resume. Use `/rename <name>` to rename the current session.
+
+### Session Names
+
+When a session has a name, it is displayed in the input area border, the terminal title bar, and the status bar. Names make it easy to identify sessions when resuming later.
+
 ## Permission Modes
 
 | Mode                | Read | Write  | Bash   |

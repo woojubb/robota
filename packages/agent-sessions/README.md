@@ -47,7 +47,9 @@ await session.compact('Focus on the API changes');
 
 | Method                                            | Description                                              |
 | ------------------------------------------------- | -------------------------------------------------------- |
+| `constructor(options)` (with `sessionId`)         | Accepts optional `sessionId` for deterministic IDs       |
 | `run(message)`                                    | Send a message, returns AI response                      |
+| `injectMessage(message)`                          | Inject a message into history without running the agent  |
 | `compact(instructions?)`                          | Compress conversation via LLM summary                    |
 | `getContextState()`                               | Token usage: `{ usedTokens, maxTokens, usedPercentage }` |
 | `getPermissionMode()` / `setPermissionMode(mode)` | Read/change permission mode                              |
@@ -77,7 +79,7 @@ await session.compact('Focus on the API changes');
 | `ISpinner`               | Interface | Spinner handle                                               |
 | `ISessionLogger`         | Interface | Pluggable session event logger interface                     |
 | `TSessionLogData`        | Type      | Structured log event data                                    |
-| `ISessionRecord`         | Interface | Persisted session record shape                               |
+| `ISessionRecord`         | Interface | Persisted session record shape (includes `history` field)    |
 | `IContextWindowState`    | Type      | Context window usage state (re-exported from agent-core)     |
 
 Note: `IPermissionEnforcerOptions` is an internal type and is not exported from the public API.
@@ -94,6 +96,12 @@ Note: `IPermissionEnforcerOptions` is an internal type and is not exported from 
 
 - **`Robota`** (agent-core): Raw agent — conversation + tools + plugins. No permissions, no hooks.
 - **`Session`** (this package): Wraps Robota with permissions, hooks, compaction, and persistence. Used by the CLI and SDK.
+
+### ISessionRecord
+
+`ISessionRecord` includes a required `history` field (`IHistoryEntry[]`) that stores the full conversation timeline for session persistence, resume, and fork operations. When a session is resumed, history entries are replayed via `Session.injectMessage()`.
+
+A migration script is available for upgrading session records from older formats. See the package source for details.
 
 ## Assembly
 
