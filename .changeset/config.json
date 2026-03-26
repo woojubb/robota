@@ -16,6 +16,7 @@
       "@robota-sdk/agent-transport-http",
       "@robota-sdk/agent-transport-mcp",
       "@robota-sdk/agent-transport-ws",
+      "@robota-sdk/agent-transport-headless",
       "@robota-sdk/agent-remote-client",
       "@robota-sdk/agent-event-service",
       "@robota-sdk/agent-playground",

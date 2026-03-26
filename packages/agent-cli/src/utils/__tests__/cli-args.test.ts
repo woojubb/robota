@@ -69,4 +69,28 @@ describe('parseCliArgs', () => {
     const args = parseCliArgs();
     expect(args.sessionName).toBeUndefined();
   });
+
+  it('parses --output-format flag', () => {
+    process.argv = ['node', 'cli', '-p', '--output-format', 'json', 'test'];
+    const args = parseCliArgs();
+    expect(args.outputFormat).toBe('json');
+  });
+
+  it('parses --system-prompt flag', () => {
+    process.argv = ['node', 'cli', '-p', '--system-prompt', 'You are helpful', 'test'];
+    const args = parseCliArgs();
+    expect(args.systemPrompt).toBe('You are helpful');
+  });
+
+  it('parses --append-system-prompt flag', () => {
+    process.argv = ['node', 'cli', '-p', '--append-system-prompt', 'Focus on tests', 'test'];
+    const args = parseCliArgs();
+    expect(args.appendSystemPrompt).toBe('Focus on tests');
+  });
+
+  it('defaults outputFormat to undefined', () => {
+    process.argv = ['node', 'cli', '-p', 'test'];
+    const args = parseCliArgs();
+    expect(args.outputFormat).toBeUndefined();
+  });
 });
