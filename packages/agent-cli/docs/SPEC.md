@@ -196,8 +196,8 @@ Typing `/` as the first character in the input triggers an autocomplete popup. T
 **Interaction:**
 
 - Arrow Up/Down: Navigate items
-- Enter: Select highlighted item (inserts command, executes if no args needed)
-- Tab: Complete to common prefix
+- Tab: Insert highlighted command into input field (does NOT execute). User can continue typing args or press Enter to execute.
+- Enter: Insert and execute the highlighted command immediately
 - Esc: Dismiss popup, keep typed text
 - Backspace past `/`: Dismiss popup
 
