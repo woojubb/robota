@@ -200,10 +200,10 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       });
     };
     const onInterrupted = (): void => {
-      // Clear streaming state on abort — prevent stale text from showing
+      // Clear streaming text on abort — prevent duplicate display
+      // Tool list is preserved so user can see what was running
       streamBuf = '';
       setStreamingText('');
-      setActiveTools([]);
     };
     const onError = (): void => {
       /* error messages managed by InteractiveSession */
