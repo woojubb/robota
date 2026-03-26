@@ -573,12 +573,36 @@ ESC aborts the current execution gracefully (unlike Ctrl+C which kills the proce
 3. AbortSignal propagates through the entire stack (ExecutionService -> Provider -> `streamWithAbort`)
 4. `executeRound` calls `commitAssistant('interrupted')` — the partial response is saved to conversation history with `state: 'interrupted'`. Text is ALWAYS preserved (no stripping).
 5. `InteractiveSession` emits the `interrupted` event; the `thinking` event fires with `false`
+
+**Rendering state on abort (`onInterrupted` handler):**
+
+- **Streaming text**: cleared (`streamBuf = ''`, `setStreamingText('')`). Prevents duplicate display — the interrupted response is already committed to message history and will appear in `MessageList`.
+- **Tool list**: preserved (`activeTools` NOT cleared). User can see which tools were running when interrupted. Tools are cleared only when the next execution starts (`onThinking(true)`).
+- **isAborting**: cleared by `onThinking(false)` handler.
+- **Border color**: yellow (aborting) → green (normal) after `onThinking(false)`.
+
 6. `useInteractiveSession`'s `onThinking(false)` handler:
    - Sets `isAborting: false`
    - Re-syncs `messages` from `interactiveSession.getMessages()` — interrupted messages are already committed
    - Messages with `msg.state === 'interrupted'` show an interrupted indicator in the UI
 7. After abort, conversation continues normally — history includes the interrupted assistant message and any tool results
-8. History is the SSOT for all message content — no separate streaming text ref is needed
+8. History is the SSOT for all message content. Append-only, read-only — no edit, no delete.
+
+**What appears in the UI after ESC:**
+
+```
+Tools:                          ← preserved (shows what was running)
+  ✓ Read(file.ts)
+  ⟳ Edit(file.ts)              ← still showing as running at abort time
+
+Robota:                         ← from message history (committed interrupted response)
+  [partial response text...]
+
+System:
+  Interrupted by user.
+```
+
+Streaming text is NOT shown (cleared) — only the committed history response appears in `MessageList`.
 
 ### Up/Down Arrows — Visual Line Navigation
 
