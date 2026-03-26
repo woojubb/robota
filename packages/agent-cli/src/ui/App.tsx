@@ -245,16 +245,41 @@ export default function App(props: IProps): React.ReactElement {
           </Text>
           <ListPicker<ISessionRecord>
             items={props.sessionStore?.list() ?? []}
-            renderItem={(session: ISessionRecord, isSelected: boolean) => (
-              <Text>
-                {isSelected ? '> ' : '  '}
-                <Text bold>{session.name ?? session.id.slice(0, SESSION_ID_DISPLAY_LENGTH)}</Text>
-                {'  '}
-                <Text dimColor>{new Date(session.updatedAt).toLocaleDateString()}</Text>
-                {'  '}
-                <Text dimColor>msgs: {session.messages.length}</Text>
-              </Text>
-            )}
+            renderItem={(session: ISessionRecord, isSelected: boolean) => {
+              const lastMsg = session.messages
+                .slice()
+                .reverse()
+                .find((m) => {
+                  const msg = m as { role?: string; content?: string };
+                  return msg.role === 'assistant' && msg.content;
+                }) as { content?: string } | undefined;
+              const preview = lastMsg?.content
+                ? lastMsg.content.slice(0, 60) + (lastMsg.content.length > 60 ? '...' : '')
+                : '';
+              return (
+                <Text>
+                  {isSelected ? '> ' : '  '}
+                  <Text bold>{session.name ?? session.id.slice(0, SESSION_ID_DISPLAY_LENGTH)}</Text>
+                  {'  '}
+                  <Text dimColor>
+                    {new Date(session.updatedAt).toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                  {'  '}
+                  <Text dimColor>msgs: {session.messages.length}</Text>
+                  {preview ? (
+                    <>
+                      {'\n    '}
+                      <Text color="gray">{preview}</Text>
+                    </>
+                  ) : null}
+                </Text>
+              );
+            }}
             onSelect={(session: ISessionRecord) => {
               setShowSessionPicker(false);
               addEntry(
