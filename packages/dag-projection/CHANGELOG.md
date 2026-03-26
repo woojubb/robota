@@ -1,5 +1,11 @@
 # @robota-sdk/dag-projection
 
+## 3.0.0-beta.51
+
+### Patch Changes
+
+- @robota-sdk/dag-core@3.0.0-beta.51
+
 ## 3.0.0-beta.50
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @robota-sdk/agent-transport-mcp
 
+## 3.0.0-beta.51
+
+### Patch Changes
+
+- @robota-sdk/agent-sdk@3.0.0-beta.51
+
 ## 3.0.0-beta.50
 
 ### Patch Changes

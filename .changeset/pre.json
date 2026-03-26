@@ -61,6 +61,7 @@
     "add-package-metadata",
     "fix-package-metadata-order",
     "session-continue-resume",
+    "streaming-debounce",
     "tool-execution-history-fix",
     "transport-command-consolidation",
     "transport-unified-interface",
