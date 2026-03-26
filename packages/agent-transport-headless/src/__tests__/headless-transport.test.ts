@@ -21,6 +21,40 @@ function createMockSession(): InteractiveSession {
   } as unknown as InteractiveSession;
 }
 
+function createEventDrivenMockSession(): InteractiveSession {
+  const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+
+  return {
+    submit: vi.fn(async () => {
+      for (const h of listeners.get('complete') ?? []) {
+        h({ response: 'test output', history: [], toolSummaries: [], contextState: {} });
+      }
+    }),
+    abort: vi.fn(),
+    cancelQueue: vi.fn(),
+    getMessages: vi.fn().mockReturnValue([]),
+    getContextState: vi
+      .fn()
+      .mockReturnValue({ usedPercentage: 0, usedTokens: 0, maxTokens: 200000 }),
+    isExecuting: vi.fn().mockReturnValue(false),
+    getPendingPrompt: vi.fn().mockReturnValue(null),
+    executeCommand: vi.fn().mockResolvedValue({ message: 'ok', success: true }),
+    listCommands: vi.fn().mockReturnValue([]),
+    getSession: vi.fn().mockReturnValue({ getSessionId: () => 'test-id' }),
+    on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      if (!listeners.has(event)) listeners.set(event, []);
+      listeners.get(event)!.push(handler);
+    }),
+    off: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      const handlers = listeners.get(event);
+      if (handlers) {
+        const idx = handlers.indexOf(handler);
+        if (idx >= 0) handlers.splice(idx, 1);
+      }
+    }),
+  } as unknown as InteractiveSession;
+}
+
 describe('createHeadlessTransport', () => {
   it('returns an adapter with name "headless"', () => {
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
@@ -35,5 +69,28 @@ describe('createHeadlessTransport', () => {
   it('returns exit code 0 by default', () => {
     const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
     expect(transport.getExitCode()).toBe(0);
+  });
+
+  it('full lifecycle: attach → start → text output → exit code', async () => {
+    const mockSession = createEventDrivenMockSession();
+
+    // Capture stdout
+    const writes: string[] = [];
+    const originalWrite = process.stdout.write;
+    process.stdout.write = vi.fn((chunk: string) => {
+      writes.push(chunk);
+      return true;
+    }) as never;
+
+    try {
+      const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
+      transport.attach(mockSession);
+      await transport.start();
+
+      expect(transport.getExitCode()).toBe(0);
+      expect(writes.join('')).toContain('test output');
+    } finally {
+      process.stdout.write = originalWrite;
+    }
   });
 });

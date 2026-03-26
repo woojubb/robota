@@ -694,6 +694,24 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(mockSessionStore.save).toHaveBeenCalled();
   });
 
+  // ── Scenario: Transport attachment ──────────────────────────
+
+  it('attachTransport calls transport.attach with session', () => {
+    const mockTransport = {
+      name: 'test',
+      attach: vi.fn(),
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+    } as never);
+
+    session.attachTransport(mockTransport);
+    expect(mockTransport.attach).toHaveBeenCalledWith(session);
+  });
+
   it('no tool summary when no tools were executed', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'simple answer' }) as never,
