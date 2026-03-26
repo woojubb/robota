@@ -562,19 +562,32 @@ When a permission prompt is shown for an Edit tool, the diff should be displayed
 
 ### Message Display Order (fixed)
 
-The display order is fixed and identical for both normal completion and ESC abort:
+The display order is **Tool → Robota**, fixed and identical for streaming, normal completion, and ESC abort:
+
+**During streaming (real-time):**
 
 ```
-You: [user prompt]
-Robota: [response or partial response]
-Tool: [tool execution list]
-System: Interrupted by user.        ← abort only
+You: [user prompt]             ← MessageList
+Tool: ⟳ Read(file.ts)         ← StreamingIndicator (real-time, below MessageList)
+      ⟳ Edit(file.ts)
+Robota: [streaming text...]    ← StreamingIndicator (real-time)
 ```
 
-- `You:` and `Robota:` come from `MessageList` (renders `messages` array in order).
-- `Tool:` comes from `StreamingIndicator` (renders `activeTools`, always below `MessageList`).
-- `System:` comes from `MessageList` (appended to `messages` after `Robota:`).
-- This order is the same during streaming (real-time) and after completion/abort.
+**After completion or abort (final state):**
+
+```
+You: [user prompt]             ← MessageList
+Tool: ✓ Read(file.ts)         ← MessageList (tool summary message, inserted before Robota)
+      ✓ Edit(file.ts)
+Robota: [response]             ← MessageList
+System: Interrupted by user.   ← MessageList (abort only)
+```
+
+**Mechanism:**
+
+- During streaming: `StreamingIndicator` renders `activeTools` + `streamingText` in real-time (Tool → Robota order).
+- On complete/interrupt/error: `InteractiveSession.pushToolSummaryMessage()` inserts a formatted tool summary into the `messages` array BEFORE the Robota response. Then `activeTools` is cleared and `StreamingIndicator` disappears.
+- Result: Tool → Robota order is preserved in both real-time and final state. Tool information transitions from `StreamingIndicator` (live) to `MessageList` (permanent).
 
 ### Ctrl+C — Process Exit
 
@@ -592,8 +605,8 @@ ESC aborts the current execution gracefully (unlike Ctrl+C which kills the proce
 
 **Rendering state on abort (`onInterrupted` handler):**
 
-- **Streaming text**: cleared (`streamBuf = ''`, `setStreamingText('')`). Prevents duplicate display — the interrupted response is already committed to message history and will appear in `MessageList`.
-- **Tool list**: preserved (`activeTools` NOT cleared). User can see which tools were running when interrupted. Tools are cleared only when the next execution starts (`onThinking(true)`).
+- **Tool list**: `pushToolSummaryMessage()` inserts tool summary into `messages` (before Robota). Then `activeTools` is cleared — tool info lives in `MessageList` now, not `StreamingIndicator`.
+- **Streaming text**: cleared (`streamBuf = ''`, `setStreamingText('')`). The interrupted response is committed to message history.
 - **isAborting**: cleared by `onThinking(false)` handler.
 - **Border color**: yellow (aborting) → green (normal) after `onThinking(false)`.
 
@@ -607,18 +620,18 @@ ESC aborts the current execution gracefully (unlike Ctrl+C which kills the proce
 **What appears in the UI after ESC:**
 
 ```
-Tools:                          ← preserved (shows what was running)
+Tool:                           ← in MessageList (from pushToolSummaryMessage)
   ✓ Read(file.ts)
-  ⟳ Edit(file.ts)              ← still showing as running at abort time
+  ⟳ Edit(file.ts)
 
-Robota:                         ← from message history (committed interrupted response)
+Robota:                         ← in MessageList (committed interrupted response)
   [partial response text...]
 
-System:
+System:                         ← in MessageList
   Interrupted by user.
 ```
 
-Streaming text is NOT shown (cleared) — only the committed history response appears in `MessageList`.
+Tool → Robota order preserved. StreamingIndicator is cleared (activeTools = []).
 
 ### Up/Down Arrows — Visual Line Navigation
 
