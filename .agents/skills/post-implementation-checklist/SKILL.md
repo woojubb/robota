@@ -15,6 +15,18 @@ Every implementation task that modifies package code MUST complete this checklis
 
 ## Checklist (execute in order)
 
+### 0. SPEC Update (MANDATORY before verification)
+
+**This step MUST be completed before any verification begins.** Code changes without SPEC updates make verification meaningless.
+
+- [ ] For each modified package, update `docs/SPEC.md` to reflect the new code behavior
+- [ ] SPEC describes the intended final state — write it as fact, not aspiration
+- [ ] If new types, methods, or behaviors were added, they MUST appear in the SPEC
+- [ ] If existing behavior changed, the SPEC MUST be updated to match
+- [ ] Commit SPEC updates separately before starting verification
+
+**GATE: Do NOT proceed to Step 1 until all SPECs are updated and committed.**
+
 ### 1. Bidirectional SPEC-Code Verification Loop
 
 This is a **repeating cycle** that runs until zero issues are found.
