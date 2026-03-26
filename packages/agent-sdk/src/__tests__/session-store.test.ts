@@ -123,6 +123,92 @@ describe('SessionStore', () => {
     });
   });
 
+  describe('history field', () => {
+    it('saves and loads a record with history field', () => {
+      const record = makeRecord({
+        id: 'history-session',
+        history: [
+          { category: 'chat', role: 'user', content: 'hello' },
+          { category: 'event', type: 'tool-call', name: 'read' },
+          { category: 'chat', role: 'assistant', content: 'world' },
+        ],
+      });
+      store.save(record);
+      const loaded = store.load(record.id);
+      expect(loaded?.history).toHaveLength(3);
+      expect(loaded?.history).toEqual(record.history);
+    });
+
+    it('round-trips history entries with different categories', () => {
+      const historyEntries = [
+        { category: 'chat', role: 'user', content: 'What is 2+2?' },
+        { category: 'event', type: 'thinking', text: 'calculating...' },
+        { category: 'chat', role: 'assistant', content: '4' },
+      ];
+      const record = makeRecord({ id: 'roundtrip', history: historyEntries });
+      store.save(record);
+      const loaded = store.load(record.id);
+      expect(loaded?.history).toEqual(historyEntries);
+    });
+
+    it('defaults history to undefined when not provided', () => {
+      const record = makeRecord({ id: 'no-history' });
+      store.save(record);
+      const loaded = store.load(record.id);
+      expect(loaded?.history).toBeUndefined();
+    });
+  });
+
+  describe('cwd filtering and name lookup', () => {
+    it('list can be filtered by cwd for --continue logic', () => {
+      store.save(
+        makeRecord({
+          id: 's1',
+          cwd: '/project-a',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-03-01T00:00:00Z',
+        }),
+      );
+      store.save(
+        makeRecord({
+          id: 's2',
+          cwd: '/project-b',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-03-02T00:00:00Z',
+        }),
+      );
+      store.save(
+        makeRecord({
+          id: 's3',
+          cwd: '/project-a',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-03-03T00:00:00Z',
+        }),
+      );
+
+      const projectA = store.list().filter((s) => s.cwd === '/project-a');
+      expect(projectA).toHaveLength(2);
+      expect(projectA[0].id).toBe('s3'); // most recent
+    });
+
+    it('list can find session by name for --resume', () => {
+      store.save(
+        makeRecord({
+          id: 'abc',
+          name: 'my-feature',
+          cwd: '/tmp',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-03-01T00:00:00Z',
+        }),
+      );
+
+      const sessions = store.list();
+      const found = sessions.find((s) => s.name === 'my-feature');
+      expect(found).toBeDefined();
+      expect(found!.id).toBe('abc');
+    });
+  });
+
   describe('directory creation', () => {
     it('creates the base directory on first save', () => {
       const nestedDir = join(tmpDir, 'nested', 'sessions');

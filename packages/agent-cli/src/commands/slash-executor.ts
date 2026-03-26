@@ -75,6 +75,8 @@ export const HELP_TEXT = [
   '  /mode [m]          — Show/change permission mode',
   '  /language [lang]   — Set response language (ko, en, ja, zh)',
   '  /cost              — Show session info',
+  '  /resume            — Resume a previous session',
+  '  /rename <name>     — Rename the current session',
   '  /reset             — Delete settings and exit',
   '  /exit              — Exit CLI',
 ].join('\n');
@@ -351,6 +353,10 @@ export async function executeSlashCommand(
       }
       addMessage({ role: 'system', content: 'Plugin management is not available.' });
       return { handled: true };
+    case 'resume':
+      return { handled: false }; // Route to system command (triggers session picker)
+    case 'rename':
+      return { handled: false }; // Route to system command (sets session name)
     default: {
       const dynamicCmd = registry
         .getCommands()

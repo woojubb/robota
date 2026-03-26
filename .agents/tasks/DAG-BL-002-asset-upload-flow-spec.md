@@ -3,6 +3,7 @@ title: Asset 업로드 플로우 스펙 정리 및 구현
 status: backlog
 created: 2026-03-15
 priority: high
+urgency: later
 ---
 
 ## 문제

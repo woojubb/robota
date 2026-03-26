@@ -3,6 +3,7 @@ title: DAG Publish → API Endpoint 생성 + 외부 서비스 연동
 status: backlog
 created: 2026-03-15
 priority: high
+urgency: later
 ---
 
 ## 요약

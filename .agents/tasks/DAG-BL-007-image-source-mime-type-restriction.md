@@ -1,6 +1,7 @@
 ---
 title: image-source 노드 mimeType 제한 완화
 status: backlog
+urgency: later
 created: 2026-03-15
 ---
 

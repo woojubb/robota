@@ -2,6 +2,7 @@
 title: 서버리스 배포 아키텍처 — 보류
 status: backlog
 priority: low
+urgency: later
 created: 2026-03-26
 packages:
   - agent-sdk

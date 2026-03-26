@@ -3,6 +3,7 @@ title: 오케스트레이션 중심 레포 분리 (포크)
 status: backlog
 created: 2026-03-15
 priority: medium
+urgency: later
 ---
 
 ## 구상

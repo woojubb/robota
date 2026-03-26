@@ -10,6 +10,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
 import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
@@ -194,6 +195,31 @@ export async function startCli(): Promise<void> {
   const modelId = args.model ?? providerSettings.model;
   const provider: IAIProvider = createProviderFromSettings(cwd, args.model);
 
+  // Session management
+  const sessionStore = new SessionStore();
+  let resumeSessionId: string | undefined;
+
+  if (args.continueMode) {
+    const sessions = sessionStore.list().filter((s) => s.cwd === cwd);
+    if (sessions.length > 0) {
+      resumeSessionId = sessions[0]!.id;
+    }
+  } else if (args.resumeId !== undefined) {
+    if (args.resumeId === '') {
+      // -r without argument = show picker (handled in App.tsx)
+      resumeSessionId = '__picker__';
+    } else {
+      const sessions = sessionStore.list();
+      const match = sessions.find((s) => s.id === args.resumeId || s.name === args.resumeId);
+      if (match) {
+        resumeSessionId = match.id;
+      } else {
+        process.stderr.write(`Session not found: ${args.resumeId}\n`);
+        process.exit(1);
+      }
+    }
+  }
+
   // Print mode (-p): one-shot prompt, output response, exit
   if (args.printMode) {
     const prompt = args.positional.join(' ').trim();
@@ -207,6 +233,8 @@ export async function startCli(): Promise<void> {
       provider,
       permissionMode: args.permissionMode ?? 'bypassPermissions',
       maxTurns: args.maxTurns,
+      sessionStore,
+      sessionName: args.sessionName,
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -233,5 +261,9 @@ export async function startCli(): Promise<void> {
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
     version: readVersion(),
+    sessionStore,
+    resumeSessionId,
+    forkSession: args.forkSession,
+    sessionName: args.sessionName,
   });
 }

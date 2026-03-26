@@ -2,6 +2,7 @@
 title: Status Line — 실시간 상태 표시줄
 status: backlog
 priority: medium
+urgency: soon
 created: 2026-03-26
 packages:
   - agent-cli

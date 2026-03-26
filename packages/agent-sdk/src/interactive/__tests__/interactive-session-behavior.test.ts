@@ -39,6 +39,7 @@ function createMockSession(options?: {
     getMessageCount: vi.fn().mockReturnValue(0),
     getSessionAllowedTools: vi.fn().mockReturnValue([]),
     compact: vi.fn(),
+    injectMessage: vi.fn(),
   };
 }
 
@@ -578,6 +579,121 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   // Tool → Robota display order is tested via message-list-rendering.test.tsx
   // which verifies actual rendered output without private state manipulation.
 
+  // ── Scenario: SessionStore auto-persist ────────────────────────
+
+  it('auto-persists session to SessionStore after submit', async () => {
+    const mockSessionStore = {
+      save: vi.fn(),
+      load: vi.fn().mockReturnValue(undefined),
+      list: vi.fn().mockReturnValue([]),
+      delete: vi.fn(),
+    };
+
+    const session = new InteractiveSession({
+      session: createMockSession({ runResult: 'hello' }) as never,
+      sessionStore: mockSessionStore,
+    } as never);
+
+    await session.submit('test');
+
+    expect(mockSessionStore.save).toHaveBeenCalled();
+    const savedRecord = mockSessionStore.save.mock.calls[0][0];
+    expect(savedRecord.history).toBeDefined();
+    expect(savedRecord.history.length).toBeGreaterThan(0);
+  });
+
+  // ── Scenario: Session restore from SessionStore ────────────────
+
+  it('restores history from SessionStore when resumeSessionId is provided', () => {
+    const savedHistory = [
+      {
+        id: '1',
+        timestamp: new Date().toISOString(),
+        category: 'chat',
+        type: 'user',
+        data: { role: 'user', content: 'previous' },
+      },
+      {
+        id: '2',
+        timestamp: new Date().toISOString(),
+        category: 'chat',
+        type: 'assistant',
+        data: { role: 'assistant', content: 'answer' },
+      },
+    ];
+
+    const mockSessionStore = {
+      save: vi.fn(),
+      load: vi.fn().mockReturnValue({
+        id: 'prev-session',
+        cwd: '/tmp',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        history: savedHistory,
+        messages: [
+          { role: 'user', content: 'previous' },
+          { role: 'assistant', content: 'answer' },
+        ],
+      }),
+      list: vi.fn().mockReturnValue([]),
+      delete: vi.fn(),
+    };
+
+    const mockSession = createMockSession();
+    const session = new InteractiveSession({
+      session: mockSession as never,
+      sessionStore: mockSessionStore,
+      resumeSessionId: 'prev-session',
+    } as never);
+
+    // History should be restored
+    const history = session.getFullHistory();
+    expect(history).toHaveLength(2);
+
+    // SessionStore.load should have been called with the resume ID
+    expect(mockSessionStore.load).toHaveBeenCalledWith('prev-session');
+
+    // Messages should have been injected into Session's Robota for AI context
+    expect(mockSession.injectMessage).toHaveBeenCalledTimes(2);
+    expect(mockSession.injectMessage).toHaveBeenCalledWith('user', 'previous');
+    expect(mockSession.injectMessage).toHaveBeenCalledWith('assistant', 'answer');
+  });
+
+  // ── Scenario: getName / setName ────────────────────────────────
+
+  it('getName returns session name', () => {
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+      sessionName: 'my-session',
+    } as never);
+    expect(session.getName()).toBe('my-session');
+  });
+
+  it('setName updates name and persists', () => {
+    const mockSessionStore = {
+      save: vi.fn(),
+      load: vi.fn().mockReturnValue({
+        id: 'sess-1',
+        cwd: '/tmp',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        messages: [],
+      }),
+      list: vi.fn().mockReturnValue([]),
+      delete: vi.fn(),
+    };
+
+    const mockSession = createMockSession();
+    const session = new InteractiveSession({
+      session: mockSession as never,
+      sessionStore: mockSessionStore,
+    } as never);
+
+    session.setName('renamed');
+    expect(session.getName()).toBe('renamed');
+    expect(mockSessionStore.save).toHaveBeenCalled();
+  });
+
   it('no tool summary when no tools were executed', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'simple answer' }) as never,
@@ -588,5 +704,117 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const messages = session.getMessages();
     const toolMsg = messages.find((m) => m.role === 'tool');
     expect(toolMsg).toBeUndefined();
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // Session persistence and restore — round-trip
+  // ══════════════════════════════════════════════════════════════
+
+  describe('Session persistence and restore — round-trip', () => {
+    it('persisted history matches InteractiveSession.getFullHistory() exactly', async () => {
+      const mockSessionStore = {
+        save: vi.fn(),
+        load: vi.fn().mockReturnValue(undefined),
+        list: vi.fn().mockReturnValue([]),
+        delete: vi.fn(),
+      };
+
+      const session = new InteractiveSession({
+        session: createMockSession({ runResult: 'answer' }) as never,
+        sessionStore: mockSessionStore,
+      } as never);
+
+      await session.submit('hello');
+
+      const savedRecord = mockSessionStore.save.mock.calls[0][0] as { history: unknown[] };
+      const liveHistory = session.getFullHistory();
+
+      // Saved history must be identical to live history — no transformation
+      expect(savedRecord.history).toEqual(liveHistory);
+    });
+
+    it('multiple submits accumulate in persisted history', async () => {
+      const mockSessionStore = {
+        save: vi.fn(),
+        load: vi.fn().mockReturnValue(undefined),
+        list: vi.fn().mockReturnValue([]),
+        delete: vi.fn(),
+      };
+
+      const session = new InteractiveSession({
+        session: createMockSession({ runResult: 'response' }) as never,
+        sessionStore: mockSessionStore,
+      } as never);
+
+      await session.submit('first');
+      await session.submit('second');
+
+      // Last save should contain accumulated history
+      const lastCall = mockSessionStore.save.mock.calls[
+        mockSessionStore.save.mock.calls.length - 1
+      ][0] as { history: Array<{ type?: string; data?: { role?: string } }> };
+      const userEntries = lastCall.history.filter(
+        (e) => e.data && (e.data as { role?: string }).role === 'user',
+      );
+      expect(userEntries.length).toBe(2);
+    });
+
+    it('restored session preserves history on new submit', async () => {
+      const previousHistory = [
+        {
+          id: '1',
+          timestamp: new Date().toISOString(),
+          category: 'chat',
+          type: 'user',
+          data: { role: 'user', content: 'old' },
+        },
+        {
+          id: '2',
+          timestamp: new Date().toISOString(),
+          category: 'chat',
+          type: 'assistant',
+          data: { role: 'assistant', content: 'old answer' },
+        },
+      ];
+
+      const mockSessionStore = {
+        save: vi.fn(),
+        load: vi.fn().mockReturnValue({
+          id: 'prev',
+          cwd: '/tmp',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          history: previousHistory,
+          messages: [
+            { role: 'user', content: 'old' },
+            { role: 'assistant', content: 'old answer' },
+          ],
+        }),
+        list: vi.fn().mockReturnValue([]),
+        delete: vi.fn(),
+      };
+
+      const session = new InteractiveSession({
+        session: createMockSession({ runResult: 'new answer' }) as never,
+        sessionStore: mockSessionStore,
+        resumeSessionId: 'prev',
+      } as never);
+
+      // Should have restored history
+      expect(session.getFullHistory()).toHaveLength(2);
+
+      // Submit new message
+      await session.submit('new question');
+
+      // History should now have old + new entries
+      const history = session.getFullHistory();
+      expect(history.length).toBeGreaterThan(2);
+
+      // Persisted history should also include old + new
+      const lastSave = mockSessionStore.save.mock.calls[
+        mockSessionStore.save.mock.calls.length - 1
+      ][0] as { history: unknown[] };
+      expect(lastSave.history.length).toBeGreaterThan(2);
+    });
   });
 });

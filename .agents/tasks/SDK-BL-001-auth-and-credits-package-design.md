@@ -3,6 +3,7 @@ title: 인증 + 크레딧 시스템 패키지 설계
 status: backlog
 created: 2026-03-15
 priority: high
+urgency: later
 ---
 
 ## 요약

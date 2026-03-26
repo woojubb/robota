@@ -76,9 +76,9 @@ agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
 The StatusBar shows real-time session information:
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│ Mode: default  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12 │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Mode: default  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12  |  my-project │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 | Field    | Source                                     | Description                                           |
@@ -87,7 +87,21 @@ The StatusBar shows real-time session information:
 | Model    | `getModelName(config.provider.model)`      | Human-readable model name (e.g., "Claude Sonnet 4.6") |
 | Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M")    |
 | msgs     | message count                              | Number of messages in conversation                    |
+| Session  | `session.getName()`                        | Session name (shown only when a name is set)          |
 | Thinking | isThinking state                           | Shown during `session.run()` execution                |
+
+### Session Name Display
+
+Session name appears in three locations when set (via `--name` or `/rename`):
+
+1. **Input box top border** — right-aligned title embedded in the border with background color matching the border and black bold text:
+   ```
+   ┌──────────────────────────────────────── "my-session" ──┐
+   │ > Type a message                                       │
+   └────────────────────────────────────────────────────────┘
+   ```
+2. **Terminal title** — ANSI escape `\x1b]0;Robota — <name>\x07` updates the terminal tab/window title
+3. **StatusBar** — displayed in magenta alongside mode, model, and context info
 
 ### Context Color Coding
 
@@ -171,6 +185,8 @@ Tool: [5 tools]
 | `/context`                | Context window info                                           |
 | `/permissions`            | Permission rules                                              |
 | `/plugin [subcommand]`    | Plugin management                                             |
+| `/resume`                 | Show session picker to resume a saved session                 |
+| `/rename <name>`          | Rename the current session (name displayed in StatusBar)      |
 | `/exit`                   | Exit CLI                                                      |
 
 ### Slash Command Autocomplete
@@ -180,8 +196,8 @@ Typing `/` as the first character in the input triggers an autocomplete popup. T
 **Interaction:**
 
 - Arrow Up/Down: Navigate items
-- Enter: Select highlighted item (inserts command, executes if no args needed)
-- Tab: Complete to common prefix
+- Tab: Insert highlighted command into input field (does NOT execute). User can continue typing args or press Enter to execute.
+- Enter: Insert and execute the highlighted command immediately
 - Esc: Dismiss popup, keep typed text
 - Backspace past `/`: Dismiss popup
 
@@ -224,6 +240,21 @@ The `/model` command lists available models as subcommands with the format `Clau
 2. A `ConfirmPrompt` appears: "Change model to Claude Opus 4.6? The CLI will restart."
 3. If confirmed (Yes / `y`): settings are written to `~/.robota/settings.json` and the CLI exits (user restarts manually)
 4. If cancelled (No / `n`): returns to normal input
+
+### ListPicker Component
+
+A generic list picker overlay (`ListPicker.tsx`) for selecting an item from a list. Used by the session resume flow to display saved sessions.
+
+**Props:**
+
+| Prop       | Type                      | Description                                                       |
+| ---------- | ------------------------- | ----------------------------------------------------------------- |
+| `title`    | `string`                  | Header text above the list                                        |
+| `items`    | `Array<{ label, value }>` | Items to display. `label` is shown, `value` is returned on select |
+| `onSelect` | `(value: string) => void` | Callback when an item is selected                                 |
+| `onCancel` | `() => void`              | Callback when ESC is pressed                                      |
+
+**Interaction:** Arrow Up/Down to navigate, Enter to select, ESC to cancel.
 
 ### ConfirmPrompt Component
 
@@ -455,6 +486,7 @@ src/
     ├── CjkTextInput.tsx             ← Custom text input with Korean IME support
     ├── ConfirmPrompt.tsx            ← Reusable arrow-key confirmation prompt
     ├── WaveText.tsx                 ← Wave color animation for waiting indicator
+    ├── ListPicker.tsx               ← Generic list picker overlay (session resume, etc.)
     ├── DiffBlock.tsx                ← Diff block rendering for Edit tool output display
     ├── MenuSelect.tsx               ← Arrow-key menu selection component (Plugin TUI)
     ├── PluginTUI.tsx                ← Plugin management TUI (screen stack navigation)
@@ -472,15 +504,30 @@ src/
 ```bash
 robota                              # Interactive TUI
 robota -p "prompt"                  # Print mode (one-shot)
-robota -c                           # Continue last session
+robota -c                           # Continue last session (most recent by cwd)
+robota --continue                   # Same as -c
+robota -r <id>                      # Resume session by ID or name
+robota --resume [id]                # Resume session (shows picker if no ID given)
+robota -c --fork-session             # Fork from last session (new ID, restored context)
+robota --name <name>                # Set session name on startup
 robota --reset                      # Delete user settings and exit
-robota -r <id>                      # Resume session
 robota --model <model>              # Model override
 robota --language <lang>            # Response language (ko, en, ja, zh)
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>              # Limit turns
 robota --version                    # Version
 ```
+
+### Session Resolution Logic
+
+| Flag                | Behavior                                                                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--continue` / `-c` | Finds the most recent session matching the current working directory and resumes it (reuses original session ID, continues writing to the same session file)  |
+| `--resume [id]`     | If an ID or name is provided, resumes that session (reuses original session ID). If omitted, shows a session picker                                           |
+| `--fork-session`    | Boolean flag, used with `--continue` or `--resume`. Creates a new session (fresh UUID) but restores context from the resumed session. Original file preserved |
+| `--name <name>`     | Sets the session name. Can be combined with other flags                                                                                                       |
+
+When `--resume` is used without a value, a `ListPicker` overlay is shown with all saved sessions. The user selects one to resume.
 
 ## Tool Output Limits
 
@@ -650,6 +697,7 @@ When input text wraps across multiple visual lines (exceeds terminal width), up/
 **Architecture:**
 
 - Cursor-only manipulation — text is never modified, only `cursorRef` position changes
+- External value sync — when parent sets value (e.g., tab completion, clear), cursor moves to end of new value automatically
 - Two private helpers in `CjkTextInput.tsx` (no separate module):
   - `displayOffset(chars, charIndex, width)` → cumulative display column offset, accounting for CJK line-end gaps
   - `charIndexAtDisplayOffset(chars, targetOffset, width)` → char index closest to target offset

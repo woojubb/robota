@@ -14,6 +14,7 @@ interface IProps {
   isAborting?: boolean;
   pendingPrompt?: string | null;
   registry?: CommandRegistry;
+  sessionName?: string;
 }
 
 /** Parse input to determine autocomplete state */
@@ -120,6 +121,7 @@ export default function InputArea({
   isAborting,
   pendingPrompt,
   registry,
+  sessionName,
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const pasteStore = useRef<Map<number, string>>(new Map());
@@ -146,13 +148,58 @@ export default function InputArea({
     setValue((prev) => (prev ? `${prev} ${label}` : label));
   }, []);
 
+  /** Tab: insert command into input field without executing */
+  const tabCompleteCommand = useCallback(
+    (cmd: ISlashCommand): void => {
+      const parsed = parseSlashInput(value);
+
+      if (parsed.parentCommand) {
+        setValue(`/${parsed.parentCommand} ${cmd.name} `);
+        return;
+      }
+
+      if (cmd.subcommands && cmd.subcommands.length > 0) {
+        setValue(`/${cmd.name} `);
+        setSelectedIndex(0);
+        return;
+      }
+
+      setValue(`/${cmd.name} `);
+    },
+    [value, setSelectedIndex],
+  );
+
+  /** Enter: insert and execute command immediately */
+  const enterSelectCommand = useCallback(
+    (cmd: ISlashCommand): void => {
+      const parsed = parseSlashInput(value);
+
+      if (parsed.parentCommand) {
+        const fullCommand = `/${parsed.parentCommand} ${cmd.name}`;
+        setValue('');
+        onSubmit(fullCommand);
+        return;
+      }
+
+      if (cmd.subcommands && cmd.subcommands.length > 0) {
+        setValue(`/${cmd.name} `);
+        setSelectedIndex(0);
+        return;
+      }
+
+      setValue('');
+      onSubmit(`/${cmd.name}`);
+    },
+    [value, onSubmit, setSelectedIndex],
+  );
+
   const handleSubmit = useCallback(
     (text: string): void => {
       const trimmed = text.trim();
       if (trimmed.length === 0) return;
 
       if (showPopup && filteredCommands[selectedIndex]) {
-        selectCommand(filteredCommands[selectedIndex]);
+        enterSelectCommand(filteredCommands[selectedIndex]);
         return;
       }
 
@@ -166,33 +213,7 @@ export default function InputArea({
 
       onSubmit(expanded);
     },
-    [showPopup, filteredCommands, selectedIndex, onSubmit],
-  );
-
-  const selectCommand = useCallback(
-    (cmd: ISlashCommand): void => {
-      const parsed = parseSlashInput(value);
-
-      // If in subcommand mode, execute parent + subcommand
-      if (parsed.parentCommand) {
-        const fullCommand = `/${parsed.parentCommand} ${cmd.name}`;
-        setValue('');
-        onSubmit(fullCommand);
-        return;
-      }
-
-      // If command has subcommands, enter subcommand mode
-      if (cmd.subcommands && cmd.subcommands.length > 0) {
-        setValue(`/${cmd.name} `);
-        setSelectedIndex(0);
-        return;
-      }
-
-      // Execute command directly
-      setValue('');
-      onSubmit(`/${cmd.name}`);
-    },
-    [value, onSubmit, setSelectedIndex],
+    [showPopup, filteredCommands, selectedIndex, onSubmit, enterSelectCommand],
   );
 
   useInput(
@@ -210,7 +231,7 @@ export default function InputArea({
         setShowPopup(false);
       } else if (key.tab) {
         const cmd = filteredCommands[selectedIndex];
-        if (cmd) selectCommand(cmd);
+        if (cmd) tabCompleteCommand(cmd);
       }
     },
     { isActive: showPopup && !isDisabled },
@@ -226,6 +247,26 @@ export default function InputArea({
     { isActive: !!pendingPrompt },
   );
 
+  const borderColor = isAborting
+    ? 'yellow'
+    : pendingPrompt
+      ? 'cyan'
+      : isDisabled
+        ? 'gray'
+        : 'green';
+  const innerWidth = Math.max(1, terminalColumns - BORDER_HORIZONTAL);
+
+  // Build top border with optional session name title (right-aligned, 2 chars from edge)
+  const topBorder = (() => {
+    if (sessionName) {
+      const label = ` "${sessionName}" `;
+      const rightPad = 2;
+      const leftLen = Math.max(0, innerWidth - label.length - rightPad);
+      return { left: '┌' + '─'.repeat(leftLen), label, right: '─'.repeat(rightPad) + '┐' };
+    }
+    return { left: '┌' + '─'.repeat(innerWidth), label: '', right: '┐' };
+  })();
+
   return (
     <Box flexDirection="column">
       {showPopup && (
@@ -236,11 +277,16 @@ export default function InputArea({
           isSubcommandMode={isSubcommandMode}
         />
       )}
-      <Box
-        borderStyle="single"
-        borderColor={isAborting ? 'yellow' : pendingPrompt ? 'cyan' : isDisabled ? 'gray' : 'green'}
-        paddingLeft={1}
-      >
+      <Text color={borderColor}>
+        {topBorder.left}
+        {topBorder.label ? (
+          <Text backgroundColor={borderColor} color="black" bold>
+            {topBorder.label}
+          </Text>
+        ) : null}
+        {topBorder.right}
+      </Text>
+      <Box borderStyle="single" borderTop={false} borderColor={borderColor} paddingLeft={1}>
         {isAborting ? (
           <Text color="yellow"> Interrupting...</Text>
         ) : pendingPrompt ? (
