@@ -1,5 +1,14 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.45
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-sdk@3.0.0-beta.45
+  - @robota-sdk/agent-core@3.0.0-beta.45
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.45
+
 ## 3.0.0-beta.44
 
 ### Patch Changes
