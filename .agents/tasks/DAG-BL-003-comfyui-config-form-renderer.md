@@ -3,6 +3,7 @@ title: ComfyUI input 구조 기반 config 폼 렌더러 구현
 status: backlog
 created: 2026-03-15
 priority: high
+urgency: later
 ---
 
 ## 요약

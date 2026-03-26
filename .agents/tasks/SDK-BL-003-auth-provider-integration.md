@@ -2,6 +2,7 @@
 title: AI Provider OAuth 지원 — 공식 서드파티 OAuth 출시 시 적용
 status: blocked
 priority: low
+urgency: later
 created: 2026-03-26
 blocked-by: Anthropic/OpenAI 모두 서드파티 OAuth 미제공
 ---

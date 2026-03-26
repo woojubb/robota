@@ -3,6 +3,7 @@ title: 배포 아키텍처 설계 (멀티 플랫폼)
 status: backlog
 created: 2026-03-15
 priority: medium
+urgency: later
 ---
 
 ## 현재 구조 (로컬 개발)

@@ -3,6 +3,7 @@ title: 노드 부수작업 진행 중 Run 차단 + 업로드 프로그레스 표
 status: backlog
 created: 2026-03-15
 priority: high
+urgency: later
 ---
 
 ## 문제

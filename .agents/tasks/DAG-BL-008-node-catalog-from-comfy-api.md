@@ -1,6 +1,7 @@
 ---
 title: Node Catalog을 ComfyUI API 기반으로 가져오기
 status: backlog
+urgency: later
 created: 2026-03-15
 ---
 

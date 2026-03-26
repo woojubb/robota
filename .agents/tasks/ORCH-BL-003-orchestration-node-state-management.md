@@ -3,6 +3,7 @@ title: 오케스트레이션 레벨 노드 공통 상태 관리
 status: backlog
 created: 2026-03-15
 priority: high
+urgency: later
 ---
 
 ## 개념
