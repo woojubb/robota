@@ -54,7 +54,7 @@ Types owned by this package (SSOT):
 | `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                     |
 | `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                            |
 | `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`) |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages)                            |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history)                   |
 
 Types consumed from other packages (not owned here):
 
@@ -115,6 +115,19 @@ Types consumed from other packages (not owned here):
 | `isRunning`                | `() => boolean`                            | Returns true if a `run()` call is in progress.                                                                                          |
 | `getSessionAllowedTools`   | `() => string[]`                           | Returns tools that were session-approved ("Allow always").                                                                              |
 | `clearSessionAllowedTools` | `() => void`                               | Clears all session-scoped allow rules.                                                                                                  |
+| `injectMessage`            | `(role: string, content: string) => void`  | Injects a message into conversation history without triggering an AI response. Used for restoring context on session resume.            |
+
+### ISessionRecord Fields
+
+| Field       | Type        | Required | Description                                                                                                                                           |
+| ----------- | ----------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`        | `string`    | Yes      | Unique session identifier                                                                                                                             |
+| `cwd`       | `string`    | Yes      | Working directory where the session was created                                                                                                       |
+| `name`      | `string`    | No       | User-assigned session name for easy identification                                                                                                    |
+| `createdAt` | `string`    | Yes      | ISO timestamp of session creation                                                                                                                     |
+| `updatedAt` | `string`    | Yes      | ISO timestamp of last update                                                                                                                          |
+| `messages`  | `unknown[]` | Yes      | Conversation messages for display                                                                                                                     |
+| `history`   | `unknown[]` | No       | Full conversation history for AI context restoration. Saved from `session.getHistory()` on persist, replayed via `session.injectMessage()` on resume. |
 
 ### Key SessionStore Methods
 

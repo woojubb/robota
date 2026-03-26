@@ -76,9 +76,9 @@ agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
 The StatusBar shows real-time session information:
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│ Mode: default  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12 │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Mode: default  |  Claude Sonnet 4.6  |  Context: 45% (90K/200K)  |  msgs: 12  |  my-project │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 | Field    | Source                                     | Description                                           |
@@ -87,6 +87,7 @@ The StatusBar shows real-time session information:
 | Model    | `getModelName(config.provider.model)`      | Human-readable model name (e.g., "Claude Sonnet 4.6") |
 | Context  | `session.getContextState().usedPercentage` | Context usage with K/M formatting (e.g., "90K/1M")    |
 | msgs     | message count                              | Number of messages in conversation                    |
+| Session  | `session.getName()`                        | Session name (shown only when a name is set)          |
 | Thinking | isThinking state                           | Shown during `session.run()` execution                |
 
 ### Context Color Coding
@@ -171,6 +172,8 @@ Tool: [5 tools]
 | `/context`                | Context window info                                           |
 | `/permissions`            | Permission rules                                              |
 | `/plugin [subcommand]`    | Plugin management                                             |
+| `/resume`                 | Show session picker to resume a saved session                 |
+| `/rename [name]`          | Rename the current session                                    |
 | `/exit`                   | Exit CLI                                                      |
 
 ### Slash Command Autocomplete
@@ -224,6 +227,21 @@ The `/model` command lists available models as subcommands with the format `Clau
 2. A `ConfirmPrompt` appears: "Change model to Claude Opus 4.6? The CLI will restart."
 3. If confirmed (Yes / `y`): settings are written to `~/.robota/settings.json` and the CLI exits (user restarts manually)
 4. If cancelled (No / `n`): returns to normal input
+
+### ListPicker Component
+
+A generic list picker overlay (`ListPicker.tsx`) for selecting an item from a list. Used by the session resume flow to display saved sessions.
+
+**Props:**
+
+| Prop       | Type                      | Description                                                       |
+| ---------- | ------------------------- | ----------------------------------------------------------------- |
+| `title`    | `string`                  | Header text above the list                                        |
+| `items`    | `Array<{ label, value }>` | Items to display. `label` is shown, `value` is returned on select |
+| `onSelect` | `(value: string) => void` | Callback when an item is selected                                 |
+| `onCancel` | `() => void`              | Callback when ESC is pressed                                      |
+
+**Interaction:** Arrow Up/Down to navigate, Enter to select, ESC to cancel.
 
 ### ConfirmPrompt Component
 
@@ -455,6 +473,7 @@ src/
     ├── CjkTextInput.tsx             ← Custom text input with Korean IME support
     ├── ConfirmPrompt.tsx            ← Reusable arrow-key confirmation prompt
     ├── WaveText.tsx                 ← Wave color animation for waiting indicator
+    ├── ListPicker.tsx               ← Generic list picker overlay (session resume, etc.)
     ├── DiffBlock.tsx                ← Diff block rendering for Edit tool output display
     ├── MenuSelect.tsx               ← Arrow-key menu selection component (Plugin TUI)
     ├── PluginTUI.tsx                ← Plugin management TUI (screen stack navigation)
@@ -472,15 +491,30 @@ src/
 ```bash
 robota                              # Interactive TUI
 robota -p "prompt"                  # Print mode (one-shot)
-robota -c                           # Continue last session
+robota -c                           # Continue last session (most recent by cwd)
+robota --continue                   # Same as -c
+robota -r <id>                      # Resume session by ID or name
+robota --resume [id]                # Resume session (shows picker if no ID given)
+robota --fork-session <id>          # Fork from a saved session (new session with restored context)
+robota --name <name>                # Set session name on startup
 robota --reset                      # Delete user settings and exit
-robota -r <id>                      # Resume session
 robota --model <model>              # Model override
 robota --language <lang>            # Response language (ko, en, ja, zh)
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>              # Limit turns
 robota --version                    # Version
 ```
+
+### Session Resolution Logic
+
+| Flag                  | Behavior                                                                               |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `--continue` / `-c`   | Finds the most recent session matching the current working directory and resumes it    |
+| `--resume [id]`       | If an ID or name is provided, resumes that session. If omitted, shows a session picker |
+| `--fork-session <id>` | Creates a new session but restores conversation context from the specified session     |
+| `--name <name>`       | Sets the session name. Can be combined with other flags                                |
+
+When `--resume` is used without a value, a `ListPicker` overlay is shown with all saved sessions. The user selects one to resume.
 
 ## Tool Output Limits
 
