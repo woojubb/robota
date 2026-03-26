@@ -522,6 +522,15 @@ export class Session {
     }
   }
 
+  /**
+   * Inject a message into the underlying Robota conversation history
+   * without triggering execution. Used for session restore (replaying
+   * prior messages so the AI provider has full context).
+   */
+  injectMessage(role: 'user' | 'assistant' | 'system', content: string): void {
+    this.robota.injectMessage(role, content);
+  }
+
   /** Clear conversation history */
   clearHistory(): void {
     this.robota.clearHistory();

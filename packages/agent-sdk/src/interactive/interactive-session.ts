@@ -132,6 +132,16 @@ export class InteractiveSession {
       if (record) {
         this.history = (record.history ?? []) as IHistoryEntry[];
         this.sessionName = record.name;
+
+        // Inject messages into Session's Robota for AI context restoration
+        if (this.session && record.messages) {
+          for (const msg of record.messages) {
+            const m = msg as { role?: string; content?: string };
+            if (m.role && m.content) {
+              this.session.injectMessage(m.role as 'user' | 'assistant' | 'system', m.content);
+            }
+          }
+        }
       }
     }
   }
