@@ -159,6 +159,56 @@ describe('SessionStore', () => {
     });
   });
 
+  describe('cwd filtering and name lookup', () => {
+    it('list can be filtered by cwd for --continue logic', () => {
+      store.save(
+        makeRecord({
+          id: 's1',
+          cwd: '/project-a',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-03-01T00:00:00Z',
+        }),
+      );
+      store.save(
+        makeRecord({
+          id: 's2',
+          cwd: '/project-b',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-03-02T00:00:00Z',
+        }),
+      );
+      store.save(
+        makeRecord({
+          id: 's3',
+          cwd: '/project-a',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-03-03T00:00:00Z',
+        }),
+      );
+
+      const projectA = store.list().filter((s) => s.cwd === '/project-a');
+      expect(projectA).toHaveLength(2);
+      expect(projectA[0].id).toBe('s3'); // most recent
+    });
+
+    it('list can find session by name for --resume', () => {
+      store.save(
+        makeRecord({
+          id: 'abc',
+          name: 'my-feature',
+          cwd: '/tmp',
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-03-01T00:00:00Z',
+        }),
+      );
+
+      const sessions = store.list();
+      const found = sessions.find((s) => s.name === 'my-feature');
+      expect(found).toBeDefined();
+      expect(found!.id).toBe('abc');
+    });
+  });
+
   describe('directory creation', () => {
     it('creates the base directory on first save', () => {
       const nestedDir = join(tmpDir, 'nested', 'sessions');

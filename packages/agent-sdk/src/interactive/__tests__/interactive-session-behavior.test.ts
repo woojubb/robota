@@ -705,4 +705,116 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const toolMsg = messages.find((m) => m.role === 'tool');
     expect(toolMsg).toBeUndefined();
   });
+
+  // ══════════════════════════════════════════════════════════════
+  // Session persistence and restore — round-trip
+  // ══════════════════════════════════════════════════════════════
+
+  describe('Session persistence and restore — round-trip', () => {
+    it('persisted history matches InteractiveSession.getFullHistory() exactly', async () => {
+      const mockSessionStore = {
+        save: vi.fn(),
+        load: vi.fn().mockReturnValue(undefined),
+        list: vi.fn().mockReturnValue([]),
+        delete: vi.fn(),
+      };
+
+      const session = new InteractiveSession({
+        session: createMockSession({ runResult: 'answer' }) as never,
+        sessionStore: mockSessionStore,
+      } as never);
+
+      await session.submit('hello');
+
+      const savedRecord = mockSessionStore.save.mock.calls[0][0] as { history: unknown[] };
+      const liveHistory = session.getFullHistory();
+
+      // Saved history must be identical to live history — no transformation
+      expect(savedRecord.history).toEqual(liveHistory);
+    });
+
+    it('multiple submits accumulate in persisted history', async () => {
+      const mockSessionStore = {
+        save: vi.fn(),
+        load: vi.fn().mockReturnValue(undefined),
+        list: vi.fn().mockReturnValue([]),
+        delete: vi.fn(),
+      };
+
+      const session = new InteractiveSession({
+        session: createMockSession({ runResult: 'response' }) as never,
+        sessionStore: mockSessionStore,
+      } as never);
+
+      await session.submit('first');
+      await session.submit('second');
+
+      // Last save should contain accumulated history
+      const lastCall = mockSessionStore.save.mock.calls[
+        mockSessionStore.save.mock.calls.length - 1
+      ][0] as { history: Array<{ type?: string; data?: { role?: string } }> };
+      const userEntries = lastCall.history.filter(
+        (e) => e.data && (e.data as { role?: string }).role === 'user',
+      );
+      expect(userEntries.length).toBe(2);
+    });
+
+    it('restored session preserves history on new submit', async () => {
+      const previousHistory = [
+        {
+          id: '1',
+          timestamp: new Date().toISOString(),
+          category: 'chat',
+          type: 'user',
+          data: { role: 'user', content: 'old' },
+        },
+        {
+          id: '2',
+          timestamp: new Date().toISOString(),
+          category: 'chat',
+          type: 'assistant',
+          data: { role: 'assistant', content: 'old answer' },
+        },
+      ];
+
+      const mockSessionStore = {
+        save: vi.fn(),
+        load: vi.fn().mockReturnValue({
+          id: 'prev',
+          cwd: '/tmp',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          history: previousHistory,
+          messages: [
+            { role: 'user', content: 'old' },
+            { role: 'assistant', content: 'old answer' },
+          ],
+        }),
+        list: vi.fn().mockReturnValue([]),
+        delete: vi.fn(),
+      };
+
+      const session = new InteractiveSession({
+        session: createMockSession({ runResult: 'new answer' }) as never,
+        sessionStore: mockSessionStore,
+        resumeSessionId: 'prev',
+      } as never);
+
+      // Should have restored history
+      expect(session.getFullHistory()).toHaveLength(2);
+
+      // Submit new message
+      await session.submit('new question');
+
+      // History should now have old + new entries
+      const history = session.getFullHistory();
+      expect(history.length).toBeGreaterThan(2);
+
+      // Persisted history should also include old + new
+      const lastSave = mockSessionStore.save.mock.calls[
+        mockSessionStore.save.mock.calls.length - 1
+      ][0] as { history: unknown[] };
+      expect(lastSave.history.length).toBeGreaterThan(2);
+    });
+  });
 });
