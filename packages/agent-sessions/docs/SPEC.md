@@ -43,18 +43,18 @@ session-store.ts          -- SessionStore: JSON file persistence for conversatio
 
 Types owned by this package (SSOT):
 
-| Type                         | Kind      | File                         | Description                                                                         |
-| ---------------------------- | --------- | ---------------------------- | ----------------------------------------------------------------------------------- |
-| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage)                    |
-| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                 |
-| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                        |
-| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                           |
-| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                              |
-| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                         |
-| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                     |
-| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                            |
-| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`) |
-| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history)                   |
+| Type                         | Kind      | File                         | Description                                                                          |
+| ---------------------------- | --------- | ---------------------------- | ------------------------------------------------------------------------------------ |
+| `ISessionOptions`            | Interface | `session.ts`                 | Constructor options for Session (tools, provider, systemMessage, optional sessionId) |
+| `TPermissionHandler`         | Type      | `permission-enforcer.ts`     | Async callback `(toolName, toolArgs) => Promise<TPermissionResult>`                  |
+| `TPermissionResult`          | Type      | `permission-enforcer.ts`     | `boolean \| 'allow-session'`                                                         |
+| `ITerminalOutput`            | Interface | `permission-enforcer.ts`     | Terminal I/O abstraction (write, prompt, select, spinner)                            |
+| `ISpinner`                   | Interface | `permission-enforcer.ts`     | Spinner handle returned by `ITerminalOutput.spinner()`                               |
+| `IPermissionEnforcerOptions` | Interface | `permission-enforcer.ts`     | Options for constructing PermissionEnforcer                                          |
+| `ICompactionOptions`         | Interface | `compaction-orchestrator.ts` | Options for constructing CompactionOrchestrator                                      |
+| `ISessionLogger`             | Interface | `session-logger.ts`          | Pluggable session event logger interface                                             |
+| `TSessionLogData`            | Type      | `session-logger.ts`          | Structured log event data (`Record<string, string \| number \| boolean \| object>`)  |
+| `ISessionRecord`             | Interface | `session-store.ts`           | Persisted session record (id, cwd, timestamps, messages, history)                    |
 
 Types consumed from other packages (not owned here):
 
@@ -95,6 +95,10 @@ Types consumed from other packages (not owned here):
 | `TSessionLogData`                | Type                 | Structured log event data                                                                                      |
 | `ISessionRecord`                 | Interface            | Persisted session record shape                                                                                 |
 | `IContextWindowState`            | Type                 | Context window usage state (re-exported from agent-core)                                                       |
+
+### Session Constructor — sessionId Parameter
+
+`ISessionOptions.sessionId` is an optional parameter. When provided, the Session reuses that ID (resume mode). When omitted, a fresh UUID is generated (fork mode, default). This allows the consuming layer to control whether a resumed session continues under the same file or creates a new one.
 
 ### Key Session Methods
 
