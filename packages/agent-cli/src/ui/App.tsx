@@ -41,7 +41,27 @@ interface IProps {
 const EXIT_DELAY_MS = 500;
 const SESSION_ID_DISPLAY_LENGTH = 8;
 
+/**
+ * Outer wrapper that manages session switching via React key remounting.
+ * When a session is selected from the picker, activeSessionId changes,
+ * causing AppInner to unmount and remount with the new resumeSessionId.
+ */
 export default function App(props: IProps): React.ReactElement {
+  const [activeSessionId, setActiveSessionId] = useState<string | undefined>(props.resumeSessionId);
+
+  return (
+    <AppInner
+      key={activeSessionId ?? '__new__'}
+      {...props}
+      resumeSessionId={activeSessionId}
+      onSessionSwitch={(sessionId) => setActiveSessionId(sessionId)}
+    />
+  );
+}
+
+function AppInner(
+  props: IProps & { onSessionSwitch: (sessionId: string) => void },
+): React.ReactElement {
   const { exit } = useApp();
   const cwd = props.cwd;
 
@@ -283,19 +303,7 @@ export default function App(props: IProps): React.ReactElement {
             }}
             onSelect={(session: ISessionRecord) => {
               setShowSessionPicker(false);
-              addEntry(
-                messageToHistoryEntry(
-                  createSystemMessage(
-                    `Resuming session "${session.name ?? session.id.slice(0, SESSION_ID_DISPLAY_LENGTH)}". Restarting...`,
-                  ),
-                ),
-              );
-              // Persist selected session ID so the next launch resumes it
-              const settingsPath = getUserSettingsPath();
-              const settings = readSettings(settingsPath);
-              settings.resumeSessionId = session.id;
-              writeSettings(settingsPath, settings);
-              setTimeout(() => exit(), EXIT_DELAY_MS);
+              props.onSessionSwitch(session.id);
             }}
             onCancel={() => {
               setShowSessionPicker(false);
