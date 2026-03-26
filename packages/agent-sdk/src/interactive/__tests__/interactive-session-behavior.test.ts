@@ -601,6 +601,93 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(savedRecord.history.length).toBeGreaterThan(0);
   });
 
+  // ── Scenario: Session restore from SessionStore ────────────────
+
+  it('restores history from SessionStore when resumeSessionId is provided', () => {
+    const savedHistory = [
+      {
+        id: '1',
+        timestamp: new Date().toISOString(),
+        category: 'chat',
+        type: 'user',
+        data: { role: 'user', content: 'previous' },
+      },
+      {
+        id: '2',
+        timestamp: new Date().toISOString(),
+        category: 'chat',
+        type: 'assistant',
+        data: { role: 'assistant', content: 'answer' },
+      },
+    ];
+
+    const mockSessionStore = {
+      save: vi.fn(),
+      load: vi.fn().mockReturnValue({
+        id: 'prev-session',
+        cwd: '/tmp',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        history: savedHistory,
+        messages: [
+          { role: 'user', content: 'previous' },
+          { role: 'assistant', content: 'answer' },
+        ],
+      }),
+      list: vi.fn().mockReturnValue([]),
+      delete: vi.fn(),
+    };
+
+    const mockSession = createMockSession();
+    const session = new InteractiveSession({
+      session: mockSession as never,
+      sessionStore: mockSessionStore,
+      resumeSessionId: 'prev-session',
+    } as never);
+
+    // History should be restored
+    const history = session.getFullHistory();
+    expect(history).toHaveLength(2);
+
+    // SessionStore.load should have been called with the resume ID
+    expect(mockSessionStore.load).toHaveBeenCalledWith('prev-session');
+  });
+
+  // ── Scenario: getName / setName ────────────────────────────────
+
+  it('getName returns session name', () => {
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+      sessionName: 'my-session',
+    } as never);
+    expect(session.getName()).toBe('my-session');
+  });
+
+  it('setName updates name and persists', () => {
+    const mockSessionStore = {
+      save: vi.fn(),
+      load: vi.fn().mockReturnValue({
+        id: 'sess-1',
+        cwd: '/tmp',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        messages: [],
+      }),
+      list: vi.fn().mockReturnValue([]),
+      delete: vi.fn(),
+    };
+
+    const mockSession = createMockSession();
+    const session = new InteractiveSession({
+      session: mockSession as never,
+      sessionStore: mockSessionStore,
+    } as never);
+
+    session.setName('renamed');
+    expect(session.getName()).toBe('renamed');
+    expect(mockSessionStore.save).toHaveBeenCalled();
+  });
+
   it('no tool summary when no tools were executed', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'simple answer' }) as never,

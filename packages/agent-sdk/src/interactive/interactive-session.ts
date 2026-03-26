@@ -63,6 +63,7 @@ interface IInteractiveSessionStandardOptions {
   permissionHandler?: TInteractivePermissionHandler;
   sessionStore?: SessionStore;
   sessionName?: string;
+  resumeSessionId?: string;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -75,6 +76,7 @@ interface IInteractiveSessionInjectedOptions {
   permissionHandler?: TInteractivePermissionHandler;
   sessionStore?: SessionStore;
   sessionName?: string;
+  resumeSessionId?: string;
 }
 
 export type IInteractiveSessionOptions =
@@ -123,6 +125,15 @@ export class InteractiveSession {
     this.sessionStore = options.sessionStore;
     this.sessionName = options.sessionName;
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
+
+    // Restore session if resumeSessionId provided
+    if (options.resumeSessionId && this.sessionStore) {
+      const record = this.sessionStore.load(options.resumeSessionId);
+      if (record) {
+        this.history = (record.history ?? []) as IHistoryEntry[];
+        this.sessionName = record.name;
+      }
+    }
   }
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
@@ -284,6 +295,29 @@ export class InteractiveSession {
 
   getContextState(): IContextWindowState {
     return this.getSessionOrThrow().getContextState();
+  }
+
+  /** Get session name. */
+  getName(): string | undefined {
+    return this.sessionName;
+  }
+
+  /** Set session name and persist if store is available. */
+  setName(name: string): void {
+    this.sessionName = name;
+    if (this.sessionStore && this.session) {
+      try {
+        const id = this.getSessionOrThrow().getSessionId();
+        const existing = this.sessionStore.load(id);
+        if (existing) {
+          existing.name = name;
+          existing.updatedAt = new Date().toISOString();
+          this.sessionStore.save(existing);
+        }
+      } catch {
+        // Session not initialized yet
+      }
+    }
   }
 
   /** Access underlying Session. For advanced use / testing only. */
