@@ -533,7 +533,7 @@ Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport-headless` 
 | `json`        | Single JSON object with `type`, `result`, `session_id`   |
 | `stream-json` | Newline-delimited JSON with `content_block_delta` events |
 
-**`--system-prompt`** replaces the default system prompt with custom text. **`--append-system-prompt`** appends additional instructions to the default system prompt.
+**`--system-prompt`** and **`--append-system-prompt`** are parsed but not yet connected to InteractiveSession. Requires SDK-level support for custom system prompt injection. Flags are reserved for future implementation.
 
 ### Stdin Pipe
 
