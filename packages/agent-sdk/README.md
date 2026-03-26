@@ -129,6 +129,13 @@ session.abort();
 // Cancel queued prompt without aborting current execution
 session.cancelQueue();
 
+// Execute system commands
+const result = await session.executeCommand('context', '');
+// result.message, result.success, result.data
+
+// List all registered system commands
+session.listCommands(); // Array<{ name, description }>
+
 // State queries
 session.isExecuting(); // boolean
 session.getPendingPrompt(); // string | null

@@ -12,14 +12,13 @@ pnpm add @robota-sdk/agent-transport-mcp
 
 ```typescript
 import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
-import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
 const mcpServer = createAgentMcpServer({
   name: 'robota-agent',
   version: '1.0.0',
   session: interactiveSession,
-  commandExecutor,
 });
 
 // Connect via stdio (subprocess / Claude Desktop)
@@ -45,6 +44,6 @@ The `submit` tool waits for the session to reach `complete` or `interrupted` sta
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` — `InteractiveSession`, `SystemCommandExecutor`
+- `@robota-sdk/agent-sdk` — `InteractiveSession`
 - `@modelcontextprotocol/sdk` — MCP server implementation
 - `zod` — input schema definitions
