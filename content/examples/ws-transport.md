@@ -46,3 +46,21 @@ wss.on('connection', (ws) => {
 { "type": "complete", "result": { "response": "Done." } }
 { "type": "command_result", "name": "clear", "success": true }
 ```
+
+## Advanced: Direct Handler
+
+For more control, use `createWsHandler` directly:
+
+```typescript
+import { createWsHandler } from '@robota-sdk/agent-transport-ws';
+
+wss.on('connection', (ws) => {
+  const { onMessage, cleanup } = createWsHandler({
+    session: interactiveSession,
+    send: (msg) => ws.send(JSON.stringify(msg)),
+  });
+
+  ws.on('message', (data) => onMessage(String(data)));
+  ws.on('close', cleanup);
+});
+```

@@ -38,3 +38,20 @@ The server exposes these tools to MCP clients:
 | command_context | `{ args?: string }`  | Context window info                |
 
 System commands are auto-discovered via `session.listCommands()`.
+
+## Advanced: Direct MCP Server
+
+For more control, use `createAgentMcpServer` directly:
+
+```typescript
+import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
+
+const server = createAgentMcpServer({
+  name: 'robota-agent',
+  version: '1.0.0',
+  session: interactiveSession,
+  exposeCommands: true, // register system commands as MCP tools
+});
+
+await server.connect(new StdioServerTransport());
+```
