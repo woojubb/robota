@@ -131,7 +131,11 @@ Types consumed from other packages (not owned here):
 | `createdAt` | `string`    | Yes      | ISO timestamp of session creation                                                                                                                        |
 | `updatedAt` | `string`    | Yes      | ISO timestamp of last update                                                                                                                             |
 | `messages`  | `unknown[]` | Yes      | AI provider messages (TUniversalMessage[]) for context restoration. Saved from `session.getHistory()`, replayed via `session.injectMessage()` on resume. |
-| `history`   | `unknown[]` | No       | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                       |
+| `history`   | `unknown[]` | Yes      | Full UI timeline (IHistoryEntry[] — chat + events) for rendering restoration. Passed to TuiStateManager on resume.                                       |
+
+### Session Data Migration
+
+`scripts/migrate-session-history.mjs` backfills the `history` field for sessions created before this field existed. It converts `messages[]` to `IHistoryEntry[]` format. Safe to run multiple times — skips sessions that already have `history`. Run once after upgrading.
 
 ### Key SessionStore Methods
 

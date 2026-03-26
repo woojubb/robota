@@ -23,7 +23,7 @@ export interface ISessionRecord {
   /** Conversation messages (opaque to the store) */
   messages: unknown[];
   /** Full UI timeline (chat + events) for rendering restoration */
-  history?: unknown[];
+  history: unknown[];
 }
 
 /**

@@ -420,6 +420,7 @@ export class Session {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       messages: history,
+      history: this.getFullHistory(),
     };
 
     this.sessionStore.save(record);
