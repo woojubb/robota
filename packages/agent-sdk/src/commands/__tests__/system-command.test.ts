@@ -30,7 +30,7 @@ describe('SystemCommandExecutor', () => {
   it('lists all built-in commands', () => {
     const executor = new SystemCommandExecutor();
     const commands = executor.listCommands();
-    expect(commands.length).toBeGreaterThanOrEqual(10);
+    expect(commands.length).toBeGreaterThanOrEqual(12);
     expect(commands.map((c) => c.name)).toContain('help');
     expect(commands.map((c) => c.name)).toContain('clear');
     expect(commands.map((c) => c.name)).toContain('mode');
@@ -118,6 +118,29 @@ describe('SystemCommandExecutor', () => {
       (session as unknown as { _underlying: { compact: ReturnType<typeof vi.fn> } })._underlying
         .compact,
     ).toHaveBeenCalledWith('focus on tests');
+  });
+
+  it('resume returns triggerResumePicker in data', async () => {
+    const executor = new SystemCommandExecutor();
+    const result = await executor.execute('resume', createMockSession(), '');
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(result!.data?.triggerResumePicker).toBe(true);
+  });
+
+  it('rename returns name in data', async () => {
+    const executor = new SystemCommandExecutor();
+    const result = await executor.execute('rename', createMockSession(), 'my-session');
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(true);
+    expect(result!.data?.name).toBe('my-session');
+  });
+
+  it('rename fails without name argument', async () => {
+    const executor = new SystemCommandExecutor();
+    const result = await executor.execute('rename', createMockSession(), '');
+    expect(result).not.toBeNull();
+    expect(result!.success).toBe(false);
   });
 
   it('register adds custom command', async () => {
