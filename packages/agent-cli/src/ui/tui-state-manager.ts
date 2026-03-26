@@ -15,7 +15,7 @@ import type { IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
 const MAX_RENDERED_MESSAGES = 100;
 
 /** Debounce interval for streaming text notify (limits renderMarkdown frequency) */
-const STREAMING_DEBOUNCE_MS = 100;
+const STREAMING_DEBOUNCE_MS = 300;
 
 export interface IContextState {
   percentage: number;
