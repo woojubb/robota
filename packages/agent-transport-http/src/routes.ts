@@ -2,13 +2,13 @@
  * HTTP transport adapter — exposes InteractiveSession over REST API.
  *
  * Built on Hono for Cloudflare Workers + Node.js + AWS Lambda compatibility.
- * Each endpoint maps 1:1 to an InteractiveSession or SystemCommandExecutor API.
+ * Each endpoint maps 1:1 to an InteractiveSession API method.
  */
 
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { Context } from 'hono';
-import type { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 
 /** Callback that resolves an InteractiveSession from the request context. */
 export type ISessionFactory = (c: Context) => InteractiveSession | Promise<InteractiveSession>;
@@ -16,8 +16,6 @@ export type ISessionFactory = (c: Context) => InteractiveSession | Promise<Inter
 export interface IAgentRoutesOptions {
   /** Resolve an InteractiveSession per request (e.g., by auth token, session ID). */
   sessionFactory: ISessionFactory;
-  /** System command executor. */
-  commandExecutor: SystemCommandExecutor;
 }
 
 /**
@@ -25,13 +23,13 @@ export interface IAgentRoutesOptions {
  *
  * Usage:
  * ```typescript
- * const routes = createAgentRoutes({ sessionFactory, commandExecutor });
+ * const routes = createAgentRoutes({ sessionFactory });
  * app.route('/agent', routes);          // mount on existing app
  * export default routes;                // or use standalone (CF Workers)
  * ```
  */
 export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
-  const { sessionFactory, commandExecutor } = options;
+  const { sessionFactory } = options;
   const app = new Hono();
 
   // POST /submit — execute prompt, stream events via SSE
@@ -104,7 +102,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
       return c.json({ error: 'name is required' }, 400);
     }
 
-    const result = await commandExecutor.execute(body.name, session, body.args ?? '');
+    const result = await session.executeCommand(body.name, body.args ?? '');
     if (!result) {
       return c.json({ error: `Unknown command: ${body.name}` }, 404);
     }
