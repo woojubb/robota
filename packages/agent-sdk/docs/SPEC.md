@@ -339,6 +339,26 @@ interface IInteractiveSessionEvents {
 }
 ```
 
+**ITransportAdapter:**
+
+```typescript
+interface ITransportAdapter {
+  /** Human-readable transport name (e.g., 'http', 'ws', 'mcp', 'headless') */
+  readonly name: string;
+
+  /** Attach an InteractiveSession to this transport. */
+  attach(session: InteractiveSession): void;
+
+  /** Start serving. What this means depends on the transport. */
+  start(): Promise<void>;
+
+  /** Stop serving and clean up resources. */
+  stop(): Promise<void>;
+}
+```
+
+Common interface for all transport adapters. Defined in `src/interactive/types.ts` and exported from `@robota-sdk/agent-sdk`. Each `agent-transport-*` package provides a factory that returns an `ITransportAdapter` implementation.
+
 ### History Entry Types
 
 `InteractiveSession` manages history as `IHistoryEntry[]`. Each entry has a `category` field:

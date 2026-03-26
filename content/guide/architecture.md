@@ -128,6 +128,8 @@ The transport layer exposes `InteractiveSession` over various protocols. Each tr
 
 All four packages import `InteractiveSession` from `agent-sdk`. None of them implement session logic — they only translate protocol messages into session calls and forward session events back to the caller.
 
+All transport adapters implement the `ITransportAdapter` interface (defined in `agent-sdk/src/interactive/types.ts`), which provides a uniform lifecycle: `attach(session)` to bind a session, `start()` to begin serving, and `stop()` to shut down. Each transport package exports a factory function that returns an `ITransportAdapter` implementation.
+
 `agent-remote-client` is a companion HTTP client that allows a remote process to call an agent exposed via `agent-transport-http`. It has no dependency on `agent-sdk`.
 
 ## Plugin Architecture
