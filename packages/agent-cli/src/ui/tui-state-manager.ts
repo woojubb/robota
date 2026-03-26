@@ -54,9 +54,12 @@ export class TuiStateManager {
   };
 
   onToolEnd = (state: IToolState): void => {
-    this.activeTools = this.activeTools.map((t) =>
-      t.toolName === state.toolName && t.isRunning ? state : t,
-    );
+    const idx = this.activeTools.findIndex((t) => t.toolName === state.toolName && t.isRunning);
+    if (idx !== -1) {
+      const updated = [...this.activeTools];
+      updated[idx] = state;
+      this.activeTools = updated;
+    }
     this.notify();
   };
 
