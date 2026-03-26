@@ -592,21 +592,21 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     await session.submit('fix the bug');
 
-    const messages = session.getMessages();
-    const toolIdx = messages.findIndex((m) => m.role === 'tool');
-    const assistantIdx = messages.findIndex((m) => m.role === 'assistant');
+    const history = session.getFullHistory();
+    const toolIdx = history.findIndex((e) => e.category === 'event' && e.type === 'tool-summary');
+    const assistantIdx = history.findIndex((e) => e.category === 'chat' && e.type === 'assistant');
 
-    // Tool message must exist
+    // Tool summary must exist
     expect(toolIdx).toBeGreaterThanOrEqual(0);
     // Assistant message must exist
     expect(assistantIdx).toBeGreaterThanOrEqual(0);
     // Tool must come BEFORE assistant (Tool → Robota order)
     expect(toolIdx).toBeLessThan(assistantIdx);
 
-    // Tool message contains tool names
-    const toolMsg = messages[toolIdx]!;
-    expect(toolMsg.content).toContain('Read');
-    expect(toolMsg.content).toContain('Edit');
+    // Tool summary contains tool names
+    const toolEntry = history[toolIdx]!;
+    expect((toolEntry.data as { summary: string }).summary).toContain('Read');
+    expect((toolEntry.data as { summary: string }).summary).toContain('Edit');
 
     // activeTools should be cleared after completion
     expect(session.getActiveTools()).toEqual([]);
@@ -646,11 +646,14 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     await exec;
     await new Promise((r) => setTimeout(r, 10));
 
-    const messages = session.getMessages();
-    const toolIdx = messages.findIndex((m) => m.role === 'tool');
-    const assistantIdx = messages.findIndex((m) => m.role === 'assistant');
-    const systemIdx = messages.findIndex(
-      (m) => m.role === 'system' && m.content?.includes('Interrupted'),
+    const history = session.getFullHistory();
+    const toolIdx = history.findIndex((e) => e.category === 'event' && e.type === 'tool-summary');
+    const assistantIdx = history.findIndex((e) => e.category === 'chat' && e.type === 'assistant');
+    const systemIdx = history.findIndex(
+      (e) =>
+        e.category === 'chat' &&
+        e.type === 'system' &&
+        (e.data as { content?: string })?.content?.includes('Interrupted'),
     );
 
     // All must exist
