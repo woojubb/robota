@@ -240,6 +240,7 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 24  | Modifying code without updating SPEC first                       | Update SPEC to describe intended state, then fix code to match                  |
 | 25  | Publishing a package without removing "not yet published" labels | Search content/ and docs/ for stale labels when first publishing a package      |
 | 26  | Refactoring/modularizing code without test coverage first        | Write characterization tests before extraction; see `pre-refactor-test-harness` |
+| 27  | Using `pnpm publish` or `npm publish` directly                   | Always use `pnpm publish:beta`; see `publish.md` Publish Command                |
 
 ## Conflict Scan Commands
 
