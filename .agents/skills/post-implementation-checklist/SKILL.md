@@ -5,7 +5,7 @@ description: Mandatory checklist after completing implementation work — SPEC v
 
 # Post-Implementation Checklist
 
-Every implementation task that modifies package code MUST complete this checklist before being marked as done. No exceptions.
+Every implementation task that modifies package code MUST complete this checklist before being marked as done. No exceptions. The agent MUST execute this checklist automatically after implementation — do NOT wait for the user to request it.
 
 ## When to Use
 
