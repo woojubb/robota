@@ -1,5 +1,16 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.52
+
+### Patch Changes
+
+- fix: paste at cursor position + cursor moves to end of pasted label + cursorHint prop
+  - @robota-sdk/agent-core@3.0.0-beta.52
+  - @robota-sdk/agent-sessions@3.0.0-beta.52
+  - @robota-sdk/agent-sdk@3.0.0-beta.52
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.52
+  - @robota-sdk/agent-transport-headless@3.0.0-beta.52
+
 ## 3.0.0-beta.51
 
 ### Patch Changes

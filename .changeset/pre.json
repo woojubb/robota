@@ -60,6 +60,7 @@
   "changesets": [
     "add-package-metadata",
     "fix-package-metadata-order",
+    "paste-cursor-fixes",
     "session-continue-resume",
     "streaming-debounce",
     "tool-execution-history-fix",

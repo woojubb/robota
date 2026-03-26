@@ -1,5 +1,11 @@
 # @robota-sdk/agent-plugin-event-emitter
 
+## 3.0.0-beta.52
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.52
+
 ## 3.0.0-beta.51
 
 ### Patch Changes
