@@ -173,7 +173,7 @@ Tool: [5 tools]
 | `/permissions`            | Permission rules                                              |
 | `/plugin [subcommand]`    | Plugin management                                             |
 | `/resume`                 | Show session picker to resume a saved session                 |
-| `/rename [name]`          | Rename the current session                                    |
+| `/rename <name>`          | Rename the current session (name displayed in StatusBar)      |
 | `/exit`                   | Exit CLI                                                      |
 
 ### Slash Command Autocomplete
@@ -495,7 +495,7 @@ robota -c                           # Continue last session (most recent by cwd)
 robota --continue                   # Same as -c
 robota -r <id>                      # Resume session by ID or name
 robota --resume [id]                # Resume session (shows picker if no ID given)
-robota --fork-session <id>          # Fork from a saved session (new session with restored context)
+robota -c --fork-session             # Fork from last session (new ID, restored context)
 robota --name <name>                # Set session name on startup
 robota --reset                      # Delete user settings and exit
 robota --model <model>              # Model override
@@ -507,12 +507,12 @@ robota --version                    # Version
 
 ### Session Resolution Logic
 
-| Flag                  | Behavior                                                                                                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--continue` / `-c`   | Finds the most recent session matching the current working directory and resumes it (reuses original session ID, continues writing to the same session file) |
-| `--resume [id]`       | If an ID or name is provided, resumes that session (reuses original session ID). If omitted, shows a session picker                                          |
-| `--fork-session <id>` | Creates a new session (fresh UUID) but restores conversation context from the specified session. Original session file is preserved unchanged                |
-| `--name <name>`       | Sets the session name. Can be combined with other flags                                                                                                      |
+| Flag                | Behavior                                                                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--continue` / `-c` | Finds the most recent session matching the current working directory and resumes it (reuses original session ID, continues writing to the same session file)  |
+| `--resume [id]`     | If an ID or name is provided, resumes that session (reuses original session ID). If omitted, shows a session picker                                           |
+| `--fork-session`    | Boolean flag, used with `--continue` or `--resume`. Creates a new session (fresh UUID) but restores context from the resumed session. Original file preserved |
+| `--name <name>`     | Sets the session name. Can be combined with other flags                                                                                                       |
 
 When `--resume` is used without a value, a `ListPicker` overlay is shown with all saved sessions. The user selects one to resume.
 

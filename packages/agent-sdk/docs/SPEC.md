@@ -397,20 +397,20 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 
 **Built-in commands:**
 
-| Command       | Description                                                                                                     |
-| ------------- | --------------------------------------------------------------------------------------------------------------- |
-| `help`        | Show available commands                                                                                         |
-| `clear`       | Clear conversation history                                                                                      |
-| `compact`     | Compress context window (optional focus instructions)                                                           |
-| `mode [m]`    | Show or change permission mode                                                                                  |
-| `model <id>`  | Change AI model (returns `data.modelId` — caller applies)                                                       |
-| `language`    | Set response language (returns `data.language`)                                                                 |
-| `cost`        | Session ID and message count                                                                                    |
-| `context`     | Token usage: used / max / percentage                                                                            |
-| `permissions` | Current mode and session-approved tools                                                                         |
-| `reset`       | Returns `data.resetRequested: true` — caller handles exit                                                       |
-| `resume`      | List saved sessions for resume. Returns `data.sessions` array and `data.action: 'resume'` — caller shows picker |
-| `rename`      | Rename current session. Returns `data.action: 'rename'`, `data.newName` — caller applies via `setName()`        |
+| Command       | Description                                                                           |
+| ------------- | ------------------------------------------------------------------------------------- |
+| `help`        | Show available commands                                                               |
+| `clear`       | Clear conversation history                                                            |
+| `compact`     | Compress context window (optional focus instructions)                                 |
+| `mode [m]`    | Show or change permission mode                                                        |
+| `model <id>`  | Change AI model (returns `data.modelId` — caller applies)                             |
+| `language`    | Set response language (returns `data.language`)                                       |
+| `cost`        | Session ID and message count                                                          |
+| `context`     | Token usage: used / max / percentage                                                  |
+| `permissions` | Current mode and session-approved tools                                               |
+| `reset`       | Returns `data.resetRequested: true` — caller handles exit                             |
+| `resume`      | Returns `data.triggerResumePicker: true` — caller shows session picker overlay        |
+| `rename`      | Returns `data.name: '<name>'` — caller applies via `interactiveSession.setName(name)` |
 
 **ISystemCommand:**
 
