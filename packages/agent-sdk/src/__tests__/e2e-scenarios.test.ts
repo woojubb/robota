@@ -11,8 +11,12 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { buildSystemPrompt, loadConfig, BundlePluginLoader, runHooks } from '@robota-sdk/agent-sdk';
-import type { ISystemPromptParams, THooksConfig, IHookInput } from '@robota-sdk/agent-sdk';
+import { buildSystemPrompt } from '../context/system-prompt-builder.js';
+import { loadConfig } from '../config/config-loader.js';
+import { BundlePluginLoader } from '../plugins/index.js';
+import { runHooks } from '@robota-sdk/agent-core';
+import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
+import type { THooksConfig, IHookInput } from '@robota-sdk/agent-core';
 
 import { SkillCommandSource } from '../commands/skill-source.js';
 import { PluginCommandSource } from '../commands/plugin-source.js';

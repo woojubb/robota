@@ -503,6 +503,9 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-provider-anthropic':
+        specifier: workspace:*
+        version: link:../agent-provider-anthropic
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
@@ -1076,9 +1079,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: workspace:*
-        version: link:../agent-provider-anthropic
       '@robota-sdk/agent-sessions':
         specifier: workspace:*
         version: link:../agent-sessions

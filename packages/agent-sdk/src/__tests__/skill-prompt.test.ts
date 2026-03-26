@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildSkillPrompt, substituteVariables, preprocessShellCommands } from '../skill-prompt.js';
-import { CommandRegistry } from '../../commands/command-registry.js';
-import type { ICommandSource } from '../../commands/types.js';
+import {
+  buildSkillPrompt,
+  substituteVariables,
+  preprocessShellCommands,
+} from '../utils/skill-prompt.js';
+import { CommandRegistry } from '../commands/command-registry.js';
+import type { ICommandSource } from '../commands/types.js';
 
 function registryWithSkill(
   name: string,

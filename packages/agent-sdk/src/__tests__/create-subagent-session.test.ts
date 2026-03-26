@@ -313,7 +313,7 @@ describe('createSubagentSession', () => {
     expect(passedOptions['onToolExecution']).toBe(onToolExecution);
   });
 
-  it('should create provider from parentConfig', () => {
+  it('should use injected provider', () => {
     const config = makeParentConfig();
     const agent = makeAgentDef();
 
@@ -322,10 +322,12 @@ describe('createSubagentSession', () => {
       parentConfig: config,
       parentContext: makeParentContext(),
       parentTools: [makeTool('Read')],
+      provider: mockProvider,
       terminal: makeTerminal(),
     });
 
-    expect(createProvider).toHaveBeenCalledWith(config);
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    expect(passedOptions['provider']).toBe(mockProvider);
   });
 
   it('should apply disallowedTools before allowlist tools', () => {
