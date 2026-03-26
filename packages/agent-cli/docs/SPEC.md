@@ -515,8 +515,43 @@ robota --model <model>              # Model override
 robota --language <lang>            # Response language (ko, en, ja, zh)
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>              # Limit turns
+robota --output-format <fmt>        # text | json | stream-json (print mode only)
+robota --system-prompt <text>       # Replace system prompt (print mode only)
+robota --append-system-prompt <text> # Append to system prompt (print mode only)
 robota --version                    # Version
 ```
+
+### Print Mode and Headless Transport
+
+Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport-headless` via `createHeadlessRunner`. The CLI creates an `InteractiveSession`, wraps it in a headless runner, runs the prompt, and exits with the runner's exit code.
+
+**`--output-format`** controls how the response is written to stdout:
+
+| Format        | Description                                              |
+| ------------- | -------------------------------------------------------- |
+| `text`        | Plain text response (default)                            |
+| `json`        | Single JSON object with `type`, `result`, `session_id`   |
+| `stream-json` | Newline-delimited JSON with `content_block_delta` events |
+
+**`--system-prompt`** replaces the default system prompt with custom text. **`--append-system-prompt`** appends additional instructions to the default system prompt.
+
+### Stdin Pipe
+
+When `-p` is specified with no positional argument and stdin is piped (not a TTY), the CLI reads the full stdin stream as the prompt:
+
+```bash
+echo "Explain this" | robota -p
+cat file.ts | robota -p "Review this code"
+```
+
+If both stdin and a positional argument are provided, stdin content is prepended to the prompt.
+
+### Exit Codes
+
+| Code | Meaning                |
+| ---- | ---------------------- |
+| 0    | Success or interrupted |
+| 1    | Error during execution |
 
 ### Session Resolution Logic
 
@@ -821,6 +856,7 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 | `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management |
 | `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)    |
 | `@robota-sdk/agent-provider-anthropic` | Anthropic provider creation (CLI picks provider based on config)            |
+| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`) execution                             |
 | `ink`, `react`                         | TUI rendering                                                               |
 | `ink-select-input`                     | Arrow-key selection (permission prompt)                                     |
 | `ink-spinner`                          | Loading spinner                                                             |

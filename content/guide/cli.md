@@ -21,9 +21,65 @@ robota -r <session-id>              # Resume specific session
 robota --model claude-opus-4-6      # Model override
 robota --permission-mode plan       # Permission mode override
 robota --max-turns 10               # Limit agentic turns
+robota --output-format json         # Output format (text/json/stream-json)
+robota --system-prompt "..."        # Replace system prompt
+robota --append-system-prompt "..." # Append to system prompt
 robota --reset                      # Delete user settings and exit
 robota --version                    # Show version
 ```
+
+## Non-Interactive (Headless) Mode
+
+Print mode (`-p`) runs a single prompt without the interactive TUI and exits. It delegates to `@robota-sdk/agent-transport-headless` for output formatting.
+
+### Output Formats
+
+Use `--output-format` to control how the response is written to stdout:
+
+**Text (default):**
+
+```bash
+robota -p "Explain this error"
+# Prints plain text response to stdout
+```
+
+**JSON:**
+
+```bash
+robota -p "Summarize the project" --output-format json
+# Output: { "type": "result", "result": "...", "session_id": "...", "subtype": "success" }
+```
+
+**Stream JSON (newline-delimited):**
+
+```bash
+robota -p "Write a function" --output-format stream-json
+# Each line is a JSON object: content_block_delta events followed by a final result
+```
+
+### Stdin Pipe
+
+When `-p` is specified without a positional argument and stdin is piped, the CLI reads from stdin:
+
+```bash
+echo "Explain this code" | robota -p
+cat error.log | robota -p "What went wrong?"
+git diff | robota -p "Review this diff" --output-format json
+```
+
+### System Prompt Overrides
+
+```bash
+robota -p "query" --system-prompt "You are a code reviewer"
+robota -p "query" --append-system-prompt "Focus on security issues"
+```
+
+### Exit Codes
+
+| Code | Meaning |
+| ---- | ------- |
+| 0    | Success |
+| 1    | Error   |
 
 ## Interactive TUI
 
