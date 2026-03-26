@@ -578,6 +578,29 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   // Tool → Robota display order is tested via message-list-rendering.test.tsx
   // which verifies actual rendered output without private state manipulation.
 
+  // ── Scenario: SessionStore auto-persist ────────────────────────
+
+  it('auto-persists session to SessionStore after submit', async () => {
+    const mockSessionStore = {
+      save: vi.fn(),
+      load: vi.fn().mockReturnValue(undefined),
+      list: vi.fn().mockReturnValue([]),
+      delete: vi.fn(),
+    };
+
+    const session = new InteractiveSession({
+      session: createMockSession({ runResult: 'hello' }) as never,
+      sessionStore: mockSessionStore,
+    } as never);
+
+    await session.submit('test');
+
+    expect(mockSessionStore.save).toHaveBeenCalled();
+    const savedRecord = mockSessionStore.save.mock.calls[0][0];
+    expect(savedRecord.history).toBeDefined();
+    expect(savedRecord.history.length).toBeGreaterThan(0);
+  });
+
   it('no tool summary when no tools were executed', async () => {
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'simple answer' }) as never,

@@ -12,6 +12,7 @@ import { createSession } from '../assembly/index.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
+import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
@@ -60,6 +61,8 @@ interface IInteractiveSessionStandardOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   permissionHandler?: TInteractivePermissionHandler;
+  sessionStore?: SessionStore;
+  sessionName?: string;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -70,6 +73,8 @@ interface IInteractiveSessionInjectedOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   permissionHandler?: TInteractivePermissionHandler;
+  sessionStore?: SessionStore;
+  sessionName?: string;
 }
 
 export type IInteractiveSessionOptions =
@@ -99,6 +104,11 @@ export class InteractiveSession {
   // Full history timeline (chat messages + events)
   private history: IHistoryEntry[] = [];
 
+  // Session persistence
+  private sessionStore?: SessionStore;
+  private sessionName?: string;
+  private cwd?: string;
+
   constructor(options: IInteractiveSessionOptions) {
     this.commandExecutor = new SystemCommandExecutor(createSystemCommands());
 
@@ -109,6 +119,10 @@ export class InteractiveSession {
       const stdOpts = options as IInteractiveSessionStandardOptions;
       this.initPromise = this.initializeAsync(stdOpts);
     }
+
+    this.sessionStore = options.sessionStore;
+    this.sessionName = options.sessionName;
+    this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
   }
 
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
@@ -323,6 +337,25 @@ export class InteractiveSession {
     } finally {
       this.executing = false;
       this.emit('thinking', false);
+
+      // Persist session if store is available
+      if (this.sessionStore && this.session) {
+        try {
+          const sessionId = this.getSessionOrThrow().getSessionId();
+          const existing = this.sessionStore.load(sessionId);
+          this.sessionStore.save({
+            id: sessionId,
+            name: this.sessionName ?? existing?.name,
+            cwd: this.cwd ?? '',
+            createdAt: existing?.createdAt ?? new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            messages: this.getSessionOrThrow().getHistory(),
+            history: this.history,
+          });
+        } catch {
+          // Persist failure should not break execution
+        }
+      }
 
       if (this.pendingPrompt) {
         const queued = this.pendingPrompt;
