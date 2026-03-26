@@ -677,7 +677,8 @@ System: Interrupted by user.   ← MessageList (abort only)
 
 **Mechanism:**
 
-- During streaming: `StreamingIndicator` renders `activeTools` + `streamingText` in real-time (Tool → Robota order).
+- During streaming: `StreamingIndicator` renders `activeTools` + `streamingText` in real-time (Tool → Robota order). Each tool occupies exactly one line — `onToolEnd` uses `findIndex` to update only the first matching running entry (not all entries with the same tool name).
+- Individual `tool-start` and `tool-end` events are recorded as `IHistoryEntry` in the session history for persistence, but `MessageList` does **not** render them (returns empty fragment). They exist only for session resume and debugging.
 - On complete/interrupt/error: `InteractiveSession.pushToolSummaryMessage()` inserts a formatted tool summary into the `messages` array BEFORE the Robota response. Then `activeTools` is cleared and `StreamingIndicator` disappears.
 - Result: Tool → Robota order is preserved in both real-time and final state. Tool information transitions from `StreamingIndicator` (live) to `MessageList` (permanent).
 
