@@ -50,8 +50,8 @@ export function parseCliArgs(): IParsedCliArgs {
     allowPositionals: true,
     options: {
       p: { type: 'boolean', short: 'p', default: false },
-      c: { type: 'boolean', short: 'c', default: false },
-      r: { type: 'string', short: 'r' },
+      continue: { type: 'boolean', short: 'c', default: false },
+      resume: { type: 'string', short: 'r' },
       model: { type: 'string' },
       language: { type: 'string' },
       'permission-mode': { type: 'string' },
@@ -66,8 +66,8 @@ export function parseCliArgs(): IParsedCliArgs {
   return {
     positional: positionals,
     printMode: values['p'] ?? false,
-    continueMode: values['c'] ?? false,
-    resumeId: values['r'],
+    continueMode: values['continue'] ?? false,
+    resumeId: values['resume'],
     model: values['model'],
     language: values['language'],
     permissionMode: parsePermissionMode(values['permission-mode']),
