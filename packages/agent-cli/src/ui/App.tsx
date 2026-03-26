@@ -253,8 +253,9 @@ export default function App(props: IProps): React.ReactElement {
                   const msg = m as { role?: string; content?: string };
                   return msg.role === 'assistant' && msg.content;
                 }) as { content?: string } | undefined;
-              const preview = lastMsg?.content
-                ? lastMsg.content.slice(0, 60) + (lastMsg.content.length > 60 ? '...' : '')
+              const rawPreview = lastMsg?.content?.replace(/[\n\r]+/g, ' ').trim() ?? '';
+              const preview = rawPreview
+                ? rawPreview.slice(0, 60) + (rawPreview.length > 60 ? '...' : '')
                 : '';
               return (
                 <Text>
