@@ -69,3 +69,32 @@ await session.run('Hello');
 const sessions = store.list();
 const record = store.load(sessions[0].id);
 ```
+
+## CLI Session Management
+
+```bash
+# Continue last session
+robota -c
+
+# Resume specific session (by name or ID)
+robota -r my-feature
+robota --resume
+
+# Fork from existing session (new ID, same context)
+robota -c --fork-session
+
+# Name a session
+robota --name "auth-refactor"
+```
+
+## TUI Commands
+
+```bash
+# Inside TUI:
+/resume          # Show session picker
+/rename my-task  # Rename current session
+```
+
+## Session Name
+
+Session name appears in three places: input box border, terminal title, status bar.
