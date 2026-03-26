@@ -228,17 +228,25 @@ export default function InputArea({
     { isActive: !!pendingPrompt },
   );
 
-  // Build session name divider line
-  const sessionNameDivider = sessionName
-    ? (() => {
-        const label = ` "${sessionName}" `;
-        const totalWidth = Math.max(1, terminalColumns - BORDER_HORIZONTAL);
-        const sideLen = Math.max(0, Math.floor((totalWidth - label.length) / 2));
-        const line = '─'.repeat(sideLen);
-        const rightLine = '─'.repeat(Math.max(0, totalWidth - sideLen - label.length));
-        return `${line}${label}${rightLine}`;
-      })()
-    : null;
+  const borderColor = isAborting
+    ? 'yellow'
+    : pendingPrompt
+      ? 'cyan'
+      : isDisabled
+        ? 'gray'
+        : 'green';
+  const innerWidth = Math.max(1, terminalColumns - BORDER_HORIZONTAL);
+
+  // Build top border with optional session name title
+  const topBorder = (() => {
+    if (sessionName) {
+      const label = ` "${sessionName}" `;
+      const leftLen = Math.max(0, Math.floor((innerWidth - label.length) / 2));
+      const rightLen = Math.max(0, innerWidth - leftLen - label.length);
+      return { left: '┌' + '─'.repeat(leftLen), label, right: '─'.repeat(rightLen) + '┐' };
+    }
+    return { left: '┌' + '─'.repeat(innerWidth), label: '', right: '┐' };
+  })();
 
   return (
     <Box flexDirection="column">
@@ -250,12 +258,16 @@ export default function InputArea({
           isSubcommandMode={isSubcommandMode}
         />
       )}
-      {sessionNameDivider && <Text dimColor>{sessionNameDivider}</Text>}
-      <Box
-        borderStyle="single"
-        borderColor={isAborting ? 'yellow' : pendingPrompt ? 'cyan' : isDisabled ? 'gray' : 'green'}
-        paddingLeft={1}
-      >
+      <Text color={borderColor}>
+        {topBorder.left}
+        {topBorder.label ? (
+          <Text backgroundColor={borderColor} color="white" bold>
+            {topBorder.label}
+          </Text>
+        ) : null}
+        {topBorder.right}
+      </Text>
+      <Box borderStyle="single" borderTop={false} borderColor={borderColor} paddingLeft={1}>
         {isAborting ? (
           <Text color="yellow"> Interrupting...</Text>
         ) : pendingPrompt ? (
