@@ -237,13 +237,13 @@ export default function InputArea({
         : 'green';
   const innerWidth = Math.max(1, terminalColumns - BORDER_HORIZONTAL);
 
-  // Build top border with optional session name title
+  // Build top border with optional session name title (right-aligned, 2 chars from edge)
   const topBorder = (() => {
     if (sessionName) {
       const label = ` "${sessionName}" `;
-      const leftLen = Math.max(0, Math.floor((innerWidth - label.length) / 2));
-      const rightLen = Math.max(0, innerWidth - leftLen - label.length);
-      return { left: '┌' + '─'.repeat(leftLen), label, right: '─'.repeat(rightLen) + '┐' };
+      const rightPad = 2;
+      const leftLen = Math.max(0, innerWidth - label.length - rightPad);
+      return { left: '┌' + '─'.repeat(leftLen), label, right: '─'.repeat(rightPad) + '┐' };
     }
     return { left: '┌' + '─'.repeat(innerWidth), label: '', right: '┐' };
   })();
