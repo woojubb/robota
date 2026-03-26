@@ -27,7 +27,13 @@ let skipped = 0;
 
 for (const file of files) {
   const filePath = join(sessionsDir, file);
-  const record = JSON.parse(readFileSync(filePath, 'utf8'));
+  let record;
+  try {
+    record = JSON.parse(readFileSync(filePath, 'utf8'));
+  } catch {
+    skipped++;
+    continue;
+  }
 
   if (record.history && record.history.length > 0) {
     skipped++;
