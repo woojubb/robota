@@ -14,6 +14,7 @@ interface IProps {
   isAborting?: boolean;
   pendingPrompt?: string | null;
   registry?: CommandRegistry;
+  sessionName?: string;
 }
 
 /** Parse input to determine autocomplete state */
@@ -120,6 +121,7 @@ export default function InputArea({
   isAborting,
   pendingPrompt,
   registry,
+  sessionName,
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
   const pasteStore = useRef<Map<number, string>>(new Map());
@@ -226,6 +228,18 @@ export default function InputArea({
     { isActive: !!pendingPrompt },
   );
 
+  // Build session name divider line
+  const sessionNameDivider = sessionName
+    ? (() => {
+        const label = ` "${sessionName}" `;
+        const totalWidth = Math.max(1, terminalColumns - BORDER_HORIZONTAL);
+        const sideLen = Math.max(0, Math.floor((totalWidth - label.length) / 2));
+        const line = '─'.repeat(sideLen);
+        const rightLine = '─'.repeat(Math.max(0, totalWidth - sideLen - label.length));
+        return `${line}${label}${rightLine}`;
+      })()
+    : null;
+
   return (
     <Box flexDirection="column">
       {showPopup && (
@@ -236,6 +250,7 @@ export default function InputArea({
           isSubcommandMode={isSubcommandMode}
         />
       )}
+      {sessionNameDivider && <Text dimColor>{sessionNameDivider}</Text>}
       <Box
         borderStyle="single"
         borderColor={isAborting ? 'yellow' : pendingPrompt ? 'cyan' : isDisabled ? 'gray' : 'green'}

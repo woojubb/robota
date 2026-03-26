@@ -341,6 +341,7 @@ function AppInner(
         isAborting={isAborting}
         pendingPrompt={pendingPrompt}
         registry={registry}
+        sessionName={sessionName}
       />
       {/* Permanent blank line below input — required for Korean IME stability. */}
       <Text> </Text>
