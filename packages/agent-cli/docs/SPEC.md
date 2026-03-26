@@ -46,12 +46,15 @@ bin.ts → cli.ts (arg parsing + provider creation)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
                     │   ├── InteractiveSession({ cwd, provider })
                     │   │   (from @robota-sdk/agent-sdk; config/context loaded internally)
+                    │   ├── TuiStateManager    (owned by agent-cli)
+                    │   │   holds history: IHistoryEntry[]  ← primary state for message list
+                    │   │   syncs from interactiveSession.getFullHistory() on each update
                     │   ├── CommandRegistry    (from @robota-sdk/agent-sdk)
                     │   │   ├── BuiltinCommandSource  (from @robota-sdk/agent-sdk)
                     │   │   ├── SkillCommandSource    (from @robota-sdk/agent-sdk)
                     │   │   └── PluginCommandSource   (from @robota-sdk/agent-sdk)
                     │   └── session.executeCommand()  (slash commands routed via SDK)
-                    ├── MessageList.tsx        (conversation list)
+                    ├── MessageList.tsx        (renders IHistoryEntry[]; EntryItem dispatches on category)
                     ├── InputArea.tsx          (bottom input area, slash detection)
                     ├── StatusBar.tsx          (status bar, shows "Thinking..." during run())
                     ├── PermissionPrompt.tsx   (arrow-key selection)
@@ -256,10 +259,11 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 `useInteractiveSession` is the single boundary between React and the SDK. It:
 
 1. Creates `InteractiveSession({ cwd, provider })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally.
-2. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`) and converts them to React state.
-3. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue` as stable callbacks to the TUI.
-4. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI.
-5. Manages the permission queue (serialises concurrent permission requests).
+2. Creates a `TuiStateManager` instance that holds `history: IHistoryEntry[]` as the primary state for the message list. On each execution update (when `thinking` transitions to `false`, or on `complete`/`interrupted`), the hook delegates to `TuiStateManager` to sync state from `interactiveSession.getFullHistory()`.
+3. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`) and converts them to React state.
+4. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue` as stable callbacks to the TUI.
+5. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI.
+6. Manages the permission queue (serialises concurrent permission requests).
 
 No other hook or component interacts with `InteractiveSession` directly.
 
@@ -435,11 +439,14 @@ src/
 └── ui/
     ├── App.tsx                      ← Thin JSX shell (~220 lines); no queue/abort/session logic
     ├── hooks/
-    │   ├── useInteractiveSession.ts ← ONLY React↔SDK bridge; converts InteractiveSession events
-    │   │                              to React state (messages, streamingText, activeTools, etc.)
+    │   ├── useInteractiveSession.ts ← ONLY React↔SDK bridge; delegates to TuiStateManager for
+    │   │                              history: IHistoryEntry[] state; converts InteractiveSession
+    │   │                              events to React state (streamingText, activeTools, etc.)
+    │   ├── TuiStateManager.ts       ← Holds history: IHistoryEntry[]; syncs from getFullHistory();
+    │   │                              manages windowing (MAX_RENDERED_MESSAGES) and local event entries
     │   └── usePluginCallbacks.ts    ← Plugin TUI callback wiring
     ├── render.tsx                   ← Ink render() invocation
-    ├── MessageList.tsx              ← Conversation message list (Robota: label)
+    ├── MessageList.tsx              ← Renders IHistoryEntry[] via EntryItem (dispatches on category)
     ├── InputArea.tsx                ← Bottom fixed input (CjkTextInput), slash detection
     ├── StatusBar.tsx                ← Mode, model, context %, message count, Thinking
     ├── PermissionPrompt.tsx         ← Allow/Deny arrow-key selection (useInput)
@@ -719,7 +726,7 @@ For implementation details of subagent execution (Agent tool, `context: fork` sk
 
 ### Message Windowing
 
-React state keeps only the most recent 100 messages (`MAX_RENDERED_MESSAGES`). Older messages are dropped from the render tree to prevent unbounded memory growth. Full conversation history is preserved in the session store on disk.
+`TuiStateManager` keeps only the most recent 100 entries (`MAX_RENDERED_MESSAGES`) in `history: IHistoryEntry[]`. Older entries are dropped from the render tree to prevent unbounded memory growth. Full conversation history is preserved in the session store on disk.
 
 ### Tool State Cleanup
 
@@ -731,20 +738,24 @@ Completed tool execution states are trimmed to the most recent 50 entries (`MAX_
 
 ## Message Architecture
 
-The CLI uses `TUniversalMessage` from `@robota-sdk/agent-core` as its sole message type (SSOT). There is no local `IChatMessage` type.
+The CLI uses `IHistoryEntry` (from `@robota-sdk/agent-core`, re-exported by `@robota-sdk/agent-sdk`) as the primary message type for the message list. `TUniversalMessage` is still used in lower-level contexts (session history access, type guards, provider calls). There is no local `IChatMessage` type.
 
 ### Type Unification
 
-- `TUniversalMessage` is the only message type used throughout the CLI
-- `msg.id` (UUID, auto-generated by message factories) is used as the React key for message list rendering
+- `IHistoryEntry[]` is the primary type held by `TuiStateManager` and passed to `MessageList`
+- `MessageList` renders entries via `EntryItem`, which dispatches on `entry.category`:
+  - `'chat'` entries: rendered as conversation messages (user, assistant, system, tool)
+  - `'event'` entries: rendered based on `entry.type` (e.g., `'tool-summary'` renders the tool call list, `'skill-invocation'` renders a system notice)
+- `entry.id` (UUID) is used as the React key for message list rendering
+- `TUniversalMessage` is still used where needed (type guards, provider API calls, `getMessages()` for backward compat)
 - `msg.state === 'interrupted'` shows an interrupted indicator in the UI
 
 ### Message State in useInteractiveSession
 
-- `messages: TUniversalMessage[]` React state is derived from `interactiveSession.getMessages()`.
-- After each execution (when `thinking` transitions to `false`), the hook syncs `messages` from `interactiveSession.getMessages()` — the session is the SSOT for all message content.
-- `addMessage` appends a local system message directly to React state (used for command output and error notices that are not part of the AI conversation).
-- After abort: interrupted messages are already committed to session history by `InteractiveSession`; the hook re-syncs from history — no separate streaming text ref is needed.
+- `history: IHistoryEntry[]` React state is managed by `TuiStateManager` and derived from `interactiveSession.getFullHistory()`.
+- After each execution (when `thinking` transitions to `false`), the hook delegates to `TuiStateManager` to sync `history` from `interactiveSession.getFullHistory()` — the session is the SSOT for all history content.
+- `addMessage` appends a local system message directly to React state (used for command output and error notices that are not part of the AI conversation). These are wrapped as `IHistoryEntry` with `category: 'event'` before insertion.
+- After abort: interrupted messages are already committed to session history by `InteractiveSession`; the hook re-syncs from full history — no separate streaming text ref is needed.
 
 ### Tool Message Type Guards
 
