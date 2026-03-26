@@ -60,9 +60,13 @@ const history: IHistoryEntry[] = session.getFullHistory();
 
 Calling `session.getCommands()` returns the merged list for autocomplete.
 
-### SystemCommandExecutor
+### System Commands
 
-`SystemCommandExecutor` is embedded inside `InteractiveSession`. Before each submitted prompt, it checks whether the input matches a built-in system command. If it does, the command is executed directly (e.g., clearing history, switching model, running compaction) and no LLM call is made. Unrecognized inputs are forwarded to the session's `run()`.
+`SystemCommandExecutor` is embedded inside `InteractiveSession`. Consumers access commands through `session.executeCommand(name, args)` and `session.listCommands()` — the executor is not independently exported.
+
+Before each submitted prompt, the session checks whether the input matches a built-in system command. If it does, the command is executed directly (e.g., clearing history, switching model, running compaction) and no LLM call is made. Unrecognized inputs are forwarded to the session's `run()`.
+
+Transport adapters (HTTP, WS, MCP) use `session.listCommands()` to discover available commands and `session.executeCommand()` to execute them.
 
 ## createQuery() — Convenience API
 

@@ -186,6 +186,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Events**: `text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `error`, `context_update`, `interrupted`
 - **submit() signature**: `submit(input, displayInput?, rawInput?)` — `displayInput` overrides what appears in the client's message list; `rawInput` is passed to `Session.run()` for hook matching
 - **executeCommand()**: `executeCommand(name, args)` — executes a named system command via the embedded `SystemCommandExecutor`. Replaces direct `SystemCommandExecutor` usage by consumers.
+- **listCommands()**: `listCommands()` — returns `Array<{ name, description }>` of all registered system commands. Used by transport adapters (e.g., MCP) to expose commands as tools.
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
@@ -275,6 +276,9 @@ const result = await session.executeCommand('context', '');
 // result.message — human-readable string
 // result.success — boolean
 // result.data   — command-specific structured data
+
+// List all registered system commands (for transport adapters)
+const commands = session.listCommands(); // Array<{ name, description }>
 
 // Abort current execution and clear queue
 session.abort();

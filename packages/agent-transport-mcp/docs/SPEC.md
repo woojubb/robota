@@ -7,7 +7,7 @@ MCP transport adapter for exposing InteractiveSession as a Model Context Protoco
 ## Boundaries
 
 - Does NOT own InteractiveSession — imported from `@robota-sdk/agent-sdk`
-- Does NOT own SystemCommandExecutor — imported from `@robota-sdk/agent-sdk`
+- Does NOT own system commands — uses `session.executeCommand()` and `session.listCommands()` from InteractiveSession
 - Does NOT own MCP protocol — uses `@modelcontextprotocol/sdk`
 - OWNS: Tool registration mapping from InteractiveSession API to MCP tools
 
@@ -18,8 +18,8 @@ MCP Client (Claude, etc.)
   ↓ MCP protocol (stdio / HTTP)
 McpServer (agent-transport-mcp)
   ├── tool: submit        → session.submit(prompt) → wait for complete → text response
-  ├── tool: command_clear → commandExecutor.execute('clear') → text response
-  ├── tool: command_mode  → commandExecutor.execute('mode') → text response
+  ├── tool: command_clear → session.executeCommand('clear') → text response
+  ├── tool: command_mode  → session.executeCommand('mode') → text response
   └── ... (one tool per system command)
   ↓
 InteractiveSession (agent-sdk)
@@ -40,7 +40,6 @@ const mcpServer = createAgentMcpServer({
   name: 'robota-agent',
   version: '1.0.0',
   session: interactiveSession,
-  commandExecutor,
 });
 
 // Connect via stdio (subprocess)
@@ -63,6 +62,6 @@ await mcpServer.connect(new StdioServerTransport());
 
 ## Dependencies
 
-- `@robota-sdk/agent-sdk` (InteractiveSession, SystemCommandExecutor)
+- `@robota-sdk/agent-sdk` (InteractiveSession)
 - `@modelcontextprotocol/sdk` (MCP server implementation)
 - `zod` (input schema definitions)
