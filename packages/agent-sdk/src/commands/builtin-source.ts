@@ -54,6 +54,8 @@ function createBuiltinCommands(): ICommand[] {
     { name: 'cost', description: 'Show session info', source: 'builtin' },
     { name: 'context', description: 'Context window info', source: 'builtin' },
     { name: 'permissions', description: 'Permission rules', source: 'builtin' },
+    { name: 'resume', description: 'Resume a previous session', source: 'builtin' },
+    { name: 'rename', description: 'Rename the current session', source: 'builtin' },
     { name: 'plugin', description: 'Manage plugins', source: 'builtin' },
     { name: 'reload-plugins', description: 'Reload all plugin resources', source: 'builtin' },
     { name: 'reset', description: 'Delete settings and exit', source: 'builtin' },

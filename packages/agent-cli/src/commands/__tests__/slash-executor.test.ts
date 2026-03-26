@@ -305,6 +305,8 @@ describe('Command routing completeness', () => {
       'cost',
       'permissions',
       'context',
+      'resume',
+      'rename',
       'reset',
       'exit',
       'plugin',
