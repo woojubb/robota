@@ -69,6 +69,10 @@ Writes newline-delimited JSON events to stdout during execution:
 { "type": "result", "result": "<full response>", "session_id": "<uuid>", "subtype": "success" }
 ```
 
+## Claude Code Field Name Compatibility
+
+JSON and stream-json output formats use field names that match Claude Code's `--output-format json` and `--output-format stream-json` (e.g., `type: 'result'`, `session_id`, `subtype`, `content_block_delta`). This is a **reference-only alignment** for user convenience — it allows reuse of `jq` pipelines and parsing scripts. Robota does NOT depend on Claude Code and will NOT track Claude Code's field name changes. The output format is independently owned and versioned by this package.
+
 ## Exit Codes
 
 | Code | Meaning                  |
