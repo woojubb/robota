@@ -193,6 +193,10 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       }
     };
     const onComplete = (result: IExecutionResult): void => {
+      // Clear streaming display — tool summary is now in messages
+      streamBuf = '';
+      setStreamingText('');
+      setActiveTools([]);
       setContextState({
         percentage: result.contextState.usedPercentage,
         usedTokens: result.contextState.usedTokens,
@@ -200,13 +204,16 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
       });
     };
     const onInterrupted = (): void => {
-      // Clear streaming text on abort — prevent duplicate display
-      // Tool list is preserved so user can see what was running
+      // Clear streaming display — tool summary is now in messages
       streamBuf = '';
       setStreamingText('');
+      setActiveTools([]);
     };
     const onError = (): void => {
-      /* error messages managed by InteractiveSession */
+      // Clear streaming display — tool summary is now in messages
+      streamBuf = '';
+      setStreamingText('');
+      setActiveTools([]);
     };
 
     interactiveSession.on('text_delta', onTextDelta);

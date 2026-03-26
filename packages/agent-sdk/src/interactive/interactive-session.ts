@@ -22,6 +22,7 @@ import {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
+  createToolMessage,
 } from '@robota-sdk/agent-core';
 import { SystemCommandExecutor, createSystemCommands } from '../commands/system-command.js';
 import { BundlePluginLoader } from '../plugins/index.js';
@@ -270,6 +271,7 @@ export class InteractiveSession {
     try {
       const response = await this.getSessionOrThrow().run(input, rawInput);
       this.flushStreaming();
+      this.pushToolSummaryMessage();
       this.clearStreaming();
 
       const result = this.buildResult(response || '(empty response)', historyBefore);
@@ -278,16 +280,19 @@ export class InteractiveSession {
       this.emit('context_update', this.getContextState());
     } catch (err) {
       this.flushStreaming();
-      this.clearStreaming();
 
       if (isAbortError(err)) {
         const result = this.buildInterruptedResult(historyBefore);
+        this.pushToolSummaryMessage();
+        this.clearStreaming();
         if (result.response) {
           this.messages.push(createAssistantMessage(result.response));
         }
         this.messages.push(createSystemMessage('Interrupted by user.'));
         this.emit('interrupted', result);
       } else {
+        this.pushToolSummaryMessage();
+        this.clearStreaming();
         const errMsg = err instanceof Error ? err.message : String(err);
         this.messages.push(createSystemMessage(`Error: ${errMsg}`));
         this.emit('error', err instanceof Error ? err : new Error(errMsg));
@@ -350,6 +355,31 @@ export class InteractiveSession {
   }
 
   // ── Helpers ───────────────────────────────────────────────────
+
+  /** Push tool execution summary into messages (before Robota response).
+   *  Moves tool info from activeTools (real-time display) to messages (permanent display).
+   *  After this, activeTools will be cleared by clearStreaming(). */
+  private pushToolSummaryMessage(): void {
+    if (this.activeTools.length === 0) return;
+    const summary = this.activeTools
+      .map((t) => {
+        const status = t.isRunning
+          ? '⟳'
+          : t.result === 'success'
+            ? '✓'
+            : t.result === 'error'
+              ? '✗'
+              : '⊘';
+        return `${status} ${t.toolName}${t.firstArg ? `(${t.firstArg})` : ''}`;
+      })
+      .join('\n');
+    this.messages.push(
+      createToolMessage(summary, {
+        toolCallId: 'tool-summary',
+        name: `${this.activeTools.length} tools`,
+      }),
+    );
+  }
 
   private clearStreaming(): void {
     this.streamingText = '';
