@@ -55,6 +55,23 @@ The `sessionFactory` callback receives the Hono request context and returns an `
 | `interrupted` | `IExecutionResult`        | Execution was aborted   |
 | `error`       | `{ message: string }`     | Execution error         |
 
+## ITransportAdapter
+
+The HTTP transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`:
+
+```typescript
+import { createHttpTransport } from '@robota-sdk/agent-transport-http';
+import type { ITransportAdapter } from '@robota-sdk/agent-sdk';
+
+const transport: ITransportAdapter = createHttpTransport();
+
+transport.attach(interactiveSession);
+await transport.start();
+
+// Access the Hono app for serving
+const app = transport.getApp();
+```
+
 ## Dependencies
 
 - `@robota-sdk/agent-sdk` — `InteractiveSession`

@@ -1,5 +1,26 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.47
+
+### Minor Changes
+
+- feat: ITransportAdapter unified interface + headless transport + CLI adapter pattern
+  - ITransportAdapter interface in agent-sdk (name, attach, start, stop)
+  - InteractiveSession.attachTransport(transport) method
+  - createHttpTransport, createWsTransport, createMcpTransport, createHeadlessTransport factories
+  - CLI print mode uses adapter pattern: session.attachTransport(transport)
+  - agent-transport-headless: text/json/stream-json output, stdin pipe, exit codes
+  - --output-format, --system-prompt, --append-system-prompt CLI flags
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-sdk@3.0.0-beta.47
+  - @robota-sdk/agent-transport-headless@3.0.0-beta.47
+  - @robota-sdk/agent-core@3.0.0-beta.47
+  - @robota-sdk/agent-sessions@3.0.0-beta.47
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.47
+
 ## 3.0.0-beta.46
 
 ### Minor Changes

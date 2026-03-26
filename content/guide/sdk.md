@@ -269,6 +269,8 @@ The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_
 
 Each transport wraps an `InteractiveSession` instance and translates protocol messages into `submit()` / `abort()` calls, then forwards emitted events back to the client. No separate gateway interface exists — `InteractiveSession` is the gateway.
 
+All transport adapters implement the `ITransportAdapter` interface (exported from `@robota-sdk/agent-sdk`), which defines a common lifecycle: `attach(session)`, `start()`, and `stop()`. Each package provides a factory function (e.g., `createHttpTransport()`, `createWsTransport()`, `createMcpTransport()`) that returns an `ITransportAdapter`.
+
 `agent-remote-client` is a companion package that provides an HTTP client for calling an agent exposed via `agent-transport-http`. It has no dependency on `agent-sdk`.
 
 ## Assembly vs Direct Usage

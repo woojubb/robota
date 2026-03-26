@@ -80,8 +80,12 @@ For each modified package:
 
 ### 7. Documentation Site Deploy
 
+**GATE: Steps 3 and 6 (README + content/) must be verified complete before deploying.** If any SPEC was changed in this cycle, the corresponding README.md and content/guide/\*.md MUST already be updated. If not, go back and update them first. Do NOT deploy stale documentation.
+
+- [ ] Verify: every modified SPEC.md has a matching README.md update
+- [ ] Verify: every user-facing behavior change has a matching content/guide/\*.md update
 - [ ] `cd apps/docs && pnpm build` — must succeed
-- [ ] Deploy to gh-pages (clone → copy dist → push)
+- [ ] Deploy to gh-pages
 - [ ] Cleanup temp clone
 
 ## Abbreviated Form

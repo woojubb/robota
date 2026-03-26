@@ -81,6 +81,24 @@ The `sessionFactory` callback receives the HTTP request context and returns an I
 | interrupted | `IExecutionResult`        | Execution was aborted   |
 | error       | `{ message: string }`     | Execution error         |
 
+## ITransportAdapter
+
+This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`.
+
+### `createHttpTransport(options?)`
+
+Factory that returns an `ITransportAdapter` with `name: 'http'`.
+
+**Extra method:**
+
+- `getApp(): Hono` — Returns the configured Hono app instance (available after `start()`).
+
+**Lifecycle:**
+
+1. `attach(session)` — Stores the `InteractiveSession` reference
+2. `start()` — Creates the Hono app with all route handlers bound to the attached session
+3. `stop()` — Clears the Hono app and releases resources
+
 ## Dependencies
 
 - `@robota-sdk/agent-sdk` (InteractiveSession)

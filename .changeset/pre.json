@@ -54,11 +54,13 @@
     "@robota-sdk/dag-projection": "3.0.0-beta.43",
     "@robota-sdk/dag-runtime": "3.0.0-beta.43",
     "@robota-sdk/dag-scheduler": "3.0.0-beta.43",
-    "@robota-sdk/dag-worker": "3.0.0-beta.43"
+    "@robota-sdk/dag-worker": "3.0.0-beta.43",
+    "@robota-sdk/agent-transport-headless": "3.0.0-beta.46"
   },
   "changesets": [
     "session-continue-resume",
     "transport-command-consolidation",
+    "transport-unified-interface",
     "universal-history-beta44"
   ]
 }

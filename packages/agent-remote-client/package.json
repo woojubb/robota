@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-remote-client",
-  "version": "3.0.0-beta.46",
+  "version": "3.0.0-beta.47",
   "description": "Remote client for calling a Robota agent over HTTP",
   "type": "module",
   "main": "dist/node/index.js",
