@@ -8,7 +8,7 @@
  * and reads state for rendering.
  */
 
-import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
 
 /** Max messages kept in rendering state */
@@ -22,7 +22,7 @@ export interface IContextState {
 
 export class TuiStateManager {
   // ── Rendering state ───────────────────────────────────────────
-  messages: TUniversalMessage[] = [];
+  history: IHistoryEntry[] = [];
   streamingText = '';
   activeTools: IToolState[] = [];
   isThinking = false;
@@ -105,20 +105,18 @@ export class TuiStateManager {
 
   // ── State updates from external sources ───────────────────────
 
-  /** Sync messages from InteractiveSession when execution ends */
-  syncMessages(sessionMessages: TUniversalMessage[]): void {
-    if (sessionMessages.length === 0) return;
-    this.messages =
-      sessionMessages.length > MAX_RENDERED_MESSAGES
-        ? sessionMessages.slice(-MAX_RENDERED_MESSAGES)
-        : [...sessionMessages];
+  /** Sync history from InteractiveSession */
+  syncHistory(entries: IHistoryEntry[]): void {
+    if (entries.length === 0) return;
+    this.history =
+      entries.length > MAX_RENDERED_MESSAGES ? entries.slice(-MAX_RENDERED_MESSAGES) : [...entries];
     this.notify();
   }
 
-  /** Add a single message (e.g., system command result) */
-  addMessage(msg: TUniversalMessage): void {
-    const updated = [...this.messages, msg];
-    this.messages =
+  /** Add a single history entry */
+  addEntry(entry: IHistoryEntry): void {
+    const updated = [...this.history, entry];
+    this.history =
       updated.length > MAX_RENDERED_MESSAGES ? updated.slice(-MAX_RENDERED_MESSAGES) : updated;
     this.notify();
   }
