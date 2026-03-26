@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { createAgentRoutes } from '../routes.js';
-import type { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 
 function createMockSession(overrides?: Record<string, unknown>) {
   return {
@@ -23,32 +23,24 @@ function createMockSession(overrides?: Record<string, unknown>) {
     }),
     isExecuting: vi.fn().mockReturnValue(false),
     getPendingPrompt: vi.fn().mockReturnValue(null),
+    executeCommand: vi.fn().mockResolvedValue({
+      message: 'Conversation cleared.',
+      success: true,
+    }),
+    listCommands: vi.fn().mockReturnValue([]),
     on: vi.fn(),
     off: vi.fn(),
     ...overrides,
   } as unknown as InteractiveSession;
 }
 
-function createMockCommandExecutor() {
-  return {
-    execute: vi.fn().mockResolvedValue({
-      message: 'Conversation cleared.',
-      success: true,
-    }),
-    listCommands: vi.fn().mockReturnValue([]),
-    hasCommand: vi.fn().mockReturnValue(true),
-  } as unknown as SystemCommandExecutor;
-}
-
 describe('HTTP Transport Routes', () => {
   function createApp(session?: InteractiveSession) {
     const mockSession = session ?? createMockSession();
-    const commandExecutor = createMockCommandExecutor();
     const app = createAgentRoutes({
       sessionFactory: () => mockSession,
-      commandExecutor,
     });
-    return { app, mockSession, commandExecutor };
+    return { app, mockSession };
   }
 
   // ── POST /abort ───────────────────────────────────────────────
@@ -124,8 +116,8 @@ describe('HTTP Transport Routes', () => {
 
   // ── POST /command ─────────────────────────────────────────────
 
-  it('POST /command executes system command', async () => {
-    const { app, commandExecutor } = createApp();
+  it('POST /command executes system command via session.executeCommand()', async () => {
+    const { app, mockSession } = createApp();
     const res = await app.request('/command', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -135,7 +127,7 @@ describe('HTTP Transport Routes', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.message).toBe('Conversation cleared.');
-    expect(commandExecutor.execute).toHaveBeenCalled();
+    expect(mockSession.executeCommand).toHaveBeenCalledWith('clear', '');
   });
 
   it('POST /command returns 400 without name', async () => {
@@ -149,17 +141,10 @@ describe('HTTP Transport Routes', () => {
   });
 
   it('POST /command returns 404 for unknown command', async () => {
-    const mockSession = createMockSession();
-    const commandExecutor = {
-      execute: vi.fn().mockResolvedValue(null),
-      listCommands: vi.fn().mockReturnValue([]),
-      hasCommand: vi.fn().mockReturnValue(false),
-    } as unknown as SystemCommandExecutor;
-
-    const app = createAgentRoutes({
-      sessionFactory: () => mockSession,
-      commandExecutor,
+    const mockSession = createMockSession({
+      executeCommand: vi.fn().mockResolvedValue(null),
     });
+    const { app } = createApp(mockSession);
 
     const res = await app.request('/command', {
       method: 'POST',
