@@ -90,6 +90,19 @@ The StatusBar shows real-time session information:
 | Session  | `session.getName()`                        | Session name (shown only when a name is set)          |
 | Thinking | isThinking state                           | Shown during `session.run()` execution                |
 
+### Session Name Display
+
+Session name appears in three locations when set (via `--name` or `/rename`):
+
+1. **Input box top border** — right-aligned title embedded in the border with background color matching the border and black bold text:
+   ```
+   ┌──────────────────────────────────────── "my-session" ──┐
+   │ > Type a message                                       │
+   └────────────────────────────────────────────────────────┘
+   ```
+2. **Terminal title** — ANSI escape `\x1b]0;Robota — <name>\x07` updates the terminal tab/window title
+3. **StatusBar** — displayed in magenta alongside mode, model, and context info
+
 ### Context Color Coding
 
 | Range  | Color  | Meaning                         |
