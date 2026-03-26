@@ -89,6 +89,7 @@ function initializeSession(
     permissionHandler,
     sessionStore: props.sessionStore,
     resumeSessionId: props.resumeSessionId,
+    forkSession: props.forkSession,
     sessionName: props.sessionName,
   });
 

@@ -64,6 +64,7 @@ interface IInteractiveSessionStandardOptions {
   sessionStore?: SessionStore;
   sessionName?: string;
   resumeSessionId?: string;
+  forkSession?: boolean;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -77,6 +78,7 @@ interface IInteractiveSessionInjectedOptions {
   sessionStore?: SessionStore;
   sessionName?: string;
   resumeSessionId?: string;
+  forkSession?: boolean;
 }
 
 export type IInteractiveSessionOptions =
@@ -111,6 +113,11 @@ export class InteractiveSession {
   private sessionName?: string;
   private cwd?: string;
 
+  // Session restore state
+  private pendingRestoreMessages: unknown[] | null = null;
+  private resumeSessionId?: string;
+  private forkSession: boolean;
+
   constructor(options: IInteractiveSessionOptions) {
     this.commandExecutor = new SystemCommandExecutor(createSystemCommands());
 
@@ -125,6 +132,8 @@ export class InteractiveSession {
     this.sessionStore = options.sessionStore;
     this.sessionName = options.sessionName;
     this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
+    this.resumeSessionId = options.resumeSessionId;
+    this.forkSession = options.forkSession ?? false;
 
     // Restore session if resumeSessionId provided
     if (options.resumeSessionId && this.sessionStore) {
@@ -133,13 +142,18 @@ export class InteractiveSession {
         this.history = (record.history ?? []) as IHistoryEntry[];
         this.sessionName = record.name;
 
-        // Inject messages into Session's Robota for AI context restoration
-        if (this.session && record.messages) {
-          for (const msg of record.messages) {
-            const m = msg as { role?: string; content?: string };
-            if (m.role && m.content) {
-              this.session.injectMessage(m.role as 'user' | 'assistant' | 'system', m.content);
+        if (record.messages) {
+          if (this.session) {
+            // Injected-session path: session is already available
+            for (const msg of record.messages) {
+              const m = msg as { role?: string; content?: string };
+              if (m.role && m.content) {
+                this.session.injectMessage(m.role as 'user' | 'assistant' | 'system', m.content);
+              }
             }
+          } else {
+            // Standard path: session not yet created, defer injection
+            this.pendingRestoreMessages = record.messages;
           }
         }
       }
@@ -176,6 +190,9 @@ export class InteractiveSession {
 
     const paths = projectPaths(cwd);
 
+    // For non-fork resume, reuse the original session ID so saves update the same file
+    const sessionId = this.resumeSessionId && !this.forkSession ? this.resumeSessionId : undefined;
+
     this.session = createSession({
       config: mergedConfig,
       context,
@@ -188,7 +205,21 @@ export class InteractiveSession {
       provider: options.provider,
       onTextDelta: (delta: string) => this.handleTextDelta(delta),
       onToolExecution: (event) => this.handleToolExecution(event),
+      sessionId,
     });
+
+    // Inject deferred restore messages now that session is created
+    if (this.pendingRestoreMessages) {
+      for (const msg of this.pendingRestoreMessages) {
+        if (msg && typeof msg === 'object' && 'role' in msg && 'content' in msg) {
+          this.session.injectMessage(
+            (msg as { role: string }).role as 'user' | 'assistant' | 'system',
+            (msg as { content: string }).content,
+          );
+        }
+      }
+      this.pendingRestoreMessages = null;
+    }
 
     this.initialized = true;
   }
