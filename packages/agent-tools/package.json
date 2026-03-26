@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-tools",
-  "version": "3.0.0-beta.12",
+  "version": "3.0.0-beta.52",
   "description": "Tool registry and implementations for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
@@ -17,6 +17,14 @@
         "require": "./dist/node/index.cjs"
       }
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git"
+  },
+  "homepage": "https://robota.io/",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
   },
   "files": [
     "dist"

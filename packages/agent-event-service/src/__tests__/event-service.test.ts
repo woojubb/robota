@@ -5,7 +5,7 @@ import type {
   IEventService,
   IEventServiceOwnerBinding,
   TEventListener,
-} from '../interfaces';
+} from '@robota-sdk/agent-core';
 import {
   bindEventServiceOwner,
   bindWithOwnerPath,
@@ -13,7 +13,7 @@ import {
   DefaultEventService,
   ObservableEventService,
   StructuredEventService,
-} from '../event-service';
+} from '@robota-sdk/agent-core';
 // Test constants (mirrors EXECUTION_EVENTS and EXECUTION_EVENT_PREFIX from @robota-sdk/agent-core)
 const EXECUTION_EVENT_PREFIX = 'execution' as const;
 const EXECUTION_EVENTS = {

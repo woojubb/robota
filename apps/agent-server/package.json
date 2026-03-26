@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-server",
-  "version": "3.0.0",
+  "version": "3.0.1-beta.8",
   "description": "Agent Server - AI provider proxy and Playground WebSocket server",
   "private": true,
   "keywords": [
@@ -37,7 +37,6 @@
     "@robota-sdk/agent-provider-bytedance": "workspace:*",
     "@robota-sdk/agent-provider-google": "workspace:*",
     "@robota-sdk/agent-provider-openai": "workspace:*",
-    "@robota-sdk/agent-remote-server-core": "workspace:*",
     "@types/ws": "^8.18.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

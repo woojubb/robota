@@ -1,21 +1,5 @@
-/** A slash command entry */
-export interface ISlashCommand {
-  /** Command name without slash (e.g., "mode") */
-  name: string;
-  /** Short description shown in autocomplete */
-  description: string;
-  /** Source identifier (e.g., "builtin", "skill") */
-  source: string;
-  /** Subcommands for hierarchical menus */
-  subcommands?: ISlashCommand[];
-  /** Execute the command. Args is everything after the command name. */
-  execute?: (args: string) => void | Promise<void>;
-  /** Full SKILL.md content (only for skill commands) */
-  skillContent?: string;
-}
+// Re-export from SDK — command types are now owned by agent-sdk
+export type { ICommand, ICommandSource } from '@robota-sdk/agent-sdk';
 
-/** A source that provides slash commands */
-export interface ICommandSource {
-  name: string;
-  getCommands(): ISlashCommand[];
-}
+// CLI alias — slash prefix behavior is owned by the CLI layer
+export type { ICommand as ISlashCommand } from '@robota-sdk/agent-sdk';

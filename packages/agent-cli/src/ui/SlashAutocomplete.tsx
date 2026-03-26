@@ -22,7 +22,6 @@ function CommandRow(props: {
   showSlash: boolean;
 }): React.ReactElement {
   const { cmd, isSelected, showSlash } = props;
-  const prefix = showSlash ? '/' : '';
   const indicator = isSelected ? '\u25b8 ' : '  ';
   const nameColor = isSelected ? 'cyan' : undefined;
   const dimmed = !isSelected;
@@ -31,12 +30,7 @@ function CommandRow(props: {
     <Box>
       <Text color={nameColor} dimColor={dimmed}>
         {indicator}
-        {prefix}
-        {cmd.name}
-      </Text>
-      <Text dimColor={dimmed}>{'  '}</Text>
-      <Text color={nameColor} dimColor={dimmed}>
-        {cmd.description}
+        {showSlash ? `/${cmd.name}  ${cmd.description}` : cmd.description}
       </Text>
     </Box>
   );

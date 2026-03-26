@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
+import { formatTokenCount } from '@robota-sdk/agent-core';
 
 /** Threshold boundaries for context percentage color coding */
 const CONTEXT_YELLOW_THRESHOLD = 70;
@@ -15,6 +16,7 @@ interface IProps {
   contextPercentage: number;
   contextUsedTokens: number;
   contextMaxTokens: number;
+  sessionName?: string;
 }
 
 /** Return the color for the context percentage indicator */
@@ -33,6 +35,7 @@ export default function StatusBar({
   contextPercentage,
   contextUsedTokens,
   contextMaxTokens,
+  sessionName,
 }: IProps): React.ReactElement {
   const contextColor = getContextColor(contextPercentage);
 
@@ -49,12 +52,18 @@ export default function StatusBar({
           Mode:
         </Text>{' '}
         <Text>{permissionMode}</Text>
+        {sessionName && (
+          <>
+            {'  |  '}
+            <Text color="magenta">{sessionName}</Text>
+          </>
+        )}
         {'  |  '}
         <Text dimColor>{modelName}</Text>
         {'  |  '}
         <Text color={contextColor}>
-          Context: {Math.round(contextPercentage)}% ({(contextUsedTokens / 1000).toFixed(1)}k/
-          {(contextMaxTokens / 1000).toFixed(0)}k)
+          Context: {Math.round(contextPercentage)}% ({formatTokenCount(contextUsedTokens)}/
+          {formatTokenCount(contextMaxTokens)})
         </Text>
       </Text>
       <Text>

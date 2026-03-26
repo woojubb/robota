@@ -19,6 +19,10 @@ export interface ISystemPromptParams {
   projectInfo: IProjectInfo;
   /** Current working directory */
   cwd?: string;
+  /** Response language code (e.g., "ko", "en"). If set, AI must respond in this language. */
+  language?: string;
+  /** Discovered skills to expose in the system prompt */
+  skills?: Array<{ name: string; description: string; disableModelInvocation?: boolean }>;
 }
 
 const TRUST_LEVEL_DESCRIPTIONS: Record<TTrustLevel, string> = {
@@ -55,20 +59,40 @@ function buildToolsSection(descriptions: string[]): string {
 /**
  * Assemble the full system prompt string from the provided parameters.
  */
+function buildSkillsSection(
+  skills: Array<{ name: string; description: string; disableModelInvocation?: boolean }>,
+): string {
+  const invocable = skills.filter((s) => s.disableModelInvocation !== true);
+  if (invocable.length === 0) {
+    return '';
+  }
+  const lines = [
+    '## Skills',
+    'The following skills are available:',
+    '',
+    ...invocable.map((s) => `- ${s.name}: ${s.description}`),
+  ];
+  return lines.join('\n');
+}
+
 export function buildSystemPrompt(params: ISystemPromptParams): string {
-  const { agentsMd, claudeMd, toolDescriptions, trustLevel, projectInfo, cwd } = params;
+  const { agentsMd, claudeMd, toolDescriptions, trustLevel, projectInfo, cwd, language } = params;
 
   const sections: string[] = [];
 
   // Base role
-  sections.push(
-    [
-      '## Role',
-      'You are an AI coding assistant with access to tools that let you read and modify code.',
-      'You help developers understand, write, and improve their codebase.',
-      'Always be precise, follow existing code conventions, and prefer minimal changes.',
-    ].join('\n'),
-  );
+  const roleLines = [
+    '## Role',
+    'You are an AI coding assistant with access to tools that let you read and modify code.',
+    'You help developers understand, write, and improve their codebase.',
+    'Always be precise, follow existing code conventions, and prefer minimal changes.',
+  ];
+  if (language) {
+    roleLines.push(
+      `Always respond in ${language}. Use ${language} for all explanations and communications.`,
+    );
+  }
+  sections.push(roleLines.join('\n'));
 
   // Working directory
   if (cwd) {
@@ -110,6 +134,14 @@ export function buildSystemPrompt(params: ISystemPromptParams): string {
   const toolsSection = buildToolsSection(toolDescriptions);
   if (toolsSection.length > 0) {
     sections.push(toolsSection);
+  }
+
+  // Skills list
+  if (params.skills !== undefined && params.skills.length > 0) {
+    const skillsSection = buildSkillsSection(params.skills);
+    if (skillsSection.length > 0) {
+      sections.push(skillsSection);
+    }
   }
 
   return sections.join('\n\n');

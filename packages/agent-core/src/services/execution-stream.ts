@@ -65,10 +65,10 @@ export async function* executeStream(
   eventEmitter.prepareOwnerPathBases(streamingConversationId);
 
   try {
-    const conversationSession = conversationHistory.getConversationSession(context.conversationId);
+    const conversationStore = conversationHistory.getConversationStore(context.conversationId);
 
     if (input) {
-      conversationSession.addUserMessage(input, { executionId });
+      conversationStore.addUserMessage(input, { executionId });
     }
 
     await callPluginHook(
@@ -97,7 +97,7 @@ export async function* executeStream(
 
     logger.debug('ExecutionService calling provider.chatStream');
 
-    const conversationMessages = conversationSession.getMessages();
+    const conversationMessages = conversationStore.getMessages();
 
     const configToolsLength = Array.isArray(config.tools) ? config.tools.length : undefined;
     logger.debug('[EXECUTION-SERVICE] config.tools:', {
@@ -216,14 +216,14 @@ export async function* executeStream(
     if (typeof fullResponse !== 'string') {
       throw new Error('[EXECUTION] Streaming response content is required');
     }
-    conversationSession.addAssistantMessage(fullResponse, toolCalls, {
+    conversationStore.addAssistantMessage(fullResponse, toolCalls, {
       executionId,
     });
 
     if (toolCalls.length > 0) {
       yield* executeStreamToolCalls(
         toolCalls,
-        conversationSession,
+        conversationStore,
         streamingConversationId,
         executionId,
         toolExecutionService,
@@ -272,7 +272,7 @@ export async function* executeStream(
  */
 async function* executeStreamToolCalls(
   toolCalls: IToolCall[],
-  conversationSession: {
+  conversationStore: {
     addToolMessageWithId: (
       content: string,
       toolCallId: string,
@@ -369,12 +369,7 @@ async function* executeStreamToolCalls(
       );
     }
 
-    conversationSession.addToolMessageWithId(
-      content,
-      toolCall.id,
-      toolCall.function.name,
-      metadata,
-    );
+    conversationStore.addToolMessageWithId(content, toolCall.id, toolCall.function.name, metadata);
   }
 
   const streamingToolCallIds = toolCalls.map((toolCall) => {

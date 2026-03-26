@@ -94,4 +94,64 @@ describe('buildSystemPrompt', () => {
     expect(claudeIdx).toBeGreaterThanOrEqual(0);
     expect(agentsIdx).toBeLessThan(claudeIdx);
   });
+
+  describe('System prompt skill injection', () => {
+    it('should include skill list in system prompt', () => {
+      const result = buildSystemPrompt({
+        ...BASE_PARAMS,
+        skills: [
+          { name: 'my-skill', description: 'Does useful things' },
+          { name: 'hidden', description: 'Secret', disableModelInvocation: true },
+        ],
+      });
+
+      expect(result).toContain('The following skills are available');
+      expect(result).toContain('my-skill: Does useful things');
+      expect(result).not.toContain('hidden');
+    });
+
+    it('should not include skills section when no skills provided', () => {
+      const result = buildSystemPrompt({ ...BASE_PARAMS });
+      expect(result).not.toContain('The following skills are available');
+    });
+
+    it('should not include skills section when skills array is empty', () => {
+      const result = buildSystemPrompt({ ...BASE_PARAMS, skills: [] });
+      expect(result).not.toContain('The following skills are available');
+    });
+
+    it('should not include skills section when all skills are model-invocation disabled', () => {
+      const result = buildSystemPrompt({
+        ...BASE_PARAMS,
+        skills: [{ name: 'hidden', description: 'Secret', disableModelInvocation: true }],
+      });
+      expect(result).not.toContain('The following skills are available');
+    });
+
+    it('should include multiple invocable skills', () => {
+      const result = buildSystemPrompt({
+        ...BASE_PARAMS,
+        skills: [
+          { name: 'skill-a', description: 'First skill' },
+          { name: 'skill-b', description: 'Second skill' },
+        ],
+      });
+
+      expect(result).toContain('- skill-a: First skill');
+      expect(result).toContain('- skill-b: Second skill');
+    });
+
+    it('should place skills section after tools section', () => {
+      const result = buildSystemPrompt({
+        ...BASE_PARAMS,
+        toolDescriptions: ['Bash: execute commands'],
+        skills: [{ name: 'my-skill', description: 'Does things' }],
+      });
+
+      const toolsIdx = result.indexOf('## Available Tools');
+      const skillsIdx = result.indexOf('The following skills are available');
+      expect(toolsIdx).toBeGreaterThanOrEqual(0);
+      expect(skillsIdx).toBeGreaterThan(toolsIdx);
+    });
+  });
 });

@@ -3,9 +3,12 @@
 The simplest way to use Robota SDK programmatically.
 
 ```typescript
-import { query } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-// Basic — uses default config from .robota/settings.json
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
+const query = createQuery({ provider });
+
 const response = await query('What files are in this project?');
 console.log(response);
 ```
@@ -13,19 +16,25 @@ console.log(response);
 ## With Options
 
 ```typescript
-const response = await query('Refactor the error handling in src/utils.ts', {
+const query = createQuery({
+  provider,
   cwd: '/path/to/project',
   permissionMode: 'acceptEdits',
   maxTurns: 5,
-  onTextDelta: (delta) => process.stdout.write(delta),
 });
+
+const response = await query('Refactor the error handling in src/utils.ts');
 ```
 
 ## In Scripts
 
 ```typescript
 #!/usr/bin/env tsx
-import { query } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
+const query = createQuery({ provider, permissionMode: 'bypassPermissions', maxTurns: 20 });
 
 const task = process.argv[2];
 if (!task) {
@@ -33,12 +42,8 @@ if (!task) {
   process.exit(1);
 }
 
-const response = await query(task, {
-  permissionMode: 'bypassPermissions',
-  maxTurns: 20,
-});
-
+const response = await query(task);
 console.log(response);
 ```
 
-`query()` handles config loading, context discovery, session creation, and cleanup automatically. For multi-turn conversations, use `createSession()` instead.
+`createQuery()` returns a reusable function pre-configured with a provider. It handles config loading, context discovery, session creation, and cleanup automatically. For multi-turn conversations, use `InteractiveSession` instead.

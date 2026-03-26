@@ -18,3 +18,9 @@ Working code samples for common Robota SDK use cases.
 
 - [Interactive Mode](./interactive-mode.md) — TUI features and slash commands
 - [Print Mode](./print-mode.md) — One-shot CLI usage for scripts and pipelines
+
+## Transport Adapters
+
+- [HTTP Transport](./http-transport.md) — REST API with SSE streaming
+- [WebSocket Transport](./ws-transport.md) — Real-time bidirectional
+- [MCP Transport](./mcp-transport.md) — Model Context Protocol

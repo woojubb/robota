@@ -25,6 +25,9 @@ Type `/` to see all available commands. The autocomplete popup filters as you ty
 /compact focus on API changes    Compress with custom focus
 /context      Show detailed context usage
 /clear        Clear history and start fresh
+/resume       Resume a previous session
+/rename name  Rename the current session
+/reload-plugins  Reload all plugins
 ```
 
 ### Permission Prompts
@@ -47,6 +50,17 @@ Mode: default | Model: claude-sonnet-4-6 | Context: 45% | msgs: 12
 ```
 
 Colors: green (0-69%), yellow (70-89%), red (90%+).
+
+### Tab Completion
+
+```
+Tab: Insert command into input (without executing)
+Enter: Execute immediately
+```
+
+### Session Name
+
+The session name appears in three places: input box border, terminal title, and status bar.
 
 ### Skill Commands
 

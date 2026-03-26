@@ -151,45 +151,48 @@ See [naming-style.md](.agents/rules/naming-style.md).
 
 Procedural workflows and domain-specific rules live under `.agents/skills/`. Each skill owns its domain details and should be consulted when working in that domain.
 
-| Skill                                                                                    | Purpose                                                    |
-| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [`repo-change-loop`](.agents/skills/repo-change-loop/SKILL.md)                           | Change -> build -> test -> verify workflow                 |
-| [`scenario-verification-harness`](.agents/skills/scenario-verification-harness/SKILL.md) | Scenario pre-check, record, verify                         |
-| [`harness-governance`](.agents/skills/harness-governance/SKILL.md)                       | Rule/skill/owner drift checks                              |
-| [`type-boundary-and-ssot`](.agents/skills/type-boundary-and-ssot/SKILL.md)               | Boundary validation, SSOT ownership                        |
-| [`repo-writing`](.agents/skills/repo-writing/SKILL.md)                                   | Writing rules for docs, `.design/`, commits                |
-| [`spec-writing-standard`](.agents/skills/spec-writing-standard/SKILL.md)                 | SPEC.md required sections and quality gates                |
-| [`spec-first-development`](.agents/skills/spec-first-development/SKILL.md)               | Spec-first workflow for contract boundary changes          |
-| [`spec-code-conformance`](.agents/skills/spec-code-conformance/SKILL.md)                 | Spec-code conformance verification loop after spec changes |
-| [`dag-node-standard`](.agents/skills/dag-node-standard/SKILL.md)                         | Node implementation, execution safety                      |
-| [`execution-caching`](.agents/skills/execution-caching/SKILL.md)                         | Cache-first execution workflows                            |
-| [`package-code-review`](.agents/skills/package-code-review/SKILL.md)                     | 6-perspective code review with severity labels             |
-| [`branch-guard`](.agents/skills/branch-guard/SKILL.md)                                   | Branch protection, merge direction, worktree, deploy       |
-| [`task-tracking`](.agents/skills/task-tracking/SKILL.md)                                 | Task files in `.agents/tasks/`                             |
-| [`contract-audit`](.agents/skills/contract-audit/SKILL.md)                               | Class contract review and SPEC.md registry                 |
-| [`pnpm-monorepo-build`](.agents/skills/pnpm-monorepo-build/SKILL.md)                     | Build commands and workflow                                |
-| [`tdd-red-green-refactor`](.agents/skills/tdd-red-green-refactor/SKILL.md)               | TDD cycle                                                  |
-| [`vitest-testing-strategy`](.agents/skills/vitest-testing-strategy/SKILL.md)             | Testing strategy                                           |
-| [`architecture-patterns`](.agents/skills/architecture-patterns/SKILL.md)                 | DI, ports-and-adapters                                     |
-| [`contract-testing`](.agents/skills/contract-testing/SKILL.md)                           | Consumer-driven contract testing                           |
-| [`state-machine-design`](.agents/skills/state-machine-design/SKILL.md)                   | FSM design patterns                                        |
-| [`ddd-tactical-patterns`](.agents/skills/ddd-tactical-patterns/SKILL.md)                 | DDD patterns                                               |
-| [`cqrs-event-projection-basics`](.agents/skills/cqrs-event-projection-basics/SKILL.md)   | CQRS and event projection                                  |
-| [`async-concurrency-patterns`](.agents/skills/async-concurrency-patterns/SKILL.md)       | Concurrent async                                           |
-| [`effect-style-error-modeling`](.agents/skills/effect-style-error-modeling/SKILL.md)     | Result/Either error modeling                               |
-| [`architecture-decision-records`](.agents/skills/architecture-decision-records/SKILL.md) | ADR format                                                 |
-| [`semver-api-surface`](.agents/skills/semver-api-surface/SKILL.md)                       | Semantic versioning                                        |
-| [`plugin-development`](.agents/skills/plugin-development/SKILL.md)                       | Plugin development                                         |
-| [`robota-sdk-usage`](.agents/skills/robota-sdk-usage/SKILL.md)                           | SDK usage patterns                                         |
-| [`tailwind-truncation`](.agents/skills/tailwind-truncation/SKILL.md)                     | Tailwind truncation                                        |
-| [`logging-level-guide`](.agents/skills/logging-level-guide/SKILL.md)                     | Log level usage guide                                      |
-| [`api-error-standard`](.agents/skills/api-error-standard/SKILL.md)                       | RFC 7807 API error responses                               |
-| [`api-spec-management`](.agents/skills/api-spec-management/SKILL.md)                     | API specification management                               |
-| [`deploy-to-vercel`](.agents/skills/deploy-to-vercel/SKILL.md)                           | Deploy applications and websites to Vercel                 |
-| [`vercel-composition-patterns`](.agents/skills/vercel-composition-patterns/SKILL.md)     | React composition patterns and component architecture      |
-| [`vercel-react-best-practices`](.agents/skills/vercel-react-best-practices/SKILL.md)     | React and Next.js performance optimization                 |
-| [`vercel-react-native-skills`](.agents/skills/vercel-react-native-skills/SKILL.md)       | React Native and Expo best practices for mobile apps       |
-| [`web-design-guidelines`](.agents/skills/web-design-guidelines/SKILL.md)                 | UI code review for Web Interface Guidelines compliance     |
+| Skill                                                                                    | Purpose                                                                        |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| [`repo-change-loop`](.agents/skills/repo-change-loop/SKILL.md)                           | Change -> build -> test -> verify workflow                                     |
+| [`scenario-verification-harness`](.agents/skills/scenario-verification-harness/SKILL.md) | Scenario pre-check, record, verify                                             |
+| [`harness-governance`](.agents/skills/harness-governance/SKILL.md)                       | Rule/skill/owner drift checks                                                  |
+| [`type-boundary-and-ssot`](.agents/skills/type-boundary-and-ssot/SKILL.md)               | Boundary validation, SSOT ownership                                            |
+| [`repo-writing`](.agents/skills/repo-writing/SKILL.md)                                   | Writing rules for docs, `.design/`, commits                                    |
+| [`spec-writing-standard`](.agents/skills/spec-writing-standard/SKILL.md)                 | SPEC.md required sections and quality gates                                    |
+| [`spec-first-development`](.agents/skills/spec-first-development/SKILL.md)               | Spec-first workflow for contract boundary changes                              |
+| [`spec-code-conformance`](.agents/skills/spec-code-conformance/SKILL.md)                 | Spec-code conformance verification loop after spec changes                     |
+| [`dag-node-standard`](.agents/skills/dag-node-standard/SKILL.md)                         | Node implementation, execution safety                                          |
+| [`execution-caching`](.agents/skills/execution-caching/SKILL.md)                         | Cache-first execution workflows                                                |
+| [`package-code-review`](.agents/skills/package-code-review/SKILL.md)                     | 6-perspective code review with severity labels                                 |
+| [`branch-guard`](.agents/skills/branch-guard/SKILL.md)                                   | Branch protection, merge direction, worktree, deploy                           |
+| [`task-tracking`](.agents/skills/task-tracking/SKILL.md)                                 | Task files in `.agents/tasks/`                                                 |
+| [`contract-audit`](.agents/skills/contract-audit/SKILL.md)                               | Class contract review and SPEC.md registry                                     |
+| [`pnpm-monorepo-build`](.agents/skills/pnpm-monorepo-build/SKILL.md)                     | Build commands and workflow                                                    |
+| [`tdd-red-green-refactor`](.agents/skills/tdd-red-green-refactor/SKILL.md)               | TDD cycle                                                                      |
+| [`pre-refactor-test-harness`](.agents/skills/pre-refactor-test-harness/SKILL.md)         | Analyze → test → extract → verify before modularization                        |
+| [`vitest-testing-strategy`](.agents/skills/vitest-testing-strategy/SKILL.md)             | Testing strategy                                                               |
+| [`architecture-patterns`](.agents/skills/architecture-patterns/SKILL.md)                 | DI, ports-and-adapters                                                         |
+| [`contract-testing`](.agents/skills/contract-testing/SKILL.md)                           | Consumer-driven contract testing                                               |
+| [`state-machine-design`](.agents/skills/state-machine-design/SKILL.md)                   | FSM design patterns                                                            |
+| [`ddd-tactical-patterns`](.agents/skills/ddd-tactical-patterns/SKILL.md)                 | DDD patterns                                                                   |
+| [`cqrs-event-projection-basics`](.agents/skills/cqrs-event-projection-basics/SKILL.md)   | CQRS and event projection                                                      |
+| [`async-concurrency-patterns`](.agents/skills/async-concurrency-patterns/SKILL.md)       | Concurrent async                                                               |
+| [`effect-style-error-modeling`](.agents/skills/effect-style-error-modeling/SKILL.md)     | Result/Either error modeling                                                   |
+| [`architecture-decision-records`](.agents/skills/architecture-decision-records/SKILL.md) | ADR format                                                                     |
+| [`semver-api-surface`](.agents/skills/semver-api-surface/SKILL.md)                       | Semantic versioning                                                            |
+| [`plugin-development`](.agents/skills/plugin-development/SKILL.md)                       | Plugin development                                                             |
+| [`robota-sdk-usage`](.agents/skills/robota-sdk-usage/SKILL.md)                           | SDK usage patterns                                                             |
+| [`tailwind-truncation`](.agents/skills/tailwind-truncation/SKILL.md)                     | Tailwind truncation                                                            |
+| [`logging-level-guide`](.agents/skills/logging-level-guide/SKILL.md)                     | Log level usage guide                                                          |
+| [`api-error-standard`](.agents/skills/api-error-standard/SKILL.md)                       | RFC 7807 API error responses                                                   |
+| [`api-spec-management`](.agents/skills/api-spec-management/SKILL.md)                     | API specification management                                                   |
+| [`post-implementation-checklist`](.agents/skills/post-implementation-checklist/SKILL.md) | Mandatory post-implementation: SPEC → README → publish → content → docs deploy |
+| [`version-management`](.agents/skills/version-management/SKILL.md)                       | Changesets, fixed versioning, all packages same version                        |
+| [`deploy-to-vercel`](.agents/skills/deploy-to-vercel/SKILL.md)                           | Deploy applications and websites to Vercel                                     |
+| [`vercel-composition-patterns`](.agents/skills/vercel-composition-patterns/SKILL.md)     | React composition patterns and component architecture                          |
+| [`vercel-react-best-practices`](.agents/skills/vercel-react-best-practices/SKILL.md)     | React and Next.js performance optimization                                     |
+| [`vercel-react-native-skills`](.agents/skills/vercel-react-native-skills/SKILL.md)       | React Native and Expo best practices for mobile apps                           |
+| [`web-design-guidelines`](.agents/skills/web-design-guidelines/SKILL.md)                 | UI code review for Web Interface Guidelines compliance                         |
 
 ## Rules and Skills Boundary
 
@@ -236,6 +239,10 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 23  | Defining identical interface/type independently in two packages  | One SSOT owner, others import; see `code-quality.md` Type System                |
 | 24  | Modifying code without updating SPEC first                       | Update SPEC to describe intended state, then fix code to match                  |
 | 25  | Publishing a package without removing "not yet published" labels | Search content/ and docs/ for stale labels when first publishing a package      |
+| 26  | Refactoring/modularizing code without test coverage first        | Write characterization tests before extraction; see `pre-refactor-test-harness` |
+| 27  | Using `pnpm publish` or `npm publish` directly                   | Always use `pnpm publish:beta`; see `publish.md` Publish Command                |
+| 28  | Publishing only some packages (cherry-picking)                   | ALL non-private packages must be published together; see `publish.md`           |
+| 29  | Modifying SPEC during verification to match code                 | NEVER. Fix code to match SPEC. SPEC is source of truth during verification.     |
 
 ## Conflict Scan Commands
 

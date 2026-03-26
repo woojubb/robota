@@ -16,50 +16,56 @@ fs.ensureDirSync(tempDir);
 // Copy main docs directory contents to .temp
 console.log('Copying main docs directory...');
 fs.copySync(docsPath, tempDir, {
-    filter: (src) => {
-        // Exclude unnecessary files like .git
-        return !src.includes('node_modules') && !path.basename(src).startsWith('.');
-    }
+  filter: (src) => {
+    // Exclude unnecessary files
+    if (src.includes('node_modules')) return false;
+    if (path.basename(src).startsWith('.')) return false;
+    // Exclude directories that bloat the build (source preserved, excluded from VitePress)
+    const relPath = path.relative(docsPath, src);
+    if (relPath.startsWith('v2.0.0')) return false;
+    if (relPath.startsWith('api-reference')) return false;
+    return true;
+  },
 });
 
 // Copy package-specific docs
 console.log('Copying package-specific docs...');
 const packagesDir = fs.readdirSync(packagesPath);
 
-packagesDir.forEach(packageName => {
-    const packagePath = path.join(packagesPath, packageName);
-    const packageDocsPath = path.join(packagePath, 'docs');
+packagesDir.forEach((packageName) => {
+  const packagePath = path.join(packagesPath, packageName);
+  const packageDocsPath = path.join(packagePath, 'docs');
 
-    if (fs.existsSync(packageDocsPath) && fs.statSync(packageDocsPath).isDirectory()) {
-        const targetPackageDocsPath = path.join(tempDir, 'packages', packageName);
-        console.log(`  Copying ${packageName} docs...`);
+  if (fs.existsSync(packageDocsPath) && fs.statSync(packageDocsPath).isDirectory()) {
+    const targetPackageDocsPath = path.join(tempDir, 'packages', packageName);
+    console.log(`  Copying ${packageName} docs...`);
 
-        fs.ensureDirSync(targetPackageDocsPath);
-        fs.copySync(packageDocsPath, targetPackageDocsPath, {
-            filter: (src) => {
-                return !src.includes('node_modules') && !path.basename(src).startsWith('.');
-            }
-        });
-    }
+    fs.ensureDirSync(targetPackageDocsPath);
+    fs.copySync(packageDocsPath, targetPackageDocsPath, {
+      filter: (src) => {
+        return !src.includes('node_modules') && !path.basename(src).startsWith('.');
+      },
+    });
+  }
 });
 
 // Create package index if it doesn't exist
 const packagesIndexPath = path.join(tempDir, 'packages', 'README.md');
 if (!fs.existsSync(packagesIndexPath)) {
-    console.log('Creating packages index...');
-    fs.ensureDirSync(path.dirname(packagesIndexPath));
+  console.log('Creating packages index...');
+  fs.ensureDirSync(path.dirname(packagesIndexPath));
 
-    let packagesIndex = '# Packages\n\n';
-    packagesIndex += 'Documentation for individual packages in the Robota SDK.\n\n';
+  let packagesIndex = '# Packages\n\n';
+  packagesIndex += 'Documentation for individual packages in the Robota SDK.\n\n';
 
-    packagesDir.forEach(packageName => {
-        const packageDocsPath = path.join(packagesPath, packageName, 'docs');
-        if (fs.existsSync(packageDocsPath)) {
-            packagesIndex += `- [${packageName}](./${packageName}/README.md)\n`;
-        }
-    });
+  packagesDir.forEach((packageName) => {
+    const packageDocsPath = path.join(packagesPath, packageName, 'docs');
+    if (fs.existsSync(packageDocsPath)) {
+      packagesIndex += `- [${packageName}](./${packageName}/README.md)\n`;
+    }
+  });
 
-    fs.writeFileSync(packagesIndexPath, packagesIndex);
+  fs.writeFileSync(packagesIndexPath, packagesIndex);
 }
 
-console.log('Document copy completed!'); 
+console.log('Document copy completed!');

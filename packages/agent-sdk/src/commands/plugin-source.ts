@@ -1,0 +1,48 @@
+import type { ILoadedBundlePlugin } from '../plugins/index.js';
+import type { ICommandSource, ICommand } from './types.js';
+
+/**
+ * Command source that discovers skills and commands from loaded BundlePlugins.
+ *
+ * - Skills: exposed as `/name` with `(plugin-name)` hint in description.
+ * - Commands: exposed as `/plugin:command` (already namespaced by the loader).
+ */
+export class PluginCommandSource implements ICommandSource {
+  readonly name = 'plugin';
+  private readonly plugins: ILoadedBundlePlugin[];
+
+  constructor(plugins: ILoadedBundlePlugin[]) {
+    this.plugins = plugins;
+  }
+
+  getCommands(): ICommand[] {
+    const commands: ICommand[] = [];
+
+    for (const plugin of this.plugins) {
+      // Skills: /name with (plugin-name) hint in description
+      for (const skill of plugin.skills) {
+        const baseName = skill.name.includes('@') ? skill.name.split('@')[0] : skill.name;
+        commands.push({
+          name: baseName,
+          description: `(${plugin.manifest.name}) ${skill.description}`,
+          source: 'plugin',
+          skillContent: skill.skillContent,
+          pluginDir: plugin.pluginDir,
+        });
+      }
+
+      // Commands: /plugin:name (already namespaced by loader)
+      for (const cmd of plugin.commands) {
+        commands.push({
+          name: cmd.name,
+          description: cmd.description,
+          source: 'plugin',
+          skillContent: cmd.skillContent,
+          pluginDir: plugin.pluginDir,
+        });
+      }
+    }
+
+    return commands;
+  }
+}

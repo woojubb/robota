@@ -1,62 +1,28 @@
 /**
- * Hook runner — executes shell command hooks for lifecycle events.
+ * Hook runner — executes hooks for lifecycle events using the strategy pattern.
  *
- * Hooks receive JSON input on stdin and communicate results via exit codes:
+ * Dispatches to registered IHookTypeExecutor implementations by definition type.
+ * Default executors: CommandExecutor (shell), HttpExecutor (HTTP POST).
+ *
+ * Exit code semantics:
  * - 0: allow/proceed
  * - 2: block/deny (stderr contains reason)
  * - other: proceed (logged as warning)
  */
 
-import { spawn } from 'node:child_process';
-import type { THookEvent, THooksConfig, IHookGroup, IHookInput, IHookResult } from './types.js';
+import type {
+  THookEvent,
+  THooksConfig,
+  IHookGroup,
+  IHookInput,
+  IHookTypeExecutor,
+} from './types.js';
+import { CommandExecutor } from './executors/command-executor.js';
+import { HttpExecutor } from './executors/http-executor.js';
 
-const HOOK_TIMEOUT_MS = 10_000;
-
-/** Execute a single shell command with JSON input on stdin. */
-function runCommand(command: string, input: string): Promise<IHookResult> {
-  return new Promise<IHookResult>((resolve) => {
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
-    let settled = false;
-
-    const child = spawn('sh', ['-c', command], {
-      cwd: process.cwd(),
-      env: { ...process.env },
-    });
-
-    child.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
-    child.stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
-
-    // Write input to stdin
-    child.stdin.write(input);
-    child.stdin.end();
-
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        child.kill('SIGTERM');
-        resolve({ exitCode: 1, stdout: '', stderr: 'Hook timed out' });
-      }
-    }, HOOK_TIMEOUT_MS);
-
-    child.on('close', (code: number | null) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve({
-        exitCode: code ?? 1,
-        stdout: Buffer.concat(stdoutChunks).toString('utf8'),
-        stderr: Buffer.concat(stderrChunks).toString('utf8'),
-      });
-    });
-
-    child.on('error', (err: Error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve({ exitCode: 1, stdout: '', stderr: err.message });
-    });
-  });
+/** Default set of hook type executors */
+function createDefaultExecutors(): IHookTypeExecutor[] {
+  return [new CommandExecutor(), new HttpExecutor()];
 }
 
 /** Check if a tool name matches a hook group's matcher pattern. */
@@ -76,33 +42,69 @@ function matchesGroup(group: IHookGroup, toolName: string | undefined): boolean 
  *
  * For PreToolUse: if any hook returns exit code 2, the tool call is blocked.
  * Returns { blocked: true, reason: string } if blocked, { blocked: false } otherwise.
+ *
+ * @param config - Hooks configuration mapping events to hook groups
+ * @param event - The lifecycle event being fired
+ * @param input - Hook input data passed to executors
+ * @param executors - Optional array of hook type executors (defaults to command + http)
  */
+/** Result of running hooks for an event. */
+export interface IRunHooksResult {
+  blocked: boolean;
+  reason?: string;
+  /** Collected stdout from all successful hooks (exit code 0). */
+  stdout: string;
+}
+
 export async function runHooks(
   config: THooksConfig | undefined,
   event: THookEvent,
   input: IHookInput,
-): Promise<{ blocked: boolean; reason?: string }> {
-  if (!config) return { blocked: false };
+  executors?: IHookTypeExecutor[],
+): Promise<IRunHooksResult> {
+  if (!config) return { blocked: false, stdout: '' };
 
   const groups = config[event];
-  if (!groups || groups.length === 0) return { blocked: false };
+  if (!groups || groups.length === 0) return { blocked: false, stdout: '' };
 
-  const inputJson = JSON.stringify(input);
+  const resolvedExecutors = executors ?? createDefaultExecutors();
+  const executorMap = new Map<string, IHookTypeExecutor>();
+  for (const executor of resolvedExecutors) {
+    executorMap.set(executor.type, executor);
+  }
+
+  const stdoutParts: string[] = [];
 
   for (const group of groups) {
     if (!matchesGroup(group, input.tool_name)) continue;
 
-    for (const hook of group.hooks) {
-      if (hook.type !== 'command') continue;
+    // Merge group-level env vars into hook input
+    const groupInput = group.env ? { ...input, env: { ...input.env, ...group.env } } : input;
 
-      const result = await runCommand(hook.command, inputJson);
+    for (const hook of group.hooks) {
+      const executor = executorMap.get(hook.type);
+      if (!executor) {
+        // Unknown hook type — skip with warning
+        continue;
+      }
+
+      const result = await executor.execute(hook, groupInput);
+
+      // Collect stdout from successful hooks
+      if (result.exitCode === 0 && result.stdout.trim()) {
+        stdoutParts.push(result.stdout.trim());
+      }
 
       // Exit code 2 = block/deny
       if (result.exitCode === 2) {
-        return { blocked: true, reason: result.stderr || 'Blocked by hook' };
+        return {
+          blocked: true,
+          reason: result.stderr || 'Blocked by hook',
+          stdout: stdoutParts.join('\n'),
+        };
       }
     }
   }
 
-  return { blocked: false };
+  return { blocked: false, stdout: stdoutParts.join('\n') };
 }

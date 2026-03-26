@@ -14,8 +14,11 @@ importers:
         specifier: ^3.24.4
         version: 3.25.76
     devDependencies:
+      '@changesets/changelog-github':
+        specifier: ^0.6.0
+        version: 0.6.0
       '@changesets/cli':
-        specifier: ^2.29.4
+        specifier: ^2.29.5
         version: 2.29.5
       '@types/jest':
         specifier: ^30.0.0
@@ -95,9 +98,6 @@ importers:
       '@robota-sdk/agent-provider-openai':
         specifier: workspace:*
         version: link:../../packages/agent-provider-openai
-      '@robota-sdk/agent-remote-server-core':
-        specifier: workspace:*
-        version: link:../../packages/agent-remote-server-core
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -503,9 +503,18 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
+      '@robota-sdk/agent-provider-anthropic':
+        specifier: workspace:*
+        version: link:../agent-provider-anthropic
       '@robota-sdk/agent-sdk':
         specifier: workspace:*
         version: link:../agent-sdk
+      '@robota-sdk/agent-sessions':
+        specifier: workspace:3.0.0-beta.46
+        version: link:../agent-sessions
+      '@robota-sdk/agent-transport-headless':
+        specifier: workspace:*
+        version: link:../agent-transport-headless
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -543,6 +552,9 @@ importers:
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
+      ink-testing-library:
+        specifier: ^4.0.0
+        version: 4.0.0(@types/react@19.2.14)
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
@@ -600,6 +612,10 @@ importers:
         version: 1.6.1(@types/node@20.19.9)
 
   packages/agent-event-service:
+    dependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
     devDependencies:
       rimraf:
         specifier: ^5.0.5
@@ -673,9 +689,9 @@ importers:
       '@robota-sdk/agent-provider-openai':
         specifier: workspace:^
         version: link:../agent-provider-openai
-      '@robota-sdk/agent-remote':
+      '@robota-sdk/agent-remote-client':
         specifier: workspace:*
-        version: link:../agent-remote
+        version: link:../agent-remote-client
       '@robota-sdk/agent-team':
         specifier: workspace:^
         version: link:../agent-team
@@ -1042,67 +1058,15 @@ importers:
         specifier: ^1.1.0
         version: 1.6.1(@types/node@20.19.9)
 
-  packages/agent-remote:
+  packages/agent-remote-client:
     dependencies:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      cors:
-        specifier: ^2.8.5
-        version: 2.8.5
-      express:
-        specifier: ^4.19.0
-        version: 4.21.2
-      helmet:
-        specifier: ^7.0.0
-        version: 7.2.0
     devDependencies:
-      '@types/cors':
-        specifier: ^2.8.0
-        version: 2.8.19
-      '@types/express':
-        specifier: ^4.17.0
-        version: 4.17.23
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.9
-      eslint:
-        specifier: ^8.0.0
-        version: 8.57.1
-      tsup:
-        specifier: ^8.0.0
-        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
-      typescript:
-        specifier: ^5.0.0
-        version: 5.8.3
-      vitest:
-        specifier: ^1.0.0
-        version: 1.6.1(@types/node@20.19.9)
-
-  packages/agent-remote-server-core:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-remote':
-        specifier: workspace:*
-        version: link:../agent-remote
-      express:
-        specifier: ^4.18.2
-        version: 4.21.2
-      swagger-ui-express:
-        specifier: ^5.0.1
-        version: 5.0.1(express@4.21.2)
-    devDependencies:
-      '@types/express':
-        specifier: ^4.17.21
-        version: 4.17.23
-      '@types/swagger-ui-express':
-        specifier: ^4.1.8
-        version: 4.1.8
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
@@ -1121,9 +1085,6 @@ importers:
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
-      '@robota-sdk/agent-provider-anthropic':
-        specifier: workspace:*
-        version: link:../agent-provider-anthropic
       '@robota-sdk/agent-sessions':
         specifier: workspace:*
         version: link:../agent-sessions
@@ -1252,6 +1213,91 @@ importers:
       openapi-types:
         specifier: ^12.1.3
         version: 12.1.3
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-transport-headless:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-transport-http:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+      hono:
+        specifier: ^4.7.0
+        version: 4.12.9
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-transport-mcp:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.28.0
+        version: 1.28.0(zod@3.25.76)
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+      zod:
+        specifier: ^3.24.4
+        version: 3.25.76
+    devDependencies:
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.5.0(tsx@4.21.0)(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.9)
+
+  packages/agent-transport-ws:
+    dependencies:
+      '@robota-sdk/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+    devDependencies:
       rimraf:
         specifier: ^5.0.5
         version: 5.0.10
@@ -2694,6 +2740,19 @@ packages:
       '@changesets/types': 6.1.0
     dev: true
 
+  /@changesets/changelog-github@0.6.0:
+    resolution:
+      {
+        integrity: sha512-wA2/y4hR/A1K411cCT75rz0d46Iezxp1WYRFoFJDIUpkQ6oDBAIUiU7BZkDCmYgz0NBl94X1lgcZO+mHoiHnFg==,
+      }
+    dependencies:
+      '@changesets/get-github-info': 0.8.0
+      '@changesets/types': 6.1.0
+      dotenv: 8.6.0
+    transitivePeerDependencies:
+      - encoding
+    dev: true
+
   /@changesets/cli@2.29.5:
     resolution:
       {
@@ -2765,6 +2824,18 @@ packages:
       '@manypkg/get-packages': 1.1.3
       picocolors: 1.1.1
       semver: 7.7.2
+    dev: true
+
+  /@changesets/get-github-info@0.8.0:
+    resolution:
+      {
+        integrity: sha512-cRnC+xdF0JIik7coko3iUP9qbnfi1iJQ3sAa6dE+Tx3+ET8bjFEm63PA4WEohgjYcmsOikPHWzPsMWWiZmntOQ==,
+      }
+    dependencies:
+      dataloader: 1.4.0
+      node-fetch: 2.7.0
+    transitivePeerDependencies:
+      - encoding
     dev: true
 
   /@changesets/get-release-plan@4.0.13:
@@ -4435,6 +4506,18 @@ packages:
     dev: false
     optional: true
 
+  /@hono/node-server@1.19.11(hono@4.12.9):
+    resolution:
+      {
+        integrity: sha512-dr8/3zEaB+p0D2n/IUrlPF1HZm586qgJNXK1a9fhg/PzdtkK7Ksd5l312tJX2yBuALqDYBlG20QEbayqPyxn+g==,
+      }
+    engines: { node: '>=18.14.1' }
+    peerDependencies:
+      hono: ^4
+    dependencies:
+      hono: 4.12.9
+    dev: false
+
   /@humanfs/core@0.19.1:
     resolution:
       {
@@ -5262,6 +5345,40 @@ packages:
       raw-body: 3.0.0
       zod: 3.25.76
       zod-to-json-schema: 3.24.6(zod@3.25.76)
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+
+  /@modelcontextprotocol/sdk@1.28.0(zod@3.25.76):
+    resolution:
+      {
+        integrity: sha512-gmloF+i+flI8ouQK7MWW4mOwuMh4RePBuPFAEPC6+pdqyWOUMDOixb6qZ69owLJpz6XmyllCouc4t8YWO+E2Nw==,
+      }
+    engines: { node: '>=18' }
+    peerDependencies:
+      '@cfworker/json-schema': ^4.1.1
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      '@cfworker/json-schema':
+        optional: true
+    dependencies:
+      '@hono/node-server': 1.19.11(hono@4.12.9)
+      ajv: 8.18.0
+      ajv-formats: 3.0.1(ajv@8.18.0)
+      content-type: 1.0.5
+      cors: 2.8.5
+      cross-spawn: 7.0.6
+      eventsource: 3.0.7
+      eventsource-parser: 3.0.3
+      express: 5.2.1
+      express-rate-limit: 8.3.1(express@5.2.1)
+      hono: 4.12.9
+      jose: 6.2.2
+      json-schema-typed: 8.0.2
+      pkce-challenge: 5.0.0
+      raw-body: 3.0.2
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.1(zod@3.25.76)
     transitivePeerDependencies:
       - supports-color
     dev: false
@@ -6997,14 +7114,6 @@ packages:
       }
     dev: true
 
-  /@scarf/scarf@1.4.0:
-    resolution:
-      {
-        integrity: sha512-xxeapPiUXdZAE3che6f3xogoJPeZgig6omHEy1rIY5WVsB3H2BHNnZH+gHG6x91SCWyQCzWGsuL2Hh3ClO5/qQ==,
-      }
-    requiresBuild: true
-    dev: false
-
   /@shikijs/core@2.5.0:
     resolution:
       {
@@ -7937,16 +8046,6 @@ packages:
       {
         integrity: sha512-T92Xav+Gf/Ik1uPW581nA+JftmjWPgskw/WBf4TJzxRG/SJ+DfNnNE+WuZ4mrXuzflQMqMkm1LSYjzYW7MB1Cg==,
       }
-    dev: true
-
-  /@types/swagger-ui-express@4.1.8:
-    resolution:
-      {
-        integrity: sha512-AhZV8/EIreHFmBV5wAs0gzJUNq9JbbSXgJLQubCC0jtIo6prnI9MIRRxnU4MZX9RB9yXxF1V4R7jtLl/Wcj31g==,
-      }
-    dependencies:
-      '@types/express': 4.17.23
-      '@types/serve-static': 2.2.0
     dev: true
 
   /@types/tough-cookie@4.0.5:
@@ -9108,6 +9207,20 @@ packages:
       humanize-ms: 1.2.1
     dev: false
 
+  /ajv-formats@3.0.1(ajv@8.18.0):
+    resolution:
+      {
+        integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==,
+      }
+    peerDependencies:
+      ajv: ^8.0.0
+    peerDependenciesMeta:
+      ajv:
+        optional: true
+    dependencies:
+      ajv: 8.18.0
+    dev: false
+
   /ajv@6.12.6:
     resolution:
       {
@@ -9118,6 +9231,18 @@ packages:
       fast-json-stable-stringify: 2.1.0
       json-schema-traverse: 0.4.1
       uri-js: 4.4.1
+
+  /ajv@8.18.0:
+    resolution:
+      {
+        integrity: sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==,
+      }
+    dependencies:
+      fast-deep-equal: 3.1.3
+      fast-uri: 3.1.0
+      json-schema-traverse: 1.0.0
+      require-from-string: 2.0.2
+    dev: false
 
   /algoliasearch@5.34.0:
     resolution:
@@ -9725,7 +9850,6 @@ packages:
       type-is: 2.0.1
     transitivePeerDependencies:
       - supports-color
-    dev: true
 
   /brace-expansion@1.1.12:
     resolution:
@@ -10714,6 +10838,13 @@ packages:
       is-data-view: 1.0.2
     dev: true
 
+  /dataloader@1.4.0:
+    resolution:
+      {
+        integrity: sha512-68s5jYdlvasItOJnCuI2Q9s4q98g0pCyL3HrcKJu8KNugUl8ahgmZYg38ysLTgQjjXX3H8CJLkAvWrclWfcalw==,
+      }
+    dev: true
+
   /debounce@1.2.1:
     resolution:
       {
@@ -11010,6 +11141,14 @@ packages:
       }
     engines: { node: '>=12' }
     dev: false
+
+  /dotenv@8.6.0:
+    resolution:
+      {
+        integrity: sha512-IrPdXQsk2BbzvCBGBOTmmSH5SodmqZNt4ERAZDmW4CT+tL8VtvinqywuANaFu4bOMWki16nqf0e4oC0QIaDr/g==,
+      }
+    engines: { node: '>=10' }
+    dev: true
 
   /dunder-proto@1.0.1:
     resolution:
@@ -12283,6 +12422,19 @@ packages:
       express: 5.1.0
     dev: false
 
+  /express-rate-limit@8.3.1(express@5.2.1):
+    resolution:
+      {
+        integrity: sha512-D1dKN+cmyPWuvB+G2SREQDzPY1agpBIcTa9sJxOPMCNeH3gwzhqJRDWCXW3gg0y//+LQ/8j52JbMROWyrKdMdw==,
+      }
+    engines: { node: '>= 16' }
+    peerDependencies:
+      express: '>= 4.11'
+    dependencies:
+      express: 5.2.1
+      ip-address: 10.1.0
+    dev: false
+
   /express-winston@4.2.0(winston@3.17.0):
     resolution:
       {
@@ -12414,7 +12566,6 @@ packages:
       vary: 1.1.2
     transitivePeerDependencies:
       - supports-color
-    dev: true
 
   /extend@3.0.2:
     resolution:
@@ -12496,6 +12647,13 @@ packages:
         integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==,
       }
     dev: true
+
+  /fast-uri@3.1.0:
+    resolution:
+      {
+        integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==,
+      }
+    dev: false
 
   /fast-xml-parser@4.5.3:
     resolution:
@@ -13483,6 +13641,14 @@ packages:
       }
     dev: false
 
+  /hono@4.12.9:
+    resolution:
+      {
+        integrity: sha512-wy3T8Zm2bsEvxKZM5w21VdHDDcwVS1yUFFY6i8UobSsKfFceT7TOwhbhfKsDyx7tYQlmRM5FLpIuYvNFyjctiA==,
+      }
+    engines: { node: '>=16.9.0' }
+    dev: false
+
   /hookable@5.5.3:
     resolution:
       {
@@ -13567,7 +13733,6 @@ packages:
       setprototypeof: 1.2.0
       statuses: 2.0.2
       toidentifier: 1.0.1
-    dev: true
 
   /http-parser-js@0.5.10:
     resolution:
@@ -13700,7 +13865,6 @@ packages:
     engines: { node: '>=0.10.0' }
     dependencies:
       safer-buffer: 2.1.2
-    dev: true
 
   /ieee754@1.2.1:
     resolution:
@@ -13828,6 +13992,21 @@ packages:
       react: 19.2.4
     dev: false
 
+  /ink-testing-library@4.0.0(@types/react@19.2.14):
+    resolution:
+      {
+        integrity: sha512-yF92kj3pmBvk7oKbSq5vEALO//o7Z9Ck/OaLNlkzXNeYdwfpxMQkSowGTFUCS5MSu9bWfSZMewGpp7bFc66D7Q==,
+      }
+    engines: { node: '>=18' }
+    peerDependencies:
+      '@types/react': '>=18.0.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+    dependencies:
+      '@types/react': 19.2.14
+    dev: true
+
   /ink-text-input@6.0.0(ink@6.8.0)(react@19.2.4):
     resolution:
       {
@@ -13918,6 +14097,14 @@ packages:
       }
     engines: { node: '>=10.13.0' }
     dev: true
+
+  /ip-address@10.1.0:
+    resolution:
+      {
+        integrity: sha512-XXADHxXmvT9+CRxhXg56LJovE+bmWnEWB78LB83VZTprKTmaC5QfruXocxzTZ2Kl0DNwKuBdlIhjL8LeY8Sf8Q==,
+      }
+    engines: { node: '>= 12' }
+    dev: false
 
   /ipaddr.js@1.9.1:
     resolution:
@@ -15017,6 +15204,13 @@ packages:
       }
     dev: false
 
+  /jose@6.2.2:
+    resolution:
+      {
+        integrity: sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ==,
+      }
+    dev: false
+
   /joycon@3.1.1:
     resolution:
       {
@@ -15184,6 +15378,20 @@ packages:
       {
         integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==,
       }
+
+  /json-schema-traverse@1.0.0:
+    resolution:
+      {
+        integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==,
+      }
+    dev: false
+
+  /json-schema-typed@8.0.2:
+    resolution:
+      {
+        integrity: sha512-fQhoXdcvc3V28x7C7BMs4P5+kNlgUURe2jmUT1T//oBRMDrqy1QPelJimwZGo7Hg9VPV3EQV5Bnq4hbFy2vetA==,
+      }
+    dev: false
 
   /json-stable-stringify-without-jsonify@1.0.1:
     resolution:
@@ -16962,7 +17170,6 @@ packages:
         optional: true
     dependencies:
       whatwg-url: 5.0.0
-    dev: false
 
   /node-forge@1.3.1:
     resolution:
@@ -17901,7 +18108,6 @@ packages:
     engines: { node: '>=0.6' }
     dependencies:
       side-channel: 1.1.0
-    dev: true
 
   /quansync@0.2.10:
     resolution:
@@ -17960,7 +18166,6 @@ packages:
       http-errors: 2.0.1
       iconv-lite: 0.7.2
       unpipe: 1.0.0
-    dev: true
 
   /react-dom@19.1.0(react@19.1.0):
     resolution:
@@ -18294,7 +18499,6 @@ packages:
         integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==,
       }
     engines: { node: '>=0.10.0' }
-    dev: true
 
   /resolve-cwd@3.0.0:
     resolution:
@@ -19548,28 +19752,6 @@ packages:
     engines: { node: '>= 0.4' }
     dev: true
 
-  /swagger-ui-dist@5.31.1:
-    resolution:
-      {
-        integrity: sha512-XdgQ8wkRGj1P0H0Vvo0TRMOQNz+8Q8J64/vcPOhxlaFx9eB3PYvHMXeyNrP46PXa9SUs/cg7OW/jm9U34KzUfA==,
-      }
-    dependencies:
-      '@scarf/scarf': 1.4.0
-    dev: false
-
-  /swagger-ui-express@5.0.1(express@4.21.2):
-    resolution:
-      {
-        integrity: sha512-SrNU3RiBGTLLmFU8GIJdOdanJTl4TOmT27tt3bWWHppqYmAZ6IDuEuBvMU6nZq0zLEe6b/1rACXCgLZqO6ZfrA==,
-      }
-    engines: { node: '>= v0.10.32' }
-    peerDependencies:
-      express: '>=4.0.0 || >=5.0.0-beta'
-    dependencies:
-      express: 4.21.2
-      swagger-ui-dist: 5.31.1
-    dev: false
-
   /symbol-tree@3.2.4:
     resolution:
       {
@@ -19874,7 +20056,6 @@ packages:
       {
         integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==,
       }
-    dev: false
 
   /tr46@1.0.1:
     resolution:
@@ -20916,7 +21097,6 @@ packages:
       {
         integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==,
       }
-    dev: false
 
   /webidl-conversions@4.0.2:
     resolution:
@@ -21046,7 +21226,6 @@ packages:
     dependencies:
       tr46: 0.0.3
       webidl-conversions: 3.0.1
-    dev: false
 
   /whatwg-url@7.1.0:
     resolution:
@@ -21422,6 +21601,17 @@ packages:
       }
     peerDependencies:
       zod: ^3.24.1
+    dependencies:
+      zod: 3.25.76
+    dev: false
+
+  /zod-to-json-schema@3.25.1(zod@3.25.76):
+    resolution:
+      {
+        integrity: sha512-pM/SU9d3YAggzi6MtR4h7ruuQlqKtad8e9S0fmxcMi+ueAK5Korys/aWcV9LIIHTVbj01NdzxcnXSN+O74ZIVA==,
+      }
+    peerDependencies:
+      zod: ^3.25 || ^4
     dependencies:
       zod: 3.25.76
     dev: false

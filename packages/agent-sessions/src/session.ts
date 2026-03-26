@@ -10,7 +10,13 @@
 
 import { Robota, runHooks } from '@robota-sdk/agent-core';
 import type { IAgentConfig, IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
-import type { TPermissionMode, TToolArgs, THooksConfig, IHookInput } from '@robota-sdk/agent-core';
+import type {
+  TPermissionMode,
+  TToolArgs,
+  THooksConfig,
+  IHookInput,
+  IHookTypeExecutor,
+} from '@robota-sdk/agent-core';
 import { TRUST_TO_MODE } from '@robota-sdk/agent-core';
 import type { SessionStore, ISessionRecord } from './session-store.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
@@ -52,6 +58,8 @@ export interface ISessionOptions {
   maxTurns?: number;
   /** Optional session store for persistence */
   sessionStore?: SessionStore;
+  /** Override session ID (used when resuming a session to reuse the original ID) */
+  sessionId?: string;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
   permissionHandler?: TPermissionHandler;
   /** Callback for text deltas — enables streaming text to the UI in real-time */
@@ -62,6 +70,13 @@ export interface ISessionOptions {
     toolName: string,
     toolArgs: TToolArgs,
   ) => Promise<boolean>;
+  /** Callback when a tool starts or finishes execution — enables real-time tool display in UI */
+  onToolExecution?: (event: {
+    type: 'start' | 'end';
+    toolName: string;
+    toolArgs?: TToolArgs;
+    success?: boolean;
+  }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
@@ -70,6 +85,8 @@ export interface ISessionOptions {
   contextMaxTokens?: number;
   /** Session logger — injected for pluggable session event logging. */
   sessionLogger?: ISessionLogger;
+  /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
+  hookTypeExecutors?: IHookTypeExecutor[];
 }
 
 /**
@@ -86,8 +103,10 @@ export class Session {
   private readonly sessionStore?: SessionStore;
   private readonly cwd: string;
   private readonly aiProvider: IAIProvider;
-  private readonly model: string;
+  private readonly systemMessage: string;
+  private model: string;
   private readonly hooks?: Record<string, unknown>;
+  private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onCompactCallback?: (summary: string) => void;
   private pendingCompactSummary: string | null = null;
   private readonly sessionLogger?: ISessionLogger;
@@ -102,12 +121,16 @@ export class Session {
 
     this.terminal = terminal;
     this.sessionStore = sessionStore;
+    this.systemMessage = systemMessage;
     this.cwd = process.cwd();
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
+    this.hookTypeExecutors = options.hookTypeExecutors;
     this.onCompactCallback = options.onCompact;
     this.model = options.model ?? 'claude-sonnet-4-5';
-    this.sessionId = `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
+    this.sessionId =
+      options.sessionId ??
+      `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
 
     // Resolve permission mode
     this.permissionMode =
@@ -140,6 +163,8 @@ export class Session {
       permissionHandler,
       promptForApprovalFn: options.promptForApproval,
       sessionLogger: options.sessionLogger,
+      onToolExecution: options.onToolExecution,
+      hookTypeExecutors: options.hookTypeExecutors,
     });
 
     this.contextTracker = new ContextWindowTracker(this.model, options.contextMaxTokens);
@@ -150,6 +175,7 @@ export class Session {
       model: this.model,
       hooks: options.hooks,
       compactInstructions: options.compactInstructions,
+      hookTypeExecutors: options.hookTypeExecutors,
     });
 
     // Wrap tools with permission enforcement
@@ -169,6 +195,37 @@ export class Session {
     };
 
     this.robota = new Robota(agentConfig);
+
+    // Fire SessionStart hook (fire and forget — session creation is not blocked by hooks)
+    this.fireSessionStartHook();
+  }
+
+  /** Stdout collected from SessionStart hooks, injected on first run(). */
+  private sessionStartStdout = '';
+
+  /** Fire SessionStart hook asynchronously. Stores stdout for first run(). */
+  private fireSessionStartHook(): void {
+    const hookInput: IHookInput = {
+      session_id: this.sessionId,
+      cwd: this.cwd,
+      hook_event_name: 'SessionStart',
+      env: {
+        CLAUDE_PROJECT_DIR: this.cwd,
+        CLAUDE_SESSION_ID: this.sessionId,
+      },
+    };
+    runHooks(
+      this.hooks as THooksConfig | undefined,
+      'SessionStart',
+      hookInput,
+      this.hookTypeExecutors,
+    )
+      .then((result) => {
+        if (result.stdout) {
+          this.sessionStartStdout = result.stdout;
+        }
+      })
+      .catch(() => {});
   }
 
   /** Configure provider-specific features (streaming, web tools, server tool logging) */
@@ -195,8 +252,10 @@ export class Session {
 
   /**
    * Send a message to the agent and return the response.
+   * @param message - The processed message to send to the AI
+   * @param rawInput - Optional raw user input (used for hook prompt field)
    */
-  async run(message: string): Promise<string> {
+  async run(message: string, rawInput?: string): Promise<string> {
     // Auto-compact BEFORE processing the new message (not after).
     // This prevents compaction from interfering with the current response stream.
     this.contextTracker.updateFromHistory(this.robota.getHistory());
@@ -213,6 +272,32 @@ export class Session {
     }
 
     this.log('user', { content: message });
+
+    // Fire UserPromptSubmit hook before AI processes input
+    const hookResult = await runHooks(
+      this.hooks as THooksConfig | undefined,
+      'UserPromptSubmit',
+      {
+        session_id: this.sessionId,
+        cwd: this.cwd,
+        hook_event_name: 'UserPromptSubmit',
+        user_message: rawInput ?? message,
+        prompt: rawInput ?? message,
+        env: {
+          CLAUDE_PROJECT_DIR: this.cwd,
+          CLAUDE_SESSION_ID: this.sessionId,
+        },
+      },
+      this.hookTypeExecutors,
+    );
+
+    // Inject hook stdout into user message (e.g., plugin path info)
+    const hookStdout = [this.sessionStartStdout, hookResult.stdout].filter(Boolean).join('\n');
+    const enrichedMessage = hookStdout
+      ? `<system-reminder>\n${hookStdout}\n</system-reminder>\n${message}`
+      : message;
+    // Clear sessionStart stdout after first injection
+    this.sessionStartStdout = '';
 
     const history = this.robota.getHistory();
     const historyJson = JSON.stringify(history);
@@ -234,29 +319,17 @@ export class Session {
 
     let response: string;
     try {
-      response = await new Promise<string>((resolve, reject) => {
-        if (signal.aborted) {
-          reject(new DOMException('Aborted', 'AbortError'));
-          return;
-        }
-        const onAbort = (): void => reject(new DOMException('Aborted', 'AbortError'));
-        signal.addEventListener('abort', onAbort, { once: true });
-        this.robota.run(message).then(
-          (result) => {
-            signal.removeEventListener('abort', onAbort);
-            resolve(result);
-          },
-          (err) => {
-            signal.removeEventListener('abort', onAbort);
-            reject(err);
-          },
-        );
-      });
+      response = await this.robota.run(enrichedMessage, { signal });
+
+      // If execution was interrupted (abort fired during execution),
+      // throw AbortError so the caller (useSubmitHandler) shows "Cancelled."
+      if (signal.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+      }
     } catch (error) {
-      // Log error but preserve session state — history remains intact for retry
       this.log('error', {
         message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack ?? '' : '',
+        stack: error instanceof Error ? (error.stack ?? '') : '',
         historyLength: this.robota.getHistory().length,
       });
       throw error;
@@ -299,6 +372,23 @@ export class Session {
       remainingPercentage: ctxState.remainingPercentage,
     });
 
+    // Fire Stop hook after AI response is complete (informational, fire and forget)
+    runHooks(
+      this.hooks as THooksConfig | undefined,
+      'Stop',
+      {
+        session_id: this.sessionId,
+        cwd: this.cwd,
+        hook_event_name: 'Stop',
+        response: response.substring(0, 500),
+        env: {
+          CLAUDE_PROJECT_DIR: this.cwd,
+          CLAUDE_SESSION_ID: this.sessionId,
+        },
+      },
+      this.hookTypeExecutors,
+    ).catch(() => {});
+
     // Auto-compact moved to the start of run() — compaction now happens
     // before the next message is processed, not after the current one.
 
@@ -325,10 +415,12 @@ export class Session {
 
     const record: ISessionRecord = {
       id: this.sessionId,
+      name: existing?.name,
       cwd: this.cwd,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       messages: history,
+      history: this.getFullHistory(),
     };
 
     this.sessionStore.save(record);
@@ -395,15 +487,19 @@ export class Session {
 
     const trigger: 'auto' | 'manual' = instructions !== undefined ? 'manual' : 'auto';
 
+    // Exclude system messages from compaction — they are preserved and re-injected after
+    const nonSystemHistory = history.filter((msg) => msg.role !== 'system');
     const summary = await this.compactionOrchestrator.compact(
       this.aiProvider,
-      history,
+      nonSystemHistory,
       instructions,
     );
 
-    // Clear history and inject summary as assistant message (Claude Code approach).
-    // Do NOT call robota.run() — it would trigger streaming mid-session.
+    // Clear history, re-inject system message, then inject summary.
+    // System message must persist across compactions — it contains project context
+    // (cwd, AGENTS.md, CLAUDE.md) that the AI needs for every response.
     this.robota.clearHistory();
+    this.robota.injectMessage('system', this.systemMessage);
     this.robota.injectMessage('assistant', `[Context Summary]\n${summary}`);
     this.pendingCompactSummary = null;
 
@@ -418,12 +514,26 @@ export class Session {
       trigger,
       compact_summary: summary,
     };
-    runHooks(this.hooks as THooksConfig | undefined, 'PostCompact', postHookInput).catch(() => {});
+    runHooks(
+      this.hooks as THooksConfig | undefined,
+      'PostCompact',
+      postHookInput,
+      this.hookTypeExecutors,
+    ).catch(() => {});
 
     // Notify via callback after compaction is fully complete
     if (this.onCompactCallback) {
       this.onCompactCallback(summary);
     }
+  }
+
+  /**
+   * Inject a message into the underlying Robota conversation history
+   * without triggering execution. Used for session restore (replaying
+   * prior messages so the AI provider has full context).
+   */
+  injectMessage(role: 'user' | 'assistant' | 'system', content: string): void {
+    this.robota.injectMessage(role, content);
   }
 
   /** Clear conversation history */
@@ -432,8 +542,30 @@ export class Session {
     this.contextTracker.reset();
   }
 
-  /** Get conversation history */
+  /** Get conversation history (chat messages only, backward compatible) */
   getHistory() {
     return this.robota.getHistory();
+  }
+
+  /** Get full history timeline including events */
+  getFullHistory(): Array<{
+    id: string;
+    timestamp: Date;
+    category: string;
+    type: string;
+    data?: unknown;
+  }> {
+    return this.robota.getFullHistory();
+  }
+
+  /** Add an event entry to history (not a chat message) */
+  addHistoryEntry(entry: {
+    id: string;
+    timestamp: Date;
+    category: string;
+    type: string;
+    data?: unknown;
+  }): void {
+    this.robota.addHistoryEntry(entry);
   }
 }

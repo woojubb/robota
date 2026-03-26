@@ -1,15 +1,20 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { Box, Text, useInput } from 'ink';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { Box, Text, useInput, useStdout } from 'ink';
 import CjkTextInput from './CjkTextInput.js';
 import WaveText from './WaveText.js';
 import type { CommandRegistry } from '../commands/command-registry.js';
 import type { ISlashCommand } from '../commands/types.js';
 import SlashAutocomplete from './SlashAutocomplete.js';
+import { expandPasteLabels } from '../utils/paste-labels.js';
 
 interface IProps {
   onSubmit: (value: string) => void;
+  onCancelQueue?: () => void;
   isDisabled: boolean;
+  isAborting?: boolean;
+  pendingPrompt?: string | null;
   registry?: CommandRegistry;
+  sessionName?: string;
 }
 
 /** Parse input to determine autocomplete state */
@@ -96,8 +101,35 @@ function useAutocomplete(
  * events are available in terminal raw mode.
  * Reference: https://github.com/anthropics/claude-code/issues/3045
  */
-export default function InputArea({ onSubmit, isDisabled, registry }: IProps): React.ReactElement {
+/**
+ * Layout constants for InputArea border box (columns).
+ * Used to compute available text width from terminal columns.
+ *
+ * Box borderStyle="single" adds 1 column per side (left + right).
+ * paddingLeft={1} adds 1 column inside the box.
+ * Prompt "> " takes 2 columns.
+ */
+const BORDER_HORIZONTAL = 2;
+const PADDING_LEFT = 1;
+const PROMPT_WIDTH = 2;
+const INPUT_AREA_OVERHEAD = BORDER_HORIZONTAL + PADDING_LEFT + PROMPT_WIDTH;
+
+export default function InputArea({
+  onSubmit,
+  onCancelQueue,
+  isDisabled,
+  isAborting,
+  pendingPrompt,
+  registry,
+  sessionName,
+}: IProps): React.ReactElement {
   const [value, setValue] = useState('');
+  const [cursorHint, setCursorHint] = useState<number | null>(null);
+  const pasteStore = useRef<Map<number, string>>(new Map());
+  const { stdout } = useStdout();
+  const terminalColumns = stdout?.columns ?? 80;
+  const availableWidth = Math.max(1, terminalColumns - INPUT_AREA_OVERHEAD);
+  const pasteIdRef = useRef(0);
 
   const {
     showPopup,
@@ -108,27 +140,43 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
     setShowPopup,
   } = useAutocomplete(value, registry);
 
-  const handleSubmit = useCallback(
-    (text: string): void => {
-      const trimmed = text.trim();
-      if (trimmed.length === 0) return;
+  const handlePaste = useCallback((text: string, cursorPosition: number) => {
+    pasteIdRef.current += 1;
+    const id = pasteIdRef.current;
+    pasteStore.current.set(id, text);
+    const lineCount = text.split('\n').length;
+    const label = `[Pasted text #${id} +${lineCount} lines]`;
+    const newCursorPos = cursorPosition + label.length;
+    setCursorHint(newCursorPos);
+    setValue((prev) => prev.slice(0, cursorPosition) + label + prev.slice(cursorPosition));
+  }, []);
 
-      if (showPopup && filteredCommands[selectedIndex]) {
-        selectCommand(filteredCommands[selectedIndex]);
-        return;
-      }
-
-      setValue('');
-      onSubmit(trimmed);
-    },
-    [showPopup, filteredCommands, selectedIndex, onSubmit],
-  );
-
-  const selectCommand = useCallback(
+  /** Tab: insert command into input field without executing */
+  const tabCompleteCommand = useCallback(
     (cmd: ISlashCommand): void => {
       const parsed = parseSlashInput(value);
 
-      // If in subcommand mode, execute parent + subcommand
+      if (parsed.parentCommand) {
+        setValue(`/${parsed.parentCommand} ${cmd.name} `);
+        return;
+      }
+
+      if (cmd.subcommands && cmd.subcommands.length > 0) {
+        setValue(`/${cmd.name} `);
+        setSelectedIndex(0);
+        return;
+      }
+
+      setValue(`/${cmd.name} `);
+    },
+    [value, setSelectedIndex],
+  );
+
+  /** Enter: insert and execute command immediately */
+  const enterSelectCommand = useCallback(
+    (cmd: ISlashCommand): void => {
+      const parsed = parseSlashInput(value);
+
       if (parsed.parentCommand) {
         const fullCommand = `/${parsed.parentCommand} ${cmd.name}`;
         setValue('');
@@ -136,18 +184,39 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
         return;
       }
 
-      // If command has subcommands, enter subcommand mode
       if (cmd.subcommands && cmd.subcommands.length > 0) {
         setValue(`/${cmd.name} `);
         setSelectedIndex(0);
         return;
       }
 
-      // Execute command directly
       setValue('');
       onSubmit(`/${cmd.name}`);
     },
     [value, onSubmit, setSelectedIndex],
+  );
+
+  const handleSubmit = useCallback(
+    (text: string): void => {
+      const trimmed = text.trim();
+      if (trimmed.length === 0) return;
+
+      if (showPopup && filteredCommands[selectedIndex]) {
+        enterSelectCommand(filteredCommands[selectedIndex]);
+        return;
+      }
+
+      // Expand paste labels before submitting
+      const expanded = expandPasteLabels(trimmed, pasteStore.current);
+
+      setValue('');
+      // Reset paste state
+      pasteStore.current.clear();
+      pasteIdRef.current = 0;
+
+      onSubmit(expanded);
+    },
+    [showPopup, filteredCommands, selectedIndex, onSubmit, enterSelectCommand],
   );
 
   useInput(
@@ -165,11 +234,41 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
         setShowPopup(false);
       } else if (key.tab) {
         const cmd = filteredCommands[selectedIndex];
-        if (cmd) selectCommand(cmd);
+        if (cmd) tabCompleteCommand(cmd);
       }
     },
     { isActive: showPopup && !isDisabled },
   );
+
+  // Backspace cancels queued prompt
+  useInput(
+    (_input, key) => {
+      if ((key.backspace || key.delete) && pendingPrompt) {
+        onCancelQueue?.();
+      }
+    },
+    { isActive: !!pendingPrompt },
+  );
+
+  const borderColor = isAborting
+    ? 'yellow'
+    : pendingPrompt
+      ? 'cyan'
+      : isDisabled
+        ? 'gray'
+        : 'green';
+  const innerWidth = Math.max(1, terminalColumns - BORDER_HORIZONTAL);
+
+  // Build top border with optional session name title (right-aligned, 2 chars from edge)
+  const topBorder = (() => {
+    if (sessionName) {
+      const label = ` "${sessionName}" `;
+      const rightPad = 2;
+      const leftLen = Math.max(0, innerWidth - label.length - rightPad);
+      return { left: '┌' + '─'.repeat(leftLen), label, right: '─'.repeat(rightPad) + '┐' };
+    }
+    return { left: '┌' + '─'.repeat(innerWidth), label: '', right: '┐' };
+  })();
 
   return (
     <Box flexDirection="column">
@@ -181,9 +280,28 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
           isSubcommandMode={isSubcommandMode}
         />
       )}
-      <Box borderStyle="single" borderColor={isDisabled ? 'gray' : 'green'} paddingLeft={1}>
-        {isDisabled ? (
-          <WaveText text="  Waiting for response..." />
+      <Text color={borderColor}>
+        {topBorder.left}
+        {topBorder.label ? (
+          <Text backgroundColor={borderColor} color="black" bold>
+            {topBorder.label}
+          </Text>
+        ) : null}
+        {topBorder.right}
+      </Text>
+      <Box borderStyle="single" borderTop={false} borderColor={borderColor} paddingLeft={1}>
+        {isAborting ? (
+          <Text color="yellow"> Interrupting...</Text>
+        ) : pendingPrompt ? (
+          <Text color="cyan">
+            {' '}
+            Queued: {pendingPrompt.length > 50
+              ? pendingPrompt.slice(0, 47) + '...'
+              : pendingPrompt}{' '}
+            <Text dimColor>(Backspace to cancel)</Text>
+          </Text>
+        ) : isDisabled ? (
+          <WaveText text="  Waiting for response... (ESC to interrupt)" />
         ) : (
           <Box>
             <Text color="green" bold>
@@ -191,9 +309,15 @@ export default function InputArea({ onSubmit, isDisabled, registry }: IProps): R
             </Text>
             <CjkTextInput
               value={value}
-              onChange={setValue}
+              onChange={(v) => {
+                setValue(v);
+                setCursorHint(null); // reset after normal typing
+              }}
               onSubmit={handleSubmit}
+              onPaste={handlePaste}
               placeholder="Type a message or /help"
+              availableWidth={availableWidth}
+              cursorHint={cursorHint}
             />
           </Box>
         )}

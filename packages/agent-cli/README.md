@@ -1,6 +1,8 @@
 # @robota-sdk/agent-cli
 
-AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides tool-calling REPL with Claude Code-compatible permission modes.
+AI coding assistant CLI built on Robota SDK. Loads AGENTS.md/CLAUDE.md for project context and provides a tool-calling REPL with Claude Code-compatible permission modes.
+
+**Version**: 3.0.0-beta.40
 
 ## Installation
 
@@ -11,6 +13,8 @@ npm install -g @robota-sdk/agent-cli
 # Or run directly with npx
 npx @robota-sdk/agent-cli
 ```
+
+> **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use **[iTerm2](https://iterm2.com/)** instead. This is a known Ink + Terminal.app issue shared with Claude Code.
 
 After installing globally, the `robota` command is available system-wide:
 
@@ -71,14 +75,48 @@ robota -p "prompt"                  # Print mode (one-shot, exit after response)
 robota -c                           # Continue last session
 robota -r <session-id>              # Resume session by ID
 robota --model <model>              # Model override (e.g., claude-sonnet-4-6)
+robota --language <lang>            # Response language (ko, en, ja, zh)
 robota --permission-mode <mode>     # plan | default | acceptEdits | bypassPermissions
 robota --max-turns <n>              # Limit agentic turns per interaction
+robota --output-format <fmt>        # text | json | stream-json (print mode)
+robota --system-prompt <text>       # Replace system prompt (print mode)
+robota --append-system-prompt <text> # Append to system prompt (print mode)
+robota --reset                      # Delete user settings and exit
 robota --version                    # Show version
 ```
 
+### Print Mode Output Formats
+
+Print mode (`-p`) supports three output formats via `--output-format`:
+
+| Format        | Description                                                        |
+| ------------- | ------------------------------------------------------------------ |
+| `text`        | Plain text response to stdout (default)                            |
+| `json`        | Single JSON object: `{ type, result, session_id, subtype }`        |
+| `stream-json` | Newline-delimited JSON with `content_block_delta` streaming events |
+
+### Stdin Pipe
+
+When `-p` is used without a positional argument and stdin is piped, the CLI reads from stdin:
+
+```bash
+echo "Explain this error" | robota -p
+cat file.ts | robota -p "Review this code" --output-format json
+git diff | robota -p "Summarize changes" --output-format stream-json
+```
+
+## First-Run Setup
+
+When no settings file exists, the CLI prompts for:
+
+1. **Anthropic API key** (input masked with asterisks)
+2. **Response language** (ko/en/ja/zh, default: en)
+
+Creates `~/.robota/settings.json`. Use `robota --reset` to return to first-run state.
+
 ## Built-in Tools
 
-The CLI provides 6 tools that the AI agent can invoke:
+The AI agent can invoke 6 tools:
 
 | Tool    | Description                          | Primary Argument |
 | ------- | ------------------------------------ | ---------------- |
@@ -91,53 +129,29 @@ The CLI provides 6 tools that the AI agent can invoke:
 
 ## Permission System
 
-Every tool call passes through a three-step permission gate before execution:
+Every tool call passes through a three-step permission gate:
 
-1. **Deny list** — if any deny pattern matches, the action is blocked immediately
+1. **Deny list** — if any deny pattern matches, the action is blocked
 2. **Allow list** — if any allow pattern matches, the action is auto-approved
 3. **Mode policy** — the active permission mode determines the decision
 
-When a tool requires approval, the user sees an interactive prompt:
-
-```
-[Permission Required] Tool: Bash
-  Arguments: command: rm -rf dist
-Allow? [y/N]
-```
-
-- Type `y` or `yes` to approve
-- Press Enter or type anything else to deny
-
-If denied, the AI agent receives a "Permission denied" error and can adjust its approach.
-
 ### Permission Modes
 
-| Mode                | Alias    | Read/Glob/Grep | Write/Edit |  Bash   |
-| ------------------- | -------- | :------------: | :--------: | :-----: |
-| `plan`              | safe     |      auto      |    deny    |  deny   |
-| `default`           | moderate |      auto      |  approve   | approve |
-| `acceptEdits`       | full     |      auto      |    auto    | approve |
-| `bypassPermissions` | —        |      auto      |    auto    |  auto   |
-
-- **auto** — tool executes without prompting
-- **approve** — user is prompted to allow or deny
-- **deny** — tool is blocked silently (no prompt shown)
-
-Unknown tools default to `approve` in most modes, `deny` in `plan` mode.
+| Mode                | Read/Glob/Grep | Write/Edit |  Bash   |
+| ------------------- | :------------: | :--------: | :-----: |
+| `plan`              |      auto      |    deny    |  deny   |
+| `default`           |      auto      |  approve   | approve |
+| `acceptEdits`       |      auto      |    auto    | approve |
+| `bypassPermissions` |      auto      |    auto    |  auto   |
 
 ### Changing Mode at Runtime
 
-Use the `/mode` slash command in the REPL:
+Use the `/mode` slash command:
 
 ```
 > /mode                    # Show current mode
-Current permission mode: default
-
 > /mode plan               # Switch to plan (read-only)
-Permission mode set to: plan
-
 > /mode bypassPermissions  # Skip all prompts
-Permission mode set to: bypassPermissions
 ```
 
 Or set it at startup:
@@ -146,7 +160,7 @@ Or set it at startup:
 robota --permission-mode plan
 ```
 
-### Permission Patterns (allow/deny lists)
+### Permission Patterns
 
 Configure in `.robota/settings.json` or `.robota/settings.local.json`:
 
@@ -159,26 +173,97 @@ Configure in `.robota/settings.json` or `.robota/settings.local.json`:
 }
 ```
 
-**Pattern syntax:**
+Pattern syntax: `ToolName` matches any invocation; `ToolName(pattern)` matches on the primary argument with shell-style globs (`*`, `**`).
 
-- `ToolName` — match any invocation of that tool (e.g., `Bash`)
-- `ToolName(pattern)` — match when the primary argument matches the glob (e.g., `Bash(pnpm *)`)
-- `*` — zero or more characters (shell-style)
-- `**` — one or more characters (recursive path matching)
+## Keyboard Controls
 
-**Evaluation order:** deny patterns are checked first, then allow patterns, then the mode policy. Deny always wins.
+| Key        | Action                                                      |
+| ---------- | ----------------------------------------------------------- |
+| Enter      | Submit input                                                |
+| ESC        | Abort current execution (graceful — saves partial response) |
+| Ctrl+C     | Exit process immediately                                    |
+| Up/Down    | Navigate visual lines in wrapped multi-line input           |
+| Arrow keys | Navigate slash command autocomplete, permission prompt      |
+
+## Paste Handling
+
+Bracketed paste mode (DECSET 2004) is enabled on startup. When pasting multiline text, the input area collapses it into a label: `[Pasted text #1 +42 lines]`. Multiple pastes are numbered sequentially. The full content is expanded on submit.
+
+Single-line paste is inserted directly as typed text. Terminals without bracketed paste fall back to heuristic detection.
+
+## Edit Diff Display
+
+After the Edit tool runs, a `DiffBlock` component renders the change inline:
+
+```
+  ✓ Edit(src/provider.ts)
+    │ src/provider.ts
+    │ - const DEFAULT_MAX_TOKENS = 4096;
+    │ + const maxTokens = getModelMaxOutput(modelId);
+```
+
+Removed lines appear in red with `-`, added lines in green with `+`. Diffs longer than 10 lines show the first 8 + a `... and N more lines` summary.
+
+## Session Management
+
+The CLI supports continuing, resuming, forking, and naming sessions.
+
+### CLI Flags
+
+| Flag                  | Description                                      |
+| --------------------- | ------------------------------------------------ |
+| `-c`, `--continue`    | Continue the most recent session                 |
+| `-r`, `--resume <id>` | Resume a specific session by ID                  |
+| `--fork-session <id>` | Fork a session (new session with copied history) |
+| `--name <name>`       | Assign a name to the session at startup          |
+
+### TUI Commands
+
+| Command          | Description                         |
+| ---------------- | ----------------------------------- |
+| `/resume`        | List recent sessions and resume one |
+| `/rename <name>` | Rename the current session          |
+
+### Session Name Display
+
+When a session has a name, it appears in three places:
+
+- **Input border** — session name shown in the input area border
+- **Terminal title** — updated via ANSI escape sequences
+- **StatusBar** — displayed alongside mode, model, and context usage
 
 ## Slash Commands
 
-| Command        | Description                     |
-| -------------- | ------------------------------- |
-| `/help`        | Show help                       |
-| `/clear`       | Clear conversation history      |
-| `/mode [mode]` | Show or change permission mode  |
-| `/resume`      | List and resume a saved session |
-| `/cost`        | Show token usage                |
-| `/model`       | Show current model              |
-| `/exit`        | Exit CLI                        |
+| Command                   | Description                                                |
+| ------------------------- | ---------------------------------------------------------- |
+| `/help`                   | Show available commands                                    |
+| `/clear`                  | Clear conversation history                                 |
+| `/mode [mode]`            | Show or change permission mode                             |
+| `/model [model]`          | Select AI model (confirmation prompt, CLI restarts)        |
+| `/language [lang]`        | Set response language (ko, en, ja, zh), saves and restarts |
+| `/compact [instructions]` | Compress context window                                    |
+| `/cost`                   | Show session info                                          |
+| `/context`                | Context window details                                     |
+| `/permissions`            | Show permission rules                                      |
+| `/plugin [subcommand]`    | Plugin management TUI                                      |
+| `/resume`                 | List recent sessions and resume one                        |
+| `/rename <name>`          | Rename the current session                                 |
+| `/exit`                   | Exit CLI                                                   |
+
+Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+
+## Plugin Management
+
+The `/plugin` command opens an interactive TUI for managing bundle plugins:
+
+| Subcommand                 | Description                                      |
+| -------------------------- | ------------------------------------------------ |
+| `/plugin install <name>`   | Install a plugin from marketplace or local path  |
+| `/plugin uninstall <name>` | Remove an installed plugin                       |
+| `/plugin enable <name>`    | Enable a disabled plugin                         |
+| `/plugin disable <name>`   | Disable a plugin without uninstalling            |
+| `/plugin list`             | List installed plugins with status               |
+| `/plugin marketplace`      | Browse available plugins from configured sources |
 
 ## Configuration
 
@@ -186,11 +271,14 @@ Settings are loaded from (highest priority first):
 
 1. `.robota/settings.local.json` (local, gitignored)
 2. `.robota/settings.json` (project, shared)
-3. `~/.robota/settings.json` (user global)
+3. `.claude/settings.json` (project, Claude Code compatible)
+4. `~/.robota/settings.json` (user global)
+5. `~/.claude/settings.json` (user global, Claude Code compatible)
 
 ```json
 {
   "defaultMode": "default",
+  "language": "en",
   "provider": {
     "name": "anthropic",
     "model": "claude-sonnet-4-6",
@@ -203,14 +291,6 @@ Settings are loaded from (highest priority first):
 }
 ```
 
-### Environment Variables
-
-| Variable            | Description       | Required |
-| ------------------- | ----------------- | -------- |
-| `ANTHROPIC_API_KEY` | Anthropic API key | Yes      |
-
-Copy `.env.example` to `.env` and set your key. The CLI reads `.env` automatically in dev mode.
-
 ## Context Discovery
 
 The CLI automatically discovers and loads:
@@ -219,36 +299,65 @@ The CLI automatically discovers and loads:
 - **CLAUDE.md** — same walk-up discovery
 - **Project metadata** — from `package.json`, `tsconfig.json`
 
-All context is assembled into the system prompt for the AI assistant.
+All context is assembled into the system prompt.
+
+## Memory Management
+
+- **Message windowing** — React state keeps the most recent 100 messages. Older messages are dropped from the render tree; full history remains in the session store.
+- **Tool state cleanup** — Completed tool execution states are trimmed to the most recent 50 entries.
+- **React.memo** — `MessageItem` uses `React.memo` to skip redundant re-renders.
+
+## Session Logging
+
+Session logs are written to `.robota/logs/{sessionId}.jsonl` in JSONL format by default, capturing structured events for diagnostics and replay.
 
 ## Architecture
 
-```
-bin.ts → cli.ts (parseArgs, load config/context, create Session)
-                ├── config/config-loader.ts    — settings file discovery + Zod validation
-                ├── context/context-loader.ts  — AGENTS.md/CLAUDE.md walk-up discovery
-                ├── context/project-detector.ts — package.json/tsconfig detection
-                ├── context/system-prompt-builder.ts — system message assembly
-                ├── session.ts                 — Robota agent wrapper + permission enforcement
-                │   └── permissions/
-                │       ├── permission-gate.ts   — 3-step evaluation (deny → allow → mode)
-                │       ├── permission-mode.ts   — mode × tool policy matrix
-                │       └── permission-prompt.ts — interactive [y/N] prompt
-                ├── tools/                     — 6 built-in tools (Bash, Read, Write, Edit, Glob, Grep)
-                ├── session-store.ts           — JSON file-based session persistence
-                └── ui/                        — Ink TUI components (App, MessageList, InputArea, etc.)
-```
-
-Tool calls flow through the permission system:
+The CLI is a pure TUI layer. All business logic lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. `useInteractiveSession` is the sole React↔SDK bridge, converting SDK events to React state.
 
 ```
-AI agent requests tool call
-  → Session.wrapToolWithPermission() intercepts execute()
-    → evaluatePermission(toolName, args, mode, allow/deny lists)
-      → deny list match? → blocked
-      → allow list match? → auto-approved
-      → mode policy lookup → auto | approve | deny
-    → if 'approve': promptForApproval() → user types y/N
-    → if allowed: original tool.execute() runs
-    → if denied: returns error result to AI agent
+bin.ts → cli.ts (arg parsing)
+              └── ui/render.tsx → App.tsx (thin JSX shell)
+                    ├── useInteractiveSession  (ONLY React↔SDK bridge)
+                    │   ├── InteractiveSession (SDK)
+                    │   ├── CommandRegistry    (SDK, re-exported by CLI)
+                    │   │   ├── BuiltinCommandSource  (SDK)
+                    │   │   ├── SkillCommandSource    (SDK, discovers from 4 paths)
+                    │   │   └── PluginCommandSource   (CLI-local)
+                    │   └── SystemCommandExecutor (SDK)
+                    ├── plugin-hooks-merger.ts (merges plugin hooks into SDK config)
+                    ├── MessageList.tsx
+                    ├── InputArea.tsx          (CjkTextInput, bracketed paste, slash detection)
+                    ├── StatusBar.tsx          (mode, model, context %, message count)
+                    ├── PermissionPrompt.tsx   (arrow-key Allow/Deny)
+                    ├── SlashAutocomplete.tsx  (command popup with scroll)
+                    ├── DiffBlock.tsx          (Edit tool diff display)
+                    ├── MenuSelect.tsx         (arrow-key menu, Plugin TUI)
+                    ├── PluginTUI.tsx          (plugin management screen stack)
+                    ├── TextPrompt.tsx         (text input for Plugin TUI)
+                    └── ConfirmPrompt.tsx      (reusable yes/no prompt)
 ```
+
+## Dependencies
+
+| Package                                | Purpose                                    |
+| -------------------------------------- | ------------------------------------------ |
+| `@robota-sdk/agent-sdk`                | Session factory, query, config, context    |
+| `@robota-sdk/agent-core`               | Types (TPermissionMode, TToolArgs)         |
+| `@robota-sdk/agent-transport-headless` | Headless runner for print mode (`-p`)      |
+| `ink`, `react`                         | TUI rendering                              |
+| `ink-select-input`                     | Arrow-key selection (permission prompt)    |
+| `ink-spinner`                          | Loading spinner                            |
+| `chalk`                                | Terminal colors                            |
+| `ink-text-input`                       | Base text input (extended by CjkTextInput) |
+| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering    |
+| `cli-highlight`                        | Syntax highlighting for code blocks        |
+| `string-width`                         | Unicode-aware string width (CJK support)   |
+
+## Documentation
+
+See [docs/SPEC.md](./docs/SPEC.md) for the full specification, architecture details, and design decisions.
+
+## License
+
+MIT
