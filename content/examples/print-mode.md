@@ -48,3 +48,33 @@ cat error.log | robota -p "Analyze this error log"
 REVIEW=$(robota -p "Summarize the README.md" --permission-mode plan)
 echo "$REVIEW"
 ```
+
+## JSON Output
+
+```bash
+# JSON output (structured)
+robota -p "Summarize this project" --output-format json
+
+# Stream JSON (real-time events)
+robota -p "Explain recursion" --output-format stream-json
+
+# Extract result with jq
+robota -p "query" --output-format json | jq -r '.result'
+```
+
+## System Prompt
+
+```bash
+# Replace system prompt
+robota -p "Review this code" --system-prompt "You are a security auditor"
+
+# Append to default system prompt
+robota -p "Fix the bug" --append-system-prompt "Focus on error handling"
+```
+
+## Exit Codes
+
+```
+Exit code 0: Success
+Exit code 1: Error
+```
