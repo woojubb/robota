@@ -56,7 +56,8 @@
     "harness:run-context": "node scripts/harness/collect-run-context.mjs",
     "git:push-tags": "git push --tags",
     "pre-publish:check": "bash scripts/pre-publish-docs-check.sh",
-    "publish:packages": "pnpm pre-publish:check && pnpm readme:validate && pnpm readme:copy && pnpm changeset version && pnpm install && pnpm publish -r --no-git-checks && pnpm git:push-tags && pnpm readme:cleanup",
+    "publish:packages": "bash scripts/publish/publish-packages.sh",
+    "publish:beta": "bash scripts/publish/publish-packages.sh",
     "ci:publish": "pnpm publish -r",
     "knip": "knip",
     "deps:check": "depcruise packages/ apps/ --config .dependency-cruiser.cjs"

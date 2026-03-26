@@ -1,5 +1,12 @@
 # @robota-sdk/agent-provider-anthropic
 
+## 3.0.0-beta.44
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.0-beta.44
+
 ## 2.0.9
 
 ### Patch Changes

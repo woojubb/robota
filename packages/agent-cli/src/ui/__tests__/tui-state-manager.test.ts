@@ -10,7 +10,7 @@ import type { IToolState, IExecutionResult } from '@robota-sdk/agent-sdk';
 function makeResult(overrides?: Partial<IExecutionResult>): IExecutionResult {
   return {
     response: 'test response',
-    messages: [],
+    history: [],
     toolSummaries: [],
     contextState: { usedPercentage: 10, usedTokens: 1000, maxTokens: 200000 },
     ...overrides,
@@ -120,29 +120,34 @@ describe('TuiStateManager', () => {
 
   it('addMessage appends to messages', () => {
     const mgr = new TuiStateManager();
-    mgr.addMessage({ role: 'user', content: 'hello' } as never);
-    mgr.addMessage({ role: 'assistant', content: 'world' } as never);
-    expect(mgr.messages).toHaveLength(2);
+    mgr.addEntry({ role: 'user', content: 'hello' } as never);
+    mgr.addEntry({ role: 'assistant', content: 'world' } as never);
+    expect(mgr.history).toHaveLength(2);
   });
 
-  it('addMessage windows to MAX_RENDERED_MESSAGES', () => {
+  it('addEntry windows to MAX_RENDERED_MESSAGES', () => {
     const mgr = new TuiStateManager();
     for (let i = 0; i < 110; i++) {
-      mgr.addMessage({ role: 'user', content: `msg ${i}` } as never);
+      mgr.addEntry({
+        id: `${i}`,
+        timestamp: new Date(),
+        category: 'chat',
+        type: 'user',
+        data: { content: `msg ${i}` },
+      } as never);
     }
-    expect(mgr.messages).toHaveLength(100);
-    expect(mgr.messages[0]!.content).toBe('msg 10');
+    expect(mgr.history).toHaveLength(100);
   });
 
   it('syncMessages replaces all messages', () => {
     const mgr = new TuiStateManager();
-    mgr.addMessage({ role: 'user', content: 'old' } as never);
-    mgr.syncMessages([
+    mgr.addEntry({ role: 'user', content: 'old' } as never);
+    mgr.syncHistory([
       { role: 'user', content: 'new1' } as never,
       { role: 'assistant', content: 'new2' } as never,
     ]);
-    expect(mgr.messages).toHaveLength(2);
-    expect(mgr.messages[0]!.content).toBe('new1');
+    expect(mgr.history).toHaveLength(2);
+    expect(mgr.history[0]!.content).toBe('new1');
   });
 
   // ── onChange notification ──────────────────────────────────────
@@ -155,7 +160,7 @@ describe('TuiStateManager', () => {
     mgr.onTextDelta('hi');
     mgr.onToolStart({ toolName: 'Read', firstArg: '', isRunning: true });
     mgr.onThinking(true);
-    mgr.addMessage({ role: 'user', content: 'test' } as never);
+    mgr.addEntry({ role: 'user', content: 'test' } as never);
     mgr.setAborting(true);
     mgr.setPendingPrompt('queued');
     mgr.setContextState({ percentage: 50, usedTokens: 5000, maxTokens: 10000 });
@@ -240,19 +245,18 @@ describe('TuiStateManager', () => {
     expect(mgr.activeTools).toEqual([]);
     expect(mgr.isThinking).toBe(false);
 
-    // Simulate InteractiveSession messages being synced
-    // (InteractiveSession already pushed: user → tool-summary → assistant)
-    mgr.syncMessages([
-      { role: 'user', content: 'fix the bug' } as never,
-      { role: 'tool', content: '✓ Read(f.ts)' } as never,
-      { role: 'assistant', content: 'response text' } as never,
+    // Simulate InteractiveSession history entries being synced
+    mgr.syncHistory([
+      { id: '1', timestamp: new Date(), category: 'chat', type: 'user' } as never,
+      { id: '2', timestamp: new Date(), category: 'event', type: 'tool-summary' } as never,
+      { id: '3', timestamp: new Date(), category: 'chat', type: 'assistant' } as never,
     ]);
 
-    // MessageList now has correct order: user → tool → assistant
-    expect(mgr.messages).toHaveLength(3);
-    expect(mgr.messages[0]!.role).toBe('user');
-    expect(mgr.messages[1]!.role).toBe('tool');
-    expect(mgr.messages[2]!.role).toBe('assistant');
+    // MessageList now has correct order: user → tool-summary → assistant
+    expect(mgr.history).toHaveLength(3);
+    expect(mgr.history[0]!.type).toBe('user');
+    expect(mgr.history[1]!.type).toBe('tool-summary');
+    expect(mgr.history[2]!.type).toBe('assistant');
   });
 
   it('after abort: streaming cleared, messages synced with tool → robota → system', () => {
@@ -267,20 +271,20 @@ describe('TuiStateManager', () => {
     expect(mgr.streamingText).toBe('');
     expect(mgr.activeTools).toEqual([]);
 
-    // Simulate InteractiveSession messages synced after abort
-    mgr.syncMessages([
-      { role: 'user', content: 'test' } as never,
-      { role: 'tool', content: '⟳ Bash(ls)' } as never,
-      { role: 'assistant', content: 'partial answer' } as never,
-      { role: 'system', content: 'Interrupted by user.' } as never,
+    // Simulate InteractiveSession history entries synced after abort
+    mgr.syncHistory([
+      { id: '1', timestamp: new Date(), category: 'chat', type: 'user' } as never,
+      { id: '2', timestamp: new Date(), category: 'event', type: 'tool-summary' } as never,
+      { id: '3', timestamp: new Date(), category: 'chat', type: 'assistant' } as never,
+      { id: '4', timestamp: new Date(), category: 'chat', type: 'system' } as never,
     ]);
 
-    // Order: user → tool → assistant → system
-    expect(mgr.messages).toHaveLength(4);
-    expect(mgr.messages[0]!.role).toBe('user');
-    expect(mgr.messages[1]!.role).toBe('tool');
-    expect(mgr.messages[2]!.role).toBe('assistant');
-    expect(mgr.messages[3]!.role).toBe('system');
+    // Order: user → tool-summary → assistant → system
+    expect(mgr.history).toHaveLength(4);
+    expect(mgr.history[0]!.type).toBe('user');
+    expect(mgr.history[1]!.type).toBe('tool-summary');
+    expect(mgr.history[2]!.type).toBe('assistant');
+    expect(mgr.history[3]!.type).toBe('system');
   });
 
   it('next execution clears previous tools from StreamingIndicator', () => {

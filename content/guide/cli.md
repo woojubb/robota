@@ -2,6 +2,8 @@
 
 `@robota-sdk/agent-cli` is a purely TUI layer built on `InteractiveSession` from `@robota-sdk/agent-sdk`. The CLI has no session logic of its own: the `useInteractiveSession` React hook subscribes to `InteractiveSession` events and translates them into React state. All session logic — command handling, prompt queuing, system commands, skill discovery — lives in the SDK layer.
 
+State is managed by `TuiStateManager`, a pure TypeScript class (no React dependency) that receives SDK events and produces an immutable state snapshot. The `useInteractiveSession` hook wraps `TuiStateManager` and feeds its output into the React component tree via `useState`.
+
 ## Installation
 
 ```bash
@@ -33,15 +35,19 @@ The TUI (built with React + Ink) provides:
 - **Permission prompts** — Arrow-key Allow/Deny selection for tool calls
 - **Streaming** — Real-time text output as the model responds
 - **ESC abort** — Press ESC during streaming to cancel. Partial response is saved with interrupted state
-- **Message type SSOT** — Uses `TUniversalMessage` from agent-core directly. Each message has `id` and `state`
+- **History SSOT** — Renders from `IHistoryEntry[]` — the universal timeline of chat messages and session events
 
 ### useInteractiveSession Hook
 
 The `useInteractiveSession` hook is the sole bridge between `InteractiveSession` (SDK) and the React component tree. It:
 
 1. Receives an `InteractiveSession` instance as its argument.
-2. Subscribes to all SDK events (`textDelta`, `message`, `statusChange`, `contextUpdate`, `error`).
-3. Exposes derived React state (messages, status, context info) and actions (`submit`, `abort`, `cancelQueue`).
+2. Passes SDK events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `context_update`, `error`) to a `TuiStateManager` instance.
+3. Exposes derived React state and actions (`submit`, `abort`, `cancelQueue`).
+
+The state shape exposed to components includes `history: IHistoryEntry[]` — the universal timeline of chat messages and session events. Components render from this single list; there is no separate `messages` array.
+
+`TuiStateManager` is a pure TypeScript class with no React dependency. It can be instantiated and tested independently of the component tree, making state transition logic fully unit-testable.
 
 The CLI contains no session management logic beyond this hook. The old `useSession`, `useSubmitHandler`, `useSlashCommands`, `useCommandRegistry`, and `useMessages` hooks have been removed and their responsibilities moved to `InteractiveSession` in the SDK.
 

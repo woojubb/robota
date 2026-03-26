@@ -19,8 +19,14 @@ import {
   buildSkillPrompt,
 } from '@robota-sdk/agent-sdk';
 import type { IAIProvider, TPermissionResultValue } from '@robota-sdk/agent-sdk';
-import type { TPermissionMode, TUniversalMessage, TToolArgs } from '@robota-sdk/agent-core';
-import { createSystemMessage } from '@robota-sdk/agent-core';
+import type {
+  TPermissionMode,
+  TUniversalMessage,
+  TToolArgs,
+  IHistoryEntry,
+} from '@robota-sdk/agent-core';
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { randomUUID } from 'node:crypto';
 import type { IPermissionRequest } from '../types.js';
 import { TuiStateManager } from '../tui-state-manager.js';
 
@@ -43,9 +49,8 @@ export interface IInteractiveSessionProps {
 export interface IInteractiveSessionState {
   interactiveSession: InteractiveSession;
   registry: CommandRegistry;
-  messages: TUniversalMessage[];
-  addMessage: (msg: TUniversalMessage) => void;
-  setMessages: React.Dispatch<React.SetStateAction<TUniversalMessage[]>>;
+  history: IHistoryEntry[];
+  addEntry: (entry: IHistoryEntry) => void;
   streamingText: string;
   activeTools: import('@robota-sdk/agent-sdk').IToolState[];
   isThinking: boolean;
@@ -191,7 +196,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   // - thinking=true: "You:" and "System: Invoking..." are already in messages
   // - thinking=false: complete/interrupted messages are in messages
   useEffect(() => {
-    manager.syncMessages(interactiveSession.getMessages());
+    manager.syncHistory(interactiveSession.getFullHistory());
     if (!manager.isThinking) {
       manager.setPendingPrompt(interactiveSession.getPendingPrompt());
     }
@@ -207,7 +212,7 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
 
         const result = await interactiveSession.executeCommand(cmd, args);
         if (result) {
-          manager.addMessage(createSystemMessage(result.message));
+          manager.addEntry(messageToHistoryEntry(createSystemMessage(result.message)));
           const effects = interactiveSession as InteractiveSession & ISideEffects;
           if (result.data?.modelId) {
             effects._pendingModelId = result.data.modelId as string;
@@ -234,7 +239,17 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
           .getCommands()
           .find((c) => c.name === cmd && (c.source === 'skill' || c.source === 'plugin'));
         if (skillCmd) {
-          manager.addMessage(createSystemMessage(`Invoking ${skillCmd.source}: ${cmd}`));
+          manager.addEntry({
+            id: randomUUID(),
+            timestamp: new Date(),
+            category: 'event',
+            type: 'skill-invocation',
+            data: {
+              skillName: cmd,
+              source: skillCmd.source,
+              message: `Invoking ${skillCmd.source}: ${cmd}`,
+            },
+          });
           const prompt = await buildSkillPrompt(input, registry);
           if (prompt) {
             const qualifiedName = registry.resolveQualifiedName(cmd);
@@ -256,7 +271,11 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
           return;
         }
 
-        manager.addMessage(createSystemMessage(`Unknown command "/${cmd}". Type /help for help.`));
+        manager.addEntry(
+          messageToHistoryEntry(
+            createSystemMessage(`Unknown command "/${cmd}". Type /help for help.`),
+          ),
+        );
         return;
       }
       await interactiveSession.submit(input);
@@ -278,11 +297,8 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
   return {
     interactiveSession,
     registry,
-    messages: manager.messages,
-    addMessage: (msg) => manager.addMessage(msg),
-    setMessages: () => {
-      /* managed by TuiStateManager */
-    },
+    history: manager.history,
+    addEntry: (entry: IHistoryEntry) => manager.addEntry(entry),
     streamingText: manager.streamingText,
     activeTools: manager.activeTools,
     isThinking: manager.isThinking,

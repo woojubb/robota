@@ -245,6 +245,48 @@ export class Robota
     })) as TUniversalMessage[];
   }
 
+  /** Get full history timeline (IHistoryEntry[]) including events */
+  getFullHistory(): Array<{
+    id: string;
+    timestamp: Date;
+    category: string;
+    type: string;
+    data?: unknown;
+  }> {
+    const store = this.conversationHistory.getConversationStore(this.conversationId);
+    if ('getHistory' in store && typeof store.getHistory === 'function') {
+      return store.getHistory() as Array<{
+        id: string;
+        timestamp: Date;
+        category: string;
+        type: string;
+        data?: unknown;
+      }>;
+    }
+    // Fallback for stores that don't support getHistory yet
+    return store.getMessages().map((msg) => ({
+      id: msg.id,
+      timestamp: msg.timestamp,
+      category: 'chat' as const,
+      type: msg.role,
+      data: msg,
+    }));
+  }
+
+  /** Add an event entry to history */
+  addHistoryEntry(entry: {
+    id: string;
+    timestamp: Date;
+    category: string;
+    type: string;
+    data?: unknown;
+  }): void {
+    const store = this.conversationHistory.getConversationStore(this.conversationId);
+    if ('addEntry' in store && typeof store.addEntry === 'function') {
+      (store as { addEntry: (e: unknown) => void }).addEntry(entry);
+    }
+  }
+
   override clearHistory(): void {
     this.conversationHistory.getConversationStore(this.conversationId).clear();
   }

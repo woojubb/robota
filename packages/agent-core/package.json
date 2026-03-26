@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-core",
-  "version": "3.0.0-beta.43",
+  "version": "3.0.0-beta.44",
   "description": "Complete AI agent implementation with unified core and tools functionality - conversation management, plugin system, and advanced agent features",
   "type": "module",
   "main": "dist/node/index.js",
