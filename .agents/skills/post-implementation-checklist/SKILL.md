@@ -93,6 +93,9 @@ For small changes (1-2 packages, no new features):
 ## Rules
 
 - NEVER skip SPEC verification — it catches drift before it accumulates
+- NEVER skip README update — every SPEC change must be reflected in README.md
+- NEVER skip content/ update — every user-facing behavior change must be reflected in content/guide/\*.md
+- The three documentation layers (SPEC.md → README.md → content/) must always be in sync after every change
 - NEVER publish without build + test passing
 - NEVER deploy docs without building first
 - content/v2.0.0/ is frozen — never modify

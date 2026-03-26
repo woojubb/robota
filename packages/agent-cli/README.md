@@ -227,7 +227,7 @@ When a session has a name, it appears in three places:
 | `/rename <name>`          | Rename the current session                                 |
 | `/exit`                   | Exit CLI                                                   |
 
-Typing `/` triggers an autocomplete popup with arrow-key navigation, Tab completion, and Esc to dismiss. Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
 
 ## Plugin Management
 

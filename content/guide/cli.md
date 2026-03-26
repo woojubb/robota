@@ -53,7 +53,7 @@ The CLI contains no session management logic beyond this hook. The old `useSessi
 
 ## Slash Commands
 
-Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Enter to select.
+Type `/` to trigger the autocomplete popup. Arrow keys to navigate, Tab to insert into input (without executing), Enter to execute immediately.
 
 The available command list is provided by `InteractiveSession.getCommands()`, which aggregates `BuiltinCommandSource` and `SkillCommandSource`. The CLI renders this list but does not own it.
 
