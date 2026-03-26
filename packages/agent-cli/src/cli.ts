@@ -14,6 +14,7 @@ import { SessionStore } from '@robota-sdk/agent-sessions';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
 import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
+import { createHeadlessRunner } from '@robota-sdk/agent-transport-headless';
 import { renderApp } from './ui/render.js';
 
 /** Result of checking a settings file. */
@@ -220,10 +221,20 @@ export async function startCli(): Promise<void> {
     }
   }
 
-  // Print mode (-p): one-shot prompt, output response, exit
+  // Print mode (-p): one-shot prompt via headless transport, then exit
   if (args.printMode) {
-    const prompt = args.positional.join(' ').trim();
-    if (prompt.length === 0) {
+    let prompt = args.positional.join(' ').trim();
+
+    // Stdin pipe: read from stdin if no positional args and stdin is piped
+    if (!prompt && !process.stdin.isTTY) {
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk as Buffer);
+      }
+      prompt = Buffer.concat(chunks).toString('utf-8').trim();
+    }
+
+    if (!prompt) {
       process.stderr.write('Print mode (-p) requires a prompt argument.\n');
       process.exit(1);
     }
@@ -237,19 +248,13 @@ export async function startCli(): Promise<void> {
       sessionName: args.sessionName,
     });
 
-    await new Promise<void>((resolve, reject) => {
-      session.on('complete', (result) => {
-        process.stdout.write(result.response + '\n');
-        resolve();
-      });
-      session.on('interrupted', (result) => {
-        if (result.response) process.stdout.write(result.response + '\n');
-        resolve();
-      });
-      session.on('error', (err) => reject(err));
-      session.submit(prompt).catch(reject);
+    const runner = createHeadlessRunner({
+      session,
+      outputFormat: (args.outputFormat as 'text' | 'json' | 'stream-json') ?? 'text',
     });
-    return;
+
+    const exitCode = await runner.run(prompt);
+    process.exit(exitCode);
   }
 
   // Interactive TUI mode (Ink)
