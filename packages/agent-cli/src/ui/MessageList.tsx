@@ -206,6 +206,12 @@ function EntryItem({ entry }: { entry: IHistoryEntry }): React.ReactElement {
     return <ToolSummaryEntry entry={entry} />;
   }
 
+  // tool-start/tool-end are recorded in history for persistence but not rendered
+  // (StreamingIndicator shows them during streaming, tool-summary shows them after)
+  if (entry.type === 'tool-start' || entry.type === 'tool-end') {
+    return <></>;
+  }
+
   return <EventEntry entry={entry} />;
 }
 
