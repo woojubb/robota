@@ -12,8 +12,16 @@ import type {
   TUniversalMessagePart,
   TMessageState,
   IAssistantMessage,
+  IHistoryEntry,
 } from '../interfaces/messages';
-import { isSystemMessage, isAssistantMessage, isToolMessage } from '../interfaces/messages';
+import {
+  isSystemMessage,
+  isAssistantMessage,
+  isToolMessage,
+  messageToHistoryEntry,
+  chatEntryToMessage,
+  isChatEntry,
+} from '../interfaces/messages';
 import {
   createUserMessage,
   createAssistantMessage,
@@ -29,15 +37,26 @@ import type { IConversationHistory } from './conversation-history-manager';
  */
 export class SimpleConversationHistory implements IConversationHistory {
   protected readonly maxMessages: number;
-  private messages: TUniversalMessage[] = [];
+  private entries: IHistoryEntry[] = [];
 
   constructor(options?: { maxMessages?: number }) {
     this.maxMessages = options?.maxMessages || 0;
   }
 
+  /** Add a chat message (converted to IHistoryEntry internally) */
   addMessage(message: TUniversalMessage): void {
-    this.messages.push(message);
-    this.messages = this.applyMessageLimit(this.messages);
+    this.entries.push(messageToHistoryEntry(message));
+    this.applyMessageLimit();
+  }
+
+  /** Add a raw history entry (for events, etc.) */
+  addEntry(entry: IHistoryEntry): void {
+    this.entries.push(entry);
+  }
+
+  /** Get all history entries (universal timeline) */
+  getHistory(): IHistoryEntry[] {
+    return [...this.entries];
   }
 
   addUserMessage(
@@ -92,31 +111,38 @@ export class SimpleConversationHistory implements IConversationHistory {
     );
   }
 
+  /** Get chat messages only (backward compatible) */
   getMessages(): TUniversalMessage[] {
-    return [...this.messages];
+    return this.entries.filter(isChatEntry).map(chatEntryToMessage);
   }
   getMessagesByRole(role: TUniversalMessageRole): TUniversalMessage[] {
-    return this.messages.filter((m) => m.role === role);
+    return this.getMessages().filter((m) => m.role === role);
   }
   getRecentMessages(count: number): TUniversalMessage[] {
-    return this.messages.slice(-count);
+    return this.getMessages().slice(-count);
   }
   getMessageCount(): number {
-    return this.messages.length;
+    return this.entries.filter(isChatEntry).length;
   }
   clear(): void {
-    this.messages = [];
+    this.entries = [];
   }
 
-  /** @internal */
-  protected applyMessageLimit(messages: TUniversalMessage[]): TUniversalMessage[] {
-    if (this.maxMessages > 0 && messages.length > this.maxMessages) {
-      const systemMessages = messages.filter(isSystemMessage);
-      const nonSystem = messages.filter((msg) => !isSystemMessage(msg));
-      const available = Math.max(0, this.maxMessages - systemMessages.length);
-      return [...systemMessages, ...nonSystem.slice(-available)];
-    }
-    return messages;
+  /** @internal — limits chat entries only, preserves event entries */
+  protected applyMessageLimit(): void {
+    if (this.maxMessages <= 0) return;
+    const chatEntries = this.entries.filter(isChatEntry);
+    if (chatEntries.length <= this.maxMessages) return;
+
+    const chatMessages = chatEntries.map(chatEntryToMessage);
+    const systemMessages = chatMessages.filter(isSystemMessage);
+    const nonSystem = chatMessages.filter((msg) => !isSystemMessage(msg));
+    const available = Math.max(0, this.maxMessages - systemMessages.length);
+    const keepMessages = [...systemMessages, ...nonSystem.slice(-available)];
+    const keepIds = new Set(keepMessages.map((m) => m.id));
+
+    // Keep all event entries + kept chat entries
+    this.entries = this.entries.filter((e) => !isChatEntry(e) || keepIds.has(e.id));
   }
 }
 
@@ -167,6 +193,12 @@ export class PersistentSystemConversationHistory implements IConversationHistory
     parts?: TUniversalMessagePart[],
   ): void {
     this.history.addToolMessageWithId(content, toolCallId, toolName, metadata, parts);
+  }
+  addEntry(entry: IHistoryEntry): void {
+    this.history.addEntry(entry);
+  }
+  getHistory(): IHistoryEntry[] {
+    return this.history.getHistory();
   }
   getMessages(): TUniversalMessage[] {
     return this.history.getMessages();
@@ -281,6 +313,16 @@ export class ConversationStore implements IConversationHistory {
     }
     this.toolCallIds.add(toolCallId);
     this.history.addToolMessageWithId(content, toolCallId, toolName, metadata, parts);
+  }
+
+  /** Add a raw history entry (events, etc.) */
+  addEntry(entry: IHistoryEntry): void {
+    this.history.addEntry(entry);
+  }
+
+  /** Get all history entries (universal timeline) */
+  getHistory(): IHistoryEntry[] {
+    return this.history.getHistory();
   }
 
   getMessages(): TUniversalMessage[] {
