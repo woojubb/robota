@@ -107,8 +107,79 @@ export interface IToolMessage extends IBaseMessage {
 
 /**
  * Universal message union used across the SDK as the canonical contract.
+ * Used for AI provider communication. Extracted from IHistoryEntry[] via filtering.
  */
 export type TUniversalMessage = IUserMessage | IAssistantMessage | ISystemMessage | IToolMessage;
+
+/**
+ * Universal history entry — the base type for all records in conversation history.
+ *
+ * History is a universal timeline that records everything: AI chat messages,
+ * system events, skill invocations, permission decisions, etc.
+ * AI provider receives only chat entries (filtered and converted to TUniversalMessage).
+ * TUI can render any range of entries.
+ *
+ * - append-only, read-only
+ * - category + type for classification (free-form strings, no pre-defined enum)
+ * - data holds type-specific structured content
+ */
+export interface IHistoryEntry<T = unknown> {
+  /** Unique entry identifier */
+  id: string;
+  /** Entry creation timestamp */
+  timestamp: Date;
+  /** Top-level classification: 'chat', 'event', etc. */
+  category: string;
+  /** Sub-classification within category. Free-form, not pre-defined. */
+  type: string;
+  /** Type-specific structured data */
+  data?: T;
+}
+
+/** Check if a history entry is a chat message (for AI provider filtering). */
+export function isChatEntry(entry: IHistoryEntry): boolean {
+  return entry.category === 'chat';
+}
+
+/**
+ * Convert a chat history entry to TUniversalMessage for AI provider consumption.
+ * Only call on entries where isChatEntry() returns true.
+ */
+export function chatEntryToMessage(entry: IHistoryEntry): TUniversalMessage {
+  const data = entry.data as Record<string, unknown>;
+  return {
+    id: entry.id,
+    timestamp: entry.timestamp,
+    state: (data?.state as TMessageState) ?? 'complete',
+    role: data?.role as TUniversalMessageRole,
+    content: (data?.content as string) ?? '',
+    ...(data?.parts ? { parts: data.parts as TUniversalMessagePart[] } : {}),
+    ...(data?.toolCalls ? { toolCalls: data.toolCalls as IToolCall[] } : {}),
+    ...(data?.toolCallId ? { toolCallId: data.toolCallId as string } : {}),
+    ...(data?.name ? { name: data.name as string } : {}),
+  } as TUniversalMessage;
+}
+
+/**
+ * Convert a TUniversalMessage to an IHistoryEntry for storage.
+ */
+export function messageToHistoryEntry(message: TUniversalMessage): IHistoryEntry {
+  return {
+    id: message.id,
+    timestamp: message.timestamp,
+    category: 'chat',
+    type: message.role,
+    data: { ...message },
+  };
+}
+
+/**
+ * Filter history entries and convert chat entries to TUniversalMessage[].
+ * Used when passing conversation to AI provider.
+ */
+export function getMessagesForAPI(history: IHistoryEntry[]): TUniversalMessage[] {
+  return history.filter(isChatEntry).map(chatEntryToMessage);
+}
 
 /**
  * Type guards for the canonical TUniversalMessage union.

@@ -158,7 +158,18 @@ export {
   isAssistantMessage,
   isSystemMessage,
   isToolMessage,
+  isChatEntry,
+  chatEntryToMessage,
+  messageToHistoryEntry,
+  getMessagesForAPI,
 } from './interfaces/messages';
+
+/**
+ * Universal history entry — base type for all conversation history records.
+ *
+ * @public
+ */
+export type { IHistoryEntry } from './interfaces/messages';
 
 /**
  * Message factory functions for creating typed conversation messages.
