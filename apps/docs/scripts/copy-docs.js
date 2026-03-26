@@ -37,7 +37,7 @@ packagesDir.forEach((packageName) => {
   const packageDocsPath = path.join(packagePath, 'docs');
 
   if (fs.existsSync(packageDocsPath) && fs.statSync(packageDocsPath).isDirectory()) {
-    const targetPackageDocsPath = path.join(tempDir, 'packages', packageName, 'docs');
+    const targetPackageDocsPath = path.join(tempDir, 'packages', packageName);
     console.log(`  Copying ${packageName} docs...`);
 
     fs.ensureDirSync(targetPackageDocsPath);
