@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-ok-emitter",
-  "version": "3.0.0-beta.48",
+  "version": "3.0.0-beta.49",
   "description": "DAG ok-emitter node for Robota",
   "type": "module",
   "main": "dist/node/index.js",

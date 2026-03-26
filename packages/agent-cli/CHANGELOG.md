@@ -1,5 +1,17 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.49
+
+### Patch Changes
+
+- fix: add repository, homepage, bugs metadata to all publishable packages
+- Updated dependencies
+  - @robota-sdk/agent-sdk@3.0.0-beta.49
+  - @robota-sdk/agent-transport-headless@3.0.0-beta.49
+  - @robota-sdk/agent-core@3.0.0-beta.49
+  - @robota-sdk/agent-sessions@3.0.0-beta.49
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.49
+
 ## 3.0.0-beta.48
 
 ### Patch Changes

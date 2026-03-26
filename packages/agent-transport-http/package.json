@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-http",
-  "version": "3.0.0-beta.48",
+  "version": "3.0.0-beta.49",
   "description": "HTTP transport adapter for exposing InteractiveSession over REST API",
   "type": "module",
   "main": "dist/node/index.js",

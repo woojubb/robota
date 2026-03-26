@@ -1,5 +1,12 @@
 # @robota-sdk/agent-tools
 
+## 3.0.0-beta.49
+
+### Patch Changes
+
+- fix: add repository, homepage, bugs metadata to all publishable packages
+  - @robota-sdk/agent-core@3.0.0-beta.49
+
 ## 3.0.0-beta.48
 
 ### Patch Changes
