@@ -59,6 +59,7 @@
   },
   "changesets": [
     "add-package-metadata",
+    "fix-package-metadata-order",
     "session-continue-resume",
     "tool-execution-history-fix",
     "transport-command-consolidation",

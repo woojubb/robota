@@ -1,5 +1,11 @@
 # @robota-sdk/agent-plugin-conversation-history
 
+## 3.0.0-beta.50
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.50
+
 ## 3.0.0-beta.49
 
 ### Patch Changes

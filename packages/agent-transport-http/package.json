@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-http",
-  "version": "3.0.0-beta.49",
+  "version": "3.0.0-beta.50",
   "description": "HTTP transport adapter for exposing InteractiveSession over REST API",
   "type": "module",
   "main": "dist/node/index.js",
@@ -17,6 +17,14 @@
         "require": "./dist/node/index.cjs"
       }
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git"
+  },
+  "homepage": "https://robota.io/",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
   },
   "files": [
     "dist"
@@ -41,13 +49,5 @@
   "license": "MIT",
   "publishConfig": {
     "access": "public"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
-  },
-  "homepage": "https://robota.io/",
-  "bugs": {
-    "url": "https://github.com/woojubb/robota/issues"
   }
 }

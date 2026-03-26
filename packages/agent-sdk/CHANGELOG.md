@@ -1,5 +1,15 @@
 # @robota-sdk/agent-sdk
 
+## 3.0.0-beta.50
+
+### Patch Changes
+
+- fix: reinsert repository/homepage/bugs in correct field order
+- Updated dependencies
+  - @robota-sdk/agent-tools@3.0.0-beta.50
+  - @robota-sdk/agent-core@3.0.0-beta.50
+  - @robota-sdk/agent-sessions@3.0.0-beta.50
+
 ## 3.0.0-beta.49
 
 ### Patch Changes
