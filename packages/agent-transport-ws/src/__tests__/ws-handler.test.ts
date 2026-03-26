@@ -5,7 +5,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createWsHandler } from '../ws-handler.js';
 import type { TServerMessage } from '../ws-handler.js';
-import type { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-sdk';
+import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 
 function createMockSession() {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -19,6 +19,8 @@ function createMockSession() {
       .mockReturnValue({ usedTokens: 500, maxTokens: 100000, usedPercentage: 0.5 }),
     isExecuting: vi.fn().mockReturnValue(false),
     getPendingPrompt: vi.fn().mockReturnValue(null),
+    executeCommand: vi.fn().mockResolvedValue({ message: 'done', success: true, data: {} }),
+    listCommands: vi.fn().mockReturnValue([]),
     on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)!.add(handler);
@@ -32,25 +34,15 @@ function createMockSession() {
   } as unknown as InteractiveSession & { _emit: (event: string, ...args: unknown[]) => void };
 }
 
-function createMockCommandExecutor() {
-  return {
-    execute: vi.fn().mockResolvedValue({ message: 'done', success: true, data: {} }),
-    listCommands: vi.fn().mockReturnValue([]),
-    hasCommand: vi.fn().mockReturnValue(true),
-  } as unknown as SystemCommandExecutor;
-}
-
 describe('WebSocket Transport Handler', () => {
   function setup() {
     const session = createMockSession();
-    const commandExecutor = createMockCommandExecutor();
     const sent: TServerMessage[] = [];
     const { onMessage, cleanup } = createWsHandler({
       session: session as unknown as InteractiveSession,
-      commandExecutor,
       send: (msg) => sent.push(msg),
     });
-    return { session, commandExecutor, sent, onMessage, cleanup };
+    return { session, sent, onMessage, cleanup };
   }
 
   it('submit calls session.submit()', () => {
@@ -101,12 +93,15 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]).toEqual({ type: 'pending', pending: null });
   });
 
-  it('command executes and sends result', async () => {
-    const { onMessage, sent } = setup();
+  it('command executes via session.executeCommand()', async () => {
+    const { onMessage, sent, session } = setup();
     onMessage(JSON.stringify({ type: 'command', name: 'clear' }));
     await new Promise((r) => setTimeout(r, 10));
     expect(sent).toHaveLength(1);
     expect(sent[0]!.type).toBe('command_result');
+    expect(
+      (session as unknown as { executeCommand: ReturnType<typeof vi.fn> }).executeCommand,
+    ).toHaveBeenCalledWith('clear', '');
   });
 
   it('invalid JSON sends protocol_error', () => {
