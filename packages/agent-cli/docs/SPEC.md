@@ -523,7 +523,7 @@ robota --version                    # Version
 
 ### Print Mode and Headless Transport
 
-Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport-headless` via `createHeadlessRunner`. The CLI creates an `InteractiveSession`, wraps it in a headless runner, runs the prompt, and exits with the runner's exit code.
+Print mode (`-p`) delegates execution to `@robota-sdk/agent-transport-headless` via `createHeadlessTransport`. The CLI creates an `InteractiveSession`, attaches the headless transport via `session.attachTransport(transport)`, calls `transport.start()`, and exits with `transport.getExitCode()`.
 
 **`--output-format`** controls how the response is written to stdout:
 

@@ -60,6 +60,32 @@ await mcpServer.connect(new StdioServerTransport());
 | `command_context` | `{ args?: string }`  | Context window info                    |
 | ...               | ...                  | One tool per registered system command |
 
+## ITransportAdapter
+
+This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`.
+
+### `createMcpTransport(options)`
+
+Factory that returns an `ITransportAdapter` with `name: 'mcp'`.
+
+**Options:**
+
+| Field            | Type      | Description                                    |
+| ---------------- | --------- | ---------------------------------------------- |
+| `name`           | `string`  | Server name for MCP protocol identification    |
+| `version`        | `string`  | Server version string                          |
+| `exposeCommands` | `boolean` | Whether to expose system commands as MCP tools |
+
+**Extra method:**
+
+- `getServer(): Server` — Returns the underlying MCP `Server` instance (available after `start()`).
+
+**Lifecycle:**
+
+1. `attach(session)` — Stores the `InteractiveSession` reference
+2. `start()` — Creates the MCP server, registers tools (submit + system commands)
+3. `stop()` — Closes the MCP server and releases resources
+
 ## Dependencies
 
 - `@robota-sdk/agent-sdk` (InteractiveSession)

@@ -194,6 +194,7 @@ agent-cli (Ink TUI — CLI-specific)
 - **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
 - **forkSession option**: `forkSession?: boolean` (default `false`). When `false` (resume), the original session ID is passed to the Session constructor so it reuses the same file. When `true` (fork), `sessionId` is omitted, generating a fresh UUID — the original session remains untouched.
 - **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.
+- **attachTransport(transport)**: `attachTransport(transport: ITransportAdapter)` — attaches a transport adapter to this session. Calls `transport.attach(this)`. Used by consumers to compose transports consistently: `session.attachTransport(transport); await transport.start();`
 - **Testing**: Accepts an optional pre-built `Session` via `options.session` to enable unit testing without I/O setup
 
 ### System Command System (SDK-Specific)
@@ -338,6 +339,26 @@ interface IInteractiveSessionEvents {
   interrupted: (result: IExecutionResult) => void;
 }
 ```
+
+**ITransportAdapter:**
+
+```typescript
+interface ITransportAdapter {
+  /** Human-readable transport name (e.g., 'http', 'ws', 'mcp', 'headless') */
+  readonly name: string;
+
+  /** Attach an InteractiveSession to this transport. */
+  attach(session: InteractiveSession): void;
+
+  /** Start serving. What this means depends on the transport. */
+  start(): Promise<void>;
+
+  /** Stop serving and clean up resources. */
+  stop(): Promise<void>;
+}
+```
+
+Common interface for all transport adapters. Defined in `src/interactive/types.ts` and exported from `@robota-sdk/agent-sdk`. Each `agent-transport-*` package provides a factory that returns an `ITransportAdapter` implementation.
 
 ### History Entry Types
 

@@ -44,6 +44,7 @@ import type {
   TInteractivePermissionHandler,
   TInteractiveEventName,
   IInteractiveSessionEvents,
+  ITransportAdapter,
 } from './types.js';
 
 /** Max chars to display from first tool argument. */
@@ -359,6 +360,11 @@ export class InteractiveSession {
         // Session not initialized yet
       }
     }
+  }
+
+  /** Attach a transport adapter to this session. Calls transport.attach(this). */
+  attachTransport(transport: ITransportAdapter): void {
+    transport.attach(this);
   }
 
   /** Access underlying Session. For advanced use / testing only. */

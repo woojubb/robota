@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-playground",
-  "version": "3.0.0-beta.46",
+  "version": "3.0.0-beta.47",
   "description": "Deployable Playground UI package (React implementation) for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

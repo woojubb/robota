@@ -242,6 +242,7 @@ Mistakes observed repeatedly in this codebase. Every item below has caused a rea
 | 26  | Refactoring/modularizing code without test coverage first        | Write characterization tests before extraction; see `pre-refactor-test-harness` |
 | 27  | Using `pnpm publish` or `npm publish` directly                   | Always use `pnpm publish:beta`; see `publish.md` Publish Command                |
 | 28  | Publishing only some packages (cherry-picking)                   | ALL non-private packages must be published together; see `publish.md`           |
+| 29  | Modifying SPEC during verification to match code                 | NEVER. Fix code to match SPEC. SPEC is source of truth during verification.     |
 
 ## Conflict Scan Commands
 
