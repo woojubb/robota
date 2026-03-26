@@ -244,7 +244,7 @@ export default function App(props: IProps): React.ReactElement {
             Select a session to resume (ESC to cancel):
           </Text>
           <ListPicker<ISessionRecord>
-            items={props.sessionStore?.list() ?? []}
+            items={(props.sessionStore?.list() ?? []).filter((s) => s.cwd === props.cwd)}
             renderItem={(session: ISessionRecord, isSelected: boolean) => {
               const lastMsg = session.messages
                 .slice()
