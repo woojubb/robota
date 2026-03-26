@@ -19,6 +19,9 @@ export interface IParsedCliArgs {
   maxTurns: number | undefined;
   forkSession: boolean;
   sessionName: string | undefined;
+  outputFormat: string | undefined;
+  systemPrompt: string | undefined;
+  appendSystemPrompt: string | undefined;
   version: boolean;
   reset: boolean;
 }
@@ -58,6 +61,9 @@ export function parseCliArgs(): IParsedCliArgs {
       'max-turns': { type: 'string' },
       'fork-session': { type: 'boolean', default: false },
       name: { type: 'string', short: 'n' },
+      'output-format': { type: 'string' },
+      'system-prompt': { type: 'string' },
+      'append-system-prompt': { type: 'string' },
       version: { type: 'boolean', default: false },
       reset: { type: 'boolean', default: false },
     },
@@ -74,6 +80,9 @@ export function parseCliArgs(): IParsedCliArgs {
     maxTurns: parseMaxTurns(values['max-turns']),
     forkSession: values['fork-session'] ?? false,
     sessionName: values['name'],
+    outputFormat: values['output-format'],
+    systemPrompt: values['system-prompt'],
+    appendSystemPrompt: values['append-system-prompt'],
     version: values['version'] ?? false,
     reset: values['reset'] ?? false,
   };
