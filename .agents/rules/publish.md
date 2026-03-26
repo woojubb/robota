@@ -19,6 +19,20 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - The script prompts for OTP once and reuses it for all packages + dist-tag updates.
 - After prerelease publish (beta/alpha/rc), both the prerelease tag AND `latest` must point to the new version. The script handles this automatically.
 
+### pnpm publish only — npm publish is blocked (non-negotiable)
+
+- All publish operations MUST go through `pnpm publish`. Never `npm publish`.
+- `pnpm publish` resolves `workspace:*` dependencies to actual version numbers in the tarball. `npm publish` does NOT — it publishes `workspace:*` literally, which causes `ETARGET` install failures for consumers.
+- Each package has `"prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"` which blocks `npm publish` at runtime. This is a safety net, not a replacement for following the rule.
+- `npm dist-tag` commands are fine — they only modify metadata, not package contents.
+
+### All packages must be published together (non-negotiable)
+
+- When version is bumped, ALL non-private `@robota-sdk/*` packages must be published, not just the ones that changed code.
+- `workspace:*` dependencies resolve to the exact version at publish time (e.g., `3.0.0-beta.44`). If package A@beta.44 depends on B@beta.44 but B was not published, `npm install A` fails with `ETARGET`.
+- `pnpm publish:beta` handles this automatically — it discovers all non-private packages and publishes them all.
+- Never cherry-pick which packages to publish. Changesets fixed group means all packages share the same version — they must all be published together.
+
 ### Publish Safety Gate
 
 - `pnpm publish:beta` enforces gates internally (build → test → dry-run → confirm → publish → dist-tag sync).
