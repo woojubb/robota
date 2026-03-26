@@ -56,5 +56,5 @@
     "@robota-sdk/dag-scheduler": "3.0.0-beta.43",
     "@robota-sdk/dag-worker": "3.0.0-beta.43"
   },
-  "changesets": ["universal-history-beta44"]
+  "changesets": ["transport-command-consolidation", "universal-history-beta44"]
 }
