@@ -1,5 +1,11 @@
 # @robota-sdk/agent-provider-google
 
+## 3.0.0-beta.46
+
+### Patch Changes
+
+- @robota-sdk/agent-core@3.0.0-beta.46
+
 ## 3.0.0-beta.45
 
 ### Patch Changes

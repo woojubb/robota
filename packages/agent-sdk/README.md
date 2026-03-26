@@ -84,7 +84,9 @@ const session = new InteractiveSession({
   config,
   context,
   projectInfo,
-  sessionStore,
+  sessionStore, // SessionStore instance for persistence
+  resumeSessionId, // Session ID to restore (optional)
+  forkSession, // Session ID to fork from (optional)
   permissionMode: 'default',
   maxTurns: 10,
   cwd: process.cwd(),
@@ -143,6 +145,10 @@ session.getMessages(); // TUniversalMessage[]
 session.getContextState(); // IContextWindowState
 session.getStreamingText(); // string (accumulated so far)
 session.getActiveTools(); // IToolState[]
+
+// Session naming
+session.getName(); // string | undefined
+session.setName('my-task'); // sets the session name
 
 // Access underlying Session for advanced use
 session.getSession(); // Session

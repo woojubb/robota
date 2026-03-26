@@ -2,6 +2,7 @@
 title: Fast Mode — 세션 내 모델 전환 (속도/비용 트레이드오프)
 status: backlog
 priority: medium
+urgency: later
 created: 2026-03-26
 packages:
   - agent-sdk

@@ -108,12 +108,11 @@ export default function CjkTextInput({
 
   // useCursor removed — see comment below about Terminal.app SIGSEGV
 
-  // Sync ref when value changes from parent (e.g., setValue(''))
+  // Sync ref when value changes from parent (e.g., setValue(''), tab completion)
   if (value !== valueRef.current) {
     valueRef.current = value;
-    if (cursorRef.current > value.length) {
-      cursorRef.current = value.length;
-    }
+    // Move cursor to end when value is set externally
+    cursorRef.current = value.length;
   }
 
   useInput(

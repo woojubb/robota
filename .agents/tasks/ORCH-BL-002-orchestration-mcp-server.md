@@ -1,6 +1,7 @@
 ---
 title: 오케스트레이션 API MCP 서버
 status: backlog
+urgency: later
 created: 2026-03-15
 ---
 

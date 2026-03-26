@@ -181,6 +181,34 @@ After the Edit tool runs, a `DiffBlock` component renders the change inline:
 
 Removed lines appear in red with `-`, added lines in green with `+`. Diffs longer than 10 lines show the first 8 + a `... and N more lines` summary.
 
+## Session Management
+
+The CLI supports continuing, resuming, forking, and naming sessions.
+
+### CLI Flags
+
+| Flag                  | Description                                      |
+| --------------------- | ------------------------------------------------ |
+| `-c`, `--continue`    | Continue the most recent session                 |
+| `-r`, `--resume <id>` | Resume a specific session by ID                  |
+| `--fork-session <id>` | Fork a session (new session with copied history) |
+| `--name <name>`       | Assign a name to the session at startup          |
+
+### TUI Commands
+
+| Command          | Description                         |
+| ---------------- | ----------------------------------- |
+| `/resume`        | List recent sessions and resume one |
+| `/rename <name>` | Rename the current session          |
+
+### Session Name Display
+
+When a session has a name, it appears in three places:
+
+- **Input border** — session name shown in the input area border
+- **Terminal title** — updated via ANSI escape sequences
+- **StatusBar** — displayed alongside mode, model, and context usage
+
 ## Slash Commands
 
 | Command                   | Description                                                |
@@ -195,9 +223,11 @@ Removed lines appear in red with `-`, added lines in green with `+`. Diffs longe
 | `/context`                | Context window details                                     |
 | `/permissions`            | Show permission rules                                      |
 | `/plugin [subcommand]`    | Plugin management TUI                                      |
+| `/resume`                 | List recent sessions and resume one                        |
+| `/rename <name>`          | Rename the current session                                 |
 | `/exit`                   | Exit CLI                                                   |
 
-Typing `/` triggers an autocomplete popup with arrow-key navigation, Tab completion, and Esc to dismiss. Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+Typing `/` triggers an autocomplete popup with arrow-key navigation and Esc to dismiss. Tab inserts the highlighted command into the input field without executing — continue typing args or press Enter to execute. Enter selects and executes immediately. Commands with subcommands (e.g., `/mode`, `/model`) show a nested submenu. Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
 
 ## Plugin Management
 

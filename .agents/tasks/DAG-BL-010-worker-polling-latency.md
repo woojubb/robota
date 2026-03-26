@@ -1,6 +1,7 @@
 ---
 title: Worker polling 간격으로 인한 노드 실행 지연 개선
 status: backlog
+urgency: later
 created: 2026-03-15
 ---
 

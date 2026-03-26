@@ -58,6 +58,8 @@ export interface ISessionOptions {
   maxTurns?: number;
   /** Optional session store for persistence */
   sessionStore?: SessionStore;
+  /** Override session ID (used when resuming a session to reuse the original ID) */
+  sessionId?: string;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
   permissionHandler?: TPermissionHandler;
   /** Callback for text deltas — enables streaming text to the UI in real-time */
@@ -126,7 +128,9 @@ export class Session {
     this.hookTypeExecutors = options.hookTypeExecutors;
     this.onCompactCallback = options.onCompact;
     this.model = options.model ?? 'claude-sonnet-4-5';
-    this.sessionId = `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
+    this.sessionId =
+      options.sessionId ??
+      `session_${Date.now()}_${Math.random().toString(ID_RADIX).substr(2, ID_RANDOM_LENGTH)}`;
 
     // Resolve permission mode
     this.permissionMode =
@@ -411,10 +415,12 @@ export class Session {
 
     const record: ISessionRecord = {
       id: this.sessionId,
+      name: existing?.name,
       cwd: this.cwd,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       messages: history,
+      history: this.getFullHistory(),
     };
 
     this.sessionStore.save(record);
@@ -519,6 +525,15 @@ export class Session {
     if (this.onCompactCallback) {
       this.onCompactCallback(summary);
     }
+  }
+
+  /**
+   * Inject a message into the underlying Robota conversation history
+   * without triggering execution. Used for session restore (replaying
+   * prior messages so the AI provider has full context).
+   */
+  injectMessage(role: 'user' | 'assistant' | 'system', content: string): void {
+    this.robota.injectMessage(role, content);
   }
 
   /** Clear conversation history */

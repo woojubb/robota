@@ -22,6 +22,8 @@ export interface ISessionRecord {
   updatedAt: string;
   /** Conversation messages (opaque to the store) */
   messages: unknown[];
+  /** Full UI timeline (chat + events) for rendering restoration */
+  history: unknown[];
 }
 
 /**

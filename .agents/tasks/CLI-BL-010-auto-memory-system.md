@@ -2,6 +2,7 @@
 title: Auto Memory — cross-session 학습 시스템
 status: backlog
 priority: critical
+urgency: now
 created: 2026-03-26
 packages:
   - agent-sdk

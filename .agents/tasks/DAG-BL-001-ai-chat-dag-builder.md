@@ -1,6 +1,7 @@
 ---
 title: AI 채팅 기반 DAG 구성 기능
 status: backlog
+urgency: later
 created: 2026-03-15
 ---
 

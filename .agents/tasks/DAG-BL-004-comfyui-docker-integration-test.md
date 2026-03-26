@@ -1,6 +1,7 @@
 ---
 title: ComfyUI Docker 로컬 실행 + runtime 교체 통합 테스트
 status: backlog
+urgency: later
 created: 2026-03-15
 ---
 

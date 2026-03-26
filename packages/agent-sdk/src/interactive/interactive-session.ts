@@ -12,6 +12,7 @@ import { createSession } from '../assembly/index.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import { FileSessionLogger } from '@robota-sdk/agent-sessions';
 import type { Session } from '@robota-sdk/agent-sessions';
+import type { SessionStore } from '@robota-sdk/agent-sessions';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
@@ -60,6 +61,10 @@ interface IInteractiveSessionStandardOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   permissionHandler?: TInteractivePermissionHandler;
+  sessionStore?: SessionStore;
+  sessionName?: string;
+  resumeSessionId?: string;
+  forkSession?: boolean;
 }
 
 /** Test/advanced construction: inject pre-built session directly. */
@@ -70,6 +75,10 @@ interface IInteractiveSessionInjectedOptions {
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   permissionHandler?: TInteractivePermissionHandler;
+  sessionStore?: SessionStore;
+  sessionName?: string;
+  resumeSessionId?: string;
+  forkSession?: boolean;
 }
 
 export type IInteractiveSessionOptions =
@@ -99,6 +108,16 @@ export class InteractiveSession {
   // Full history timeline (chat messages + events)
   private history: IHistoryEntry[] = [];
 
+  // Session persistence
+  private sessionStore?: SessionStore;
+  private sessionName?: string;
+  private cwd?: string;
+
+  // Session restore state
+  private pendingRestoreMessages: unknown[] | null = null;
+  private resumeSessionId?: string;
+  private forkSession: boolean;
+
   constructor(options: IInteractiveSessionOptions) {
     this.commandExecutor = new SystemCommandExecutor(createSystemCommands());
 
@@ -108,6 +127,36 @@ export class InteractiveSession {
     } else {
       const stdOpts = options as IInteractiveSessionStandardOptions;
       this.initPromise = this.initializeAsync(stdOpts);
+    }
+
+    this.sessionStore = options.sessionStore;
+    this.sessionName = options.sessionName;
+    this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
+    this.resumeSessionId = options.resumeSessionId;
+    this.forkSession = options.forkSession ?? false;
+
+    // Restore session if resumeSessionId provided
+    if (options.resumeSessionId && this.sessionStore) {
+      const record = this.sessionStore.load(options.resumeSessionId);
+      if (record) {
+        this.history = (record.history ?? []) as IHistoryEntry[];
+        this.sessionName = record.name;
+
+        if (record.messages) {
+          if (this.session) {
+            // Injected-session path: session is already available
+            for (const msg of record.messages) {
+              const m = msg as { role?: string; content?: string };
+              if (m.role && m.content) {
+                this.session.injectMessage(m.role as 'user' | 'assistant' | 'system', m.content);
+              }
+            }
+          } else {
+            // Standard path: session not yet created, defer injection
+            this.pendingRestoreMessages = record.messages;
+          }
+        }
+      }
     }
   }
 
@@ -141,6 +190,9 @@ export class InteractiveSession {
 
     const paths = projectPaths(cwd);
 
+    // For non-fork resume, reuse the original session ID so saves update the same file
+    const sessionId = this.resumeSessionId && !this.forkSession ? this.resumeSessionId : undefined;
+
     this.session = createSession({
       config: mergedConfig,
       context,
@@ -153,7 +205,21 @@ export class InteractiveSession {
       provider: options.provider,
       onTextDelta: (delta: string) => this.handleTextDelta(delta),
       onToolExecution: (event) => this.handleToolExecution(event),
+      sessionId,
     });
+
+    // Inject deferred restore messages now that session is created
+    if (this.pendingRestoreMessages) {
+      for (const msg of this.pendingRestoreMessages) {
+        if (msg && typeof msg === 'object' && 'role' in msg && 'content' in msg) {
+          this.session.injectMessage(
+            (msg as { role: string }).role as 'user' | 'assistant' | 'system',
+            (msg as { content: string }).content,
+          );
+        }
+      }
+      this.pendingRestoreMessages = null;
+    }
 
     this.initialized = true;
   }
@@ -272,6 +338,29 @@ export class InteractiveSession {
     return this.getSessionOrThrow().getContextState();
   }
 
+  /** Get session name. */
+  getName(): string | undefined {
+    return this.sessionName;
+  }
+
+  /** Set session name and persist if store is available. */
+  setName(name: string): void {
+    this.sessionName = name;
+    if (this.sessionStore && this.session) {
+      try {
+        const id = this.getSessionOrThrow().getSessionId();
+        const existing = this.sessionStore.load(id);
+        if (existing) {
+          existing.name = name;
+          existing.updatedAt = new Date().toISOString();
+          this.sessionStore.save(existing);
+        }
+      } catch {
+        // Session not initialized yet
+      }
+    }
+  }
+
   /** Access underlying Session. For advanced use / testing only. */
   getSession(): Session {
     return this.getSessionOrThrow();
@@ -323,6 +412,25 @@ export class InteractiveSession {
     } finally {
       this.executing = false;
       this.emit('thinking', false);
+
+      // Persist session if store is available
+      if (this.sessionStore && this.session) {
+        try {
+          const sessionId = this.getSessionOrThrow().getSessionId();
+          const existing = this.sessionStore.load(sessionId);
+          this.sessionStore.save({
+            id: sessionId,
+            name: this.sessionName ?? existing?.name,
+            cwd: this.cwd ?? '',
+            createdAt: existing?.createdAt ?? new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            messages: this.getSessionOrThrow().getHistory(),
+            history: this.history,
+          });
+        } catch {
+          // Persist failure should not break execution
+        }
+      }
 
       if (this.pendingPrompt) {
         const queued = this.pendingPrompt;

@@ -83,6 +83,8 @@ export interface ICreateSessionOptions {
   sessionFactory?: TSessionFactory;
   /** Additional hook type executors beyond the defaults (prompt, agent). */
   additionalHookExecutors?: IHookTypeExecutor[];
+  /** Override session ID (used when resuming a session to reuse the original ID) */
+  sessionId?: string;
 }
 
 /**
@@ -180,6 +182,7 @@ export function createSession(options: ICreateSessionOptions): Session {
     model: options.config.provider.model,
     maxTurns: options.maxTurns,
     sessionStore: options.sessionStore,
+    sessionId: options.sessionId,
     permissionHandler: options.permissionHandler,
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,

@@ -190,6 +190,10 @@ agent-cli (Ink TUI — CLI-specific)
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
+- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`.
+- **Session restore**: When `resumeSessionId` is provided, loads the saved session record and restores AI context. Messages are stored as `pendingRestoreMessages` and injected via `session.injectMessage()` after async initialization completes (deferred injection pattern). This avoids injection failures caused by the Session not yet being fully initialized when the constructor runs.
+- **forkSession option**: `forkSession?: boolean` (default `false`). When `false` (resume), the original session ID is passed to the Session constructor so it reuses the same file. When `true` (fork), `sessionId` is omitted, generating a fresh UUID — the original session remains untouched.
+- **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.
 - **Testing**: Accepts an optional pre-built `Session` via `options.session` to enable unit testing without I/O setup
 
 ### System Command System (SDK-Specific)
@@ -201,7 +205,7 @@ agent-cli (Ink TUI — CLI-specific)
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
   - `createSystemCommands()` — factory for all built-in commands (internal)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional `data`. Side effects that require caller context (file I/O for `reset`, model switching for `model`) are signaled via `data` — the caller applies them.
-- **Built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `reset`
+- **Built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `resume`, `rename`, `reset`
 
 ### Slash Command Registry (SDK-Specific)
 
@@ -393,18 +397,20 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 
 **Built-in commands:**
 
-| Command       | Description                                               |
-| ------------- | --------------------------------------------------------- |
-| `help`        | Show available commands                                   |
-| `clear`       | Clear conversation history                                |
-| `compact`     | Compress context window (optional focus instructions)     |
-| `mode [m]`    | Show or change permission mode                            |
-| `model <id>`  | Change AI model (returns `data.modelId` — caller applies) |
-| `language`    | Set response language (returns `data.language`)           |
-| `cost`        | Session ID and message count                              |
-| `context`     | Token usage: used / max / percentage                      |
-| `permissions` | Current mode and session-approved tools                   |
-| `reset`       | Returns `data.resetRequested: true` — caller handles exit |
+| Command       | Description                                                                           |
+| ------------- | ------------------------------------------------------------------------------------- |
+| `help`        | Show available commands                                                               |
+| `clear`       | Clear conversation history                                                            |
+| `compact`     | Compress context window (optional focus instructions)                                 |
+| `mode [m]`    | Show or change permission mode                                                        |
+| `model <id>`  | Change AI model (returns `data.modelId` — caller applies)                             |
+| `language`    | Set response language (returns `data.language`)                                       |
+| `cost`        | Session ID and message count                                                          |
+| `context`     | Token usage: used / max / percentage                                                  |
+| `permissions` | Current mode and session-approved tools                                               |
+| `reset`       | Returns `data.resetRequested: true` — caller handles exit                             |
+| `resume`      | Returns `data.triggerResumePicker: true` — caller shows session picker overlay        |
+| `rename`      | Returns `data.name: '<name>'` — caller applies via `interactiveSession.setName(name)` |
 
 **ISystemCommand:**
 
