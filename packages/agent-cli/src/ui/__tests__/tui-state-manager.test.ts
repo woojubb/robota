@@ -120,29 +120,29 @@ describe('TuiStateManager', () => {
 
   it('addMessage appends to messages', () => {
     const mgr = new TuiStateManager();
-    mgr.addMessage({ role: 'user', content: 'hello' } as never);
-    mgr.addMessage({ role: 'assistant', content: 'world' } as never);
-    expect(mgr.messages).toHaveLength(2);
+    mgr.addEntry({ role: 'user', content: 'hello' } as never);
+    mgr.addEntry({ role: 'assistant', content: 'world' } as never);
+    expect(mgr.history).toHaveLength(2);
   });
 
   it('addMessage windows to MAX_RENDERED_MESSAGES', () => {
     const mgr = new TuiStateManager();
     for (let i = 0; i < 110; i++) {
-      mgr.addMessage({ role: 'user', content: `msg ${i}` } as never);
+      mgr.addEntry({ role: 'user', content: `msg ${i}` } as never);
     }
-    expect(mgr.messages).toHaveLength(100);
-    expect(mgr.messages[0]!.content).toBe('msg 10');
+    expect(mgr.history).toHaveLength(100);
+    expect(mgr.history[0]!.content).toBe('msg 10');
   });
 
   it('syncMessages replaces all messages', () => {
     const mgr = new TuiStateManager();
-    mgr.addMessage({ role: 'user', content: 'old' } as never);
-    mgr.syncMessages([
+    mgr.addEntry({ role: 'user', content: 'old' } as never);
+    mgr.syncHistory([
       { role: 'user', content: 'new1' } as never,
       { role: 'assistant', content: 'new2' } as never,
     ]);
-    expect(mgr.messages).toHaveLength(2);
-    expect(mgr.messages[0]!.content).toBe('new1');
+    expect(mgr.history).toHaveLength(2);
+    expect(mgr.history[0]!.content).toBe('new1');
   });
 
   // ── onChange notification ──────────────────────────────────────
@@ -155,7 +155,7 @@ describe('TuiStateManager', () => {
     mgr.onTextDelta('hi');
     mgr.onToolStart({ toolName: 'Read', firstArg: '', isRunning: true });
     mgr.onThinking(true);
-    mgr.addMessage({ role: 'user', content: 'test' } as never);
+    mgr.addEntry({ role: 'user', content: 'test' } as never);
     mgr.setAborting(true);
     mgr.setPendingPrompt('queued');
     mgr.setContextState({ percentage: 50, usedTokens: 5000, maxTokens: 10000 });
@@ -242,17 +242,17 @@ describe('TuiStateManager', () => {
 
     // Simulate InteractiveSession messages being synced
     // (InteractiveSession already pushed: user → tool-summary → assistant)
-    mgr.syncMessages([
+    mgr.syncHistory([
       { role: 'user', content: 'fix the bug' } as never,
       { role: 'tool', content: '✓ Read(f.ts)' } as never,
       { role: 'assistant', content: 'response text' } as never,
     ]);
 
     // MessageList now has correct order: user → tool → assistant
-    expect(mgr.messages).toHaveLength(3);
-    expect(mgr.messages[0]!.role).toBe('user');
-    expect(mgr.messages[1]!.role).toBe('tool');
-    expect(mgr.messages[2]!.role).toBe('assistant');
+    expect(mgr.history).toHaveLength(3);
+    expect(mgr.history[0]!.role).toBe('user');
+    expect(mgr.history[1]!.role).toBe('tool');
+    expect(mgr.history[2]!.role).toBe('assistant');
   });
 
   it('after abort: streaming cleared, messages synced with tool → robota → system', () => {
@@ -268,7 +268,7 @@ describe('TuiStateManager', () => {
     expect(mgr.activeTools).toEqual([]);
 
     // Simulate InteractiveSession messages synced after abort
-    mgr.syncMessages([
+    mgr.syncHistory([
       { role: 'user', content: 'test' } as never,
       { role: 'tool', content: '⟳ Bash(ls)' } as never,
       { role: 'assistant', content: 'partial answer' } as never,
@@ -276,11 +276,11 @@ describe('TuiStateManager', () => {
     ]);
 
     // Order: user → tool → assistant → system
-    expect(mgr.messages).toHaveLength(4);
-    expect(mgr.messages[0]!.role).toBe('user');
-    expect(mgr.messages[1]!.role).toBe('tool');
-    expect(mgr.messages[2]!.role).toBe('assistant');
-    expect(mgr.messages[3]!.role).toBe('system');
+    expect(mgr.history).toHaveLength(4);
+    expect(mgr.history[0]!.role).toBe('user');
+    expect(mgr.history[1]!.role).toBe('tool');
+    expect(mgr.history[2]!.role).toBe('assistant');
+    expect(mgr.history[3]!.role).toBe('system');
   });
 
   it('next execution clears previous tools from StreamingIndicator', () => {
