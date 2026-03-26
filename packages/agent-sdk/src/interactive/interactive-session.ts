@@ -17,13 +17,20 @@ import { projectPaths } from '../paths.js';
 import { loadConfig } from '../config/config-loader.js';
 import { loadContext } from '../context/context-loader.js';
 import { detectProject } from '../context/project-detector.js';
-import type { TUniversalMessage, IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
+import type {
+  TUniversalMessage,
+  IContextWindowState,
+  TToolArgs,
+  IHistoryEntry,
+} from '@robota-sdk/agent-core';
 import {
   createUserMessage,
   createAssistantMessage,
   createSystemMessage,
   createToolMessage,
+  messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
+import { randomUUID } from 'node:crypto';
 import { SystemCommandExecutor, createSystemCommands } from '../commands/system-command.js';
 import { BundlePluginLoader } from '../plugins/index.js';
 import { mergePluginHooks, mergeHooksIntoConfig } from '../plugins/plugin-hooks-merger.js';
@@ -89,8 +96,8 @@ export class InteractiveSession {
   private pendingDisplayInput: string | undefined;
   private pendingRawInput: string | undefined;
 
-  // Display messages (what clients render — not the raw session history)
-  private messages: TUniversalMessage[] = [];
+  // Full history timeline (chat messages + events)
+  private history: IHistoryEntry[] = [];
 
   constructor(options: IInteractiveSessionOptions) {
     this.commandExecutor = new SystemCommandExecutor(createSystemCommands());
@@ -233,8 +240,16 @@ export class InteractiveSession {
     return this.pendingPrompt;
   }
 
+  /** Get full history timeline (chat + events) for TUI rendering */
+  getFullHistory(): IHistoryEntry[] {
+    return this.history;
+  }
+
+  /** Get chat messages only (backward compatible) */
   getMessages(): TUniversalMessage[] {
-    return this.messages;
+    return this.history
+      .filter((e) => e.category === 'chat')
+      .map((e) => e.data as TUniversalMessage);
   }
 
   getStreamingText(): string {
@@ -264,7 +279,7 @@ export class InteractiveSession {
     this.executing = true;
     this.clearStreaming();
     this.emit('thinking', true);
-    this.messages.push(createUserMessage(displayInput ?? input));
+    this.history.push(messageToHistoryEntry(createUserMessage(displayInput ?? input)));
 
     const historyBefore = this.getSessionOrThrow().getHistory().length;
 
@@ -275,7 +290,7 @@ export class InteractiveSession {
       this.clearStreaming();
 
       const result = this.buildResult(response || '(empty response)', historyBefore);
-      this.messages.push(createAssistantMessage(result.response));
+      this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
       this.emit('complete', result);
       this.emit('context_update', this.getContextState());
     } catch (err) {
@@ -286,15 +301,15 @@ export class InteractiveSession {
         this.pushToolSummaryMessage();
         this.clearStreaming();
         if (result.response) {
-          this.messages.push(createAssistantMessage(result.response));
+          this.history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
         }
-        this.messages.push(createSystemMessage('Interrupted by user.'));
+        this.history.push(messageToHistoryEntry(createSystemMessage('Interrupted by user.')));
         this.emit('interrupted', result);
       } else {
         this.pushToolSummaryMessage();
         this.clearStreaming();
         const errMsg = err instanceof Error ? err.message : String(err);
-        this.messages.push(createSystemMessage(`Error: ${errMsg}`));
+        this.history.push(messageToHistoryEntry(createSystemMessage(`Error: ${errMsg}`)));
         this.emit('error', err instanceof Error ? err : new Error(errMsg));
       }
     } finally {
@@ -373,12 +388,22 @@ export class InteractiveSession {
         return `${status} ${t.toolName}${t.firstArg ? `(${t.firstArg})` : ''}`;
       })
       .join('\n');
-    this.messages.push(
-      createToolMessage(summary, {
-        toolCallId: 'tool-summary',
-        name: `${this.activeTools.length} tools`,
-      }),
-    );
+    // Tool summary as an event entry (not a chat message)
+    this.history.push({
+      id: randomUUID(),
+      timestamp: new Date(),
+      category: 'event',
+      type: 'tool-summary',
+      data: {
+        tools: this.activeTools.map((t) => ({
+          toolName: t.toolName,
+          firstArg: t.firstArg,
+          isRunning: t.isRunning,
+          result: t.result,
+        })),
+        summary,
+      },
+    });
   }
 
   private clearStreaming(): void {
@@ -401,7 +426,7 @@ export class InteractiveSession {
     const toolSummaries = this.extractToolSummaries(historyBefore);
     return {
       response,
-      messages: this.messages,
+      history: this.history,
       toolSummaries,
       contextState: this.getContextState(),
     };
@@ -417,7 +442,7 @@ export class InteractiveSession {
     }
     return {
       response: parts.join('\n\n'),
-      messages: this.messages,
+      history: this.history,
       toolSummaries,
       contextState: this.getContextState(),
     };

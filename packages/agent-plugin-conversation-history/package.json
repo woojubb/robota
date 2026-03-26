@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-plugin-conversation-history",
-  "version": "3.0.0-beta.43",
+  "version": "3.0.0-beta.44",
   "description": "Conversation history plugin for Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
