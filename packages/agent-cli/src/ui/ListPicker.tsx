@@ -81,7 +81,7 @@ export default function ListPicker<T>({
     <Box flexDirection="column">
       {hasLess && <Text dimColor> ↑ {scrollOffset} more above</Text>}
       {visibleItems.map((item, index) => (
-        <Box key={scrollOffset + index}>
+        <Box key={scrollOffset + index} marginBottom={1}>
           {renderItem(item, scrollOffset + index === selectedIndex)}
         </Box>
       ))}
