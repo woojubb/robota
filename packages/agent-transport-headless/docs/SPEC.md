@@ -90,6 +90,31 @@ createHeadlessRunner(options)
 
 The runner subscribes to `InteractiveSession` events (`text_delta`, `complete`, `interrupted`, `error`) and cleans up all listeners after the execution completes.
 
+## ITransportAdapter
+
+This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`.
+
+### `createHeadlessTransport(options)`
+
+Factory that returns an `ITransportAdapter` with `name: 'headless'`.
+
+**Options:**
+
+| Field          | Type                                | Description              |
+| -------------- | ----------------------------------- | ------------------------ |
+| `outputFormat` | `'text' \| 'json' \| 'stream-json'` | Output format for stdout |
+| `prompt`       | `string`                            | Prompt to execute        |
+
+**Extra method:**
+
+- `getExitCode(): number` — Returns the exit code after execution completes (0 = success, 1 = error).
+
+**Lifecycle:**
+
+1. `attach(session)` — Stores the `InteractiveSession` reference
+2. `start()` — Runs the prompt against the session, writes formatted output to stdout
+3. `stop()` — No-op (single-shot execution; cleanup happens in `start`)
+
 ## Dependencies
 
 | Package                 | Purpose                                  |

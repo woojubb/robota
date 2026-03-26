@@ -63,6 +63,26 @@ All messages are JSON-encoded objects with a `type` field.
 | `pending`        | `{ pending: string\|null }`         | get-pending response     |
 | `protocol_error` | `{ message: string }`               | invalid client message   |
 
+## ITransportAdapter
+
+The WebSocket transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`:
+
+```typescript
+import { createWsTransport } from '@robota-sdk/agent-transport-ws';
+import type { ITransportAdapter } from '@robota-sdk/agent-sdk';
+
+const transport: ITransportAdapter = createWsTransport({
+  send: (msg) => ws.send(JSON.stringify(msg)),
+});
+
+transport.attach(interactiveSession);
+await transport.start();
+
+// Wire incoming messages
+ws.on('message', (data) => transport.onMessage(String(data)));
+ws.on('close', () => transport.stop());
+```
+
 ## Dependencies
 
 - `@robota-sdk/agent-sdk` — `InteractiveSession`

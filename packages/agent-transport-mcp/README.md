@@ -42,6 +42,26 @@ Each tool maps directly to an `InteractiveSession` operation or a system command
 
 The `submit` tool waits for the session to reach `complete` or `interrupted` state before returning, so MCP clients receive a single text response rather than a stream.
 
+## ITransportAdapter
+
+The MCP transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`:
+
+```typescript
+import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
+import type { ITransportAdapter } from '@robota-sdk/agent-sdk';
+
+const transport: ITransportAdapter = createMcpTransport({
+  name: 'robota-agent',
+  version: '1.0.0',
+});
+
+transport.attach(interactiveSession);
+await transport.start();
+
+// Access the underlying MCP server
+const server = transport.getServer();
+```
+
 ## Dependencies
 
 - `@robota-sdk/agent-sdk` — `InteractiveSession`

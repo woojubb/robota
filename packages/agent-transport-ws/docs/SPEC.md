@@ -74,6 +74,30 @@ ws.on('close', cleanup);
 | `pending`        | `{ pending: string\|null }`         | get-pending response     |
 | `protocol_error` | `{ message: string }`               | invalid client message   |
 
+## ITransportAdapter
+
+This package implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`.
+
+### `createWsTransport(options)`
+
+Factory that returns an `ITransportAdapter` with `name: 'ws'`.
+
+**Options:**
+
+| Field  | Type                                | Description                             |
+| ------ | ----------------------------------- | --------------------------------------- |
+| `send` | `(message: TServerMessage) => void` | Callback to send messages to the client |
+
+**Extra property:**
+
+- `onMessage: (data: string) => void` — Available after `start()`. Wire this to your WebSocket's message handler.
+
+**Lifecycle:**
+
+1. `attach(session)` — Stores the `InteractiveSession` reference
+2. `start()` — Subscribes to session events, sets up the `onMessage` handler for incoming client messages
+3. `stop()` — Unsubscribes from session events and cleans up handlers
+
 ## Dependencies
 
 - `@robota-sdk/agent-sdk` (InteractiveSession)

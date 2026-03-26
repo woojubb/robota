@@ -85,6 +85,24 @@ const exitCode = await runner.run(prompt);
 process.exit(exitCode);
 ```
 
+## ITransportAdapter
+
+The headless transport implements the `ITransportAdapter` interface from `@robota-sdk/agent-sdk`:
+
+```typescript
+import { createHeadlessTransport } from '@robota-sdk/agent-transport-headless';
+import type { ITransportAdapter } from '@robota-sdk/agent-sdk';
+
+const transport: ITransportAdapter = createHeadlessTransport({
+  outputFormat: 'json',
+  prompt: 'List all files',
+});
+
+transport.attach(interactiveSession);
+await transport.start(); // Runs the prompt and writes output
+const exitCode = transport.getExitCode();
+```
+
 ## Exit Codes
 
 | Code | Meaning |
