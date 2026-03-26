@@ -184,6 +184,8 @@ const systemMessage = buildSystemPrompt({
 | **Context tracking**       | Token usage is tracked and available via `getContextState()`                             |
 | **Auto-compaction**        | Context is compressed when usage exceeds ~83.5%                                          |
 | **Session persistence**    | Conversations can be saved/loaded via `SessionStore`                                     |
+| **Session resume/fork**    | Restore a previous session with `resumeSessionId` or fork with `forkSession`             |
+| **Session naming**         | `getName()` / `setName()` for human-friendly session identification                      |
 | **Abort**                  | `session.abort()` cancels via AbortSignal. Partial response committed as `'interrupted'` |
 | **Universal history**      | `getFullHistory()` returns `IHistoryEntry[]` — the unified chat + event timeline         |
 
