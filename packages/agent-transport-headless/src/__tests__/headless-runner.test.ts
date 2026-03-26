@@ -102,3 +102,69 @@ describe('createHeadlessRunner (text format)', () => {
     expect(session.submit).toHaveBeenCalledWith('my prompt');
   });
 });
+
+describe('createHeadlessRunner (json format)', () => {
+  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    stdoutWriteSpy.mockRestore();
+  });
+
+  it('json format outputs { type, result, session_id, subtype: success }', async () => {
+    const session = createMockSession('complete', 'JSON response');
+    const runner = createHeadlessRunner({ session, outputFormat: 'json' });
+
+    const exitCode = await runner.run('test prompt');
+
+    expect(exitCode).toBe(0);
+    expect(stdoutWriteSpy).toHaveBeenCalledTimes(1);
+    const output = (stdoutWriteSpy.mock.calls[0] as [string])[0];
+    const parsed: unknown = JSON.parse(output.trim());
+    expect(parsed).toEqual({
+      type: 'result',
+      result: 'JSON response',
+      session_id: 'test-session-id',
+      subtype: 'success',
+    });
+  });
+
+  it('json format outputs subtype error on failure', async () => {
+    const session = createMockSession('error');
+    const runner = createHeadlessRunner({ session, outputFormat: 'json' });
+
+    const exitCode = await runner.run('test prompt');
+
+    expect(exitCode).toBe(1);
+    expect(stdoutWriteSpy).toHaveBeenCalledTimes(1);
+    const output = (stdoutWriteSpy.mock.calls[0] as [string])[0];
+    const parsed: unknown = JSON.parse(output.trim());
+    expect(parsed).toEqual({
+      type: 'result',
+      result: '',
+      session_id: 'test-session-id',
+      subtype: 'error',
+    });
+  });
+
+  it('json format outputs subtype success with partial response on interrupted', async () => {
+    const session = createMockSession('interrupted', 'partial');
+    const runner = createHeadlessRunner({ session, outputFormat: 'json' });
+
+    const exitCode = await runner.run('test prompt');
+
+    expect(exitCode).toBe(0);
+    expect(stdoutWriteSpy).toHaveBeenCalledTimes(1);
+    const output = (stdoutWriteSpy.mock.calls[0] as [string])[0];
+    const parsed: unknown = JSON.parse(output.trim());
+    expect(parsed).toEqual({
+      type: 'result',
+      result: 'partial',
+      session_id: 'test-session-id',
+      subtype: 'success',
+    });
+  });
+});
