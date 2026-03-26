@@ -37,6 +37,8 @@ export interface ISideEffects {
   _resetRequested?: boolean;
   _exitRequested?: boolean;
   _triggerPluginTUI?: boolean;
+  _triggerResumePicker?: boolean;
+  _sessionName?: string;
 }
 
 import type { SessionStore } from '@robota-sdk/agent-sessions';
@@ -233,6 +235,14 @@ export function useInteractiveSession(props: IInteractiveSessionProps): IInterac
           }
           if (result.data?.resetRequested) {
             effects._resetRequested = true;
+            return;
+          }
+          if (result.data?.triggerResumePicker) {
+            effects._triggerResumePicker = true;
+            return;
+          }
+          if (result.data?.name) {
+            effects._sessionName = result.data.name as string;
             return;
           }
           const ctx = interactiveSession.getContextState();
