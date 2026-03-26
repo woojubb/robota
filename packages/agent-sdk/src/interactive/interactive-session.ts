@@ -139,7 +139,19 @@ export class InteractiveSession {
     if (options.resumeSessionId && this.sessionStore) {
       const record = this.sessionStore.load(options.resumeSessionId);
       if (record) {
-        this.history = (record.history ?? []) as IHistoryEntry[];
+        if (record.history && (record.history as unknown[]).length > 0) {
+          this.history = record.history as IHistoryEntry[];
+        } else if (record.messages && (record.messages as unknown[]).length > 0) {
+          // Legacy sessions without history field — rebuild from messages
+          this.history = (record.messages as Array<{ role?: string; content?: string }>)
+            .filter((m) => m.role && m.content)
+            .map((m) => {
+              if (m.role === 'user') return messageToHistoryEntry(createUserMessage(m.content!));
+              if (m.role === 'assistant')
+                return messageToHistoryEntry(createAssistantMessage(m.content!));
+              return messageToHistoryEntry(createSystemMessage(m.content!));
+            });
+        }
         this.sessionName = record.name;
 
         if (record.messages) {
