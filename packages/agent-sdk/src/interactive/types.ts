@@ -63,3 +63,25 @@ export interface IInteractiveSessionEvents {
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
+
+/**
+ * Common interface for all transport adapters.
+ * Each transport exposes InteractiveSession over a specific protocol.
+ */
+export interface ITransportAdapter {
+  /** Human-readable transport name (e.g., 'http', 'ws', 'mcp', 'headless') */
+  readonly name: string;
+
+  /** Attach an InteractiveSession to this transport. */
+  attach(session: InteractiveSession): void;
+
+  /** Start serving. What this means depends on the transport. */
+  start(): Promise<void>;
+
+  /** Stop serving and clean up resources. */
+  stop(): Promise<void>;
+}
+
+// Forward reference — InteractiveSession is in the same package but separate file.
+// Import the class type for the interface without circular dependency.
+import type { InteractiveSession } from '../interactive/interactive-session.js';

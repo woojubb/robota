@@ -9,4 +9,5 @@ export type {
   TInteractivePermissionHandler,
   TInteractiveEventName,
   IInteractiveSessionEvents,
+  ITransportAdapter,
 } from './types.js';

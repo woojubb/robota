@@ -13,6 +13,7 @@ export type {
   TInteractivePermissionHandler,
   TInteractiveEventName,
   IInteractiveSessionEvents,
+  ITransportAdapter,
 } from './interactive/index.js';
 
 // ── createQuery() factory (convenience API) ─────────────────
