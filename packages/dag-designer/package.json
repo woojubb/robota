@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-designer",
-  "version": "3.0.0-beta.43",
+  "version": "3.0.0-beta.44",
   "description": "Web designer layer for Robota DAG",
   "type": "module",
   "main": "dist/node/index.js",
