@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import type { InteractiveSession } from '@robota-sdk/agent-sdk';
 import type { IAIProvider } from '@robota-sdk/agent-core';
@@ -21,8 +21,9 @@ import ConfirmPrompt from './ConfirmPrompt.js';
 import PermissionPrompt from './PermissionPrompt.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
+import ListPicker from './ListPicker.js';
 
-import type { SessionStore } from '@robota-sdk/agent-sessions';
+import type { SessionStore, ISessionRecord } from '@robota-sdk/agent-sessions';
 
 interface IProps {
   cwd: string;
@@ -38,6 +39,7 @@ interface IProps {
 }
 
 const EXIT_DELAY_MS = 500;
+const SESSION_ID_DISPLAY_LENGTH = 8;
 
 export default function App(props: IProps): React.ReactElement {
   const { exit } = useApp();
@@ -75,6 +77,16 @@ export default function App(props: IProps): React.ReactElement {
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
   const pendingModelChangeRef = useRef<string | null>(null);
   const [showPluginTUI, setShowPluginTUI] = useState(false);
+  const [showSessionPicker, setShowSessionPicker] = useState(
+    props.resumeSessionId === '__picker__',
+  );
+  const [sessionName, setSessionName] = useState<string | undefined>(props.sessionName);
+
+  // Sync session name from InteractiveSession when resuming a named session
+  useEffect(() => {
+    const name = interactiveSession?.getName?.();
+    if (name && !sessionName) setSessionName(name);
+  }, [interactiveSession, sessionName]);
 
   // Wrap submit to handle TUI-specific side effects from system commands
   const handleSubmit = async (input: string): Promise<void> => {
@@ -128,6 +140,20 @@ export default function App(props: IProps): React.ReactElement {
       setShowPluginTUI(true);
       return;
     }
+
+    if (sideEffects._triggerResumePicker) {
+      delete sideEffects._triggerResumePicker;
+      setShowSessionPicker(true);
+      return;
+    }
+
+    if (sideEffects._sessionName) {
+      const name = sideEffects._sessionName as string;
+      delete sideEffects._sessionName;
+      interactiveSession.setName(name);
+      setSessionName(name);
+      return;
+    }
   };
 
   // ESC abort
@@ -137,7 +163,7 @@ export default function App(props: IProps): React.ReactElement {
         handleAbort();
       }
     },
-    { isActive: !permissionRequest && !showPluginTUI },
+    { isActive: !permissionRequest && !showPluginTUI && !showSessionPicker },
   );
 
   // Session may not be initialized yet (async config/context loading)
@@ -212,6 +238,46 @@ export default function App(props: IProps): React.ReactElement {
           addMessage={(msg) => addEntry(messageToHistoryEntry(createSystemMessage(msg.content)))}
         />
       )}
+      {showSessionPicker && (
+        <Box flexDirection="column" paddingX={1} marginBottom={1}>
+          <Text bold color="cyan">
+            Select a session to resume (ESC to cancel):
+          </Text>
+          <ListPicker<ISessionRecord>
+            items={props.sessionStore?.list() ?? []}
+            renderItem={(session: ISessionRecord, isSelected: boolean) => (
+              <Text>
+                {isSelected ? '> ' : '  '}
+                <Text bold>{session.name ?? session.id.slice(0, SESSION_ID_DISPLAY_LENGTH)}</Text>
+                {'  '}
+                <Text dimColor>{new Date(session.updatedAt).toLocaleDateString()}</Text>
+                {'  '}
+                <Text dimColor>msgs: {session.messages.length}</Text>
+              </Text>
+            )}
+            onSelect={(session: ISessionRecord) => {
+              setShowSessionPicker(false);
+              addEntry(
+                messageToHistoryEntry(
+                  createSystemMessage(
+                    `Resuming session "${session.name ?? session.id.slice(0, SESSION_ID_DISPLAY_LENGTH)}". Restarting...`,
+                  ),
+                ),
+              );
+              // Persist selected session ID so the next launch resumes it
+              const settingsPath = getUserSettingsPath();
+              const settings = readSettings(settingsPath);
+              settings.resumeSessionId = session.id;
+              writeSettings(settingsPath, settings);
+              setTimeout(() => exit(), EXIT_DELAY_MS);
+            }}
+            onCancel={() => {
+              setShowSessionPicker(false);
+              addEntry(messageToHistoryEntry(createSystemMessage('Session resume cancelled.')));
+            }}
+          />
+        </Box>
+      )}
       <StatusBar
         permissionMode={permissionMode}
         modelName={props.modelId ? getModelName(props.modelId) : ''}
@@ -221,11 +287,17 @@ export default function App(props: IProps): React.ReactElement {
         contextPercentage={contextState.percentage}
         contextUsedTokens={contextState.usedTokens}
         contextMaxTokens={contextState.maxTokens}
+        sessionName={sessionName}
       />
       <InputArea
         onSubmit={handleSubmit}
         onCancelQueue={handleCancelQueue}
-        isDisabled={!!permissionRequest || showPluginTUI || (isThinking && !!pendingPrompt)}
+        isDisabled={
+          !!permissionRequest ||
+          showPluginTUI ||
+          showSessionPicker ||
+          (isThinking && !!pendingPrompt)
+        }
         isAborting={isAborting}
         pendingPrompt={pendingPrompt}
         registry={registry}
