@@ -48,6 +48,14 @@ try {
   // Clean up any previous failed attempt
   execSync(`rm -rf ${tmpDir}`, { cwd: rootDir });
 
+  // Ensure local gh-pages is up-to-date with remote before creating worktree
+  try {
+    run('git fetch origin gh-pages');
+    run('git branch -f gh-pages origin/gh-pages');
+  } catch {
+    // gh-pages may not exist remotely yet
+  }
+
   // Add worktree for gh-pages branch
   try {
     run(`git worktree add ${tmpDir} gh-pages`);
