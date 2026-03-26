@@ -190,6 +190,9 @@ agent-cli (Ink TUI — CLI-specific)
 - **Queue behavior**: If `executing` is true, the incoming prompt is queued. The queued prompt auto-executes after the current one completes. Only one prompt can be queued at a time.
 - **Abort**: `abort()` clears the queue and delegates to `session.abort()`. An `interrupted` event fires when the abort completes.
 - **No-op terminal**: Uses a built-in NOOP_TERMINAL so no `ITerminalOutput` implementation is required by callers
+- **Session persistence**: When `sessionStore` is provided in options, auto-persists session state (messages, history, cwd, timestamps) to disk after each `submit()` completion. Uses `SessionStore` from `agent-sessions`.
+- **Session restore**: When `resumeSessionId` is provided, loads the saved session record and replays its history via `session.injectMessage()` to restore AI context. Messages are also restored for display continuity.
+- **getName()/setName(name)**: Get or set the session's user-facing name. Persists to the session record when a store is configured.
 - **Testing**: Accepts an optional pre-built `Session` via `options.session` to enable unit testing without I/O setup
 
 ### System Command System (SDK-Specific)
@@ -393,18 +396,20 @@ const result: ICommandResult | null = await session.executeCommand('context', ''
 
 **Built-in commands:**
 
-| Command       | Description                                               |
-| ------------- | --------------------------------------------------------- |
-| `help`        | Show available commands                                   |
-| `clear`       | Clear conversation history                                |
-| `compact`     | Compress context window (optional focus instructions)     |
-| `mode [m]`    | Show or change permission mode                            |
-| `model <id>`  | Change AI model (returns `data.modelId` — caller applies) |
-| `language`    | Set response language (returns `data.language`)           |
-| `cost`        | Session ID and message count                              |
-| `context`     | Token usage: used / max / percentage                      |
-| `permissions` | Current mode and session-approved tools                   |
-| `reset`       | Returns `data.resetRequested: true` — caller handles exit |
+| Command       | Description                                                                                                     |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `help`        | Show available commands                                                                                         |
+| `clear`       | Clear conversation history                                                                                      |
+| `compact`     | Compress context window (optional focus instructions)                                                           |
+| `mode [m]`    | Show or change permission mode                                                                                  |
+| `model <id>`  | Change AI model (returns `data.modelId` — caller applies)                                                       |
+| `language`    | Set response language (returns `data.language`)                                                                 |
+| `cost`        | Session ID and message count                                                                                    |
+| `context`     | Token usage: used / max / percentage                                                                            |
+| `permissions` | Current mode and session-approved tools                                                                         |
+| `reset`       | Returns `data.resetRequested: true` — caller handles exit                                                       |
+| `resume`      | List saved sessions for resume. Returns `data.sessions` array and `data.action: 'resume'` — caller shows picker |
+| `rename`      | Rename current session. Returns `data.action: 'rename'`, `data.newName` — caller applies via `setName()`        |
 
 **ISystemCommand:**
 
