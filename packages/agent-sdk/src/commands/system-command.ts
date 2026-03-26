@@ -46,6 +46,8 @@ export function createSystemCommands(): ISystemCommand[] {
           '  cost              — Show session info',
           '  context           — Context window info',
           '  permissions       — Permission rules',
+          '  resume            — Resume a previous session',
+          '  rename <name>     — Rename the current session',
           '  reset             — Delete settings and exit',
         ].join('\n'),
         success: true,
@@ -181,6 +183,30 @@ export function createSystemCommands(): ISystemCommand[] {
           message: lines.join('\n'),
           success: true,
           data: { mode, sessionAllowed },
+        };
+      },
+    },
+    {
+      name: 'resume',
+      description: 'Resume a previous session',
+      execute: (_session, _args) => ({
+        message: 'Opening session picker...',
+        success: true,
+        data: { triggerResumePicker: true },
+      }),
+    },
+    {
+      name: 'rename',
+      description: 'Rename the current session',
+      execute: (_session, args) => {
+        const name = args.trim();
+        if (!name) {
+          return { message: 'Usage: rename <name>', success: false };
+        }
+        return {
+          message: `Session renamed to "${name}".`,
+          success: true,
+          data: { name },
         };
       },
     },
