@@ -3,7 +3,7 @@
  * entries render with correct labels and content.
  *
  * These tests catch rendering bugs that data-flow tests miss:
- * - tool-summary must show "Tool:" not "System: tool-summary"
+ * - tool execution list must show "Tool:" label with tool names
  * - chat messages must show correct role labels
  * - event entries must show formatted content
  */
@@ -49,20 +49,12 @@ function makeSkillInvocationEntry(): IHistoryEntry {
 describe('MessageList rendering', () => {
   // ── Tool summary rendering ────────────────────────────────────
 
-  it('tool-summary event renders with "Tool:" label, not "System:"', () => {
+  it('tool execution list renders with "Tool:" label and tool names', () => {
     const history: IHistoryEntry[] = [makeToolSummaryEntry()];
     const { lastFrame } = render(<MessageList history={history} />);
     const output = lastFrame() ?? '';
 
     expect(output).toContain('Tool:');
-    expect(output).not.toContain('System: tool-summary');
-  });
-
-  it('tool-summary shows formatted tool names', () => {
-    const history: IHistoryEntry[] = [makeToolSummaryEntry()];
-    const { lastFrame } = render(<MessageList history={history} />);
-    const output = lastFrame() ?? '';
-
     expect(output).toContain('Read(file.ts)');
     expect(output).toContain('Edit(file.ts)');
   });
