@@ -1,9 +1,10 @@
 /**
- * Plugin hooks merger — extracts plugin hook merging logic from useInteractiveSession.
+ * Plugin hooks merger — merges plugin hooks into session config.
  */
 
 import { join, dirname } from 'node:path';
-import type { ILoadedBundlePlugin, THooksConfig } from '@robota-sdk/agent-sdk';
+import type { ILoadedBundlePlugin } from './bundle-plugin-types.js';
+import type { THooksConfig } from '@robota-sdk/agent-core';
 
 /** Build plugin env vars for a plugin. */
 function buildPluginEnv(plugin: ILoadedBundlePlugin): Record<string, string> {

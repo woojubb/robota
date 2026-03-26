@@ -3,9 +3,8 @@
  * Handles both fork-based (subagent) and inject-based (user message) execution.
  */
 
-import { substituteVariables } from '@robota-sdk/agent-sdk';
-import type { SkillPromptContext } from '@robota-sdk/agent-sdk';
-import type { ISlashCommand } from './types.js';
+import { substituteVariables, type SkillPromptContext } from '../utils/skill-prompt.js';
+import type { ICommand } from './types.js';
 
 /** Options passed to the fork execution callback */
 export interface IForkExecutionOptions {
@@ -40,7 +39,7 @@ export interface ISkillExecutionResult {
  * Returns the raw content after substitution (no XML wrapping).
  */
 function buildProcessedContent(
-  skill: ISlashCommand,
+  skill: ICommand,
   args: string,
   context?: SkillPromptContext,
 ): string | null {
@@ -52,11 +51,7 @@ function buildProcessedContent(
  * Build an inject-mode prompt from a skill command.
  * Wraps content in skill XML tags for the model.
  */
-function buildInjectPrompt(
-  skill: ISlashCommand,
-  args: string,
-  context?: SkillPromptContext,
-): string {
+function buildInjectPrompt(skill: ICommand, args: string, context?: SkillPromptContext): string {
   const processed = buildProcessedContent(skill, args, context);
   if (processed) {
     const userInstruction = args || skill.description;
@@ -74,7 +69,7 @@ function buildInjectPrompt(
  * into the current session.
  */
 export async function executeSkill(
-  skill: ISlashCommand,
+  skill: ICommand,
   args: string,
   callbacks: ISkillExecutionCallbacks,
   context?: SkillPromptContext,

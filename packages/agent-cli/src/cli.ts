@@ -1,35 +1,18 @@
 /**
- * CLI entry point — parses arguments, loads config/context, and starts the
- * Ink TUI or runs in print mode.
+ * CLI entry point — parses arguments, creates provider, and starts the Ink TUI.
  *
- * CLI flags:
- *   robota                         Interactive TUI mode
- *   robota "prompt"                TUI with initial prompt (future)
- *   robota -p "prompt"             Print mode (one-shot, exit after response)
- *   robota -c                      Continue last session
- *   robota -r <id>                 Resume session by ID
- *   robota --model <model>         Model override
- *   robota --permission-mode <m>   plan|default|acceptEdits|bypassPermissions
- *   robota --max-turns <n>         Limit agentic turns
- *   robota --version               Print package version and exit
+ * CLI owns provider creation. SDK owns everything else
+ * (config, context, session, tools).
  */
 
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  loadConfig,
-  loadContext,
-  detectProject,
-  createSession,
-  SessionStore,
-  FileSessionLogger,
-  projectPaths,
-} from '@robota-sdk/agent-sdk';
-import { promptForApproval } from '@robota-sdk/agent-sdk';
+import type { IAIProvider } from '@robota-sdk/agent-core';
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
 import { parseCliArgs } from './utils/cli-args.js';
 import { getUserSettingsPath, deleteSettings } from './utils/settings-io.js';
-import { PrintTerminal } from './print-terminal.js';
+import { createProviderFromSettings, readProviderSettings } from './utils/provider-factory.js';
 import { renderApp } from './ui/render.js';
 
 /** Result of checking a settings file. */
@@ -122,12 +105,10 @@ async function ensureConfig(cwd: string): Promise<void> {
   const paths = [userPath, projectPath, localPath];
   const checks = paths.map((p) => ({ path: p, status: checkSettingsFile(p) }));
 
-  // If any file is valid, proceed normally
   if (checks.some((c) => c.status === 'valid')) {
     return;
   }
 
-  // Report corrupt or incomplete files before prompting for setup
   const corrupt = checks.filter((c) => c.status === 'corrupt');
   const incomplete = checks.filter((c) => c.status === 'incomplete');
 
@@ -153,17 +134,14 @@ async function ensureConfig(cwd: string): Promise<void> {
   }
   process.stdout.write('\n');
 
-  // 1. API key
   const apiKey = await promptInput('  Anthropic API key: ', true);
   if (!apiKey) {
     process.stderr.write('\n  No API key provided. Exiting.\n');
     process.exit(1);
   }
 
-  // 2. Language
   const language = await promptInput('  Response language (ko/en/ja/zh, default: en): ');
 
-  // Create ~/.robota/settings.json
   const settingsDir = dirname(userPath);
   mkdirSync(settingsDir, { recursive: true });
   const settings: Record<string, unknown> = {
@@ -180,9 +158,7 @@ async function ensureConfig(cwd: string): Promise<void> {
   process.stdout.write(`\n  Config saved to ${userPath}\n\n`);
 }
 
-/**
- * Delete user settings and exit. Used by --reset flag.
- */
+/** Delete user settings and exit. */
 function resetConfig(): void {
   const userPath = getUserSettingsPath();
   if (deleteSettings(userPath)) {
@@ -194,18 +170,15 @@ function resetConfig(): void {
 
 /**
  * Main CLI orchestration function.
- * Called from bin.ts as the top-level entry.
  */
 export async function startCli(): Promise<void> {
   const args = parseCliArgs();
 
-  // --version early exit
   if (args.version) {
     process.stdout.write(`robota ${readVersion()}\n`);
     return;
   }
 
-  // --reset: delete config and exit
   if (args.reset) {
     resetConfig();
     return;
@@ -216,54 +189,47 @@ export async function startCli(): Promise<void> {
   // First-run setup: prompt for API key if no config exists
   await ensureConfig(cwd);
 
-  // Load config and context in parallel
-  const [config, context, projectInfo] = await Promise.all([
-    loadConfig(cwd),
-    loadContext(cwd),
-    detectProject(cwd),
-  ]);
+  // CLI owns provider creation
+  const providerSettings = readProviderSettings(cwd);
+  const modelId = args.model ?? providerSettings.model;
+  const provider: IAIProvider = createProviderFromSettings(cwd, args.model);
 
-  // Model override
-  if (args.model !== undefined) {
-    config.provider.model = args.model;
-  }
-
-  // Language override
-  if (args.language !== undefined) {
-    config.language = args.language;
-  }
-
-  const sessionStore = new SessionStore();
-
-  // Print mode: send single prompt, output response, exit
+  // Print mode (-p): one-shot prompt, output response, exit
   if (args.printMode) {
     const prompt = args.positional.join(' ').trim();
     if (prompt.length === 0) {
       process.stderr.write('Print mode (-p) requires a prompt argument.\n');
       process.exit(1);
     }
-    const terminal = new PrintTerminal();
-    const paths = projectPaths(cwd);
-    const session = createSession({
-      config,
-      context,
-      terminal,
-      sessionLogger: new FileSessionLogger(paths.logs),
-      projectInfo,
-      permissionMode: args.permissionMode,
-      promptForApproval: promptForApproval,
+
+    const session = new InteractiveSession({
+      cwd,
+      provider,
+      permissionMode: args.permissionMode ?? 'bypassPermissions',
+      maxTurns: args.maxTurns,
     });
-    const response = await session.run(prompt);
-    process.stdout.write(response + '\n');
+
+    await new Promise<void>((resolve, reject) => {
+      session.on('complete', (result) => {
+        process.stdout.write(result.response + '\n');
+        resolve();
+      });
+      session.on('interrupted', (result) => {
+        if (result.response) process.stdout.write(result.response + '\n');
+        resolve();
+      });
+      session.on('error', (err) => reject(err));
+      session.submit(prompt).catch(reject);
+    });
     return;
   }
 
   // Interactive TUI mode (Ink)
   renderApp({
-    config,
-    context,
-    projectInfo,
-    sessionStore,
+    cwd,
+    provider,
+    modelId,
+    language: args.language,
     permissionMode: args.permissionMode,
     maxTurns: args.maxTurns,
     version: readVersion(),

@@ -7,34 +7,53 @@ A **thin CLI layer** built on top of agent-sdk, responsible only for the termina
 
 ## Boundaries
 
-- Does NOT own Session/SessionStore — imported from `@robota-sdk/agent-sessions`
-- Does NOT own tools — imported from `@robota-sdk/agent-tools`
-- Does NOT own permissions/hooks — imported from `@robota-sdk/agent-core`
-- Does NOT own config/context loading — imported from `@robota-sdk/agent-sdk`
-- Does NOT own AI provider — imported from `@robota-sdk/agent-provider-anthropic`
+- Does NOT own Session/SessionStore — handled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-sessions`
+- Does NOT own tools — assembled internally by `@robota-sdk/agent-sdk`; CLI must NOT import from `@robota-sdk/agent-tools`
+- Does NOT own permissions/hooks — public types imported from `@robota-sdk/agent-core`; permission callback type (`TInteractivePermissionHandler`) owned by `@robota-sdk/agent-sdk`
+- Does NOT own config/context loading — loaded internally by `InteractiveSession` constructor
+- OWNS: AI provider creation (reads config, selects provider package, creates instance, passes to `InteractiveSession`)
 - Does NOT own `InteractiveSession` — imported from `@robota-sdk/agent-sdk`
-- Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `SystemCommandExecutor` — all imported from `@robota-sdk/agent-sdk`; CLI re-exports them from `src/index.ts`
-- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-sessions` (permission-enforcer.ts). agent-cli has a local duplicate in `src/types.ts` that should eventually import from agent-sessions.
-- OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `PluginCommandSource`, `useInteractiveSession` hook, `plugin-hooks-merger`
+- Does NOT own `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource` — all imported from `@robota-sdk/agent-sdk`
+- Does NOT use `SystemCommandExecutor` directly — uses `session.executeCommand(name, args)` instead
+- Does NOT own ITerminalOutput/ISpinner — SSOT is `@robota-sdk/agent-core`
+- OWNS: Ink TUI components, permission-prompt (terminal UI), CLI argument parsing, `useInteractiveSession` hook
+- Does NOT own `PluginCommandSource` — imported from `@robota-sdk/agent-sdk`
+- Does NOT own `plugin-hooks-merger` — moved to `@robota-sdk/agent-sdk`
+
+## Import Rules
+
+| Source             | Allowed                       | Examples                                                                         |
+| ------------------ | ----------------------------- | -------------------------------------------------------------------------------- |
+| `agent-sdk`        | SDK-owned APIs                | `InteractiveSession`, `TInteractivePermissionHandler`                            |
+| `agent-core`       | Public types + utilities only | `TUniversalMessage`, `TPermissionMode`, `createSystemMessage`, `getModelName`    |
+| `agent-core`       | ❌ Internal engine            | ~~`Robota`~~, ~~`ExecutionService`~~, ~~`ConversationStore`~~                    |
+| `agent-sessions`   | ❌ Forbidden                  | SDK provides its own session and permission types                                |
+| `agent-tools`      | ❌ Forbidden                  | SDK assembles tools internally                                                   |
+| `agent-provider-*` | ✅ Provider creation only     | `AnthropicProvider` (CLI picks which to use; currently only anthropic supported) |
 
 ## Architecture
 
-The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. The CLI only converts SDK events into React state and renders them.
+The CLI is a pure TUI layer. All business logic (session lifecycle, slash command execution, tool orchestration, abort handling) lives in `@robota-sdk/agent-sdk`'s `InteractiveSession`. The CLI:
+
+1. Reads config to determine which provider to use.
+2. Creates the provider instance (e.g., `new AnthropicProvider(options)`).
+3. Creates `InteractiveSession({ cwd, provider })` — config and context loading happen internally inside the SDK.
+4. Subscribes to `InteractiveSession` events and converts them to React state for rendering.
 
 ```
-bin.ts → cli.ts (arg parsing)
+bin.ts → cli.ts (arg parsing + provider creation)
               └── ui/render.tsx → App.tsx (Ink TUI)
                     ├── useInteractiveSession (ONLY React↔SDK bridge)
-                    │   ├── InteractiveSession (from @robota-sdk/agent-sdk)
-                    │   ├── CommandRegistry    (from @robota-sdk/agent-sdk, re-exported)
+                    │   ├── InteractiveSession({ cwd, provider })
+                    │   │   (from @robota-sdk/agent-sdk; config/context loaded internally)
+                    │   ├── CommandRegistry    (from @robota-sdk/agent-sdk)
                     │   │   ├── BuiltinCommandSource  (from @robota-sdk/agent-sdk)
                     │   │   ├── SkillCommandSource    (from @robota-sdk/agent-sdk)
-                    │   │   └── PluginCommandSource   (CLI-local, wraps installed plugins)
-                    │   └── SystemCommandExecutor (from @robota-sdk/agent-sdk)
-                    ├── plugin-hooks-merger.ts (merges plugin hooks into SDK config)
+                    │   │   └── PluginCommandSource   (from @robota-sdk/agent-sdk)
+                    │   └── session.executeCommand()  (slash commands routed via SDK)
                     ├── MessageList.tsx        (conversation list)
                     ├── InputArea.tsx          (bottom input area, slash detection)
-                    ├── StatusBar.tsx          (status bar)
+                    ├── StatusBar.tsx          (status bar, shows "Thinking..." during run())
                     ├── PermissionPrompt.tsx   (arrow-key selection)
                     └── SlashAutocomplete.tsx  (command popup with scroll)
 ```
@@ -44,9 +63,9 @@ Dependency chain:
 ```
 agent-cli ─→ agent-sdk ─→ agent-sessions ─→ agent-core
   │            ├─→ agent-tools ────────────→ agent-core
-  │            ├─→ agent-provider-anthropic → agent-core
-  │            └─────────────────────────→ agent-core  (direct: types, permissions, hooks)
-  └──────────────────────────────────────→ agent-core  (direct: types only)
+  │            └─────────────────────────→ agent-core  (direct: types, utilities)
+  ├──────────────────────────────────────→ agent-core  (direct: public types only)
+  └──────────────────────────────────────→ agent-provider-* (provider creation)
 ```
 
 ## StatusBar Display
@@ -117,7 +136,7 @@ Robota:
 - Format: `ToolName(firstArgValue)` — first argument truncated to 80 chars, matching post-run summary style
 - Completed tools remain visible until `session.run()` finishes (not removed on `end`)
 - `Tools:` and `Robota:` sections each have a blank line below the label and between sections
-- When no tools and no streaming text, displays "Thinking..."
+- When no tools and no streaming text, renders nothing (empty fragment); "Thinking..." is shown by `StatusBar`
 
 ### Post-Run Tool Summary
 
@@ -236,21 +255,17 @@ Installed plugins contribute skills via `PluginCommandSource`, which discovers s
 
 `useInteractiveSession` is the single boundary between React and the SDK. It:
 
-1. Creates `InteractiveSession`, `CommandRegistry`, and `SystemCommandExecutor` once (via `useRef` — never recreated on re-render).
+1. Creates `InteractiveSession({ cwd, provider })` and `CommandRegistry` once (via `useRef` — never recreated on re-render). The provider instance is passed in from the caller; `InteractiveSession` handles config/context loading internally.
 2. Subscribes to `InteractiveSession` events (`text_delta`, `tool_start`, `tool_end`, `thinking`, `complete`, `interrupted`, `error`) and converts them to React state.
 3. Exposes `handleSubmit`, `handleAbort`, `handleCancelQueue` as stable callbacks to the TUI.
-4. Merges plugin hooks into the SDK config before constructing `InteractiveSession`.
+4. Routes slash commands via `session.executeCommand(name, args)` — no `SystemCommandExecutor` is instantiated directly by the CLI.
 5. Manages the permission queue (serialises concurrent permission requests).
 
 No other hook or component interacts with `InteractiveSession` directly.
 
-### plugin-hooks-merger.ts
+### Plugin Hook Merging
 
-A pure module (no React) that:
-
-- Extracts and resolves `${CLAUDE_PLUGIN_ROOT}` in hook command strings per plugin.
-- Merges all plugin hook groups into a single `THooksConfig`.
-- Merges plugin hooks with config hooks (config hooks take higher priority).
+Plugin hook merging (resolving `${CLAUDE_PLUGIN_ROOT}` and merging hook groups) is handled internally by `@robota-sdk/agent-sdk`. The CLI does not perform hook merging.
 
 ### App.tsx
 
@@ -266,7 +281,7 @@ The `StreamingIndicator` (showing active tools) is rendered when `isThinking || 
 
 ## Command Registry Architecture
 
-The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, and `SystemCommandExecutor` are all owned by `@robota-sdk/agent-sdk`; the CLI re-exports them and adds only `PluginCommandSource`.
+The slash command system uses an extensible registry pattern. Multiple `ICommandSource` implementations provide commands, and the `CommandRegistry` aggregates them. `CommandRegistry`, `BuiltinCommandSource`, and `SkillCommandSource` are all owned by `@robota-sdk/agent-sdk`. Slash command execution is routed through `session.executeCommand(name, args)` — the CLI does not instantiate `SystemCommandExecutor` directly. The CLI adds only `PluginCommandSource`.
 
 ### ICommandSource Interface
 
@@ -296,7 +311,7 @@ interface ISlashCommand {
 | -------- | ---------------------- | ----------------------- | ---------------------------------------------------- |
 | Built-in | `BuiltinCommandSource` | `@robota-sdk/agent-sdk` | Built-in commands with subcommands for /mode, /model |
 | Skills   | `SkillCommandSource`   | `@robota-sdk/agent-sdk` | Discovered from 4 scan paths (see Skill Discovery)   |
-| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-cli` | Skills provided by installed bundle plugins          |
+| Plugins  | `PluginCommandSource`  | `@robota-sdk/agent-sdk` | Skills provided by installed bundle plugins          |
 
 ### Skill Discovery (Multi-Path)
 
@@ -373,21 +388,23 @@ The qualified name is resolved via `registry.resolveQualifiedName(cmd)` so that 
 
 ## Type Ownership
 
-| Type               | Location                | Purpose                                                        |
-| ------------------ | ----------------------- | -------------------------------------------------------------- |
-| ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface (duplicate — SSOT is agent-sessions) |
-| ISpinner           | `src/types.ts`          | Spinner handle (duplicate — SSOT is agent-sessions)            |
-| IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                                  |
-| ISlashCommand      | `src/commands/types.ts` | Slash command entry definition                                 |
-| ICommandSource     | `src/commands/types.ts` | Interface for command providers                                |
-| ISkillFrontmatter  | `src/commands/types.ts` | Parsed YAML frontmatter from SKILL.md files                    |
+| Type               | Location                | Purpose                                                    |
+| ------------------ | ----------------------- | ---------------------------------------------------------- |
+| ITerminalOutput    | `src/types.ts`          | Terminal I/O DI interface (duplicate — SSOT is agent-core) |
+| ISpinner           | `src/types.ts`          | Spinner handle (duplicate — SSOT is agent-core)            |
+| IPermissionRequest | `src/ui/types.ts`       | Permission prompt React state                              |
+| ISlashCommand      | `src/commands/types.ts` | CLI alias for `ICommand` from agent-sdk                    |
+| ICommandSource     | `src/commands/types.ts` | Re-export of `ICommandSource` from agent-sdk               |
 
 ## Public API Surface
 
-| Export       | Kind     | Description                                                                 |
-| ------------ | -------- | --------------------------------------------------------------------------- |
-| startCli     | function | CLI entry point                                                             |
-| (re-exports) | various  | Backward-compatible re-exports of Session, query, types etc. from agent-sdk |
+| Export          | Kind     | Description               |
+| --------------- | -------- | ------------------------- |
+| startCli        | function | CLI entry point           |
+| ITerminalOutput | type     | Terminal I/O DI interface |
+| ISpinner        | type     | Spinner handle            |
+
+Note: `createSession()` is internal to `agent-sdk` and is NOT re-exported. The CLI uses `InteractiveSession` directly. `index.ts` does not re-export SDK types; consumers should import those directly from `@robota-sdk/agent-sdk`.
 
 ## File Structure
 
@@ -403,24 +420,23 @@ src/
 │   ├── builtin-source.ts            ← Re-export shim: `export { BuiltinCommandSource } from '@robota-sdk/agent-sdk'`
 │   ├── command-registry.ts          ← Re-export shim: `export { CommandRegistry } from '@robota-sdk/agent-sdk'`
 │   ├── skill-source.ts              ← Re-export shim: `export { SkillCommandSource } from '@robota-sdk/agent-sdk'`
-│   ├── plugin-source.ts             ← PluginCommandSource (CLI-local; wraps installed bundle plugins)
-│   ├── skill-executor.ts            ← Skill execution helpers (fork/variable-substitution, no React)
-│   └── slash-executor.ts            ← Slash command handlers (pure functions, no React)
-│                                      (system command execution is in SDK's SystemCommandExecutor)
+│   ├── plugin-source.ts             ← PluginCommandSource (legacy local copy; main flow uses SDK version)
+│   ├── skill-executor.ts            ← Skill execution helpers (fork/inject modes); not in main flow
+│   │                                  (main flow uses buildSkillPrompt from @robota-sdk/agent-sdk)
+│   └── slash-executor.ts            ← IPluginCallbacks interface + plugin TUI handler functions
+│                                      (executeSlashCommand not in main flow; main flow uses session.executeCommand())
 ├── utils/
 │   ├── cli-args.ts                  ← CLI argument parsing and validation
 │   ├── settings-io.ts               ← Settings file read/write/update/delete
-│   ├── skill-prompt.ts              ← Skill prompt builder (pure function)
+│   ├── provider-factory.ts          ← AI provider creation from settings
 │   ├── tool-call-extractor.ts       ← Tool call display extraction from history
 │   ├── paste-labels.ts              ← Paste label insertion and expansion for multiline paste
 │   └── edit-diff.ts                 ← Edit diff computation and formatting for display
-├── permissions/                      ← (empty — prompt imported from @robota-sdk/agent-sdk)
 └── ui/
     ├── App.tsx                      ← Thin JSX shell (~220 lines); no queue/abort/session logic
     ├── hooks/
     │   ├── useInteractiveSession.ts ← ONLY React↔SDK bridge; converts InteractiveSession events
     │   │                              to React state (messages, streamingText, activeTools, etc.)
-    │   ├── plugin-hooks-merger.ts   ← Pure module: merges plugin hooks into SDK THooksConfig
     │   └── usePluginCallbacks.ts    ← Plugin TUI callback wiring
     ├── render.tsx                   ← Ink render() invocation
     ├── MessageList.tsx              ← Conversation message list (Robota: label)
@@ -442,7 +458,7 @@ src/
     └── types.ts                     ← IPermissionRequest
 ```
 
-**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, and `SystemCommandExecutor` are owned by `@robota-sdk/agent-sdk`. The CLI's `src/commands/` directory holds re-export shims for backward compatibility, plus `PluginCommandSource` (CLI-local) and `slash-executor.ts`/`skill-executor.ts` (pure helpers). The CLI re-exports the SDK types from `src/index.ts` for consumer convenience.
+**Note:** `CommandRegistry`, `BuiltinCommandSource`, `SkillCommandSource`, `PluginCommandSource`, and `SystemCommandExecutor` are all owned by `@robota-sdk/agent-sdk`. The CLI does not use `SystemCommandExecutor` directly; slash command execution goes through `session.executeCommand(name, args)`. The CLI's `src/commands/` directory holds re-export shims (`builtin-source.ts`, `command-registry.ts`, `skill-source.ts`) for backward compatibility, plus `slash-executor.ts` (plugin TUI handlers and IPluginCallbacks interface) and `skill-executor.ts` (fork/inject execution helpers). The CLI's `src/index.ts` exports only `startCli` and local CLI types.
 
 ## CLI Usage
 
@@ -477,7 +493,7 @@ Use `robota --reset` to delete the user settings file and return to the first-ru
 
 ## Session Logging
 
-Session logging is enabled by default. Log files are written to `.robota/logs/{sessionId}.jsonl` in JSONL format, capturing structured events (pre_run, assistant, server_tool, etc.) for diagnostics and replay.
+Session logging is an SDK-internal concern. The CLI does not configure or manage log files. For logging details (JSONL format, log paths, event types), see the agent-sdk SPEC.
 
 ## Tool Execution Display
 
@@ -533,8 +549,8 @@ When the Edit tool completes successfully, a compact diff is shown below the too
 - Show the file path as a header line.
 - Removed lines in **red** with `-` prefix.
 - Added lines in **green** with `+` prefix.
-- **Max display lines: 10.** If the diff exceeds 10 lines, show the first 8 lines + `... and N more lines`.
-- Only display one contiguous changed region (the `old_string` → `new_string` replacement). No context lines from the surrounding file.
+- Context lines (surrounding unchanged file content) shown in **dim white** — 2 lines before and after the changed region.
+- **Max display lines: 12.** If the diff exceeds 12 lines, show the first 10 lines + `... and N more lines`.
 - If `old_string` and `new_string` are identical (no-op edit), show nothing.
 - Diff is shown in both the real-time streaming indicator (after tool completes) and the post-execution summary.
 
@@ -543,6 +559,38 @@ When the Edit tool completes successfully, a compact diff is shown below the too
 When a permission prompt is shown for an Edit tool, the diff should be displayed alongside the Allow/Deny prompt so the user can see what will change before approving.
 
 ## Keyboard Controls
+
+### Message Display Order (fixed)
+
+The display order is **Tool → Robota**, fixed and identical for streaming, normal completion, and ESC abort:
+
+**During streaming (real-time):**
+
+```
+You: [user prompt]             ← MessageList (visible immediately on submit)
+System: Invoking skill: audit  ← MessageList (visible immediately, skills only)
+Tool: ⟳ Read(file.ts)         ← StreamingIndicator (real-time, below MessageList)
+      ⟳ Edit(file.ts)
+Robota: [streaming text...]    ← StreamingIndicator (real-time)
+```
+
+`You:` and `System:` messages are visible from the start of streaming — not delayed until completion. Messages are synced from InteractiveSession on both `thinking=true` (execution start) and `thinking=false` (execution end). Only `Tool:` and `Robota:` are handled by StreamingIndicator during streaming.
+
+**After completion or abort (final state):**
+
+```
+You: [user prompt]             ← MessageList
+Tool: ✓ Read(file.ts)         ← MessageList (tool summary message, inserted before Robota)
+      ✓ Edit(file.ts)
+Robota: [response]             ← MessageList
+System: Interrupted by user.   ← MessageList (abort only)
+```
+
+**Mechanism:**
+
+- During streaming: `StreamingIndicator` renders `activeTools` + `streamingText` in real-time (Tool → Robota order).
+- On complete/interrupt/error: `InteractiveSession.pushToolSummaryMessage()` inserts a formatted tool summary into the `messages` array BEFORE the Robota response. Then `activeTools` is cleared and `StreamingIndicator` disappears.
+- Result: Tool → Robota order is preserved in both real-time and final state. Tool information transitions from `StreamingIndicator` (live) to `MessageList` (permanent).
 
 ### Ctrl+C — Process Exit
 
@@ -557,12 +605,36 @@ ESC aborts the current execution gracefully (unlike Ctrl+C which kills the proce
 3. AbortSignal propagates through the entire stack (ExecutionService -> Provider -> `streamWithAbort`)
 4. `executeRound` calls `commitAssistant('interrupted')` — the partial response is saved to conversation history with `state: 'interrupted'`. Text is ALWAYS preserved (no stripping).
 5. `InteractiveSession` emits the `interrupted` event; the `thinking` event fires with `false`
+
+**Rendering state on abort (`onInterrupted` handler):**
+
+- **Tool list**: `pushToolSummaryMessage()` inserts tool summary into `messages` (before Robota). Then `activeTools` is cleared — tool info lives in `MessageList` now, not `StreamingIndicator`.
+- **Streaming text**: cleared (`streamBuf = ''`, `setStreamingText('')`). The interrupted response is committed to message history.
+- **isAborting**: cleared by `onThinking(false)` handler.
+- **Border color**: yellow (aborting) → green (normal) after `onThinking(false)`.
+
 6. `useInteractiveSession`'s `onThinking(false)` handler:
    - Sets `isAborting: false`
    - Re-syncs `messages` from `interactiveSession.getMessages()` — interrupted messages are already committed
    - Messages with `msg.state === 'interrupted'` show an interrupted indicator in the UI
 7. After abort, conversation continues normally — history includes the interrupted assistant message and any tool results
-8. History is the SSOT for all message content — no separate streaming text ref is needed
+8. History is the SSOT for all message content. Append-only, read-only — no edit, no delete.
+
+**What appears in the UI after ESC:**
+
+```
+Tool:                           ← in MessageList (from pushToolSummaryMessage)
+  ✓ Read(file.ts)
+  ⟳ Edit(file.ts)
+
+Robota:                         ← in MessageList (committed interrupted response)
+  [partial response text...]
+
+System:                         ← in MessageList
+  Interrupted by user.
+```
+
+Tool → Robota order preserved. StreamingIndicator is cleared (activeTools = []).
 
 ### Up/Down Arrows — Visual Line Navigation
 
@@ -639,23 +711,9 @@ ESC navigates back in the stack. When the stack is empty, the TUI closes and ret
 
 ## Subagent Execution
 
-### Agent Tool Registration
+Subagent execution (Agent tool, fork sessions, agent definition loading) is managed entirely by `@robota-sdk/agent-sdk` internally. The CLI does not wire these components directly — `InteractiveSession` handles all subagent lifecycle.
 
-The `Agent` tool is registered alongside the standard tools during session creation via `createAgentTool(deps)`. Each session gets its own tool instance with dependencies captured in closure, eliminating shared mutable state. Per-session deps are also stored via `storeAgentToolDeps(session, deps)` for retrieval by the fork runner.
-
-### context:fork Wiring
-
-Skills with `context: fork` in their frontmatter are executed via `createSubagentSession` from `@robota-sdk/agent-sdk`. The fork worker session:
-
-- Receives the skill's SKILL.md content as the system prompt
-- Inherits the parent session's config, context, and tools
-- Uses the fork worker suffix (concise 500-word response)
-- Respects `allowed-tools` from the skill frontmatter as a tool allowlist
-- Respects `model` from the skill frontmatter as a model override
-
-### Agent Definition Loading
-
-Agent definitions are loaded via `AgentDefinitionLoader` from `@robota-sdk/agent-sdk`. The loader scans `.robota/agents/` (project, primary), `.claude/agents/` (project, Claude Code compatible), and `~/.robota/agents/` (user) directories for custom agent `.md` files. Plugin-provided agent definitions can be registered via the `customAgentRegistry` callback in `IAgentToolDeps`.
+For implementation details of subagent execution (Agent tool, `context: fork` skills, agent definition scanning), see the agent-sdk SPEC.
 
 ## Memory Management
 
@@ -699,15 +757,16 @@ Tool messages use the `isToolMessage(msg)` type guard for safe access to `msg.na
 
 ## Dependencies
 
-| Package                     | Purpose                                    |
-| --------------------------- | ------------------------------------------ |
-| `@robota-sdk/agent-sdk`     | Session factory, query, config, context    |
-| `@robota-sdk/agent-core`    | Types (TPermissionMode, TToolArgs)         |
-| `ink`, `react`              | TUI rendering                              |
-| `ink-select-input`          | Arrow-key selection (permission prompt)    |
-| `ink-spinner`               | Loading spinner                            |
-| `chalk`                     | Terminal colors                            |
-| `ink-text-input`            | Base text input (extended by CjkTextInput) |
-| `marked`, `marked-terminal` | Markdown parsing and terminal rendering    |
-| `cli-highlight`             | Syntax highlighting for code blocks        |
-| `string-width`              | Unicode-aware string width calculation     |
+| Package                                | Purpose                                                                     |
+| -------------------------------------- | --------------------------------------------------------------------------- |
+| `@robota-sdk/agent-sdk`                | `InteractiveSession`, `CommandRegistry`, command sources, plugin management |
+| `@robota-sdk/agent-core`               | Public types (`TPermissionMode`, `TToolArgs`, `TUniversalMessage`, etc.)    |
+| `@robota-sdk/agent-provider-anthropic` | Anthropic provider creation (CLI picks provider based on config)            |
+| `ink`, `react`                         | TUI rendering                                                               |
+| `ink-select-input`                     | Arrow-key selection (permission prompt)                                     |
+| `ink-spinner`                          | Loading spinner                                                             |
+| `chalk`                                | Terminal colors                                                             |
+| `ink-text-input`                       | Base text input (extended by CjkTextInput)                                  |
+| `marked`, `marked-terminal`            | Markdown parsing and terminal rendering                                     |
+| `cli-highlight`                        | Syntax highlighting for code blocks                                         |
+| `string-width`                         | Unicode-aware string width calculation                                      |

@@ -15,7 +15,7 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
-import { createProvider } from './create-provider.js';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 
 /** Model shortcut names mapped to full Anthropic model IDs. */
 const MODEL_SHORTCUTS: Record<string, string> = {
@@ -34,6 +34,8 @@ export interface ISubagentOptions {
   parentContext: ILoadedContext;
   /** Parent session's available tools (to inherit/filter). */
   parentTools: IToolWithEventService[];
+  /** AI provider instance. */
+  provider: IAIProvider;
   /** Terminal output interface. */
   terminal: ITerminalOutput;
   /** Whether this is a fork worker (uses fork suffix instead of standard). */
@@ -122,8 +124,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     isForkWorker: options.isForkWorker ?? false,
   });
 
-  // Create provider from parent config
-  const provider = createProvider(parentConfig);
+  const provider = options.provider;
 
   return new Session({
     tools,
