@@ -1,5 +1,21 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.48
+
+### Patch Changes
+
+- fix: record individual tool-start/tool-end in history + fix streaming tool display
+  - Individual tool-start/tool-end events recorded as IHistoryEntry for persistence
+  - TuiStateManager.onToolEnd uses findIndex (first match only, not all with same name)
+  - MessageList hides tool-start/tool-end entries (not rendered as System:)
+
+- Updated dependencies
+  - @robota-sdk/agent-sdk@3.0.0-beta.48
+  - @robota-sdk/agent-transport-headless@3.0.0-beta.48
+  - @robota-sdk/agent-core@3.0.0-beta.48
+  - @robota-sdk/agent-sessions@3.0.0-beta.48
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.48
+
 ## 3.0.0-beta.47
 
 ### Minor Changes
