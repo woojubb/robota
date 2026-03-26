@@ -475,6 +475,15 @@ export class InteractiveSession {
       const state: IToolState = { toolName: event.toolName, firstArg, isRunning: true };
       this.activeTools.push(state);
       this.emit('tool_start', state);
+
+      // Record individual tool start in history
+      this.history.push({
+        id: randomUUID(),
+        timestamp: new Date(),
+        category: 'event',
+        type: 'tool-start',
+        data: { toolName: event.toolName, firstArg, isRunning: true },
+      });
     } else {
       const result: IToolState['result'] = event.denied
         ? 'denied'
@@ -487,6 +496,20 @@ export class InteractiveSession {
         this.activeTools[idx] = finished;
         this.trimCompletedTools();
         this.emit('tool_end', finished);
+
+        // Record individual tool end in history
+        this.history.push({
+          id: randomUUID(),
+          timestamp: new Date(),
+          category: 'event',
+          type: 'tool-end',
+          data: {
+            toolName: finished.toolName,
+            firstArg: finished.firstArg,
+            isRunning: false,
+            result,
+          },
+        });
       }
     }
   }
