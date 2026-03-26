@@ -2,6 +2,49 @@
 
 Multi-turn sessions with permissions, context tracking, and compaction.
 
+## Using InteractiveSession (Recommended)
+
+```typescript
+import { InteractiveSession } from '@robota-sdk/agent-sdk';
+import { SessionStore } from '@robota-sdk/agent-sessions';
+
+const sessionStore = new SessionStore();
+
+const session = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sessionStore, // auto-persist after each submit
+  sessionName: 'my-task', // optional name
+});
+
+// Submit prompts
+await session.submit('What is the architecture?');
+await session.submit('Show me the main entry point.');
+
+// Session name
+session.setName('architecture-review');
+console.log(session.getName()); // 'architecture-review'
+
+// Resume a previous session
+const resumed = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sessionStore,
+  resumeSessionId: 'session_abc123', // restores history + AI context
+});
+
+// Fork a session (new ID, same context)
+const forked = new InteractiveSession({
+  cwd: process.cwd(),
+  provider,
+  sessionStore,
+  resumeSessionId: 'session_abc123',
+  forkSession: true,
+});
+```
+
+## Using Session Directly (Advanced)
+
 ```typescript
 import { createSession, loadConfig, loadContext, detectProject } from '@robota-sdk/agent-sdk';
 

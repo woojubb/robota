@@ -27,6 +27,7 @@ Type `/` to see all available commands. The autocomplete popup filters as you ty
 /clear        Clear history and start fresh
 /resume       Resume a previous session
 /rename name  Rename the current session
+/reload-plugins  Reload all plugins
 ```
 
 ### Permission Prompts
