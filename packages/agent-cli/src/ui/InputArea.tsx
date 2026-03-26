@@ -148,48 +148,22 @@ export default function InputArea({
     setValue((prev) => (prev ? `${prev} ${label}` : label));
   }, []);
 
-  const handleSubmit = useCallback(
-    (text: string): void => {
-      const trimmed = text.trim();
-      if (trimmed.length === 0) return;
-
-      if (showPopup && filteredCommands[selectedIndex]) {
-        enterSelectCommand(filteredCommands[selectedIndex]);
-        return;
-      }
-
-      // Expand paste labels before submitting
-      const expanded = expandPasteLabels(trimmed, pasteStore.current);
-
-      setValue('');
-      // Reset paste state
-      pasteStore.current.clear();
-      pasteIdRef.current = 0;
-
-      onSubmit(expanded);
-    },
-    [showPopup, filteredCommands, selectedIndex, onSubmit, enterSelectCommand],
-  );
-
   /** Tab: insert command into input field without executing */
   const tabCompleteCommand = useCallback(
     (cmd: ISlashCommand): void => {
       const parsed = parseSlashInput(value);
 
       if (parsed.parentCommand) {
-        // Subcommand mode: insert full command with space for args
         setValue(`/${parsed.parentCommand} ${cmd.name} `);
         return;
       }
 
       if (cmd.subcommands && cmd.subcommands.length > 0) {
-        // Has subcommands: enter subcommand mode
         setValue(`/${cmd.name} `);
         setSelectedIndex(0);
         return;
       }
 
-      // Insert command with trailing space for optional args
       setValue(`/${cmd.name} `);
     },
     [value, setSelectedIndex],
@@ -217,6 +191,29 @@ export default function InputArea({
       onSubmit(`/${cmd.name}`);
     },
     [value, onSubmit, setSelectedIndex],
+  );
+
+  const handleSubmit = useCallback(
+    (text: string): void => {
+      const trimmed = text.trim();
+      if (trimmed.length === 0) return;
+
+      if (showPopup && filteredCommands[selectedIndex]) {
+        enterSelectCommand(filteredCommands[selectedIndex]);
+        return;
+      }
+
+      // Expand paste labels before submitting
+      const expanded = expandPasteLabels(trimmed, pasteStore.current);
+
+      setValue('');
+      // Reset paste state
+      pasteStore.current.clear();
+      pasteIdRef.current = 0;
+
+      onSubmit(expanded);
+    },
+    [showPopup, filteredCommands, selectedIndex, onSubmit, enterSelectCommand],
   );
 
   useInput(
