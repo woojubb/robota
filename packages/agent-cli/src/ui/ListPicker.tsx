@@ -8,7 +8,7 @@ import React, { useState, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 
 /** Default number of visible items */
-const DEFAULT_MAX_VISIBLE = 10;
+const DEFAULT_MAX_VISIBLE = 3;
 
 export interface IListPickerProps<T> {
   /** Items to display in the list */
