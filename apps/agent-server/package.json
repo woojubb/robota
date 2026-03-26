@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-server",
-  "version": "3.0.1-beta.2",
+  "version": "3.0.1-beta.3",
   "description": "Agent Server - AI provider proxy and Playground WebSocket server",
   "private": true,
   "keywords": [
