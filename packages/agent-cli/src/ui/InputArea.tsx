@@ -124,6 +124,7 @@ export default function InputArea({
   sessionName,
 }: IProps): React.ReactElement {
   const [value, setValue] = useState('');
+  const [cursorHint, setCursorHint] = useState<number | null>(null);
   const pasteStore = useRef<Map<number, string>>(new Map());
   const { stdout } = useStdout();
   const terminalColumns = stdout?.columns ?? 80;
@@ -145,6 +146,8 @@ export default function InputArea({
     pasteStore.current.set(id, text);
     const lineCount = text.split('\n').length;
     const label = `[Pasted text #${id} +${lineCount} lines]`;
+    const newCursorPos = cursorPosition + label.length;
+    setCursorHint(newCursorPos);
     setValue((prev) => prev.slice(0, cursorPosition) + label + prev.slice(cursorPosition));
   }, []);
 
@@ -306,11 +309,15 @@ export default function InputArea({
             </Text>
             <CjkTextInput
               value={value}
-              onChange={setValue}
+              onChange={(v) => {
+                setValue(v);
+                setCursorHint(null); // reset after normal typing
+              }}
               onSubmit={handleSubmit}
               onPaste={handlePaste}
               placeholder="Type a message or /help"
               availableWidth={availableWidth}
+              cursorHint={cursorHint}
             />
           </Box>
         )}
