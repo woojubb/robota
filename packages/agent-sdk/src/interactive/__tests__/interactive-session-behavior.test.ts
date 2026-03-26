@@ -835,4 +835,43 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       expect(lastSave.history.length).toBeGreaterThan(2);
     });
   });
+
+  // ── Scenario: Individual tool execution in history ──────────
+
+  it('records tool-start and tool-end events in history', async () => {
+    const mockSession = createMockSession({ runResult: 'done' });
+    // Simulate tool execution during run
+    mockSession.run.mockImplementation(async () => {
+      // Access the onToolExecution callback via the session's internal wiring
+      // We'll check history after execution
+      return 'done';
+    });
+
+    const session = new InteractiveSession({
+      session: mockSession as never,
+    } as never);
+
+    // Manually trigger tool events to simulate what happens during run
+    // Access handleToolExecution through the session object
+    const handler = (
+      session as unknown as { handleToolExecution: (e: Record<string, unknown>) => void }
+    ).handleToolExecution;
+    if (handler) {
+      handler.call(session, {
+        type: 'start',
+        toolName: 'Read',
+        toolArgs: { file_path: '/test.ts' },
+      });
+      handler.call(session, { type: 'end', toolName: 'Read', success: true });
+    }
+
+    const history = session.getFullHistory();
+    const toolStarts = history.filter((e) => e.type === 'tool-start');
+    const toolEnds = history.filter((e) => e.type === 'tool-end');
+
+    expect(toolStarts.length).toBe(1);
+    expect(toolEnds.length).toBe(1);
+    expect((toolStarts[0]!.data as { toolName: string }).toolName).toBe('Read');
+    expect((toolEnds[0]!.data as { result: string }).result).toBe('success');
+  });
 });
