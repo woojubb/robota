@@ -3,6 +3,7 @@ title: apps/web 목적별 분리 — dag-designer 전용 앱
 status: backlog
 created: 2026-03-15
 priority: medium
+urgency: later
 ---
 
 ## 문제

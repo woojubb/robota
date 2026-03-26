@@ -2,6 +2,7 @@
 title: Subagent Worktree Isolation — git worktree로 서브에이전트 격리
 status: backlog
 priority: high
+urgency: later
 created: 2026-03-26
 packages:
   - agent-sdk

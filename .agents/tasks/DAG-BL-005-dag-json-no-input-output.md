@@ -3,6 +3,7 @@ title: DAG JSON에서 input/output 제거 — objectInfo에서 참조
 status: backlog
 created: 2026-03-15
 priority: high
+urgency: later
 ---
 
 ## 문제
