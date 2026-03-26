@@ -205,7 +205,7 @@ agent-cli (Ink TUI — CLI-specific)
   - `SystemCommandExecutor` — registry + executor for `ISystemCommand` instances (internal to InteractiveSession)
   - `createSystemCommands()` — factory for all built-in commands (internal)
 - **Design**: Commands return `ICommandResult` with `message`, `success`, and optional `data`. Side effects that require caller context (file I/O for `reset`, model switching for `model`) are signaled via `data` — the caller applies them.
-- **Built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `reset`
+- **Built-in commands**: `help`, `clear`, `compact`, `mode`, `model`, `language`, `cost`, `context`, `permissions`, `resume`, `rename`, `reset`
 
 ### Slash Command Registry (SDK-Specific)
 
