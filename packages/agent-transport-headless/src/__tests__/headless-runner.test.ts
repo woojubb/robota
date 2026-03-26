@@ -168,3 +168,113 @@ describe('createHeadlessRunner (json format)', () => {
     });
   });
 });
+
+describe('createHeadlessRunner (stream-json format)', () => {
+  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    stdoutWriteSpy.mockRestore();
+  });
+
+  it('stream-json emits content_block_delta events and final result', async () => {
+    const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+    const session = {
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        if (!listeners.has(event)) listeners.set(event, []);
+        listeners.get(event)!.push(handler);
+      }),
+      off: vi.fn(),
+      submit: vi.fn(async () => {
+        for (const h of listeners.get('text_delta') ?? []) {
+          h('Hello');
+          h(' world');
+        }
+        for (const h of listeners.get('complete') ?? []) {
+          h({ response: 'Hello world', history: [], toolSummaries: [], contextState: {} });
+        }
+      }),
+      getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
+    } as unknown as InteractiveSession;
+
+    const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
+    const exitCode = await runner.run('test prompt');
+
+    expect(exitCode).toBe(0);
+
+    const lines = stdoutWriteSpy.mock.calls.map((call) => (call as [string])[0].trim());
+    const parsed = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+
+    // 2 stream_event lines + 1 final result line
+    expect(parsed).toHaveLength(3);
+
+    // First two are stream events with content_block_delta
+    const streamEvents = parsed.filter((p) => p['type'] === 'stream_event');
+    expect(streamEvents).toHaveLength(2);
+
+    for (const evt of streamEvents) {
+      expect(evt['session_id']).toBe('stream-session');
+      expect(evt['uuid']).toBeDefined();
+      const inner = evt['event'] as Record<string, unknown>;
+      expect(inner['type']).toBe('content_block_delta');
+      const delta = inner['delta'] as Record<string, unknown>;
+      expect(delta['type']).toBe('text_delta');
+    }
+
+    const firstDelta = (streamEvents[0]!['event'] as Record<string, unknown>)['delta'] as Record<
+      string,
+      unknown
+    >;
+    const secondDelta = (streamEvents[1]!['event'] as Record<string, unknown>)['delta'] as Record<
+      string,
+      unknown
+    >;
+    expect(firstDelta['text']).toBe('Hello');
+    expect(secondDelta['text']).toBe(' world');
+
+    // Final result line
+    const resultLine = parsed.find((p) => p['type'] === 'result');
+    expect(resultLine).toEqual({
+      type: 'result',
+      result: 'Hello world',
+      session_id: 'stream-session',
+      subtype: 'success',
+    });
+  });
+
+  it('stream-json emits error result on error', async () => {
+    const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+    const session = {
+      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+        if (!listeners.has(event)) listeners.set(event, []);
+        listeners.get(event)!.push(handler);
+      }),
+      off: vi.fn(),
+      submit: vi.fn(async () => {
+        for (const h of listeners.get('error') ?? []) {
+          h(new Error('stream error'));
+        }
+      }),
+      getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
+    } as unknown as InteractiveSession;
+
+    const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
+    const exitCode = await runner.run('test prompt');
+
+    expect(exitCode).toBe(1);
+
+    const lines = stdoutWriteSpy.mock.calls.map((call) => (call as [string])[0].trim());
+    const parsed = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]).toEqual({
+      type: 'result',
+      result: '',
+      session_id: 'stream-session',
+      subtype: 'error',
+    });
+  });
+});
