@@ -316,7 +316,7 @@ The `StreamingIndicator` (showing active tools) is rendered when `isThinking || 
 
 ### Streaming Text Debounce
 
-`TuiStateManager.onTextDelta` debounces `notify()` calls to reduce React re-render and markdown rendering frequency. Text deltas are accumulated in `streamBuf` immediately (no data loss), but `notify()` fires at most once per `STREAMING_DEBOUNCE_MS` (default 100ms). This limits `renderMarkdown()` invocations to ~10/second instead of per-token (hundreds/second). A `createDebouncedNotify` utility manages the timer lifecycle; `flush()` is called on completion/interruption/error to clean up.
+`TuiStateManager.onTextDelta` debounces `notify()` calls to reduce React re-render and markdown rendering frequency. Text deltas are accumulated in `streamBuf` immediately (no data loss), but `notify()` fires at most once per `STREAMING_DEBOUNCE_MS` (default 300ms). This limits `renderMarkdown()` invocations to ~3/second instead of per-token (hundreds/second). A `createDebouncedNotify` utility manages the timer lifecycle; `flush()` is called on completion/interruption/error to clean up.
 
 ## Command Registry Architecture
 
