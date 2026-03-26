@@ -84,7 +84,11 @@ const response = await ask('List all TypeScript files in this project');
 The simplest way to interact with Robota. Handles config, context, session creation, and cleanup automatically.
 
 ```typescript
-import { query } from '@robota-sdk/agent-sdk';
+import { createQuery } from '@robota-sdk/agent-sdk';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
+const query = createQuery({ provider });
 
 const response = await query('List all TypeScript files in this project');
 ```
@@ -92,19 +96,14 @@ const response = await query('List all TypeScript files in this project');
 ### Options
 
 ```typescript
-const response = await query('Refactor this function', {
-  cwd: '/path/to/project', // Working directory (default: process.cwd())
-  permissionMode: 'acceptEdits', // Permission mode for tool execution
-  maxTurns: 10, // Limit agentic turns
-  onTextDelta: (delta) => {
-    // Streaming callback
-    process.stdout.write(delta);
-  },
-  onCompact: (summary) => {
-    // Compaction notification
-    console.log('Context compacted');
-  },
+const query = createQuery({
+  provider,
+  cwd: '/path/to/project',
+  permissionMode: 'acceptEdits',
+  maxTurns: 10,
 });
+
+const response = await query('Refactor this function');
 ```
 
 ## Configuration
