@@ -774,8 +774,8 @@ When input text wraps across multiple visual lines (exceeds terminal width), up/
 
 **Single-line vs multiline paste:**
 
-- Single-line paste (no `\n`): inserted directly into the input as typed text
-- Multiline paste (contains `\n`): routed to `onPaste` → `InputArea.handlePaste` creates a `[Pasted text #N +M lines]` label in the input field, stores content in `pasteStore`
+- Single-line paste (no `\n`): inserted directly into the input at the current cursor position via `insertAtCursor`
+- Multiline paste (contains `\n`): routed to `onPaste(text, cursorPosition)` → `InputArea.handlePaste` inserts a `[Pasted text #N +M lines]` label at the current cursor position, stores content in `pasteStore`
 - On submit, `expandPasteLabels()` replaces labels with actual content from `pasteStore`
 - Paste store is cleared after each submit
 
