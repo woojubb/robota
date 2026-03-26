@@ -22,6 +22,8 @@ import PermissionPrompt from './PermissionPrompt.js';
 import StreamingIndicator from './StreamingIndicator.js';
 import PluginTUI from './PluginTUI.js';
 
+import type { SessionStore } from '@robota-sdk/agent-sessions';
+
 interface IProps {
   cwd: string;
   provider: IAIProvider;
@@ -29,6 +31,10 @@ interface IProps {
   permissionMode?: TPermissionMode;
   maxTurns?: number;
   version?: string;
+  sessionStore?: SessionStore;
+  resumeSessionId?: string;
+  forkSession?: boolean;
+  sessionName?: string;
 }
 
 const EXIT_DELAY_MS = 500;
@@ -57,6 +63,10 @@ export default function App(props: IProps): React.ReactElement {
     provider: props.provider,
     permissionMode: props.permissionMode,
     maxTurns: props.maxTurns,
+    sessionStore: props.sessionStore,
+    resumeSessionId: props.resumeSessionId,
+    forkSession: props.forkSession,
+    sessionName: props.sessionName,
   });
 
   const pluginCallbacks = usePluginCallbacks(cwd);

@@ -17,6 +17,8 @@ export interface IParsedCliArgs {
   language: string | undefined;
   permissionMode: TPermissionMode | undefined;
   maxTurns: number | undefined;
+  forkSession: boolean;
+  sessionName: string | undefined;
   version: boolean;
   reset: boolean;
 }
@@ -54,6 +56,8 @@ export function parseCliArgs(): IParsedCliArgs {
       language: { type: 'string' },
       'permission-mode': { type: 'string' },
       'max-turns': { type: 'string' },
+      'fork-session': { type: 'boolean', default: false },
+      name: { type: 'string', short: 'n' },
       version: { type: 'boolean', default: false },
       reset: { type: 'boolean', default: false },
     },
@@ -68,6 +72,8 @@ export function parseCliArgs(): IParsedCliArgs {
     language: values['language'],
     permissionMode: parsePermissionMode(values['permission-mode']),
     maxTurns: parseMaxTurns(values['max-turns']),
+    forkSession: values['fork-session'] ?? false,
+    sessionName: values['name'],
     version: values['version'] ?? false,
     reset: values['reset'] ?? false,
   };

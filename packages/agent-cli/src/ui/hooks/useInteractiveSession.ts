@@ -39,11 +39,17 @@ export interface ISideEffects {
   _triggerPluginTUI?: boolean;
 }
 
+import type { SessionStore } from '@robota-sdk/agent-sessions';
+
 export interface IInteractiveSessionProps {
   cwd: string;
   provider: IAIProvider;
   permissionMode?: TPermissionMode;
   maxTurns?: number;
+  sessionStore?: SessionStore;
+  resumeSessionId?: string;
+  forkSession?: boolean;
+  sessionName?: string;
 }
 
 export interface IInteractiveSessionState {
@@ -79,6 +85,9 @@ function initializeSession(
     permissionMode: props.permissionMode,
     maxTurns: props.maxTurns,
     permissionHandler,
+    sessionStore: props.sessionStore,
+    resumeSessionId: props.resumeSessionId,
+    sessionName: props.sessionName,
   });
 
   const registry = new CommandRegistry();
