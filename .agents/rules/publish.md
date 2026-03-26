@@ -11,26 +11,26 @@ Parent: [process.md](process.md) | Index: [rules/index.md](index.md)
 - This rule also applies to any package that is a transitive dependency of agent-core.
 - Violation of this rule blocks publishing — `npm install` will fail with 404 for unpublished upstream packages.
 
+### Publish Command (non-negotiable)
+
+- **Always use `pnpm publish:beta`** — this is the ONLY allowed publish command.
+- `pnpm publish:beta` runs `scripts/publish/publish-packages.sh` which handles everything: build, test, dry-run, publish with correct tag, and dist-tag sync.
+- **NEVER** use any of these: `pnpm publish`, `pnpm run publish`, `pnpm changeset publish`, `npm publish`, or manual per-package `pnpm publish --filter`.
+- The script prompts for OTP once and reuses it for all packages + dist-tag updates.
+- After prerelease publish (beta/alpha/rc), both the prerelease tag AND `latest` must point to the new version. The script handles this automatically.
+
 ### Publish Safety Gate
 
-- NEVER run `npm publish` or `pnpm publish` without passing ALL gates first.
-- Required sequence before any publish:
-  1. `pnpm build` — full monorepo build must pass
-  2. `pnpm test` — all tests must pass with zero failures
-  3. `pnpm typecheck` — TypeScript strict mode verification
-  4. `pnpm lint` — linting must pass
-  5. `pnpm harness:scan` — harness consistency check
-  6. **CI pipeline must pass** — all GitHub Actions checks (ci.yml) must be green. Do NOT publish from a commit with failing CI.
-  7. `pnpm --filter <package> publish --dry-run` — must complete with zero errors
+- `pnpm publish:beta` enforces gates internally (build → test → dry-run → confirm → publish → dist-tag sync).
+- Additional gates that must pass BEFORE running `pnpm publish:beta`:
+  1. `pnpm typecheck` — TypeScript strict mode verification
+  2. `pnpm lint` — linting must pass
+  3. `pnpm harness:scan` — harness consistency check (when available)
+  4. **CI pipeline must pass** — all GitHub Actions checks (ci.yml) must be green.
 - If ANY gate fails, publishing is BLOCKED until the issue is resolved.
-- This rule applies to all packages — no exceptions for "small changes" or "docs only".
-- When publishing multiple packages, each must pass its own dry-run independently.
-- A publish without prior gate success is a process violation.
-- Publishing from a branch other than `main` or `release/*` is prohibited unless explicitly approved.
-- OTP must be requested from the user ONLY after all preparation is complete (build, test, typecheck, dry-run all passed). Do NOT ask for OTP before dry-run succeeds — OTP expires in 30 seconds.
-- MUST use `pnpm publish`, NEVER `npm publish`. pnpm resolves `workspace:*` dependencies to actual versions in the tarball. npm does not — it publishes `workspace:*` literally, breaking consumers.
-- `pnpm pre-publish:check` runs `scripts/pre-publish-docs-check.sh` which validates all publishable packages have: README.md (10+ lines), docs/SPEC.md, package.json description, license, and usage documentation. This is automatically run as part of `pnpm publish:packages`.
-- When a package is published for the first time, search `content/` and `docs/` for "not yet published" references to that package and remove them. A newly published package with stale "not yet published" labels in documentation is a process violation.
+- OTP must be requested from the user ONLY after all preparation is complete. Do NOT ask for OTP before dry-run succeeds — OTP expires in 30 seconds.
+- MUST use `pnpm publish`, NEVER `npm publish`. pnpm resolves `workspace:*` dependencies to actual versions in the tarball. npm does not.
+- When a package is published for the first time, search `content/` and `docs/` for "not yet published" references to that package and remove them.
 
 ### Publish Scope Approval
 
