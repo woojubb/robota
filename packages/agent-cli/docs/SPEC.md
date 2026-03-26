@@ -507,12 +507,12 @@ robota --version                    # Version
 
 ### Session Resolution Logic
 
-| Flag                  | Behavior                                                                               |
-| --------------------- | -------------------------------------------------------------------------------------- |
-| `--continue` / `-c`   | Finds the most recent session matching the current working directory and resumes it    |
-| `--resume [id]`       | If an ID or name is provided, resumes that session. If omitted, shows a session picker |
-| `--fork-session <id>` | Creates a new session but restores conversation context from the specified session     |
-| `--name <name>`       | Sets the session name. Can be combined with other flags                                |
+| Flag                  | Behavior                                                                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--continue` / `-c`   | Finds the most recent session matching the current working directory and resumes it (reuses original session ID, continues writing to the same session file) |
+| `--resume [id]`       | If an ID or name is provided, resumes that session (reuses original session ID). If omitted, shows a session picker                                          |
+| `--fork-session <id>` | Creates a new session (fresh UUID) but restores conversation context from the specified session. Original session file is preserved unchanged                |
+| `--name <name>`       | Sets the session name. Can be combined with other flags                                                                                                      |
 
 When `--resume` is used without a value, a `ListPicker` overlay is shown with all saved sessions. The user selects one to resume.
 
